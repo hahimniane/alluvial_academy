@@ -115,7 +115,7 @@ class _LeadershipApplicationScreenState extends State<LeadershipApplicationScree
             border: Border.all(color: const Color(0xff10B981).withOpacity(0.2)),
           ),
           child: Text(
-            AppLocalizations.of(context)!.joinOurLeadershipTeam2,
+            AppLocalizations.of(context)!.joinOurLeadershipTeam,
             style: GoogleFonts.inter(
               fontSize: 14,
               fontWeight: FontWeight.w600,
@@ -196,7 +196,7 @@ class _LeadershipApplicationScreenState extends State<LeadershipApplicationScree
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    AppLocalizations.of(context)!.whatsappNumber2,
+                    AppLocalizations.of(context)!.whatsappNumber,
                     style: GoogleFonts.inter(
                       fontSize: 15,
                       fontWeight: FontWeight.w600,
@@ -510,7 +510,7 @@ class _LeadershipApplicationScreenState extends State<LeadershipApplicationScree
             ),
             const SizedBox(height: 12),
             Text(
-              AppLocalizations.of(context)!.thankYouForYourInterestIn3,
+              AppLocalizations.of(context)!.thankYouForYourInterestIn,
               textAlign: TextAlign.center,
               style: GoogleFonts.inter(
                 fontSize: 16,

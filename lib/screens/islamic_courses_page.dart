@@ -539,7 +539,7 @@ class _IslamicCoursesPageState extends State<IslamicCoursesPage> {
           style: GoogleFonts.inter(fontWeight: FontWeight.w600),
         ),
         content: Text(
-          AppLocalizations.of(context)!.thankYouForYourInterestPlease2,
+          AppLocalizations.of(context)!.thankYouForYourInterestPlease,
           style: GoogleFonts.inter(),
         ),
         actions: [

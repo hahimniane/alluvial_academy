@@ -439,7 +439,7 @@ class _NotificationPreferencesScreenState
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            AppLocalizations.of(context)!.chatMessages2,
+                            AppLocalizations.of(context)!.chatMessagesLabel,
                             style: GoogleFonts.inter(
                               fontSize: 12,
                               fontWeight: FontWeight.w600,

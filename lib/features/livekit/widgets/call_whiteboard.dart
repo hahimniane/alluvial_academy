@@ -18,6 +18,8 @@ enum WhiteboardTool {
   rectangle,
   oval,
   arrow,
+  text,
+  equation,
 }
 
 /// Whiteboard data message types for LiveKit Data sync
@@ -153,6 +155,34 @@ class WhiteboardTextItem {
   }
 }
 
+enum _WhiteboardActionKind { stroke, text }
+
+class _WhiteboardAction {
+  final _WhiteboardActionKind kind;
+  final WhiteboardStroke? stroke;
+  final WhiteboardTextItem? textItem;
+
+  const _WhiteboardAction._({
+    required this.kind,
+    this.stroke,
+    this.textItem,
+  });
+
+  factory _WhiteboardAction.stroke(WhiteboardStroke stroke) {
+    return _WhiteboardAction._(
+      kind: _WhiteboardActionKind.stroke,
+      stroke: stroke,
+    );
+  }
+
+  factory _WhiteboardAction.text(WhiteboardTextItem textItem) {
+    return _WhiteboardAction._(
+      kind: _WhiteboardActionKind.text,
+      textItem: textItem,
+    );
+  }
+}
+
 /// The whiteboard canvas painter (strokes only - text is rendered as widgets)
 class WhiteboardPainter extends CustomPainter {
   final List<WhiteboardStroke> strokes;
@@ -263,10 +293,16 @@ class CallWhiteboard extends StatefulWidget {
 class CallWhiteboardState extends State<CallWhiteboard> {
   final List<WhiteboardStroke> _strokes = [];
   final List<WhiteboardTextItem> _texts = [];
-  final List<WhiteboardStroke> _redoStack = [];
+  final List<_WhiteboardAction> _actionHistory = [];
+  final List<_WhiteboardAction> _redoStack = [];
   WhiteboardStroke? _currentStroke;
+  Offset? _pendingTextPosition;
+  String? _selectedTextId;
+  String? _editingTextId;
   StreamSubscription<Map<String, dynamic>>? _projectSubscription;
   Timer? _debounceTimer;
+  final TextEditingController _textEditingController = TextEditingController();
+  final FocusNode _textFocusNode = FocusNode();
 
   // Key for capturing whiteboard as image
   final GlobalKey _repaintBoundaryKey = GlobalKey();
@@ -335,12 +371,21 @@ class CallWhiteboardState extends State<CallWhiteboard> {
             .map((s) => WhiteboardStroke.fromJson(s))
             .toList();
         _strokes.addAll(strokesList);
+        _rebuildActionHistory();
         debugPrint(
             'CallWhiteboard: Loaded ${strokesList.length} initial strokes from persistence');
       } catch (e) {
         debugPrint('CallWhiteboard: Error loading initial strokes: $e');
       }
     }
+  }
+
+  void _rebuildActionHistory() {
+    _actionHistory
+      ..clear()
+      ..addAll(_strokes.map(_WhiteboardAction.stroke))
+      ..addAll(_texts.map(_WhiteboardAction.text));
+    _redoStack.clear();
   }
 
   @override
@@ -390,7 +435,11 @@ class CallWhiteboardState extends State<CallWhiteboard> {
         _strokes.addAll(strokesList);
         _texts.clear();
         _texts.addAll(textsList);
-        _redoStack.clear();
+        _pendingTextPosition = null;
+        _selectedTextId = null;
+        _editingTextId = null;
+        _textEditingController.clear();
+        _rebuildActionHistory();
       });
 
       debugPrint(
@@ -428,6 +477,9 @@ class CallWhiteboardState extends State<CallWhiteboard> {
       _tool == WhiteboardTool.oval ||
       _tool == WhiteboardTool.arrow;
 
+  bool get _isTextTool =>
+      _tool == WhiteboardTool.text || _tool == WhiteboardTool.equation;
+
   Color get _activeColor {
     switch (_tool) {
       case WhiteboardTool.highlighter:
@@ -441,6 +493,8 @@ class CallWhiteboardState extends State<CallWhiteboard> {
       case WhiteboardTool.rectangle:
       case WhiteboardTool.oval:
       case WhiteboardTool.arrow:
+      case WhiteboardTool.text:
+      case WhiteboardTool.equation:
         return _selectedColor;
     }
   }
@@ -456,6 +510,8 @@ class CallWhiteboardState extends State<CallWhiteboard> {
       case WhiteboardTool.rectangle:
       case WhiteboardTool.oval:
       case WhiteboardTool.arrow:
+      case WhiteboardTool.text:
+      case WhiteboardTool.equation:
         return _strokeWidth;
     }
   }
@@ -477,6 +533,121 @@ class CallWhiteboardState extends State<CallWhiteboard> {
     final nx = (p.dx / canvasSize.width).clamp(0.0, 1.0).toDouble();
     final ny = (p.dy / canvasSize.height).clamp(0.0, 1.0).toDouble();
     return Offset(nx, ny);
+  }
+
+  double _textBoxWidth(Size canvasSize) {
+    return math.min(360.0, math.max(180.0, canvasSize.width * 0.4));
+  }
+
+  double _textBoxHeight(Size canvasSize) {
+    return math.min(180.0, math.max(96.0, canvasSize.height * 0.2));
+  }
+
+  WhiteboardTextItem _normalizedTextItem(
+      WhiteboardTextItem item, Size canvasSize) {
+    if (item.normalized) return item;
+    return WhiteboardTextItem(
+      id: item.id,
+      text: item.text,
+      position: _normalizePoint(item.position, canvasSize),
+      color: item.color,
+      fontSize: item.fontSize,
+      normalized: true,
+    );
+  }
+
+  void _syncTextInHistory(WhiteboardTextItem updated) {
+    _WhiteboardAction remap(_WhiteboardAction action) {
+      if (action.kind == _WhiteboardActionKind.text &&
+          action.textItem?.id == updated.id) {
+        return _WhiteboardAction.text(updated);
+      }
+      return action;
+    }
+
+    for (int i = 0; i < _actionHistory.length; i++) {
+      _actionHistory[i] = remap(_actionHistory[i]);
+    }
+    for (int i = 0; i < _redoStack.length; i++) {
+      _redoStack[i] = remap(_redoStack[i]);
+    }
+  }
+
+  void _beginEditingText(WhiteboardTextItem item, Size canvasSize) {
+    if (!_canDraw) return;
+    final normalizedItem = _normalizedTextItem(item, canvasSize);
+    setState(() {
+      _selectedTextId = item.id;
+      _editingTextId = item.id;
+      _pendingTextPosition = normalizedItem.position;
+      _textEditingController.text = item.text;
+      _tool = _containsLatex(item.text)
+          ? WhiteboardTool.equation
+          : WhiteboardTool.text;
+      _selectedColor = item.color;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _textFocusNode.requestFocus();
+        _textEditingController.selection = TextSelection(
+          baseOffset: 0,
+          extentOffset: _textEditingController.text.length,
+        );
+      }
+    });
+  }
+
+  void _moveTextByDelta(String textId, Offset delta, Size canvasSize) {
+    if (!_canDraw) return;
+    final index = _texts.indexWhere((t) => t.id == textId);
+    if (index == -1) return;
+
+    final current = _normalizedTextItem(_texts[index], canvasSize);
+    final dx = canvasSize.width <= 0 ? 0.0 : delta.dx / canvasSize.width;
+    final dy = canvasSize.height <= 0 ? 0.0 : delta.dy / canvasSize.height;
+
+    final boxWidthNorm = _textBoxWidth(canvasSize) / canvasSize.width;
+    final boxHeightNorm = _textBoxHeight(canvasSize) / canvasSize.height;
+    final maxX = (1.0 - boxWidthNorm).clamp(0.0, 1.0).toDouble();
+    final maxY = (1.0 - boxHeightNorm).clamp(0.0, 1.0).toDouble();
+
+    final updated = WhiteboardTextItem(
+      id: current.id,
+      text: current.text,
+      position: Offset(
+        (current.position.dx + dx).clamp(0.0, maxX).toDouble(),
+        (current.position.dy + dy).clamp(0.0, maxY).toDouble(),
+      ),
+      color: current.color,
+      fontSize: current.fontSize,
+      normalized: true,
+    );
+
+    setState(() {
+      _texts[index] = updated;
+      _selectedTextId = textId;
+    });
+    _syncTextInHistory(updated);
+    _scheduleSendProject();
+  }
+
+  void _deleteTextById(String textId) {
+    if (!_canDraw) return;
+    setState(() {
+      _texts.removeWhere((t) => t.id == textId);
+      _actionHistory.removeWhere(
+        (a) => a.kind == _WhiteboardActionKind.text && a.textItem?.id == textId,
+      );
+      _redoStack.removeWhere(
+        (a) => a.kind == _WhiteboardActionKind.text && a.textItem?.id == textId,
+      );
+      if (_selectedTextId == textId) _selectedTextId = null;
+      if (_editingTextId == textId) _editingTextId = null;
+      _pendingTextPosition = null;
+      _textEditingController.clear();
+    });
+    _textFocusNode.unfocus();
+    _scheduleSendProject();
   }
 
   List<Offset> _shapePoints({
@@ -547,16 +718,22 @@ class CallWhiteboardState extends State<CallWhiteboard> {
       case WhiteboardTool.pen:
       case WhiteboardTool.highlighter:
       case WhiteboardTool.eraser:
+      case WhiteboardTool.text:
+      case WhiteboardTool.equation:
         // Not used for freehand tools.
         return [start, end];
     }
   }
 
   void _onPanStart(DragStartDetails details, Size canvasSize) {
-    if (!_canDraw) return;
+    if (!_canDraw || _isTextTool) return;
 
     final point = _normalizePoint(details.localPosition, canvasSize);
     setState(() {
+      _selectedTextId = null;
+      _editingTextId = null;
+      _pendingTextPosition = null;
+      _textEditingController.clear();
       _currentStroke = WhiteboardStroke(
         id: '${DateTime.now().millisecondsSinceEpoch}_${_strokeIdCounter++}',
         points: [point],
@@ -568,7 +745,7 @@ class CallWhiteboardState extends State<CallWhiteboard> {
   }
 
   void _onPanUpdate(DragUpdateDetails details, Size canvasSize) {
-    if (!_canDraw || _currentStroke == null) return;
+    if (!_canDraw || _isTextTool || _currentStroke == null) return;
 
     final point = _normalizePoint(details.localPosition, canvasSize);
     setState(() {
@@ -595,14 +772,116 @@ class CallWhiteboardState extends State<CallWhiteboard> {
   }
 
   void _onPanEnd(DragEndDetails details) {
-    if (!_canDraw || _currentStroke == null) return;
+    if (!_canDraw || _isTextTool || _currentStroke == null) return;
 
     setState(() {
-      _strokes.add(_currentStroke!);
+      final stroke = _currentStroke!;
+      _strokes.add(stroke);
+      _actionHistory.add(_WhiteboardAction.stroke(stroke));
       _currentStroke = null;
       _redoStack.clear();
     });
     _scheduleSendProject();
+  }
+
+  void _onTapDown(TapDownDetails details, Size canvasSize) {
+    if (!_canDraw || !_isTextTool) {
+      if (_selectedTextId != null || _pendingTextPosition != null) {
+        setState(() {
+          _selectedTextId = null;
+          _editingTextId = null;
+          _pendingTextPosition = null;
+          _textEditingController.clear();
+        });
+      }
+      _textFocusNode.unfocus();
+      return;
+    }
+
+    final normalizedPoint = _normalizePoint(details.localPosition, canvasSize);
+    setState(() {
+      _selectedTextId = null;
+      _editingTextId = null;
+      _pendingTextPosition = normalizedPoint;
+      _textEditingController.clear();
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _textFocusNode.requestFocus();
+      }
+    });
+  }
+
+  void _commitTextFromEditor() {
+    if (!_canDraw || _pendingTextPosition == null) return;
+
+    final inputText = _textEditingController.text.trim();
+    if (inputText.isEmpty) {
+      _cancelTextEditor();
+      return;
+    }
+
+    final editingId = _editingTextId;
+    if (editingId != null) {
+      final index = _texts.indexWhere((t) => t.id == editingId);
+      if (index != -1) {
+        final existing = _texts[index];
+        final updated = WhiteboardTextItem(
+          id: existing.id,
+          text: inputText,
+          position: _pendingTextPosition!,
+          color: _selectedColor,
+          fontSize: _tool == WhiteboardTool.equation
+              ? existing.fontSize.clamp(28.0, 34.0)
+              : existing.fontSize.clamp(20.0, 30.0),
+          normalized: true,
+        );
+        setState(() {
+          _texts[index] = updated;
+          _selectedTextId = updated.id;
+          _editingTextId = null;
+          _pendingTextPosition = null;
+          _textEditingController.clear();
+        });
+        _syncTextInHistory(updated);
+      } else {
+        setState(() {
+          _editingTextId = null;
+          _pendingTextPosition = null;
+          _textEditingController.clear();
+        });
+      }
+    } else {
+      final textItem = WhiteboardTextItem(
+        id: '${DateTime.now().millisecondsSinceEpoch}_${_strokeIdCounter++}',
+        text: inputText,
+        position: _pendingTextPosition!,
+        color: _selectedColor,
+        fontSize: _tool == WhiteboardTool.equation ? 30 : 24,
+        normalized: true,
+      );
+
+      setState(() {
+        _texts.add(textItem);
+        _actionHistory.add(_WhiteboardAction.text(textItem));
+        _redoStack.clear();
+        _selectedTextId = textItem.id;
+        _editingTextId = null;
+        _pendingTextPosition = null;
+        _textEditingController.clear();
+      });
+    }
+    _textFocusNode.unfocus();
+    _scheduleSendProject();
+  }
+
+  void _cancelTextEditor() {
+    setState(() {
+      _editingTextId = null;
+      _pendingTextPosition = null;
+      _textEditingController.clear();
+    });
+    _textFocusNode.unfocus();
   }
 
   void _clearCanvas() {
@@ -611,16 +890,33 @@ class CallWhiteboardState extends State<CallWhiteboard> {
     setState(() {
       _strokes.clear();
       _texts.clear();
+      _actionHistory.clear();
       _redoStack.clear();
+      _selectedTextId = null;
+      _editingTextId = null;
+      _pendingTextPosition = null;
+      _textEditingController.clear();
     });
+    _textFocusNode.unfocus();
     _scheduleSendProject();
   }
 
   void _undoLast() {
-    if (!_canDraw || _strokes.isEmpty) return;
+    if (!_canDraw || _actionHistory.isEmpty) return;
 
     setState(() {
-      _redoStack.add(_strokes.removeLast());
+      final action = _actionHistory.removeLast();
+      _redoStack.add(action);
+      if (action.kind == _WhiteboardActionKind.stroke &&
+          action.stroke != null) {
+        _strokes.removeWhere((s) => s.id == action.stroke!.id);
+      } else if (action.kind == _WhiteboardActionKind.text &&
+          action.textItem != null) {
+        _texts.removeWhere((t) => t.id == action.textItem!.id);
+        if (_selectedTextId == action.textItem!.id) {
+          _selectedTextId = null;
+        }
+      }
     });
     _scheduleSendProject();
   }
@@ -628,7 +924,16 @@ class CallWhiteboardState extends State<CallWhiteboard> {
   void _redoLast() {
     if (!_canDraw || _redoStack.isEmpty) return;
     setState(() {
-      _strokes.add(_redoStack.removeLast());
+      final action = _redoStack.removeLast();
+      _actionHistory.add(action);
+      if (action.kind == _WhiteboardActionKind.stroke &&
+          action.stroke != null) {
+        _strokes.add(action.stroke!);
+      } else if (action.kind == _WhiteboardActionKind.text &&
+          action.textItem != null) {
+        _texts.add(action.textItem!);
+        _selectedTextId = action.textItem!.id;
+      }
     });
     _scheduleSendProject();
   }
@@ -647,116 +952,256 @@ class CallWhiteboardState extends State<CallWhiteboard> {
         RegExp(r'_[0-9a-zA-Z]').hasMatch(text);
   }
 
-  /// Build text overlay widgets for proper math/LaTeX rendering
-  /// Uses automatic layout to prevent overlapping text items
+  /// Build interactive text/equation boxes that can be selected, moved,
+  /// edited, and deleted.
   List<Widget> _buildTextOverlays(Size canvasSize) {
-    const edgePadding = 16.0;
-    const itemSpacing = 12.0;
-    const estimatedLineHeight = 40.0; // Approximate height per text item
-
     if (_texts.isEmpty) return [];
 
+    const edgePadding = 10.0;
+    final boxWidth = _textBoxWidth(canvasSize);
+    final boxHeight = _textBoxHeight(canvasSize);
     final widgets = <Widget>[];
 
-    // Track used vertical regions to prevent overlap
-    // Each region is (startY, endY)
-    final usedRegions = <Rect>[];
-
-    for (int i = 0; i < _texts.length; i++) {
-      final textItem = _texts[i];
+    for (final textItem in _texts) {
       if (textItem.text.trim().isEmpty) continue;
 
-      final fontSize = textItem.fontSize.clamp(16.0, 36.0);
+      final normalizedItem = _normalizedTextItem(textItem, canvasSize);
+      var left = normalizedItem.position.dx * canvasSize.width;
+      var top = normalizedItem.position.dy * canvasSize.height;
+      left = left.clamp(edgePadding, canvasSize.width - boxWidth - edgePadding);
+      top = top.clamp(edgePadding, canvasSize.height - boxHeight - edgePadding);
 
-      // Calculate initial position from the text item
-      double x = textItem.normalized
-          ? textItem.position.dx * canvasSize.width
-          : textItem.position.dx;
-      double y = textItem.normalized
-          ? textItem.position.dy * canvasSize.height
-          : textItem.position.dy;
+      final isSelected = _selectedTextId == textItem.id;
+      final isEquation = _containsLatex(textItem.text);
+      final fontSize = textItem.fontSize.clamp(16.0, 34.0);
 
-      // Ensure x is within bounds and left-aligned for better readability
-      x = x.clamp(edgePadding, canvasSize.width * 0.15);
-
-      // Estimate the height of this text item
-      final estimatedHeight = _containsLatex(textItem.text)
-          ? estimatedLineHeight * 1.5  // Math tends to be taller
-          : estimatedLineHeight;
-      final estimatedWidth = canvasSize.width - x - edgePadding;
-
-      // Check for overlap with existing regions and shift down if needed
-      var adjustedY = y;
-      bool hasOverlap = true;
-      int iterations = 0;
-      const maxIterations = 20;
-
-      while (hasOverlap && iterations < maxIterations) {
-        hasOverlap = false;
-        final proposedRect = Rect.fromLTWH(x, adjustedY, estimatedWidth, estimatedHeight);
-
-        for (final region in usedRegions) {
-          if (proposedRect.overlaps(region)) {
-            // Move below the overlapping region
-            adjustedY = region.bottom + itemSpacing;
-            hasOverlap = true;
-            break;
-          }
-        }
-        iterations++;
+      if (_editingTextId == textItem.id) {
+        continue;
       }
 
-      // Ensure y is within canvas bounds
-      adjustedY = adjustedY.clamp(edgePadding, canvasSize.height - estimatedHeight - edgePadding);
-
-      // Record this region as used
-      usedRegions.add(Rect.fromLTWH(x, adjustedY, estimatedWidth, estimatedHeight));
-
-      final maxWidth = canvasSize.width - x - edgePadding;
-
-      // Check if text contains LaTeX and render appropriately
-      if (_containsLatex(textItem.text)) {
-        widgets.add(
-          Positioned(
-            left: x,
-            top: adjustedY,
-            child: ConstrainedBox(
+      widgets.add(
+        Positioned(
+          left: left,
+          top: top,
+          width: boxWidth,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () {
+              setState(() {
+                _selectedTextId = textItem.id;
+                if (_editingTextId != null && _editingTextId != textItem.id) {
+                  _editingTextId = null;
+                  _pendingTextPosition = null;
+                  _textEditingController.clear();
+                }
+              });
+            },
+            onDoubleTap:
+                _canDraw ? () => _beginEditingText(textItem, canvasSize) : null,
+            onPanStart: _canDraw && _isTextTool
+                ? (_) {
+                    setState(() {
+                      _selectedTextId = textItem.id;
+                      _editingTextId = null;
+                      _pendingTextPosition = null;
+                      _textEditingController.clear();
+                    });
+                  }
+                : null,
+            onPanUpdate: _canDraw && _isTextTool
+                ? (details) =>
+                    _moveTextByDelta(textItem.id, details.delta, canvasSize)
+                : null,
+            child: Container(
               constraints: BoxConstraints(
-                maxWidth: maxWidth.clamp(100.0, canvasSize.width - edgePadding * 2),
-                maxHeight: canvasSize.height - adjustedY - edgePadding,
+                minHeight: 72,
+                maxHeight: boxHeight,
               ),
-              child: _buildMathWidget(textItem.text, textItem.color, fontSize),
-            ),
-          ),
-        );
-      } else {
-        // Plain text rendering
-        widgets.add(
-          Positioned(
-            left: x,
-            top: adjustedY,
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                maxWidth: maxWidth.clamp(100.0, canvasSize.width - edgePadding * 2),
-              ),
-              child: Text(
-                textItem.text,
-                style: TextStyle(
-                  color: textItem.color,
-                  fontSize: fontSize,
-                  fontWeight: FontWeight.w600,
-                  height: 1.4,
+              padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.96),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: isSelected
+                      ? const Color(0xFF3B82F6)
+                      : const Color(0xFFD1D5DB),
+                  width: isSelected ? 2 : 1,
                 ),
-                maxLines: 4,
-                overflow: TextOverflow.ellipsis,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.08),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (isSelected && _canDraw)
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        _buildTextActionButton(
+                          icon: Icons.edit,
+                          color: const Color(0xFF2563EB),
+                          tooltip: 'Edit',
+                          onPressed: () =>
+                              _beginEditingText(textItem, canvasSize),
+                        ),
+                        const SizedBox(width: 6),
+                        _buildTextActionButton(
+                          icon: Icons.delete_outline,
+                          color: const Color(0xFFDC2626),
+                          tooltip: 'Delete',
+                          onPressed: () => _deleteTextById(textItem.id),
+                        ),
+                      ],
+                    ),
+                  if (isSelected && _canDraw) const SizedBox(height: 6),
+                  ConstrainedBox(
+                    constraints: BoxConstraints(maxHeight: boxHeight - 20),
+                    child: SingleChildScrollView(
+                      physics: const BouncingScrollPhysics(),
+                      child: isEquation
+                          ? _buildMathWidget(
+                              textItem.text, textItem.color, fontSize)
+                          : Text(
+                              textItem.text,
+                              style: TextStyle(
+                                color: textItem.color,
+                                fontSize: fontSize,
+                                fontWeight: FontWeight.w600,
+                                height: 1.35,
+                              ),
+                            ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
-        );
-      }
+        ),
+      );
     }
 
     return widgets;
+  }
+
+  Widget _buildTextActionButton({
+    required IconData icon,
+    required Color color,
+    required String tooltip,
+    required VoidCallback onPressed,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          width: 24,
+          height: 24,
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Icon(icon, size: 14, color: color),
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _buildPendingTextEditor(Size canvasSize) {
+    if (_pendingTextPosition == null || !_canDraw || !_isTextTool) {
+      return const [];
+    }
+
+    final isEquationMode = _tool == WhiteboardTool.equation;
+    final isEditing = _editingTextId != null;
+    const edgePadding = 12.0;
+    final editorWidth = _textBoxWidth(canvasSize);
+    var left = _pendingTextPosition!.dx * canvasSize.width;
+    var top = _pendingTextPosition!.dy * canvasSize.height;
+    left =
+        left.clamp(edgePadding, canvasSize.width - editorWidth - edgePadding);
+    top = top.clamp(
+      edgePadding,
+      canvasSize.height - _textBoxHeight(canvasSize) - edgePadding,
+    );
+
+    return [
+      Positioned(
+        left: left,
+        top: top,
+        child: Material(
+          color: Colors.white,
+          elevation: 8,
+          borderRadius: BorderRadius.circular(10),
+          child: Container(
+            width: editorWidth,
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFD1D5DB)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                TextField(
+                  controller: _textEditingController,
+                  focusNode: _textFocusNode,
+                  autofocus: true,
+                  textInputAction: TextInputAction.done,
+                  minLines: 2,
+                  maxLines: 5,
+                  style: TextStyle(
+                    color: _selectedColor,
+                    fontSize: isEquationMode ? 20 : 18,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  onSubmitted: (_) => _commitTextFromEditor(),
+                  decoration: InputDecoration(
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 10,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    hintText: isEquationMode
+                        ? r'Type equation in box, e.g. \frac{a+b}{2}'
+                        : 'Type text in box...',
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: _cancelTextEditor,
+                      child: const Text('Cancel'),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                      onPressed: _commitTextFromEditor,
+                      child: Text(
+                        isEditing
+                            ? 'Save'
+                            : (isEquationMode ? 'Insert' : 'Add'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ];
   }
 
   /// Build a math widget that renders LaTeX properly
@@ -799,6 +1244,8 @@ class CallWhiteboardState extends State<CallWhiteboard> {
   void dispose() {
     _debounceTimer?.cancel();
     _projectSubscription?.cancel();
+    _textEditingController.dispose();
+    _textFocusNode.dispose();
     super.dispose();
   }
 
@@ -877,6 +1324,18 @@ class CallWhiteboardState extends State<CallWhiteboard> {
                               _buildUndoButton(),
                               _buildRedoButton(),
                               _buildClearButton(),
+                              if (_isTextTool) ...[
+                                const SizedBox(width: 8),
+                                Text(
+                                  _tool == WhiteboardTool.equation
+                                      ? 'Click canvas to type equation, drag box to move'
+                                      : 'Click canvas to type text, drag box to move',
+                                  style: const TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
                         ),
@@ -933,6 +1392,18 @@ class CallWhiteboardState extends State<CallWhiteboard> {
                                   _buildUndoButton(),
                                   _buildRedoButton(),
                                   _buildClearButton(),
+                                  if (_isTextTool) ...[
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      _tool == WhiteboardTool.equation
+                                          ? 'Click canvas to type equation, drag box to move'
+                                          : 'Click canvas to type text, drag box to move',
+                                      style: const TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
                                 ],
                               ),
                             ),
@@ -976,6 +1447,8 @@ class CallWhiteboardState extends State<CallWhiteboard> {
                                 Positioned.fill(
                                   child: _canDraw
                                       ? GestureDetector(
+                                          onTapDown: (d) =>
+                                              _onTapDown(d, canvasSize),
                                           onPanStart: (d) =>
                                               _onPanStart(d, canvasSize),
                                           onPanUpdate: (d) =>
@@ -999,6 +1472,7 @@ class CallWhiteboardState extends State<CallWhiteboard> {
                                 ),
                                 // Text/Math overlay layer (widgets)
                                 ..._buildTextOverlays(canvasSize),
+                                ..._buildPendingTextEditor(canvasSize),
                               ],
                             ),
                           );
@@ -1165,11 +1639,12 @@ class CallWhiteboardState extends State<CallWhiteboard> {
   }
 
   Widget _buildUndoButton() {
+    final hasUndo = _actionHistory.isNotEmpty;
     return IconButton(
-      onPressed: _strokes.isEmpty ? null : _undoLast,
+      onPressed: hasUndo ? _undoLast : null,
       icon: Icon(
         Icons.undo,
-        color: _strokes.isEmpty ? Colors.white24 : Colors.white70,
+        color: hasUndo ? Colors.white70 : Colors.white24,
       ),
       tooltip: 'Undo',
     );
@@ -1187,11 +1662,12 @@ class CallWhiteboardState extends State<CallWhiteboard> {
   }
 
   Widget _buildClearButton() {
+    final hasContent = _strokes.isNotEmpty || _texts.isNotEmpty;
     return IconButton(
-      onPressed: _strokes.isEmpty ? null : _clearCanvas,
+      onPressed: hasContent ? _clearCanvas : null,
       icon: Icon(
         Icons.delete_outline,
-        color: _strokes.isEmpty ? Colors.white24 : Colors.white70,
+        color: hasContent ? Colors.white70 : Colors.white24,
       ),
       tooltip: 'Clear all',
     );
@@ -1207,7 +1683,19 @@ class CallWhiteboardState extends State<CallWhiteboard> {
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 2),
         child: InkWell(
-          onTap: () => setState(() => _tool = tool),
+          onTap: () {
+            setState(() {
+              _tool = tool;
+              _currentStroke = null;
+              if (!_isTextTool) {
+                _pendingTextPosition = null;
+                _textEditingController.clear();
+              }
+            });
+            if (!_isTextTool) {
+              _textFocusNode.unfocus();
+            }
+          },
           borderRadius: BorderRadius.circular(10),
           child: Container(
             width: 32,
@@ -1266,6 +1754,16 @@ class CallWhiteboardState extends State<CallWhiteboard> {
         tool: WhiteboardTool.oval,
         icon: Icons.circle_outlined,
         tooltip: 'Oval',
+      ),
+      toolButton(
+        tool: WhiteboardTool.text,
+        icon: Icons.text_fields,
+        tooltip: 'Text',
+      ),
+      toolButton(
+        tool: WhiteboardTool.equation,
+        icon: Icons.functions,
+        tooltip: 'Equation (LaTeX)',
       ),
     ];
   }

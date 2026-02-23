@@ -31,6 +31,7 @@ class _EditUserScreenState extends State<EditUserScreen>
   String? _selectedUserType;
   bool _isLoading = false;
   bool _hasChanges = false;
+  bool _aiTutorEnabled = false;
 
   final List<Map<String, dynamic>> _userTypes = [
     {
@@ -88,6 +89,7 @@ class _EditUserScreenState extends State<EditUserScreen>
     _kioskCodeController =
         TextEditingController(text: widget.employee.kioskCode);
     _selectedUserType = widget.employee.userType;
+    _aiTutorEnabled = widget.employee.aiTutorEnabled;
 
     // Add listeners to track changes
     _firstNameController.addListener(_onFieldChanged);
@@ -139,6 +141,7 @@ class _EditUserScreenState extends State<EditUserScreen>
         'country_code': _countryCodeController.text.trim(),
         'title': _titleController.text.trim(),
         'user_type': _selectedUserType,
+        'ai_tutor_enabled': _aiTutorEnabled,
         'updated_at': Timestamp.now(),
       };
 
@@ -163,7 +166,7 @@ class _EditUserScreenState extends State<EditUserScreen>
               const Icon(Icons.check_circle, color: Colors.white, size: 20),
               const SizedBox(width: 8),
               Text(
-                AppLocalizations.of(context)!.userUpdatedSuccessfully2,
+                AppLocalizations.of(context)!.userUpdatedSuccessfully,
                 style: GoogleFonts.inter(
                     color: Colors.white, fontWeight: FontWeight.w500),
               ),
@@ -231,6 +234,12 @@ class _EditUserScreenState extends State<EditUserScreen>
                         _buildRoleSection(),
                         const SizedBox(height: 24),
                         _buildAdditionalInfoSection(),
+                        // AI Tutor access toggle - only show for students and teachers
+                        if (_selectedUserType == 'student' ||
+                            _selectedUserType == 'teacher') ...[
+                          const SizedBox(height: 24),
+                          _buildAITutorAccessSection(),
+                        ],
                         const SizedBox(height: 32),
                         _buildActionButtons(),
                       ],
@@ -579,7 +588,7 @@ class _EditUserScreenState extends State<EditUserScreen>
 
   Widget _buildRoleSection() {
     return _buildSection(
-      title: AppLocalizations.of(context)!.userRole2,
+      title: AppLocalizations.of(context)!.userRoleLabel,
       icon: Icons.security,
       children: [
         Text(
@@ -670,6 +679,114 @@ class _EditUserScreenState extends State<EditUserScreen>
           icon: Icons.lock_outline,
         ),
       ],
+    );
+  }
+
+  Widget _buildAITutorAccessSection() {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xffE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xff8B5CF6).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.smart_toy_rounded,
+                  color: Color(0xff8B5CF6),
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'AI Tutor Access',
+                style: GoogleFonts.inter(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xff111827),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: _aiTutorEnabled
+                  ? const Color(0xff10B981).withOpacity(0.05)
+                  : const Color(0xffF9FAFB),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: _aiTutorEnabled
+                    ? const Color(0xff10B981).withOpacity(0.3)
+                    : const Color(0xffE2E8F0),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  _aiTutorEnabled ? Icons.check_circle : Icons.block,
+                  color: _aiTutorEnabled
+                      ? const Color(0xff10B981)
+                      : const Color(0xff9CA3AF),
+                  size: 24,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Enable AI Tutor',
+                        style: GoogleFonts.inter(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xff111827),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Allow this user to access the AI Tutor feature',
+                        style: GoogleFonts.inter(
+                          fontSize: 13,
+                          color: const Color(0xff6B7280),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Switch(
+                  value: _aiTutorEnabled,
+                  onChanged: (value) {
+                    setState(() {
+                      _aiTutorEnabled = value;
+                      _hasChanges = true;
+                    });
+                  },
+                  activeColor: const Color(0xff10B981),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 

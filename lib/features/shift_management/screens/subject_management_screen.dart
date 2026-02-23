@@ -440,7 +440,7 @@ class _SubjectManagementScreenState extends State<SubjectManagementScreen> {
                 controller: nameController,
                 decoration: InputDecoration(
                   labelText: AppLocalizations.of(context)!.internalName,
-                  hintText: AppLocalizations.of(context)!.eGQuranStudies2,
+                  hintText: AppLocalizations.of(context)!.eGQuranStudies,
                   helperText: AppLocalizations.of(context)!.useLowercaseWithUnderscores,
                   labelStyle: GoogleFonts.inter(fontSize: 14),
                   border: OutlineInputBorder(

@@ -2527,7 +2527,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
           MaterialPageRoute(
             builder: (context) => Scaffold(
               appBar: AppBar(
-                title: Text(AppLocalizations.of(context)!.systemSettings2),
+                title: Text(AppLocalizations.of(context)!.systemSettings),
                 backgroundColor: Colors.transparent,
                 elevation: 0,
                 foregroundColor: Colors.black,
@@ -7674,7 +7674,7 @@ class _MyAssignmentsDialogState extends State<_MyAssignmentsDialog> {
             const Divider(height: 1, color: Color(0xffE5E7EB)),
             const SizedBox(height: 12),
             Text(
-              AppLocalizations.of(context)!.attachedFiles2,
+              AppLocalizations.of(context)!.attachedFiles,
               style: GoogleFonts.inter(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,

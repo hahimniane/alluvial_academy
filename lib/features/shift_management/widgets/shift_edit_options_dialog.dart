@@ -336,7 +336,7 @@ class _ShiftEditOptionsDialogState extends State<ShiftEditOptionsDialog> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text(
-          AppLocalizations.of(context)!.selectStudent2,
+          AppLocalizations.of(context)!.selectStudent,
           style: GoogleFonts.inter(fontWeight: FontWeight.w700),
         ),
         content: Column(

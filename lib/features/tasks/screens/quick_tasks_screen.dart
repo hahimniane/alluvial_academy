@@ -3169,7 +3169,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
             Icon(Icons.add_circle_outline, color: Color(0xff0386FF)),
             SizedBox(width: 8),
             Text(
-              AppLocalizations.of(context)!.addTask2,
+              AppLocalizations.of(context)!.addTask,
               style: TextStyle(
                 color: Color(0xff0386FF),
                 fontWeight: FontWeight.w500,

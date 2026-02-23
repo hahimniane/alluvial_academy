@@ -270,7 +270,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                 Tab(
                                   text: 'USERS (${numberOfUsers.toString()})',
                                 ),
-                                Tab(text: AppLocalizations.of(context)!.admins1),
+                                Tab(text: AppLocalizations.of(context)!.admins),
                               ],
                             ),
                           ),

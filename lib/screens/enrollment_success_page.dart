@@ -48,7 +48,7 @@ class EnrollmentSuccessPage extends StatelessWidget {
               FadeInSlide(
                 delay: 0.3,
                 child: Text(
-                  AppLocalizations.of(context)!.thankYouForYourInterestIn2,
+                  AppLocalizations.of(context)!.thankYouForYourInterestIn,
                   textAlign: TextAlign.center,
                   style: GoogleFonts.inter(
                     fontSize: 18,

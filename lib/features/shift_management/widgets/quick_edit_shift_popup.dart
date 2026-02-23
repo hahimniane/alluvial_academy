@@ -467,7 +467,7 @@ class _QuickEditShiftPopupState extends State<QuickEditShiftPopup> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(AppLocalizations.of(context)!.deleteShift2,
+        title: Text(AppLocalizations.of(context)!.deleteShift,
             style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
         content: Text(
           AppLocalizations.of(context)!.thisWillPermanentlyDeleteThisShift,

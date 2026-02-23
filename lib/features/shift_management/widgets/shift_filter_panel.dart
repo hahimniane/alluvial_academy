@@ -238,7 +238,7 @@ class _ShiftFilterPanelState extends State<ShiftFilterPanel> {
                   widget.onClear();
                 },
                 child: Text(
-                  AppLocalizations.of(context)!.clearAll2,
+                  AppLocalizations.of(context)!.clearAll,
                   style: GoogleFonts.inter(
                     fontWeight: FontWeight.w600,
                     color: const Color(0xff6B7280),

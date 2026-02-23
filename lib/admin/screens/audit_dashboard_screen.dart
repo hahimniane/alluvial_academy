@@ -669,7 +669,7 @@ class _AuditDashboardScreenState extends State<AuditDashboardScreen> {
     html.Url.revokeObjectUrl(url);
 
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(AppLocalizations.of(context)!.csvExportedSuccessfully2)),
+      SnackBar(content: Text(AppLocalizations.of(context)!.csvExportedSuccessfully)),
     );
   }
 

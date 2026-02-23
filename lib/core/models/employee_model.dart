@@ -21,6 +21,7 @@ class Employee {
     this.studentCode = '',
     this.isAdminTeacher = false,
     this.isActive = true,
+    this.aiTutorEnabled = false,
   });
 
   final String firstName;
@@ -40,6 +41,7 @@ class Employee {
   final String documentId; // Store Firestore document ID
   final bool isAdminTeacher;
   final bool isActive;
+  final bool aiTutorEnabled;
 }
 
 class EmployeeDataSource extends DataGridSource {
@@ -153,6 +155,7 @@ class EmployeeDataSource extends DataGridSource {
         isAdminTeacher: data['is_admin_teacher'] as bool? ?? false,
         isActive: data['is_active'] as bool? ??
             true, // Default to active if field doesn't exist
+        aiTutorEnabled: data['ai_tutor_enabled'] as bool? ?? false,
       );
     }).toList();
   }

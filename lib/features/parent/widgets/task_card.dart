@@ -109,7 +109,7 @@ class TaskCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
-                        AppLocalizations.of(context)!.overdue2,
+                        AppLocalizations.of(context)!.overdue,
                         style: GoogleFonts.inter(
                           fontSize: 10,
                           fontWeight: FontWeight.w700,

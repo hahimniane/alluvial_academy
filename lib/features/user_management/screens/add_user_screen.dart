@@ -892,7 +892,7 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
                           Expanded(
                             flex: 2,
                             child: Text(
-                              AppLocalizations.of(context)!.userType2,
+                              AppLocalizations.of(context)!.userTypeLabel,
                               style: GoogleFonts.openSans(
                                 fontWeight: FontWeight.bold,
                                 color: const Color(0xff0B3858),
@@ -1299,7 +1299,7 @@ class _UserInputRowState extends State<UserInputRow> {
                 _generateKioskCode();
               },
               decoration: InputDecoration(
-                hintText: AppLocalizations.of(context)!.firstName2,
+                hintText: AppLocalizations.of(context)!.firstName,
                 hintStyle: GoogleFonts.openSans(
                   color: const Color(0xffA0AEC0),
                   fontSize: 14,
@@ -1347,7 +1347,7 @@ class _UserInputRowState extends State<UserInputRow> {
                 _generateKioskCode();
               },
               decoration: InputDecoration(
-                hintText: AppLocalizations.of(context)!.lastName2,
+                hintText: AppLocalizations.of(context)!.lastName,
                 hintStyle: GoogleFonts.openSans(
                   color: const Color(0xffA0AEC0),
                   fontSize: 14,
@@ -2492,7 +2492,7 @@ class StudentCredentialsPreviewDialog extends StatelessWidget {
           SizedBox(
             width: 80,
             child: Text(
-              AppLocalizations.of(context)!.label2,
+              AppLocalizations.of(context)!.label,
               style: GoogleFonts.openSans(
                 fontSize: 14,
                 color: const Color(0xff718096),
@@ -2522,7 +2522,7 @@ class StudentCredentialsPreviewDialog extends StatelessWidget {
           SizedBox(
             width: 100,
             child: Text(
-              AppLocalizations.of(context)!.label2,
+              AppLocalizations.of(context)!.label,
               style: GoogleFonts.openSans(
                 fontSize: 14,
                 color: const Color(0xff1E40AF),

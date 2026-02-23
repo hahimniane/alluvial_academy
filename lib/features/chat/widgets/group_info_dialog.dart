@@ -125,7 +125,7 @@ class _GroupInfoDialogState extends State<GroupInfoDialog> {
             // Creator info
             if (creatorName != null && !isLoading) ...[
               Text(
-                AppLocalizations.of(context)!.createdBy2,
+                AppLocalizations.of(context)!.createdBy,
                 style: GoogleFonts.inter(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,

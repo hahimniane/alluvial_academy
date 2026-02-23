@@ -109,10 +109,10 @@ class _ConnectTeamTaskListState extends State<ConnectTeamTaskList> {
                   )
                 : SizedBox(),
           ),
-          Expanded(flex: 4, child: Text(AppLocalizations.of(context)!.taskName2, style: ConnecteamStyle.tableHeader)),
+          Expanded(flex: 4, child: Text(AppLocalizations.of(context)!.taskName, style: ConnecteamStyle.tableHeader)),
           Expanded(flex: 2, child: Text(AppLocalizations.of(context)!.status, style: ConnecteamStyle.tableHeader)),
-          Expanded(flex: 2, child: Text(AppLocalizations.of(context)!.dueDate2, style: ConnecteamStyle.tableHeader)),
-          Expanded(flex: 1, child: Text(AppLocalizations.of(context)!.priority2, style: ConnecteamStyle.tableHeader)),
+          Expanded(flex: 2, child: Text(AppLocalizations.of(context)!.dueDate, style: ConnecteamStyle.tableHeader)),
+          Expanded(flex: 1, child: Text(AppLocalizations.of(context)!.priority, style: ConnecteamStyle.tableHeader)),
         ],
       ),
     );

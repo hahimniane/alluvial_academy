@@ -219,7 +219,7 @@ class ForceUpdateScreen extends StatelessWidget {
 
                 // Message
                 Text(
-                  AppLocalizations.of(context)!.aNewVersionOfAlluvialAcademy2,
+                  AppLocalizations.of(context)!.aNewVersionOfAlluvialAcademy,
                   style: GoogleFonts.inter(
                     fontSize: 16,
                     color: Colors.white.withOpacity(0.9),

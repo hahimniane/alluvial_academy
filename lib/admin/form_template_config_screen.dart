@@ -410,7 +410,7 @@ class _FormTemplateConfigScreenState extends State<FormTemplateConfigScreen>
                           if (field.required) ...[
                             const SizedBox(width: 4),
                             Text(
-                              AppLocalizations.of(context)!.text10,
+                              AppLocalizations.of(context)!.requiredAsterisk,
                               style: TextStyle(
                                 color: Color(0xffEF4444),
                                 fontWeight: FontWeight.bold,

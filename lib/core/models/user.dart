@@ -8,6 +8,7 @@ class AppUser {
   final bool isActive;
   final String? timezone;
   final String? kiosqueCode; // Family/parent identifier code
+  final bool aiTutorEnabled;
 
   AppUser({
     required this.id,
@@ -17,6 +18,7 @@ class AppUser {
     this.isActive = true,
     this.timezone,
     this.kiosqueCode,
+    this.aiTutorEnabled = false,
   });
 
   factory AppUser.fromFirestore(DocumentSnapshot doc) {
@@ -41,6 +43,7 @@ class AppUser {
       isActive: data['is_active'] ?? true,
       timezone: data['timezone'],
       kiosqueCode: data['kiosque_code'] ?? data['family_code'],
+      aiTutorEnabled: data['ai_tutor_enabled'] ?? false,
     );
   }
 
@@ -53,6 +56,7 @@ class AppUser {
       isActive: map['isActive'] ?? true,
       timezone: map['timezone'],
       kiosqueCode: map['kiosqueCode'],
+      aiTutorEnabled: map['aiTutorEnabled'] ?? false,
     );
   }
 
@@ -65,6 +69,7 @@ class AppUser {
       'isActive': isActive,
       'timezone': timezone,
       'kiosqueCode': kiosqueCode,
+      'aiTutorEnabled': aiTutorEnabled,
     };
   }
 }

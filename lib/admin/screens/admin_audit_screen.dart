@@ -646,7 +646,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
                           selectedTeachers.addAll(ids);
                         });
                       },
-                      child: Text(AppLocalizations.of(context)!.selectAll2),
+                      child: Text(AppLocalizations.of(context)!.selectAll),
                     ),
                     TextButton(
                       onPressed: () {
@@ -2451,7 +2451,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
                   keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
                   decoration: InputDecoration(
                     labelText: AppLocalizations.of(context)!.adjustmentAmount,
-                    hintText: AppLocalizations.of(context)!.eG021Or5,
+                    hintText: AppLocalizations.of(context)!.adjustmentAmountExampleHint,
                     prefixText: '\$ ',
                     border: OutlineInputBorder(),
                   ),
@@ -2642,9 +2642,9 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
                     contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   ),
                   items: [
-                    DropdownMenuItem(value: 'approved', child: Text(AppLocalizations.of(context)!.approve2)),
+                    DropdownMenuItem(value: 'approved', child: Text(AppLocalizations.of(context)!.approve)),
                     DropdownMenuItem(value: 'needs_revision', child: Text(AppLocalizations.of(context)!.needsRevision)),
-                    DropdownMenuItem(value: 'rejected', child: Text(AppLocalizations.of(context)!.reject2)),
+                    DropdownMenuItem(value: 'rejected', child: Text(AppLocalizations.of(context)!.reject)),
                   ],
                   onChanged: (v) => setDialogState(() => selectedStatus = v!),
                 ),
@@ -2784,7 +2784,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      AppLocalizations.of(context)!.summary2,
+                      AppLocalizations.of(context)!.summary,
                       style: GoogleFonts.inter(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -6426,7 +6426,7 @@ class _MetadataRow extends StatelessWidget {
           SizedBox(
             width: 80,
             child: Text(
-              AppLocalizations.of(context)!.label2,
+              AppLocalizations.of(context)!.label,
               style: GoogleFonts.inter(
                 fontSize: 12,
                 color: Colors.grey.shade600,
@@ -6791,7 +6791,7 @@ class _ShiftRow extends StatelessWidget {
       builder: (context) => AlertDialog(
         title: Text(AppLocalizations.of(context)!.banShift),
         content: Text(
-          AppLocalizations.of(context)!.areYouSureYouWantTo13,
+          AppLocalizations.of(context)!.confirmBanShiftMessage,
         ),
         actions: [
           TextButton(
@@ -7116,7 +7116,7 @@ class _FormRow extends StatelessWidget {
       context: context,
       builder: (context) => AlertDialog(
         title: Text(AppLocalizations.of(context)!.banForm),
-        content: Text(AppLocalizations.of(context)!.areYouSureYouWantTo14),
+        content: Text(AppLocalizations.of(context)!.confirmBanFormMessage),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),

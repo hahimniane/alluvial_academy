@@ -385,7 +385,7 @@ class _CoachEvaluationScreenState extends State<CoachEvaluationScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    AppLocalizations.of(context)!.requiredRatingBelow9,
+                    AppLocalizations.of(context)!.requiredForRatingsBelow9,
                     style: GoogleFonts.inter(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,

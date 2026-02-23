@@ -23,8 +23,10 @@ import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 class FormScreen extends StatefulWidget {
   final String? timesheetId;
   final String? shiftId;
-  final String? autoSelectFormId; // Auto-select and open a specific form by ID (can be from 'form' or 'form_templates')
-  final FormTemplate? template; // Direct template object (preferred for new templates)
+  final String?
+      autoSelectFormId; // Auto-select and open a specific form by ID (can be from 'form' or 'form_templates')
+  final FormTemplate?
+      template; // Direct template object (preferred for new templates)
 
   const FormScreen({
     super.key,
@@ -50,12 +52,14 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
   bool _isAutoSelecting = false; // New state to track auto-selection
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
-  final Map<String, bool> _userFormSubmissions = {}; // Track user form submissions (formId -> true)
-  final Map<String, bool> _userFormSubmissionsByShift = {}; // (formId_shiftId) -> true for per-shift one submission
+  final Map<String, bool> _userFormSubmissions =
+      {}; // Track user form submissions (formId -> true)
+  final Map<String, bool> _userFormSubmissionsByShift =
+      {}; // (formId_shiftId) -> true for per-shift one submission
   String? _currentUserRole;
   String? _currentUserId;
   Map<String, dynamic>? _currentUserData;
-  
+
   // Google Forms style: Track focused field for visual feedback
   String? _focusedFieldKey;
 
@@ -63,7 +67,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
   final Color _primaryColor = const Color(0xff673AB7); // Google Forms Purple
   final Color _accentColor = const Color(0xff0386FF);
   final Color _backgroundColor = const Color(0xffF0F4F8);
-  
+
   // Platform detection for responsive layouts
   bool get _isMobile {
     if (kIsWeb) return false;
@@ -88,11 +92,12 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
     // Add debugging for production
     AppLogger.debug(
         'FormScreen: Initializing in ${kDebugMode ? 'debug' : 'production'} mode');
-    AppLogger.debug('FormScreen: Auth state - ${FirebaseAuth.instance.currentUser?.uid}');
+    AppLogger.debug(
+        'FormScreen: Auth state - ${FirebaseAuth.instance.currentUser?.uid}');
 
     _loadUserFormSubmissions();
     _loadCurrentUserData();
-    
+
     // If template is provided directly, use it IMMEDIATELY (no delay)
     if (widget.template != null) {
       _isAutoSelecting = true;
@@ -113,31 +118,29 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
       _autoSelectForm(widget.autoSelectFormId!);
     }
   }
-  
+
   /// Auto-select a form by ID (used when navigating from clock-out)
   /// First tries form_templates, then falls back to form collection
   Future<void> _autoSelectForm(String formId) async {
     try {
-      
       AppLogger.debug('FormScreen: Auto-selecting form: $formId');
       debugPrint('📋 FormScreen: Auto-selecting form with ID: $formId');
-      debugPrint('📋 FormScreen: timesheetId=${widget.timesheetId}, shiftId=${widget.shiftId}');
-      
+      debugPrint(
+          '📋 FormScreen: timesheetId=${widget.timesheetId}, shiftId=${widget.shiftId}');
+
       // First, try to find in form_templates (new system) - force refresh from server
       final templateDoc = await FirebaseFirestore.instance
           .collection('form_templates')
           .doc(formId)
           .get(const GetOptions(source: Source.server));
-      
-      
+
       if (templateDoc.exists && mounted) {
         // Convert template to form format
         final template = FormTemplate.fromFirestore(templateDoc);
         final formData = _convertTemplateToFormData(template);
-        
-        
+
         debugPrint('✅ FormScreen: Template found - "${template.name}"');
-        
+
         // Call _handleFormSelection directly (no delay needed - it's async)
         if (mounted) {
           _handleFormSelection(formId, formData).then((_) {
@@ -149,17 +152,18 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
         }
         return;
       }
-      
+
       // Fallback to old form collection - force refresh from server
       final formDoc = await FirebaseFirestore.instance
           .collection('form')
           .doc(formId)
           .get(const GetOptions(source: Source.server));
-      
+
       if (formDoc.exists && mounted) {
         final formData = formDoc.data()!;
-        debugPrint('✅ FormScreen: Form found - "${formData['title'] ?? 'Untitled'}"');
-        
+        debugPrint(
+            '✅ FormScreen: Form found - "${formData['title'] ?? 'Untitled'}"');
+
         // Call _handleFormSelection directly (no delay needed - it's async)
         if (mounted) {
           _handleFormSelection(formId, formData).then((_) {
@@ -172,14 +176,15 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
       } else {
         AppLogger.error('FormScreen: Form not found for auto-select: $formId');
         debugPrint('❌ FormScreen: Form with ID $formId NOT FOUND in database!');
-        
+
         // Show error message to user
         if (mounted) {
           setState(() => _isAutoSelecting = false);
           WidgetsBinding.instance.addPostFrameCallback((_) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text(AppLocalizations.of(context)!.formNotFoundIdFormidPlease(formId)),
+                content: Text(AppLocalizations.of(context)!
+                    .formNotFoundIdFormidPlease(formId)),
                 backgroundColor: Colors.red,
                 duration: const Duration(seconds: 5),
               ),
@@ -193,7 +198,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
       if (mounted) setState(() => _isAutoSelecting = false);
     }
   }
-  
+
   /// Convert FormTemplate to the format expected by FormScreen (legacy form format)
   Map<String, dynamic> _convertTemplateToFormData(FormTemplate template) {
     // Convert fields from List<FormFieldDefinition> to Map<String, dynamic>
@@ -207,17 +212,20 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
         'order': field.order,
         if (field.options != null) 'options': field.options,
         if (field.validation != null) 'validation': field.validation,
-        if (field.conditionalLogic != null) 'conditionalLogic': field.conditionalLogic,
+        if (field.conditionalLogic != null)
+          'conditionalLogic': field.conditionalLogic,
       };
     }
-    
+
     // Convert autoFillRules to list of maps
-    final autoFillRulesList = template.autoFillRules.map((rule) => {
-      'fieldId': rule.fieldId,
-      'sourceField': rule.sourceFieldString,
-      'editable': rule.editable,
-    }).toList();
-    
+    final autoFillRulesList = template.autoFillRules
+        .map((rule) => {
+              'fieldId': rule.fieldId,
+              'sourceField': rule.sourceFieldString,
+              'editable': rule.editable,
+            })
+        .toList();
+
     return {
       'title': template.name, // Use name as title
       'description': template.description ?? '',
@@ -320,7 +328,8 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
       AppLogger.debug('- User Role: $_currentUserRole');
       AppLogger.debug('- User Data keys: ${_currentUserData?.keys}');
     } catch (e) {
-      AppLogger.error('FormScreen: Critical error loading current user data: $e');
+      AppLogger.error(
+          'FormScreen: Critical error loading current user data: $e');
       // Set safe fallback state
       if (mounted) {
         setState(() {
@@ -358,9 +367,10 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
       return false;
     }
 
-    final formTitle = (formData['title'] ?? 'Untitled Form').toString().toLowerCase();
+    final formTitle =
+        (formData['title'] ?? 'Untitled Form').toString().toLowerCase();
     final isTeacher = _currentUserRole?.toLowerCase() == 'teacher';
-    
+
     // Admin-only form keywords (teachers should NOT see these)
     const adminOnlyKeywords = [
       'admin',
@@ -377,7 +387,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
       'performance review',
       'staff evaluation',
     ];
-    
+
     // Teacher-allowed form keywords
     const teacherAllowedKeywords = [
       'teacher',
@@ -390,7 +400,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
       'assessment',
       'grade',
     ];
-    
+
     // If teacher, check if form title contains admin-only keywords
     if (isTeacher) {
       for (final keyword in adminOnlyKeywords) {
@@ -404,7 +414,8 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
             }
           }
           if (!hasTeacherKeyword) {
-            AppLogger.debug('Form "$formTitle": Hidden from teacher (admin-only keyword: $keyword)');
+            AppLogger.debug(
+                'Form "$formTitle": Hidden from teacher (admin-only keyword: $keyword)');
             return false;
           }
         }
@@ -433,9 +444,12 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
       final allowedRole = permissions['role'] as String?;
       final allowedUsers = permissions['users'] as List<dynamic>?;
 
-      AppLogger.debug('Form "$formTitle": Restricted access - checking permissions');
-      AppLogger.debug('- User role: $_currentUserRole, Required role: $allowedRole');
-      AppLogger.debug('- User ID: $_currentUserId, Allowed users: $allowedUsers');
+      AppLogger.debug(
+          'Form "$formTitle": Restricted access - checking permissions');
+      AppLogger.debug(
+          '- User role: $_currentUserRole, Required role: $allowedRole');
+      AppLogger.debug(
+          '- User ID: $_currentUserId, Allowed users: $allowedUsers');
 
       // Check if user's role matches the allowed role
       if (allowedRole != null && _roleMatches(allowedRole, _currentUserRole)) {
@@ -450,7 +464,8 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
       }
 
       // If neither role nor specific user access matches, deny access
-      AppLogger.debug('Form "$formTitle": Access denied - no role or user match');
+      AppLogger.debug(
+          'Form "$formTitle": Access denied - no role or user match');
       return false;
     }
 
@@ -532,278 +547,293 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                 ],
               ),
               child: Column(
-              children: [
-                // Header
-                Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: const BoxDecoration(
-                    color: Color(0xff0386FF),
-                    borderRadius: BorderRadius.only(
-                      bottomLeft: Radius.circular(12),
-                      bottomRight: Radius.circular(12),
+                children: [
+                  // Header
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: const BoxDecoration(
+                      color: Color(0xff0386FF),
+                      borderRadius: BorderRadius.only(
+                        bottomLeft: Radius.circular(12),
+                        bottomRight: Radius.circular(12),
+                      ),
                     ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Icon(
-                              Icons.description,
-                              color: Colors.white,
-                              size: 20,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              AppLocalizations.of(context)!.activeForms,
-                              style: GoogleFonts.inter(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w600,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(
+                                Icons.description,
                                 color: Colors.white,
+                                size: 20,
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      // Search bar
-                      Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(8),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
-                              blurRadius: 4,
-                              offset: const Offset(0, 2),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                AppLocalizations.of(context)!.activeForms,
+                                style: GoogleFonts.inter(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
+                              ),
                             ),
                           ],
                         ),
-                        child: TextField(
-                          decoration: InputDecoration(
-                            hintText: AppLocalizations.of(context)!.searchActiveForms,
-                            hintStyle: GoogleFonts.inter(
-                              color: const Color(0xff6B7280),
-                              fontSize: 14,
-                            ),
-                            prefixIcon: const Icon(
-                              Icons.search,
-                              color: Color(0xff6B7280),
-                              size: 20,
-                            ),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: BorderSide.none,
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 12,
-                            ),
-                            filled: true,
-                            fillColor: Colors.white,
+                        const SizedBox(height: 16),
+                        // Search bar
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(8),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.1),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
                           ),
-                          style: GoogleFonts.inter(fontSize: 14),
-                          onChanged: (value) {
-                            if (mounted) {
-                              setState(() {
-                                searchQuery = value.toLowerCase();
-                              });
-                            }
-                          },
+                          child: TextField(
+                            decoration: InputDecoration(
+                              hintText: AppLocalizations.of(context)!
+                                  .searchActiveForms,
+                              hintStyle: GoogleFonts.inter(
+                                color: const Color(0xff6B7280),
+                                fontSize: 14,
+                              ),
+                              prefixIcon: const Icon(
+                                Icons.search,
+                                color: Color(0xff6B7280),
+                                size: 20,
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: BorderSide.none,
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
+                              filled: true,
+                              fillColor: Colors.white,
+                            ),
+                            style: GoogleFonts.inter(fontSize: 14),
+                            onChanged: (value) {
+                              if (mounted) {
+                                setState(() {
+                                  searchQuery = value.toLowerCase();
+                                });
+                              }
+                            },
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
 
-                // Forms list
-                Expanded(
-                  child: StreamBuilder<QuerySnapshot>(
-                    stream: FirebaseFirestore.instance
-                        .collection('form')
-                        .snapshots(),
-                    builder: (context, snapshot) {
-                      // Enhanced error handling
-                      if (snapshot.hasError) {
-                        AppLogger.error('FormScreen: Firestore error: ${snapshot.error}');
-                        return _buildErrorState(AppLocalizations.of(context)!
-                            .formsErrorLoading(snapshot.error.toString()));
-                      }
-
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return _buildLoadingState();
-                      }
-
-                      if (!snapshot.hasData) {
-                        AppLogger.debug('FormScreen: No snapshot data received');
-                        return _buildErrorState(AppLocalizations.of(context)!
-                            .formsNoDataReceived);
-                      }
-
-                      // Show loading state if user data is not loaded yet
-                      if (_currentUserId == null || _currentUserRole == null) {
-                        AppLogger.info(
-                            'FormScreen: User data not loaded yet - userId: $_currentUserId, role: $_currentUserRole');
-                        return _buildLoadingState();
-                      }
-
-                      AppLogger.debug(
-                          'FormScreen: Processing ${snapshot.data!.docs.length} forms from Firestore');
-
-                      final allForms = snapshot.data!.docs.where((doc) {
-                        final data = doc.data() as Map<String, dynamic>;
-
-                        // First check if the form is active
-                        final status = data['status'] ?? 'active';
-                        if (status != 'active') {
-                          return false;
+                  // Forms list
+                  Expanded(
+                    child: StreamBuilder<QuerySnapshot>(
+                      stream: FirebaseFirestore.instance
+                          .collection('form')
+                          .snapshots(),
+                      builder: (context, snapshot) {
+                        // Enhanced error handling
+                        if (snapshot.hasError) {
+                          AppLogger.error(
+                              'FormScreen: Firestore error: ${snapshot.error}');
+                          return _buildErrorState(AppLocalizations.of(context)!
+                              .formsErrorLoading(snapshot.error.toString()));
                         }
 
-                        // Then check if user can access this form
-                        if (!_canAccessForm(data)) {
-                          return false;
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return _buildLoadingState();
                         }
 
-                        // Finally check if it matches the search query
-                        return data['title']
-                            .toString()
-                            .toLowerCase()
-                            .contains(searchQuery);
-                      }).toList();
+                        if (!snapshot.hasData) {
+                          AppLogger.debug(
+                              'FormScreen: No snapshot data received');
+                          return _buildErrorState(AppLocalizations.of(context)!
+                              .formsNoDataReceived);
+                        }
 
-                      // Filter to show only latest version of each form
-                      // Group by title (normalized) and keep only the one with latest updatedAt or createdAt
-                      final Map<String, QueryDocumentSnapshot> latestForms = {};
-                      for (var doc in allForms) {
-                        final data = doc.data() as Map<String, dynamic>;
-                        // Normalize title: trim, lowercase, remove extra spaces
-                        final title = (data['title'] ?? '').toString()
-                            .trim()
-                            .toLowerCase()
-                            .replaceAll(RegExp(r'\s+'), ' ');
-                        
-                        // Get update time (prefer updatedAt, fallback to createdAt)
-                        Timestamp? updateTime;
-                        if (data['updatedAt'] != null) {
-                          final updatedAtValue = data['updatedAt'];
-                          if (updatedAtValue is Timestamp) {
-                            updateTime = updatedAtValue;
-                          } else if (updatedAtValue is DateTime) {
-                            updateTime = Timestamp.fromDate(updatedAtValue);
+                        // Show loading state if user data is not loaded yet
+                        if (_currentUserId == null ||
+                            _currentUserRole == null) {
+                          AppLogger.info(
+                              'FormScreen: User data not loaded yet - userId: $_currentUserId, role: $_currentUserRole');
+                          return _buildLoadingState();
+                        }
+
+                        AppLogger.debug(
+                            'FormScreen: Processing ${snapshot.data!.docs.length} forms from Firestore');
+
+                        final allForms = snapshot.data!.docs.where((doc) {
+                          final data = doc.data() as Map<String, dynamic>;
+
+                          // First check if the form is active
+                          final status = data['status'] ?? 'active';
+                          if (status != 'active') {
+                            return false;
                           }
-                        } else if (data['createdAt'] != null) {
-                          final createdAtValue = data['createdAt'];
-                          if (createdAtValue is Timestamp) {
-                            updateTime = createdAtValue;
-                          } else if (createdAtValue is DateTime) {
-                            updateTime = Timestamp.fromDate(createdAtValue);
+
+                          // Then check if user can access this form
+                          if (!_canAccessForm(data)) {
+                            return false;
                           }
-                        }
-                        
-                        if (!latestForms.containsKey(title)) {
-                          latestForms[title] = doc;
-                        } else {
-                          final existingDoc = latestForms[title]!;
-                          final existingData = existingDoc.data() as Map<String, dynamic>;
-                          Timestamp? existingTime;
-                          if (existingData['updatedAt'] != null) {
-                            final existingUpdatedAt = existingData['updatedAt'];
-                            if (existingUpdatedAt is Timestamp) {
-                              existingTime = existingUpdatedAt;
-                            } else if (existingUpdatedAt is DateTime) {
-                              existingTime = Timestamp.fromDate(existingUpdatedAt);
+
+                          // Finally check if it matches the search query
+                          return data['title']
+                              .toString()
+                              .toLowerCase()
+                              .contains(searchQuery);
+                        }).toList();
+
+                        // Filter to show only latest version of each form
+                        // Group by title (normalized) and keep only the one with latest updatedAt or createdAt
+                        final Map<String, QueryDocumentSnapshot> latestForms =
+                            {};
+                        for (var doc in allForms) {
+                          final data = doc.data() as Map<String, dynamic>;
+                          // Normalize title: trim, lowercase, remove extra spaces
+                          final title = (data['title'] ?? '')
+                              .toString()
+                              .trim()
+                              .toLowerCase()
+                              .replaceAll(RegExp(r'\s+'), ' ');
+
+                          // Get update time (prefer updatedAt, fallback to createdAt)
+                          Timestamp? updateTime;
+                          if (data['updatedAt'] != null) {
+                            final updatedAtValue = data['updatedAt'];
+                            if (updatedAtValue is Timestamp) {
+                              updateTime = updatedAtValue;
+                            } else if (updatedAtValue is DateTime) {
+                              updateTime = Timestamp.fromDate(updatedAtValue);
                             }
-                          } else if (existingData['createdAt'] != null) {
-                            final existingCreatedAt = existingData['createdAt'];
-                            if (existingCreatedAt is Timestamp) {
-                              existingTime = existingCreatedAt;
-                            } else if (existingCreatedAt is DateTime) {
-                              existingTime = Timestamp.fromDate(existingCreatedAt);
+                          } else if (data['createdAt'] != null) {
+                            final createdAtValue = data['createdAt'];
+                            if (createdAtValue is Timestamp) {
+                              updateTime = createdAtValue;
+                            } else if (createdAtValue is DateTime) {
+                              updateTime = Timestamp.fromDate(createdAtValue);
                             }
                           }
-                          
-                          // Keep the one with the latest timestamp
-                          if (updateTime != null && existingTime != null) {
-                            if (updateTime.compareTo(existingTime) > 0) {
+
+                          if (!latestForms.containsKey(title)) {
+                            latestForms[title] = doc;
+                          } else {
+                            final existingDoc = latestForms[title]!;
+                            final existingData =
+                                existingDoc.data() as Map<String, dynamic>;
+                            Timestamp? existingTime;
+                            if (existingData['updatedAt'] != null) {
+                              final existingUpdatedAt =
+                                  existingData['updatedAt'];
+                              if (existingUpdatedAt is Timestamp) {
+                                existingTime = existingUpdatedAt;
+                              } else if (existingUpdatedAt is DateTime) {
+                                existingTime =
+                                    Timestamp.fromDate(existingUpdatedAt);
+                              }
+                            } else if (existingData['createdAt'] != null) {
+                              final existingCreatedAt =
+                                  existingData['createdAt'];
+                              if (existingCreatedAt is Timestamp) {
+                                existingTime = existingCreatedAt;
+                              } else if (existingCreatedAt is DateTime) {
+                                existingTime =
+                                    Timestamp.fromDate(existingCreatedAt);
+                              }
+                            }
+
+                            // Keep the one with the latest timestamp
+                            if (updateTime != null && existingTime != null) {
+                              if (updateTime.compareTo(existingTime) > 0) {
+                                latestForms[title] = doc;
+                              }
+                            } else if (updateTime != null) {
                               latestForms[title] = doc;
                             }
-                          } else if (updateTime != null) {
-                            latestForms[title] = doc;
                           }
                         }
-                      }
-                      
-                      final forms = latestForms.values.toList();
 
-                      if (forms.isEmpty) {
-                        return _buildEmptyState();
-                      }
+                        final forms = latestForms.values.toList();
 
-                      return StreamBuilder<QuerySnapshot>(
-                        stream: FirebaseFirestore.instance
-                            .collection('form_responses')
-                            .where('userId',
-                                isEqualTo:
-                                    FirebaseAuth.instance.currentUser?.uid)
-                            .snapshots(),
-                        builder: (context, responsesSnapshot) {
-                          // Check auth state before processing
-                          if (FirebaseAuth.instance.currentUser == null) {
-                            return Center(
-                              child: Text(AppLocalizations.of(context)!.pleaseSignInToViewForms),
-                            );
-                          }
+                        if (forms.isEmpty) {
+                          return _buildEmptyState();
+                        }
 
-                          if (responsesSnapshot.hasError) {
-                            // Handle permission errors gracefully
-                            if (responsesSnapshot.error
-                                .toString()
-                                .contains('permission-denied')) {
+                        return StreamBuilder<QuerySnapshot>(
+                          stream: FirebaseFirestore.instance
+                              .collection('form_responses')
+                              .where('userId',
+                                  isEqualTo:
+                                      FirebaseAuth.instance.currentUser?.uid)
+                              .snapshots(),
+                          builder: (context, responsesSnapshot) {
+                            // Check auth state before processing
+                            if (FirebaseAuth.instance.currentUser == null) {
                               return Center(
-                                child: Text(AppLocalizations.of(context)!.pleaseSignInToAccessForms),
+                                child: Text(AppLocalizations.of(context)!
+                                    .pleaseSignInToViewForms),
                               );
                             }
-                            return Center(
-                              child: Text(AppLocalizations.of(context)!.commonErrorWithDetails(
-                                responsesSnapshot.error.toString(),
-                              )),
+
+                            if (responsesSnapshot.hasError) {
+                              // Handle permission errors gracefully
+                              if (responsesSnapshot.error
+                                  .toString()
+                                  .contains('permission-denied')) {
+                                return Center(
+                                  child: Text(AppLocalizations.of(context)!
+                                      .pleaseSignInToAccessForms),
+                                );
+                              }
+                              return Center(
+                                child: Text(AppLocalizations.of(context)!
+                                    .commonErrorWithDetails(
+                                  responsesSnapshot.error.toString(),
+                                )),
+                              );
+                            }
+
+                            return ListView.builder(
+                              padding: const EdgeInsets.all(16),
+                              itemCount: forms.length,
+                              itemBuilder: (context, index) {
+                                final form =
+                                    forms[index].data() as Map<String, dynamic>;
+                                final isSelected =
+                                    forms[index].id == selectedFormId;
+                                final formId = forms[index].id;
+
+                                // Check if user has submitted this form
+                                final hasSubmitted =
+                                    _userFormSubmissions[formId] ?? false;
+
+                                return _buildFormCard(
+                                    form, formId, isSelected, hasSubmitted);
+                              },
                             );
-                          }
-
-                          return ListView.builder(
-                            padding: const EdgeInsets.all(16),
-                            itemCount: forms.length,
-                            itemBuilder: (context, index) {
-                              final form =
-                                  forms[index].data() as Map<String, dynamic>;
-                              final isSelected =
-                                  forms[index].id == selectedFormId;
-                              final formId = forms[index].id;
-
-                              // Check if user has submitted this form
-                              final hasSubmitted =
-                                  _userFormSubmissions[formId] ?? false;
-
-                              return _buildFormCard(
-                                  form, formId, isSelected, hasSubmitted);
-                            },
-                          );
-                        },
-                      );
-                    },
+                          },
+                        );
+                      },
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
 
           // Main content area
           Expanded(
@@ -823,19 +853,19 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
       }
       return _buildFormView();
     }
-    
+
     // No template provided - show list or form based on selection
     if (_isAutoSelecting) {
       return _buildLoadingState();
     }
-    
+
     if (selectedFormData == null) {
       return _buildWelcomeScreen(); // Show form list
     }
-    
+
     return _buildFormView(); // Show selected form
   }
-  
+
   Widget _buildMobileLayout() {
     // On mobile, show either the form list OR the selected form
     if (selectedFormData != null || widget.template != null) {
@@ -875,7 +905,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
         body: _buildFormView(),
       );
     }
-    
+
     // Show the form list
     return Scaffold(
       backgroundColor: const Color(0xffF8FAFC),
@@ -969,9 +999,8 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
             // Forms list
             Expanded(
               child: StreamBuilder<QuerySnapshot>(
-                stream: FirebaseFirestore.instance
-                    .collection('form')
-                    .snapshots(),
+                stream:
+                    FirebaseFirestore.instance.collection('form').snapshots(),
                 builder: (context, snapshot) {
                   if (snapshot.hasError) {
                     return _buildErrorState(AppLocalizations.of(context)!
@@ -983,8 +1012,8 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                   }
 
                   if (!snapshot.hasData) {
-                    return _buildErrorState(AppLocalizations.of(context)!
-                        .formsNoDataReceived);
+                    return _buildErrorState(
+                        AppLocalizations.of(context)!.formsNoDataReceived);
                   }
 
                   if (_currentUserId == null || _currentUserRole == null) {
@@ -996,18 +1025,20 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                     final status = data['status'] ?? 'active';
                     if (status != 'active') return false;
                     if (!_canAccessForm(data)) return false;
-                    
+
                     // Hide old readiness forms - teachers should use new template system
-                    final title = (data['title'] ?? '').toString().toLowerCase();
+                    final title =
+                        (data['title'] ?? '').toString().toLowerCase();
                     final isLegacyReadinessForm = title.contains('readiness') ||
                         title.contains('class readiness') ||
                         title.contains('formulaire de préparation');
-                    
+
                     // Only admins can see legacy readiness forms (for management)
-                    if (isLegacyReadinessForm && _currentUserRole?.toLowerCase() != 'admin') {
+                    if (isLegacyReadinessForm &&
+                        _currentUserRole?.toLowerCase() != 'admin') {
                       return false;
                     }
-                    
+
                     return title.contains(searchQuery);
                   }).toList();
 
@@ -1017,11 +1048,12 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                   for (var doc in allForms) {
                     final data = doc.data() as Map<String, dynamic>;
                     // Normalize title: trim, lowercase, remove extra spaces
-                    final title = (data['title'] ?? '').toString()
+                    final title = (data['title'] ?? '')
+                        .toString()
                         .trim()
                         .toLowerCase()
                         .replaceAll(RegExp(r'\s+'), ' ');
-                    
+
                     // Get update time (prefer updatedAt, fallback to createdAt)
                     Timestamp? updateTime;
                     if (data['updatedAt'] != null) {
@@ -1039,12 +1071,13 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                         updateTime = Timestamp.fromDate(createdAtValue);
                       }
                     }
-                    
+
                     if (!latestForms.containsKey(title)) {
                       latestForms[title] = doc;
                     } else {
                       final existingDoc = latestForms[title]!;
-                      final existingData = existingDoc.data() as Map<String, dynamic>;
+                      final existingData =
+                          existingDoc.data() as Map<String, dynamic>;
                       Timestamp? existingTime;
                       if (existingData['updatedAt'] != null) {
                         final existingUpdatedAt = existingData['updatedAt'];
@@ -1061,7 +1094,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                           existingTime = Timestamp.fromDate(existingCreatedAt);
                         }
                       }
-                      
+
                       // Keep the one with the latest timestamp
                       if (updateTime != null && existingTime != null) {
                         if (updateTime.compareTo(existingTime) > 0) {
@@ -1072,7 +1105,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                       }
                     }
                   }
-                  
+
                   final forms = latestForms.values.toList();
 
                   if (forms.isEmpty) {
@@ -1088,7 +1121,8 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                     builder: (context, responsesSnapshot) {
                       if (FirebaseAuth.instance.currentUser == null) {
                         return Center(
-                          child: Text(AppLocalizations.of(context)!.pleaseSignInToViewForms),
+                          child: Text(AppLocalizations.of(context)!
+                              .pleaseSignInToViewForms),
                         );
                       }
 
@@ -1097,11 +1131,13 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                             .toString()
                             .contains('permission-denied')) {
                           return Center(
-                            child: Text(AppLocalizations.of(context)!.pleaseSignInToAccessForms),
+                            child: Text(AppLocalizations.of(context)!
+                                .pleaseSignInToAccessForms),
                           );
                         }
                         return Center(
-                          child: Text(AppLocalizations.of(context)!.commonErrorWithDetails(
+                          child: Text(AppLocalizations.of(context)!
+                              .commonErrorWithDetails(
                             responsesSnapshot.error.toString(),
                           )),
                         );
@@ -1111,11 +1147,14 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                         padding: const EdgeInsets.all(16),
                         itemCount: forms.length,
                         itemBuilder: (context, index) {
-                          final form = forms[index].data() as Map<String, dynamic>;
+                          final form =
+                              forms[index].data() as Map<String, dynamic>;
                           final formId = forms[index].id;
-                          final hasSubmitted = _userFormSubmissions[formId] ?? false;
+                          final hasSubmitted =
+                              _userFormSubmissions[formId] ?? false;
 
-                          return _buildFormCard(form, formId, false, hasSubmitted);
+                          return _buildFormCard(
+                              form, formId, false, hasSubmitted);
                         },
                       );
                     },
@@ -1355,396 +1394,348 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                // Form header card
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(32),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: const Color(0xff0386FF).withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: const Icon(
-                              Icons.description,
-                              color: Color(0xff0386FF),
-                              size: 24,
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  selectedFormData!['title'] ?? 'Untitled Form',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 28,
-                                    fontWeight: FontWeight.w700,
-                                    color: const Color(0xff111827),
-                                  ),
-                                ),
-                                if (selectedFormData!['description'] != null &&
-                                    selectedFormData!['description']
-                                        .toString()
-                                        .isNotEmpty) ...[
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    selectedFormData!['description'],
-                                    style: GoogleFonts.inter(
-                                      fontSize: 16,
-                                      color: const Color(0xff6B7280),
-                                      height: 1.5,
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
+                    // Form header card
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(32),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
                           ),
                         ],
                       ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 24),
-
-                // Form fields - each field is now a separate card (Google Forms style)
-                Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                        // Debug: Check if fields exist
-                        if (_getVisibleFields().isEmpty) ...[
-                          Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: const Color(0xffFEF3C7),
-                              borderRadius: BorderRadius.circular(8),
-                              border:
-                                  Border.all(color: const Color(0xffF59E0B)),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    const Icon(Icons.info,
-                                        color: Color(0xffF59E0B)),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        AppLocalizations.of(context)!.noFormFieldsAreCurrentlyVisible,
-                                        style: GoogleFonts.inter(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w600,
-                                          color: const Color(0xffB45309),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  AppLocalizations.of(context)!.possibleCausesN +
-                                      '\n• This form may not have any fields configured\n'
-                                      '• There may be a network connection issue\n'
-                                      '• Your user permissions may have changed\n'
-                                      '• The form data may be corrupted',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 12,
-                                    color: const Color(0xffB45309),
-                                  ),
-                                ),
-                                if (kDebugMode) ...[
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    AppLocalizations.of(context)!.debugInfoN +
-                                        '\nForm ID: $selectedFormId\n'
-                                        'User ID: $_currentUserId\n'
-                                        'User Role: $_currentUserRole\n'
-                                        'Form has data: ${selectedFormData != null}\n'
-                                        'Form keys: ${selectedFormData?.keys.join(", ") ?? "null"}',
-                                    style: const TextStyle(
-                                      fontSize: 10,
-                                      color: Color(0xffB45309),
-                                      fontFamily: 'monospace',
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ),
-                        ] else ...[
-                          ..._getVisibleFields().map((fieldEntry) {
-                            try {
-                              final fieldKey = fieldEntry.key;
-                              final controller = fieldControllers[fieldKey];
-
-                              // Safety check: if controller doesn't exist, create one
-                              if (controller == null) {
-                                AppLogger.debug(
-                                    'FormScreen: Missing controller for field $fieldKey, creating one');
-                                fieldControllers[fieldKey] =
-                                    TextEditingController();
-                              }
-
-                              return Padding(
-                                padding: const EdgeInsets.only(bottom: 16),
-                                child: _buildModernFormField(
-                                  FormLocalization.translate(
-                                      context,
-                                      fieldEntry.value['label'] ??
-                                          AppLocalizations.of(context)!
-                                              .formsUntitledField),
-                                  fieldEntry.value['placeholder'] ??
-                                      AppLocalizations.of(context)!
-                                          .formsEnterValue,
-                                  fieldControllers[fieldKey]!,
-                                  fieldEntry.value['required'] ?? false,
-                                  fieldEntry.value['type'] ?? 'text',
-                                  fieldKey,
-                                  options:
-                                      (fieldEntry.value['type'] == 'select' ||
-                                              fieldEntry.value['type'] ==
-                                                  'dropdown' ||
-                                              fieldEntry.value['type'] ==
-                                                  'multi_select' ||
-                                              fieldEntry.value['type'] ==
-                                                  'radio')
-                                          ? (fieldEntry.value['options']
-                                                  is List)
-                                              ? List<String>.from(
-                                                  fieldEntry.value['options'])
-                                              : (fieldEntry.value['options']
-                                                      is String)
-                                                  ? (fieldEntry.value['options']
-                                                          as String)
-                                                      .split(',')
-                                                      .map((e) => e.trim())
-                                                      .toList()
-                                                  : []
-                                          : null,
-                                ),
-                              );
-                            } catch (e) {
-                              // Fallback for any field rendering errors
-                              AppLogger.error(
-                                  'FormScreen: Error rendering field ${fieldEntry.key}: $e');
-                              return Container(
-                                padding: const EdgeInsets.all(16),
-                                margin: const EdgeInsets.only(bottom: 24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xffFEF2F2),
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(
-                                      color: const Color(0xffEF4444)),
-                                ),
-                                child: Text(
-                                  'Error rendering field: ${fieldEntry.key}. Error: $e',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 14,
-                                    color: const Color(0xffDC2626),
-                                  ),
-                                ),
-                              );
-                            }
-                          }),
-                        ],
-                      ],
-                    ),
-                  ),
-
-                const SizedBox(height: 24),
-
-                // Action buttons
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      // Use column layout on small screens, row on larger screens
-                      final isSmallScreen = constraints.maxWidth < 400;
-                      
-                      if (isSmallScreen) {
-                        return Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            SizedBox(
-                              width: double.infinity,
-                              child: ElevatedButton(
-                                onPressed: _isSubmitDisabled ? null : _submitForm,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: _primaryColor,
-                                  foregroundColor: Colors.white,
-                                  elevation: 0,
-                                  padding: const EdgeInsets.symmetric(vertical: 16),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                ),
-                                child: _isSubmitting
-                                    ? Row(
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        children: [
-                                          const SizedBox(
-                                            width: 20,
-                                            height: 20,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                              valueColor:
-                                                  AlwaysStoppedAnimation<Color>(
-                                                      Colors.white),
-                                            ),
-                                          ),
-                                          const SizedBox(width: 12),
-                                          Flexible(
-                                            child: Text(
-                                              AppLocalizations.of(context)!.submitting,
-                                              style: GoogleFonts.inter(
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ),
-                                        ],
-                                      )
-                                    : Row(
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        children: [
-                                          const Icon(Icons.send, size: 20),
-                                          const SizedBox(width: 8),
-                                          Flexible(
-                                            child: Text(
-                                              AppLocalizations.of(context)!.submitForm,
-                                              style: GoogleFonts.inter(
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            SizedBox(
-                              width: double.infinity,
-                              child: OutlinedButton(
-                                onPressed: _isSubmitting ? null : _resetForm,
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: const Color(0xff6B7280),
-                                  side: const BorderSide(color: Color(0xffE5E7EB)),
-                                  padding: const EdgeInsets.symmetric(
-                                      vertical: 16, horizontal: 24),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                ),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    const Icon(Icons.refresh, size: 20),
-                                    const SizedBox(width: 8),
-                                    Flexible(
-                                      child: Text(
-                                        AppLocalizations.of(context)!.commonReset,
-                                        style: GoogleFonts.inter(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        );
-                      }
-                      
-                      // Row layout for larger screens
-                      return Row(
-                        children: [
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: _isSubmitDisabled ? null : _submitForm,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: _primaryColor,
-                                foregroundColor: Colors.white,
-                                elevation: 0,
-                                padding: const EdgeInsets.symmetric(vertical: 16),
-                                shape: RoundedRectangleBorder(
+                                  color:
+                                      const Color(0xff0386FF).withOpacity(0.1),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
+                                child: const Icon(
+                                  Icons.description,
+                                  color: Color(0xff0386FF),
+                                  size: 24,
+                                ),
                               ),
-                              child: _isSubmitting
-                                  ? Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        const SizedBox(
-                                          width: 20,
-                                          height: 20,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                            valueColor:
-                                                AlwaysStoppedAnimation<Color>(
-                                                    Colors.white),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      selectedFormData!['title'] ??
+                                          'Untitled Form',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 28,
+                                        fontWeight: FontWeight.w700,
+                                        color: const Color(0xff111827),
+                                      ),
+                                    ),
+                                    if (selectedFormData!['description'] !=
+                                            null &&
+                                        selectedFormData!['description']
+                                            .toString()
+                                            .isNotEmpty) ...[
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        selectedFormData!['description'],
+                                        style: GoogleFonts.inter(
+                                          fontSize: 16,
+                                          color: const Color(0xff6B7280),
+                                          height: 1.5,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    // Form fields - each field is now a separate card (Google Forms style)
+                    Form(
+                      key: _formKey,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Debug: Check if fields exist
+                          if (_getVisibleFields().isEmpty) ...[
+                            Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: const Color(0xffFEF3C7),
+                                borderRadius: BorderRadius.circular(8),
+                                border:
+                                    Border.all(color: const Color(0xffF59E0B)),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.info,
+                                          color: Color(0xffF59E0B)),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          AppLocalizations.of(context)!
+                                              .noFormFieldsAreCurrentlyVisible,
+                                          style: GoogleFonts.inter(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w600,
+                                            color: const Color(0xffB45309),
                                           ),
                                         ),
-                                        const SizedBox(width: 12),
-                                        Flexible(
-                                          child: Text(
-                                            AppLocalizations.of(context)!.submitting,
-                                            style: GoogleFonts.inter(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                            overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    AppLocalizations.of(context)!
+                                            .possibleCausesN +
+                                        '\n• This form may not have any fields configured\n'
+                                            '• There may be a network connection issue\n'
+                                            '• Your user permissions may have changed\n'
+                                            '• The form data may be corrupted',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 12,
+                                      color: const Color(0xffB45309),
+                                    ),
+                                  ),
+                                  if (kDebugMode) ...[
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      AppLocalizations.of(context)!.debugInfoN +
+                                          '\nForm ID: $selectedFormId\n'
+                                              'User ID: $_currentUserId\n'
+                                              'User Role: $_currentUserRole\n'
+                                              'Form has data: ${selectedFormData != null}\n'
+                                              'Form keys: ${selectedFormData?.keys.join(", ") ?? "null"}',
+                                      style: const TextStyle(
+                                        fontSize: 10,
+                                        color: Color(0xffB45309),
+                                        fontFamily: 'monospace',
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ] else ...[
+                            ..._getVisibleFields().map((fieldEntry) {
+                              try {
+                                final fieldKey = fieldEntry.key;
+                                final controller = fieldControllers[fieldKey];
+
+                                // Safety check: if controller doesn't exist, create one
+                                if (controller == null) {
+                                  AppLogger.debug(
+                                      'FormScreen: Missing controller for field $fieldKey, creating one');
+                                  fieldControllers[fieldKey] =
+                                      TextEditingController();
+                                }
+
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 16),
+                                  child: _buildModernFormField(
+                                    FormLocalization.translate(
+                                        context,
+                                        fieldEntry.value['label'] ??
+                                            AppLocalizations.of(context)!
+                                                .formsUntitledField),
+                                    fieldEntry.value['placeholder'] ??
+                                        AppLocalizations.of(context)!
+                                            .formsEnterValue,
+                                    fieldControllers[fieldKey]!,
+                                    fieldEntry.value['required'] ?? false,
+                                    fieldEntry.value['type'] ?? 'text',
+                                    fieldKey,
+                                    options: (fieldEntry
+                                                    .value['type'] ==
+                                                'select' ||
+                                            fieldEntry.value['type'] ==
+                                                'dropdown' ||
+                                            fieldEntry.value['type'] ==
+                                                'multi_select' ||
+                                            fieldEntry.value['type'] == 'radio')
+                                        ? (fieldEntry.value['options'] is List)
+                                            ? List<String>.from(
+                                                fieldEntry.value['options'])
+                                            : (fieldEntry.value['options']
+                                                    is String)
+                                                ? (fieldEntry.value['options']
+                                                        as String)
+                                                    .split(',')
+                                                    .map((e) => e.trim())
+                                                    .toList()
+                                                : []
+                                        : null,
+                                  ),
+                                );
+                              } catch (e) {
+                                // Fallback for any field rendering errors
+                                AppLogger.error(
+                                    'FormScreen: Error rendering field ${fieldEntry.key}: $e');
+                                return Container(
+                                  padding: const EdgeInsets.all(16),
+                                  margin: const EdgeInsets.only(bottom: 24),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xffFEF2F2),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                        color: const Color(0xffEF4444)),
+                                  ),
+                                  child: Text(
+                                    'Error rendering field: ${fieldEntry.key}. Error: $e',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 14,
+                                      color: const Color(0xffDC2626),
+                                    ),
+                                  ),
+                                );
+                              }
+                            }),
+                          ],
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    // Action buttons
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          // Use column layout on small screens, row on larger screens
+                          final isSmallScreen = constraints.maxWidth < 400;
+
+                          if (isSmallScreen) {
+                            return Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: ElevatedButton(
+                                    onPressed:
+                                        _isSubmitDisabled ? null : _submitForm,
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: _primaryColor,
+                                      foregroundColor: Colors.white,
+                                      elevation: 0,
+                                      padding: const EdgeInsets.symmetric(
+                                          vertical: 16),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                    ),
+                                    child: _isSubmitting
+                                        ? Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              const SizedBox(
+                                                width: 20,
+                                                height: 20,
+                                                child:
+                                                    CircularProgressIndicator(
+                                                  strokeWidth: 2,
+                                                  valueColor:
+                                                      AlwaysStoppedAnimation<
+                                                          Color>(Colors.white),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 12),
+                                              Flexible(
+                                                child: Text(
+                                                  AppLocalizations.of(context)!
+                                                      .submitting,
+                                                  style: GoogleFonts.inter(
+                                                    fontSize: 16,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                            ],
+                                          )
+                                        : Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              const Icon(Icons.send, size: 20),
+                                              const SizedBox(width: 8),
+                                              Flexible(
+                                                child: Text(
+                                                  AppLocalizations.of(context)!
+                                                      .submitForm,
+                                                  style: GoogleFonts.inter(
+                                                    fontSize: 16,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                            ],
                                           ),
-                                        ),
-                                      ],
-                                    )
-                                  : Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: OutlinedButton(
+                                    onPressed:
+                                        _isSubmitting ? null : _resetForm,
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: const Color(0xff6B7280),
+                                      side: const BorderSide(
+                                          color: Color(0xffE5E7EB)),
+                                      padding: const EdgeInsets.symmetric(
+                                          vertical: 16, horizontal: 24),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
                                       children: [
-                                        const Icon(Icons.send, size: 20),
+                                        const Icon(Icons.refresh, size: 20),
                                         const SizedBox(width: 8),
                                         Flexible(
                                           child: Text(
-                                            AppLocalizations.of(context)!.submitForm,
+                                            AppLocalizations.of(context)!
+                                                .commonReset,
                                             style: GoogleFonts.inter(
                                               fontSize: 16,
                                               fontWeight: FontWeight.w600,
@@ -1754,50 +1745,123 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                                         ),
                                       ],
                                     ),
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Flexible(
-                            child: OutlinedButton(
-                              onPressed: _isSubmitting ? null : _resetForm,
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: const Color(0xff6B7280),
-                                side: const BorderSide(color: Color(0xffE5E7EB)),
-                                padding: const EdgeInsets.symmetric(
-                                    vertical: 16, horizontal: 16),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
+                                  ),
                                 ),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  const Icon(Icons.refresh, size: 20),
-                                  const SizedBox(width: 8),
-                                  Flexible(
-                                    child: Text(
-                                      AppLocalizations.of(context)!.commonReset,
-                                      style: GoogleFonts.inter(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
+                              ],
+                            );
+                          }
+
+                          // Row layout for larger screens
+                          return Row(
+                            children: [
+                              Expanded(
+                                child: ElevatedButton(
+                                  onPressed:
+                                      _isSubmitDisabled ? null : _submitForm,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: _primaryColor,
+                                    foregroundColor: Colors.white,
+                                    elevation: 0,
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 16),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
                                     ),
                                   ),
-                                ],
+                                  child: _isSubmitting
+                                      ? Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            const SizedBox(
+                                              width: 20,
+                                              height: 20,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                                valueColor:
+                                                    AlwaysStoppedAnimation<
+                                                        Color>(Colors.white),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 12),
+                                            Flexible(
+                                              child: Text(
+                                                AppLocalizations.of(context)!
+                                                    .submitting,
+                                                style: GoogleFonts.inter(
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ],
+                                        )
+                                      : Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            const Icon(Icons.send, size: 20),
+                                            const SizedBox(width: 8),
+                                            Flexible(
+                                              child: Text(
+                                                AppLocalizations.of(context)!
+                                                    .submitForm,
+                                                style: GoogleFonts.inter(
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                ),
                               ),
-                            ),
-                          ),
-                        ],
-                      );
-                    },
-                  ),
+                              const SizedBox(width: 16),
+                              Flexible(
+                                child: OutlinedButton(
+                                  onPressed: _isSubmitting ? null : _resetForm,
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: const Color(0xff6B7280),
+                                    side: const BorderSide(
+                                        color: Color(0xffE5E7EB)),
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 16, horizontal: 16),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      const Icon(Icons.refresh, size: 20),
+                                      const SizedBox(width: 8),
+                                      Flexible(
+                                        child: Text(
+                                          AppLocalizations.of(context)!
+                                              .commonReset,
+                                          style: GoogleFonts.inter(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
-          ),
-        ),
           );
         },
       ),
@@ -1819,7 +1883,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
     final localizedOptions = options
         ?.map((option) => FormLocalization.translate(context, option))
         .toList();
-    
+
     return GestureDetector(
       onTapDown: (_) => setState(() => _focusedFieldKey = fieldKey),
       child: AnimatedContainer(
@@ -1873,8 +1937,9 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                           ),
                           children: [
                             if (required)
-                               TextSpan(
-                                text: ' ${AppLocalizations.of(context)!.commonRequired}',
+                              TextSpan(
+                                text:
+                                    ' ${AppLocalizations.of(context)!.commonRequired}',
                                 style: TextStyle(color: Colors.red),
                               ),
                           ],
@@ -1902,7 +1967,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
       ),
     );
   }
-  
+
   Widget _renderInputByType(
     String fieldKey,
     String type,
@@ -1913,17 +1978,24 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
     String label,
   ) {
     if (type == 'select' || type == 'dropdown') {
-      return _buildDropdownField(controller, hintText, options, required, label, fieldKey);
+      return _buildDropdownField(
+          controller, hintText, options, required, label, fieldKey);
     } else if (type == 'multi_select') {
-      return _buildMultiSelectField(controller, hintText, options, required, label, fieldKey);
-    } else if (type == 'multiline' || type == 'long_text' || type == 'description') {
-      return _buildTextAreaField(controller, hintText, required, label, fieldKey);
+      return _buildMultiSelectField(
+          controller, hintText, options, required, label, fieldKey);
+    } else if (type == 'multiline' ||
+        type == 'long_text' ||
+        type == 'description') {
+      return _buildTextAreaField(
+          controller, hintText, required, label, fieldKey);
     } else if (type == 'date') {
       return _buildDateField(controller, hintText, required, label, fieldKey);
     } else if (type == 'radio') {
       // Radio buttons: if options exist, render as radio buttons with options
       // Otherwise, render as boolean (Yes/No)
-      if (options != null && (options is List) && (options as List).isNotEmpty) {
+      if (options != null &&
+          (options is List) &&
+          (options as List).isNotEmpty) {
         return _buildRadioField(controller, options, required, label, fieldKey);
       } else {
         // No options provided, treat as boolean Yes/No
@@ -1936,9 +2008,11 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
     } else if (type == 'image_upload' || type == 'imageUpload') {
       return _buildImageField(controller, hintText, required, label, fieldKey);
     } else if (type == 'signature') {
-      return _buildSignatureField(controller, hintText, required, label, fieldKey);
+      return _buildSignatureField(
+          controller, hintText, required, label, fieldKey);
     } else {
-      return _buildTextInputField(controller, hintText, required, label, type, fieldKey);
+      return _buildTextInputField(
+          controller, hintText, required, label, type, fieldKey);
     }
   }
 
@@ -1960,12 +2034,18 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
         hintStyle: TextStyle(color: Colors.grey[400]),
         filled: true,
         fillColor: Colors.grey[50],
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-        border: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey)),
-        enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFE0E0E0))),
-        focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: _primaryColor, width: 2)),
-        errorBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.red)),
-        focusedErrorBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.red, width: 2)),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        border: const UnderlineInputBorder(
+            borderSide: BorderSide(color: Colors.grey)),
+        enabledBorder: const UnderlineInputBorder(
+            borderSide: BorderSide(color: Color(0xFFE0E0E0))),
+        focusedBorder: UnderlineInputBorder(
+            borderSide: BorderSide(color: _primaryColor, width: 2)),
+        errorBorder: const UnderlineInputBorder(
+            borderSide: BorderSide(color: Colors.red)),
+        focusedErrorBorder: const UnderlineInputBorder(
+            borderSide: BorderSide(color: Colors.red, width: 2)),
       ),
       style: GoogleFonts.inter(
         fontSize: 14,
@@ -2002,12 +2082,12 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
   ) {
     // Ensure initialValue exists in options list to avoid assertion errors
     final currentValue = controller.text;
-    final validInitialValue = (currentValue.isNotEmpty && 
-        options != null && 
-        options.contains(currentValue)) 
-        ? currentValue 
+    final validInitialValue = (currentValue.isNotEmpty &&
+            options != null &&
+            options.contains(currentValue))
+        ? currentValue
         : null;
-    
+
     return DropdownButtonFormField<String>(
       value: validInitialValue,
       decoration: InputDecoration(
@@ -2142,7 +2222,8 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                       child: Text(
                         selectedValues.isEmpty
                             ? hintText.isEmpty
-                                ? AppLocalizations.of(context)!.formSelectMultipleOptions
+                                ? AppLocalizations.of(context)!
+                                    .formSelectMultipleOptions
                                 : hintText
                             : '${selectedValues.length} option(s) selected: ${selectedValues.join(', ')}',
                         style: GoogleFonts.inter(
@@ -2221,7 +2302,8 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          AppLocalizations.of(context)!.theFormCreatorHasNotAdded,
+                          AppLocalizations.of(context)!
+                              .theFormCreatorHasNotAdded,
                           style: GoogleFonts.inter(
                             fontSize: 12,
                             color: const Color(0xff9CA3AF),
@@ -2283,12 +2365,18 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
         hintStyle: TextStyle(color: Colors.grey[400]),
         filled: true,
         fillColor: Colors.grey[50],
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-        border: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey)),
-        enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFE0E0E0))),
-        focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: _primaryColor, width: 2)),
-        errorBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.red)),
-        focusedErrorBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.red, width: 2)),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        border: const UnderlineInputBorder(
+            borderSide: BorderSide(color: Colors.grey)),
+        enabledBorder: const UnderlineInputBorder(
+            borderSide: BorderSide(color: Color(0xFFE0E0E0))),
+        focusedBorder: UnderlineInputBorder(
+            borderSide: BorderSide(color: _primaryColor, width: 2)),
+        errorBorder: const UnderlineInputBorder(
+            borderSide: BorderSide(color: Colors.red)),
+        focusedErrorBorder: const UnderlineInputBorder(
+            borderSide: BorderSide(color: Colors.red, width: 2)),
       ),
       style: GoogleFonts.inter(
         fontSize: 14,
@@ -2450,7 +2538,11 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
     if (options is List) {
       optionList = options.map((e) => e.toString()).toList();
     } else if (options is String) {
-      optionList = options.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+      optionList = options
+          .split(',')
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .toList();
     }
 
     return Column(
@@ -3087,13 +3179,13 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
     return AppLocalizations.of(context)!.formsFieldCount(count);
   }
 
-  Future<void> _handleFormSelection(String formId, Map<String, dynamic> formData) async {
-    
+  Future<void> _handleFormSelection(
+      String formId, Map<String, dynamic> formData) async {
     // SECURITY CHECK: Orphan Prevention
     // If this is the Readiness Form but we don't have a shiftId (context),
     // we MUST force the user to select which class they are reporting for.
     final readinessFormId = await ShiftFormService.getReadinessFormId();
-    
+
     if (formId == readinessFormId && widget.shiftId == null) {
       if (mounted) {
         final selectedShift = await _showShiftSelectionDialog();
@@ -3132,10 +3224,10 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
         if (shiftDoc.exists) {
           shiftData = shiftDoc.data();
           debugPrint('✅ Shift data loaded for auto-fill: ${shiftData?.keys}');
-          
+
           // If student_names is missing but student_ids exists, fetch student names
-          if ((shiftData?['student_names'] == null || 
-               (shiftData?['student_names'] as List).isEmpty) &&
+          if ((shiftData?['student_names'] == null ||
+                  (shiftData?['student_names'] as List).isEmpty) &&
               shiftData?['student_ids'] != null) {
             final studentIds = shiftData!['student_ids'] as List<dynamic>?;
             if (studentIds != null && studentIds.isNotEmpty) {
@@ -3147,15 +3239,19 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                       .doc(studentId.toString())
                       .get();
                   if (studentDoc.exists) {
-                    final studentData = studentDoc.data() as Map<String, dynamic>;
-                    final firstName = studentData['first_name'] ?? studentData['firstName'] ?? '';
-                    final lastName = studentData['last_name'] ?? studentData['lastName'] ?? '';
+                    final studentData =
+                        studentDoc.data() as Map<String, dynamic>;
+                    final firstName = studentData['first_name'] ??
+                        studentData['firstName'] ??
+                        '';
+                    final lastName = studentData['last_name'] ??
+                        studentData['lastName'] ??
+                        '';
                     if (firstName.isNotEmpty || lastName.isNotEmpty) {
                       studentNames.add('$firstName $lastName'.trim());
                     }
                   }
-                } catch (e) {
-                }
+                } catch (e) {}
               }
               if (studentNames.isNotEmpty) {
                 shiftData!['student_names'] = studentNames;
@@ -3182,38 +3278,38 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
 
         // Get autoFillRules if present
         final autoFillRules = formData['autoFillRules'] as List<dynamic>? ?? [];
-        
 
         // Create new controllers for form fields with auto-fill support
         final fields = formData['fields'] as Map<String, dynamic>?;
         if (fields != null) {
-          AppLogger.debug('FormScreen: Creating controllers for ${fields.length} fields');
+          AppLogger.debug(
+              'FormScreen: Creating controllers for ${fields.length} fields');
           AppLogger.debug('FormScreen: Field IDs: ${fields.keys.toList()}');
           fields.forEach((fieldId, fieldData) {
             AppLogger.debug(
                 'FormScreen: Creating controller for field: $fieldId (type: ${fieldId.runtimeType})');
-            
+
             // Check if this field has an autoFillRule
             String? autoFilledValue;
             for (var rule in autoFillRules) {
               if (rule is Map<String, dynamic> && rule['fieldId'] == fieldId) {
                 final sourceField = rule['sourceField'] as String?;
                 final editable = rule['editable'] as bool? ?? false;
-                
-                
+
                 // Apply auto-fill from shift data if available
                 if (shiftData != null && sourceField != null) {
                   autoFilledValue = _getAutoFillValue(shiftData, sourceField);
-                  debugPrint('✅ Auto-filled $fieldId = $autoFilledValue (editable: $editable)');
-                } else {
-                }
+                  debugPrint(
+                      '✅ Auto-filled $fieldId = $autoFilledValue (editable: $editable)');
+                } else {}
                 break;
               }
             }
-            
+
             // Initialize controller with auto-filled value if available
-            fieldControllers[fieldId] = TextEditingController(text: autoFilledValue ?? '');
-            
+            fieldControllers[fieldId] =
+                TextEditingController(text: autoFilledValue ?? '');
+
             // Store auto-filled values in fieldValues for non-text fields
             if (autoFilledValue != null) {
               fieldValues[fieldId] = autoFilledValue;
@@ -3248,7 +3344,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
       });
     }
   }
-  
+
   /// Get day of week string from DateTime (e.g., "Mon/Lundi", "Tue/Mardi")
   String _getDayOfWeekString(DateTime date) {
     final weekday = date.weekday; // 1 = Monday, 7 = Sunday
@@ -3273,8 +3369,8 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
   }
 
   /// Get auto-fill value from shift data based on sourceField
-  String? _getAutoFillValue(Map<String, dynamic> shiftData, String sourceField) {
-    
+  String? _getAutoFillValue(
+      Map<String, dynamic> shiftData, String sourceField) {
     switch (sourceField) {
       case 'shiftId':
         return widget.shiftId;
@@ -3289,10 +3385,9 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
         // Try multiple field names to find student names
         // Firestore uses 'student_names' (snake_case), but also check camelCase variants
         final students = shiftData['student_names'] as List<dynamic>? ??
-                        shiftData['studentNames'] as List<dynamic>? ??
-                        shiftData['students'] as List<dynamic>?;
-        
-        
+            shiftData['studentNames'] as List<dynamic>? ??
+            shiftData['students'] as List<dynamic>?;
+
         return students?.map((s) => s.toString()).join(', ');
       case 'shift.duration':
       case 'duration':
@@ -3315,7 +3410,8 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
         final clockOut = (shiftData['clock_out'] as Timestamp?)?.toDate();
         return clockOut != null ? DateFormat('h:mm a').format(clockOut) : null;
       case 'teacherName':
-        return _currentUserData?['firstName'] != null && _currentUserData?['lastName'] != null
+        return _currentUserData?['firstName'] != null &&
+                _currentUserData?['lastName'] != null
             ? '${_currentUserData!['firstName']} ${_currentUserData!['lastName']}'
             : null;
       case 'teacherEmail':
@@ -3361,18 +3457,16 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
 
       final now = DateTime.now();
       final allShifts = await ShiftService.getShiftsForTeacher(user.uid);
-      
-      
+
       AppLogger.debug('FormScreen: Total shifts loaded: ${allShifts.length}');
-      
+
       // Filter: only completed or missed shifts that have ended (not future)
       // Strictly exclude any shifts that haven't started yet, haven't ended yet, or are scheduled
       final eligibleShifts = allShifts.where((shift) {
         final status = shift.status;
         final shiftStart = shift.shiftStart.toLocal();
         final shiftEnd = shift.shiftEnd.toLocal();
-        
-        
+
         // FIRST CHECK: Explicitly exclude scheduled, active, cancelled - return immediately
         if (status == ShiftStatus.scheduled) {
           AppLogger.debug('FormScreen: Excluding SCHEDULED shift ${shift.id}');
@@ -3386,39 +3480,43 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
           AppLogger.debug('FormScreen: Excluding CANCELLED shift ${shift.id}');
           return false;
         }
-        
+
         // SECOND CHECK: Must be in a completed/missed state
-        final isCompletedOrMissed = status == ShiftStatus.completed || 
-                                    status == ShiftStatus.fullyCompleted ||
-                                    status == ShiftStatus.partiallyCompleted ||
-                                    status == ShiftStatus.missed;
-        
+        final isCompletedOrMissed = status == ShiftStatus.completed ||
+            status == ShiftStatus.fullyCompleted ||
+            status == ShiftStatus.partiallyCompleted ||
+            status == ShiftStatus.missed;
+
         if (!isCompletedOrMissed) {
-          AppLogger.debug('FormScreen: Excluding shift ${shift.id} - not completed/missed, status=$status');
+          AppLogger.debug(
+              'FormScreen: Excluding shift ${shift.id} - not completed/missed, status=$status');
           return false;
         }
-        
+
         // THIRD CHECK: Must have started AND ended (both must be in the past)
         // Shift must have started (start time is in the past)
         if (!shiftStart.isBefore(now)) {
-          AppLogger.debug('FormScreen: Excluding shift ${shift.id} - has not started yet (start=$shiftStart, now=$now)');
+          AppLogger.debug(
+              'FormScreen: Excluding shift ${shift.id} - has not started yet (start=$shiftStart, now=$now)');
           return false;
         }
-        
+
         // Shift must have ended (end time is in the past, at least 1 second ago)
         final timeSinceEnd = now.difference(shiftEnd);
         if (timeSinceEnd.inSeconds <= 0) {
-          AppLogger.debug('FormScreen: Excluding shift ${shift.id} - has not ended yet (end=$shiftEnd, now=$now, diff=${timeSinceEnd.inSeconds}s)');
+          AppLogger.debug(
+              'FormScreen: Excluding shift ${shift.id} - has not ended yet (end=$shiftEnd, now=$now, diff=${timeSinceEnd.inSeconds}s)');
           return false;
         }
-        
+
         // All checks passed
-        AppLogger.debug('FormScreen: Including eligible shift ${shift.id}: status=$status, ended ${timeSinceEnd.inSeconds}s ago');
+        AppLogger.debug(
+            'FormScreen: Including eligible shift ${shift.id}: status=$status, ended ${timeSinceEnd.inSeconds}s ago');
         return true;
       }).toList();
-      
-      
-      AppLogger.debug('FormScreen: Eligible shifts after filtering: ${eligibleShifts.length}');
+
+      AppLogger.debug(
+          'FormScreen: Eligible shifts after filtering: ${eligibleShifts.length}');
 
       // Sort by date (most recent first)
       eligibleShifts.sort((a, b) => b.shiftEnd.compareTo(a.shiftEnd));
@@ -3426,9 +3524,10 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
       // Build shift list with form status
       final shiftsWithStatus = <Map<String, dynamic>>[];
       for (final shift in eligibleShifts) {
-        final formResponseId = await ShiftFormService.getFormResponseForShift(shift.id);
+        final formResponseId =
+            await ShiftFormService.getFormResponseForShift(shift.id);
         final hasForm = formResponseId != null;
-        
+
         // Get timesheet if exists
         final timesheetQuery = await FirebaseFirestore.instance
             .collection('timesheet_entries')
@@ -3436,9 +3535,11 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
             .where('teacher_id', isEqualTo: user.uid)
             .limit(1)
             .get();
-        
-        final timesheetId = timesheetQuery.docs.isNotEmpty ? timesheetQuery.docs.first.id : null;
-        
+
+        final timesheetId = timesheetQuery.docs.isNotEmpty
+            ? timesheetQuery.docs.first.id
+            : null;
+
         final shiftData = {
           'shiftId': shift.id,
           'timesheetId': timesheetId,
@@ -3449,12 +3550,10 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
           'hasForm': hasForm,
           'formResponseId': formResponseId,
         };
-        
-        
+
         shiftsWithStatus.add(shiftData);
       }
-      
-      
+
       if (!mounted) return null;
       Navigator.pop(context); // Close loading
 
@@ -3489,7 +3588,8 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  AppLocalizations.of(context)!.pleaseSelectWhichClassThisReport,
+                  AppLocalizations.of(context)!
+                      .pleaseSelectWhichClassThisReport,
                   style: TextStyle(color: Colors.grey),
                 ),
                 const SizedBox(height: 16),
@@ -3501,33 +3601,43 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                     itemBuilder: (context, index) {
                       final shift = shiftsWithStatus[index];
                       final title = shift['shiftTitle'] ?? 'Unknown Class';
-                      final type = shift['type'] == 'missed' ? 'Missed Clock-in' : 'Completed';
+                      final type = shift['type'] == 'missed'
+                          ? 'Missed Clock-in'
+                          : 'Completed';
                       final date = shift['shiftStart'] as DateTime;
                       final dateStr = DateFormat('MMM d, h:mm a').format(date);
                       final hasForm = shift['hasForm'] as bool;
                       final formResponseId = shift['formResponseId'] as String?;
 
                       return ListTile(
-                        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
-                        subtitle: Text(AppLocalizations.of(context)!.datestrType),
+                        title: Text(title,
+                            style:
+                                const TextStyle(fontWeight: FontWeight.bold)),
+                        subtitle:
+                            Text(AppLocalizations.of(context)!.datestrType),
                         trailing: hasForm
                             ? IconButton(
-                                icon: const Icon(Icons.visibility, color: Color(0xff10B981)),
+                                icon: const Icon(Icons.visibility,
+                                    color: Color(0xff10B981)),
                                 tooltip: AppLocalizations.of(context)!.viewForm,
                                 onPressed: () async {
                                   // Load form details and show modal
                                   try {
-                                    final formDoc = await FirebaseFirestore.instance
+                                    final formDoc = await FirebaseFirestore
+                                        .instance
                                         .collection('form_responses')
                                         .doc(formResponseId!)
                                         .get();
-                                    
+
                                     if (formDoc.exists && mounted) {
                                       final data = formDoc.data() ?? {};
-                                      final responses = data['responses'] as Map<String, dynamic>? ?? {};
-                                      
-                                      Navigator.pop(context, null); // Close shift selection
-                                      
+                                      final responses = data['responses']
+                                              as Map<String, dynamic>? ??
+                                          {};
+
+                                      Navigator.pop(context,
+                                          null); // Close shift selection
+
                                       FormDetailsModal.show(
                                         context,
                                         formId: formResponseId!,
@@ -3537,10 +3647,13 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                                     }
                                   } catch (e) {
                                     if (mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
                                         SnackBar(
-                                          content: Text(AppLocalizations.of(context)!
-                                              .formsErrorLoadingForm(e.toString())),
+                                          content: Text(
+                                              AppLocalizations.of(context)!
+                                                  .formsErrorLoadingForm(
+                                                      e.toString())),
                                           backgroundColor: Colors.red,
                                         ),
                                       );
@@ -3581,7 +3694,8 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
       return [];
     }
 
-    AppLogger.debug('FormScreen: Selected form data keys: ${selectedFormData!.keys}');
+    AppLogger.debug(
+        'FormScreen: Selected form data keys: ${selectedFormData!.keys}');
 
     final fields = selectedFormData!['fields'];
     if (fields == null) {
@@ -3632,7 +3746,8 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
               'FormScreen: Field ${fieldEntry.key} is hidden by conditional logic');
         }
       } catch (e) {
-        AppLogger.error('FormScreen: Error processing field ${fieldEntry.key}: $e');
+        AppLogger.error(
+            'FormScreen: Error processing field ${fieldEntry.key}: $e');
       }
     }
 
@@ -3771,7 +3886,8 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
       final testUpload = await uploadTask.timeout(
         const Duration(seconds: 10),
         onTimeout: () {
-          AppLogger.debug('Test upload task final state: ${uploadTask.snapshot.state}');
+          AppLogger.debug(
+              'Test upload task final state: ${uploadTask.snapshot.state}');
           AppLogger.debug(
               'Test upload bytes transferred: ${uploadTask.snapshot.bytesTransferred}');
           throw Exception('Test upload timeout');
@@ -3779,7 +3895,9 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
       );
 
       AppLogger.info('Test upload successful! Cleaning up...');
-      await testRef.delete().catchError((e) => AppLogger.error('Cleanup error: $e'));
+      await testRef
+          .delete()
+          .catchError((e) => AppLogger.error('Cleanup error: $e'));
       AppLogger.debug('=== Storage connectivity test PASSED ===');
     } catch (e) {
       AppLogger.error('=== Storage connectivity test FAILED ===');
@@ -3795,7 +3913,8 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
       }
       AppLogger.debug('This indicates a fundamental connectivity issue');
       AppLogger.debug('Possible solutions:');
-      AppLogger.debug('1. Check Firebase Storage is enabled in Firebase Console');
+      AppLogger.debug(
+          '1. Check Firebase Storage is enabled in Firebase Console');
       AppLogger.debug('2. Check network/firewall settings');
       AppLogger.debug('3. Try from a different network');
       AppLogger.debug('4. Check CORS configuration');
@@ -4050,6 +4169,61 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
     });
   }
 
+  String _yearMonthFromDate(DateTime date) {
+    return '${date.year}-${date.month.toString().padLeft(2, '0')}';
+  }
+
+  DateTime? _parseDateTime(dynamic value) {
+    if (value == null) return null;
+    if (value is Timestamp) return value.toDate();
+    if (value is DateTime) return value;
+    if (value is String) return DateTime.tryParse(value);
+    return null;
+  }
+
+  Future<String> _resolveSubmissionYearMonth() async {
+    final fallback = _yearMonthFromDate(DateTime.now());
+
+    try {
+      String? targetShiftId = widget.shiftId;
+
+      if (widget.timesheetId != null) {
+        final timesheetDoc = await FirebaseFirestore.instance
+            .collection('timesheet_entries')
+            .doc(widget.timesheetId)
+            .get();
+
+        if (timesheetDoc.exists) {
+          final tsData = timesheetDoc.data() ?? const <String, dynamic>{};
+          final shiftIdCandidate = tsData['shift_id'] ?? tsData['shiftId'];
+          if (shiftIdCandidate is String && shiftIdCandidate.isNotEmpty) {
+            targetShiftId = shiftIdCandidate;
+          }
+        }
+      }
+
+      if (targetShiftId == null || targetShiftId.isEmpty) {
+        return fallback;
+      }
+
+      final shiftDoc = await FirebaseFirestore.instance
+          .collection('teaching_shifts')
+          .doc(targetShiftId)
+          .get();
+      if (!shiftDoc.exists) return fallback;
+
+      final shiftData = shiftDoc.data() ?? const <String, dynamic>{};
+      final shiftStart =
+          _parseDateTime(shiftData['shift_start'] ?? shiftData['shiftStart']);
+
+      return shiftStart != null ? _yearMonthFromDate(shiftStart) : fallback;
+    } catch (e) {
+      AppLogger.warning(
+          'FormScreen: Could not resolve shift-based yearMonth, using fallback: $e');
+      return fallback;
+    }
+  }
+
   Future<void> _submitForm() async {
     if (!_formKey.currentState!.validate()) {
       AppLogger.error('Form validation failed');
@@ -4095,7 +4269,8 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
           }
 
           final fieldData = fieldValue;
-          AppLogger.debug('Field $fieldId has data: ${fieldData.keys.toList()}');
+          AppLogger.debug(
+              'Field $fieldId has data: ${fieldData.keys.toList()}');
 
           // Check if this is an image/signature field with bytes
           if (fieldData.containsKey('bytes') && fieldData['bytes'] != null) {
@@ -4217,7 +4392,8 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                 'Field $fieldId: storing multi-select values: $selectedValues');
             responses[fieldId] = selectedValues;
           } else {
-            AppLogger.debug('Field $fieldId: storing text value: ${controller.text}');
+            AppLogger.debug(
+                'Field $fieldId: storing text value: ${controller.text}');
             responses[fieldId] = controller.text;
           }
         }
@@ -4231,80 +4407,37 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
       AppLogger.debug('- Responses: ${responses.keys.toList()}');
       AppLogger.debug('- Response data: $responses');
 
-      // Get user data for names
-      final userData = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(currentUser.uid)
-          .get();
-
-      final userFirstName = userData.data()?['first_name'] as String? ?? '';
-      final userLastName = userData.data()?['last_name'] as String? ?? '';
-
-      // Generate yearMonth for monthly grouping/audits based on SHIFT date, not submission date
-      String yearMonth;
-      if (widget.timesheetId != null) {
-        // Get yearMonth from timesheet (which has shift info)
-        final timesheetDoc = await FirebaseFirestore.instance
-            .collection('timesheet_entries')
-            .doc(widget.timesheetId)
+      // Get optional user profile names (non-blocking for submission).
+      String userFirstName = '';
+      String userLastName = '';
+      try {
+        final userDataDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(currentUser.uid)
             .get();
-        if (timesheetDoc.exists) {
-          final tsData = timesheetDoc.data()!;
-          final shiftId = tsData['shift_id'] as String?;
-          if (shiftId != null) {
-            final shiftDoc = await FirebaseFirestore.instance
-                .collection('teaching_shifts')
-                .doc(shiftId)
-                .get();
-            if (shiftDoc.exists) {
-              final shiftData = shiftDoc.data()!;
-              final shiftStart = (shiftData['shift_start'] as Timestamp).toDate();
-              yearMonth = '${shiftStart.year}-${shiftStart.month.toString().padLeft(2, '0')}';
-            } else {
-              // Fallback to current month if shift not found
-              final now = DateTime.now();
-              yearMonth = '${now.year}-${now.month.toString().padLeft(2, '0')}';
-            }
-          } else {
-            // Fallback to current month if shift_id not found
-            final now = DateTime.now();
-            yearMonth = '${now.year}-${now.month.toString().padLeft(2, '0')}';
-          }
-        } else {
-          // Fallback to current month if timesheet not found
-          final now = DateTime.now();
-          yearMonth = '${now.year}-${now.month.toString().padLeft(2, '0')}';
-        }
-      } else if (widget.shiftId != null) {
-        // Get yearMonth directly from shift
-        final shiftDoc = await FirebaseFirestore.instance
-            .collection('teaching_shifts')
-            .doc(widget.shiftId)
-            .get();
-        if (shiftDoc.exists) {
-          final shiftData = shiftDoc.data()!;
-          final shiftStart = (shiftData['shift_start'] as Timestamp).toDate();
-          yearMonth = '${shiftStart.year}-${shiftStart.month.toString().padLeft(2, '0')}';
-        } else {
-          // Fallback to current month if shift not found
-          final now = DateTime.now();
-          yearMonth = '${now.year}-${now.month.toString().padLeft(2, '0')}';
-        }
-      } else {
-        // Fallback to current month if no shift/timesheet info
-        final now = DateTime.now();
-        yearMonth = '${now.year}-${now.month.toString().padLeft(2, '0')}';
+        final userData = userDataDoc.data() ?? const <String, dynamic>{};
+        userFirstName =
+            (userData['first_name'] ?? userData['firstName']) as String? ?? '';
+        userLastName =
+            (userData['last_name'] ?? userData['lastName']) as String? ?? '';
+      } catch (e) {
+        AppLogger.warning(
+            'FormScreen: Could not load user profile names for submission: $e');
       }
-      
+
+      // Resolve yearMonth from shift/timesheet when available.
+      // If those reads are denied/missing, fallback to current month.
+      final yearMonth = await _resolveSubmissionYearMonth();
+
       // Determine if this is a template-based form
       final isTemplate = selectedFormData?['isTemplate'] == true;
       final templateId = selectedFormData?['templateId'] as String?;
-      
+
       // Get form name/title for better identification
-      final formName = selectedFormData?['title'] as String? ?? 
-                      selectedFormData?['name'] as String? ?? 
-                      'Untitled Form';
-      
+      final formName = selectedFormData?['title'] as String? ??
+          selectedFormData?['name'] as String? ??
+          'Untitled Form';
+
       // Get form type for audit system (daily, weekly, monthly, onDemand)
       final frequency = selectedFormData?['frequency'] as String?;
       String formType = 'legacy'; // Default for old forms
@@ -4324,15 +4457,22 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
             break;
         }
       }
-      
+
       final Map<String, dynamic> submissionData = {
         'formId': selectedFormId,
         'formName': formName, // Store form name for easier identification
         'formType': formType, // Store form type for audit system
-        if (isTemplate && templateId != null) 'templateId': templateId, // Store template ID for new system
-        if (frequency != null) 'frequency': frequency, // Store frequency for filtering
+        if (isTemplate && templateId != null)
+          'templateId': templateId, // Store template ID for new system
+        if (frequency != null)
+          'frequency': frequency, // Store frequency for filtering
         'userId': currentUser.uid,
+        'submittedBy': currentUser.uid, // Legacy compatibility
+        'teacherId': currentUser.uid, // Legacy compatibility
+        'teacher_id': currentUser.uid, // Legacy compatibility
         'userEmail': currentUser.email,
+        'firstName': userFirstName, // Legacy compatibility
+        'lastName': userLastName, // Legacy compatibility
         'userFirstName': userFirstName,
         'userLastName': userLastName,
         'responses': responses,
@@ -4343,36 +4483,87 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
       };
 
       // Add linkage IDs if present
-      if (widget.timesheetId != null) submissionData['timesheetId'] = widget.timesheetId;
-      if (widget.shiftId != null) submissionData['shiftId'] = widget.shiftId;
+      if (widget.timesheetId != null) {
+        submissionData['timesheetId'] = widget.timesheetId;
+      }
+      if (widget.shiftId != null) {
+        submissionData['shiftId'] = widget.shiftId;
+      }
 
-      final docRef = await FirebaseFirestore.instance
-          .collection('form_responses')
-          .add(submissionData)
-          .timeout(
-        const Duration(seconds: 30),
-        onTimeout: () {
-          AppLogger.debug('Firestore submission timeout after 30 seconds');
-          throw Exception('Firestore submission timeout');
-        },
-      );
+      DocumentReference docRef;
+      try {
+        docRef = await FirebaseFirestore.instance
+            .collection('form_responses')
+            .add(submissionData)
+            .timeout(
+          const Duration(seconds: 30),
+          onTimeout: () {
+            AppLogger.debug('Firestore submission timeout after 30 seconds');
+            throw Exception('Firestore submission timeout');
+          },
+        );
+      } on FirebaseException catch (e) {
+        if (e.code != 'permission-denied') rethrow;
 
-      // CRITICAL: Update Timesheet Entry or Shift (Linkage)
-      // This ensures that when viewing a shift's details, the form will appear there
+        AppLogger.warning(
+            'FormScreen: Rich submission payload denied by rules, retrying with legacy-compatible payload');
+
+        final legacySubmissionData = <String, dynamic>{
+          'formId': selectedFormId,
+          'userId': currentUser.uid,
+          'submittedBy': currentUser.uid,
+          'teacherId': currentUser.uid,
+          'teacher_id': currentUser.uid,
+          'userEmail': currentUser.email,
+          'firstName': userFirstName,
+          'lastName': userLastName,
+          'responses': responses,
+          'submittedAt': FieldValue.serverTimestamp(),
+          'status': 'completed',
+          'yearMonth': yearMonth,
+        };
+        if (widget.timesheetId != null) {
+          legacySubmissionData['timesheetId'] = widget.timesheetId;
+        }
+        if (widget.shiftId != null) {
+          legacySubmissionData['shiftId'] = widget.shiftId;
+        }
+
+        docRef = await FirebaseFirestore.instance
+            .collection('form_responses')
+            .add(legacySubmissionData)
+            .timeout(
+          const Duration(seconds: 30),
+          onTimeout: () {
+            AppLogger.debug(
+                'Firestore submission timeout after 30 seconds (legacy retry)');
+            throw Exception('Firestore submission timeout');
+          },
+        );
+      }
+
+      // Link submission to timesheet/shift when possible.
+      // Keep this non-blocking so a permission issue here doesn't fail the form submit.
+      bool linkedSuccessfully = true;
       if (widget.timesheetId != null) {
         // Link to timesheet entry (normal case - teacher clocked in)
-        await ShiftFormService.linkFormToTimesheet(
+        linkedSuccessfully = await ShiftFormService.linkFormToTimesheet(
           timesheetId: widget.timesheetId!,
           formResponseId: docRef.id,
           reportedHours: null, // Can be extracted from form responses if needed
         );
       } else if (widget.shiftId != null) {
         // Link directly to shift (missed shift case - no timesheet entry)
-        await ShiftFormService.linkFormToShift(
+        linkedSuccessfully = await ShiftFormService.linkFormToShift(
           shiftId: widget.shiftId!,
           formResponseId: docRef.id,
           reportedHours: null, // Can be extracted from form responses if needed
         );
+      }
+
+      if (!linkedSuccessfully) {
+        AppLogger.warning(
+            'FormScreen: Submission ${docRef.id} saved but linkage update failed.');
       }
 
       AppLogger.info(

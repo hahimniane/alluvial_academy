@@ -533,7 +533,7 @@ class _PersistentAppBarState extends State<PersistentAppBar> {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     child: Text(
-                      AppLocalizations.of(context)!.programs2,
+                      AppLocalizations.of(context)!.programs,
                       style: GoogleFonts.inter(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,

@@ -908,7 +908,7 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
           style: GoogleFonts.inter(fontWeight: FontWeight.w700),
         ),
         content: Text(
-          AppLocalizations.of(context)!.areYouSureYouWantTo6,
+          AppLocalizations.of(context)!.settingsSignOutConfirm,
           style: GoogleFonts.inter(fontSize: 15, color: const Color(0xFF64748B)),
         ),
         actions: [

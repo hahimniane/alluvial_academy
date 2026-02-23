@@ -348,6 +348,60 @@ class _FormsListScreenState extends State<FormsListScreen> {
           return true;
         }).toList();
 
+        // Deduplicate by normalized name and keep the best candidate:
+        // active > higher version > more recently updated/created.
+        DateTime extractTemplateTime(Map<String, dynamic> data) {
+          final updatedAt = data['updatedAt'];
+          if (updatedAt is Timestamp) return updatedAt.toDate();
+          if (updatedAt is DateTime) return updatedAt;
+          final createdAt = data['createdAt'];
+          if (createdAt is Timestamp) return createdAt.toDate();
+          if (createdAt is DateTime) return createdAt;
+          return DateTime.fromMillisecondsSinceEpoch(0);
+        }
+
+        final Map<String, QueryDocumentSnapshot> latestTemplatesByName = {};
+        for (final doc in templates) {
+          final data = doc.data() as Map<String, dynamic>;
+          final normalizedName = (data['name'] as String? ?? '')
+              .trim()
+              .toLowerCase()
+              .replaceAll(RegExp(r'\s+'), ' ');
+
+          if (!latestTemplatesByName.containsKey(normalizedName)) {
+            latestTemplatesByName[normalizedName] = doc;
+            continue;
+          }
+
+          final existingDoc = latestTemplatesByName[normalizedName]!;
+          final existingData = existingDoc.data() as Map<String, dynamic>;
+
+          final candidateActive = data['isActive'] as bool? ?? true;
+          final existingActive = existingData['isActive'] as bool? ?? true;
+
+          bool shouldReplace = false;
+          if (candidateActive && !existingActive) {
+            shouldReplace = true;
+          } else if (candidateActive == existingActive) {
+            final candidateVersion = data['version'] as int? ?? 1;
+            final existingVersion = existingData['version'] as int? ?? 1;
+            if (candidateVersion > existingVersion) {
+              shouldReplace = true;
+            } else if (candidateVersion == existingVersion) {
+              final candidateTime = extractTemplateTime(data);
+              final existingTime = extractTemplateTime(existingData);
+              if (candidateTime.isAfter(existingTime)) {
+                shouldReplace = true;
+              }
+            }
+          }
+
+          if (shouldReplace) {
+            latestTemplatesByName[normalizedName] = doc;
+          }
+        }
+        templates = latestTemplatesByName.values.toList();
+
         // Sort
         templates.sort((a, b) {
           final aData = a.data() as Map<String, dynamic>;
@@ -994,7 +1048,7 @@ class _FormsListScreenState extends State<FormsListScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text(AppLocalizations.of(context)!.deleteTemplate),
-        content: Text(AppLocalizations.of(context)!.areYouSureYouWantTo10),
+        content: Text(AppLocalizations.of(context)!.confirmDeleteTemplateMessage),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -1032,7 +1086,7 @@ class _FormsListScreenState extends State<FormsListScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text(AppLocalizations.of(context)!.deleteForm),
-        content: Text(AppLocalizations.of(context)!.areYouSureYouWantTo11),
+        content: Text(AppLocalizations.of(context)!.confirmDeleteFormMessage),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -1799,7 +1853,7 @@ class _FieldEditorDialogState extends State<_FieldEditorDialog> {
                     const SizedBox(height: 20),
                     
                     Text(
-                      AppLocalizations.of(context)!.fieldType2,
+                      AppLocalizations.of(context)!.fieldType,
                       style: GoogleFonts.inter(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
@@ -1876,7 +1930,7 @@ class _FieldEditorDialogState extends State<_FieldEditorDialog> {
                           TextButton.icon(
                             onPressed: _addOption,
                             icon: const Icon(Icons.add, size: 16),
-                            label: Text(AppLocalizations.of(context)!.addOption2),
+                            label: Text(AppLocalizations.of(context)!.addOption),
                           ),
                         ],
                       ),

@@ -137,7 +137,7 @@ class _UserSelectionDialogState extends State<UserSelectionDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          AppLocalizations.of(context)!.selectUsers2,
+                          AppLocalizations.of(context)!.selectUsers,
                           style: GoogleFonts.inter(
                             fontSize: 20,
                             fontWeight: FontWeight.w600,

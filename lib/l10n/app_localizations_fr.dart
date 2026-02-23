@@ -10250,4 +10250,93 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get teamPartOfTeamBuildsPlatform =>
       'Membre de l\'équipe qui construit notre plateforme · Maths et sciences';
+
+  @override
+  String get always24Hours7Days => 'Toujours (24/7)';
+
+  @override
+  String get chatMessagesLabel => 'Messages de discussion';
+
+  @override
+  String get adjustmentAmountExampleHint => 'e.g., +0.2 or -5';
+
+  @override
+  String get formResponsesTitle => 'Réponses au formulaire';
+
+  @override
+  String get optionsCommaSeparatedExample => 'ex. Option 1, Option 2, Option 3';
+
+  @override
+  String get readinessFormRequiredTitle => 'Formulaire de préparation requis';
+
+  @override
+  String get requiredForRatingsBelow9 => 'Note requise ci-dessous 9';
+
+  @override
+  String get shiftCompletedLabel => 'Poste terminé';
+
+  @override
+  String get studentDefaultName1 => 'Étudiant 1';
+
+  @override
+  String get requiredAsterisk => '*';
+
+  @override
+  String get notProvidedLabel => 'Non renseigné';
+
+  @override
+  String get bulletSeparator => ' • ';
+
+  @override
+  String get timesheetDetailsTitle => 'Détails du calendrier';
+
+  @override
+  String get userRoleLabel => 'Rôle de l\'utilisateur';
+
+  @override
+  String get userTypeLabel => 'Type d\'utilisateur';
+
+  @override
+  String get confirmDeleteAccountMessage =>
+      'Êtes-vous sûr de vouloir supprimer votre compte ? Cette action est irréversible.';
+
+  @override
+  String get confirmResetAllPasswordsMessage =>
+      'Êtes-vous sûr de vouloir réinitialiser tous les mots de passe ?';
+
+  @override
+  String get confirmLeaveClassMessage =>
+      'Êtes-vous sûr de vouloir quitter ce cours ?';
+
+  @override
+  String get confirmDeleteCommentMessage =>
+      'Êtes-vous sûr de vouloir supprimer ce commentaire ?';
+
+  @override
+  String get confirmDeleteAllTeacherShiftsMessage =>
+      'Êtes-vous sûr de vouloir supprimer tous les shifts de cet enseignant ?';
+
+  @override
+  String get confirmClaimShiftMessage =>
+      'Êtes-vous sûr de vouloir prendre ce shift ?';
+
+  @override
+  String get confirmDeleteTemplateMessage =>
+      'Êtes-vous sûr de vouloir supprimer ce modèle ?';
+
+  @override
+  String get confirmDeleteFormMessage =>
+      'Êtes-vous sûr de vouloir supprimer ce formulaire ?';
+
+  @override
+  String get confirmDeleteDraftMessage =>
+      'Êtes-vous sûr de vouloir supprimer ce brouillon ?';
+
+  @override
+  String get confirmBanShiftMessage =>
+      'Êtes-vous sûr de vouloir bannir ce shift ?';
+
+  @override
+  String get confirmBanFormMessage =>
+      'Êtes-vous sûr de vouloir bannir ce formulaire ?';
 }

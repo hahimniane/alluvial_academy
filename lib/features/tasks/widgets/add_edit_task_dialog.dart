@@ -598,7 +598,7 @@ class _AddEditTaskDialogState extends State<AddEditTaskDialog> with SingleTicker
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(AppLocalizations.of(context)!.assignedTo2, style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w700, color: const Color(0xff9CA3AF))),
+            Text(AppLocalizations.of(context)!.assignedTo, style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w700, color: const Color(0xff9CA3AF))),
                     const SizedBox(height: 8),
             if (_assignedTo.isEmpty)
                     Row(
@@ -946,7 +946,7 @@ class _AddEditTaskDialogState extends State<AddEditTaskDialog> with SingleTicker
                 onPressed: () {
                   // Logique simplifiée pour l'exemple
                    showDialog(context: context, builder: (c) => AlertDialog(
-                     title: Text(AppLocalizations.of(context)!.addTag2),
+                     title: Text(AppLocalizations.of(context)!.addTag),
                      content: TextField(controller: _labelController, onSubmitted: (v) {
                        setState(() => _labels.add(v));
                        _labelController.clear();

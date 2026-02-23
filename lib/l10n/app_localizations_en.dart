@@ -10028,4 +10028,93 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get teamPartOfTeamBuildsPlatform =>
       'Part of the team that builds our platform · Math & science';
+
+  @override
+  String get always24Hours7Days => 'Always (24/7)';
+
+  @override
+  String get chatMessagesLabel => 'Chat Messages';
+
+  @override
+  String get adjustmentAmountExampleHint => 'e.g., +0.2 or -5';
+
+  @override
+  String get formResponsesTitle => 'Form Responses';
+
+  @override
+  String get optionsCommaSeparatedExample =>
+      'e.g., Option 1, Option 2, Option 3';
+
+  @override
+  String get readinessFormRequiredTitle => 'Readiness Form Required';
+
+  @override
+  String get requiredForRatingsBelow9 => 'Required for ratings below 9';
+
+  @override
+  String get shiftCompletedLabel => 'Shift Completed';
+
+  @override
+  String get studentDefaultName1 => 'Student 1';
+
+  @override
+  String get requiredAsterisk => '*';
+
+  @override
+  String get notProvidedLabel => 'Not provided';
+
+  @override
+  String get bulletSeparator => ' • ';
+
+  @override
+  String get timesheetDetailsTitle => 'Timesheet Details';
+
+  @override
+  String get userRoleLabel => 'User Role';
+
+  @override
+  String get userTypeLabel => 'User Type';
+
+  @override
+  String get confirmDeleteAccountMessage =>
+      'Are you sure you want to delete your account? This action cannot be undone.';
+
+  @override
+  String get confirmResetAllPasswordsMessage =>
+      'Are you sure you want to reset all passwords?';
+
+  @override
+  String get confirmLeaveClassMessage =>
+      'Are you sure you want to leave this class?';
+
+  @override
+  String get confirmDeleteCommentMessage =>
+      'Are you sure you want to delete this comment?';
+
+  @override
+  String get confirmDeleteAllTeacherShiftsMessage =>
+      'Are you sure you want to delete all shifts for this teacher?';
+
+  @override
+  String get confirmClaimShiftMessage =>
+      'Are you sure you want to claim this shift?';
+
+  @override
+  String get confirmDeleteTemplateMessage =>
+      'Are you sure you want to delete this template?';
+
+  @override
+  String get confirmDeleteFormMessage =>
+      'Are you sure you want to delete this form?';
+
+  @override
+  String get confirmDeleteDraftMessage =>
+      'Are you sure you want to delete this draft?';
+
+  @override
+  String get confirmBanShiftMessage =>
+      'Are you sure you want to ban this shift?';
+
+  @override
+  String get confirmBanFormMessage => 'Are you sure you want to ban this form?';
 }

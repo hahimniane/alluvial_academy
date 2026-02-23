@@ -192,7 +192,7 @@ class _FormBuilderState extends State<JobSchedulingScreen> {
                         labelText: field.type == 'multi_select'
                             ? 'Multi-Select Options (comma separated)'
                             : 'Options (comma separated)',
-                        hintText: AppLocalizations.of(context)!.option1Option2Option3,
+                        hintText: AppLocalizations.of(context)!.optionsCommaSeparatedExample,
                       ),
                       onChanged: (value) {
                         field.options = value

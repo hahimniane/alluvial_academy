@@ -801,7 +801,7 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
                     FadeInSlide(
                       delay: 0.15,
                       child: Text(
-                        AppLocalizations.of(context)!.classSignUp2,
+                        AppLocalizations.of(context)!.classSignUp,
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: 38,
                       fontWeight: FontWeight.w800,
@@ -1921,7 +1921,7 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
           // First student program
           _buildStudentProgramCard(
           studentIndex: 0,
-          studentName: _studentNameController.text.isNotEmpty ? _studentNameController.text : AppLocalizations.of(context)!.student1,
+          studentName: _studentNameController.text.isNotEmpty ? _studentNameController.text : AppLocalizations.of(context)!.studentDefaultName1,
           subject: _selectedSubject,
           onSubjectChanged: (v) {
             setState(() {

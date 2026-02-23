@@ -1792,7 +1792,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                                                       ),
                                                     ),
                                                     TextSpan(
-                                                      text: AppLocalizations.of(context)!.text9,
+                                                      text: AppLocalizations.of(context)!.bulletSeparator,
                                                       style: GoogleFonts.inter(
                                                         fontSize: 12,
                                                         color: const Color(
@@ -2554,7 +2554,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                     const SizedBox(width: 4),
                     Expanded(
                       child: Text(
-                        AppLocalizations.of(context)!.thisShiftSpansTwoDaysIn2,
+                        AppLocalizations.of(context)!.thisShiftSpansTwoDaysIn,
                         style: GoogleFonts.inter(
                           fontSize: 11,
                           fontStyle: FontStyle.italic,
@@ -3183,7 +3183,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content:
-                Text(AppLocalizations.of(context)!.pleaseSelectAtLeastOneStudent2),
+                Text(AppLocalizations.of(context)!.pleaseSelectAtLeastOneStudent),
             backgroundColor: Colors.red,
           ),
         );

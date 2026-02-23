@@ -94,7 +94,7 @@ class _AvailableShiftsScreenState extends State<AvailableShiftsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              AppLocalizations.of(context)!.areYouSureYouWantTo8,
+              AppLocalizations.of(context)!.confirmClaimShiftMessage,
               style: GoogleFonts.inter(fontSize: 16),
             ),
             const SizedBox(height: 16),

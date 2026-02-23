@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../core/services/user_role_service.dart';
 import '../../../l10n/app_localizations.dart';
@@ -59,12 +61,20 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
   String? _profilePictureUrl;
   bool _showOnboarding = false;
   bool _onboardingChecked = false;
+  bool _aiTutorEnabled = false;
   final ChatService _chatService = ChatService();
+  StreamSubscription<DocumentSnapshot>? _userDocSubscription;
 
   @override
   void initState() {
     super.initState();
     _loadUserData();
+  }
+
+  @override
+  void dispose() {
+    _userDocSubscription?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadUserData() async {
@@ -87,7 +97,11 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
           _profilePictureUrl = profilePicUrl;
           _isLoading = false;
           _showOnboarding = needsOnboarding;
+          _aiTutorEnabled = data?['ai_tutor_enabled'] as bool? ?? false;
         });
+
+        // Set up real-time listener for AI Tutor access changes
+        _setupAITutorListener();
 
         // Start feature tour after a delay if student has completed onboarding
         // but hasn't done the feature tour yet
@@ -101,6 +115,35 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  /// Set up real-time listener for AI Tutor access changes
+  void _setupAITutorListener() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    // Cancel existing subscription if any
+    _userDocSubscription?.cancel();
+
+    // Listen to user document changes
+    _userDocSubscription = FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .snapshots()
+        .listen((snapshot) {
+      if (!mounted) return;
+      if (snapshot.exists) {
+        final data = snapshot.data();
+        final newAiTutorEnabled = data?['ai_tutor_enabled'] as bool? ?? false;
+        if (newAiTutorEnabled != _aiTutorEnabled) {
+          setState(() {
+            _aiTutorEnabled = newAiTutorEnabled;
+          });
+        }
+      }
+    }, onError: (e) {
+      AppLogger.error('Error listening to AI Tutor changes: $e');
+    });
   }
 
   Future<void> _checkAndStartFeatureTour() async {
@@ -784,9 +827,10 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
               ],
             ),
       body: _screens[_selectedIndex],
-      // AI Tutor FAB for students and teachers
-      floatingActionButton: (_userRole?.toLowerCase() == 'student' ||
-              _userRole?.toLowerCase().contains('teacher') == true)
+      // AI Tutor FAB for students and teachers (only if enabled by admin)
+      floatingActionButton: (_aiTutorEnabled &&
+              (_userRole?.toLowerCase() == 'student' ||
+                  _userRole?.toLowerCase().contains('teacher') == true))
           ? FloatingActionButton.extended(
               onPressed: () {
                 Navigator.push(

@@ -62,7 +62,7 @@ class HeaderWidget extends StatelessWidget {
                       children: [
                         Icon(Icons.school, color: Color(0xff0386FF), size: 20),
                         SizedBox(width: 8),
-                        Text(AppLocalizations.of(context)!.teachers2,
+                        Text(AppLocalizations.of(context)!.teachers,
                             style: TextStyle(color: Color(0xff2D3748))),
                       ],
                     ),

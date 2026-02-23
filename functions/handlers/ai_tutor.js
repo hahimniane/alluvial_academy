@@ -75,6 +75,21 @@ const getUserTimezone = async (uid) => {
 };
 
 /**
+ * Helper: Check if AI Tutor is enabled for user
+ */
+const checkAITutorEnabled = async (uid) => {
+  if (!uid) return false;
+  try {
+    const userDoc = await admin.firestore().collection('users').doc(uid).get();
+    if (!userDoc.exists) return false;
+    const data = userDoc.data() || {};
+    return data.ai_tutor_enabled === true;
+  } catch (_) {
+    return false;
+  }
+};
+
+/**
  * Helper: Get student's upcoming classes
  * Returns a formatted string of upcoming classes for the AI tutor
  */
@@ -580,6 +595,13 @@ const getAITutorToken = onCall({
   if (!sessionRole) {
     console.log('[AI Tutor] Unsupported role access attempt. uid:', uid, 'role:', userRoleRaw);
     throw new HttpsError('permission-denied', 'AI Tutor is only available for students and teachers');
+  }
+
+  // Check if AI Tutor is enabled for this user
+  const aiTutorEnabled = await checkAITutorEnabled(uid);
+  if (!aiTutorEnabled) {
+    console.log('[AI Tutor] Access denied - AI Tutor not enabled. uid:', uid);
+    throw new HttpsError('permission-denied', 'AI Tutor access has not been enabled for your account');
   }
 
   // Get user details and role-specific class schedule

@@ -851,7 +851,7 @@ class _TeacherAssignmentsScreenState extends State<TeacherAssignmentsScreen> {
             const SizedBox(height: 12),
             const Divider(height: 1, color: Color(0xffE5E7EB)),
             const SizedBox(height: 12),
-            Text(AppLocalizations.of(context)!.attachedFiles2, style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xff374151))),
+            Text(AppLocalizations.of(context)!.attachedFiles, style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xff374151))),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
@@ -1321,7 +1321,7 @@ class _AssignmentDialogState extends State<_AssignmentDialog> {
                   },
                 ),
                 SizedBox(height: 16),
-                Text(AppLocalizations.of(context)!.assignTo2, style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+                Text(AppLocalizations.of(context)!.assignTo, style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
                 if (_isLoading) const CircularProgressIndicator() else Container(
                   height: 150,
                   decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade300), borderRadius: BorderRadius.circular(8)),
@@ -1336,7 +1336,7 @@ class _AssignmentDialogState extends State<_AssignmentDialog> {
                 const SizedBox(height: 16),
                 Row(
                   children: [
-                    Text(AppLocalizations.of(context)!.attachments2),
+                    Text(AppLocalizations.of(context)!.attachments),
                     const Spacer(),
                     TextButton.icon(onPressed: _isUploadingFile ? null : _addAttachment, icon: const Icon(Icons.attach_file), label: Text(_isUploadingFile ? 'Uploading...' : 'Add File')),
                   ],

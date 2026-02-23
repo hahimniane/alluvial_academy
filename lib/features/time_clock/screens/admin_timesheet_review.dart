@@ -1949,7 +1949,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                     ),
                     SizedBox(width: 12),
                     Expanded(
-                      child: Text(AppLocalizations.of(context)!.timesheetDetails2,
+                      child: Text(AppLocalizations.of(context)!.timesheetDetailsTitle,
                           style: GoogleFonts.inter(
                               fontSize: 18, fontWeight: FontWeight.w600)),
                     ),
@@ -2002,7 +2002,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                       ],
                       if (timesheet.description.isNotEmpty) ...[
                         const SizedBox(height: 16),
-                        Text(AppLocalizations.of(context)!.description2,
+                        Text(AppLocalizations.of(context)!.description,
                             style: GoogleFonts.inter(
                                 fontSize: 14, fontWeight: FontWeight.w600)),
                         const SizedBox(height: 8),
@@ -2161,7 +2161,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                               ),
                             ),
                             const SizedBox(width: 8),
-                            Text(AppLocalizations.of(context)!.managerNotes2,
+                            Text(AppLocalizations.of(context)!.managerNotes,
                                 style: GoogleFonts.inter(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w600,
@@ -3480,7 +3480,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                         size: 18, color: Colors.grey.shade600),
                     const SizedBox(width: 8),
                     Text(
-                      AppLocalizations.of(context)!.filterByStatus2,
+                      AppLocalizations.of(context)!.filterByStatus,
                       style: GoogleFonts.inter(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,

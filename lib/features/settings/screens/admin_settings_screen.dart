@@ -145,7 +145,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(AppLocalizations.of(context)!.settingsSavedSuccessfully2),
+            content: Text(AppLocalizations.of(context)!.settingsSavedSuccessfully),
             backgroundColor: Colors.green,
           ),
         );

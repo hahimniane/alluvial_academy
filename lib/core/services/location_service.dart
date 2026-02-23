@@ -27,6 +27,7 @@ class LocationService {
   static DateTime? _cacheTime;
   static const Duration _cacheValidDuration = Duration(minutes: 5);
   static final Map<String, Map<String, String>> _reverseGeocodeCache = {};
+  static bool _loggedWebReverseGeocodeSkip = false;
 
   static Future<LocationData?> getCurrentLocation(
       {bool interactive = true}) async {
@@ -49,7 +50,8 @@ class LocationService {
         // Ignore platform-specific errors here
         AppLogger.error('LocationService: Error checking service enabled: $e');
       }
-      AppLogger.error('LocationService: Location services enabled: $serviceEnabled');
+      AppLogger.error(
+          'LocationService: Location services enabled: $serviceEnabled');
       // On web, browsers handle enablement; don't hard-fail if reported disabled
       if (!kIsWeb && !serviceEnabled) {
         throw Exception(
@@ -66,7 +68,8 @@ class LocationService {
       if (!kIsWeb &&
           permission != LocationPermission.whileInUse &&
           permission != LocationPermission.always) {
-        AppLogger.debug('LocationService: No valid permissions (mobile/desktop).');
+        AppLogger.debug(
+            'LocationService: No valid permissions (mobile/desktop).');
         return null; // Return null instead of throwing
       }
       if (kIsWeb &&
@@ -163,7 +166,8 @@ class LocationService {
           return LocationPermission.denied;
         }
 
-        AppLogger.error('LocationService: Permission after request: $permission');
+        AppLogger.error(
+            'LocationService: Permission after request: $permission');
 
         if (permission == LocationPermission.denied) {
           // Mark permission as denied to avoid asking again soon (non-web)
@@ -189,7 +193,8 @@ class LocationService {
           permission != LocationPermission.always &&
           permission != LocationPermission.denied &&
           permission != LocationPermission.deniedForever) {
-        AppLogger.error('LocationService: Unexpected permission status: $permission');
+        AppLogger.error(
+            'LocationService: Unexpected permission status: $permission');
       }
 
       return permission;
@@ -201,7 +206,8 @@ class LocationService {
 
   /// Get position with multiple fallback strategies and better error handling
   static Future<Position?> _getPositionWithFallbacks() async {
-    AppLogger.debug('LocationService: Starting position acquisition with fallbacks...');
+    AppLogger.debug(
+        'LocationService: Starting position acquisition with fallbacks...');
 
     // Strategy 1: Try last known position first (not supported on web)
     if (!kIsWeb) {
@@ -271,7 +277,8 @@ class LocationService {
           return lastKnown;
         }
       } catch (e) {
-        AppLogger.error('LocationService: Final last known position attempt failed: $e');
+        AppLogger.error(
+            'LocationService: Final last known position attempt failed: $e');
       }
     }
 
@@ -289,7 +296,8 @@ class LocationService {
       AppLogger.error('LocationService: Final attempt failed: $e');
     }
 
-    AppLogger.error('LocationService: All position acquisition strategies failed');
+    AppLogger.error(
+        'LocationService: All position acquisition strategies failed');
     return null;
   }
 
@@ -341,7 +349,8 @@ class LocationService {
         }
       }
     } catch (e) {
-      AppLogger.error('LocationService: Geocoding failed, using coordinates: $e');
+      AppLogger.error(
+          'LocationService: Geocoding failed, using coordinates: $e');
       // Use more descriptive coordinate display as fallback
       address =
           'Location: ${position.latitude.toStringAsFixed(6)}, ${position.longitude.toStringAsFixed(6)}';
@@ -375,7 +384,8 @@ class LocationService {
     try {
       return await Geolocator.isLocationServiceEnabled();
     } catch (e) {
-      AppLogger.error('LocationService: Error checking if location service enabled: $e');
+      AppLogger.error(
+          'LocationService: Error checking if location service enabled: $e');
       return false;
     }
   }
@@ -436,7 +446,8 @@ class LocationService {
     try {
       bool hasPermission = await hasLocationPermission();
       if (!hasPermission) {
-        AppLogger.debug('LocationService: No valid permissions for simple position');
+        AppLogger.debug(
+            'LocationService: No valid permissions for simple position');
         return null;
       }
 
@@ -540,10 +551,29 @@ class LocationService {
           neighborhood: neighborhood,
         );
       } else {
-        AppLogger.error('No placemarks found for coordinates: $latitude, $longitude');
+        AppLogger.debug(
+            'LocationService: No placemarks found for coordinates: $latitude, $longitude');
       }
     } catch (e) {
-      AppLogger.error('Error converting coordinates to location: $e');
+      AppLogger.warning('LocationService: Error converting coordinates: $e');
+    }
+
+    // Web browsers frequently block direct Nominatim calls because of CORS/rate limits.
+    // Return coordinate fallback instead of repeatedly logging noisy network failures.
+    if (kIsWeb) {
+      if (!_loggedWebReverseGeocodeSkip) {
+        AppLogger.info(
+            'LocationService: Skipping Nominatim reverse geocoding on web to avoid CORS failures.');
+        _loggedWebReverseGeocodeSkip = true;
+      }
+      return LocationData(
+        latitude: latitude,
+        longitude: longitude,
+        address:
+            '${latitude.toStringAsFixed(6)}, ${longitude.toStringAsFixed(6)}',
+        neighborhood:
+            'Coordinates: ${latitude.toStringAsFixed(4)}, ${longitude.toStringAsFixed(4)}',
+      );
     }
 
     // Try network reverse geocoding fallback
@@ -559,7 +589,8 @@ class LocationService {
         );
       }
     } catch (e) {
-      AppLogger.error('Reverse geocoding (Nominatim) failed: $e');
+      AppLogger.warning(
+          'LocationService: Nominatim reverse geocoding failed: $e');
     }
 
     // Return coordinates as fallback if all else fails

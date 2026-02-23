@@ -18498,6 +18498,162 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Part of the team that builds our platform · Math & science'**
   String get teamPartOfTeamBuildsPlatform;
+
+  /// No description provided for @always24Hours7Days.
+  ///
+  /// In en, this message translates to:
+  /// **'Always (24/7)'**
+  String get always24Hours7Days;
+
+  /// No description provided for @chatMessagesLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Chat Messages'**
+  String get chatMessagesLabel;
+
+  /// No description provided for @adjustmentAmountExampleHint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g., +0.2 or -5'**
+  String get adjustmentAmountExampleHint;
+
+  /// No description provided for @formResponsesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Form Responses'**
+  String get formResponsesTitle;
+
+  /// No description provided for @optionsCommaSeparatedExample.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g., Option 1, Option 2, Option 3'**
+  String get optionsCommaSeparatedExample;
+
+  /// No description provided for @readinessFormRequiredTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Readiness Form Required'**
+  String get readinessFormRequiredTitle;
+
+  /// No description provided for @requiredForRatingsBelow9.
+  ///
+  /// In en, this message translates to:
+  /// **'Required for ratings below 9'**
+  String get requiredForRatingsBelow9;
+
+  /// No description provided for @shiftCompletedLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Shift Completed'**
+  String get shiftCompletedLabel;
+
+  /// No description provided for @studentDefaultName1.
+  ///
+  /// In en, this message translates to:
+  /// **'Student 1'**
+  String get studentDefaultName1;
+
+  /// No description provided for @requiredAsterisk.
+  ///
+  /// In en, this message translates to:
+  /// **'*'**
+  String get requiredAsterisk;
+
+  /// No description provided for @notProvidedLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Not provided'**
+  String get notProvidedLabel;
+
+  /// No description provided for @bulletSeparator.
+  ///
+  /// In en, this message translates to:
+  /// **' • '**
+  String get bulletSeparator;
+
+  /// No description provided for @timesheetDetailsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Timesheet Details'**
+  String get timesheetDetailsTitle;
+
+  /// No description provided for @userRoleLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'User Role'**
+  String get userRoleLabel;
+
+  /// No description provided for @userTypeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'User Type'**
+  String get userTypeLabel;
+
+  /// No description provided for @confirmDeleteAccountMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to delete your account? This action cannot be undone.'**
+  String get confirmDeleteAccountMessage;
+
+  /// No description provided for @confirmResetAllPasswordsMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to reset all passwords?'**
+  String get confirmResetAllPasswordsMessage;
+
+  /// No description provided for @confirmLeaveClassMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to leave this class?'**
+  String get confirmLeaveClassMessage;
+
+  /// No description provided for @confirmDeleteCommentMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to delete this comment?'**
+  String get confirmDeleteCommentMessage;
+
+  /// No description provided for @confirmDeleteAllTeacherShiftsMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to delete all shifts for this teacher?'**
+  String get confirmDeleteAllTeacherShiftsMessage;
+
+  /// No description provided for @confirmClaimShiftMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to claim this shift?'**
+  String get confirmClaimShiftMessage;
+
+  /// No description provided for @confirmDeleteTemplateMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to delete this template?'**
+  String get confirmDeleteTemplateMessage;
+
+  /// No description provided for @confirmDeleteFormMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to delete this form?'**
+  String get confirmDeleteFormMessage;
+
+  /// No description provided for @confirmDeleteDraftMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to delete this draft?'**
+  String get confirmDeleteDraftMessage;
+
+  /// No description provided for @confirmBanShiftMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to ban this shift?'**
+  String get confirmBanShiftMessage;
+
+  /// No description provided for @confirmBanFormMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to ban this form?'**
+  String get confirmBanFormMessage;
 }
 
 class _AppLocalizationsDelegate

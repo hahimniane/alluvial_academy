@@ -681,7 +681,7 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
                   padding: const EdgeInsets.only(top: 8),
                   child: ElevatedButton.icon(
                     icon: const Icon(Icons.add, size: 18),
-                    label: Text(AppLocalizations.of(context)!.addAnotherShift2),
+                    label: Text(AppLocalizations.of(context)!.addAnotherShift),
                     onPressed: () {
                       Navigator.pop(context);
                       widget.onCreateShift(user.email, day, const TimeOfDay(hour: 14, minute: 0));

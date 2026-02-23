@@ -408,7 +408,7 @@ class _DraftManagementScreenState extends State<DraftManagementScreen> {
             ),
           ),
           content: Text(
-            AppLocalizations.of(context)!.areYouSureYouWantTo12,
+            AppLocalizations.of(context)!.confirmDeleteDraftMessage,
             style: GoogleFonts.inter(fontSize: 14),
           ),
           actions: [

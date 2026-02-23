@@ -312,7 +312,7 @@ class _FormDetailsContentState extends State<_FormDetailsContent> {
           const SizedBox(height: 8),
           // Form Responses Section
           Text(
-            AppLocalizations.of(context)!.formResponses2,
+            AppLocalizations.of(context)!.formResponsesTitle,
             style: GoogleFonts.inter(
               fontSize: 12,
               fontWeight: FontWeight.w700,
@@ -411,7 +411,7 @@ class _FormDetailsContentState extends State<_FormDetailsContent> {
   Widget _formatResponseValue(dynamic value) {
     if (value == null) {
       return Text(
-        AppLocalizations.of(context)!.text5,
+        AppLocalizations.of(context)!.notProvidedLabel,
         style: GoogleFonts.inter(
           fontSize: 12,
           color: Colors.grey.shade400,
@@ -422,7 +422,7 @@ class _FormDetailsContentState extends State<_FormDetailsContent> {
     if (value is String) {
       if (value.isEmpty) {
         return Text(
-          AppLocalizations.of(context)!.text5,
+          AppLocalizations.of(context)!.notProvidedLabel,
           style: GoogleFonts.inter(
             fontSize: 12,
             color: Colors.grey.shade400,

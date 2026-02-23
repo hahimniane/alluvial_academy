@@ -508,7 +508,7 @@ class _FormBuilderState extends State<FormBuilder> {
                     style: GoogleFonts.roboto(fontSize: 32, fontWeight: FontWeight.w400),
                     decoration: InputDecoration(
                       border: InputBorder.none,
-                      hintText: AppLocalizations.of(context)!.untitledForm2,
+                      hintText: AppLocalizations.of(context)!.untitledForm,
                       isDense: true,
                     ),
                     onTap: () => setState(() => _focusedQuestionIndex = null),
@@ -520,7 +520,7 @@ class _FormBuilderState extends State<FormBuilder> {
                     maxLines: null,
                     decoration: InputDecoration(
                       border: InputBorder.none,
-                      hintText: AppLocalizations.of(context)!.formDescription2,
+                      hintText: AppLocalizations.of(context)!.formDescription,
                       isDense: true,
                     ),
                     onTap: () => setState(() => _focusedQuestionIndex = null),

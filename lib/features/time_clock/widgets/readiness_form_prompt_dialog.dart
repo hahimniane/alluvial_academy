@@ -394,7 +394,7 @@ class _ReadinessFormPromptDialogState extends State<ReadinessFormPromptDialog> {
               ),
               if (required) ...[
                 const SizedBox(width: 4),
-                Text(AppLocalizations.of(context)!.text10, style: TextStyle(color: Color(0xFFEF4444), fontWeight: FontWeight.bold)),
+                Text(AppLocalizations.of(context)!.requiredAsterisk, style: TextStyle(color: Color(0xFFEF4444), fontWeight: FontWeight.bold)),
               ],
             ],
           ),

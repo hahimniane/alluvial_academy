@@ -117,9 +117,8 @@ Future<void> main() async {
 
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Disable Google Fonts runtime fetching to avoid crashes when offline
-  // The app will fall back to system fonts if the font isn't cached
-  GoogleFonts.config.allowRuntimeFetching = false;
+  // Allow Google Fonts to fetch at runtime (fonts are downloaded on first use)
+  GoogleFonts.config.allowRuntimeFetching = true;
 
   if (kIsWeb) {
     JoinLinkService.initFromUri(Uri.base);
@@ -350,18 +349,13 @@ class MyApp extends StatelessWidget {
       return const AuthenticationWrapper();
     }
 
-    // WEB: Check if mobile-sized screen (responsive)
+    // WEB: Start on the public landing page across mobile and desktop.
+    // Auth pages remain available via explicit routes like /login.
     final platformLabel = defaultTargetPlatform.toString();
+    final isMobileLayout = _isMobileLayout(context);
     AppLogger.debug(
-        '=== Web platform check: $platformLabel, isMobile=${_isMobileLayout(context)} ===');
-
-    if (_isMobileLayout(context)) {
-      AppLogger.debug('=== Mobile web layout - going to AuthenticationWrapper ===');
-      return const AuthenticationWrapper();
-    }
-
-    // WEB desktop: Show landing page
-    AppLogger.debug('=== Returning LandingPage for web desktop ===');
+        '=== Web platform check: $platformLabel, isMobile=$isMobileLayout ===');
+    AppLogger.debug('=== Returning LandingPage for web (mobile/desktop) ===');
     return const LandingPage();
   }
 

@@ -13,6 +13,7 @@ class UserEmployeeDataSource extends DataGridSource {
     required this.onEditUser,
     required this.onDeleteUser,
     this.onViewCredentials,
+    this.onToggleAITutor,
     required this.context,
   }) {
     _employees = employees.map<DataGridRow>((e) {
@@ -40,6 +41,7 @@ class UserEmployeeDataSource extends DataGridSource {
   final Function(Employee) onEditUser;
   final Function(Employee) onDeleteUser;
   final Function(Employee)? onViewCredentials;
+  final Function(Employee)? onToggleAITutor;
   final BuildContext context;
 
   List<DataGridRow> _employees = [];
@@ -89,6 +91,23 @@ class UserEmployeeDataSource extends DataGridSource {
                     color: const Color(0xff06B6D4),
                     onTap: () => onViewCredentials!(employee),
                     tooltip: AppLocalizations.of(context)!.userViewCredentials,
+                  ),
+                // AI Tutor toggle - only for students and teachers
+                if ((employee.userType.toLowerCase() == 'student' ||
+                        employee.userType.toLowerCase() == 'teacher') &&
+                    onToggleAITutor != null &&
+                    employee.isActive)
+                  _buildActionButton(
+                    icon: employee.aiTutorEnabled
+                        ? Icons.smart_toy
+                        : Icons.smart_toy_outlined,
+                    color: employee.aiTutorEnabled
+                        ? const Color(0xff10B981)
+                        : const Color(0xff9CA3AF),
+                    onTap: () => onToggleAITutor!(employee),
+                    tooltip: employee.aiTutorEnabled
+                        ? 'Disable AI Tutor'
+                        : 'Enable AI Tutor',
                   ),
                 // Edit button - always available for active users
                 if (employee.isActive)

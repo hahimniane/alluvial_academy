@@ -35,6 +35,8 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
   Map<FormCategory, List<FormTemplate>> _templatesByCategory = {};
   Map<String, bool> _submittedForms = {};
   String? _errorMessage;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
 
   // Palette de couleurs "Soft"
   static const Map<FormCategory, Color> _categoryColors = {
@@ -56,7 +58,45 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
   @override
   void initState() {
     super.initState();
+    _searchController.addListener(_onSearchChanged);
     _loadAllData();
+  }
+
+  @override
+  void dispose() {
+    _searchController
+      ..removeListener(_onSearchChanged)
+      ..dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged() {
+    final value = _searchController.text;
+    if (value == _searchQuery) return;
+    setState(() {
+      _searchQuery = value;
+    });
+  }
+
+  String _normalizeSearch(String value) {
+    return value.toLowerCase().trim();
+  }
+
+  bool _matchesSearch(FormTemplate template, FormCategory category) {
+    final query = _normalizeSearch(_searchQuery);
+    if (query.isEmpty) return true;
+
+    final haystacks = <String>[
+      template.name,
+      template.description ?? '',
+      category.displayName,
+      _getFrequencyLabel(template.frequency),
+    ].map(_normalizeSearch);
+
+    for (final haystack in haystacks) {
+      if (haystack.contains(query)) return true;
+    }
+    return false;
   }
 
   Future<void> _loadAllData() async {
@@ -349,6 +389,7 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
               physics: const BouncingScrollPhysics(),
               slivers: [
                 _buildSliverAppBar(),
+                _buildSearchSliver(),
                 if (_errorMessage != null) 
                   SliverFillRemaining(child: _buildErrorState())
                 else 
@@ -528,6 +569,77 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
     );
   }
 
+  Widget _buildSearchSliver() {
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF64748B).withOpacity(0.08),
+                offset: const Offset(0, 2),
+                blurRadius: 8,
+              ),
+            ],
+          ),
+          child: TextField(
+            controller: _searchController,
+            decoration: InputDecoration(
+              hintText: AppLocalizations.of(context)!.searchForms,
+              prefixIcon: const Icon(Icons.search_rounded),
+              suffixIcon: _searchQuery.trim().isEmpty
+                  ? null
+                  : IconButton(
+                      tooltip: AppLocalizations.of(context)!.clearSearch,
+                      onPressed: () => _searchController.clear(),
+                      icon: const Icon(Icons.close_rounded),
+                    ),
+              border: InputBorder.none,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            ),
+            textInputAction: TextInputAction.search,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNoSearchResults() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.search_off_rounded, size: 56, color: Colors.blueGrey.shade200),
+            const SizedBox(height: 12),
+            Text(
+              AppLocalizations.of(context)!.formsNoActiveMatching,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: Colors.blueGrey.shade700,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              AppLocalizations.of(context)!.formTryAdjustingSearch,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                color: Colors.blueGrey.shade400,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildSliverList() {
     const categoryOrder = [
       FormCategory.teaching,
@@ -537,21 +649,41 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
       FormCategory.other,
     ];
 
+    final categoriesWithMatches = <FormCategory>[];
+    for (final category in categoryOrder) {
+      final templates = _templatesByCategory[category];
+      if (templates == null || templates.isEmpty) continue;
+      final matched = templates.where((t) => _matchesSearch(t, category)).toList();
+      if (matched.isNotEmpty) {
+        categoriesWithMatches.add(category);
+      }
+    }
+
+    if (categoriesWithMatches.isEmpty) {
+      return SliverFillRemaining(
+        hasScrollBody: false,
+        child: _buildNoSearchResults(),
+      );
+    }
+
     return SliverList(
       delegate: SliverChildBuilderDelegate(
         (context, index) {
-          if (index >= categoryOrder.length) return null;
-          final category = categoryOrder[index];
-          final templates = _templatesByCategory[category];
+          if (index >= categoriesWithMatches.length) return null;
+          final category = categoriesWithMatches[index];
+          final templates = _templatesByCategory[category]
+                  ?.where((t) => _matchesSearch(t, category))
+                  .toList() ??
+              const <FormTemplate>[];
 
-          if (templates == null || templates.isEmpty) return const SizedBox.shrink();
+          if (templates.isEmpty) return const SizedBox.shrink();
 
           return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: _buildCategorySection(category, templates),
           );
         },
-        childCount: categoryOrder.length,
+        childCount: categoriesWithMatches.length,
       ),
     );
   }

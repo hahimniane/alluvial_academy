@@ -2429,7 +2429,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text(AppLocalizations.of(context)!.leaveClass),
-        content: Text(AppLocalizations.of(context)!.areYouSureYouWantTo4),
+        content: Text(AppLocalizations.of(context)!.confirmLeaveClassMessage),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),

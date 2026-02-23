@@ -446,7 +446,7 @@ class _ZoomScreenState extends State<ZoomScreen> with WidgetsBindingObserver {
                             ),
                             const SizedBox(height: 16),
                             Text(
-                              AppLocalizations.of(context)!.dateRange2,
+                              AppLocalizations.of(context)!.dateRange,
                               style: GoogleFonts.inter(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w700,
@@ -1147,7 +1147,6 @@ class _ZoomShiftCard extends StatelessWidget {
 
     final canJoin = hasVideoCall && withinJoinWindow;
 
-    final localizations = MaterialLocalizations.of(context);
     // FIX: Use shorter date format to prevent overflow
     final now = DateTime.now();
     final shiftStart = shift.shiftStart;
@@ -1181,16 +1180,24 @@ class _ZoomShiftCard extends StatelessWidget {
                 ? l10n.classJoinIn(_formatTimeUntil(timeUntilJoinWindow))
                 : l10n.classEnded;
 
+    final studentNamesDisplay = shift.studentNames.isEmpty
+        ? 'No students'
+        : shift.studentNames.length == 1
+            ? shift.studentNames[0]
+            : shift.studentNames.length <= 2
+                ? shift.studentNames.join(', ')
+                : '${shift.studentNames.take(2).join(', ')} +${shift.studentNames.length - 2}';
+
     return Container(
-      padding: const EdgeInsets.all(12), // Reduced from 16 for more compact cards
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12), // Slightly smaller radius
+        borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withAlpha(13),
-            blurRadius: 8, // Reduced blur
-            offset: const Offset(0, 2), // Reduced offset
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
         ],
         border: Border.all(color: const Color(0xFFE2E8F0)),
@@ -1199,8 +1206,8 @@ class _ZoomShiftCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 36, // Reduced from 40
-            height: 36, // Reduced from 40
+            width: 40,
+            height: 40,
             decoration: BoxDecoration(
               color: (canJoin
                       ? const Color(0xFF10B981)
@@ -1208,7 +1215,7 @@ class _ZoomShiftCard extends StatelessWidget {
                           ? const Color(0xFFF59E0B)
                           : const Color(0xFF94A3B8))
                   .withAlpha(31),
-              borderRadius: BorderRadius.circular(10), // Slightly smaller
+              borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(
               canJoin
@@ -1221,10 +1228,10 @@ class _ZoomShiftCard extends StatelessWidget {
                   : (!hasVideoCall && !hasEnded)
                       ? const Color(0xFFB45309)
                       : const Color(0xFF64748B),
-              size: 20, // Reduced from 22
+              size: 22,
             ),
           ),
-          const SizedBox(width: 10), // Reduced from 12
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1233,26 +1240,22 @@ class _ZoomShiftCard extends StatelessWidget {
                   children: [
                     Expanded(
                       child: Text(
-                        // FIX: Show only student names (as user requested)
-                        shift.studentNames.isEmpty
-                            ? 'No students'
-                            : shift.studentNames.length == 1
-                                ? shift.studentNames[0]
-                                : shift.studentNames.length <= 3
-                                    ? shift.studentNames.join(', ')
-                                    : '${shift.studentNames.take(2).join(', ')} +${shift.studentNames.length - 2}',
+                        shift.teacherName.isNotEmpty
+                            ? shift.teacherName
+                            : 'No teacher assigned',
                         style: GoogleFonts.inter(
-                          fontSize: 13, // Smaller font for compact display
-                          fontWeight: FontWeight.w600, // Reduced from w700
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
                           color: const Color(0xFF1E293B),
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    // Show LiveKit badge if using beta provider
                     if (shift.usesLiveKit) ...[
-                      const SizedBox(width: 6), // Reduced spacing
+                      const SizedBox(width: 6),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2), // Smaller padding
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                         decoration: BoxDecoration(
                           color: const Color(0xFF8B5CF6).withAlpha(26),
                           borderRadius: BorderRadius.circular(4),
@@ -1263,7 +1266,7 @@ class _ZoomShiftCard extends StatelessWidget {
                         child: Text(
                           AppLocalizations.of(context)!.beta,
                           style: GoogleFonts.inter(
-                            fontSize: 9, // Smaller font
+                            fontSize: 9,
                             fontWeight: FontWeight.w600,
                             color: const Color(0xFF7C3AED),
                           ),
@@ -1272,14 +1275,71 @@ class _ZoomShiftCard extends StatelessWidget {
                     ],
                   ],
                 ),
-                const SizedBox(height: 3), // Reduced spacing
-                // FIX: Make date/time text smaller and wrap properly
-                Text(
-                  '$startDateText $startTimeText – $endTimeText',
-                  style: GoogleFonts.inter(
-                    fontSize: 10, // Even smaller for compact display
-                    color: const Color(0xFF64748B),
-                  ),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.menu_book_outlined,
+                      size: 14,
+                      color: Color(0xFF6B7280),
+                    ),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        shift.effectiveSubjectDisplayName,
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: const Color(0xFF374151),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.people_outline,
+                      size: 14,
+                      color: Color(0xFF6B7280),
+                    ),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        studentNamesDisplay,
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: const Color(0xFF374151),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.access_time,
+                      size: 14,
+                      color: Color(0xFF6B7280),
+                    ),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        '$startDateText $startTimeText - $endTimeText',
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: const Color(0xFF6B7280),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
                 ),
                 if (!hasVideoCall && !hasEnded) ...[
                   const SizedBox(height: 6),
@@ -1417,75 +1477,70 @@ class _ZoomShiftCard extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: 8), // Reduced spacing
-          // FIX: Make button row flexible and smaller on mobile
-          Flexible(
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  tooltip: AppLocalizations.of(context)?.copyClassLink ?? 'Copy class link',
-                  onPressed: () => VideoCallService.copyJoinLink(context, shift),
-                  icon: const Icon(Icons.link, size: 18), // Smaller icon
-                  color: const Color(0xFF0E72ED),
-                  padding: EdgeInsets.zero, // Remove padding
-                  constraints: const BoxConstraints(), // Remove constraints
-                ),
-                const SizedBox(width: 4),
-                Flexible(
-                  child: SizedBox(
-                    height: 36, // Smaller button height
-                    child: ElevatedButton.icon(
-                      onPressed: canJoin
-                          ? () => VideoCallService.joinClass(
-                                context,
-                                shift,
-                                isTeacher: isTeacher,
-                              )
-                          : (!hasVideoCall && withinJoinWindow && !hasEnded)
-                              ? () {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        AppLocalizations.of(context)?.thisClassDoesNotHaveA ?? 'This class does not have a meeting configured yet.',
-                                        style: GoogleFonts.inter(
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                      behavior: SnackBarBehavior.floating,
+          const SizedBox(width: 8),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                tooltip: l10n.copyClassLink,
+                onPressed: () => VideoCallService.copyJoinLink(context, shift),
+                icon: const Icon(Icons.link, size: 18),
+                color: const Color(0xFF0E72ED),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+              const SizedBox(width: 4),
+              SizedBox(
+                height: 36,
+                child: ElevatedButton.icon(
+                  onPressed: canJoin
+                      ? () => VideoCallService.joinClass(
+                            context,
+                            shift,
+                            isTeacher: isTeacher,
+                          )
+                      : (!hasVideoCall && withinJoinWindow && !hasEnded)
+                          ? () {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    l10n.thisClassDoesNotHaveA,
+                                    style: GoogleFonts.inter(
+                                      fontWeight: FontWeight.w600,
                                     ),
-                                  );
-                                }
-                              : null,
-                      icon: Icon(
-                        VideoCallService.getProviderIcon(shift.videoProvider),
-                        size: 16, // Smaller icon
-                      ),
-                      label: Text(
-                        buttonLabel,
-                        style: GoogleFonts.inter(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 12, // Smaller font
-                        ),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: canJoin
-                            ? const Color(0xFF0E72ED)
-                            : const Color(0xFF94A3B8),
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8), // Smaller padding
-                        minimumSize: Size.zero, // Allow button to shrink
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
+                                  ),
+                                  behavior: SnackBarBehavior.floating,
+                                ),
+                              );
+                            }
+                          : null,
+                  icon: Icon(
+                    VideoCallService.getProviderIcon(shift.videoProvider),
+                    size: 16,
+                  ),
+                  label: Text(
+                    buttonLabel,
+                    style: GoogleFonts.inter(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 12,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: canJoin
+                        ? const Color(0xFF0E72ED)
+                        : const Color(0xFF94A3B8),
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
                     ),
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ],
       ),

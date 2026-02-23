@@ -1493,7 +1493,7 @@ class _MultiSelectUserDialogState extends State<_MultiSelectUserDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          AppLocalizations.of(context)!.selectUsers2,
+                          AppLocalizations.of(context)!.selectUsers,
                           style: GoogleFonts.inter(
                             color: Colors.white,
                             fontSize: 22,

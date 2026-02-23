@@ -592,13 +592,13 @@ class _TeacherApplicationScreenState extends State<TeacherApplicationScreen> {
               value: _electricityAccess,
               icon: Icons.bolt,
               selectedItemBuilder: [
-                Text(AppLocalizations.of(context)!.always247, overflow: TextOverflow.ellipsis),
+                Text(AppLocalizations.of(context)!.always24Hours7Days, overflow: TextOverflow.ellipsis),
                 Text(AppLocalizations.of(context)!.sometimes, overflow: TextOverflow.ellipsis),
                 Text(AppLocalizations.of(context)!.rarely, overflow: TextOverflow.ellipsis),
                 Text(AppLocalizations.of(context)!.never, overflow: TextOverflow.ellipsis),
               ],
               items: [
-                DropdownMenuItem(value: 'always', child: Text(AppLocalizations.of(context)!.always247, overflow: TextOverflow.ellipsis)),
+                DropdownMenuItem(value: 'always', child: Text(AppLocalizations.of(context)!.always24Hours7Days, overflow: TextOverflow.ellipsis)),
                 DropdownMenuItem(value: 'sometimes', child: Text(AppLocalizations.of(context)!.sometimes, overflow: TextOverflow.ellipsis)),
                 DropdownMenuItem(value: 'rarely', child: Text(AppLocalizations.of(context)!.rarely, overflow: TextOverflow.ellipsis)),
                 DropdownMenuItem(value: 'never', child: Text(AppLocalizations.of(context)!.never, overflow: TextOverflow.ellipsis)),
@@ -728,13 +728,13 @@ class _TeacherApplicationScreenState extends State<TeacherApplicationScreen> {
               value: _internetAccess,
               icon: Icons.wifi,
               selectedItemBuilder: [
-                Text(AppLocalizations.of(context)!.always247, overflow: TextOverflow.ellipsis),
+                Text(AppLocalizations.of(context)!.always24Hours7Days, overflow: TextOverflow.ellipsis),
                 Text(AppLocalizations.of(context)!.oftenFewDaysAWeek, overflow: TextOverflow.ellipsis),
                 Text(AppLocalizations.of(context)!.rarelyFewHoursAWeek, overflow: TextOverflow.ellipsis),
                 Text(AppLocalizations.of(context)!.notAtAll, overflow: TextOverflow.ellipsis),
               ],
               items: [
-                DropdownMenuItem(value: 'always', child: Text(AppLocalizations.of(context)!.always247, overflow: TextOverflow.ellipsis)),
+                DropdownMenuItem(value: 'always', child: Text(AppLocalizations.of(context)!.always24Hours7Days, overflow: TextOverflow.ellipsis)),
                 DropdownMenuItem(value: 'often', child: Text(AppLocalizations.of(context)!.oftenFewDaysAWeek, overflow: TextOverflow.ellipsis)),
                 DropdownMenuItem(value: 'rarely', child: Text(AppLocalizations.of(context)!.rarelyFewHoursAWeek, overflow: TextOverflow.ellipsis)),
                 DropdownMenuItem(value: 'not_at_all', child: Text(AppLocalizations.of(context)!.notAtAll, overflow: TextOverflow.ellipsis)),

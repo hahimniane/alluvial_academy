@@ -123,6 +123,34 @@ class _AITutorScreenState extends State<AITutorScreen>
     super.dispose();
   }
 
+  Future<bool> _checkAITutorAccess() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return false;
+
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+
+      if (!userDoc.exists) {
+        // Try email-based lookup
+        final query = await FirebaseFirestore.instance
+            .collection('users')
+            .where('e-mail', isEqualTo: user.email)
+            .limit(1)
+            .get();
+        if (query.docs.isEmpty) return false;
+        return query.docs.first.data()['ai_tutor_enabled'] as bool? ?? false;
+      }
+
+      return userDoc.data()?['ai_tutor_enabled'] as bool? ?? false;
+    } catch (e) {
+      AppLogger.error('AI Tutor: Error checking access: $e');
+      return false;
+    }
+  }
+
   Future<bool> _requestPermissions() async {
     if (kIsWeb) return true;
 
@@ -146,6 +174,17 @@ class _AITutorScreenState extends State<AITutorScreen>
       _isLoading = true;
       _error = null;
     });
+
+    // Check if AI Tutor is enabled for this user
+    final hasAccess = await _checkAITutorAccess();
+    if (!hasAccess) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _error = 'AI Tutor access has not been enabled for your account. Please contact an administrator.';
+      });
+      return;
+    }
 
     // Request microphone permissions
     final hasPermissions = await _requestPermissions();

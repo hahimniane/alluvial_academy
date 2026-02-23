@@ -932,7 +932,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
       builder: (context) => AlertDialog(
         title: Text(AppLocalizations.of(context)!.resetAllPasswords),
         content: Text(
-            AppLocalizations.of(context)!.areYouSureYouWantTo3),
+            AppLocalizations.of(context)!.confirmResetAllPasswordsMessage),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),

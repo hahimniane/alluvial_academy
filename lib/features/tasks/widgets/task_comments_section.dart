@@ -111,7 +111,7 @@ class _TaskCommentsSectionState extends State<TaskCommentsSection> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text(AppLocalizations.of(context)!.deleteComment),
-        content: Text(AppLocalizations.of(context)!.areYouSureYouWantTo5),
+        content: Text(AppLocalizations.of(context)!.confirmDeleteCommentMessage),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),

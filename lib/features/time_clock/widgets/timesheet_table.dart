@@ -411,7 +411,7 @@ class _TimesheetTableState extends State<TimesheetTable>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              AppLocalizations.of(context)!.areYouSureYouWantTo9,
+              AppLocalizations.of(context)!.timesheetSubmitConfirm,
               style: constants.openSansHebrewTextStyle.copyWith(fontSize: 14),
             ),
             const SizedBox(height: 16),

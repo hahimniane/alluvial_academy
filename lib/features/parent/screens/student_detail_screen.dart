@@ -75,7 +75,7 @@ class _StudentDetailScreenState extends State<StudentDetailScreen>
             Tab(text: AppLocalizations.of(context)!.overview),
             Tab(text: AppLocalizations.of(context)!.dashboardClasses),
             Tab(text: AppLocalizations.of(context)!.navTasks),
-            Tab(text: AppLocalizations.of(context)!.progress2),
+            Tab(text: AppLocalizations.of(context)!.progress),
           ],
         ),
       ),

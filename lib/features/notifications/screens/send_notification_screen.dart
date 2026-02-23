@@ -417,7 +417,7 @@ class _SendNotificationScreenState extends State<SendNotificationScreen> {
                             ),
                           ),
                           items: [
-                            DropdownMenuItem(value: 'teacher', child: Text(AppLocalizations.of(context)!.teachers2)),
+                            DropdownMenuItem(value: 'teacher', child: Text(AppLocalizations.of(context)!.teachers)),
                             DropdownMenuItem(value: 'student', child: Text(AppLocalizations.of(context)!.shiftStudents)),
                             DropdownMenuItem(value: 'parent', child: Text(AppLocalizations.of(context)!.parents)),
                             DropdownMenuItem(value: 'admin', child: Text(AppLocalizations.of(context)!.admins)),
@@ -627,7 +627,7 @@ class _SendNotificationScreenState extends State<SendNotificationScreen> {
                           underline: const SizedBox(),
                           items: [
                             DropdownMenuItem(value: null, child: Text(AppLocalizations.of(context)!.allRoles)),
-                            DropdownMenuItem(value: 'teacher', child: Text(AppLocalizations.of(context)!.teachers2)),
+                            DropdownMenuItem(value: 'teacher', child: Text(AppLocalizations.of(context)!.teachers)),
                             DropdownMenuItem(value: 'student', child: Text(AppLocalizations.of(context)!.shiftStudents)),
                             DropdownMenuItem(value: 'parent', child: Text(AppLocalizations.of(context)!.parents)),
                             DropdownMenuItem(value: 'admin', child: Text(AppLocalizations.of(context)!.admins)),

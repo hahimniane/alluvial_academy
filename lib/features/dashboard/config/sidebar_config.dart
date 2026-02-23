@@ -147,7 +147,7 @@ class SidebarConfig {
             id: 'submit_form',
             label: 'Submit Form',
             icon: Icons.description,
-            screenIndex: 8,
+            screenIndex: 22, // Use TeacherFormsScreen (new template system)
             colorValue: 0xffEC4899,
           ),
         ],
@@ -180,7 +180,7 @@ class SidebarConfig {
             id: 'test_audit',
             label: 'Test Audit Génération',
             icon: Icons.play_arrow,
-            screenIndex: 22,
+            screenIndex: 21,
             colorValue: 0xff10B981,
           ),
           const SidebarItem(

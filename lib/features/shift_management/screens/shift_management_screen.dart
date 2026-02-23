@@ -50,6 +50,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
     with TickerProviderStateMixin {
   late TabController _tabController;
   final GlobalKey<SfDataGridState> _dataGridKey = GlobalKey<SfDataGridState>();
+  final ScrollController _pageScrollController = ScrollController();
 
   List<TeachingShift> _allShifts = [];
   List<TeachingShift> _todayShifts = [];
@@ -138,8 +139,8 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
       // Grant admin access if current role is admin OR if user has admin among available roles (dual admin+teacher)
       final isAdminByRole = role?.toLowerCase() == 'admin' ||
           role?.toLowerCase() == 'super_admin';
-      final hasAdminAvailable = availableRoles
-          .any((r) => r.toLowerCase() == 'admin' || r.toLowerCase() == 'super_admin');
+      final hasAdminAvailable = availableRoles.any((r) =>
+          r.toLowerCase() == 'admin' || r.toLowerCase() == 'super_admin');
       final isAdmin = isAdminByRole || hasAdminAvailable;
 
       AppLogger.debug(
@@ -159,7 +160,8 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
         final freshRoles = await UserRoleService.getAvailableRoles();
         final freshAdmin = freshRole?.toLowerCase() == 'admin' ||
             freshRole?.toLowerCase() == 'super_admin' ||
-            freshRoles.any((r) => r.toLowerCase() == 'admin' || r.toLowerCase() == 'super_admin');
+            freshRoles.any((r) =>
+                r.toLowerCase() == 'admin' || r.toLowerCase() == 'super_admin');
         if (freshAdmin && mounted) {
           setState(() {
             _currentUserId = currentUser.uid;
@@ -219,6 +221,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
     _shiftsSubscription?.cancel();
     _tabController.dispose();
     _searchController.dispose();
+    _pageScrollController.dispose();
     super.dispose();
   }
 
@@ -801,9 +804,11 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
         builder: (context, constraints) {
           final viewportHeight = constraints.maxHeight;
           return Scrollbar(
+            controller: _pageScrollController,
             thumbVisibility: true,
             interactive: true,
             child: SingleChildScrollView(
+              controller: _pageScrollController,
               padding: EdgeInsets.zero,
               child: ConstrainedBox(
                 constraints: BoxConstraints(minHeight: viewportHeight),
@@ -868,10 +873,20 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                       fontWeight: FontWeight.w500,
                     ),
                     tabs: [
-                      Tab(text: AppLocalizations.of(context)!.shiftTabAllCount(_filteredAllShifts.length)),
-                      Tab(text: AppLocalizations.of(context)!.shiftTabTodayCount(_filteredTodayShifts.length)),
-                      Tab(text: AppLocalizations.of(context)!.shiftTabUpcomingCount(_filteredUpcomingShifts.length)),
-                      Tab(text: AppLocalizations.of(context)!.shiftTabActiveCount(_filteredActiveShifts.length)),
+                      Tab(
+                          text: AppLocalizations.of(context)!
+                              .shiftTabAllCount(_filteredAllShifts.length)),
+                      Tab(
+                          text: AppLocalizations.of(context)!
+                              .shiftTabTodayCount(_filteredTodayShifts.length)),
+                      Tab(
+                          text: AppLocalizations.of(context)!
+                              .shiftTabUpcomingCount(
+                                  _filteredUpcomingShifts.length)),
+                      Tab(
+                          text: AppLocalizations.of(context)!
+                              .shiftTabActiveCount(
+                                  _filteredActiveShifts.length)),
                     ],
                   ),
                 ),
@@ -900,7 +915,8 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                         color: const Color(0xff374151),
                       ),
                       decoration: InputDecoration(
-                        hintText: AppLocalizations.of(context)!.searchUsersOrShifts,
+                        hintText:
+                            AppLocalizations.of(context)!.searchUsersOrShifts,
                         hintStyle: GoogleFonts.inter(
                           fontSize: 14,
                           color: const Color(0xff9CA3AF),
@@ -948,14 +964,19 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                     ),
                   ),
                   // Active teacher filter chip - shows when teacher is selected
-                  if (_selectedTeacherFilter != null && _selectedTeacherFilter!.isNotEmpty) ...[
+                  if (_selectedTeacherFilter != null &&
+                      _selectedTeacherFilter!.isNotEmpty) ...[
                     const SizedBox(width: 8),
                     Chip(
                       label: Text(
                         _getSelectedTeacherName(),
-                        style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w500, color: const Color(0xFF0386FF)),
+                        style: GoogleFonts.inter(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: const Color(0xFF0386FF)),
                       ),
-                      avatar: const Icon(Icons.person, size: 16, color: Color(0xFF0386FF)),
+                      avatar: const Icon(Icons.person,
+                          size: 16, color: Color(0xFF0386FF)),
                       backgroundColor: const Color(0xFF0386FF).withOpacity(0.1),
                       deleteIcon: const Icon(Icons.close, size: 14),
                       deleteIconColor: const Color(0xFF0386FF),
@@ -992,10 +1013,9 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                   Stack(
                     children: [
                       IconButton(
-                        tooltip:
-                            _filtersExpanded
-                                ? AppLocalizations.of(context)!.hideFilters
-                                : AppLocalizations.of(context)!.showFilters,
+                        tooltip: _filtersExpanded
+                            ? AppLocalizations.of(context)!.hideFilters
+                            : AppLocalizations.of(context)!.showFilters,
                         onPressed: () {
                           setState(() {
                             _filtersExpanded = !_filtersExpanded;
@@ -1073,8 +1093,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
               },
             ),
           // Week navigation bar (Grid view) - always visible so users can go to any week
-          if (_viewMode == 'grid')
-            _buildWeekNavigationBar(),
+          if (_viewMode == 'grid') _buildWeekNavigationBar(),
           // Tab contents - fixed, scrollable region
           SizedBox(
             height: tabViewHeight,
@@ -1115,7 +1134,8 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
       ),
       child: Row(
         children: [
-          Icon(Icons.calendar_view_week, size: 18, color: const Color(0xff0386FF)),
+          Icon(Icons.calendar_view_week,
+              size: 18, color: const Color(0xff0386FF)),
           const SizedBox(width: 8),
           Text(
             l10n.previousWeek,
@@ -1133,7 +1153,8 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
             tooltip: l10n.previousWeek,
             onPressed: () {
               setState(() {
-                _currentWeekStart = _currentWeekStart.subtract(const Duration(days: 7));
+                _currentWeekStart =
+                    _currentWeekStart.subtract(const Duration(days: 7));
               });
             },
           ),
@@ -1156,7 +1177,8 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
             tooltip: l10n.nextWeek,
             onPressed: () {
               setState(() {
-                _currentWeekStart = _currentWeekStart.add(const Duration(days: 7));
+                _currentWeekStart =
+                    _currentWeekStart.add(const Duration(days: 7));
               });
             },
           ),
@@ -1363,7 +1385,10 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            _isAdmin ? AppLocalizations.of(context)!.shiftManagementTitle : AppLocalizations.of(context)!.sidebarMyshifts,
+                            _isAdmin
+                                ? AppLocalizations.of(context)!
+                                    .shiftManagementTitle
+                                : AppLocalizations.of(context)!.sidebarMyshifts,
                             style: GoogleFonts.inter(
                               fontSize: 20,
                               fontWeight: FontWeight.w700,
@@ -1428,7 +1453,8 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                                   Icon(Icons.subject,
                                       size: 20, color: Color(0xff0386FF)),
                                   SizedBox(width: 8),
-                                  Text(AppLocalizations.of(context)!.manageSubjects),
+                                  Text(AppLocalizations.of(context)!
+                                      .manageSubjects),
                                 ],
                               ),
                             ),
@@ -1439,7 +1465,8 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                                   Icon(Icons.event_repeat,
                                       size: 20, color: Color(0xff8B5CF6)),
                                   SizedBox(width: 8),
-                                  Text(AppLocalizations.of(context)!.shiftTemplateManagement),
+                                  Text(AppLocalizations.of(context)!
+                                      .shiftTemplateManagement),
                                 ],
                               ),
                             ),
@@ -1450,7 +1477,8 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                                   Icon(Icons.attach_money,
                                       size: 20, color: Colors.green),
                                   SizedBox(width: 8),
-                                  Text(AppLocalizations.of(context)!.paySettings),
+                                  Text(AppLocalizations.of(context)!
+                                      .paySettings),
                                 ],
                               ),
                             ),
@@ -1461,7 +1489,8 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                                   Icon(Icons.access_time,
                                       size: 20, color: Colors.orange),
                                   SizedBox(width: 8),
-                                  Text(AppLocalizations.of(context)!.dstTimeAdjustment),
+                                  Text(AppLocalizations.of(context)!
+                                      .dstTimeAdjustment),
                                 ],
                               ),
                             ),
@@ -1833,10 +1862,18 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                   fontWeight: FontWeight.w500,
                 ),
                 tabs: [
-                  Tab(text: AppLocalizations.of(context)!.shiftTabAllCount(_filteredAllShifts.length)),
-                  Tab(text: AppLocalizations.of(context)!.shiftTabTodayCount(_filteredTodayShifts.length)),
-                  Tab(text: AppLocalizations.of(context)!.shiftTabUpcomingCount(_filteredUpcomingShifts.length)),
-                  Tab(text: AppLocalizations.of(context)!.shiftTabActiveCount(_filteredActiveShifts.length)),
+                  Tab(
+                      text: AppLocalizations.of(context)!
+                          .shiftTabAllCount(_filteredAllShifts.length)),
+                  Tab(
+                      text: AppLocalizations.of(context)!
+                          .shiftTabTodayCount(_filteredTodayShifts.length)),
+                  Tab(
+                      text: AppLocalizations.of(context)!.shiftTabUpcomingCount(
+                          _filteredUpcomingShifts.length)),
+                  Tab(
+                      text: AppLocalizations.of(context)!
+                          .shiftTabActiveCount(_filteredActiveShifts.length)),
                 ],
               ),
             ),
@@ -1905,12 +1942,18 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
     }).toList();
 
     // When a teacher is selected in the filter, show only that person in the grid
-    final teachersToShow = _selectedTeacherFilter != null && _selectedTeacherFilter!.isNotEmpty
-        ? _availableTeachers.where((t) => t.documentId == _selectedTeacherFilter).toList()
-        : _availableTeachers;
-    final leadersToShow = _selectedTeacherFilter != null && _selectedTeacherFilter!.isNotEmpty
-        ? _availableLeaders.where((l) => l.documentId == _selectedTeacherFilter).toList()
-        : _availableLeaders;
+    final teachersToShow =
+        _selectedTeacherFilter != null && _selectedTeacherFilter!.isNotEmpty
+            ? _availableTeachers
+                .where((t) => t.documentId == _selectedTeacherFilter)
+                .toList()
+            : _availableTeachers;
+    final leadersToShow =
+        _selectedTeacherFilter != null && _selectedTeacherFilter!.isNotEmpty
+            ? _availableLeaders
+                .where((l) => l.documentId == _selectedTeacherFilter)
+                .toList()
+            : _availableLeaders;
 
     final grid = WeeklyScheduleGrid(
       weekStart: _currentWeekStart,
@@ -1976,11 +2019,13 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
             child: Row(
               children: [
-                Icon(Icons.info_outline, size: 16, color: const Color(0xff0386FF)),
+                Icon(Icons.info_outline,
+                    size: 16, color: const Color(0xff0386FF)),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    AppLocalizations.of(context)!.shiftFilterHint(name, shifts.length),
+                    AppLocalizations.of(context)!
+                        .shiftFilterHint(name, shifts.length),
                     style: GoogleFonts.inter(
                       fontSize: 12,
                       color: const Color(0xff6B7280),
@@ -2351,7 +2396,8 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(AppLocalizations.of(context)!.noScheduledShiftsFoundToEdit),
+          content:
+              Text(AppLocalizations.of(context)!.noScheduledShiftsFoundToEdit),
           backgroundColor: Colors.orange,
         ),
       );
@@ -2398,7 +2444,8 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
       if (series == null || series.shifts.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(AppLocalizations.of(context)!.unableToLoadSeriesShifts),
+            content:
+                Text(AppLocalizations.of(context)!.unableToLoadSeriesShifts),
             backgroundColor: Colors.red,
           ),
         );
@@ -2432,7 +2479,8 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(AppLocalizations.of(context)!.failedToLoadStudentShiftsE),
+          content:
+              Text(AppLocalizations.of(context)!.failedToLoadStudentShiftsE),
           backgroundColor: Colors.red,
         ),
       );
@@ -2460,7 +2508,8 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(AppLocalizations.of(context)!.failedToLoadTimeRangeShifts),
+          content:
+              Text(AppLocalizations.of(context)!.failedToLoadTimeRangeShifts),
           backgroundColor: Colors.red,
         ),
       );
@@ -2589,7 +2638,8 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                         const SizedBox(width: 10),
                         Expanded(
                           child: Text(
-                            AppLocalizations.of(context)!.checkingRecurringSeries,
+                            AppLocalizations.of(context)!
+                                .checkingRecurringSeries,
                             style: GoogleFonts.inter(
                               fontSize: 12,
                               color: const Color(0xff6B7280),
@@ -2685,8 +2735,8 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
           if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content:
-                  Text(AppLocalizations.of(context)!.noScheduledShiftsFoundToDelete),
+              content: Text(
+                  AppLocalizations.of(context)!.noScheduledShiftsFoundToDelete),
               backgroundColor: Colors.orange,
             ),
           );
@@ -2808,7 +2858,8 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
 
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(AppLocalizations.of(context)!.allSelectedShiftsDeletedSuccessfully),
+              content: Text(AppLocalizations.of(context)!
+                  .allSelectedShiftsDeletedSuccessfully),
               backgroundColor: Colors.green,
             ),
           );
@@ -2997,7 +3048,8 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              AppLocalizations.of(context)!.areYouSureYouWantTo7,
+              AppLocalizations.of(context)!
+                  .confirmDeleteAllTeacherShiftsMessage,
               style: GoogleFonts.inter(
                 fontSize: 16,
                 color: const Color(0xff374151),
@@ -3068,7 +3120,8 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      AppLocalizations.of(context)!.teachershiftsShiftsWillBePermanentlyDeleted,
+                      AppLocalizations.of(context)!
+                          .teachershiftsShiftsWillBePermanentlyDeleted,
                       style: GoogleFonts.inter(
                         fontSize: 14,
                         color: Colors.red,
@@ -3150,7 +3203,8 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(AppLocalizations.of(context)!.errorDeletingTeacherShiftsE),
+              content: Text(
+                  AppLocalizations.of(context)!.errorDeletingTeacherShiftsE),
               backgroundColor: Colors.red,
               duration: const Duration(seconds: 3),
             ),
@@ -3338,7 +3392,9 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppLocalizations.of(context)!.errorE), backgroundColor: Colors.red),
+          SnackBar(
+              content: Text(AppLocalizations.of(context)!.errorE),
+              backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -3397,7 +3453,8 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      AppLocalizations.of(context)!.thisWillAdjustAllFutureScheduled,
+                      AppLocalizations.of(context)!
+                          .thisWillAdjustAllFutureScheduled,
                       style: GoogleFonts.inter(
                         fontSize: 13,
                         color: Colors.amber.shade900,
@@ -3446,7 +3503,8 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                             ),
                           ),
                           Text(
-                            AppLocalizations.of(context)!.moveAllShifts1HourLater,
+                            AppLocalizations.of(context)!
+                                .moveAllShifts1HourLater,
                             style: GoogleFonts.inter(
                               fontSize: 13,
                               color: const Color(0xff6B7280),
@@ -3489,7 +3547,8 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                             ),
                           ),
                           Text(
-                            AppLocalizations.of(context)!.moveAllShifts1HourEarlier,
+                            AppLocalizations.of(context)!
+                                .moveAllShifts1HourEarlier,
                             style: GoogleFonts.inter(
                               fontSize: 13,
                               color: const Color(0xff6B7280),
@@ -3519,7 +3578,8 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      AppLocalizations.of(context)!.onlyScheduledShiftsThatHavenT,
+                      AppLocalizations.of(context)!
+                          .onlyScheduledShiftsThatHavenT,
                       style: GoogleFonts.inter(
                         fontSize: 12,
                         color: const Color(0xff0386FF),
@@ -4154,7 +4214,7 @@ class _TeacherSearchDialogState extends State<_TeacherSearchDialog> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    AppLocalizations.of(context)!.searchTeachers2,
+                    AppLocalizations.of(context)!.searchTeachers,
                     style: GoogleFonts.inter(
                       fontSize: 20,
                       fontWeight: FontWeight.w600,
@@ -4232,7 +4292,8 @@ class _TeacherSearchDialogState extends State<_TeacherSearchDialog> {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            AppLocalizations.of(context)!.formTryAdjustingSearch,
+                            AppLocalizations.of(context)!
+                                .formTryAdjustingSearch,
                             style: GoogleFonts.inter(
                               fontSize: 14,
                               color: const Color(0xff9CA3AF),

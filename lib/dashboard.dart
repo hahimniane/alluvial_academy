@@ -490,7 +490,7 @@ class _DashboardPageState extends State<DashboardPage> {
                           return null;
                         },
                         decoration: InputDecoration(
-                          hintText: AppLocalizations.of(context)!.confirmNewPassword2,
+                          hintText: AppLocalizations.of(context)!.confirmNewPassword,
                           suffixIcon: IconButton(
                             icon: Icon(
                               obscureConfirmPassword
@@ -798,7 +798,7 @@ class _DashboardPageState extends State<DashboardPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        AppLocalizations.of(context)!.areYouSureYouWantTo2,
+                        AppLocalizations.of(context)!.confirmDeleteAccountMessage,
                         style: GoogleFonts.inter(
                           fontSize: 14,
                           color: const Color(0xff6B7280),

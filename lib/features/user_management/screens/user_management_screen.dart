@@ -522,6 +522,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
         onEditUser: _editUser,
         onDeleteUser: _deleteUser,
         onViewCredentials: _viewStudentCredentials,
+        onToggleAITutor: _toggleAITutor,
         context: context,
       );
       _adminDataSource = AdminEmployeeDataSource(
@@ -532,6 +533,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
         onActivateUser: _activateUser,
         onEditUser: _editUser,
         onDeleteUser: _deleteUser,
+        onToggleAITutor: _toggleAITutor,
         context: context,
       );
     }
@@ -884,6 +886,39 @@ class _UserManagementScreenState extends State<UserManagementScreen>
     // Refresh data if user was updated
     if (result == true) {
       _refreshData();
+    }
+  }
+
+  /// Toggle AI Tutor access for a user
+  Future<void> _toggleAITutor(Employee employee) async {
+    try {
+      final newValue = !employee.aiTutorEnabled;
+
+      // Find and update user document
+      final userQuery = await FirebaseFirestore.instance
+          .collection('users')
+          .where('e-mail', isEqualTo: employee.email)
+          .limit(1)
+          .get();
+
+      if (userQuery.docs.isEmpty) {
+        _showErrorSnackBar('User not found');
+        return;
+      }
+
+      await userQuery.docs.first.reference.update({
+        'ai_tutor_enabled': newValue,
+        'updated_at': Timestamp.now(),
+      });
+
+      _showSuccessSnackBar(
+        newValue ? 'AI Tutor enabled for ${employee.firstName}' : 'AI Tutor disabled for ${employee.firstName}',
+      );
+
+      // Refresh data
+      _refreshData();
+    } catch (e) {
+      _showErrorSnackBar('Error updating AI Tutor access: $e');
     }
   }
 

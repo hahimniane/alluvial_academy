@@ -193,7 +193,12 @@ class FormTemplateService {
             type: 'radio',
             required: true,
             order: 2,
-            options: ['Yes, all goals', 'Most goals', 'Some goals', 'Few goals'],
+            options: [
+              'Yes, all goals',
+              'Most goals',
+              'Some goals',
+              'Few goals'
+            ],
           ),
           // Field 3: Comments (Optional)
           const FormFieldDefinition(
@@ -240,7 +245,8 @@ class FormTemplateService {
   static FormTemplate get defaultTeacherFeedback => FormTemplate(
         id: 'teacher_feedback',
         name: 'Teacher Feedback & Complaints',
-        description: 'Submit feedback, suggestions, or complaints to leadership',
+        description:
+            'Submit feedback, suggestions, or complaints to leadership',
         frequency: FormFrequency.onDemand,
         category: FormCategory.feedback,
         version: 1,
@@ -315,7 +321,13 @@ class FormTemplateService {
             type: 'radio',
             required: true,
             order: 1,
-            options: ['Excellent', 'Good', 'Average', 'Needs Improvement', 'Poor'],
+            options: [
+              'Excellent',
+              'Good',
+              'Average',
+              'Needs Improvement',
+              'Poor'
+            ],
           ),
           FormFieldDefinition(
             id: 'communication',
@@ -358,7 +370,8 @@ class FormTemplateService {
   static FormTemplate get defaultStudentAssessment => FormTemplate(
         id: 'student_assessment',
         name: 'Student Assessment',
-        description: 'Evaluate student progress and skills at enrollment or semester end',
+        description:
+            'Evaluate student progress and skills at enrollment or semester end',
         frequency: FormFrequency.onDemand,
         category: FormCategory.studentAssessment,
         version: 1,
@@ -378,7 +391,11 @@ class FormTemplateService {
             type: 'radio',
             required: true,
             order: 2,
-            options: ['Initial (New Student)', 'Mid-Semester', 'End of Semester'],
+            options: [
+              'Initial (New Student)',
+              'Mid-Semester',
+              'End of Semester'
+            ],
           ),
           FormFieldDefinition(
             id: 'surahs_known',
@@ -395,7 +412,13 @@ class FormTemplateService {
             type: 'radio',
             required: true,
             order: 4,
-            options: ['Not Started', 'Beginner', 'Intermediate', 'Advanced', 'Fluent'],
+            options: [
+              'Not Started',
+              'Beginner',
+              'Intermediate',
+              'Advanced',
+              'Fluent'
+            ],
           ),
           FormFieldDefinition(
             id: 'writing_level',
@@ -403,7 +426,13 @@ class FormTemplateService {
             type: 'radio',
             required: true,
             order: 5,
-            options: ['Not Started', 'Beginner', 'Intermediate', 'Advanced', 'Fluent'],
+            options: [
+              'Not Started',
+              'Beginner',
+              'Intermediate',
+              'Advanced',
+              'Fluent'
+            ],
           ),
           FormFieldDefinition(
             id: 'overall_level',
@@ -428,7 +457,13 @@ class FormTemplateService {
             type: 'radio',
             required: true,
             order: 8,
-            options: ['1 - Very Poor', '2 - Poor', '3 - Average', '4 - Good', '5 - Excellent'],
+            options: [
+              '1 - Very Poor',
+              '2 - Poor',
+              '3 - Average',
+              '4 - Good',
+              '5 - Excellent'
+            ],
           ),
           FormFieldDefinition(
             id: 'writing_rating',
@@ -436,7 +471,13 @@ class FormTemplateService {
             type: 'radio',
             required: true,
             order: 9,
-            options: ['1 - Very Poor', '2 - Poor', '3 - Average', '4 - Good', '5 - Excellent'],
+            options: [
+              '1 - Very Poor',
+              '2 - Poor',
+              '3 - Average',
+              '4 - Good',
+              '5 - Excellent'
+            ],
           ),
           FormFieldDefinition(
             id: 'additional_notes',
@@ -487,7 +528,13 @@ class FormTemplateService {
             type: 'radio',
             required: true,
             order: 2,
-            options: ['Technical Issue', 'Student Behavior', 'Parent Concern', 'Scheduling Conflict', 'Other'],
+            options: [
+              'Technical Issue',
+              'Student Behavior',
+              'Parent Concern',
+              'Scheduling Conflict',
+              'Other'
+            ],
           ),
           FormFieldDefinition(
             id: 'description',
@@ -550,7 +597,14 @@ class FormTemplateService {
             type: 'radio',
             required: true,
             order: 1,
-            options: ['Sick Leave', 'Personal Emergency', 'Family Emergency', 'Religious Holiday', 'Pre-planned Absence', 'Other'],
+            options: [
+              'Sick Leave',
+              'Personal Emergency',
+              'Family Emergency',
+              'Religious Holiday',
+              'Pre-planned Absence',
+              'Other'
+            ],
           ),
           FormFieldDefinition(
             id: 'start_date',
@@ -597,7 +651,11 @@ class FormTemplateService {
             type: 'radio',
             required: true,
             order: 7,
-            options: ['Yes - another teacher will cover', 'No - need admin help', 'Classes should be cancelled'],
+            options: [
+              'Yes - another teacher will cover',
+              'No - need admin help',
+              'Classes should be cancelled'
+            ],
           ),
         ],
         autoFillRules: [
@@ -620,7 +678,8 @@ class FormTemplateService {
   static FormTemplate get defaultCoachPerformanceReview => FormTemplate(
         id: 'coach_performance_review',
         name: 'Coach Performance Review',
-        description: 'Monthly evaluation of coach/supervisor performance (Admin only)',
+        description:
+            'Monthly evaluation of coach/supervisor performance (Admin only)',
         frequency: FormFrequency.monthly,
         category: FormCategory.feedback,
         version: 1,
@@ -656,7 +715,12 @@ class FormTemplateService {
             type: 'radio',
             required: true,
             order: 4,
-            options: ['All on time', 'Most on time (>80%)', 'Some delays (<80%)', 'Significant delays'],
+            options: [
+              'All on time',
+              'Most on time (>80%)',
+              'Some delays (<80%)',
+              'Significant delays'
+            ],
           ),
           FormFieldDefinition(
             id: 'teacher_support_quality',
@@ -672,7 +736,12 @@ class FormTemplateService {
             type: 'radio',
             required: true,
             order: 6,
-            options: ['Same day', 'Within 24 hours', '24-48 hours', 'More than 48 hours'],
+            options: [
+              'Same day',
+              'Within 24 hours',
+              '24-48 hours',
+              'More than 48 hours'
+            ],
           ),
           FormFieldDefinition(
             id: 'teacher_retention',
@@ -680,7 +749,12 @@ class FormTemplateService {
             type: 'radio',
             required: true,
             order: 7,
-            options: ['All retained', 'Minor turnover (1-2)', 'Moderate turnover (3+)', 'High turnover'],
+            options: [
+              'All retained',
+              'Minor turnover (1-2)',
+              'Moderate turnover (3+)',
+              'High turnover'
+            ],
           ),
           FormFieldDefinition(
             id: 'overall_rating',
@@ -688,7 +762,18 @@ class FormTemplateService {
             type: 'radio',
             required: true,
             order: 8,
-            options: ['10 - Outstanding', '9 - Excellent', '8 - Very Good', '7 - Good', '6 - Satisfactory', '5 - Average', '4 - Below Average', '3 - Poor', '2 - Very Poor', '1 - Unacceptable'],
+            options: [
+              '10 - Outstanding',
+              '9 - Excellent',
+              '8 - Very Good',
+              '7 - Good',
+              '6 - Satisfactory',
+              '5 - Average',
+              '4 - Below Average',
+              '3 - Poor',
+              '2 - Very Poor',
+              '1 - Unacceptable'
+            ],
           ),
           FormFieldDefinition(
             id: 'strengths',
@@ -820,7 +905,8 @@ class FormTemplateService {
   static FormTemplate get defaultParentFeedback => FormTemplate(
         id: 'parent_feedback',
         name: 'Parent/Guardian Feedback',
-        description: 'Collect feedback from parents about their child\'s teacher',
+        description:
+            'Collect feedback from parents about their child\'s teacher',
         frequency: FormFrequency.onDemand,
         category: FormCategory.studentAssessment,
         version: 1,
@@ -846,7 +932,13 @@ class FormTemplateService {
             type: 'radio',
             required: true,
             order: 3,
-            options: ['Very Satisfied', 'Satisfied', 'Neutral', 'Dissatisfied', 'Very Dissatisfied'],
+            options: [
+              'Very Satisfied',
+              'Satisfied',
+              'Neutral',
+              'Dissatisfied',
+              'Very Dissatisfied'
+            ],
           ),
           FormFieldDefinition(
             id: 'communication_quality',
@@ -862,7 +954,12 @@ class FormTemplateService {
             type: 'radio',
             required: true,
             order: 5,
-            options: ['Significant progress', 'Some progress', 'Little progress', 'No progress'],
+            options: [
+              'Significant progress',
+              'Some progress',
+              'Little progress',
+              'No progress'
+            ],
           ),
           FormFieldDefinition(
             id: 'punctuality',
@@ -870,7 +967,12 @@ class FormTemplateService {
             type: 'radio',
             required: true,
             order: 6,
-            options: ['Always on time', 'Usually on time', 'Sometimes late', 'Often late'],
+            options: [
+              'Always on time',
+              'Usually on time',
+              'Sometimes late',
+              'Often late'
+            ],
           ),
           FormFieldDefinition(
             id: 'recommendation',
@@ -878,7 +980,13 @@ class FormTemplateService {
             type: 'radio',
             required: true,
             order: 7,
-            options: ['Definitely yes', 'Probably yes', 'Not sure', 'Probably no', 'Definitely no'],
+            options: [
+              'Definitely yes',
+              'Probably yes',
+              'Not sure',
+              'Probably no',
+              'Definitely no'
+            ],
           ),
           FormFieldDefinition(
             id: 'comments',
@@ -901,12 +1009,13 @@ class FormTemplateService {
 
   /// Get all form templates
   /// [forceRefresh] - If true, forces reload from server, bypassing cache
-  static Future<List<FormTemplate>> getAllTemplates({bool forceRefresh = false}) async {
+  static Future<List<FormTemplate>> getAllTemplates(
+      {bool forceRefresh = false}) async {
     try {
-      final getOptions = forceRefresh 
+      final getOptions = forceRefresh
           ? const GetOptions(source: Source.server)
           : const GetOptions(source: Source.cache);
-      
+
       // Try to order by updatedAt first (most recently updated), fallback to createdAt
       try {
         final snapshot = await _firestore
@@ -914,9 +1023,12 @@ class FormTemplateService {
             .orderBy('updatedAt', descending: true)
             .get(getOptions);
 
-        final templates = snapshot.docs.map((doc) => FormTemplate.fromFirestore(doc)).toList();
-        
-        AppLogger.debug('FormTemplateService: getAllTemplates loaded ${templates.length} templates');
+        final templates = snapshot.docs
+            .map((doc) => FormTemplate.fromFirestore(doc))
+            .toList();
+
+        AppLogger.debug(
+            'FormTemplateService: getAllTemplates loaded ${templates.length} templates');
         // Also sort by version as secondary sort to ensure latest version is first
         templates.sort((a, b) {
           // First by updatedAt (most recent first)
@@ -928,13 +1040,16 @@ class FormTemplateService {
         return templates;
       } catch (e) {
         // If updatedAt index doesn't exist, fallback to createdAt
-        AppLogger.debug('FormTemplateService: updatedAt index not available, using createdAt: $e');
+        AppLogger.debug(
+            'FormTemplateService: updatedAt index not available, using createdAt: $e');
         final snapshot = await _firestore
             .collection(_templatesCollection)
             .orderBy('createdAt', descending: true)
             .get(getOptions);
 
-        final templates = snapshot.docs.map((doc) => FormTemplate.fromFirestore(doc)).toList();
+        final templates = snapshot.docs
+            .map((doc) => FormTemplate.fromFirestore(doc))
+            .toList();
         // Sort by version as secondary sort
         templates.sort((a, b) {
           // First by createdAt (most recent first)
@@ -954,9 +1069,12 @@ class FormTemplateService {
               .collection(_templatesCollection)
               .orderBy('createdAt', descending: true)
               .get(const GetOptions(source: Source.server));
-          return snapshot.docs.map((doc) => FormTemplate.fromFirestore(doc)).toList();
+          return snapshot.docs
+              .map((doc) => FormTemplate.fromFirestore(doc))
+              .toList();
         } catch (e2) {
-          AppLogger.error('FormTemplateService: Error fetching from server: $e2');
+          AppLogger.error(
+              'FormTemplateService: Error fetching from server: $e2');
           return [];
         }
       }
@@ -967,21 +1085,25 @@ class FormTemplateService {
   /// Get active templates by frequency
   /// [forceRefresh] - If true, forces reload from server, bypassing cache
   static Future<List<FormTemplate>> getTemplatesByFrequency(
-      FormFrequency frequency, {bool forceRefresh = false}) async {
+      FormFrequency frequency,
+      {bool forceRefresh = false}) async {
     try {
-      final getOptions = forceRefresh 
+      final getOptions = forceRefresh
           ? const GetOptions(source: Source.server)
           : const GetOptions(source: Source.cache);
-      
+
       final snapshot = await _firestore
           .collection(_templatesCollection)
           .where('frequency', isEqualTo: frequency.name)
           .where('isActive', isEqualTo: true)
           .get(getOptions);
 
-      return snapshot.docs.map((doc) => FormTemplate.fromFirestore(doc)).toList();
+      return snapshot.docs
+          .map((doc) => FormTemplate.fromFirestore(doc))
+          .toList();
     } catch (e) {
-      AppLogger.error('FormTemplateService: Error fetching templates by frequency: $e');
+      AppLogger.error(
+          'FormTemplateService: Error fetching templates by frequency: $e');
       // If cache fails, try server
       if (!forceRefresh) {
         try {
@@ -990,9 +1112,12 @@ class FormTemplateService {
               .where('frequency', isEqualTo: frequency.name)
               .where('isActive', isEqualTo: true)
               .get(const GetOptions(source: Source.server));
-          return snapshot.docs.map((doc) => FormTemplate.fromFirestore(doc)).toList();
+          return snapshot.docs
+              .map((doc) => FormTemplate.fromFirestore(doc))
+              .toList();
         } catch (e2) {
-          AppLogger.error('FormTemplateService: Error fetching from server: $e2');
+          AppLogger.error(
+              'FormTemplateService: Error fetching from server: $e2');
           return [];
         }
       }
@@ -1002,18 +1127,19 @@ class FormTemplateService {
 
   /// Get template by ID
   /// [forceRefresh] - If true, forces reload from server, bypassing cache
-  static Future<FormTemplate?> getTemplate(String templateId, {bool forceRefresh = true}) async {
+  static Future<FormTemplate?> getTemplate(String templateId,
+      {bool forceRefresh = true}) async {
     try {
       // Always use server source to ensure latest version
-      final getOptions = forceRefresh 
+      final getOptions = forceRefresh
           ? const GetOptions(source: Source.server)
           : const GetOptions(source: Source.serverAndCache);
-      
+
       final doc = await _firestore
           .collection(_templatesCollection)
           .doc(templateId)
           .get(getOptions);
-      
+
       if (doc.exists) {
         return FormTemplate.fromFirestore(doc);
       }
@@ -1024,136 +1150,181 @@ class FormTemplateService {
     }
   }
 
+  static String _normalizeTemplateName(String name) {
+    return name.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+  }
+
+  static bool _isNewerTemplate(FormTemplate candidate, FormTemplate current) {
+    if (candidate.version != current.version) {
+      return candidate.version > current.version;
+    }
+    return candidate.updatedAt.isAfter(current.updatedAt);
+  }
+
+  static List<FormTemplate> _latestActiveTemplatesByName(
+      List<FormTemplate> templates) {
+    final Map<String, FormTemplate> latestByName = {};
+    for (final template in templates) {
+      if (!template.isActive) continue;
+      final normalizedName = _normalizeTemplateName(template.name);
+      final existing = latestByName[normalizedName];
+      if (existing == null || _isNewerTemplate(template, existing)) {
+        latestByName[normalizedName] = template;
+      }
+    }
+    return latestByName.values.toList();
+  }
+
   /// Get the currently active daily class report template
   /// [forceRefresh] - If true, forces reload from server, bypassing cache
-  static Future<FormTemplate?> getActiveDailyTemplate({bool forceRefresh = true}) async {
+  static Future<FormTemplate?> getActiveDailyTemplate(
+      {bool forceRefresh = true}) async {
     try {
       // Always use server source to ensure latest version
-      final getOptions = forceRefresh 
+      final getOptions = forceRefresh
           ? const GetOptions(source: Source.server)
           : const GetOptions(source: Source.serverAndCache);
-      
-      // First check config for specified template
+
+      // Load active daily candidates first and compute latest by name.
+      // This keeps auto-popup aligned with manual form selection logic.
+      final allTemplates = await getTemplatesByFrequency(
+        FormFrequency.perSession,
+        forceRefresh: forceRefresh,
+      );
+
+      AppLogger.debug(
+          'FormTemplateService: getActiveDailyTemplate - Found ${allTemplates.length} perSession templates');
+
+      final templates = _latestActiveTemplatesByName(allTemplates);
+      AppLogger.debug(
+          'FormTemplateService: After deduplication, ${templates.length} unique perSession templates');
+
+      templates.sort((a, b) {
+        final versionCompare = b.version.compareTo(a.version);
+        if (versionCompare != 0) return versionCompare;
+        return b.updatedAt.compareTo(a.updatedAt);
+      });
+
+      FormTemplate? latestDailyReport;
+      if (templates.isNotEmpty) {
+        latestDailyReport = templates.firstWhere(
+          (t) =>
+              t.name.toLowerCase().contains('daily') &&
+              (t.name.toLowerCase().contains('class') ||
+                  t.name.toLowerCase().contains('report')),
+          orElse: () => templates.first,
+        );
+      }
+
+      // Respect explicit config when it's valid, except when it points to an older
+      // version of the same template name.
       final configDoc = await _firestore
           .collection(_configCollection)
           .doc(_configDoc)
           .get(getOptions);
-      
+
       if (configDoc.exists) {
         final dailyTemplateId = configDoc.data()?['dailyTemplateId'] as String?;
-        if (dailyTemplateId != null) {
-          final template = await getTemplate(dailyTemplateId, forceRefresh: forceRefresh);
-          if (template != null) return template;
-        }
-      }
-
-      // Fallback: get any active daily template (force refresh to get latest)
-      final allTemplates = await getTemplatesByFrequency(
-        FormFrequency.perSession, 
-        forceRefresh: forceRefresh,
-      );
-
-      AppLogger.debug('FormTemplateService: getActiveDailyTemplate - Found ${allTemplates.length} perSession templates');
-      
-      if (allTemplates.isNotEmpty) {
-        // Filter to keep only latest version of each template by normalized name
-        final Map<String, FormTemplate> latestTemplatesByName = {};
-        for (var template in allTemplates) {
-          if (!template.isActive) continue;
-          
-          // Normalize template name for comparison
-          final normalizedName = template.name
-              .trim()
-              .toLowerCase()
-              .replaceAll(RegExp(r'\s+'), ' ');
-          
-          if (!latestTemplatesByName.containsKey(normalizedName)) {
-            latestTemplatesByName[normalizedName] = template;
-          } else {
-            final existing = latestTemplatesByName[normalizedName]!;
-            // Keep the one with higher version, or if same version, keep the one with later updatedAt
-            if (template.version > existing.version) {
-              latestTemplatesByName[normalizedName] = template;
-            } else if (template.version == existing.version) {
-              if (template.updatedAt.isAfter(existing.updatedAt)) {
-                latestTemplatesByName[normalizedName] = template;
-              }
+        if (dailyTemplateId != null && dailyTemplateId.isNotEmpty) {
+          final configuredTemplate =
+              await getTemplate(dailyTemplateId, forceRefresh: forceRefresh);
+          if (configuredTemplate != null &&
+              configuredTemplate.isActive &&
+              configuredTemplate.frequency == FormFrequency.perSession) {
+            if (latestDailyReport != null &&
+                _normalizeTemplateName(configuredTemplate.name) ==
+                    _normalizeTemplateName(latestDailyReport.name) &&
+                _isNewerTemplate(latestDailyReport, configuredTemplate)) {
+              AppLogger.warning(
+                'FormTemplateService: dailyTemplateId=$dailyTemplateId is older than '
+                'latest "${latestDailyReport.name}" (cfg v${configuredTemplate.version} '
+                'vs latest v${latestDailyReport.version}); using latest ID=${latestDailyReport.id}',
+              );
+              return latestDailyReport;
             }
+            return configuredTemplate;
+          }
+
+          if (configuredTemplate != null) {
+            AppLogger.warning(
+              'FormTemplateService: Ignoring stale dailyTemplateId=$dailyTemplateId '
+              '(isActive=${configuredTemplate.isActive}, frequency=${configuredTemplate.frequency.name})',
+            );
           }
         }
-        
-        final templates = latestTemplatesByName.values.toList();
-
-        AppLogger.debug('FormTemplateService: After deduplication, ${templates.length} unique perSession templates');
-        
-        // Sort by version (highest first) and updatedAt (most recent first) to get latest
-        templates.sort((a, b) {
-          final versionCompare = b.version.compareTo(a.version);
-          if (versionCompare != 0) return versionCompare;
-          return b.updatedAt.compareTo(a.updatedAt);
-        });
-        
-        // Prefer template named "Daily Class Report" if it exists, otherwise use first (latest version)
-        final dailyReport = templates.firstWhere(
-          (t) => t.name.toLowerCase().contains('daily') && 
-                 (t.name.toLowerCase().contains('class') || t.name.toLowerCase().contains('report')),
-          orElse: () => templates.first, // Returns the template with highest version
-        );
-
-        AppLogger.debug('FormTemplateService: Selected daily template: ${dailyReport.name} (Version: ${dailyReport.version}, ID: ${dailyReport.id})');
-        
-        return dailyReport;
       }
 
-      // Last resort: return default
-      return defaultDailyClassReport;
+      if (latestDailyReport != null) {
+        AppLogger.debug(
+          'FormTemplateService: Selected daily template fallback: '
+          '${latestDailyReport.name} (Version: ${latestDailyReport.version}, ID: ${latestDailyReport.id})',
+        );
+        return latestDailyReport;
+      }
+
+      // No template available in Firestore.
+      return null;
     } catch (e) {
-      AppLogger.error('FormTemplateService: Error getting active daily template: $e');
-      return defaultDailyClassReport;
+      AppLogger.error(
+          'FormTemplateService: Error getting active daily template: $e');
+      return null;
     }
   }
 
   /// Get the currently active weekly template
   /// [forceRefresh] - If true, forces reload from server, bypassing cache
-  static Future<FormTemplate?> getActiveWeeklyTemplate({bool forceRefresh = true}) async {
+  static Future<FormTemplate?> getActiveWeeklyTemplate(
+      {bool forceRefresh = true}) async {
     try {
       // Always use server source to ensure latest version
-      final getOptions = forceRefresh 
+      final getOptions = forceRefresh
           ? const GetOptions(source: Source.server)
           : const GetOptions(source: Source.serverAndCache);
-      
+
       // First check config for specified template
       final configDoc = await _firestore
           .collection(_configCollection)
           .doc(_configDoc)
           .get(getOptions);
-      
+
       if (configDoc.exists) {
-        final weeklyTemplateId = configDoc.data()?['weeklyTemplateId'] as String?;
+        final weeklyTemplateId =
+            configDoc.data()?['weeklyTemplateId'] as String?;
         if (weeklyTemplateId != null) {
-          final template = await getTemplate(weeklyTemplateId, forceRefresh: forceRefresh);
-          if (template != null) return template;
+          final template =
+              await getTemplate(weeklyTemplateId, forceRefresh: forceRefresh);
+          if (template != null &&
+              template.isActive &&
+              template.frequency == FormFrequency.weekly) {
+            return template;
+          }
+          if (template != null) {
+            AppLogger.warning(
+              'FormTemplateService: Ignoring stale weeklyTemplateId=$weeklyTemplateId '
+              '(isActive=${template.isActive}, frequency=${template.frequency.name})',
+            );
+          }
         }
       }
 
       // Fallback: get any active weekly template (force refresh to get latest)
       final allTemplates = await getTemplatesByFrequency(
-        FormFrequency.weekly, 
+        FormFrequency.weekly,
         forceRefresh: forceRefresh,
       );
-      
+
       if (allTemplates.isNotEmpty) {
         // Filter to keep only latest version of each template by normalized name
         final Map<String, FormTemplate> latestTemplatesByName = {};
         for (var template in allTemplates) {
           if (!template.isActive) continue;
-          
+
           // Normalize template name for comparison
           final normalizedName = template.name
               .trim()
               .toLowerCase()
               .replaceAll(RegExp(r'\s+'), ' ');
-          
+
           if (!latestTemplatesByName.containsKey(normalizedName)) {
             latestTemplatesByName[normalizedName] = template;
           } else {
@@ -1168,82 +1339,99 @@ class FormTemplateService {
             }
           }
         }
-        
+
         final templates = latestTemplatesByName.values.toList();
-        
+
         // Sort by version (highest first) and updatedAt (most recent first) to get latest
         templates.sort((a, b) {
           final versionCompare = b.version.compareTo(a.version);
           if (versionCompare != 0) return versionCompare;
           return b.updatedAt.compareTo(a.updatedAt);
         });
-        
+
         // Prefer "Weekly Summary" if it exists (after deduplication, this will be the latest version)
         // Otherwise, use the first template (highest version overall)
         final weeklyReport = templates.firstWhere(
           (t) {
             final nameLower = t.name.toLowerCase();
-            return nameLower.contains('weekly summary') || 
-                   (nameLower.contains('weekly') && nameLower.contains('summary'));
+            return nameLower.contains('weekly summary') ||
+                (nameLower.contains('weekly') && nameLower.contains('summary'));
           },
-          orElse: () => templates.first, // Returns the template with highest version
+          orElse: () =>
+              templates.first, // Returns the template with highest version
         );
-        
-        AppLogger.debug('FormTemplateService: Selected weekly template: ${weeklyReport.name} (Version: ${weeklyReport.version}, ID: ${weeklyReport.id})');
-        AppLogger.debug('FormTemplateService: Available weekly templates after dedup: ${templates.map((t) => '${t.name} v${t.version}').join(", ")}');
-        
+
+        AppLogger.debug(
+            'FormTemplateService: Selected weekly template: ${weeklyReport.name} (Version: ${weeklyReport.version}, ID: ${weeklyReport.id})');
+        AppLogger.debug(
+            'FormTemplateService: Available weekly templates after dedup: ${templates.map((t) => '${t.name} v${t.version}').join(", ")}');
+
         return weeklyReport;
       }
 
       // Last resort: return default
       return defaultWeeklySummary;
     } catch (e) {
-      AppLogger.error('FormTemplateService: Error getting active weekly template: $e');
+      AppLogger.error(
+          'FormTemplateService: Error getting active weekly template: $e');
       return defaultWeeklySummary;
     }
   }
 
   /// Get the currently active monthly template
   /// [forceRefresh] - If true, forces reload from server, bypassing cache
-  static Future<FormTemplate?> getActiveMonthlyTemplate({bool forceRefresh = true}) async {
+  static Future<FormTemplate?> getActiveMonthlyTemplate(
+      {bool forceRefresh = true}) async {
     try {
       // Always use server source to ensure latest version
-      final getOptions = forceRefresh 
+      final getOptions = forceRefresh
           ? const GetOptions(source: Source.server)
           : const GetOptions(source: Source.serverAndCache);
-      
+
       // First check config for specified template
       final configDoc = await _firestore
           .collection(_configCollection)
           .doc(_configDoc)
           .get(getOptions);
-      
+
       if (configDoc.exists) {
-        final monthlyTemplateId = configDoc.data()?['monthlyTemplateId'] as String?;
+        final monthlyTemplateId =
+            configDoc.data()?['monthlyTemplateId'] as String?;
         if (monthlyTemplateId != null) {
-          final template = await getTemplate(monthlyTemplateId, forceRefresh: forceRefresh);
-          if (template != null) return template;
+          final template =
+              await getTemplate(monthlyTemplateId, forceRefresh: forceRefresh);
+          if (template != null &&
+              template.isActive &&
+              template.frequency == FormFrequency.monthly) {
+            return template;
+          }
+          if (template != null) {
+            AppLogger.warning(
+              'FormTemplateService: Ignoring stale monthlyTemplateId=$monthlyTemplateId '
+              '(isActive=${template.isActive}, frequency=${template.frequency.name})',
+            );
+          }
         }
       }
 
       // Fallback: get any active monthly template (force refresh to get latest)
       final allTemplates = await getTemplatesByFrequency(
-        FormFrequency.monthly, 
+        FormFrequency.monthly,
         forceRefresh: forceRefresh,
       );
-      
+
       if (allTemplates.isNotEmpty) {
         // Filter to keep only latest version of each template by normalized name
         final Map<String, FormTemplate> latestTemplatesByName = {};
         for (var template in allTemplates) {
           if (!template.isActive) continue;
-          
+
           // Normalize template name for comparison
           final normalizedName = template.name
               .trim()
               .toLowerCase()
               .replaceAll(RegExp(r'\s+'), ' ');
-          
+
           if (!latestTemplatesByName.containsKey(normalizedName)) {
             latestTemplatesByName[normalizedName] = template;
           } else {
@@ -1258,30 +1446,33 @@ class FormTemplateService {
             }
           }
         }
-        
+
         final templates = latestTemplatesByName.values.toList();
-        
+
         // Sort by version (highest first) and updatedAt (most recent first) to get latest
         templates.sort((a, b) {
           final versionCompare = b.version.compareTo(a.version);
           if (versionCompare != 0) return versionCompare;
           return b.updatedAt.compareTo(a.updatedAt);
         });
-        
+
         // After deduplication and sorting, the first template is the latest version
         // This ensures we always get the highest version number
         final monthlyReport = templates.first;
-        
-        AppLogger.debug('FormTemplateService: Selected monthly template: ${monthlyReport.name} (Version: ${monthlyReport.version}, ID: ${monthlyReport.id})');
-        AppLogger.debug('FormTemplateService: Available monthly templates: ${templates.map((t) => '${t.name} v${t.version}').join(", ")}');
-        
+
+        AppLogger.debug(
+            'FormTemplateService: Selected monthly template: ${monthlyReport.name} (Version: ${monthlyReport.version}, ID: ${monthlyReport.id})');
+        AppLogger.debug(
+            'FormTemplateService: Available monthly templates: ${templates.map((t) => '${t.name} v${t.version}').join(", ")}');
+
         return monthlyReport;
       }
 
       // Last resort: return default
       return defaultMonthlyReview;
     } catch (e) {
-      AppLogger.error('FormTemplateService: Error getting active monthly template: $e');
+      AppLogger.error(
+          'FormTemplateService: Error getting active monthly template: $e');
       return defaultMonthlyReview;
     }
   }
@@ -1297,9 +1488,11 @@ class FormTemplateService {
         // Create new template
         data['createdAt'] = FieldValue.serverTimestamp();
         data['createdBy'] = user?.uid;
-        final docRef = await _firestore.collection(_templatesCollection).add(data);
+        final docRef =
+            await _firestore.collection(_templatesCollection).add(data);
         AppLogger.info('FormTemplateService: Created template ${docRef.id}');
-        AppLogger.debug('FormTemplateService: Created NEW template - name: ${template.name}, id: ${docRef.id}');
+        AppLogger.debug(
+            'FormTemplateService: Created NEW template - name: ${template.name}, id: ${docRef.id}');
         return docRef.id;
       } else {
         // Update existing template (increment version)
@@ -1309,7 +1502,8 @@ class FormTemplateService {
               SetOptions(merge: true),
             );
         AppLogger.info('FormTemplateService: Updated template ${template.id}');
-        AppLogger.debug('FormTemplateService: UPDATED existing template - name: ${template.name}, id: ${template.id}');
+        AppLogger.debug(
+            'FormTemplateService: UPDATED existing template - name: ${template.name}, id: ${template.id}');
         return template.id;
       }
     } catch (e) {
@@ -1323,64 +1517,83 @@ class FormTemplateService {
   /// - Deactivates them (isActive = false)
   /// - Creates a NEW document for the new version with incremented version number
   /// - Ensures only this new version is active
-  static Future<String> saveTemplateWithVersioning(FormTemplate template) async {
+  static Future<String> saveTemplateWithVersioning(
+      FormTemplate template) async {
     try {
       final user = FirebaseAuth.instance.currentUser;
-      
+
       // 1. Find all existing templates with the same name (case-insensitive)
       // We read ALL templates because we need to check names and find max version
       // This might be expensive if there are thousands, but for form templates it's fine
       final snapshot = await _firestore.collection(_templatesCollection).get();
-      
+
       final normalizedName = template.name.trim().toLowerCase();
       int maxVersion = 0;
       final batch = _firestore.batch();
-      bool foundMatch = false;
-      
+
       for (var doc in snapshot.docs) {
         final data = doc.data();
         final docName = (data['name'] as String? ?? '').trim().toLowerCase();
-        
+
         if (docName == normalizedName) {
-          foundMatch = true;
           // Track max version
           final version = data['version'] as int? ?? 0;
           if (version > maxVersion) maxVersion = version;
-          
+
           // Deactivate if currently active
           if (data['isActive'] == true) {
             batch.update(doc.reference, {'isActive': false});
           }
         }
       }
-      
+
       // 2. Create new template as a NEW document
       final newVersion = maxVersion + 1;
-      
+
       final newTemplateData = template.toMap();
       newTemplateData['version'] = newVersion;
       newTemplateData['isActive'] = true;
       newTemplateData['createdAt'] = FieldValue.serverTimestamp();
       newTemplateData['updatedAt'] = FieldValue.serverTimestamp();
       newTemplateData['createdBy'] = user?.uid;
-      
+
       // Ensure we don't reuse an old ID if one was passed by mistake
       // We want a fresh document ID for the new version
-      newTemplateData.remove('id'); 
-      
+      newTemplateData.remove('id');
+
       final newDocRef = _firestore.collection(_templatesCollection).doc();
       batch.set(newDocRef, newTemplateData);
-      
+
+      // Keep active template config in sync when creating a new version.
+      final configField = switch (template.frequency) {
+        FormFrequency.perSession => 'dailyTemplateId',
+        FormFrequency.weekly => 'weeklyTemplateId',
+        FormFrequency.monthly => 'monthlyTemplateId',
+        FormFrequency.onDemand => null,
+      };
+      if (configField != null) {
+        batch.set(
+          _firestore.collection(_configCollection).doc(_configDoc),
+          {
+            configField: newDocRef.id,
+            'lastUpdated': FieldValue.serverTimestamp(),
+          },
+          SetOptions(merge: true),
+        );
+      }
+
       await batch.commit();
-      
-      AppLogger.info('FormTemplateService: Saved new version ($newVersion) of "${template.name}" and deactivated others.');
-      
-      AppLogger.debug('FormTemplateService: Versioning Save - Name: ${template.name}, New Version: $newVersion, New ID: ${newDocRef.id}');
-      
+
+      AppLogger.info(
+          'FormTemplateService: Saved new version ($newVersion) of "${template.name}" and deactivated others.');
+
+      AppLogger.debug(
+          'FormTemplateService: Versioning Save - Name: ${template.name}, New Version: $newVersion, New ID: ${newDocRef.id}');
+
       return newDocRef.id;
-      
     } catch (e) {
-      AppLogger.error('FormTemplateService: Error saving template with versioning: $e');
+      AppLogger.error(
+          'FormTemplateService: Error saving template with versioning: $e');
       rethrow;
     }
   }
@@ -1393,12 +1606,14 @@ class FormTemplateService {
         FormFrequency.perSession => 'dailyTemplateId',
         FormFrequency.weekly => 'weeklyTemplateId',
         FormFrequency.monthly => 'monthlyTemplateId',
-        FormFrequency.onDemand => null, // On-demand forms don't have active template config
+        FormFrequency.onDemand =>
+          null, // On-demand forms don't have active template config
       };
-      
+
       // On-demand forms don't need active template configuration
       if (fieldName == null) {
-        AppLogger.info('FormTemplateService: On-demand forms do not require active template configuration');
+        AppLogger.info(
+            'FormTemplateService: On-demand forms do not require active template configuration');
         return;
       }
 
@@ -1407,8 +1622,7 @@ class FormTemplateService {
         SetOptions(merge: true),
       );
 
-      AppLogger.info(
-          'FormTemplateService: Set $fieldName to $templateId');
+      AppLogger.info('FormTemplateService: Set $fieldName to $templateId');
     } catch (e) {
       AppLogger.error('FormTemplateService: Error setting active template: $e');
       rethrow;
@@ -1520,7 +1734,7 @@ class FormTemplateService {
         case 'subject':
           value = subject;
           break;
-        
+
         // Shift-related fields (for Daily Class Report)
         case 'shiftId':
           value = shiftId;
@@ -1543,7 +1757,7 @@ class FormTemplateService {
         case 'shift.clockOutTime':
           value = clockOutTime;
           break;
-        
+
         // Weekly Summary fields
         case 'weekEndingDate':
           value = weekEndingDate?.toIso8601String();
@@ -1554,7 +1768,7 @@ class FormTemplateService {
         case 'weekCompletedClasses':
           value = weekCompletedClasses?.toString();
           break;
-        
+
         // Monthly Review fields
         case 'monthDate':
           value = monthDate != null
@@ -1567,10 +1781,11 @@ class FormTemplateService {
         case 'monthCompletedClasses':
           value = monthCompletedClasses?.toString();
           break;
-        
+
         default:
           // Unknown field - try to use as is
-          AppLogger.debug('FormTemplateService: Unknown sourceField: $sourceField');
+          AppLogger.debug(
+              'FormTemplateService: Unknown sourceField: $sourceField');
           value = null;
       }
 

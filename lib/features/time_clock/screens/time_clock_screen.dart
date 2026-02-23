@@ -140,16 +140,16 @@ class _TimeClockScreenState extends State<TimeClockScreen>
   // ============================================================================
   // STATE VARIABLES - Programmed Start
   // ============================================================================
-  
+
   /// Whether the session is programmed to auto-start
   bool _isProgrammedToStart = false;
-  
+
   /// Timer for auto-start countdown
   Timer? _programTimer;
-  
+
   /// Display string for auto-start countdown
   String _timeUntilAutoStart = "";
-  
+
   /// Timer to refresh UI every second (to show/hide buttons based on time)
   Timer? _uiRefreshTimer;
 
@@ -213,6 +213,15 @@ class _TimeClockScreenState extends State<TimeClockScreen>
     _logToFirestore(message, isError: isError);
   }
 
+  String _formatAutoLogoutCountdownText(BuildContext context) {
+    final template =
+        AppLocalizations.of(context)!.autoLogoutInTimeuntilautologout;
+    if (template.contains('Timeuntilautologout')) {
+      return template.replaceAll('Timeuntilautologout', _timeUntilAutoLogout);
+    }
+    return '$template $_timeUntilAutoLogout';
+  }
+
   /// Logs important events to Firestore for persistent debugging
   ///
   /// Only logs events related to clock operations, sessions, or errors
@@ -273,7 +282,7 @@ class _TimeClockScreenState extends State<TimeClockScreen>
     _debugLog('initState called');
     // Initialize shift and session in proper order
     _initializeShiftAndSession();
-    
+
     // Refresh UI every second to update buttons based on time windows
     _uiRefreshTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (mounted) {
@@ -282,7 +291,7 @@ class _TimeClockScreenState extends State<TimeClockScreen>
         });
       }
     });
-    
+
     // Periodically check shift availability to enable 1-minute early clock-in
     // This ensures the button becomes active when the clock-in window opens
     // Works on both iOS and Android consistently
@@ -291,7 +300,7 @@ class _TimeClockScreenState extends State<TimeClockScreen>
         _checkForActiveShift();
       }
     });
-    
+
     // DISABLED: Shift monitoring is now handled by backend cloud function
     // to avoid timezone issues and ensure consistency
     // _runPeriodicShiftMonitoring();
@@ -510,14 +519,16 @@ class _TimeClockScreenState extends State<TimeClockScreen>
           });
 
           _debugLog('Found available shift: ${shift.displayName}');
-          
+
           // Check for persisted programmed start
           try {
             final prefs = await SharedPreferences.getInstance();
-            final isProgrammed = prefs.getBool('programmed_start_${shift.id}') ?? false;
-            
+            final isProgrammed =
+                prefs.getBool('programmed_start_${shift.id}') ?? false;
+
             if (isProgrammed && !_isClockingIn && !_isProgrammedToStart) {
-              _debugLog('Found persisted programmed state for shift ${shift.id}');
+              _debugLog(
+                  'Found persisted programmed state for shift ${shift.id}');
               _programAutoStart(shift);
             }
           } catch (e) {
@@ -618,7 +629,8 @@ class _TimeClockScreenState extends State<TimeClockScreen>
   /// Resets all session-related state variables and stops all timers
   void _resetClockOutState(LocationData? finalLocation,
       {bool skipExplicitFlag = false, bool clearShift = true}) {
-    _debugLog('Resetting clock-out state (skipExplicitFlag=$skipExplicitFlag, clearShift=$clearShift)');
+    _debugLog(
+        'Resetting clock-out state (skipExplicitFlag=$skipExplicitFlag, clearShift=$clearShift)');
 
     if (mounted) {
       // Cancel timers BEFORE setState to prevent race conditions
@@ -629,7 +641,7 @@ class _TimeClockScreenState extends State<TimeClockScreen>
       _stopwatch.stop();
       _stopwatch.reset();
       _stopAutoLogoutTimer();
-      
+
       if (clearShift) {
         _currentShift = null;
       }
@@ -656,7 +668,7 @@ class _TimeClockScreenState extends State<TimeClockScreen>
               true; // Mark that user explicitly clocked out
         }
       });
-      
+
       // Double-check timer is stopped after setState
       if (_timer != null && _timer!.isActive) {
         _debugLog('⚠️ Timer still active after reset - force cancelling');
@@ -669,7 +681,6 @@ class _TimeClockScreenState extends State<TimeClockScreen>
     }
   }
 
-
   /// Show a less alarming error when UI state is out of sync with backend
   ///
   /// This happens when the backend has already closed a session but the UI
@@ -679,8 +690,8 @@ class _TimeClockScreenState extends State<TimeClockScreen>
     _debugLog('Showing state mismatch error to user');
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content:
-            Text(AppLocalizations.of(context)!.sessionAlreadyClosedBySystemTimer),
+        content: Text(
+            AppLocalizations.of(context)!.sessionAlreadyClosedBySystemTimer),
         backgroundColor: Colors.orange,
         duration: Duration(seconds: 4),
       ),
@@ -834,7 +845,8 @@ class _TimeClockScreenState extends State<TimeClockScreen>
 
       final shift = shiftResult['shift'] as TeachingShift?;
       final canClockIn = shiftResult['canClockIn'] as bool;
-      final canProgramClockIn = (shiftResult['canProgramClockIn'] as bool?) ?? false;
+      final canProgramClockIn =
+          (shiftResult['canProgramClockIn'] as bool?) ?? false;
       final canClockOut = shiftResult['canClockOut'] as bool;
       final status = shiftResult['status'] as String;
       final message = shiftResult['message'] as String;
@@ -887,13 +899,14 @@ class _TimeClockScreenState extends State<TimeClockScreen>
   /// Programs the session to auto-start at shift beginning
   void _programAutoStart(TeachingShift shift) async {
     _debugLog('Programming auto-start for shift ${shift.id}');
-    
+
     final nowUtc = DateTime.now().toUtc();
     final shiftStartUtc = shift.shiftStart.toUtc();
-    
+
     // If shift has ALREADY started, just clock in now (don't program)
     if (!nowUtc.isBefore(shiftStartUtc)) {
-      _debugLog('Shift already started - clocking in immediately instead of programming');
+      _debugLog(
+          'Shift already started - clocking in immediately instead of programming');
       setState(() {
         _currentShift = shift;
       });
@@ -901,13 +914,13 @@ class _TimeClockScreenState extends State<TimeClockScreen>
       _startTeachingSession(isAutoStart: true);
       return;
     }
-    
+
     // Calculate initial time remaining
     final timeLeft = shiftStartUtc.difference(nowUtc);
     final initialSeconds = timeLeft.inSeconds;
     final initialMinutes = timeLeft.inMinutes;
     final remainingSeconds = initialSeconds % 60;
-    
+
     // Persist programmed state
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -915,11 +928,11 @@ class _TimeClockScreenState extends State<TimeClockScreen>
     } catch (e) {
       _debugLog('Failed to save programmed state: $e', isError: true);
     }
-    
+
     if (!mounted) return;
 
     // Format countdown for display
-    final initialCountdownText = initialMinutes > 0 
+    final initialCountdownText = initialMinutes > 0
         ? '${initialMinutes}m ${remainingSeconds.toString().padLeft(2, '0')}s'
         : '${initialSeconds}s';
 
@@ -929,22 +942,22 @@ class _TimeClockScreenState extends State<TimeClockScreen>
       _currentShift = shift;
       _timeUntilAutoStart = 'Starting in $initialCountdownText';
     });
-    
+
     _programTimer?.cancel();
     _programTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted) {
         timer.cancel();
         return;
       }
-      
+
       final nowUtc = DateTime.now().toUtc();
       final shiftStartUtc = shift.shiftStart.toUtc();
-      
+
       if (!nowUtc.isBefore(shiftStartUtc)) {
         // Time to start!
         _debugLog('Auto-start time reached! Starting session...');
         timer.cancel();
-        
+
         // Clear persisted state
         SharedPreferences.getInstance().then((prefs) {
           prefs.remove('programmed_start_${shift.id}');
@@ -959,17 +972,17 @@ class _TimeClockScreenState extends State<TimeClockScreen>
         }
         return;
       }
-      
+
       final timeLeft = shiftStartUtc.difference(nowUtc);
       final seconds = timeLeft.inSeconds;
-      
+
       // Format countdown as mm:ss for better readability
       final minutes = timeLeft.inMinutes;
       final remainingSeconds = seconds % 60;
-      final countdownText = minutes > 0 
+      final countdownText = minutes > 0
           ? '${minutes}m ${remainingSeconds.toString().padLeft(2, '0')}s'
           : '${seconds}s';
-      
+
       if (mounted) {
         setState(() {
           _timeUntilAutoStart = 'Starting in $countdownText';
@@ -977,16 +990,16 @@ class _TimeClockScreenState extends State<TimeClockScreen>
       }
     });
   }
-  
+
   /// Cancels the programmed auto-start
   void _cancelProgrammedStart() async {
     _debugLog('Cancelling programmed start');
     _programTimer?.cancel();
     _programTimer = null;
-    
+
     // Store shift ID before clearing state
     final shiftId = _currentShift?.id;
-    
+
     // Clear persisted state
     if (shiftId != null) {
       try {
@@ -1063,7 +1076,8 @@ class _TimeClockScreenState extends State<TimeClockScreen>
               Padding(
                 padding: EdgeInsets.only(top: 12),
                 child: Text(
-                  AppLocalizations.of(context)!.pleaseContactYourSupervisorIfYou,
+                  AppLocalizations.of(context)!
+                      .pleaseContactYourSupervisorIfYou,
                   style: TextStyle(
                     fontSize: 14,
                     fontStyle: FontStyle.italic,
@@ -1268,8 +1282,8 @@ class _TimeClockScreenState extends State<TimeClockScreen>
     try {
       // Use shorter timeout for auto-start to ensure quick execution
       final timeoutDuration = Duration(seconds: isAutoStart ? 5 : 15);
-      final location = await LocationService.getCurrentLocation()
-          .timeout(timeoutDuration);
+      final location =
+          await LocationService.getCurrentLocation().timeout(timeoutDuration);
       if (!mounted) return;
 
       setState(() {
@@ -1307,8 +1321,9 @@ class _TimeClockScreenState extends State<TimeClockScreen>
         context: context,
         builder: (context) => AlertDialog(
           title: Text(AppLocalizations.of(context)!.locationError),
-          content: Text('${AppLocalizations.of(context)!.unableToGetYourLocationE}\n'
-              'Would you like to proceed without location tracking?'),
+          content:
+              Text('${AppLocalizations.of(context)!.unableToGetYourLocationE}\n'
+                  'Would you like to proceed without location tracking?'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
@@ -1320,7 +1335,8 @@ class _TimeClockScreenState extends State<TimeClockScreen>
                 _proceedWithClockIn(LocationData(
                   latitude: 0.0,
                   longitude: 0.0,
-                  address: AppLocalizations.of(context)!.timesheetLocationUnavailable,
+                  address: AppLocalizations.of(context)!
+                      .timesheetLocationUnavailable,
                   neighborhood: AppLocalizations.of(context)!.commonUnknown,
                 ));
               },
@@ -1353,7 +1369,8 @@ class _TimeClockScreenState extends State<TimeClockScreen>
 
       // Check if we still have an active session - be very defensive
       if (!_isClockingIn || _clockInTime == null || _currentShift == null) {
-        _debugLog('Timer running but no active session - stopping timer (isClockingIn=$_isClockingIn, clockInTime=$_clockInTime, currentShift=${_currentShift?.id})');
+        _debugLog(
+            'Timer running but no active session - stopping timer (isClockingIn=$_isClockingIn, clockInTime=$_clockInTime, currentShift=${_currentShift?.id})');
         timer.cancel();
         _timer = null;
         if (mounted) {
@@ -1486,7 +1503,8 @@ class _TimeClockScreenState extends State<TimeClockScreen>
         _resetClockOutState(location, skipExplicitFlag: true);
 
         // Extract timesheet ID from result
-        final timesheetEntry = result['timesheetEntry'] as Map<String, dynamic>?;
+        final timesheetEntry =
+            result['timesheetEntry'] as Map<String, dynamic>?;
         final timesheetId = timesheetEntry?['documentId'];
 
         // Refresh timesheet data
@@ -1504,7 +1522,8 @@ class _TimeClockScreenState extends State<TimeClockScreen>
 
         // Show dialog prompt for Readiness Form after a short delay
         // to ensure UI state is settled and SnackBar doesn't interfere
-        _debugLog('📋 Scheduling Readiness Form prompt with timesheetId=$timesheetId');
+        _debugLog(
+            '📋 Scheduling Readiness Form prompt with timesheetId=$timesheetId');
         Future.delayed(const Duration(milliseconds: 500), () {
           if (mounted) {
             _showReadinessFormPrompt(shift, timesheetId);
@@ -1535,7 +1554,8 @@ class _TimeClockScreenState extends State<TimeClockScreen>
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(AppLocalizations.of(context)!.shiftEndedClockOutRecorded),
+            content:
+                Text(AppLocalizations.of(context)!.shiftEndedClockOutRecorded),
             backgroundColor: Colors.orange,
             duration: Duration(seconds: 3),
           ),
@@ -1552,10 +1572,11 @@ class _TimeClockScreenState extends State<TimeClockScreen>
     // Always calculate from the actual clock-in time, not stopwatch
     if (_clockInTime != null && _isClockingIn) {
       DateTime effectiveStartTime = _clockInTime!;
-      
+
       // If we have a shift and we clocked in early, count from shift start
-      if (_currentShift != null && _clockInTime!.isBefore(_currentShift!.shiftStart)) {
-         effectiveStartTime = _currentShift!.shiftStart;
+      if (_currentShift != null &&
+          _clockInTime!.isBefore(_currentShift!.shiftStart)) {
+        effectiveStartTime = _currentShift!.shiftStart;
       }
 
       final now = DateTime.now();
@@ -1565,7 +1586,7 @@ class _TimeClockScreenState extends State<TimeClockScreen>
       } else {
         elapsed = now.difference(effectiveStartTime);
       }
-      
+
       _totalHoursWorked = _formatDuration(elapsed);
     } else {
       // No active session - ensure timer is stopped
@@ -1660,9 +1681,10 @@ class _TimeClockScreenState extends State<TimeClockScreen>
           final clockInTimeForForm = _clockInTime;
           final clockOutTimeForForm = DateTime.now();
           // Get timesheet ID from the result
-          final timesheetEntry = result['timesheetEntry'] as Map<String, dynamic>?;
+          final timesheetEntry =
+              result['timesheetEntry'] as Map<String, dynamic>?;
           final timesheetId = timesheetEntry?['documentId'] as String?;
-          
+
           // Clock-out successful
           // Don't clear the shift, so user can see "Tap to Clock In" again if shift is valid
           _resetClockOutState(clockOutLocation, clearShift: false);
@@ -1677,7 +1699,7 @@ class _TimeClockScreenState extends State<TimeClockScreen>
 
           // Refresh timesheet data
           _refreshTimesheetData();
-          
+
           // Wait a bit before checking for active shifts to ensure clock-out is fully committed
           // This prevents the session from being immediately resumed
           Future.delayed(const Duration(seconds: 2), () {
@@ -1685,7 +1707,7 @@ class _TimeClockScreenState extends State<TimeClockScreen>
               _checkForActiveShift();
             }
           });
-          
+
           // Note: Readiness form prompt removed here as it's now handled by the new dialog-based approach
         } else {
           // Handle failure without getting stuck
@@ -1772,7 +1794,8 @@ class _TimeClockScreenState extends State<TimeClockScreen>
       _debugLog('No current shift for clock-in', isError: true);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(AppLocalizations.of(context)!.noValidShiftFoundForClock),
+          content:
+              Text(AppLocalizations.of(context)!.noValidShiftFoundForClock),
           backgroundColor: Colors.red,
         ),
       );
@@ -1807,7 +1830,7 @@ class _TimeClockScreenState extends State<TimeClockScreen>
           // Clear programmed state on successful clock-in
           _isProgrammedToStart = false;
           _timeUntilAutoStart = "";
-          
+
           _isClockingIn = true;
           _hasExplicitlyClockedOut = false; // Reset flag when clocking in
           _selectedStudentName = _currentShift!.displayName;
@@ -1834,32 +1857,32 @@ class _TimeClockScreenState extends State<TimeClockScreen>
         _debugLog('Clock-in failed: ${result['message']}', isError: true);
 
         if (_isProgrammedToStart) {
-           // If programmed, stay in programmed state but show error so user knows it failed
-           setState(() {
-             _timeUntilAutoStart = "Failed. Tap to retry.";
-           });
+          // If programmed, stay in programmed state but show error so user knows it failed
+          setState(() {
+            _timeUntilAutoStart = "Failed. Tap to retry.";
+          });
         } else {
-           // Normal manual failure
-           ScaffoldMessenger.of(context).showSnackBar(
-             SnackBar(
-               content: Text(AppLocalizations.of(context)!
-                   .timeClockClockInFailed(result['message'])),
-               backgroundColor: Colors.red,
-               duration: const Duration(seconds: 4),
-             ),
-           );
+          // Normal manual failure
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(AppLocalizations.of(context)!
+                  .timeClockClockInFailed(result['message'])),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 4),
+            ),
+          );
         }
       }
     } catch (e) {
       _debugLog('Error during clock-in: $e', isError: true);
-      
+
       if (_isProgrammedToStart && mounted) {
-         // Stay in programmed state to show error
-         setState(() {
-           _timeUntilAutoStart = "Error. Tap to retry.";
-         });
+        // Stay in programmed state to show error
+        setState(() {
+          _timeUntilAutoStart = "Error. Tap to retry.";
+        });
       } else if (mounted) {
-         ScaffoldMessenger.of(context).showSnackBar(
+        ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(AppLocalizations.of(context)!
                 .timeClockClockInFailed(e.toString())),
@@ -1897,46 +1920,46 @@ class _TimeClockScreenState extends State<TimeClockScreen>
     final nowUtc = DateTime.now().toUtc();
     final shiftStartUtc = _currentShift?.shiftStart.toUtc();
     final shiftEndUtc = _currentShift?.shiftEnd.toUtc();
-    
+
     // Shift has started: current time is at or after shift start
-    final shiftHasStarted = _currentShift != null && 
+    final shiftHasStarted = _currentShift != null &&
         shiftStartUtc != null &&
         !nowUtc.isBefore(shiftStartUtc);
-    
+
     // Shift is still active: current time is before shift end
-    final shiftIsStillActive = _currentShift != null && 
+    final shiftIsStillActive = _currentShift != null &&
         shiftEndUtc != null &&
         nowUtc.isBefore(shiftEndUtc);
-    
+
     // In program window: 1 min before shift start until shift start (BEFORE shift starts)
-    final isInProgramWindow = _currentShift != null && 
+    final isInProgramWindow = _currentShift != null &&
         shiftStartUtc != null &&
         nowUtc.isBefore(shiftStartUtc) && // Must be BEFORE shift start
-        _currentShift!.canClockIn;  // canClockIn is true 1 min before
-    
+        _currentShift!.canClockIn; // canClockIn is true 1 min before
+
     // Show "Program Clock In" button ONLY when:
     // - In the program window (before shift starts)
     // - Not already programmed
     // - Not already clocked in
-    final showProgramButton = isInProgramWindow && 
-        !_isProgrammedToStart && 
-        !_isClockingIn;
-    
+    final showProgramButton =
+        isInProgramWindow && !_isProgrammedToStart && !_isClockingIn;
+
     // Show "Clock In Now" button when:
     // - Shift has started
     // - Shift is still active (not ended)
     // - User is not currently clocked in
     // - Not in programmed mode (countdown is active)
-    final showClockInButton = shiftHasStarted && 
-        shiftIsStillActive && 
-        !_isClockingIn && 
+    final showClockInButton = shiftHasStarted &&
+        shiftIsStillActive &&
+        !_isClockingIn &&
         !_isProgrammedToStart;
-    
+
     // Show "Clock Out" button when:
     // - User is currently clocked in
     final showClockOutButton = _isClockingIn && _currentShift != null;
-    
-    final showActionButton = showProgramButton || showClockInButton || showClockOutButton;
+
+    final showActionButton =
+        showProgramButton || showClockInButton || showClockOutButton;
 
     return Scaffold(
       backgroundColor: const Color(0xffF8FAFC),
@@ -1961,37 +1984,42 @@ class _TimeClockScreenState extends State<TimeClockScreen>
                   Builder(
                     builder: (context) {
                       // Determine shift status for card styling
-                      final cardShiftHasStarted = !nowUtc.isBefore(_currentShift!.shiftStart.toUtc());
-                      final cardShiftIsActive = cardShiftHasStarted && !_currentShift!.hasExpired;
-                      final isReadyToProgram = isInProgramWindow && !_isProgrammedToStart;
-                      
+                      final cardShiftHasStarted =
+                          !nowUtc.isBefore(_currentShift!.shiftStart.toUtc());
+                      final cardShiftIsActive =
+                          cardShiftHasStarted && !_currentShift!.hasExpired;
+                      final isReadyToProgram =
+                          isInProgramWindow && !_isProgrammedToStart;
+
                       // Determine colors based on state
                       Color cardColor;
                       Color accentColor;
                       String statusText;
-                      
+
                       if (_isProgrammedToStart) {
-                        cardColor = const Color(0xffEFF6FF);  // Light blue
-                        accentColor = const Color(0xff3B82F6);  // Blue
+                        cardColor = const Color(0xffEFF6FF); // Light blue
+                        accentColor = const Color(0xff3B82F6); // Blue
                         statusText = 'Programmed';
                       } else if (_isClockingIn) {
-                        cardColor = const Color(0xffF0FDF4);  // Light green
-                        accentColor = const Color(0xff10B981);  // Green
+                        cardColor = const Color(0xffF0FDF4); // Light green
+                        accentColor = const Color(0xff10B981); // Green
                         statusText = 'In Progress';
                       } else if (cardShiftIsActive) {
-                        cardColor = const Color(0xffF0FDF4);  // Light green
-                        accentColor = const Color(0xff10B981);  // Green
+                        cardColor = const Color(0xffF0FDF4); // Light green
+                        accentColor = const Color(0xff10B981); // Green
                         statusText = 'Active Shift';
                       } else if (isReadyToProgram) {
-                        cardColor = const Color(0xffEFF6FF);  // Light blue
-                        accentColor = const Color(0xff3B82F6);  // Blue
+                        cardColor = const Color(0xffEFF6FF); // Light blue
+                        accentColor = const Color(0xff3B82F6); // Blue
                         statusText = 'Ready to Program';
                       } else {
-                        cardColor = const Color(0xffFEF3C7);  // Light yellow
+                        cardColor = const Color(0xffFEF3C7); // Light yellow
                         accentColor = Colors.orange;
-                        statusText = _currentShift!.hasExpired ? 'Shift Ended' : 'Upcoming Shift';
+                        statusText = _currentShift!.hasExpired
+                            ? 'Shift Ended'
+                            : 'Upcoming Shift';
                       }
-                      
+
                       return Container(
                         padding: EdgeInsets.symmetric(
                           horizontal: _isMobile ? 12 : 16,
@@ -2018,7 +2046,9 @@ class _TimeClockScreenState extends State<TimeClockScreen>
                                     borderRadius: BorderRadius.circular(10),
                                   ),
                                   child: Icon(
-                                    _isProgrammedToStart ? Icons.schedule : Icons.school,
+                                    _isProgrammedToStart
+                                        ? Icons.schedule
+                                        : Icons.school,
                                     color: accentColor,
                                     size: _isMobile ? 24 : 28,
                                   ),
@@ -2026,7 +2056,8 @@ class _TimeClockScreenState extends State<TimeClockScreen>
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Row(
                                         children: [
@@ -2039,7 +2070,9 @@ class _TimeClockScreenState extends State<TimeClockScreen>
                                               letterSpacing: 0.5,
                                             ),
                                           ),
-                                          if (cardShiftIsActive || _isProgrammedToStart || _isClockingIn) ...[
+                                          if (cardShiftIsActive ||
+                                              _isProgrammedToStart ||
+                                              _isClockingIn) ...[
                                             const SizedBox(width: 6),
                                             Container(
                                               width: 6,
@@ -2052,33 +2085,33 @@ class _TimeClockScreenState extends State<TimeClockScreen>
                                           ],
                                         ],
                                       ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    _currentShift!.displayName,
-                                    style: GoogleFonts.inter(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w500,
-                                      color: const Color(0xff1E293B),
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        _currentShift!.displayName,
+                                        style: GoogleFonts.inter(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w500,
+                                          color: const Color(0xff1E293B),
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        '${DateFormat('h:mm a').format(_currentShift!.shiftStart)} - ${DateFormat('h:mm a').format(_currentShift!.shiftEnd)}',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 11,
+                                          color: const Color(0xff64748B),
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    '${DateFormat('h:mm a').format(_currentShift!.shiftStart)} - ${DateFormat('h:mm a').format(_currentShift!.shiftEnd)}',
-                                    style: GoogleFonts.inter(
-                                      fontSize: 11,
-                                      color: const Color(0xff64748B),
-                                    ),
-                                  ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
-                          ],
+                          ),
                         ),
-                      ),
-                    ),
-                  );
+                      );
                     },
                   ),
 
@@ -2096,20 +2129,23 @@ class _TimeClockScreenState extends State<TimeClockScreen>
                         padding: EdgeInsets.all(_isMobile ? 16 : 20),
                         child: Column(
                           children: [
-                            if (_timeUntilAutoStart.contains('Failed') || _timeUntilAutoStart.contains('Error'))
-                              const Icon(Icons.error_outline, size: 48, color: Colors.red)
+                            if (_timeUntilAutoStart.contains('Failed') ||
+                                _timeUntilAutoStart.contains('Error'))
+                              const Icon(Icons.error_outline,
+                                  size: 48, color: Colors.red)
                             else
                               const CircularProgressIndicator(),
-                            
                             SizedBox(height: 16),
                             Text(
-                              _timeUntilAutoStart.contains('Failed') || _timeUntilAutoStart.contains('Error') 
-                                  ? 'Auto-Start Failed' 
+                              _timeUntilAutoStart.contains('Failed') ||
+                                      _timeUntilAutoStart.contains('Error')
+                                  ? 'Auto-Start Failed'
                                   : 'Auto-Starting Class',
                               style: GoogleFonts.inter(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
-                                color: _timeUntilAutoStart.contains('Failed') || _timeUntilAutoStart.contains('Error')
+                                color: _timeUntilAutoStart.contains('Failed') ||
+                                        _timeUntilAutoStart.contains('Error')
                                     ? Colors.red
                                     : const Color(0xff0369A1),
                               ),
@@ -2121,7 +2157,8 @@ class _TimeClockScreenState extends State<TimeClockScreen>
                               style: GoogleFonts.inter(
                                 fontSize: 24,
                                 fontWeight: FontWeight.bold,
-                                color: _timeUntilAutoStart.contains('Failed') || _timeUntilAutoStart.contains('Error')
+                                color: _timeUntilAutoStart.contains('Failed') ||
+                                        _timeUntilAutoStart.contains('Error')
                                     ? Colors.red[700]
                                     : const Color(0xff0EA5E9),
                               ),
@@ -2132,9 +2169,11 @@ class _TimeClockScreenState extends State<TimeClockScreen>
                               children: [
                                 OutlinedButton(
                                   onPressed: _cancelProgrammedStart,
-                                  child: Text(AppLocalizations.of(context)!.commonCancel),
+                                  child: Text(AppLocalizations.of(context)!
+                                      .commonCancel),
                                 ),
-                                if (_timeUntilAutoStart.contains('Failed') || _timeUntilAutoStart.contains('Error')) ...[
+                                if (_timeUntilAutoStart.contains('Failed') ||
+                                    _timeUntilAutoStart.contains('Error')) ...[
                                   const SizedBox(width: 16),
                                   ElevatedButton(
                                     onPressed: () {
@@ -2143,8 +2182,12 @@ class _TimeClockScreenState extends State<TimeClockScreen>
                                       });
                                       _startTeachingSession(isAutoStart: true);
                                     },
-                                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xff10B981)),
-                                    child: Text(AppLocalizations.of(context)!.retryNow, style: TextStyle(color: Colors.white)),
+                                    style: ElevatedButton.styleFrom(
+                                        backgroundColor:
+                                            const Color(0xff10B981)),
+                                    child: Text(
+                                        AppLocalizations.of(context)!.retryNow,
+                                        style: TextStyle(color: Colors.white)),
                                   ),
                                 ]
                               ],
@@ -2213,7 +2256,7 @@ class _TimeClockScreenState extends State<TimeClockScreen>
                                     ),
                                     const SizedBox(width: 6),
                                     Text(
-                                      AppLocalizations.of(context)!.autoLogoutInTimeuntilautologout,
+                                      _formatAutoLogoutCountdownText(context),
                                       style: GoogleFonts.inter(
                                         fontSize: 13,
                                         fontWeight: FontWeight.w600,
@@ -2292,21 +2335,21 @@ class _TimeClockScreenState extends State<TimeClockScreen>
     Color buttonColor;
     IconData buttonIcon;
     String buttonText;
-    
+
     if (isProgram) {
-      buttonColor = const Color(0xff3B82F6);  // Blue for program
+      buttonColor = const Color(0xff3B82F6); // Blue for program
       buttonIcon = Icons.schedule;
       buttonText = 'Program Clock In';
     } else if (isClockIn) {
-      buttonColor = const Color(0xff10B981);  // Green for clock in
+      buttonColor = const Color(0xff10B981); // Green for clock in
       buttonIcon = Icons.touch_app;
       buttonText = 'Clock In Now';
     } else {
-      buttonColor = const Color(0xffEF4444);  // Red for clock out
+      buttonColor = const Color(0xffEF4444); // Red for clock out
       buttonIcon = Icons.logout_rounded;
       buttonText = 'Clock Out';
     }
-    
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20),
       height: 56,
@@ -2373,19 +2416,21 @@ class _TimeClockScreenState extends State<TimeClockScreen>
 
   /// Shows a dialog prompting the teacher to complete the Readiness Form
   /// after auto clock-out, with a fallback notification if dismissed
-  Future<void> _showReadinessFormPrompt(TeachingShift shift, String? timesheetId) async {
-    _debugLog('📋 _showReadinessFormPrompt called - timesheetId=$timesheetId, mounted=$mounted');
-    
+  Future<void> _showReadinessFormPrompt(
+      TeachingShift shift, String? timesheetId) async {
+    _debugLog(
+        '📋 _showReadinessFormPrompt called - timesheetId=$timesheetId, mounted=$mounted');
+
     if (!mounted) {
       _debugLog('📋 Form prompt skipped - widget not mounted');
       return;
     }
-    
+
     if (timesheetId == null) {
       _debugLog('📋 Form prompt skipped - timesheetId is null');
       return;
     }
-    
+
     _debugLog('📋 Showing Readiness Form prompt dialog for shift ${shift.id}');
 
     // Show dialog
@@ -2410,7 +2455,7 @@ class _TimeClockScreenState extends State<TimeClockScreen>
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                AppLocalizations.of(context)!.shiftCompleted2,
+                AppLocalizations.of(context)!.shiftCompletedLabel,
                 style: GoogleFonts.inter(
                   fontSize: 20,
                   fontWeight: FontWeight.w700,
@@ -2485,16 +2530,16 @@ class _TimeClockScreenState extends State<TimeClockScreen>
       // Get the form ID from config (async)
       final readinessFormId = await ShiftFormService.getReadinessFormId();
       if (mounted) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => FormScreen(
-            timesheetId: timesheetId,
-            shiftId: shift.id,
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => FormScreen(
+              timesheetId: timesheetId,
+              shiftId: shift.id,
               autoSelectFormId: readinessFormId,
+            ),
           ),
-        ),
-      );
+        );
       }
     } else {
       // User chose "Later" - send a local notification as reminder
@@ -2503,14 +2548,15 @@ class _TimeClockScreenState extends State<TimeClockScreen>
   }
 
   /// Sends a local notification reminding the teacher to complete the form
-  Future<void> _sendFormReminderNotification(TeachingShift shift, String timesheetId) async {
+  Future<void> _sendFormReminderNotification(
+      TeachingShift shift, String timesheetId) async {
     try {
       // Get the form ID from config
       final readinessFormId = await ShiftFormService.getReadinessFormId();
-      
+
       await NotificationService().showLocalNotification(
         id: timesheetId.hashCode,
-        title: AppLocalizations.of(context)!.readinessFormRequired2,
+        title: AppLocalizations.of(context)!.readinessFormRequiredTitle,
         body: 'Please complete your Readiness Form for "${shift.displayName}"',
         payload: jsonEncode({
           'type': 'form_required',
@@ -2521,7 +2567,8 @@ class _TimeClockScreenState extends State<TimeClockScreen>
       );
       _debugLog('📬 Sent form reminder notification for shift ${shift.id}');
     } catch (e) {
-      _debugLog('⚠️ Failed to send form reminder notification: $e', isError: true);
+      _debugLog('⚠️ Failed to send form reminder notification: $e',
+          isError: true);
     }
   }
 }

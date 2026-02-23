@@ -35,103 +35,128 @@ class _ModernHeaderState extends State<ModernHeader> {
 
   @override
   Widget build(BuildContext context) {
-    final isDesktop = MediaQuery.of(context).size.width > 1024;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final screenWidth = constraints.maxWidth;
+        final isDesktop = screenWidth > 1024;
+        final useCompactHeader = !isDesktop;
 
-    return SafeArea( // Added SafeArea
-      child: Container(
-        height: 80,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border(bottom: BorderSide(color: Colors.grey.shade100)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.02),
-              blurRadius: 10,
-              offset: const Offset(0, 2),
+        return SafeArea(
+          // Added SafeArea
+          child: Container(
+            height: 80,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border(bottom: BorderSide(color: Colors.grey.shade100)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.02),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
-          ],
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 24),
-        child: Row(
-          children: [
-            // 1. Logo
-            _buildLogo(),
-            
-            if (isDesktop) const SizedBox(width: 40),
+            padding:
+                EdgeInsets.symmetric(horizontal: useCompactHeader ? 12 : 24),
+            child: Row(
+              children: [
+                // 1. Logo
+                _buildLogo(compact: useCompactHeader),
 
-            // 2. Navigation (Desktop)
-            if (isDesktop) ...[
-              _buildProgramsButton(),
-              const SizedBox(width: 24),
-              _buildNavLink('About', () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AboutPage()))),
-              const SizedBox(width: 24),
-              _buildNavLink('Our Team', () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TeamPage()))),
-              const SizedBox(width: 24),
-              _buildNavLink('Contact', () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ContactPage()))),
-            ],
+                if (isDesktop) const SizedBox(width: 40),
 
-            const Spacer(),
+                // 2. Navigation (Desktop)
+                if (isDesktop) ...[
+                  _buildProgramsButton(),
+                  const SizedBox(width: 24),
+                  _buildNavLink(
+                      'About',
+                      () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const AboutPage()))),
+                  const SizedBox(width: 24),
+                  _buildNavLink(
+                      'Our Team',
+                      () => Navigator.push(context,
+                          MaterialPageRoute(builder: (_) => const TeamPage()))),
+                  const SizedBox(width: 24),
+                  _buildNavLink(
+                      'Contact',
+                      () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const ContactPage()))),
+                ],
 
-            // 3. Auth & Actions (Desktop)
-            if (isDesktop) ...[
-              _buildNavLink('Sign up for new class', () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const ProgramSelectionPage()),
-                );
-              }),
-              const SizedBox(width: 24),
-              _buildNavLink('Log in', () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    settings: const RouteSettings(name: '/login'),
-                    builder: (context) => const AuthenticationWrapper(),
-                  ),
-                );
-              }),
-              const SizedBox(width: 16),
-              _buildSignUpButton(),
-            ] else
-              // Mobile Menu Trigger & Quick Actions
-              Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.app_registration_rounded, color: Color(0xff3B82F6)),
-                    tooltip: AppLocalizations.of(context)!.signUpForNewClass,
-                    onPressed: () => Navigator.push(
-                      context, 
+                const Spacer(),
+
+                // 3. Auth & Actions (Desktop)
+                if (isDesktop) ...[
+                  _buildNavLink('Sign up for new class', () {
+                    Navigator.push(
+                      context,
                       MaterialPageRoute(
-                        settings: const RouteSettings(name: '/enroll'),
-                        builder: (context) => const ProgramSelectionPage(),
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.login_rounded, color: Color(0xff111827)),
-                    tooltip: AppLocalizations.of(context)!.logIn,
-                    onPressed: () => Navigator.push(
-                      context, 
+                          builder: (context) => const ProgramSelectionPage()),
+                    );
+                  }),
+                  const SizedBox(width: 24),
+                  _buildNavLink('Log in', () {
+                    Navigator.push(
+                      context,
                       MaterialPageRoute(
                         settings: const RouteSettings(name: '/login'),
                         builder: (context) => const AuthenticationWrapper(),
                       ),
-                    ),
+                    );
+                  }),
+                  const SizedBox(width: 16),
+                  _buildSignUpButton(),
+                ] else
+                  // Mobile Menu Trigger & Quick Actions
+                  Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.app_registration_rounded,
+                            color: Color(0xff3B82F6)),
+                        tooltip:
+                            AppLocalizations.of(context)!.signUpForNewClass,
+                        onPressed: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            settings: const RouteSettings(name: '/enroll'),
+                            builder: (context) => const ProgramSelectionPage(),
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.login_rounded,
+                            color: Color(0xff111827)),
+                        tooltip: AppLocalizations.of(context)!.logIn,
+                        onPressed: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            settings: const RouteSettings(name: '/login'),
+                            builder: (context) => const AuthenticationWrapper(),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        icon: const Icon(Icons.menu_rounded, size: 28),
+                        onPressed: () => _showMobileMenu(context),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 8),
-                  IconButton(
-                    icon: const Icon(Icons.menu_rounded, size: 28),
-                    onPressed: () => _showMobileMenu(context),
-                  ),
-                ],
-              ),
-          ],
-        ),
-      ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildLogo() {
+  Widget _buildLogo({bool compact = false}) {
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
@@ -142,38 +167,45 @@ class _ModernHeaderState extends State<ModernHeader> {
           );
         },
         child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
             Image.asset(
               'assets/Alluwal_Education_Hub_Logo.png',
-              height: 40,
-              errorBuilder: (context, error, stackTrace) => 
-                  const Icon(Icons.school_rounded, size: 40, color: Color(0xff3B82F6)),
+              height: compact ? 34 : 40,
+              width: compact ? 132 : 180,
+              fit: BoxFit.contain,
+              errorBuilder: (context, error, stackTrace) => const Icon(
+                  Icons.school_rounded,
+                  size: 40,
+                  color: Color(0xff3B82F6)),
             ),
-            const SizedBox(width: 12),
-            Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  AppLocalizations.of(context)!.alluwal,
-                  style: GoogleFonts.inter(
-                    fontWeight: FontWeight.w900,
-                    fontSize: 18,
-                    color: const Color(0xff111827),
-                    letterSpacing: -0.5,
+            if (!compact) ...[
+              const SizedBox(width: 12),
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    AppLocalizations.of(context)!.alluwal,
+                    style: GoogleFonts.inter(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 18,
+                      color: const Color(0xff111827),
+                      letterSpacing: -0.5,
+                    ),
                   ),
-                ),
-                Text(
-                  AppLocalizations.of(context)!.educationHub,
-                  style: GoogleFonts.inter(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 9,
-                    color: const Color(0xff3B82F6),
-                    letterSpacing: 1.5,
+                  Text(
+                    AppLocalizations.of(context)!.educationHub,
+                    style: GoogleFonts.inter(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 9,
+                      color: const Color(0xff3B82F6),
+                      letterSpacing: 1.5,
+                    ),
                   ),
-                ),
-              ],
-            ),
+                ],
+              ),
+            ],
           ],
         ),
       ),
@@ -205,7 +237,8 @@ class _ModernHeaderState extends State<ModernHeader> {
               AnimatedRotation(
                 duration: const Duration(milliseconds: 200),
                 turns: _isProgramsHovered ? 0.5 : 0, // Rotate arrow
-                child: const Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: Color(0xff111827)),
+                child: const Icon(Icons.keyboard_arrow_down_rounded,
+                    size: 18, color: Color(0xff111827)),
               ),
             ],
           ),
@@ -269,7 +302,8 @@ class _ModernHeaderState extends State<ModernHeader> {
   }
 
   OverlayEntry _createMegaMenuOverlay() {
-    final renderBox = _programsKey.currentContext?.findRenderObject() as RenderBox?;
+    final renderBox =
+        _programsKey.currentContext?.findRenderObject() as RenderBox?;
     final offset = renderBox?.localToGlobal(Offset.zero) ?? Offset.zero;
 
     return OverlayEntry(
@@ -323,25 +357,50 @@ class _ModernHeaderState extends State<ModernHeader> {
                             ),
                           ),
                           const SizedBox(height: 16),
-                          _buildMegaMenuItem('Islamic Studies', Icons.mosque_rounded, () {
+                          _buildMegaMenuItem(
+                              'Islamic Studies', Icons.mosque_rounded, () {
                             _hideMegaMenu();
-                            Navigator.push(context, MaterialPageRoute(builder: (context) => const IslamicCoursesPage()));
+                            Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (context) =>
+                                        const IslamicCoursesPage()));
                           }),
-                          _buildMegaMenuItem('Languages', Icons.language_rounded, () {
+                          _buildMegaMenuItem(
+                              'Languages', Icons.language_rounded, () {
                             _hideMegaMenu();
-                            Navigator.push(context, MaterialPageRoute(builder: (context) => const AfrolingualPage()));
+                            Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (context) =>
+                                        const AfrolingualPage()));
                           }),
-                          _buildMegaMenuItem('After School Tutoring', Icons.school_rounded, () {
+                          _buildMegaMenuItem(
+                              'After School Tutoring', Icons.school_rounded,
+                              () {
                             _hideMegaMenu();
-                            Navigator.push(context, MaterialPageRoute(builder: (context) => const TutoringLiteracyPage()));
+                            Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (context) =>
+                                        const TutoringLiteracyPage()));
                           }),
-                          _buildMegaMenuItem('Math Classes', Icons.functions_rounded, () {
+                          _buildMegaMenuItem(
+                              'Math Classes', Icons.functions_rounded, () {
                             _hideMegaMenu();
-                            Navigator.push(context, MaterialPageRoute(builder: (context) => const MathPage()));
+                            Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (context) => const MathPage()));
                           }),
-                          _buildMegaMenuItem('Programming Classes', Icons.code_rounded, () {
+                          _buildMegaMenuItem(
+                              'Programming Classes', Icons.code_rounded, () {
                             _hideMegaMenu();
-                            Navigator.push(context, MaterialPageRoute(builder: (context) => const ProgrammingPage()));
+                            Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (context) =>
+                                        const ProgrammingPage()));
                           }),
                           const SizedBox(height: 24),
                           Container(
@@ -352,11 +411,16 @@ class _ModernHeaderState extends State<ModernHeader> {
                           InkWell(
                             onTap: () {
                               _hideMegaMenu();
-                              Navigator.push(context, MaterialPageRoute(builder: (context) => const TeachersPage()));
+                              Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                      builder: (context) =>
+                                          const TeachersPage()));
                             },
                             borderRadius: BorderRadius.circular(8),
                             child: Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 8.0),
+                              padding: const EdgeInsets.symmetric(
+                                  vertical: 8.0, horizontal: 8.0),
                               child: Row(
                                 children: [
                                   Text(
@@ -368,7 +432,8 @@ class _ModernHeaderState extends State<ModernHeader> {
                                     ),
                                   ),
                                   const SizedBox(width: 4),
-                                  const Icon(Icons.arrow_forward_rounded, size: 14, color: Color(0xff3B82F6)),
+                                  const Icon(Icons.arrow_forward_rounded,
+                                      size: 14, color: Color(0xff3B82F6)),
                                 ],
                               ),
                             ),
@@ -377,11 +442,16 @@ class _ModernHeaderState extends State<ModernHeader> {
                           InkWell(
                             onTap: () {
                               _hideMegaMenu();
-                              Navigator.push(context, MaterialPageRoute(builder: (context) => const TeacherApplicationScreen()));
+                              Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                      builder: (context) =>
+                                          const TeacherApplicationScreen()));
                             },
                             borderRadius: BorderRadius.circular(8),
                             child: Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 8.0),
+                              padding: const EdgeInsets.symmetric(
+                                  vertical: 8.0, horizontal: 8.0),
                               child: Row(
                                 children: [
                                   Text(
@@ -393,7 +463,8 @@ class _ModernHeaderState extends State<ModernHeader> {
                                     ),
                                   ),
                                   const SizedBox(width: 4),
-                                  const Icon(Icons.arrow_forward_rounded, size: 14, color: Color(0xff3B82F6)),
+                                  const Icon(Icons.arrow_forward_rounded,
+                                      size: 14, color: Color(0xff3B82F6)),
                                 ],
                               ),
                             ),
@@ -401,7 +472,7 @@ class _ModernHeaderState extends State<ModernHeader> {
                         ],
                       ),
                     ),
-                    
+
                     // Vertical Divider
                     Container(
                       width: 1,
@@ -423,7 +494,8 @@ class _ModernHeaderState extends State<ModernHeader> {
                               color: const Color(0xffEFF6FF),
                               borderRadius: BorderRadius.circular(16),
                             ),
-                            child: const Icon(Icons.school_rounded, color: Color(0xff3B82F6), size: 28),
+                            child: const Icon(Icons.school_rounded,
+                                color: Color(0xff3B82F6), size: 28),
                           ),
                           const SizedBox(height: 20),
                           Text(
@@ -436,7 +508,8 @@ class _ModernHeaderState extends State<ModernHeader> {
                           ),
                           const SizedBox(height: 12),
                           Text(
-                            AppLocalizations.of(context)!.joinThousandsOfStudentsLearningFrom,
+                            AppLocalizations.of(context)!
+                                .joinThousandsOfStudentsLearningFrom,
                             style: GoogleFonts.inter(
                               fontSize: 14,
                               color: const Color(0xff6B7280),
@@ -480,7 +553,8 @@ class _ModernHeaderState extends State<ModernHeader> {
               ),
             ),
             const SizedBox(width: 8),
-            const Icon(Icons.chevron_right_rounded, size: 18, color: Color(0xff9CA3AF)),
+            const Icon(Icons.chevron_right_rounded,
+                size: 18, color: Color(0xff9CA3AF)),
           ],
         ),
       ),
@@ -533,23 +607,35 @@ class _ModernHeaderState extends State<ModernHeader> {
                 children: [
                   _buildMobileNavItem('Home', () {
                     Navigator.pop(context);
-                    Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const LandingPage()));
+                    Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const LandingPage()));
                   }),
                   _buildMobileNavItem('About Us', () {
                     Navigator.pop(context);
-                    Navigator.push(context, MaterialPageRoute(builder: (context) => const AboutPage()));
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const AboutPage()));
                   }),
                   _buildMobileNavItem('Our Team', () {
                     Navigator.pop(context);
-                    Navigator.push(context, MaterialPageRoute(builder: (context) => const TeamPage()));
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const TeamPage()));
                   }),
                   _buildMobileNavItem('Contact Us', () {
                     Navigator.pop(context);
-                    Navigator.push(context, MaterialPageRoute(builder: (context) => const ContactPage()));
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const ContactPage()));
                   }),
                   const SizedBox(height: 24),
                   Text(
-                    AppLocalizations.of(context)!.programs2,
+                    AppLocalizations.of(context)!.programs,
                     style: GoogleFonts.inter(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
@@ -560,41 +646,64 @@ class _ModernHeaderState extends State<ModernHeader> {
                   const SizedBox(height: 16),
                   _buildMobileNavItem('Islamic Studies', () {
                     Navigator.pop(context);
-                    Navigator.push(context, MaterialPageRoute(builder: (context) => const IslamicCoursesPage()));
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const IslamicCoursesPage()));
                   }),
                   _buildMobileNavItem('Languages', () {
                     Navigator.pop(context);
-                    Navigator.push(context, MaterialPageRoute(builder: (context) => const AfrolingualPage()));
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const AfrolingualPage()));
                   }),
                   _buildMobileNavItem('After School Tutoring', () {
                     Navigator.pop(context);
-                    Navigator.push(context, MaterialPageRoute(builder: (context) => const TutoringLiteracyPage()));
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) =>
+                                const TutoringLiteracyPage()));
                   }),
                   _buildMobileNavItem('Math Classes', () {
                     Navigator.pop(context);
-                    Navigator.push(context, MaterialPageRoute(builder: (context) => const MathPage()));
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const MathPage()));
                   }),
                   _buildMobileNavItem('Programming', () {
                     Navigator.pop(context);
-                    Navigator.push(context, MaterialPageRoute(builder: (context) => const ProgrammingPage()));
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const ProgrammingPage()));
                   }),
                   const SizedBox(height: 24),
                   Container(height: 1, color: Colors.grey.shade100),
                   const SizedBox(height: 24),
                   _buildMobileNavItem('Our Teachers', () {
                     Navigator.pop(context);
-                    Navigator.push(context, MaterialPageRoute(builder: (context) => const TeachersPage()));
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const TeachersPage()));
                   }),
                   _buildMobileNavItem('Become a Tutor', () {
                     Navigator.pop(context);
-                    Navigator.push(context, MaterialPageRoute(builder: (context) => const TeacherApplicationScreen()));
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) =>
+                                const TeacherApplicationScreen()));
                   }),
                   const SizedBox(height: 32),
                   ElevatedButton(
                     onPressed: () {
                       Navigator.pop(context);
                       Navigator.push(
-                        context, 
+                        context,
                         MaterialPageRoute(
                           settings: const RouteSettings(name: '/login'),
                           builder: (context) => const AuthenticationWrapper(),
@@ -633,7 +742,8 @@ class _ModernHeaderState extends State<ModernHeader> {
           color: const Color(0xff111827),
         ),
       ),
-      trailing: const Icon(Icons.chevron_right_rounded, color: Color(0xff9CA3AF)),
+      trailing:
+          const Icon(Icons.chevron_right_rounded, color: Color(0xff9CA3AF)),
     );
   }
 }
@@ -667,7 +777,9 @@ class _AnimatedNavLinkState extends State<_AnimatedNavLink> {
               style: GoogleFonts.inter(
                 fontSize: 15,
                 fontWeight: FontWeight.w500,
-                color: _isHovered ? const Color(0xff111827) : const Color(0xff374151),
+                color: _isHovered
+                    ? const Color(0xff111827)
+                    : const Color(0xff374151),
               ),
             ),
             const SizedBox(height: 4),
