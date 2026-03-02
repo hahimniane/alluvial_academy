@@ -11,6 +11,7 @@ import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 /// Service to check and monitor internet connectivity
 class ConnectivityService {
   static bool _hasShownNoInternetDialog = false;
+  static Timer? _monitorTimer;
 
   /// Check if the app has internet connection
   static Future<bool> hasInternetConnection() async {
@@ -181,7 +182,8 @@ class ConnectivityService {
     // Skip monitoring on web - browsers handle connectivity
     if (kIsWeb) return;
 
-    Timer.periodic(const Duration(seconds: 10), (timer) async {
+    _monitorTimer?.cancel();
+    _monitorTimer = Timer.periodic(const Duration(seconds: 10), (timer) async {
       if (!context.mounted) {
         timer.cancel();
         return;
@@ -193,5 +195,9 @@ class ConnectivityService {
       }
     });
   }
-}
 
+  static void stopMonitoring() {
+    _monitorTimer?.cancel();
+    _monitorTimer = null;
+  }
+}

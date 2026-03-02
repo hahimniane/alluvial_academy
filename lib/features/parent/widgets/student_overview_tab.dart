@@ -4,10 +4,11 @@ import 'package:intl/intl.dart';
 
 import 'package:alluwalacademyadmin/core/models/teaching_shift.dart';
 import 'package:alluwalacademyadmin/core/services/parent_service.dart';
+import 'package:alluwalacademyadmin/core/services/video_call_service.dart';
 import 'package:alluwalacademyadmin/features/tasks/models/task.dart';
 import 'package:alluwalacademyadmin/features/tasks/services/task_service.dart';
 import 'package:alluwalacademyadmin/features/parent/widgets/student_quick_stats_card.dart';
-import 'package:alluwalacademyadmin/features/parent/widgets/class_card.dart';
+import 'package:alluwalacademyadmin/features/parent/widgets/parent_presence_card.dart';
 import 'package:alluwalacademyadmin/core/enums/task_enums.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
@@ -101,7 +102,14 @@ class _StudentOverviewTabState extends State<StudentOverviewTab> {
                 return Column(
                   children: classes.map((shift) => Padding(
                     padding: const EdgeInsets.only(bottom: 12),
-                    child: ClassCard(shift: shift),
+                    child: ParentPresenceCard(
+                      shift: shift,
+                      onJoin: () => VideoCallService.joinClass(
+                        context,
+                        shift,
+                        isTeacher: false,
+                      ),
+                    ),
                   )).toList(),
                 );
               },
@@ -139,7 +147,14 @@ class _StudentOverviewTabState extends State<StudentOverviewTab> {
                 return Column(
                   children: previewClasses.map((shift) => Padding(
                     padding: const EdgeInsets.only(bottom: 12),
-                    child: ClassCard(shift: shift),
+                    child: ParentPresenceCard(
+                      shift: shift,
+                      onJoin: () => VideoCallService.joinClass(
+                        context,
+                        shift,
+                        isTeacher: false,
+                      ),
+                    ),
                   )).toList(),
                 );
               },

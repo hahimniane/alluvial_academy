@@ -2182,7 +2182,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get assignTo2 => 'Attribuer à 2';
 
   @override
-  String get assignToStudents => 'Assigner aux élèves';
+  String get assignToStudents => 'Attribuer aux Étudiants';
 
   @override
   String get assignedByAssignedbyname => 'Assigné par Nom';
@@ -4899,7 +4899,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get muteEveryone => 'Mute tout le monde';
 
   @override
-  String get myAssignments => 'Mes missions';
+  String get myAssignments => 'Mes Attributions';
 
   @override
   String get myChildren => 'Mes enfants';
@@ -6467,7 +6467,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get selectStudent2 => 'Sélectionnez Étudiant2';
 
   @override
-  String get selectStudents => 'Sélectionnez les étudiants';
+  String get selectStudents => 'Sélectionner les Étudiants';
 
   @override
   String get selectSubject => 'Sélectionner un sujet';
@@ -10339,4 +10339,46 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get confirmBanFormMessage =>
       'Êtes-vous sûr de vouloir bannir ce formulaire ?';
+
+  @override
+  String get sidebarSurahPodcasts => 'Podcasts des Sourates';
+
+  @override
+  String get podcastLibrary => 'Bibliothèque de Podcasts';
+
+  @override
+  String get uploadPodcast => 'Télécharger un Podcast';
+
+  @override
+  String get selectSurah => 'Sélectionner la Sourate';
+
+  @override
+  String get podcastTitle => 'Titre';
+
+  @override
+  String get podcastDescription => 'Description';
+
+  @override
+  String get podcastDuration => 'Durée';
+
+  @override
+  String get noPodcastsAssigned => 'Aucun podcast attribué';
+
+  @override
+  String get noPodcastsUploaded => 'Aucun podcast téléchargé';
+
+  @override
+  String get podcastUploaded => 'Podcast téléchargé avec succès';
+
+  @override
+  String get podcastAssigned => 'Podcast attribué avec succès';
+
+  @override
+  String get confirmDeletePodcast => 'Voulez-vous supprimer ce podcast ?';
+
+  @override
+  String get podcastArchived => 'Podcast archivé';
+
+  @override
+  String get deselectAll => 'Tout désélectionner';
 }

@@ -54,6 +54,13 @@ class UserRoleService {
         roles.add('admin');
       }
 
+      // Include secondary roles (e.g., a parent who is also a teacher/student)
+      final secondaryRoles = List<String>.from(userData['secondary_roles'] ?? []);
+      for (final r in secondaryRoles) {
+        final trimmed = r.trim().toLowerCase();
+        if (trimmed.isNotEmpty) roles.add(trimmed);
+      }
+
       return roles.toList();
     } catch (e) {
       if (_looksLikeFirestoreWebInternalError(e)) {

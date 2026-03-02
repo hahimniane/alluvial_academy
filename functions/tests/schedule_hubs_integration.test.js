@@ -76,7 +76,7 @@ jest.mock('../services/zoom/client', () => ({
     passcode: '123456',
     hostUser: 'host@test.com',
   })),
-}));
+}), { virtual: true });
 
 // Mock Zoom hosts
 jest.mock('../services/zoom/hosts', () => ({
@@ -84,7 +84,7 @@ jest.mock('../services/zoom/hosts', () => ({
     host: { email: 'host@test.com', id: 'host_id' },
     error: null,
   })),
-}));
+}), { virtual: true });
 
 // Mock Zoom config
 jest.mock('../services/zoom/config', () => ({
@@ -93,7 +93,7 @@ jest.mock('../services/zoom/config', () => ({
     clientId: 'test_client',
     clientSecret: 'test_secret',
   })),
-}));
+}), { virtual: true });
 
 // Import after mocks
 const admin = require('firebase-admin');
@@ -101,7 +101,9 @@ const admin = require('firebase-admin');
 /**
  * Test Suite: schedule_hubs.js Implementation Gap Analysis
  */
-describe('schedule_hubs.js Implementation Analysis', () => {
+// Legacy Zoom hub integration tests are kept for historical context.
+// The production video stack is now LiveKit.
+describe.skip('schedule_hubs.js Implementation Analysis', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -233,7 +235,7 @@ describe('schedule_hubs.js Implementation Analysis', () => {
 /**
  * Test Suite: Zoom API Integration Requirements
  */
-describe('Zoom API Pre-Assignment Requirements', () => {
+describe.skip('Zoom API Pre-Assignment Requirements', () => {
 
   test('REQUIREMENT: Breakout rooms must have pre-assigned participants', () => {
     // Current implementation at schedule_hubs.js line 221-237

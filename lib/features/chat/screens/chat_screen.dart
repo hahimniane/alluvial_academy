@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:async';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -17,6 +18,31 @@ import '../../../core/utils/app_logger.dart';
 import '../../../core/services/livekit_service.dart';
 import '../../../core/services/notification_service.dart';
 import '../../../l10n/app_localizations.dart';
+
+class _VoiceRecordingProfile {
+  final AudioEncoder encoder;
+  final String fileExtension;
+  final int bitRate;
+  final int sampleRate;
+  final int numChannels;
+
+  const _VoiceRecordingProfile({
+    required this.encoder,
+    required this.fileExtension,
+    required this.bitRate,
+    required this.sampleRate,
+    required this.numChannels,
+  });
+
+  RecordConfig toRecordConfig() {
+    return RecordConfig(
+      encoder: encoder,
+      bitRate: bitRate,
+      sampleRate: sampleRate,
+      numChannels: numChannels,
+    );
+  }
+}
 
 class ChatScreen extends StatefulWidget {
   final ChatUser chatUser;
@@ -43,34 +69,44 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _checkingPermission = true;
   String? _relationshipContext;
   bool _isUploading = false;
-  
+
   final ImagePicker _imagePicker = ImagePicker();
-  
+
   // Voice recording
   final AudioRecorder _audioRecorder = AudioRecorder();
   bool _isRecording = false;
   int _recordingDuration = 0;
   Timer? _recordingTimer;
   String? _recordingPath;
-  
+
   // Cache the messages stream to prevent rebuilding on every setState
   late Stream<List<ChatMessage>> _messagesStream;
+
+  // @mention support
+  List<Map<String, dynamic>> _groupMembers = [];
+  bool _showMentionSuggestions = false;
+  String _mentionQuery = '';
+  int _mentionStartIndex = -1;
 
   @override
   void initState() {
     super.initState();
     _messageController.addListener(_onTextChanged);
     _checkPermissionAndContext();
-    
+
+    if (widget.chatUser.isGroup) {
+      _loadGroupMembers();
+    }
+
     // Set the current open chat to suppress notifications for this chat
     NotificationService.setCurrentOpenChat(widget.chatUser.id);
-    
+
     // Initialize the messages stream once to prevent rebuilding on every setState
     _messagesStream = _chatService.getChatMessages(
       widget.chatUser.id,
       isGroupChat: widget.chatUser.isGroup,
     );
-    
+
     // Mark messages as read when opening chat
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _chatService.markMessagesAsRead(
@@ -85,15 +121,18 @@ class _ChatScreenState extends State<ChatScreen> {
     if (currentUserId == null || widget.chatUser.isGroup) {
       setState(() {
         _checkingPermission = false;
-        _hasPermission = widget.chatUser.isGroup; // Groups have their own permission logic
+        _hasPermission =
+            widget.chatUser.isGroup; // Groups have their own permission logic
       });
       return;
     }
 
     try {
-      final canMessage = await _permissionService.canMessage(currentUserId, widget.chatUser.id);
-      final context = await _permissionService.getRelationshipContext(currentUserId, widget.chatUser.id);
-      
+      final canMessage = await _permissionService.canMessage(
+          currentUserId, widget.chatUser.id);
+      final context = await _permissionService.getRelationshipContext(
+          currentUserId, widget.chatUser.id);
+
       if (mounted) {
         setState(() {
           _hasPermission = canMessage;
@@ -112,13 +151,83 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  void _onTextChanged() {
-    setState(() {
-      _isComposing = _messageController.text.trim().isNotEmpty;
-    });
+  Future<void> _loadGroupMembers() async {
+    try {
+      final members = await _chatService.getGroupMembers(widget.chatUser.id);
+      if (mounted) {
+        setState(() => _groupMembers = members);
+      }
+    } catch (_) {}
   }
 
-  @override
+  void _onTextChanged() {
+    final text = _messageController.text;
+    final cursorPos = _messageController.selection.baseOffset;
+
+    setState(() {
+      _isComposing = text.trim().isNotEmpty;
+    });
+
+    if (!widget.chatUser.isGroup || cursorPos < 0) {
+      if (_showMentionSuggestions) {
+        setState(() => _showMentionSuggestions = false);
+      }
+      return;
+    }
+
+    // Look backwards from cursor to find an unmatched @
+    final before = text.substring(0, cursorPos);
+    final atIdx = before.lastIndexOf('@');
+    if (atIdx >= 0) {
+      // Only trigger if @ is at start or preceded by a space
+      final charBefore = atIdx > 0 ? before[atIdx - 1] : ' ';
+      if (charBefore == ' ' || charBefore == '\n' || atIdx == 0) {
+        final query = before.substring(atIdx + 1);
+        // No spaces allowed in the query (except none typed yet)
+        if (!query.contains(' ') || query.isEmpty) {
+          setState(() {
+            _showMentionSuggestions = true;
+            _mentionQuery = query.toLowerCase();
+            _mentionStartIndex = atIdx;
+          });
+          return;
+        }
+      }
+    }
+
+    if (_showMentionSuggestions) {
+      setState(() => _showMentionSuggestions = false);
+    }
+  }
+
+  List<Map<String, dynamic>> get _filteredMentionMembers {
+    final currentUid = FirebaseAuth.instance.currentUser?.uid;
+    final members = _groupMembers.where((m) => m['id'] != currentUid).toList();
+
+    if (_mentionQuery.isEmpty) return members;
+
+    return members
+        .where((m) =>
+            (m['name'] as String? ?? '').toLowerCase().contains(_mentionQuery))
+        .toList();
+  }
+
+  void _insertMention(String name, {bool isAll = false}) {
+    final text = _messageController.text;
+    final cursorPos = _messageController.selection.baseOffset;
+    final before = text.substring(0, _mentionStartIndex);
+    final after = cursorPos < text.length ? text.substring(cursorPos) : '';
+    final mentionText = isAll ? '@All ' : '@$name ';
+    final newText = '$before$mentionText$after';
+    _messageController.value = TextEditingValue(
+      text: newText,
+      selection:
+          TextSelection.collapsed(offset: before.length + mentionText.length),
+    );
+    setState(() => _showMentionSuggestions = false);
+    _messageFocusNode.requestFocus();
+  }
+
   @override
   void dispose() {
     // Clear the current open chat so notifications resume
@@ -143,9 +252,134 @@ class _ChatScreenState extends State<ChatScreen> {
             child: _buildMessagesList(),
           ),
 
+          // Mention suggestions popup
+          if (_showMentionSuggestions && widget.chatUser.isGroup)
+            _buildMentionSuggestions(),
+
           // Message input
           _buildMessageInput(),
         ],
+      ),
+    );
+  }
+
+  Widget _buildMentionSuggestions() {
+    final members = _filteredMentionMembers;
+    final showAll = 'all'.contains(_mentionQuery);
+
+    if (members.isEmpty && !showAll) return const SizedBox.shrink();
+
+    return Container(
+      constraints: const BoxConstraints(maxHeight: 200),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(
+          top: BorderSide(color: const Color(0xFFE5E7EB), width: 0.5),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 8,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: ListView(
+        shrinkWrap: true,
+        padding: EdgeInsets.zero,
+        children: [
+          if (showAll)
+            _buildMentionTile(
+              name: 'All',
+              subtitle: 'Notify everyone',
+              icon: Icons.groups_rounded,
+              color: const Color(0xFFEF4444),
+              onTap: () => _insertMention('All', isAll: true),
+            ),
+          ...members.map((m) {
+            final name = m['name'] as String? ?? 'Unknown';
+            final role = m['role'] as String? ?? '';
+            final isAdmin = m['is_admin'] == true;
+            return _buildMentionTile(
+              name: name,
+              subtitle: isAdmin ? '$role · Admin' : role,
+              icon: Icons.person_rounded,
+              color: const Color(0xFF0386FF),
+              onTap: () => _insertMention(name),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMentionTile({
+    required String name,
+    required String subtitle,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    final initials = name
+        .split(' ')
+        .where((w) => w.isNotEmpty)
+        .take(2)
+        .map((w) => w[0].toUpperCase())
+        .join();
+
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Row(
+          children: [
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Center(
+                child: name == 'All'
+                    ? Icon(icon, size: 18, color: color)
+                    : Text(
+                        initials,
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: color,
+                        ),
+                      ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    name,
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: const Color(0xFF111827),
+                    ),
+                  ),
+                  if (subtitle.isNotEmpty)
+                    Text(
+                      subtitle,
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        color: const Color(0xFF6B7280),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -194,9 +428,10 @@ class _ChatScreenState extends State<ChatScreen> {
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: (widget.chatUser.isGroup 
-                          ? const Color(0xff059669) 
-                          : const Color(0xff0386FF)).withOpacity(0.08),
+                      color: (widget.chatUser.isGroup
+                              ? const Color(0xff059669)
+                              : const Color(0xff0386FF))
+                          .withOpacity(0.08),
                       blurRadius: 6,
                       offset: const Offset(0, 2),
                     ),
@@ -621,7 +856,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 ],
               ),
             ),
-            
+
           // Reply preview
           if (_replyingTo != null) _buildReplyPreview(),
 
@@ -648,7 +883,8 @@ class _ChatScreenState extends State<ChatScreen> {
                             value: 'photo',
                             child: Row(
                               children: [
-                                const Icon(Icons.photo, color: Color(0xff059669)),
+                                const Icon(Icons.photo,
+                                    color: Color(0xff059669)),
                                 const SizedBox(width: 12),
                                 Text(
                                   AppLocalizations.of(context)!.chatPhoto,
@@ -924,7 +1160,18 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> _pickFile() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
-      allowedExtensions: ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'zip', 'rar'],
+      allowedExtensions: [
+        'pdf',
+        'doc',
+        'docx',
+        'xls',
+        'xlsx',
+        'ppt',
+        'pptx',
+        'txt',
+        'zip',
+        'rar'
+      ],
     );
 
     if (result != null && result.files.single.path != null) {
@@ -960,7 +1207,8 @@ class _ChatScreenState extends State<ChatScreen> {
       }
 
       if (permission == LocationPermission.deniedForever) {
-        _showMessage('Location permission permanently denied. Please enable in settings.');
+        _showMessage(
+            'Location permission permanently denied. Please enable in settings.');
         return;
       }
 
@@ -1011,7 +1259,7 @@ class _ChatScreenState extends State<ChatScreen> {
             size: 22,
           ),
         ),
-        
+
         // Recording indicator - takes remaining space
         Expanded(
           child: Container(
@@ -1074,7 +1322,7 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
           ),
         ),
-        
+
         // Send button
         IconButton(
           onPressed: _stopRecordingAndSend,
@@ -1092,17 +1340,60 @@ class _ChatScreenState extends State<ChatScreen> {
       ],
     );
   }
-  
+
   String _formatRecordingDuration(int seconds) {
     final mins = seconds ~/ 60;
     final secs = seconds % 60;
     return '${mins.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}';
   }
-  
+
   void _showRecordingHint() {
     _showMessage('Hold to record a voice message', isError: false);
   }
-  
+
+  Future<_VoiceRecordingProfile> _selectVoiceRecordingProfile() async {
+    const wavProfile = _VoiceRecordingProfile(
+      encoder: AudioEncoder.wav,
+      fileExtension: 'wav',
+      bitRate: 256000,
+      sampleRate: 16000,
+      numChannels: 1,
+    );
+    const aacProfile = _VoiceRecordingProfile(
+      encoder: AudioEncoder.aacLc,
+      fileExtension: 'm4a',
+      bitRate: 128000,
+      sampleRate: 44100,
+      numChannels: 1,
+    );
+
+    final candidates = <_VoiceRecordingProfile>[];
+
+    if (kIsWeb) {
+      candidates.addAll([wavProfile, aacProfile]);
+    } else if (Platform.isIOS) {
+      // iOS AAC in m4a has caused browser decode issues for some uploads.
+      // Prefer wav for cross-platform playback.
+      candidates.addAll([wavProfile, aacProfile]);
+    } else if (Platform.isAndroid) {
+      candidates.addAll([aacProfile, wavProfile]);
+    } else {
+      candidates.addAll([wavProfile, aacProfile]);
+    }
+
+    for (final profile in candidates) {
+      try {
+        if (await _audioRecorder.isEncoderSupported(profile.encoder)) {
+          return profile;
+        }
+      } catch (_) {
+        // Fall through to next profile.
+      }
+    }
+
+    return candidates.first;
+  }
+
   Future<void> _startRecording() async {
     try {
       // Check microphone permission
@@ -1110,67 +1401,67 @@ class _ChatScreenState extends State<ChatScreen> {
         _showMessage('Microphone permission is required');
         return;
       }
-      
-      // Get temp directory for recording
-      final tempDir = await path_provider.getTemporaryDirectory();
+
+      final profile = await _selectVoiceRecordingProfile();
       final timestamp = DateTime.now().millisecondsSinceEpoch;
-      _recordingPath = '${tempDir.path}/voice_$timestamp.m4a';
-      
+
+      if (kIsWeb) {
+        _recordingPath = 'voice_$timestamp.${profile.fileExtension}';
+      } else {
+        final tempDir = await path_provider.getTemporaryDirectory();
+        _recordingPath =
+            '${tempDir.path}/voice_$timestamp.${profile.fileExtension}';
+      }
+
       // Start recording
       await _audioRecorder.start(
-        const RecordConfig(
-          encoder: AudioEncoder.aacLc,
-          bitRate: 128000,
-          sampleRate: 44100,
-        ),
+        profile.toRecordConfig(),
         path: _recordingPath!,
       );
-      
+
       setState(() {
         _isRecording = true;
         _recordingDuration = 0;
       });
-      
+
       // Start duration timer
       _recordingTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
         if (mounted && _isRecording) {
           setState(() {
             _recordingDuration++;
           });
-          
+
           // Auto-stop after 2 minutes
           if (_recordingDuration >= 120) {
             _stopRecordingAndSend();
           }
         }
       });
-      
     } catch (e) {
       AppLogger.error('Error starting recording: $e');
       _showMessage('Failed to start recording');
     }
   }
-  
+
   Future<void> _stopRecordingAndSend() async {
     if (!_isRecording) return;
-    
+
     _recordingTimer?.cancel();
-    
+
     try {
       final path = await _audioRecorder.stop();
-      
+
       setState(() {
         _isRecording = false;
       });
-      
+
       if (path == null || _recordingDuration < 1) {
         _showMessage('Recording too short', isError: false);
         return;
       }
-      
+
       // Upload and send voice message
       await _sendVoiceMessage(path, _recordingDuration);
-      
     } catch (e) {
       AppLogger.error('Error stopping recording: $e');
       _showMessage('Failed to send voice message');
@@ -1179,15 +1470,15 @@ class _ChatScreenState extends State<ChatScreen> {
       });
     }
   }
-  
+
   Future<void> _cancelRecording() async {
     _recordingTimer?.cancel();
-    
+
     try {
       await _audioRecorder.stop();
-      
+
       // Delete the temp file
-      if (_recordingPath != null) {
+      if (!kIsWeb && _recordingPath != null) {
         final file = File(_recordingPath!);
         if (await file.exists()) {
           await file.delete();
@@ -1196,22 +1487,27 @@ class _ChatScreenState extends State<ChatScreen> {
     } catch (e) {
       AppLogger.error('Error canceling recording: $e');
     }
-    
+
     setState(() {
       _isRecording = false;
       _recordingDuration = 0;
       _recordingPath = null;
     });
   }
-  
+
   Future<void> _sendVoiceMessage(String filePath, int durationSeconds) async {
     setState(() {
       _isUploading = true;
     });
-    
+
     try {
+      if (kIsWeb) {
+        _showMessage('Voice upload from web is not supported yet');
+        return;
+      }
+
       final file = File(filePath);
-      
+
       // Send voice message using ChatService
       await _chatService.sendVoiceMessage(
         widget.chatUser.id,
@@ -1219,12 +1515,11 @@ class _ChatScreenState extends State<ChatScreen> {
         durationSeconds,
         isGroupChat: widget.chatUser.isGroup,
       );
-      
+
       // Clean up temp file
       if (await file.exists()) {
         await file.delete();
       }
-      
     } catch (e) {
       AppLogger.error('Error sending voice message: $e');
       _showMessage('Failed to send voice message');
@@ -1240,7 +1535,7 @@ class _ChatScreenState extends State<ChatScreen> {
       _showMessage('Group calls are not supported yet');
       return;
     }
-    
+
     // Start audio-only call via LiveKit
     LiveKitService.startCall(
       context,
@@ -1255,7 +1550,7 @@ class _ChatScreenState extends State<ChatScreen> {
       _showMessage('Group calls are not supported yet');
       return;
     }
-    
+
     // Start video call via LiveKit
     LiveKitService.startCall(
       context,
@@ -1357,7 +1652,8 @@ class _ChatScreenState extends State<ChatScreen> {
     if (_relationshipContext == null) return Icons.person;
     if (_relationshipContext!.contains('teacher')) return Icons.school;
     if (_relationshipContext!.contains('Parent')) return Icons.family_restroom;
-    if (_relationshipContext!.contains('Administrator')) return Icons.admin_panel_settings;
+    if (_relationshipContext!.contains('Administrator'))
+      return Icons.admin_panel_settings;
     return Icons.person;
   }
 
@@ -1500,7 +1796,9 @@ class _ChatScreenState extends State<ChatScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text(
-          isBlocked ? 'Unblock User' : AppLocalizations.of(context)!.chatBlockUser,
+          isBlocked
+              ? 'Unblock User'
+              : AppLocalizations.of(context)!.chatBlockUser,
           style: GoogleFonts.inter(fontWeight: FontWeight.w600),
         ),
         content: Text(
@@ -1524,21 +1822,25 @@ class _ChatScreenState extends State<ChatScreen> {
               if (isBlocked) {
                 success = await _chatService.unblockUser(widget.chatUser.id);
                 if (success) {
-                  _showMessage('${widget.chatUser.displayName} unblocked', isError: false);
+                  _showMessage('${widget.chatUser.displayName} unblocked',
+                      isError: false);
                 }
               } else {
                 success = await _chatService.blockUser(widget.chatUser.id);
                 if (success) {
-                  _showMessage('${widget.chatUser.displayName} blocked', isError: false);
+                  _showMessage('${widget.chatUser.displayName} blocked',
+                      isError: false);
                 }
               }
               if (!success) {
-                _showMessage('Failed to ${isBlocked ? 'unblock' : 'block'} user');
+                _showMessage(
+                    'Failed to ${isBlocked ? 'unblock' : 'block'} user');
               }
             },
             child: Text(
               isBlocked ? 'Unblock' : AppLocalizations.of(context)!.block,
-              style: GoogleFonts.inter(color: isBlocked ? const Color(0xff059669) : Colors.red),
+              style: GoogleFonts.inter(
+                  color: isBlocked ? const Color(0xff059669) : Colors.red),
             ),
           ),
         ],
@@ -1563,7 +1865,7 @@ class _ChatScreenState extends State<ChatScreen> {
       ),
     ];
 
-    if (widget.chatUser.role == 'group') {
+    if (widget.chatUser.isGroup) {
       // Group-specific options
       items.add(
         PopupMenuItem(
@@ -1671,8 +1973,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _showAddMembersDialog() async {
-    // Check if user is admin first
-    if (widget.chatUser.role != 'group') return;
+    if (!widget.chatUser.isGroup) return;
 
     final isAdmin = await _chatService.isGroupAdmin(widget.chatUser.id);
     if (!isAdmin) {
@@ -1702,7 +2003,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _showGroupInfoDialog() async {
-    if (widget.chatUser.role != 'group') return;
+    if (!widget.chatUser.isGroup) return;
 
     final groupDetails = await _chatService.getGroupDetails(widget.chatUser.id);
     if (groupDetails == null) return;
@@ -1748,7 +2049,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _showEditGroupDialog() async {
-    if (widget.chatUser.role != 'group') return;
+    if (!widget.chatUser.isGroup) return;
 
     final isAdmin = await _chatService.isGroupAdmin(widget.chatUser.id);
     if (!isAdmin) {
@@ -1774,7 +2075,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _showManageMembersDialog() async {
-    if (widget.chatUser.role != 'group') return;
+    if (!widget.chatUser.isGroup) return;
 
     final isAdmin = await _chatService.isGroupAdmin(widget.chatUser.id);
 
@@ -1793,7 +2094,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _showLeaveGroupDialog() async {
-    if (widget.chatUser.role != 'group') return;
+    if (!widget.chatUser.isGroup) return;
 
     showDialog(
       context: context,
@@ -1842,7 +2143,8 @@ class _ChatScreenState extends State<ChatScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: isError ? const Color(0xffEF4444) : const Color(0xff059669),
+        backgroundColor:
+            isError ? const Color(0xffEF4444) : const Color(0xff059669),
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -1901,150 +2203,355 @@ class _AddMembersDialog extends StatefulWidget {
 
 class _AddMembersDialogState extends State<_AddMembersDialog> {
   final List<String> _selectedUserIds = [];
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+  String _roleFilter = 'all'; // 'all', 'admin', 'teacher', 'student'
   bool _isLoading = false;
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  List<ChatUser> _filterUsers(List<ChatUser> users) {
+    var filtered = users
+        .where((user) => !widget.currentParticipants.contains(user.id))
+        .toList();
+
+    if (_roleFilter != 'all') {
+      filtered = filtered
+          .where((u) => (u.role ?? '').toLowerCase() == _roleFilter)
+          .toList();
+    }
+
+    if (_searchQuery.isNotEmpty) {
+      final q = _searchQuery.toLowerCase();
+      filtered = filtered
+          .where((u) =>
+              u.displayName.toLowerCase().contains(q) ||
+              (u.email.toLowerCase().contains(q)))
+          .toList();
+    }
+
+    return filtered;
+  }
+
+  Color _roleColor(String role) {
+    switch (role) {
+      case 'admin':
+        return const Color(0xFFEF4444);
+      case 'teacher':
+        return const Color(0xFF0386FF);
+      case 'student':
+        return const Color(0xFF059669);
+      default:
+        return const Color(0xFF6B7280);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+      contentPadding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+      actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
       title: Text(
         AppLocalizations.of(context)!.chatAddMembers,
-        style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+        style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 18),
       ),
       content: SizedBox(
         width: double.maxFinite,
-        height: 400,
-        child: StreamBuilder<List<ChatUser>>(
-          stream: widget.chatService.getAllUsers(),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(
-                child: CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xff0386FF)),
+        height: 480,
+        child: Column(
+          children: [
+            // Search bar
+            TextField(
+              controller: _searchController,
+              onChanged: (v) => setState(() => _searchQuery = v),
+              decoration: InputDecoration(
+                hintText: 'Search by name or email...',
+                hintStyle: GoogleFonts.inter(
+                    fontSize: 14, color: const Color(0xFF9CA3AF)),
+                prefixIcon: const Icon(Icons.search,
+                    color: Color(0xFF9CA3AF), size: 20),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear,
+                            size: 18, color: Color(0xFF9CA3AF)),
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() => _searchQuery = '');
+                        },
+                      )
+                    : null,
+                filled: true,
+                fillColor: const Color(0xFFF3F4F6),
+                contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide.none,
                 ),
-              );
-            }
-
-            if (snapshot.hasError) {
-              return Center(
-                child: Text(AppLocalizations.of(context)!.errorLoadingUsers),
-              );
-            }
-
-            final allUsers = snapshot.data ?? [];
-            // Filter out users who are already in the group
-            final availableUsers = allUsers
-                .where((user) => !widget.currentParticipants.contains(user.id))
-                .toList();
-
-            if (availableUsers.isEmpty) {
-              return Center(
-                child: Text(AppLocalizations.of(context)!.noUsersAvailableToAdd),
-              );
-            }
-
-            return ListView.builder(
-              itemCount: availableUsers.length,
-              itemBuilder: (context, index) {
-                final user = availableUsers[index];
-                final isSelected = _selectedUserIds.contains(user.id);
-
-                return CheckboxListTile(
-                  value: isSelected,
-                  onChanged: (selected) {
-                    setState(() {
-                      if (selected == true) {
-                        _selectedUserIds.add(user.id);
-                      } else {
-                        _selectedUserIds.remove(user.id);
-                      }
-                    });
-                  },
-                  title: Text(
-                    user.displayName,
-                    style: GoogleFonts.inter(fontWeight: FontWeight.w500),
-                  ),
-                  subtitle: Text(
-                    user.role ?? 'No role',
-                    style: GoogleFonts.inter(
-                      fontSize: 12,
-                      color: const Color(0xff6B7280),
-                    ),
-                  ),
-                  secondary: Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: const Color(0xff0386FF).withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Center(
-                      child: Text(
-                        user.initials,
-                        style: GoogleFonts.inter(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: const Color(0xff0386FF),
-                        ),
+              ),
+              style: GoogleFonts.inter(fontSize: 14),
+            ),
+            const SizedBox(height: 10),
+            // Role filter chips
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _buildFilterChip('All', 'all'),
+                  const SizedBox(width: 6),
+                  _buildFilterChip('Admin', 'admin'),
+                  const SizedBox(width: 6),
+                  _buildFilterChip('Teacher', 'teacher'),
+                  const SizedBox(width: 6),
+                  _buildFilterChip('Student', 'student'),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+            // User list
+            Expanded(
+              child: StreamBuilder<List<ChatUser>>(
+                stream: widget.chatService.getAllUsers(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(
+                      child: CircularProgressIndicator(
+                        valueColor:
+                            AlwaysStoppedAnimation<Color>(Color(0xff0386FF)),
                       ),
-                    ),
-                  ),
-                );
-              },
-            );
-          },
+                    );
+                  }
+
+                  if (snapshot.hasError) {
+                    return Center(
+                      child:
+                          Text(AppLocalizations.of(context)!.errorLoadingUsers),
+                    );
+                  }
+
+                  final allUsers = snapshot.data ?? [];
+                  final filteredUsers = _filterUsers(allUsers);
+
+                  if (filteredUsers.isEmpty) {
+                    return Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.person_search_rounded,
+                              size: 40, color: const Color(0xFFD1D5DB)),
+                          const SizedBox(height: 8),
+                          Text(
+                            _searchQuery.isNotEmpty || _roleFilter != 'all'
+                                ? 'No users match your filters'
+                                : AppLocalizations.of(context)!
+                                    .noUsersAvailableToAdd,
+                            style: GoogleFonts.inter(
+                                fontSize: 14, color: const Color(0xFF6B7280)),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
+                  return ListView.builder(
+                    itemCount: filteredUsers.length,
+                    itemBuilder: (context, index) {
+                      final user = filteredUsers[index];
+                      final isSelected = _selectedUserIds.contains(user.id);
+                      final role = (user.role ?? 'user').toLowerCase();
+
+                      return ListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        onTap: () {
+                          setState(() {
+                            if (isSelected) {
+                              _selectedUserIds.remove(user.id);
+                            } else {
+                              _selectedUserIds.add(user.id);
+                            }
+                          });
+                        },
+                        leading: Stack(
+                          children: [
+                            Container(
+                              width: 38,
+                              height: 38,
+                              decoration: BoxDecoration(
+                                color: _roleColor(role).withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(19),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  user.initials,
+                                  style: GoogleFonts.inter(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: _roleColor(role),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            if (isSelected)
+                              Positioned(
+                                right: 0,
+                                bottom: 0,
+                                child: Container(
+                                  width: 16,
+                                  height: 16,
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF059669),
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                        color: Colors.white, width: 1.5),
+                                  ),
+                                  child: const Icon(Icons.check,
+                                      size: 10, color: Colors.white),
+                                ),
+                              ),
+                          ],
+                        ),
+                        title: Text(
+                          user.displayName,
+                          style: GoogleFonts.inter(
+                              fontWeight: FontWeight.w500, fontSize: 14),
+                        ),
+                        subtitle: Text(
+                          role[0].toUpperCase() + role.substring(1),
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            color: _roleColor(role),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        trailing: Checkbox(
+                          value: isSelected,
+                          onChanged: (v) {
+                            setState(() {
+                              if (v == true) {
+                                _selectedUserIds.add(user.id);
+                              } else {
+                                _selectedUserIds.remove(user.id);
+                              }
+                            });
+                          },
+                          activeColor: const Color(0xFF059669),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(4)),
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
         ),
       ),
       actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text(
-            AppLocalizations.of(context)!.commonCancel,
-            style: GoogleFonts.inter(color: const Color(0xff6B7280)),
-          ),
-        ),
-        TextButton(
-          onPressed: _selectedUserIds.isEmpty || _isLoading
-              ? null
-              : () async {
-                  setState(() => _isLoading = true);
-
-                  final success = await widget.chatService.addMembersToGroup(
-                    widget.groupChatId,
-                    _selectedUserIds,
-                  );
-
-                  setState(() => _isLoading = false);
-
-                  if (success) {
-                    widget.onMembersAdded();
-                    if (mounted) Navigator.of(context).pop();
-                  } else {
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(AppLocalizations.of(context)!.failedToAddMembers),
-                          backgroundColor: Colors.red,
-                        ),
-                      );
-                    }
-                  }
-                },
-          child: _isLoading
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor:
-                        AlwaysStoppedAnimation<Color>(Color(0xff059669)),
-                  ),
-                )
-              : Text(
-                  'Add ${_selectedUserIds.length} Member${_selectedUserIds.length == 1 ? '' : 's'}',
-                  style: GoogleFonts.inter(color: const Color(0xff059669)),
+        Row(
+          children: [
+            if (_selectedUserIds.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: Text(
+                  '${_selectedUserIds.length} selected',
+                  style: GoogleFonts.inter(
+                      fontSize: 12, color: const Color(0xFF6B7280)),
                 ),
+              ),
+            const Spacer(),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(
+                AppLocalizations.of(context)!.commonCancel,
+                style: GoogleFonts.inter(color: const Color(0xff6B7280)),
+              ),
+            ),
+            const SizedBox(width: 8),
+            ElevatedButton(
+              onPressed: _selectedUserIds.isEmpty || _isLoading
+                  ? null
+                  : () async {
+                      setState(() => _isLoading = true);
+
+                      final success =
+                          await widget.chatService.addMembersToGroup(
+                        widget.groupChatId,
+                        _selectedUserIds,
+                      );
+
+                      setState(() => _isLoading = false);
+
+                      if (success) {
+                        widget.onMembersAdded();
+                        if (mounted) Navigator.of(context).pop();
+                      } else {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(AppLocalizations.of(context)!
+                                  .failedToAddMembers),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                      }
+                    },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF059669),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8)),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              ),
+              child: _isLoading
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    )
+                  : Text(
+                      'Add ${_selectedUserIds.length}',
+                      style: GoogleFonts.inter(
+                          fontWeight: FontWeight.w600, fontSize: 14),
+                    ),
+            ),
+          ],
         ),
       ],
+    );
+  }
+
+  Widget _buildFilterChip(String label, String value) {
+    final isActive = _roleFilter == value;
+    return GestureDetector(
+      onTap: () => setState(() => _roleFilter = value),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isActive ? const Color(0xFF0386FF) : const Color(0xFFF3F4F6),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.inter(
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            color: isActive ? Colors.white : const Color(0xFF6B7280),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -2078,7 +2585,8 @@ class _EditGroupDialogState extends State<_EditGroupDialog> {
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.currentName);
-    _descriptionController = TextEditingController(text: widget.currentDescription);
+    _descriptionController =
+        TextEditingController(text: widget.currentDescription);
   }
 
   @override
@@ -2110,7 +2618,8 @@ class _EditGroupDialogState extends State<_EditGroupDialog> {
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Color(0xff0386FF), width: 2),
+                  borderSide:
+                      const BorderSide(color: Color(0xff0386FF), width: 2),
                 ),
               ),
               style: GoogleFonts.inter(),
@@ -2126,7 +2635,8 @@ class _EditGroupDialogState extends State<_EditGroupDialog> {
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Color(0xff0386FF), width: 2),
+                  borderSide:
+                      const BorderSide(color: Color(0xff0386FF), width: 2),
                 ),
               ),
               style: GoogleFonts.inter(),
@@ -2177,7 +2687,8 @@ class _EditGroupDialogState extends State<_EditGroupDialog> {
                   height: 16,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xff0386FF)),
+                    valueColor:
+                        AlwaysStoppedAnimation<Color>(Color(0xff0386FF)),
                   ),
                 )
               : Text(
@@ -2222,7 +2733,8 @@ class _ManageMembersDialogState extends State<_ManageMembersDialog> {
   }
 
   Future<void> _loadMembers() async {
-    final members = await widget.chatService.getGroupMembers(widget.groupChatId);
+    final members =
+        await widget.chatService.getGroupMembers(widget.groupChatId);
     if (mounted) {
       setState(() {
         _members = members;
@@ -2315,10 +2827,12 @@ class _ManageMembersDialogState extends State<_ManageMembersDialog> {
                     itemCount: _members.length,
                     itemBuilder: (context, index) {
                       final member = _members[index];
-                      final isCurrentUser = member['id'] == widget.currentUserId;
+                      final isCurrentUser =
+                          member['id'] == widget.currentUserId;
                       final isAdmin = member['isAdmin'] == true;
                       final isCreator = member['isCreator'] == true;
-                      final canRemove = widget.isAdmin && !isCurrentUser && !isAdmin;
+                      final canRemove =
+                          widget.isAdmin && !isCurrentUser && !isAdmin;
 
                       return ListTile(
                         leading: Container(
@@ -2334,7 +2848,8 @@ class _ManageMembersDialogState extends State<_ManageMembersDialog> {
                                   child: Image.network(
                                     member['profilePicture'],
                                     fit: BoxFit.cover,
-                                    errorBuilder: (context, error, stackTrace) => Center(
+                                    errorBuilder:
+                                        (context, error, stackTrace) => Center(
                                       child: Text(
                                         _getInitials(member['name'] ?? ''),
                                         style: GoogleFonts.inter(
@@ -2362,16 +2877,19 @@ class _ManageMembersDialogState extends State<_ManageMembersDialog> {
                             Expanded(
                               child: Text(
                                 member['name'] ?? 'Unknown',
-                                style: GoogleFonts.inter(fontWeight: FontWeight.w500),
+                                style: GoogleFonts.inter(
+                                    fontWeight: FontWeight.w500),
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
                             if (isCurrentUser)
                               Container(
                                 margin: const EdgeInsets.only(left: 8),
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xff6B7280).withOpacity(0.1),
+                                  color:
+                                      const Color(0xff6B7280).withOpacity(0.1),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Text(
@@ -2386,9 +2904,11 @@ class _ManageMembersDialogState extends State<_ManageMembersDialog> {
                             if (isCreator)
                               Container(
                                 margin: const EdgeInsets.only(left: 8),
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xff059669).withOpacity(0.1),
+                                  color:
+                                      const Color(0xff059669).withOpacity(0.1),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Text(
@@ -2403,9 +2923,11 @@ class _ManageMembersDialogState extends State<_ManageMembersDialog> {
                             else if (isAdmin)
                               Container(
                                 margin: const EdgeInsets.only(left: 8),
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xff0386FF).withOpacity(0.1),
+                                  color:
+                                      const Color(0xff0386FF).withOpacity(0.1),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Text(
@@ -2433,11 +2955,14 @@ class _ManageMembersDialogState extends State<_ManageMembersDialog> {
                                     height: 20,
                                     child: CircularProgressIndicator(
                                       strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation<Color>(Colors.red),
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                          Colors.red),
                                     ),
                                   )
                                 : IconButton(
-                                    icon: const Icon(Icons.remove_circle_outline, color: Colors.red),
+                                    icon: const Icon(
+                                        Icons.remove_circle_outline,
+                                        color: Colors.red),
                                     onPressed: () => _removeMember(
                                       member['id'],
                                       member['name'] ?? 'this member',
@@ -2552,20 +3077,24 @@ class _ForwardMessageDialogState extends State<_ForwardMessageDialog> {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Center(
                       child: CircularProgressIndicator(
-                        valueColor: AlwaysStoppedAnimation<Color>(Color(0xff0386FF)),
+                        valueColor:
+                            AlwaysStoppedAnimation<Color>(Color(0xff0386FF)),
                       ),
                     );
                   }
 
                   final chats = snapshot.data ?? [];
                   // Filter out current chat
-                  final availableChats = chats.where((chat) => chat.id != widget.currentChatId).toList();
+                  final availableChats = chats
+                      .where((chat) => chat.id != widget.currentChatId)
+                      .toList();
 
                   if (availableChats.isEmpty) {
                     return Center(
                       child: Text(
                         'No other chats available',
-                        style: GoogleFonts.inter(color: const Color(0xff6B7280)),
+                        style:
+                            GoogleFonts.inter(color: const Color(0xff6B7280)),
                       ),
                     );
                   }
@@ -2578,14 +3107,16 @@ class _ForwardMessageDialogState extends State<_ForwardMessageDialog> {
 
                       return ListTile(
                         selected: isSelected,
-                        selectedTileColor: const Color(0xff0386FF).withValues(alpha: 0.1),
+                        selectedTileColor:
+                            const Color(0xff0386FF).withValues(alpha: 0.1),
                         leading: Container(
                           width: 44,
                           height: 44,
                           decoration: BoxDecoration(
                             color: chat.isGroup
                                 ? const Color(0xff059669).withValues(alpha: 0.1)
-                                : const Color(0xff0386FF).withValues(alpha: 0.1),
+                                : const Color(0xff0386FF)
+                                    .withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(22),
                           ),
                           child: chat.profilePicture != null
@@ -2594,9 +3125,12 @@ class _ForwardMessageDialogState extends State<_ForwardMessageDialog> {
                                   child: Image.network(
                                     chat.profilePicture!,
                                     fit: BoxFit.cover,
-                                    errorBuilder: (context, error, stackTrace) => Center(
+                                    errorBuilder:
+                                        (context, error, stackTrace) => Center(
                                       child: chat.isGroup
-                                          ? const Icon(Icons.group, size: 20, color: Color(0xff059669))
+                                          ? const Icon(Icons.group,
+                                              size: 20,
+                                              color: Color(0xff059669))
                                           : Text(
                                               chat.initials,
                                               style: GoogleFonts.inter(
@@ -2610,7 +3144,8 @@ class _ForwardMessageDialogState extends State<_ForwardMessageDialog> {
                                 )
                               : Center(
                                   child: chat.isGroup
-                                      ? const Icon(Icons.group, size: 20, color: Color(0xff059669))
+                                      ? const Icon(Icons.group,
+                                          size: 20, color: Color(0xff059669))
                                       : Text(
                                           chat.initials,
                                           style: GoogleFonts.inter(
@@ -2642,7 +3177,8 @@ class _ForwardMessageDialogState extends State<_ForwardMessageDialog> {
                                 ),
                               ),
                         trailing: isSelected
-                            ? const Icon(Icons.check_circle, color: Color(0xff0386FF))
+                            ? const Icon(Icons.check_circle,
+                                color: Color(0xff0386FF))
                             : null,
                         onTap: () {
                           setState(() {
@@ -2701,7 +3237,8 @@ class _ForwardMessageDialogState extends State<_ForwardMessageDialog> {
                   height: 16,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xff0386FF)),
+                    valueColor:
+                        AlwaysStoppedAnimation<Color>(Color(0xff0386FF)),
                   ),
                 )
               : Text(

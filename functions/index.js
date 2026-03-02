@@ -23,6 +23,7 @@ const noShowHandlers = require('./handlers/no_show');
 const chatHandlers = require('./handlers/chat');
 const directCallHandlers = require('./handlers/direct_calls');
 const aiTutorHandlers = require('./handlers/ai_tutor');
+const attendanceHandlers = require('./handlers/attendance');
 // Temporarily commented out to allow deployment
 // const { fixDecemberForms } = require('./fix_december_forms');
 const newImplementation = require('./new_implementation');
@@ -98,6 +99,11 @@ exports.getUserTimezone = timezoneHandlers.getUserTimezone;
 
 // No-show reporting
 exports.reportNoShow = noShowHandlers.reportNoShow;
+exports.generateWeeklyStudentAttendanceReports =
+  attendanceHandlers.generateWeeklyStudentAttendanceReports;
+exports.generateMonthlyStudentAttendanceReports =
+  attendanceHandlers.generateMonthlyStudentAttendanceReports;
+exports.getStudentAttendanceReport = attendanceHandlers.getStudentAttendanceReport;
 
 // Chat notifications and permissions
 exports.onChatMessageCreated = chatHandlers.onChatMessageCreated;
@@ -310,6 +316,7 @@ exports.migrateKiosqueCodes = functions.https.onCall(migrateKiosqueCodesHandlers
 
 // LiveKit Video Functions
 exports.getLiveKitJoinToken = livekitHandlers.getLiveKitJoinToken;
+exports.ensureLiveKitShiftRecording = livekitHandlers.ensureLiveKitShiftRecording;
 exports.checkLiveKitAvailability = livekitHandlers.checkLiveKitAvailability;
 exports.getLiveKitRoomPresence = livekitHandlers.getLiveKitRoomPresence;
 exports.muteLiveKitParticipant = livekitHandlers.muteLiveKitParticipant;
@@ -317,6 +324,8 @@ exports.muteAllLiveKitParticipants = livekitHandlers.muteAllLiveKitParticipants;
 exports.kickLiveKitParticipant = livekitHandlers.kickLiveKitParticipant;
 exports.setLiveKitRoomLock = livekitHandlers.setLiveKitRoomLock;
 exports.getLiveKitGuestJoin = livekitHandlers.getLiveKitGuestJoin;
+exports.listClassRecordings = livekitHandlers.listClassRecordings;
+exports.getClassRecordingPlaybackUrl = livekitHandlers.getClassRecordingPlaybackUrl;
 
 // LiveKit Test Function (for development/testing)
 exports.testLiveKit = testLivekitHandlers.testLiveKit;

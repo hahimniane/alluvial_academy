@@ -2128,7 +2128,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get assignTo2 => 'Assign To2';
 
   @override
-  String get assignToStudents => 'Assign To Students';
+  String get assignToStudents => 'تعيين للطلاب';
 
   @override
   String get assignedByAssignedbyname => 'Assigned By Assignedbyname';
@@ -4766,7 +4766,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get muteEveryone => 'Mute Everyone';
 
   @override
-  String get myAssignments => 'My Assignments';
+  String get myAssignments => 'تعييناتي';
 
   @override
   String get myChildren => 'My Children';
@@ -6217,7 +6217,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get selectAdjustment => 'Select Adjustment';
 
   @override
-  String get selectAll => 'Select All';
+  String get selectAll => 'تحديد الكل';
 
   @override
   String get selectAll2 => 'Select All2';
@@ -6283,7 +6283,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get selectStudent2 => 'Select Student2';
 
   @override
-  String get selectStudents => 'Select Students';
+  String get selectStudents => 'اختر الطلاب';
 
   @override
   String get selectSubject => 'Select Subject';
@@ -10101,4 +10101,46 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get confirmBanFormMessage => 'Are you sure you want to ban this form?';
+
+  @override
+  String get sidebarSurahPodcasts => 'بودكاست السور';
+
+  @override
+  String get podcastLibrary => 'مكتبة البودكاست';
+
+  @override
+  String get uploadPodcast => 'رفع بودكاست';
+
+  @override
+  String get selectSurah => 'اختر السورة';
+
+  @override
+  String get podcastTitle => 'العنوان';
+
+  @override
+  String get podcastDescription => 'الوصف';
+
+  @override
+  String get podcastDuration => 'المدة';
+
+  @override
+  String get noPodcastsAssigned => 'لم يتم تعيين بودكاست بعد';
+
+  @override
+  String get noPodcastsUploaded => 'لم يتم رفع بودكاست بعد';
+
+  @override
+  String get podcastUploaded => 'تم رفع البودكاست بنجاح';
+
+  @override
+  String get podcastAssigned => 'تم تعيين البودكاست بنجاح';
+
+  @override
+  String get confirmDeletePodcast => 'هل تريد حذف هذا البودكاست؟';
+
+  @override
+  String get podcastArchived => 'تم أرشفة البودكاست';
+
+  @override
+  String get deselectAll => 'إلغاء تحديد الكل';
 }

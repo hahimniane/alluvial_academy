@@ -32,7 +32,7 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
   List<TeachingShift> _dailyShifts = []; // Filtered for selected day
   bool _isLoading = true;
   DateTime _selectedDate = DateTime.now();
-  
+
   // View mode: 'day', 'week', 'month' - Default to WEEK as requested
   String _viewMode = 'week';
 
@@ -173,8 +173,7 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
       // Too early - shouldn't happen but handle gracefully
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-              AppLocalizations.of(context)!.tooEarlyToClockInPlease),
+          content: Text(AppLocalizations.of(context)!.tooEarlyToClockInPlease),
           backgroundColor: Colors.orange,
         ),
       );
@@ -320,7 +319,8 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
       if (user == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(AppLocalizations.of(context)!.clockInNotAuthenticated),
+            content:
+                Text(AppLocalizations.of(context)!.clockInNotAuthenticated),
             backgroundColor: Colors.red,
           ),
         );
@@ -349,8 +349,7 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
       if (location == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-                AppLocalizations.of(context)!.clockInLocationError),
+            content: Text(AppLocalizations.of(context)!.clockInLocationError),
             backgroundColor: Colors.red,
           ),
         );
@@ -484,7 +483,8 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
                       fontSize: 14, fontWeight: FontWeight.w600),
                 ),
                 subtitle: Text(
-                  AppLocalizations.of(context)!.updateTimezoneWithoutReportingAShift,
+                  AppLocalizations.of(context)!
+                      .updateTimezoneWithoutReportingAShift,
                   style: GoogleFonts.inter(fontSize: 12),
                 ),
                 onTap: () {
@@ -565,7 +565,8 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: Text(AppLocalizations.of(context)!.commonCancel, style: GoogleFonts.inter()),
+              child: Text(AppLocalizations.of(context)!.commonCancel,
+                  style: GoogleFonts.inter()),
             ),
             ElevatedButton(
               onPressed: () async {
@@ -583,8 +584,9 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content:
-                              Text(AppLocalizations.of(context)!.timezoneUpdatedToSelectedtimezone(selectedTimezone!)),
+                          content: Text(AppLocalizations.of(context)!
+                              .timezoneUpdatedToSelectedtimezone(
+                                  selectedTimezone!)),
                           backgroundColor: Colors.green,
                         ),
                       );
@@ -654,7 +656,8 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
           IconButton(
             icon:
                 const Icon(Icons.settings, color: Color(0xFF6B7280), size: 20),
-            tooltip: AppLocalizations.of(context)!.fixTimezoneOrReportScheduleIssue,
+            tooltip:
+                AppLocalizations.of(context)!.fixTimezoneOrReportScheduleIssue,
             onPressed: () {
               // Show dialog to select a shift or fix timezone globally
               _showScheduleIssueDialog();
@@ -662,9 +665,7 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
           ),
         ],
       ),
-      body: _viewMode == 'day'
-          ? _buildDayView()
-          : _buildCalendarView(),
+      body: _viewMode == 'day' ? _buildDayView() : _buildCalendarView(),
     );
   }
 
@@ -682,7 +683,9 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 16, color: isSelected ? Colors.white : const Color(0xFF6B7280)),
+            Icon(icon,
+                size: 16,
+                color: isSelected ? Colors.white : const Color(0xFF6B7280)),
             const SizedBox(width: 4),
             Text(
               label,
@@ -730,7 +733,8 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
               const Spacer(),
               if (_dailyShifts.isNotEmpty)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: const Color(0xFF0386FF).withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
@@ -759,7 +763,8 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
                       itemCount: _dailyShifts.length,
                       itemBuilder: (context, index) {
                         final shift = _dailyShifts[index];
-                        final isThisShiftProgrammed = _programmedShiftId == shift.id;
+                        final isThisShiftProgrammed =
+                            _programmedShiftId == shift.id;
                         return TimelineShiftCard(
                           shift: shift,
                           isLast: index == _dailyShifts.length - 1,
@@ -781,10 +786,9 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
   }
 
   Widget _buildCalendarView() {
-    final calendarView = _viewMode == 'week' 
-        ? CalendarView.week 
-        : CalendarView.month;
-    
+    final calendarView =
+        _viewMode == 'week' ? CalendarView.week : CalendarView.month;
+
     return TeacherShiftCalendar(
       shifts: _allShifts,
       onSelectShift: (shift) => _showShiftDetails(shift),

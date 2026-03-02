@@ -295,10 +295,16 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
           AppLogger.debug(
               'CreateShiftDialog: Mapped ${allEmployees.length} employees');
 
-          teachers =
-              allEmployees.where((emp) => emp.userType == 'teacher').toList();
-          students =
-              allEmployees.where((emp) => emp.userType == 'student').toList();
+          teachers = allEmployees
+              .where((emp) =>
+                  emp.userType == 'teacher' ||
+                  emp.secondaryRoles.contains('teacher'))
+              .toList();
+          students = allEmployees
+              .where((emp) =>
+                  emp.userType == 'student' ||
+                  emp.secondaryRoles.contains('student'))
+              .toList();
 
           AppLogger.debug(
               'CreateShiftDialog: Filtered to ${teachers.length} teachers and ${students.length} students');
@@ -3560,10 +3566,15 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
       }
     } catch (e) {
       if (mounted) {
+        final raw = e.toString();
+        final message = raw.startsWith('Exception: ')
+            ? raw.substring('Exception: '.length)
+            : raw;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(AppLocalizations.of(context)!.errorSavingShiftE),
+            content: Text(message),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 8),
           ),
         );
       }

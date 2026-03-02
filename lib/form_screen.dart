@@ -4510,6 +4510,9 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
 
         final legacySubmissionData = <String, dynamic>{
           'formId': selectedFormId,
+          'formName': formName,
+          'formType': formType,
+          if (frequency != null) 'frequency': frequency,
           'userId': currentUser.uid,
           'submittedBy': currentUser.uid,
           'teacherId': currentUser.uid,

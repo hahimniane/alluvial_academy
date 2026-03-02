@@ -22,6 +22,7 @@ class Employee {
     this.isAdminTeacher = false,
     this.isActive = true,
     this.aiTutorEnabled = false,
+    this.secondaryRoles = const [],
   });
 
   final String firstName;
@@ -42,6 +43,7 @@ class Employee {
   final bool isAdminTeacher;
   final bool isActive;
   final bool aiTutorEnabled;
+  final List<String> secondaryRoles;
 }
 
 class EmployeeDataSource extends DataGridSource {
@@ -156,6 +158,7 @@ class EmployeeDataSource extends DataGridSource {
         isActive: data['is_active'] as bool? ??
             true, // Default to active if field doesn't exist
         aiTutorEnabled: data['ai_tutor_enabled'] as bool? ?? false,
+        secondaryRoles: List<String>.from(data['secondary_roles'] ?? []),
       );
     }).toList();
   }

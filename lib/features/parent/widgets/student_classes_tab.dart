@@ -4,7 +4,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:alluwalacademyadmin/core/models/teaching_shift.dart';
 import 'package:alluwalacademyadmin/core/services/parent_service.dart';
 import 'package:alluwalacademyadmin/core/services/shift_service.dart';
-import 'package:alluwalacademyadmin/features/parent/widgets/class_card.dart';
+import 'package:alluwalacademyadmin/core/services/video_call_service.dart';
+import 'package:alluwalacademyadmin/features/parent/widgets/parent_presence_card.dart';
 import 'package:alluwalacademyadmin/features/parent/widgets/attendance_calendar.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
@@ -145,8 +146,9 @@ class _StudentClassesTabState extends State<StudentClassesTab> {
         }
 
         final now = DateTime.now();
+        // Include active classes (already started but not yet ended) + future classes
         final upcoming = (snapshot.data ?? []).where((shift) =>
-          shift.shiftStart.isAfter(now)).toList();
+          shift.shiftEnd.isAfter(now)).toList();
         upcoming.sort((a, b) => a.shiftStart.compareTo(b.shiftStart));
 
         if (upcoming.isEmpty) {
@@ -160,7 +162,14 @@ class _StudentClassesTabState extends State<StudentClassesTab> {
         return Column(
           children: upcoming.map((shift) => Padding(
             padding: const EdgeInsets.only(bottom: 12),
-            child: ClassCard(shift: shift),
+            child: ParentPresenceCard(
+              shift: shift,
+              onJoin: () => VideoCallService.joinClass(
+                context,
+                shift,
+                isTeacher: false,
+              ),
+            ),
           )).toList(),
         );
       },
@@ -194,7 +203,14 @@ class _StudentClassesTabState extends State<StudentClassesTab> {
         return Column(
           children: history.map((shift) => Padding(
             padding: const EdgeInsets.only(bottom: 12),
-            child: ClassCard(shift: shift),
+            child: ParentPresenceCard(
+              shift: shift,
+              onJoin: () => VideoCallService.joinClass(
+                context,
+                shift,
+                isTeacher: false,
+              ),
+            ),
           )).toList(),
         );
       },

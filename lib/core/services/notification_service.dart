@@ -30,7 +30,13 @@ class NotificationService {
 
   bool _initialized = false;
   String? _fcmToken;
-  
+
+  /// Expose the local notifications plugin so other services
+  /// (e.g. PrayerNotificationService) can schedule/cancel notifications
+  /// without needing a separate, uninitialized plugin instance.
+  static FlutterLocalNotificationsPlugin get localNotificationsPlugin =>
+      _instance._localNotifications;
+
   /// Global navigator key for navigation from notifications
   static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
   
@@ -269,29 +275,43 @@ class NotificationService {
         channelDescription = 'Notifications for new chat messages';
       }
       
-      // Show local notification when in foreground
+      // For chat messages, use the full message for expandable notifications
+      final fullMessage = data['fullMessage'] as String?;
+      final bool isChatWithFullText = notificationType == 'chat_message' &&
+          fullMessage != null &&
+          fullMessage.isNotEmpty;
+
+      final androidDetails = AndroidNotificationDetails(
+        channelId,
+        channelName,
+        channelDescription: channelDescription,
+        importance: Importance.high,
+        priority: Priority.high,
+        icon: android?.smallIcon ?? '@mipmap/ic_launcher',
+        playSound: true,
+        enableVibration: true,
+        styleInformation: isChatWithFullText
+            ? BigTextStyleInformation(
+                fullMessage,
+                contentTitle: notification.title,
+                summaryText: notificationType == 'chat_message' ? 'Chat' : null,
+              )
+            : null,
+      );
+
       await _localNotifications.show(
         notification.hashCode,
         notification.title,
         notification.body,
         NotificationDetails(
-          android: AndroidNotificationDetails(
-            channelId,
-            channelName,
-            channelDescription: channelDescription,
-            importance: Importance.high,
-            priority: Priority.high,
-            icon: android?.smallIcon ?? '@mipmap/ic_launcher',
-            playSound: true,
-            enableVibration: true,
-          ),
+          android: androidDetails,
           iOS: const DarwinNotificationDetails(
             presentAlert: true,
             presentBadge: true,
             presentSound: true,
           ),
         ),
-        payload: jsonEncode(message.data), // Encode as JSON for proper parsing
+        payload: jsonEncode(message.data),
       );
     }
   }
@@ -352,25 +372,33 @@ class NotificationService {
       final senderName = data['senderName'] as String?;
       final senderProfilePicture = data['senderProfilePicture'] as String?;
       final chatType = data['chatType'] as String?;
+      final chatId = data['chatId'] as String?;
+      final groupName = data['groupName'] as String?;
       
-      if (senderId == null || senderName == null) {
-        debugPrint('❌ Missing sender info in notification');
-        return;
+      final isGroup = chatType == 'group';
+
+      if (isGroup) {
+        if (chatId == null || chatId.isEmpty) {
+          debugPrint('❌ Missing chatId for group notification');
+          return;
+        }
+      } else {
+        if (senderId == null || senderName == null) {
+          debugPrint('❌ Missing sender info in notification');
+          return;
+        }
       }
       
-      debugPrint('💬 Navigating to chat: $senderName ($senderId)');
-      debugPrint('📷 Profile picture: ${senderProfilePicture ?? "none"}');
+      debugPrint('💬 Navigating to chat: isGroup=$isGroup, chatId=$chatId, senderId=$senderId');
       
-      // Create ChatUser from notification data
       final chatUser = ChatUser(
-        id: senderId,
-        name: senderName,
-        email: '', // Email not available from notification, will be loaded in chat screen
+        id: isGroup ? chatId! : senderId!,
+        name: isGroup ? (groupName?.isNotEmpty == true ? groupName! : 'Group Chat') : senderName!,
+        email: '',
         profilePicture: senderProfilePicture?.isNotEmpty == true ? senderProfilePicture : null,
-        isGroup: chatType == 'group',
+        isGroup: isGroup,
       );
       
-      // Navigate to chat screen
       final navigator = navigatorKey.currentState;
       if (navigator != null) {
         navigator.push(

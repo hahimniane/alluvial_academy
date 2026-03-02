@@ -4,29 +4,35 @@ import 'package:intl/intl.dart';
 
 import 'package:alluwalacademyadmin/core/models/teaching_shift.dart';
 import 'package:alluwalacademyadmin/core/enums/shift_enums.dart';
+import 'package:alluwalacademyadmin/core/services/video_call_service.dart';
 
 class ClassCard extends StatelessWidget {
   final TeachingShift shift;
   final VoidCallback? onTap;
+  final VoidCallback? onJoin;
 
   const ClassCard({
     super.key,
     required this.shift,
     this.onTap,
+    this.onJoin,
   });
 
   @override
   Widget build(BuildContext context) {
     final dateFormat = DateFormat('MMM dd, yyyy');
     final timeFormat = DateFormat('h:mm a');
-    
+
     final dateStr = dateFormat.format(shift.shiftStart);
     final timeStr = '${timeFormat.format(shift.shiftStart)} - ${timeFormat.format(shift.shiftEnd)}';
-    
+
     final duration = shift.shiftEnd.difference(shift.shiftStart);
     final hours = duration.inHours;
     final minutes = duration.inMinutes % 60;
     final durationStr = minutes > 0 ? '${hours}h ${minutes}m' : '${hours}h';
+
+    final isActive = shift.status == ShiftStatus.active || shift.isClockedIn;
+    final canJoin = onJoin != null && (isActive || VideoCallService.canJoinClass(shift));
 
     return Material(
       color: Colors.transparent,
@@ -107,6 +113,32 @@ class ClassCard extends StatelessWidget {
                   ),
                 ],
               ),
+              if (canJoin) ...[
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: onJoin,
+                    icon: const Icon(Icons.video_call, size: 18),
+                    label: Text(
+                      'Join Now',
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0386FF),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      elevation: 0,
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ),

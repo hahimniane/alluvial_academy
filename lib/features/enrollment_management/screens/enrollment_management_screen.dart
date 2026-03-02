@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'dart:convert';
 import '../../../core/models/enrollment_request.dart';
 import '../../../core/services/job_board_service.dart';
 import 'filled_opportunities_screen.dart';
@@ -26,11 +27,12 @@ class _EnrollmentManagementScreenState extends State<EnrollmentManagementScreen>
   int _inboxCount = 0;
   int _contactedCount = 0;
   int _broadcastCount = 0;
+  int _archivedCount = 0;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
     _tabController.addListener(_onTabChanged);
   }
 
@@ -81,7 +83,16 @@ class _EnrollmentManagementScreenState extends State<EnrollmentManagementScreen>
                   tabIndex: 2,
                   currentTabIndex: _currentTabIndex,
                 ),
-                _currentTabIndex == 3 ? const FilledOpportunitiesScreen() : const _TabPlaceholder(),
+                _EnrollmentList(
+                  status: 'archived',
+                  nextActionLabel: 'Unarchive',
+                  onRefreshCounts: _updateCounts,
+                  tabIndex: 3,
+                  currentTabIndex: _currentTabIndex,
+                ),
+                _currentTabIndex == 4
+                    ? const FilledOpportunitiesScreen()
+                    : const _TabPlaceholder(),
               ],
             ),
           ),
@@ -98,6 +109,7 @@ class _EnrollmentManagementScreenState extends State<EnrollmentManagementScreen>
     if (status == 'pending') currentCount = _inboxCount;
     if (status == 'contacted') currentCount = _contactedCount;
     if (status == 'broadcasted') currentCount = _broadcastCount;
+    if (status == 'archived') currentCount = _archivedCount;
     
     // Only update if count changed
     if (currentCount != count) {
@@ -108,6 +120,7 @@ class _EnrollmentManagementScreenState extends State<EnrollmentManagementScreen>
             if (status == 'pending') _inboxCount = count;
             if (status == 'contacted') _contactedCount = count;
             if (status == 'broadcasted') _broadcastCount = count;
+            if (status == 'archived') _archivedCount = count;
           });
         }
       });
@@ -174,6 +187,10 @@ class _EnrollmentManagementScreenState extends State<EnrollmentManagementScreen>
           _buildTabItem('Inbox', _inboxCount, Icons.inbox_rounded),
           _buildTabItem('Ready', _contactedCount, Icons.call_end_rounded),
           _buildTabItem('Live', _broadcastCount, Icons.sensors_rounded),
+          _buildTabItem(
+              AppLocalizations.of(context)!.archived,
+              _archivedCount,
+              Icons.archive_outlined),
           Tab(text: AppLocalizations.of(context)!.enrolledFilled),
         ],
       ),
@@ -378,6 +395,7 @@ class _EnrollmentCard extends StatelessWidget {
   bool get _isAdult =>
       enrollment.isAdult ||
       (int.tryParse(enrollment.studentAge ?? '0') ?? 0) >= 18;
+  bool get _isArchived => enrollment.status.toLowerCase() == 'archived';
 
   @override
   Widget build(BuildContext context) {
@@ -404,7 +422,11 @@ class _EnrollmentCard extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
               color:
-                  isLive ? const Color(0xffECFDF5) : const Color(0xffF8FAFC),
+                  isLive
+                      ? const Color(0xffECFDF5)
+                      : _isArchived
+                          ? const Color(0xffF1F5F9)
+                          : const Color(0xffF8FAFC),
               borderRadius:
                   const BorderRadius.vertical(top: Radius.circular(12)),
             ),
@@ -421,6 +443,19 @@ class _EnrollmentCard extends StatelessWidget {
                       fontWeight: FontWeight.w800,
                       color: const Color(0xff059669),
                       letterSpacing: 0.5,
+                    ),
+                  ),
+                ] else if (_isArchived) ...[
+                  const Icon(Icons.archive_outlined,
+                      size: 14, color: Color(0xff64748B)),
+                  const SizedBox(width: 8),
+                  Text(
+                    AppLocalizations.of(context)!.archived,
+                    style: GoogleFonts.inter(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xff64748B),
+                      letterSpacing: 0.3,
                     ),
                   ),
                 ] else ...[
@@ -488,7 +523,14 @@ class _EnrollmentCard extends StatelessWidget {
                         ],
                       ),
                     ),
-                    _buildQuickContactButton(context),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _buildApplicantDetailsButton(context),
+                        const SizedBox(width: 8),
+                        _buildQuickContactButton(context),
+                      ],
+                    ),
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -503,7 +545,20 @@ class _EnrollmentCard extends StatelessWidget {
                 // 3. Action Bar (The sequential logic)
                 Row(
                   children: [
-                    if (isLive) ...[
+                    if (_isArchived) ...[
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () => _confirmUnarchive(context),
+                          icon: const Icon(Icons.unarchive_outlined, size: 16),
+                          label: const Text('Unarchive'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xff2563EB),
+                            side: const BorderSide(color: Color(0xff93C5FD)),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                        ),
+                      ),
+                    ] else if (isLive) ...[
                       // Stop Broadcast Button
                       Expanded(
                         child: OutlinedButton.icon(
@@ -522,8 +577,7 @@ class _EnrollmentCard extends StatelessWidget {
                     ] else ...[
                       // Reject / Hold Button
                       IconButton(
-                        onPressed: () =>
-                            _handleStatusChange(context, 'rejected'),
+                        onPressed: () => _confirmArchive(context),
                         icon: const Icon(Icons.archive_outlined,
                             color: Colors.grey, size: 20),
                         tooltip: AppLocalizations.of(context)!.archive,
@@ -603,7 +657,7 @@ class _EnrollmentCard extends StatelessWidget {
 
   Widget _buildActionHistory() {
     // Get enrollment document to read action history
-    return FutureBuilder<DocumentSnapshot>(
+    return FutureBuilder<DocumentSnapshot<Map<String, dynamic>>?>(
       future: enrollment.id != null 
           ? FirebaseFirestore.instance
               .collection('enrollments')
@@ -611,11 +665,11 @@ class _EnrollmentCard extends StatelessWidget {
               .get()
           : Future.value(null),
       builder: (context, snapshot) {
-        if (!snapshot.hasData || !snapshot.data!.exists) {
+        if (!snapshot.hasData || snapshot.data == null || !snapshot.data!.exists) {
           return const SizedBox.shrink();
         }
         
-        final data = snapshot.data!.data() as Map<String, dynamic>;
+        final data = snapshot.data!.data() ?? <String, dynamic>{};
         final metadata = data['metadata'] as Map<String, dynamic>? ?? {};
         
         // Collect all action info
@@ -702,6 +756,22 @@ class _EnrollmentCard extends StatelessWidget {
                   'at': entry['timestamp'],
                   'icon': Icons.exit_to_app,
                   'color': Colors.orange,
+                });
+              } else if (actionType == 'archived') {
+                actions.add({
+                  'action': 'Archived Application',
+                  'by': entry['adminName'] ?? entry['adminEmail'] ?? 'Admin',
+                  'at': entry['timestamp'],
+                  'icon': Icons.archive_outlined,
+                  'color': const Color(0xff475569),
+                });
+              } else if (actionType == 'unarchived') {
+                actions.add({
+                  'action': 'Unarchived Application',
+                  'by': entry['adminName'] ?? entry['adminEmail'] ?? 'Admin',
+                  'at': entry['timestamp'],
+                  'icon': Icons.unarchive_outlined,
+                  'color': const Color(0xff2563EB),
                 });
               } else if (actionType == 'admin_closed') {
                 actions.add({
@@ -849,6 +919,366 @@ class _EnrollmentCard extends StatelessWidget {
     );
   }
 
+  Widget _buildApplicantDetailsButton(BuildContext context) {
+    return Tooltip(
+      message: 'View full applicant details',
+      child: IconButton(
+        onPressed: () => _showApplicantDetailsDialog(context),
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints(),
+        icon: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: const Color(0xffEEF2FF),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: const Icon(Icons.info_outline, size: 18, color: Color(0xff4F46E5)),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showApplicantDetailsDialog(BuildContext context) async {
+    if (enrollment.id == null) return;
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Applicant Details'),
+        content: SizedBox(
+          width: MediaQuery.of(ctx).size.width > 900 ? 780 : 520,
+          child: FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+            future: FirebaseFirestore.instance
+                .collection('enrollments')
+                .doc(enrollment.id)
+                .get(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 32),
+                    child: CircularProgressIndicator(),
+                  ),
+                );
+              }
+
+              if (snapshot.hasError || !snapshot.hasData || !snapshot.data!.exists) {
+                return const Text('Could not load applicant details.');
+              }
+
+              final data = snapshot.data!.data() ?? {};
+              final contact = data['contact'] as Map<String, dynamic>? ?? {};
+              final student = data['student'] as Map<String, dynamic>? ?? {};
+              final preferences = data['preferences'] as Map<String, dynamic>? ?? {};
+              final program = data['program'] as Map<String, dynamic>? ?? {};
+              final metadata = data['metadata'] as Map<String, dynamic>? ?? {};
+              final country = contact['country'] as Map<String, dynamic>? ?? {};
+
+              final prettyJson = const JsonEncoder.withIndent('  ')
+                  .convert(_normalizeForJson(data));
+
+              return SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildDetailsSection('Student', [
+                      _detailRow('Name', student['name'] ?? data['studentName']),
+                      _detailRow('Age', student['age'] ?? data['studentAge']),
+                      _detailRow('Gender', student['gender'] ?? data['gender']),
+                      _detailRow('Grade Level', data['gradeLevel']),
+                      _detailRow('Adult Student', metadata['isAdult']),
+                      _detailRow('Knows Zoom', student['knowsZoom'] ?? data['knowsZoom']),
+                    ]),
+                    _buildDetailsSection('Contact', [
+                      _detailRow('Email', contact['email'] ?? data['email']),
+                      _detailRow('Phone', contact['phone'] ?? data['phoneNumber']),
+                      _detailRow('WhatsApp', contact['whatsApp'] ?? data['whatsAppNumber']),
+                      _detailRow('Parent Name', contact['parentName'] ?? data['parentName']),
+                      _detailRow('Guardian ID', contact['guardianId'] ?? data['guardianId']),
+                      _detailRow('City', contact['city'] ?? data['city']),
+                      _detailRow('Country', country['name'] ?? data['countryName']),
+                      _detailRow('Country Code', country['code'] ?? data['countryCode']),
+                    ]),
+                    _buildDetailsSection('Program', [
+                      _detailRow('Subject', data['subject']),
+                      _detailRow('Specific Language', data['specificLanguage']),
+                      _detailRow('Role', program['role'] ?? data['role']),
+                      _detailRow('Class Type', program['classType'] ?? data['classType']),
+                      _detailRow(
+                          'Session Duration', program['sessionDuration'] ?? data['sessionDuration']),
+                    ]),
+                    _buildDetailsSection('Preferences', [
+                      _detailRow('Preferred Language',
+                          preferences['preferredLanguage'] ?? data['preferredLanguage']),
+                      _detailRow('Time Zone', preferences['timeZone'] ?? data['timeZone']),
+                      _detailRow('Days', preferences['days']),
+                      _detailRow('Time Slots', preferences['timeSlots']),
+                      _detailRow('Time of Day',
+                          preferences['timeOfDayPreference'] ?? data['timeOfDayPreference']),
+                    ]),
+                    _buildDetailsSection('Metadata', [
+                      _detailRow('Status', metadata['status']),
+                      _detailRow('Submitted At', metadata['submittedAt']),
+                      _detailRow('Reviewed By', metadata['reviewedBy']),
+                      _detailRow('Reviewed At', metadata['reviewedAt']),
+                      _detailRow('Source', metadata['source']),
+                    ]),
+                    const SizedBox(height: 8),
+                    Theme(
+                      data: Theme.of(context)
+                          .copyWith(dividerColor: Colors.transparent),
+                      child: ExpansionTile(
+                        tilePadding: EdgeInsets.zero,
+                        title: Text(
+                          'Raw Application Data',
+                          style: GoogleFonts.inter(
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xff334155),
+                          ),
+                        ),
+                        children: [
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xff0F172A),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: SelectableText(
+                              prettyJson,
+                              style: GoogleFonts.robotoMono(
+                                fontSize: 11,
+                                color: const Color(0xffE2E8F0),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text(AppLocalizations.of(context)!.commonClose),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailsSection(String title, List<Widget> rows) {
+    final visibleRows = rows.where((row) => row is! SizedBox).toList();
+    if (visibleRows.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: GoogleFonts.inter(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: const Color(0xff1E293B),
+            ),
+          ),
+          const SizedBox(height: 8),
+          ...visibleRows,
+        ],
+      ),
+    );
+  }
+
+  Widget _detailRow(String label, dynamic value) {
+    final formattedValue = _formatDetailValue(value);
+    if (formattedValue == null) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 140,
+            child: Text(
+              '$label:',
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xff64748B),
+              ),
+            ),
+          ),
+          Expanded(
+            child: SelectableText(
+              formattedValue,
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                color: const Color(0xff0F172A),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String? _formatDetailValue(dynamic value) {
+    if (value == null) return null;
+
+    if (value is String) {
+      final trimmed = value.trim();
+      return trimmed.isEmpty ? null : trimmed;
+    }
+
+    if (value is bool) {
+      return value ? 'Yes' : 'No';
+    }
+
+    if (value is Timestamp) {
+      return DateFormat('MMM d, yyyy h:mm a').format(value.toDate());
+    }
+
+    if (value is List) {
+      final parts = value
+          .map((e) => e.toString().trim())
+          .where((e) => e.isNotEmpty)
+          .toList();
+      if (parts.isEmpty) return null;
+      return parts.join(', ');
+    }
+
+    return value.toString();
+  }
+
+  dynamic _normalizeForJson(dynamic value) {
+    if (value is Timestamp) {
+      return value.toDate().toIso8601String();
+    }
+
+    if (value is DateTime) {
+      return value.toIso8601String();
+    }
+
+    if (value is Map) {
+      return value.map((key, val) => MapEntry(key.toString(), _normalizeForJson(val)));
+    }
+
+    if (value is List) {
+      return value.map(_normalizeForJson).toList();
+    }
+
+    return value;
+  }
+
+  Future<void> _confirmArchive(BuildContext context) async {
+    final shouldArchive = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(
+          'Archive applicant?',
+          style: GoogleFonts.inter(fontWeight: FontWeight.w700),
+        ),
+        content: Text(
+          'This will archive the application and remove it from active lists. '
+          'It will not be permanently deleted.',
+          style: GoogleFonts.inter(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(AppLocalizations.of(context)!.commonCancel),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xff475569)),
+            child: const Text('Archive', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldArchive != true || !context.mounted) return;
+    await _handleStatusChange(
+      context,
+      'archived',
+      forcedAction: 'archived',
+    );
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Application archived. It was not deleted.'),
+      ),
+    );
+  }
+
+  Future<void> _confirmUnarchive(BuildContext context) async {
+    final shouldUnarchive = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(
+          'Unarchive applicant?',
+          style: GoogleFonts.inter(fontWeight: FontWeight.w700),
+        ),
+        content: Text(
+          'This will move the application back to the active pipeline.',
+          style: GoogleFonts.inter(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(AppLocalizations.of(context)!.commonCancel),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Unarchive'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldUnarchive != true || !context.mounted || enrollment.id == null) return;
+
+    String restoreStatus = 'pending';
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('enrollments')
+          .doc(enrollment.id)
+          .get();
+      final metadata = snapshot.data()?['metadata'] as Map<String, dynamic>? ?? {};
+      final previousStatus =
+          (metadata['archivedPreviousStatus'] as String?)?.toLowerCase().trim();
+      if (previousStatus == 'contacted') {
+        restoreStatus = 'contacted';
+      }
+    } catch (_) {
+      // Keep fallback to pending if metadata lookup fails.
+    }
+
+    if (!context.mounted) return;
+    await _handleStatusChange(
+      context,
+      restoreStatus,
+      forcedAction: 'unarchived',
+    );
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          restoreStatus == 'contacted'
+              ? 'Application moved to Ready.'
+              : 'Application moved to Inbox.',
+        ),
+      ),
+    );
+  }
+
   Future<void> _advanceWorkflow(BuildContext context) async {
     final status = enrollment.status.toLowerCase();
     // 1. Pending -> Contacted
@@ -910,15 +1340,17 @@ class _EnrollmentCard extends StatelessWidget {
   }
 
   Future<void> _handleStatusChange(
-      BuildContext context, String newStatus) async {
+      BuildContext context, String newStatus, {String? forcedAction}) async {
     if (enrollment.id == null) return;
+
+    final targetStatus = newStatus == 'rejected' ? 'archived' : newStatus;
     
     final currentUser = FirebaseAuth.instance.currentUser;
     if (currentUser == null) return;
     
     // When un-broadcasting (moving from live to contacted), close job_board entries
     // so teachers no longer see the opportunity.
-    if (newStatus == 'contacted') {
+    if (targetStatus == 'contacted') {
       try {
         await JobBoardService().unbroadcastEnrollment(enrollment.id!);
       } catch (e) {
@@ -950,10 +1382,15 @@ class _EnrollmentCard extends StatelessWidget {
     
     // Build action history entry (use Timestamp - serverTimestamp() is not allowed inside arrayUnion)
     final actionEntry = {
-      'action': newStatus == 'contacted' ? 'marked_contacted' : 
-                newStatus == 'broadcasted' ? 'broadcasted' :
-                newStatus == 'rejected' ? 'archived' : 'status_changed',
-      'status': newStatus,
+      'action': forcedAction ??
+          (targetStatus == 'contacted'
+              ? 'marked_contacted'
+              : targetStatus == 'broadcasted'
+                  ? 'broadcasted'
+                  : targetStatus == 'archived'
+                      ? 'archived'
+                      : 'status_changed'),
+      'status': targetStatus,
       'adminId': currentUser.uid,
       'adminName': adminName ?? 'Unknown',
       'adminEmail': currentUser.email ?? '',
@@ -964,16 +1401,28 @@ class _EnrollmentCard extends StatelessWidget {
         .collection('enrollments')
         .doc(enrollment.id)
         .update({
-      'metadata.status': newStatus,
+      'metadata.status': targetStatus,
       'metadata.lastUpdated': FieldValue.serverTimestamp(),
       'metadata.updatedBy': currentUser.uid,
       'metadata.updatedByName': adminName,
       // Track specific action timestamps
-      if (newStatus == 'contacted') 'metadata.contactedAt': FieldValue.serverTimestamp(),
-      if (newStatus == 'contacted') 'metadata.contactedBy': currentUser.uid,
-      if (newStatus == 'contacted') 'metadata.contactedByName': adminName,
-      if (newStatus == 'broadcasted') 'metadata.broadcastedBy': currentUser.uid,
-      if (newStatus == 'broadcasted') 'metadata.broadcastedByName': adminName,
+      if (targetStatus == 'contacted') 'metadata.contactedAt': FieldValue.serverTimestamp(),
+      if (targetStatus == 'contacted') 'metadata.contactedBy': currentUser.uid,
+      if (targetStatus == 'contacted') 'metadata.contactedByName': adminName,
+      if (targetStatus == 'broadcasted') 'metadata.broadcastedBy': currentUser.uid,
+      if (targetStatus == 'broadcasted') 'metadata.broadcastedByName': adminName,
+      if (targetStatus == 'archived') 'metadata.archivedAt': FieldValue.serverTimestamp(),
+      if (targetStatus == 'archived') 'metadata.archivedBy': currentUser.uid,
+      if (targetStatus == 'archived') 'metadata.archivedByName': adminName,
+      if (targetStatus == 'archived' &&
+          enrollment.status.toLowerCase() != 'archived')
+        'metadata.archivedPreviousStatus': enrollment.status.toLowerCase(),
+      if (forcedAction == 'unarchived')
+        'metadata.unarchivedAt': FieldValue.serverTimestamp(),
+      if (forcedAction == 'unarchived')
+        'metadata.unarchivedBy': currentUser.uid,
+      if (forcedAction == 'unarchived')
+        'metadata.unarchivedByName': adminName,
       // Add to action history array (entry must contain only serializable values, not FieldValue)
       'metadata.actionHistory': FieldValue.arrayUnion([actionEntry]),
     });

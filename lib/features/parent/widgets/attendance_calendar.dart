@@ -8,17 +8,21 @@ import 'package:alluwalacademyadmin/core/enums/shift_enums.dart';
 class AttendanceCalendar extends StatelessWidget {
   final List<TeachingShift> shifts;
   final DateTime selectedMonth;
+  final bool showMonthHeader;
 
   const AttendanceCalendar({
     super.key,
     required this.shifts,
     required this.selectedMonth,
+    this.showMonthHeader = true,
   });
 
   @override
   Widget build(BuildContext context) {
-    final firstDayOfMonth = DateTime(selectedMonth.year, selectedMonth.month, 1);
-    final lastDayOfMonth = DateTime(selectedMonth.year, selectedMonth.month + 1, 0);
+    final firstDayOfMonth =
+        DateTime(selectedMonth.year, selectedMonth.month, 1);
+    final lastDayOfMonth =
+        DateTime(selectedMonth.year, selectedMonth.month + 1, 0);
     final firstWeekday = firstDayOfMonth.weekday; // 1 = Monday, 7 = Sunday
     final daysInMonth = lastDayOfMonth.day;
 
@@ -30,7 +34,8 @@ class AttendanceCalendar extends StatelessWidget {
         final day = shift.shiftStart.day;
         // Keep the most significant status (completed > missed > cancelled > scheduled)
         if (!dateStatusMap.containsKey(day) ||
-            _getStatusPriority(shift.status) > _getStatusPriority(dateStatusMap[day]!)) {
+            _getStatusPriority(shift.status) >
+                _getStatusPriority(dateStatusMap[day]!)) {
           dateStatusMap[day] = shift.status;
         }
       }
@@ -49,39 +54,45 @@ class AttendanceCalendar extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            monthName,
-            style: GoogleFonts.inter(
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-              color: const Color(0xFF111827),
+          if (showMonthHeader) ...[
+            Text(
+              monthName,
+              style: GoogleFonts.inter(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: const Color(0xFF111827),
+              ),
             ),
-          ),
-          const SizedBox(height: 20),
+            const SizedBox(height: 20),
+          ],
           // Weekday headers
           Row(
-            children: weekDays.map((day) => Expanded(
-              child: Center(
-                child: Text(
-                  day,
-                  style: GoogleFonts.inter(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: const Color(0xFF6B7280),
-                  ),
-                ),
-              ),
-            )).toList(),
+            children: weekDays
+                .map((day) => Expanded(
+                      child: Center(
+                        child: Text(
+                          day,
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF6B7280),
+                          ),
+                        ),
+                      ),
+                    ))
+                .toList(),
           ),
           const SizedBox(height: 12),
           // Calendar grid
-          ...List.generate(((daysInMonth + firstWeekday - 1) / 7).ceil(), (weekIndex) {
+          ...List.generate(((daysInMonth + firstWeekday - 1) / 7).ceil(),
+              (weekIndex) {
             return Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: Row(
                 children: List.generate(7, (dayIndex) {
-                  final dayNumber = (weekIndex * 7) + dayIndex - (firstWeekday - 1) + 1;
-                  
+                  final dayNumber =
+                      (weekIndex * 7) + dayIndex - (firstWeekday - 1) + 1;
+
                   if (dayNumber < 1 || dayNumber > daysInMonth) {
                     return Expanded(child: Container());
                   }
@@ -204,4 +215,3 @@ class AttendanceCalendar extends StatelessWidget {
     }
   }
 }
-

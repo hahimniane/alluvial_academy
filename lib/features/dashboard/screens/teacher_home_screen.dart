@@ -19,7 +19,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../shift_management/widgets/shift_details_dialog.dart';
 import '../../shift_management/screens/teacher_shift_screen.dart';
-import '../../profile/screens/teacher_profile_screen.dart';
 import '../../settings/screens/mobile_settings_screen.dart';
 import '../../tasks/screens/quick_tasks_screen.dart';
 import '../../tasks/models/task.dart';
@@ -28,6 +27,8 @@ import '../../../form_screen.dart';
 import '../../forms/screens/my_submissions_screen.dart';
 import '../../forms/screens/teacher_forms_screen.dart';
 import '../../assignments/screens/teacher_assignments_screen.dart';
+import '../../recordings/screens/class_recordings_screen.dart';
+import '../../surah_podcast/screens/surah_podcast_screen.dart';
 import '../screens/admin_dashboard_screen.dart';
 import '../../../core/models/teaching_shift.dart';
 import '../../../core/enums/shift_enums.dart';
@@ -49,8 +50,9 @@ import '../widgets/timeline_shift_card.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class TeacherHomeScreen extends StatefulWidget {
-  final bool showScaffold; // If false, returns content only (for use in AdminDashboard)
-  
+  final bool
+      showScaffold; // If false, returns content only (for use in AdminDashboard)
+
   const TeacherHomeScreen({super.key, this.showScaffold = true});
 
   @override
@@ -67,12 +69,12 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
   DateTime _selectedDate = DateTime.now(); // Selected date for schedule
   TeachingShift? _activeShift;
   List<Task> _recentTasks = [];
-  
+
   // Stats
   double _hoursThisWeek = 0;
   int _classesThisWeek = 0;
   int _totalStudents = 0;
-  
+
   // Earnings and Approval Stats
   double _earningsThisWeek = 0;
   double _earningsThisMonth = 0;
@@ -80,10 +82,11 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
   int _pendingApprovals = 0;
   int _approvedThisWeek = 0;
   double _defaultHourlyRate = 15.0; // Default hourly rate if not specified
-  
+
   // Pending forms count and details
   int _pendingFormsCount = 0;
-  List<Map<String, dynamic>> _pendingFormShifts = []; // List of shifts needing forms
+  List<Map<String, dynamic>> _pendingFormShifts =
+      []; // List of shifts needing forms
 
   // Real-time stream subscriptions
   StreamSubscription? _shiftsSubscription;
@@ -100,7 +103,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
     super.initState();
     _loadData();
     _setupRealtimeListeners();
-    
+
     // Refresh UI every second to update countdown and time-based buttons
     _uiRefreshTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (mounted) {
@@ -140,14 +143,13 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
           }
           // Update upcoming shifts - get ALL future shifts, sorted, then take first for "next session"
           final now = DateTime.now();
-          final futureShifts = shifts
-              .where((s) {
-                final shiftEnd = s.shiftEnd.toLocal();
-                return shiftEnd.isAfter(now) && !s.isClockedIn;
-              })
-              .toList();
+          final futureShifts = shifts.where((s) {
+            final shiftEnd = s.shiftEnd.toLocal();
+            return shiftEnd.isAfter(now) && !s.isClockedIn;
+          }).toList();
           futureShifts.sort((a, b) => a.shiftStart.compareTo(b.shiftStart));
-          _upcomingShifts = futureShifts; // Keep all for potential future use, but display only first
+          _upcomingShifts =
+              futureShifts; // Keep all for potential future use, but display only first
         });
         debugPrint('🔄 Home: Shifts updated via stream');
       },
@@ -165,7 +167,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
         .snapshots()
         .listen((snapshot) {
       if (!mounted) return;
-      
+
       // Reload stats when timesheets change
       debugPrint('🔄 Home: Timesheets updated - reloading stats');
       _loadStats(user.uid);
@@ -183,11 +185,11 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
         final matchesDate = shift.shiftStart.year == date.year &&
             shift.shiftStart.month == date.month &&
             shift.shiftStart.day == date.day;
-        
+
         // EXCLUDE past shifts (shift has ended)
         final shiftEnd = shift.shiftEnd.toLocal();
         final isPast = shiftEnd.isBefore(now);
-        
+
         return matchesDate && !isPast;
       }).toList();
 
@@ -229,7 +231,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
             .where((shift) => shift.shiftEnd.toLocal().isAfter(now))
             .toList()
           ..sort((a, b) => a.shiftStart.compareTo(b.shiftStart));
-        
+
         if (mounted) {
           setState(() {
             _upcomingShifts = cachedUpcoming;
@@ -243,13 +245,14 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
     } else {
       setState(() => _isLoading = true);
     }
-    
+
     try {
       if (user != null) {
         // Load user name and profile picture
         final userData = await UserRoleService.getCurrentUserData();
-        final profilePicUrl = await ProfilePictureService.getProfilePictureUrl();
-        
+        final profilePicUrl =
+            await ProfilePictureService.getProfilePictureUrl();
+
         if (userData != null && mounted) {
           setState(() {
             _userName = userData['first_name'] ?? 'Teacher';
@@ -262,8 +265,9 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
 
         // Load ALL teacher shifts (including past for calendar navigation)
         // Use cached repository for better performance
-        final allShifts = await ShiftRepository.getTeacherShiftsCached(user.uid);
-        
+        final allShifts =
+            await ShiftRepository.getTeacherShiftsCached(user.uid);
+
         // Filter for upcoming shifts (for "Next Class") - exclude clocked-in shifts
         // so the active session does not reappear in Next Class when cache/stream updates
         final now = DateTime.now();
@@ -271,15 +275,15 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
           final localEnd = shift.shiftEnd.toLocal();
           return localEnd.isAfter(now) && !shift.isClockedIn;
         }).toList();
-        
+
         futureShifts.sort((a, b) => a.shiftStart.compareTo(b.shiftStart));
 
         // Load recent tasks assigned to teacher
         await _loadRecentTasks();
-        
+
         // Load stats
         await _loadStats(user.uid);
-        
+
         // Load pending forms count
         await _loadPendingFormsCount(user.uid);
 
@@ -294,7 +298,8 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
             _filterShiftsForDate(_selectedDate); // This filters out past shifts
             _isLoading = false;
           });
-          debugPrint('📅 Loaded ${_allShifts.length} total shifts, ${_dailyShifts.length} for selected date');
+          debugPrint(
+              '📅 Loaded ${_allShifts.length} total shifts, ${_dailyShifts.length} for selected date');
         }
       }
     } catch (e) {
@@ -309,7 +314,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
     try {
       // Use the service method that handles both completed and missed shifts
       final pendingForms = await ShiftFormService.getPendingFormsForTeacher();
-      
+
       if (mounted) {
         setState(() {
           _pendingFormsCount = pendingForms.length;
@@ -318,8 +323,10 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
       }
 
       debugPrint('📋 Pending forms count: ${pendingForms.length}');
-      debugPrint('   - Completed shifts: ${pendingForms.where((f) => f['type'] == 'completed').length}');
-      debugPrint('   - Missed shifts: ${pendingForms.where((f) => f['type'] == 'missed').length}');
+      debugPrint(
+          '   - Completed shifts: ${pendingForms.where((f) => f['type'] == 'completed').length}');
+      debugPrint(
+          '   - Missed shifts: ${pendingForms.where((f) => f['type'] == 'missed').length}');
     } catch (e) {
       debugPrint('Error loading pending forms count: $e');
     }
@@ -331,7 +338,8 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
       if (user == null) return;
 
       // Use cached repository for better performance
-      final recentTasks = await TaskRepository.getRecentTasksCached(user.uid, limit: 3);
+      final recentTasks =
+          await TaskRepository.getRecentTasksCached(user.uid, limit: 3);
 
       if (mounted) {
         setState(() {
@@ -347,20 +355,22 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
     try {
       final now = DateTime.now();
       final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
-      final startOfWeekDate = DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day, 0, 0, 0);
+      final startOfWeekDate = DateTime(
+          startOfWeek.year, startOfWeek.month, startOfWeek.day, 0, 0, 0);
       final endOfWeekDate = startOfWeekDate.add(const Duration(days: 7));
-      
+
       // Start of month
       final startOfMonth = DateTime(now.year, now.month, 1, 0, 0, 0);
       final endOfMonth = DateTime(now.year, now.month + 1, 0, 23, 59, 59);
-      
+
       // Start of today
       final startOfToday = DateTime(now.year, now.month, now.day, 0, 0, 0);
       final endOfToday = DateTime(now.year, now.month, now.day, 23, 59, 59);
-      
+
       debugPrint('📊 Loading stats for teacher: $teacherId');
-      debugPrint('📅 Week range: ${startOfWeekDate.toIso8601String()} to ${endOfWeekDate.toIso8601String()}');
-      
+      debugPrint(
+          '📅 Week range: ${startOfWeekDate.toIso8601String()} to ${endOfWeekDate.toIso8601String()}');
+
       // Fetch this teacher's timesheet entries
       final timesheetQuery = await FirebaseFirestore.instance
           .collection('timesheet_entries')
@@ -370,7 +380,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
       double totalHours = 0;
       int classCount = 0;
       Set<String> uniqueStudents = {};
-      
+
       // Earnings tracking
       double weeklyEarnings = 0;
       double monthlyEarnings = 0;
@@ -381,30 +391,35 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
       for (var doc in timesheetQuery.docs) {
         final data = doc.data();
         // Support both naming conventions
-        final clockIn = (data['clock_in_time'] ?? data['clock_in_timestamp']) as Timestamp?;
-        final clockOut = (data['clock_out_time'] ?? data['clock_out_timestamp']) as Timestamp?;
+        final clockIn =
+            (data['clock_in_time'] ?? data['clock_in_timestamp']) as Timestamp?;
+        final clockOut = (data['clock_out_time'] ?? data['clock_out_timestamp'])
+            as Timestamp?;
         final status = data['status'] as String? ?? 'pending';
-        final hourlyRate = (data['hourly_rate'] as num?)?.toDouble() ?? _defaultHourlyRate;
-        
+        final hourlyRate =
+            (data['hourly_rate'] as num?)?.toDouble() ?? _defaultHourlyRate;
+
         if (clockIn == null) continue;
-        
+
         final clockInDate = clockIn.toDate();
-        
+
         // Check if this is an edited timesheet
         final isEdited = data['is_edited'] as bool? ?? false;
         final editApproved = data['edit_approved'] as bool? ?? false;
-        
+
         // Calculate hours worked (using seconds for precision)
         double hoursWorked = 0;
         if (clockOut != null) {
           final duration = clockOut.toDate().difference(clockInDate);
-          hoursWorked = duration.inSeconds / 3600.0; // Use seconds for accurate sub-minute tracking
+          hoursWorked = duration.inSeconds /
+              3600.0; // Use seconds for accurate sub-minute tracking
         }
-        
+
         // IMPORTANT: Verify shift still exists before counting stats
-        final shiftId = data['shift_id'] as String? ?? data['shiftId'] as String?;
+        final shiftId =
+            data['shift_id'] as String? ?? data['shiftId'] as String?;
         bool shiftExists = false;
-        
+
         if (shiftId != null && shiftId.isNotEmpty) {
           try {
             final shiftDoc = await FirebaseFirestore.instance
@@ -417,65 +432,73 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
             shiftExists = false;
           }
         }
-        
+
         // Skip this timesheet if shift doesn't exist (orphaned entry)
         if (!shiftExists) {
-          debugPrint('⚠️ Skipping orphaned timesheet entry ${doc.id} - shift $shiftId does not exist');
+          debugPrint(
+              '⚠️ Skipping orphaned timesheet entry ${doc.id} - shift $shiftId does not exist');
           continue;
         }
-        
+
         // Check timesheet status
         if (status == 'pending') {
           pendingCount++;
         }
-        
+
         // Check if this week for weekly stats
-        final isThisWeek = clockInDate.isAfter(startOfWeekDate.subtract(const Duration(seconds: 1))) && 
-                           clockInDate.isBefore(endOfWeekDate);
-        
+        final isThisWeek = clockInDate.isAfter(
+                startOfWeekDate.subtract(const Duration(seconds: 1))) &&
+            clockInDate.isBefore(endOfWeekDate);
+
         // Check if this month
-        final isThisMonth = clockInDate.isAfter(startOfMonth.subtract(const Duration(seconds: 1))) && 
-                            clockInDate.isBefore(endOfMonth);
-        
+        final isThisMonth = clockInDate
+                .isAfter(startOfMonth.subtract(const Duration(seconds: 1))) &&
+            clockInDate.isBefore(endOfMonth);
+
         // Check if today
-        final isToday = clockInDate.isAfter(startOfToday.subtract(const Duration(seconds: 1))) && 
-                        clockInDate.isBefore(endOfToday);
-        
+        final isToday = clockInDate
+                .isAfter(startOfToday.subtract(const Duration(seconds: 1))) &&
+            clockInDate.isBefore(endOfToday);
+
         // Calculate earnings - PREFER payment_amount from timesheet (saved during clock-out)
         // This ensures consistency with what was actually paid
         double shiftEarnings = (data['payment_amount'] as num?)?.toDouble() ??
-                               (data['total_pay'] as num?)?.toDouble() ??
-                               (hoursWorked * hourlyRate); // Fallback to calculation
-        
+            (data['total_pay'] as num?)?.toDouble() ??
+            (hoursWorked * hourlyRate); // Fallback to calculation
+
         // If edited and approved, verify against total_hours if available or recalculate
         if (isEdited && editApproved) {
-           // The hoursWorked calculated above uses the clock_in/out from the document
-           // Since the document is updated upon edit, hoursWorked should already be correct
-           // However, if there's a total_hours string override or specific earnings override, check here
-           shiftEarnings = (data['payment_amount'] as num?)?.toDouble() ??
-                          (data['total_pay'] as num?)?.toDouble() ??
-                          (hoursWorked * hourlyRate);
+          // The hoursWorked calculated above uses the clock_in/out from the document
+          // Since the document is updated upon edit, hoursWorked should already be correct
+          // However, if there's a total_hours string override or specific earnings override, check here
+          shiftEarnings = (data['payment_amount'] as num?)?.toDouble() ??
+              (data['total_pay'] as num?)?.toDouble() ??
+              (hoursWorked * hourlyRate);
         }
-        
+
         if (isThisWeek && clockOut != null) {
           totalHours += hoursWorked;
           classCount++;
-          
+
           // Calculate earnings for approved timesheets
           if (status == 'approved' || status == 'paid') {
             weeklyEarnings += shiftEarnings;
             approvedThisWeekCount++;
           }
         }
-        
-        if (isThisMonth && clockOut != null && (status == 'approved' || status == 'paid')) {
+
+        if (isThisMonth &&
+            clockOut != null &&
+            (status == 'approved' || status == 'paid')) {
           monthlyEarnings += shiftEarnings;
         }
-        
-        if (isToday && clockOut != null && (status == 'approved' || status == 'paid')) {
+
+        if (isToday &&
+            clockOut != null &&
+            (status == 'approved' || status == 'paid')) {
           dailyEarnings += shiftEarnings;
         }
-        
+
         // Get unique students from shift
         if (shiftId != null && isThisWeek && shiftExists) {
           try {
@@ -483,15 +506,17 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                 .collection('teaching_shifts')
                 .doc(shiftId)
                 .get();
-            
+
             if (shiftDoc.exists) {
               final shiftData = shiftDoc.data();
               if (shiftData != null) {
                 // Get student IDs or names
                 if (shiftData['student_ids'] is List) {
-                  uniqueStudents.addAll((shiftData['student_ids'] as List).cast<String>());
+                  uniqueStudents.addAll(
+                      (shiftData['student_ids'] as List).cast<String>());
                 } else if (shiftData['student_names'] is List) {
-                  uniqueStudents.addAll((shiftData['student_names'] as List).cast<String>());
+                  uniqueStudents.addAll(
+                      (shiftData['student_names'] as List).cast<String>());
                 }
               }
             }
@@ -501,9 +526,12 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
         }
       }
 
-      debugPrint('📊 Stats calculated: Hours: $totalHours, Classes: $classCount, Students: ${uniqueStudents.length}');
-      debugPrint('💰 Earnings: Weekly: \$${weeklyEarnings.toStringAsFixed(2)}, Monthly: \$${monthlyEarnings.toStringAsFixed(2)}');
-      debugPrint('📋 Approvals: Pending: $pendingCount, Approved this week: $approvedThisWeekCount');
+      debugPrint(
+          '📊 Stats calculated: Hours: $totalHours, Classes: $classCount, Students: ${uniqueStudents.length}');
+      debugPrint(
+          '💰 Earnings: Weekly: \$${weeklyEarnings.toStringAsFixed(2)}, Monthly: \$${monthlyEarnings.toStringAsFixed(2)}');
+      debugPrint(
+          '📋 Approvals: Pending: $pendingCount, Approved this week: $approvedThisWeekCount');
 
       if (mounted) {
         setState(() {
@@ -526,7 +554,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
     try {
       debugPrint('🌐 Attempting to open URL: $url');
       final uri = Uri.parse(url);
-      
+
       // Don't use canLaunchUrl on mobile - it often returns false incorrectly
       // Just try to launch directly and catch errors
       try {
@@ -588,70 +616,70 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-                // Only show header if standalone (not embedded in AdminDashboard)
-                if (widget.showScaffold) ...[
-                  _buildHeader(),
-                  const SizedBox(height: 8),
-                ],
-                // PAYMENT SECTION - Comes FIRST
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: _buildStatsRow(context),
-                ),
-                const SizedBox(height: 8),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: _buildCompactEarningsCard(),
-                ),
-                const SizedBox(height: 16),
-                if (_pendingFormsCount > 0) ...[
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: _buildPendingFormsBanner(),
-                  ),
-                  const SizedBox(height: 16),
-                ],
-                if (_activeShift != null) ...[
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: _buildActiveSessionCard(),
-                  ),
-                  const SizedBox(height: 24),
-                ],
-                // ORDER: Next Class → My Tasks → Quick Access
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: _buildUpcomingSection(context),
-                ),
-                const SizedBox(height: 24),
-                if (_recentTasks.isNotEmpty) ...[
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: _buildRecentTasksSection(),
-                  ),
-                  const SizedBox(height: 24),
-                ],
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: _buildQuickAccessSection(context),
-                ),
-                const SizedBox(height: 24),
-                // Islamic Resources Section
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: _buildIslamicResourcesSection(),
-                ),
-                const SizedBox(height: 32),
-              ],
+            // Only show header if standalone (not embedded in AdminDashboard)
+            if (widget.showScaffold) ...[
+              _buildHeader(),
+              const SizedBox(height: 8),
+            ],
+            // PAYMENT SECTION - Comes FIRST
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: _buildStatsRow(context),
             ),
-          ),
-        );
-    
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: _buildCompactEarningsCard(),
+            ),
+            const SizedBox(height: 16),
+            if (_pendingFormsCount > 0) ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: _buildPendingFormsBanner(),
+              ),
+              const SizedBox(height: 16),
+            ],
+            if (_activeShift != null) ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: _buildActiveSessionCard(),
+              ),
+              const SizedBox(height: 24),
+            ],
+            // ORDER: Next Class → My Tasks → Quick Access
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: _buildUpcomingSection(context),
+            ),
+            const SizedBox(height: 24),
+            if (_recentTasks.isNotEmpty) ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: _buildRecentTasksSection(),
+              ),
+              const SizedBox(height: 24),
+            ],
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: _buildQuickAccessSection(context),
+            ),
+            const SizedBox(height: 24),
+            // Islamic Resources Section
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: _buildIslamicResourcesSection(),
+            ),
+            const SizedBox(height: 32),
+          ],
+        ),
+      ),
+    );
+
     // If showScaffold is false, return content only (for use in AdminDashboard with navigation)
     if (!widget.showScaffold) {
       return content;
     }
-    
+
     // Otherwise, return full Scaffold (for mobile_dashboard_screen)
     return Scaffold(
       backgroundColor: const Color(0xffF8FAFC),
@@ -713,37 +741,46 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
               ],
             ),
           ),
-          // Profile Picture and Settings
+          // Profile Picture and Quick Actions
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Settings Icon
               IconButton(
-                icon: const Icon(Icons.settings, color: Colors.white, size: 24),
+                icon: const Icon(Icons.podcasts,
+                    color: Colors.white, size: 24),
                 onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const SurahPodcastScreen(),
+                    ),
+                  );
+                },
+                tooltip: 'Surah Podcasts',
+              ),
+              IconButton(
+                icon: const Icon(Icons.video_library_outlined,
+                    color: Colors.white, size: 24),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ClassRecordingsScreen(),
+                    ),
+                  );
+                },
+                tooltip: 'Class Recordings',
+              ),
+              const SizedBox(width: 8),
+              // Profile Picture → Settings
+              GestureDetector(
+                onTap: () {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (context) => const MobileSettingsScreen(),
                     ),
                   ).then((_) {
-                    // Refresh profile picture after returning from settings
-                    _refreshProfilePicture();
-                  });
-                },
-                tooltip: 'Settings',
-              ),
-              const SizedBox(width: 8),
-              // Profile Picture Button
-              GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const TeacherProfileScreen(),
-                    ),
-                  ).then((_) {
-                    // Refresh profile picture after returning from profile
                     _refreshProfilePicture();
                   });
                 },
@@ -751,7 +788,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: _profilePicUrl == null 
+                    color: _profilePicUrl == null
                         ? Colors.white.withOpacity(0.2)
                         : Colors.white,
                     borderRadius: BorderRadius.circular(20),
@@ -781,7 +818,9 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                                   height: 20,
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
-                                    valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                                    valueColor:
+                                        const AlwaysStoppedAnimation<Color>(
+                                            Colors.white),
                                   ),
                                 ),
                               );
@@ -801,7 +840,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
       ),
     );
   }
-  
+
   /// Refresh profile picture after returning from profile/settings
   Future<void> _refreshProfilePicture() async {
     final profilePicUrl = await ProfilePictureService.getProfilePictureUrl();
@@ -815,31 +854,31 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
   Widget _buildStatsRow(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     return Row(
-        children: [
-          _buildStatCard(
-            icon: Icons.access_time_filled,
-            value: '${_hoursThisWeek.toStringAsFixed(1)}h',
-            label: l10n?.dashboardThisWeek ?? 'This Week',
-            color: const Color(0xFF10B981),
-          ),
-          const SizedBox(width: 12),
-          _buildStatCard(
-            icon: Icons.school,
-            value: '$_classesThisWeek',
-            label: l10n?.dashboardClasses ?? 'Classes',
-            color: const Color(0xFF8B5CF6),
-          ),
-          const SizedBox(width: 12),
-          _buildStatCard(
-            icon: Icons.attach_money,
-            value: '\$${_earningsThisWeek.toStringAsFixed(2)}',
-            label: l10n?.dashboardApproved ?? 'Approved',
-            color: const Color(0xFF10B981),
-          ),
-        ],
-      );
+      children: [
+        _buildStatCard(
+          icon: Icons.access_time_filled,
+          value: '${_hoursThisWeek.toStringAsFixed(1)}h',
+          label: l10n?.dashboardThisWeek ?? 'This Week',
+          color: const Color(0xFF10B981),
+        ),
+        const SizedBox(width: 12),
+        _buildStatCard(
+          icon: Icons.school,
+          value: '$_classesThisWeek',
+          label: l10n?.dashboardClasses ?? 'Classes',
+          color: const Color(0xFF8B5CF6),
+        ),
+        const SizedBox(width: 12),
+        _buildStatCard(
+          icon: Icons.attach_money,
+          value: '\$${_earningsThisWeek.toStringAsFixed(2)}',
+          label: l10n?.dashboardApproved ?? 'Approved',
+          color: const Color(0xFF10B981),
+        ),
+      ],
+    );
   }
-  
+
   // Compact Earnings Card - much smaller and professional
   Widget _buildCompactEarningsCard() {
     return Container(
@@ -867,9 +906,11 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 _buildCompactEarningItem('Today', _earningsToday),
-                Container(width: 1, height: 30, color: Colors.white.withOpacity(0.2)),
+                Container(
+                    width: 1, height: 30, color: Colors.white.withOpacity(0.2)),
                 _buildCompactEarningItem('Week', _earningsThisWeek),
-                Container(width: 1, height: 30, color: Colors.white.withOpacity(0.2)),
+                Container(
+                    width: 1, height: 30, color: Colors.white.withOpacity(0.2)),
                 _buildCompactEarningItem('Month', _earningsThisMonth),
               ],
             ),
@@ -903,7 +944,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
       ),
     );
   }
-  
+
   Widget _buildCompactEarningItem(String label, double amount) {
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -1109,7 +1150,8 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                           ),
                         ),
                         Text(
-                          AppLocalizations.of(context)!.readinessFormSelectShift,
+                          AppLocalizations.of(context)!
+                              .readinessFormSelectShift,
                           style: GoogleFonts.inter(
                             fontSize: 13,
                             color: const Color(0xFF64748B),
@@ -1142,7 +1184,8 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                             ),
                             const SizedBox(height: 16),
                             Text(
-                              AppLocalizations.of(context)!.readinessFormAllComplete,
+                              AppLocalizations.of(context)!
+                                  .readinessFormAllComplete,
                               style: GoogleFonts.inter(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
@@ -1157,24 +1200,25 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                       shrinkWrap: true,
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       itemCount: _pendingFormShifts.length,
-                      separatorBuilder: (_, __) => const Divider(height: 1, indent: 16, endIndent: 16),
+                      separatorBuilder: (_, __) =>
+                          const Divider(height: 1, indent: 16, endIndent: 16),
                       itemBuilder: (context, index) {
                         final shift = _pendingFormShifts[index];
                         final shiftType = shift['type'] as String?;
                         final isMissed = shiftType == 'missed';
-                        
+
                         // Handle different data structures
-                        final shiftTitle = shift['shiftTitle'] ?? 
-                                         shift['displayName'] ?? 
-                                         AppLocalizations.of(context)!.commonUnknownShift;
-                        
+                        final shiftTitle = shift['shiftTitle'] ??
+                            shift['displayName'] ??
+                            AppLocalizations.of(context)!.commonUnknownShift;
+
                         // Safely handle shiftDate - can be DateTime, Timestamp, or null
                         // Check multiple possible field names: shiftDate, shiftStart, clockInTime
                         // Note: getPendingFormsForTeacher already converts Timestamps to DateTime
                         DateTime? shiftDate;
-                        final shiftDateValue = shift['shiftDate'] ?? 
-                                              shift['shiftStart'] ?? 
-                                              shift['clockInTime'];
+                        final shiftDateValue = shift['shiftDate'] ??
+                            shift['shiftStart'] ??
+                            shift['clockInTime'];
                         if (shiftDateValue != null) {
                           if (shiftDateValue is DateTime) {
                             shiftDate = shiftDateValue;
@@ -1182,12 +1226,13 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                             shiftDate = shiftDateValue.toDate();
                           }
                         }
-                        
+
                         // Safely handle shiftEnd - can be DateTime, Timestamp, or null
                         // Check multiple possible field names: shiftEnd, clockOutTime
                         // Note: getPendingFormsForTeacher already converts Timestamps to DateTime
                         DateTime? shiftEnd;
-                        final shiftEndValue = shift['shiftEnd'] ?? shift['clockOutTime'];
+                        final shiftEndValue =
+                            shift['shiftEnd'] ?? shift['clockOutTime'];
                         if (shiftEndValue != null) {
                           if (shiftEndValue is DateTime) {
                             shiftEnd = shiftEndValue;
@@ -1195,7 +1240,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                             shiftEnd = shiftEndValue.toDate();
                           }
                         }
-                        
+
                         final subject = shift['subject'] as String? ?? '';
                         final studentNamesRaw = shift['studentNames'];
                         List<String> studentNames = [];
@@ -1208,35 +1253,43 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                                 .cast<String>();
                           }
                         }
-                        final studentDisplay = studentNames.isNotEmpty 
-                            ? studentNames.join(', ') 
+                        final studentDisplay = studentNames.isNotEmpty
+                            ? studentNames.join(', ')
                             : 'Student';
                         final missedReason = shift['missedReason'] as String?;
                         final currentShiftId = shift['shiftId'] as String?;
-                        
+
                         return InkWell(
-                          onTap: null, // Disable tap on row, button handles action
+                          onTap:
+                              null, // Disable tap on row, button handles action
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                            decoration: isMissed ? BoxDecoration(
-                              color: Colors.orange.withOpacity(0.05),
-                              border: Border(
-                                left: BorderSide(color: Colors.orange, width: 3),
-                              ),
-                            ) : null,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 20, vertical: 12),
+                            decoration: isMissed
+                                ? BoxDecoration(
+                                    color: Colors.orange.withOpacity(0.05),
+                                    border: Border(
+                                      left: BorderSide(
+                                          color: Colors.orange, width: 3),
+                                    ),
+                                  )
+                                : null,
                             child: Row(
                               children: [
                                 // Left side - shift info
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       // Title with missed badge
                                       Row(
                                         children: [
                                           Expanded(
                                             child: Text(
-                                              isMissed ? shiftTitle : '$studentDisplay - $subject',
+                                              isMissed
+                                                  ? shiftTitle
+                                                  : '$studentDisplay - $subject',
                                               style: GoogleFonts.inter(
                                                 fontSize: 15,
                                                 fontWeight: FontWeight.w600,
@@ -1248,14 +1301,21 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                                           ),
                                           if (isMissed)
                                             Container(
-                                              margin: const EdgeInsets.only(left: 8),
-                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                              margin: const EdgeInsets.only(
+                                                  left: 8),
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 6,
+                                                      vertical: 2),
                                               decoration: BoxDecoration(
-                                                color: Colors.orange.withOpacity(0.1),
-                                                borderRadius: BorderRadius.circular(8),
+                                                color: Colors.orange
+                                                    .withOpacity(0.1),
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
                                               ),
                                               child: Text(
-                                                AppLocalizations.of(context)!.shiftMissed,
+                                                AppLocalizations.of(context)!
+                                                    .shiftMissed,
                                                 style: GoogleFonts.inter(
                                                   fontSize: 10,
                                                   fontWeight: FontWeight.w600,
@@ -1271,9 +1331,13 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                                         Row(
                                           children: [
                                             Icon(
-                                              isMissed ? Icons.error_outline : Icons.access_time,
+                                              isMissed
+                                                  ? Icons.error_outline
+                                                  : Icons.access_time,
                                               size: 14,
-                                              color: isMissed ? Colors.orange : const Color(0xFF64748B),
+                                              color: isMissed
+                                                  ? Colors.orange
+                                                  : const Color(0xFF64748B),
                                             ),
                                             const SizedBox(width: 4),
                                             Text(
@@ -1288,7 +1352,8 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                                       else if (isMissed && missedReason != null)
                                         Row(
                                           children: [
-                                            const Icon(Icons.info_outline, size: 14, color: Colors.orange),
+                                            const Icon(Icons.info_outline,
+                                                size: 14, color: Colors.orange),
                                             const SizedBox(width: 4),
                                             Expanded(
                                               child: Text(
@@ -1308,13 +1373,19 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                                       // Date
                                       Row(
                                         children: [
-                                          const Icon(Icons.calendar_today, size: 14, color: Color(0xFF94A3B8)),
+                                          const Icon(Icons.calendar_today,
+                                              size: 14,
+                                              color: Color(0xFF94A3B8)),
                                           const SizedBox(width: 4),
                                           Text(
                                             shiftDate != null
-                                                ? DateFormat('EEEE, MMMM d, yyyy').format(shiftDate)
+                                                ? DateFormat(
+                                                        'EEEE, MMMM d, yyyy')
+                                                    .format(shiftDate)
                                                 : shiftEnd != null
-                                                    ? DateFormat('EEEE, MMMM d, yyyy').format(shiftEnd)
+                                                    ? DateFormat(
+                                                            'EEEE, MMMM d, yyyy')
+                                                        .format(shiftEnd)
                                                     : 'Date not available',
                                             style: GoogleFonts.inter(
                                               fontSize: 12,
@@ -1364,12 +1435,13 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
     final timesheetId = shift['timesheetId'] as String?;
     final shiftId = shift['shiftId'] as String?;
     final shiftType = shift['type'] as String?; // 'completed' or 'missed'
-    
+
     // Shift ID is required, but timesheetId is optional (for missed shifts)
     if (shiftId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(AppLocalizations.of(context)!.errorMissingShiftInformation),
+          content:
+              Text(AppLocalizations.of(context)!.errorMissingShiftInformation),
           backgroundColor: Colors.red,
         ),
       );
@@ -1379,24 +1451,23 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
     debugPrint('📋 Navigating to form for shift: $shiftId');
     debugPrint('   - Type: ${shiftType ?? "unknown"}');
     debugPrint('   - TimesheetId: $timesheetId');
-    
+
     // FIXED: Use same approach as Quick Access - get ALL templates and filter to latest version
     // This ensures we get the latest version even if config points to an old template ID
     try {
       // Get all templates (same as Quick Access)
-      final allTemplates = await FormTemplateService.getAllTemplates(forceRefresh: true);
-      
+      final allTemplates =
+          await FormTemplateService.getAllTemplates(forceRefresh: true);
+
       // Filter to keep only the latest version of each template by name (same logic as Quick Access)
       final Map<String, FormTemplate> latestTemplatesByName = {};
       for (var template in allTemplates) {
         if (!template.isActive) continue;
-        
+
         // Normalize template name for comparison
-        final normalizedName = template.name
-            .trim()
-            .toLowerCase()
-            .replaceAll(RegExp(r'\s+'), ' ');
-        
+        final normalizedName =
+            template.name.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+
         if (!latestTemplatesByName.containsKey(normalizedName)) {
           latestTemplatesByName[normalizedName] = template;
         } else {
@@ -1411,18 +1482,19 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
           }
         }
       }
-      
+
       // Find the daily class report template (same as Quick Access)
       FormTemplate? template;
       for (var t in latestTemplatesByName.values) {
         if (t.frequency == FormFrequency.perSession &&
             t.name.toLowerCase().contains('daily') &&
-            (t.name.toLowerCase().contains('class') || t.name.toLowerCase().contains('report'))) {
+            (t.name.toLowerCase().contains('class') ||
+                t.name.toLowerCase().contains('report'))) {
           template = t;
           break;
         }
       }
-      
+
       // If not found, use first perSession template
       if (template == null) {
         template = latestTemplatesByName.values.firstWhere(
@@ -1430,22 +1502,22 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
           orElse: () => latestTemplatesByName.values.first,
         );
       }
-      
-      
+
       if (template == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(AppLocalizations.of(context)!.errorCouldNotLoadFormTemplate),
+              content: Text(
+                  AppLocalizations.of(context)!.errorCouldNotLoadFormTemplate),
               backgroundColor: Colors.red,
             ),
           );
         }
         return;
       }
-      
+
       if (!mounted) return;
-      
+
       // Pass template directly (same as Quick Access) - ensures latest version
       Navigator.push(
         context,
@@ -1500,7 +1572,8 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                   color: Colors.white.withOpacity(0.2),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(Icons.play_circle_fill, color: Colors.white, size: 20),
+                child: const Icon(Icons.play_circle_fill,
+                    color: Colors.white, size: 20),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -1514,7 +1587,8 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.2),
                   borderRadius: BorderRadius.circular(20),
@@ -1559,7 +1633,8 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                     foregroundColor: Colors.white,
                     side: const BorderSide(color: Colors.white, width: 1.5),
                     padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
                   ),
                   child: Text(
                     AppLocalizations.of(context)!.dashboardViewSession,
@@ -1580,7 +1655,8 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                     backgroundColor: Colors.white,
                     foregroundColor: const Color(0xFFEF4444),
                     padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
                     elevation: 0,
                   ),
                 ),
@@ -1607,7 +1683,8 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                     color: const Color(0xFFEF4444).withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(Icons.task_alt, color: Color(0xFFEF4444), size: 20),
+                  child: const Icon(Icons.task_alt,
+                      color: Color(0xFFEF4444), size: 20),
                 ),
                 const SizedBox(width: 12),
                 Text(
@@ -1624,7 +1701,8 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const QuickTasksScreen()),
+                  MaterialPageRoute(
+                      builder: (context) => const QuickTasksScreen()),
                 );
               },
               child: Text(
@@ -1647,7 +1725,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
   Widget _buildTaskCard(Task task) {
     Color statusColor;
     IconData statusIcon;
-    
+
     switch (task.status) {
       case TaskStatus.inProgress:
         statusColor = const Color(0xFFF59E0B);
@@ -1662,7 +1740,8 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
         statusIcon = Icons.circle_outlined;
     }
 
-    final isOverdue = task.dueDate.isBefore(DateTime.now()) && task.status != TaskStatus.done;
+    final isOverdue =
+        task.dueDate.isBefore(DateTime.now()) && task.status != TaskStatus.done;
 
     return GestureDetector(
       onTap: () {
@@ -1678,7 +1757,9 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isOverdue ? Colors.red.withOpacity(0.3) : const Color(0xFFE2E8F0),
+            color: isOverdue
+                ? Colors.red.withOpacity(0.3)
+                : const Color(0xFFE2E8F0),
           ),
           boxShadow: [
             BoxShadow(
@@ -1716,13 +1797,17 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      Icon(Icons.calendar_today, size: 12, color: isOverdue ? Colors.red : const Color(0xFF64748B)),
+                      Icon(Icons.calendar_today,
+                          size: 12,
+                          color:
+                              isOverdue ? Colors.red : const Color(0xFF64748B)),
                       const SizedBox(width: 4),
                       Text(
                         'Due ${DateFormat('MMM d').format(task.dueDate)}',
                         style: GoogleFonts.inter(
                           fontSize: 12,
-                          color: isOverdue ? Colors.red : const Color(0xFF64748B),
+                          color:
+                              isOverdue ? Colors.red : const Color(0xFF64748B),
                         ),
                       ),
                     ],
@@ -1757,7 +1842,8 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const TeacherShiftScreen()),
+                  MaterialPageRoute(
+                      builder: (context) => const TeacherShiftScreen()),
                 );
               },
               child: Text(
@@ -1822,7 +1908,8 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
               color: const Color(0xFFF1F5F9),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.event_available, size: 32, color: Color(0xFF94A3B8)),
+            child: const Icon(Icons.event_available,
+                size: 32, color: Color(0xFF94A3B8)),
           ),
           const SizedBox(height: 16),
           Text(
@@ -1850,9 +1937,11 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
     final isToday = shift.shiftStart.day == DateTime.now().day &&
         shift.shiftStart.month == DateTime.now().month &&
         shift.shiftStart.year == DateTime.now().year;
-    
-    final isTomorrow = shift.shiftStart.day == DateTime.now().add(const Duration(days: 1)).day &&
-        shift.shiftStart.month == DateTime.now().add(const Duration(days: 1)).month;
+
+    final isTomorrow = shift.shiftStart.day ==
+            DateTime.now().add(const Duration(days: 1)).day &&
+        shift.shiftStart.month ==
+            DateTime.now().add(const Duration(days: 1)).month;
 
     String dateLabel;
     if (isToday) {
@@ -1888,7 +1977,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                   width: 50,
                   height: 50,
                   decoration: BoxDecoration(
-                    color: isToday 
+                    color: isToday
                         ? const Color(0xFF0386FF).withOpacity(0.1)
                         : const Color(0xFFF1F5F9),
                     borderRadius: BorderRadius.circular(12),
@@ -1901,15 +1990,21 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                         style: GoogleFonts.inter(
                           fontSize: 18,
                           fontWeight: FontWeight.w700,
-                          color: isToday ? const Color(0xFF0386FF) : const Color(0xFF64748B),
+                          color: isToday
+                              ? const Color(0xFF0386FF)
+                              : const Color(0xFF64748B),
                         ),
                       ),
                       Text(
-                        DateFormat('MMM').format(shift.shiftStart).toUpperCase(),
+                        DateFormat('MMM')
+                            .format(shift.shiftStart)
+                            .toUpperCase(),
                         style: GoogleFonts.inter(
                           fontSize: 10,
                           fontWeight: FontWeight.w600,
-                          color: isToday ? const Color(0xFF0386FF) : const Color(0xFF94A3B8),
+                          color: isToday
+                              ? const Color(0xFF0386FF)
+                              : const Color(0xFF94A3B8),
                         ),
                       ),
                     ],
@@ -1935,9 +2030,10 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                             ),
                           ),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 2),
                             decoration: BoxDecoration(
-                              color: isToday 
+                              color: isToday
                                   ? const Color(0xFF0386FF).withOpacity(0.1)
                                   : const Color(0xFFF1F5F9),
                               borderRadius: BorderRadius.circular(4),
@@ -1947,7 +2043,9 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                               style: GoogleFonts.inter(
                                 fontSize: 10,
                                 fontWeight: FontWeight.w600,
-                                color: isToday ? const Color(0xFF0386FF) : const Color(0xFF64748B),
+                                color: isToday
+                                    ? const Color(0xFF0386FF)
+                                    : const Color(0xFF64748B),
                               ),
                             ),
                           ),
@@ -1956,7 +2054,8 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                       const SizedBox(height: 4),
                       Row(
                         children: [
-                          const Icon(Icons.access_time, size: 14, color: Color(0xFF94A3B8)),
+                          const Icon(Icons.access_time,
+                              size: 14, color: Color(0xFF94A3B8)),
                           const SizedBox(width: 4),
                           Text(
                             '${DateFormat('h:mm a').format(shift.shiftStart)} - ${DateFormat('h:mm a').format(shift.shiftEnd)}',
@@ -1988,26 +2087,31 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
     final now = DateTime.now();
     final shiftStart = shift.shiftStart.toLocal();
     final shiftEnd = shift.shiftEnd.toLocal();
-    
+
     // Programming window: 1 minute before shift start
-    final programmingWindowStart = shiftStart.subtract(const Duration(minutes: 1));
-    
+    final programmingWindowStart =
+        shiftStart.subtract(const Duration(minutes: 1));
+
     // Debug logging to help diagnose
-    debugPrint('🕐 Clock-in buttons: now=$now, shiftStart=$shiftStart, programWindow=$programmingWindowStart');
-    
+    debugPrint(
+        '🕐 Clock-in buttons: now=$now, shiftStart=$shiftStart, programWindow=$programmingWindowStart');
+
     // Check states
-    final isInProgramWindow = now.isAfter(programmingWindowStart) && now.isBefore(shiftStart);
-    final shiftHasStarted = now.isAfter(shiftStart) || now.isAtSameMomentAs(shiftStart);
+    final isInProgramWindow =
+        now.isAfter(programmingWindowStart) && now.isBefore(shiftStart);
+    final shiftHasStarted =
+        now.isAfter(shiftStart) || now.isAtSameMomentAs(shiftStart);
     final shiftHasEnded = now.isAfter(shiftEnd);
     final isThisShiftProgrammed = _programmedShiftId == shift.id;
-    
-    debugPrint('🕐 States: inProgramWindow=$isInProgramWindow, started=$shiftHasStarted, ended=$shiftHasEnded, programmed=$isThisShiftProgrammed');
-    
+
+    debugPrint(
+        '🕐 States: inProgramWindow=$isInProgramWindow, started=$shiftHasStarted, ended=$shiftHasEnded, programmed=$isThisShiftProgrammed');
+
     // If shift has ended, don't show any buttons
     if (shiftHasEnded) {
       return const SizedBox.shrink();
     }
-    
+
     // If this shift is programmed - show countdown and cancel button
     if (isThisShiftProgrammed) {
       return Container(
@@ -2027,12 +2131,15 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                   height: 16,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF3B82F6)),
+                    valueColor:
+                        AlwaysStoppedAnimation<Color>(Color(0xFF3B82F6)),
                   ),
                 ),
                 const SizedBox(width: 10),
                 Text(
-                  _timeUntilAutoStart.isNotEmpty ? _timeUntilAutoStart : 'Programmed...',
+                  _timeUntilAutoStart.isNotEmpty
+                      ? _timeUntilAutoStart
+                      : 'Programmed...',
                   style: GoogleFonts.inter(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
@@ -2047,11 +2154,14 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
               child: OutlinedButton.icon(
                 onPressed: _cancelProgrammedClockIn,
                 icon: const Icon(Icons.close, size: 16),
-                label: Text(AppLocalizations.of(context)!.clockInCancelProgramming, style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+                label: Text(
+                    AppLocalizations.of(context)!.clockInCancelProgramming,
+                    style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: const Color(0xFF64748B),
                   padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
                   side: const BorderSide(color: Color(0xFFE2E8F0)),
                 ),
               ),
@@ -2060,7 +2170,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
         ),
       );
     }
-    
+
     // If shift has started but not ended - show Clock In button
     if (shiftHasStarted && !shiftHasEnded) {
       return SizedBox(
@@ -2068,18 +2178,20 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
         child: ElevatedButton.icon(
           onPressed: () => _handleClockIn(shift),
           icon: const Icon(Icons.login, size: 18),
-          label: Text(AppLocalizations.of(context)!.clockInNow, style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+          label: Text(AppLocalizations.of(context)!.clockInNow,
+              style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF10B981),
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(vertical: 14),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             elevation: 0,
           ),
         ),
       );
     }
-    
+
     // If in programming window (1 minute before shift) - show Program button
     // This programs automatic clock-in when shift starts
     if (isInProgramWindow) {
@@ -2088,18 +2200,20 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
         child: ElevatedButton.icon(
           onPressed: () => _startProgrammedClockIn(shift),
           icon: const Icon(Icons.schedule, size: 18),
-          label: Text(AppLocalizations.of(context)!.clockInProgram, style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+          label: Text(AppLocalizations.of(context)!.clockInProgram,
+              style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF3B82F6),
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(vertical: 14),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             elevation: 0,
           ),
         ),
       );
     }
-    
+
     // Otherwise, just show the time until clock-in is available
     final timeUntilProgramWindow = programmingWindowStart.difference(now);
     if (timeUntilProgramWindow.inSeconds > 0) {
@@ -2115,7 +2229,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
       } else {
         timeText = 'Clock-in available in ${secs}s';
       }
-      
+
       return Container(
         padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
         decoration: BoxDecoration(
@@ -2138,7 +2252,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
         ),
       );
     }
-    
+
     return const SizedBox.shrink();
   }
 
@@ -2146,11 +2260,13 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
   Future<void> _handleClockIn(TeachingShift shift) async {
     final now = DateTime.now();
     final shiftStart = shift.shiftStart.toLocal();
-    final programmingWindowStart = shiftStart.subtract(const Duration(minutes: 1));
-    
-    final isInProgramWindow = now.isAfter(programmingWindowStart) && now.isBefore(shiftStart);
+    final programmingWindowStart =
+        shiftStart.subtract(const Duration(minutes: 1));
+
+    final isInProgramWindow =
+        now.isAfter(programmingWindowStart) && now.isBefore(shiftStart);
     final shiftHasStarted = !now.isBefore(shiftStart);
-    
+
     // Only allow clock-in if shift has started (not during programming window)
     if (shiftHasStarted) {
       await _performClockIn(shift);
@@ -2173,7 +2289,8 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Not authenticated'), backgroundColor: Colors.red),
+          const SnackBar(
+              content: Text('Not authenticated'), backgroundColor: Colors.red),
         );
         return;
       }
@@ -2189,7 +2306,8 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Unable to get location. Please enable location services.'),
+            content: Text(
+                'Unable to get location. Please enable location services.'),
             backgroundColor: Colors.red,
           ),
         );
@@ -2200,7 +2318,8 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Unable to get location. Please enable location services.'),
+            content: Text(
+                'Unable to get location. Please enable location services.'),
             backgroundColor: Colors.red,
           ),
         );
@@ -2247,23 +2366,23 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
   /// Start programmed clock-in
   void _startProgrammedClockIn(TeachingShift shift) async {
     debugPrint('🕐 Home: Starting programmed clock-in for shift ${shift.id}');
-    
+
     final nowUtc = DateTime.now().toUtc();
     final shiftStartUtc = shift.shiftStart.toUtc();
-    
+
     // If shift has already started, clock in immediately
     if (!nowUtc.isBefore(shiftStartUtc)) {
       debugPrint('🕐 Home: Shift already started - clocking in immediately');
       await _performClockIn(shift, isAutoStart: true);
       return;
     }
-    
+
     // Calculate initial countdown
     final timeLeft = shiftStartUtc.difference(nowUtc);
     final initialSeconds = timeLeft.inSeconds;
     final initialMinutes = timeLeft.inMinutes;
     final remainingSeconds = initialSeconds % 60;
-    
+
     // Persist programmed state
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -2271,19 +2390,19 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
     } catch (e) {
       debugPrint('❌ Home: Failed to save programmed state: $e');
     }
-    
+
     if (!mounted) return;
-    
+
     // Format countdown
-    final countdownText = initialMinutes > 0 
+    final countdownText = initialMinutes > 0
         ? 'Starting in ${initialMinutes}m ${remainingSeconds.toString().padLeft(2, '0')}s'
         : 'Starting in ${initialSeconds}s';
-    
+
     setState(() {
       _programmedShiftId = shift.id;
       _timeUntilAutoStart = countdownText;
     });
-    
+
     // Show confirmation
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -2293,30 +2412,30 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
         duration: const Duration(seconds: 2),
       ),
     );
-    
+
     // Cancel any existing timer
     _programTimer?.cancel();
-    
+
     // Start countdown timer
     _programTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted) {
         timer.cancel();
         return;
       }
-      
+
       final nowUtc = DateTime.now().toUtc();
       final shiftStartUtc = shift.shiftStart.toUtc();
-      
+
       if (!nowUtc.isBefore(shiftStartUtc)) {
         // Time to clock in!
         debugPrint('🕐 Home: Auto-start time reached! Clocking in...');
         timer.cancel();
-        
+
         // Clear persisted state
         SharedPreferences.getInstance().then((prefs) {
           prefs.remove('programmed_start_${shift.id}');
         });
-        
+
         if (mounted) {
           setState(() {
             _timeUntilAutoStart = "Clocking In...";
@@ -2325,16 +2444,16 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
         }
         return;
       }
-      
+
       final timeLeft = shiftStartUtc.difference(nowUtc);
       final seconds = timeLeft.inSeconds;
       final minutes = timeLeft.inMinutes;
       final remainingSeconds = seconds % 60;
-      
-      final countdownText = minutes > 0 
+
+      final countdownText = minutes > 0
           ? 'Starting in ${minutes}m ${remainingSeconds.toString().padLeft(2, '0')}s'
           : 'Starting in ${seconds}s';
-      
+
       if (mounted) {
         setState(() {
           _timeUntilAutoStart = countdownText;
@@ -2348,7 +2467,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
     debugPrint('🕐 Home: Cancelling programmed clock-in');
     _programTimer?.cancel();
     _programTimer = null;
-    
+
     // Clear persisted state
     if (_programmedShiftId != null) {
       try {
@@ -2358,13 +2477,13 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
         debugPrint('❌ Home: Failed to clear programmed state: $e');
       }
     }
-    
+
     if (mounted) {
       setState(() {
         _programmedShiftId = null;
         _timeUntilAutoStart = "";
       });
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(AppLocalizations.of(context)!.clockInCancelled),
@@ -2376,12 +2495,16 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
   }
 
   /// Perform the actual clock-in
-  Future<void> _performClockIn(TeachingShift shift, {bool isAutoStart = false}) async {
+  Future<void> _performClockIn(TeachingShift shift,
+      {bool isAutoStart = false}) async {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppLocalizations.of(context)!.clockInNotAuthenticated), backgroundColor: Colors.red),
+          SnackBar(
+              content:
+                  Text(AppLocalizations.of(context)!.clockInNotAuthenticated),
+              backgroundColor: Colors.red),
         );
         return;
       }
@@ -2390,7 +2513,8 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
       LocationData? location;
       try {
         final timeoutDuration = Duration(seconds: isAutoStart ? 5 : 15);
-        location = await LocationService.getCurrentLocation().timeout(timeoutDuration);
+        location =
+            await LocationService.getCurrentLocation().timeout(timeoutDuration);
       } catch (e) {
         debugPrint('❌ Home: Location error: $e');
         if (isAutoStart) {
@@ -2403,7 +2527,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
           );
         }
       }
-      
+
       // Check location - if null and not auto-start, return early
       if (location == null) {
         if (!mounted) return;
@@ -2436,7 +2560,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
           setState(() {
             _programmedShiftId = null;
             _timeUntilAutoStart = "";
-            
+
             // Immediately update local state to reflect clock-in
             // This ensures UI updates instantly without waiting for Firestore stream
             final now = DateTime.now();
@@ -2445,13 +2569,13 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
               status: ShiftStatus.active,
               clockOutTime: null,
             );
-            
+
             // Update active shift
             _activeShift = updatedShift;
-            
+
             // Remove from upcoming shifts (since it's now active)
             _upcomingShifts.removeWhere((s) => s.id == shift.id);
-            
+
             // Update in all shifts list
             final shiftIndex = _allShifts.indexWhere((s) => s.id == shift.id);
             if (shiftIndex != -1) {
@@ -2459,11 +2583,13 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
             }
           });
         }
-        
+
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(isAutoStart ? 'Auto clock-in successful!' : 'Clocked in successfully!'),
+            content: Text(isAutoStart
+                ? 'Auto clock-in successful!'
+                : 'Clocked in successfully!'),
             backgroundColor: Colors.green,
           ),
         );
@@ -2477,7 +2603,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
             backgroundColor: Colors.red,
           ),
         );
-        
+
         // Clear programmed state on failure too
         if (mounted) {
           setState(() {
@@ -2490,9 +2616,11 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
       debugPrint('❌ Home: Error clocking in: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppLocalizations.of(context)!.errorE), backgroundColor: Colors.red),
+        SnackBar(
+            content: Text(AppLocalizations.of(context)!.errorE),
+            backgroundColor: Colors.red),
       );
-      
+
       // Clear programmed state on error
       if (mounted) {
         setState(() {
@@ -2520,7 +2648,8 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
               color: const Color(0xFFF1F5F9),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.event_available, size: 32, color: Color(0xFF94A3B8)),
+            child: const Icon(Icons.event_available,
+                size: 32, color: Color(0xFF94A3B8)),
           ),
           const SizedBox(height: 16),
           Text(
@@ -2707,6 +2836,19 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
             ],
           ),
           const SizedBox(height: 16),
+          _buildActionItem(
+            'Surah Podcasts',
+            Icons.podcasts_rounded,
+            const Color(0xFF0E72ED),
+            () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const SurahPodcastScreen(),
+                ),
+              );
+            },
+          ),
           _buildResourceItem(
             'Quran.com - Recitation & Translation',
             Icons.menu_book_rounded,
@@ -2744,6 +2886,52 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
             'https://seekersguidance.org',
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildActionItem(
+    String title,
+    IconData icon,
+    Color color,
+    VoidCallback onTap,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Icon(icon, color: color, size: 18),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  title,
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: const Color(0xff374151),
+                  ),
+                ),
+              ),
+              Icon(
+                Icons.arrow_forward_ios_rounded,
+                size: 14,
+                color: color.withOpacity(0.7),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

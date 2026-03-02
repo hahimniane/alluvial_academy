@@ -103,12 +103,15 @@ class _RoleSwitcherState extends State<RoleSwitcher> {
 
       final isAdminTeacher = userData['is_admin_teacher'] as bool? ?? false;
       final userType = (userData['user_type'] as String?)?.trim().toLowerCase();
+      final secondaryRoles = List<String>.from(userData['secondary_roles'] ?? []);
 
       // Check if dual role status changed
       // Any admin has dual modes (admin + teacher). Teachers with is_admin_teacher also have dual roles.
+      // Users with secondary_roles also have dual roles.
       final newHasDualRoles =
           (userType == 'admin' || userType == 'super_admin') ||
-          (isAdminTeacher && userType == 'teacher');
+          (isAdminTeacher && userType == 'teacher') ||
+          secondaryRoles.isNotEmpty;
 
       if (newHasDualRoles != _hasDualRoles) {
         AppLogger.debug(
@@ -181,6 +184,38 @@ class _RoleSwitcherState extends State<RoleSwitcher> {
     );
   }
 
+  Color _roleColor(String role) {
+    switch (role.toLowerCase()) {
+      case 'admin':
+      case 'super_admin':
+        return const Color(0xffEF4444);
+      case 'teacher':
+        return const Color(0xff0386FF);
+      case 'parent':
+        return const Color(0xffF59E0B);
+      case 'student':
+        return const Color(0xff10B981);
+      default:
+        return const Color(0xff6B7280);
+    }
+  }
+
+  IconData _roleIcon(String role) {
+    switch (role.toLowerCase()) {
+      case 'admin':
+      case 'super_admin':
+        return Icons.admin_panel_settings;
+      case 'teacher':
+        return Icons.school;
+      case 'parent':
+        return Icons.family_restroom;
+      case 'student':
+        return Icons.person;
+      default:
+        return Icons.person_outline;
+    }
+  }
+
   Future<void> _switchRole(String newRole) async {
     if (_isSwitching || newRole == _currentRole) return;
 
@@ -200,9 +235,7 @@ class _RoleSwitcherState extends State<RoleSwitcher> {
             content: Row(
               children: [
                 Icon(
-                  newRole == 'admin'
-                      ? Icons.admin_panel_settings
-                      : Icons.school,
+                  _roleIcon(newRole),
                   color: Colors.white,
                   size: 20,
                 ),
@@ -213,9 +246,7 @@ class _RoleSwitcherState extends State<RoleSwitcher> {
                 ),
               ],
             ),
-            backgroundColor: newRole == 'admin'
-                ? const Color(0xffEF4444)
-                : const Color(0xff0386FF),
+            backgroundColor: _roleColor(newRole),
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
@@ -245,10 +276,7 @@ class _RoleSwitcherState extends State<RoleSwitcher> {
   }
 
   Widget _buildRoleChip(String role, bool isActive) {
-    final isAdmin = role == 'admin';
-    final color = isActive
-        ? (isAdmin ? const Color(0xffEF4444) : const Color(0xff0386FF))
-        : Colors.grey.shade300;
+    final color = isActive ? _roleColor(role) : Colors.grey.shade300;
     final textColor = isActive ? Colors.white : Colors.grey.shade600;
 
     return Material(
@@ -269,7 +297,7 @@ class _RoleSwitcherState extends State<RoleSwitcher> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
-                isAdmin ? Icons.admin_panel_settings : Icons.school,
+                _roleIcon(role),
                 size: 16,
                 color: textColor,
               ),

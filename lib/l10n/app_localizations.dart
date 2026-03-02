@@ -4087,7 +4087,7 @@ abstract class AppLocalizations {
   /// No description provided for @assignToStudents.
   ///
   /// In en, this message translates to:
-  /// **'Assign To Students'**
+  /// **'Assign to Students'**
   String get assignToStudents;
 
   /// No description provided for @assignedByAssignedbyname.
@@ -18654,6 +18654,90 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Are you sure you want to ban this form?'**
   String get confirmBanFormMessage;
+
+  /// No description provided for @sidebarSurahPodcasts.
+  ///
+  /// In en, this message translates to:
+  /// **'Surah Podcasts'**
+  String get sidebarSurahPodcasts;
+
+  /// No description provided for @podcastLibrary.
+  ///
+  /// In en, this message translates to:
+  /// **'Podcast Library'**
+  String get podcastLibrary;
+
+  /// No description provided for @uploadPodcast.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload Podcast'**
+  String get uploadPodcast;
+
+  /// No description provided for @selectSurah.
+  ///
+  /// In en, this message translates to:
+  /// **'Select Surah'**
+  String get selectSurah;
+
+  /// No description provided for @podcastTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Title'**
+  String get podcastTitle;
+
+  /// No description provided for @podcastDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Description'**
+  String get podcastDescription;
+
+  /// No description provided for @podcastDuration.
+  ///
+  /// In en, this message translates to:
+  /// **'Duration'**
+  String get podcastDuration;
+
+  /// No description provided for @noPodcastsAssigned.
+  ///
+  /// In en, this message translates to:
+  /// **'No podcasts assigned yet'**
+  String get noPodcastsAssigned;
+
+  /// No description provided for @noPodcastsUploaded.
+  ///
+  /// In en, this message translates to:
+  /// **'No podcasts uploaded yet'**
+  String get noPodcastsUploaded;
+
+  /// No description provided for @podcastUploaded.
+  ///
+  /// In en, this message translates to:
+  /// **'Podcast uploaded successfully'**
+  String get podcastUploaded;
+
+  /// No description provided for @podcastAssigned.
+  ///
+  /// In en, this message translates to:
+  /// **'Podcast assigned successfully'**
+  String get podcastAssigned;
+
+  /// No description provided for @confirmDeletePodcast.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to delete this podcast?'**
+  String get confirmDeletePodcast;
+
+  /// No description provided for @podcastArchived.
+  ///
+  /// In en, this message translates to:
+  /// **'Podcast archived'**
+  String get podcastArchived;
+
+  /// No description provided for @deselectAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Deselect All'**
+  String get deselectAll;
 }
 
 class _AppLocalizationsDelegate

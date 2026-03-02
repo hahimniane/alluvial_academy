@@ -28,6 +28,7 @@ import 'core/services/connectivity_service.dart';
 import 'core/services/language_service.dart';
 import 'core/services/theme_service.dart';
 import 'core/services/notification_service.dart';
+import 'core/services/prayer_notification_service.dart';
 import 'core/theme/app_theme.dart';
 import 'core/services/version_service.dart';
 import 'core/widgets/version_check_wrapper.dart';
@@ -203,6 +204,13 @@ Future<void> main() async {
   // Initialize Notification Service (only for mobile platforms)
   if (!kIsWeb) {
     await NotificationService().initialize();
+
+    // Create the Adhan notification channel (Android only, safe no-op on iOS).
+    await PrayerNotificationService.createAndroidChannel();
+
+    // Schedule location-based prayer time notifications with Adhan sound.
+    // Runs in background so it doesn't delay app startup.
+    PrayerNotificationService.scheduleAllPrayerNotifications();
 
     // Save FCM token if user is already logged in
     _saveFCMTokenIfLoggedIn();
@@ -393,7 +401,15 @@ class MyApp extends StatelessWidget {
           },
           builder: (context, child) {
             final built = DevicePreview.appBuilder(context, child);
-            if (kReleaseMode) return built;
+
+            // Removing the app-wide SelectionArea because it caused a Flutter Web
+            // crash: the root SelectableRegion's _flushAdditions microtask fires
+            // before newly navigated-to widgets are laid out, triggering a
+            // NEEDS-LAYOUT assertion in _compareScreenOrder. Individual screens
+            // that need selectable text use SelectableText directly instead.
+            final appContent = built;
+
+            if (kReleaseMode) return appContent;
 
             final label = _useProdFirebase ? 'PROD' : 'DEV';
             final color =
@@ -408,7 +424,7 @@ class MyApp extends StatelessWidget {
                 fontWeight: FontWeight.w700,
                 letterSpacing: 0.8,
               ),
-              child: built,
+              child: appContent,
             );
           },
           debugShowCheckedModeBanner: false,
@@ -692,6 +708,12 @@ class _AuthenticationWrapperState extends State<AuthenticationWrapper> {
   // Helper to check if we should use the mobile UI
   bool _isMobile(BuildContext context) {
     return _isMobileLayout(context);
+  }
+
+  @override
+  void dispose() {
+    ConnectivityService.stopMonitoring();
+    super.dispose();
   }
 
   @override

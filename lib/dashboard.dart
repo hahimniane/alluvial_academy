@@ -43,9 +43,13 @@ import 'role_based_dashboard.dart';
 import 'core/services/profile_picture_service.dart';
 import 'features/profile/screens/teacher_profile_screen.dart';
 import 'features/settings/screens/mobile_settings_screen.dart';
+import 'features/student/screens/student_progress_screen.dart';
+import 'features/recordings/screens/class_recordings_screen.dart';
+import 'features/surah_podcast/screens/surah_podcast_screen.dart';
 
 import 'features/dashboard/widgets/custom_sidebar.dart';
 import 'features/dashboard/services/sidebar_service.dart';
+import 'features/dashboard/config/sidebar_config.dart';
 
 import 'core/constants/dashboard_constants.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
@@ -67,7 +71,7 @@ class _DashboardPageState extends State<DashboardPage> {
   Map<String, dynamic>? _userData;
   int _refreshTrigger = 0;
   String? _profilePicUrl; // Profile picture URL
-  
+
   // GlobalKey for accessing Scaffold state
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
@@ -83,12 +87,18 @@ class _DashboardPageState extends State<DashboardPage> {
       final role = await UserRoleService.getCurrentUserRole();
       final data = await UserRoleService.getCurrentUserData();
       final profilePicUrl = await ProfilePictureService.getProfilePictureUrl();
-      AppLogger.debug('Dashboard: Loading user data - Role: $role, ProfilePicUrl: ${profilePicUrl ?? "null"}');
+      AppLogger.debug(
+          'Dashboard: Loading user data - Role: $role, ProfilePicUrl: ${profilePicUrl ?? "null"}');
       if (mounted) {
+        final allowedIndexes = _allowedScreenIndexes(role);
+        final nextSelectedIndex = allowedIndexes.contains(_selectedIndex)
+            ? _selectedIndex
+            : _defaultScreenIndexForRole(role);
         setState(() {
           _userRole = role;
           _userData = data;
           _profilePicUrl = profilePicUrl;
+          _selectedIndex = nextSelectedIndex;
         });
       }
     } catch (e) {
@@ -96,7 +106,7 @@ class _DashboardPageState extends State<DashboardPage> {
       print('Error loading user data: $e');
     }
   }
-  
+
   /// Refresh profile picture after returning from profile/settings
   Future<void> _refreshProfilePicture() async {
     final profilePicUrl = await ProfilePictureService.getProfilePictureUrl();
@@ -159,14 +169,40 @@ class _DashboardPageState extends State<DashboardPage> {
         const TeacherFormsScreen(), // Index 22 - Submit Form
         const TeacherJobBoardScreen(), // Index 23 - Job Board / Opportunities
         const AdminAllSubmissionsScreen(), // Index 24 - All submissions (admin)
+        const StudentProgressScreen(), // Index 25 - Student progress
+        const ClassRecordingsScreen(), // Index 26 - Class recordings
+        const SurahPodcastScreen(), // Index 27 - Surah Podcasts
       ];
+
+  Set<int> _allowedScreenIndexes(String? role) {
+    final sections = SidebarConfig.getStructureForRole(role);
+    return sections
+        .expand((section) => section.items)
+        .map((item) => item.screenIndex)
+        .toSet();
+  }
+
+  int _defaultScreenIndexForRole(String? role) {
+    final allowed = _allowedScreenIndexes(role);
+    if (allowed.contains(0)) return 0;
+    if (allowed.isEmpty) return 0;
+    final sorted = allowed.toList()..sort();
+    return sorted.first;
+  }
 
   /// Updates the selected index when a navigation item is tapped
   void _onItemTapped(int index) {
     if (mounted) {
+      final allowedIndexes = _allowedScreenIndexes(_userRole);
+      if (!allowedIndexes.contains(index)) {
+        _showErrorSnackBar(
+            'This section is not available for your current role.');
+        return;
+      }
       // Validate index is within bounds
       if (index < 0 || index >= _screens.length) {
-        AppLogger.error('Invalid screen index: $index (max: ${_screens.length - 1})');
+        AppLogger.error(
+            'Invalid screen index: $index (max: ${_screens.length - 1})');
         return;
       }
       setState(() {
@@ -343,7 +379,8 @@ class _DashboardPageState extends State<DashboardPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        AppLocalizations.of(context)!.pleaseEnterYourCurrentPasswordAnd,
+                        AppLocalizations.of(context)!
+                            .pleaseEnterYourCurrentPasswordAnd,
                         style: GoogleFonts.inter(
                           fontSize: 14,
                           color: const Color(0xff6B7280),
@@ -371,7 +408,8 @@ class _DashboardPageState extends State<DashboardPage> {
                           return null;
                         },
                         decoration: InputDecoration(
-                          hintText: AppLocalizations.of(context)!.enterCurrentPassword,
+                          hintText: AppLocalizations.of(context)!
+                              .enterCurrentPassword,
                           suffixIcon: IconButton(
                             icon: Icon(
                               obscureCurrentPassword
@@ -431,7 +469,8 @@ class _DashboardPageState extends State<DashboardPage> {
                           return null;
                         },
                         decoration: InputDecoration(
-                          hintText: AppLocalizations.of(context)!.enterNewPassword,
+                          hintText:
+                              AppLocalizations.of(context)!.enterNewPassword,
                           suffixIcon: IconButton(
                             icon: Icon(
                               obscureNewPassword
@@ -490,7 +529,8 @@ class _DashboardPageState extends State<DashboardPage> {
                           return null;
                         },
                         decoration: InputDecoration(
-                          hintText: AppLocalizations.of(context)!.confirmNewPassword,
+                          hintText:
+                              AppLocalizations.of(context)!.confirmNewPassword,
                           suffixIcon: IconButton(
                             icon: Icon(
                               obscureConfirmPassword
@@ -541,7 +581,8 @@ class _DashboardPageState extends State<DashboardPage> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              AppLocalizations.of(context)!.passwordRequirements,
+                              AppLocalizations.of(context)!
+                                  .passwordRequirements,
                               style: GoogleFonts.inter(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
@@ -550,7 +591,8 @@ class _DashboardPageState extends State<DashboardPage> {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              AppLocalizations.of(context)!.atLeast6CharactersLongN,
+                              AppLocalizations.of(context)!
+                                  .atLeast6CharactersLongN,
                               style: GoogleFonts.inter(
                                 fontSize: 11,
                                 color: const Color(0xff374151),
@@ -614,7 +656,8 @@ class _DashboardPageState extends State<DashboardPage> {
                                             color: Colors.white),
                                         const SizedBox(width: 8),
                                         Text(
-                                          AppLocalizations.of(context)!.passwordChangedSuccessfully,
+                                          AppLocalizations.of(context)!
+                                              .passwordChangedSuccessfully,
                                           style: GoogleFonts.inter(
                                             fontSize: 14,
                                             fontWeight: FontWeight.w500,
@@ -798,7 +841,8 @@ class _DashboardPageState extends State<DashboardPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        AppLocalizations.of(context)!.confirmDeleteAccountMessage,
+                        AppLocalizations.of(context)!
+                            .confirmDeleteAccountMessage,
                         style: GoogleFonts.inter(
                           fontSize: 14,
                           color: const Color(0xff6B7280),
@@ -824,7 +868,8 @@ class _DashboardPageState extends State<DashboardPage> {
                           return null;
                         },
                         decoration: InputDecoration(
-                          hintText: AppLocalizations.of(context)!.loginEnterPassword,
+                          hintText:
+                              AppLocalizations.of(context)!.loginEnterPassword,
                           suffixIcon: IconButton(
                             icon: Icon(
                               obscurePassword
@@ -1018,7 +1063,7 @@ class _DashboardPageState extends State<DashboardPage> {
   @override
   Widget build(BuildContext context) {
     final isMobile = MediaQuery.of(context).size.width < 800;
-    
+
     return Scaffold(
       key: _scaffoldKey, // Attach the key here
       backgroundColor: Colors.grey.shade100,
@@ -1031,7 +1076,7 @@ class _DashboardPageState extends State<DashboardPage> {
   /// Builds the main body of the dashboard
   Widget _buildBody() {
     final isMobile = MediaQuery.of(context).size.width < 800;
-    
+
     // On mobile, hide sidebar completely
     if (isMobile) {
       return IndexedStack(
@@ -1039,7 +1084,7 @@ class _DashboardPageState extends State<DashboardPage> {
         children: _screens,
       );
     }
-    
+
     // On desktop, show sidebar
     return Row(
       children: [
@@ -1069,7 +1114,8 @@ class _DashboardPageState extends State<DashboardPage> {
             )
           : null,
       title: Padding(
-        padding: EdgeInsets.symmetric(horizontal: isMobile ? 8.0 : 16.0), // Reduced padding on mobile
+        padding: EdgeInsets.symmetric(
+            horizontal: isMobile ? 8.0 : 16.0), // Reduced padding on mobile
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: <Widget>[
@@ -1129,7 +1175,8 @@ class _DashboardPageState extends State<DashboardPage> {
         // Role switcher for dual-role users - show as icon on mobile with smaller size
         if (isMobile)
           IconButton(
-            icon: const Icon(Icons.swap_horiz, color: Color(0xFF111827), size: 20), // Smaller icon
+            icon: const Icon(Icons.swap_horiz,
+                color: Color(0xFF111827), size: 20), // Smaller icon
             onPressed: () => _showRolePickerDialog(),
             tooltip: 'Switch Role',
             padding: EdgeInsets.zero, // Remove padding to save space
@@ -1294,8 +1341,8 @@ class _DashboardPageState extends State<DashboardPage> {
                       ),
                       if (_userRole != null)
                         Container(
-                          padding:
-                              const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
                             color: _getRoleColor(),
                             borderRadius: BorderRadius.circular(4),
@@ -1316,7 +1363,8 @@ class _DashboardPageState extends State<DashboardPage> {
               ],
               _buildAppBarAvatar(isMobile: isMobile),
               if (!isMobile)
-                const Icon(Icons.arrow_drop_down, color: Colors.blueAccent, size: 18),
+                const Icon(Icons.arrow_drop_down,
+                    color: Colors.blueAccent, size: 18),
             ],
           );
         },
@@ -1348,14 +1396,15 @@ class _DashboardPageState extends State<DashboardPage> {
         fontSize: fontSize,
       ),
     );
-    
+
     // Debug: Log profile picture status
     if (_profilePicUrl != null) {
       AppLogger.debug('Dashboard: Displaying profile picture: $_profilePicUrl');
     } else {
-      AppLogger.debug('Dashboard: No profile picture URL, showing initials: ${_getInitials()}');
+      AppLogger.debug(
+          'Dashboard: No profile picture URL, showing initials: ${_getInitials()}');
     }
-    
+
     return Container(
       width: size,
       height: size,
@@ -1373,7 +1422,8 @@ class _DashboardPageState extends State<DashboardPage> {
                 errorBuilder: (context, error, stackTrace) {
                   // statusCode: 0 often means CORS (web) or network; we show initials as fallback
                   if (kDebugMode) {
-                    AppLogger.debug('Dashboard: Profile image could not be loaded (showing initials): $error');
+                    AppLogger.debug(
+                        'Dashboard: Profile image could not be loaded (showing initials): $error');
                   }
                   return Center(child: initials);
                 },
@@ -1385,7 +1435,8 @@ class _DashboardPageState extends State<DashboardPage> {
                       height: 16,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                        valueColor:
+                            const AlwaysStoppedAnimation<Color>(Colors.white),
                       ),
                     ),
                   );
@@ -1502,7 +1553,8 @@ class _DashboardPageState extends State<DashboardPage> {
                       : CircleAvatar(
                           radius: 30,
                           backgroundColor: Colors.white.withOpacity(0.2),
-                          child: const Icon(Icons.person, color: Colors.white, size: 30),
+                          child: const Icon(Icons.person,
+                              color: Colors.white, size: 30),
                         ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -1538,7 +1590,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Center(child: CircularProgressIndicator());
                   }
-                  
+
                   final items = snapshot.data ?? [];
                   return ListView.builder(
                     padding: const EdgeInsets.symmetric(vertical: 8),
@@ -1556,7 +1608,9 @@ class _DashboardPageState extends State<DashboardPage> {
                         title: Text(
                           item['label'],
                           style: GoogleFonts.inter(
-                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                            fontWeight: isSelected
+                                ? FontWeight.w600
+                                : FontWeight.normal,
                             color: isSelected
                                 ? Color(item['colorValue'] ?? 0xff0386FF)
                                 : Colors.black87,
@@ -1602,7 +1656,7 @@ class _DashboardPageState extends State<DashboardPage> {
   Future<List<Map<String, dynamic>>> _getMobileDrawerItems() async {
     final sidebarService = SidebarService();
     final sections = await sidebarService.loadSidebar(_userRole);
-    
+
     final List<Map<String, dynamic>> items = [];
     for (var section in sections) {
       for (var item in section.items) {
@@ -1621,7 +1675,7 @@ class _DashboardPageState extends State<DashboardPage> {
   void _showRolePickerDialog() async {
     final roles = await UserRoleService.getAvailableRoles();
     final currentRole = await UserRoleService.getCurrentUserRole();
-    
+
     if (roles.length <= 1) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('No other roles available')),
@@ -1630,7 +1684,7 @@ class _DashboardPageState extends State<DashboardPage> {
     }
 
     if (!mounted) return;
-    
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(

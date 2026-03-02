@@ -21,6 +21,7 @@ const {
 } = require('../services/tasks/config');
 const {
   sendFCMNotificationToTeacher,
+  sendFCMNotificationToStudent,
   sendClassRemindersToStudents,
   formatDateInTimezone,
   getUserTimezone,
@@ -29,18 +30,43 @@ const {sendShiftNotificationEmails, sendShiftUpdateNotificationEmails} = require
 
 const toDate = (timestamp) => (timestamp.toDate ? timestamp.toDate() : new Date(timestamp));
 
-const formatShiftDateTime = (timestamp) => {
+const formatShiftDateTime = (timestamp, timezone = 'UTC') => {
   try {
     const date = toDate(timestamp);
-    return date.toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-    });
+    return formatDateInTimezone(date, timezone);
   } catch (error) {
     return 'Unknown date';
+  }
+};
+
+const buildLocalShiftTimeData = (date, timezone = 'UTC') => {
+  const normalizedTimezone =
+    typeof timezone === 'string' && timezone.trim() ? timezone.trim() : 'UTC';
+  try {
+    const localDt = DateTime.fromJSDate(date, {zone: 'utc'}).setZone(
+      normalizedTimezone,
+    );
+    if (!localDt.isValid) {
+      throw new Error('invalid local datetime');
+    }
+    return {
+      timezone: normalizedTimezone,
+      localIso: localDt.toISO() || '',
+      localDate: localDt.toFormat('yyyy-LL-dd'),
+      localTime: localDt.toFormat('h:mm a'),
+      localWeekday: localDt.toFormat('cccc'),
+      localDisplay: localDt.toFormat('ccc, LLL d, h:mm a'),
+    };
+  } catch (_) {
+    const fallbackDt = DateTime.fromJSDate(date, {zone: 'utc'});
+    return {
+      timezone: 'UTC',
+      localIso: fallbackDt.toISO() || '',
+      localDate: fallbackDt.toFormat('yyyy-LL-dd'),
+      localTime: fallbackDt.toFormat('h:mm a'),
+      localWeekday: fallbackDt.toFormat('cccc'),
+      localDisplay: fallbackDt.toFormat('ccc, LLL d, h:mm a'),
+    };
   }
 };
 
@@ -601,7 +627,14 @@ const onShiftCreated = onDocumentCreated('teaching_shifts/{shiftId}', async (eve
     const studentNames = (shiftData.student_names || []).join(', ') || 'students';
     const subject = shiftData.subject_display_name || shiftData.subject || 'Class';
     const shiftStart = shiftData.shift_start;
-    const shiftDateTime = formatShiftDateTime(shiftStart);
+    const shiftStartDate = shiftStart.toDate ? shiftStart.toDate() : new Date(shiftStart);
+    if (Number.isNaN(shiftStartDate.getTime())) {
+      console.log(`Shift ${shiftId} has invalid start time - skipping create notification`);
+      return;
+    }
+    const teacherTimezone = await getUserTimezone(teacherId);
+    const shiftDateTime = formatShiftDateTime(shiftStart, teacherTimezone);
+    const localTimeData = buildLocalShiftTimeData(shiftStartDate, teacherTimezone);
 
     // Send immediate notification to teacher about new shift
     const notification = {
@@ -614,14 +647,18 @@ const onShiftCreated = onDocumentCreated('teaching_shifts/{shiftId}', async (eve
       action: 'created',
       shiftId,
       teacherId,
-      shiftStart: shiftStart.toDate().toISOString(),
+      shiftStartUtc: shiftStartDate.toISOString(),
+      shiftStartLocal: localTimeData.localIso,
+      shiftLocalDate: localTimeData.localDate,
+      shiftLocalTime: localTimeData.localTime,
+      shiftLocalWeekday: localTimeData.localWeekday,
+      userTimezone: localTimeData.timezone,
     };
 
     await sendFCMNotificationToTeacher(teacherId, notification, data);
     console.log(`✅ Shift created notification sent to ${teacherName}`);
 
     // Schedule reminder notification 15 minutes before class
-    const shiftStartDate = shiftStart.toDate ? shiftStart.toDate() : new Date(shiftStart);
     const result = await scheduleShiftNotificationTask(shiftId, shiftStartDate, 15);
     if (result.success) {
       console.log(`✅ Reminder notification scheduled for shift ${shiftId}`);
@@ -677,8 +714,17 @@ const onShiftUpdated = onDocumentUpdated('teaching_shifts/{shiftId}', async (eve
     console.log(`📝 Shift updated: ${shiftId}`);
 
     const teacherId = afterData.teacher_id;
+    if (!teacherId) {
+      console.log(`Shift ${shiftId} has no teacher_id - skipping update notifications`);
+      return;
+    }
     const displayName = afterData.custom_name || afterData.auto_generated_name || 'Your shift';
-    const shiftDateTime = formatShiftDateTime(afterData.shift_start);
+    const teacherName = afterData.teacher_name || 'your teacher';
+    const shiftStartDate = toDate(afterData.shift_start);
+    if (Number.isNaN(shiftStartDate.getTime())) {
+      console.log(`Shift ${shiftId} has invalid start time - skipping update notifications`);
+      return;
+    }
 
     const changes = [];
     let hasSignificantChange = false;
@@ -707,21 +753,94 @@ const onShiftUpdated = onDocumentUpdated('teaching_shifts/{shiftId}', async (eve
 
     const changesText = changes.length > 0 ? changes.join(', ') : 'details updated';
 
-    // Send FCM notification
-    const notification = {
+    // Send teacher FCM notification in teacher's local timezone.
+    const teacherTimezone = await getUserTimezone(teacherId);
+    const teacherShiftDateTime = formatDateInTimezone(shiftStartDate, teacherTimezone);
+    const teacherLocalTimeData = buildLocalShiftTimeData(shiftStartDate, teacherTimezone);
+    const teacherNotification = {
       title: '📝 Shift Updated',
-      body: `${displayName} on ${shiftDateTime} - ${changesText}`,
+      body: `${displayName} on ${teacherShiftDateTime} - ${changesText}`,
     };
 
-    const data = {
+    const teacherDataPayload = {
       type: 'shift',
       action: 'updated',
       shiftId,
       teacherId,
       changes: changesText,
+      shiftStartUtc: shiftStartDate.toISOString(),
+      shiftStartLocal: teacherLocalTimeData.localIso,
+      shiftLocalDate: teacherLocalTimeData.localDate,
+      shiftLocalTime: teacherLocalTimeData.localTime,
+      shiftLocalWeekday: teacherLocalTimeData.localWeekday,
+      userTimezone: teacherLocalTimeData.timezone,
     };
 
-    await sendFCMNotificationToTeacher(teacherId, notification, data);
+    await sendFCMNotificationToTeacher(
+      teacherId,
+      teacherNotification,
+      teacherDataPayload,
+    );
+
+    // Send student class-update notifications in each student's local timezone.
+    const studentIds = Array.isArray(afterData.student_ids) ? afterData.student_ids : [];
+    let studentNotificationCount = 0;
+    for (const studentIdRaw of studentIds) {
+      const studentId = String(studentIdRaw || '').trim();
+      if (!studentId) continue;
+
+      try {
+        const studentDoc = await admin.firestore().collection('users').doc(studentId).get();
+        if (!studentDoc.exists) continue;
+
+        const studentData = studentDoc.data() || {};
+        const notifPrefs = studentData.notificationPreferences || {};
+        const isEnabled = notifPrefs.classEnabled !== false;
+        if (!isEnabled) {
+          continue;
+        }
+
+        const studentTimezone = await getUserTimezone(studentId);
+        const studentShiftDateTime = formatDateInTimezone(shiftStartDate, studentTimezone);
+        const studentLocalTimeData = buildLocalShiftTimeData(
+          shiftStartDate,
+          studentTimezone,
+        );
+        const studentNotification = {
+          title: '📝 Class Updated',
+          body: `${displayName} with ${teacherName} is now at ${studentShiftDateTime}`,
+        };
+        const studentDataPayload = {
+          type: 'class',
+          action: 'updated',
+          shiftId,
+          changes: changesText,
+          shiftStartUtc: shiftStartDate.toISOString(),
+          shiftStartLocal: studentLocalTimeData.localIso,
+          shiftLocalDate: studentLocalTimeData.localDate,
+          shiftLocalTime: studentLocalTimeData.localTime,
+          shiftLocalWeekday: studentLocalTimeData.localWeekday,
+          userTimezone: studentLocalTimeData.timezone,
+        };
+
+        const result = await sendFCMNotificationToStudent(
+          studentId,
+          studentNotification,
+          studentDataPayload,
+        );
+        if (result.success) {
+          studentNotificationCount += 1;
+        }
+      } catch (studentNotifError) {
+        console.error(
+          `Error sending shift update notification to student ${studentId}:`,
+          studentNotifError,
+        );
+      }
+    }
+    console.log(
+      `✅ Shift updated teacher notification sent and ${studentNotificationCount} student notification(s) sent`,
+    );
 
     // Send email notifications ONLY for significant changes (time, day, students, subject)
     if (hasSignificantChange) {
@@ -733,7 +852,6 @@ const onShiftUpdated = onDocumentUpdated('teaching_shifts/{shiftId}', async (eve
       }
     }
 
-    console.log('✅ Shift updated notification sent');
   } catch (error) {
     console.error('Error in onShiftUpdated:', error);
   }
@@ -749,8 +867,22 @@ const onShiftCancelled = onDocumentUpdated('teaching_shifts/{shiftId}', async (e
       console.log(`⚠️ Shift cancelled: ${shiftId}`);
 
       const teacherId = afterData.teacher_id;
+      if (!teacherId) {
+        console.log(`Shift ${shiftId} cancelled but has no teacher_id - skipping notification`);
+        return;
+      }
       const displayName = afterData.custom_name || afterData.auto_generated_name || 'Your shift';
-      const shiftDateTime = formatShiftDateTime(afterData.shift_start);
+      const teacherTimezone = await getUserTimezone(teacherId);
+      const shiftDateTime = formatShiftDateTime(
+        afterData.shift_start,
+        teacherTimezone,
+      );
+      const shiftStartDate = toDate(afterData.shift_start);
+      if (Number.isNaN(shiftStartDate.getTime())) {
+        console.log(`Shift ${shiftId} has invalid start time - skipping cancelled notification`);
+        return;
+      }
+      const localTimeData = buildLocalShiftTimeData(shiftStartDate, teacherTimezone);
 
       const notification = {
         title: '⚠️ Shift Cancelled',
@@ -762,6 +894,12 @@ const onShiftCancelled = onDocumentUpdated('teaching_shifts/{shiftId}', async (e
         action: 'cancelled',
         shiftId,
         teacherId,
+        shiftStartUtc: shiftStartDate.toISOString(),
+        shiftStartLocal: localTimeData.localIso,
+        shiftLocalDate: localTimeData.localDate,
+        shiftLocalTime: localTimeData.localTime,
+        shiftLocalWeekday: localTimeData.localWeekday,
+        userTimezone: localTimeData.timezone,
       };
 
       await sendFCMNotificationToTeacher(teacherId, notification, data);
@@ -781,8 +919,22 @@ const onShiftDeleted = onDocumentDeleted('teaching_shifts/{shiftId}', async (eve
     console.log(`🗑️ Shift deleted: ${shiftId}`);
 
     const teacherId = shiftData.teacher_id;
+    if (!teacherId) {
+      console.log(`Shift ${shiftId} deleted but has no teacher_id - skipping notification`);
+      return;
+    }
     const displayName = shiftData.custom_name || shiftData.auto_generated_name || 'A shift';
-    const shiftDateTime = formatShiftDateTime(shiftData.shift_start);
+    const teacherTimezone = await getUserTimezone(teacherId);
+    const shiftDateTime = formatShiftDateTime(
+      shiftData.shift_start,
+      teacherTimezone,
+    );
+    const shiftStartDate = toDate(shiftData.shift_start);
+    if (Number.isNaN(shiftStartDate.getTime())) {
+      console.log(`Shift ${shiftId} has invalid start time - skipping deleted notification`);
+      return;
+    }
+    const localTimeData = buildLocalShiftTimeData(shiftStartDate, teacherTimezone);
 
     const notification = {
       title: '🗑️ Shift Deleted',
@@ -794,6 +946,12 @@ const onShiftDeleted = onDocumentDeleted('teaching_shifts/{shiftId}', async (eve
       action: 'deleted',
       shiftId,
       teacherId,
+      shiftStartUtc: shiftStartDate.toISOString(),
+      shiftStartLocal: localTimeData.localIso,
+      shiftLocalDate: localTimeData.localDate,
+      shiftLocalTime: localTimeData.localTime,
+      shiftLocalWeekday: localTimeData.localWeekday,
+      userTimezone: localTimeData.timezone,
     };
 
     await sendFCMNotificationToTeacher(teacherId, notification, data);
@@ -2332,7 +2490,6 @@ const handleShiftNotificationTask = onRequest(async (req, res) => {
           shiftId,
         };
         
-        const {sendFCMNotificationToStudent} = require('../services/notifications/fcm');
         const result = await sendFCMNotificationToStudent(studentId, notification, data);
         if (result.success) studentNotificationsSent++;
       } catch (error) {

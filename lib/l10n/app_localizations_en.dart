@@ -2144,7 +2144,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get assignTo2 => 'Assign To2';
 
   @override
-  String get assignToStudents => 'Assign To Students';
+  String get assignToStudents => 'Assign to Students';
 
   @override
   String get assignedByAssignedbyname => 'Assigned By Assignedbyname';
@@ -10117,4 +10117,47 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get confirmBanFormMessage => 'Are you sure you want to ban this form?';
+
+  @override
+  String get sidebarSurahPodcasts => 'Surah Podcasts';
+
+  @override
+  String get podcastLibrary => 'Podcast Library';
+
+  @override
+  String get uploadPodcast => 'Upload Podcast';
+
+  @override
+  String get selectSurah => 'Select Surah';
+
+  @override
+  String get podcastTitle => 'Title';
+
+  @override
+  String get podcastDescription => 'Description';
+
+  @override
+  String get podcastDuration => 'Duration';
+
+  @override
+  String get noPodcastsAssigned => 'No podcasts assigned yet';
+
+  @override
+  String get noPodcastsUploaded => 'No podcasts uploaded yet';
+
+  @override
+  String get podcastUploaded => 'Podcast uploaded successfully';
+
+  @override
+  String get podcastAssigned => 'Podcast assigned successfully';
+
+  @override
+  String get confirmDeletePodcast =>
+      'Are you sure you want to delete this podcast?';
+
+  @override
+  String get podcastArchived => 'Podcast archived';
+
+  @override
+  String get deselectAll => 'Deselect All';
 }

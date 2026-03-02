@@ -476,10 +476,14 @@ class _UserManagementScreenState extends State<UserManagementScreen>
     data.then((querySnapshot) {
       for (var docSnapshot in querySnapshot.docs) {
         String? countryCode = docSnapshot.data()['country_code'];
-        AppLogger.error('Country Code: $countryCode');
+        AppLogger.debug('Country Code: $countryCode');
       }
-    }).catchError((error) {
-      AppLogger.error("Error fetching data: $error");
+    }).catchError((error, stackTrace) {
+      AppLogger.error(
+        'Error fetching data: $error',
+        error: error,
+        stackTrace: stackTrace,
+      );
     });
   }
 
@@ -667,10 +671,14 @@ class _UserManagementScreenState extends State<UserManagementScreen>
             'Parent $parentId has ${studentIds.length} students: $studentIds');
       });
 
-      AppLogger.error(
+      AppLogger.debug(
           'Loaded parent-student relationships: ${_parentStudentMap.length} parents');
-    } catch (e) {
-      AppLogger.error('Error loading parent-student relationships: $e');
+    } catch (e, stackTrace) {
+      AppLogger.error(
+        'Error loading parent-student relationships: $e',
+        error: e,
+        stackTrace: stackTrace,
+      );
     }
   }
 

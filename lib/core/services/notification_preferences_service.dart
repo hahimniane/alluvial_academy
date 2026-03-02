@@ -20,6 +20,10 @@ class NotificationPreferencesService {
   
   // Keys for chat notifications (local cache)
   static const String _chatNotificationEnabledKey = 'chat_notification_enabled';
+
+  // Keys for prayer time (Adhan) notifications (local cache)
+  static const String _prayerNotificationEnabledKey =
+      'prayer_notification_enabled';
   
   // Default values
   static const int defaultShiftNotificationMinutes = 15;
@@ -378,6 +382,34 @@ class NotificationPreferencesService {
     }
   }
 
+  // ============================================================
+  // PRAYER TIME (ADHAN) NOTIFICATIONS
+  // ============================================================
+
+  /// Get prayer notification enabled status (cache only; not synced to Firestore).
+  static Future<bool> isPrayerNotificationEnabled() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getBool(_prayerNotificationEnabledKey) ?? true;
+    } catch (e) {
+      AppLogger.error('Error getting prayer notification enabled status: $e');
+      return true;
+    }
+  }
+
+  /// Set prayer notification enabled status (local cache only).
+  ///
+  /// Actual scheduling / cancellation is handled by PrayerNotificationService.
+  static Future<void> setPrayerNotificationEnabled(bool enabled) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_prayerNotificationEnabledKey, enabled);
+      AppLogger.info('✅ Prayer notification enabled ($enabled) saved');
+    } catch (e) {
+      AppLogger.error('Error setting prayer notification enabled status: $e');
+    }
+  }
+
   /// Clear all notification preferences (for testing or reset)
   static Future<void> clearPreferences() async {
     try {
@@ -389,6 +421,7 @@ class NotificationPreferencesService {
       await prefs.remove(_taskNotificationEnabledKey);
       await prefs.remove(_taskNotificationTimeKey);
       await prefs.remove(_chatNotificationEnabledKey);
+      await prefs.remove(_prayerNotificationEnabledKey);
     } catch (e) {
       AppLogger.error('Error clearing notification preferences: $e');
     }
@@ -404,6 +437,7 @@ class NotificationPreferencesService {
       'taskNotificationEnabled': await isTaskNotificationEnabled(),
       'taskNotificationDays': await getTaskNotificationDays(),
       'chatNotificationEnabled': await isChatNotificationEnabled(),
+      'prayerNotificationEnabled': await isPrayerNotificationEnabled(),
     };
   }
 }

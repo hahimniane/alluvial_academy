@@ -7,7 +7,8 @@ import io
 import base64
 import re
 import uuid
-from typing import Awaitable, Callable
+import os
+from typing import AsyncIterable, Awaitable, Callable
 from dotenv import load_dotenv
 from livekit import rtc
 from livekit.agents import (
@@ -45,8 +46,83 @@ TEACHER_ACTION_TOPIC = "ai_tutor_teacher_actions"
 TEACHER_ACTION_RESULT_TOPIC = "ai_tutor_teacher_action_results"
 TEACHER_ACTION_MSG_TYPE = "teacher_action"
 TEACHER_ACTION_RESULT_MSG_TYPE = "teacher_action_result"
+CHAT_TEXT_TOPIC = "ai_tutor_chat_text"
+TRANSCRIPTION_TOPIC = "ai_tutor_transcription"
+# Prevent unsolicited overlapping speech during normal conversation.
+# Whiteboard analysis remains available via explicit WHITEBOARD_IMAGE_TOPIC
+# ("Show AI" action in the client).
+WHITEBOARD_AUTO_FEEDBACK_ENABLED = False
+
+DEFAULT_TUTOR_VOICE_PREFERENCE = "blake"
+DEFAULT_TUTOR_VOICE_ID = "a167e0f3-df7e-4d52-a9c3-f949145efdab"
+TUTOR_VOICE_ID_BY_PREFERENCE: dict[str, str] = {
+    # LiveKit Cartesia Inference documented sample voices.
+    "blake": DEFAULT_TUTOR_VOICE_ID,
+    "jacqueline": "9626c31c-bec5-4cca-baa8-f8ba9e84c8bc",
+    "robyn": "f31cc6a7-c1e8-4764-980c-60a361443dd1",
+    # Backward compatibility for previously stored values.
+    "alluwal": DEFAULT_TUTOR_VOICE_ID,
+    "katie": "9626c31c-bec5-4cca-baa8-f8ba9e84c8bc",
+    "kiefer": DEFAULT_TUTOR_VOICE_ID,
+}
+
+DEFAULT_TUTOR_BACKGROUND_PREFERENCE = "forest"
+TUTOR_BACKGROUND_CLIP_BY_PREFERENCE: dict[str, BuiltinAudioClip | None] = {
+    "none": None,
+    "forest": BuiltinAudioClip.FOREST_AMBIENCE,
+    "city": BuiltinAudioClip.CITY_AMBIENCE,
+    "office": BuiltinAudioClip.OFFICE_AMBIENCE,
+    "hold_music": BuiltinAudioClip.HOLD_MUSIC,
+}
+ISLAMIC_TTS_PRONUNCIATION_RULES: list[tuple[re.Pattern[str], str]] = [
+    (
+        re.compile(r"\ba\s*[- ]\s*l\s*[- ]\s*l\s*[- ]\s*a\s*[- ]\s*h\b", re.IGNORECASE),
+        "Allaah",
+    ),
+    (re.compile(r"\ba\s*[- ]\s*lay\s*[- ]\s*h\b", re.IGNORECASE), "Allaah"),
+    (re.compile(r"\bassalamu\s+alaykum\b", re.IGNORECASE), "Assalaamu alaykum"),
+    (re.compile(r"\ballahu\s+akbar\b", re.IGNORECASE), "Allaahu Akbar"),
+    (re.compile(r"\ballahumma\b", re.IGNORECASE), "Allaahumma"),
+    (
+        re.compile(r"\balhamdu\s*-?\s*lillah\b|\balhamdulillah\b", re.IGNORECASE),
+        "Alhamdu lillaah",
+    ),
+    (
+        re.compile(r"\bsubhan\s*-?\s*allah\b|\bsubhanallah\b", re.IGNORECASE),
+        "Subhaana allaah",
+    ),
+    (
+        re.compile(r"\bastaghfiru?\s*-?\s*llah\b|\bastaghfirullah\b", re.IGNORECASE),
+        "Astaghfirullaah",
+    ),
+    (re.compile(r"\bbismi\s*-?\s*llah\b|\bbismillah\b", re.IGNORECASE), "Bismillaah"),
+    (re.compile(r"\binsha['’]?\s*allah\b", re.IGNORECASE), "In shaa allaah"),
+    (re.compile(r"\bmasha['’]?\s*allah\b", re.IGNORECASE), "Maa shaa allaah"),
+    (re.compile(r"\bqur['’]?an\b", re.IGNORECASE), "Quraan"),
+    (re.compile(r"\bsunnah\b", re.IGNORECASE), "Sunnah"),
+    (re.compile(r"\bsalah\b", re.IGNORECASE), "Salaah"),
+    (re.compile(r"\ballah\b", re.IGNORECASE), "Allaah"),
+]
 
 load_dotenv(".env.local")
+# Optional runtime tuning via environment:
+# - TUTOR_TTS_LANGUAGE: "en" (default) or "ar"
+# - TUTOR_TTS_PRONUNCIATION_DICT_ID: Cartesia pronunciation dictionary ID
+SUPPORTED_TUTOR_TTS_LANGUAGES: set[str] = {"en", "ar"}
+DEFAULT_TUTOR_TTS_LANGUAGE = "en"
+_env_tts_language = os.getenv("TUTOR_TTS_LANGUAGE", DEFAULT_TUTOR_TTS_LANGUAGE).strip().lower()
+if _env_tts_language in SUPPORTED_TUTOR_TTS_LANGUAGES:
+    DEFAULT_TUTOR_TTS_LANGUAGE = _env_tts_language
+elif _env_tts_language:
+    logger.warning(
+        "Unsupported TUTOR_TTS_LANGUAGE='%s'. Falling back to '%s'.",
+        _env_tts_language,
+        DEFAULT_TUTOR_TTS_LANGUAGE,
+    )
+DEFAULT_TUTOR_TTS_PRONUNCIATION_DICT_ID = os.getenv(
+    "TUTOR_TTS_PRONUNCIATION_DICT_ID",
+    "",
+).strip()
 
 
 class VariableTemplater:
@@ -97,6 +173,67 @@ class DefaultAgent(Agent):
             .strip()
             .lower()
         )
+        teacher_actions_enabled_raw = metadata_dict.get("teacher_actions_enabled")
+        if isinstance(teacher_actions_enabled_raw, bool):
+            teacher_actions_enabled = teacher_actions_enabled_raw
+        elif isinstance(teacher_actions_enabled_raw, (int, float)):
+            teacher_actions_enabled = bool(teacher_actions_enabled_raw)
+        elif isinstance(teacher_actions_enabled_raw, str):
+            teacher_actions_enabled = (
+                teacher_actions_enabled_raw.strip().lower() in {"1", "true", "yes", "on"}
+            )
+        else:
+            teacher_actions_enabled = self._user_role == "teacher"
+        self._teacher_actions_enabled = (
+            teacher_actions_enabled and self._user_role == "teacher"
+        )
+        interaction_mode = str(
+            metadata_dict.get("interaction_mode") or "voice"
+        ).strip().lower()
+        self._interaction_mode = (
+            "text" if interaction_mode == "text" else "voice"
+        )
+        voice_pref = str(
+            metadata_dict.get("voice_preference")
+            or metadata_dict.get("ai_voice")
+            or metadata_dict.get("voice")
+            or ""
+        ).strip().lower()
+        self._voice_preference = (
+            voice_pref
+            if voice_pref in TUTOR_VOICE_ID_BY_PREFERENCE
+            else DEFAULT_TUTOR_VOICE_PREFERENCE
+        )
+        background_pref = str(
+            metadata_dict.get("background_preference")
+            or metadata_dict.get("ai_background")
+            or metadata_dict.get("background")
+            or ""
+        ).strip().lower()
+        self._background_preference = (
+            background_pref
+            if background_pref in TUTOR_BACKGROUND_CLIP_BY_PREFERENCE
+            else DEFAULT_TUTOR_BACKGROUND_PREFERENCE
+        )
+        tts_language_pref = str(
+            metadata_dict.get("tts_language")
+            or metadata_dict.get("ai_tts_language")
+            or DEFAULT_TUTOR_TTS_LANGUAGE
+        ).strip().lower()
+        if tts_language_pref not in SUPPORTED_TUTOR_TTS_LANGUAGES:
+            logger.warning(
+                "Unsupported requested tts_language='%s'. Falling back to '%s'.",
+                tts_language_pref,
+                DEFAULT_TUTOR_TTS_LANGUAGE,
+            )
+            tts_language_pref = DEFAULT_TUTOR_TTS_LANGUAGE
+        self._tts_language = tts_language_pref
+        self._tts_pronunciation_dict_id = str(
+            metadata_dict.get("tts_pronunciation_dict_id")
+            or metadata_dict.get("ai_tts_pronunciation_dict_id")
+            or DEFAULT_TUTOR_TTS_PRONUNCIATION_DICT_ID
+            or ""
+        ).strip()
         self._publish_whiteboard_message_cb: Callable[[dict], Awaitable[None]] | None = None
         self._get_whiteboard_project_cb: Callable[[], dict] | None = None
         self._request_teacher_action_cb: Callable[[str, dict], Awaitable[dict]] | None = None
@@ -108,17 +245,31 @@ class DefaultAgent(Agent):
 
   STUDENT CLASS SCHEDULE: {{metadata.class_schedule}}
   CLASS SCHEDULE STATUS: {{metadata.class_schedule_status}}
+  CURRENT LOCAL DATETIME: {{metadata.current_local_readable}}
+  CURRENT LOCAL DATE: {{metadata.current_local_date}}
+  CURRENT LOCAL WEEKDAY: {{metadata.current_local_weekday}}
+  CURRENT LOCAL TIMEZONE: {{metadata.user_timezone}}
   Schedule handling rule: If the student asks about their classes or schedule, answer directly using the STUDENT CLASS SCHEDULE text above before asking any follow-up question.
   If the schedule text says "No upcoming classes scheduled." or "Unable to load class schedule.", state that clearly and then offer to help them plan study time.
   Access confirmation rule: If the student asks whether you have access to their class schedule, answer yes. Then quote or summarize the STUDENT CLASS SCHEDULE you were given. Only say schedule access is unavailable when CLASS SCHEDULE STATUS is "unavailable".
+  Date grounding rules:
+  - Treat CURRENT LOCAL DATETIME as the source of truth for "today", "now", "tonight", "tomorrow", and weekday references.
+  - Never state a different current date than CURRENT LOCAL DATE.
+  - If asked about classes "today", only confirm classes that occur on CURRENT LOCAL DATE in CURRENT LOCAL TIMEZONE.
+  - If no class occurs on CURRENT LOCAL DATE, clearly say there is no class today and then mention the next upcoming class date/time.
+  - When correcting date confusion, include the exact date in words (for example: Monday, February 23, 2026).
   SESSION ROLE: {{metadata.user_role}}
+  TEACHER ACTIONS ENABLED: {{metadata.teacher_actions_enabled}}
   Role handling rules:
   - If SESSION ROLE is teacher, treat {{metadata.user_name}} as a teacher and not as a student.
-  - For teacher requests like "clock me in" or class time changes, use the teacher tools.
+  - Only use teacher scheduling tools when SESSION ROLE is teacher and TEACHER ACTIONS ENABLED is true.
+  - If SESSION ROLE is student, never call teacher_clock_me_in or teacher_reschedule_class.
+  - If a student asks to change class times, clock in, or modify any schedule, politely refuse and tell them to ask their teacher to make the change.
   - Only confirm teacher clock-in/reschedule as completed when tool results report success.
-  - If SESSION ROLE is student, keep normal tutoring behavior.
+  - If SESSION ROLE is student, keep normal tutoring behavior focused on learning help only.
   - Teacher scheduling safety: before changing class times, ask whether the teacher means today only or all future classes for that student if unclear, then summarize and get explicit confirmation before calling a write tool.
   - Teacher timezone rule: interpret all teacher schedule times in {{metadata.user_timezone}} unless the teacher gives a different timezone.
+  - CRITICAL DATETIME RULE: When calling teacher_reschedule_class, you MUST provide full ISO 8601 datetime strings in format YYYY-MM-DDTHH:MM:SS (e.g., 2024-03-15T16:00:00 for 4 PM on March 15, 2024). NEVER use just a time like "16:00". Always confirm the specific date with the teacher by stating it back: "Just to confirm, you want to change the class on [date] from [old time] to [new time], correct?" before calling the tool.
 
   Role and purpose: You are Alluwal, a Muslim professional tutor who teaches children with kindness, clarity, and strong Islamic adab (ah-dahb). Your goal is to help {{metadata.user_name}} learn school topics and, whenever appropriate, connect learning to Islamic values, akhlaq (akh-lahk), and age-appropriate stories from the Qur'an (kor-AHN) and the Sunnah (SOON-nah) without harshness or fear-based teaching. You have access to {{metadata.user_name}}'s class schedule and can help them prepare for upcoming classes or remind them about their schedule when asked.
 
@@ -128,7 +279,7 @@ class DefaultAgent(Agent):
 
   Teaching persona and style: Be warm, patient, and encouraging while still being honest; praise {{metadata.user_name}}'s effort, but do not blindly agree if they are mistaken. Use child-friendly language and simple analogies. Prefer guided discovery: ask small, leading questions that help {{metadata.user_name}} think, rather than delivering long lectures. Break ideas into tiny steps, check understanding before moving on, and end learning moments with a short takeaway in simple words.
 
-  Output rules for voice mastery (must follow every turn): Respond in plain text only with no markdown, no emojis, and no list formatting. Keep each reply to one to three sentences. Always end your turn with exactly one question to keep the lesson moving. Spell out numbers as words. When using Arabic or Islamic terms that might be hard to pronounce, include a phonetic spelling in parentheses the first time you use the term in the conversation; avoid Arabic script to prevent speech errors.
+  Output rules for voice mastery (must follow every turn): Respond in plain text only with no markdown, no emojis, and no list formatting. Keep each reply to one to three sentences. Always end your turn with exactly one question to keep the lesson moving. Spell out numbers as words. Use consistent spellings for core terms: Allah, Qur'an, Sunnah, Salah, Bismillah, Alhamdulillah, SubhanAllah, Allahu Akbar, InshaAllah, and MashaAllah. Never spell these terms letter by letter (for example, never write A-L-L-A-H). When using other Arabic or Islamic terms that might be hard to pronounce, include a phonetic spelling in parentheses the first time you use the term in the conversation; avoid Arabic script to prevent speech errors.
 
   Conversation flow: Start by learning {{metadata.user_name}}'s age or grade level and what they want to learn today. If they ask about their schedule, refer to their class schedule information. Teach in short steps; after each step, ask a single question to confirm understanding or invite {{metadata.user_name}} to apply the idea. If they show confusion, re-explain with an easier example and try again. When {{metadata.user_name}} wants an Islamic story, focus on the moral lesson and how to practice it today. When they ask about sensitive topics, respond with calm adab, keep it age-appropriate, and redirect to a safe and constructive learning point.
 
@@ -159,9 +310,10 @@ class DefaultAgent(Agent):
     def _require_teacher_action_bridge(
         self,
     ) -> Callable[[str, dict], Awaitable[dict]]:
-        if self._user_role != "teacher":
+        if self._user_role != "teacher" or not self._teacher_actions_enabled:
             raise llm.ToolError(
-                "teacher actions are only available in teacher sessions"
+                "Schedule changes and clock-in are disabled in student sessions. "
+                "Only teacher sessions can perform teacher actions."
             )
         if self._request_teacher_action_cb is None:
             raise llm.ToolError("teacher action bridge is not initialized")
@@ -181,6 +333,22 @@ class DefaultAgent(Agent):
 
     def _clamp01(self, value: float) -> float:
         return max(0.0, min(1.0, float(value)))
+
+    def _apply_tts_pronunciation_lexicon(self, text: str) -> str:
+        normalized = text
+        for pattern, replacement in ISLAMIC_TTS_PRONUNCIATION_RULES:
+            normalized = pattern.sub(replacement, normalized)
+        return normalized
+
+    async def _tts_pronunciation_stream(self, text: AsyncIterable[str]) -> AsyncIterable[str]:
+        async for chunk in text:
+            if not isinstance(chunk, str):
+                continue
+            yield self._apply_tts_pronunciation_lexicon(chunk)
+
+    def tts_node(self, text: AsyncIterable[str], model_settings):
+        tts_ready_text = self._tts_pronunciation_stream(text)
+        return super().tts_node(tts_ready_text, model_settings)
 
     def _require_whiteboard_bridge(
         self,
@@ -643,7 +811,10 @@ class DefaultAgent(Agent):
     @llm.function_tool(
         description=(
             "Reschedule a class for a teacher. "
-            "Requires local datetime values, explicit scope, and explicit confirmation."
+            "CRITICAL: new_start_local_iso and new_end_local_iso MUST be full ISO 8601 datetime strings "
+            "in format YYYY-MM-DDTHH:MM:SS (e.g., '2024-03-15T16:00:00' for 4:00 PM on March 15, 2024). "
+            "NEVER use just a time like '16:00' - always include the complete date. "
+            "Requires explicit scope (single/today OR future/all_future) and explicit confirmation from the teacher."
         )
     )
     async def teacher_reschedule_class(
@@ -677,6 +848,23 @@ class DefaultAgent(Agent):
         if confirmed is not True:
             raise llm.ToolError(
                 "Please explicitly confirm before I make this schedule change."
+            )
+
+        # Validate datetime format (must be full ISO 8601: YYYY-MM-DDTHH:MM:SS)
+        iso_pattern = r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$'
+        start_clean = new_start_local_iso.strip()
+        end_clean = new_end_local_iso.strip()
+
+        if not re.match(iso_pattern, start_clean):
+            raise llm.ToolError(
+                f"Invalid start time format '{start_clean}'. "
+                "Please provide a full ISO datetime like 2024-03-15T16:00:00 (include the date)."
+            )
+
+        if not re.match(iso_pattern, end_clean):
+            raise llm.ToolError(
+                f"Invalid end time format '{end_clean}'. "
+                "Please provide a full ISO datetime like 2024-03-15T17:00:00 (include the date)."
             )
 
         resolved_timezone = timezone.strip()
@@ -719,12 +907,53 @@ class DefaultAgent(Agent):
         raise llm.ToolError(message or "Reschedule failed.")
 
     def get_greeting_instructions(self) -> str:
-        if self._user_role == "teacher":
+        if self.is_teacher_session():
             return self._templater.render(
                 """Greet the teacher warmly. Address them as {{metadata.user_name}}. Mention that you can help with schedule questions, class time changes, and clock-in actions."""
             )
         return self._templater.render(
             """Greet the user warmly. Address them as {{metadata.user_name}}. Offer your assistance as their learning buddy."""
+        )
+
+    def default_response_mode(self) -> str:
+        return self._interaction_mode
+
+    def prefers_text_mode(self) -> bool:
+        return self._interaction_mode == "text"
+
+    def is_teacher_session(self) -> bool:
+        return self._user_role == "teacher" and self._teacher_actions_enabled
+
+    def get_text_mode_greeting(self) -> str:
+        if self.is_teacher_session():
+            return (
+                "As-salamu alaykum. I can help with your schedule, class time changes, "
+                "or clock-in support. What would you like to do first?"
+            )
+        return (
+            "As-salamu alaykum. I am ready to help with your studies and questions. "
+            "What would you like to learn first?"
+        )
+
+    def get_tts_voice_id(self) -> str:
+        return TUTOR_VOICE_ID_BY_PREFERENCE.get(
+            self._voice_preference,
+            DEFAULT_TUTOR_VOICE_ID,
+        )
+
+    def get_tts_language(self) -> str:
+        return self._tts_language
+
+    def get_tts_extra_kwargs(self) -> dict[str, str]:
+        kwargs: dict[str, str] = {}
+        if self._tts_pronunciation_dict_id:
+            kwargs["pronunciation_dict_id"] = self._tts_pronunciation_dict_id
+        return kwargs
+
+    def get_background_clip(self) -> BuiltinAudioClip | None:
+        return TUTOR_BACKGROUND_CLIP_BY_PREFERENCE.get(
+            self._background_preference,
+            TUTOR_BACKGROUND_CLIP_BY_PREFERENCE[DEFAULT_TUTOR_BACKGROUND_PREFERENCE],
         )
 
 
@@ -740,28 +969,79 @@ async def entrypoint(ctx: JobContext):
     # Connect to the room first
     await ctx.connect()
 
-    session = AgentSession(
-        stt=inference.STT(model="cartesia/ink-whisper", language="en"),
-        llm=inference.LLM(model="openai/gpt-4o"),
-        tts=inference.TTS(
-            model="cartesia/sonic-3",
-            voice="a167e0f3-df7e-4d52-a9c3-f949145efdab",
-            language="en"
-        ),
-        turn_detection=MultilingualModel(),
-        vad=ctx.proc.userdata["vad"],
-        preemptive_generation=True,
-    )
-
     agent = DefaultAgent(metadata=ctx.job.metadata)
+    is_text_mode_session = agent.prefers_text_mode()
+    selected_voice_id = agent.get_tts_voice_id()
+    selected_tts_language = agent.get_tts_language()
+    selected_tts_extra_kwargs = agent.get_tts_extra_kwargs()
+    logger.info(
+        "Session prefs: mode=%s voice=%s language=%s pron_dict=%s background=%s",
+        "text" if is_text_mode_session else "voice",
+        selected_voice_id,
+        selected_tts_language,
+        (
+            selected_tts_extra_kwargs.get("pronunciation_dict_id")
+            if selected_tts_extra_kwargs.get("pronunciation_dict_id")
+            else "none"
+        ),
+        agent.get_background_clip(),
+    )
+    llm_engine = inference.LLM(model="openai/gpt-4o")
+
+    if is_text_mode_session:
+        # Text sessions intentionally omit STT/TTS/VAD to guarantee no listening/speaking.
+        session = AgentSession(
+            llm=llm_engine,
+            preemptive_generation=False,
+        )
+    else:
+        try:
+            tts_engine = inference.TTS(
+                model="cartesia/sonic-3",
+                voice=selected_voice_id,
+                language=selected_tts_language,
+                extra_kwargs=selected_tts_extra_kwargs,
+            )
+        except Exception as e:
+            logger.warning(
+                "TTS: failed to initialize selected voice '%s' (%s). Falling back to default.",
+                selected_voice_id,
+                e,
+            )
+            tts_engine = inference.TTS(
+                model="cartesia/sonic-3",
+                voice=DEFAULT_TUTOR_VOICE_ID,
+                language=selected_tts_language,
+                extra_kwargs=selected_tts_extra_kwargs,
+            )
+
+        session = AgentSession(
+            stt=inference.STT(model="cartesia/ink-whisper", language="en"),
+            llm=llm_engine,
+            tts=tts_engine,
+            turn_detection=MultilingualModel(),
+            vad=ctx.proc.userdata["vad"],
+            preemptive_generation=True,
+        )
 
     await session.start(
         agent=agent,
         room=ctx.room,
         room_options=room_io.RoomOptions(
-            audio_input=room_io.AudioInputOptions(
-                noise_cancellation=lambda params: noise_cancellation.BVCTelephony() if params.participant.kind == rtc.ParticipantKind.PARTICIPANT_KIND_SIP else noise_cancellation.BVC(),
+            # Text sessions are strictly data-channel only: no voice capture/output.
+            audio_input=(
+                False
+                if is_text_mode_session
+                else room_io.AudioInputOptions(
+                    noise_cancellation=lambda params: (
+                        noise_cancellation.BVCTelephony()
+                        if params.participant.kind
+                        == rtc.ParticipantKind.PARTICIPANT_KIND_SIP
+                        else noise_cancellation.BVC()
+                    ),
+                )
             ),
+            audio_output=False if is_text_mode_session else True,
             # VISION ENABLED: Agent can see video/images
             video_input=True,
         ),
@@ -889,9 +1169,12 @@ async def entrypoint(ctx: JobContext):
             "message": "Received an invalid response for the teacher action.",
         }
 
-    agent.configure_teacher_action_bridge(
-        request_action_cb=_request_teacher_action,
-    )
+    if agent.is_teacher_session():
+        agent.configure_teacher_action_bridge(
+            request_action_cb=_request_teacher_action,
+        )
+    else:
+        logger.info("Teacher action bridge disabled for non-teacher session.")
 
     def _parse_whiteboard_project(data: bytes) -> dict | None:
         try:
@@ -1161,31 +1444,40 @@ async def entrypoint(ctx: JobContext):
         action: str,
         sender_identity: str,
     ) -> None:
+        if is_text_mode_session:
+            logger.debug("Whiteboard: skipping automatic feedback in text mode")
+            return
+
         try:
             await asyncio.sleep(1.2)  # Debounce while student is actively drawing.
             summary = _summarize_project(project, action)
-            image_bytes: bytes | None = None
-            try:
-                image_bytes = _render_project_png(project)
-            except Exception as e:
-                logger.warning(f"Whiteboard: failed to render image from strokes: {e}")
-
+            rendered_image_data_url: str | None = None
+            rendered_bytes = _render_project_png(project)
+            if rendered_bytes:
+                rendered_image_data_url = (
+                    "data:image/png;base64,"
+                    f"{base64.b64encode(rendered_bytes).decode('ascii')}"
+                )
             logger.info(
                 f"Whiteboard: generating feedback for {sender_identity}, action={action}"
             )
-            if image_bytes:
-                image_data_url = (
-                    "data:image/png;base64,"
-                    f"{base64.b64encode(image_bytes).decode('ascii')}"
+            if rendered_image_data_url:
+                session.history.add_message(
+                    role="user",
+                    content=[
+                        summary,
+                        llm.ImageContent(
+                            image=rendered_image_data_url,
+                            inference_detail="high",
+                        ),
+                    ],
                 )
                 await session.generate_reply(
                     instructions=(
-                        "The student updated their whiteboard. Analyze the provided image of the board and "
-                        "give concise, useful tutoring feedback. "
-                        f"Additional metadata: {summary} "
-                        "If the board is empty or cleared, ask what they want to work on next."
+                        "The student updated their whiteboard. Analyze the image first, then use the "
+                        "summary as supporting context. Give concise, helpful tutoring feedback. "
+                        "If the board is empty or cleared, ask what they want to draw or solve next."
                     ),
-                    user_input=llm.ImageContent(image=image_data_url),
                     allow_interruptions=True,
                 )
             else:
@@ -1207,22 +1499,299 @@ async def entrypoint(ctx: JobContext):
         image_data_url: str,
         sender_identity: str,
     ) -> None:
+        if is_text_mode_session:
+            logger.debug("Whiteboard image: skipping voice feedback in text mode")
+            return
+
         try:
             logger.info(
                 f"Whiteboard image: generating feedback from {sender_identity}"
             )
+            session.history.add_message(
+                role="user",
+                content=[
+                    "Please analyze this whiteboard image and help me understand my work.",
+                    llm.ImageContent(
+                        image=image_data_url,
+                        inference_detail="high",
+                    ),
+                ],
+            )
             await session.generate_reply(
                 instructions=(
                     "The student explicitly asked you to look at their whiteboard. "
-                    "Analyze the image carefully and give concise, helpful tutoring feedback. "
+                    "Analyze the provided whiteboard image carefully, read any visible writing, and provide "
+                    "concise, helpful tutoring feedback based on the most recent visible work. "
                     "If the writing is unclear, say what you can infer and ask a clarifying question."
                 ),
-                user_input=llm.ImageContent(image=image_data_url),
                 allow_interruptions=True,
             )
         except asyncio.CancelledError:
             logger.debug("Whiteboard image: cancelled")
             return
+        except Exception as e:
+            logger.warning(
+                "Whiteboard image: vision request failed (%s). Falling back to project summary.",
+                e,
+                exc_info=True,
+            )
+            fallback_project = _get_current_project()
+            fallback_summary = _summarize_project(
+                fallback_project,
+                "image_request_fallback",
+            )
+            await session.generate_reply(
+                instructions=(
+                    "The student asked for whiteboard feedback, but image analysis failed. "
+                    "Use the summary context to provide the most helpful feedback you can."
+                ),
+                user_input=fallback_summary,
+                allow_interruptions=True,
+            )
+
+    async def _publish_transcription(
+        content: str,
+        sender: str,
+        transcription_type: str = "final",
+    ) -> None:
+        """Publish transcription to Flutter client via data channel."""
+        local = ctx.room.local_participant
+        if local is None:
+            return
+
+        payload = {
+            "type": transcription_type,
+            "content": content,
+            "sender": sender,
+            "timestamp": time.time(),
+        }
+
+        try:
+            await local.publish_data(
+                json.dumps(payload),
+                reliable=True,
+                topic=TRANSCRIPTION_TOPIC,
+            )
+            logger.debug(f"Transcription: published {sender} message")
+        except Exception as e:
+            logger.warning(f"Transcription: failed to publish: {e}")
+
+    text_mode_reply_lock = asyncio.Lock()
+    recent_chat_message_ids: dict[str, float] = {}
+    recent_chat_fingerprints: dict[str, float] = {}
+    recent_chat_dedupe_ttl_seconds = 20.0
+    text_mode_fallback_chat_ctx: llm.ChatContext | None = None
+    if is_text_mode_session:
+        text_mode_fallback_chat_ctx = llm.ChatContext.empty()
+        text_mode_fallback_chat_ctx.add_message(
+            role="system",
+            content=agent.instructions,
+        )
+
+    def _extract_assistant_text_from_run_result(run_result) -> str:
+        for event in reversed(run_result.events):
+            if getattr(event, "type", "") != "message":
+                continue
+            item = getattr(event, "item", None)
+            if item is None or getattr(item, "role", "") != "assistant":
+                continue
+            text_content = getattr(item, "text_content", None)
+            if isinstance(text_content, str) and text_content.strip():
+                return text_content.strip()
+        return ""
+
+    async def _generate_text_mode_response_via_llm(user_message: str) -> str:
+        if text_mode_fallback_chat_ctx is None:
+            return ""
+
+        text_mode_fallback_chat_ctx.add_message(
+            role="user",
+            content=user_message,
+        )
+        stream = llm_engine.chat(chat_ctx=text_mode_fallback_chat_ctx)
+        chunks: list[str] = []
+        try:
+            async for chunk in stream:
+                delta = getattr(chunk, "delta", None)
+                content_piece = getattr(delta, "content", None) if delta else None
+                if isinstance(content_piece, str) and content_piece:
+                    chunks.append(content_piece)
+        finally:
+            await stream.aclose()
+
+        response = "".join(chunks).strip()
+        if response:
+            text_mode_fallback_chat_ctx.add_message(
+                role="assistant",
+                content=response,
+            )
+        return response
+
+    async def _generate_text_mode_response(user_message: str) -> str:
+        # Primary path: use AgentSession run so tools and full session context remain available.
+        run_result = session.run(user_input=user_message)
+        try:
+            await run_result
+            response = _extract_assistant_text_from_run_result(run_result)
+            if response:
+                if text_mode_fallback_chat_ctx is not None:
+                    text_mode_fallback_chat_ctx.add_message(
+                        role="user",
+                        content=user_message,
+                    )
+                    text_mode_fallback_chat_ctx.add_message(
+                        role="assistant",
+                        content=response,
+                    )
+                return response
+        except Exception as run_error:
+            logger.warning(
+                "Chat text: AgentSession.run failed in text mode (%s). "
+                "Falling back to direct LLM chat.",
+                run_error,
+                exc_info=True,
+            )
+
+        if agent.is_teacher_session():
+            # Safety: avoid free-form fallback for teacher operational flows when tool
+            # execution could not be validated through AgentSession.
+            return (
+                "I could not safely process that teacher request right now. "
+                "Please try again in a moment."
+            )
+
+        # Fallback: direct LLM text stream without TTS.
+        return await _generate_text_mode_response_via_llm(user_message)
+
+    async def _handle_user_text_message(data: bytes, sender_identity: str) -> None:
+        """Process text message from user and generate AI response."""
+        try:
+            packet_json = json.loads(data.decode("utf-8"))
+        except Exception as e:
+            logger.warning(f"Chat text: failed to parse JSON: {e}")
+            return
+
+        if not isinstance(packet_json, dict):
+            return
+
+        msg_type = str(packet_json.get("type") or "").strip()
+        content_raw = packet_json.get("content", "")
+        content = (
+            content_raw.strip()
+            if isinstance(content_raw, str)
+            else str(content_raw or "").strip()
+        )
+        response_mode_raw = packet_json.get("response_mode")
+        response_mode = (
+            response_mode_raw.strip().lower()
+            if isinstance(response_mode_raw, str)
+            else ""
+        )
+        message_id_raw = (
+            packet_json.get("message_id")
+            or packet_json.get("id")
+            or packet_json.get("request_id")
+            or ""
+        )
+        message_id = (
+            message_id_raw.strip()
+            if isinstance(message_id_raw, str)
+            else str(message_id_raw or "").strip()
+        )
+        if is_text_mode_session:
+            response_mode = "text"
+        if response_mode not in {"text", "voice"}:
+            response_mode = agent.default_response_mode()
+
+        if msg_type != "user_text_message" or not content:
+            return
+
+        now_ts = time.time()
+        id_expire_before = now_ts - recent_chat_dedupe_ttl_seconds
+        for key, seen_at in list(recent_chat_message_ids.items()):
+            if seen_at < id_expire_before:
+                recent_chat_message_ids.pop(key, None)
+        for key, seen_at in list(recent_chat_fingerprints.items()):
+            if seen_at < id_expire_before:
+                recent_chat_fingerprints.pop(key, None)
+
+        if message_id:
+            if message_id in recent_chat_message_ids:
+                logger.info(
+                    "Chat text: deduped repeated message_id=%s from %s",
+                    message_id,
+                    sender_identity,
+                )
+                return
+            recent_chat_message_ids[message_id] = now_ts
+        else:
+            # Fallback dedupe for clients that don't send message IDs.
+            # Helps avoid double replies when reliable->unreliable retry both arrive.
+            fingerprint = (
+                f"{sender_identity}|{response_mode}|{content.strip().lower()}"
+            )
+            last_seen = recent_chat_fingerprints.get(fingerprint)
+            if last_seen is not None and (now_ts - last_seen) <= 3.0:
+                logger.info(
+                    "Chat text: deduped repeated payload from %s",
+                    sender_identity,
+                )
+                return
+            recent_chat_fingerprints[fingerprint] = now_ts
+
+        logger.info(f"Chat text: received user message from {sender_identity}: {content[:50]}... (mode={response_mode})")
+
+        if response_mode == "text":
+            # Text mode: use AgentSession generation and return the reply over data channel.
+            async with text_mode_reply_lock:
+                try:
+                    full_response = await _generate_text_mode_response(content)
+                    if full_response:
+                        await _publish_transcription(full_response, "ai", "final")
+                        logger.info(
+                            f"Chat text: sent text response ({len(full_response)} chars)"
+                        )
+                    else:
+                        await _publish_transcription(
+                            "I'm here to help! What would you like to learn about?",
+                            "ai",
+                            "final",
+                        )
+                except Exception as e:
+                    logger.error(
+                        f"Chat text: failed to generate text response: {e}",
+                        exc_info=True,
+                    )
+                    await _publish_transcription(
+                        "I'm sorry, I encountered an error. Please try again.",
+                        "ai",
+                        "final",
+                    )
+        else:
+            # Voice mode: Generate response with TTS (existing behavior)
+            await session.generate_reply(
+                user_input=content,
+                allow_interruptions=True,
+            )
+
+    # Register transcription event handlers
+    @session.on("user_speech_committed")
+    def on_user_speech(event):
+        """Forward user's speech transcription to Flutter."""
+        if is_text_mode_session:
+            return
+        transcript = getattr(event, "transcript", "") or getattr(event, "text", "")
+        if transcript:
+            asyncio.create_task(_publish_transcription(transcript, "user", "final"))
+
+    @session.on("agent_speech_committed")
+    def on_agent_speech(event):
+        """Forward agent's speech transcription to Flutter."""
+        if is_text_mode_session:
+            return
+        transcript = getattr(event, "transcript", "") or getattr(event, "text", "")
+        if transcript:
+            asyncio.create_task(_publish_transcription(transcript, "ai", "final"))
 
     @ctx.room.on("data_received")
     def on_data_received(data: rtc.DataPacket):
@@ -1268,6 +1837,11 @@ async def entrypoint(ctx: JobContext):
                 return
             if not pending.done():
                 pending.set_result(action_result)
+            return
+
+        # Handle text chat messages from the Flutter app
+        if topic == CHAT_TEXT_TOPIC:
+            asyncio.create_task(_handle_user_text_message(data.data, sender_identity))
             return
 
         if topic == WHITEBOARD_IMAGE_TOPIC:
@@ -1346,21 +1920,42 @@ async def entrypoint(ctx: JobContext):
         if pending_whiteboard_task is not None and not pending_whiteboard_task.done():
             pending_whiteboard_task.cancel()
 
+        if is_text_mode_session:
+            logger.debug("Whiteboard: passive board updates ignored in text mode")
+            return
+        if not WHITEBOARD_AUTO_FEEDBACK_ENABLED:
+            logger.debug(
+                "Whiteboard: passive board updates ignored in voice mode; "
+                "waiting for explicit whiteboard image request"
+            )
+            return
+
         pending_whiteboard_task = asyncio.create_task(
             _respond_to_whiteboard_after_pause(project, action, sender_identity)
         )
 
-    # Generate the initial greeting
-    await session.generate_reply(
-        instructions=agent.get_greeting_instructions(),
-        allow_interruptions=True,
-    )
+    # Generate the initial greeting.
+    if agent.prefers_text_mode():
+        greeting_text = agent.get_text_mode_greeting()
+        await _publish_transcription(greeting_text, "ai", "final")
+        if text_mode_fallback_chat_ctx is not None:
+            text_mode_fallback_chat_ctx.add_message(
+                role="assistant",
+                content=greeting_text,
+            )
+    else:
+        await session.generate_reply(
+            instructions=agent.get_greeting_instructions(),
+            allow_interruptions=True,
+        )
 
-    background_audio = BackgroundAudioPlayer(
-        ambient_sound=AudioConfig(BuiltinAudioClip.FOREST_AMBIENCE, volume=1.0),
-    )
-
-    await background_audio.start(room=ctx.room, agent_session=session)
+    if not is_text_mode_session:
+        background_clip = agent.get_background_clip()
+        if background_clip is not None:
+            background_audio = BackgroundAudioPlayer(
+                ambient_sound=AudioConfig(background_clip, volume=1.0),
+            )
+            await background_audio.start(room=ctx.room, agent_session=session)
 
 
 if __name__ == "__main__":

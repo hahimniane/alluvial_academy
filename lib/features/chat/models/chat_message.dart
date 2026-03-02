@@ -57,10 +57,37 @@ class ChatMessage {
   bool get isImage => messageType == 'image';
   bool get isFile => messageType == 'file';
   bool get isVoice => messageType == 'voice';
+  bool get isSystem => messageType == 'system';
   String? get fileUrl => metadata?['file_url'];
   String? get fileName => metadata?['file_name'];
   int? get fileSize => metadata?['file_size'];
   int? get voiceDuration => metadata?['duration']; // Duration in seconds
+  String? get voiceMimeType {
+    final stored = metadata?['mime_type']?.toString().trim();
+    if (stored != null && stored.isNotEmpty) return stored;
+
+    final source = (fileName?.isNotEmpty == true ? fileName! : fileUrl ?? '')
+        .toLowerCase();
+    if (source.endsWith('.m4a') || source.endsWith('.mp4')) {
+      return 'audio/mp4';
+    }
+    if (source.endsWith('.mp3')) {
+      return 'audio/mpeg';
+    }
+    if (source.endsWith('.wav')) {
+      return 'audio/wav';
+    }
+    if (source.endsWith('.webm')) {
+      return 'audio/webm';
+    }
+    if (source.endsWith('.ogg') || source.endsWith('.opus')) {
+      return 'audio/ogg';
+    }
+    if (source.endsWith('.aac')) {
+      return 'audio/aac';
+    }
+    return null;
+  }
 
   String get fileSizeFormatted {
     final size = fileSize;
@@ -69,7 +96,7 @@ class ChatMessage {
     if (size < 1024 * 1024) return '${(size / 1024).toStringAsFixed(1)} KB';
     return '${(size / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
-  
+
   String get voiceDurationFormatted {
     final duration = voiceDuration ?? 0;
     final minutes = duration ~/ 60;

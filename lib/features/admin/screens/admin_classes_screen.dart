@@ -8,6 +8,7 @@ import '../../../core/services/shift_service.dart';
 import '../../../core/services/video_call_service.dart';
 import '../../../core/services/livekit_service.dart';
 import '../../../core/enums/shift_enums.dart';
+import '../../recordings/screens/class_recordings_screen.dart';
 import '../../../core/utils/app_logger.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
@@ -30,7 +31,7 @@ class _AdminClassesScreenState extends State<AdminClassesScreen>
   Timer? _presenceTimer;
   StreamSubscription<List<TeachingShift>>? _shiftsSubscription;
   late TabController _tabController;
-  
+
   // Cache for room presence data (shiftId -> presence result)
   final Map<String, LiveKitRoomPresenceResult> _presenceCache = {};
 
@@ -57,15 +58,16 @@ class _AdminClassesScreenState extends State<AdminClassesScreen>
     _tabController.dispose();
     super.dispose();
   }
-  
+
   /// Refresh presence for all active classes
   Future<void> _refreshActiveClassPresence() async {
-    final activeClasses = _todayClasses.where((s) => s.status == ShiftStatus.active).toList();
+    final activeClasses =
+        _todayClasses.where((s) => s.status == ShiftStatus.active).toList();
     for (final shift in activeClasses) {
       await _fetchPresence(shift.id);
     }
   }
-  
+
   /// Fetch presence for a specific shift
   Future<LiveKitRoomPresenceResult?> _fetchPresence(String shiftId) async {
     try {
@@ -102,7 +104,8 @@ class _AdminClassesScreenState extends State<AdminClassesScreen>
         final upcomingClasses = <TeachingShift>[];
         final pastClasses = <TeachingShift>[];
 
-        for (final shift in shifts) {
+        for (final shift
+            in shifts.where((s) => s.category == ShiftCategory.teaching)) {
           final shiftDate = DateTime(
             shift.shiftStart.year,
             shift.shiftStart.month,
@@ -148,7 +151,8 @@ class _AdminClassesScreenState extends State<AdminClassesScreen>
           // Then sort by start time
           return a.shiftStart.compareTo(b.shiftStart);
         });
-        pastClasses.sort((a, b) => b.shiftStart.compareTo(a.shiftStart)); // Newest first
+        pastClasses.sort(
+            (a, b) => b.shiftStart.compareTo(a.shiftStart)); // Newest first
 
         setState(() {
           _todayClasses = todayClasses;
@@ -201,6 +205,18 @@ class _AdminClassesScreenState extends State<AdminClassesScreen>
         ),
         actions: [
           IconButton(
+            icon: const Icon(Icons.video_library_outlined,
+                color: Color(0xFF64748B)),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const ClassRecordingsScreen(),
+                ),
+              );
+            },
+            tooltip: 'Class Recordings',
+          ),
+          IconButton(
             icon: const Icon(Icons.refresh, color: Color(0xFF64748B)),
             onPressed: _loadClasses,
           ),
@@ -213,7 +229,8 @@ class _AdminClassesScreenState extends State<AdminClassesScreen>
               : TabBarView(
                   controller: _tabController,
                   children: [
-                    _buildClassList(_todayClasses, 'No classes scheduled for today'),
+                    _buildClassList(
+                        _todayClasses, 'No classes scheduled for today'),
                     _buildClassList(_upcomingClasses, 'No upcoming classes'),
                     _buildClassList(_pastClasses, 'No past classes'),
                   ],
@@ -322,7 +339,7 @@ class _AdminClassesScreenState extends State<AdminClassesScreen>
     // Get cached presence data for active classes
     final presence = isActive ? _presenceCache[shift.id] : null;
     final participantCount = presence?.participantCount ?? 0;
-    
+
     // Fetch presence if not cached and class is active
     if (isActive && presence == null) {
       _fetchPresence(shift.id);
@@ -489,7 +506,7 @@ class _AdminClassesScreenState extends State<AdminClassesScreen>
                   ),
                 ],
               ),
-              
+
               // Show participants for active classes - always visible section
               if (isActive) ...[
                 const SizedBox(height: 12),
@@ -545,11 +562,13 @@ class _AdminClassesScreenState extends State<AdminClassesScreen>
                             ),
                         ],
                       ),
-                      if (presence != null && presence.participants.isNotEmpty) ...[
+                      if (presence != null &&
+                          presence.participants.isNotEmpty) ...[
                         const SizedBox(height: 10),
                         ...presence.participants.map((p) {
                           final duration = p.joinedAt != null
-                              ? _formatParticipantDuration(DateTime.now().difference(p.joinedAt!))
+                              ? _formatParticipantDuration(
+                                  DateTime.now().difference(p.joinedAt!))
                               : '';
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 8),
@@ -559,15 +578,16 @@ class _AdminClassesScreenState extends State<AdminClassesScreen>
                                   width: 28,
                                   height: 28,
                                   decoration: BoxDecoration(
-                                    color: p.isPublisher 
-                                        ? const Color(0xFF10B981).withOpacity(0.2)
+                                    color: p.isPublisher
+                                        ? const Color(0xFF10B981)
+                                            .withOpacity(0.2)
                                         : Colors.grey[200],
                                     shape: BoxShape.circle,
                                   ),
                                   child: Icon(
                                     p.isPublisher ? Icons.mic : Icons.mic_off,
                                     size: 14,
-                                    color: p.isPublisher 
+                                    color: p.isPublisher
                                         ? const Color(0xFF10B981)
                                         : const Color(0xFF9CA3AF),
                                   ),
@@ -575,7 +595,8 @@ class _AdminClassesScreenState extends State<AdminClassesScreen>
                                 const SizedBox(width: 10),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         p.name.isNotEmpty ? p.name : p.identity,
@@ -619,7 +640,8 @@ class _AdminClassesScreenState extends State<AdminClassesScreen>
                             ),
                           );
                         }),
-                      ] else if (presence != null && presence.participants.isEmpty) ...[
+                      ] else if (presence != null &&
+                          presence.participants.isEmpty) ...[
                         const SizedBox(height: 8),
                         Text(
                           AppLocalizations.of(context)!.noOneHasJoinedYet,
@@ -676,14 +698,14 @@ class _AdminClassesScreenState extends State<AdminClassesScreen>
       ),
     );
   }
-  
+
   /// Show detailed class information in a bottom sheet
   void _showClassDetails(TeachingShift shift) async {
     // Fetch fresh presence data
     final presence = await _fetchPresence(shift.id);
-    
+
     if (!mounted) return;
-    
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -702,7 +724,7 @@ class _AdminClassesScreenState extends State<AdminClassesScreen>
   String _formatTime(DateTime dateTime) {
     return DateFormat('h:mm a').format(dateTime);
   }
-  
+
   String _formatParticipantDuration(Duration duration) {
     if (duration.inHours > 0) {
       return '${duration.inHours}h ${duration.inMinutes % 60}m';
@@ -725,8 +747,8 @@ class _AdminClassesScreenState extends State<AdminClassesScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(AppLocalizations.of(context)!
-                .classJoinFailed(e.toString())),
+            content: Text(
+                AppLocalizations.of(context)!.classJoinFailed(e.toString())),
             backgroundColor: Colors.red,
           ),
         );
@@ -774,7 +796,7 @@ class _ClassDetailsSheet extends StatelessWidget {
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-            
+
             // Header
             Padding(
               padding: const EdgeInsets.all(20),
@@ -832,7 +854,8 @@ class _ClassDetailsSheet extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    DateFormat('EEEE, MMMM d, yyyy • h:mm a').format(shift.shiftStart),
+                    DateFormat('EEEE, MMMM d, yyyy • h:mm a')
+                        .format(shift.shiftStart),
                     style: GoogleFonts.inter(
                       fontSize: 14,
                       color: const Color(0xFF64748B),
@@ -841,9 +864,9 @@ class _ClassDetailsSheet extends StatelessWidget {
                 ],
               ),
             ),
-            
+
             const Divider(height: 1),
-            
+
             // Content
             Expanded(
               child: ListView(
@@ -855,7 +878,11 @@ class _ClassDetailsSheet extends StatelessWidget {
                     'Teacher',
                     Icons.person,
                     [
-                      _buildInfoRow('Name', shift.teacherName.isNotEmpty ? shift.teacherName : AppLocalizations.of(context)!.commonUnknown),
+                      _buildInfoRow(
+                          'Name',
+                          shift.teacherName.isNotEmpty
+                              ? shift.teacherName
+                              : AppLocalizations.of(context)!.commonUnknown),
                       if (shift.clockInTime != null)
                         _buildInfoRow(
                           'Clocked in',
@@ -864,33 +891,39 @@ class _ClassDetailsSheet extends StatelessWidget {
                       if (shift.clockInTime != null && isActive)
                         _buildInfoRow(
                           'Time in class',
-                          _formatDuration(DateTime.now().difference(shift.clockInTime!)),
+                          _formatDuration(
+                              DateTime.now().difference(shift.clockInTime!)),
                         ),
                     ],
                   ),
-                  
+
                   const SizedBox(height: 20),
-                  
+
                   // Students section
                   _buildSection(
                     'Assigned Students (${shift.studentIds.length})',
                     Icons.people,
                     shift.studentNames.isEmpty
-                        ? [_buildInfoRow('Students', '${shift.studentIds.length} assigned')]
+                        ? [
+                            _buildInfoRow('Students',
+                                '${shift.studentIds.length} assigned')
+                          ]
                         : shift.studentNames
                             .map((name) => _buildInfoRow('', name))
                             .toList(),
                   ),
-                  
+
                   // Current participants section (for active classes)
-                  if (presence != null && presence!.participants.isNotEmpty) ...[
+                  if (presence != null &&
+                      presence!.participants.isNotEmpty) ...[
                     const SizedBox(height: 20),
                     _buildSection(
                       'Currently in Class (${presence!.participantCount})',
                       Icons.videocam,
                       presence!.participants.map((p) {
                         final duration = p.joinedAt != null
-                            ? _formatDuration(DateTime.now().difference(p.joinedAt!))
+                            ? _formatDuration(
+                                DateTime.now().difference(p.joinedAt!))
                             : AppLocalizations.of(context)!.commonUnknown;
                         return _buildParticipantRow(
                           p.name.isNotEmpty ? p.name : p.identity,
@@ -901,24 +934,26 @@ class _ClassDetailsSheet extends StatelessWidget {
                       }).toList(),
                     ),
                   ],
-                  
+
                   const SizedBox(height: 20),
-                  
+
                   // Class info section
                   _buildSection(
                     'Class Information',
                     Icons.info_outline,
                     [
-                      _buildInfoRow('Duration', '${shift.shiftDurationHours.toStringAsFixed(1)} hours'),
-                      _buildInfoRow('Subject', shift.effectiveSubjectDisplayName),
+                      _buildInfoRow('Duration',
+                          '${shift.shiftDurationHours.toStringAsFixed(1)} hours'),
+                      _buildInfoRow(
+                          'Subject', shift.effectiveSubjectDisplayName),
                       _buildInfoRow('Status', shift.status.name.toUpperCase()),
                       if (shift.notes != null && shift.notes!.isNotEmpty)
                         _buildInfoRow('Notes', shift.notes!),
                     ],
                   ),
-                  
+
                   const SizedBox(height: 30),
-                  
+
                   // Join button
                   if (canJoin)
                     ElevatedButton.icon(
@@ -1015,7 +1050,8 @@ class _ClassDetailsSheet extends StatelessWidget {
     );
   }
 
-  Widget _buildParticipantRow(String name, String role, String duration, bool isPublisher) {
+  Widget _buildParticipantRow(
+      String name, String role, String duration, bool isPublisher) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
@@ -1024,7 +1060,7 @@ class _ClassDetailsSheet extends StatelessWidget {
             width: 32,
             height: 32,
             decoration: BoxDecoration(
-              color: isPublisher 
+              color: isPublisher
                   ? const Color(0xFF10B981).withOpacity(0.1)
                   : const Color(0xFF64748B).withOpacity(0.1),
               shape: BoxShape.circle,
@@ -1032,7 +1068,7 @@ class _ClassDetailsSheet extends StatelessWidget {
             child: Icon(
               isPublisher ? Icons.mic : Icons.mic_off,
               size: 16,
-              color: isPublisher 
+              color: isPublisher
                   ? const Color(0xFF10B981)
                   : const Color(0xFF64748B),
             ),

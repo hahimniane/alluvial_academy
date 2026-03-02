@@ -62,6 +62,7 @@ class _GuestJoinScreenState extends State<GuestJoinScreen> {
           roomName: joinResult.roomName!,
           displayName: joinResult.displayName ?? 'Guest',
           isTeacher: false,
+          userRole: joinResult.userRole,
           shiftId: shiftId,
           shiftName: joinResult.shiftName ?? 'Class',
           initialRoomLocked: joinResult.roomLocked,

@@ -29,7 +29,8 @@ class ChatService {
             name:
                 '${data['first_name'] ?? ''} ${data['last_name'] ?? ''}'.trim(),
             email: data['email'] ?? data['e-mail'] ?? '',
-            profilePicture: data['profile_picture_url'] ?? data['profile_picture'],
+            profilePicture:
+                data['profile_picture_url'] ?? data['profile_picture'],
             role: data['user_type'],
             isOnline: presence.isOnline,
             lastSeen: presence.lastSeen,
@@ -155,7 +156,8 @@ class ChatService {
       name: '${userData['first_name'] ?? ''} ${userData['last_name'] ?? ''}'
           .trim(),
       email: userData['email'] ?? userData['e-mail'] ?? '',
-      profilePicture: userData['profile_picture_url'] ?? userData['profile_picture'],
+      profilePicture:
+          userData['profile_picture_url'] ?? userData['profile_picture'],
       role: userData['user_type'],
       isOnline: presence.isOnline,
       lastSeen: presence.lastSeen,
@@ -169,7 +171,8 @@ class ChatService {
   }
 
   // Get messages for a specific chat (handles both individual and group chats)
-  Stream<List<ChatMessage>> getChatMessages(String chatIdOrUserId, {bool isGroupChat = false}) {
+  Stream<List<ChatMessage>> getChatMessages(String chatIdOrUserId,
+      {bool isGroupChat = false}) {
     if (currentUserId == null) return Stream.value([]);
 
     String chatId;
@@ -224,7 +227,9 @@ class ChatService {
 
   // Send a message (handles both individual and group chats)
   Future<void> sendMessage(String chatIdOrUserId, String content,
-      {String messageType = 'text', Map<String, dynamic>? metadata, bool isGroupChat = false}) async {
+      {String messageType = 'text',
+      Map<String, dynamic>? metadata,
+      bool isGroupChat = false}) async {
     if (currentUserId == null) return;
 
     String chatId;
@@ -290,7 +295,8 @@ class ChatService {
     if (currentUserId == null) return;
 
     try {
-      final fileName = '${DateTime.now().millisecondsSinceEpoch}_${imageFile.path.split('/').last}';
+      final fileName =
+          '${DateTime.now().millisecondsSinceEpoch}_${imageFile.path.split('/').last}';
       final ref = FirebaseStorage.instance
           .ref()
           .child('chat_images')
@@ -320,12 +326,14 @@ class ChatService {
   }
 
   /// Upload a file and send as a message
-  Future<void> sendFileMessage(String chatIdOrUserId, File file, String originalFileName,
+  Future<void> sendFileMessage(
+      String chatIdOrUserId, File file, String originalFileName,
       {bool isGroupChat = false}) async {
     if (currentUserId == null) return;
 
     try {
-      final fileName = '${DateTime.now().millisecondsSinceEpoch}_$originalFileName';
+      final fileName =
+          '${DateTime.now().millisecondsSinceEpoch}_$originalFileName';
       final ref = FirebaseStorage.instance
           .ref()
           .child('chat_files')
@@ -354,19 +362,26 @@ class ChatService {
   }
 
   /// Upload a voice message and send
-  Future<void> sendVoiceMessage(String chatIdOrUserId, File audioFile, int durationSeconds,
+  Future<void> sendVoiceMessage(
+      String chatIdOrUserId, File audioFile, int durationSeconds,
       {bool isGroupChat = false}) async {
     if (currentUserId == null) return;
 
     try {
-      final fileName = 'voice_${DateTime.now().millisecondsSinceEpoch}.m4a';
+      final extension = _extractFileExtension(audioFile.path);
+      final mimeType = _audioMimeTypeForExtension(extension);
+      final fileName =
+          'voice_${DateTime.now().millisecondsSinceEpoch}.$extension';
       final ref = FirebaseStorage.instance
           .ref()
           .child('chat_voice')
           .child(currentUserId!)
           .child(fileName);
 
-      final uploadTask = await ref.putFile(audioFile);
+      final uploadTask = await ref.putFile(
+        audioFile,
+        SettableMetadata(contentType: mimeType),
+      );
       final downloadUrl = await uploadTask.ref.getDownloadURL();
       final fileSize = await audioFile.length();
 
@@ -379,12 +394,41 @@ class ChatService {
           'file_name': fileName,
           'file_size': fileSize,
           'duration': durationSeconds,
+          'mime_type': mimeType,
         },
         isGroupChat: isGroupChat,
       );
     } catch (e) {
       AppLogger.error('Error sending voice message: $e');
       rethrow;
+    }
+  }
+
+  String _extractFileExtension(String filePath) {
+    final fileName = filePath.split('/').last;
+    final dotIndex = fileName.lastIndexOf('.');
+    if (dotIndex == -1 || dotIndex == fileName.length - 1) {
+      return 'm4a';
+    }
+    return fileName.substring(dotIndex + 1).toLowerCase();
+  }
+
+  String _audioMimeTypeForExtension(String extension) {
+    switch (extension) {
+      case 'webm':
+        return 'audio/webm';
+      case 'mp3':
+        return 'audio/mpeg';
+      case 'wav':
+        return 'audio/wav';
+      case 'ogg':
+        return 'audio/ogg';
+      case 'aac':
+        return 'audio/aac';
+      case 'm4a':
+      case 'mp4':
+      default:
+        return 'audio/mp4';
     }
   }
 
@@ -441,7 +485,12 @@ class ChatService {
         'created_by': currentUserId,
       });
 
-      AppLogger.error('ChatService: Group created successfully with ID: ${groupDoc.id}');
+      AppLogger.error(
+          'ChatService: Group created successfully with ID: ${groupDoc.id}');
+
+      final creatorName = await _getUserDisplayName(currentUserId!);
+      await _sendSystemMessage(groupDoc.id, '$creatorName created this group');
+
       return groupDoc.id;
     } catch (e) {
       AppLogger.error('ChatService: Error creating group chat: $e');
@@ -464,13 +513,43 @@ class ChatService {
             snapshot.docs.map((doc) => {'id': doc.id, ...doc.data()}).toList());
   }
 
+  Future<void> _sendSystemMessage(String groupChatId, String content) async {
+    final messageData = {
+      'sender_id': 'system',
+      'sender_name': '',
+      'content': content,
+      'timestamp': FieldValue.serverTimestamp(),
+      'is_read': false,
+      'message_type': 'system',
+    };
+
+    final chatDocRef = _firestore.collection('chats').doc(groupChatId);
+    await chatDocRef.collection('messages').add(messageData);
+    await chatDocRef.update({
+      'updated_at': FieldValue.serverTimestamp(),
+      'last_message': messageData,
+    });
+  }
+
+  Future<String> _getUserDisplayName(String userId) async {
+    try {
+      final doc = await _firestore.collection('users').doc(userId).get();
+      if (!doc.exists) return 'Unknown';
+      final data = doc.data()!;
+      final name =
+          '${data['first_name'] ?? ''} ${data['last_name'] ?? ''}'.trim();
+      return name.isNotEmpty ? name : (data['email'] ?? 'Unknown');
+    } catch (_) {
+      return 'Unknown';
+    }
+  }
+
   // Add members to an existing group (admin only)
   Future<bool> addMembersToGroup(
       String groupChatId, List<String> newMemberIds) async {
     if (currentUserId == null) return false;
 
     try {
-      // Check if current user is admin of the group
       final groupDoc =
           await _firestore.collection('chats').doc(groupChatId).get();
       if (!groupDoc.exists) return false;
@@ -480,23 +559,27 @@ class ChatService {
       final currentParticipants =
           List<String>.from(groupData['participants'] ?? []);
 
-      // Check if user is admin
       if (!adminIds.contains(currentUserId)) {
         throw Exception('Only group administrators can add members');
       }
 
-      // Filter out members who are already in the group
       final membersToAdd = newMemberIds
           .where((id) => !currentParticipants.contains(id))
           .toList();
 
-      if (membersToAdd.isEmpty) return true; // No new members to add
+      if (membersToAdd.isEmpty) return true;
 
-      // Add new members to the group
       await _firestore.collection('chats').doc(groupChatId).update({
         'participants': FieldValue.arrayUnion(membersToAdd),
         'updated_at': FieldValue.serverTimestamp(),
       });
+
+      // Send system messages for added members
+      final adderName = await _getUserDisplayName(currentUserId!);
+      for (final memberId in membersToAdd) {
+        final memberName = await _getUserDisplayName(memberId);
+        await _sendSystemMessage(groupChatId, '$adderName added $memberName');
+      }
 
       return true;
     } catch (e) {
@@ -536,12 +619,14 @@ class ChatService {
   }
 
   // Update group info (name and/or description) - admin only
-  Future<bool> updateGroupInfo(String groupChatId, {String? name, String? description}) async {
+  Future<bool> updateGroupInfo(String groupChatId,
+      {String? name, String? description}) async {
     if (currentUserId == null) return false;
 
     try {
       // Check if current user is admin of the group
-      final groupDoc = await _firestore.collection('chats').doc(groupChatId).get();
+      final groupDoc =
+          await _firestore.collection('chats').doc(groupChatId).get();
       if (!groupDoc.exists) return false;
 
       final groupData = groupDoc.data()!;
@@ -571,11 +656,13 @@ class ChatService {
   }
 
   // Remove a member from group - admin only
-  Future<bool> removeMemberFromGroup(String groupChatId, String memberId) async {
+  Future<bool> removeMemberFromGroup(
+      String groupChatId, String memberId) async {
     if (currentUserId == null) return false;
 
     try {
-      final groupDoc = await _firestore.collection('chats').doc(groupChatId).get();
+      final groupDoc =
+          await _firestore.collection('chats').doc(groupChatId).get();
       if (!groupDoc.exists) return false;
 
       final groupData = groupDoc.data()!;
@@ -589,7 +676,8 @@ class ChatService {
 
       // Cannot remove yourself as admin (use leaveGroup instead)
       if (memberId == currentUserId) {
-        throw Exception('Admins cannot remove themselves. Use leave group instead.');
+        throw Exception(
+            'Admins cannot remove themselves. Use leave group instead.');
       }
 
       // Cannot remove another admin (they must leave voluntarily)
@@ -607,6 +695,11 @@ class ChatService {
         'updated_at': FieldValue.serverTimestamp(),
       });
 
+      final removerName = await _getUserDisplayName(currentUserId!);
+      final removedName = await _getUserDisplayName(memberId);
+      await _sendSystemMessage(
+          groupChatId, '$removerName removed $removedName');
+
       return true;
     } catch (e) {
       AppLogger.error('Error removing member from group: $e');
@@ -619,7 +712,8 @@ class ChatService {
     if (currentUserId == null) return false;
 
     try {
-      final groupDoc = await _firestore.collection('chats').doc(groupChatId).get();
+      final groupDoc =
+          await _firestore.collection('chats').doc(groupChatId).get();
       if (!groupDoc.exists) return false;
 
       final groupData = groupDoc.data()!;
@@ -632,7 +726,9 @@ class ChatService {
       }
 
       // If user is the only admin and there are other members, transfer admin or prevent leaving
-      if (adminIds.contains(currentUserId) && adminIds.length == 1 && participants.length > 1) {
+      if (adminIds.contains(currentUserId) &&
+          adminIds.length == 1 &&
+          participants.length > 1) {
         // Find another participant to make admin
         final newAdmin = participants.firstWhere(
           (id) => id != currentUserId,
@@ -646,6 +742,8 @@ class ChatService {
         }
       }
 
+      final leaverName = await _getUserDisplayName(currentUserId!);
+
       // Remove from participants and admin_ids
       await _firestore.collection('chats').doc(groupChatId).update({
         'participants': FieldValue.arrayRemove([currentUserId]),
@@ -653,10 +751,14 @@ class ChatService {
         'updated_at': FieldValue.serverTimestamp(),
       });
 
+      await _sendSystemMessage(groupChatId, '$leaverName left');
+
       // If no participants left, delete the group
-      final updatedDoc = await _firestore.collection('chats').doc(groupChatId).get();
+      final updatedDoc =
+          await _firestore.collection('chats').doc(groupChatId).get();
       if (updatedDoc.exists) {
-        final updatedParticipants = List<String>.from(updatedDoc.data()!['participants'] ?? []);
+        final updatedParticipants =
+            List<String>.from(updatedDoc.data()!['participants'] ?? []);
         if (updatedParticipants.isEmpty) {
           await _firestore.collection('chats').doc(groupChatId).delete();
         }
@@ -672,7 +774,8 @@ class ChatService {
   // Get group members with their details
   Future<List<Map<String, dynamic>>> getGroupMembers(String groupChatId) async {
     try {
-      final groupDoc = await _firestore.collection('chats').doc(groupChatId).get();
+      final groupDoc =
+          await _firestore.collection('chats').doc(groupChatId).get();
       if (!groupDoc.exists) return [];
 
       final groupData = groupDoc.data()!;
@@ -697,9 +800,11 @@ class ChatService {
           final presence = PresenceUtils.resolvePresence(data);
           members.add({
             'id': doc.id,
-            'name': '${data['first_name'] ?? ''} ${data['last_name'] ?? ''}'.trim(),
+            'name':
+                '${data['first_name'] ?? ''} ${data['last_name'] ?? ''}'.trim(),
             'email': data['email'] ?? data['e-mail'] ?? '',
-            'profilePicture': data['profile_picture_url'] ?? data['profile_picture'],
+            'profilePicture':
+                data['profile_picture_url'] ?? data['profile_picture'],
             'role': data['user_type'],
             'isOnline': presence.isOnline,
             'isAdmin': adminIds.contains(doc.id),
@@ -817,7 +922,8 @@ class ChatService {
           .where(FieldPath.documentId, whereIn: userIds)
           .get();
 
-      AppLogger.debug('ChatService: Found ${userDocs.docs.length} user documents');
+      AppLogger.debug(
+          'ChatService: Found ${userDocs.docs.length} user documents');
 
       final userNames = <String, String>{};
       for (var doc in userDocs.docs) {
@@ -846,7 +952,8 @@ class ChatService {
   // ============ MESSAGE OPERATIONS ============
 
   /// Delete a message (only sender can delete their own messages)
-  Future<bool> deleteMessage(String chatIdOrUserId, String messageId, {bool isGroupChat = false}) async {
+  Future<bool> deleteMessage(String chatIdOrUserId, String messageId,
+      {bool isGroupChat = false}) async {
     if (currentUserId == null) return false;
 
     try {
@@ -903,7 +1010,8 @@ class ChatService {
   }
 
   /// Forward a message to another chat
-  Future<bool> forwardMessage(ChatMessage message, String targetChatIdOrUserId, {bool isTargetGroupChat = false}) async {
+  Future<bool> forwardMessage(ChatMessage message, String targetChatIdOrUserId,
+      {bool isTargetGroupChat = false}) async {
     if (currentUserId == null) return false;
 
     try {
@@ -934,7 +1042,9 @@ class ChatService {
   }
 
   /// Add a reaction to a message
-  Future<bool> addReaction(String chatIdOrUserId, String messageId, String reaction, {bool isGroupChat = false}) async {
+  Future<bool> addReaction(
+      String chatIdOrUserId, String messageId, String reaction,
+      {bool isGroupChat = false}) async {
     if (currentUserId == null) return false;
 
     try {
@@ -961,7 +1071,8 @@ class ChatService {
   }
 
   /// Remove a reaction from a message
-  Future<bool> removeReaction(String chatIdOrUserId, String messageId, {bool isGroupChat = false}) async {
+  Future<bool> removeReaction(String chatIdOrUserId, String messageId,
+      {bool isGroupChat = false}) async {
     if (currentUserId == null) return false;
 
     try {
@@ -987,7 +1098,8 @@ class ChatService {
   }
 
   /// Clear all messages in a chat (deletes all messages)
-  Future<bool> clearChat(String chatIdOrUserId, {bool isGroupChat = false}) async {
+  Future<bool> clearChat(String chatIdOrUserId,
+      {bool isGroupChat = false}) async {
     if (currentUserId == null) return false;
 
     try {
@@ -1034,13 +1146,9 @@ class ChatService {
   }
 
   /// Send a location message
-  Future<void> sendLocationMessage(
-    String chatIdOrUserId,
-    double latitude,
-    double longitude,
-    String? locationName,
-    {bool isGroupChat = false}
-  ) async {
+  Future<void> sendLocationMessage(String chatIdOrUserId, double latitude,
+      double longitude, String? locationName,
+      {bool isGroupChat = false}) async {
     if (currentUserId == null) return;
 
     try {
@@ -1100,10 +1208,12 @@ class ChatService {
     if (currentUserId == null) return false;
 
     try {
-      final userDoc = await _firestore.collection('users').doc(currentUserId).get();
+      final userDoc =
+          await _firestore.collection('users').doc(currentUserId).get();
       if (!userDoc.exists) return false;
 
-      final blockedUsers = List<String>.from(userDoc.data()!['blocked_users'] ?? []);
+      final blockedUsers =
+          List<String>.from(userDoc.data()!['blocked_users'] ?? []);
       return blockedUsers.contains(userId);
     } catch (e) {
       AppLogger.error('Error checking blocked user: $e');
@@ -1116,7 +1226,8 @@ class ChatService {
     if (currentUserId == null) return [];
 
     try {
-      final userDoc = await _firestore.collection('users').doc(currentUserId).get();
+      final userDoc =
+          await _firestore.collection('users').doc(currentUserId).get();
       if (!userDoc.exists) return [];
 
       return List<String>.from(userDoc.data()!['blocked_users'] ?? []);

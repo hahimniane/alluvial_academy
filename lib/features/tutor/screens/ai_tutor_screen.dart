@@ -10,14 +10,138 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:livekit_client/livekit_client.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/models/teaching_shift.dart';
 import '../../../core/services/location_service.dart';
 import '../../../core/services/shift_timesheet_service.dart';
 import '../../../core/utils/app_logger.dart';
 import '../../../core/utils/platform_utils.dart';
+import '../../../core/utils/timezone_utils.dart';
 import '../../livekit/widgets/call_whiteboard.dart';
 import '../../../l10n/app_localizations.dart';
+
+/// Interaction mode for AI Tutor
+enum TutorInteractionMode { voice, text }
+
+/// Message sender type for chat
+enum TutorMessageSender { user, ai }
+
+/// Message type for chat
+enum TutorMessageType { text, voiceTranscription }
+
+/// Preferred AI voice profile.
+///
+/// LiveKit Cartesia Inference documented sample IDs:
+/// - Blake: a167e0f3-df7e-4d52-a9c3-f949145efdab
+/// - Jacqueline: 9626c31c-bec5-4cca-baa8-f8ba9e84c8bc
+/// - Robyn: f31cc6a7-c1e8-4764-980c-60a361443dd1
+enum TutorVoicePreference { blake, jacqueline, robyn }
+
+/// Preferred background ambience.
+enum TutorBackgroundPreference { none, forest, city, office, holdMusic }
+
+String tutorVoicePreferenceKey(TutorVoicePreference value) {
+  switch (value) {
+    case TutorVoicePreference.blake:
+      return 'blake';
+    case TutorVoicePreference.jacqueline:
+      return 'jacqueline';
+    case TutorVoicePreference.robyn:
+      return 'robyn';
+  }
+}
+
+TutorVoicePreference tutorVoicePreferenceFromKey(String? raw) {
+  switch (raw?.trim().toLowerCase()) {
+    // Backward compatibility for previously saved/issued keys.
+    case 'alluwal':
+    case 'kiefer':
+    case 'blake':
+      return TutorVoicePreference.blake;
+    case 'katie':
+    case 'jacqueline':
+      return TutorVoicePreference.jacqueline;
+    case 'robyn':
+      return TutorVoicePreference.robyn;
+    default:
+      return TutorVoicePreference.blake;
+  }
+}
+
+String tutorVoicePreferenceLabel(TutorVoicePreference value) {
+  switch (value) {
+    case TutorVoicePreference.blake:
+      return 'Blake (Default)';
+    case TutorVoicePreference.jacqueline:
+      return 'Jacqueline';
+    case TutorVoicePreference.robyn:
+      return 'Robyn';
+  }
+}
+
+String tutorBackgroundPreferenceKey(TutorBackgroundPreference value) {
+  switch (value) {
+    case TutorBackgroundPreference.none:
+      return 'none';
+    case TutorBackgroundPreference.forest:
+      return 'forest';
+    case TutorBackgroundPreference.city:
+      return 'city';
+    case TutorBackgroundPreference.office:
+      return 'office';
+    case TutorBackgroundPreference.holdMusic:
+      return 'hold_music';
+  }
+}
+
+TutorBackgroundPreference tutorBackgroundPreferenceFromKey(String? raw) {
+  switch (raw?.trim().toLowerCase()) {
+    case 'none':
+      return TutorBackgroundPreference.none;
+    case 'city':
+      return TutorBackgroundPreference.city;
+    case 'office':
+      return TutorBackgroundPreference.office;
+    case 'hold_music':
+      return TutorBackgroundPreference.holdMusic;
+    case 'forest':
+    default:
+      return TutorBackgroundPreference.forest;
+  }
+}
+
+String tutorBackgroundPreferenceLabel(TutorBackgroundPreference value) {
+  switch (value) {
+    case TutorBackgroundPreference.none:
+      return 'None';
+    case TutorBackgroundPreference.forest:
+      return 'Forest';
+    case TutorBackgroundPreference.city:
+      return 'City';
+    case TutorBackgroundPreference.office:
+      return 'Office';
+    case TutorBackgroundPreference.holdMusic:
+      return 'Music';
+  }
+}
+
+/// Chat message model for AI Tutor conversations
+class TutorChatMessage {
+  final String id;
+  final String content;
+  final TutorMessageSender sender;
+  final TutorMessageType type;
+  final DateTime timestamp;
+
+  TutorChatMessage({
+    required this.id,
+    required this.content,
+    required this.sender,
+    required this.type,
+    DateTime? timestamp,
+  }) : timestamp = timestamp ?? DateTime.now();
+}
 
 /// AI Tutor Screen - Voice interaction with the AI tutor agent
 class AITutorScreen extends StatefulWidget {
@@ -34,6 +158,12 @@ class _AITutorScreenState extends State<AITutorScreen>
   static const String _tutorTeacherActionTopic = 'ai_tutor_teacher_actions';
   static const String _tutorTeacherActionResultTopic =
       'ai_tutor_teacher_action_results';
+  static const String _tutorChatTextTopic = 'ai_tutor_chat_text';
+  static const String _tutorTranscriptionTopic = 'ai_tutor_transcription';
+  static const String _prefInteractionModeKey = 'ai_tutor.interaction_mode';
+  static const String _prefVoicePreferenceKey = 'ai_tutor.voice_preference';
+  static const String _prefBackgroundPreferenceKey =
+      'ai_tutor.background_preference';
   static const String _teacherActionMessageType = 'teacher_action';
   static const String _teacherActionResultMessageType = 'teacher_action_result';
   static const Set<String> _studentMatchStopwords = {
@@ -75,12 +205,19 @@ class _AITutorScreenState extends State<AITutorScreen>
   LocalParticipant? _localParticipant;
   EventsListener<RoomEvent>? _listener;
 
-  bool _isLoading = true;
+  bool _isLoading = false;
   bool _isMicEnabled = true;
   bool _agentJoined = false;
   String? _error;
   String? _roomName;
   String _sessionUserRole = 'student';
+  bool _preferencesLoaded = false;
+
+  // Interaction mode - null means user hasn't selected yet
+  TutorInteractionMode? _interactionMode;
+  TutorVoicePreference _voicePreference = TutorVoicePreference.blake;
+  TutorBackgroundPreference _backgroundPreference =
+      TutorBackgroundPreference.forest;
 
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
@@ -91,13 +228,19 @@ class _AITutorScreenState extends State<AITutorScreen>
   final StreamController<Map<String, dynamic>> _whiteboardProjectController =
       StreamController<Map<String, dynamic>>.broadcast();
   Map<String, dynamic>? _lastWhiteboardProject;
-  final bool _whiteboardVisible = true;
+  bool _showWhiteboard = false;
   bool _studentDrawingEnabled = true;
 
   // Whiteboard capture key for sending to AI
   final GlobalKey<CallWhiteboardState> _whiteboardKey =
       GlobalKey<CallWhiteboardState>();
   bool _isSendingWhiteboard = false;
+
+  // Chat view state
+  final List<TutorChatMessage> _chatMessages = [];
+  final TextEditingController _chatInputController = TextEditingController();
+  final FocusNode _chatInputFocusNode = FocusNode();
+  final ScrollController _chatScrollController = ScrollController();
 
   bool get _isTeacherSession => _sessionUserRole == 'teacher';
 
@@ -111,7 +254,7 @@ class _AITutorScreenState extends State<AITutorScreen>
     _pulseAnimation = Tween<double>(begin: 1.0, end: 1.15).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
-    _startSession();
+    unawaited(_initializeTutorPreferences());
   }
 
   @override
@@ -119,8 +262,94 @@ class _AITutorScreenState extends State<AITutorScreen>
     _pulseController.dispose();
     _audioLevelTimer?.cancel();
     _whiteboardProjectController.close();
+    _chatInputController.dispose();
+    _chatInputFocusNode.dispose();
+    _chatScrollController.dispose();
     _disconnectFromRoom();
     super.dispose();
+  }
+
+  String _interactionModePreferenceKey(TutorInteractionMode mode) =>
+      mode == TutorInteractionMode.text ? 'text' : 'voice';
+
+  TutorInteractionMode? _interactionModeFromPreferenceKey(String? raw) {
+    switch (raw?.trim().toLowerCase()) {
+      case 'text':
+        return TutorInteractionMode.text;
+      case 'voice':
+        return TutorInteractionMode.voice;
+      default:
+        return null;
+    }
+  }
+
+  Future<void> _saveTutorPreferences() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (_interactionMode != null) {
+        await prefs.setString(
+          _prefInteractionModeKey,
+          _interactionModePreferenceKey(_interactionMode!),
+        );
+      } else {
+        await prefs.remove(_prefInteractionModeKey);
+      }
+
+      await prefs.setString(
+        _prefVoicePreferenceKey,
+        tutorVoicePreferenceKey(_voicePreference),
+      );
+      await prefs.setString(
+        _prefBackgroundPreferenceKey,
+        tutorBackgroundPreferenceKey(_backgroundPreference),
+      );
+    } catch (e) {
+      AppLogger.warning('AI Tutor: Failed to save preferences: $e');
+    }
+  }
+
+  Future<void> _loadTutorPreferences() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final modeRaw = prefs.getString(_prefInteractionModeKey);
+      final voiceRaw = prefs.getString(_prefVoicePreferenceKey);
+      final backgroundRaw = prefs.getString(_prefBackgroundPreferenceKey);
+
+      _interactionMode = _interactionModeFromPreferenceKey(modeRaw);
+      _voicePreference = tutorVoicePreferenceFromKey(voiceRaw);
+      _backgroundPreference = tutorBackgroundPreferenceFromKey(backgroundRaw);
+      _isMicEnabled = _interactionMode != TutorInteractionMode.text;
+    } catch (e) {
+      AppLogger.warning('AI Tutor: Failed to load preferences: $e');
+      _interactionMode = null;
+      _isMicEnabled = true;
+      _voicePreference = TutorVoicePreference.blake;
+      _backgroundPreference = TutorBackgroundPreference.forest;
+    }
+  }
+
+  Future<void> _initializeTutorPreferences() async {
+    await _loadTutorPreferences();
+    if (!mounted) return;
+    setState(() {
+      _preferencesLoaded = true;
+    });
+
+    if (_interactionMode != null) {
+      await _startSession();
+    }
+  }
+
+  Future<void> _restartSessionWithCurrentPreferences() async {
+    if (_isLoading) return;
+    setState(() {
+      _error = null;
+      _agentJoined = false;
+      _showWhiteboard = false;
+    });
+    await _disconnectFromRoom();
+    if (!mounted) return;
+    await _startSession();
   }
 
   Future<bool> _checkAITutorAccess() async {
@@ -181,26 +410,54 @@ class _AITutorScreenState extends State<AITutorScreen>
       if (!mounted) return;
       setState(() {
         _isLoading = false;
-        _error = 'AI Tutor access has not been enabled for your account. Please contact an administrator.';
+        _error =
+            'AI Tutor access has not been enabled for your account. Please contact an administrator.';
       });
       return;
     }
 
-    // Request microphone permissions
-    final hasPermissions = await _requestPermissions();
-    if (!hasPermissions) {
-      if (!mounted) return;
-      setState(() {
-        _isLoading = false;
-        _error = AppLocalizations.of(context)!.tutorMicPermissionRequired;
-      });
-      return;
+    // Request microphone permissions only in voice mode
+    final requiresMicrophone = _interactionMode != TutorInteractionMode.text;
+    if (requiresMicrophone) {
+      final hasPermissions = await _requestPermissions();
+      if (!hasPermissions) {
+        if (!mounted) return;
+        setState(() {
+          _isLoading = false;
+          _error = AppLocalizations.of(context)!.tutorMicPermissionRequired;
+        });
+        return;
+      }
     }
 
     try {
       // Get token from backend
       final callable = _functions.httpsCallable('getAITutorToken');
-      final result = await callable.call<Map<String, dynamic>>({});
+      final interactionMode =
+          _interactionMode == TutorInteractionMode.text ? 'text' : 'voice';
+      String? clientTimezone;
+      try {
+        final detectedTimezone = await TimezoneUtils.detectUserTimezone();
+        final normalizedTimezone = detectedTimezone.trim();
+        if (normalizedTimezone.isNotEmpty) {
+          clientTimezone = normalizedTimezone;
+        }
+      } catch (timezoneError) {
+        AppLogger.warning(
+          'AI Tutor: Failed to detect client timezone for token request: '
+          '$timezoneError',
+        );
+      }
+
+      final clientNow = DateTime.now();
+      final result = await callable.call<Map<String, dynamic>>({
+        'interactionMode': interactionMode,
+        'aiVoice': tutorVoicePreferenceKey(_voicePreference),
+        'aiBackground': tutorBackgroundPreferenceKey(_backgroundPreference),
+        if (clientTimezone != null) 'clientTimezone': clientTimezone,
+        'clientLocalIso': clientNow.toIso8601String(),
+        'clientNowEpochMs': clientNow.millisecondsSinceEpoch,
+      });
       final data = result.data;
 
       if (data['success'] != true) {
@@ -211,7 +468,40 @@ class _AITutorScreenState extends State<AITutorScreen>
       final token = data['token'] as String;
       _roomName = data['roomName'] as String;
       final role = data['userRole']?.toString().trim().toLowerCase() ?? '';
-      _sessionUserRole = role == 'teacher' ? 'teacher' : 'student';
+      final teacherActionsEnabledRaw = data['teacherActionsEnabled'];
+      final teacherActionsEnabled = teacherActionsEnabledRaw is bool
+          ? teacherActionsEnabledRaw
+          : role == 'teacher';
+      _sessionUserRole =
+          (role == 'teacher' && teacherActionsEnabled) ? 'teacher' : 'student';
+      final backendModeRaw =
+          data['interactionMode']?.toString().trim().toLowerCase() ??
+              interactionMode;
+      final resolvedMode = backendModeRaw == 'text'
+          ? TutorInteractionMode.text
+          : TutorInteractionMode.voice;
+      final resolvedVoice = tutorVoicePreferenceFromKey(
+        data['voicePreference']?.toString(),
+      );
+      final resolvedBackground = tutorBackgroundPreferenceFromKey(
+        data['backgroundPreference']?.toString(),
+      );
+
+      if (mounted) {
+        setState(() {
+          _interactionMode = resolvedMode;
+          _isMicEnabled = resolvedMode == TutorInteractionMode.voice;
+          _voicePreference = resolvedVoice;
+          _backgroundPreference = resolvedBackground;
+        });
+      } else {
+        _interactionMode = resolvedMode;
+        _isMicEnabled = resolvedMode == TutorInteractionMode.voice;
+        _voicePreference = resolvedVoice;
+        _backgroundPreference = resolvedBackground;
+      }
+
+      unawaited(_saveTutorPreferences());
 
       // Connect to LiveKit room
       await _connectToRoom(livekitUrl, token);
@@ -272,17 +562,12 @@ class _AITutorScreenState extends State<AITutorScreen>
         _room = room;
         _localParticipant = room.localParticipant;
         _isLoading = false;
+        _isMicEnabled = _interactionMode == TutorInteractionMode.voice;
       });
 
-      // Enable microphone
-      try {
-        await room.localParticipant?.setMicrophoneEnabled(true);
-        if (mounted) {
-          setState(() => _isMicEnabled = true);
-        }
-      } catch (e) {
-        AppLogger.warning('AI Tutor: Could not enable microphone: $e');
-      }
+      // Apply microphone state for the selected interaction mode.
+      final shouldEnableMic = _interactionMode == TutorInteractionMode.voice;
+      await _setMicrophoneEnabled(shouldEnableMic);
 
       // Start audio level monitoring
       _startAudioLevelMonitoring();
@@ -354,6 +639,11 @@ class _AITutorScreenState extends State<AITutorScreen>
     final topic = event.topic;
     if (topic == _tutorTeacherActionTopic) {
       unawaited(_handleTutorTeacherActionDataReceived(event));
+      return;
+    }
+
+    if (topic == _tutorTranscriptionTopic) {
+      _handleTranscriptionReceived(event);
       return;
     }
 
@@ -457,7 +747,7 @@ class _AITutorScreenState extends State<AITutorScreen>
           action: action,
           success: false,
           message:
-              'Teacher actions are not available because this session is not a teacher session.',
+              'Schedule changes and clock-in are disabled in student sessions. Please ask the teacher to make this change.',
         );
         return;
       }
@@ -1250,19 +1540,67 @@ class _AITutorScreenState extends State<AITutorScreen>
     });
   }
 
-  Future<void> _toggleMicrophone() async {
+  Future<void> _setMicrophoneEnabled(bool enabled) async {
     final localP = _localParticipant;
-    if (localP == null) return;
+    if (localP == null) {
+      if (mounted) {
+        setState(() => _isMicEnabled = enabled);
+      }
+      return;
+    }
 
     try {
-      final newState = !_isMicEnabled;
-      await localP.setMicrophoneEnabled(newState);
+      await localP.setMicrophoneEnabled(enabled);
       if (mounted) {
-        setState(() => _isMicEnabled = newState);
+        setState(() => _isMicEnabled = enabled);
       }
     } catch (e) {
-      AppLogger.error('AI Tutor: Failed to toggle microphone: $e');
+      AppLogger.error('AI Tutor: Failed to set microphone ($enabled): $e');
+      if (mounted) {
+        setState(() => _isMicEnabled = enabled);
+      }
     }
+  }
+
+  Future<void> _toggleMicrophone() async {
+    await _setMicrophoneEnabled(!_isMicEnabled);
+  }
+
+  bool get _hasRemoteParticipants =>
+      _room?.remoteParticipants.isNotEmpty ?? false;
+
+  bool _isLikelyTimeoutError(Object error) {
+    final raw = error.toString().toLowerCase();
+    return raw.contains('timeoutexception') || raw.contains('timeout');
+  }
+
+  Future<bool> _waitForAgentAvailability({
+    Duration timeout = const Duration(seconds: 8),
+  }) async {
+    final deadline = DateTime.now().add(timeout);
+    while (DateTime.now().isBefore(deadline)) {
+      if (_localParticipant == null || _room == null) return false;
+      if (_agentJoined || _hasRemoteParticipants) return true;
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+    }
+    return _agentJoined || _hasRemoteParticipants;
+  }
+
+  Future<void> _publishChatPayload({
+    required LocalParticipant local,
+    required String payload,
+    required bool reliable,
+  }) async {
+    final destinationIdentities =
+        _room?.remoteParticipants.keys.toList(growable: false) ??
+            const <String>[];
+    await local.publishData(
+      utf8.encode(payload),
+      reliable: reliable,
+      destinationIdentities:
+          destinationIdentities.isEmpty ? null : destinationIdentities,
+      topic: _tutorChatTextTopic,
+    );
   }
 
   Future<void> _sendTutorWhiteboardProject(
@@ -1402,6 +1740,8 @@ class _AITutorScreenState extends State<AITutorScreen>
   }
 
   Future<void> _disconnectFromRoom() async {
+    final roomToEnd = _roomName;
+
     _audioLevelTimer?.cancel();
     _listener?.dispose();
 
@@ -1417,12 +1757,14 @@ class _AITutorScreenState extends State<AITutorScreen>
     _room = null;
     _localParticipant = null;
     _listener = null;
+    _roomName = null;
+    _agentJoined = false;
 
     // Notify backend that session ended
-    if (_roomName != null) {
+    if (roomToEnd != null) {
       try {
         final callable = _functions.httpsCallable('endAITutorSession');
-        await callable.call<Map<String, dynamic>>({'roomName': _roomName});
+        await callable.call<Map<String, dynamic>>({'roomName': roomToEnd});
       } catch (e) {
         AppLogger.warning('AI Tutor: Failed to end session: $e');
       }
@@ -1455,6 +1797,17 @@ class _AITutorScreenState extends State<AITutorScreen>
           ),
           onPressed: _endSession,
         ),
+        actions: [
+          if (_preferencesLoaded)
+            IconButton(
+              icon: Icon(
+                Icons.tune_rounded,
+                color: isDark ? Colors.white : Colors.black87,
+              ),
+              tooltip: 'Tutor preferences',
+              onPressed: () => unawaited(_openTutorPreferences()),
+            ),
+        ],
         title: Text(
           l10n.tutorTitle,
           style: GoogleFonts.inter(
@@ -1465,11 +1818,15 @@ class _AITutorScreenState extends State<AITutorScreen>
         centerTitle: true,
       ),
       body: SafeArea(
-        child: _isLoading
+        child: !_preferencesLoaded
             ? _buildLoadingView(l10n)
-            : _error != null
-                ? _buildErrorView(l10n)
-                : _buildConnectedView(l10n, isDark),
+            : _isLoading
+                ? _buildLoadingView(l10n)
+                : _error != null
+                    ? _buildErrorView(l10n)
+                    : _interactionMode == null
+                        ? _buildModeSelectionView(l10n, isDark)
+                        : _buildConnectedView(l10n, isDark),
       ),
     );
   }
@@ -1498,6 +1855,510 @@ class _AITutorScreenState extends State<AITutorScreen>
         ],
       ),
     );
+  }
+
+  Widget _buildModeSelectionView(AppLocalizations l10n, bool isDark) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFF0E72ED), Color(0xFF6366F1)],
+                ),
+                borderRadius: BorderRadius.circular(40),
+              ),
+              child: const Icon(
+                Icons.smart_toy_rounded,
+                color: Colors.white,
+                size: 44,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'How would you like to interact?',
+              style: GoogleFonts.inter(
+                fontSize: 22,
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.white : Colors.black87,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Choose your preferred way to communicate with Alluwal',
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                color: Colors.grey.shade500,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 28),
+            _buildTutorPreferenceSummary(isDark),
+            const SizedBox(height: 28),
+            // Voice mode button
+            _buildModeButton(
+              icon: Icons.mic_rounded,
+              title: 'Voice',
+              subtitle: 'Speak and listen to Alluwal',
+              color: const Color(0xFF10B981),
+              onTap: () =>
+                  unawaited(_selectInteractionMode(TutorInteractionMode.voice)),
+              isDark: isDark,
+            ),
+            const SizedBox(height: 16),
+            // Text mode button
+            _buildModeButton(
+              icon: Icons.chat_rounded,
+              title: 'Text',
+              subtitle: 'Type messages to Alluwal',
+              color: const Color(0xFF0E72ED),
+              onTap: () =>
+                  unawaited(_selectInteractionMode(TutorInteractionMode.text)),
+              isDark: isDark,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildModeButton({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color color,
+    required VoidCallback onTap,
+    required bool isDark,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isDark ? Colors.white12 : Colors.grey.shade200,
+          ),
+          boxShadow: isDark
+              ? null
+              : [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(28),
+              ),
+              child: Icon(icon, color: color, size: 28),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: GoogleFonts.inter(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? Colors.white : Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: GoogleFonts.inter(
+                      fontSize: 13,
+                      color: Colors.grey.shade500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.arrow_forward_ios_rounded,
+              color: Colors.grey.shade400,
+              size: 18,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTutorPreferenceSummary(bool isDark) {
+    final textColor = isDark ? Colors.white70 : Colors.grey.shade700;
+    final borderColor = isDark ? Colors.white12 : Colors.grey.shade200;
+    final tileColor =
+        isDark ? Colors.white.withValues(alpha: 0.04) : Colors.white;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
+      decoration: BoxDecoration(
+        color: tileColor,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: borderColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Tutor preferences',
+            style: GoogleFonts.inter(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: isDark ? Colors.white : Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              const Icon(Icons.record_voice_over_rounded, size: 16),
+              const SizedBox(width: 8),
+              Text(
+                tutorVoicePreferenceLabel(_voicePreference),
+                style: GoogleFonts.inter(fontSize: 13, color: textColor),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              const Icon(Icons.surround_sound_rounded, size: 16),
+              const SizedBox(width: 8),
+              Text(
+                tutorBackgroundPreferenceLabel(_backgroundPreference),
+                style: GoogleFonts.inter(fontSize: 13, color: textColor),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: () => unawaited(_openTutorPreferences()),
+              icon: const Icon(Icons.tune_rounded, size: 16),
+              label: const Text('Change'),
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFF0E72ED),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildModeChoiceChip({
+    required bool isDark,
+    required bool selected,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: selected
+                ? const Color(0xFF0E72ED)
+                : (isDark
+                    ? Colors.white.withValues(alpha: 0.06)
+                    : const Color(0xFFF1F5F9)),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: selected
+                  ? const Color(0xFF0E72ED)
+                  : (isDark ? Colors.white12 : Colors.grey.shade300),
+            ),
+          ),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: selected
+                  ? Colors.white
+                  : (isDark ? Colors.white70 : Colors.grey.shade700),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openTutorPreferences() async {
+    if (!mounted) return;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final initialMode = _interactionMode ?? TutorInteractionMode.voice;
+    var draftMode = initialMode;
+    var draftVoice = _voicePreference;
+    var draftBackground = _backgroundPreference;
+
+    final result = await showModalBottomSheet<_TutorPreferenceSelection>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: isDark ? const Color(0xFF17171E) : Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Tutor preferences',
+                      style: GoogleFonts.inter(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: isDark ? Colors.white : Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      'Interaction mode',
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: isDark ? Colors.white70 : Colors.grey.shade700,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        _buildModeChoiceChip(
+                          isDark: isDark,
+                          selected: draftMode == TutorInteractionMode.voice,
+                          label: 'Voice',
+                          onTap: () => setSheetState(
+                            () => draftMode = TutorInteractionMode.voice,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        _buildModeChoiceChip(
+                          isDark: isDark,
+                          selected: draftMode == TutorInteractionMode.text,
+                          label: 'Text',
+                          onTap: () => setSheetState(
+                            () => draftMode = TutorInteractionMode.text,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      'Tutor voice',
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: isDark ? Colors.white70 : Colors.grey.shade700,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<TutorVoicePreference>(
+                      key: ValueKey<TutorVoicePreference>(draftVoice),
+                      initialValue: draftVoice,
+                      items: TutorVoicePreference.values
+                          .map(
+                            (value) => DropdownMenuItem<TutorVoicePreference>(
+                              value: value,
+                              child: Text(tutorVoicePreferenceLabel(value)),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (value) {
+                        if (value == null) return;
+                        setSheetState(() => draftVoice = value);
+                      },
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: isDark
+                            ? Colors.white.withValues(alpha: 0.06)
+                            : const Color(0xFFF8FAFC),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide(
+                            color:
+                                isDark ? Colors.white12 : Colors.grey.shade300,
+                          ),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide(
+                            color:
+                                isDark ? Colors.white12 : Colors.grey.shade300,
+                          ),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      'Background sound',
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: isDark ? Colors.white70 : Colors.grey.shade700,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<TutorBackgroundPreference>(
+                      key: ValueKey<TutorBackgroundPreference>(draftBackground),
+                      initialValue: draftBackground,
+                      items: TutorBackgroundPreference.values
+                          .map(
+                            (value) =>
+                                DropdownMenuItem<TutorBackgroundPreference>(
+                              value: value,
+                              child:
+                                  Text(tutorBackgroundPreferenceLabel(value)),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (value) {
+                        if (value == null) return;
+                        setSheetState(() => draftBackground = value);
+                      },
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: isDark
+                            ? Colors.white.withValues(alpha: 0.06)
+                            : const Color(0xFFF8FAFC),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide(
+                            color:
+                                isDark ? Colors.white12 : Colors.grey.shade300,
+                          ),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide(
+                            color:
+                                isDark ? Colors.white12 : Colors.grey.shade300,
+                          ),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.of(sheetContext).pop(
+                            _TutorPreferenceSelection(
+                              mode: draftMode,
+                              voicePreference: draftVoice,
+                              backgroundPreference: draftBackground,
+                            ),
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF0E72ED),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        child: Text(
+                          'Apply preferences',
+                          style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    if (result == null) return;
+
+    final modeChanged = _interactionMode != result.mode;
+    final voiceChanged = _voicePreference != result.voicePreference;
+    final backgroundChanged =
+        _backgroundPreference != result.backgroundPreference;
+
+    setState(() {
+      _interactionMode = result.mode;
+      _voicePreference = result.voicePreference;
+      _backgroundPreference = result.backgroundPreference;
+      _isMicEnabled = result.mode == TutorInteractionMode.voice;
+    });
+    await _saveTutorPreferences();
+
+    if (_room != null && (modeChanged || voiceChanged || backgroundChanged)) {
+      await _restartSessionWithCurrentPreferences();
+      return;
+    }
+
+    if (_room == null && !_isLoading && _interactionMode != null) {
+      await _startSession();
+    }
+  }
+
+  Future<void> _selectInteractionMode(TutorInteractionMode mode) async {
+    if (_isLoading) return;
+
+    final previousMode = _interactionMode;
+
+    setState(() {
+      _interactionMode = mode;
+      _isMicEnabled = mode == TutorInteractionMode.voice;
+    });
+    await _saveTutorPreferences();
+
+    if (_room == null) {
+      await _startSession();
+      return;
+    }
+
+    if (previousMode == mode) return;
+    await _restartSessionWithCurrentPreferences();
   }
 
   Widget _buildErrorView(AppLocalizations l10n) {
@@ -1559,37 +2420,296 @@ class _AITutorScreenState extends State<AITutorScreen>
   }
 
   Widget _buildConnectedView(AppLocalizations l10n, bool isDark) {
+    final isTextMode = _interactionMode == TutorInteractionMode.text;
+
     return Column(
       children: [
-        _buildTutorStatusBar(l10n, isDark),
-        if (_whiteboardVisible)
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: CallWhiteboard(
-                  key: _whiteboardKey,
-                  isTeacher: false,
-                  studentDrawingEnabled: _studentDrawingEnabled,
-                  onSendProject: _sendTutorWhiteboardProject,
-                  projectStream: _whiteboardProjectController.stream,
-                  onClose: null,
-                  initialStrokes: null,
+        // Status bar (more compact in text mode)
+        if (!isTextMode) _buildTutorStatusBar(l10n, isDark),
+        // Main content area
+        Expanded(
+          child: Stack(
+            children: [
+              // Chat view (always visible)
+              _buildChatView(l10n, isDark),
+              // Whiteboard overlay (shown when toggled)
+              if (_showWhiteboard)
+                Positioned.fill(
+                  child: Container(
+                    color: isDark ? Colors.black87 : Colors.white,
+                    child: Column(
+                      children: [
+                        // Whiteboard header with close button
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? Colors.white.withValues(alpha: 0.06)
+                                : const Color(0xFFF1F5F9),
+                            border: Border(
+                              bottom: BorderSide(
+                                color: isDark
+                                    ? Colors.white12
+                                    : Colors.grey.shade200,
+                              ),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.draw_rounded,
+                                size: 20,
+                                color: isDark
+                                    ? Colors.white70
+                                    : Colors.grey.shade700,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Whiteboard',
+                                style: GoogleFonts.inter(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: isDark ? Colors.white : Colors.black87,
+                                ),
+                              ),
+                              const Spacer(),
+                              // Show AI button
+                              if (_agentJoined)
+                                TextButton.icon(
+                                  onPressed: _isSendingWhiteboard
+                                      ? null
+                                      : _sendWhiteboardToAI,
+                                  icon: Icon(
+                                    _isSendingWhiteboard
+                                        ? Icons.hourglass_top_rounded
+                                        : Icons.visibility_rounded,
+                                    size: 18,
+                                  ),
+                                  label: Text(l10n.tutorShowAI),
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: const Color(0xFF0E72ED),
+                                  ),
+                                ),
+                              IconButton(
+                                onPressed: () =>
+                                    setState(() => _showWhiteboard = false),
+                                icon: const Icon(Icons.close_rounded),
+                                color: isDark
+                                    ? Colors.white70
+                                    : Colors.grey.shade700,
+                              ),
+                            ],
+                          ),
+                        ),
+                        // Whiteboard content
+                        Expanded(child: _buildWhiteboardView(isDark)),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        // Bottom controls
+        _buildBottomControls(l10n, isDark, isTextMode),
+      ],
+    );
+  }
+
+  Widget _buildBottomControls(
+      AppLocalizations l10n, bool isDark, bool isTextMode) {
+    if (isTextMode) {
+      // Text mode: show just whiteboard toggle and end button
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: isDark ? Colors.black.withValues(alpha: 0.3) : Colors.white,
+          border: Border(
+            top: BorderSide(
+              color: isDark ? Colors.white12 : Colors.grey.shade200,
+            ),
+          ),
+        ),
+        child: Row(
+          children: [
+            // Whiteboard toggle
+            IconButton(
+              onPressed: () =>
+                  setState(() => _showWhiteboard = !_showWhiteboard),
+              icon: Icon(
+                _showWhiteboard ? Icons.draw_rounded : Icons.draw_outlined,
+                color: _showWhiteboard
+                    ? const Color(0xFF0E72ED)
+                    : (isDark ? Colors.white70 : Colors.grey.shade600),
+              ),
+              tooltip: 'Whiteboard',
+            ),
+            const SizedBox(width: 8),
+            // Text input (expanded)
+            Expanded(
+              child: TextField(
+                controller: _chatInputController,
+                focusNode: _chatInputFocusNode,
+                style: GoogleFonts.inter(
+                  fontSize: 16,
+                  color: const Color(0xff111827),
+                ),
+                decoration: InputDecoration(
+                  hintText: 'Type a message...',
+                  hintStyle: GoogleFonts.inter(
+                    fontSize: 16,
+                    color: const Color(0xff9CA3AF),
+                  ),
+                  filled: true,
+                  fillColor: const Color(0xffF9FAFB),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(24),
+                    borderSide: const BorderSide(
+                      color: Color(0xffE5E7EB),
+                      width: 1,
+                    ),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(24),
+                    borderSide: const BorderSide(
+                      color: Color(0xffE5E7EB),
+                      width: 1,
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(24),
+                    borderSide: const BorderSide(
+                      color: Color(0xff0386FF),
+                      width: 1.2,
+                    ),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                ),
+                textCapitalization: TextCapitalization.sentences,
+                onSubmitted: (_) => _sendTextMessage(),
+              ),
+            ),
+            const SizedBox(width: 8),
+            // Send button
+            IconButton(
+              onPressed: _sendTextMessage,
+              style: IconButton.styleFrom(
+                backgroundColor: const Color(0xff0386FF),
+                shape: const CircleBorder(),
+                padding: const EdgeInsets.all(12),
+              ),
+              icon: const Icon(
+                Icons.send,
+                color: Colors.white,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 8),
+            // End session button
+            GestureDetector(
+              onTap: _endSession,
+              child: Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: Colors.red.shade400,
+                  borderRadius: BorderRadius.circular(22),
+                ),
+                child: const Icon(
+                  Icons.call_end_rounded,
+                  color: Colors.white,
+                  size: 20,
                 ),
               ),
             ),
+          ],
+        ),
+      );
+    }
+
+    // Voice mode: show chat composer + call controls
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
+      decoration: BoxDecoration(
+        color: isDark
+            ? Colors.black.withValues(alpha: 0.3)
+            : Colors.white.withValues(alpha: 0.8),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Chat composer (available in voice mode for students and teachers)
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _chatInputController,
+                  focusNode: _chatInputFocusNode,
+                  style: GoogleFonts.inter(
+                    fontSize: 16,
+                    color: const Color(0xff111827),
+                  ),
+                  decoration: InputDecoration(
+                    hintText: 'Type a message...',
+                    hintStyle: GoogleFonts.inter(
+                      fontSize: 16,
+                      color: const Color(0xff9CA3AF),
+                    ),
+                    filled: true,
+                    fillColor: const Color(0xffF9FAFB),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(24),
+                      borderSide: const BorderSide(
+                        color: Color(0xffE5E7EB),
+                        width: 1,
+                      ),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(24),
+                      borderSide: const BorderSide(
+                        color: Color(0xffE5E7EB),
+                        width: 1,
+                      ),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(24),
+                      borderSide: const BorderSide(
+                        color: Color(0xff0386FF),
+                        width: 1.2,
+                      ),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                  ),
+                  textCapitalization: TextCapitalization.sentences,
+                  onSubmitted: (_) => _sendTextMessage(),
+                ),
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                onPressed: _sendTextMessage,
+                style: IconButton.styleFrom(
+                  backgroundColor: const Color(0xff0386FF),
+                  shape: const CircleBorder(),
+                  padding: const EdgeInsets.all(12),
+                ),
+                icon: const Icon(
+                  Icons.send,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
+            ],
           ),
-        // Bottom controls
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: isDark
-                ? Colors.black.withValues(alpha: 0.3)
-                : Colors.white.withValues(alpha: 0.8),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          child: Row(
+          const SizedBox(height: 12),
+          Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
               // Microphone toggle
@@ -1601,18 +2721,13 @@ class _AITutorScreenState extends State<AITutorScreen>
                 activeColor: const Color(0xFF10B981),
                 inactiveColor: Colors.red.shade400,
               ),
-              // Show AI button - sends whiteboard to AI for analysis
+              // Whiteboard toggle
               _ControlButton(
-                icon: _isSendingWhiteboard
-                    ? Icons.hourglass_top_rounded
-                    : Icons.visibility_rounded,
-                label: l10n.tutorShowAI,
-                isActive: _agentJoined && !_isSendingWhiteboard,
-                onPressed: () {
-                  if (_agentJoined && !_isSendingWhiteboard) {
-                    _sendWhiteboardToAI();
-                  }
-                },
+                icon: _showWhiteboard ? Icons.draw_rounded : Icons.draw_outlined,
+                label: 'Board',
+                isActive: _showWhiteboard,
+                onPressed: () =>
+                    setState(() => _showWhiteboard = !_showWhiteboard),
                 activeColor: const Color(0xFF0E72ED),
                 inactiveColor: Colors.grey.shade500,
               ),
@@ -1628,9 +2743,318 @@ class _AITutorScreenState extends State<AITutorScreen>
               ),
             ],
           ),
-        ),
-      ],
+        ],
+      ),
     );
+  }
+
+  Widget _buildWhiteboardView(bool isDark) {
+    if (!_showWhiteboard) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: CallWhiteboard(
+          key: _whiteboardKey,
+          isTeacher: false,
+          studentDrawingEnabled: _studentDrawingEnabled,
+          onSendProject: _sendTutorWhiteboardProject,
+          projectStream: _whiteboardProjectController.stream,
+          onClose: null,
+          initialStrokes: null,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildChatView(AppLocalizations l10n, bool isDark) {
+    // Message list only - input is now in bottom controls
+    return _chatMessages.isEmpty
+        ? _buildEmptyChatPlaceholder(isDark)
+        : ListView.builder(
+            controller: _chatScrollController,
+            reverse: true,
+            padding: const EdgeInsets.all(12),
+            itemCount: _chatMessages.length,
+            itemBuilder: (context, index) {
+              final message = _chatMessages[_chatMessages.length - 1 - index];
+              return _buildChatMessageBubble(message, isDark);
+            },
+          );
+  }
+
+  Widget _buildEmptyChatPlaceholder(bool isDark) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.chat_bubble_outline_rounded,
+            size: 64,
+            color: Colors.grey.shade400,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Start a conversation',
+            style: GoogleFonts.inter(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: Colors.grey.shade500,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Type a message or speak to Alluwal',
+            style: GoogleFonts.inter(
+              fontSize: 13,
+              color: Colors.grey.shade400,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildChatMessageBubble(TutorChatMessage message, bool isDark) {
+    final isUser = message.sender == TutorMessageSender.user;
+
+    return Container(
+      margin: EdgeInsets.only(
+        top: 4,
+        bottom: 4,
+        left: isUser ? 48 : 12,
+        right: isUser ? 12 : 48,
+      ),
+      child: Row(
+        mainAxisAlignment:
+            isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          if (!isUser) _buildAIAvatar(),
+          if (!isUser) const SizedBox(width: 8),
+          Flexible(
+            child: Container(
+              constraints: BoxConstraints(
+                maxWidth: MediaQuery.of(context).size.width * 0.7,
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: isUser ? const Color(0xff0386FF) : Colors.white,
+                borderRadius: BorderRadius.only(
+                  topLeft: const Radius.circular(20),
+                  topRight: const Radius.circular(20),
+                  bottomLeft: Radius.circular(isUser ? 20 : 4),
+                  bottomRight: Radius.circular(isUser ? 4 : 20),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.08),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    message.content,
+                    style: GoogleFonts.inter(
+                      fontSize: 15,
+                      color:
+                          isUser ? Colors.white : const Color(0xff2D3748),
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    _formatMessageTime(message.timestamp),
+                    style: GoogleFonts.inter(
+                      fontSize: 11,
+                      color: isUser
+                          ? Colors.white.withValues(alpha: 0.7)
+                          : const Color(0xff6B7280),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAIAvatar() {
+    return Container(
+      width: 32,
+      height: 32,
+      decoration: BoxDecoration(
+        color: const Color(0xff0386FF).withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: const Color(0xff0386FF).withValues(alpha: 0.2),
+          width: 1,
+        ),
+      ),
+      child: Center(
+        child: Text(
+          'AI',
+          style: GoogleFonts.inter(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: const Color(0xff0386FF),
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _formatMessageTime(DateTime timestamp) {
+    final hour = timestamp.hour;
+    final minute = timestamp.minute.toString().padLeft(2, '0');
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final messageDate =
+        DateTime(timestamp.year, timestamp.month, timestamp.day);
+    if (messageDate == today) {
+      return '${hour.toString().padLeft(2, '0')}:$minute';
+    }
+    if (messageDate == today.subtract(const Duration(days: 1))) {
+      return 'Yesterday ${hour.toString().padLeft(2, '0')}:$minute';
+    }
+    return '${timestamp.day}/${timestamp.month} ${hour.toString().padLeft(2, '0')}:$minute';
+  }
+
+  Future<void> _sendTextMessage() async {
+    final text = _chatInputController.text.trim();
+    if (text.isEmpty) return;
+
+    // Guard against accidental voice capture while in text mode.
+    if (_interactionMode == TutorInteractionMode.text && _isMicEnabled) {
+      await _setMicrophoneEnabled(false);
+    }
+
+    final local = _localParticipant;
+    if (local == null) {
+      _showTeacherActionSnackBar('Not connected to session', success: false);
+      return;
+    }
+
+    if (!_agentJoined && !_hasRemoteParticipants) {
+      final ready = await _waitForAgentAvailability();
+      if (!ready) {
+        _showTeacherActionSnackBar(
+          'AI is still connecting. Please try again in a moment.',
+          success: false,
+        );
+        return;
+      }
+    }
+
+    // Add to local chat history
+    final message = TutorChatMessage(
+      id: '${DateTime.now().millisecondsSinceEpoch}_user',
+      content: text,
+      sender: TutorMessageSender.user,
+      type: TutorMessageType.text,
+    );
+
+    setState(() {
+      _chatMessages.add(message);
+      _chatInputController.clear();
+    });
+
+    // Send via data channel to agent
+    // Include response_mode so agent knows whether to respond with voice or text
+    final responseMode =
+        _interactionMode == TutorInteractionMode.text ? 'text' : 'voice';
+    final payload = json.encode({
+      'type': 'user_text_message',
+      'message_id': message.id,
+      'content': text,
+      'response_mode': responseMode,
+      'timestamp': DateTime.now().toIso8601String(),
+    });
+
+    try {
+      await _publishChatPayload(
+        local: local,
+        payload: payload,
+        reliable: true,
+      );
+      AppLogger.info('AI Tutor: Sent text message to agent');
+    } catch (e) {
+      if (_isLikelyTimeoutError(e)) {
+        AppLogger.warning(
+          'AI Tutor: Reliable chat send timed out, retrying unreliable: $e',
+        );
+        try {
+          await _publishChatPayload(
+            local: local,
+            payload: payload,
+            reliable: false,
+          );
+          AppLogger.info('AI Tutor: Sent text message to agent (unreliable)');
+          return;
+        } catch (retryError) {
+          AppLogger.error(
+            'AI Tutor: Retry failed to send text message: $retryError',
+          );
+        }
+      } else {
+        AppLogger.error('AI Tutor: Failed to send text message: $e');
+      }
+
+      if (mounted) {
+        setState(() {
+          _chatMessages.removeWhere((m) => m.id == message.id);
+        });
+      }
+
+      if (_chatInputController.text.trim().isEmpty) {
+        _chatInputController.text = text;
+        _chatInputController.selection = TextSelection.fromPosition(
+          TextPosition(offset: _chatInputController.text.length),
+        );
+      }
+      _showTeacherActionSnackBar(
+        'Failed to send message. Please try again.',
+        success: false,
+      );
+    }
+  }
+
+  void _handleTranscriptionReceived(DataReceivedEvent event) {
+    try {
+      final text = utf8.decode(event.data, allowMalformed: true);
+      final data = json.decode(text) as Map<String, dynamic>;
+
+      final content = data['content']?.toString() ?? '';
+      final sender = data['sender']?.toString() ?? '';
+
+      if (content.isEmpty) return;
+
+      final messageType = _interactionMode == TutorInteractionMode.text
+          ? TutorMessageType.text
+          : TutorMessageType.voiceTranscription;
+
+      final message = TutorChatMessage(
+        id: '${DateTime.now().millisecondsSinceEpoch}_$sender',
+        content: content,
+        sender:
+            sender == 'user' ? TutorMessageSender.user : TutorMessageSender.ai,
+        type: messageType,
+      );
+
+      if (mounted) {
+        setState(() {
+          _chatMessages.add(message);
+        });
+      }
+    } catch (e) {
+      AppLogger.error('AI Tutor: Failed to process transcription: $e');
+    }
   }
 
   Widget _buildTutorStatusBar(AppLocalizations l10n, bool isDark) {
@@ -1730,6 +3154,18 @@ class _AITutorScreenState extends State<AITutorScreen>
       ),
     );
   }
+}
+
+class _TutorPreferenceSelection {
+  final TutorInteractionMode mode;
+  final TutorVoicePreference voicePreference;
+  final TutorBackgroundPreference backgroundPreference;
+
+  const _TutorPreferenceSelection({
+    required this.mode,
+    required this.voicePreference,
+    required this.backgroundPreference,
+  });
 }
 
 /// Audio wave bar animation widget

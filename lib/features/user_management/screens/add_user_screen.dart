@@ -470,23 +470,6 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
           _emailNotificationInfo = null; // Clear for non-student users
         }
 
-        // Send welcome email (only if email is provided)
-        if (userData['email'].isNotEmpty) {
-          try {
-            final welcomeCallable = functions.httpsCallable('sendWelcomeEmail');
-            final user = transformedUsers.first;
-            await welcomeCallable.call({
-              'email': user['email'],
-              'firstName': user['firstName'],
-              'lastName': user['lastName'],
-              'role': user['userType'],
-            });
-            AppLogger.error('Welcome email sent successfully');
-          } catch (emailError) {
-            AppLogger.error('Failed to send welcome email: $emailError');
-            // Don't fail the entire operation if email fails
-          }
-        }
       } else {
         // Use createMultipleUsers function for multiple users
         final functions = FirebaseFunctions.instance;
@@ -497,28 +480,6 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
         });
 
         AppLogger.debug('Multiple users creation result: ${result.data}');
-
-        // Send welcome emails to all users
-        try {
-          final welcomeCallable = functions.httpsCallable('sendWelcomeEmail');
-          for (final user in transformedUsers) {
-            try {
-              await welcomeCallable.call({
-                'email':
-                    user['e-mail'], // Use correct field name from Firestore
-                'firstName': user['first_name'],
-                'lastName': user['last_name'],
-                'role': user['user_type'], // Use correct field name
-              });
-              AppLogger.error('Welcome email sent to ${user['e-mail']}');
-            } catch (emailError) {
-              AppLogger.error(
-                  'Failed to send welcome email to ${user['e-mail']}: $emailError');
-            }
-          }
-        } catch (e) {
-          AppLogger.error('Failed to send welcome emails: $e');
-        }
       }
 
       // Show detailed success message
@@ -2492,7 +2453,7 @@ class StudentCredentialsPreviewDialog extends StatelessWidget {
           SizedBox(
             width: 80,
             child: Text(
-              AppLocalizations.of(context)!.label,
+              label,
               style: GoogleFonts.openSans(
                 fontSize: 14,
                 color: const Color(0xff718096),
@@ -2522,7 +2483,7 @@ class StudentCredentialsPreviewDialog extends StatelessWidget {
           SizedBox(
             width: 100,
             child: Text(
-              AppLocalizations.of(context)!.label,
+              label,
               style: GoogleFonts.openSans(
                 fontSize: 14,
                 color: const Color(0xff1E40AF),

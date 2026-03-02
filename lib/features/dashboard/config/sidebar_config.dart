@@ -10,6 +10,8 @@ class SidebarConfig {
       return _getAdminStructure();
     } else if (userRole == 'teacher') {
       return _getTeacherStructure();
+    } else if (userRole == 'parent') {
+      return _getParentStructure();
     } else {
       return _getStudentStructure();
     }
@@ -108,6 +110,20 @@ class SidebarConfig {
             icon: Icons.videocam,
             screenIndex: 12,
             colorValue: 0xff2D8CFF,
+          ),
+          const SidebarItem(
+            id: 'recordings',
+            label: 'Recordings',
+            icon: Icons.video_library_outlined,
+            screenIndex: 26,
+            colorValue: 0xff0E72ED,
+          ),
+          const SidebarItem(
+            id: 'surah_podcasts',
+            label: 'Surah Podcasts',
+            icon: Icons.podcasts,
+            screenIndex: 27,
+            colorValue: 0xff0E72ED,
           ),
           const SidebarItem(
             id: 'notifications',
@@ -267,6 +283,20 @@ class SidebarConfig {
             screenIndex: 12,
             colorValue: 0xff2D8CFF,
           ),
+          const SidebarItem(
+            id: 'recordings',
+            label: 'Recordings',
+            icon: Icons.video_library_outlined,
+            screenIndex: 26,
+            colorValue: 0xff0E72ED,
+          ),
+          const SidebarItem(
+            id: 'surah_podcasts',
+            label: 'Surah Podcasts',
+            icon: Icons.podcasts,
+            screenIndex: 27,
+            colorValue: 0xff0E72ED,
+          ),
         ],
       ),
       SidebarSection(
@@ -277,7 +307,8 @@ class SidebarConfig {
             id: 'submit_form',
             label: 'Submit Form',
             icon: Icons.description,
-            screenIndex: 22, // Changed to TeacherFormsScreen (new template system)
+            screenIndex:
+                22, // Changed to TeacherFormsScreen (new template system)
             colorValue: 0xffEC4899,
           ),
         ],
@@ -292,6 +323,97 @@ class SidebarConfig {
             icon: Icons.assessment,
             screenIndex: 20,
             colorValue: 0xffDC2626,
+          ),
+        ],
+      ),
+    ];
+  }
+
+  static List<SidebarSection> _getParentStructure() {
+    return [
+      SidebarSection(
+        id: 'overview',
+        title: 'Overview',
+        items: [
+          const SidebarItem(
+            id: 'dashboard',
+            label: 'Dashboard',
+            icon: Icons.dashboard,
+            screenIndex: 0,
+            colorValue: 0xff0386FF,
+          ),
+        ],
+      ),
+      SidebarSection(
+        id: 'classes',
+        title: 'Learning',
+        items: [
+          const SidebarItem(
+            id: 'classes',
+            label: 'Classes',
+            icon: Icons.videocam,
+            screenIndex: 6,
+            colorValue: 0xff2D8CFF,
+          ),
+          const SidebarItem(
+            id: 'recordings',
+            label: 'Recordings',
+            icon: Icons.video_library_outlined,
+            screenIndex: 7,
+            colorValue: 0xff0E72ED,
+          ),
+        ],
+      ),
+      SidebarSection(
+        id: 'finance',
+        title: 'Finance',
+        items: [
+          const SidebarItem(
+            id: 'invoices',
+            label: 'Invoices',
+            icon: Icons.receipt_long,
+            screenIndex: 1,
+            colorValue: 0xff10B981,
+          ),
+          const SidebarItem(
+            id: 'payments',
+            label: 'Payments',
+            icon: Icons.payments,
+            screenIndex: 2,
+            colorValue: 0xff059669,
+          ),
+        ],
+      ),
+      SidebarSection(
+        id: 'forms',
+        title: 'Forms',
+        items: [
+          const SidebarItem(
+            id: 'forms',
+            label: 'Forms',
+            icon: Icons.description,
+            screenIndex: 3,
+            colorValue: 0xffEC4899,
+          ),
+        ],
+      ),
+      SidebarSection(
+        id: 'account',
+        title: 'Account',
+        items: [
+          const SidebarItem(
+            id: 'profile',
+            label: 'Profile',
+            icon: Icons.person,
+            screenIndex: 4,
+            colorValue: 0xff6B7280,
+          ),
+          const SidebarItem(
+            id: 'settings',
+            label: 'Settings',
+            icon: Icons.settings,
+            screenIndex: 5,
+            colorValue: 0xff6B7280,
           ),
         ],
       ),
@@ -325,11 +447,32 @@ class SidebarConfig {
             colorValue: 0xff2D8CFF,
           ),
           const SidebarItem(
+            id: 'recordings',
+            label: 'Recordings',
+            icon: Icons.video_library_outlined,
+            screenIndex: 26,
+            colorValue: 0xff0E72ED,
+          ),
+          const SidebarItem(
             id: 'tasks',
             label: 'Tasks',
             icon: Icons.task_alt,
             screenIndex: 11,
             colorValue: 0xff14B8A6,
+          ),
+          const SidebarItem(
+            id: 'progress',
+            label: 'Progress',
+            icon: Icons.insights,
+            screenIndex: 25,
+            colorValue: 0xff2563EB,
+          ),
+          const SidebarItem(
+            id: 'surah_podcasts',
+            label: 'Surah Podcasts',
+            icon: Icons.podcasts,
+            screenIndex: 27,
+            colorValue: 0xff0E72ED,
           ),
         ],
       ),

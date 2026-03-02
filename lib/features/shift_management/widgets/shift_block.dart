@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../../core/models/teaching_shift.dart';
 import '../../../core/enums/shift_enums.dart';
 import '../../../core/constants/shift_colors.dart';
+import '../../../core/utils/timezone_utils.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 /// Color-coded shift block component for grid view
@@ -24,6 +25,7 @@ class ShiftBlock extends StatefulWidget {
   final bool showMultipleShiftsIndicator; // Show indicator for multiple shifts
   final int? shiftIndex; // Index of this shift (for multiple shifts)
   final int? totalShifts; // Total number of shifts (for multiple shifts)
+  final String? studentTimezone; // First student's IANA timezone (fetched by grid)
 
   const ShiftBlock({
     super.key,
@@ -41,6 +43,7 @@ class ShiftBlock extends StatefulWidget {
     this.showMultipleShiftsIndicator = false,
     this.shiftIndex,
     this.totalShifts,
+    this.studentTimezone,
   });
 
   @override
@@ -62,8 +65,22 @@ class _ShiftBlockState extends State<ShiftBlock> {
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
       child: Tooltip(
-        message: _buildTooltip(),
-        waitDuration: const Duration(milliseconds: 500),
+        richMessage: _buildTimezoneTooltip(),
+        textStyle: GoogleFonts.inter(color: Colors.white, fontSize: 12),
+        decoration: BoxDecoration(
+          color: const Color(0xff1E293B),
+          borderRadius: BorderRadius.circular(10),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.3),
+              blurRadius: 16,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        waitDuration: const Duration(milliseconds: 400),
+        preferBelow: true,
         child: Stack(
           children: [
             // Main shift block
@@ -326,14 +343,141 @@ class _ShiftBlockState extends State<ShiftBlock> {
     );
   }
 
-  String _buildTooltip() {
-    final timeRange = '${_formatTime(widget.shift.shiftStart)} - ${_formatTime(widget.shift.shiftEnd)}';
-    final subject = _getDisplayName();
-    final students = widget.shift.studentNames.isNotEmpty 
-        ? widget.shift.studentNames.join(', ')
-        : 'No students';
-    final teacher = widget.shift.teacherName;
-    return '$timeRange\n$subject\n$teacher\n$students';
+  InlineSpan _buildTimezoneTooltip() {
+    final teacherTz = widget.shift.teacherTimezone;
+    final studentTz = widget.studentTimezone;
+    final fmt = DateFormat('h:mm a');
+
+    final utcStart = widget.shift.shiftStart.toUtc();
+    final utcEnd = widget.shift.shiftEnd.toUtc();
+
+    // Duration
+    final durationMinutes =
+        widget.shift.shiftEnd.difference(widget.shift.shiftStart).inMinutes;
+    final durationText = durationMinutes >= 60
+        ? '${durationMinutes ~/ 60}h${durationMinutes % 60 > 0 ? ' ${durationMinutes % 60}m' : ''}'
+        : '${durationMinutes}m';
+
+    // Teacher timezone
+    final teacherStart = TimezoneUtils.convertToTimezone(utcStart, teacherTz);
+    final teacherEnd = TimezoneUtils.convertToTimezone(utcEnd, teacherTz);
+    final teacherAbbr = TimezoneUtils.getTimezoneAbbreviation(teacherTz);
+
+    // Student timezone (optional — loaded asynchronously by the grid)
+    DateTime? studentStart, studentEnd;
+    String? studentAbbr;
+    if (studentTz != null && studentTz.isNotEmpty) {
+      studentStart = TimezoneUtils.convertToTimezone(utcStart, studentTz);
+      studentEnd = TimezoneUtils.convertToTimezone(utcEnd, studentTz);
+      studentAbbr = TimezoneUtils.getTimezoneAbbreviation(studentTz);
+    }
+
+    String range(DateTime s, DateTime e) =>
+        '${fmt.format(s)} – ${fmt.format(e)}';
+
+    const sectionStyle = TextStyle(
+      fontSize: 10,
+      fontWeight: FontWeight.w700,
+      color: Color(0xff94A3B8),
+      letterSpacing: 0.8,
+      height: 1.8,
+    );
+    const labelStyle = TextStyle(
+      fontSize: 10,
+      fontWeight: FontWeight.w500,
+      color: Color(0xff94A3B8),
+      height: 1.4,
+    );
+    const timeStyle = TextStyle(
+      fontSize: 12,
+      fontWeight: FontWeight.w600,
+      color: Colors.white,
+      height: 1.5,
+    );
+    const subLabelStyle = TextStyle(
+      fontSize: 10,
+      color: Color(0xff64748B),
+      height: 1.4,
+    );
+    const nameStyle = TextStyle(
+      fontSize: 11,
+      fontWeight: FontWeight.w500,
+      color: Colors.white,
+      height: 1.5,
+    );
+    TextStyle abbrStyle(Color c) => TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+          color: c,
+          height: 1.5,
+        );
+
+    const nl = TextSpan(text: '\n');
+    const gap = TextSpan(text: '\n');
+
+    // Subject name
+    final subject =
+        widget.shift.subjectDisplayName?.isNotEmpty == true
+            ? widget.shift.subjectDisplayName!
+            : _getDisplayName();
+
+    final studentNames = widget.shift.studentNames;
+    final isTeachingShift = widget.shift.category == ShiftCategory.teaching;
+
+    return TextSpan(
+      children: [
+        // ── Subject · Duration ───────────────────────
+        TextSpan(
+          text: '$subject  ·  $durationText\n',
+          style: sectionStyle,
+        ),
+        nl,
+
+        // ── Student Time ─────────────────────────────
+        if (studentStart != null &&
+            studentEnd != null &&
+            studentAbbr != null) ...[
+          const TextSpan(text: 'Student\n', style: labelStyle),
+          TextSpan(text: range(studentStart, studentEnd), style: timeStyle),
+          const TextSpan(text: '  '),
+          TextSpan(
+              text: studentAbbr, style: abbrStyle(const Color(0xffFBBF24))),
+          nl,
+          gap,
+        ],
+
+        // ── Teacher Time ─────────────────────────────
+        const TextSpan(text: 'Teacher\n', style: labelStyle),
+        TextSpan(text: range(teacherStart, teacherEnd), style: timeStyle),
+        const TextSpan(text: '  '),
+        TextSpan(
+            text: teacherAbbr, style: abbrStyle(const Color(0xff34D399))),
+        nl,
+        if (widget.shift.teacherName.isNotEmpty)
+          TextSpan(
+              text: '  ${widget.shift.teacherName}\n', style: subLabelStyle),
+
+        // ── Students ─────────────────────────────────
+        if (isTeachingShift && studentNames.isNotEmpty) ...[
+          gap,
+          TextSpan(
+            text: 'STUDENT${studentNames.length == 1 ? '' : 'S'}\n',
+            style: sectionStyle,
+          ),
+          ...studentNames.take(6).map((name) => TextSpan(
+                children: [
+                  const TextSpan(text: '· ', style: subLabelStyle),
+                  TextSpan(text: '$name\n', style: nameStyle),
+                ],
+              )),
+          if (studentNames.length > 6)
+            TextSpan(
+              text: '+ ${studentNames.length - 6} more\n',
+              style: subLabelStyle,
+            ),
+        ],
+      ],
+    );
   }
 
   Color _getShiftColor() {

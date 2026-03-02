@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/services/notification_preferences_service.dart';
+import '../../../core/services/prayer_notification_service.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
@@ -23,6 +24,8 @@ class _NotificationPreferencesScreenState
 
   bool _chatNotificationsEnabled = true;
 
+  bool _prayerNotificationsEnabled = true;
+
   bool _isLoading = true;
 
   @override
@@ -43,6 +46,8 @@ class _NotificationPreferencesScreenState
           await NotificationPreferencesService.getTaskNotificationDays();
       final chatEnabled =
           await NotificationPreferencesService.isChatNotificationEnabled();
+      final prayerEnabled =
+          await NotificationPreferencesService.isPrayerNotificationEnabled();
 
       if (mounted) {
         setState(() {
@@ -51,6 +56,7 @@ class _NotificationPreferencesScreenState
           _taskNotificationsEnabled = taskEnabled;
           _taskNotificationDays = taskDays;
           _chatNotificationsEnabled = chatEnabled;
+          _prayerNotificationsEnabled = prayerEnabled;
           _isLoading = false;
         });
       }
@@ -74,6 +80,7 @@ class _NotificationPreferencesScreenState
           _taskNotificationDays);
       await NotificationPreferencesService.setChatNotificationEnabled(
           _chatNotificationsEnabled);
+      await PrayerNotificationService.setEnabled(_prayerNotificationsEnabled);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -471,6 +478,113 @@ class _NotificationPreferencesScreenState
                     ),
                   ],
                 ),
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // Prayer Times (Adhan) Notifications Section
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(
+                color: Theme.of(context).cardColor,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xff059669).withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(
+                            Icons.mosque_outlined,
+                            color: Color(0xff059669),
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'PRAYER TIMES (ADHAN)',
+                                style: GoogleFonts.inter(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: const Color(0xff6B7280),
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Adhan call to prayer at all 5 daily prayer times',
+                                style: GoogleFonts.inter(
+                                  fontSize: 13,
+                                  color: Theme.of(context)
+                                      .textTheme
+                                      .bodySmall
+                                      ?.color,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Switch(
+                          value: _prayerNotificationsEnabled,
+                          onChanged: (value) {
+                            setState(
+                                () => _prayerNotificationsEnabled = value);
+                            _savePreferences();
+                          },
+                          activeThumbColor: const Color(0xff059669),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (_prayerNotificationsEnabled) ...[
+                    const Divider(height: 1),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 12),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.location_on_outlined,
+                            color: Color(0xff059669),
+                            size: 16,
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              'Prayer times are calculated based on your current '
+                              'GPS location for maximum accuracy.',
+                              style: GoogleFonts.inter(
+                                fontSize: 12,
+                                color: const Color(0xff6B7280),
+                                height: 1.5,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
 

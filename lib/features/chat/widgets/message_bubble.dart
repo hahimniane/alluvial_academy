@@ -35,6 +35,10 @@ class _MessageBubbleState extends State<MessageBubble> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.message.isSystem) {
+      return _buildSystemMessage();
+    }
+
     return GestureDetector(
       onLongPress: () => _showMessageMenu(context),
       onTap: () {
@@ -62,7 +66,7 @@ class _MessageBubbleState extends State<MessageBubble> {
               _buildAvatar(),
               const SizedBox(width: 8),
             ],
-            
+
             Flexible(
               child: Column(
                 crossAxisAlignment: widget.isCurrentUser
@@ -70,7 +74,8 @@ class _MessageBubbleState extends State<MessageBubble> {
                     : CrossAxisAlignment.start,
                 children: [
                   // Sender name (only for received messages)
-                  if (!widget.isCurrentUser && widget.message.senderName.isNotEmpty)
+                  if (!widget.isCurrentUser &&
+                      widget.message.senderName.isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.only(left: 4, bottom: 4),
                       child: Text(
@@ -102,8 +107,10 @@ class _MessageBubbleState extends State<MessageBubble> {
                           borderRadius: BorderRadius.only(
                             topLeft: const Radius.circular(20),
                             topRight: const Radius.circular(20),
-                            bottomLeft: Radius.circular(widget.isCurrentUser ? 20 : 4),
-                            bottomRight: Radius.circular(widget.isCurrentUser ? 4 : 20),
+                            bottomLeft:
+                                Radius.circular(widget.isCurrentUser ? 20 : 4),
+                            bottomRight:
+                                Radius.circular(widget.isCurrentUser ? 4 : 20),
                           ),
                           boxShadow: [
                             BoxShadow(
@@ -117,8 +124,10 @@ class _MessageBubbleState extends State<MessageBubble> {
                           borderRadius: BorderRadius.only(
                             topLeft: const Radius.circular(20),
                             topRight: const Radius.circular(20),
-                            bottomLeft: Radius.circular(widget.isCurrentUser ? 20 : 4),
-                            bottomRight: Radius.circular(widget.isCurrentUser ? 4 : 20),
+                            bottomLeft:
+                                Radius.circular(widget.isCurrentUser ? 20 : 4),
+                            bottomRight:
+                                Radius.circular(widget.isCurrentUser ? 4 : 20),
                           ),
                           child: _buildMessageContent(),
                         ),
@@ -140,10 +149,37 @@ class _MessageBubbleState extends State<MessageBubble> {
     );
   }
 
+  Widget _buildSystemMessage() {
+    return Center(
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 40),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        decoration: BoxDecoration(
+          color: const Color(0xFFE5E7EB).withOpacity(0.6),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Text(
+          widget.message.content,
+          style: GoogleFonts.inter(
+            fontSize: 12,
+            color: const Color(0xFF6B7280),
+            fontWeight: FontWeight.w500,
+          ),
+          textAlign: TextAlign.center,
+        ),
+      ),
+    );
+  }
+
   Widget _buildAvatar() {
     final profilePic = widget.message.senderProfilePicture;
     final initials = widget.message.senderName.isNotEmpty
-        ? widget.message.senderName.split(' ').map((e) => e.isNotEmpty ? e[0] : '').take(2).join().toUpperCase()
+        ? widget.message.senderName
+            .split(' ')
+            .map((e) => e.isNotEmpty ? e[0] : '')
+            .take(2)
+            .join()
+            .toUpperCase()
         : '?';
 
     return Container(
@@ -194,15 +230,16 @@ class _MessageBubbleState extends State<MessageBubble> {
       return _buildTextMessage();
     }
   }
-  
+
   Widget _buildVoiceMessage() {
     final audioUrl = widget.message.fileUrl;
     final duration = widget.message.voiceDuration ?? 0;
-    
+    final mimeType = widget.message.voiceMimeType;
+
     if (audioUrl == null || audioUrl.isEmpty) {
       return _buildTextMessage(); // Fallback to text if no audio URL
     }
-    
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       child: Column(
@@ -210,6 +247,7 @@ class _MessageBubbleState extends State<MessageBubble> {
         children: [
           VoiceMessagePlayer(
             audioUrl: audioUrl,
+            mimeType: mimeType,
             durationSeconds: duration,
             isFromMe: widget.isCurrentUser,
           ),
@@ -226,17 +264,60 @@ class _MessageBubbleState extends State<MessageBubble> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            widget.message.content,
-            style: GoogleFonts.inter(
-              fontSize: 15,
-              color: widget.isCurrentUser ? Colors.white : const Color(0xff2D3748),
-              height: 1.4,
-            ),
-          ),
+          _buildRichText(widget.message.content),
           const SizedBox(height: 6),
           _buildTimestamp(),
         ],
+      ),
+    );
+  }
+
+  Widget _buildRichText(String text) {
+    final mentionRegex = RegExp(r'@(\w[\w\s]*?)(?=\s@|\s[^@]|$)');
+    final matches = mentionRegex.allMatches(text).toList();
+
+    if (matches.isEmpty) {
+      return Text(
+        text,
+        style: GoogleFonts.inter(
+          fontSize: 15,
+          color: widget.isCurrentUser ? Colors.white : const Color(0xff2D3748),
+          height: 1.4,
+        ),
+      );
+    }
+
+    final spans = <TextSpan>[];
+    int lastEnd = 0;
+
+    for (final match in matches) {
+      if (match.start > lastEnd) {
+        spans.add(TextSpan(text: text.substring(lastEnd, match.start)));
+      }
+      spans.add(TextSpan(
+        text: match.group(0),
+        style: TextStyle(
+          fontWeight: FontWeight.w700,
+          color: widget.isCurrentUser
+              ? const Color(0xFFBBDEFB)
+              : const Color(0xFF0386FF),
+        ),
+      ));
+      lastEnd = match.end;
+    }
+
+    if (lastEnd < text.length) {
+      spans.add(TextSpan(text: text.substring(lastEnd)));
+    }
+
+    return RichText(
+      text: TextSpan(
+        style: GoogleFonts.inter(
+          fontSize: 15,
+          color: widget.isCurrentUser ? Colors.white : const Color(0xff2D3748),
+          height: 1.4,
+        ),
+        children: spans,
       ),
     );
   }
@@ -307,7 +388,9 @@ class _MessageBubbleState extends State<MessageBubble> {
               ),
               child: Icon(
                 _getFileIcon(),
-                color: widget.isCurrentUser ? Colors.white : const Color(0xff0386FF),
+                color: widget.isCurrentUser
+                    ? Colors.white
+                    : const Color(0xff0386FF),
                 size: 24,
               ),
             ),
@@ -321,7 +404,9 @@ class _MessageBubbleState extends State<MessageBubble> {
                     style: GoogleFonts.inter(
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
-                      color: widget.isCurrentUser ? Colors.white : const Color(0xff2D3748),
+                      color: widget.isCurrentUser
+                          ? Colors.white
+                          : const Color(0xff2D3748),
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -350,10 +435,14 @@ class _MessageBubbleState extends State<MessageBubble> {
   IconData _getFileIcon() {
     final fileName = widget.message.fileName?.toLowerCase() ?? '';
     if (fileName.endsWith('.pdf')) return Icons.picture_as_pdf;
-    if (fileName.endsWith('.doc') || fileName.endsWith('.docx')) return Icons.description;
-    if (fileName.endsWith('.xls') || fileName.endsWith('.xlsx')) return Icons.table_chart;
-    if (fileName.endsWith('.ppt') || fileName.endsWith('.pptx')) return Icons.slideshow;
-    if (fileName.endsWith('.zip') || fileName.endsWith('.rar')) return Icons.folder_zip;
+    if (fileName.endsWith('.doc') || fileName.endsWith('.docx'))
+      return Icons.description;
+    if (fileName.endsWith('.xls') || fileName.endsWith('.xlsx'))
+      return Icons.table_chart;
+    if (fileName.endsWith('.ppt') || fileName.endsWith('.pptx'))
+      return Icons.slideshow;
+    if (fileName.endsWith('.zip') || fileName.endsWith('.rar'))
+      return Icons.folder_zip;
     return Icons.insert_drive_file;
   }
 

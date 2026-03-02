@@ -24,7 +24,10 @@ import './teacher_home_screen.dart'; // Import the new TeacherHomeScreen
 import './teacher_job_board_screen.dart';
 import '../../profile/screens/teacher_profile_screen.dart';
 import '../../student/screens/student_classes_screen.dart'; // Student classes screen
+import '../../student/screens/student_progress_screen.dart'; // Student progress screen
 import '../../admin/screens/admin_classes_screen.dart'; // Admin classes screen
+import '../../recordings/screens/class_recordings_screen.dart';
+import '../../surah_podcast/screens/surah_podcast_screen.dart';
 import '../../quiz/screens/quiz_home_screen.dart'; // Quiz feature
 import '../../tutor/screens/ai_tutor_screen.dart'; // AI Tutor feature
 
@@ -505,6 +508,7 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
         const QuizHomeScreen(), // Quiz feature
         const ChatPage(),
         const QuickTasksScreen(),
+        const StudentProgressScreen(),
         // Note: AI Tutor is accessed via FAB, not bottom navigation
       ];
     }
@@ -554,6 +558,7 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
         _NavItemData(Icons.quiz_rounded, l10n.navQuiz, 1),
         _NavItemData(Icons.chat_bubble_rounded, l10n.navChat, 2, isChat: true),
         _NavItemData(Icons.task_alt_rounded, l10n.navTasks, 3),
+        _NavItemData(Icons.insights_rounded, l10n.progress, 4),
       ];
     }
 
@@ -756,21 +761,44 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
                 ],
               ),
               actions: [
-                // Profile Picture Button - Navigate directly to TeacherProfileScreen for consistency
+                IconButton(
+                  icon: const Icon(
+                    Icons.video_library_outlined,
+                    color: Color(0xFF64748B),
+                  ),
+                  tooltip: 'Class Recordings',
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const ClassRecordingsScreen(),
+                      ),
+                    );
+                  },
+                ),
+                IconButton(
+                  icon: const Icon(
+                    Icons.podcasts,
+                    color: Color(0xFF64748B),
+                  ),
+                  tooltip: 'Surah Podcasts',
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const SurahPodcastScreen(),
+                      ),
+                    );
+                  },
+                ),
+                // Profile Picture Button - Opens profile menu with settings, logout, etc.
                 Padding(
                   padding: const EdgeInsets.only(right: 16),
                   child: GestureDetector(
                     key: _userRole?.toLowerCase() == 'student'
                         ? studentFeatureTour.profileButtonKey
                         : null,
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const TeacherProfileScreen(),
-                        ),
-                      );
-                    },
+                    onTap: _showProfileMenu,
                     child: Container(
                       width: 40,
                       height: 40,
@@ -874,9 +902,9 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
                 if (_userRole?.toLowerCase() == 'student') {
                   if (item.index == 0) {
                     itemKey = studentFeatureTour.classesTabKey;
-                  } else if (item.index == 1) {
-                    itemKey = studentFeatureTour.chatTabKey;
                   } else if (item.index == 2) {
+                    itemKey = studentFeatureTour.chatTabKey;
+                  } else if (item.index == 3) {
                     itemKey = studentFeatureTour.tasksTabKey;
                   }
                 }

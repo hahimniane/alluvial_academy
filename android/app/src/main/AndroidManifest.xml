@@ -12,6 +12,12 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.VIBRATE"/>
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+
+    <!-- Exact alarm scheduling for precise prayer time notifications.
+         On Android 12+ (API 31+) this allows scheduling exact alarms.
+         Users may see an "Alarms & Reminders" permission request in settings. -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM"/>
     
     <!-- Camera and Microphone permissions for Zoom meetings -->
     <uses-permission android:name="android.permission.CAMERA"/>

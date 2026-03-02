@@ -25,6 +25,10 @@ const uniqueNonEmptyStrings = (values) => {
   return out;
 };
 
+// Parent class-assignment emails are intentionally disabled.
+// Keep this as an explicit switch so behavior is obvious and reversible.
+const SEND_PARENT_SHIFT_EMAILS = false;
+
 /**
  * Collect student and guardian emails from shift data
  */
@@ -306,49 +310,53 @@ const sendShiftNotificationEmails = async ({ shiftId, shiftData }) => {
     // Send email to teacher
     await sendTeacherShiftNotification(shiftId, shiftData, teacherEmail, teacherName);
 
-    // Collect and send emails to student parents
-    const studentIds = Array.isArray(shiftData.student_ids) ? shiftData.student_ids : [];
-    if (studentIds.length > 0) {
-      const parentEmails = await collectStudentAndGuardianEmails(shiftData);
-      
-      if (parentEmails.length > 0) {
-        // Get student names for the email
-        const studentNames = Array.isArray(shiftData.student_names) ? shiftData.student_names : [];
+    // Collect and send emails to student parents (disabled by product decision)
+    if (SEND_PARENT_SHIFT_EMAILS) {
+      const studentIds = Array.isArray(shiftData.student_ids) ? shiftData.student_ids : [];
+      if (studentIds.length > 0) {
+        const parentEmails = await collectStudentAndGuardianEmails(shiftData);
         
-        // Group emails by parent (in case multiple students share a parent)
-        const parentEmailMap = new Map();
-        for (const parentEmail of parentEmails) {
-          if (!parentEmailMap.has(parentEmail)) {
-            // Get parent name
-            let parentName = 'Parent';
-            try {
-              const parentDocs = await admin.firestore()
-                .collection('users')
-                .where('e-mail', '==', parentEmail.toLowerCase())
-                .limit(1)
-                .get();
-              if (!parentDocs.empty) {
-                const parentData = parentDocs.docs[0].data();
-                parentName = [parentData.first_name, parentData.last_name].filter(Boolean).join(' ') || 'Parent';
+        if (parentEmails.length > 0) {
+          // Get student names for the email
+          const studentNames = Array.isArray(shiftData.student_names) ? shiftData.student_names : [];
+          
+          // Group emails by parent (in case multiple students share a parent)
+          const parentEmailMap = new Map();
+          for (const parentEmail of parentEmails) {
+            if (!parentEmailMap.has(parentEmail)) {
+              // Get parent name
+              let parentName = 'Parent';
+              try {
+                const parentDocs = await admin.firestore()
+                  .collection('users')
+                  .where('e-mail', '==', parentEmail.toLowerCase())
+                  .limit(1)
+                  .get();
+                if (!parentDocs.empty) {
+                  const parentData = parentDocs.docs[0].data();
+                  parentName = [parentData.first_name, parentData.last_name].filter(Boolean).join(' ') || 'Parent';
+                }
+              } catch (_) {
+                // best-effort
               }
-            } catch (_) {
-              // best-effort
+              parentEmailMap.set(parentEmail, parentName);
             }
-            parentEmailMap.set(parentEmail, parentName);
           }
+
+          // Send emails to all parents
+          await Promise.all(
+            Array.from(parentEmailMap.entries()).map(([email, name]) =>
+              sendParentShiftNotification(shiftId, shiftData, email, name, studentNames)
+            )
+          );
+
+          console.log(`[ShiftNotification] Parent emails sent for shift ${shiftId} to ${parentEmails.length} recipient(s)`);
+        } else {
+          console.log(`[ShiftNotification] No parent emails found for shift ${shiftId}`);
         }
-
-        // Send emails to all parents
-        await Promise.all(
-          Array.from(parentEmailMap.entries()).map(([email, name]) =>
-            sendParentShiftNotification(shiftId, shiftData, email, name, studentNames)
-          )
-        );
-
-        console.log(`[ShiftNotification] Parent emails sent for shift ${shiftId} to ${parentEmails.length} recipient(s)`);
-      } else {
-        console.log(`[ShiftNotification] No parent emails found for shift ${shiftId}`);
       }
+    } else {
+      console.log(`[ShiftNotification] Parent emails are disabled for shift ${shiftId}`);
     }
 
     // Mark emails as sent
@@ -407,43 +415,47 @@ const sendShiftUpdateNotificationEmails = async ({ shiftId, shiftData, changes }
     // Send update email to teacher
     await sendTeacherShiftUpdateNotification(shiftId, shiftData, teacherEmail, teacherName, changes);
 
-    // Collect and send emails to student parents
-    const studentIds = Array.isArray(shiftData.student_ids) ? shiftData.student_ids : [];
-    if (studentIds.length > 0) {
-      const parentEmails = await collectStudentAndGuardianEmails(shiftData);
+    // Collect and send emails to student parents (disabled by product decision)
+    if (SEND_PARENT_SHIFT_EMAILS) {
+      const studentIds = Array.isArray(shiftData.student_ids) ? shiftData.student_ids : [];
+      if (studentIds.length > 0) {
+        const parentEmails = await collectStudentAndGuardianEmails(shiftData);
 
-      if (parentEmails.length > 0) {
-        const studentNames = Array.isArray(shiftData.student_names) ? shiftData.student_names : [];
+        if (parentEmails.length > 0) {
+          const studentNames = Array.isArray(shiftData.student_names) ? shiftData.student_names : [];
 
-        const parentEmailMap = new Map();
-        for (const parentEmail of parentEmails) {
-          if (!parentEmailMap.has(parentEmail)) {
-            let parentName = 'Parent';
-            try {
-              const parentDocs = await admin.firestore()
-                .collection('users')
-                .where('e-mail', '==', parentEmail.toLowerCase())
-                .limit(1)
-                .get();
-              if (!parentDocs.empty) {
-                const parentData = parentDocs.docs[0].data();
-                parentName = [parentData.first_name, parentData.last_name].filter(Boolean).join(' ') || 'Parent';
+          const parentEmailMap = new Map();
+          for (const parentEmail of parentEmails) {
+            if (!parentEmailMap.has(parentEmail)) {
+              let parentName = 'Parent';
+              try {
+                const parentDocs = await admin.firestore()
+                  .collection('users')
+                  .where('e-mail', '==', parentEmail.toLowerCase())
+                  .limit(1)
+                  .get();
+                if (!parentDocs.empty) {
+                  const parentData = parentDocs.docs[0].data();
+                  parentName = [parentData.first_name, parentData.last_name].filter(Boolean).join(' ') || 'Parent';
+                }
+              } catch (_) {
+                // best-effort
               }
-            } catch (_) {
-              // best-effort
+              parentEmailMap.set(parentEmail, parentName);
             }
-            parentEmailMap.set(parentEmail, parentName);
           }
+
+          await Promise.all(
+            Array.from(parentEmailMap.entries()).map(([email, name]) =>
+              sendParentShiftUpdateNotification(shiftId, shiftData, email, name, studentNames, changes)
+            )
+          );
+
+          console.log(`[ShiftUpdateNotification] Parent update emails sent for shift ${shiftId} to ${parentEmails.length} recipient(s)`);
         }
-
-        await Promise.all(
-          Array.from(parentEmailMap.entries()).map(([email, name]) =>
-            sendParentShiftUpdateNotification(shiftId, shiftData, email, name, studentNames, changes)
-          )
-        );
-
-        console.log(`[ShiftUpdateNotification] Parent update emails sent for shift ${shiftId} to ${parentEmails.length} recipient(s)`);
       }
+    } else {
+      console.log(`[ShiftUpdateNotification] Parent emails are disabled for shift ${shiftId}`);
     }
 
     console.log(`[ShiftUpdateNotification] Update emails sent for shift ${shiftId}`);
@@ -611,4 +623,3 @@ module.exports = {
   sendShiftNotificationEmails,
   sendShiftUpdateNotificationEmails,
 };
-

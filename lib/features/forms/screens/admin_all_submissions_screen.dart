@@ -624,8 +624,28 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
           .orderBy('submittedAt', descending: true)
           .limit(_otherFormsPageSize)
           .get();
+
+      // Also fetch submissions that are missing the formType field entirely
+      // (whereNotIn does not match documents where the field is absent)
+      final missingTypeSnapshot = await FirebaseFirestore.instance
+          .collection('form_responses')
+          .orderBy('submittedAt', descending: true)
+          .limit(_otherFormsPageSize)
+          .get();
+
       if (!mounted) return;
-      final otherDocs = snapshot.docs;
+
+      final existingIds = snapshot.docs.map((d) => d.id).toSet();
+      for (final doc in _allSubmissions) {
+        existingIds.add(doc.id);
+      }
+      final missingTypeDocs = missingTypeSnapshot.docs.where((doc) {
+        final data = doc.data() as Map<String, dynamic>?;
+        if (data == null) return false;
+        return !data.containsKey('formType') && !existingIds.contains(doc.id);
+      }).toList();
+
+      final otherDocs = [...snapshot.docs, ...missingTypeDocs];
       if (otherDocs.isEmpty) {
         setState(() {
           _loadedOtherForms = true;

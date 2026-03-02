@@ -229,8 +229,9 @@ class TeachingShift {
   @Deprecated('Zoom support has been removed. All shifts use LiveKit.')
   bool get usesZoom => false;
 
-  // Check if video call is available - always true with LiveKit (rooms are created on-demand)
-  bool get hasVideoCall => true;
+  // Check if video call is available - only true for teaching shifts.
+  // Leader Duty, meeting, and training shifts are admin/internal and have no LiveKit class.
+  bool get hasVideoCall => category == ShiftCategory.teaching;
 
   // Get the effective room name for LiveKit (generates default if not set)
   String get effectiveLivekitRoomName =>
@@ -572,18 +573,18 @@ class TeachingShift {
         parseString(data['zoomRoutingMode'] ?? data['zoom_routing_mode']);
 
     VideoProvider parseVideoProvider() {
-      // All shifts now use LiveKit - Zoom support has been removed
-      // We still parse the field for backward compatibility during migration
       final rawProvider = parseString(data['video_provider'] ?? data['videoProvider']);
       if (rawProvider != null && rawProvider.trim().isNotEmpty) {
         final normalized = rawProvider.trim().toLowerCase();
-        // Only return zoom if explicitly set (for any remaining legacy data)
-        if (normalized == 'zoom') {
-          // Even if it says zoom, treat as livekit since zoom is deprecated
-          return VideoProvider.livekit;
-        }
+        // Preserve 'zoom' for non-teaching shifts (Leader Duty, meeting, training).
+        // This prevents round-trip writes from overwriting 'zoom' → 'livekit' in
+        // Firestore, which would allow the backend to accept LiveKit join requests
+        // for shifts that should not have a video class.
+        // ignore: deprecated_member_use
+        if (normalized == 'zoom') return VideoProvider.zoom;
+        if (normalized == 'livekit') return VideoProvider.livekit;
       }
-      // Default to LiveKit for all shifts
+      // Default to LiveKit for teaching shifts (rooms are created on-demand).
       return VideoProvider.livekit;
     }
 

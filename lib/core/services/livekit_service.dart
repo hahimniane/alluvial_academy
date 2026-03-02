@@ -183,7 +183,7 @@ class _ScreenShareCaptureOptionsWithCursor extends ScreenShareCaptureOptions {
 }
 
 /// Service for managing LiveKit video calls within the app
-/// 
+///
 /// This is a beta video provider alternative to Zoom.
 /// Shifts with `videoProvider == livekit` will use this service.
 class LiveKitService {
@@ -219,10 +219,10 @@ class LiveKitService {
   /// Check if permissions are permanently denied
   static Future<bool> arePermissionsPermanentlyDenied() async {
     if (kIsWeb) return false;
-    
+
     final cameraStatus = await Permission.camera.status;
     final micStatus = await Permission.microphone.status;
-    
+
     return cameraStatus.isPermanentlyDenied || micStatus.isPermanentlyDenied;
   }
 
@@ -247,15 +247,18 @@ class LiveKitService {
     // Check if permanently denied
     if (cameraStatus.isPermanentlyDenied || micStatus.isPermanentlyDenied) {
       if (!context.mounted) return false;
-      
+
       final result = await showDialog<bool>(
         context: context,
         barrierDismissible: false,
         builder: (ctx) => AlertDialog(
-          title: Row(children: [
+          title: Row(
+            children: [
               Icon(Icons.videocam_off, color: Colors.orange, size: 28),
               SizedBox(width: 12),
-              Expanded(child: Text(AppLocalizations.of(context)!.permissionsRequired)),
+              Expanded(
+                  child:
+                      Text(AppLocalizations.of(context)!.permissionsRequired)),
             ],
           ),
           content: Column(
@@ -263,7 +266,8 @@ class LiveKitService {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                AppLocalizations.of(context)!.cameraAndMicrophoneAccessAreNeeded,
+                AppLocalizations.of(context)!
+                    .cameraAndMicrophoneAccessAreNeeded,
                 style: TextStyle(fontSize: 15),
               ),
               SizedBox(height: 16),
@@ -273,12 +277,14 @@ class LiveKitService {
                   color: Colors.orange.shade50,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Row(children: [
+                child: Row(
+                  children: [
                     Icon(Icons.info_outline, color: Colors.orange, size: 20),
                     SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        AppLocalizations.of(context)!.pleaseEnablePermissionsInSettingsTo,
+                        AppLocalizations.of(context)!
+                            .pleaseEnablePermissionsInSettingsTo,
                         style: TextStyle(fontSize: 13, color: Colors.black87),
                       ),
                     ),
@@ -307,22 +313,24 @@ class LiveKitService {
           ],
         ),
       );
-      
+
       return result ?? false;
     }
 
     // Request permissions normally
     final granted = await requestPermissions();
-    
+
     if (!granted && context.mounted) {
       // Show dialog explaining why permissions are needed
       await showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: Row(children: [
+          title: Row(
+            children: [
               Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 28),
               SizedBox(width: 12),
-              Expanded(child: Text(AppLocalizations.of(context)!.permissionsDenied)),
+              Expanded(
+                  child: Text(AppLocalizations.of(context)!.permissionsDenied)),
             ],
           ),
           content: Text(
@@ -355,7 +363,7 @@ class LiveKitService {
   }
 
   /// Start a direct call to another user (audio or video)
-  /// 
+  ///
   /// This initiates a 1-on-1 call outside of scheduled classes.
   /// [recipientId] - The user ID of the person to call
   /// [recipientName] - Display name of the recipient
@@ -444,9 +452,9 @@ class LiveKitService {
       if (context.mounted) {
         Navigator.of(context, rootNavigator: true).pop();
       }
-      
+
       AppLogger.error('LiveKitService: Error starting call: $e');
-      
+
       if (context.mounted) {
         // Check if it's a "not found" error (function doesn't exist yet)
         final errorMsg = e.toString();
@@ -604,18 +612,63 @@ class LiveKitService {
     }
   }
 
+  /// Ensure class recording is started (best effort, non-blocking for UI).
+  ///
+  /// This should be called automatically when any authorized class participant joins.
+  static Future<void> ensureShiftRecording(String shiftId) async {
+    if (shiftId.trim().isEmpty) return;
+
+    try {
+      final user = _auth.currentUser;
+      if (user == null) return;
+
+      final callable = _functions.httpsCallable('ensureLiveKitShiftRecording');
+      final result = await callable.call({'shiftId': shiftId});
+      final data = result.data;
+      if (data is! Map) return;
+
+      final typed = Map<String, dynamic>.from(data);
+      if (typed['recordingStarted'] == true) {
+        AppLogger.info('LiveKit: Class recording started (shiftId: $shiftId)');
+        return;
+      }
+      if (typed['alreadyRecording'] == true) {
+        AppLogger.debug(
+            'LiveKit: Class recording already active (shiftId: $shiftId)');
+        return;
+      }
+
+      final reason = typed['reason']?.toString();
+      final error = typed['error']?.toString();
+      if (reason != null && reason.isNotEmpty) {
+        AppLogger.warning(
+            'LiveKit: Recording not started (shiftId: $shiftId): $reason');
+      } else if (error != null && error.isNotEmpty) {
+        AppLogger.warning(
+            'LiveKit: Recording failed to start (shiftId: $shiftId): $error');
+      }
+    } on FirebaseFunctionsException catch (e) {
+      AppLogger.error(
+          'LiveKitService: ensureShiftRecording Firebase function error: ${e.code} - ${e.message}');
+    } catch (e) {
+      AppLogger.error('LiveKitService: Error ensuring class recording: $e');
+    }
+  }
+
   static Future<void> muteParticipant({
     required String shiftId,
     required String identity,
   }) async {
-    await setParticipantMuted(shiftId: shiftId, identity: identity, muted: true);
+    await setParticipantMuted(
+        shiftId: shiftId, identity: identity, muted: true);
   }
 
   static Future<void> unmuteParticipant({
     required String shiftId,
     required String identity,
   }) async {
-    await setParticipantMuted(shiftId: shiftId, identity: identity, muted: false);
+    await setParticipantMuted(
+        shiftId: shiftId, identity: identity, muted: false);
   }
 
   static Future<void> setParticipantMuted({
@@ -753,7 +806,9 @@ class LiveKitService {
               children: [
                 const CircularProgressIndicator(),
                 const SizedBox(width: 20),
-                Expanded(child: Text(AppLocalizations.of(context)!.connectingToClass)),
+                Expanded(
+                    child:
+                        Text(AppLocalizations.of(context)!.connectingToClass)),
               ],
             ),
           ),
@@ -790,6 +845,7 @@ class LiveKitService {
               roomName: joinResult.roomName!,
               displayName: joinResult.displayName ?? 'Participant',
               isTeacher: isModerator,
+              userRole: joinResult.userRole,
               shiftId: shift.id,
               shiftName: shift.displayName,
               initialRoomLocked: joinResult.roomLocked,
@@ -841,6 +897,7 @@ class LiveKitCallScreen extends StatefulWidget {
   final String shiftName;
   final bool initialRoomLocked;
   final bool isAudioOnlyMode;
+  final String? userRole;
 
   const LiveKitCallScreen({
     super.key,
@@ -853,6 +910,7 @@ class LiveKitCallScreen extends StatefulWidget {
     this.shiftName = 'Call',
     this.initialRoomLocked = false,
     this.isAudioOnlyMode = false,
+    this.userRole,
   });
 
   @override
@@ -876,6 +934,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
   bool _manualDisconnect = false;
   bool _reconnecting = false;
   int _reconnectAttempts = 0;
+  bool _recordingEnsureTriggered = false;
 
   DateTime? _lastPointerSentAt;
   Timer? _pointerSendTimer;
@@ -889,7 +948,8 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
   Timer? _remotePointerHideTimer;
 
   bool _connecting = true;
-  bool _initializingMedia = false; // True while camera/mic are being enabled on join
+  bool _initializingMedia =
+      false; // True while camera/mic are being enabled on join
   bool _micEnabled = true;
   bool _cameraEnabled = true;
   bool _screenShareEnabled = false;
@@ -908,6 +968,18 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
   bool _overlayAutoHiddenForShare = false;
   Timer? _screenShareUiHideTimer;
   String? _error;
+
+  String _resolvedSessionRole() {
+    final normalized = widget.userRole?.trim().toLowerCase();
+    if (normalized == 'teacher' ||
+        normalized == 'student' ||
+        normalized == 'parent' ||
+        normalized == 'admin' ||
+        normalized == 'guest') {
+      return normalized!;
+    }
+    return widget.isTeacher ? 'teacher' : 'student';
+  }
 
   rtc.RTCVideoRenderer? _pipRenderer;
   VideoTrack? _pipTrack;
@@ -937,7 +1009,8 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
   final StreamController<Map<String, dynamic>> _whiteboardProjectController =
       StreamController<Map<String, dynamic>>.broadcast();
   Map<String, dynamic>? _lastWhiteboardProject;
-  List<Map<String, dynamic>>? _initialWhiteboardStrokes; // Loaded from Firestore
+  List<Map<String, dynamic>>?
+      _initialWhiteboardStrokes; // Loaded from Firestore
   bool _whiteboardStateSaving = false; // Debounce flag for Firestore saves
 
   @override
@@ -957,7 +1030,8 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
     }
     // For teachers on web: check if any student arrives within 5 minutes
     else if (kIsWeb) {
-      _studentNoShowCheckTimer = Timer(_noShowCheckDelay, _checkStudentPresence);
+      _studentNoShowCheckTimer =
+          Timer(_noShowCheckDelay, _checkStudentPresence);
     }
   }
 
@@ -998,15 +1072,16 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
 
   void _checkTeacherPresence() {
     if (!mounted || _noShowDialogShown || _noShowReportSent) return;
-    
+
     if (!_isTeacherInRoom()) {
       _showTeacherNoShowDialog();
     }
   }
 
   void _checkStudentPresence() {
-    if (!mounted || _studentNoShowDialogShown || _studentNoShowReportSent) return;
-    
+    if (!mounted || _studentNoShowDialogShown || _studentNoShowReportSent)
+      return;
+
     if (!_areStudentsInRoom()) {
       _showStudentNoShowDialog();
     }
@@ -1014,9 +1089,9 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
 
   void _showTeacherNoShowDialog() {
     if (!mounted || _noShowDialogShown) return;
-    
+
     setState(() => _noShowDialogShown = true);
-    
+
     // Start auto-send timer
     _noShowAutoSendTimer = Timer(_noShowAutoSendDelay, () {
       if (mounted && !_noShowReportSent) {
@@ -1031,7 +1106,8 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
       builder: (dialogContext) => WillPopScope(
         onWillPop: () async => false,
         child: AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Row(
             children: [
               Container(
@@ -1040,7 +1116,8 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
                   color: Colors.orange.shade100,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Icon(Icons.warning_amber_rounded, color: Colors.orange.shade700),
+                child: Icon(Icons.warning_amber_rounded,
+                    color: Colors.orange.shade700),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -1068,11 +1145,14 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.timer_outlined, size: 20, color: Colors.grey.shade600),
+                    Icon(Icons.timer_outlined,
+                        size: 20, color: Colors.grey.shade600),
                     const SizedBox(width: 8),
                     Text(
-                      AppLocalizations.of(context)!.autoSendingReportIn30Seconds,
-                      style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                      AppLocalizations.of(context)!
+                          .autoSendingReportIn30Seconds,
+                      style:
+                          TextStyle(fontSize: 13, color: Colors.grey.shade600),
                     ),
                   ],
                 ),
@@ -1108,9 +1188,9 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
 
   void _showStudentNoShowDialog() {
     if (!mounted || _studentNoShowDialogShown) return;
-    
+
     setState(() => _studentNoShowDialogShown = true);
-    
+
     // Start auto-send timer
     _studentNoShowAutoSendTimer = Timer(_noShowAutoSendDelay, () {
       if (mounted && !_studentNoShowReportSent) {
@@ -1125,7 +1205,8 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
       builder: (dialogContext) => WillPopScope(
         onWillPop: () async => false,
         child: AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Row(
             children: [
               Container(
@@ -1134,7 +1215,8 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
                   color: Colors.orange.shade100,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Icon(Icons.warning_amber_rounded, color: Colors.orange.shade700),
+                child: Icon(Icons.warning_amber_rounded,
+                    color: Colors.orange.shade700),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -1162,11 +1244,14 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.timer_outlined, size: 20, color: Colors.grey.shade600),
+                    Icon(Icons.timer_outlined,
+                        size: 20, color: Colors.grey.shade600),
                     const SizedBox(width: 8),
                     Text(
-                      AppLocalizations.of(context)!.autoSendingReportIn30Seconds,
-                      style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                      AppLocalizations.of(context)!
+                          .autoSendingReportIn30Seconds,
+                      style:
+                          TextStyle(fontSize: 13, color: Colors.grey.shade600),
                     ),
                   ],
                 ),
@@ -1239,7 +1324,8 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(AppLocalizations.of(context)!.failedToSendReportPleaseTry),
+            content:
+                Text(AppLocalizations.of(context)!.failedToSendReportPleaseTry),
             backgroundColor: Colors.red.shade600,
             behavior: SnackBarBehavior.floating,
           ),
@@ -1257,7 +1343,9 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
 
   bool _participantHasCameraOn(Participant p) {
     for (final pub in p.videoTrackPublications) {
-      if (!pub.muted && !pub.isScreenShare && pub.source == TrackSource.camera) {
+      if (!pub.muted &&
+          !pub.isScreenShare &&
+          pub.source == TrackSource.camera) {
         return true;
       }
     }
@@ -1316,7 +1404,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
       } catch (e) {
         AppLogger.warning('LiveKit: Error disabling media in disposeRoom: $e');
       }
-      
+
       _listener?.dispose();
       _listener = null;
       await _room?.disconnect();
@@ -1362,8 +1450,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
           setState(() {
             _reconnecting = false;
             _connecting = false;
-            _error =
-                joinResult.error ?? 'Failed to reconnect to the class.';
+            _error = joinResult.error ?? 'Failed to reconnect to the class.';
           });
         }
         return;
@@ -1399,7 +1486,8 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
     try {
       // Check if audio playback is allowed
       if (!_room!.canPlaybackAudio) {
-        AppLogger.warning('LiveKit: Audio playback not allowed, attempting to start...');
+        AppLogger.warning(
+            'LiveKit: Audio playback not allowed, attempting to start...');
         await _room!.startAudio();
         AppLogger.info('LiveKit: Audio playback started successfully');
       }
@@ -1472,8 +1560,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
 
     final now = DateTime.now();
     final lastSent = _lastPointerSentAt;
-    if (lastSent == null ||
-        now.difference(lastSent) >= _pointerSendThrottle) {
+    if (lastSent == null || now.difference(lastSent) >= _pointerSendThrottle) {
       _sendPointerUpdate(
         position: _pendingPointerPosition,
         visible: _pendingPointerVisible,
@@ -1515,10 +1602,10 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
     _lastPointerSentAt = DateTime.now();
     local
         .publishData(
-          utf8.encode(jsonEncode(payload)),
-          reliable: false,
-          topic: _hostControlTopic,
-        )
+      utf8.encode(jsonEncode(payload)),
+      reliable: false,
+      topic: _hostControlTopic,
+    )
         .catchError((e) {
       AppLogger.debug('LiveKit: Failed to send pointer update: $e');
     });
@@ -1596,7 +1683,8 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
           ),
         ),
         defaultAudioPublishOptions: const AudioPublishOptions(
-          dtx: true, // Discontinuous transmission - saves bandwidth during silence
+          dtx:
+              true, // Discontinuous transmission - saves bandwidth during silence
         ),
         defaultScreenShareCaptureOptions:
             const _ScreenShareCaptureOptionsWithCursor(
@@ -1661,7 +1749,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
       });
 
       _reconnectAttempts = 0;
-      
+
       // Automatically enable camera and microphone when joining
       try {
         final localP = room.localParticipant;
@@ -1676,7 +1764,8 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
             AppLogger.info('LiveKit: Enabling camera and microphone...');
             await localP.setCameraEnabled(true);
           } else {
-            AppLogger.info('LiveKit: Audio-only mode - enabling microphone only');
+            AppLogger.info(
+                'LiveKit: Audio-only mode - enabling microphone only');
           }
           AppLogger.info('LiveKit: Media enabled');
         }
@@ -1688,7 +1777,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
           setState(() => _initializingMedia = false);
         }
       }
-      
+
       _syncLocalMediaState();
       AppLogger.info('LiveKit: Connected to room ${widget.roomName}');
 
@@ -1713,16 +1802,21 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
       ..on<RoomConnectedEvent>((event) {
         final currentUserId = FirebaseAuth.instance.currentUser?.uid;
         if (currentUserId == null) {
-          AppLogger.warning('LiveKit: Skipping session join tracking (no user)');
+          AppLogger.warning(
+              'LiveKit: Skipping session join tracking (no user)');
           return;
         }
 
-        final role = widget.isTeacher ? 'teacher' : 'student';
         _sessionService.recordParticipantJoin(
           shiftId: widget.shiftId,
           userId: currentUserId,
-          role: role,
+          role: _resolvedSessionRole(),
         );
+
+        if (!_recordingEnsureTriggered && widget.shiftId.trim().isNotEmpty) {
+          _recordingEnsureTriggered = true;
+          LiveKitService.ensureShiftRecording(widget.shiftId);
+        }
       })
       ..on<RoomReconnectingEvent>((event) {
         AppLogger.warning('LiveKit: Reconnecting to room...');
@@ -1769,7 +1863,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
         AppLogger.info(
             'LiveKit: Participant connected: ${event.participant.identity}');
         setState(() {});
-        
+
         // Cancel no-show timers when relevant participant joins
         if (!widget.isTeacher) {
           // Student: cancel timer if teacher joins
@@ -1792,7 +1886,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
             }
           }
         }
-        
+
         if (widget.isTeacher && _studentMicrophonesLocked) {
           try {
             await _broadcastStudentMicLock(
@@ -1850,7 +1944,8 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
       })
       ..on<AudioPlaybackStatusChanged>((event) {
         // Handle audio playback status changes (e.g., after tab switch, device change)
-        AppLogger.info('LiveKit: Audio playback status changed - canPlayback: ${event.isPlaying}');
+        AppLogger.info(
+            'LiveKit: Audio playback status changed - canPlayback: ${event.isPlaying}');
         if (mounted) {
           setState(() => _audioPlaybackAllowed = event.isPlaying);
         }
@@ -1886,7 +1981,8 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
   }
 
   Future<void> _handleDataReceived(DataReceivedEvent event) async {
-    AppLogger.debug('LiveKit: Data received - topic: "${event.topic}", from: ${event.participant?.identity}');
+    AppLogger.debug(
+        'LiveKit: Data received - topic: "${event.topic}", from: ${event.participant?.identity}');
 
     // Handle whiteboard messages (for all participants)
     if (event.topic == _whiteboardTopic) {
@@ -1922,7 +2018,8 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
           await _localParticipant?.setMicrophoneEnabled(false);
           _syncLocalMediaState();
         } catch (e) {
-          AppLogger.error('LiveKit: Failed to disable mic due to host lock: $e');
+          AppLogger.error(
+              'LiveKit: Failed to disable mic due to host lock: $e');
         }
         _showSnack(
           'Muted by the host',
@@ -2051,7 +2148,8 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
 
   Future<void> _handleWhiteboardData(DataReceivedEvent event) async {
     final senderIdentity = event.participant?.identity ?? 'unknown';
-    AppLogger.debug('LiveKit Whiteboard: Received data from $senderIdentity (I am ${widget.isTeacher ? "teacher" : "student"})');
+    AppLogger.debug(
+        'LiveKit Whiteboard: Received data from $senderIdentity (I am ${widget.isTeacher ? "teacher" : "student"})');
 
     final text = utf8.decode(event.data, allowMalformed: true);
     final message = WhiteboardMessage.decode(text);
@@ -2066,8 +2164,10 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
       case WhiteboardMessage.typeProject:
         // Received project state - collaborative mode: everyone receives from everyone
         if (message.payload != null) {
-          final strokeCount = (message.payload!['strokes'] as List?)?.length ?? 0;
-          AppLogger.debug('LiveKit Whiteboard: Received project with $strokeCount strokes, pushing to stream');
+          final strokeCount =
+              (message.payload!['strokes'] as List?)?.length ?? 0;
+          AppLogger.debug(
+              'LiveKit Whiteboard: Received project with $strokeCount strokes, pushing to stream');
           _lastWhiteboardProject = message.payload;
           _whiteboardProjectController.add(message.payload!);
           // Enable whiteboard view when receiving project data (for students joining late)
@@ -2079,7 +2179,9 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
 
       case WhiteboardMessage.typeRequestProject:
         // Participant requesting current project state (typically late joiners)
-        if (widget.isTeacher && _whiteboardEnabled && _lastWhiteboardProject != null) {
+        if (widget.isTeacher &&
+            _whiteboardEnabled &&
+            _lastWhiteboardProject != null) {
           final identity = event.participant?.identity;
           if (identity != null) {
             await _sendWhiteboardProject(
@@ -2101,7 +2203,8 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
         // Teacher changed student drawing permission
         if (!widget.isTeacher && message.payload != null) {
           final enabled = message.payload!['enabled'] == true;
-          AppLogger.debug('LiveKit Whiteboard: Student drawing permission changed to $enabled');
+          AppLogger.debug(
+              'LiveKit Whiteboard: Student drawing permission changed to $enabled');
           if (mounted) {
             setState(() => _studentDrawingEnabled = enabled);
           }
@@ -2156,7 +2259,8 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
     }
 
     final remoteCount = room.remoteParticipants.length;
-    AppLogger.debug('LiveKit Whiteboard: Room has $remoteCount remote participants');
+    AppLogger.debug(
+        'LiveKit Whiteboard: Room has $remoteCount remote participants');
 
     _lastWhiteboardProject = projectData;
 
@@ -2166,7 +2270,8 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
     );
 
     final strokeCount = (projectData['strokes'] as List?)?.length ?? 0;
-    AppLogger.debug('LiveKit Whiteboard: Sending project with $strokeCount strokes to topic "$_whiteboardTopic" (isTeacher: ${widget.isTeacher})');
+    AppLogger.debug(
+        'LiveKit Whiteboard: Sending project with $strokeCount strokes to topic "$_whiteboardTopic" (isTeacher: ${widget.isTeacher})');
 
     try {
       await local.publishData(
@@ -2204,7 +2309,8 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
     final local = _localParticipant;
     if (local == null) return;
 
-    final message = WhiteboardMessage(type: WhiteboardMessage.typeRequestProject);
+    final message =
+        WhiteboardMessage(type: WhiteboardMessage.typeRequestProject);
 
     try {
       await local.publishData(
@@ -2236,7 +2342,8 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
       payload: {'enabled': enabled},
     );
 
-    AppLogger.debug('LiveKit Whiteboard: Sending student drawing permission: $enabled');
+    AppLogger.debug(
+        'LiveKit Whiteboard: Sending student drawing permission: $enabled');
 
     try {
       await local.publishData(
@@ -2258,7 +2365,8 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
     try {
       final shiftId = widget.shiftId;
       if (shiftId.isEmpty) {
-        AppLogger.debug('LiveKit Whiteboard: No shift ID, skipping Firestore save');
+        AppLogger.debug(
+            'LiveKit Whiteboard: No shift ID, skipping Firestore save');
         return;
       }
 
@@ -2275,7 +2383,8 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
         },
       }, SetOptions(merge: true));
 
-      AppLogger.debug('LiveKit Whiteboard: Saved ${strokes.length} strokes to Firestore');
+      AppLogger.debug(
+          'LiveKit Whiteboard: Saved ${strokes.length} strokes to Firestore');
     } catch (e) {
       AppLogger.error('LiveKit Whiteboard: Failed to save to Firestore: $e');
     } finally {
@@ -2287,7 +2396,8 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
     try {
       final shiftId = widget.shiftId;
       if (shiftId.isEmpty) {
-        AppLogger.debug('LiveKit Whiteboard: No shift ID, skipping Firestore load');
+        AppLogger.debug(
+            'LiveKit Whiteboard: No shift ID, skipping Firestore load');
         return;
       }
 
@@ -2303,12 +2413,14 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
 
       if (whiteboard != null) {
         final strokes = whiteboard['strokes'] as List?;
-        final studentDrawingEnabled = whiteboard['studentDrawingEnabled'] as bool? ?? false;
+        final studentDrawingEnabled =
+            whiteboard['studentDrawingEnabled'] as bool? ?? false;
 
         if (strokes != null && strokes.isNotEmpty) {
           _initialWhiteboardStrokes = strokes.cast<Map<String, dynamic>>();
           _lastWhiteboardProject = {'strokes': strokes};
-          AppLogger.debug('LiveKit Whiteboard: Loaded ${strokes.length} strokes from Firestore');
+          AppLogger.debug(
+              'LiveKit Whiteboard: Loaded ${strokes.length} strokes from Firestore');
         }
 
         if (mounted) {
@@ -2361,7 +2473,8 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
     if (!widget.isTeacher) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(AppLocalizations.of(context)!.onlyTeachersCanShareTheirScreen),
+          content: Text(
+              AppLocalizations.of(context)!.onlyTeachersCanShareTheirScreen),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -2474,7 +2587,8 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
         await _localParticipant?.setCameraEnabled(false);
         AppLogger.info('LiveKit: Mic and camera disabled before disconnect');
       } catch (e) {
-        AppLogger.warning('LiveKit: Error disabling media before disconnect: $e');
+        AppLogger.warning(
+            'LiveKit: Error disabling media before disconnect: $e');
       }
 
       _listener?.dispose();
@@ -2685,10 +2799,10 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
           children: [
             _buildBody(activeScreenShare),
             _buildPictureInPictureRenderer(),
+            if (!_isScreenShareFullscreen) _buildRecordingNoticeBanner(),
           ],
         ),
-        bottomNavigationBar:
-            _isScreenShareFullscreen ? null : _buildControls(),
+        bottomNavigationBar: _isScreenShareFullscreen ? null : _buildControls(),
       ),
     );
   }
@@ -2713,7 +2827,8 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
     remoteParticipants.sort((a, b) => a.identity.compareTo(b.identity));
 
     for (final participant in remoteParticipants) {
-      final remoteScreenShare = _getParticipantScreenShareVideoTrack(participant);
+      final remoteScreenShare =
+          _getParticipantScreenShareVideoTrack(participant);
       if (remoteScreenShare != null) {
         return _ActiveScreenShare(
           participant: participant,
@@ -2858,12 +2973,12 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
               content = MouseRegion(
                 onExit: (_) => _handleScreenSharePointerExit(),
                 child: Listener(
-                  onPointerHover: (event) =>
-                      _handleScreenSharePointerEvent(event, constraints.biggest),
-                  onPointerMove: (event) =>
-                      _handleScreenSharePointerEvent(event, constraints.biggest),
-                  onPointerDown: (event) =>
-                      _handleScreenSharePointerEvent(event, constraints.biggest),
+                  onPointerHover: (event) => _handleScreenSharePointerEvent(
+                      event, constraints.biggest),
+                  onPointerMove: (event) => _handleScreenSharePointerEvent(
+                      event, constraints.biggest),
+                  onPointerDown: (event) => _handleScreenSharePointerEvent(
+                      event, constraints.biggest),
                   child: content,
                 ),
               );
@@ -2913,6 +3028,45 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
     );
   }
 
+  Widget _buildRecordingNoticeBanner() {
+    return IgnorePointer(
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: Container(
+          margin: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: const Color(0xFF7F1D1D).withOpacity(0.94),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: const Color(0xFFF87171)),
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.fiber_manual_record,
+                size: 12,
+                color: Color(0xFFFCA5A5),
+              ),
+              SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  'This session is being recorded',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _openQuranDialog() async {
     if (!mounted) return;
 
@@ -2924,7 +3078,8 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
 
         return Dialog(
           insetPadding: const EdgeInsets.all(16),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           backgroundColor: Colors.white,
           child: ConstrainedBox(
             constraints: BoxConstraints(
@@ -2985,14 +3140,16 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(AppLocalizations.of(context)!.thisWillMuteAllParticipantsExcept),
+              Text(AppLocalizations.of(context)!
+                  .thisWillMuteAllParticipantsExcept),
               SizedBox(height: 12),
               CheckboxListTile(
                 contentPadding: EdgeInsets.zero,
                 value: allowUnmute,
                 onChanged: (value) => setDialogState(
                     () => allowUnmute = value == null ? true : value),
-                title: Text(AppLocalizations.of(context)!.allowParticipantsToUnmute),
+                title: Text(
+                    AppLocalizations.of(context)!.allowParticipantsToUnmute),
                 subtitle: Text(
                   AppLocalizations.of(context)!.turnOffToKeepParticipantsMuted,
                 ),
@@ -3174,7 +3331,8 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
                                     !_isModeratorMessage(participant)) ...[
                                   const SizedBox(width: 6),
                                   PopupMenuButton<String>(
-                                    tooltip: AppLocalizations.of(context)!.timesheetActions,
+                                    tooltip: AppLocalizations.of(context)!
+                                        .timesheetActions,
                                     onSelected: (value) async {
                                       if (value == 'mute') {
                                         try {
@@ -3196,25 +3354,31 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
                                         final confirm = await showDialog<bool>(
                                           context: context,
                                           builder: (context) => AlertDialog(
-                                            title: Text(AppLocalizations.of(context)!.unmuteParticipant),
+                                            title: Text(
+                                                AppLocalizations.of(context)!
+                                                    .unmuteParticipant),
                                             content: Text(
                                               'Enable $displayName\'s microphone?',
                                             ),
                                             actions: [
                                               TextButton(
-                                                onPressed: () =>
-                                                    Navigator.pop(context, false),
-                                                child: Text(AppLocalizations.of(context)!.commonCancel),
+                                                onPressed: () => Navigator.pop(
+                                                    context, false),
+                                                child: Text(AppLocalizations.of(
+                                                        context)!
+                                                    .commonCancel),
                                               ),
                                               ElevatedButton(
-                                                onPressed: () =>
-                                                    Navigator.pop(context, true),
+                                                onPressed: () => Navigator.pop(
+                                                    context, true),
                                                 style: ElevatedButton.styleFrom(
                                                   backgroundColor:
                                                       const Color(0xff0386FF),
                                                   foregroundColor: Colors.white,
                                                 ),
-                                                child: Text(AppLocalizations.of(context)!.unmute),
+                                                child: Text(AppLocalizations.of(
+                                                        context)!
+                                                    .unmute),
                                               ),
                                             ],
                                           ),
@@ -3223,7 +3387,8 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
                                         if (confirm != true) return;
 
                                         try {
-                                          await LiveKitService.unmuteParticipant(
+                                          await LiveKitService
+                                              .unmuteParticipant(
                                             shiftId: widget.shiftId,
                                             identity: participant.identity,
                                           );
@@ -3254,7 +3419,8 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
                                           context: context,
                                           builder: (context) => AlertDialog(
                                             title: Text(
-                                                AppLocalizations.of(context)!.removeParticipant),
+                                                AppLocalizations.of(context)!
+                                                    .removeParticipant),
                                             content: Text(
                                               'Remove $displayName from the meeting?',
                                             ),
@@ -3262,7 +3428,9 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
                                               TextButton(
                                                 onPressed: () => Navigator.pop(
                                                     context, false),
-                                                child: Text(AppLocalizations.of(context)!.commonCancel),
+                                                child: Text(AppLocalizations.of(
+                                                        context)!
+                                                    .commonCancel),
                                               ),
                                               ElevatedButton(
                                                 onPressed: () => Navigator.pop(
@@ -3271,7 +3439,9 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
                                                   backgroundColor: Colors.red,
                                                   foregroundColor: Colors.white,
                                                 ),
-                                                child: Text(AppLocalizations.of(context)!.remove),
+                                                child: Text(AppLocalizations.of(
+                                                        context)!
+                                                    .remove),
                                               ),
                                             ],
                                           ),
@@ -3304,24 +3474,29 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
                                     itemBuilder: (context) => [
                                       PopupMenuItem(
                                         value: micOn ? 'mute' : 'unmute',
-                                        child:
-                                            Text(micOn ? 'Mute mic' : 'Unmute mic'),
+                                        child: Text(
+                                            micOn ? 'Mute mic' : 'Unmute mic'),
                                       ),
                                       PopupMenuItem(
                                         value: 'kick',
-                                        child: Text(AppLocalizations.of(context)!.remove),
+                                        child: Text(
+                                            AppLocalizations.of(context)!
+                                                .remove),
                                       ),
                                       if (canPiP)
                                         PopupMenuItem(
                                           value: 'pip',
-                                          child: Text(AppLocalizations.of(context)!.pictureInPicture),
+                                          child: Text(
+                                              AppLocalizations.of(context)!
+                                                  .pictureInPicture),
                                         ),
                                     ],
                                   ),
                                 ] else if (!isLocal && canPiP) ...[
                                   const SizedBox(width: 6),
                                   IconButton(
-                                    tooltip: AppLocalizations.of(context)!.pictureInPicture,
+                                    tooltip: AppLocalizations.of(context)!
+                                        .pictureInPicture,
                                     onPressed: () => _togglePictureInPicture(
                                       identity: participant.identity,
                                     ),
@@ -3546,7 +3721,8 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
         remoteParticipants.sort((a, b) => a.identity.compareTo(b.identity));
 
         final shareIdentity = _localParticipant?.identity;
-        if (shareIdentity != null && _activeScreenShareIdentity != shareIdentity) {
+        if (shareIdentity != null &&
+            _activeScreenShareIdentity != shareIdentity) {
           _activeScreenShareIdentity = shareIdentity;
           _overlayAutoHiddenForShare = false;
           _resetScreenShareTransform();
@@ -3691,7 +3867,9 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
         );
         final overlayHeight = math.min(
           maxOverlayHeight,
-          (overlayWidth * 0.75).clamp(180.0, isNarrow ? 260.0 : 280.0).toDouble(),
+          (overlayWidth * 0.75)
+              .clamp(180.0, isNarrow ? 260.0 : 280.0)
+              .toDouble(),
         );
 
         final safeOffset = _clampOverlayOffset(
@@ -3771,7 +3949,8 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
               enableTapToToggleUi: true,
               enablePointerCapture: widget.isTeacher &&
                   _screenShareEnabled &&
-                  _localParticipant?.identity == activeShare.participant.identity,
+                  _localParticipant?.identity ==
+                      activeShare.participant.identity,
             ),
           ),
         ),
@@ -3818,7 +3997,8 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
                           const SizedBox(width: 8),
                           _FullscreenActionButton(
                             icon: Icons.fullscreen_exit,
-                            tooltip: AppLocalizations.of(context)!.exitFullscreen,
+                            tooltip:
+                                AppLocalizations.of(context)!.exitFullscreen,
                             onPressed: _exitScreenShareFullscreen,
                           ),
                         ],
@@ -3932,7 +4112,9 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
             ),
             _ControlButton(
               icon: _cameraEnabled ? Icons.videocam : Icons.videocam_off,
-              label: _initializingMedia ? 'Starting...' : (_cameraEnabled ? 'Stop Video' : 'Start Video'),
+              label: _initializingMedia
+                  ? 'Starting...'
+                  : (_cameraEnabled ? 'Stop Video' : 'Start Video'),
               isActive: _cameraEnabled,
               isLoading: _initializingMedia,
               onPressed: _initializingMedia ? () {} : _toggleCamera,
@@ -3960,8 +4142,9 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
               ),
             _ControlButton(
               icon: Icons.people,
-              label:
-                  participantCount > 0 ? 'People ($participantCount)' : 'People',
+              label: participantCount > 0
+                  ? 'People ($participantCount)'
+                  : 'People',
               isActive: true,
               onPressed: _room == null ? () {} : _showParticipantsDialog,
             ),
@@ -4288,8 +4471,8 @@ class _ControlButton extends StatelessWidget {
         (isActive
             ? Colors.white.withOpacity(0.1)
             : Colors.white.withOpacity(0.05));
-    final iconColor = isLoading 
-        ? Colors.white38 
+    final iconColor = isLoading
+        ? Colors.white38
         : (activeColor ?? (isActive ? Colors.white : Colors.white54));
 
     return Column(

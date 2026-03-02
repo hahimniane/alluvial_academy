@@ -6,9 +6,19 @@
 
 const admin = require('firebase-admin');
 const { onCall, onRequest, HttpsError } = require('firebase-functions/v2/https');
-const { RoomServiceClient, TrackType } = require('livekit-server-sdk');
+const {
+  RoomServiceClient,
+  TrackType,
+  EgressClient,
+  EgressStatus,
+  EncodedFileOutput,
+  EncodedFileType,
+  GCPUpload,
+} = require('livekit-server-sdk');
 const { getLiveKitConfig, isLiveKitConfigured } = require('../services/livekit/config');
 const { generateTokenForRole } = require('../services/livekit/token');
+
+const CLASS_RECORDINGS_COLLECTION = 'class_recordings';
 
 /**
  * Helper: Get user display name from Firestore
@@ -25,6 +35,25 @@ const getUserDisplayName = async (uid) => {
     return fullName || data['e-mail'] || data.email || 'Participant';
   } catch (_) {
     return 'Participant';
+  }
+};
+
+/**
+ * Helper: Check if user is a parent of any student in the given list
+ */
+const isUserParentOfStudent = async (uid, studentIds) => {
+  if (!uid || !Array.isArray(studentIds) || studentIds.length === 0) return false;
+  try {
+    for (const studentId of studentIds) {
+      const studentDoc = await admin.firestore().collection('users').doc(studentId).get();
+      if (!studentDoc.exists) continue;
+      const data = studentDoc.data();
+      const guardianIds = data.guardian_ids || data.guardianIds || [];
+      if (Array.isArray(guardianIds) && guardianIds.includes(uid)) return true;
+    }
+    return false;
+  } catch (_) {
+    return false;
   }
 };
 
@@ -138,6 +167,754 @@ const assertLiveKitModeratorOrThrow = async ({
   return { isTeacher };
 };
 
+const _parseBooleanEnv = (raw, fallback = false) => {
+  if (raw === undefined || raw === null) return fallback;
+  const normalized = String(raw).trim().toLowerCase();
+  if (!normalized) return fallback;
+  if (['1', 'true', 'yes', 'on'].includes(normalized)) return true;
+  if (['0', 'false', 'no', 'off'].includes(normalized)) return false;
+  return fallback;
+};
+
+const _isLiveKitNotFoundError = (err) => {
+  const rawMessage = `${err?.message || ''} ${String(err || '')}`.trim().toLowerCase();
+  const code = err?.code;
+  const status = err?.status;
+  return (
+    code === 5 ||
+    code === 'not_found' ||
+    status === 404 ||
+    rawMessage.includes('not found') ||
+    rawMessage.includes('does not exist') ||
+    rawMessage.includes('room does not exist')
+  );
+};
+
+const _isLiveKitAlreadyExistsError = (err) => {
+  const rawMessage = `${err?.message || ''} ${String(err || '')}`.trim().toLowerCase();
+  const code = err?.code;
+  const status = err?.status;
+  return (
+    code === 6 ||
+    code === 'already_exists' ||
+    status === 409 ||
+    rawMessage.includes('already exists') ||
+    rawMessage.includes('duplicate')
+  );
+};
+
+const _normalizeServiceAccountJson = (raw) => {
+  if (typeof raw !== 'string') return null;
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+
+  const candidates = [trimmed];
+  try {
+    const decoded = Buffer.from(trimmed, 'base64').toString('utf8').trim();
+    if (decoded) {
+      candidates.push(decoded);
+    }
+  } catch (_) {}
+
+  for (const candidate of candidates) {
+    try {
+      const parsed = JSON.parse(candidate);
+      if (!parsed || typeof parsed !== 'object') continue;
+      if (!parsed.client_email || !parsed.private_key) continue;
+      return JSON.stringify(parsed);
+    } catch (_) {}
+  }
+
+  return null;
+};
+
+const _safePathSegment = (raw, fallback = 'unknown') => {
+  const cleaned = String(raw || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, '-')
+    .replace(/^-+/, '')
+    .replace(/-+$/, '')
+    .slice(0, 80);
+  return cleaned || fallback;
+};
+
+const _toJsDate = (value) => {
+  if (!value) return null;
+  if (value instanceof Date) return value;
+  if (typeof value?.toDate === 'function') {
+    try {
+      return value.toDate();
+    } catch (_) {
+      return null;
+    }
+  }
+  if (typeof value === 'string') {
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) return parsed;
+  }
+  return null;
+};
+
+const _normalizeRecordingStatus = (raw) => {
+  const normalized = String(raw || '').trim().toLowerCase();
+  if (!normalized) return '';
+  return normalized;
+};
+
+const _isEgressInProgress = (status) => (
+  status === EgressStatus.EGRESS_STARTING ||
+  status === EgressStatus.EGRESS_ACTIVE ||
+  status === EgressStatus.EGRESS_ENDING
+);
+
+const _getEgressInfoById = async (egressClient, egressId) => {
+  if (!egressId || typeof egressId !== 'string') return null;
+  try {
+    const items = await egressClient.listEgress({ egressId });
+    if (!Array.isArray(items) || items.length === 0) return null;
+    return items[0] || null;
+  } catch (err) {
+    if (_isLiveKitNotFoundError(err)) return null;
+    throw err;
+  }
+};
+
+const _buildRecordingFilePath = ({ shiftId, roomName, prefix }) => {
+  const now = new Date();
+  const year = String(now.getUTCFullYear());
+  const month = String(now.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(now.getUTCDate()).padStart(2, '0');
+  const timestamp = now.toISOString().replace(/[:.]/g, '-');
+  const safeShiftId = _safePathSegment(shiftId, 'shift');
+  const safeRoom = _safePathSegment(roomName, 'room');
+  return `${prefix}/${year}/${month}/${day}/${safeShiftId}/${safeRoom}_${timestamp}.mp4`;
+};
+
+const _normalizeUserRoleString = (raw) => {
+  if (typeof raw !== 'string') return '';
+  return raw.trim().toLowerCase();
+};
+
+const _extractUserRole = (userData) => {
+  if (!userData || typeof userData !== 'object') return '';
+  return _normalizeUserRoleString(
+    userData.user_type || userData.userType || userData.role,
+  );
+};
+
+const _extractUserAvailableRoles = (userData) => {
+  if (!userData || typeof userData !== 'object') return [];
+
+  const roles = new Set();
+  const primaryRole = _extractUserRole(userData);
+  if (primaryRole) roles.add(primaryRole);
+
+  // Keep parity with app-side role switching rules.
+  if (primaryRole === 'admin' || primaryRole === 'super_admin') {
+    roles.add('teacher');
+  }
+
+  const isAdminTeacher =
+    userData.is_admin_teacher === true || userData.isAdminTeacher === true;
+  if (primaryRole === 'teacher' && isAdminTeacher) {
+    roles.add('admin');
+  }
+
+  const secondaryRoles = Array.isArray(userData.secondary_roles)
+    ? userData.secondary_roles
+    : (Array.isArray(userData.secondaryRoles) ? userData.secondaryRoles : []);
+  for (const rawRole of secondaryRoles) {
+    const normalized = _normalizeUserRoleString(rawRole);
+    if (normalized) roles.add(normalized);
+  }
+
+  return Array.from(roles);
+};
+
+const _resolveEffectiveRole = ({ userData, requestedRole }) => {
+  const availableRoles = _extractUserAvailableRoles(userData);
+  if (availableRoles.length === 0) return '';
+
+  const requested = _normalizeUserRoleString(requestedRole);
+  if (!requested) {
+    // No explicit override from the client: use primary/current role.
+    return availableRoles[0];
+  }
+
+  if (!availableRoles.includes(requested)) {
+    return '';
+  }
+
+  return requested;
+};
+
+const _toIsoString = (value) => {
+  const date = _toJsDate(value);
+  return date ? date.toISOString() : null;
+};
+
+const _toFirestoreTimestamp = (value) => {
+  const date = _toJsDate(value);
+  if (!date) return null;
+  if (Number.isNaN(date.getTime())) return null;
+  return admin.firestore.Timestamp.fromDate(date);
+};
+
+const _normalizeStringArray = (value) => {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set();
+  const result = [];
+  for (const item of value) {
+    if (typeof item !== 'string') continue;
+    const trimmed = item.trim();
+    if (!trimmed || seen.has(trimmed)) continue;
+    seen.add(trimmed);
+    result.push(trimmed);
+  }
+  return result;
+};
+
+const _recordingDocId = (shiftId, segmentId) => {
+  const safeShift = _safePathSegment(shiftId, 'shift');
+  const safeSegment = _safePathSegment(segmentId, 'segment');
+  return `${safeShift}_${safeSegment}`;
+};
+
+const _upsertClassRecordingDoc = async ({
+  shiftId,
+  shiftData,
+  teacherId,
+  studentIds,
+  roomName,
+  segmentId,
+  filePath,
+  bucket,
+  layout,
+  status,
+  egressId,
+  error,
+  requestedBy,
+  requestedAtIso,
+  startedAtIso,
+  failedAtIso,
+}) => {
+  if (!shiftId || !segmentId || !filePath) return null;
+
+  const docId = _recordingDocId(shiftId, segmentId);
+  const recordingRef = admin.firestore().collection(CLASS_RECORDINGS_COLLECTION).doc(docId);
+
+  const shiftStartTs = _toFirestoreTimestamp(shiftData?.shift_start);
+  const shiftEndTs = _toFirestoreTimestamp(shiftData?.shift_end);
+  const requestedAtTs = _toFirestoreTimestamp(requestedAtIso);
+  const startedAtTs = _toFirestoreTimestamp(startedAtIso);
+  const failedAtTs = _toFirestoreTimestamp(failedAtIso);
+  const sortTs = startedAtTs || requestedAtTs || shiftStartTs || admin.firestore.Timestamp.now();
+  const sortIso =
+    startedAtIso ||
+    requestedAtIso ||
+    _toIsoString(shiftData?.shift_start) ||
+    new Date().toISOString();
+
+  await recordingRef.set(
+    {
+      recording_id: docId,
+      shift_id: shiftId,
+      segment_id: segmentId,
+      room_name: roomName || shiftData?.livekit_room_name || `shift_${shiftId}`,
+      shift_name: _deriveShiftDisplayName(shiftData),
+      subject_name:
+        shiftData?.subject_display_name ||
+        shiftData?.subjectDisplayName ||
+        shiftData?.subject_name ||
+        '',
+      teacher_id: teacherId || null,
+      teacher_name: shiftData?.teacher_name || shiftData?.teacherName || '',
+      student_ids: _normalizeStringArray(studentIds),
+      shift_start: shiftStartTs || null,
+      shift_end: shiftEndTs || null,
+      file_path: filePath,
+      bucket: bucket || null,
+      layout: layout || null,
+      status: status || 'starting',
+      egress_id: egressId || null,
+      error: error || admin.firestore.FieldValue.delete(),
+      requested_by: requestedBy || null,
+      requested_at_iso: requestedAtIso || null,
+      requested_at: requestedAtTs || null,
+      started_at_iso: startedAtIso || null,
+      started_at: startedAtTs || null,
+      failed_at_iso: failedAtIso || null,
+      failed_at: failedAtTs || null,
+      sort_iso: sortIso,
+      sort_ts: sortTs,
+      updated_at: admin.firestore.FieldValue.serverTimestamp(),
+      created_at: admin.firestore.FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  );
+
+  return docId;
+};
+
+const _sortRecordingsNewestFirst = (a, b) => {
+  const aMs =
+    Date.parse(a.startedAtIso || '') ||
+    Date.parse(a.requestedAtIso || '') ||
+    Date.parse(a.shiftStartIso || '') ||
+    Date.parse(a.updatedAtIso || '') ||
+    0;
+  const bMs =
+    Date.parse(b.startedAtIso || '') ||
+    Date.parse(b.requestedAtIso || '') ||
+    Date.parse(b.shiftStartIso || '') ||
+    Date.parse(b.updatedAtIso || '') ||
+    0;
+  if (aMs !== bMs) return bMs - aMs;
+  return String(b.recordingId || '').localeCompare(String(a.recordingId || ''));
+};
+
+const _getLiveKitRecordingConfig = () => {
+  const enabled = _parseBooleanEnv(process.env.LIVEKIT_RECORDING_ENABLED, true);
+  if (!enabled) {
+    return { enabled: false, reason: 'LIVEKIT_RECORDING_ENABLED=false' };
+  }
+
+  let bucket = process.env.LIVEKIT_RECORDING_GCP_BUCKET?.trim();
+  if (!bucket) {
+    try {
+      const firebaseConfigRaw = process.env.FIREBASE_CONFIG;
+      if (firebaseConfigRaw) {
+        const firebaseConfig = JSON.parse(firebaseConfigRaw);
+        const storageBucket = firebaseConfig?.storageBucket;
+        if (typeof storageBucket === 'string' && storageBucket.trim()) {
+          bucket = storageBucket.trim();
+        }
+      }
+    } catch (_) {}
+  }
+  const credentialsRaw = process.env.LIVEKIT_RECORDING_GCP_CREDENTIALS_JSON;
+  const credentialsJson = _normalizeServiceAccountJson(credentialsRaw);
+  const layout = process.env.LIVEKIT_RECORDING_LAYOUT?.trim() || 'grid';
+  const prefixRaw = process.env.LIVEKIT_RECORDING_FILE_PREFIX?.trim() || 'class-recordings';
+  const prefix = prefixRaw.replace(/^\/+/, '').replace(/\/+$/, '');
+  const hasBucket = Boolean(bucket);
+  const hasCredentials = Boolean(credentialsJson);
+
+  if (!hasBucket || !hasCredentials) {
+    const missing = [];
+    if (!hasBucket) {
+      missing.push('LIVEKIT_RECORDING_GCP_BUCKET (or FIREBASE_CONFIG.storageBucket)');
+    }
+    if (!hasCredentials) {
+      missing.push('LIVEKIT_RECORDING_GCP_CREDENTIALS_JSON');
+    }
+    return {
+      enabled: false,
+      reason: `Recording storage not configured: missing ${missing.join(', ')}`,
+    };
+  }
+
+  return {
+    enabled: true,
+    mode: 'gcp',
+    bucket,
+    credentialsJson,
+    layout,
+    prefix,
+  };
+};
+
+/**
+ * Callable function: Ensure class recording is running for a LiveKit shift.
+ *
+ * This is intended to be called automatically by the app when any authorized
+ * class participant connects to the room.
+ */
+const ensureLiveKitShiftRecording = onCall({
+  secrets: [
+    'LIVEKIT_URL',
+    'LIVEKIT_API_KEY',
+    'LIVEKIT_API_SECRET',
+    'LIVEKIT_RECORDING_GCP_BUCKET',
+    'LIVEKIT_RECORDING_GCP_CREDENTIALS_JSON',
+  ],
+}, async (request) => {
+  const uid = request.auth?.uid;
+  const shiftId = request.data?.shiftId;
+
+  if (!uid) {
+    throw new HttpsError('unauthenticated', 'Authentication required');
+  }
+  if (!shiftId || typeof shiftId !== 'string') {
+    throw new HttpsError('invalid-argument', 'Missing or invalid shiftId');
+  }
+  if (!isLiveKitConfigured()) {
+    throw new HttpsError('unavailable', 'LiveKit video is not configured');
+  }
+
+  const recordingConfig = _getLiveKitRecordingConfig();
+  if (!recordingConfig.enabled) {
+    return {
+      success: true,
+      recordingEnabled: false,
+      recordingStarted: false,
+      reason: recordingConfig.reason,
+    };
+  }
+
+  const { shiftData, teacherId, studentIds, roomName, shiftRef } = await getLiveKitShiftOrThrow(shiftId);
+  const isTeacher = uid === teacherId;
+  const isStudent = studentIds.includes(uid);
+  const isAdmin = await isUserAdmin(uid);
+  const isParent = !isTeacher && !isStudent && !isAdmin
+    ? await isUserParentOfStudent(uid, studentIds)
+    : false;
+
+  if (!isTeacher && !isStudent && !isAdmin && !isParent) {
+    throw new HttpsError('permission-denied', 'You are not allowed to join this class');
+  }
+
+  if (shiftData.livekit_recording_disabled === true) {
+    return {
+      success: true,
+      recordingEnabled: false,
+      recordingStarted: false,
+      reason: 'Recording disabled for this class',
+    };
+  }
+
+  const shiftStart = shiftData.shift_start?.toDate
+    ? shiftData.shift_start.toDate()
+    : new Date(shiftData.shift_start);
+  const shiftEnd = shiftData.shift_end?.toDate
+    ? shiftData.shift_end.toDate()
+    : new Date(shiftData.shift_end);
+  const nowMs = Date.now();
+  const shiftStartMs = shiftStart.getTime();
+  const shiftEndMs = shiftEnd.getTime();
+  const allowedStartMs = Number.isFinite(shiftStartMs)
+    ? shiftStartMs - 10 * 60 * 1000
+    : nowMs - 10 * 60 * 1000;
+  const allowedEndMs = Number.isFinite(shiftEndMs)
+    ? shiftEndMs + 10 * 60 * 1000
+    : nowMs + 2 * 60 * 60 * 1000;
+
+  if (nowMs < allowedStartMs || nowMs > allowedEndMs) {
+    return {
+      success: true,
+      recordingEnabled: true,
+      recordingStarted: false,
+      reason: 'Outside recording window',
+    };
+  }
+
+  const livekitConfig = getLiveKitConfig();
+  const host = normalizeLiveKitHostForServerApi(livekitConfig.url);
+  const roomService = new RoomServiceClient(host, livekitConfig.apiKey, livekitConfig.apiSecret);
+  const egressClient = new EgressClient(host, livekitConfig.apiKey, livekitConfig.apiSecret);
+
+  const existingRecording = shiftData.livekit_recording || {};
+  const existingStatus = _normalizeRecordingStatus(
+    existingRecording.status || shiftData.livekit_recording_status,
+  );
+  const existingEgressId =
+    existingRecording.egress_id || shiftData.livekit_recording_egress_id || null;
+  let existingEgressInProgress = false;
+
+  if (existingEgressId) {
+    const existingEgressInfo = await _getEgressInfoById(egressClient, existingEgressId);
+    if (existingEgressInfo && _isEgressInProgress(existingEgressInfo.status)) {
+      existingEgressInProgress = true;
+      return {
+        success: true,
+        recordingEnabled: true,
+        recordingStarted: false,
+        alreadyRecording: true,
+        status: existingStatus || 'active',
+        egressId: existingEgressId,
+        filePath:
+          existingRecording.file_path || shiftData.livekit_recording_file_path || null,
+      };
+    }
+  }
+
+  const filePath = _buildRecordingFilePath({
+    shiftId,
+    roomName,
+    prefix: recordingConfig.prefix,
+  });
+  const requestedAtIso = new Date().toISOString();
+
+  const decision = await admin.firestore().runTransaction(async (tx) => {
+    const currentSnap = await tx.get(shiftRef);
+    if (!currentSnap.exists) {
+      throw new HttpsError('not-found', 'Shift not found');
+    }
+
+    const currentData = currentSnap.data() || {};
+    const existing = currentData.livekit_recording || {};
+    const status = _normalizeRecordingStatus(
+      existing.status || currentData.livekit_recording_status,
+    );
+    const egressId = existing.egress_id || currentData.livekit_recording_egress_id || null;
+    const existingFilePath =
+      existing.file_path || currentData.livekit_recording_file_path || null;
+    const lastRequestedAt = _toJsDate(
+      existing.requested_at || currentData.livekit_recording_requested_at,
+    );
+    const requestedAgeMs = lastRequestedAt
+      ? Math.max(0, Date.now() - lastRequestedAt.getTime())
+      : null;
+
+    if (status === 'starting' && requestedAgeMs != null && requestedAgeMs < 120000) {
+      return {
+        shouldStart: false,
+        status: 'starting',
+        egressId,
+        filePath: existingFilePath,
+      };
+    }
+
+    if (
+      status === 'active' &&
+      existingEgressInProgress &&
+      existingEgressId &&
+      egressId === existingEgressId
+    ) {
+      return {
+        shouldStart: false,
+        status: 'active',
+        egressId,
+        filePath: existingFilePath,
+      };
+    }
+
+    const previousSegments = Array.isArray(currentData.livekit_recording_segments)
+      ? currentData.livekit_recording_segments
+      : [];
+    const segmentId = `seg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const nextSegments = [
+      ...previousSegments,
+      {
+        segment_id: segmentId,
+        file_path: filePath,
+        requested_by: uid,
+        requested_at_iso: requestedAtIso,
+        status: 'starting',
+      },
+    ];
+
+    tx.update(shiftRef, {
+      'livekit_recording.status': 'starting',
+      'livekit_recording.room_name': roomName,
+      'livekit_recording.file_path': filePath,
+      'livekit_recording.current_segment_id': segmentId,
+      'livekit_recording.requested_by': uid,
+      'livekit_recording.requested_at': admin.firestore.FieldValue.serverTimestamp(),
+      'livekit_recording.updated_at': admin.firestore.FieldValue.serverTimestamp(),
+      'livekit_recording.error': admin.firestore.FieldValue.delete(),
+      livekit_recording_status: 'starting',
+      livekit_recording_file_path: filePath,
+      livekit_recording_current_segment_id: segmentId,
+      livekit_recording_requested_by: uid,
+      livekit_recording_requested_at: admin.firestore.FieldValue.serverTimestamp(),
+      livekit_recording_updated_at: admin.firestore.FieldValue.serverTimestamp(),
+      livekit_recording_error: admin.firestore.FieldValue.delete(),
+      livekit_recording_segments: nextSegments,
+    });
+
+    return {
+      shouldStart: true,
+      status: 'starting',
+      egressId: null,
+      segmentId,
+      filePath,
+    };
+  });
+
+  if (!decision.shouldStart) {
+    return {
+      success: true,
+      recordingEnabled: true,
+      recordingStarted: false,
+      alreadyRecording: true,
+      status: decision.status,
+      egressId: decision.egressId || null,
+      filePath: decision.filePath || null,
+    };
+  }
+
+  await _upsertClassRecordingDoc({
+    shiftId,
+    shiftData,
+    teacherId,
+    studentIds,
+    roomName,
+    segmentId: decision.segmentId,
+    filePath: decision.filePath,
+    bucket: recordingConfig.bucket,
+    layout: recordingConfig.layout,
+    status: 'starting',
+    requestedBy: uid,
+    requestedAtIso,
+  });
+
+  try {
+    try {
+      await roomService.createRoom({
+        name: roomName,
+        emptyTimeout: 10 * 60,
+        departureTimeout: 2 * 60,
+      });
+    } catch (createErr) {
+      if (!_isLiveKitAlreadyExistsError(createErr)) {
+        throw createErr;
+      }
+    }
+
+    const output = new EncodedFileOutput({
+      fileType: EncodedFileType.MP4,
+      filepath: decision.filePath,
+      output: {
+        case: 'gcp',
+        value: new GCPUpload({
+          bucket: recordingConfig.bucket,
+          credentials: recordingConfig.credentialsJson,
+        }),
+      },
+    });
+
+    const egressInfo = await egressClient.startRoomCompositeEgress(
+      roomName,
+      { file: output },
+      { layout: recordingConfig.layout },
+    );
+
+    const startedAtIso = new Date().toISOString();
+    await admin.firestore().runTransaction(async (tx) => {
+      const currentSnap = await tx.get(shiftRef);
+      const currentData = currentSnap.data() || {};
+      const segments = Array.isArray(currentData.livekit_recording_segments)
+        ? currentData.livekit_recording_segments
+        : [];
+      const segmentId = decision.segmentId;
+      const nextSegments = segments.map((segment) => {
+        if (!segmentId || segment?.segment_id !== segmentId) return segment;
+        return {
+          ...segment,
+          status: 'active',
+          egress_id: egressInfo.egressId || null,
+          started_at_iso: startedAtIso,
+        };
+      });
+
+      tx.update(shiftRef, {
+        'livekit_recording.status': 'active',
+        'livekit_recording.room_name': roomName,
+        'livekit_recording.layout': recordingConfig.layout,
+        'livekit_recording.storage_mode': recordingConfig.mode,
+        'livekit_recording.bucket': recordingConfig.bucket || admin.firestore.FieldValue.delete(),
+        'livekit_recording.egress_id': egressInfo.egressId || null,
+        'livekit_recording.started_at': admin.firestore.FieldValue.serverTimestamp(),
+        'livekit_recording.started_by': uid,
+        'livekit_recording.updated_at': admin.firestore.FieldValue.serverTimestamp(),
+        'livekit_recording.error': admin.firestore.FieldValue.delete(),
+        livekit_recording_status: 'active',
+        livekit_recording_egress_id: egressInfo.egressId || null,
+        livekit_recording_started_at: admin.firestore.FieldValue.serverTimestamp(),
+        livekit_recording_updated_at: admin.firestore.FieldValue.serverTimestamp(),
+        livekit_recording_error: admin.firestore.FieldValue.delete(),
+        livekit_recording_segments: nextSegments,
+      });
+    });
+
+    await _upsertClassRecordingDoc({
+      shiftId,
+      shiftData,
+      teacherId,
+      studentIds,
+      roomName,
+      segmentId: decision.segmentId,
+      filePath: decision.filePath,
+      bucket: recordingConfig.bucket,
+      layout: recordingConfig.layout,
+      status: 'active',
+      egressId: egressInfo.egressId || null,
+      requestedBy: uid,
+      requestedAtIso,
+      startedAtIso,
+    });
+
+    return {
+      success: true,
+      recordingEnabled: true,
+      recordingStarted: true,
+      status: 'active',
+      egressId: egressInfo.egressId || null,
+      filePath: decision.filePath,
+    };
+  } catch (err) {
+    const message = `${err?.message || String(err)}`.trim().slice(0, 500);
+    console.error('[LiveKit] Failed to start shift recording:', err);
+    const failedAtIso = new Date().toISOString();
+
+    await admin.firestore().runTransaction(async (tx) => {
+      const currentSnap = await tx.get(shiftRef);
+      const currentData = currentSnap.data() || {};
+      const segments = Array.isArray(currentData.livekit_recording_segments)
+        ? currentData.livekit_recording_segments
+        : [];
+      const segmentId = decision.segmentId;
+      const nextSegments = segments.map((segment) => {
+        if (!segmentId || segment?.segment_id !== segmentId) return segment;
+        return {
+          ...segment,
+          status: 'failed',
+          error: message,
+          failed_at_iso: failedAtIso,
+        };
+      });
+
+      tx.update(shiftRef, {
+        'livekit_recording.status': 'failed',
+        'livekit_recording.error': message,
+        'livekit_recording.failed_at': admin.firestore.FieldValue.serverTimestamp(),
+        'livekit_recording.updated_at': admin.firestore.FieldValue.serverTimestamp(),
+        livekit_recording_status: 'failed',
+        livekit_recording_error: message,
+        livekit_recording_updated_at: admin.firestore.FieldValue.serverTimestamp(),
+        livekit_recording_segments: nextSegments,
+      });
+    });
+
+    await _upsertClassRecordingDoc({
+      shiftId,
+      shiftData,
+      teacherId,
+      studentIds,
+      roomName,
+      segmentId: decision.segmentId,
+      filePath: decision.filePath,
+      bucket: recordingConfig.bucket,
+      layout: recordingConfig.layout,
+      status: 'failed',
+      error: message,
+      requestedBy: uid,
+      requestedAtIso,
+      failedAtIso,
+    });
+
+    return {
+      success: false,
+      recordingEnabled: true,
+      recordingStarted: false,
+      retryable: _isLiveKitNotFoundError(err),
+      error: message || 'Failed to start class recording',
+    };
+  }
+});
+
 /**
  * Callable function: Get LiveKit join token for a shift
  * 
@@ -177,8 +954,11 @@ const getLiveKitJoinToken = onCall({
   const isTeacher = uid === teacherId;
   const isStudent = studentIds.includes(uid);
   const isAdmin = await isUserAdmin(uid);
+  const isParent = !isTeacher && !isStudent && !isAdmin
+    ? await isUserParentOfStudent(uid, studentIds)
+    : false;
 
-  if (!isTeacher && !isStudent && !isAdmin) {
+  if (!isTeacher && !isStudent && !isAdmin && !isParent) {
     console.log('[LiveKit] Unauthorized access attempt. uid:', uid, 'shiftId:', shiftId);
     throw new HttpsError('permission-denied', 'You are not allowed to join this class');
   }
@@ -189,12 +969,14 @@ const getLiveKitJoinToken = onCall({
     userRole = 'admin';
   } else if (isTeacher) {
     userRole = 'teacher';
+  } else if (isParent) {
+    userRole = 'parent';
   } else {
     userRole = 'student';
   }
 
   const roomLocked = shiftData.livekit_locked === true;
-  if (roomLocked && userRole === 'student') {
+  if (roomLocked && (userRole === 'student' || userRole === 'parent')) {
     throw new HttpsError('failed-precondition', 'This class is locked by the teacher.');
   }
 
@@ -553,8 +1335,11 @@ const getLiveKitRoomPresence = onCall({
   const isTeacher = uid === teacherId;
   const isStudent = studentIds.includes(uid);
   const isAdmin = await isUserAdmin(uid);
+  const isParent = !isTeacher && !isStudent && !isAdmin
+    ? await isUserParentOfStudent(uid, studentIds)
+    : false;
 
-  if (!isTeacher && !isStudent && !isAdmin) {
+  if (!isTeacher && !isStudent && !isAdmin && !isParent) {
     throw new HttpsError('permission-denied', 'You are not allowed to view this class');
   }
 
@@ -630,7 +1415,7 @@ const getLiveKitRoomPresence = onCall({
       const identity = p.identity;
       const role = identity === teacherId
         ? 'teacher'
-        : (studentIds.includes(identity) ? 'student' : 'other');
+        : (studentIds.includes(identity) ? 'student' : identity === uid && isParent ? 'parent' : 'other');
 
       const joinedAtMs = p.joinedAtMs || 0n;
       const joinedAtIso = joinedAtMs > 0n
@@ -917,8 +1702,225 @@ const setLiveKitRoomLock = onCall({
   };
 });
 
+/**
+ * Callable function: List class recordings available to caller.
+ *
+ * Access rules:
+ * - admin/super_admin: all recordings
+ * - teacher: recordings where teacher_id == caller uid
+ * - student: recordings where student_ids includes caller uid
+ */
+const listClassRecordings = onCall({}, async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) {
+    throw new HttpsError('unauthenticated', 'Authentication required');
+  }
+
+  const requestedLimit = Number(request.data?.limit);
+  const requestedScanLimit = Number(request.data?.scanLimit);
+  const includeFailedRequested = request.data?.includeFailed === true;
+
+  const limit = Number.isFinite(requestedLimit)
+    ? Math.max(1, Math.min(100, Math.floor(requestedLimit)))
+    : 30;
+  const scanLimit = Number.isFinite(requestedScanLimit)
+    ? Math.max(20, Math.min(1000, Math.floor(requestedScanLimit)))
+    : 500;
+
+  const recordingsRef = admin.firestore().collection(CLASS_RECORDINGS_COLLECTION);
+  const userDoc = await admin.firestore().collection('users').doc(uid).get();
+  const userData = userDoc.exists ? (userDoc.data() || {}) : {};
+  const accessRole = _resolveEffectiveRole({
+    userData,
+    requestedRole: request.data?.activeRole,
+  });
+
+  if (!accessRole) {
+    throw new HttpsError(
+      'permission-denied',
+      'Requested role is not available for this user',
+    );
+  }
+
+  let snapshot;
+
+  if (accessRole === 'admin' || accessRole === 'super_admin') {
+    try {
+      snapshot = await recordingsRef.orderBy('updated_at', 'desc').limit(scanLimit).get();
+    } catch (err) {
+      console.warn('[LiveKit] listClassRecordings: falling back to unordered admin query:', err?.message || err);
+      snapshot = await recordingsRef.limit(scanLimit).get();
+    }
+  } else if (accessRole === 'teacher') {
+    snapshot = await recordingsRef.where('teacher_id', '==', uid).limit(scanLimit).get();
+  } else if (accessRole === 'student') {
+    snapshot = await recordingsRef.where('student_ids', 'array-contains', uid).limit(scanLimit).get();
+  } else {
+    throw new HttpsError(
+      'permission-denied',
+      'Only students, teachers, and admins can view class recordings',
+    );
+  }
+
+  const includeFailed =
+    includeFailedRequested &&
+    (accessRole === 'admin' || accessRole === 'super_admin');
+  const recordings = snapshot.docs
+    .map((doc) => {
+      const data = doc.data() || {};
+      const status = _normalizeRecordingStatus(data.status);
+      const filePath = typeof data.file_path === 'string' ? data.file_path : null;
+
+      return {
+        recordingId: doc.id,
+        shiftId: data.shift_id || null,
+        segmentId: data.segment_id || null,
+        shiftName: data.shift_name || 'Class Recording',
+        subjectName: data.subject_name || '',
+        teacherId: data.teacher_id || null,
+        teacherName: data.teacher_name || '',
+        status: status || 'unknown',
+        error: data.error || null,
+        filePath,
+        bucket: data.bucket || null,
+        shiftStartIso: _toIsoString(data.shift_start),
+        shiftEndIso: _toIsoString(data.shift_end),
+        requestedAtIso: data.requested_at_iso || _toIsoString(data.requested_at),
+        startedAtIso: data.started_at_iso || _toIsoString(data.started_at),
+        failedAtIso: data.failed_at_iso || _toIsoString(data.failed_at),
+        updatedAtIso: _toIsoString(data.updated_at),
+      };
+    })
+    .filter((item) => Boolean(item.filePath))
+    .filter((item) => includeFailed || item.status !== 'failed')
+    .map((item) => ({
+      ...item,
+      canPlay: item.status !== 'starting' && item.status !== 'failed',
+    }))
+    .sort(_sortRecordingsNewestFirst);
+
+  return {
+    success: true,
+    role: accessRole,
+    recordings: recordings.slice(0, limit),
+    hasMore: recordings.length > limit,
+    scannedCount: recordings.length,
+  };
+});
+
+/**
+ * Callable function: Generate short-lived playback URL for one recording.
+ *
+ * Access rules:
+ * - admin/super_admin: any recording
+ * - teacher: only own recordings
+ * - student: only recordings where they were assigned to the class
+ */
+const getClassRecordingPlaybackUrl = onCall({}, async (request) => {
+  const uid = request.auth?.uid;
+  const recordingId = request.data?.recordingId;
+
+  if (!uid) {
+    throw new HttpsError('unauthenticated', 'Authentication required');
+  }
+  if (!recordingId || typeof recordingId !== 'string') {
+    throw new HttpsError('invalid-argument', 'Missing or invalid recordingId');
+  }
+
+  const recordingRef = admin.firestore().collection(CLASS_RECORDINGS_COLLECTION).doc(recordingId);
+  const recordingSnap = await recordingRef.get();
+  if (!recordingSnap.exists) {
+    throw new HttpsError('not-found', 'Recording not found');
+  }
+
+  const data = recordingSnap.data() || {};
+  const filePath = typeof data.file_path === 'string' ? data.file_path.trim() : '';
+  if (!filePath) {
+    throw new HttpsError('failed-precondition', 'Recording file path is missing');
+  }
+
+  const teacherId = typeof data.teacher_id === 'string' ? data.teacher_id.trim() : '';
+  const studentIds = _normalizeStringArray(data.student_ids);
+  const userDoc = await admin.firestore().collection('users').doc(uid).get();
+  const userData = userDoc.exists ? (userDoc.data() || {}) : {};
+  const accessRole = _resolveEffectiveRole({
+    userData,
+    requestedRole: request.data?.activeRole,
+  });
+
+  if (!accessRole) {
+    throw new HttpsError('permission-denied', 'Requested role is not available for this user');
+  }
+
+  const isAdmin = accessRole === 'admin' || accessRole === 'super_admin';
+  const isTeacher = accessRole === 'teacher' && Boolean(teacherId) && uid === teacherId;
+  const isStudent = accessRole === 'student' && studentIds.includes(uid);
+  if (!isAdmin && !isTeacher && !isStudent) {
+    throw new HttpsError('permission-denied', 'You are not allowed to access this recording');
+  }
+
+  const bucketName = typeof data.bucket === 'string' && data.bucket.trim()
+    ? data.bucket.trim()
+    : (process.env.LIVEKIT_RECORDING_GCP_BUCKET || '').trim();
+  const bucket = bucketName ? admin.storage().bucket(bucketName) : admin.storage().bucket();
+  const file = bucket.file(filePath);
+
+  const [exists] = await file.exists();
+  if (!exists) {
+    throw new HttpsError(
+      'failed-precondition',
+      'Recording file is not available yet. Please try again shortly.',
+    );
+  }
+
+  const [metadata] = await file.getMetadata();
+  const expiresAtMs = Date.now() + 15 * 60 * 1000;
+
+  let url;
+  let expiresAtIso = new Date(expiresAtMs).toISOString();
+
+  try {
+    [url] = await file.getSignedUrl({
+      version: 'v4',
+      action: 'read',
+      expires: expiresAtMs,
+      responseDisposition: 'inline',
+    });
+  } catch (_signErr) {
+    // getSignedUrl requires the Service Account Token Creator IAM role, which may not be
+    // granted to the default Cloud Functions service account. Fall back to a Firebase
+    // Storage download-token URL, which only needs storage.objects.update.
+    let token = metadata?.metadata?.firebaseStorageDownloadTokens;
+    if (!token) {
+      const { randomUUID } = require('crypto');
+      token = randomUUID();
+      await file.setMetadata({ metadata: { firebaseStorageDownloadTokens: token } });
+    }
+    url = `https://firebasestorage.googleapis.com/v0/b/${encodeURIComponent(bucket.name)}/o/${encodeURIComponent(filePath)}?alt=media&token=${token}`;
+    expiresAtIso = null;
+  }
+
+  await recordingRef.set({
+    last_playback_requested_at: admin.firestore.FieldValue.serverTimestamp(),
+    last_playback_requested_by: uid,
+    updated_at: admin.firestore.FieldValue.serverTimestamp(),
+  }, { merge: true });
+
+  return {
+    success: true,
+    recordingId,
+    shiftId: data.shift_id || null,
+    filePath,
+    url,
+    contentType: metadata?.contentType || 'video/mp4',
+    sizeBytes: metadata?.size ? Number(metadata.size) : null,
+    expiresAtIso,
+  };
+});
+
 module.exports = {
   getLiveKitJoinToken,
+  ensureLiveKitShiftRecording,
   checkLiveKitAvailability,
   getLiveKitRoomPresence,
   muteLiveKitParticipant,
@@ -926,4 +1928,6 @@ module.exports = {
   kickLiveKitParticipant,
   setLiveKitRoomLock,
   getLiveKitGuestJoin,
+  listClassRecordings,
+  getClassRecordingPlaybackUrl,
 };

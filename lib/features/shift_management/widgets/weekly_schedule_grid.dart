@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/models/teaching_shift.dart';
 import '../../../core/models/employee_model.dart';
 import '../../../core/enums/shift_enums.dart';
@@ -53,11 +54,50 @@ class WeeklyScheduleGrid extends StatefulWidget {
 class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
   final TextEditingController _searchController = TextEditingController();
 
+  // userId → IANA timezone string (null if not set on their profile)
+  final Map<String, String?> _studentTimezoneCache = {};
+
   @override
   void initState() {
     super.initState();
     _searchController.text = widget.searchQuery;
     _searchController.addListener(_onSearchChanged);
+    _loadStudentTimezones(widget.shifts);
+  }
+
+  /// Batch-fetches the timezone field from the users collection for every
+  /// student appearing in [shifts] that isn't already in the cache.
+  Future<void> _loadStudentTimezones(List<TeachingShift> shifts) async {
+    final needed = <String>{};
+    for (final shift in shifts) {
+      for (final id in shift.studentIds) {
+        if (!_studentTimezoneCache.containsKey(id)) needed.add(id);
+      }
+    }
+    if (needed.isEmpty) return;
+
+    // Firestore whereIn is capped at 30 items per query.
+    final ids = needed.toList();
+    for (int i = 0; i < ids.length; i += 30) {
+      final chunk = ids.sublist(i, (i + 30).clamp(0, ids.length));
+      try {
+        final snap = await FirebaseFirestore.instance
+            .collection('users')
+            .where(FieldPath.documentId, whereIn: chunk)
+            .get();
+        final fetched = <String, String?>{
+          for (final doc in snap.docs)
+            doc.id: doc.data()['timezone'] as String?,
+        };
+        // Mark missing IDs so we don't re-fetch them
+        for (final id in chunk) {
+          fetched.putIfAbsent(id, () => null);
+        }
+        if (mounted) setState(() => _studentTimezoneCache.addAll(fetched));
+      } catch (_) {
+        // Timezone is informational — silently skip on error
+      }
+    }
   }
 
   void _onSearchChanged() {
@@ -73,6 +113,7 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
     // Invalidate shift cache when shifts or week changes
     if (oldWidget.shifts != widget.shifts || oldWidget.weekStart != widget.weekStart) {
       _invalidateShiftCache();
+      _loadStudentTimezones(widget.shifts);
     }
   }
 
@@ -543,7 +584,7 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
                       onEdit: widget.onEditShift != null && !isPastDate
                           ? () => widget.onEditShift!(userShifts.first)
                           : null,
-                      onAddShift: !isPastDate 
+                      onAddShift: !isPastDate
                           ? () => widget.onCreateShift(user.email, day, const TimeOfDay(hour: 14, minute: 0))
                           : null,
                       teacherEmail: user.email,
@@ -554,6 +595,9 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
                           ? (selected) => widget.onShiftSelectionChanged!(userShifts.first.id, selected)
                           : null,
                       isSelectionMode: widget.isSelectionMode,
+                      studentTimezone: userShifts.first.studentIds.isNotEmpty
+                          ? _studentTimezoneCache[userShifts.first.studentIds.first]
+                          : null,
                     ),
                   )
                 // Multiple shifts - show grouped view with better hover actions
@@ -581,7 +625,7 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
             onEdit: widget.onEditShift != null && !isPastDate
                 ? () => widget.onEditShift!(shift)
                 : null,
-            onAddShift: !isPastDate 
+            onAddShift: !isPastDate
                 ? () => widget.onCreateShift(user.email, day, const TimeOfDay(hour: 14, minute: 0))
                 : null,
             teacherEmail: user.email,
@@ -595,6 +639,9 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
             showMultipleShiftsIndicator: true,
             shiftIndex: index + 1,
             totalShifts: shifts.length,
+            studentTimezone: shift.studentIds.isNotEmpty
+                ? _studentTimezoneCache[shift.studentIds.first]
+                : null,
           ),
         );
       }).toList(),

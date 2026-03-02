@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 
 import 'package:alluwalacademyadmin/core/models/invoice.dart';
 import 'package:alluwalacademyadmin/core/models/teaching_shift.dart';
@@ -8,8 +9,25 @@ import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 
 class ParentService {
   static FirebaseFirestore get _firestore => FirebaseFirestore.instance;
+  static FirebaseFunctions get _functions =>
+      FirebaseFunctions.instanceFor(region: 'us-central1');
 
-  static Future<List<Map<String, dynamic>>> getParentChildren(String parentId) async {
+  static Map<String, dynamic>? _asMap(dynamic value) {
+    if (value is Map<String, dynamic>) return value;
+    if (value is Map) {
+      try {
+        return value.map(
+          (key, val) => MapEntry(key.toString(), val),
+        );
+      } catch (_) {
+        return null;
+      }
+    }
+    return null;
+  }
+
+  static Future<List<Map<String, dynamic>>> getParentChildren(
+      String parentId) async {
     final students = <QueryDocumentSnapshot<Map<String, dynamic>>>[];
 
     Future<void> queryField(String fieldName) async {
@@ -36,24 +54,51 @@ class ParentService {
       final first = (data['first_name'] ?? '').toString().trim();
       final last = (data['last_name'] ?? '').toString().trim();
       final name = ('$first $last').trim();
-      final studentCode =
-          (data['student_code'] ?? data['studentCode'] ?? data['student_id'] ?? '').toString();
+      final studentCode = (data['student_code'] ??
+              data['studentCode'] ??
+              data['student_id'] ??
+              '')
+          .toString();
       final kioskCode = (data['kiosk_code'] ?? '').toString();
 
       return <String, dynamic>{
         'id': doc.id,
         'name': name.isNotEmpty ? name : doc.id,
-        'studentCode': studentCode.trim().isNotEmpty ? studentCode.trim() : null,
+        'studentCode':
+            studentCode.trim().isNotEmpty ? studentCode.trim() : null,
         'kioskCode': kioskCode.trim().isNotEmpty ? kioskCode.trim() : null,
         'email': (data['e-mail'] ?? data['email'])?.toString(),
       };
     }).toList();
 
-    children.sort((a, b) => (a['name'] ?? '').toString().compareTo((b['name'] ?? '').toString()));
+    children.sort((a, b) =>
+        (a['name'] ?? '').toString().compareTo((b['name'] ?? '').toString()));
     return children;
   }
 
-  static Future<Map<String, double>> getFinancialSummary(String parentId) async {
+  /// Check if [parentId] is a guardian of any student in [studentIds].
+  static Future<bool> isParentOfStudents(
+      String parentId, List<String> studentIds) async {
+    if (studentIds.isEmpty) return false;
+    for (final studentId in studentIds) {
+      try {
+        final doc = await _firestore.collection('users').doc(studentId).get();
+        if (!doc.exists) continue;
+        final data = doc.data()!;
+        final guardianIds = <String>[
+          ...((data['guardian_ids'] as List?)?.cast<String>() ?? []),
+          ...((data['guardianIds'] as List?)?.cast<String>() ?? []),
+        ];
+        if (guardianIds.contains(parentId)) return true;
+      } catch (_) {
+        continue;
+      }
+    }
+    return false;
+  }
+
+  static Future<Map<String, double>> getFinancialSummary(
+      String parentId) async {
     try {
       // Keep this bounded to prevent large reads if a parent has a long history.
       final snapshot = await _firestore
@@ -98,21 +143,25 @@ class ParentService {
   }
 
   /// Get upcoming shifts for a student (next 7 days)
-  static Future<List<TeachingShift>> getStudentUpcomingShifts(String studentId) async {
+  static Future<List<TeachingShift>> getStudentUpcomingShifts(
+      String studentId) async {
     try {
       return await ShiftService.getUpcomingShiftsForStudent(studentId);
     } catch (e) {
-      AppLogger.error('ParentService: Error getting upcoming shifts for student: $e');
+      AppLogger.error(
+          'ParentService: Error getting upcoming shifts for student: $e');
       return [];
     }
   }
 
   /// Get today's shifts for a student
-  static Future<List<TeachingShift>> getStudentTodayShifts(String studentId) async {
+  static Future<List<TeachingShift>> getStudentTodayShifts(
+      String studentId) async {
     try {
       return await ShiftService.getTodayShiftsForStudent(studentId);
     } catch (e) {
-      AppLogger.error('ParentService: Error getting today\'s shifts for student: $e');
+      AppLogger.error(
+          'ParentService: Error getting today\'s shifts for student: $e');
       return [];
     }
   }
@@ -125,43 +174,52 @@ class ParentService {
   }) async {
     try {
       final now = DateTime.now();
-      final effectiveStartDate = startDate ?? now.subtract(const Duration(days: 30));
+      final effectiveStartDate =
+          startDate ?? now.subtract(const Duration(days: 30));
       final effectiveEndDate = endDate ?? now;
 
       // Query shifts where student is assigned and in date range
       Query query = _firestore
           .collection('teaching_shifts')
           .where('student_ids', arrayContains: studentId)
-          .where('shift_start', isLessThan: Timestamp.fromDate(effectiveEndDate));
+          .where('shift_start',
+              isLessThan: Timestamp.fromDate(effectiveEndDate));
 
       if (startDate != null) {
-        query = query.where('shift_start', isGreaterThanOrEqualTo: Timestamp.fromDate(effectiveStartDate));
+        query = query.where('shift_start',
+            isGreaterThanOrEqualTo: Timestamp.fromDate(effectiveStartDate));
       }
 
       final snapshot = await query.get();
       final shifts = snapshot.docs
           .map((doc) => TeachingShift.fromFirestore(doc))
           .where((shift) => shift.shiftStart.isBefore(effectiveEndDate))
-          .where((shift) => startDate == null || shift.shiftStart.isAfter(effectiveStartDate))
+          .where((shift) =>
+              startDate == null || shift.shiftStart.isAfter(effectiveStartDate))
           .toList();
 
-      shifts.sort((a, b) => b.shiftStart.compareTo(a.shiftStart)); // Most recent first
+      shifts.sort(
+          (a, b) => b.shiftStart.compareTo(a.shiftStart)); // Most recent first
       return shifts;
     } catch (e) {
-      AppLogger.error('ParentService: Error getting shifts history for student: $e');
+      AppLogger.error(
+          'ParentService: Error getting shifts history for student: $e');
       return [];
     }
   }
 
   /// Calculate attendance statistics for a student
-  static Future<Map<String, dynamic>> getStudentAttendanceStats(String studentId, {int? days}) async {
+  static Future<Map<String, dynamic>> getStudentAttendanceStats(
+      String studentId,
+      {int? days}) async {
     try {
       final now = DateTime.now();
       final daysToLookBack = days ?? 30;
       final startDate = now.subtract(Duration(days: daysToLookBack));
 
       // Get all shifts for the student in the date range
-      final shifts = await getStudentShiftsHistory(studentId, startDate: startDate, endDate: now);
+      final shifts = await getStudentShiftsHistory(studentId,
+          startDate: startDate, endDate: now);
 
       if (shifts.isEmpty) {
         return {
@@ -197,7 +255,8 @@ class ParentService {
       }
 
       final totalPastClasses = completed + missed + cancelled;
-      final attendanceRate = totalPastClasses > 0 ? completed / totalPastClasses : 0.0;
+      final attendanceRate =
+          totalPastClasses > 0 ? completed / totalPastClasses : 0.0;
 
       return {
         'totalClasses': shifts.length,
@@ -219,16 +278,19 @@ class ParentService {
   }
 
   /// Get subject performance statistics for a student
-  static Future<Map<String, Map<String, dynamic>>> getStudentSubjectStats(String studentId) async {
+  static Future<Map<String, Map<String, dynamic>>> getStudentSubjectStats(
+      String studentId) async {
     try {
       // Get all shifts for the student
-      final shifts = await getStudentShiftsHistory(studentId, startDate: null, endDate: DateTime.now());
+      final shifts = await getStudentShiftsHistory(studentId,
+          startDate: null, endDate: DateTime.now());
 
       final Map<String, Map<String, dynamic>> subjectStats = {};
 
       for (final shift in shifts) {
-        final subjectName = shift.subjectDisplayName ?? shift.subject.toString();
-        
+        final subjectName =
+            shift.subjectDisplayName ?? shift.subject.toString();
+
         if (!subjectStats.containsKey(subjectName)) {
           subjectStats[subjectName] = {
             'count': 0,
@@ -269,6 +331,42 @@ class ParentService {
     } catch (e) {
       AppLogger.error('ParentService: Error getting subject stats: $e');
       return {};
+    }
+  }
+
+  /// Fetches advanced attendance analytics generated by Cloud Functions.
+  /// Returns the `report` payload when available, otherwise `null`.
+  static Future<Map<String, dynamic>?> getStudentAttendanceReport(
+    String studentId, {
+    String periodType = 'weekly',
+    DateTime? referenceDate,
+    bool forceRefresh = false,
+  }) async {
+    final normalizedStudentId = studentId.trim();
+    if (normalizedStudentId.isEmpty) return null;
+
+    try {
+      final callable = _functions.httpsCallable('getStudentAttendanceReport');
+      final result = await callable.call({
+        'studentId': normalizedStudentId,
+        'periodType': periodType.trim().toLowerCase(),
+        if (referenceDate != null)
+          'referenceDate': referenceDate.toUtc().toIso8601String(),
+        'forceRefresh': forceRefresh,
+      });
+
+      final responseMap = _asMap(result.data);
+      if (responseMap == null) return null;
+      if (responseMap['success'] != true) return null;
+
+      return _asMap(responseMap['report']);
+    } on FirebaseFunctionsException catch (e) {
+      AppLogger.error(
+          'ParentService: getStudentAttendanceReport failed (${e.code}): ${e.message}');
+      return null;
+    } catch (e) {
+      AppLogger.error('ParentService: getStudentAttendanceReport error: $e');
+      return null;
     }
   }
 }

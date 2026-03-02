@@ -143,7 +143,9 @@ const onChatMessageCreated = onDocumentCreated(
             senderName,
             senderProfilePicture: senderProfilePicture || '',
             messagePreview: messagePreview,
+            fullMessage: messageContent,
             chatType,
+            groupName: groupName || '',
             click_action: 'FLUTTER_NOTIFICATION_CLICK',
           },
           android: {
@@ -151,6 +153,7 @@ const onChatMessageCreated = onDocumentCreated(
               channelId: 'chat_messages',
               priority: 'high',
               defaultSound: true,
+              body: messageContent,
             },
           },
           apns: {
@@ -159,6 +162,10 @@ const onChatMessageCreated = onDocumentCreated(
                 badge: 1,
                 sound: 'default',
                 category: 'chat_message',
+                alert: {
+                  title,
+                  body: messageContent,
+                },
               },
             },
           },

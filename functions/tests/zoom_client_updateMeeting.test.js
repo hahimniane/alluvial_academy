@@ -1,4 +1,6 @@
-describe('Zoom client updateMeeting', () => {
+// Legacy Zoom client tests are kept for reference only.
+// The app now uses LiveKit and this module no longer exists.
+describe.skip('Zoom client updateMeeting', () => {
   beforeEach(() => {
     jest.resetModules();
     global.fetch = jest.fn();
@@ -80,4 +82,3 @@ describe('Zoom client updateMeeting', () => {
     expect(secondAltPayload.settings.alternative_hosts).toBe('good@example.com');
   });
 });
-

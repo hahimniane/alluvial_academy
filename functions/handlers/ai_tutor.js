@@ -13,6 +13,29 @@ const { generateAccessToken } = require('../services/livekit/token');
 
 // AI Tutor agent name (as registered in LiveKit Cloud)
 const AI_TUTOR_AGENT_NAME = 'Alluwal';
+const DEFAULT_AI_VOICE_PREFERENCE = 'blake';
+const ALLOWED_AI_VOICE_PREFERENCES = new Set(['blake', 'jacqueline', 'robyn']);
+const ALLOWED_AI_TTS_LANGUAGES = new Set(['en', 'ar']);
+const DEFAULT_AI_TTS_LANGUAGE = ALLOWED_AI_TTS_LANGUAGES.has(
+  (process.env.AI_TUTOR_TTS_LANGUAGE || '').trim().toLowerCase(),
+)
+  ? (process.env.AI_TUTOR_TTS_LANGUAGE || '').trim().toLowerCase()
+  : 'en';
+const DEFAULT_AI_TTS_PRONUNCIATION_DICT_ID =
+  (process.env.AI_TUTOR_TTS_PRONUNCIATION_DICT_ID || '').trim();
+const AI_VOICE_PREFERENCE_ALIASES = new Map([
+  // Backward compatibility with previously stored values.
+  ['alluwal', 'blake'],
+  ['katie', 'jacqueline'],
+  ['kiefer', 'blake'],
+]);
+const ALLOWED_AI_BACKGROUND_PREFERENCES = new Set([
+  'none',
+  'forest',
+  'city',
+  'office',
+  'hold_music',
+]);
 
 const normalizeTimezone = (timezone) => {
   const tz = typeof timezone === 'string' ? timezone.trim() : '';
@@ -23,6 +46,33 @@ const normalizeTimezone = (timezone) => {
   } catch (_) {
     return 'UTC';
   }
+};
+
+const parseRequestedTimezone = (timezone) => {
+  const raw = typeof timezone === 'string' ? timezone.trim() : '';
+  if (!raw) return null;
+  try {
+    const test = DateTime.now().setZone(raw);
+    return test.isValid ? raw : null;
+  } catch (_) {
+    return null;
+  }
+};
+
+const parseClientNowEpochMs = (value) => {
+  if (value === null || value === undefined) return null;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return null;
+  if (parsed <= 0) return null;
+  return Math.round(parsed);
+};
+
+const normalizePronunciationDictId = (value) => {
+  const raw = typeof value === 'string' ? value.trim() : '';
+  if (!raw) return '';
+  // Cartesia dict IDs are short ASCII tokens; keep this strict to avoid passing junk.
+  if (!/^[A-Za-z0-9_-]{4,128}$/.test(raw)) return '';
+  return raw;
 };
 
 /**
@@ -68,7 +118,9 @@ const getUserTimezone = async (uid) => {
     const userDoc = await admin.firestore().collection('users').doc(uid).get();
     if (!userDoc.exists) return 'UTC';
     const data = userDoc.data() || {};
-    return normalizeTimezone(data.timezone);
+    return normalizeTimezone(
+      data.timezone || data.preferred_timezone || data.time_zone,
+    );
   } catch (_) {
     return 'UTC';
   }
@@ -90,20 +142,34 @@ const checkAITutorEnabled = async (uid) => {
 };
 
 /**
- * Helper: Get student's upcoming classes
- * Returns a formatted string of upcoming classes for the AI tutor
+ * Helper: Get student's live, recent, and upcoming classes.
+ * Past classes are intentionally limited to today and yesterday only.
  */
-const getStudentClasses = async (uid, studentTimezone = 'UTC') => {
+const getStudentClasses = async (uid, studentTimezone = 'UTC', nowUtcOverride = null) => {
   if (!uid) return '';
 
   try {
     const db = admin.firestore();
-    const now = new Date();
-    const nowTs = admin.firestore.Timestamp.fromDate(now);
     const resolvedStudentTimezone = normalizeTimezone(studentTimezone);
+    const nowUtc = nowUtcOverride && nowUtcOverride.isValid
+      ? nowUtcOverride.setZone('utc')
+      : DateTime.utc();
+    const now = nowUtc.toJSDate();
+    const nowEpochMs = now.getTime();
+    const nowLocal = nowUtc.setZone(resolvedStudentTimezone);
+    const todayLocal = nowLocal.startOf('day');
+    const yesterdayLocal = todayLocal.minus({ days: 1 });
+    const windowStartTs = admin.firestore.Timestamp.fromDate(
+      yesterdayLocal.toUTC().toJSDate(),
+    );
 
-    const classes = [];
     const teacherCache = {};
+    const timeline = {
+      live: [],
+      completedToday: [],
+      completedYesterday: [],
+      upcoming: [],
+    };
     const isMissingIndexError = (err) => {
       if (!err) return false;
       const code = err.code;
@@ -146,7 +212,7 @@ const getStudentClasses = async (uid, studentTimezone = 'UTC') => {
       const minutes = Number(match[2]);
       if (!Number.isInteger(hours) || !Number.isInteger(minutes)) return raw;
       const sourceTz = normalizeTimezone(sourceTimezone);
-      const sourceDt = DateTime.now().setZone(sourceTz).set({
+      const sourceDt = nowUtc.setZone(sourceTz).set({
         hour: hours,
         minute: minutes,
         second: 0,
@@ -176,10 +242,10 @@ const getStudentClasses = async (uid, studentTimezone = 'UTC') => {
       return fallbackName;
     };
 
-    const formatShiftLine = async (shift) => {
+    const buildShiftEntry = async (shift) => {
       const startTime = toDate(shift.shift_start || shift.start_time);
       const endTime = toDate(shift.shift_end || shift.end_time);
-      if (!startTime || startTime < now) return null;
+      if (!startTime) return null;
 
       const startDt = DateTime.fromJSDate(startTime, { zone: 'utc' })
         .setZone(resolvedStudentTimezone);
@@ -188,16 +254,23 @@ const getStudentClasses = async (uid, studentTimezone = 'UTC') => {
         ? DateTime.fromJSDate(endTime, { zone: 'utc' }).setZone(resolvedStudentTimezone)
         : null;
 
+      const startEpochMs = startTime.getTime();
+      const endEpochMs = endTime ? endTime.getTime() : null;
+      const isLive = endEpochMs !== null &&
+        startEpochMs <= nowEpochMs &&
+        nowEpochMs < endEpochMs;
+      const isPast = !isLive && startEpochMs <= nowEpochMs;
+      const referenceDt = (endDt && endDt.isValid) ? endDt : startDt;
+      const isToday = referenceDt.hasSame(nowLocal, 'day');
+      const isYesterday = referenceDt.hasSame(yesterdayLocal, 'day');
+
+      // Past classes older than yesterday are intentionally hidden.
+      if (isPast && !isToday && !isYesterday) return null;
+
       const teacherName = await getTeacherName(
         shift.teacher_id,
         shift.teacher_name || 'Teacher',
       );
-      const dayName = startDt.toFormat('cccc');
-      const dateStr = startDt.toFormat('LLL d');
-      const timeStr = startDt.toFormat('h:mm a');
-      const endTimeStr = endDt
-        ? endDt.toFormat('h:mm a')
-        : 'end time not set';
       const subject = normalizeSubject(
         shift.subject_display_name ||
           shift.subject_name ||
@@ -205,19 +278,40 @@ const getStudentClasses = async (uid, studentTimezone = 'UTC') => {
           shift.auto_generated_name ||
           shift.subject,
       );
+      const startLabel = startDt.toFormat('h:mm a');
+      const endLabel = endDt ? endDt.toFormat('h:mm a') : 'end time not set';
+      let line = `${subject} with ${teacherName} on ${startDt.toFormat('cccc LLL d')} from ${startLabel} to ${endLabel}`;
 
-      return `${subject} with ${teacherName} on ${dayName} ${dateStr} from ${timeStr} to ${endTimeStr}`;
+      let bucket = 'upcoming';
+      if (isLive) {
+        bucket = 'live';
+        if (endDt && endDt.isValid) {
+          const remainingMinutes = Math.max(
+            0,
+            Math.round(endDt.diff(nowLocal, 'minutes').minutes),
+          );
+          line = `${line} (live now, about ${remainingMinutes} minute${remainingMinutes === 1 ? '' : 's'} remaining)`;
+        } else {
+          line = `${line} (live now)`;
+        }
+      } else if (isPast && isToday) {
+        bucket = 'completedToday';
+      } else if (isPast && isYesterday) {
+        bucket = 'completedYesterday';
+      }
+
+      return { bucket, line, startEpochMs };
     };
 
     let shiftDocs = [];
 
-    // Primary lookup: current teaching_shifts schema uses shift_start/shift_end timestamps.
+    // Primary lookup: include yesterday onward so AI can distinguish live/recent/upcoming.
     try {
       const shiftsSnapshot = await db.collection('teaching_shifts')
         .where('student_ids', 'array-contains', uid)
-        .where('shift_start', '>=', nowTs)
+        .where('shift_start', '>=', windowStartTs)
         .orderBy('shift_start', 'asc')
-        .limit(10)
+        .limit(30)
         .get();
       shiftDocs = shiftsSnapshot.docs;
     } catch (err) {
@@ -233,9 +327,9 @@ const getStudentClasses = async (uid, studentTimezone = 'UTC') => {
       try {
         const legacySnapshot = await db.collection('teaching_shifts')
           .where('student_ids', 'array-contains', uid)
-          .where('start_time', '>=', nowTs)
+          .where('start_time', '>=', windowStartTs)
           .orderBy('start_time', 'asc')
-          .limit(10)
+          .limit(30)
           .get();
         shiftDocs = legacySnapshot.docs;
       } catch (err) {
@@ -247,26 +341,26 @@ const getStudentClasses = async (uid, studentTimezone = 'UTC') => {
       }
     }
 
-    // Final fallback if legacy query cannot run: in-memory filter over student shifts.
+    // Final fallback if indexed queries cannot run: in-memory filter over student shifts.
     if (shiftDocs.length === 0) {
       try {
         const broadSnapshot = await db.collection('teaching_shifts')
           .where('student_ids', 'array-contains', uid)
-          .limit(200)
+          .limit(300)
           .get();
-        const filtered = broadSnapshot.docs
+        const windowStartDate = yesterdayLocal.toUTC().toJSDate();
+        shiftDocs = broadSnapshot.docs
           .filter((doc) => {
             const data = doc.data() || {};
-            const start = toDate(data.start_time);
-            return !!start && start >= now;
+            const start = toDate(data.shift_start || data.start_time);
+            return !!start && start >= windowStartDate;
           })
           .sort((a, b) => {
-            const aStart = toDate((a.data() || {}).start_time);
-            const bStart = toDate((b.data() || {}).start_time);
+            const aStart = toDate((a.data() || {}).shift_start || (a.data() || {}).start_time);
+            const bStart = toDate((b.data() || {}).shift_start || (b.data() || {}).start_time);
             return (aStart?.getTime() || 0) - (bStart?.getTime() || 0);
           })
-          .slice(0, 10);
-        shiftDocs = filtered;
+          .slice(0, 30);
       } catch (err) {
         if (!isMissingIndexError(err)) {
           throw err;
@@ -276,15 +370,41 @@ const getStudentClasses = async (uid, studentTimezone = 'UTC') => {
 
     for (const doc of shiftDocs) {
       const shift = doc.data() || {};
-      const line = await formatShiftLine(shift);
-      if (line) classes.push(line);
+      const entry = await buildShiftEntry(shift);
+      if (!entry) continue;
+      timeline[entry.bucket].push(entry);
     }
 
-    if (classes.length > 0) {
-      return `Upcoming classes (all times in your timezone: ${resolvedStudentTimezone}): ${classes.join('. ')}.`;
+    const sortByStart = (entries) =>
+      entries.sort((a, b) => a.startEpochMs - b.startEpochMs);
+    sortByStart(timeline.live);
+    sortByStart(timeline.completedToday);
+    sortByStart(timeline.completedYesterday);
+    sortByStart(timeline.upcoming);
+
+    const sections = [];
+    const sectionLine = (title, entries) => {
+      if (!entries.length) return null;
+      return `${title}: ${entries.map((entry) => entry.line).join('. ')}.`;
+    };
+    const liveSection = sectionLine('Live now', timeline.live);
+    if (liveSection) sections.push(liveSection);
+    const completedTodaySection = sectionLine('Completed today', timeline.completedToday);
+    if (completedTodaySection) sections.push(completedTodaySection);
+    const completedYesterdaySection = sectionLine('Completed yesterday', timeline.completedYesterday);
+    if (completedYesterdaySection) sections.push(completedYesterdaySection);
+    const upcomingSection = sectionLine('Upcoming', timeline.upcoming);
+    if (upcomingSection) sections.push(upcomingSection);
+
+    if (sections.length > 0) {
+      return (
+        `Class timeline (all times in your timezone: ${resolvedStudentTimezone}). `
+        + `${sections.join(' ')} `
+        + 'Past classes shown are limited to today and yesterday.'
+      );
     }
 
-    // Fallback: if future shift instances are not generated yet, use active templates.
+    // Fallback: if shift instances are not generated yet, use active templates (upcoming pattern only).
     const templatesSnapshot = await db.collection('shift_templates')
       .where('student_ids', 'array-contains', uid)
       .limit(10)
@@ -300,6 +420,7 @@ const getStudentClasses = async (uid, studentTimezone = 'UTC') => {
       7: 'Sunday',
     };
 
+    const templateClasses = [];
     for (const doc of templatesSnapshot.docs) {
       const template = doc.data() || {};
       if (template.is_active === false) continue;
@@ -330,7 +451,7 @@ const getStudentClasses = async (uid, studentTimezone = 'UTC') => {
           if (!Number.isInteger(sourceDay) || sourceDay < 1 || sourceDay > 7) {
             return null;
           }
-          const weekStart = DateTime.now().setZone(templateTimezone).startOf('week');
+          const weekStart = nowUtc.setZone(templateTimezone).startOf('week');
           let sourceDate = weekStart;
           for (let i = 0; i < 7; i++) {
             if (sourceDate.weekday === sourceDay) break;
@@ -359,12 +480,12 @@ const getStudentClasses = async (uid, studentTimezone = 'UTC') => {
         pattern = `${recurrenceType} schedule`;
       }
 
-      classes.push(`${subject} with ${teacherName} ${pattern} at ${timeRange}`);
+      templateClasses.push(`${subject} with ${teacherName} ${pattern} at ${timeRange}`);
     }
 
-    return classes.length > 0
-      ? `Class schedule (all times in your timezone: ${resolvedStudentTimezone}): ${classes.join('. ')}.`
-      : `No upcoming classes scheduled in your timezone (${resolvedStudentTimezone}).`;
+    return templateClasses.length > 0
+      ? `Upcoming class template schedule (all times in your timezone: ${resolvedStudentTimezone}): ${templateClasses.join('. ')}.`
+      : `No live, recent, or upcoming classes scheduled in your timezone (${resolvedStudentTimezone}). Past classes are limited to today and yesterday.`;
   } catch (err) {
     console.warn('[AI Tutor] Failed to fetch student classes:', err.message);
     return 'Unable to load class schedule.';
@@ -372,19 +493,33 @@ const getStudentClasses = async (uid, studentTimezone = 'UTC') => {
 };
 
 /**
- * Helper: Get teacher upcoming classes
- * Returns a formatted string of upcoming classes for the AI assistant
+ * Helper: Get teacher live, recent, and upcoming classes.
+ * Past classes are intentionally limited to today and yesterday only.
  */
-const getTeacherClasses = async (uid, teacherTimezone = 'UTC') => {
+const getTeacherClasses = async (uid, teacherTimezone = 'UTC', nowUtcOverride = null) => {
   if (!uid) return '';
 
   try {
     const db = admin.firestore();
-    const now = new Date();
-    const nowTs = admin.firestore.Timestamp.fromDate(now);
     const resolvedTimezone = normalizeTimezone(teacherTimezone);
+    const nowUtc = nowUtcOverride && nowUtcOverride.isValid
+      ? nowUtcOverride.setZone('utc')
+      : DateTime.utc();
+    const now = nowUtc.toJSDate();
+    const nowEpochMs = now.getTime();
+    const nowLocal = nowUtc.setZone(resolvedTimezone);
+    const todayLocal = nowLocal.startOf('day');
+    const yesterdayLocal = todayLocal.minus({ days: 1 });
+    const windowStartTs = admin.firestore.Timestamp.fromDate(
+      yesterdayLocal.toUTC().toJSDate(),
+    );
 
-    const classes = [];
+    const timeline = {
+      live: [],
+      completedToday: [],
+      completedYesterday: [],
+      upcoming: [],
+    };
     const isMissingIndexError = (err) => {
       if (!err) return false;
       const code = err.code;
@@ -419,10 +554,10 @@ const getTeacherClasses = async (uid, teacherTimezone = 'UTC') => {
         .replace(/\b\w/g, (c) => c.toUpperCase());
     };
 
-    const formatShiftLine = (shift) => {
+    const buildShiftEntry = (shift) => {
       const startTime = toDate(shift.shift_start || shift.start_time);
       const endTime = toDate(shift.shift_end || shift.end_time);
-      if (!startTime || startTime < now) return null;
+      if (!startTime) return null;
 
       const startDt = DateTime.fromJSDate(startTime, { zone: 'utc' })
         .setZone(resolvedTimezone);
@@ -430,6 +565,19 @@ const getTeacherClasses = async (uid, teacherTimezone = 'UTC') => {
       const endDt = endTime
         ? DateTime.fromJSDate(endTime, { zone: 'utc' }).setZone(resolvedTimezone)
         : null;
+
+      const startEpochMs = startTime.getTime();
+      const endEpochMs = endTime ? endTime.getTime() : null;
+      const isLive = endEpochMs !== null &&
+        startEpochMs <= nowEpochMs &&
+        nowEpochMs < endEpochMs;
+      const isPast = !isLive && startEpochMs <= nowEpochMs;
+      const referenceDt = (endDt && endDt.isValid) ? endDt : startDt;
+      const isToday = referenceDt.hasSame(nowLocal, 'day');
+      const isYesterday = referenceDt.hasSame(yesterdayLocal, 'day');
+
+      // Past classes older than yesterday are intentionally hidden.
+      if (isPast && !isToday && !isYesterday) return null;
 
       const subject = normalizeSubject(
         shift.subject_display_name ||
@@ -448,16 +596,38 @@ const getTeacherClasses = async (uid, teacherTimezone = 'UTC') => {
             ? studentNames.join(' and ')
             : `${studentNames.slice(0, 2).join(', ')} and ${studentNames.length - 2} more`);
 
-      return `${subject} with ${studentLabel} on ${startDt.toFormat('cccc LLL d')} from ${startDt.toFormat('h:mm a')} to ${endDt ? endDt.toFormat('h:mm a') : 'end time not set'}`;
+      const startLabel = startDt.toFormat('h:mm a');
+      const endLabel = endDt ? endDt.toFormat('h:mm a') : 'end time not set';
+      let line = `${subject} with ${studentLabel} on ${startDt.toFormat('cccc LLL d')} from ${startLabel} to ${endLabel}`;
+
+      let bucket = 'upcoming';
+      if (isLive) {
+        bucket = 'live';
+        if (endDt && endDt.isValid) {
+          const remainingMinutes = Math.max(
+            0,
+            Math.round(endDt.diff(nowLocal, 'minutes').minutes),
+          );
+          line = `${line} (live now, about ${remainingMinutes} minute${remainingMinutes === 1 ? '' : 's'} remaining)`;
+        } else {
+          line = `${line} (live now)`;
+        }
+      } else if (isPast && isToday) {
+        bucket = 'completedToday';
+      } else if (isPast && isYesterday) {
+        bucket = 'completedYesterday';
+      }
+
+      return { bucket, line, startEpochMs };
     };
 
     let shiftDocs = [];
     try {
       const shiftsSnapshot = await db.collection('teaching_shifts')
         .where('teacher_id', '==', uid)
-        .where('shift_start', '>=', nowTs)
+        .where('shift_start', '>=', windowStartTs)
         .orderBy('shift_start', 'asc')
-        .limit(10)
+        .limit(30)
         .get();
       shiftDocs = shiftsSnapshot.docs;
     } catch (err) {
@@ -472,32 +642,59 @@ const getTeacherClasses = async (uid, teacherTimezone = 'UTC') => {
     if (shiftDocs.length === 0) {
       const broadSnapshot = await db.collection('teaching_shifts')
         .where('teacher_id', '==', uid)
-        .limit(200)
+        .limit(300)
         .get();
+      const windowStartDate = yesterdayLocal.toUTC().toJSDate();
       shiftDocs = broadSnapshot.docs
         .filter((doc) => {
           const data = doc.data() || {};
           const start = toDate(data.shift_start || data.start_time);
-          return !!start && start >= now;
+          return !!start && start >= windowStartDate;
         })
         .sort((a, b) => {
           const aStart = toDate((a.data() || {}).shift_start || (a.data() || {}).start_time);
           const bStart = toDate((b.data() || {}).shift_start || (b.data() || {}).start_time);
           return (aStart?.getTime() || 0) - (bStart?.getTime() || 0);
         })
-        .slice(0, 10);
+        .slice(0, 30);
     }
 
     for (const doc of shiftDocs) {
-      const line = formatShiftLine(doc.data() || {});
-      if (line) classes.push(line);
+      const entry = buildShiftEntry(doc.data() || {});
+      if (!entry) continue;
+      timeline[entry.bucket].push(entry);
     }
 
-    if (classes.length > 0) {
-      return `Your teaching schedule (all times in your timezone: ${resolvedTimezone}): ${classes.join('. ')}.`;
+    const sortByStart = (entries) =>
+      entries.sort((a, b) => a.startEpochMs - b.startEpochMs);
+    sortByStart(timeline.live);
+    sortByStart(timeline.completedToday);
+    sortByStart(timeline.completedYesterday);
+    sortByStart(timeline.upcoming);
+
+    const sections = [];
+    const sectionLine = (title, entries) => {
+      if (!entries.length) return null;
+      return `${title}: ${entries.map((entry) => entry.line).join('. ')}.`;
+    };
+    const liveSection = sectionLine('Live now', timeline.live);
+    if (liveSection) sections.push(liveSection);
+    const completedTodaySection = sectionLine('Completed today', timeline.completedToday);
+    if (completedTodaySection) sections.push(completedTodaySection);
+    const completedYesterdaySection = sectionLine('Completed yesterday', timeline.completedYesterday);
+    if (completedYesterdaySection) sections.push(completedYesterdaySection);
+    const upcomingSection = sectionLine('Upcoming', timeline.upcoming);
+    if (upcomingSection) sections.push(upcomingSection);
+
+    if (sections.length > 0) {
+      return (
+        `Your teaching schedule timeline (all times in your timezone: ${resolvedTimezone}). `
+        + `${sections.join(' ')} `
+        + 'Past classes shown are limited to today and yesterday.'
+      );
     }
 
-    // Template fallback for teachers
+    // Template fallback for teachers (upcoming pattern only)
     const templatesSnapshot = await db.collection('shift_templates')
       .where('teacher_id', '==', uid)
       .where('is_active', '==', true)
@@ -514,6 +711,7 @@ const getTeacherClasses = async (uid, teacherTimezone = 'UTC') => {
       7: 'Sunday',
     };
 
+    const templateClasses = [];
     for (const doc of templatesSnapshot.docs) {
       const template = doc.data() || {};
       const subject = normalizeSubject(
@@ -549,12 +747,12 @@ const getTeacherClasses = async (uid, teacherTimezone = 'UTC') => {
         pattern = `${recurrenceType} schedule`;
       }
 
-      classes.push(`${subject} ${pattern} at ${timeRange}`);
+      templateClasses.push(`${subject} ${pattern} at ${timeRange}`);
     }
 
-    return classes.length > 0
-      ? `Your teaching schedule (all times in your timezone: ${resolvedTimezone}): ${classes.join('. ')}.`
-      : `No upcoming classes scheduled in your timezone (${resolvedTimezone}).`;
+    return templateClasses.length > 0
+      ? `Upcoming teaching template schedule (all times in your timezone: ${resolvedTimezone}): ${templateClasses.join('. ')}.`
+      : `No live, recent, or upcoming classes scheduled in your timezone (${resolvedTimezone}). Past classes are limited to today and yesterday.`;
   } catch (err) {
     console.warn('[AI Tutor] Failed to fetch teacher classes:', err.message);
     return 'Unable to load class schedule.';
@@ -574,6 +772,42 @@ const getAITutorToken = onCall({
   secrets: ['LIVEKIT_URL', 'LIVEKIT_API_KEY', 'LIVEKIT_API_SECRET'],
 }, async (request) => {
   const uid = request.auth?.uid;
+  const requestedMode = request.data?.interactionMode;
+  const interactionModeRaw = typeof requestedMode === 'string'
+    ? requestedMode.trim().toLowerCase()
+    : '';
+  const interactionMode = interactionModeRaw === 'text' ? 'text' : 'voice';
+  const requestedVoice = request.data?.aiVoice;
+  const aiVoiceRaw = typeof requestedVoice === 'string'
+    ? requestedVoice.trim().toLowerCase()
+    : '';
+  const aiVoiceNormalized = AI_VOICE_PREFERENCE_ALIASES.get(aiVoiceRaw) || aiVoiceRaw;
+  const voicePreference = ALLOWED_AI_VOICE_PREFERENCES.has(aiVoiceNormalized)
+    ? aiVoiceNormalized
+    : DEFAULT_AI_VOICE_PREFERENCE;
+  const requestedBackground = request.data?.aiBackground;
+  const aiBackgroundRaw = typeof requestedBackground === 'string'
+    ? requestedBackground.trim().toLowerCase()
+    : '';
+  const backgroundPreference = ALLOWED_AI_BACKGROUND_PREFERENCES.has(aiBackgroundRaw)
+    ? aiBackgroundRaw
+    : 'forest';
+  const requestedTtsLanguage = request.data?.aiTtsLanguage;
+  const ttsLanguageRaw = typeof requestedTtsLanguage === 'string'
+    ? requestedTtsLanguage.trim().toLowerCase()
+    : '';
+  const ttsLanguageCandidate = ttsLanguageRaw || DEFAULT_AI_TTS_LANGUAGE;
+  const ttsLanguage = ALLOWED_AI_TTS_LANGUAGES.has(ttsLanguageCandidate)
+    ? ttsLanguageCandidate
+    : 'en';
+  const requestedPronunciationDictId =
+    request.data?.aiTtsPronunciationDictId || request.data?.aiPronunciationDictId;
+  const ttsPronunciationDictId =
+    normalizePronunciationDictId(requestedPronunciationDictId) ||
+    normalizePronunciationDictId(DEFAULT_AI_TTS_PRONUNCIATION_DICT_ID);
+  const requestedClientTimezone = request.data?.clientTimezone;
+  const requestedClientLocalIso = request.data?.clientLocalIso;
+  const requestedClientNowEpochMs = request.data?.clientNowEpochMs;
 
   // Require authentication
   if (!uid) {
@@ -592,6 +826,7 @@ const getAITutorToken = onCall({
   const isTeacher = userRoleRaw.includes('teacher');
   const isStudent = userRoleRaw === 'student';
   const sessionRole = isTeacher ? 'teacher' : (isStudent ? 'student' : '');
+  const teacherActionsEnabled = sessionRole === 'teacher';
   if (!sessionRole) {
     console.log('[AI Tutor] Unsupported role access attempt. uid:', uid, 'role:', userRoleRaw);
     throw new HttpsError('permission-denied', 'AI Tutor is only available for students and teachers');
@@ -606,17 +841,58 @@ const getAITutorToken = onCall({
 
   // Get user details and role-specific class schedule
   const displayName = await getUserDisplayName(uid);
-  const userTimezone = await getUserTimezone(uid);
+  const profileTimezone = await getUserTimezone(uid);
+  const clientTimezone = parseRequestedTimezone(requestedClientTimezone);
+  const userTimezone = normalizeTimezone(clientTimezone || profileTimezone);
+  const clientNowEpochMs = parseClientNowEpochMs(requestedClientNowEpochMs);
+  const nowUtc = clientNowEpochMs !== null
+    ? DateTime.fromMillis(clientNowEpochMs, { zone: 'utc' })
+    : DateTime.utc();
+  const nowLocal = nowUtc.setZone(userTimezone);
+  const clientLocalIsoRaw = typeof requestedClientLocalIso === 'string'
+    ? requestedClientLocalIso.trim()
+    : '';
+  const currentLocalMetadata = {
+    current_utc_iso: nowUtc.toISO(),
+    current_local_iso: nowLocal.toISO(),
+    current_local_date: nowLocal.toFormat('yyyy-LL-dd'),
+    current_local_time: nowLocal.toFormat('h:mm a'),
+    current_local_weekday: nowLocal.toFormat('cccc'),
+    current_local_readable: nowLocal.toFormat('cccc, LLLL d, yyyy h:mm a'),
+    current_local_timestamp_ms: nowUtc.toMillis(),
+    client_timezone: clientTimezone || '',
+    client_local_iso: clientLocalIsoRaw,
+    server_generated_at_utc: DateTime.utc().toISO(),
+  };
   const classSchedule = isTeacher
-    ? await getTeacherClasses(uid, userTimezone)
-    : await getStudentClasses(uid, userTimezone);
+    ? await getTeacherClasses(uid, userTimezone, nowUtc)
+    : await getStudentClasses(uid, userTimezone, nowUtc);
   const classScheduleStatus =
     typeof classSchedule === 'string' &&
     classSchedule.startsWith('Unable to load class schedule.')
       ? 'unavailable'
       : 'available';
 
-  console.log('[AI Tutor] Fetched class schedule for user:', uid, 'role:', sessionRole, 'timezone:', userTimezone, 'status:', classScheduleStatus, 'summary:', classSchedule.slice(0, 220));
+  console.log(
+    '[AI Tutor] Fetched class schedule for user:',
+    uid,
+    'role:',
+    sessionRole,
+    'timezone:',
+    userTimezone,
+    'clientTimezone:',
+    clientTimezone || '(none)',
+    'currentLocal:',
+    currentLocalMetadata.current_local_readable,
+    'ttsLanguage:',
+    ttsLanguage,
+    'pronDict:',
+    ttsPronunciationDictId || '(none)',
+    'status:',
+    classScheduleStatus,
+    'summary:',
+    classSchedule.slice(0, 220),
+  );
 
   // Create a unique room name for this AI tutor session
   // The room name pattern should be recognized by the LiveKit agent dispatcher
@@ -646,9 +922,18 @@ const getAITutorToken = onCall({
     user_name: displayName,
     session_type: 'ai_tutor',
     user_role: sessionRole,
+    teacher_actions_enabled: teacherActionsEnabled,
+    interaction_mode: interactionMode,
+    voice_preference: voicePreference,
+    background_preference: backgroundPreference,
+    tts_language: ttsLanguage,
+    ...(ttsPronunciationDictId
+      ? { tts_pronunciation_dict_id: ttsPronunciationDictId }
+      : {}),
     user_timezone: userTimezone,
     class_schedule_status: classScheduleStatus,
     class_schedule: classSchedule,
+    ...currentLocalMetadata,
   });
 
   try {
@@ -685,10 +970,19 @@ const getAITutorToken = onCall({
       user_name: displayName,
       role: sessionRole,
       user_role: sessionRole,
+      teacher_actions_enabled: teacherActionsEnabled,
+      interaction_mode: interactionMode,
+      voice_preference: voicePreference,
+      background_preference: backgroundPreference,
+      tts_language: ttsLanguage,
+      ...(ttsPronunciationDictId
+        ? { tts_pronunciation_dict_id: ttsPronunciationDictId }
+        : {}),
       session_type: 'ai_tutor',
       user_timezone: userTimezone,
       class_schedule_status: classScheduleStatus,
       class_schedule: classSchedule,
+      ...currentLocalMetadata,
     },
     ttlSeconds,
     videoGrant: {
@@ -724,6 +1018,16 @@ const getAITutorToken = onCall({
     expiresInSeconds: ttlSeconds,
     agentName: AI_TUTOR_AGENT_NAME,
     userRole: sessionRole,
+    teacherActionsEnabled,
+    interactionMode: interactionMode,
+    voicePreference: voicePreference,
+    backgroundPreference: backgroundPreference,
+    ttsLanguage: ttsLanguage,
+    ttsPronunciationDictId: ttsPronunciationDictId || null,
+    userTimezone: userTimezone,
+    currentLocalIso: currentLocalMetadata.current_local_iso,
+    currentLocalDate: currentLocalMetadata.current_local_date,
+    currentLocalWeekday: currentLocalMetadata.current_local_weekday,
   };
 });
 

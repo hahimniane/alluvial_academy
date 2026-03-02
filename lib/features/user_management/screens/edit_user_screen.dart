@@ -29,6 +29,7 @@ class _EditUserScreenState extends State<EditUserScreen>
   late TextEditingController _kioskCodeController;
 
   String? _selectedUserType;
+  Set<String> _secondaryRoles = {};
   bool _isLoading = false;
   bool _hasChanges = false;
   bool _aiTutorEnabled = false;
@@ -90,6 +91,7 @@ class _EditUserScreenState extends State<EditUserScreen>
         TextEditingController(text: widget.employee.kioskCode);
     _selectedUserType = widget.employee.userType;
     _aiTutorEnabled = widget.employee.aiTutorEnabled;
+    _secondaryRoles = Set<String>.from(widget.employee.secondaryRoles);
 
     // Add listeners to track changes
     _firstNameController.addListener(_onFieldChanged);
@@ -142,6 +144,7 @@ class _EditUserScreenState extends State<EditUserScreen>
         'title': _titleController.text.trim(),
         'user_type': _selectedUserType,
         'ai_tutor_enabled': _aiTutorEnabled,
+        'secondary_roles': _secondaryRoles.toList(),
         'updated_at': Timestamp.now(),
       };
 
@@ -232,6 +235,8 @@ class _EditUserScreenState extends State<EditUserScreen>
                         _buildContactInfoSection(),
                         const SizedBox(height: 24),
                         _buildRoleSection(),
+                        const SizedBox(height: 24),
+                        _buildSecondaryRolesSection(),
                         const SizedBox(height: 24),
                         _buildAdditionalInfoSection(),
                         // AI Tutor access toggle - only show for students and teachers
@@ -608,6 +613,8 @@ class _EditUserScreenState extends State<EditUserScreen>
               onTap: () {
                 setState(() {
                   _selectedUserType = userType['id'];
+                  // Remove any secondary role that matches the new primary
+                  _secondaryRoles.remove(userType['id']);
                   _hasChanges = true;
                 });
               },
@@ -663,6 +670,134 @@ class _EditUserScreenState extends State<EditUserScreen>
               ),
             ),
           ),
+      ],
+    );
+  }
+
+  Widget _buildSecondaryRolesSection() {
+    // Available secondary roles: all roles except the current primary
+    final available = _userTypes
+        .where((t) => t['id'] != _selectedUserType)
+        .toList();
+
+    return _buildSection(
+      title: 'Additional Roles',
+      icon: Icons.switch_account,
+      children: [
+        Text(
+          'Assign additional roles if this user serves in multiple capacities (e.g., a parent who also teaches, or a teacher who is also a student).',
+          style: GoogleFonts.inter(
+            fontSize: 14,
+            color: const Color(0xff6B7280),
+          ),
+        ),
+        const SizedBox(height: 16),
+        if (available.isEmpty)
+          Text(
+            'No additional roles available.',
+            style: GoogleFonts.inter(
+              fontSize: 14,
+              color: const Color(0xff9CA3AF),
+            ),
+          )
+        else
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: available.map((roleType) {
+              final roleId = roleType['id'] as String;
+              final isSelected = _secondaryRoles.contains(roleId);
+              return GestureDetector(
+                onTap: () {
+                  setState(() {
+                    if (isSelected) {
+                      _secondaryRoles.remove(roleId);
+                    } else {
+                      _secondaryRoles.add(roleId);
+                    }
+                    _hasChanges = true;
+                  });
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? (roleType['color'] as Color).withOpacity(0.1)
+                        : Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isSelected
+                          ? (roleType['color'] as Color)
+                          : const Color(0xffE2E8F0),
+                      width: isSelected ? 2 : 1,
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      Stack(
+                        alignment: Alignment.topRight,
+                        children: [
+                          Icon(
+                            roleType['icon'] as IconData,
+                            color: isSelected
+                                ? (roleType['color'] as Color)
+                                : const Color(0xff6B7280),
+                            size: 24,
+                          ),
+                          if (isSelected)
+                            const Icon(
+                              Icons.check_circle,
+                              size: 14,
+                              color: Color(0xff10B981),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        roleType['name'] as String,
+                        style: GoogleFonts.inter(
+                          fontSize: 14,
+                          fontWeight: isSelected
+                              ? FontWeight.w600
+                              : FontWeight.w500,
+                          color: isSelected
+                              ? (roleType['color'] as Color)
+                              : const Color(0xff6B7280),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        if (_secondaryRoles.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xffF0FDF4),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xff86EFAC)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.info_outline,
+                    size: 16, color: Color(0xff16A34A)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'This user can switch between roles from the dashboard.',
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      color: const Color(0xff16A34A),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ],
     );
   }

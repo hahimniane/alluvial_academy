@@ -1081,16 +1081,26 @@ class ShiftService {
       }
 
       // Check for conflicting shifts at the exact same time
-      final hasConflict = await hasConflictingShift(
+      final conflictingShift = await _findFirstConflictingShift(
         teacherId: teacherId,
         shiftStart: effectiveShiftStart,
         shiftEnd: effectiveShiftEnd,
       );
 
-      if (hasConflict) {
+      if (conflictingShift != null) {
+        final cs = conflictingShift.shiftStart.toLocal();
+        final ce = conflictingShift.shiftEnd.toLocal();
+        String fmtTime(DateTime dt) {
+          final h = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
+          final m = dt.minute.toString().padLeft(2, '0');
+          return '$h:$m ${dt.hour < 12 ? 'AM' : 'PM'}';
+        }
+        final dateStr =
+            '${cs.year}-${cs.month.toString().padLeft(2, '0')}-${cs.day.toString().padLeft(2, '0')}';
         throw Exception(
-            'This shift overlaps with an existing shift for this teacher. '
-            'Please choose a different time that doesn\'t overlap with existing shifts.');
+            'Shift conflict on $dateStr: ${conflictingShift.teacherName} already has '
+            '"${conflictingShift.displayName}" from ${fmtTime(cs)} to ${fmtTime(ce)}. '
+            'Please choose a non-overlapping time.');
       }
 
       // Get teacher information
@@ -2087,10 +2097,16 @@ class ShiftService {
           }
         }
 
-        // Sort by shift_start for consistent ordering
-        shifts.sort((a, b) => a.shiftStart.compareTo(b.shiftStart));
+        // Only expose teaching shifts in the classes view — Leader Duty,
+        // meeting, and training shifts are admin-only and must not appear.
+        final teachingShifts = shifts
+            .where((s) => s.category == ShiftCategory.teaching)
+            .toList();
 
-        return shifts;
+        // Sort by shift_start for consistent ordering
+        teachingShifts.sort((a, b) => a.shiftStart.compareTo(b.shiftStart));
+
+        return teachingShifts;
       } catch (e) {
         AppLogger.error('Error processing student shifts stream: $e');
         return <TeachingShift>[];
@@ -2125,8 +2141,10 @@ class ShiftService {
 
       final snapshot = await query.get();
 
-      final shifts =
-          snapshot.docs.map((doc) => TeachingShift.fromFirestore(doc)).toList();
+      final shifts = snapshot.docs
+          .map((doc) => TeachingShift.fromFirestore(doc))
+          .where((s) => s.category == ShiftCategory.teaching)
+          .toList();
 
       // Sort by shift start time
       shifts.sort((a, b) => a.shiftStart.compareTo(b.shiftStart));
@@ -2154,6 +2172,7 @@ class ShiftService {
         final shifts = snapshot.docs
             .map((doc) => TeachingShift.fromFirestore(doc))
             .where((shift) {
+          if (shift.category != ShiftCategory.teaching) return false;
           if (shift.shiftStart.isBefore(now)) return false;
           if (futureLimit != null && !shift.shiftStart.isBefore(futureLimit)) {
             return false;
@@ -2189,8 +2208,10 @@ class ShiftService {
           .where('shift_start', isLessThan: Timestamp.fromDate(endOfDay))
           .get();
 
-      final shifts =
-          snapshot.docs.map((doc) => TeachingShift.fromFirestore(doc)).toList();
+      final shifts = snapshot.docs
+          .map((doc) => TeachingShift.fromFirestore(doc))
+          .where((s) => s.category == ShiftCategory.teaching)
+          .toList();
 
       shifts.sort((a, b) => a.shiftStart.compareTo(b.shiftStart));
 
@@ -3133,86 +3154,126 @@ class ShiftService {
 
   /// Get available teachers for shift assignment.
   ///
-  /// Tries to fetch active teachers first. If no active teachers are found,
-  /// it falls back to fetching all teachers (ignoring `is_active` flag)
-  /// to handle cases where the flag might be missing or incorrect.
+  /// Includes users whose primary role is 'teacher' as well as users who have
+  /// 'teacher' in their secondary_roles array (dual-role users).
   static Future<List<Employee>> getAvailableTeachers() async {
+    List<Employee> primaryTeachers = [];
+    List<Employee> secondaryTeachers = [];
+
+    // --- Primary teachers (user_type == 'teacher') ---
     try {
-      AppLogger.debug('ShiftService: Querying for teachers...');
       final snapshot = await _firestore
           .collection('users')
           .where('user_type', isEqualTo: 'teacher')
           .where('is_active', isEqualTo: true)
           .get();
-
-      AppLogger.debug(
-          'ShiftService: Teachers query returned ${snapshot.docs.length} documents');
-
-      if (snapshot.docs.isEmpty) {
-        // Try without the is_active filter to see if that's the issue
-        AppLogger.debug(
-            'ShiftService: Retrying teachers query without is_active filter...');
-        final retrySnapshot = await _firestore
+      primaryTeachers = EmployeeDataSource.mapSnapshotToEmployeeList(snapshot);
+      if (primaryTeachers.isEmpty) {
+        final retry = await _firestore
             .collection('users')
             .where('user_type', isEqualTo: 'teacher')
             .get();
-        AppLogger.debug(
-            'ShiftService: Retry returned ${retrySnapshot.docs.length} teacher documents');
-
-        // Print first few docs for debugging
-        for (int i = 0; i < retrySnapshot.docs.length && i < 3; i++) {
-          final doc = retrySnapshot.docs[i];
-          AppLogger.debug('Teacher doc $i: ${doc.data()}');
-        }
-
-        return EmployeeDataSource.mapSnapshotToEmployeeList(retrySnapshot);
+        primaryTeachers = EmployeeDataSource.mapSnapshotToEmployeeList(retry);
       }
-
-      return EmployeeDataSource.mapSnapshotToEmployeeList(snapshot);
     } catch (e) {
-      AppLogger.error('Error getting available teachers: $e');
-      return [];
+      AppLogger.error('ShiftService: Error querying primary teachers: $e');
     }
+
+    // --- Secondary-role teachers (secondary_roles array-contains 'teacher') ---
+    try {
+      final snapshot = await _firestore
+          .collection('users')
+          .where('secondary_roles', arrayContains: 'teacher')
+          .where('is_active', isEqualTo: true)
+          .get();
+      secondaryTeachers = EmployeeDataSource.mapSnapshotToEmployeeList(snapshot);
+    } catch (e) {
+      // Composite index may not exist yet — fall back to unfiltered + in-memory filter
+      AppLogger.debug('ShiftService: secondary_roles+is_active index missing for teachers, using fallback: $e');
+      try {
+        final snapshot = await _firestore
+            .collection('users')
+            .where('secondary_roles', arrayContains: 'teacher')
+            .get();
+        final all = EmployeeDataSource.mapSnapshotToEmployeeList(snapshot);
+        secondaryTeachers = all.where((emp) => emp.isActive).toList();
+      } catch (e2) {
+        AppLogger.error('ShiftService: Fallback secondary teachers query failed: $e2');
+      }
+    }
+
+    // Merge and deduplicate by document ID
+    final seen = <String>{};
+    final allTeachers = <Employee>[];
+    for (final emp in [...primaryTeachers, ...secondaryTeachers]) {
+      if (seen.add(emp.documentId)) allTeachers.add(emp);
+    }
+
+    AppLogger.debug(
+        'ShiftService: Teachers: ${allTeachers.length} total (${primaryTeachers.length} primary + ${secondaryTeachers.length} secondary)');
+    return allTeachers;
   }
 
-  /// Get available students for shift assignment
+  /// Get available students for shift assignment.
+  ///
+  /// Includes users whose primary role is 'student' as well as users who have
+  /// 'student' in their secondary_roles array (dual-role users).
   static Future<List<Employee>> getAvailableStudents() async {
+    List<Employee> primaryStudents = [];
+    List<Employee> secondaryStudents = [];
+
+    // --- Primary students (user_type == 'student') ---
     try {
-      AppLogger.debug('ShiftService: Querying for students...');
       final snapshot = await _firestore
           .collection('users')
           .where('user_type', isEqualTo: 'student')
           .where('is_active', isEqualTo: true)
           .get();
-
-      AppLogger.debug(
-          'ShiftService: Students query returned ${snapshot.docs.length} documents');
-
-      if (snapshot.docs.isEmpty) {
-        // Try without the is_active filter to see if that's the issue
-        AppLogger.debug(
-            'ShiftService: Retrying students query without is_active filter...');
-        final retrySnapshot = await _firestore
+      primaryStudents = EmployeeDataSource.mapSnapshotToEmployeeList(snapshot);
+      if (primaryStudents.isEmpty) {
+        final retry = await _firestore
             .collection('users')
             .where('user_type', isEqualTo: 'student')
             .get();
-        AppLogger.debug(
-            'ShiftService: Retry returned ${retrySnapshot.docs.length} student documents');
-
-        // Print first few docs for debugging
-        for (int i = 0; i < retrySnapshot.docs.length && i < 3; i++) {
-          final doc = retrySnapshot.docs[i];
-          AppLogger.debug('Student doc $i: ${doc.data()}');
-        }
-
-        return EmployeeDataSource.mapSnapshotToEmployeeList(retrySnapshot);
+        primaryStudents = EmployeeDataSource.mapSnapshotToEmployeeList(retry);
       }
-
-      return EmployeeDataSource.mapSnapshotToEmployeeList(snapshot);
     } catch (e) {
-      AppLogger.error('Error getting available students: $e');
-      return [];
+      AppLogger.error('ShiftService: Error querying primary students: $e');
     }
+
+    // --- Secondary-role students (secondary_roles array-contains 'student') ---
+    try {
+      final snapshot = await _firestore
+          .collection('users')
+          .where('secondary_roles', arrayContains: 'student')
+          .where('is_active', isEqualTo: true)
+          .get();
+      secondaryStudents = EmployeeDataSource.mapSnapshotToEmployeeList(snapshot);
+    } catch (e) {
+      // Composite index may not exist yet — fall back to unfiltered + in-memory filter
+      AppLogger.debug('ShiftService: secondary_roles+is_active index missing for students, using fallback: $e');
+      try {
+        final snapshot = await _firestore
+            .collection('users')
+            .where('secondary_roles', arrayContains: 'student')
+            .get();
+        final all = EmployeeDataSource.mapSnapshotToEmployeeList(snapshot);
+        secondaryStudents = all.where((emp) => emp.isActive).toList();
+      } catch (e2) {
+        AppLogger.error('ShiftService: Fallback secondary students query failed: $e2');
+      }
+    }
+
+    // Merge and deduplicate by document ID
+    final seen = <String>{};
+    final allStudents = <Employee>[];
+    for (final emp in [...primaryStudents, ...secondaryStudents]) {
+      if (seen.add(emp.documentId)) allStudents.add(emp);
+    }
+
+    AppLogger.debug(
+        'ShiftService: Students: ${allStudents.length} total (${primaryStudents.length} primary + ${secondaryStudents.length} secondary)');
+    return allStudents;
   }
 
   /// Convert shift time to teacher's timezone

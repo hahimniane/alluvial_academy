@@ -36,6 +36,8 @@ class SidebarLocalization {
         return AppLocalizations.of(context)!.overview;
       case 'People':
         return AppLocalizations.of(context)!.sidebarPeople;
+      case 'Progress':
+        return AppLocalizations.of(context)!.progress;
       case 'Reports':
         return AppLocalizations.of(context)!.sidebarReports;
       case 'Responses':
@@ -52,6 +54,8 @@ class SidebarLocalization {
         return AppLocalizations.of(context)!.sidebarSubjectrates;
       case 'Submit Form':
         return AppLocalizations.of(context)!.submitForm;
+      case 'Surah Podcasts':
+        return AppLocalizations.of(context)!.sidebarSurahPodcasts;
       case 'System':
         return AppLocalizations.of(context)!.settingsSystemMode;
       case 'Tasks':

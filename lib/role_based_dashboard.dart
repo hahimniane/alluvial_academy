@@ -296,7 +296,7 @@ class _RoleBasedDashboardState extends State<RoleBasedDashboard>
         return StudentDashboard(userId: userId);
       case 'parent':
         AppLogger.debug('=== Returning ParentDashboard ===');
-        return const ParentDashboard();
+        return ParentDashboard(onRoleChanged: _onRoleChanged);
       default:
         AppLogger.debug('=== Returning UnknownRoleScreen ===');
         return _buildUnknownRoleScreen();
@@ -559,10 +559,11 @@ class StudentDashboard extends StatelessWidget {
 }
 
 class ParentDashboard extends StatelessWidget {
-  const ParentDashboard({super.key});
+  final VoidCallback? onRoleChanged;
+  const ParentDashboard({super.key, this.onRoleChanged});
 
   @override
   Widget build(BuildContext context) {
-    return const ParentDashboardLayout();
+    return ParentDashboardLayout(onRoleChanged: onRoleChanged);
   }
 }

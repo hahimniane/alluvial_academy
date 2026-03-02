@@ -12,12 +12,16 @@ import 'parent_dashboard_screen.dart';
 import 'parent_invoices_screen.dart';
 import 'payment_history_screen.dart';
 import 'parent_profile_screen.dart';
+import 'parent_classes_screen.dart';
+import '../../recordings/screens/class_recordings_screen.dart';
 import '../../settings/screens/role_settings_screen.dart';
+import '../../../shared/widgets/role_switcher.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 /// Parent Dashboard Layout with sidebar navigation
 class ParentDashboardLayout extends StatefulWidget {
-  const ParentDashboardLayout({super.key});
+  final VoidCallback? onRoleChanged;
+  const ParentDashboardLayout({super.key, this.onRoleChanged});
 
   @override
   State<ParentDashboardLayout> createState() => _ParentDashboardLayoutState();
@@ -28,7 +32,7 @@ class _ParentDashboardLayoutState extends State<ParentDashboardLayout> {
   bool _isSideMenuCollapsed = false;
   int _selectedIndex = 0;
   String? _userRole;
-  static const int _screenCount = 6; // Dashboard, Invoices, Payments, Forms, Profile, Settings
+  static const int _screenCount = 8; // Dashboard, Invoices, Payments, Forms, Profile, Settings, Classes, Recordings
 
   @override
   void initState() {
@@ -89,6 +93,10 @@ class _ParentDashboardLayoutState extends State<ParentDashboardLayout> {
         return const ParentProfileScreen();
       case 5:
         return RoleSettingsScreen(title: AppLocalizations.of(context)!.parentSettings);
+      case 6:
+        return const ParentClassesScreen();
+      case 7:
+        return const ClassRecordingsScreen();
       default:
         return const _AccessDeniedScreen();
     }
@@ -156,6 +164,11 @@ class _ParentDashboardLayoutState extends State<ParentDashboardLayout> {
         ),
         title: _buildLogo(),
         actions: [
+          RoleSwitcher(
+            onRoleChanged: (newRole) => widget.onRoleChanged?.call(),
+            padding: EdgeInsets.zero,
+          ),
+          const SizedBox(width: 4),
           _buildUserProfile(compact: true),
           const SizedBox(width: 16),
         ],
@@ -171,7 +184,17 @@ class _ParentDashboardLayoutState extends State<ParentDashboardLayout> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: <Widget>[
             _buildLogo(),
-            _buildUserProfile(compact: false),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                RoleSwitcher(
+                  onRoleChanged: (newRole) => widget.onRoleChanged?.call(),
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                ),
+                const SizedBox(width: 16),
+                _buildUserProfile(compact: false),
+              ],
+            ),
           ],
         ),
       ),

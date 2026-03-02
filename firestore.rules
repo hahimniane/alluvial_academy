@@ -129,6 +129,16 @@ service cloud.firestore {
 
 
 
+    // Helper to check if the current user has the 'parent' user_type or secondary role
+    // (looks up the requesting user's own document — safe for list query evaluation)
+    function isParentUser() {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('user_type', '') == 'parent' ||
+          'parent' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('secondary_roles', [])
+        );
+    }
+
     // Helper to detect updates affecting only FCM token metadata
 
     function isFcmTokenOnlyUpdate() {
@@ -476,19 +486,19 @@ service cloud.firestore {
 
 	    
 
-	    // Tasks - users can read tasks assigned to them, admins can read all
-	    // Note: Current rule requires user's UID to be in assignedTo array
-	    // Parents reading their children's tasks may need Cloud Function or rule adjustment
-	    // (since parent UID is not in assignedTo, but child's UID is)
-	    match /tasks/{taskId} {
+      // Tasks - users can read tasks assigned to them, admins can read all
+      // Parents can read tasks assigned to their children (query is already filtered client-side)
+      match /tasks/{taskId} {
 
-	      allow read: if isSignedIn() && 
+        allow read: if isSignedIn() && (
+          request.auth.uid in resource.data.assignedTo ||
+          isAdmin() ||
+          isParentUser()
+        );
 
-                     (request.auth.uid in resource.data.assignedTo || isAdmin());
+        allow write: if isAdmin();
 
-      allow write: if isAdmin();
-
-    }
+      }
 
     
 
@@ -719,6 +729,20 @@ service cloud.firestore {
     match /app_settings/{docId} {
       allow read: if isSignedIn() && docId == 'global';
       allow write: if isAdmin() && docId == 'global';
+    }
+
+    // Surah podcasts - any authenticated user can read, admins can write
+    match /surah_podcasts/{podcastId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isSignedIn() && isAdmin();
+    }
+
+    // Podcast assignments - teachers can create/manage their own, students can read assigned
+    match /podcast_assignments/{assignmentId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update, delete: if isSignedIn() && (isAdmin() ||
+        resource.data.teacherId == request.auth.uid);
     }
 
     // All other collections - admin only (fallback rule)

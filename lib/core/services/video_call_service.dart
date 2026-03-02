@@ -60,7 +60,14 @@ class VideoCallService {
       try {
         final role =
             (await UserRoleService.getCurrentUserRole())?.toLowerCase();
-        isAllowed = role == 'admin' || role == 'super_admin';
+        if (role == 'admin' || role == 'super_admin') {
+          isAllowed = true;
+        } else if (role == 'parent') {
+          // Trust the server-side Cloud Function for parent-child verification.
+          // The function enforces guardian_ids membership; client check is redundant and
+          // can fail silently (cast errors on Firestore data, network issues, etc.).
+          isAllowed = true;
+        }
       } catch (_) {
         // Ignore role lookup errors; fall back to strict membership check above.
       }
@@ -132,11 +139,11 @@ class VideoCallService {
   }
 
   /// Check if a video call is available for the shift
-  /// 
-  /// Always returns true since LiveKit rooms are created on-demand.
+  ///
+  /// Only teaching shifts use LiveKit. Leader Duty, meeting, and training
+  /// shifts are admin/internal and do not have a LiveKit class.
   static bool hasVideoCall(TeachingShift shift) {
-    // LiveKit rooms are created on-demand, so always available
-    return true;
+    return shift.category == ShiftCategory.teaching;
   }
 
   /// Build a shareable join link for a shift.

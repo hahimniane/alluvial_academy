@@ -342,6 +342,8 @@ class _FilledJobCardState extends State<_FilledJobCard> {
           .collection('users')
           .doc(widget.job.acceptedByTeacherId!)
           .get();
+
+      if (!mounted) return;
       
       if (teacherDoc.exists) {
         final data = teacherDoc.data() as Map<String, dynamic>;

@@ -12,6 +12,7 @@ import '../../../core/enums/shift_enums.dart';
 import '../../../core/utils/app_logger.dart';
 import '../../../core/services/onboarding_service.dart';
 import '../../onboarding/services/student_feature_tour.dart';
+import '../../recordings/screens/class_recordings_screen.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 /// Student Classes Screen - Shows upcoming classes and allows students to join
@@ -130,10 +131,11 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
           .toList();
 
       // Load upcoming classes (all future shifts, excluding today)
-      final upcomingClasses =
-          (await ShiftService.getUpcomingShiftsForStudent(userId, daysAhead: null))
-              .where((shift) => shift.studentIds.contains(userId))
-              .toList();
+      final upcomingClasses = (await ShiftService.getUpcomingShiftsForStudent(
+              userId,
+              daysAhead: null))
+          .where((shift) => shift.studentIds.contains(userId))
+          .toList();
 
       // Filter out today's classes from upcoming
       final today = DateTime.now();
@@ -251,7 +253,9 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
                             return _buildClassCard(
                               shift,
                               isToday: true,
-                              key: isFirstCard ? studentFeatureTour.firstClassCardKey : null,
+                              key: isFirstCard
+                                  ? studentFeatureTour.firstClassCardKey
+                                  : null,
                             );
                           }),
 
@@ -269,11 +273,14 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
                             final index = entry.key;
                             final shift = entry.value;
                             // Assign GlobalKey to first card if no today classes
-                            final isFirstCard = index == 0 && _todayClasses.isEmpty;
+                            final isFirstCard =
+                                index == 0 && _todayClasses.isEmpty;
                             return _buildClassCard(
                               shift,
                               isToday: false,
-                              key: isFirstCard ? studentFeatureTour.firstClassCardKey : null,
+                              key: isFirstCard
+                                  ? studentFeatureTour.firstClassCardKey
+                                  : null,
                             );
                           }),
 
@@ -357,6 +364,18 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
               ),
               // Help/Tour button
               IconButton(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const ClassRecordingsScreen(),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.video_library_outlined),
+                color: Colors.white70,
+                tooltip: 'Class Recordings',
+              ),
+              IconButton(
                 onPressed: () => _startAppTour(),
                 icon: const Icon(Icons.help_outline_rounded),
                 color: Colors.white70,
@@ -371,14 +390,15 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
           ),
           const SizedBox(height: 20),
           // Stats row
-          Row(
+          Wrap(
+            spacing: 12,
+            runSpacing: 10,
             children: [
               _buildStatBadge(
                 '${_todayClasses.length}',
                 'Today',
                 Icons.today_rounded,
               ),
-              const SizedBox(width: 12),
               _buildStatBadge(
                 '${_upcomingClasses.length}',
                 'Upcoming',
@@ -398,11 +418,12 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
         color: Colors.white.withOpacity(0.15),
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 2,
+        crossAxisAlignment: WrapCrossAlignment.center,
         children: [
           Icon(icon, color: Colors.white70, size: 18),
-          const SizedBox(width: 8),
           Text(
             count,
             style: GoogleFonts.inter(
@@ -411,7 +432,6 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
               color: Colors.white,
             ),
           ),
-          const SizedBox(width: 4),
           Text(
             label,
             style: GoogleFonts.inter(
@@ -561,11 +581,11 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
   /// Format time until class in a professional way
   String _formatTimeUntil(Duration? timeUntil) {
     if (timeUntil == null) return '';
-    
+
     final totalMinutes = timeUntil.inMinutes;
     final totalHours = timeUntil.inHours;
     final days = timeUntil.inDays;
-    
+
     if (totalMinutes <= 0) {
       return 'Starting now';
     } else if (totalMinutes < 2) {
@@ -591,25 +611,26 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
     }
   }
 
-  Widget _buildClassCard(TeachingShift shift, {required bool isToday, GlobalKey? key}) {
+  Widget _buildClassCard(TeachingShift shift,
+      {required bool isToday, GlobalKey? key}) {
     final canJoin = VideoCallService.canJoinClass(shift);
     final now = DateTime.now();
-    final timeUntil = shift.shiftStart.isAfter(now) 
-        ? shift.shiftStart.difference(now)
-        : null;
-
-    // Format time
-    final startTime = DateFormat('h:mm a').format(shift.shiftStart.toLocal());
-    final endTime = DateFormat('h:mm a').format(shift.shiftEnd.toLocal());
+    final timeUntil =
+        shift.shiftStart.isAfter(now) ? shift.shiftStart.difference(now) : null;
+    final startTimeLabel =
+        DateFormat('h:mm a').format(shift.shiftStart.toLocal());
+    final endTimeLabel = DateFormat('h:mm a').format(shift.shiftEnd.toLocal());
 
     // Determine status and styling
-    final bool isActive = shift.status == ShiftStatus.active || shift.isClockedIn;
+    final bool isActive =
+        shift.status == ShiftStatus.active || shift.isClockedIn;
     final bool isStartingSoon = timeUntil != null && timeUntil.inMinutes <= 15;
-    final bool isStartingVerySoon = timeUntil != null && timeUntil.inMinutes <= 5;
-    
+    final bool isStartingVerySoon =
+        timeUntil != null && timeUntil.inMinutes <= 5;
+
     // Status configuration
     _ClassStatus status;
-    
+
     if (isActive) {
       status = _ClassStatus(
         text: AppLocalizations.of(context)!.live,
@@ -670,7 +691,7 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: (canJoin || isActive) 
+              color: (canJoin || isActive)
                   ? status.color.withOpacity(0.15)
                   : Colors.black.withOpacity(0.05),
               blurRadius: 12,
@@ -709,7 +730,9 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
                           ),
                         ),
                         Text(
-                          DateFormat('a').format(shift.shiftStart.toLocal()).toUpperCase(),
+                          DateFormat('a')
+                              .format(shift.shiftStart.toLocal())
+                              .toUpperCase(),
                           style: GoogleFonts.inter(
                             fontSize: 10,
                             fontWeight: FontWeight.w600,
@@ -720,7 +743,7 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
                     ),
                   ),
                   const SizedBox(width: 14),
-                  
+
                   // Middle: Class info
                   Expanded(
                     child: Column(
@@ -771,7 +794,7 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
                                 ),
                               ),
                               const WidgetSpan(child: SizedBox(width: 4)),
-                              TextSpan(text: AppLocalizations.of(context)!.starttimeEndtime),
+                              TextSpan(text: '$startTimeLabel - $endTimeLabel'),
                             ],
                           ),
                           maxLines: 1,
@@ -784,7 +807,7 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
                       ],
                     ),
                   ),
-                  
+
                   // Right: Status badge
                   Flexible(
                     fit: FlexFit.loose,
@@ -792,7 +815,8 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
                       fit: BoxFit.scaleDown,
                       alignment: Alignment.centerRight,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
                           color: status.bgColor,
                           borderRadius: BorderRadius.circular(8),
@@ -831,7 +855,7 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
                 ],
               ),
             ),
-            
+
             // Join button for active/joinable classes
             if (canJoin || isActive)
               Container(
@@ -844,7 +868,9 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
                     size: 18,
                   ),
                   label: Text(
-                    isActive ? AppLocalizations.of(context)!.joinLiveClass : AppLocalizations.of(context)!.joinClass,
+                    isActive
+                        ? AppLocalizations.of(context)!.joinLiveClass
+                        : AppLocalizations.of(context)!.joinClass,
                     style: GoogleFonts.inter(
                       fontWeight: FontWeight.w600,
                       fontSize: 14,
@@ -904,7 +930,7 @@ class _ClassStatus {
 /// Animated pulsing dot for live/urgent indicators
 class _PulsingDot extends StatefulWidget {
   final Color color;
-  
+
   const _PulsingDot({required this.color});
 
   @override

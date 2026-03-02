@@ -387,6 +387,9 @@ class ShiftFormService {
       final now = DateTime.now();
       final formResponseData = {
         'formId': formId,
+        'formType': 'daily',
+        'formName': 'Readiness Form',
+        'frequency': 'perSession',
         'userId': user.uid,
         'userEmail': user.email,
         'firstName': userData['first_name'] ?? '',
@@ -396,7 +399,7 @@ class ShiftFormService {
         'responses': formResponses,
         'reportedHours': reportedHours,
         'submittedAt': FieldValue.serverTimestamp(),
-        'yearMonth': FormConfigService.getYearMonth(now), // For monthly grouping/audits
+        'yearMonth': FormConfigService.getYearMonth(now),
         'status': 'completed',
       };
 
