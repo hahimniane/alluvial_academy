@@ -137,9 +137,18 @@ Future<void> main() async {
 
   // Initialize Firebase before running the app (required for web and all platforms)
   final selectedFirebaseOptions = _firebaseOptions;
-  final firebaseApp = await Firebase.initializeApp(
-    options: selectedFirebaseOptions,
-  );
+  late final FirebaseApp firebaseApp;
+  try {
+    firebaseApp = await Firebase.initializeApp(
+      options: selectedFirebaseOptions,
+    );
+  } on FirebaseException catch (e) {
+    if (e.code == 'duplicate-app') {
+      firebaseApp = Firebase.app();
+    } else {
+      rethrow;
+    }
+  }
   final actualProjectId = firebaseApp.options.projectId;
   final expectedProjectId = selectedFirebaseOptions.projectId;
   if (kDebugMode) {

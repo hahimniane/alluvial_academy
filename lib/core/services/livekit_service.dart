@@ -1042,10 +1042,24 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
     _studentNoShowAutoSendTimer?.cancel();
   }
 
+  bool _isSystemParticipantIdentity(String? identity) {
+    final normalized = identity?.trim().toUpperCase() ?? '';
+    return normalized.startsWith('EG_');
+  }
+
+  List<RemoteParticipant> _nonSystemRemoteParticipants([Room? room]) {
+    final targetRoom = room ?? _room;
+    if (targetRoom == null) return <RemoteParticipant>[];
+    return targetRoom.remoteParticipants.values
+        .where((participant) =>
+            !_isSystemParticipantIdentity(participant.identity))
+        .toList();
+  }
+
   bool _isTeacherInRoom() {
     // Check if any remote participant is a teacher
     // Teachers have identity containing "teacher" or are the host
-    final remoteParticipants = _room?.remoteParticipants.values ?? [];
+    final remoteParticipants = _nonSystemRemoteParticipants();
     for (final participant in remoteParticipants) {
       // The identity format is typically "userId_role" or similar
       // Check metadata or identity for teacher indication
@@ -1066,7 +1080,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
 
   bool _areStudentsInRoom() {
     // Check if any students are in the room
-    final remoteParticipants = _room?.remoteParticipants.values ?? [];
+    final remoteParticipants = _nonSystemRemoteParticipants();
     return remoteParticipants.isNotEmpty;
   }
 
@@ -2810,7 +2824,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
   int _getParticipantCount() {
     if (_room == null) return 0;
     final localCount = _localParticipant == null ? 0 : 1;
-    return localCount + _room!.remoteParticipants.length;
+    return localCount + _nonSystemRemoteParticipants().length;
   }
 
   _ActiveScreenShare? _getActiveScreenShare() {
@@ -2822,8 +2836,8 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
       }
     }
 
-    final remoteParticipants = List<RemoteParticipant>.from(
-        _room?.remoteParticipants.values ?? <RemoteParticipant>[]);
+    final remoteParticipants =
+        List<RemoteParticipant>.from(_nonSystemRemoteParticipants());
     remoteParticipants.sort((a, b) => a.identity.compareTo(b.identity));
 
     for (final participant in remoteParticipants) {
@@ -3220,7 +3234,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
         return StatefulBuilder(
           builder: (context, setDialogState) {
             final local = _localParticipant;
-            final remoteParticipants = room.remoteParticipants.values.toList()
+            final remoteParticipants = _nonSystemRemoteParticipants(room)
               ..sort((a, b) => a.identity.compareTo(b.identity));
 
             final participants = <Participant>[
@@ -3716,8 +3730,8 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
   Widget _buildTeacherScreenShareWithOverlay(VideoTrack? screenShareTrack) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final remoteParticipants = List<RemoteParticipant>.from(
-            _room?.remoteParticipants.values ?? <RemoteParticipant>[]);
+        final remoteParticipants =
+            List<RemoteParticipant>.from(_nonSystemRemoteParticipants());
         remoteParticipants.sort((a, b) => a.identity.compareTo(b.identity));
 
         final shareIdentity = _localParticipant?.identity;
@@ -3851,8 +3865,8 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
         if (_localParticipant != null) {
           allParticipants.add(_localParticipant!);
         }
-        final remoteParticipants = List<RemoteParticipant>.from(
-            _room?.remoteParticipants.values ?? <RemoteParticipant>[]);
+        final remoteParticipants =
+            List<RemoteParticipant>.from(_nonSystemRemoteParticipants());
         remoteParticipants.sort((a, b) => a.identity.compareTo(b.identity));
         allParticipants.addAll(remoteParticipants);
 
@@ -4040,7 +4054,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
 
     // Add remote participants
     if (_room != null) {
-      participants.addAll(_room!.remoteParticipants.values);
+      participants.addAll(_nonSystemRemoteParticipants());
     }
 
     if (participants.isEmpty) {
@@ -4070,7 +4084,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
   Widget _buildControls() {
     final participantCount = _getParticipantCount();
     final hasRemoteParticipants =
-        _room != null && _room!.remoteParticipants.isNotEmpty;
+        _room != null && _nonSystemRemoteParticipants().isNotEmpty;
     final micLocked = !widget.isTeacher && _micLockedByHost;
     final micLabel = micLocked
         ? (_micEnabled ? 'Mic locked' : 'Locked')

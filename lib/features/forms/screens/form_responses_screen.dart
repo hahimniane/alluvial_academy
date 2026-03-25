@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../utility_functions/export_helpers.dart';
 import '../../../core/services/user_role_service.dart';
 import '../../../core/utils/performance_logger.dart';
+import '../utils/form_response_grouping.dart';
 import '../widgets/form_submissions_dialog.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
@@ -24,12 +25,10 @@ class _FormResponsesScreenState extends State<FormResponsesScreen>
   String _selectedTab = 'Active';
   late TabController _tabController;
   bool _isLoading = true;
-  String? _userRole;
-  String? _userEmail;
   List<QueryDocumentSnapshot> _allResponses = [];
   Map<String, DocumentSnapshot> _formTemplates = {};
-  Map<String, int> _formIdToEntries = {};
-  List<String> _filteredFormIds = [];
+  List<FormResponseGroup> _allGroups = [];
+  List<FormResponseGroup> _filteredGroups = [];
   final Map<String, String> _uidToFullName = {}; // cache
 
   @override
@@ -63,14 +62,7 @@ class _FormResponsesScreenState extends State<FormResponsesScreen>
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return;
 
-      final role = await UserRoleService.getCurrentUserRole();
-
-      if (mounted) {
-        setState(() {
-          _userRole = role;
-          _userEmail = user.email;
-        });
-      }
+      await UserRoleService.getCurrentUserRole();
 
       await _loadFormResponses();
     } catch (e) {
@@ -81,8 +73,8 @@ class _FormResponsesScreenState extends State<FormResponsesScreen>
 
   // After loading data, compute counts and filter
   Future<void> _loadFormResponses() async {
-    final opId =
-        PerformanceLogger.newOperationId('FormResponsesScreen._loadFormResponses');
+    final opId = PerformanceLogger.newOperationId(
+        'FormResponsesScreen._loadFormResponses');
     PerformanceLogger.startTimer(opId, metadata: {
       'tab': _selectedTab,
     });
@@ -90,18 +82,28 @@ class _FormResponsesScreenState extends State<FormResponsesScreen>
     if (mounted) setState(() => _isLoading = true);
 
     Object? caughtError;
+    final unknownUserLabel =
+        AppLocalizations.of(context)?.commonUnknownUser ?? 'Unknown User';
 
     try {
       final templatesQueryStopwatch = Stopwatch()..start();
-      final formTemplatesSnapshot =
-          await FirebaseFirestore.instance.collection('form').get();
+      final templateSnapshots = await Future.wait([
+        FirebaseFirestore.instance.collection('form').get(),
+        FirebaseFirestore.instance.collection('form_templates').get(),
+      ]);
       templatesQueryStopwatch.stop();
+
+      final formTemplatesSnapshot = templateSnapshots[0];
+      final formTemplateDefsSnapshot = templateSnapshots[1];
 
       _formTemplates = {
         for (final doc in formTemplatesSnapshot.docs) doc.id: doc,
+        for (final doc in formTemplateDefsSnapshot.docs) doc.id: doc,
       };
       PerformanceLogger.checkpoint(opId, 'templates_loaded', metadata: {
         'template_count': _formTemplates.length,
+        'legacy_form_count': formTemplatesSnapshot.docs.length,
+        'template_form_count': formTemplateDefsSnapshot.docs.length,
         'query_time_ms': templatesQueryStopwatch.elapsedMilliseconds,
       });
 
@@ -110,7 +112,8 @@ class _FormResponsesScreenState extends State<FormResponsesScreen>
       final responsesSnapshot = await FirebaseFirestore.instance
           .collection('form_responses')
           .orderBy('submittedAt', descending: true)
-          .get();
+          .limit(2000)
+          .get(const GetOptions(source: Source.server));
       responsesQueryStopwatch.stop();
 
       _allResponses = responsesSnapshot.docs;
@@ -119,28 +122,7 @@ class _FormResponsesScreenState extends State<FormResponsesScreen>
         'query_time_ms': responsesQueryStopwatch.elapsedMilliseconds,
       });
 
-      // Aggregate entries per form (count every document with a valid formId).
-      final aggregationStopwatch = Stopwatch()..start();
-      _formIdToEntries = {};
       final Set<String> uidsToFetch = {};
-      int missingFormId = 0;
-
-      for (final doc in _allResponses) {
-        final data = doc.data() as Map<String, dynamic>;
-        final formId = (data['formId'] ?? '').toString();
-        if (formId.isEmpty) {
-          missingFormId++;
-          continue;
-        }
-        _formIdToEntries.update(formId, (v) => v + 1, ifAbsent: () => 1);
-      }
-      aggregationStopwatch.stop();
-
-      PerformanceLogger.checkpoint(opId, 'entries_aggregated', metadata: {
-        'forms_with_entries': _formIdToEntries.length,
-        'missing_form_id': missingFormId,
-        'aggregate_time_ms': aggregationStopwatch.elapsedMilliseconds,
-      });
 
       // Collect creator and assigned user IDs from forms.
       for (final form in _formTemplates.values) {
@@ -165,8 +147,7 @@ class _FormResponsesScreenState extends State<FormResponsesScreen>
 
       for (int i = 0; i < ids.length; i += 10) {
         userBatches++;
-        final chunk =
-            ids.sublist(i, i + 10 > ids.length ? ids.length : i + 10);
+        final chunk = ids.sublist(i, i + 10 > ids.length ? ids.length : i + 10);
         final batchStopwatch = Stopwatch()..start();
         final snap = await FirebaseFirestore.instance
             .collection('users')
@@ -185,9 +166,7 @@ class _FormResponsesScreenState extends State<FormResponsesScreen>
               .firstWhere((s) => s.trim().isNotEmpty, orElse: () => '');
           if (name.isEmpty) {
             final email = (ud['e-mail'] ?? ud['email'] ?? '').toString();
-            name = email.isNotEmpty
-                ? email.split('@').first
-                : AppLocalizations.of(context)!.commonUnknownUser;
+            name = email.isNotEmpty ? email.split('@').first : unknownUserLabel;
           }
           _uidToFullName[u.id] = name;
         }
@@ -200,10 +179,33 @@ class _FormResponsesScreenState extends State<FormResponsesScreen>
         'query_time_ms': userQueryMs,
       });
 
+      _allGroups = FormResponseGrouping.buildGroups(
+        definitions: [
+          for (final doc in formTemplatesSnapshot.docs)
+            FormDefinitionRecord(
+              id: doc.id,
+              data: doc.data(),
+              source: FormDefinitionSource.legacy,
+            ),
+          for (final doc in formTemplateDefsSnapshot.docs)
+            FormDefinitionRecord(
+              id: doc.id,
+              data: doc.data(),
+              source: FormDefinitionSource.template,
+            ),
+        ],
+        responses: [
+          for (final doc in _allResponses)
+            FormResponseRecord(
+                id: doc.id, data: doc.data() as Map<String, dynamic>),
+        ],
+      );
+
       _filterForms();
 
       PerformanceLogger.checkpoint(opId, 'filtered', metadata: {
-        'filtered_form_count': _filteredFormIds.length,
+        'group_count': _allGroups.length,
+        'filtered_form_count': _filteredGroups.length,
       });
     } catch (e) {
       caughtError = e;
@@ -213,7 +215,8 @@ class _FormResponsesScreenState extends State<FormResponsesScreen>
       PerformanceLogger.endTimer(opId, metadata: {
         'template_count': _formTemplates.length,
         'response_count': _allResponses.length,
-        'filtered_form_count': _filteredFormIds.length,
+        'group_count': _allGroups.length,
+        'filtered_form_count': _filteredGroups.length,
         if (caughtError != null) 'error': caughtError.toString(),
       });
     }
@@ -223,28 +226,26 @@ class _FormResponsesScreenState extends State<FormResponsesScreen>
     final search = _searchController.text.toLowerCase();
     final isArchivedTab = _selectedTab == 'Archived';
 
-    final ids = <String>[];
-    for (final entry in _formTemplates.entries) {
-      final formId = entry.key;
-      final data = entry.value.data() as Map<String, dynamic>;
-      final status = (data['status'] ?? 'active').toString().toLowerCase();
-      final isArchived = status == 'archived' || status == 'inactive';
+    final groups = <FormResponseGroup>[];
+    for (final group in _allGroups) {
+      final data = group.representativeData;
+      final isArchived = FormResponseGrouping.isArchived(data);
       if (isArchivedTab != isArchived) continue;
 
-      final title = (data['title'] ?? '').toString().toLowerCase();
-      final createdByName = (data['createdByName'] ?? '').toString().toLowerCase();
+      final title = group.title.toLowerCase();
+      final createdByName = _resolveCreatorName(data).toLowerCase();
       if (search.isNotEmpty &&
           !(title.contains(search) || createdByName.contains(search))) {
         continue;
       }
-      ids.add(formId);
+      groups.add(group);
     }
     if (!mounted) return;
-    setState(() => _filteredFormIds = ids);
+    setState(() => _filteredGroups = groups);
   }
 
   void _exportResponses() {
-    if (_filteredFormIds.isEmpty) {
+    if (_filteredGroups.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(AppLocalizations.of(context)!.noFormResponsesToExport),
@@ -274,14 +275,17 @@ class _FormResponsesScreenState extends State<FormResponsesScreen>
             : '';
 
         return <String>[
-          (formTemplate != null ? (formTemplate['title'] ?? 'Untitled Form') : 'Untitled Form').toString(),
+          formTemplate != null
+              ? FormResponseGrouping.resolveTitleFromData(
+                  formTemplate.data() as Map<String, dynamic>)
+              : 'Untitled Form',
           (data['firstName'] ?? '').toString(),
           (data['lastName'] ?? '').toString(),
           (data['userEmail'] ?? '').toString(),
           (data['status'] ?? 'Completed').toString(),
           submittedAtStr,
         ];
-    }).toList();
+      }).toList();
 
       ExportHelpers.showExportDialog(context, headers, rows, 'form_responses');
     } catch (e) {
@@ -289,9 +293,9 @@ class _FormResponsesScreenState extends State<FormResponsesScreen>
         SnackBar(
           content: Text(AppLocalizations.of(context)!.exportFailedE),
           backgroundColor: Colors.red,
-      ),
-    );
-  }
+        ),
+      );
+    }
   }
 
   @override
@@ -308,15 +312,15 @@ class _FormResponsesScreenState extends State<FormResponsesScreen>
               ),
             ),
             child: _buildCleanTabInterface(),
-            ),
+          ),
           Expanded(
             child: _isLoading
                 ? const Center(
                     child: CircularProgressIndicator(
-                          color: Color(0xff0386FF),
+                      color: Color(0xff0386FF),
                     ),
                   )
-                : _filteredFormIds.isEmpty
+                : _filteredGroups.isEmpty
                     ? _buildEmptyState()
                     : _buildResponsesTable(),
           ),
@@ -330,12 +334,12 @@ class _FormResponsesScreenState extends State<FormResponsesScreen>
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
-      children: [
-            Expanded(
-              child: Container(
-                decoration: BoxDecoration(
+        children: [
+          Expanded(
+            child: Container(
+              decoration: BoxDecoration(
                 color: Colors.grey[200],
-                  borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(12),
               ),
               child: TabBar(
                 controller: _tabController,
@@ -352,9 +356,9 @@ class _FormResponsesScreenState extends State<FormResponsesScreen>
                   Tab(text: 'Archived (${_getArchivedCount()})'),
                 ],
               ),
-              ),
             ),
-            const SizedBox(width: 16),
+          ),
+          const SizedBox(width: 16),
           // Search
           SizedBox(
             width: 300,
@@ -362,31 +366,33 @@ class _FormResponsesScreenState extends State<FormResponsesScreen>
               controller: _searchController,
               decoration: InputDecoration(
                 hintText: AppLocalizations.of(context)!.searchByFormOrCreator,
-                prefixIcon: const Icon(Icons.search, size: 20, color: Color(0xff64748B)),
+                prefixIcon: const Icon(Icons.search,
+                    size: 20, color: Color(0xff64748B)),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                   borderSide: const BorderSide(color: Color(0xffE2E8F0)),
                 ),
                 isDense: true,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               ),
               onChanged: (v) => _filterForms(),
             ),
           ),
           const SizedBox(width: 12),
           // Export
-            ElevatedButton.icon(
+          ElevatedButton.icon(
             onPressed: _exportResponses,
             icon: const Icon(Icons.file_download_outlined, size: 18),
             label: Text(AppLocalizations.of(context)!.commonExport),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xff0386FF),
-                foregroundColor: Colors.white,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xff0386FF),
+              foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                          ),
-                        ),
-                      ],
-                    ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -394,20 +400,20 @@ class _FormResponsesScreenState extends State<FormResponsesScreen>
     return Container(
       margin: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-              color: Colors.white,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.04),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-              ),
-            ],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
-                  child: Column(
-                    children: [
+        ],
+      ),
+      child: Column(
+        children: [
           // Header row
-                          Container(
+          Container(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
             decoration: const BoxDecoration(
               color: Color(0xffFAFBFC),
@@ -415,7 +421,8 @@ class _FormResponsesScreenState extends State<FormResponsesScreen>
                 topLeft: Radius.circular(12),
                 topRight: Radius.circular(12),
               ),
-              border: Border(bottom: BorderSide(color: Color(0xffE2E8F0), width: 1)),
+              border: Border(
+                  bottom: BorderSide(color: Color(0xffE2E8F0), width: 1)),
             ),
             child: Row(
               children: [
@@ -429,33 +436,34 @@ class _FormResponsesScreenState extends State<FormResponsesScreen>
             ),
           ),
           // Rows
-                          Expanded(
+          Expanded(
             child: ListView.builder(
-              itemCount: _filteredFormIds.length,
+              itemCount: _filteredGroups.length,
               itemBuilder: (context, index) {
-                final formId = _filteredFormIds[index];
-                final formDoc = _formTemplates[formId]!;
-                final formData = formDoc.data() as Map<String, dynamic>;
-                final title = (formData['title'] ?? 'Untitled Form').toString();
-                final status = (formData['status'] ?? 'active').toString();
+                final group = _filteredGroups[index];
+                final formData = group.representativeData;
+                final title = group.title;
+                final status = FormResponseGrouping.resolveStatus(formData);
                 final createdByName = _resolveCreatorName(formData);
-                final createdAt = (formData['createdAt'] as Timestamp?)?.toDate();
-                final entries = _resolveEntriesCount(formId, formData);
+                final createdAt =
+                    FormResponseGrouping.resolveCreatedAt(formData);
+                final entries = group.entries;
                 final assignedTo = _resolveAssignedTo(formData);
 
                 return Material(
                   color: Colors.transparent,
                   child: InkWell(
-                    onTap: () => _openFormResponses(formId),
+                    onTap: () => _openFormResponses(group),
                     hoverColor: const Color(0xffF8FAFC),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 24, vertical: 16),
                       decoration: BoxDecoration(
                         border: Border(
                           bottom: BorderSide(
-                            color: index == _filteredFormIds.length - 1 
-                              ? Colors.transparent 
-                              : const Color(0xffF1F5F9),
+                            color: index == _filteredGroups.length - 1
+                                ? Colors.transparent
+                                : const Color(0xffF1F5F9),
                             width: 1,
                           ),
                         ),
@@ -469,7 +477,8 @@ class _FormResponsesScreenState extends State<FormResponsesScreen>
                                   width: 36,
                                   height: 36,
                                   decoration: BoxDecoration(
-                                    color: const Color(0xff0386FF).withOpacity(0.1),
+                                    color: const Color(0xff0386FF)
+                                        .withValues(alpha: 0.1),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: const Icon(
@@ -481,7 +490,8 @@ class _FormResponsesScreenState extends State<FormResponsesScreen>
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         title,
@@ -495,7 +505,9 @@ class _FormResponsesScreenState extends State<FormResponsesScreen>
                                       ),
                                       const SizedBox(height: 2),
                                       Text(
-                                        'Form ID: ${formId.substring(0, formId.length > 8 ? 8 : formId.length)}...',
+                                        group.responseFormIds.length > 1
+                                            ? '${group.responseFormIds.length} linked form IDs'
+                                            : 'Form ID: ${group.representativeFormId.substring(0, group.representativeFormId.length > 8 ? 8 : group.representativeFormId.length)}...',
                                         style: GoogleFonts.inter(
                                           fontSize: 12,
                                           color: const Color(0xff94A3B8),
@@ -518,9 +530,12 @@ class _FormResponsesScreenState extends State<FormResponsesScreen>
                           ),
                           _td(
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 6),
                               decoration: BoxDecoration(
-                                color: entries > 0 ? const Color(0xffEFF6FF) : const Color(0xffF9FAFB),
+                                color: entries > 0
+                                    ? const Color(0xffEFF6FF)
+                                    : const Color(0xffF9FAFB),
                                 borderRadius: BorderRadius.circular(20),
                               ),
                               child: Text(
@@ -528,7 +543,9 @@ class _FormResponsesScreenState extends State<FormResponsesScreen>
                                 style: GoogleFonts.inter(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
-                                  color: entries > 0 ? const Color(0xff0386FF) : const Color(0xff6B7280),
+                                  color: entries > 0
+                                      ? const Color(0xff0386FF)
+                                      : const Color(0xff6B7280),
                                 ),
                               ),
                             ),
@@ -559,12 +576,15 @@ class _FormResponsesScreenState extends State<FormResponsesScreen>
                                   width: 28,
                                   height: 28,
                                   decoration: BoxDecoration(
-                                    color: const Color(0xff8B5CF6).withOpacity(0.1),
+                                    color: const Color(0xff8B5CF6)
+                                        .withValues(alpha: 0.1),
                                     borderRadius: BorderRadius.circular(14),
                                   ),
                                   child: Center(
                                     child: Text(
-                                      createdByName.isNotEmpty ? createdByName[0].toUpperCase() : '?',
+                                      createdByName.isNotEmpty
+                                          ? createdByName[0].toUpperCase()
+                                          : '?',
                                       style: GoogleFonts.inter(
                                         fontSize: 12,
                                         fontWeight: FontWeight.w600,
@@ -622,8 +642,8 @@ class _FormResponsesScreenState extends State<FormResponsesScreen>
                 );
               },
             ),
-                                ),
-                              ],
+          ),
+        ],
       ),
     );
   }
@@ -642,7 +662,8 @@ class _FormResponsesScreenState extends State<FormResponsesScreen>
         ),
       );
 
-  Widget _td(Widget child, {required int flex}) => Expanded(flex: flex, child: child);
+  Widget _td(Widget child, {required int flex}) =>
+      Expanded(flex: flex, child: child);
 
   Widget _statusPill(String statusRaw) {
     final s = statusRaw.toLowerCase();
@@ -651,7 +672,7 @@ class _FormResponsesScreenState extends State<FormResponsesScreen>
     final fg = isActive ? const Color(0xff16A34A) : const Color(0xffDC2626);
     final label = isActive ? 'Active' : 'Inactive';
     final icon = isActive ? Icons.check_circle : Icons.cancel;
-    
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
@@ -683,54 +704,50 @@ class _FormResponsesScreenState extends State<FormResponsesScreen>
 
   String _getMonthName(int month) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
     ];
     return months[month - 1];
   }
 
-  String _resolveCreatorName(Map<String, dynamic> formData) {
+  String _resolveCreatorName(Map<String, dynamic>? formData) {
+    if (formData == null) {
+      return AppLocalizations.of(context)!.commonUnknownUser;
+    }
     final byName = (formData['createdByName'] ?? '').toString().trim();
     if (byName.isNotEmpty) return byName;
     final by = (formData['createdBy'] ?? '').toString();
     if (by.isEmpty) return AppLocalizations.of(context)!.commonUnknownUser;
-    return _uidToFullName[by] ?? AppLocalizations.of(context)!.commonUnknownUser;
+    return _uidToFullName[by] ??
+        AppLocalizations.of(context)!.commonUnknownUser;
   }
 
-  int _resolveEntriesCount(String formId, Map<String, dynamic> formData) {
-    // Prefer live aggregated count first
-    final agg = _formIdToEntries[formId] ?? 0;
-    if (agg > 0) {
-      // ignore: avoid_print
-      AppLogger.debug('[FormResponses] entries(agg) formId=$formId -> $agg');
-      return agg;
-    }
-    final rc = formData['responseCount'];
-    if (rc is int && rc > 0) {
-      // ignore: avoid_print
-      AppLogger.debug('[FormResponses] entries(responseCount) formId=$formId -> $rc');
-      return rc;
-    }
-    // If a responses map exists on the form doc
-    final responsesObj = formData['responses'];
-    if (responsesObj is Map) {
-      final len = responsesObj.length;
-      // ignore: avoid_print
-      AppLogger.debug('[FormResponses] entries(responsesMap) formId=$formId -> $len');
-      return len;
-    }
-    // Fallback to aggregated count from loaded responses
-    // ignore: avoid_print
-    AppLogger.debug('[FormResponses] entries(fallback) formId=$formId -> 0');
-    return 0;
-  }
-
-  String _resolveAssignedTo(Map<String, dynamic> formData) {
+  String _resolveAssignedTo(Map<String, dynamic>? formData) {
+    if (formData == null) return 'All users group';
     final permissions = formData['permissions'] as Map<String, dynamic>?;
     if (permissions == null || permissions['type'] != 'restricted') {
+      final allowedRoles = (formData['allowedRoles'] as List?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          const <String>[];
+      if (allowedRoles.isNotEmpty) {
+        return allowedRoles.map(_formatRoleLabel).join(', ');
+      }
       return 'All users group';
     }
-    final users = (permissions['users'] as List?)?.map((e) => e.toString()).toList() ?? [];
+    final users =
+        (permissions['users'] as List?)?.map((e) => e.toString()).toList() ??
+            [];
     final role = (permissions['role'] ?? '').toString();
     if (users.isEmpty && role.isNotEmpty) {
       switch (role) {
@@ -754,12 +771,31 @@ class _FormResponsesScreenState extends State<FormResponsesScreen>
     return 'All users group';
   }
 
+  String _formatRoleLabel(String role) {
+    switch (role.toLowerCase()) {
+      case 'students':
+        return 'Students';
+      case 'parents':
+        return 'Parents';
+      case 'teachers':
+      case 'teacher':
+        return 'Teachers';
+      case 'admins':
+      case 'admin':
+        return 'Admins';
+      case 'coach':
+      case 'coaches':
+        return 'Coaches';
+      default:
+        return role;
+    }
+  }
+
   int _getActiveCount() {
     int count = 0;
-    for (final doc in _formTemplates.values) {
-      final data = doc.data() as Map<String, dynamic>;
-      final status = (data['status'] ?? 'active').toString().toLowerCase();
-      final isArchived = status == 'archived' || status == 'inactive';
+    for (final group in _allGroups) {
+      final isArchived =
+          FormResponseGrouping.isArchived(group.representativeData);
       if (!isArchived) count++;
     }
     return count;
@@ -767,18 +803,15 @@ class _FormResponsesScreenState extends State<FormResponsesScreen>
 
   int _getArchivedCount() {
     int count = 0;
-    for (final doc in _formTemplates.values) {
-      final data = doc.data() as Map<String, dynamic>;
-      final status = (data['status'] ?? 'active').toString().toLowerCase();
-      final isArchived = status == 'archived' || status == 'inactive';
+    for (final group in _allGroups) {
+      final isArchived =
+          FormResponseGrouping.isArchived(group.representativeData);
       if (isArchived) count++;
     }
     return count;
   }
 
-  void _openFormResponses(String formId) {
-    final formData = _formTemplates[formId]?.data() as Map<String, dynamic>?;
-    final title = (formData?['title'] ?? 'Form').toString();
+  void _openFormResponses(FormResponseGroup group) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -788,18 +821,23 @@ class _FormResponsesScreenState extends State<FormResponsesScreen>
         maxWidth: double.infinity,
         minWidth: double.infinity,
       ),
-      builder: (_) => FormSubmissionsDialog(formId: formId, formTitle: title),
+      builder: (_) => FormSubmissionsDialog(
+        formId: group.representativeFormId,
+        formTitle: group.title,
+        formIds: group.responseFormIds,
+        definitionIds: group.definitionIds,
+      ),
     );
   }
 
   Widget _buildEmptyState() {
     return Center(
-        child: Column(
+      child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
               color: const Color(0xffF1F5F9),
               borderRadius: BorderRadius.circular(16),
             ),
@@ -810,25 +848,25 @@ class _FormResponsesScreenState extends State<FormResponsesScreen>
             ),
           ),
           const SizedBox(height: 24),
-                          Text(
+          Text(
             AppLocalizations.of(context)!.noFormResponsesFound,
-                            style: GoogleFonts.inter(
+            style: GoogleFonts.inter(
               fontSize: 20,
-                              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w600,
               color: const Color(0xff1E293B),
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
             _searchController.text.isNotEmpty
                 ? 'Try adjusting your search criteria'
                 : 'Form responses will appear here once submitted',
-                                                style: GoogleFonts.inter(
-                                                  fontSize: 16,
+            style: GoogleFonts.inter(
+              fontSize: 16,
               color: const Color(0xff64748B),
-                                                ),
-                                              ),
-                                            ],
+            ),
+          ),
+        ],
       ),
     );
   }

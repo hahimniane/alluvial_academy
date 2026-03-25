@@ -18,6 +18,8 @@ import '../../../core/models/admin_employee_datasource.dart';
 import '../../../core/models/user_employee_datasource.dart';
 import '../../../utility_functions/export_helpers.dart';
 import '../../../core/services/user_role_service.dart';
+import '../../shift_management/widgets/create_shift_dialog.dart'
+    show EmployeeSelectionDialog;
 import 'edit_user_screen.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
@@ -30,17 +32,21 @@ class UserManagementScreen extends StatefulWidget {
   _UserManagementScreenState createState() => _UserManagementScreenState();
 }
 
+enum _ParentStudentLinkResult { linked, alreadyLinked, failed }
+
 class _ParentSearchDialog extends StatefulWidget {
   final List<Map<String, dynamic>> parents;
   final String? selectedParentId;
   final ValueChanged<String> onParentSelected;
   final VoidCallback onClearFilter;
+  final ValueChanged<Map<String, dynamic>>? onLinkStudentToParent;
 
   const _ParentSearchDialog({
     required this.parents,
     required this.selectedParentId,
     required this.onParentSelected,
     required this.onClearFilter,
+    this.onLinkStudentToParent,
   });
 
   @override
@@ -146,7 +152,8 @@ class _ParentSearchDialogState extends State<_ParentSearchDialog> {
                           ),
                         ),
                         Text(
-                          AppLocalizations.of(context)!.chooseAParentToViewTheir,
+                          AppLocalizations.of(context)!
+                              .chooseAParentToViewTheir,
                           style: TextStyle(
                             color: Colors.white70,
                             fontSize: 14,
@@ -238,10 +245,8 @@ class _ParentSearchDialogState extends State<_ParentSearchDialog> {
                         itemBuilder: (context, index) {
                           final parent = _filteredParents[index];
                           final parentId = parent['id']?.toString() ?? '';
-                          final parentName =
-                              parent['name']?.toString() ?? '';
-                          final parentEmail =
-                              parent['email']?.toString() ?? '';
+                          final parentName = parent['name']?.toString() ?? '';
+                          final parentEmail = parent['email']?.toString() ?? '';
                           final isSelected =
                               widget.selectedParentId == parentId;
 
@@ -261,8 +266,7 @@ class _ParentSearchDialogState extends State<_ParentSearchDialog> {
                               boxShadow: [
                                 BoxShadow(
                                   color: isSelected
-                                      ? const Color(0xff9333EA)
-                                          .withOpacity(0.1)
+                                      ? const Color(0xff9333EA).withOpacity(0.1)
                                       : Colors.black.withOpacity(0.02),
                                   blurRadius: 8,
                                   offset: const Offset(0, 2),
@@ -382,6 +386,44 @@ class _ParentSearchDialogState extends State<_ParentSearchDialog> {
                                           ],
                                         ),
                                       ),
+                                      if (widget.onLinkStudentToParent != null)
+                                        Padding(
+                                          padding: const EdgeInsets.only(
+                                            left: 8,
+                                          ),
+                                          child: Tooltip(
+                                            message: 'Link student',
+                                            child: Material(
+                                              color: Colors.transparent,
+                                              child: InkWell(
+                                                borderRadius:
+                                                    BorderRadius.circular(10),
+                                                onTap: () {
+                                                  Navigator.pop(context);
+                                                  widget.onLinkStudentToParent
+                                                      ?.call(parent);
+                                                },
+                                                child: Container(
+                                                  padding:
+                                                      const EdgeInsets.all(8),
+                                                  decoration: BoxDecoration(
+                                                    color:
+                                                        const Color(0xff10B981)
+                                                            .withOpacity(0.1),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            10),
+                                                  ),
+                                                  child: const Icon(
+                                                    Icons.person_add_alt_1,
+                                                    size: 18,
+                                                    color: Color(0xff10B981),
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
                                       if (isSelected)
                                         const Padding(
                                           padding: EdgeInsets.only(left: 12),
@@ -572,8 +614,8 @@ class _UserManagementScreenState extends State<UserManagementScreen>
       } else if (filterValue?.startsWith('parent_') == true) {
         _currentParentFilter =
             filterValue?.substring(7); // Remove 'parent_' prefix
-      // } else if (filterValue == 'shared_parents') {
-      //   _currentStatusFilter = 'shared_parents';
+        // } else if (filterValue == 'shared_parents') {
+        //   _currentStatusFilter = 'shared_parents';
       } else {
         _currentFilterType = filterValue;
       }
@@ -645,16 +687,19 @@ class _UserManagementScreenState extends State<UserManagementScreen>
         final data = doc.data();
         final studentId = doc.id;
         final studentEmail = data['e-mail'] as String?;
-        final guardianIds = data['guardian_ids'] as List<dynamic>?;
+        final guardianIds = <String>{
+          ..._extractStringList(data['guardian_ids']),
+          ..._extractStringList(data['guardianIds']),
+        }.toList();
 
         AppLogger.debug(
             'Student: ${data['first_name']} ${data['last_name']} (ID: $studentId, Email: $studentEmail)');
         AppLogger.debug('  Guardian IDs: $guardianIds');
 
-        if (guardianIds != null && guardianIds.isNotEmpty) {
+        if (guardianIds.isNotEmpty) {
           // For each guardian, add this student to their list
-          for (var guardianId in guardianIds) {
-            final parentId = guardianId.toString();
+          for (final guardianId in guardianIds) {
+            final parentId = guardianId;
             _parentStudentMap.putIfAbsent(parentId, () => []).add(studentId);
 
             // Store the first parent for display purposes
@@ -682,22 +727,201 @@ class _UserManagementScreenState extends State<UserManagementScreen>
     }
   }
 
+  List<String> _extractStringList(dynamic value) {
+    if (value is! List) return const <String>[];
+    return value
+        .map((item) => item.toString().trim())
+        .where((item) => item.isNotEmpty)
+        .toSet()
+        .toList();
+  }
+
+  String _displayNameForEmployee(Employee employee) {
+    final fullName = '${employee.firstName} ${employee.lastName}'.trim();
+    if (fullName.isNotEmpty) return fullName;
+    if (employee.studentCode.trim().isNotEmpty) {
+      return employee.studentCode.trim();
+    }
+    if (employee.email.trim().isNotEmpty) return employee.email.trim();
+    return employee.documentId;
+  }
+
+  Future<_ParentStudentLinkResult> _linkParentToStudent({
+    required String parentId,
+    required String studentId,
+  }) async {
+    var alreadyLinked = false;
+
+    try {
+      final firestore = FirebaseFirestore.instance;
+      final parentRef = firestore.collection('users').doc(parentId);
+      final studentRef = firestore.collection('users').doc(studentId);
+
+      await firestore.runTransaction((transaction) async {
+        final parentSnap = await transaction.get(parentRef);
+        final studentSnap = await transaction.get(studentRef);
+
+        if (!parentSnap.exists) {
+          throw StateError('Parent account not found.');
+        }
+        if (!studentSnap.exists) {
+          throw StateError('Student account not found.');
+        }
+
+        final parentData = parentSnap.data() ?? <String, dynamic>{};
+        final studentData = studentSnap.data() ?? <String, dynamic>{};
+
+        final parentType =
+            (parentData['user_type'] ?? '').toString().toLowerCase();
+        final studentType =
+            (studentData['user_type'] ?? '').toString().toLowerCase();
+
+        if (parentType != 'parent') {
+          throw StateError('Selected user is not a parent account.');
+        }
+        if (studentType != 'student') {
+          throw StateError('Selected user is not a student account.');
+        }
+
+        final currentGuardianIds = <String>{
+          ..._extractStringList(studentData['guardian_ids']),
+          ..._extractStringList(studentData['guardianIds']),
+        };
+        final currentChildrenIds = <String>{
+          ..._extractStringList(parentData['children_ids']),
+          ..._extractStringList(parentData['childrenIds']),
+        };
+
+        alreadyLinked = currentGuardianIds.contains(parentId) ||
+            currentChildrenIds.contains(studentId);
+        if (alreadyLinked) return;
+
+        final studentUpdates = <String, dynamic>{
+          'guardian_ids': FieldValue.arrayUnion([parentId]),
+          'updated_at': FieldValue.serverTimestamp(),
+        };
+        if (studentData.containsKey('guardianIds')) {
+          studentUpdates['guardianIds'] = FieldValue.arrayUnion([parentId]);
+        }
+
+        final parentUpdates = <String, dynamic>{
+          'children_ids': FieldValue.arrayUnion([studentId]),
+          'updated_at': FieldValue.serverTimestamp(),
+        };
+        if (parentData.containsKey('childrenIds')) {
+          parentUpdates['childrenIds'] = FieldValue.arrayUnion([studentId]);
+        }
+
+        transaction.update(studentRef, studentUpdates);
+        transaction.update(parentRef, parentUpdates);
+      });
+
+      await _loadParentStudentRelationships();
+      _applyFilters();
+
+      return alreadyLinked
+          ? _ParentStudentLinkResult.alreadyLinked
+          : _ParentStudentLinkResult.linked;
+    } catch (e, stackTrace) {
+      AppLogger.error(
+        'Error linking parent to student: $e',
+        error: e,
+        stackTrace: stackTrace,
+      );
+      return _ParentStudentLinkResult.failed;
+    }
+  }
+
+  Future<void> _showLinkStudentToParentDialog(
+      Map<String, dynamic> parent) async {
+    final parentId = (parent['id'] ?? '').toString().trim();
+    if (parentId.isEmpty) {
+      _showErrorSnackBar('Invalid parent selected.');
+      return;
+    }
+
+    final parentName = (parent['name'] ?? '').toString().trim().isNotEmpty
+        ? (parent['name'] ?? '').toString().trim()
+        : 'Selected parent';
+
+    final studentsSnapshot = await FirebaseFirestore.instance
+        .collection('users')
+        .where('user_type', isEqualTo: 'student')
+        .get();
+
+    final studentDocs = studentsSnapshot.docs;
+    final studentsById = <String, QueryDocumentSnapshot<Map<String, dynamic>>>{
+      for (final doc in studentDocs) doc.id: doc,
+    };
+
+    final availableStudents =
+        EmployeeDataSource.mapSnapshotToEmployeeList(studentsSnapshot)
+            .where((student) {
+      final studentDoc = studentsById[student.documentId];
+      if (studentDoc == null) return false;
+
+      final data = studentDoc.data();
+      final hasGuardian = _extractStringList(data['guardian_ids']).isNotEmpty ||
+          _extractStringList(data['guardianIds']).isNotEmpty;
+      return !hasGuardian;
+    }).toList()
+          ..sort((a, b) => _displayNameForEmployee(a)
+              .toLowerCase()
+              .compareTo(_displayNameForEmployee(b).toLowerCase()));
+
+    if (availableStudents.isEmpty) {
+      _showErrorSnackBar(
+          'No students without a parent relationship were found.');
+      return;
+    }
+    if (!mounted) return;
+
+    final selected = await showDialog<List<Employee>>(
+      context: context,
+      builder: (context) => EmployeeSelectionDialog(
+        employees: availableStudents,
+        selectedIds: const <String>{},
+        title: 'Select Student to Link',
+        idSelector: (employee) => employee.documentId,
+      ),
+    );
+
+    if (!mounted || selected == null || selected.isEmpty) return;
+    final selectedStudent = selected.first;
+
+    final result = await _linkParentToStudent(
+      parentId: parentId,
+      studentId: selectedStudent.documentId,
+    );
+
+    if (!mounted) return;
+
+    if (result == _ParentStudentLinkResult.linked) {
+      _showSuccessSnackBar(
+        'Linked ${_displayNameForEmployee(selectedStudent)} to $parentName.',
+      );
+    } else if (result == _ParentStudentLinkResult.alreadyLinked) {
+      _showSuccessSnackBar(
+        '${_displayNameForEmployee(selectedStudent)} is already linked to $parentName.',
+      );
+    } else {
+      _showErrorSnackBar(
+        'Failed to link parent and student. Please try again.',
+      );
+    }
+  }
 
   void _applyFilters() {
     // Start with the full list from the snapshot (including archived users)
     List<Employee> allUsersFromSnapshot = List.from(_snapshotEmployees);
-    List<Employee> regularUsers = allUsersFromSnapshot
-        .where((emp) {
-          final type = emp.userType.toLowerCase();
-          return type != 'admin' && type != 'super_admin' && !emp.isAdminTeacher;
-        })
-        .toList();
-    List<Employee> adminUsers = allUsersFromSnapshot
-        .where((emp) {
-          final type = emp.userType.toLowerCase();
-          return type == 'admin' || type == 'super_admin' || emp.isAdminTeacher;
-        })
-        .toList();
+    List<Employee> regularUsers = allUsersFromSnapshot.where((emp) {
+      final type = emp.userType.toLowerCase();
+      return type != 'admin' && type != 'super_admin' && !emp.isAdminTeacher;
+    }).toList();
+    List<Employee> adminUsers = allUsersFromSnapshot.where((emp) {
+      final type = emp.userType.toLowerCase();
+      return type == 'admin' || type == 'super_admin' || emp.isAdminTeacher;
+    }).toList();
 
     // Apply user type filter (only affects the 'Users' tab)
     if (_currentFilterType != null && _currentFilterType != 'all') {
@@ -729,7 +953,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
         //   // Show only students who share parents with other students
         //   regularUsers = regularUsers.where((emp) {
         //     if (emp.userType != 'student') return false;
-        //     
+        //
         //     // Find the parent of this student using their document ID
         //     final parentId = _studentParentMap[emp.documentId];
         //     if (parentId == null) return false;
@@ -920,7 +1144,9 @@ class _UserManagementScreenState extends State<UserManagementScreen>
       });
 
       _showSuccessSnackBar(
-        newValue ? 'AI Tutor enabled for ${employee.firstName}' : 'AI Tutor disabled for ${employee.firstName}',
+        newValue
+            ? 'AI Tutor enabled for ${employee.firstName}'
+            : 'AI Tutor disabled for ${employee.firstName}',
       );
 
       // Refresh data
@@ -951,11 +1177,13 @@ class _UserManagementScreenState extends State<UserManagementScreen>
       final studentCode = hasStudentCode ? rawStudentCode : 'Not set';
 
       final rawTempPassword = (data['temp_password'] ?? '').toString();
-      final tempPassword =
-          rawTempPassword.trim().isNotEmpty ? rawTempPassword : 'Password not stored';
+      final tempPassword = rawTempPassword.trim().isNotEmpty
+          ? rawTempPassword
+          : 'Password not stored';
 
-      final aliasEmail =
-          hasStudentCode ? '$rawStudentCode@alluwaleducationhub.org' : 'Not available';
+      final aliasEmail = hasStudentCode
+          ? '$rawStudentCode@alluwaleducationhub.org'
+          : 'Not available';
 
       if (!mounted) return;
 
@@ -1005,7 +1233,8 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.info_outline, color: Colors.amber, size: 20),
+                      const Icon(Icons.info_outline,
+                          color: Colors.amber, size: 20),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
@@ -1117,22 +1346,30 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                     obscureText: obscurePassword,
                     style: GoogleFonts.inter(fontSize: 14),
                     decoration: InputDecoration(
-                      labelText: AppLocalizations.of(context)!.userCustomPassword,
-                      hintText: AppLocalizations.of(context)!.userLeaveBlankGenerate,
-                      helperText: AppLocalizations.of(context)!.userPasswordMinChars,
+                      labelText:
+                          AppLocalizations.of(context)!.userCustomPassword,
+                      hintText:
+                          AppLocalizations.of(context)!.userLeaveBlankGenerate,
+                      helperText:
+                          AppLocalizations.of(context)!.userPasswordMinChars,
                       errorText: errorText,
                       prefixIcon: const Icon(Icons.lock_outline),
                       suffixIcon: IconButton(
                         icon: Icon(
-                          obscurePassword ? Icons.visibility_off : Icons.visibility,
+                          obscurePassword
+                              ? Icons.visibility_off
+                              : Icons.visibility,
                         ),
-                        tooltip: obscurePassword ? 'Show password' : 'Hide password',
-                        onPressed: () => setState(() => obscurePassword = !obscurePassword),
+                        tooltip:
+                            obscurePassword ? 'Show password' : 'Hide password',
+                        onPressed: () =>
+                            setState(() => obscurePassword = !obscurePassword),
                       ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 12),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -1167,15 +1404,18 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                     return;
                   }
                   if (value != value.trim()) {
-                    setState(() => errorText = 'Password cannot start or end with spaces');
+                    setState(() =>
+                        errorText = 'Password cannot start or end with spaces');
                     return;
                   }
                   if (value.length < 6) {
-                    setState(() => errorText = 'Password must be at least 6 characters');
+                    setState(() =>
+                        errorText = 'Password must be at least 6 characters');
                     return;
                   }
                   if (value.length > 128) {
-                    setState(() => errorText = 'Password must be 128 characters or less');
+                    setState(() =>
+                        errorText = 'Password must be 128 characters or less');
                     return;
                   }
                   Navigator.pop(context, value);
@@ -1210,7 +1450,8 @@ class _UserManagementScreenState extends State<UserManagementScreen>
         );
 
         // Call Cloud Function to reset password (updates both Firebase Auth and Firestore)
-        final callable = FirebaseFunctions.instance.httpsCallable('resetStudentPassword');
+        final callable =
+            FirebaseFunctions.instance.httpsCallable('resetStudentPassword');
         final payload = <String, dynamic>{
           'studentId': employee.documentId,
           'sendEmailToParent': true,
@@ -1230,7 +1471,8 @@ class _UserManagementScreenState extends State<UserManagementScreen>
         showDialog(
           context: context,
           builder: (context) => AlertDialog(
-            title: Row(children: [
+            title: Row(
+              children: [
                 Icon(Icons.check_circle, color: Colors.green),
                 SizedBox(width: 8),
                 Text(AppLocalizations.of(context)!.passwordResetSuccessfully),
@@ -1320,7 +1562,9 @@ class _UserManagementScreenState extends State<UserManagementScreen>
     if (currentUser != null) {
       final currentEmail = currentUser.email?.trim().toLowerCase();
       final targetEmail = employee.email.trim().toLowerCase();
-      if ((currentEmail != null && currentEmail.isNotEmpty && currentEmail == targetEmail) ||
+      if ((currentEmail != null &&
+              currentEmail.isNotEmpty &&
+              currentEmail == targetEmail) ||
           currentUser.uid == employee.documentId) {
         _showErrorSnackBar(
           AppLocalizations.of(context)!.userDeleteSelfNotAllowed,
@@ -1432,7 +1676,8 @@ class _UserManagementScreenState extends State<UserManagementScreen>
               Text(
                 employee.isActive
                     ? AppLocalizations.of(context)!.userDeleteActiveInfo
-                    : AppLocalizations.of(context)!.userDeleteConfirm('${employee.firstName} ${employee.lastName}'),
+                    : AppLocalizations.of(context)!.userDeleteConfirm(
+                        '${employee.firstName} ${employee.lastName}'),
                 style: GoogleFonts.inter(fontSize: 16),
               ),
               const SizedBox(height: 12),
@@ -1488,7 +1733,8 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                     ),
                     subtitle: userType == 'student'
                         ? Text(
-                            AppLocalizations.of(context)!.userGroupClassesRemain,
+                            AppLocalizations.of(context)!
+                                .userGroupClassesRemain,
                             style: GoogleFonts.inter(
                               fontSize: 12,
                               color: const Color(0xff6B7280),
@@ -1501,7 +1747,8 @@ class _UserManagementScreenState extends State<UserManagementScreen>
               ],
               const SizedBox(height: 16),
               Text(
-                AppLocalizations.of(context)!.allAssociatedDataIncludingTimesheetsForms,
+                AppLocalizations.of(context)!
+                    .allAssociatedDataIncludingTimesheetsForms,
                 style: GoogleFonts.inter(
                   fontSize: 14,
                   color: const Color(0xff6B7280),
@@ -1576,9 +1823,12 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                       Text(AppLocalizations.of(context)!.fullAdminPrivileges,
                           style: GoogleFonts.inter(fontSize: 12)),
                       Text(
-                          AppLocalizations.of(context)!.abilityToSwitchBetweenAdminAnd,
+                          AppLocalizations.of(context)!
+                              .abilityToSwitchBetweenAdminAnd,
                           style: GoogleFonts.inter(fontSize: 12)),
-                      Text(AppLocalizations.of(context)!.accessToUserManagementAndSystem,
+                      Text(
+                          AppLocalizations.of(context)!
+                              .accessToUserManagementAndSystem,
                           style: GoogleFonts.inter(fontSize: 12)),
                     ],
                   ),
@@ -1638,9 +1888,13 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                       const SizedBox(height: 4),
                       Text(AppLocalizations.of(context)!.removeAdminPrivileges,
                           style: GoogleFonts.inter(fontSize: 12)),
-                      Text(AppLocalizations.of(context)!.keepTheirTeacherRoleIntact,
+                      Text(
+                          AppLocalizations.of(context)!
+                              .keepTheirTeacherRoleIntact,
                           style: GoogleFonts.inter(fontSize: 12)),
-                      Text(AppLocalizations.of(context)!.removeAccessToAdminFunctions,
+                      Text(
+                          AppLocalizations.of(context)!
+                              .removeAccessToAdminFunctions,
                           style: GoogleFonts.inter(fontSize: 12)),
                     ],
                   ),
@@ -1655,8 +1909,8 @@ class _UserManagementScreenState extends State<UserManagementScreen>
               ElevatedButton(
                 onPressed: () => Navigator.pop(context, true),
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                child:
-                    Text(AppLocalizations.of(context)!.revoke, style: TextStyle(color: Colors.white)),
+                child: Text(AppLocalizations.of(context)!.revoke,
+                    style: TextStyle(color: Colors.white)),
               ),
             ],
           ),
@@ -1698,13 +1952,20 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                           style:
                               GoogleFonts.inter(fontWeight: FontWeight.w600)),
                       const SizedBox(height: 4),
-                      Text(AppLocalizations.of(context)!.archiveTheirAccountNotPermanentlyDelete,
+                      Text(
+                          AppLocalizations.of(context)!
+                              .archiveTheirAccountNotPermanentlyDelete,
                           style: GoogleFonts.inter(fontSize: 12)),
-                      Text(AppLocalizations.of(context)!.removeAccessToTheSystem,
+                      Text(
+                          AppLocalizations.of(context)!.removeAccessToTheSystem,
                           style: GoogleFonts.inter(fontSize: 12)),
-                      Text(AppLocalizations.of(context)!.preserveAllTheirDataSafely,
+                      Text(
+                          AppLocalizations.of(context)!
+                              .preserveAllTheirDataSafely,
                           style: GoogleFonts.inter(fontSize: 12)),
-                      Text(AppLocalizations.of(context)!.allowRestorationAtAnyTime,
+                      Text(
+                          AppLocalizations.of(context)!
+                              .allowRestorationAtAnyTime,
                           style: GoogleFonts.inter(fontSize: 12)),
                     ],
                   ),
@@ -1724,7 +1985,8 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          AppLocalizations.of(context)!.noDataWillBePermanentlyLost,
+                          AppLocalizations.of(context)!
+                              .noDataWillBePermanentlyLost,
                           style: GoogleFonts.inter(
                             fontSize: 12,
                             color: Colors.blue.shade700,
@@ -1788,13 +2050,19 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                           style:
                               GoogleFonts.inter(fontWeight: FontWeight.w600)),
                       const SizedBox(height: 4),
-                      Text(AppLocalizations.of(context)!.restoreTheirAccountFromArchive,
+                      Text(
+                          AppLocalizations.of(context)!
+                              .restoreTheirAccountFromArchive,
                           style: GoogleFonts.inter(fontSize: 12)),
-                      Text(AppLocalizations.of(context)!.reEnableAccessToTheSystem,
+                      Text(
+                          AppLocalizations.of(context)!
+                              .reEnableAccessToTheSystem,
                           style: GoogleFonts.inter(fontSize: 12)),
                       Text(AppLocalizations.of(context)!.allowThemToLogInAgain,
                           style: GoogleFonts.inter(fontSize: 12)),
-                      Text(AppLocalizations.of(context)!.restoreAllTheirPreviousData,
+                      Text(
+                          AppLocalizations.of(context)!
+                              .restoreAllTheirPreviousData,
                           style: GoogleFonts.inter(fontSize: 12)),
                     ],
                   ),
@@ -1991,22 +2259,26 @@ class _UserManagementScreenState extends State<UserManagementScreen>
         .where('user_type', isEqualTo: 'parent')
         .get();
 
-    final parents = parentsSnapshot.docs
-        .map((doc) {
-          final data = doc.data();
-          return {
-            'id': doc.id,
-            'name': '${data['first_name']} ${data['last_name']}',
-            'email': data['e-mail'],
-            'studentCount': _parentStudentMap[doc.id]?.length ?? 0,
-          };
-        })
-        .where((parent) => parent['studentCount'] as int > 0)
-        .toList();
+    final parents = parentsSnapshot.docs.map((doc) {
+      final data = doc.data();
+      return {
+        'id': doc.id,
+        'name': '${data['first_name']} ${data['last_name']}',
+        'email': data['e-mail'],
+        'studentCount': _parentStudentMap[doc.id]?.length ?? 0,
+      };
+    }).toList();
 
     // Sort by student count (descending)
-    parents.sort((a, b) =>
-        (b['studentCount'] as int).compareTo(a['studentCount'] as int));
+    parents.sort((a, b) {
+      final countCompare =
+          (b['studentCount'] as int).compareTo(a['studentCount'] as int);
+      if (countCompare != 0) return countCompare;
+      return (a['name'] ?? '')
+          .toString()
+          .toLowerCase()
+          .compareTo((b['name'] ?? '').toString().toLowerCase());
+    });
 
     if (!mounted) return;
 
@@ -2031,6 +2303,9 @@ class _UserManagementScreenState extends State<UserManagementScreen>
             _currentParentFilter = null;
             _applyFilters();
           });
+        },
+        onLinkStudentToParent: (parent) {
+          _showLinkStudentToParentDialog(parent);
         },
       ),
     );
@@ -2148,7 +2423,8 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                                     const EdgeInsets.all(8.0),
                                                 alignment: Alignment.center,
                                                 child: Text(
-                                                  AppLocalizations.of(context)!.userFirstName,
+                                                  AppLocalizations.of(context)!
+                                                      .userFirstName,
                                                   style: GoogleFonts.inter(
                                                     color:
                                                         const Color(0xff3f4648),
@@ -2164,7 +2440,8 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                                     const EdgeInsets.all(8.0),
                                                 alignment: Alignment.center,
                                                 child: Text(
-                                                  AppLocalizations.of(context)!.userLastName,
+                                                  AppLocalizations.of(context)!
+                                                      .userLastName,
                                                   style: openSansHebrewTextStyle
                                                       .copyWith(
                                                     color:
@@ -2181,7 +2458,8 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                                     const EdgeInsets.all(8.0),
                                                 alignment: Alignment.center,
                                                 child: Text(
-                                                  AppLocalizations.of(context)!.profileEmail,
+                                                  AppLocalizations.of(context)!
+                                                      .profileEmail,
                                                   style: openSansHebrewTextStyle
                                                       .copyWith(
                                                     color:
@@ -2198,7 +2476,8 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                                     const EdgeInsets.all(8.0),
                                                 alignment: Alignment.center,
                                                 child: Text(
-                                                  AppLocalizations.of(context)!.userCountryCode,
+                                                  AppLocalizations.of(context)!
+                                                      .userCountryCode,
                                                   style: TextStyle(
                                                       fontWeight:
                                                           FontWeight.bold),
@@ -2212,7 +2491,8 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                                     const EdgeInsets.all(8.0),
                                                 alignment: Alignment.center,
                                                 child: Text(
-                                                  AppLocalizations.of(context)!.mobilePhone,
+                                                  AppLocalizations.of(context)!
+                                                      .mobilePhone,
                                                   style: TextStyle(
                                                       fontWeight:
                                                           FontWeight.bold),
@@ -2226,7 +2506,8 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                                     const EdgeInsets.all(8.0),
                                                 alignment: Alignment.center,
                                                 child: Text(
-                                                  AppLocalizations.of(context)!.userUserType,
+                                                  AppLocalizations.of(context)!
+                                                      .userUserType,
                                                   style: TextStyle(
                                                       fontWeight:
                                                           FontWeight.bold),
@@ -2240,7 +2521,8 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                                     const EdgeInsets.all(8.0),
                                                 alignment: Alignment.center,
                                                 child: Text(
-                                                  AppLocalizations.of(context)!.profileTitle,
+                                                  AppLocalizations.of(context)!
+                                                      .profileTitle,
                                                   style: TextStyle(
                                                       fontWeight:
                                                           FontWeight.bold),
@@ -2254,7 +2536,8 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                                     const EdgeInsets.all(8.0),
                                                 alignment: Alignment.center,
                                                 child: Text(
-                                                  AppLocalizations.of(context)!.startDate,
+                                                  AppLocalizations.of(context)!
+                                                      .startDate,
                                                   style: TextStyle(
                                                       fontWeight:
                                                           FontWeight.bold),
@@ -2268,7 +2551,8 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                                     const EdgeInsets.all(8.0),
                                                 alignment: Alignment.center,
                                                 child: Text(
-                                                  AppLocalizations.of(context)!.userKioskCode,
+                                                  AppLocalizations.of(context)!
+                                                      .userKioskCode,
                                                   style: TextStyle(
                                                       fontWeight:
                                                           FontWeight.bold),
@@ -2282,7 +2566,8 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                                     const EdgeInsets.all(8.0),
                                                 alignment: Alignment.center,
                                                 child: Text(
-                                                  AppLocalizations.of(context)!.dateAdded,
+                                                  AppLocalizations.of(context)!
+                                                      .dateAdded,
                                                   style: TextStyle(
                                                       fontWeight:
                                                           FontWeight.bold),
@@ -2296,7 +2581,8 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                                     const EdgeInsets.all(8.0),
                                                 alignment: Alignment.center,
                                                 child: Text(
-                                                  AppLocalizations.of(context)!.lastLogin,
+                                                  AppLocalizations.of(context)!
+                                                      .lastLogin,
                                                   style: TextStyle(
                                                       fontWeight:
                                                           FontWeight.bold),
@@ -2311,7 +2597,8 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                                     const EdgeInsets.all(8.0),
                                                 alignment: Alignment.center,
                                                 child: Text(
-                                                  AppLocalizations.of(context)!.timesheetActions,
+                                                  AppLocalizations.of(context)!
+                                                      .timesheetActions,
                                                   style: GoogleFonts.inter(
                                                     fontWeight: FontWeight.w600,
                                                     color:
@@ -2349,7 +2636,9 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                                     CrossAxisAlignment.start,
                                                 children: [
                                                   Text(
-                                                    AppLocalizations.of(context)!.adminRoleManagement,
+                                                    AppLocalizations.of(
+                                                            context)!
+                                                        .adminRoleManagement,
                                                     style: GoogleFonts.inter(
                                                       fontWeight:
                                                           FontWeight.w600,
@@ -2359,7 +2648,9 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                                   ),
                                                   const SizedBox(height: 4),
                                                   Text(
-                                                    AppLocalizations.of(context)!.promoteTeachersToAdminTeacherDual,
+                                                    AppLocalizations.of(
+                                                            context)!
+                                                        .promoteTeachersToAdminTeacherDual,
                                                     style: GoogleFonts.inter(
                                                       fontSize: 12,
                                                       color:
@@ -2397,7 +2688,9 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                                         const SizedBox(
                                                             height: 16),
                                                         Text(
-                                                          AppLocalizations.of(context)!.noAdminUsersFound,
+                                                          AppLocalizations.of(
+                                                                  context)!
+                                                              .noAdminUsersFound,
                                                           style:
                                                               GoogleFonts.inter(
                                                             fontSize: 18,
@@ -2410,7 +2703,9 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                                         const SizedBox(
                                                             height: 8),
                                                         Text(
-                                                          AppLocalizations.of(context)!.promoteTeachersFromTheUsersTab,
+                                                          AppLocalizations.of(
+                                                                  context)!
+                                                              .promoteTeachersFromTheUsersTab,
                                                           style:
                                                               GoogleFonts.inter(
                                                             fontSize: 14,

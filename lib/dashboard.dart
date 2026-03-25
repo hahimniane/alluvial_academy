@@ -56,7 +56,14 @@ import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 /// Main Dashboard widget that serves as the app's primary navigation interface
 class DashboardPage extends StatefulWidget {
-  const DashboardPage({super.key});
+  final ValueChanged<String>? onRoleChanged;
+  final String? activeRole;
+
+  const DashboardPage({
+    super.key,
+    this.onRoleChanged,
+    this.activeRole,
+  });
 
   @override
   State<DashboardPage> createState() => _DashboardPageState();
@@ -82,9 +89,22 @@ class _DashboardPageState extends State<DashboardPage> {
     _loadSidebarState();
   }
 
+  @override
+  void didUpdateWidget(covariant DashboardPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final oldRole = oldWidget.activeRole?.trim().toLowerCase();
+    final nextRole = widget.activeRole?.trim().toLowerCase();
+    if (oldRole != nextRole) {
+      _loadUserData();
+    }
+  }
+
   Future<void> _loadUserData() async {
     try {
-      final role = await UserRoleService.getCurrentUserRole();
+      final widgetRole = widget.activeRole?.trim().toLowerCase();
+      final role = (widgetRole != null && widgetRole.isNotEmpty)
+          ? widgetRole
+          : await UserRoleService.getCurrentUserRole();
       final data = await UserRoleService.getCurrentUserData();
       final profilePicUrl = await ProfilePictureService.getProfilePictureUrl();
       AppLogger.debug(
@@ -129,6 +149,28 @@ class _DashboardPageState extends State<DashboardPage> {
     } catch (e) {
       print('Error loading sidebar state: $e');
     }
+  }
+
+  void _handleRoleChange(String newRole) {
+    final normalizedRole = newRole.trim().toLowerCase();
+    final shouldUseRoleBasedShell =
+        normalizedRole == 'parent' || normalizedRole == 'student';
+
+    if (shouldUseRoleBasedShell && widget.onRoleChanged != null) {
+      widget.onRoleChanged!(newRole);
+      return;
+    }
+
+    _loadUserData();
+    if (mounted) {
+      setState(() {
+        _selectedIndex = 0;
+        _refreshTrigger++;
+      });
+    }
+
+    // Keep parent shell in sync even when remaining inside DashboardPage.
+    widget.onRoleChanged?.call(newRole);
   }
 
   Future<void> _saveSidebarState() async {
@@ -1184,16 +1226,7 @@ class _DashboardPageState extends State<DashboardPage> {
           )
         else
           RoleSwitcher(
-            onRoleChanged: (newRole) {
-              // Reload user data when role changes to update UI
-              _loadUserData();
-
-              // Reset to dashboard view to see role-appropriate content
-              setState(() {
-                _selectedIndex = 0;
-                _refreshTrigger++; // Trigger refresh of child widgets
-              });
-            },
+            onRoleChanged: _handleRoleChange,
             padding: const EdgeInsets.symmetric(horizontal: 8),
           ),
         if (!isMobile) ...[
@@ -1704,11 +1737,8 @@ class _DashboardPageState extends State<DashboardPage> {
                   : () async {
                       Navigator.pop(context);
                       await UserRoleService.switchActiveRole(role);
-                      _loadUserData();
-                      setState(() {
-                        _selectedIndex = 0;
-                        _refreshTrigger++;
-                      });
+                      if (!mounted) return;
+                      _handleRoleChange(role);
                     },
             );
           }).toList(),

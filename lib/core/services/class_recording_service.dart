@@ -9,7 +9,9 @@ class ClassRecordingItem {
   final String? segmentId;
   final String shiftName;
   final String subjectName;
+  final String? teacherId;
   final String teacherName;
+  final List<String> studentIds;
   final String status;
   final String? error;
   final String filePath;
@@ -19,6 +21,7 @@ class ClassRecordingItem {
   final DateTime? requestedAt;
   final DateTime? startedAt;
   final DateTime? updatedAt;
+  final DateTime? deleteAfter;
   final bool canPlay;
 
   const ClassRecordingItem({
@@ -27,7 +30,9 @@ class ClassRecordingItem {
     this.segmentId,
     required this.shiftName,
     required this.subjectName,
+    this.teacherId,
     required this.teacherName,
+    this.studentIds = const [],
     required this.status,
     this.error,
     required this.filePath,
@@ -37,11 +42,25 @@ class ClassRecordingItem {
     this.requestedAt,
     this.startedAt,
     this.updatedAt,
+    this.deleteAfter,
     required this.canPlay,
   });
 
   DateTime? get displayDate =>
       startedAt ?? requestedAt ?? shiftStart ?? updatedAt;
+
+  static List<String> _parseStringList(dynamic raw) {
+    if (raw is! List) return const [];
+    final seen = <String>{};
+    final values = <String>[];
+    for (final item in raw) {
+      final value = item?.toString().trim() ?? '';
+      if (value.isEmpty || seen.contains(value)) continue;
+      seen.add(value);
+      values.add(value);
+    }
+    return values;
+  }
 
   factory ClassRecordingItem.fromMap(Map<String, dynamic> data) {
     DateTime? parseDate(String key) {
@@ -58,7 +77,9 @@ class ClassRecordingItem {
           ? data['shiftName'].toString().trim()
           : 'Class Recording',
       subjectName: data['subjectName']?.toString() ?? '',
+      teacherId: data['teacherId']?.toString(),
       teacherName: data['teacherName']?.toString() ?? '',
+      studentIds: _parseStringList(data['studentIds']),
       status: data['status']?.toString() ?? 'unknown',
       error: data['error']?.toString(),
       filePath: data['filePath']?.toString() ?? '',
@@ -68,6 +89,7 @@ class ClassRecordingItem {
       requestedAt: parseDate('requestedAtIso'),
       startedAt: parseDate('startedAtIso'),
       updatedAt: parseDate('updatedAtIso'),
+      deleteAfter: parseDate('deleteAfterIso'),
       canPlay: data['canPlay'] == true,
     );
   }
@@ -229,6 +251,70 @@ class ClassRecordingService {
     }
   }
 
+  static Future<Map<String, String>> getUserNamesByIds(
+    Iterable<String> userIds,
+  ) async {
+    final ids = userIds
+        .map((id) => id.trim())
+        .where((id) => id.isNotEmpty)
+        .toSet()
+        .toList();
+    if (ids.isEmpty) return const {};
+
+    final resolved = <String, String>{};
+    const chunkSize = 10;
+    final usersRef = FirebaseFirestore.instance.collection('users');
+
+    String resolveName(String fallbackId, Map<String, dynamic> data) {
+      final first =
+          (data['first_name'] ?? data['firstName'] ?? '').toString().trim();
+      final last =
+          (data['last_name'] ?? data['lastName'] ?? '').toString().trim();
+      final full = [first, last].where((v) => v.isNotEmpty).join(' ').trim();
+      if (full.isNotEmpty) return full;
+
+      final directName =
+          (data['name'] ?? data['displayName'] ?? '').toString().trim();
+      if (directName.isNotEmpty) return directName;
+
+      final email = (data['e-mail'] ?? data['email'] ?? '').toString().trim();
+      if (email.isNotEmpty) return email;
+
+      return fallbackId;
+    }
+
+    List<String> extractAliases(String docId, Map<String, dynamic> data) {
+      final aliases = <String>{
+        docId.trim(),
+        (data['uid'] ?? '').toString().trim(),
+        (data['auth_uid'] ?? data['authUid'] ?? '').toString().trim(),
+        (data['auth_user_id'] ?? data['authUserId'] ?? '').toString().trim(),
+      }..removeWhere((id) => id.isEmpty);
+      return aliases.toList();
+    }
+
+    try {
+      for (var i = 0; i < ids.length; i += chunkSize) {
+        final chunk = ids.sublist(
+            i, i + chunkSize > ids.length ? ids.length : i + chunkSize);
+        final snapshot =
+            await usersRef.where(FieldPath.documentId, whereIn: chunk).get();
+
+        for (final doc in snapshot.docs) {
+          final data = doc.data();
+          final name = resolveName(doc.id, data);
+          for (final alias in extractAliases(doc.id, data)) {
+            resolved[alias] = name;
+          }
+        }
+      }
+    } catch (e) {
+      AppLogger.error('ClassRecordingService.getUserNamesByIds: $e');
+    }
+
+    return resolved;
+  }
+
   /// Fetches student names for a given shift by reading the teaching_shifts
   /// document and resolving user names from their IDs.
   static Future<List<String>> getStudentNamesForShift(String shiftId) async {
@@ -245,8 +331,10 @@ class ClassRecordingService {
       final raw = data['student_ids'];
       if (raw is! List || raw.isEmpty) return [];
 
-      final studentIds =
-          raw.map((e) => e?.toString() ?? '').where((e) => e.isNotEmpty).toList();
+      final studentIds = raw
+          .map((e) => e?.toString() ?? '')
+          .where((e) => e.isNotEmpty)
+          .toList();
       if (studentIds.isEmpty) return [];
 
       final names = <String>[];

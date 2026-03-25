@@ -46,10 +46,13 @@ class _VoiceRecordingProfile {
 
 class ChatScreen extends StatefulWidget {
   final ChatUser chatUser;
+  /// True when this is a shared admin-support conversation.
+  final bool isAdminSupportChat;
 
   const ChatScreen({
     super.key,
     required this.chatUser,
+    this.isAdminSupportChat = false,
   });
 
   @override
@@ -88,10 +91,35 @@ class _ChatScreenState extends State<ChatScreen> {
   String _mentionQuery = '';
   int _mentionStartIndex = -1;
 
+  /// The effective chat ID used for message routing.
+  /// For admin-support chats opened by a non-admin user, this is the generated
+  /// chat doc ID. For admin-support chats opened by an admin, it's already the
+  /// doc ID stored in chatUser.id.
+  late final String _effectiveChatId;
+
+  /// Convenience getter: returns the correct ID to pass to ChatService methods.
+  String get _chatTargetId =>
+      widget.isAdminSupportChat ? _effectiveChatId : widget.chatUser.id;
+
   @override
   void initState() {
     super.initState();
     _messageController.addListener(_onTextChanged);
+
+    // Compute the effective chat ID for admin support chats
+    if (widget.isAdminSupportChat &&
+        widget.chatUser.id == ChatService.adminSupportId) {
+      // Non-admin user: generate the chat doc ID
+      final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+      final ids = [uid, ChatService.adminSupportId]..sort();
+      _effectiveChatId = '${ids[0]}_${ids[1]}';
+    } else if (widget.isAdminSupportChat) {
+      // Admin viewing a support conversation — chatUser.id is the doc ID
+      _effectiveChatId = widget.chatUser.id;
+    } else {
+      _effectiveChatId = widget.chatUser.id;
+    }
+
     _checkPermissionAndContext();
 
     if (widget.chatUser.isGroup) {
@@ -99,25 +127,45 @@ class _ChatScreenState extends State<ChatScreen> {
     }
 
     // Set the current open chat to suppress notifications for this chat
-    NotificationService.setCurrentOpenChat(widget.chatUser.id);
+    NotificationService.setCurrentOpenChat(_effectiveChatId);
 
     // Initialize the messages stream once to prevent rebuilding on every setState
-    _messagesStream = _chatService.getChatMessages(
-      widget.chatUser.id,
-      isGroupChat: widget.chatUser.isGroup,
-    );
+    if (widget.isAdminSupportChat) {
+      _messagesStream = _chatService.getChatMessages(
+        _effectiveChatId,
+        isGroupChat: false,
+      );
+    } else {
+      _messagesStream = _chatService.getChatMessages(
+        widget.chatUser.id,
+        isGroupChat: widget.chatUser.isGroup,
+      );
+    }
 
     // Mark messages as read when opening chat
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _chatService.markMessagesAsRead(
-        widget.chatUser.id,
+        _effectiveChatId,
         isGroupChat: widget.chatUser.isGroup,
+        isAdminSupportChat: widget.isAdminSupportChat,
       );
     });
   }
 
   Future<void> _checkPermissionAndContext() async {
     final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+
+    // Admin support chats always have permission (any user can message admin,
+    // any admin can respond).
+    if (widget.isAdminSupportChat) {
+      setState(() {
+        _checkingPermission = false;
+        _hasPermission = true;
+        _relationshipContext = 'Admin Support';
+      });
+      return;
+    }
+
     if (currentUserId == null || widget.chatUser.isGroup) {
       setState(() {
         _checkingPermission = false;
@@ -715,8 +763,9 @@ class _ChatScreenState extends State<ChatScreen> {
           if (hasUnread) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               _chatService.markMessagesAsRead(
-                widget.chatUser.id,
+                _chatTargetId,
                 isGroupChat: widget.chatUser.isGroup,
+                isAdminSupportChat: widget.isAdminSupportChat,
               );
             });
           }
@@ -1144,7 +1193,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
       try {
         await _chatService.sendImageMessage(
-          widget.chatUser.id,
+          _chatTargetId,
           File(pickedFile.path),
           isGroupChat: widget.chatUser.isGroup,
         );
@@ -1180,7 +1229,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
       try {
         await _chatService.sendFileMessage(
-          widget.chatUser.id,
+          _chatTargetId,
           File(result.files.single.path!),
           result.files.single.name,
           isGroupChat: widget.chatUser.isGroup,
@@ -1228,7 +1277,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
       // Send location message
       await _chatService.sendLocationMessage(
-        widget.chatUser.id,
+        _chatTargetId,
         position.latitude,
         position.longitude,
         'My Location',
@@ -1510,7 +1559,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
       // Send voice message using ChatService
       await _chatService.sendVoiceMessage(
-        widget.chatUser.id,
+        _chatTargetId,
         file,
         durationSeconds,
         isGroupChat: widget.chatUser.isGroup,
@@ -1623,7 +1672,7 @@ class _ChatScreenState extends State<ChatScreen> {
     }
 
     _chatService.sendMessage(
-      widget.chatUser.id,
+      widget.isAdminSupportChat ? _effectiveChatId : widget.chatUser.id,
       text,
       metadata: metadata,
       isGroupChat: widget.chatUser.isGroup,
@@ -1694,7 +1743,7 @@ class _ChatScreenState extends State<ChatScreen> {
             onPressed: () async {
               Navigator.of(context).pop();
               final success = await _chatService.deleteMessage(
-                widget.chatUser.id,
+                _chatTargetId,
                 message.id,
                 isGroupChat: widget.chatUser.isGroup,
               );
@@ -1720,7 +1769,7 @@ class _ChatScreenState extends State<ChatScreen> {
       builder: (context) => _ForwardMessageDialog(
         chatService: _chatService,
         message: message,
-        currentChatId: widget.chatUser.id,
+        currentChatId: _chatTargetId,
         onMessageForwarded: () {
           _showMessage('Message forwarded', isError: false);
         },
@@ -1730,7 +1779,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   void _addReaction(ChatMessage message, String reaction) async {
     final success = await _chatService.addReaction(
-      widget.chatUser.id,
+      _chatTargetId,
       message.id,
       reaction,
       isGroupChat: widget.chatUser.isGroup,
@@ -1767,7 +1816,7 @@ class _ChatScreenState extends State<ChatScreen> {
             onPressed: () async {
               Navigator.of(context).pop();
               final success = await _chatService.clearChat(
-                widget.chatUser.id,
+                _chatTargetId,
                 isGroupChat: widget.chatUser.isGroup,
               );
               if (success) {

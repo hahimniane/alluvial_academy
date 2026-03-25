@@ -20,7 +20,7 @@ class _FormsListScreenState extends State<FormsListScreen> {
   String _searchQuery = '';
   String _statusFilter = 'all';
   String _sortBy = 'newest';
-  String _collectionType = 'form'; // 'form' or 'form_templates'
+  String _collectionType = 'form_templates'; // Default to new templates (legacy forms hidden)
   final TextEditingController _searchController = TextEditingController();
 
   @override
@@ -117,11 +117,10 @@ class _FormsListScreenState extends State<FormsListScreen> {
           const SizedBox(height: 20),
           
           // Collection type selector (tabs)
+          // Legacy "Old Forms" tab is hidden — only new templates are shown.
           Row(
             children: [
-              _buildCollectionTab('form', 'Old Forms', Icons.description),
-              const SizedBox(width: 8),
-              _buildCollectionTab('form_templates', 'New Templates', Icons.dynamic_form),
+              _buildCollectionTab('form_templates', 'Form Templates', Icons.dynamic_form),
             ],
           ),
           

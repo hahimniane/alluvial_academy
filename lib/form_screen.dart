@@ -641,6 +641,9 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                   ),
 
                   // Forms list
+                  // Legacy forms from 'form' collection are hidden.
+                  // All users should use the new template system via TeacherFormsScreen.
+                  // The old form picker below is kept but returns an empty list.
                   Expanded(
                     child: StreamBuilder<QuerySnapshot>(
                       stream: FirebaseFirestore.instance
@@ -678,8 +681,14 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                         AppLogger.debug(
                             'FormScreen: Processing ${snapshot.data!.docs.length} forms from Firestore');
 
+                        // Legacy forms from 'form' collection are hidden.
+                        // Users should use TeacherFormsScreen (new template system).
                         final allForms = snapshot.data!.docs.where((doc) {
                           final data = doc.data() as Map<String, dynamic>;
+
+                          // Legacy forms are disabled — hide all of them
+                          // To re-enable, remove this line:
+                          return false;
 
                           // First check if the form is active
                           final status = data['status'] ?? 'active';
@@ -4440,7 +4449,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
 
       // Get form type for audit system (daily, weekly, monthly, onDemand)
       final frequency = selectedFormData?['frequency'] as String?;
-      String formType = 'legacy'; // Default for old forms
+      String formType = 'daily'; // Default — most legacy forms are daily/shift forms
       if (frequency != null) {
         switch (frequency) {
           case 'perSession':

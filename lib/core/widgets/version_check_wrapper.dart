@@ -1,5 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+
+import '../../l10n/app_localizations.dart';
+import '../services/language_service.dart';
 import '../services/version_service.dart';
 import 'force_update_dialog.dart';
 
@@ -20,7 +24,7 @@ class VersionCheckWrapper extends StatefulWidget {
 
 class _VersionCheckWrapperState extends State<VersionCheckWrapper>
     with WidgetsBindingObserver {
-  bool _updateRequired = false;
+  VersionGateDecision? _decision;
   bool _checking = true;
 
   @override
@@ -59,10 +63,10 @@ class _VersionCheckWrapperState extends State<VersionCheckWrapper>
         });
       }
 
-      final updateRequired = await VersionService.isUpdateRequired();
+      final decision = await VersionService.getUpdateDecision();
       if (mounted) {
         setState(() {
-          _updateRequired = updateRequired;
+          _decision = decision;
           _checking = false;
         });
       }
@@ -80,7 +84,7 @@ class _VersionCheckWrapperState extends State<VersionCheckWrapper>
   Widget build(BuildContext context) {
     // Show loading while checking
     if (_checking) {
-      return MaterialApp(
+      return _buildShell(
         home: Scaffold(
           body: Center(
             child: Column(
@@ -97,13 +101,28 @@ class _VersionCheckWrapperState extends State<VersionCheckWrapper>
     }
 
     // Show force update screen if update is required
-    if (_updateRequired) {
-      return MaterialApp(
-        home: ForceUpdateScreen(),
+    if (_decision?.updateRequired == true) {
+      return _buildShell(
+        home: ForceUpdateScreen(decision: _decision!),
       );
     }
 
     // No update required, show the normal app
     return widget.child;
+  }
+
+  Widget _buildShell({required Widget home}) {
+    return MaterialApp(
+      locale: WidgetsBinding.instance.platformDispatcher.locale,
+      supportedLocales: LanguageService.supportedLocales,
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      home: home,
+      debugShowCheckedModeBanner: false,
+    );
   }
 }

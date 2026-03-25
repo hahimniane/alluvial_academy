@@ -525,35 +525,46 @@ service cloud.firestore {
     // Users can only read chats they are participants in
     // Permission validation is done server-side via Cloud Functions
     match /chats/{chatId} {
+      // Helper: true when this is a shared admin-support chat
+      function isAdminSupportChat() {
+        return resource != null && 'admin_support' in resource.data.participants;
+      }
+      function isNewAdminSupportChat() {
+        return 'admin_support' in request.resource.data.participants;
+      }
+
       // Allow read/list for authenticated users
       // The query filters by participants on the client side
       allow read: if isSignedIn();
-      
+
       // Allow create if user is creating a chat they're a participant in
-      allow create: if isSignedIn() && 
+      allow create: if isSignedIn() &&
                        request.auth.uid in request.resource.data.participants;
-      
-      // Allow update if user is a participant (for last_message updates)
-      allow update: if isSignedIn() && 
-                       request.auth.uid in resource.data.participants;
-      
+
+      // Allow update if user is a participant, OR if admin updating an admin-support chat
+      allow update: if isSignedIn() &&
+                       (request.auth.uid in resource.data.participants ||
+                        (isAdminSupportChat() && isAdmin()));
+
       // Allow delete only for admins
       allow delete: if isAdmin();
-      
+
       // Messages subcollection
       match /messages/{messageId} {
         // Allow read for participants
         allow read: if isSignedIn();
-        
+
         // Allow create if user is sending as themselves
-        allow create: if isSignedIn() && 
+        // Admins can also send in admin-support chats
+        allow create: if isSignedIn() &&
                          request.resource.data.sender_id == request.auth.uid;
-        
+
         // Allow update for marking messages as read
         allow update: if isSignedIn();
-        
-        // No delete allowed (preserve chat history for compliance)
-        allow delete: if false;
+
+        // Allow delete for message sender
+        allow delete: if isSignedIn() &&
+                         resource.data.sender_id == request.auth.uid;
       }
     }
     

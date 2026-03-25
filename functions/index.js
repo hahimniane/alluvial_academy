@@ -326,6 +326,7 @@ exports.setLiveKitRoomLock = livekitHandlers.setLiveKitRoomLock;
 exports.getLiveKitGuestJoin = livekitHandlers.getLiveKitGuestJoin;
 exports.listClassRecordings = livekitHandlers.listClassRecordings;
 exports.getClassRecordingPlaybackUrl = livekitHandlers.getClassRecordingPlaybackUrl;
+exports.cleanupExpiredClassRecordings = livekitHandlers.cleanupExpiredClassRecordings;
 
 // LiveKit Test Function (for development/testing)
 exports.testLiveKit = testLivekitHandlers.testLiveKit;

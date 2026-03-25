@@ -1,15 +1,191 @@
 import 'dart:io';
+
 import 'package:firebase_remote_config/firebase_remote_config.dart';
-import 'package:package_info_plus/package_info_plus.dart';
 import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
+import 'package:new_version_plus/new_version_plus.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+
+enum VersionGateSource {
+  none,
+  store,
+  remoteConfig,
+}
+
+class VersionGateDecision {
+  final bool updateRequired;
+  final VersionGateSource source;
+  final String currentVersion;
+  final String? targetVersion;
+  final String? minimumSupportedVersion;
+  final String? storeVersion;
+  final String storeUrl;
+  final String? releaseNotes;
+  final bool storeCheckAttempted;
+  final bool storeCheckSucceeded;
+
+  const VersionGateDecision({
+    required this.updateRequired,
+    required this.source,
+    required this.currentVersion,
+    required this.targetVersion,
+    required this.minimumSupportedVersion,
+    required this.storeVersion,
+    required this.storeUrl,
+    required this.releaseNotes,
+    required this.storeCheckAttempted,
+    required this.storeCheckSucceeded,
+  });
+
+  const VersionGateDecision.noUpdate({
+    required String currentVersion,
+    String storeUrl = '',
+    String? minimumSupportedVersion,
+    String? storeVersion,
+    String? releaseNotes,
+    bool storeCheckAttempted = false,
+    bool storeCheckSucceeded = false,
+  }) : this(
+          updateRequired: false,
+          source: VersionGateSource.none,
+          currentVersion: currentVersion,
+          targetVersion: null,
+          minimumSupportedVersion: minimumSupportedVersion,
+          storeVersion: storeVersion,
+          storeUrl: storeUrl,
+          releaseNotes: releaseNotes,
+          storeCheckAttempted: storeCheckAttempted,
+          storeCheckSucceeded: storeCheckSucceeded,
+        );
+
+  bool get enforcedByStore => source == VersionGateSource.store;
+
+  String get displayTargetVersion =>
+      targetVersion ??
+      storeVersion ??
+      minimumSupportedVersion ??
+      currentVersion;
+}
+
+class VersionPolicy {
+  static final RegExp _versionRegex = RegExp(r'\d+(\.\d+){0,2}');
+
+  static String normalizeVersion(String version) {
+    final match = _versionRegex.firstMatch(version.trim());
+    if (match == null) {
+      return '0.0.0';
+    }
+
+    final parts = match.group(0)!.split('.').map(int.parse).toList();
+    while (parts.length < 3) {
+      parts.add(0);
+    }
+    return parts.take(3).join('.');
+  }
+
+  static int compareVersions(String left, String right) {
+    final leftParts = normalizeVersion(left).split('.').map(int.parse).toList();
+    final rightParts =
+        normalizeVersion(right).split('.').map(int.parse).toList();
+
+    for (var i = 0; i < leftParts.length; i++) {
+      if (leftParts[i] < rightParts[i]) {
+        return -1;
+      }
+      if (leftParts[i] > rightParts[i]) {
+        return 1;
+      }
+    }
+
+    return 0;
+  }
+
+  static VersionGateDecision evaluate({
+    required bool forceUpdateEnabled,
+    required bool enforceLatestStoreVersion,
+    required String currentVersion,
+    required String minimumSupportedVersion,
+    required String storeUrl,
+    String? storeVersion,
+    String? releaseNotes,
+    required bool storeCheckAttempted,
+    required bool storeCheckSucceeded,
+  }) {
+    final normalizedCurrent = normalizeVersion(currentVersion);
+    final normalizedMinimum = normalizeVersion(minimumSupportedVersion);
+    final normalizedStore =
+        (storeVersion == null || storeVersion.trim().isEmpty)
+            ? null
+            : normalizeVersion(storeVersion);
+
+    if (!forceUpdateEnabled) {
+      return VersionGateDecision.noUpdate(
+        currentVersion: normalizedCurrent,
+        storeUrl: storeUrl,
+        minimumSupportedVersion: normalizedMinimum,
+        storeVersion: normalizedStore,
+        releaseNotes: releaseNotes,
+        storeCheckAttempted: storeCheckAttempted,
+        storeCheckSucceeded: storeCheckSucceeded,
+      );
+    }
+
+    if (enforceLatestStoreVersion && normalizedStore != null) {
+      final needsStoreUpdate =
+          compareVersions(normalizedCurrent, normalizedStore) < 0;
+      if (needsStoreUpdate) {
+        return VersionGateDecision(
+          updateRequired: true,
+          source: VersionGateSource.store,
+          currentVersion: normalizedCurrent,
+          targetVersion: normalizedStore,
+          minimumSupportedVersion: normalizedMinimum,
+          storeVersion: normalizedStore,
+          storeUrl: storeUrl,
+          releaseNotes: releaseNotes,
+          storeCheckAttempted: storeCheckAttempted,
+          storeCheckSucceeded: storeCheckSucceeded,
+        );
+      }
+    }
+
+    final needsMinimumVersionUpdate =
+        compareVersions(normalizedCurrent, normalizedMinimum) < 0;
+    if (needsMinimumVersionUpdate) {
+      return VersionGateDecision(
+        updateRequired: true,
+        source: VersionGateSource.remoteConfig,
+        currentVersion: normalizedCurrent,
+        targetVersion: normalizedMinimum,
+        minimumSupportedVersion: normalizedMinimum,
+        storeVersion: normalizedStore,
+        storeUrl: storeUrl,
+        releaseNotes: releaseNotes,
+        storeCheckAttempted: storeCheckAttempted,
+        storeCheckSucceeded: storeCheckSucceeded,
+      );
+    }
+
+    return VersionGateDecision.noUpdate(
+      currentVersion: normalizedCurrent,
+      storeUrl: storeUrl,
+      minimumSupportedVersion: normalizedMinimum,
+      storeVersion: normalizedStore,
+      releaseNotes: releaseNotes,
+      storeCheckAttempted: storeCheckAttempted,
+      storeCheckSucceeded: storeCheckSucceeded,
+    );
+  }
+}
 
 class VersionService {
   static final FirebaseRemoteConfig _remoteConfig =
       FirebaseRemoteConfig.instance;
 
-  /// Initialize Remote Config with default values
+  static VersionGateDecision? _lastDecision;
+
+  /// Initialize Remote Config with default values.
   static Future<void> initialize() async {
     try {
       await _remoteConfig.setConfigSettings(RemoteConfigSettings(
@@ -18,149 +194,230 @@ class VersionService {
             kDebugMode ? Duration.zero : const Duration(minutes: 5),
       ));
 
-      // Set default values
       await _remoteConfig.setDefaults(<String, dynamic>{
         'minimum_android_version': '1.0.0',
         'minimum_ios_version': '1.0.0',
         'force_update_enabled': true,
-        // Optional: configure store links via Remote Config.
+        'enforce_latest_store_version': true,
         'android_store_url': '',
         'ios_store_url': '',
         'ios_app_id': '',
+        'android_store_id': '',
+        'ios_app_store_country': 'US',
+        'android_play_store_country': 'en_US',
       });
 
-      // Fetch and activate
       await _remoteConfig.fetchAndActivate();
     } catch (e) {
       AppLogger.error('Error initializing Remote Config: $e');
     }
   }
 
-  /// Check if update is required for the current platform
+  static VersionGateDecision? get lastDecision => _lastDecision;
+
+  /// Check whether the current app must be updated before use.
   static Future<bool> isUpdateRequired() async {
-    // Skip for web
+    final decision = await getUpdateDecision();
+    return decision.updateRequired;
+  }
+
+  /// Resolve the full force-update decision for the current platform.
+  static Future<VersionGateDecision> getUpdateDecision() async {
     if (kIsWeb) {
-      return false;
+      return const VersionGateDecision.noUpdate(currentVersion: '0.0.0');
     }
 
     try {
-      // Get current app version
-      final PackageInfo packageInfo = await PackageInfo.fromPlatform();
-      final String currentVersion = packageInfo.version;
+      final packageInfo = await PackageInfo.fromPlatform();
+      final currentVersion =
+          VersionPolicy.normalizeVersion(packageInfo.version);
 
-      // Fetch and activate latest remote config
       await _remoteConfig.fetchAndActivate();
 
-      // Check if force update is enabled
-      final bool forceUpdateEnabled =
-          _remoteConfig.getBool('force_update_enabled');
-      if (!forceUpdateEnabled) {
-        return false;
-      }
+      final forceUpdateEnabled = _remoteConfig.getBool('force_update_enabled');
+      final enforceLatestStoreVersion =
+          _remoteConfig.getBool('enforce_latest_store_version');
+      final minimumSupportedVersion = _getPlatformMinimumVersion();
 
-      // Get required version based on platform
-      String requiredVersion;
-      if (Platform.isAndroid) {
-        requiredVersion = _remoteConfig.getString('minimum_android_version');
-      } else if (Platform.isIOS) {
-        requiredVersion = _remoteConfig.getString('minimum_ios_version');
-      } else {
-        return false; // Not Android or iOS
-      }
+      final storeStatus = await _getStoreVersionStatus(packageInfo);
+      final storeUrl = await _resolveStoreUrl(
+        packageInfo: packageInfo,
+        storeStatus: storeStatus,
+      );
 
-      // Compare versions
-      return _compareVersions(currentVersion, requiredVersion) < 0;
+      final decision = VersionPolicy.evaluate(
+        forceUpdateEnabled: forceUpdateEnabled,
+        enforceLatestStoreVersion: enforceLatestStoreVersion,
+        currentVersion: currentVersion,
+        minimumSupportedVersion: minimumSupportedVersion,
+        storeUrl: storeUrl,
+        storeVersion: storeStatus?.storeVersion,
+        releaseNotes: storeStatus?.releaseNotes,
+        storeCheckAttempted: true,
+        storeCheckSucceeded: storeStatus != null,
+      );
+
+      _lastDecision = decision;
+      return decision;
     } catch (e) {
       AppLogger.error('Error checking update requirement: $e');
-      return false;
+
+      final fallbackCurrentVersion = await getCurrentVersion();
+      final fallbackMinimumVersion = _getPlatformMinimumVersion();
+      final fallbackUrl = await getAppStoreUrl();
+
+      final decision = VersionPolicy.evaluate(
+        forceUpdateEnabled: _remoteConfig.getBool('force_update_enabled'),
+        enforceLatestStoreVersion: false,
+        currentVersion: fallbackCurrentVersion,
+        minimumSupportedVersion: fallbackMinimumVersion,
+        storeUrl: fallbackUrl,
+        storeCheckAttempted: true,
+        storeCheckSucceeded: false,
+      );
+
+      _lastDecision = decision;
+      return decision;
     }
   }
 
-  /// Compare two version strings (e.g., "1.2.3")
-  /// Returns:
-  ///   -1 if currentVersion < requiredVersion
-  ///    0 if currentVersion == requiredVersion
-  ///    1 if currentVersion > requiredVersion
-  static int _compareVersions(String currentVersion, String requiredVersion) {
+  static String _getPlatformMinimumVersion() {
+    if (kIsWeb) {
+      return '0.0.0';
+    }
+
+    if (Platform.isAndroid) {
+      return _remoteConfig.getString('minimum_android_version').trim();
+    }
+
+    if (Platform.isIOS) {
+      return _remoteConfig.getString('minimum_ios_version').trim();
+    }
+
+    return '0.0.0';
+  }
+
+  static Future<VersionStatus?> _getStoreVersionStatus(
+    PackageInfo packageInfo,
+  ) async {
+    if (kIsWeb || (!Platform.isAndroid && !Platform.isIOS)) {
+      return null;
+    }
+
     try {
-      final List<int> currentParts =
-          currentVersion.split('.').map(int.parse).toList();
-      final List<int> requiredParts =
-          requiredVersion.split('.').map(int.parse).toList();
+      final newVersion = NewVersionPlus(
+        androidId:
+            _getRemoteString('android_store_id')?.trim().isNotEmpty == true
+                ? _getRemoteString('android_store_id')!.trim()
+                : packageInfo.packageName,
+        iOSId: _getRemoteString('ios_app_id')?.trim().isNotEmpty == true
+            ? _getRemoteString('ios_app_id')!.trim()
+            : packageInfo.packageName,
+        iOSAppStoreCountry: _getRemoteString('ios_app_store_country'),
+        androidPlayStoreCountry: _getRemoteString('android_play_store_country'),
+      );
 
-      // Pad the shorter version with zeros
-      while (currentParts.length < requiredParts.length) {
-        currentParts.add(0);
-      }
-      while (requiredParts.length < currentParts.length) {
-        requiredParts.add(0);
+      final status = await newVersion.getVersionStatus().timeout(
+            const Duration(seconds: 8),
+          );
+
+      if (status == null) {
+        AppLogger.warning('VersionService: store version lookup returned null');
+        return null;
       }
 
-      // Compare each part
-      for (int i = 0; i < currentParts.length; i++) {
-        if (currentParts[i] < requiredParts[i]) {
-          return -1;
-        } else if (currentParts[i] > requiredParts[i]) {
-          return 1;
-        }
-      }
-
-      return 0;
+      AppLogger.info(
+        'VersionService: store version resolved '
+        'local=${status.localVersion} store=${status.storeVersion}',
+      );
+      return status;
     } catch (e) {
-      AppLogger.error('Error comparing versions: $e');
-      return 0;
+      AppLogger.error('VersionService: store version lookup failed: $e');
+      return null;
     }
   }
 
-  /// Get the app store URL for the current platform
+  static String? _getRemoteString(String key) {
+    try {
+      final value = _remoteConfig.getString(key).trim();
+      return value.isEmpty ? null : value;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Get the most relevant store URL for the current platform.
   static Future<String> getAppStoreUrl() async {
     if (kIsWeb) return '';
 
+    final cachedUrl = _lastDecision?.storeUrl.trim();
+    if (cachedUrl != null && cachedUrl.isNotEmpty) {
+      return cachedUrl;
+    }
+
     try {
-      if (Platform.isAndroid) {
-        final configuredUrl =
-            _remoteConfig.getString('android_store_url').trim();
-        if (configuredUrl.isNotEmpty) return configuredUrl;
-
-        final packageInfo = await PackageInfo.fromPlatform();
-        final packageName = packageInfo.packageName.trim();
-        if (packageName.isEmpty) return '';
-
-        return 'https://play.google.com/store/apps/details?id=$packageName';
-      }
-
-      if (Platform.isIOS) {
-        final configuredUrl = _remoteConfig.getString('ios_store_url').trim();
-        if (configuredUrl.isNotEmpty) return configuredUrl;
-
-        final appId = _remoteConfig.getString('ios_app_id').trim();
-        if (appId.isEmpty) return '';
-
-        return 'https://apps.apple.com/app/id$appId';
-      }
-
-      return '';
+      final packageInfo = await PackageInfo.fromPlatform();
+      return _resolveStoreUrl(packageInfo: packageInfo);
     } catch (e) {
       AppLogger.error('Error building store URL: $e');
       return '';
     }
   }
 
-  /// Get current app version
+  static Future<String> _resolveStoreUrl({
+    required PackageInfo packageInfo,
+    VersionStatus? storeStatus,
+  }) async {
+    if (kIsWeb) return '';
+
+    final configuredUrl = Platform.isAndroid
+        ? _getRemoteString('android_store_url')
+        : Platform.isIOS
+            ? _getRemoteString('ios_store_url')
+            : null;
+    if (configuredUrl != null && configuredUrl.isNotEmpty) {
+      return configuredUrl;
+    }
+
+    final storeLink = storeStatus?.appStoreLink.trim();
+    if (storeLink != null && storeLink.isNotEmpty) {
+      return storeLink;
+    }
+
+    if (Platform.isAndroid) {
+      final packageName =
+          (_getRemoteString('android_store_id') ?? packageInfo.packageName)
+              .trim();
+      if (packageName.isEmpty) return '';
+      return 'https://play.google.com/store/apps/details?id=$packageName';
+    }
+
+    if (Platform.isIOS) {
+      final appId = (_getRemoteString('ios_app_id') ?? '').trim();
+      if (appId.isNotEmpty && !appId.contains('.')) {
+        return 'https://apps.apple.com/app/id$appId';
+      }
+      return '';
+    }
+
+    return '';
+  }
+
+  /// Get current app version.
   static Future<String> getCurrentVersion() async {
     try {
-      final PackageInfo packageInfo = await PackageInfo.fromPlatform();
-      return packageInfo.version;
+      final packageInfo = await PackageInfo.fromPlatform();
+      return VersionPolicy.normalizeVersion(packageInfo.version);
     } catch (e) {
       AppLogger.error('Error getting current version: $e');
       return '1.0.0';
     }
   }
 
-  /// Get build number
+  /// Get build number.
   static Future<String> getBuildNumber() async {
     try {
-      final PackageInfo packageInfo = await PackageInfo.fromPlatform();
+      final packageInfo = await PackageInfo.fromPlatform();
       return packageInfo.buildNumber;
     } catch (e) {
       AppLogger.error('Error getting build number: $e');
@@ -168,17 +425,17 @@ class VersionService {
     }
   }
 
-  /// Get full version info (version + build)
+  /// Get full version info (version + build).
   static Future<String> getFullVersionInfo() async {
     final version = await getCurrentVersion();
     final build = await getBuildNumber();
     return '$version+$build';
   }
 
-  /// Get app name
+  /// Get app name.
   static Future<String> getAppName() async {
     try {
-      final PackageInfo packageInfo = await PackageInfo.fromPlatform();
+      final packageInfo = await PackageInfo.fromPlatform();
       return packageInfo.appName;
     } catch (e) {
       AppLogger.error('Error getting app name: $e');
@@ -186,10 +443,10 @@ class VersionService {
     }
   }
 
-  /// Get package name
+  /// Get package name.
   static Future<String> getPackageName() async {
     try {
-      final PackageInfo packageInfo = await PackageInfo.fromPlatform();
+      final packageInfo = await PackageInfo.fromPlatform();
       return packageInfo.packageName;
     } catch (e) {
       AppLogger.error('Error getting package name: $e');

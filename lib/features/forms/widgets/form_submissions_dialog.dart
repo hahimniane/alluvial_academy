@@ -3,14 +3,21 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../utility_functions/export_helpers.dart';
 import '../../../core/utils/performance_logger.dart';
+import '../utils/form_date_range_utils.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class FormSubmissionsDialog extends StatefulWidget {
   final String formId;
   final String formTitle;
+  final List<String> formIds;
+  final List<String> definitionIds;
 
   const FormSubmissionsDialog(
-      {super.key, required this.formId, required this.formTitle});
+      {super.key,
+      required this.formId,
+      required this.formTitle,
+      this.formIds = const [],
+      this.definitionIds = const []});
 
   @override
   State<FormSubmissionsDialog> createState() => _FormSubmissionsDialogState();
@@ -60,55 +67,40 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
   Future<void> _load() async {
     if (!mounted) return;
 
-    final opId = PerformanceLogger.newOperationId('FormSubmissionsDialog._load');
+    final opId =
+        PerformanceLogger.newOperationId('FormSubmissionsDialog._load');
     PerformanceLogger.startTimer(opId, metadata: {
       'form_id': widget.formId,
     });
 
     setState(() => _isLoading = true);
     try {
+      final responsesStopwatch = Stopwatch()..start();
+      final docs = await _loadSubmissionDocs();
+      responsesStopwatch.stop();
+
       final templateStopwatch = Stopwatch()..start();
-      final templateDoc = await FirebaseFirestore.instance
-          .collection('form')
-          .doc(widget.formId)
-          .get();
+      final fieldsMap = await _loadFieldsMapForForm(docs);
       templateStopwatch.stop();
-      final fieldsMap =
-          (templateDoc.data()?['fields'] as Map?)?.cast<String, dynamic>() ??
-              {};
+
       PerformanceLogger.checkpoint(opId, 'template_loaded', metadata: {
         'query_time_ms': templateStopwatch.elapsedMilliseconds,
         'field_count': fieldsMap.length,
       });
 
-      Query q = FirebaseFirestore.instance
-          .collection('form_responses')
-          .where('formId', isEqualTo: widget.formId)
-          .orderBy('submittedAt', descending: false);
-
-      // Apply date filter if range is set
-      if (_dateRange != null) {
-        q = q
-            .where('submittedAt',
-                isGreaterThanOrEqualTo: Timestamp.fromDate(_dateRange!.start))
-            .where('submittedAt',
-                isLessThanOrEqualTo: Timestamp.fromDate(_dateRange!.end));
-      }
-
-      final responsesStopwatch = Stopwatch()..start();
-      final snap = await q.get();
-      responsesStopwatch.stop();
       PerformanceLogger.checkpoint(opId, 'responses_loaded', metadata: {
         'query_time_ms': responsesStopwatch.elapsedMilliseconds,
-        'submission_count': snap.docs.length,
+        'submission_count': docs.length,
       });
 
       if (!mounted) return;
       setState(() {
         _template = {'fields': fieldsMap};
-        _submissions = snap.docs;
+        _submissions = docs;
+        _notesControllers.clear();
+        _editingNotes.clear();
         // Initialize notes controllers for each submission
-        for (final doc in snap.docs) {
+        for (final doc in docs) {
           final data = doc.data() as Map<String, dynamic>;
           final note = (data['adminNote'] ?? '').toString();
           _notesControllers[doc.id] = TextEditingController(text: note);
@@ -121,6 +113,109 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
         'submission_count': _submissions.length,
       });
     }
+  }
+
+  Future<Map<String, dynamic>> _loadFieldsMapForForm(
+      List<QueryDocumentSnapshot> submissions) async {
+    final mergedFields = <String, dynamic>{};
+    final candidateIds = <String>{
+      widget.formId,
+      ...widget.formIds.where((value) => value.trim().isNotEmpty),
+      ...widget.definitionIds.where((value) => value.trim().isNotEmpty),
+      for (final doc in submissions)
+        ...[
+          (doc.data() as Map<String, dynamic>)['templateId']?.toString(),
+          (doc.data() as Map<String, dynamic>)['formId']?.toString(),
+        ].whereType<String>().where((value) => value.trim().isNotEmpty),
+    };
+
+    for (final candidateId in candidateIds) {
+      final legacyDoc = await FirebaseFirestore.instance
+          .collection('form')
+          .doc(candidateId)
+          .get();
+      _mergeFields(mergedFields, _extractFieldsMap(legacyDoc.data()));
+
+      final templateDoc = await FirebaseFirestore.instance
+          .collection('form_templates')
+          .doc(candidateId)
+          .get();
+      _mergeFields(mergedFields, _extractFieldsMap(templateDoc.data()));
+    }
+
+    return mergedFields;
+  }
+
+  Future<List<QueryDocumentSnapshot>> _loadSubmissionDocs() async {
+    final formIds = <String>{
+      widget.formId,
+      ...widget.formIds.where((value) => value.trim().isNotEmpty),
+    }.toList();
+
+    final futures = <Future<QuerySnapshot>>[];
+    for (int i = 0; i < formIds.length; i += 10) {
+      final chunk =
+          formIds.sublist(i, i + 10 > formIds.length ? formIds.length : i + 10);
+      Query q = FirebaseFirestore.instance
+          .collection('form_responses')
+          .where('formId', whereIn: chunk)
+          .orderBy('submittedAt', descending: false);
+
+      if (_dateRange != null) {
+        final startTs = rangeStartTimestamp(_dateRange)!;
+        final endTs = rangeEndTimestamp(_dateRange)!;
+        q = q
+            .where('submittedAt', isGreaterThanOrEqualTo: startTs)
+            .where('submittedAt', isLessThanOrEqualTo: endTs);
+      }
+
+      futures.add(q.get());
+    }
+
+    final snapshots = await Future.wait(futures);
+    final docsById = <String, QueryDocumentSnapshot>{};
+    for (final snapshot in snapshots) {
+      for (final doc in snapshot.docs) {
+        docsById[doc.id] = doc;
+      }
+    }
+
+    final docs = docsById.values.toList()
+      ..sort((a, b) {
+        final aTs =
+            (a.data() as Map<String, dynamic>)['submittedAt'] as Timestamp?;
+        final bTs =
+            (b.data() as Map<String, dynamic>)['submittedAt'] as Timestamp?;
+        return (aTs?.millisecondsSinceEpoch ?? 0)
+            .compareTo(bTs?.millisecondsSinceEpoch ?? 0);
+      });
+    return docs;
+  }
+
+  void _mergeFields(
+      Map<String, dynamic> target, Map<String, dynamic> incoming) {
+    for (final entry in incoming.entries) {
+      target.putIfAbsent(entry.key, () => entry.value);
+    }
+  }
+
+  Map<String, dynamic> _extractFieldsMap(Map<String, dynamic>? data) {
+    final rawFields = data?['fields'];
+    if (rawFields is Map) {
+      return rawFields.cast<String, dynamic>();
+    }
+    if (rawFields is List) {
+      final fields = <String, dynamic>{};
+      for (final field in rawFields) {
+        if (field is! Map) continue;
+        final fieldData = Map<String, dynamic>.from(field);
+        final fieldId = (fieldData['id'] as String?)?.trim();
+        if (fieldId == null || fieldId.isEmpty) continue;
+        fields[fieldId] = fieldData;
+      }
+      return fields;
+    }
+    return {};
   }
 
   Future<void> _selectDateRange() async {
@@ -169,13 +264,15 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
                     rangeSelectionOverlayColor: WidgetStateProperty.all(
                       const Color(0xff0386FF).withValues(alpha: 0.1),
                     ),
-                    dayBackgroundColor: WidgetStateProperty.resolveWith((states) {
+                    dayBackgroundColor:
+                        WidgetStateProperty.resolveWith((states) {
                       if (states.contains(WidgetState.selected)) {
                         return const Color(0xff0386FF);
                       }
                       return null;
                     }),
-                    dayForegroundColor: WidgetStateProperty.resolveWith((states) {
+                    dayForegroundColor:
+                        WidgetStateProperty.resolveWith((states) {
                       if (states.contains(WidgetState.selected)) {
                         return Colors.white;
                       }
@@ -250,7 +347,8 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(AppLocalizations.of(context)!.statusUpdatedToStatus(status)),
+            content: Text(
+                AppLocalizations.of(context)!.statusUpdatedToStatus(status)),
             backgroundColor: const Color(0xFF059669),
             duration: const Duration(seconds: 2),
           ),
@@ -335,12 +433,12 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
         'Email',
         'Submitted At',
       ];
-      
+
       // Add dynamic form field headers
       for (final fieldId in fieldIds) {
         headers.add(_labelFor(fieldId));
       }
-      
+
       // Add status and admin notes columns
       headers.add('Status');
       headers.add('Admin Notes');
@@ -350,8 +448,9 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
         final index = entry.key;
         final doc = entry.value;
         final data = doc.data() as Map<String, dynamic>;
-        final responses = (data['responses'] as Map?)?.cast<String, dynamic>() ?? {};
-        
+        final responses =
+            (data['responses'] as Map?)?.cast<String, dynamic>() ?? {};
+
         // Build row data
         final row = <String>[
           '${index + 1}', // Submission number
@@ -359,24 +458,25 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
           (data['userEmail'] ?? '').toString(),
           _formatSubmissionDate(data['submittedAt']),
         ];
-        
+
         // Add dynamic form field values
         for (final fieldId in fieldIds) {
           String value = (responses[fieldId] ?? '').toString();
-          
+
           // Format dates if it's a timestamp
           if (responses[fieldId] is Timestamp) {
             final date = (responses[fieldId] as Timestamp).toDate();
-            value = '${date.month.toString().padLeft(2, '0')}/${date.day.toString().padLeft(2, '0')}/${date.year}';
+            value =
+                '${date.month.toString().padLeft(2, '0')}/${date.day.toString().padLeft(2, '0')}/${date.year}';
           }
-          
+
           row.add(value);
         }
-        
+
         // Add status and admin notes
         row.add(_capitalizeStatus((data['reviewStatus'] ?? 'seen').toString()));
         row.add((data['adminNote'] ?? '').toString());
-        
+
         return row;
       }).toList();
 
@@ -407,8 +507,10 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
 
   Widget _buildStatusDropdown(String docId, String currentStatus) {
     const statusOptions = ['seen', 'in review', 'accepted', 'rejected'];
-    final normalizedCurrentStatus = currentStatus.toLowerCase().isEmpty ? 'seen' : currentStatus.toLowerCase();
-    
+    final normalizedCurrentStatus = currentStatus.toLowerCase().isEmpty
+        ? 'seen'
+        : currentStatus.toLowerCase();
+
     return Container(
       width: 130,
       height: 32,
@@ -416,10 +518,14 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
       decoration: BoxDecoration(
         color: _getStatusColor(normalizedCurrentStatus).withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: _getStatusColor(normalizedCurrentStatus).withValues(alpha: 0.3)),
+        border: Border.all(
+            color: _getStatusColor(normalizedCurrentStatus)
+                .withValues(alpha: 0.3)),
       ),
       child: DropdownButton<String>(
-        value: statusOptions.contains(normalizedCurrentStatus) ? normalizedCurrentStatus : 'seen',
+        value: statusOptions.contains(normalizedCurrentStatus)
+            ? normalizedCurrentStatus
+            : 'seen',
         isExpanded: true,
         underline: const SizedBox(),
         style: GoogleFonts.inter(
@@ -490,32 +596,37 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
     final fieldInfo = fields[fieldId] as Map<String, dynamic>?;
     final fieldType = fieldInfo?['type'] as String?;
     final fieldOptions = fieldInfo?['options'];
-    
+
     // Convert value to string
     String displayValue = value.toString();
-    
+
     // Format dates if it's a timestamp
     if (value is Timestamp) {
       final date = value.toDate();
-      displayValue = '${date.month.toString().padLeft(2, '0')}/${date.day.toString().padLeft(2, '0')}/${date.year}';
+      displayValue =
+          '${date.month.toString().padLeft(2, '0')}/${date.day.toString().padLeft(2, '0')}/${date.year}';
     }
-    
+
     // If it's a field with options (select, dropdown, multi_select), show as clickable
-    if ((fieldType == 'select' || fieldType == 'dropdown' || fieldType == 'multi_select') && fieldOptions != null) {
+    if ((fieldType == 'select' ||
+            fieldType == 'dropdown' ||
+            fieldType == 'multi_select') &&
+        fieldOptions != null) {
       List<String> options = [];
-      
+
       // Parse options from various formats
       if (fieldOptions is List) {
         options = fieldOptions.map((e) => e.toString()).toList();
       } else if (fieldOptions is String) {
         options = fieldOptions.split(',').map((e) => e.trim()).toList();
       }
-      
+
       if (options.isNotEmpty) {
         return SizedBox(
           width: width,
           child: InkWell(
-            onTap: () => _showFieldOptionsDialog(fieldId, _labelFor(fieldId), options, displayValue),
+            onTap: () => _showFieldOptionsDialog(
+                fieldId, _labelFor(fieldId), options, displayValue),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
@@ -548,7 +659,7 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
         );
       }
     }
-    
+
     // Default text display for other field types
     return SizedBox(
       width: width,
@@ -563,7 +674,8 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
     );
   }
 
-  void _showFieldOptionsDialog(String fieldId, String fieldLabel, List<String> options, String selectedValue) {
+  void _showFieldOptionsDialog(String fieldId, String fieldLabel,
+      List<String> options, String selectedValue) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -598,12 +710,17 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
                       return Container(
                         width: double.infinity,
                         margin: const EdgeInsets.only(bottom: 8),
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 10),
                         decoration: BoxDecoration(
-                          color: isSelected ? const Color(0xFFEFF6FF) : const Color(0xFFF9FAFB),
+                          color: isSelected
+                              ? const Color(0xFFEFF6FF)
+                              : const Color(0xFFF9FAFB),
                           borderRadius: BorderRadius.circular(6),
                           border: Border.all(
-                            color: isSelected ? const Color(0xFF2563EB) : const Color(0xFFE5E7EB),
+                            color: isSelected
+                                ? const Color(0xFF2563EB)
+                                : const Color(0xFFE5E7EB),
                             width: isSelected ? 2 : 1,
                           ),
                         ),
@@ -622,8 +739,12 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
                                 option,
                                 style: GoogleFonts.inter(
                                   fontSize: 14,
-                                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                                  color: isSelected ? const Color(0xFF2563EB) : const Color(0xFF374151),
+                                  fontWeight: isSelected
+                                      ? FontWeight.w600
+                                      : FontWeight.w400,
+                                  color: isSelected
+                                      ? const Color(0xFF2563EB)
+                                      : const Color(0xFF374151),
                                 ),
                               ),
                             ),
@@ -666,269 +787,267 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
             topRight: Radius.circular(20),
           ),
         ),
-          child: Column(
-            children: [
-              // Header
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.description_outlined,
-                        color: Color(0xFF6B7280), size: 20),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        widget.formTitle,
-                        style: GoogleFonts.inter(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          color: const Color(0xFF111827),
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFDCFCE7),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        AppLocalizations.of(context)!.published,
-                        style: GoogleFonts.inter(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          color: const Color(0xFF059669),
-                        ),
-                      ),
-                    ),
-                    const Spacer(),
-                    ElevatedButton.icon(
-                      onPressed: _exportSubmissions,
-                      icon: const Icon(Icons.file_download_outlined, size: 16),
-                      label: Text(AppLocalizations.of(context)!.commonExport),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xff0386FF),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 8),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    IconButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      icon: const Icon(Icons.close, color: Color(0xFF6B7280)),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Tabs
-              Container(
+        child: Column(
+          children: [
+            // Header
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              decoration: const BoxDecoration(
                 color: Colors.white,
-                child: TabBar(
-                  controller: _tabController,
-                  indicatorColor: const Color(0xFF2563EB),
-                  indicatorWeight: 2,
-                  labelColor: const Color(0xFF2563EB),
-                  unselectedLabelColor: const Color(0xFF6B7280),
-                  labelStyle: GoogleFonts.inter(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
+                border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.description_outlined,
+                      color: Color(0xFF6B7280), size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      widget.formTitle,
+                      style: GoogleFonts.inter(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF111827),
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
-                  tabs: [
-                    Tab(text: AppLocalizations.of(context)!.submissions),
-                  ],
-                ),
+                  const SizedBox(width: 12),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFDCFCE7),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      AppLocalizations.of(context)!.published,
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: const Color(0xFF059669),
+                      ),
+                    ),
+                  ),
+                  const Spacer(),
+                  ElevatedButton.icon(
+                    onPressed: _exportSubmissions,
+                    icon: const Icon(Icons.file_download_outlined, size: 16),
+                    label: Text(AppLocalizations.of(context)!.commonExport),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xff0386FF),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close, color: Color(0xFF6B7280)),
+                  ),
+                ],
               ),
+            ),
 
-              // Toolbar
-              Container(
-                color: Colors.white,
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  children: [
-                    Row(
-                      children: [
-                        // Date range selector
-                        InkWell(
-                          onTap: _selectDateRange,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 8),
-                            decoration: BoxDecoration(
-                              border:
-                                  Border.all(color: const Color(0xFFD1D5DB)),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Row(
-                              children: [
-                                const Icon(Icons.calendar_today_outlined,
-                                    color: Color(0xFF6B7280), size: 16),
-                                const SizedBox(width: 8),
-                                Text(
-                                  _dateRangeText,
-                                  style: GoogleFonts.inter(
-                                    fontSize: 13,
-                                    color: const Color(0xFF374151),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                const Icon(Icons.arrow_drop_down,
-                                    color: Color(0xFF6B7280), size: 20),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
+            // Tabs
+            Container(
+              color: Colors.white,
+              child: TabBar(
+                controller: _tabController,
+                indicatorColor: const Color(0xFF2563EB),
+                indicatorWeight: 2,
+                labelColor: const Color(0xFF2563EB),
+                unselectedLabelColor: const Color(0xFF6B7280),
+                labelStyle: GoogleFonts.inter(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+                tabs: [
+                  Tab(text: AppLocalizations.of(context)!.submissions),
+                ],
+              ),
+            ),
 
-                        // Submissions count
-                        Container(
+            // Toolbar
+            Container(
+              color: Colors.white,
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      // Date range selector
+                      InkWell(
+                        onTap: _selectDateRange,
+                        child: Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 6),
+                              horizontal: 12, vertical: 8),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFEFF6FF),
-                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: const Color(0xFFD1D5DB)),
+                            borderRadius: BorderRadius.circular(6),
                           ),
-                          child: Text(
-                            '${_filteredSubmissions.length} submissions',
-                            style: GoogleFonts.inter(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                              color: const Color(0xFF2563EB),
-                            ),
-                          ),
-                        ),
-
-                        const Spacer(),
-
-                        // Search field
-                        Container(
-                          width: 300,
-                          height: 36,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF9FAFB),
-                            border: Border.all(color: const Color(0xFFE5E7EB)),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: TextField(
-                            controller: _searchController,
-                            onChanged: (value) {
-                              if (mounted) {
-                                setState(() {
-                                  _searchQuery = value;
-                                  _currentPage =
-                                      0; // Reset to first page on search
-                                });
-                              }
-                            },
-                            style: GoogleFonts.inter(fontSize: 13),
-                            decoration: InputDecoration(
-                              hintText: AppLocalizations.of(context)!.commonSearch,
-                              hintStyle: GoogleFonts.inter(
-                                fontSize: 13,
-                                color: const Color(0xFF9CA3AF),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.calendar_today_outlined,
+                                  color: Color(0xFF6B7280), size: 16),
+                              const SizedBox(width: 8),
+                              Text(
+                                _dateRangeText,
+                                style: GoogleFonts.inter(
+                                  fontSize: 13,
+                                  color: const Color(0xFF374151),
+                                ),
                               ),
-                              prefixIcon: const Icon(Icons.search,
+                              const SizedBox(width: 8),
+                              const Icon(Icons.arrow_drop_down,
                                   color: Color(0xFF6B7280), size: 20),
-                              border: InputBorder.none,
-                              contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 8),
-                            ),
+                            ],
                           ),
                         ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
+                      ),
+                      const SizedBox(width: 16),
 
-              // Table
-              Expanded(
-                child: _isLoading
-                    ? const Center(
-                        child:
-                            CircularProgressIndicator(color: Color(0xFF2563EB)))
-                    : _buildTable(),
-              ),
+                      // Submissions count
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEFF6FF),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          '${_filteredSubmissions.length} submissions',
+                          style: GoogleFonts.inter(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: const Color(0xFF2563EB),
+                          ),
+                        ),
+                      ),
 
-              // Pagination
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  border: Border(top: BorderSide(color: Color(0xFFE5E7EB))),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        IconButton(
-                          onPressed: _currentPage > 0
-                              ? () {
-                                  setState(() => _currentPage--);
-                                }
-                              : null,
-                          icon: const Icon(Icons.chevron_left),
+                      const Spacer(),
+
+                      // Search field
+                      Container(
+                        width: 300,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF9FAFB),
+                          border: Border.all(color: const Color(0xFFE5E7EB)),
+                          borderRadius: BorderRadius.circular(8),
                         ),
-                        Text(
-                          'Page ${_currentPage + 1} of ${(_filteredSubmissions.length / _rowsPerPage).ceil() == 0 ? 1 : (_filteredSubmissions.length / _rowsPerPage).ceil()}',
-                          style: GoogleFonts.inter(
-                              fontSize: 13, color: const Color(0xFF6B7280)),
-                        ),
-                        IconButton(
-                          onPressed: (_currentPage + 1) * _rowsPerPage <
-                                  _filteredSubmissions.length
-                              ? () {
-                                  setState(() => _currentPage++);
-                                }
-                              : null,
-                          icon: const Icon(Icons.chevron_right),
-                        ),
-                      ],
-                    ),
-                    Row(
-                      children: [
-                        Text(
-                          AppLocalizations.of(context)!.rowsPerPage,
-                          style: GoogleFonts.inter(
-                              fontSize: 13, color: const Color(0xFF6B7280)),
-                        ),
-                        const SizedBox(width: 8),
-                        DropdownButton<int>(
-                          value: _rowsPerPage,
-                          items: [10, 25, 50]
-                              .map((e) => DropdownMenuItem(
-                                    value: e,
-                                    child: Text(e.toString()),
-                                  ))
-                              .toList(),
+                        child: TextField(
+                          controller: _searchController,
                           onChanged: (value) {
-                            if (value != null) {
+                            if (mounted) {
                               setState(() {
-                                _rowsPerPage = value;
-                                _currentPage = 0;
+                                _searchQuery = value;
+                                _currentPage =
+                                    0; // Reset to first page on search
                               });
                             }
                           },
+                          style: GoogleFonts.inter(fontSize: 13),
+                          decoration: InputDecoration(
+                            hintText:
+                                AppLocalizations.of(context)!.commonSearch,
+                            hintStyle: GoogleFonts.inter(
+                              fontSize: 13,
+                              color: const Color(0xFF9CA3AF),
+                            ),
+                            prefixIcon: const Icon(Icons.search,
+                                color: Color(0xFF6B7280), size: 20),
+                            border: InputBorder.none,
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 8),
+                          ),
                         ),
-                      ],
-                    ),
-                  ],
-                ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+
+            // Table
+            Expanded(
+              child: _isLoading
+                  ? const Center(
+                      child:
+                          CircularProgressIndicator(color: Color(0xFF2563EB)))
+                  : _buildTable(),
+            ),
+
+            // Pagination
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                border: Border(top: BorderSide(color: Color(0xFFE5E7EB))),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      IconButton(
+                        onPressed: _currentPage > 0
+                            ? () {
+                                setState(() => _currentPage--);
+                              }
+                            : null,
+                        icon: const Icon(Icons.chevron_left),
+                      ),
+                      Text(
+                        'Page ${_currentPage + 1} of ${(_filteredSubmissions.length / _rowsPerPage).ceil() == 0 ? 1 : (_filteredSubmissions.length / _rowsPerPage).ceil()}',
+                        style: GoogleFonts.inter(
+                            fontSize: 13, color: const Color(0xFF6B7280)),
+                      ),
+                      IconButton(
+                        onPressed: (_currentPage + 1) * _rowsPerPage <
+                                _filteredSubmissions.length
+                            ? () {
+                                setState(() => _currentPage++);
+                              }
+                            : null,
+                        icon: const Icon(Icons.chevron_right),
+                      ),
+                    ],
+                  ),
+                  Row(
+                    children: [
+                      Text(
+                        AppLocalizations.of(context)!.rowsPerPage,
+                        style: GoogleFonts.inter(
+                            fontSize: 13, color: const Color(0xFF6B7280)),
+                      ),
+                      const SizedBox(width: 8),
+                      DropdownButton<int>(
+                        value: _rowsPerPage,
+                        items: [10, 25, 50]
+                            .map((e) => DropdownMenuItem(
+                                  value: e,
+                                  child: Text(e.toString()),
+                                ))
+                            .toList(),
+                        onChanged: (value) {
+                          if (value != null) {
+                            setState(() {
+                              _rowsPerPage = value;
+                              _currentPage = 0;
+                            });
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
+      ),
     );
   }
 
@@ -1024,7 +1143,8 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
     width += 200; // Notes column
 
     // Ensure minimum width for bottom sheet (account for padding)
-    final screenWidth = MediaQuery.of(context).size.width - 32; // Account for margins only
+    final screenWidth =
+        MediaQuery.of(context).size.width - 32; // Account for margins only
     return width < screenWidth ? screenWidth : width;
   }
 
@@ -1143,7 +1263,6 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
               ),
             ),
           ),
-
         ],
       ),
     );
@@ -1273,7 +1392,8 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
               // Status field
               SizedBox(
                 width: 140,
-                child: _buildStatusDropdown(docId, (data['reviewStatus'] ?? '').toString()),
+                child: _buildStatusDropdown(
+                    docId, (data['reviewStatus'] ?? '').toString()),
               ),
 
               _buildColumnSeparator(),
@@ -1400,7 +1520,6 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
                         ),
                       ),
               ),
-
             ],
           ),
         ),

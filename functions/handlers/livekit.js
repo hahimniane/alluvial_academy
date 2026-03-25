@@ -6,6 +6,7 @@
 
 const admin = require('firebase-admin');
 const { onCall, onRequest, HttpsError } = require('firebase-functions/v2/https');
+const { onSchedule } = require('firebase-functions/v2/scheduler');
 const {
   RoomServiceClient,
   TrackType,
@@ -13,12 +14,19 @@ const {
   EgressStatus,
   EncodedFileOutput,
   EncodedFileType,
+  SegmentedFileOutput,
   GCPUpload,
+  AutoTrackEgress,
+  RoomEgress,
+  RoomCompositeEgressRequest,
 } = require('livekit-server-sdk');
 const { getLiveKitConfig, isLiveKitConfigured } = require('../services/livekit/config');
 const { generateTokenForRole } = require('../services/livekit/token');
 
 const CLASS_RECORDINGS_COLLECTION = 'class_recordings';
+const RECORDING_RETENTION_MONTHS = 2;
+const RECORDING_CLEANUP_BATCH_SIZE = 100;
+const RECORDING_CLEANUP_MAX_DOCS_PER_RUN = 1000;
 
 /**
  * Helper: Get user display name from Firestore
@@ -39,19 +47,65 @@ const getUserDisplayName = async (uid) => {
 };
 
 /**
- * Helper: Check if user is a parent of any student in the given list
+ * Helper: Normalize a list of UID-like strings.
  */
-const isUserParentOfStudent = async (uid, studentIds) => {
-  if (!uid || !Array.isArray(studentIds) || studentIds.length === 0) return false;
+const _normalizeUidList = (rawList) => {
+  if (!Array.isArray(rawList)) return [];
+
+  const seen = new Set();
+  const normalized = [];
+  for (const rawItem of rawList) {
+    if (typeof rawItem !== 'string') continue;
+    const trimmed = rawItem.trim();
+    if (!trimmed || seen.has(trimmed)) continue;
+    seen.add(trimmed);
+    normalized.push(trimmed);
+  }
+
+  return normalized;
+};
+
+/**
+ * Helper: Build a set of guardian IDs across all provided students.
+ */
+const getGuardianIdsForStudents = async (studentIds) => {
+  const guardianIds = new Set();
+  const normalizedStudentIds = _normalizeUidList(studentIds);
+  if (normalizedStudentIds.length === 0) return guardianIds;
+
   try {
-    for (const studentId of studentIds) {
+    for (const studentId of normalizedStudentIds) {
       const studentDoc = await admin.firestore().collection('users').doc(studentId).get();
       if (!studentDoc.exists) continue;
-      const data = studentDoc.data();
-      const guardianIds = data.guardian_ids || data.guardianIds || [];
-      if (Array.isArray(guardianIds) && guardianIds.includes(uid)) return true;
+
+      const data = studentDoc.data() || {};
+      const candidateGuardianIds = _normalizeUidList([
+        ...(Array.isArray(data.guardian_ids) ? data.guardian_ids : []),
+        ...(Array.isArray(data.guardianIds) ? data.guardianIds : []),
+      ]);
+
+      for (const guardianId of candidateGuardianIds) {
+        guardianIds.add(guardianId);
+      }
     }
-    return false;
+  } catch (_) {
+    return new Set();
+  }
+
+  return guardianIds;
+};
+
+/**
+ * Helper: Check if user is a parent of any student in the given list.
+ */
+const isUserParentOfStudent = async (uid, studentIds) => {
+  if (!uid) return false;
+  const normalizedUid = typeof uid === 'string' ? uid.trim() : '';
+  if (!normalizedUid) return false;
+
+  try {
+    const guardianIds = await getGuardianIdsForStudents(studentIds);
+    return guardianIds.has(normalizedUid);
   } catch (_) {
     return false;
   }
@@ -94,6 +148,15 @@ const normalizeLiveKitHostForServerApi = (url) => {
   if (url.startsWith('wss://')) return `https://${url.slice('wss://'.length)}`;
   if (url.startsWith('ws://')) return `http://${url.slice('ws://'.length)}`;
   return url;
+};
+
+/**
+ * Helper: Detect system participants (e.g. LiveKit egress recorder bots).
+ */
+const isSystemParticipantIdentity = (identity) => {
+  if (typeof identity !== 'string') return false;
+  const normalized = identity.trim().toUpperCase();
+  return normalized.startsWith('EG_');
 };
 
 /**
@@ -288,7 +351,8 @@ const _buildRecordingFilePath = ({ shiftId, roomName, prefix }) => {
   const timestamp = now.toISOString().replace(/[:.]/g, '-');
   const safeShiftId = _safePathSegment(shiftId, 'shift');
   const safeRoom = _safePathSegment(roomName, 'room');
-  return `${prefix}/${year}/${month}/${day}/${safeShiftId}/${safeRoom}_${timestamp}.mp4`;
+  // Directory prefix for auto-track-egress (individual track files saved inside)
+  return `${prefix}/${year}/${month}/${day}/${safeShiftId}/${safeRoom}_${timestamp}`;
 };
 
 const _normalizeUserRoleString = (raw) => {
@@ -361,6 +425,112 @@ const _toFirestoreTimestamp = (value) => {
   return admin.firestore.Timestamp.fromDate(date);
 };
 
+const _addUtcCalendarMonthsClamped = (date, monthsToAdd) => {
+  const source = _toJsDate(date);
+  if (!source || !Number.isFinite(monthsToAdd)) return null;
+
+  const startYear = source.getUTCFullYear();
+  const startMonth = source.getUTCMonth();
+  const startDay = source.getUTCDate();
+
+  let targetMonthIndex = startMonth + Math.trunc(monthsToAdd);
+  let targetYear = startYear + Math.floor(targetMonthIndex / 12);
+  targetMonthIndex %= 12;
+  if (targetMonthIndex < 0) {
+    targetMonthIndex += 12;
+    targetYear -= 1;
+  }
+
+  const lastDayOfTargetMonth = new Date(Date.UTC(targetYear, targetMonthIndex + 1, 0)).getUTCDate();
+  const targetDay = Math.min(startDay, lastDayOfTargetMonth);
+
+  return new Date(Date.UTC(
+    targetYear,
+    targetMonthIndex,
+    targetDay,
+    source.getUTCHours(),
+    source.getUTCMinutes(),
+    source.getUTCSeconds(),
+    source.getUTCMilliseconds(),
+  ));
+};
+
+const _getRecordingRetentionBaseDate = (recordingData) => (
+  _toJsDate(
+    recordingData?.started_at ||
+    recordingData?.started_at_iso ||
+    recordingData?.requested_at ||
+    recordingData?.requested_at_iso ||
+    recordingData?.shift_end ||
+    recordingData?.shift_start ||
+    recordingData?.sort_ts ||
+    recordingData?.sort_iso ||
+    recordingData?.updated_at ||
+    recordingData?.created_at,
+  )
+);
+
+const _getRecordingDeleteAtDate = (recordingData) => {
+  const explicit = _toJsDate(recordingData?.delete_after || recordingData?.delete_after_iso);
+  if (explicit) return explicit;
+
+  const baseDate = _getRecordingRetentionBaseDate(recordingData);
+  if (!baseDate) return null;
+  return _addUtcCalendarMonthsClamped(baseDate, RECORDING_RETENTION_MONTHS);
+};
+
+const _isRecordingExpired = (recordingData, nowDate = new Date()) => {
+  const deleteAt = _getRecordingDeleteAtDate(recordingData);
+  if (!deleteAt) return false;
+  return deleteAt.getTime() <= nowDate.getTime();
+};
+
+const _getDefaultRecordingBucketName = () => {
+  const envBucket = (process.env.LIVEKIT_RECORDING_GCP_BUCKET || '').trim();
+  if (envBucket) return envBucket;
+
+  try {
+    const firebaseConfigRaw = process.env.FIREBASE_CONFIG;
+    if (!firebaseConfigRaw) return '';
+    const firebaseConfig = JSON.parse(firebaseConfigRaw);
+    const storageBucket = String(firebaseConfig?.storageBucket || '').trim();
+    return storageBucket;
+  } catch (_) {
+    return '';
+  }
+};
+
+const _isStorageNotFoundError = (err) => {
+  const code = err?.code;
+  const message = String(err?.message || '').toLowerCase();
+  return (
+    code === 404 ||
+    code === '404' ||
+    message.includes('no such object') ||
+    message.includes('not found')
+  );
+};
+
+const _deleteClassRecordingAssets = async ({ recordingRef, recordingData }) => {
+  const filePath = String(recordingData?.file_path || '').trim();
+  if (filePath) {
+    const bucketNameRaw = String(recordingData?.bucket || _getDefaultRecordingBucketName() || '').trim();
+    const bucket = bucketNameRaw
+      ? admin.storage().bucket(bucketNameRaw)
+      : admin.storage().bucket();
+    const file = bucket.file(filePath);
+    try {
+      await file.delete({ ignoreNotFound: true });
+    } catch (err) {
+      if (!_isStorageNotFoundError(err)) {
+        throw err;
+      }
+    }
+  }
+
+  await recordingRef.delete();
+};
+
 const _normalizeStringArray = (value) => {
   if (!Array.isArray(value)) return [];
   const seen = new Set();
@@ -373,6 +543,52 @@ const _normalizeStringArray = (value) => {
     result.push(trimmed);
   }
   return result;
+};
+
+const _extractParentChildIdsFromUserData = (userData) => _normalizeStringArray([
+  ...(Array.isArray(userData?.children_ids) ? userData.children_ids : []),
+  ...(Array.isArray(userData?.childrenIds) ? userData.childrenIds : []),
+]);
+
+const _extractStudentIdCandidates = (doc) => {
+  const data = doc?.data?.() || {};
+  return _normalizeStringArray([
+    doc?.id,
+    data.uid,
+    data.auth_uid,
+    data.authUid,
+    data.auth_user_id,
+    data.authUserId,
+  ]);
+};
+
+const _resolveParentStudentIds = async ({ uid, userData }) => {
+  if (!uid || typeof uid !== 'string') return [];
+
+  const parentStudentIds = new Set(_extractParentChildIdsFromUserData(userData));
+  const usersRef = admin.firestore().collection('users');
+  const guardianFields = ['guardian_ids', 'guardianIds'];
+
+  for (const field of guardianFields) {
+    try {
+      const snapshot = await usersRef.where(field, 'array-contains', uid).limit(1000).get();
+      snapshot.forEach((doc) => {
+        const data = doc.data() || {};
+        const role = _extractUserRole(data);
+        if (role && role !== 'student') return;
+        for (const studentId of _extractStudentIdCandidates(doc)) {
+          parentStudentIds.add(studentId);
+        }
+      });
+    } catch (err) {
+      console.warn(
+        `[LiveKit] resolve parent students failed for ${field}:`,
+        err?.message || err,
+      );
+    }
+  }
+
+  return Array.from(parentStudentIds);
 };
 
 const _recordingDocId = (shiftId, segmentId) => {
@@ -415,6 +631,20 @@ const _upsertClassRecordingDoc = async ({
     requestedAtIso ||
     _toIsoString(shiftData?.shift_start) ||
     new Date().toISOString();
+  const retentionBaseDate = _toJsDate(
+    startedAtIso ||
+    requestedAtIso ||
+    shiftData?.shift_end ||
+    shiftData?.shift_start ||
+    sortIso,
+  );
+  const deleteAfterDate = retentionBaseDate
+    ? _addUtcCalendarMonthsClamped(retentionBaseDate, RECORDING_RETENTION_MONTHS)
+    : null;
+  const deleteAfterTs = deleteAfterDate
+    ? admin.firestore.Timestamp.fromDate(deleteAfterDate)
+    : null;
+  const deleteAfterIso = deleteAfterDate ? deleteAfterDate.toISOString() : null;
 
   await recordingRef.set(
     {
@@ -446,6 +676,9 @@ const _upsertClassRecordingDoc = async ({
       started_at: startedAtTs || null,
       failed_at_iso: failedAtIso || null,
       failed_at: failedAtTs || null,
+      delete_after_iso: deleteAfterIso,
+      delete_after: deleteAfterTs,
+      retention_months: RECORDING_RETENTION_MONTHS,
       sort_iso: sortIso,
       sort_ts: sortTs,
       updated_at: admin.firestore.FieldValue.serverTimestamp(),
@@ -622,6 +855,7 @@ const ensureLiveKitShiftRecording = onCall({
     existingRecording.egress_id || shiftData.livekit_recording_egress_id || null;
   let existingEgressInProgress = false;
 
+  // Check for active egress: either by single egressId (legacy) or by room name (auto-track)
   if (existingEgressId) {
     const existingEgressInfo = await _getEgressInfoById(egressClient, existingEgressId);
     if (existingEgressInfo && _isEgressInProgress(existingEgressInfo.status)) {
@@ -636,6 +870,27 @@ const ensureLiveKitShiftRecording = onCall({
         filePath:
           existingRecording.file_path || shiftData.livekit_recording_file_path || null,
       };
+    }
+  } else if (existingStatus === 'active') {
+    // Auto-track-egress: check if any egress is running for this room
+    try {
+      const roomEgresses = await egressClient.listEgress({ roomName });
+      const hasActiveEgress = roomEgresses.some((e) => _isEgressInProgress(e.status));
+      if (hasActiveEgress) {
+        existingEgressInProgress = true;
+        return {
+          success: true,
+          recordingEnabled: true,
+          recordingStarted: false,
+          alreadyRecording: true,
+          status: 'active',
+          egressType: 'auto_track',
+          filePath:
+            existingRecording.file_path || shiftData.livekit_recording_file_path || null,
+        };
+      }
+    } catch (_listErr) {
+      // Room may not exist yet; proceed to create it
     }
   }
 
@@ -754,42 +1009,44 @@ const ensureLiveKitShiftRecording = onCall({
     segmentId: decision.segmentId,
     filePath: decision.filePath,
     bucket: recordingConfig.bucket,
-    layout: recordingConfig.layout,
+    layout: 'auto_track',
     status: 'starting',
     requestedBy: uid,
     requestedAtIso,
   });
 
   try {
-    try {
-      await roomService.createRoom({
-        name: roomName,
-        emptyTimeout: 10 * 60,
-        departureTimeout: 2 * 60,
-      });
-    } catch (createErr) {
-      if (!_isLiveKitAlreadyExistsError(createErr)) {
-        throw createErr;
-      }
-    }
-
-    const output = new EncodedFileOutput({
+    // Use RoomCompositeEgress: records all participants into a single combined
+    // video with the configured layout (e.g. speaker-active). This runs on the
+    // self-hosted egress service using headless Chrome.
+    const outputFilePath = `${decision.filePath}/recording.mp4`;
+    const gcpUpload = new GCPUpload({
+      bucket: recordingConfig.bucket,
+      credentials: recordingConfig.credentialsJson,
+    });
+    const fileOutput = new EncodedFileOutput({
+      filepath: outputFilePath,
       fileType: EncodedFileType.MP4,
-      filepath: decision.filePath,
       output: {
         case: 'gcp',
-        value: new GCPUpload({
-          bucket: recordingConfig.bucket,
-          credentials: recordingConfig.credentialsJson,
-        }),
+        value: gcpUpload,
       },
     });
 
+    console.log(`[Recording] Starting room composite egress for room ${roomName}, layout: ${recordingConfig.layout}`);
     const egressInfo = await egressClient.startRoomCompositeEgress(
       roomName,
-      { file: output },
-      { layout: recordingConfig.layout },
+      {
+        file: fileOutput,
+      },
+      {
+        layout: recordingConfig.layout || 'speaker-active',
+        audioOnly: false,
+        videoOnly: false,
+      },
     );
+    const egressId = egressInfo.egressId;
+    console.log(`[Recording] Egress started: ${egressId}`);
 
     const startedAtIso = new Date().toISOString();
     await admin.firestore().runTransaction(async (tx) => {
@@ -804,7 +1061,7 @@ const ensureLiveKitShiftRecording = onCall({
         return {
           ...segment,
           status: 'active',
-          egress_id: egressInfo.egressId || null,
+          egress_id: egressId,
           started_at_iso: startedAtIso,
         };
       });
@@ -812,16 +1069,18 @@ const ensureLiveKitShiftRecording = onCall({
       tx.update(shiftRef, {
         'livekit_recording.status': 'active',
         'livekit_recording.room_name': roomName,
-        'livekit_recording.layout': recordingConfig.layout,
+        'livekit_recording.egress_type': 'room_composite',
         'livekit_recording.storage_mode': recordingConfig.mode,
         'livekit_recording.bucket': recordingConfig.bucket || admin.firestore.FieldValue.delete(),
-        'livekit_recording.egress_id': egressInfo.egressId || null,
+        'livekit_recording.egress_id': egressId,
+        'livekit_recording.file_path': outputFilePath,
         'livekit_recording.started_at': admin.firestore.FieldValue.serverTimestamp(),
         'livekit_recording.started_by': uid,
         'livekit_recording.updated_at': admin.firestore.FieldValue.serverTimestamp(),
         'livekit_recording.error': admin.firestore.FieldValue.delete(),
         livekit_recording_status: 'active',
-        livekit_recording_egress_id: egressInfo.egressId || null,
+        livekit_recording_egress_id: egressId,
+        livekit_recording_egress_type: 'room_composite',
         livekit_recording_started_at: admin.firestore.FieldValue.serverTimestamp(),
         livekit_recording_updated_at: admin.firestore.FieldValue.serverTimestamp(),
         livekit_recording_error: admin.firestore.FieldValue.delete(),
@@ -836,11 +1095,11 @@ const ensureLiveKitShiftRecording = onCall({
       studentIds,
       roomName,
       segmentId: decision.segmentId,
-      filePath: decision.filePath,
+      filePath: outputFilePath,
       bucket: recordingConfig.bucket,
-      layout: recordingConfig.layout,
+      layout: recordingConfig.layout || 'speaker-active',
       status: 'active',
-      egressId: egressInfo.egressId || null,
+      egressId,
       requestedBy: uid,
       requestedAtIso,
       startedAtIso,
@@ -851,7 +1110,7 @@ const ensureLiveKitShiftRecording = onCall({
       recordingEnabled: true,
       recordingStarted: true,
       status: 'active',
-      egressId: egressInfo.egressId || null,
+      egressType: 'auto_track',
       filePath: decision.filePath,
     };
   } catch (err) {
@@ -897,7 +1156,7 @@ const ensureLiveKitShiftRecording = onCall({
       segmentId: decision.segmentId,
       filePath: decision.filePath,
       bucket: recordingConfig.bucket,
-      layout: recordingConfig.layout,
+      layout: 'auto_track',
       status: 'failed',
       error: message,
       requestedBy: uid,
@@ -1332,11 +1591,23 @@ const getLiveKitRoomPresence = onCall({
 
   const { shiftData, teacherId, studentIds, roomName } = await getLiveKitShiftOrThrow(shiftId);
 
-  const isTeacher = uid === teacherId;
-  const isStudent = studentIds.includes(uid);
+  const normalizedUid = typeof uid === 'string' ? uid.trim() : '';
+  const normalizedTeacherId = typeof teacherId === 'string' ? teacherId.trim() : '';
+  const normalizedStudentIds = _normalizeUidList(studentIds);
+  const studentIdSet = new Set(normalizedStudentIds);
+
+  let guardianIdsCache = null;
+  const getGuardianIds = async () => {
+    if (guardianIdsCache !== null) return guardianIdsCache;
+    guardianIdsCache = await getGuardianIdsForStudents(normalizedStudentIds);
+    return guardianIdsCache;
+  };
+
+  const isTeacher = normalizedUid !== '' && normalizedUid === normalizedTeacherId;
+  const isStudent = studentIdSet.has(normalizedUid);
   const isAdmin = await isUserAdmin(uid);
   const isParent = !isTeacher && !isStudent && !isAdmin
-    ? await isUserParentOfStudent(uid, studentIds)
+    ? (await getGuardianIds()).has(normalizedUid)
     : false;
 
   if (!isTeacher && !isStudent && !isAdmin && !isParent) {
@@ -1409,13 +1680,34 @@ const getLiveKitRoomPresence = onCall({
     return aMs < bMs ? -1 : 1;
   });
 
+  const guestIdentityPrefix = `guest_${shiftId}_`;
+  let guardianIdsForRoles = new Set();
+  const hasUnresolvedParticipantIdentity = participantInfos.some((p) => {
+    if (!p || !p.identity) return false;
+    const identity = String(p.identity).trim();
+    if (!identity) return false;
+    if (identity === normalizedTeacherId) return false;
+    if (studentIdSet.has(identity)) return false;
+    if (isSystemParticipantIdentity(identity)) return false;
+    if (identity.startsWith(guestIdentityPrefix)) return false;
+    return true;
+  });
+  if (hasUnresolvedParticipantIdentity) {
+    guardianIdsForRoles = await getGuardianIds();
+  }
+
   const participants = participantInfos
-    .filter((p) => p && p.identity)
+    .filter((p) => p && p.identity && !isSystemParticipantIdentity(p.identity))
     .map((p) => {
-      const identity = p.identity;
-      const role = identity === teacherId
+      const rawIdentity = String(p.identity || '');
+      const normalizedIdentity = rawIdentity.trim();
+      const identity = normalizedIdentity || rawIdentity;
+      const isGuestIdentity = normalizedIdentity.startsWith(guestIdentityPrefix);
+      const role = normalizedIdentity === normalizedTeacherId
         ? 'teacher'
-        : (studentIds.includes(identity) ? 'student' : identity === uid && isParent ? 'parent' : 'other');
+        : (studentIdSet.has(normalizedIdentity)
+            ? 'student'
+            : (isGuestIdentity || !guardianIdsForRoles.has(normalizedIdentity) ? 'other' : 'parent'));
 
       const joinedAtMs = p.joinedAtMs || 0n;
       const joinedAtIso = joinedAtMs > 0n
@@ -1709,6 +2001,7 @@ const setLiveKitRoomLock = onCall({
  * - admin/super_admin: all recordings
  * - teacher: recordings where teacher_id == caller uid
  * - student: recordings where student_ids includes caller uid
+ * - parent: recordings where student_ids includes one of caller's children
  */
 const listClassRecordings = onCall({}, async (request) => {
   const uid = request.auth?.uid;
@@ -1742,34 +2035,84 @@ const listClassRecordings = onCall({}, async (request) => {
     );
   }
 
-  let snapshot;
+  let candidateDocs = [];
+  let scannedCount = 0;
+  let parentStudentIdSet = null;
 
   if (accessRole === 'admin' || accessRole === 'super_admin') {
+    let snapshot;
     try {
       snapshot = await recordingsRef.orderBy('updated_at', 'desc').limit(scanLimit).get();
     } catch (err) {
       console.warn('[LiveKit] listClassRecordings: falling back to unordered admin query:', err?.message || err);
       snapshot = await recordingsRef.limit(scanLimit).get();
     }
+    candidateDocs = snapshot.docs;
+    scannedCount = snapshot.size;
   } else if (accessRole === 'teacher') {
-    snapshot = await recordingsRef.where('teacher_id', '==', uid).limit(scanLimit).get();
+    const snapshot = await recordingsRef.where('teacher_id', '==', uid).limit(scanLimit).get();
+    candidateDocs = snapshot.docs;
+    scannedCount = snapshot.size;
   } else if (accessRole === 'student') {
-    snapshot = await recordingsRef.where('student_ids', 'array-contains', uid).limit(scanLimit).get();
+    const snapshot = await recordingsRef.where('student_ids', 'array-contains', uid).limit(scanLimit).get();
+    candidateDocs = snapshot.docs;
+    scannedCount = snapshot.size;
+  } else if (accessRole === 'parent') {
+    const parentStudentIds = await _resolveParentStudentIds({ uid, userData });
+    if (parentStudentIds.length === 0) {
+      return {
+        success: true,
+        role: accessRole,
+        recordings: [],
+        hasMore: false,
+        scannedCount: 0,
+      };
+    }
+    parentStudentIdSet = new Set(parentStudentIds);
+
+    const docsById = new Map();
+    const chunks = [];
+    for (let i = 0; i < parentStudentIds.length; i += 10) {
+      chunks.push(parentStudentIds.slice(i, i + 10));
+    }
+
+    for (const chunk of chunks) {
+      const snapshot = await recordingsRef
+        .where('student_ids', 'array-contains-any', chunk)
+        .limit(scanLimit)
+        .get();
+      scannedCount += snapshot.size;
+      snapshot.forEach((doc) => {
+        docsById.set(doc.id, doc);
+      });
+    }
+    candidateDocs = Array.from(docsById.values());
   } else {
     throw new HttpsError(
       'permission-denied',
-      'Only students, teachers, and admins can view class recordings',
+      'Only students, parents, teachers, and admins can view class recordings',
     );
   }
 
   const includeFailed =
     includeFailedRequested &&
     (accessRole === 'admin' || accessRole === 'super_admin');
-  const recordings = snapshot.docs
+  const nowDate = new Date();
+  const nowMs = nowDate.getTime();
+  const recordings = candidateDocs
     .map((doc) => {
       const data = doc.data() || {};
       const status = _normalizeRecordingStatus(data.status);
       const filePath = typeof data.file_path === 'string' ? data.file_path : null;
+      const deleteAfterDate = _getRecordingDeleteAtDate(data);
+      const deleteAfterIso = deleteAfterDate ? deleteAfterDate.toISOString() : null;
+      const isExpired = deleteAfterDate ? deleteAfterDate.getTime() <= nowMs : false;
+      const rawStudentIds = _normalizeStringArray(data.student_ids);
+      const visibleStudentIds = accessRole === 'student'
+        ? rawStudentIds.filter((studentId) => studentId === uid)
+        : (accessRole === 'parent' && parentStudentIdSet
+          ? rawStudentIds.filter((studentId) => parentStudentIdSet.has(studentId))
+          : rawStudentIds);
 
       return {
         recordingId: doc.id,
@@ -1779,21 +2122,26 @@ const listClassRecordings = onCall({}, async (request) => {
         subjectName: data.subject_name || '',
         teacherId: data.teacher_id || null,
         teacherName: data.teacher_name || '',
+        studentIds: visibleStudentIds,
         status: status || 'unknown',
         error: data.error || null,
         filePath,
         bucket: data.bucket || null,
+        egressType: data.layout === 'auto_track' ? 'auto_track' : 'composite',
         shiftStartIso: _toIsoString(data.shift_start),
         shiftEndIso: _toIsoString(data.shift_end),
         requestedAtIso: data.requested_at_iso || _toIsoString(data.requested_at),
         startedAtIso: data.started_at_iso || _toIsoString(data.started_at),
         failedAtIso: data.failed_at_iso || _toIsoString(data.failed_at),
         updatedAtIso: _toIsoString(data.updated_at),
+        deleteAfterIso,
+        _isExpired: isExpired,
       };
     })
     .filter((item) => Boolean(item.filePath))
+    .filter((item) => !item._isExpired)
     .filter((item) => includeFailed || item.status !== 'failed')
-    .map((item) => ({
+    .map(({ _isExpired, ...item }) => ({
       ...item,
       canPlay: item.status !== 'starting' && item.status !== 'failed',
     }))
@@ -1804,7 +2152,7 @@ const listClassRecordings = onCall({}, async (request) => {
     role: accessRole,
     recordings: recordings.slice(0, limit),
     hasMore: recordings.length > limit,
-    scannedCount: recordings.length,
+    scannedCount: scannedCount || candidateDocs.length,
   };
 });
 
@@ -1815,6 +2163,7 @@ const listClassRecordings = onCall({}, async (request) => {
  * - admin/super_admin: any recording
  * - teacher: only own recordings
  * - student: only recordings where they were assigned to the class
+ * - parent: only recordings where one of their linked children was assigned
  */
 const getClassRecordingPlaybackUrl = onCall({}, async (request) => {
   const uid = request.auth?.uid;
@@ -1855,49 +2204,110 @@ const getClassRecordingPlaybackUrl = onCall({}, async (request) => {
   const isAdmin = accessRole === 'admin' || accessRole === 'super_admin';
   const isTeacher = accessRole === 'teacher' && Boolean(teacherId) && uid === teacherId;
   const isStudent = accessRole === 'student' && studentIds.includes(uid);
-  if (!isAdmin && !isTeacher && !isStudent) {
+  let parentStudentSet = null;
+  if (accessRole === 'parent') {
+    const parentStudentIds = await _resolveParentStudentIds({ uid, userData });
+    parentStudentSet = new Set(parentStudentIds);
+  }
+  const hasParentAccess = Boolean(
+    parentStudentSet &&
+    studentIds.some((studentId) => parentStudentSet.has(studentId)),
+  );
+
+  if (!isAdmin && !isTeacher && !isStudent && !hasParentAccess) {
     throw new HttpsError('permission-denied', 'You are not allowed to access this recording');
+  }
+
+  if (_isRecordingExpired(data)) {
+    try {
+      await _deleteClassRecordingAssets({
+        recordingRef,
+        recordingData: data,
+      });
+    } catch (cleanupErr) {
+      console.warn('[LiveKit] Failed to cleanup expired recording on playback request:', cleanupErr?.message || cleanupErr);
+    }
+    throw new HttpsError(
+      'failed-precondition',
+      'This recording has expired and is no longer available.',
+    );
   }
 
   const bucketName = typeof data.bucket === 'string' && data.bucket.trim()
     ? data.bucket.trim()
-    : (process.env.LIVEKIT_RECORDING_GCP_BUCKET || '').trim();
+    : _getDefaultRecordingBucketName();
   const bucket = bucketName ? admin.storage().bucket(bucketName) : admin.storage().bucket();
-  const file = bucket.file(filePath);
 
-  const [exists] = await file.exists();
-  if (!exists) {
-    throw new HttpsError(
-      'failed-precondition',
-      'Recording file is not available yet. Please try again shortly.',
-    );
-  }
+  // Helper to generate a playback URL for a single file
+  const _generateFileUrl = async (file) => {
+    const [metadata] = await file.getMetadata();
+    const expiresAtMs = Date.now() + 15 * 60 * 1000;
+    let url;
+    let expiresAtIso = new Date(expiresAtMs).toISOString();
 
-  const [metadata] = await file.getMetadata();
-  const expiresAtMs = Date.now() + 15 * 60 * 1000;
-
-  let url;
-  let expiresAtIso = new Date(expiresAtMs).toISOString();
-
-  try {
-    [url] = await file.getSignedUrl({
-      version: 'v4',
-      action: 'read',
-      expires: expiresAtMs,
-      responseDisposition: 'inline',
-    });
-  } catch (_signErr) {
-    // getSignedUrl requires the Service Account Token Creator IAM role, which may not be
-    // granted to the default Cloud Functions service account. Fall back to a Firebase
-    // Storage download-token URL, which only needs storage.objects.update.
-    let token = metadata?.metadata?.firebaseStorageDownloadTokens;
-    if (!token) {
-      const { randomUUID } = require('crypto');
-      token = randomUUID();
-      await file.setMetadata({ metadata: { firebaseStorageDownloadTokens: token } });
+    try {
+      [url] = await file.getSignedUrl({
+        version: 'v4',
+        action: 'read',
+        expires: expiresAtMs,
+        responseDisposition: 'inline',
+      });
+    } catch (_signErr) {
+      let token = metadata?.metadata?.firebaseStorageDownloadTokens;
+      if (!token) {
+        const { randomUUID } = require('crypto');
+        token = randomUUID();
+        await file.setMetadata({ metadata: { firebaseStorageDownloadTokens: token } });
+      }
+      url = `https://firebasestorage.googleapis.com/v0/b/${encodeURIComponent(bucket.name)}/o/${encodeURIComponent(file.name)}?alt=media&token=${token}`;
+      expiresAtIso = null;
     }
-    url = `https://firebasestorage.googleapis.com/v0/b/${encodeURIComponent(bucket.name)}/o/${encodeURIComponent(filePath)}?alt=media&token=${token}`;
-    expiresAtIso = null;
+
+    return {
+      url,
+      contentType: metadata?.contentType || 'application/octet-stream',
+      sizeBytes: metadata?.size ? Number(metadata.size) : null,
+      expiresAtIso,
+      filePath: file.name,
+    };
+  };
+
+  // Check if filePath is a direct file (legacy .mp4) or a directory prefix (auto-track)
+  const isLegacyFile = filePath.endsWith('.mp4');
+  let primaryUrl = null;
+  let trackFiles = [];
+
+  if (isLegacyFile) {
+    // Legacy: single composite MP4 file
+    const file = bucket.file(filePath);
+    const [exists] = await file.exists();
+    if (!exists) {
+      throw new HttpsError(
+        'failed-precondition',
+        'Recording file is not available yet. Please try again shortly.',
+      );
+    }
+    primaryUrl = await _generateFileUrl(file);
+  } else {
+    // Auto-track-egress: list all files under the directory prefix
+    const [files] = await bucket.getFiles({ prefix: filePath + '/' });
+    if (!files || files.length === 0) {
+      throw new HttpsError(
+        'failed-precondition',
+        'Recording files are not available yet. Please try again shortly.',
+      );
+    }
+    // Generate URLs for all track files
+    trackFiles = await Promise.all(files.map((f) => _generateFileUrl(f)));
+    // Pick the first video file as the primary URL for backward compatibility
+    const videoFile = trackFiles.find((f) =>
+      f.contentType?.startsWith('video/') ||
+      f.filePath.endsWith('.webm') ||
+      f.filePath.endsWith('.mp4') ||
+      f.filePath.endsWith('.ivf') ||
+      f.filePath.endsWith('.h264'),
+    );
+    primaryUrl = videoFile || trackFiles[0];
   }
 
   await recordingRef.set({
@@ -1910,11 +2320,131 @@ const getClassRecordingPlaybackUrl = onCall({}, async (request) => {
     success: true,
     recordingId,
     shiftId: data.shift_id || null,
-    filePath,
-    url,
-    contentType: metadata?.contentType || 'video/mp4',
-    sizeBytes: metadata?.size ? Number(metadata.size) : null,
-    expiresAtIso,
+    filePath: primaryUrl.filePath,
+    url: primaryUrl.url,
+    contentType: primaryUrl.contentType,
+    sizeBytes: primaryUrl.sizeBytes,
+    expiresAtIso: primaryUrl.expiresAtIso,
+    trackFiles: isLegacyFile ? undefined : trackFiles,
+  };
+});
+
+/**
+ * Scheduled cleanup: permanently remove expired class recordings.
+ *
+ * Retention policy:
+ * - Recordings are deleted 2 calendar months after recording time.
+ */
+const cleanupExpiredClassRecordings = onSchedule({
+  schedule: 'every day 03:30',
+  timeZone: 'Etc/UTC',
+  region: 'us-central1',
+  memory: '512MiB',
+  timeoutSeconds: 540,
+}, async () => {
+  const now = new Date();
+  const nowTs = admin.firestore.Timestamp.fromDate(now);
+  const cutoffDate = _addUtcCalendarMonthsClamped(now, -RECORDING_RETENTION_MONTHS) || now;
+  const cutoffTs = admin.firestore.Timestamp.fromDate(cutoffDate);
+
+  const recordingsRef = admin.firestore().collection(CLASS_RECORDINGS_COLLECTION);
+
+  let scanned = 0;
+  let deleted = 0;
+  let failed = 0;
+  let missingDeleteAfterScanned = 0;
+
+  // Pass 1: indexed cleanup for docs that already have explicit delete_after.
+  let explicitCursor = null;
+  while (scanned < RECORDING_CLEANUP_MAX_DOCS_PER_RUN) {
+    const remaining = RECORDING_CLEANUP_MAX_DOCS_PER_RUN - scanned;
+    const batchLimit = Math.min(RECORDING_CLEANUP_BATCH_SIZE, remaining);
+    let query = recordingsRef
+      .where('delete_after', '<=', nowTs)
+      .orderBy('delete_after', 'asc')
+      .limit(batchLimit);
+    if (explicitCursor) {
+      query = query.startAfter(explicitCursor);
+    }
+
+    const snapshot = await query.get();
+    if (snapshot.empty) break;
+    explicitCursor = snapshot.docs[snapshot.docs.length - 1];
+
+    for (const doc of snapshot.docs) {
+      scanned += 1;
+      const data = doc.data() || {};
+      try {
+        await _deleteClassRecordingAssets({
+          recordingRef: doc.ref,
+          recordingData: data,
+        });
+        deleted += 1;
+      } catch (err) {
+        failed += 1;
+        console.error('[LiveKit] cleanupExpiredClassRecordings failed (explicit):', doc.id, err?.message || err);
+      }
+    }
+  }
+
+  // Pass 2: fallback for legacy docs without delete_after.
+  let legacyCursor = null;
+  while (scanned < RECORDING_CLEANUP_MAX_DOCS_PER_RUN) {
+    const remaining = RECORDING_CLEANUP_MAX_DOCS_PER_RUN - scanned;
+    const batchLimit = Math.min(RECORDING_CLEANUP_BATCH_SIZE, remaining);
+    let query = recordingsRef
+      .where('sort_ts', '<=', cutoffTs)
+      .orderBy('sort_ts', 'asc')
+      .limit(batchLimit);
+    if (legacyCursor) {
+      query = query.startAfter(legacyCursor);
+    }
+
+    const snapshot = await query.get();
+    if (snapshot.empty) break;
+    legacyCursor = snapshot.docs[snapshot.docs.length - 1];
+
+    for (const doc of snapshot.docs) {
+      scanned += 1;
+      const data = doc.data() || {};
+      const hasExplicitDeleteAfter = Boolean(data.delete_after || data.delete_after_iso);
+      if (hasExplicitDeleteAfter) continue;
+
+      missingDeleteAfterScanned += 1;
+      if (!_isRecordingExpired(data, now)) continue;
+
+      try {
+        await _deleteClassRecordingAssets({
+          recordingRef: doc.ref,
+          recordingData: data,
+        });
+        deleted += 1;
+      } catch (err) {
+        failed += 1;
+        console.error('[LiveKit] cleanupExpiredClassRecordings failed (legacy):', doc.id, err?.message || err);
+      }
+    }
+  }
+
+  console.log('[LiveKit] cleanupExpiredClassRecordings completed', {
+    scanned,
+    deleted,
+    failed,
+    missingDeleteAfterScanned,
+    nowIso: now.toISOString(),
+    cutoffIso: cutoffDate.toISOString(),
+    retentionMonths: RECORDING_RETENTION_MONTHS,
+  });
+
+  return {
+    success: true,
+    scanned,
+    deleted,
+    failed,
+    missingDeleteAfterScanned,
+    retentionMonths: RECORDING_RETENTION_MONTHS,
+    nowIso: now.toISOString(),
+    cutoffIso: cutoffDate.toISOString(),
   };
 });
 
@@ -1930,4 +2460,5 @@ module.exports = {
   getLiveKitGuestJoin,
   listClassRecordings,
   getClassRecordingPlaybackUrl,
+  cleanupExpiredClassRecordings,
 };

@@ -8,11 +8,8 @@ import '../../../l10n/app_localizations.dart';
 import '../../chat/screens/chat_page.dart';
 import '../../chat/services/chat_service.dart';
 import '../../chat/models/chat_user.dart';
-import '../../time_clock/screens/time_clock_screen.dart';
 import './admin_dashboard_screen.dart';
 import '../../tasks/screens/quick_tasks_screen.dart';
-import '../../../form_screen.dart';
-import '../../forms/screens/my_submissions_screen.dart';
 import '../../shift_management/screens/teacher_shift_screen.dart';
 import '../../forms/screens/teacher_forms_screen.dart';
 import '../../../core/services/profile_picture_service.dart';
@@ -493,7 +490,7 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
       return [
         const AdminDashboard(refreshTrigger: 0),
         const AdminClassesScreen(), // All classes view for admins
-        const FormScreen(),
+        const TeacherFormsScreen(),
         const MobileNotificationScreen(),
         const MobileUserManagementScreen(),
         const ChatPage(),

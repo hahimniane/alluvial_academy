@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 import '../../../core/models/teaching_shift.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
+import '../utils/form_submission_view_mode.dart';
 import '../widgets/form_details_modal.dart';
 
 /// Admin screen – Gmail-density redesign.
@@ -36,6 +37,7 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
   List<String> _availableMonths = [];
   bool _showAllMonths = false;
   String? _selectedStatus;
+
   /// Form filter: null = all forms, otherwise same keys as _filteredByForm (e.g. _kDailyClassReportKey).
   String? _selectedFormKey;
 
@@ -68,6 +70,7 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
   static const String _kFormTypeDaily = 'daily';
   static const String _kFormTypeWeekly = 'weekly';
   static const String _kFormTypeMonthly = 'monthly';
+  static const String _kFormTypeLegacy = 'legacy';
   DocumentSnapshot? _lastSubmissionDoc;
   bool _hasMoreSubmissions = false;
   bool _isLoadingMore = false;
@@ -167,8 +170,7 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
             (data['first_name'] ?? data['firstName'] ?? '').toString();
         final last = (data['last_name'] ?? data['lastName'] ?? '').toString();
         final display = (data['displayName'] ?? '').toString();
-        String name =
-            display.isNotEmpty ? display : '$first $last'.trim();
+        String name = display.isNotEmpty ? display : '$first $last'.trim();
         if (name.isEmpty) {
           final email = (data['email'] ?? data['e-mail'] ?? '').toString();
           name = email.isNotEmpty ? email.split('@').first : 'Unknown';
@@ -207,17 +209,20 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
         _queryByFormTypeCacheOnly(_kFormTypeDaily, _priorityFormsLimit),
         _queryByFormTypeCacheOnly(_kFormTypeWeekly, _priorityFormsLimit),
         _queryByFormTypeCacheOnly(_kFormTypeMonthly, _priorityFormsLimit),
+        _queryByFormTypeCacheOnly(_kFormTypeLegacy, _priorityFormsLimit),
       ]);
       final cacheDaily = cacheResults[0];
       final cacheWeekly = cacheResults[1];
       final cacheMonthly = cacheResults[2];
+      final cacheLegacy = cacheResults[3];
       final mergedCache = <QueryDocumentSnapshot>[]
         ..addAll(cacheDaily)
         ..addAll(cacheWeekly)
-        ..addAll(cacheMonthly);
+        ..addAll(cacheMonthly)
+        ..addAll(cacheLegacy);
       if (mergedCache.isNotEmpty && mounted) {
         _applyMergedDocsToState(
-          dailyDocs: cacheDaily,
+          dailyDocs: [...cacheDaily, ...cacheLegacy],
           weeklyDocs: cacheWeekly,
           monthlyDocs: cacheMonthly,
           clearLoadingWhenDone: clearLoadingWhenDone,
@@ -228,15 +233,18 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
         _queryByFormTypeServerOnly(_kFormTypeDaily, _priorityFormsLimit),
         _queryByFormTypeServerOnly(_kFormTypeWeekly, _priorityFormsLimit),
         _queryByFormTypeServerOnly(_kFormTypeMonthly, _priorityFormsLimit),
+        _queryByFormTypeServerOnly(_kFormTypeLegacy, _priorityFormsLimit),
       ]);
       final dailyDocs = results[0];
       final weeklyDocs = results[1];
       final monthlyDocs = results[2];
+      final legacyDocs = results[3];
       if (!mounted) return;
       final byTeacher = <String, List<QueryDocumentSnapshot>>{};
       final formIdsToFetch = <String>{};
       final idToTryForForm = <String, String>{};
-      void collectEnrich(List<QueryDocumentSnapshot> docs, {String? formKeyOverride}) {
+      void collectEnrich(List<QueryDocumentSnapshot> docs,
+          {String? formKeyOverride}) {
         for (var doc in docs) {
           final data = (doc.data() as Map<String, dynamic>?) ?? {};
           final userId = data['userId'] as String?;
@@ -244,7 +252,8 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
           if (userId == null || formId == null) continue;
           byTeacher.putIfAbsent(userId, () => []).add(doc);
           if (!_formTitles.containsKey(formId)) {
-            final stored = data['formTitle'] ?? data['form_title'] ?? data['title'];
+            final stored =
+                data['formTitle'] ?? data['form_title'] ?? data['title'];
             if (stored != null &&
                 stored.toString().isNotEmpty &&
                 stored.toString() != 'Untitled Form') {
@@ -252,16 +261,19 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
             } else {
               formIdsToFetch.add(formId);
               final tid = (data['templateId'] as String?)?.trim();
-              idToTryForForm[formId] = (tid != null && tid.isNotEmpty) ? tid : formId;
+              idToTryForForm[formId] =
+                  (tid != null && tid.isNotEmpty) ? tid : formId;
             }
           }
         }
       }
+
       collectEnrich(dailyDocs, formKeyOverride: _kDailyClassReportKey);
+      collectEnrich(legacyDocs, formKeyOverride: _kDailyClassReportKey);
       collectEnrich(weeklyDocs, formKeyOverride: _kWeeklyReportKey);
       collectEnrich(monthlyDocs, formKeyOverride: _kMonthlyReportKey);
       _applyMergedDocsToState(
-        dailyDocs: dailyDocs,
+        dailyDocs: [...dailyDocs, ...legacyDocs],
         weeklyDocs: weeklyDocs,
         monthlyDocs: monthlyDocs,
         clearLoadingWhenDone: clearLoadingWhenDone,
@@ -271,9 +283,10 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
           _availableMonths.isNotEmpty) {
         _selectedYearMonth = _availableMonths.first;
       }
-      _lastSubmissionDoc = _allSubmissions.isNotEmpty ? _allSubmissions.last : null;
-      _hasMoreSubmissions =
-          dailyDocs.length >= _priorityFormsLimit ||
+      _lastSubmissionDoc =
+          _allSubmissions.isNotEmpty ? _allSubmissions.last : null;
+      _hasMoreSubmissions = dailyDocs.length >= _priorityFormsLimit ||
+          legacyDocs.length >= _priorityFormsLimit ||
           weeklyDocs.length >= _priorityFormsLimit ||
           monthlyDocs.length >= _priorityFormsLimit;
       if (mounted) setState(() => _invalidateFilterCache());
@@ -323,13 +336,15 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
     final byTeacher = <String, List<QueryDocumentSnapshot>>{};
     final byForm = <String, List<QueryDocumentSnapshot>>{};
     final formTitles = <String, String>{};
-    void processDocs(List<QueryDocumentSnapshot> docs, {String? formKeyOverride}) {
+    void processDocs(List<QueryDocumentSnapshot> docs,
+        {String? formKeyOverride}) {
       for (var doc in docs) {
         final data = (doc.data() as Map<String, dynamic>?) ?? {};
         final userId = data['userId'] as String?;
         final formId = data['formId'] as String?;
         if (userId == null || formId == null) continue;
-        String? yearMonth = data['yearMonth'] as String? ?? _yearMonthFromDoc(data);
+        String? yearMonth =
+            data['yearMonth'] as String? ?? _yearMonthFromDoc(data);
         if (yearMonth != null) monthsSet.add(yearMonth);
         byTeacher.putIfAbsent(userId, () => []).add(doc);
         final formKey = formKeyOverride ?? formId;
@@ -342,6 +357,7 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
         }
       }
     }
+
     processDocs(dailyDocs, formKeyOverride: _kDailyClassReportKey);
     processDocs(weeklyDocs, formKeyOverride: _kWeeklyReportKey);
     processDocs(monthlyDocs, formKeyOverride: _kMonthlyReportKey);
@@ -352,8 +368,10 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
     mergedDocs.sort((a, b) {
       final da = (a.data() as Map<String, dynamic>?);
       final db = (b.data() as Map<String, dynamic>?);
-      final ta = (da?['submittedAt'] as Timestamp?)?.millisecondsSinceEpoch ?? 0;
-      final tb = (db?['submittedAt'] as Timestamp?)?.millisecondsSinceEpoch ?? 0;
+      final ta =
+          (da?['submittedAt'] as Timestamp?)?.millisecondsSinceEpoch ?? 0;
+      final tb =
+          (db?['submittedAt'] as Timestamp?)?.millisecondsSinceEpoch ?? 0;
       return tb.compareTo(ta);
     });
     final sortedMonths = monthsSet.toList()..sort((a, b) => b.compareTo(a));
@@ -368,7 +386,8 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
     });
   }
 
-  Future<List<QueryDocumentSnapshot>> _queryByFormType(String formType, int limit) async {
+  Future<List<QueryDocumentSnapshot>> _queryByFormType(
+      String formType, int limit) async {
     final query = FirebaseFirestore.instance
         .collection('form_responses')
         .where('formType', isEqualTo: formType)
@@ -390,7 +409,8 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
   }
 
   /// Cache-only read for one form type (used for cache-first display).
-  Future<List<QueryDocumentSnapshot>> _queryByFormTypeCacheOnly(String formType, int limit) async {
+  Future<List<QueryDocumentSnapshot>> _queryByFormTypeCacheOnly(
+      String formType, int limit) async {
     final query = FirebaseFirestore.instance
         .collection('form_responses')
         .where('formType', isEqualTo: formType)
@@ -405,7 +425,8 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
   }
 
   /// Server-only read for one form type (used after showing cache).
-  Future<List<QueryDocumentSnapshot>> _queryByFormTypeServerOnly(String formType, int limit) async {
+  Future<List<QueryDocumentSnapshot>> _queryByFormTypeServerOnly(
+      String formType, int limit) async {
     final query = FirebaseFirestore.instance
         .collection('form_responses')
         .where('formType', isEqualTo: formType)
@@ -420,7 +441,8 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
     }
   }
 
-  Future<List<QueryDocumentSnapshot>> _queryAllFormsByMonth(String yearMonth, int limit) async {
+  Future<List<QueryDocumentSnapshot>> _queryAllFormsByMonth(
+      String yearMonth, int limit) async {
     try {
       final snapshot = await FirebaseFirestore.instance
           .collection('form_responses')
@@ -436,7 +458,8 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
   }
 
   /// Cache-only read for month query (used for cache-first display).
-  Future<List<QueryDocumentSnapshot>> _queryAllFormsByMonthCacheOnly(String yearMonth, int limit) async {
+  Future<List<QueryDocumentSnapshot>> _queryAllFormsByMonthCacheOnly(
+      String yearMonth, int limit) async {
     try {
       final snapshot = await FirebaseFirestore.instance
           .collection('form_responses')
@@ -450,16 +473,18 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
     }
   }
 
-  Future<void> _loadMonthSubmissions(String yearMonth, {bool setSelectedIfUnset = false}) async {
+  Future<void> _loadMonthSubmissions(String yearMonth,
+      {bool setSelectedIfUnset = false}) async {
     final allDocs = await _queryAllFormsByMonth(yearMonth, _priorityFormsLimit);
     if (!mounted) return;
     final monthsSet = <String>{yearMonth};
-      final byTeacher = <String, List<QueryDocumentSnapshot>>{};
-      final byForm = <String, List<QueryDocumentSnapshot>>{};
-      final formTitles = <String, String>{};
-      final formIdsToFetch = <String>{};
+    final byTeacher = <String, List<QueryDocumentSnapshot>>{};
+    final byForm = <String, List<QueryDocumentSnapshot>>{};
+    final formTitles = <String, String>{};
+    final formIdsToFetch = <String>{};
     final idToTryForForm = <String, String>{};
-    void processDocs(List<QueryDocumentSnapshot> docs, {String? formKeyOverride}) {
+    void processDocs(List<QueryDocumentSnapshot> docs,
+        {String? formKeyOverride}) {
       for (var doc in docs) {
         final data = (doc.data() as Map<String, dynamic>?) ?? {};
         final userId = data['userId'] as String?;
@@ -469,7 +494,8 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
         if (ym == null) {
           final submittedAt = (data['submittedAt'] as Timestamp?)?.toDate();
           if (submittedAt != null) {
-            ym = '${submittedAt.year}-${submittedAt.month.toString().padLeft(2, '0')}';
+            ym =
+                '${submittedAt.year}-${submittedAt.month.toString().padLeft(2, '0')}';
           }
         }
         if (ym != null) monthsSet.add(ym);
@@ -477,7 +503,8 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
         final formKey = formKeyOverride ?? formId;
         byForm.putIfAbsent(formKey, () => []).add(doc);
         if (!formTitles.containsKey(formId)) {
-          final stored = data['formTitle'] ?? data['form_title'] ?? data['title'];
+          final stored =
+              data['formTitle'] ?? data['form_title'] ?? data['title'];
           if (stored != null &&
               stored.toString().isNotEmpty &&
               stored.toString() != 'Untitled Form') {
@@ -485,11 +512,13 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
           } else {
             formIdsToFetch.add(formId);
             final tid = (data['templateId'] as String?)?.trim();
-            idToTryForForm[formId] = (tid != null && tid.isNotEmpty) ? tid : formId;
+            idToTryForForm[formId] =
+                (tid != null && tid.isNotEmpty) ? tid : formId;
           }
         }
       }
     }
+
     final dailyDocs = <QueryDocumentSnapshot>[];
     final weeklyDocs = <QueryDocumentSnapshot>[];
     final monthlyDocs = <QueryDocumentSnapshot>[];
@@ -515,8 +544,10 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
     mergedDocs.sort((a, b) {
       final da = (a.data() as Map<String, dynamic>?);
       final db = (b.data() as Map<String, dynamic>?);
-      final ta = (da?['submittedAt'] as Timestamp?)?.millisecondsSinceEpoch ?? 0;
-      final tb = (db?['submittedAt'] as Timestamp?)?.millisecondsSinceEpoch ?? 0;
+      final ta =
+          (da?['submittedAt'] as Timestamp?)?.millisecondsSinceEpoch ?? 0;
+      final tb =
+          (db?['submittedAt'] as Timestamp?)?.millisecondsSinceEpoch ?? 0;
       return tb.compareTo(ta);
     });
     final sortedMonths = monthsSet.toList()..sort((a, b) => b.compareTo(a));
@@ -555,7 +586,8 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
     _hasMoreSubmissions = false;
     try {
       final now = DateTime.now();
-      final currentYearMonth = '${now.year}-${now.month.toString().padLeft(2, '0')}';
+      final currentYearMonth =
+          '${now.year}-${now.month.toString().padLeft(2, '0')}';
       await _loadMonthSubmissions(currentYearMonth, setSelectedIfUnset: true);
     } catch (e) {
       AppLogger.error('Error loading current month submissions: $e');
@@ -588,8 +620,10 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
         : formType == _kFormTypeWeekly
             ? _kWeeklyReportKey
             : _kMonthlyReportKey;
-    final byTeacher = Map<String, List<QueryDocumentSnapshot>>.from(_groupedByTeacher);
-    final byForm = Map<String, List<QueryDocumentSnapshot>>.from(_groupedByForm);
+    final byTeacher =
+        Map<String, List<QueryDocumentSnapshot>>.from(_groupedByTeacher);
+    final byForm =
+        Map<String, List<QueryDocumentSnapshot>>.from(_groupedByForm);
     final monthsSet = <String>{..._availableMonths};
     for (final doc in docs) {
       final data = (doc.data() as Map<String, dynamic>?) ?? {};
@@ -600,7 +634,8 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
       String? yearMonth = data['yearMonth'] as String?;
       if (yearMonth == null) {
         final ts = (data['submittedAt'] as Timestamp?)?.toDate();
-        if (ts != null) yearMonth = '${ts.year}-${ts.month.toString().padLeft(2, '0')}';
+        if (ts != null)
+          yearMonth = '${ts.year}-${ts.month.toString().padLeft(2, '0')}';
       }
       if (yearMonth != null) monthsSet.add(yearMonth);
     }
@@ -619,7 +654,12 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
     try {
       final snapshot = await FirebaseFirestore.instance
           .collection('form_responses')
-          .where('formType', whereNotIn: [_kFormTypeDaily, _kFormTypeWeekly, _kFormTypeMonthly])
+          .where('formType', whereNotIn: [
+            _kFormTypeDaily,
+            _kFormTypeWeekly,
+            _kFormTypeMonthly,
+            _kFormTypeLegacy
+          ])
           .orderBy('formType')
           .orderBy('submittedAt', descending: true)
           .limit(_otherFormsPageSize)
@@ -695,15 +735,19 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
       mergedDocs.sort((a, b) {
         final da = (a.data() as Map<String, dynamic>?);
         final db = (b.data() as Map<String, dynamic>?);
-        final ta = (da?['submittedAt'] as Timestamp?)?.millisecondsSinceEpoch ?? 0;
-        final tb = (db?['submittedAt'] as Timestamp?)?.millisecondsSinceEpoch ?? 0;
+        final ta =
+            (da?['submittedAt'] as Timestamp?)?.millisecondsSinceEpoch ?? 0;
+        final tb =
+            (db?['submittedAt'] as Timestamp?)?.millisecondsSinceEpoch ?? 0;
         return tb.compareTo(ta);
       });
-      final mergedByTeacher = Map<String, List<QueryDocumentSnapshot>>.from(_groupedByTeacher);
+      final mergedByTeacher =
+          Map<String, List<QueryDocumentSnapshot>>.from(_groupedByTeacher);
       for (final e in byTeacher2.entries) {
         mergedByTeacher[e.key] = [...?mergedByTeacher[e.key], ...e.value];
       }
-      final mergedByForm = Map<String, List<QueryDocumentSnapshot>>.from(_groupedByForm);
+      final mergedByForm =
+          Map<String, List<QueryDocumentSnapshot>>.from(_groupedByForm);
       for (final e in byForm2.entries) {
         mergedByForm[e.key] = [...?mergedByForm[e.key], ...e.value];
       }
@@ -753,9 +797,9 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
       await Future.wait(chunks.map((chunk) async {
         if (!mounted) return;
         final templateFutures = chunk.map((formId) => FirebaseFirestore.instance
-              .collection('form_templates')
-              .doc(idToTryForForm[formId] ?? formId)
-              .get());
+            .collection('form_templates')
+            .doc(idToTryForForm[formId] ?? formId)
+            .get());
         final formFutures = chunk.map((formId) =>
             FirebaseFirestore.instance.collection('form').doc(formId).get());
         final allResults = await Future.wait([
@@ -764,41 +808,46 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
         ]);
         final templateDocs = allResults[0];
         final formDocs = allResults[1];
-          for (var j = 0; j < chunk.length; j++) {
+        for (var j = 0; j < chunk.length; j++) {
           final formId = chunk[j];
-          if (formTitles.containsKey(formId) && formTitles[formId] != 'Form') continue;
+          if (formTitles.containsKey(formId) && formTitles[formId] != 'Form')
+            continue;
           String? resolvedTitle;
           final tDoc = templateDocs[j];
           if (tDoc.exists) {
             final d = tDoc.data();
             final n = d?['name'] ?? d?['title'];
-            if (n != null && n.toString().isNotEmpty) resolvedTitle = n.toString();
+            if (n != null && n.toString().isNotEmpty)
+              resolvedTitle = n.toString();
           }
           if (resolvedTitle == null) {
             final fDoc = formDocs[j];
             if (fDoc.exists) {
               final d = fDoc.data();
               final t = d?['title'] ?? d?['formTitle'] ?? d?['name'];
-              if (t != null && t.toString().isNotEmpty) resolvedTitle = t.toString();
+              if (t != null && t.toString().isNotEmpty)
+                resolvedTitle = t.toString();
             }
           }
           if (resolvedTitle != null) formTitles[formId] = resolvedTitle;
         }
       }));
     }
+
     Future<void> fetchUsers() async {
       if (missingUserIds.isEmpty) return;
-      final teachersData = Map<String, Map<String, dynamic>>.from(_teachersData);
+      final teachersData =
+          Map<String, Map<String, dynamic>>.from(_teachersData);
       final chunks = <List<String>>[];
       for (var i = 0; i < missingUserIds.length; i += 10) {
         chunks.add(missingUserIds.skip(i).take(10).toList());
       }
       await Future.wait(chunks.map((chunk) async {
         if (!mounted) return;
-          final futures = chunk.map((id) =>
+        final futures = chunk.map((id) =>
             FirebaseFirestore.instance.collection('users').doc(id).get());
-          final results = await Future.wait(futures);
-          for (var j = 0; j < chunk.length; j++) {
+        final results = await Future.wait(futures);
+        for (var j = 0; j < chunk.length; j++) {
           final userDoc = results[j];
           if (userDoc.exists) {
             final d = userDoc.data()!;
@@ -826,6 +875,7 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
         });
       }
     }
+
     await Future.wait([fetchFormTitles(), fetchUsers()]);
     if (mounted) {
       setState(() {
@@ -835,26 +885,27 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
     }
   }
 
-  Future<Map<String, TeachingShift>> _getShiftSummariesForIds(Set<String> ids) async {
+  Future<Map<String, TeachingShift>> _getShiftSummariesForIds(
+      Set<String> ids) async {
     if (ids.isEmpty) return {};
     final result = <String, TeachingShift>{};
     final list = ids.toList();
     for (var i = 0; i < list.length; i += 10) {
       final chunk = list.skip(i).take(10).toList();
-          final futures = chunk.map((id) => FirebaseFirestore.instance
-              .collection('teaching_shifts')
-              .doc(id)
-              .get());
-          final results = await Future.wait(futures);
-          for (var j = 0; j < chunk.length; j++) {
-            final doc = results[j];
-            if (doc.exists) {
-              try {
+      final futures = chunk.map((id) => FirebaseFirestore.instance
+          .collection('teaching_shifts')
+          .doc(id)
+          .get());
+      final results = await Future.wait(futures);
+      for (var j = 0; j < chunk.length; j++) {
+        final doc = results[j];
+        if (doc.exists) {
+          try {
             result[chunk[j]] = TeachingShift.fromFirestore(doc);
-              } catch (_) {}
-            }
-          }
+          } catch (_) {}
         }
+      }
+    }
     return result;
   }
 
@@ -870,7 +921,7 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
           .get();
       if (!mounted) return;
       if (snapshot.docs.isEmpty) {
-      setState(() {
+        setState(() {
           _hasMoreSubmissions = false;
           _isLoadingMore = false;
         });
@@ -907,7 +958,7 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
         for (var i = 0; i < ids.length; i += 10) {
           final chunk = ids.skip(i).take(10).toList();
           final futures = chunk.map((formId) => FirebaseFirestore.instance
-            .collection('form_templates')
+              .collection('form_templates')
               .doc(idToTryForForm[formId] ?? formId)
               .get());
           final results = await Future.wait(futures);
@@ -915,8 +966,8 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
             final doc = results[j];
             if (doc.exists) {
               final d = doc.data();
-          final name = d?['name'] ?? d?['title'];
-          if (name != null && name.toString().isNotEmpty) {
+              final name = d?['name'] ?? d?['title'];
+              if (name != null && name.toString().isNotEmpty) {
                 _formTitles[chunk[j]] = name.toString();
               }
             }
@@ -939,8 +990,7 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
               final d = userDoc.data()!;
               final first =
                   (d['first_name'] ?? d['firstName'] ?? '').toString();
-              final last =
-                  (d['last_name'] ?? d['lastName'] ?? '').toString();
+              final last = (d['last_name'] ?? d['lastName'] ?? '').toString();
               final display = (d['displayName'] ?? '').toString();
               String name =
                   display.isNotEmpty ? display : '$first $last'.trim();
@@ -1055,7 +1105,8 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
         String? ym = data['yearMonth'] as String?;
         if (ym == null) {
           final ts = (data['submittedAt'] as Timestamp?)?.toDate();
-          if (ts != null) ym = '${ts.year}-${ts.month.toString().padLeft(2, '0')}';
+          if (ts != null)
+            ym = '${ts.year}-${ts.month.toString().padLeft(2, '0')}';
         }
         if (ym != targetMonth) continue;
       }
@@ -1072,8 +1123,8 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
         final formId = data['formId'] as String?;
         final teacherName =
             (userId != null ? (_teachersData[userId]?['name'] ?? '') : '')
-            .toString()
-            .toLowerCase();
+                .toString()
+                .toLowerCase();
         final formTitle =
             (formId != null ? (_formTitles[formId] ?? '') : '').toLowerCase();
         if (!teacherName.contains(q) && !formTitle.contains(q)) continue;
@@ -1099,7 +1150,7 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
     final targetStatus = filterStatus ? _selectedStatus!.toLowerCase() : '';
     final keys = <String>{};
     for (final doc in _allSubmissions) {
-        final data = doc.data() as Map<String, dynamic>;
+      final data = doc.data() as Map<String, dynamic>;
       if (filterTeacher) {
         final userId = data['userId'] as String?;
         if (userId == null || !_selectedTeacherIds.contains(userId)) continue;
@@ -1108,7 +1159,8 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
         String? ym = data['yearMonth'] as String?;
         if (ym == null) {
           final ts = (data['submittedAt'] as Timestamp?)?.toDate();
-          if (ts != null) ym = '${ts.year}-${ts.month.toString().padLeft(2, '0')}';
+          if (ts != null)
+            ym = '${ts.year}-${ts.month.toString().padLeft(2, '0')}';
         }
         if (ym != targetMonth) continue;
       }
@@ -1146,8 +1198,7 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
     if (_byTeacherCache != null) return _byTeacherCache!;
     final grouped = <String, List<QueryDocumentSnapshot>>{};
     for (var doc in _filteredSubmissions) {
-      final userId =
-          (doc.data() as Map<String, dynamic>)['userId'] as String?;
+      final userId = (doc.data() as Map<String, dynamic>)['userId'] as String?;
       if (userId != null) {
         grouped.putIfAbsent(userId, () => []).add(doc);
       }
@@ -1198,9 +1249,10 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
           : Column(children: [
               _buildToolbar(),
               const Divider(height: 1, color: _cBorder),
-              if (!_showAllMonths && _selectedYearMonth != null) _buildMonthBanner(),
+              if (!_showAllMonths && _selectedYearMonth != null)
+                _buildMonthBanner(),
               ..._topActionsWidgets(),
-                Expanded(child: _buildContent()),
+              Expanded(child: _buildContent()),
             ]),
     );
   }
@@ -1212,74 +1264,74 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
     final l10n = AppLocalizations.of(context)!;
     return [
       Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: _cBorder, width: 0.5)),
-      ),
-      child: Row(
-        children: [
-          if (showLoadOther)
-            InkWell(
-              onTap: _isLoadingOtherForms ? null : _loadOtherForms,
-              child: Container(
-                height: 32,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: _cBg,
-                  border: Border.all(color: _cBorder),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: _isLoadingOtherForms
-                    ? const SizedBox(
-                        height: 16,
-                        width: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : Text(
-                        l10n.adminSubmissionsLoadOtherForms,
-        style: GoogleFonts.inter(
-                          fontSize: 12,
-                          color: _cPrimary,
-                          fontWeight: FontWeight.w600,
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          border: Border(bottom: BorderSide(color: _cBorder, width: 0.5)),
+        ),
+        child: Row(
+          children: [
+            if (showLoadOther)
+              InkWell(
+                onTap: _isLoadingOtherForms ? null : _loadOtherForms,
+                child: Container(
+                  height: 32,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: _cBg,
+                    border: Border.all(color: _cBorder),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: _isLoadingOtherForms
+                      ? const SizedBox(
+                          height: 16,
+                          width: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Text(
+                          l10n.adminSubmissionsLoadOtherForms,
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            color: _cPrimary,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
-                      ),
-              ),
-            ),
-          if (showLoadOther && showLoadMore) const SizedBox(width: 8),
-          if (showLoadMore)
-            InkWell(
-              onTap: _isLoadingMore ? null : _loadMoreSubmissions,
-              child: Container(
-                height: 32,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: _cBg,
-                  border: Border.all(color: _cBorder),
-                  borderRadius: BorderRadius.circular(8),
                 ),
-                child: _isLoadingMore
-                    ? const SizedBox(
-                        height: 14,
-                        width: 14,
-                        child: CircularProgressIndicator(strokeWidth: 1.5),
-                      )
-                    : Text(
-                        l10n.adminSubmissionsLoadMore,
-                        style: GoogleFonts.inter(
-                          fontSize: 12,
-                          color: _cPrimary,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
               ),
-            ),
-        ],
+            if (showLoadOther && showLoadMore) const SizedBox(width: 8),
+            if (showLoadMore)
+              InkWell(
+                onTap: _isLoadingMore ? null : _loadMoreSubmissions,
+                child: Container(
+                  height: 32,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: _cBg,
+                    border: Border.all(color: _cBorder),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: _isLoadingMore
+                      ? const SizedBox(
+                          height: 14,
+                          width: 14,
+                          child: CircularProgressIndicator(strokeWidth: 1.5),
+                        )
+                      : Text(
+                          l10n.adminSubmissionsLoadMore,
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            color: _cPrimary,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                ),
+              ),
+          ],
+        ),
       ),
-    ),
     ];
   }
 
@@ -1299,7 +1351,8 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
               color: _cPrimary.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: const Icon(Icons.calendar_month, size: 20, color: Color(0xff0386FF)),
+            child: const Icon(Icons.calendar_month,
+                size: 20, color: Color(0xff0386FF)),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -1309,7 +1362,8 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
               children: [
                 Text(
                   _getMonthDisplayName(ym),
-                  style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600, color: _cText),
+                  style: GoogleFonts.inter(
+                      fontSize: 14, fontWeight: FontWeight.w600, color: _cText),
                 ),
                 Text(
                   '$count ${count == 1 ? 'submission' : 'submissions'}',
@@ -1328,7 +1382,8 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
             },
             child: Text(
               l10n.formViewAll,
-              style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w500, color: _cPrimary),
+              style: GoogleFonts.inter(
+                  fontSize: 12, fontWeight: FontWeight.w500, color: _cPrimary),
             ),
           ),
         ],
@@ -1339,25 +1394,25 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
   Widget _buildToolbar() {
     final l10n = AppLocalizations.of(context)!;
     final stats = _quickStats;
-    final hasActiveFilters =
-        _selectedTeacherIds.isNotEmpty || !_showAllMonths || _selectedStatus != null || _selectedFormKey != null;
+    final hasActiveFilters = _selectedTeacherIds.isNotEmpty ||
+        !_showAllMonths ||
+        _selectedStatus != null ||
+        _selectedFormKey != null;
     return Container(
       color: Colors.white,
       padding: const EdgeInsets.fromLTRB(12, 6, 8, 0),
-        child: Column(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+        children: [
           Row(
             children: [
-            Text(
+              Text(
                 l10n.adminAllSubmissionsTitle,
-              style: GoogleFonts.inter(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: _cText),
+                style: GoogleFonts.inter(
+                    fontSize: 14, fontWeight: FontWeight.w600, color: _cText),
               ),
               const SizedBox(width: 8),
-            Text(
+              Text(
                 '${stats['total']} total · ${stats['teachers']} teachers · ${stats['completed']} done · ${stats['pending']} pending',
                 style: GoogleFonts.inter(fontSize: 11, color: _cMuted),
               ),
@@ -1366,46 +1421,46 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
                 icon: Icons.settings_outlined,
                 tooltip: l10n.adminPreferencesTitle,
                 onTap: _showSettingsDialog,
-            ),
-          ],
-        ),
+              ),
+            ],
+          ),
           const SizedBox(height: 4),
           SizedBox(
             height: 30,
             child: Row(
-        children: [
+              children: [
                 SizedBox(
                   width: 200,
                   child: TextField(
-            controller: _searchController,
+                    controller: _searchController,
                     onChanged: (v) => setState(() => _searchQuery = v),
                     style: GoogleFonts.inter(fontSize: 12),
-            decoration: InputDecoration(
-              hintText: l10n.adminSubmissionsSearchPlaceholder,
+                    decoration: InputDecoration(
+                      hintText: l10n.adminSubmissionsSearchPlaceholder,
                       hintStyle:
                           GoogleFonts.inter(fontSize: 12, color: _cMuted),
                       prefixIcon:
                           const Icon(Icons.search, size: 16, color: _cSub),
                       prefixIconConstraints:
                           const BoxConstraints(minWidth: 32, minHeight: 0),
-              suffixIcon: _searchQuery.isNotEmpty
+                      suffixIcon: _searchQuery.isNotEmpty
                           ? GestureDetector(
                               onTap: () {
-                        _searchController.clear();
-                        setState(() => _searchQuery = '');
-                      },
+                                _searchController.clear();
+                                setState(() => _searchQuery = '');
+                              },
                               child: const Icon(Icons.close,
                                   size: 14, color: _cSub),
-                    )
-                  : null,
+                            )
+                          : null,
                       suffixIconConstraints:
                           const BoxConstraints(minWidth: 28, minHeight: 0),
-              filled: true,
+                      filled: true,
                       fillColor: _cBg,
                       contentPadding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 0),
                       isDense: true,
-              border: OutlineInputBorder(
+                      border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(6),
                         borderSide: const BorderSide(color: _cBorder),
                       ),
@@ -1424,37 +1479,37 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
                 const SizedBox(width: 6),
                 Expanded(
                   child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
                         _chip(
                           label: _selectedTeacherIds.isEmpty
                               ? l10n.adminSubmissionsTeachersAll
                               : '${l10n.adminSubmissionsFilterTeachers} (${_selectedTeacherIds.length})',
                           active: _selectedTeacherIds.isNotEmpty,
-                  onTap: _showTeacherPicker,
-                ),
+                          onTap: _showTeacherPicker,
+                        ),
                         const SizedBox(width: 4),
                         _chip(
-                  label: _showAllMonths
-                      ? l10n.adminSubmissionsAllTime
-                              : _getMonthDisplayName(
-                                  _selectedYearMonth ?? ''),
+                          label: _showAllMonths
+                              ? l10n.adminSubmissionsAllTime
+                              : _getMonthDisplayName(_selectedYearMonth ?? ''),
                           active: !_showAllMonths,
-                  onTap: _showMonthPicker,
-                ),
+                          onTap: _showMonthPicker,
+                        ),
                         const SizedBox(width: 4),
                         _chip(
-                  label: _selectedStatus == null
-                      ? l10n.adminSubmissionsAllStatus
-                      : _selectedStatusLabel,
+                          label: _selectedStatus == null
+                              ? l10n.adminSubmissionsAllStatus
+                              : _selectedStatusLabel,
                           active: _selectedStatus != null,
-                  onTap: _showStatusPicker,
-                ),
+                          onTap: _showStatusPicker,
+                        ),
                         const SizedBox(width: 4),
                         _chip(
                           label: _selectedFormKey == null
-                              ? (AppLocalizations.of(context)!.adminSubmissionsAllForms)
+                              ? (AppLocalizations.of(context)!
+                                  .adminSubmissionsAllForms)
                               : _formKeyToDisplayTitle(_selectedFormKey!),
                           active: _selectedFormKey != null,
                           onTap: _showFormPicker,
@@ -1463,10 +1518,10 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
                           const SizedBox(width: 4),
                           GestureDetector(
                             onTap: () => setState(() {
-                        _selectedTeacherIds.clear();
-                        _showAllMonths = true;
-                        _selectedYearMonth = null;
-                        _selectedStatus = null;
+                              _selectedTeacherIds.clear();
+                              _showAllMonths = true;
+                              _selectedYearMonth = null;
+                              _selectedStatus = null;
                               _selectedFormKey = null;
                             }),
                             child: Container(
@@ -1508,7 +1563,7 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
     return Tooltip(
       message: tooltip,
       child: InkWell(
-      onTap: onTap,
+        onTap: onTap,
         borderRadius: BorderRadius.circular(4),
         child: Padding(
           padding: const EdgeInsets.all(6),
@@ -1534,8 +1589,8 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
           ),
         ),
         child: Text(
-              label,
-              style: GoogleFonts.inter(
+          label,
+          style: GoogleFonts.inter(
             fontSize: 11,
             fontWeight: active ? FontWeight.w600 : FontWeight.w400,
             color: active ? _cPrimary : _cSub,
@@ -1571,7 +1626,9 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
   }
 
   Widget _buildContent() {
-    if (_filteredSubmissions.isEmpty && !_hasMoreSubmissions && (_loadedOtherForms || !_showAllMonths)) {
+    if (_filteredSubmissions.isEmpty &&
+        !_hasMoreSubmissions &&
+        (_loadedOtherForms || !_showAllMonths)) {
       return _buildEmpty();
     }
     return _buildTeacherView();
@@ -1728,33 +1785,33 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
               child: Container(
                 width: 360,
                 constraints: const BoxConstraints(maxHeight: 600),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
                       color: Colors.black.withValues(alpha: 0.15),
                       blurRadius: 12,
                       offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
+                    ),
+                  ],
+                ),
+                child: Column(
                   mainAxisSize: MainAxisSize.max,
                   mainAxisAlignment: MainAxisAlignment.start,
-        children: [
+                  children: [
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 12, 12, 8),
-            child: Row(
-              children: [
-                Expanded(
+                      child: Row(
+                        children: [
+                          Expanded(
                             child: Text(
                               title,
-                        style: GoogleFonts.inter(
+                              style: GoogleFonts.inter(
                                 fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: const Color(0xff1E293B),
-                        ),
+                                fontWeight: FontWeight.w600,
+                                color: const Color(0xff1E293B),
+                              ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -1764,17 +1821,18 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
                             borderRadius: BorderRadius.circular(20),
                             child: const Padding(
                               padding: EdgeInsets.all(4),
-                              child: Icon(Icons.close, size: 18, color: Color(0xff64748B)),
-                        ),
+                              child: Icon(Icons.close,
+                                  size: 18, color: Color(0xff64748B)),
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                ),
+                    ),
                     const Divider(height: 1, color: Color(0xffF1F5F9)),
                     Flexible(child: content),
-              ],
-            ),
-          ),
+                  ],
+                ),
+              ),
             ),
           ),
         );
@@ -1843,16 +1901,19 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
               return Column(
                 children: [
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: Row(
-            children: [
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    child: Row(
+                      children: [
                         Text(l10n.adminSubmissionsSelectTeachers,
-                            style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600)),
+                            style: GoogleFonts.inter(
+                                fontSize: 13, fontWeight: FontWeight.w600)),
                         const Spacer(),
                         TextButton(
                           onPressed: () {
                             setModalState(() {
-                              if (_selectedTeacherIds.length == filteredIds.length) {
+                              if (_selectedTeacherIds.length ==
+                                  filteredIds.length) {
                                 _selectedTeacherIds.clear();
                               } else {
                                 _selectedTeacherIds.clear();
@@ -1872,7 +1933,9 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
                             setState(() {});
                             Navigator.pop(context);
                           },
-                          child: const Padding(padding: EdgeInsets.all(4), child: Icon(Icons.close, size: 18)),
+                          child: const Padding(
+                              padding: EdgeInsets.all(4),
+                              child: Icon(Icons.close, size: 18)),
                         ),
                       ],
                     ),
@@ -1889,14 +1952,20 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
                         style: GoogleFonts.inter(fontSize: 12),
                         decoration: InputDecoration(
                           hintText: l10n.adminSubmissionsSearchPlaceholder,
-                          hintStyle: GoogleFonts.inter(fontSize: 12, color: _cMuted),
-                          prefixIcon: const Icon(Icons.search, size: 16, color: _cSub),
-                          prefixIconConstraints: const BoxConstraints(minWidth: 32),
+                          hintStyle:
+                              GoogleFonts.inter(fontSize: 12, color: _cMuted),
+                          prefixIcon:
+                              const Icon(Icons.search, size: 16, color: _cSub),
+                          prefixIconConstraints:
+                              const BoxConstraints(minWidth: 32),
                           filled: true,
                           fillColor: _cBg,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 0),
                           isDense: true,
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide.none),
+                          border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(6),
+                              borderSide: BorderSide.none),
                         ),
                       ),
                     ),
@@ -1910,7 +1979,8 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
                       itemBuilder: (context, index) {
                         final teacherId = filteredIds[index];
                         final info = _teachersData[teacherId];
-                        final isSelected = _selectedTeacherIds.contains(teacherId);
+                        final isSelected =
+                            _selectedTeacherIds.contains(teacherId);
                         final isFav = _favoriteTeacherIds.contains(teacherId);
                         return InkWell(
                           onTap: () {
@@ -1924,42 +1994,53 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
                           },
                           child: Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 12),
-                          child: Row(
-                            children: [
+                            child: Row(
+                              children: [
                                 Icon(
-                                  isSelected ? Icons.check_box : Icons.check_box_outline_blank,
+                                  isSelected
+                                      ? Icons.check_box
+                                      : Icons.check_box_outline_blank,
                                   size: 16,
                                   color: isSelected ? _cPrimary : _cMuted,
                                 ),
                                 const SizedBox(width: 8),
                                 CircleAvatar(
                                   radius: 12,
-                                  backgroundColor: _cPrimary.withValues(alpha: 0.1),
+                                  backgroundColor:
+                                      _cPrimary.withValues(alpha: 0.1),
                                   child: Text(
-                                    ((info?['name'] ?? 'U') as String).isNotEmpty
-                                        ? ((info?['name'] ?? 'U') as String)[0].toUpperCase()
+                                    ((info?['name'] ?? 'U') as String)
+                                            .isNotEmpty
+                                        ? ((info?['name'] ?? 'U') as String)[0]
+                                            .toUpperCase()
                                         : 'U',
-                                    style: GoogleFonts.inter(fontSize: 10, color: _cPrimary),
+                                    style: GoogleFonts.inter(
+                                        fontSize: 10, color: _cPrimary),
                                   ),
                                 ),
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
                                     info?['name'] ?? l10n.commonUnknownUser,
-                                    style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w500),
+                                    style: GoogleFonts.inter(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500),
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
-                                if (isFav) const Icon(Icons.star, size: 14, color: _cAmber),
-                            ],
+                                if (isFav)
+                                  const Icon(Icons.star,
+                                      size: 14, color: _cAmber),
+                              ],
+                            ),
                           ),
-                        ),
                         );
                       },
                     ),
                   ),
-                          Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: const BoxDecoration(
                       border: Border(top: BorderSide(color: _cBorder)),
                     ),
@@ -1974,11 +2055,13 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
                         style: ElevatedButton.styleFrom(
                           backgroundColor: _cPrimary,
                           padding: EdgeInsets.zero,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(6)),
                         ),
                         child: Text(
                           '${l10n.adminSubmissionsApply} (${_selectedTeacherIds.length} ${l10n.selected})',
-                          style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600),
+                          style: GoogleFonts.inter(
+                              fontSize: 12, fontWeight: FontWeight.w600),
                         ),
                       ),
                     ),
@@ -1996,7 +2079,8 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
     final l10n = AppLocalizations.of(context)!;
     final monthList = _monthsForPicker;
     final now = DateTime.now();
-    final currentYearMonth = '${now.year}-${now.month.toString().padLeft(2, '0')}';
+    final currentYearMonth =
+        '${now.year}-${now.month.toString().padLeft(2, '0')}';
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.white,
@@ -2011,8 +2095,8 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
           maxChildSize: 0.85,
           expand: false,
           builder: (context, scrollController) => Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
+            mainAxisSize: MainAxisSize.min,
+            children: [
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: const BoxDecoration(
@@ -2020,9 +2104,9 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
                 ),
                 child: Row(
                   children: [
-                                Text(
+                    Text(
                       l10n.formSelectMonth,
-                                  style: GoogleFonts.inter(
+                      style: GoogleFonts.inter(
                         fontSize: 18,
                         fontWeight: FontWeight.w600,
                         color: const Color(0xff1E293B),
@@ -2033,21 +2117,26 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
                       onPressed: () => Navigator.pop(context),
                       icon: const Icon(Icons.close),
                       padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
-                                ),
-                              ],
-                            ),
-                          ),
+                      constraints:
+                          const BoxConstraints(minWidth: 40, minHeight: 40),
+                    ),
+                  ],
+                ),
+              ),
               ListTile(
-                leading: Icon(Icons.all_inclusive, color: _showAllMonths ? _cPrimary : _cSub, size: 22),
+                leading: Icon(Icons.all_inclusive,
+                    color: _showAllMonths ? _cPrimary : _cSub, size: 22),
                 title: Text(
                   l10n.timesheetAllTime,
                   style: GoogleFonts.inter(
-                    fontWeight: _showAllMonths ? FontWeight.w600 : FontWeight.w400,
+                    fontWeight:
+                        _showAllMonths ? FontWeight.w600 : FontWeight.w400,
                     color: _showAllMonths ? _cPrimary : _cText,
                   ),
                 ),
-                trailing: _showAllMonths ? const Icon(Icons.check, color: Color(0xff0386FF)) : null,
+                trailing: _showAllMonths
+                    ? const Icon(Icons.check, color: Color(0xff0386FF))
+                    : null,
                 onTap: () {
                   Navigator.pop(context);
                   setState(() {
@@ -2065,23 +2154,28 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
                   itemCount: monthList.length,
                   itemBuilder: (context, index) {
                     final month = monthList[index];
-                    final isSelected = !_showAllMonths && _selectedYearMonth == month;
+                    final isSelected =
+                        !_showAllMonths && _selectedYearMonth == month;
                     final isCurrent = month == currentYearMonth;
                     return ListTile(
-                      leading: Icon(Icons.calendar_today, color: isSelected ? _cPrimary : _cSub, size: 22),
+                      leading: Icon(Icons.calendar_today,
+                          color: isSelected ? _cPrimary : _cSub, size: 22),
                       title: Row(
                         children: [
-                      Text(
+                          Text(
                             _getMonthDisplayName(month),
-                        style: GoogleFonts.inter(
-                              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                            style: GoogleFonts.inter(
+                              fontWeight: isSelected
+                                  ? FontWeight.w600
+                                  : FontWeight.w400,
                               color: isSelected ? _cPrimary : _cText,
                             ),
                           ),
                           if (isCurrent) ...[
                             const SizedBox(width: 8),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
                                 color: const Color(0xff10B981).withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(4),
@@ -2093,12 +2187,14 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
                                   fontWeight: FontWeight.w500,
                                   color: const Color(0xff10B981),
                                 ),
-                        ),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
-                    ],
-                  ],
-                ),
-                      trailing: isSelected ? const Icon(Icons.check, color: Color(0xff0386FF)) : null,
+                      trailing: isSelected
+                          ? const Icon(Icons.check, color: Color(0xff0386FF))
+                          : null,
                       onTap: () {
                         Navigator.pop(context);
                         setState(() {
@@ -2135,7 +2231,7 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
         ),
         contentPadding: const EdgeInsets.fromLTRB(24, 12, 24, 12),
         content: SingleChildScrollView(
-            child: Column(
+          child: Column(
             mainAxisSize: MainAxisSize.min,
             children: options.map((o) {
               final isSelected = o.value == null
@@ -2146,21 +2242,24 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
                   setState(() => _selectedStatus = o.value);
                   Navigator.pop(context);
                 },
-                  child: Container(
+                child: Container(
                   height: 36,
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Row(
-                          children: [
-                            Text(
+                    children: [
+                      Text(
                         o.label,
-                              style: GoogleFonts.inter(
+                        style: GoogleFonts.inter(
                           fontSize: 12,
-                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                          fontWeight:
+                              isSelected ? FontWeight.w600 : FontWeight.w400,
                           color: isSelected ? _cPrimary : _cText,
                         ),
                       ),
                       const Spacer(),
-                      if (isSelected) const Icon(Icons.check, size: 16, color: Color(0xff0386FF)),
+                      if (isSelected)
+                        const Icon(Icons.check,
+                            size: 16, color: Color(0xff0386FF)),
                     ],
                   ),
                 ),
@@ -2170,11 +2269,12 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
         ),
         actions: [
           TextButton(
-                        onPressed: () => Navigator.pop(context),
-            child: Text(l10n.commonCancel, style: const TextStyle(fontSize: 12)),
-                      ),
-                    ],
-                  ),
+            onPressed: () => Navigator.pop(context),
+            child:
+                Text(l10n.commonCancel, style: const TextStyle(fontSize: 12)),
+          ),
+        ],
+      ),
     );
   }
 
@@ -2194,25 +2294,29 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               InkWell(
-                          onTap: () {
+                onTap: () {
                   setState(() => _selectedFormKey = null);
-                            Navigator.pop(context);
+                  Navigator.pop(context);
                 },
                 child: Container(
                   height: 36,
                   padding: const EdgeInsets.symmetric(horizontal: 16),
-                            child: Row(
-                              children: [
+                  child: Row(
+                    children: [
                       Text(
                         l10n.adminSubmissionsAllForms,
-                                    style: GoogleFonts.inter(
+                        style: GoogleFonts.inter(
                           fontSize: 12,
-                          fontWeight: _selectedFormKey == null ? FontWeight.w600 : FontWeight.w400,
+                          fontWeight: _selectedFormKey == null
+                              ? FontWeight.w600
+                              : FontWeight.w400,
                           color: _selectedFormKey == null ? _cPrimary : _cText,
                         ),
                       ),
                       const Spacer(),
-                      if (_selectedFormKey == null) const Icon(Icons.check, size: 16, color: Color(0xff0386FF)),
+                      if (_selectedFormKey == null)
+                        const Icon(Icons.check,
+                            size: 16, color: Color(0xff0386FF)),
                     ],
                   ),
                 ),
@@ -2234,27 +2338,32 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
                         Expanded(
                           child: Text(
                             label,
-                                        style: GoogleFonts.inter(
-                                          fontSize: 12,
-                              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              fontWeight: isSelected
+                                  ? FontWeight.w600
+                                  : FontWeight.w400,
                               color: isSelected ? _cPrimary : _cText,
-                                        ),
+                            ),
                             overflow: TextOverflow.ellipsis,
-                                      ),
+                          ),
                         ),
-                        if (isSelected) const Icon(Icons.check, size: 16, color: Color(0xff0386FF)),
-                                    ],
-                                  ),
-                                ),
+                        if (isSelected)
+                          const Icon(Icons.check,
+                              size: 16, color: Color(0xff0386FF)),
+                      ],
+                    ),
+                  ),
                 );
               }),
-                              ],
-                            ),
-                          ),
+            ],
+          ),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text(l10n.commonCancel, style: const TextStyle(fontSize: 12)),
+            child:
+                Text(l10n.commonCancel, style: const TextStyle(fontSize: 12)),
           ),
         ],
       ),
@@ -2287,16 +2396,19 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
                     style: GoogleFonts.inter(fontSize: 12),
                   ),
                   value: _defaultShowAllMonths,
-                  onChanged: (v) => setDialogState(() => _defaultShowAllMonths = v),
+                  onChanged: (v) =>
+                      setDialogState(() => _defaultShowAllMonths = v),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   l10n.adminPreferencesFavoriteTeachers,
-                  style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: _cSub),
+                  style: GoogleFonts.inter(
+                      fontSize: 11, fontWeight: FontWeight.w600, color: _cSub),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  l10n.adminPreferencesFavoriteCount(_favoriteTeacherIds.length),
+                  l10n.adminPreferencesFavoriteCount(
+                      _favoriteTeacherIds.length),
                   style: GoogleFonts.inter(fontSize: 11, color: _cMuted),
                 ),
               ],
@@ -2306,7 +2418,8 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text(l10n.commonCancel, style: const TextStyle(fontSize: 12)),
+            child:
+                Text(l10n.commonCancel, style: const TextStyle(fontSize: 12)),
           ),
           ElevatedButton(
             onPressed: () {
@@ -2340,6 +2453,7 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
       return yearMonth;
     }
   }
+
   List<String> get _monthsForPicker {
     final now = DateTime.now();
     final set = <String>{..._availableMonths};
@@ -2394,17 +2508,17 @@ class _SubmissionsLoadingPlaceholderState
   @override
   Widget build(BuildContext context) {
     return Column(
-          children: [
-            Container(
+      children: [
+        Container(
           color: Colors.white,
           padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
           child: Row(
-                children: [
-                  Text(
+            children: [
+              Text(
                 widget.title,
-                    style: GoogleFonts.inter(
+                style: GoogleFonts.inter(
                   fontSize: 14,
-                      fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w600,
                   color: const Color(0xff1E293B),
                 ),
               ),
@@ -2417,44 +2531,45 @@ class _SubmissionsLoadingPlaceholderState
                   valueColor: AlwaysStoppedAnimation<Color>(
                     const Color(0xff0386FF).withOpacity(0.8),
                   ),
-                    ),
-                  ),
-                ],
+                ),
               ),
-            ),
+            ],
+          ),
+        ),
         const Divider(height: 1, color: Color(0xffE2E8F0)),
-            Expanded(
+        Expanded(
           child: Padding(
             padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
+            child: Column(
+              children: [
                 const SizedBox(height: 8),
                 LinearProgressIndicator(
                   backgroundColor: const Color(0xffE2E8F0),
-                  valueColor: const AlwaysStoppedAnimation<Color>(Color(0xff0386FF)),
+                  valueColor:
+                      const AlwaysStoppedAnimation<Color>(Color(0xff0386FF)),
                 ),
                 const SizedBox(height: 24),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
+                  children: [
                     Icon(Icons.sync, color: const Color(0xff0386FF), size: 22),
                     const SizedBox(width: 10),
                     Flexible(
                       child: Text(
                         _loadingSteps[_stepIndex],
-                          style: GoogleFonts.inter(
+                        style: GoogleFonts.inter(
                           fontSize: 15,
                           color: const Color(0xff475569),
                           fontWeight: FontWeight.w500,
                         ),
                         textAlign: TextAlign.center,
-                          ),
-                        ),
-                      ],
-                  ),
-                ],
-              ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
+          ),
         ),
       ],
     );
@@ -2502,14 +2617,14 @@ class _FormRowState extends State<_FormRow> {
         child: Container(
           height: 40,
           padding: const EdgeInsets.symmetric(horizontal: 12),
-              decoration: BoxDecoration(
+          decoration: BoxDecoration(
             color: bg,
             border: const Border(
                 bottom: BorderSide(color: Color(0xffF1F5F9), width: 0.5)),
-              ),
-              child: Row(
-                children: [
-                  Icon(
+          ),
+          child: Row(
+            children: [
+              Icon(
                 widget.isHighlighted
                     ? Icons.description
                     : Icons.description_outlined,
@@ -2547,7 +2662,7 @@ class _FormRowState extends State<_FormRow> {
                 ),
               ),
               if (widget.completedCount > 0) ...[
-                  const SizedBox(width: 4),
+                const SizedBox(width: 4),
                 Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -2559,11 +2674,11 @@ class _FormRowState extends State<_FormRow> {
                     '${widget.completedCount}',
                     style: GoogleFonts.inter(
                         fontSize: 10,
-                      fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w600,
                         color: const Color(0xff16A34A)),
-                    ),
                   ),
-                ],
+                ),
+              ],
               const SizedBox(width: 6),
               Icon(
                 Icons.chevron_right,
@@ -2618,13 +2733,13 @@ class _TeacherRowState extends State<_TeacherRow> {
                 bottom: BorderSide(color: Color(0xffF1F5F9), width: 0.5)),
           ),
           child: Row(
-        children: [
+            children: [
               CircleAvatar(
                 radius: 12,
                 backgroundColor: const Color(0xff0386FF).withValues(alpha: 0.1),
                 child: Text(
                   widget.name.isNotEmpty ? widget.name[0].toUpperCase() : '?',
-            style: GoogleFonts.inter(
+                  style: GoogleFonts.inter(
                       fontSize: 10, color: const Color(0xff0386FF)),
                 ),
               ),
@@ -2632,7 +2747,7 @@ class _TeacherRowState extends State<_TeacherRow> {
               Expanded(
                 child: Text(
                   widget.name,
-            style: GoogleFonts.inter(
+                  style: GoogleFonts.inter(
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
                       color: const Color(0xff1E293B)),
@@ -2691,6 +2806,7 @@ class _MinimalistSubmissionList extends StatefulWidget {
   final String formTitle;
   final BuildContext parentContext;
   final bool groupByFormType;
+
   /// When true (e.g. view-by-form): first group by teacher, then by student.
   final bool groupByTeacherFirst;
 
@@ -2705,7 +2821,8 @@ class _MinimalistSubmissionList extends StatefulWidget {
   });
 
   @override
-  State<_MinimalistSubmissionList> createState() => _MinimalistSubmissionListState();
+  State<_MinimalistSubmissionList> createState() =>
+      _MinimalistSubmissionListState();
 }
 
 class _MinimalistSubmissionListState extends State<_MinimalistSubmissionList> {
@@ -2725,7 +2842,7 @@ class _MinimalistSubmissionListState extends State<_MinimalistSubmissionList> {
   Future<void> _loadShiftData() async {
     final shiftIds = <String>{};
     for (var doc in widget.submissions) {
-    final data = doc.data() as Map<String, dynamic>;
+      final data = doc.data() as Map<String, dynamic>;
       final sid = (data['shiftId'] ?? data['shift_id'])?.toString();
       if (sid != null && sid.isNotEmpty && sid != 'N/A') shiftIds.add(sid);
     }
@@ -2812,23 +2929,27 @@ class _MinimalistSubmissionListState extends State<_MinimalistSubmissionList> {
       itemBuilder: (context, index) {
         final student = sortedKeys[index];
         final docs = grouped[student]!;
-        final displayName = student == generalUnknownKey ? l10n.adminSubmissionsGeneralUnknown : student;
-              return Column(
+        final displayName = student == generalUnknownKey
+            ? l10n.adminSubmissionsGeneralUnknown
+            : student;
+        return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
+          children: [
+            Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               color: const Color(0xffF8FAFC),
               width: double.infinity,
-                    child: Row(
-                      children: [
+              child: Row(
+                children: [
                   CircleAvatar(
                     radius: 10,
                     backgroundColor: const Color(0xffCBD5E1),
                     child: Text(
-                      displayName.isNotEmpty ? displayName[0].toUpperCase() : '?',
-                          style: GoogleFonts.inter(
+                      displayName.isNotEmpty
+                          ? displayName[0].toUpperCase()
+                          : '?',
+                      style: GoogleFonts.inter(
                         fontSize: 9,
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
@@ -2837,7 +2958,7 @@ class _MinimalistSubmissionListState extends State<_MinimalistSubmissionList> {
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                          child: Text(
+                    child: Text(
                       displayName,
                       style: GoogleFonts.inter(
                         fontSize: 12,
@@ -2849,12 +2970,14 @@ class _MinimalistSubmissionListState extends State<_MinimalistSubmissionList> {
                   ),
                   Text(
                     '${docs.length}',
-                    style: GoogleFonts.inter(fontSize: 11, color: const Color(0xff94A3B8)),
-                        ),
-                      ],
-                    ),
+                    style: GoogleFonts.inter(
+                        fontSize: 11, color: const Color(0xff94A3B8)),
                   ),
-            ...docs.map((doc) => _buildCompactRow(context, doc, showTeacher: false)),
+                ],
+              ),
+            ),
+            ...docs.map(
+                (doc) => _buildCompactRow(context, doc, showTeacher: false)),
           ],
         );
       },
@@ -2872,8 +2995,14 @@ class _MinimalistSubmissionListState extends State<_MinimalistSubmissionList> {
     }
     final teacherIds = byTeacherId.keys.toList()
       ..sort((a, b) {
-        final nameA = a == 'unknown' ? l10n.commonUnknown : (widget.teachersData[a]?['name'] ?? l10n.commonUnknown).toString();
-        final nameB = b == 'unknown' ? l10n.commonUnknown : (widget.teachersData[b]?['name'] ?? l10n.commonUnknown).toString();
+        final nameA = a == 'unknown'
+            ? l10n.commonUnknown
+            : (widget.teachersData[a]?['name'] ?? l10n.commonUnknown)
+                .toString();
+        final nameB = b == 'unknown'
+            ? l10n.commonUnknown
+            : (widget.teachersData[b]?['name'] ?? l10n.commonUnknown)
+                .toString();
         if (nameA == l10n.commonUnknown) return 1;
         if (nameB == l10n.commonUnknown) return -1;
         return nameA.compareTo(nameB);
@@ -2884,7 +3013,10 @@ class _MinimalistSubmissionListState extends State<_MinimalistSubmissionList> {
       itemBuilder: (context, index) {
         final tid = teacherIds[index];
         final docs = byTeacherId[tid]!;
-        final teacherName = tid == 'unknown' ? l10n.commonUnknown : (widget.teachersData[tid]?['name'] ?? l10n.commonUnknown).toString();
+        final teacherName = tid == 'unknown'
+            ? l10n.commonUnknown
+            : (widget.teachersData[tid]?['name'] ?? l10n.commonUnknown)
+                .toString();
         final studentSections = _buildStudentGroupSection(l10n, docs);
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -2894,22 +3026,24 @@ class _MinimalistSubmissionListState extends State<_MinimalistSubmissionList> {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               color: const Color(0xffEEF2FF),
               width: double.infinity,
-                    child: Row(
-                      children: [
+              child: Row(
+                children: [
                   CircleAvatar(
                     radius: 10,
                     backgroundColor: const Color(0xff6366F1),
                     child: Text(
-                      teacherName.isNotEmpty ? teacherName[0].toUpperCase() : '?',
+                      teacherName.isNotEmpty
+                          ? teacherName[0].toUpperCase()
+                          : '?',
                       style: GoogleFonts.inter(
                         fontSize: 9,
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
                       ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
                     child: Text(
                       teacherName,
                       style: GoogleFonts.inter(
@@ -2922,11 +3056,12 @@ class _MinimalistSubmissionListState extends State<_MinimalistSubmissionList> {
                   ),
                   Text(
                     '${docs.length}',
-                    style: GoogleFonts.inter(fontSize: 11, color: const Color(0xff6366F1)),
-                        ),
-                      ],
-                    ),
+                    style: GoogleFonts.inter(
+                        fontSize: 11, color: const Color(0xff6366F1)),
                   ),
+                ],
+              ),
+            ),
             ...studentSections,
           ],
         );
@@ -2945,8 +3080,14 @@ class _MinimalistSubmissionListState extends State<_MinimalistSubmissionList> {
     }
     final teacherIds = byTeacherId.keys.toList()
       ..sort((a, b) {
-        final nameA = a == 'unknown' ? l10n.commonUnknown : (widget.teachersData[a]?['name'] ?? l10n.commonUnknown).toString();
-        final nameB = b == 'unknown' ? l10n.commonUnknown : (widget.teachersData[b]?['name'] ?? l10n.commonUnknown).toString();
+        final nameA = a == 'unknown'
+            ? l10n.commonUnknown
+            : (widget.teachersData[a]?['name'] ?? l10n.commonUnknown)
+                .toString();
+        final nameB = b == 'unknown'
+            ? l10n.commonUnknown
+            : (widget.teachersData[b]?['name'] ?? l10n.commonUnknown)
+                .toString();
         if (nameA == l10n.commonUnknown) return 1;
         if (nameB == l10n.commonUnknown) return -1;
         return nameA.compareTo(nameB);
@@ -2957,11 +3098,14 @@ class _MinimalistSubmissionListState extends State<_MinimalistSubmissionList> {
       itemBuilder: (context, index) {
         final tid = teacherIds[index];
         final docs = byTeacherId[tid]!;
-        final teacherName = tid == 'unknown' ? l10n.commonUnknown : (widget.teachersData[tid]?['name'] ?? l10n.commonUnknown).toString();
+        final teacherName = tid == 'unknown'
+            ? l10n.commonUnknown
+            : (widget.teachersData[tid]?['name'] ?? l10n.commonUnknown)
+                .toString();
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
-                            children: [
+          children: [
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               color: const Color(0xffEEF2FF),
@@ -2972,7 +3116,9 @@ class _MinimalistSubmissionListState extends State<_MinimalistSubmissionList> {
                     radius: 10,
                     backgroundColor: const Color(0xff6366F1),
                     child: Text(
-                      teacherName.isNotEmpty ? teacherName[0].toUpperCase() : '?',
+                      teacherName.isNotEmpty
+                          ? teacherName[0].toUpperCase()
+                          : '?',
                       style: GoogleFonts.inter(
                         fontSize: 9,
                         color: Colors.white,
@@ -2981,10 +3127,10 @@ class _MinimalistSubmissionListState extends State<_MinimalistSubmissionList> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
+                  Expanded(
+                    child: Text(
                       teacherName,
-                                  style: GoogleFonts.inter(
+                      style: GoogleFonts.inter(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                         color: const Color(0xff4338CA),
@@ -2994,12 +3140,14 @@ class _MinimalistSubmissionListState extends State<_MinimalistSubmissionList> {
                   ),
                   Text(
                     '${docs.length}',
-                    style: GoogleFonts.inter(fontSize: 11, color: const Color(0xff6366F1)),
-                                ),
-                            ],
-                          ),
+                    style: GoogleFonts.inter(
+                        fontSize: 11, color: const Color(0xff6366F1)),
+                  ),
+                ],
+              ),
             ),
-            ...docs.map((doc) => _buildCompactRow(context, doc, showTeacher: false)),
+            ...docs.map(
+                (doc) => _buildCompactRow(context, doc, showTeacher: false)),
           ],
         );
       },
@@ -3010,7 +3158,8 @@ class _MinimalistSubmissionListState extends State<_MinimalistSubmissionList> {
     final grouped = <String, List<QueryDocumentSnapshot>>{};
     for (var doc in widget.submissions) {
       final d = doc.data() as Map<String, dynamic>;
-      final title = (d['formTitle'] ?? d['form_title'] ?? l10n.formDefaultTitle).toString();
+      final title = (d['formTitle'] ?? d['form_title'] ?? l10n.formDefaultTitle)
+          .toString();
       if (title.isEmpty) continue;
       grouped.putIfAbsent(title, () => []).add(doc);
     }
@@ -3021,11 +3170,15 @@ class _MinimalistSubmissionListState extends State<_MinimalistSubmissionList> {
       itemBuilder: (context, index) {
         final key = keys[index];
         final docs = grouped[key]!;
-        final isDailyReport = key.toLowerCase().contains('daily') ||
-            (docs.isNotEmpty &&
-                ((docs.first.data() as Map<String, dynamic>)['formType'] ?? '')
-                    .toString()
-                    .toLowerCase() == 'daily');
+        final firstData =
+            docs.isNotEmpty ? docs.first.data() as Map<String, dynamic> : null;
+        final templateId = firstData == null
+            ? null
+            : (firstData['templateId'] ?? firstData['template_id'])?.toString();
+        final isDailyReport = isDailyClassReportForm(
+          formTitle: key,
+          templateId: templateId,
+        );
         return ExpansionTile(
           title: Text(
             key,
@@ -3035,14 +3188,17 @@ class _MinimalistSubmissionListState extends State<_MinimalistSubmissionList> {
           shape: const Border(),
           children: isDailyReport && _shiftCache.isNotEmpty
               ? _buildStudentGroupSection(l10n, docs)
-              : docs.map((d) => _buildCompactRow(context, d, showTeacher: false)).toList(),
+              : docs
+                  .map((d) => _buildCompactRow(context, d, showTeacher: false))
+                  .toList(),
         );
       },
     );
   }
 
   /// Daily Class Report inside teacher popup: group by student.
-  List<Widget> _buildStudentGroupSection(AppLocalizations l10n, List<QueryDocumentSnapshot> docs) {
+  List<Widget> _buildStudentGroupSection(
+      AppLocalizations l10n, List<QueryDocumentSnapshot> docs) {
     const generalUnknownKey = 'General / Unknown';
     final grouped = <String, List<QueryDocumentSnapshot>>{};
     for (var doc in docs) {
@@ -3064,7 +3220,9 @@ class _MinimalistSubmissionListState extends State<_MinimalistSubmissionList> {
     final list = <Widget>[];
     for (final student in sortedKeys) {
       final studentDocs = grouped[student]!;
-      final displayName = student == generalUnknownKey ? l10n.adminSubmissionsGeneralUnknown : student;
+      final displayName = student == generalUnknownKey
+          ? l10n.adminSubmissionsGeneralUnknown
+          : student;
       list.add(
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -3098,7 +3256,8 @@ class _MinimalistSubmissionListState extends State<_MinimalistSubmissionList> {
               ),
               Text(
                 '${studentDocs.length}',
-                style: GoogleFonts.inter(fontSize: 10, color: const Color(0xff94A3B8)),
+                style: GoogleFonts.inter(
+                    fontSize: 10, color: const Color(0xff94A3B8)),
               ),
             ],
           ),
@@ -3111,15 +3270,18 @@ class _MinimalistSubmissionListState extends State<_MinimalistSubmissionList> {
     return list;
   }
 
-  Widget _buildFlatList(BuildContext context, List<QueryDocumentSnapshot> docs) {
+  Widget _buildFlatList(
+      BuildContext context, List<QueryDocumentSnapshot> docs) {
     return ListView.builder(
       padding: const EdgeInsets.symmetric(vertical: 4),
       itemCount: docs.length,
-      itemBuilder: (context, index) => _buildCompactRow(context, docs[index], showTeacher: true),
+      itemBuilder: (context, index) =>
+          _buildCompactRow(context, docs[index], showTeacher: true),
     );
   }
 
-  Widget _buildCompactRow(BuildContext context, QueryDocumentSnapshot doc, {bool showTeacher = false}) {
+  Widget _buildCompactRow(BuildContext context, QueryDocumentSnapshot doc,
+      {bool showTeacher = false}) {
     final l10n = AppLocalizations.of(context)!;
     final data = doc.data() as Map<String, dynamic>;
     final submittedAt = (data['submittedAt'] as Timestamp?)?.toDate();
@@ -3151,7 +3313,8 @@ class _MinimalistSubmissionListState extends State<_MinimalistSubmissionList> {
               width: 150,
               child: Text(
                 subtitle,
-                style: GoogleFonts.inter(fontSize: 12, color: const Color(0xff334155)),
+                style: GoogleFonts.inter(
+                    fontSize: 12, color: const Color(0xff334155)),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -3161,15 +3324,19 @@ class _MinimalistSubmissionListState extends State<_MinimalistSubmissionList> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                 decoration: BoxDecoration(
-                  color: isDone ? const Color(0xffDCFCE7) : const Color(0xffFEF3C7),
+                  color: isDone
+                      ? const Color(0xffDCFCE7)
+                      : const Color(0xffFEF3C7),
                   borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
+                ),
+                child: Text(
                   isDone ? l10n.commonDone : l10n.adminSubmissionsPending,
-                          style: GoogleFonts.inter(
+                  style: GoogleFonts.inter(
                     fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                    color: isDone ? const Color(0xff16A34A) : const Color(0xffD97706),
+                    fontWeight: FontWeight.w600,
+                    color: isDone
+                        ? const Color(0xff16A34A)
+                        : const Color(0xffD97706),
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -3182,9 +3349,9 @@ class _MinimalistSubmissionListState extends State<_MinimalistSubmissionList> {
                 Icons.visibility_outlined,
                 size: 16,
                 color: const Color(0xff0386FF),
-                    ),
-                  ),
-                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -3200,7 +3367,8 @@ class _AdminFormSheet extends StatefulWidget {
   final List<QueryDocumentSnapshot> submissions;
   final Map<String, Map<String, dynamic>> teachersData;
   final Set<String> favoriteTeacherIds;
-  final Future<Map<String, TeachingShift>> Function(Set<String> shiftIds) getShiftSummaries;
+  final Future<Map<String, TeachingShift>> Function(Set<String> shiftIds)
+      getShiftSummaries;
   final BuildContext parentContext;
 
   const _AdminFormSheet({
@@ -3236,8 +3404,8 @@ class _AdminFormSheetState extends State<_AdminFormSheet> {
               color: Colors.white,
               borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
             ),
-        child: Column(
-          children: [
+            child: Column(
+              children: [
                 Center(
                   child: Container(
                     margin: const EdgeInsets.only(top: 8, bottom: 4),
@@ -3252,7 +3420,7 @@ class _AdminFormSheetState extends State<_AdminFormSheet> {
                 Padding(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              child: Row(
+                  child: Row(
                     children: [
                       if (_selectedTeacherId.isNotEmpty)
                         InkWell(
@@ -3269,16 +3437,16 @@ class _AdminFormSheetState extends State<_AdminFormSheet> {
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
+                          children: [
+                            Text(
                               _selectedTeacherId.isEmpty
                                   ? widget.formTitle
                                   : (widget.teachersData[_selectedTeacherId]
                                           ?['name'] ??
                                       l10n.commonUnknownUser),
-                    style: GoogleFonts.inter(
+                              style: GoogleFonts.inter(
                                   fontSize: 13,
-                      fontWeight: FontWeight.w600,
+                                  fontWeight: FontWeight.w600,
                                   color: const Color(0xff1E293B)),
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -3287,8 +3455,7 @@ class _AdminFormSheetState extends State<_AdminFormSheet> {
                                   ? '${widget.submissions.length} submissions'
                                   : '${widget.submissions.where((d) => (d.data() as Map<String, dynamic>)['userId'] == _selectedTeacherId).length} submissions',
                               style: GoogleFonts.inter(
-                                  fontSize: 11,
-                                  color: const Color(0xff94A3B8)),
+                                  fontSize: 11, color: const Color(0xff94A3B8)),
                             ),
                           ],
                         ),
@@ -3299,10 +3466,10 @@ class _AdminFormSheetState extends State<_AdminFormSheet> {
                           padding: EdgeInsets.all(4),
                           child: Icon(Icons.close, size: 18),
                         ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            ),
+                ),
                 const Divider(height: 1, color: Color(0xffE2E8F0)),
                 Expanded(
                   child: _selectedTeacherId.isEmpty
@@ -3320,9 +3487,8 @@ class _AdminFormSheetState extends State<_AdminFormSheet> {
   Widget _buildTeacherList(ScrollController controller) {
     final grouped = <String, List<QueryDocumentSnapshot>>{};
     for (var doc in widget.submissions) {
-      final uid =
-          (doc.data() as Map<String, dynamic>)['userId'] as String? ??
-              'unknown';
+      final uid = (doc.data() as Map<String, dynamic>)['userId'] as String? ??
+          'unknown';
       grouped.putIfAbsent(uid, () => []).add(doc);
     }
     final teacherIds = grouped.keys.toList()
@@ -3338,20 +3504,20 @@ class _AdminFormSheetState extends State<_AdminFormSheet> {
     final bottomPad = 24.0 + (MediaQuery.of(context).padding.bottom);
     return ListView.builder(
       controller: controller,
-      physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+      physics:
+          const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
       padding: EdgeInsets.only(bottom: bottomPad),
       itemCount: teacherIds.length,
       itemExtent: 40,
       itemBuilder: (context, index) {
         final uid = teacherIds[index];
         final subs = grouped[uid]!;
-        final name =
-            widget.teachersData[uid]?['name'] ?? 'Unknown';
+        final name = widget.teachersData[uid]?['name'] ?? 'Unknown';
         return InkWell(
-              onTap: () {
+          onTap: () {
             final teacherSubs = widget.submissions
-                .where((d) =>
-                    (d.data() as Map<String, dynamic>)['userId'] == uid)
+                .where(
+                    (d) => (d.data() as Map<String, dynamic>)['userId'] == uid)
                 .toList();
             final shiftIds = <String>{};
             for (var d in teacherSubs) {
@@ -3359,7 +3525,7 @@ class _AdminFormSheetState extends State<_AdminFormSheet> {
               final id = (data['shiftId'] ?? data['shift_id'])?.toString();
               if (id != null && id.isNotEmpty && id != 'N/A') shiftIds.add(id);
             }
-                setState(() {
+            setState(() {
               _selectedTeacherId = uid;
               _teacherShiftSummaries = null;
             });
@@ -3371,8 +3537,7 @@ class _AdminFormSheetState extends State<_AdminFormSheet> {
             padding: const EdgeInsets.symmetric(horizontal: 12),
             decoration: const BoxDecoration(
               border: Border(
-                  bottom:
-                      BorderSide(color: Color(0xffF1F5F9), width: 0.5)),
+                  bottom: BorderSide(color: Color(0xffF1F5F9), width: 0.5)),
             ),
             child: Row(
               children: [
@@ -3390,7 +3555,7 @@ class _AdminFormSheetState extends State<_AdminFormSheet> {
                 Expanded(
                   child: Text(
                     name,
-                      style: GoogleFonts.inter(
+                    style: GoogleFonts.inter(
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
                         color: const Color(0xff1E293B)),
@@ -3415,9 +3580,9 @@ class _AdminFormSheetState extends State<_AdminFormSheet> {
                 const SizedBox(width: 6),
                 const Icon(Icons.chevron_right,
                     size: 16, color: Color(0xffCBD5E1)),
-          ],
-        ),
-      ),
+              ],
+            ),
+          ),
         );
       },
     );
@@ -3439,8 +3604,7 @@ class _AdminFormSheetState extends State<_AdminFormSheet> {
     final shiftSummaries = _teacherShiftSummaries!;
     final teacherSubs = widget.submissions
         .where((d) =>
-            (d.data() as Map<String, dynamic>)['userId'] ==
-            _selectedTeacherId)
+            (d.data() as Map<String, dynamic>)['userId'] == _selectedTeacherId)
         .toList();
     final grouped = <String, List<QueryDocumentSnapshot>>{};
     for (var doc in teacherSubs) {
@@ -3457,7 +3621,8 @@ class _AdminFormSheetState extends State<_AdminFormSheet> {
     final bottomPad = 24.0 + (MediaQuery.of(context).padding.bottom);
     return ListView.builder(
       controller: controller,
-      physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+      physics:
+          const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
       padding: EdgeInsets.only(top: 4, bottom: bottomPad),
       itemCount: keys.length,
       itemBuilder: (context, index) {
@@ -3481,8 +3646,7 @@ class _AdminFormSheetState extends State<_AdminFormSheet> {
             ),
             ...docs.map((doc) {
               final data = doc.data() as Map<String, dynamic>;
-              final submittedAt =
-                  (data['submittedAt'] as Timestamp?)?.toDate();
+              final submittedAt = (data['submittedAt'] as Timestamp?)?.toDate();
               final dateStr = submittedAt != null
                   ? DateFormat('MMM d, h:mm a').format(submittedAt)
                   : '—';
@@ -3500,20 +3664,19 @@ class _AdminFormSheetState extends State<_AdminFormSheet> {
                 child: Container(
                   height: 32,
                   padding: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: const BoxDecoration(
-                border: Border(
-                        bottom: BorderSide(
-                            color: Color(0xffF1F5F9), width: 0.5)),
-              ),
-              child: Row(
-                children: [
-                  Text(
-                        dateStr,
-                    style: GoogleFonts.inter(
-                            fontSize: 11,
-                            color: const Color(0xff475569)),
+                  decoration: const BoxDecoration(
+                    border: Border(
+                        bottom:
+                            BorderSide(color: Color(0xffF1F5F9), width: 0.5)),
                   ),
-                  const Spacer(),
+                  child: Row(
+                    children: [
+                      Text(
+                        dateStr,
+                        style: GoogleFonts.inter(
+                            fontSize: 11, color: const Color(0xff475569)),
+                      ),
+                      const Spacer(),
                       const SizedBox(
                         width: 24,
                         child: Align(
@@ -3521,10 +3684,10 @@ class _AdminFormSheetState extends State<_AdminFormSheet> {
                           child: Icon(Icons.visibility_outlined,
                               size: 14, color: Color(0xff0386FF)),
                         ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            ),
+                ),
               );
             }),
           ],
@@ -3569,130 +3732,147 @@ class _TeacherSheetBody extends StatelessWidget {
       builder: (ctx) {
         final bottomPad = 24.0 + MediaQuery.of(ctx).padding.bottom;
         return DraggableScrollableSheet(
-        initialChildSize: 0.8,
-        minChildSize: 0.3,
-        maxChildSize: 0.98,
-        expand: false,
-        builder: (_, sheetScrollController) => Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-          ),
-          child: SafeArea(
-            top: false,
-            child: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          formTitle,
-                  style: GoogleFonts.inter(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                            color: const Color(0xff1E293B),
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: () => Navigator.pop(ctx),
-                        icon: const Icon(Icons.close, size: 22),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
-                      ),
-          ],
-        ),
-      ),
-                const Divider(height: 1),
-                Expanded(
-                  child: ListView.builder(
-                    controller: sheetScrollController,
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: EdgeInsets.only(bottom: bottomPad),
-                    itemCount: submissions.length,
-                    itemExtent: 56,
-                    addAutomaticKeepAlives: false,
-                    addRepaintBoundaries: true,
-                    itemBuilder: (ctx, index) {
-                      final l10n = AppLocalizations.of(ctx)!;
-                      final doc = submissions[index];
-                      final data = doc.data() as Map<String, dynamic>;
-                      final submittedAt = (data['submittedAt'] as Timestamp?)?.toDate();
-                      final dateStr = submittedAt != null
-                          ? DateFormat('MMM d, h:mm a').format(submittedAt)
-                          : '—';
-                      final status = (data['status'] ?? 'completed').toString().toLowerCase();
-                      final shiftId = (data['shiftId'] ?? data['shift_id'])?.toString() ?? '';
-                      final responses = (data['responses'] as Map<String, dynamic>?) ?? {};
-                      return InkWell(
-                        onTap: () {
-                          FormDetailsModal.show(
-                            parentContext,
-                            formId: doc.id,
-                            shiftId: shiftId,
-                            responses: responses,
-                          );
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          decoration: const BoxDecoration(
-                            border: Border(
-                              bottom: BorderSide(color: Color(0xffF1F5F9), width: 0.5),
+          initialChildSize: 0.8,
+          minChildSize: 0.3,
+          maxChildSize: 0.98,
+          expand: false,
+          builder: (_, sheetScrollController) => Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(16)),
+            ),
+            child: SafeArea(
+              top: false,
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            formTitle,
+                            style: GoogleFonts.inter(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xff1E293B),
                             ),
                           ),
-                          child: Row(
-              children: [
-                              SizedBox(
-                                width: 150,
-                                child: Text(
-                                  dateStr,
-                                  style: GoogleFonts.inter(fontSize: 14, color: const Color(0xff475569)),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
+                        ),
+                        IconButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          icon: const Icon(Icons.close, size: 22),
+                          padding: EdgeInsets.zero,
+                          constraints:
+                              const BoxConstraints(minWidth: 40, minHeight: 40),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  Expanded(
+                    child: ListView.builder(
+                      controller: sheetScrollController,
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: EdgeInsets.only(bottom: bottomPad),
+                      itemCount: submissions.length,
+                      itemExtent: 56,
+                      addAutomaticKeepAlives: false,
+                      addRepaintBoundaries: true,
+                      itemBuilder: (ctx, index) {
+                        final l10n = AppLocalizations.of(ctx)!;
+                        final doc = submissions[index];
+                        final data = doc.data() as Map<String, dynamic>;
+                        final submittedAt =
+                            (data['submittedAt'] as Timestamp?)?.toDate();
+                        final dateStr = submittedAt != null
+                            ? DateFormat('MMM d, h:mm a').format(submittedAt)
+                            : '—';
+                        final status = (data['status'] ?? 'completed')
+                            .toString()
+                            .toLowerCase();
+                        final shiftId =
+                            (data['shiftId'] ?? data['shift_id'])?.toString() ??
+                                '';
+                        final responses =
+                            (data['responses'] as Map<String, dynamic>?) ?? {};
+                        return InkWell(
+                          onTap: () {
+                            FormDetailsModal.show(
+                              parentContext,
+                              formId: doc.id,
+                              shiftId: shiftId,
+                              responses: responses,
+                            );
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 8),
+                            decoration: const BoxDecoration(
+                              border: Border(
+                                bottom: BorderSide(
+                                    color: Color(0xffF1F5F9), width: 0.5),
                               ),
-                              const Spacer(),
-                              SizedBox(
-                                width: 80,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: status == 'completed'
-                                        ? const Color(0xffDCFCE7)
-                                        : const Color(0xffFEF3C7),
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
+                            ),
+                            child: Row(
+                              children: [
+                                SizedBox(
+                                  width: 150,
                                   child: Text(
-                                    status == 'completed' ? l10n.commonDone : l10n.adminSubmissionsPending,
-                  style: GoogleFonts.inter(
-                                      fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                                      color: status == 'completed'
-                                          ? const Color(0xff16A34A)
-                                          : const Color(0xffF59E0B),
-                                    ),
+                                    dateStr,
+                                    style: GoogleFonts.inter(
+                                        fontSize: 14,
+                                        color: const Color(0xff475569)),
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
-                              ),
-                              const SizedBox(width: 8),
-                              const SizedBox(
-                                width: 20,
-                                child: Icon(Icons.chevron_right, size: 20, color: Color(0xff94A3B8)),
-                              ),
-                            ],
+                                const Spacer(),
+                                SizedBox(
+                                  width: 80,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 10, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: status == 'completed'
+                                          ? const Color(0xffDCFCE7)
+                                          : const Color(0xffFEF3C7),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      status == 'completed'
+                                          ? l10n.commonDone
+                                          : l10n.adminSubmissionsPending,
+                                      style: GoogleFonts.inter(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: status == 'completed'
+                                            ? const Color(0xff16A34A)
+                                            : const Color(0xffF59E0B),
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                const SizedBox(
+                                  width: 20,
+                                  child: Icon(Icons.chevron_right,
+                                      size: 20, color: Color(0xff94A3B8)),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                      );
-                    },
+                        );
+                      },
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
-        ),
-      );
+        );
       },
     );
   }
@@ -3717,9 +3897,12 @@ class _TeacherSheetBody extends StatelessWidget {
     }
     for (var list in map.values) {
       list.sort((a, b) {
-        final ta = (a.data() as Map<String, dynamic>)['submittedAt'] as Timestamp?;
-        final tb = (b.data() as Map<String, dynamic>)['submittedAt'] as Timestamp?;
-        return (tb?.millisecondsSinceEpoch ?? 0).compareTo(ta?.millisecondsSinceEpoch ?? 0);
+        final ta =
+            (a.data() as Map<String, dynamic>)['submittedAt'] as Timestamp?;
+        final tb =
+            (b.data() as Map<String, dynamic>)['submittedAt'] as Timestamp?;
+        return (tb?.millisecondsSinceEpoch ?? 0)
+            .compareTo(ta?.millisecondsSinceEpoch ?? 0);
       });
     }
     String titleFor(String k) {
@@ -3728,6 +3911,7 @@ class _TeacherSheetBody extends StatelessWidget {
       if (k == _teacherSheetMonthlyKey) return 'Monthly report';
       return getFormTitles()[k] ?? 'Form';
     }
+
     final entries = map.entries.toList()
       ..sort((a, b) => titleFor(a.key).compareTo(titleFor(b.key)));
     return entries;
@@ -3739,7 +3923,8 @@ class _TeacherSheetBody extends StatelessWidget {
       return Center(
         child: Text(
           'No submissions in this period',
-          style: GoogleFonts.inter(fontSize: 13, color: const Color(0xff64748B)),
+          style:
+              GoogleFonts.inter(fontSize: 13, color: const Color(0xff64748B)),
         ),
       );
     }
@@ -3759,7 +3944,8 @@ class _TeacherSheetBody extends StatelessWidget {
                 : entry.key == _teacherSheetMonthlyKey
                     ? 'Monthly report'
                     : getFormTitles()[entry.key] ?? 'Form';
-        return _buildFormGroupCard(context, formTitle: formTitle, submissions: entry.value);
+        return _buildFormGroupCard(context,
+            formTitle: formTitle, submissions: entry.value);
       },
     );
   }
@@ -3782,17 +3968,23 @@ class _TeacherSheetBody extends StatelessWidget {
         side: const BorderSide(color: Color(0xffE2E8F0)),
       ),
       child: ListTile(
-                  title: Text(
+        title: Text(
           formTitle,
-          style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w600, color: const Color(0xff1E293B)),
+          style: GoogleFonts.inter(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: const Color(0xff1E293B)),
         ),
         subtitle: Text(
           '${submissions.length} submissions · $completedCount completed',
-          style: GoogleFonts.inter(fontSize: 12, color: const Color(0xff64748B)),
+          style:
+              GoogleFonts.inter(fontSize: 12, color: const Color(0xff64748B)),
         ),
-        trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Color(0xff94A3B8)),
+        trailing: const Icon(Icons.arrow_forward_ios,
+            size: 16, color: Color(0xff94A3B8)),
         onTap: () {
-          _TeacherSheetBody.showSubmissionsListSheet(context, formTitle, submissions, parentContext);
+          _TeacherSheetBody.showSubmissionsListSheet(
+              context, formTitle, submissions, parentContext);
         },
       ),
     );
@@ -3854,36 +4046,38 @@ class _TeacherSubmissionsSheet extends StatelessWidget {
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   child: Row(
                     children: [
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                Text(
+                            Text(
                               teacherName,
-                  style: GoogleFonts.inter(
+                              style: GoogleFonts.inter(
                                 fontSize: 16,
-                    fontWeight: FontWeight.w600,
+                                fontWeight: FontWeight.w600,
                                 color: const Color(0xff1E293B),
-                  ),
-                ),
+                              ),
+                            ),
                             const SizedBox(height: 2),
-                Text(
+                            Text(
                               '${submissions.length} submissions',
-                  style: GoogleFonts.inter(
-                    fontSize: 12,
-                    color: const Color(0xff94A3B8),
-                  ),
-                ),
+                              style: GoogleFonts.inter(
+                                fontSize: 12,
+                                color: const Color(0xff94A3B8),
+                              ),
+                            ),
                           ],
                         ),
                       ),
                       IconButton(
                         onPressed: () => Navigator.pop(context),
                         icon: const Icon(Icons.close, size: 22),
-                        tooltip: AppLocalizations.of(context)?.commonClose ?? 'Close',
+                        tooltip: AppLocalizations.of(context)?.commonClose ??
+                            'Close',
                       ),
                     ],
                   ),

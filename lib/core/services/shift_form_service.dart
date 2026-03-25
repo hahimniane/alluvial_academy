@@ -20,27 +20,23 @@ class ShiftFormService {
   }
 
   /// Get the readiness form ID from config (async, reads from Firestore)
-  /// For PILOT users: returns the new daily template ID from form_templates
-  /// For REGULAR users: returns the old readiness form ID from form collection
+  /// Always uses the new template system (form_templates collection).
+  /// Legacy forms from 'form' collection are disabled.
   static Future<String> getReadinessFormId() async {
-    // Check if current user is in pilot mode
-    final isPilot = await PilotFlagService.isCurrentUserPilot();
-
-    if (isPilot) {
-      AppLogger.debug('ShiftFormService: Pilot user - using new template system');
-      // Try to get the active daily template ID
-      try {
-        final template = await FormTemplateService.getActiveDailyTemplate();
-        if (template != null && template.id.isNotEmpty) {
-          AppLogger.debug('ShiftFormService: Using pilot template ID: ${template.id}');
-          return template.id;
-        }
-      } catch (e) {
-        AppLogger.error('ShiftFormService: Error getting pilot template: $e');
+    // Always use new template system
+    AppLogger.debug('ShiftFormService: Using new template system');
+    try {
+      final template = await FormTemplateService.getActiveDailyTemplate();
+      if (template != null && template.id.isNotEmpty) {
+        AppLogger.debug('ShiftFormService: Using template ID: ${template.id}');
+        return template.id;
       }
+    } catch (e) {
+      AppLogger.error('ShiftFormService: Error getting template: $e');
     }
-    
-    // Fallback to old config-based form ID
+
+    // Fallback to old config-based form ID only if no template exists
+    AppLogger.warning('ShiftFormService: No active daily template found, falling back to legacy form ID');
     final fallbackId = await FormConfigService.getReadinessFormId();
     return fallbackId;
   }
@@ -51,25 +47,19 @@ class ShiftFormService {
   static String get readinessFormId => 'Ur1oW7SmFsMyNniTf6jS';
 
   /// Get the readiness form template
-  /// For PILOT users: returns the new minimal template from form_templates
-  /// For REGULAR users: returns the old form from form collection
+  /// Always uses the new template system (form_templates collection).
+  /// Legacy forms from 'form' collection are disabled.
   static Future<Map<String, dynamic>?> getReadinessFormTemplate() async {
     try {
-      // Check if current user is in pilot mode
-      final isPilot = await PilotFlagService.isCurrentUserPilot();
-      
-      if (isPilot) {
-        AppLogger.debug('ShiftFormService: Pilot user - loading new template');
-        // Try to get the active daily template
-        final template = await FormTemplateService.getActiveDailyTemplate();
-        if (template != null) {
-          AppLogger.debug('ShiftFormService: Using pilot template: ${template.name}');
-          // Convert FormTemplate to map format compatible with existing form UI
-          return _convertTemplateToFormFormat(template);
-        }
+      AppLogger.debug('ShiftFormService: Loading new template');
+      final template = await FormTemplateService.getActiveDailyTemplate();
+      if (template != null) {
+        AppLogger.debug('ShiftFormService: Using template: ${template.name}');
+        return _convertTemplateToFormFormat(template);
       }
-      
-      // Fallback to old form collection
+
+      // Fallback to legacy form only if no template exists
+      AppLogger.warning('ShiftFormService: No active daily template found, falling back to legacy form');
       final formId = await FormConfigService.getReadinessFormId();
       final doc = await _firestore.collection('form').doc(formId).get();
       if (doc.exists) {

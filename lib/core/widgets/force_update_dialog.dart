@@ -9,7 +9,12 @@ import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class ForceUpdateDialog extends StatelessWidget {
-  const ForceUpdateDialog({super.key});
+  final VersionGateDecision? decision;
+
+  const ForceUpdateDialog({
+    super.key,
+    this.decision,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -73,6 +78,8 @@ class ForceUpdateDialog extends StatelessWidget {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 24),
+              _VersionSummary(decision: decision),
+              const SizedBox(height: 24),
 
               // Update button
               SizedBox(
@@ -129,7 +136,9 @@ class ForceUpdateDialog extends StatelessWidget {
   }
 
   Future<void> _launchAppStore() async {
-    final String url = await VersionService.getAppStoreUrl();
+    final String url = decision?.storeUrl.isNotEmpty == true
+        ? decision!.storeUrl
+        : await VersionService.getAppStoreUrl();
     if (url.isEmpty) {
       AppLogger.error('No store URL configured for this platform');
       return;
@@ -159,7 +168,12 @@ class ForceUpdateDialog extends StatelessWidget {
 
 /// Full-screen version of the force update dialog
 class ForceUpdateScreen extends StatelessWidget {
-  const ForceUpdateScreen({super.key});
+  final VersionGateDecision decision;
+
+  const ForceUpdateScreen({
+    super.key,
+    required this.decision,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -191,7 +205,7 @@ class ForceUpdateScreen extends StatelessWidget {
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.2),
+                        color: Colors.black.withValues(alpha: 0.2),
                         blurRadius: 20,
                         offset: const Offset(0, 10),
                       ),
@@ -222,7 +236,7 @@ class ForceUpdateScreen extends StatelessWidget {
                   AppLocalizations.of(context)!.aNewVersionOfAlluvialAcademy,
                   style: GoogleFonts.inter(
                     fontSize: 16,
-                    color: Colors.white.withOpacity(0.9),
+                    color: Colors.white.withValues(alpha: 0.9),
                     height: 1.5,
                   ),
                   textAlign: TextAlign.center,
@@ -232,12 +246,14 @@ class ForceUpdateScreen extends StatelessWidget {
                   AppLocalizations.of(context)!.pleaseUpdateToContinueUsingThe,
                   style: GoogleFonts.inter(
                     fontSize: 14,
-                    color: Colors.white.withOpacity(0.8),
+                    color: Colors.white.withValues(alpha: 0.8),
                     height: 1.5,
                   ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 48),
+                _VersionSummary(decision: decision, lightText: true),
+                const SizedBox(height: 32),
 
                 // Update button
                 SizedBox(
@@ -288,7 +304,7 @@ class ForceUpdateScreen extends StatelessWidget {
                       AppLocalizations.of(context)!.exitApp,
                       style: GoogleFonts.inter(
                         fontSize: 16,
-                        color: Colors.white.withOpacity(0.8),
+                        color: Colors.white.withValues(alpha: 0.8),
                       ),
                     ),
                   ),
@@ -301,7 +317,9 @@ class ForceUpdateScreen extends StatelessWidget {
   }
 
   Future<void> _launchAppStore() async {
-    final String url = await VersionService.getAppStoreUrl();
+    final String url = decision.storeUrl.isNotEmpty
+        ? decision.storeUrl
+        : await VersionService.getAppStoreUrl();
     if (url.isEmpty) {
       AppLogger.error('No store URL configured for this platform');
       return;
@@ -326,5 +344,119 @@ class ForceUpdateScreen extends StatelessWidget {
     if (Platform.isAndroid) {
       SystemNavigator.pop();
     }
+  }
+}
+
+class _VersionSummary extends StatelessWidget {
+  final VersionGateDecision? decision;
+  final bool lightText;
+
+  const _VersionSummary({
+    required this.decision,
+    this.lightText = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (decision == null) {
+      return const SizedBox.shrink();
+    }
+
+    final labelColor =
+        lightText ? Colors.white.withValues(alpha: 0.8) : Colors.grey.shade600;
+    final valueColor = lightText ? Colors.white : Colors.grey.shade900;
+    final chipBackground = lightText
+        ? Colors.white.withValues(alpha: 0.12)
+        : const Color(0xffEFF6FF);
+
+    final sourceLabel = switch (decision!.source) {
+      VersionGateSource.store => 'Live store version',
+      VersionGateSource.remoteConfig => 'Minimum supported version',
+      VersionGateSource.none => 'Version check',
+    };
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: chipBackground,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: lightText
+              ? Colors.white.withValues(alpha: 0.18)
+              : const Color(0xffDBEAFE),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            sourceLabel,
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: labelColor,
+            ),
+          ),
+          const SizedBox(height: 12),
+          _VersionRow(
+            label: 'Installed',
+            value: decision!.currentVersion,
+            labelColor: labelColor,
+            valueColor: valueColor,
+          ),
+          const SizedBox(height: 8),
+          _VersionRow(
+            label: decision!.enforcedByStore ? 'Store' : 'Required',
+            value: decision!.displayTargetVersion,
+            labelColor: labelColor,
+            valueColor: valueColor,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _VersionRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color labelColor;
+  final Color valueColor;
+
+  const _VersionRow({
+    required this.label,
+    required this.value,
+    required this.labelColor,
+    required this.valueColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        SizedBox(
+          width: 72,
+          child: Text(
+            label,
+            style: GoogleFonts.inter(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: labelColor,
+            ),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            style: GoogleFonts.inter(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: valueColor,
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }

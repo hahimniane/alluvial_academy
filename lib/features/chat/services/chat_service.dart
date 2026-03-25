@@ -13,8 +13,15 @@ class ChatService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
+  /// Virtual user ID for the shared admin support inbox.
+  /// Non-admin users message this ID; all admins can see and respond.
+  static const String adminSupportId = 'admin_support';
+
   String? get currentUserId => _auth.currentUser?.uid;
   String? get currentUserEmail => _auth.currentUser?.email;
+
+  /// Whether the given ID refers to the shared admin support chat.
+  static bool isAdminSupportChat(String id) => id == adminSupportId;
 
   // Get all users for browsing (except current user)
   Stream<List<ChatUser>> getAllUsers() {
@@ -48,51 +55,8 @@ class ChatService {
         .snapshots()
         .asyncMap((chatSnapshot) async {
       try {
-        final allUserIds = <String>{};
-        final chatFutures = <Future<ChatUser>>[];
+        final chatUsers = await _processChatSnapshot(chatSnapshot.docs);
 
-        for (var chatDoc in chatSnapshot.docs) {
-          final chatData = chatDoc.data();
-          final participants =
-              List<String>.from(chatData['participants'] ?? []);
-
-          if (chatData['chat_type'] == 'group') {
-            chatFutures.add(_getUnreadCount(chatDoc.id).then(
-              (unreadCount) =>
-                  _createGroupChatUser(chatDoc, chatData, unreadCount),
-            ));
-          } else {
-            final otherUserId = participants
-                .firstWhere((id) => id != currentUserId, orElse: () => '');
-            if (otherUserId.isNotEmpty) {
-              allUserIds.add(otherUserId);
-            }
-          }
-        }
-
-        final usersData = await _fetchUsersDataInBatch(allUserIds);
-
-        for (var chatDoc in chatSnapshot.docs) {
-          final chatData = chatDoc.data();
-          if (chatData['chat_type'] != 'group') {
-            final participants =
-                List<String>.from(chatData['participants'] ?? []);
-            final otherUserId = participants
-                .firstWhere((id) => id != currentUserId, orElse: () => '');
-            if (otherUserId.isNotEmpty && usersData.containsKey(otherUserId)) {
-              chatFutures.add(_getUnreadCount(chatDoc.id).then(
-                (unreadCount) => _createIndividualChatUser(
-                  chatDoc,
-                  otherUserId,
-                  usersData[otherUserId]!,
-                  unreadCount,
-                ),
-              ));
-            }
-          }
-        }
-
-        final chatUsers = await Future.wait(chatFutures);
         chatUsers.sort((a, b) => (b.lastMessageTime ?? DateTime(0))
             .compareTo(a.lastMessageTime ?? DateTime(0)));
 
@@ -104,16 +68,168 @@ class ChatService {
     });
   }
 
+  /// Returns a stream of all admin-support conversations (for admin users).
+  /// Each conversation is shown with the non-admin user's name/details.
+  Stream<List<ChatUser>> getAdminSupportChats() {
+    if (currentUserId == null) return Stream.value([]);
+
+    return _firestore
+        .collection('chats')
+        .where('participants', arrayContains: adminSupportId)
+        .snapshots()
+        .asyncMap((chatSnapshot) async {
+      try {
+        final chatUsers = await _processAdminSupportSnapshot(chatSnapshot.docs);
+        chatUsers.sort((a, b) => (b.lastMessageTime ?? DateTime(0))
+            .compareTo(a.lastMessageTime ?? DateTime(0)));
+        return chatUsers;
+      } catch (e) {
+        AppLogger.error('Error in getAdminSupportChats: $e');
+        return <ChatUser>[];
+      }
+    });
+  }
+
+  /// Process admin support chat docs — show the real user's name/avatar,
+  /// but keep the chat ID so messages route to the correct conversation.
+  Future<List<ChatUser>> _processAdminSupportSnapshot(
+      List<QueryDocumentSnapshot<Map<String, dynamic>>> docs) async {
+    final allUserIds = <String>{};
+    for (var chatDoc in docs) {
+      final participants =
+          List<String>.from(chatDoc.data()['participants'] ?? []);
+      final realUserId = participants.firstWhere(
+          (id) => id != adminSupportId,
+          orElse: () => '');
+      if (realUserId.isNotEmpty) {
+        allUserIds.add(realUserId);
+      }
+    }
+
+    final usersData = await _fetchUsersDataInBatch(allUserIds);
+    final chatFutures = <Future<ChatUser>>[];
+
+    for (var chatDoc in docs) {
+      final chatData = chatDoc.data();
+      final participants =
+          List<String>.from(chatData['participants'] ?? []);
+      final realUserId = participants.firstWhere(
+          (id) => id != adminSupportId,
+          orElse: () => '');
+      if (realUserId.isNotEmpty && usersData.containsKey(realUserId)) {
+        chatFutures.add(_getUnreadCount(chatDoc.id).then(
+          (unreadCount) => _createAdminSupportChatUser(
+            chatDoc,
+            realUserId,
+            usersData[realUserId]!,
+            unreadCount,
+          ),
+        ));
+      }
+    }
+
+    return Future.wait(chatFutures);
+  }
+
+  /// Creates a ChatUser for an admin-support conversation, showing the real
+  /// user's info but using the chat document ID for routing.
+  ChatUser _createAdminSupportChatUser(
+    DocumentSnapshot chatDoc,
+    String realUserId,
+    Map<String, dynamic> userData,
+    int unreadCount,
+  ) {
+    final chatData = chatDoc.data() as Map<String, dynamic>;
+    final lastMessage = chatData['last_message'] as Map<String, dynamic>?;
+    final presence = PresenceUtils.resolvePresence(userData);
+
+    return ChatUser(
+      // Use the chat doc ID so ChatScreen routes correctly
+      id: chatDoc.id,
+      name: '${userData['first_name'] ?? ''} ${userData['last_name'] ?? ''}'
+          .trim(),
+      email: userData['email'] ?? userData['e-mail'] ?? '',
+      profilePicture:
+          userData['profile_picture_url'] ?? userData['profile_picture'],
+      role: userData['user_type'],
+      isOnline: presence.isOnline,
+      lastSeen: presence.lastSeen,
+      lastMessage: lastMessage?['content'] ?? '',
+      lastMessageTime: lastMessage != null
+          ? (lastMessage['timestamp'] as Timestamp?)?.toDate()
+          : (chatData['created_at'] as Timestamp?)?.toDate(),
+      unreadCount: unreadCount,
+      // Tag as admin support so the UI can distinguish
+      isGroup: false,
+    );
+  }
+
+  Future<List<ChatUser>> _processChatSnapshot(
+      List<QueryDocumentSnapshot<Map<String, dynamic>>> docs) async {
+    final allUserIds = <String>{};
+    final chatFutures = <Future<ChatUser>>[];
+
+    for (var chatDoc in docs) {
+      final chatData = chatDoc.data();
+      final participants =
+          List<String>.from(chatData['participants'] ?? []);
+
+      if (chatData['chat_type'] == 'group') {
+        chatFutures.add(_getUnreadCount(chatDoc.id).then(
+          (unreadCount) =>
+              _createGroupChatUser(chatDoc, chatData, unreadCount),
+        ));
+      } else {
+        final otherUserId = participants
+            .firstWhere((id) => id != currentUserId, orElse: () => '');
+        if (otherUserId.isNotEmpty && otherUserId != adminSupportId) {
+          allUserIds.add(otherUserId);
+        }
+      }
+    }
+
+    final usersData = await _fetchUsersDataInBatch(allUserIds);
+
+    for (var chatDoc in docs) {
+      final chatData = chatDoc.data();
+      if (chatData['chat_type'] != 'group') {
+        final participants =
+            List<String>.from(chatData['participants'] ?? []);
+        final otherUserId = participants
+            .firstWhere((id) => id != currentUserId, orElse: () => '');
+        // Skip admin_support chats in the normal list — they're shown separately for admins
+        if (otherUserId == adminSupportId) continue;
+        if (otherUserId.isNotEmpty && usersData.containsKey(otherUserId)) {
+          chatFutures.add(_getUnreadCount(chatDoc.id).then(
+            (unreadCount) => _createIndividualChatUser(
+              chatDoc,
+              otherUserId,
+              usersData[otherUserId]!,
+              unreadCount,
+            ),
+          ));
+        }
+      }
+    }
+
+    return Future.wait(chatFutures);
+  }
+
   Future<Map<String, Map<String, dynamic>>> _fetchUsersDataInBatch(
       Set<String> userIds) async {
     if (userIds.isEmpty) return {};
     final usersData = <String, Map<String, dynamic>>{};
-    final userDocs = await _firestore
-        .collection('users')
-        .where(FieldPath.documentId, whereIn: userIds.toList())
-        .get();
-    for (var doc in userDocs.docs) {
-      usersData[doc.id] = doc.data();
+    // Firestore whereIn has a limit of 30, so batch the queries
+    final idList = userIds.toList();
+    for (var i = 0; i < idList.length; i += 30) {
+      final batch = idList.sublist(i, i + 30 > idList.length ? idList.length : i + 30);
+      final userDocs = await _firestore
+          .collection('users')
+          .where(FieldPath.documentId, whereIn: batch)
+          .get();
+      for (var doc in userDocs.docs) {
+        usersData[doc.id] = doc.data();
+      }
     }
     return usersData;
   }
@@ -219,6 +335,27 @@ class ChatService {
         'created_at': FieldValue.serverTimestamp(),
         'updated_at': FieldValue.serverTimestamp(),
         // Don't add last_message yet - it will be added when first message is sent
+      });
+    }
+
+    return chatId;
+  }
+
+  /// Create or get the admin support chat for the current (non-admin) user.
+  /// The chat document uses participants: [userId, 'admin_support'].
+  Future<String> getOrCreateAdminSupportChat() async {
+    if (currentUserId == null) throw Exception('User not authenticated');
+
+    final chatId = _generateChatId(currentUserId!, adminSupportId);
+    final chatDocRef = _firestore.collection('chats').doc(chatId);
+    final chatDoc = await chatDocRef.get();
+
+    if (!chatDoc.exists) {
+      await chatDocRef.set({
+        'participants': [currentUserId, adminSupportId],
+        'chat_type': 'admin_support',
+        'created_at': FieldValue.serverTimestamp(),
+        'updated_at': FieldValue.serverTimestamp(),
       });
     }
 
@@ -831,12 +968,17 @@ class ChatService {
 
   // Mark messages as read
   Future<void> markMessagesAsRead(String chatIdOrUserId,
-      {bool isGroupChat = false}) async {
+      {bool isGroupChat = false, bool isAdminSupportChat = false}) async {
     if (currentUserId == null) return;
 
-    final chatId = isGroupChat
-        ? chatIdOrUserId
-        : _generateChatId(currentUserId!, chatIdOrUserId);
+    final String chatId;
+    if (isGroupChat || isAdminSupportChat) {
+      chatId = chatIdOrUserId;
+    } else if (chatIdOrUserId.contains('_')) {
+      chatId = chatIdOrUserId;
+    } else {
+      chatId = _generateChatId(currentUserId!, chatIdOrUserId);
+    }
     // Get all messages and filter in client to avoid compound index requirement
     final messagesQuery = await _firestore
         .collection('chats')

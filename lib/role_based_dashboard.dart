@@ -85,8 +85,8 @@ class _RoleBasedDashboardState extends State<RoleBasedDashboard>
     _presenceUserId = userId;
     _presenceTimer?.cancel();
     _updatePresence(isOnline: true);
-    _presenceTimer =
-        Timer.periodic(_presenceInterval, (_) => _updatePresence(isOnline: true));
+    _presenceTimer = Timer.periodic(
+        _presenceInterval, (_) => _updatePresence(isOnline: true));
   }
 
   void _stopPresenceTracking({required bool setOffline}) {
@@ -126,14 +126,20 @@ class _RoleBasedDashboardState extends State<RoleBasedDashboard>
   void _subscribeToUserDocument() {
     final User? currentUser = FirebaseAuth.instance.currentUser;
     if (currentUser == null) {
-      if (mounted) setState(() { userRole = null; userData = null; isLoading = false; });
+      if (mounted)
+        setState(() {
+          userRole = null;
+          userData = null;
+          isLoading = false;
+        });
       return;
     }
 
     final String uid = currentUser.uid;
     UserRoleService.clearCache();
 
-    AppLogger.debug('=== RoleBasedDashboard: subscribing to users/$uid (real-time) ===');
+    AppLogger.debug(
+        '=== RoleBasedDashboard: subscribing to users/$uid (real-time) ===');
 
     _userDocSubscription = FirebaseFirestore.instance
         .collection('users')
@@ -183,7 +189,8 @@ class _RoleBasedDashboardState extends State<RoleBasedDashboard>
       _userRoleResolved = true;
       _userDocSubscription?.cancel();
       _userDocSubscription = null;
-      AppLogger.debug('RoleBasedDashboard: user doc not ready after ${_userDocWaitTimeout.inSeconds}s');
+      AppLogger.debug(
+          'RoleBasedDashboard: user doc not ready after ${_userDocWaitTimeout.inSeconds}s');
       setState(() {
         userRole = null;
         userData = null;
@@ -195,9 +202,12 @@ class _RoleBasedDashboardState extends State<RoleBasedDashboard>
   /// One-shot load (used by role switcher). Not used for initial load; initial load uses listener.
   Future<void> _loadUserRole({bool isRetry = false}) async {
     try {
-      AppLogger.debug('=== Loading User Role ${isRetry ? "(retry $_roleLoadRetryCount)" : ""} ===');
-      AppLogger.debug('Current user: ${FirebaseAuth.instance.currentUser?.uid}');
-      AppLogger.debug('Current user email: ${FirebaseAuth.instance.currentUser?.email}');
+      AppLogger.debug(
+          '=== Loading User Role ${isRetry ? "(retry $_roleLoadRetryCount)" : ""} ===');
+      AppLogger.debug(
+          'Current user: ${FirebaseAuth.instance.currentUser?.uid}');
+      AppLogger.debug(
+          'Current user email: ${FirebaseAuth.instance.currentUser?.email}');
 
       // Clear cache before retry to ensure fresh data
       if (isRetry) {
@@ -210,7 +220,8 @@ class _RoleBasedDashboardState extends State<RoleBasedDashboard>
       // If role is null and we haven't exceeded retry limit, try again
       if (role == null && _roleLoadRetryCount < _maxRoleLoadRetries) {
         _roleLoadRetryCount++;
-        AppLogger.debug('Role is null, scheduling retry $_roleLoadRetryCount of $_maxRoleLoadRetries');
+        AppLogger.debug(
+            'Role is null, scheduling retry $_roleLoadRetryCount of $_maxRoleLoadRetries');
         await Future.delayed(_roleLoadRetryDelay);
         if (mounted) {
           await _loadUserRole(isRetry: true);
@@ -231,7 +242,8 @@ class _RoleBasedDashboardState extends State<RoleBasedDashboard>
       // Retry on error if we haven't exceeded limit
       if (_roleLoadRetryCount < _maxRoleLoadRetries) {
         _roleLoadRetryCount++;
-        AppLogger.debug('Error occurred, scheduling retry $_roleLoadRetryCount of $_maxRoleLoadRetries');
+        AppLogger.debug(
+            'Error occurred, scheduling retry $_roleLoadRetryCount of $_maxRoleLoadRetries');
         await Future.delayed(_roleLoadRetryDelay);
         if (mounted) {
           await _loadUserRole(isRetry: true);
@@ -250,6 +262,7 @@ class _RoleBasedDashboardState extends State<RoleBasedDashboard>
 
   /// Reload user role when role switcher triggers a change
   void _onRoleChanged() {
+    UserRoleService.clearCache();
     setState(() {
       isLoading = true;
       error = null;
@@ -272,31 +285,49 @@ class _RoleBasedDashboardState extends State<RoleBasedDashboard>
     }
 
     // Route to appropriate dashboard based on role AND platform
-    AppLogger.debug('=== RoleBasedDashboard routing for role: ${userRole!.toLowerCase()}, isNativeMobile: $_isNativeMobile ===');
-    
+    AppLogger.debug(
+        '=== RoleBasedDashboard routing for role: ${userRole!.toLowerCase()}, isNativeMobile: $_isNativeMobile ===');
+
     // On native mobile (iOS/Android), use MobileDashboardScreen with bottom navigation
     if (_isNativeMobile) {
-      AppLogger.debug('=== Native mobile detected - returning MobileDashboardScreen ===');
+      AppLogger.debug(
+          '=== Native mobile detected - returning MobileDashboardScreen ===');
       return const MobileDashboardScreen();
     }
-    
+
     // On web, route based on role
-    switch (userRole!.toLowerCase()) {
+    final normalizedRole = userRole!.toLowerCase();
+    switch (normalizedRole) {
       case 'admin':
+      case 'super_admin':
         AppLogger.debug('=== Returning AdminDashboard ===');
-        return const DashboardPage(); // Full admin dashboard
+        return DashboardPage(
+          key: ValueKey('dashboard_$normalizedRole'),
+          activeRole: normalizedRole,
+          onRoleChanged: (_) => _onRoleChanged(),
+        ); // Full admin dashboard
       case 'teacher':
-        AppLogger.debug('=== Returning DashboardPage for teacher (with navigation) ===');
+        AppLogger.debug(
+            '=== Returning DashboardPage for teacher (with navigation) ===');
         // Use DashboardPage so teachers get navigation/tabs, not just TeacherHomeScreen
-        return const DashboardPage();
+        return DashboardPage(
+          key: const ValueKey('dashboard_teacher'),
+          activeRole: 'teacher',
+          onRoleChanged: (_) => _onRoleChanged(),
+        );
       case 'student':
-        // Get the user ID from cached data or Firebase Auth
-        final userId = UserRoleService.getCurrentUserId();
-        AppLogger.debug('=== Returning StudentDashboard with userId: $userId ===');
-        return StudentDashboard(userId: userId);
+        AppLogger.debug('=== Returning StudentDashboard ===');
+        return DashboardPage(
+          key: const ValueKey('dashboard_student'),
+          activeRole: 'student',
+          onRoleChanged: (_) => _onRoleChanged(),
+        );
       case 'parent':
         AppLogger.debug('=== Returning ParentDashboard ===');
-        return ParentDashboard(onRoleChanged: _onRoleChanged);
+        return ParentDashboard(
+          key: const ValueKey('dashboard_parent'),
+          onRoleChanged: _onRoleChanged,
+        );
       default:
         AppLogger.debug('=== Returning UnknownRoleScreen ===');
         return _buildUnknownRoleScreen();
@@ -387,7 +418,8 @@ class _RoleBasedDashboardState extends State<RoleBasedDashboard>
               onPressed: () async {
                 await FirebaseAuth.instance.signOut();
                 if (context.mounted) {
-                  Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+                  Navigator.of(context)
+                      .pushNamedAndRemoveUntil('/', (route) => false);
                 }
               },
               style: ElevatedButton.styleFrom(
@@ -462,7 +494,8 @@ class _RoleBasedDashboardState extends State<RoleBasedDashboard>
                     UserRoleService.clearCache();
                     await FirebaseAuth.instance.signOut();
                     if (context.mounted) {
-                      Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+                      Navigator.of(context)
+                          .pushNamedAndRemoveUntil('/', (route) => false);
                     }
                   },
                   style: ElevatedButton.styleFrom(
@@ -516,7 +549,8 @@ class _RoleBasedDashboardState extends State<RoleBasedDashboard>
               onPressed: () async {
                 await FirebaseAuth.instance.signOut();
                 if (context.mounted) {
-                  Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+                  Navigator.of(context)
+                      .pushNamedAndRemoveUntil('/', (route) => false);
                 }
               },
               style: ElevatedButton.styleFrom(
@@ -541,20 +575,24 @@ class TeacherDashboard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Use DashboardPage so teachers get full navigation
-    return const DashboardPage();
+    return const DashboardPage(
+      activeRole: 'teacher',
+    );
   }
 }
 
 class StudentDashboard extends StatelessWidget {
   final String? userId;
-  
+
   const StudentDashboard({super.key, this.userId});
 
   @override
   Widget build(BuildContext context) {
     AppLogger.debug('=== StudentDashboard.build() with userId: $userId ===');
 
-    return const DashboardPage();
+    return const DashboardPage(
+      activeRole: 'student',
+    );
   }
 }
 

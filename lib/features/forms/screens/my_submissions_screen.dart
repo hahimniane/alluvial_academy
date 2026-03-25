@@ -8,6 +8,7 @@ import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 import '../../../core/models/teaching_shift.dart';
 import '../../../core/services/form_labels_cache_service.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
+import '../utils/form_submission_view_mode.dart';
 import '../widgets/form_details_modal.dart';
 
 /// Screen for teachers to view their own form submissions (read-only)
@@ -26,7 +27,7 @@ class _MySubmissionsScreenState extends State<MySubmissionsScreen> {
   String _searchQuery = '';
   Map<String, List<QueryDocumentSnapshot>> _groupedSubmissions = {};
   Map<String, String> _formTitles = {};
-  
+
   // Month filtering - default to current month
   late String _selectedYearMonth;
   List<String> _availableMonths = [];
@@ -46,7 +47,7 @@ class _MySubmissionsScreenState extends State<MySubmissionsScreen> {
     _searchController.dispose();
     super.dispose();
   }
-  
+
   /// Get display name for yearMonth (e.g., "January 2026")
   String _getMonthDisplayName(String yearMonth) {
     try {
@@ -85,30 +86,31 @@ class _MySubmissionsScreenState extends State<MySubmissionsScreen> {
       final monthsSet = <String>{};
       final grouped = <String, List<QueryDocumentSnapshot>>{};
       final titles = <String, String>{};
-      
+
       for (var doc in snapshot.docs) {
         final data = doc.data();
         final formId = data['formId'] as String?;
-        
+
         // Extract yearMonth from doc (or derive from submittedAt)
         String? yearMonth = data['yearMonth'] as String?;
         if (yearMonth == null) {
           // Derive from submittedAt for backward compatibility
           final submittedAt = (data['submittedAt'] as Timestamp?)?.toDate();
           if (submittedAt != null) {
-            yearMonth = '${submittedAt.year}-${submittedAt.month.toString().padLeft(2, '0')}';
+            yearMonth =
+                '${submittedAt.year}-${submittedAt.month.toString().padLeft(2, '0')}';
           }
         }
-        
+
         if (yearMonth != null) {
           monthsSet.add(yearMonth);
         }
-        
+
         // Filter by selected month (unless showing all)
         if (!_showAllMonths && yearMonth != _selectedYearMonth) {
           continue;
         }
-        
+
         if (formId != null) {
           if (!grouped.containsKey(formId)) {
             grouped[formId] = [];
@@ -119,7 +121,7 @@ class _MySubmissionsScreenState extends State<MySubmissionsScreen> {
           grouped[formId]!.add(doc);
         }
       }
-      
+
       // Sort months in descending order (most recent first)
       final sortedMonths = monthsSet.toList()..sort((a, b) => b.compareTo(a));
 
@@ -131,8 +133,10 @@ class _MySubmissionsScreenState extends State<MySubmissionsScreen> {
         _isLoading = false;
       });
 
-      AppLogger.debug('MySubmissions: Loaded ${_mySubmissions.length} total submissions');
-      AppLogger.debug('MySubmissions: Showing ${grouped.values.fold(0, (sum, list) => sum + list.length)} for $_selectedYearMonth');
+      AppLogger.debug(
+          'MySubmissions: Loaded ${_mySubmissions.length} total submissions');
+      AppLogger.debug(
+          'MySubmissions: Showing ${grouped.values.fold(0, (sum, list) => sum + list.length)} for $_selectedYearMonth');
       AppLogger.debug('MySubmissions: Available months: $sortedMonths');
     } catch (e) {
       AppLogger.error('Error loading my submissions: $e');
@@ -140,7 +144,8 @@ class _MySubmissionsScreenState extends State<MySubmissionsScreen> {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(AppLocalizations.of(context)!.errorLoadingSubmissionsE),
+            content:
+                Text(AppLocalizations.of(context)!.errorLoadingSubmissionsE),
             backgroundColor: Colors.red,
           ),
         );
@@ -152,10 +157,10 @@ class _MySubmissionsScreenState extends State<MySubmissionsScreen> {
     if (_searchQuery.isEmpty) return _groupedSubmissions;
 
     final filtered = <String, List<QueryDocumentSnapshot>>{};
-    
+
     _groupedSubmissions.forEach((formId, submissions) {
       final formTitle = (_formTitles[formId] ?? '').toLowerCase();
-      
+
       // Check if form title matches search
       if (formTitle.contains(_searchQuery.toLowerCase())) {
         filtered[formId] = submissions;
@@ -166,16 +171,16 @@ class _MySubmissionsScreenState extends State<MySubmissionsScreen> {
           final status = (data['status'] ?? '').toString().toLowerCase();
           return status.contains(_searchQuery.toLowerCase());
         }).toList();
-        
+
         if (matchingSubmissions.isNotEmpty) {
           filtered[formId] = matchingSubmissions;
         }
       }
     });
-    
+
     return filtered;
   }
-  
+
   /// Show month picker dialog
   void _showMonthPicker() {
     showModalBottomSheet(
@@ -212,21 +217,26 @@ class _MySubmissionsScreenState extends State<MySubmissionsScreen> {
                 ],
               ),
             ),
-            
+
             // "All Time" option
             ListTile(
               leading: Icon(
                 Icons.all_inclusive,
-                color: _showAllMonths ? const Color(0xff0386FF) : const Color(0xff64748B),
+                color: _showAllMonths
+                    ? const Color(0xff0386FF)
+                    : const Color(0xff64748B),
               ),
               title: Text(
                 AppLocalizations.of(context)!.timesheetAllTime,
                 style: GoogleFonts.inter(
-                  fontWeight: _showAllMonths ? FontWeight.w600 : FontWeight.w400,
-                  color: _showAllMonths ? const Color(0xff0386FF) : const Color(0xff1E293B),
+                  fontWeight:
+                      _showAllMonths ? FontWeight.w600 : FontWeight.w400,
+                  color: _showAllMonths
+                      ? const Color(0xff0386FF)
+                      : const Color(0xff1E293B),
                 ),
               ),
-              trailing: _showAllMonths 
+              trailing: _showAllMonths
                   ? const Icon(Icons.check, color: Color(0xff0386FF))
                   : null,
               onTap: () {
@@ -235,9 +245,9 @@ class _MySubmissionsScreenState extends State<MySubmissionsScreen> {
                 _loadMySubmissions();
               },
             ),
-            
+
             const Divider(height: 1),
-            
+
             // Month options
             Flexible(
               child: ListView.builder(
@@ -245,31 +255,39 @@ class _MySubmissionsScreenState extends State<MySubmissionsScreen> {
                 itemCount: _availableMonths.length,
                 itemBuilder: (context, index) {
                   final month = _availableMonths[index];
-                  final isSelected = !_showAllMonths && month == _selectedYearMonth;
-                  
+                  final isSelected =
+                      !_showAllMonths && month == _selectedYearMonth;
+
                   // Check if this is current month
                   final now = DateTime.now();
-                  final currentYearMonth = '${now.year}-${now.month.toString().padLeft(2, '0')}';
+                  final currentYearMonth =
+                      '${now.year}-${now.month.toString().padLeft(2, '0')}';
                   final isCurrent = month == currentYearMonth;
-                  
+
                   return ListTile(
                     leading: Icon(
                       Icons.calendar_today,
-                      color: isSelected ? const Color(0xff0386FF) : const Color(0xff64748B),
+                      color: isSelected
+                          ? const Color(0xff0386FF)
+                          : const Color(0xff64748B),
                     ),
                     title: Row(
                       children: [
                         Text(
                           _getMonthDisplayName(month),
                           style: GoogleFonts.inter(
-                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                            color: isSelected ? const Color(0xff0386FF) : const Color(0xff1E293B),
+                            fontWeight:
+                                isSelected ? FontWeight.w600 : FontWeight.w400,
+                            color: isSelected
+                                ? const Color(0xff0386FF)
+                                : const Color(0xff1E293B),
                           ),
                         ),
                         if (isCurrent) ...[
                           const SizedBox(width: 8),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
                               color: const Color(0xff10B981).withOpacity(0.1),
                               borderRadius: BorderRadius.circular(4),
@@ -286,7 +304,7 @@ class _MySubmissionsScreenState extends State<MySubmissionsScreen> {
                         ],
                       ],
                     ),
-                    trailing: isSelected 
+                    trailing: isSelected
                         ? const Icon(Icons.check, color: Color(0xff0386FF))
                         : null,
                     onTap: () {
@@ -307,11 +325,11 @@ class _MySubmissionsScreenState extends State<MySubmissionsScreen> {
     );
   }
 
-  Future<String> _getFormTitle(Map<String, dynamic> data, String? formId) async {
+  Future<String> _getFormTitle(
+      Map<String, dynamic> data, String? formId) async {
     // Try to get title from the stored data first
-    final storedTitle = data['formTitle'] ??
-        data['form_title'] ??
-        data['title'];
+    final storedTitle =
+        data['formTitle'] ?? data['form_title'] ?? data['title'];
 
     if (storedTitle != null &&
         storedTitle.toString().isNotEmpty &&
@@ -360,8 +378,9 @@ class _MySubmissionsScreenState extends State<MySubmissionsScreen> {
   @override
   Widget build(BuildContext context) {
     // Count submissions for current month display
-    final currentMonthCount = _groupedSubmissions.values.fold(0, (sum, list) => sum + list.length);
-    
+    final currentMonthCount =
+        _groupedSubmissions.values.fold(0, (sum, list) => sum + list.length);
+
     return Scaffold(
       backgroundColor: const Color(0xffF5F7FA),
       appBar: AppBar(
@@ -382,7 +401,9 @@ class _MySubmissionsScreenState extends State<MySubmissionsScreen> {
               onPressed: () => _showMonthPicker(),
               icon: const Icon(Icons.calendar_month, size: 18),
               label: Text(
-                _showAllMonths ? 'All Time' : _getMonthDisplayName(_selectedYearMonth),
+                _showAllMonths
+                    ? 'All Time'
+                    : _getMonthDisplayName(_selectedYearMonth),
                 style: GoogleFonts.inter(
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
@@ -459,7 +480,7 @@ class _MySubmissionsScreenState extends State<MySubmissionsScreen> {
                 ],
               ),
             ),
-          
+
           // Search bar
           Container(
             color: Colors.white,
@@ -476,7 +497,8 @@ class _MySubmissionsScreenState extends State<MySubmissionsScreen> {
                   borderRadius: BorderRadius.circular(8),
                   borderSide: BorderSide.none,
                 ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               ),
               onChanged: (value) {
                 setState(() => _searchQuery = value);
@@ -560,7 +582,8 @@ class _MySubmissionsScreenState extends State<MySubmissionsScreen> {
     );
   }
 
-  Widget _buildFormGroupCard(String formId, String formTitle, List<QueryDocumentSnapshot> submissions) {
+  Widget _buildFormGroupCard(String formId, String formTitle,
+      List<QueryDocumentSnapshot> submissions) {
     // Get most recent submission date
     final latestSubmission = submissions.first;
     final latestData = latestSubmission.data() as Map<String, dynamic>;
@@ -601,7 +624,7 @@ class _MySubmissionsScreenState extends State<MySubmissionsScreen> {
                 ),
               ),
               const SizedBox(width: 16),
-              
+
               // Content
               Expanded(
                 child: Column(
@@ -696,7 +719,7 @@ class _MySubmissionsScreenState extends State<MySubmissionsScreen> {
                   ],
                 ),
               ),
-              
+
               // Arrow
               const Icon(
                 Icons.arrow_forward_ios,
@@ -710,7 +733,8 @@ class _MySubmissionsScreenState extends State<MySubmissionsScreen> {
     );
   }
 
-  void _showFormSubmissions(String formId, String formTitle, List<QueryDocumentSnapshot> submissions) {
+  void _showFormSubmissions(String formId, String formTitle,
+      List<QueryDocumentSnapshot> submissions) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -733,115 +757,115 @@ class _MySubmissionsScreenState extends State<MySubmissionsScreen> {
       future: _getFormTitle(data, formId),
       builder: (context, snapshot) {
         final formTitle = snapshot.data ?? 'Loading...';
-        
+
         return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(color: Color(0xffE2E8F0)),
-      ),
-      child: InkWell(
-        onTap: () => _viewSubmissionDetails(submissionId, formTitle, data),
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+          margin: const EdgeInsets.only(bottom: 12),
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: const BorderSide(color: Color(0xffE2E8F0)),
+          ),
+          child: InkWell(
+            onTap: () => _viewSubmissionDetails(submissionId, formTitle, data),
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: const Color(0xff0386FF).withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(
-                      Icons.description,
-                      size: 20,
-                      color: Color(0xff0386FF),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          formTitle,
-                          style: GoogleFonts.inter(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: const Color(0xff1E293B),
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          submittedAt != null
-                              ? 'Submitted ${DateFormat('MMM d, yyyy • h:mm a').format(submittedAt)}'
-                              : 'Date unknown',
-                          style: GoogleFonts.inter(
-                            fontSize: 13,
-                            color: const Color(0xff64748B),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  _statusBadge(status),
-                ],
-              ),
-              if (responses != null && responses.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xffF8FAFC),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
+                  Row(
                     children: [
-                      const Icon(
-                        Icons.question_answer,
-                        size: 16,
-                        color: Color(0xff64748B),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        '${responses.length} responses',
-                        style: GoogleFonts.inter(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: const Color(0xff475569),
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: const Color(0xff0386FF).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(
+                          Icons.description,
+                          size: 20,
+                          color: Color(0xff0386FF),
                         ),
                       ),
-                      const Spacer(),
-                      Text(
-                        AppLocalizations.of(context)!.formTapToView,
-                        style: GoogleFonts.inter(
-                          fontSize: 12,
-                          color: const Color(0xff0386FF),
-                          fontWeight: FontWeight.w500,
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              formTitle,
+                              style: GoogleFonts.inter(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: const Color(0xff1E293B),
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              submittedAt != null
+                                  ? 'Submitted ${DateFormat('MMM d, yyyy • h:mm a').format(submittedAt)}'
+                                  : 'Date unknown',
+                              style: GoogleFonts.inter(
+                                fontSize: 13,
+                                color: const Color(0xff64748B),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(width: 4),
-                      const Icon(
-                        Icons.arrow_forward_ios,
-                        size: 12,
-                        color: Color(0xff0386FF),
-                      ),
+                      _statusBadge(status),
                     ],
                   ),
-                ),
-              ],
-            ],
+                  if (responses != null && responses.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xffF8FAFC),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.question_answer,
+                            size: 16,
+                            color: Color(0xff64748B),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '${responses.length} responses',
+                            style: GoogleFonts.inter(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: const Color(0xff475569),
+                            ),
+                          ),
+                          const Spacer(),
+                          Text(
+                            AppLocalizations.of(context)!.formTapToView,
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              color: const Color(0xff0386FF),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          const Icon(
+                            Icons.arrow_forward_ios,
+                            size: 12,
+                            color: Color(0xff0386FF),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
           ),
-        ),
-      ),
         );
       },
     );
@@ -852,9 +876,7 @@ class _MySubmissionsScreenState extends State<MySubmissionsScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: isCompleted
-            ? const Color(0xffDCFCE7)
-            : const Color(0xffFEF3C7),
+        color: isCompleted ? const Color(0xffDCFCE7) : const Color(0xffFEF3C7),
         borderRadius: BorderRadius.circular(6),
       ),
       child: Row(
@@ -863,9 +885,8 @@ class _MySubmissionsScreenState extends State<MySubmissionsScreen> {
           Icon(
             isCompleted ? Icons.check_circle : Icons.pending,
             size: 14,
-            color: isCompleted
-                ? const Color(0xff16A34A)
-                : const Color(0xffF59E0B),
+            color:
+                isCompleted ? const Color(0xff16A34A) : const Color(0xffF59E0B),
           ),
           const SizedBox(width: 4),
           Text(
@@ -941,12 +962,15 @@ class _SubmissionDetailViewState extends State<_SubmissionDetailView> {
     try {
       // Use FormLabelsCacheService which handles both old form system and new template system
       // It will automatically fetch the form response document and extract templateId/formId
-      AppLogger.debug('Loading form labels for submission: ${widget.submissionId}');
-      
-      final labels = await FormLabelsCacheService().getLabelsForFormResponse(widget.submissionId);
-      
-      AppLogger.debug('Loaded ${labels.length} field labels for submission ${widget.submissionId}');
-      
+      AppLogger.debug(
+          'Loading form labels for submission: ${widget.submissionId}');
+
+      final labels = await FormLabelsCacheService()
+          .getLabelsForFormResponse(widget.submissionId);
+
+      AppLogger.debug(
+          'Loaded ${labels.length} field labels for submission ${widget.submissionId}');
+
       if (mounted) {
         setState(() {
           _fieldLabels = labels;
@@ -954,7 +978,8 @@ class _SubmissionDetailViewState extends State<_SubmissionDetailView> {
         });
       }
     } catch (e, stackTrace) {
-      AppLogger.error('Error loading form template: $e', error: e, stackTrace: stackTrace);
+      AppLogger.error('Error loading form template: $e',
+          error: e, stackTrace: stackTrace);
       if (mounted) {
         setState(() => _isLoadingLabels = false);
       }
@@ -1034,7 +1059,8 @@ class _SubmissionDetailViewState extends State<_SubmissionDetailView> {
                                     ),
                                     const SizedBox(width: 4),
                                     Text(
-                                      AppLocalizations.of(context)!.formReadOnly,
+                                      AppLocalizations.of(context)!
+                                          .formReadOnly,
                                       style: GoogleFonts.inter(
                                         fontSize: 12,
                                         fontWeight: FontWeight.w600,
@@ -1086,7 +1112,8 @@ class _SubmissionDetailViewState extends State<_SubmissionDetailView> {
                                 ),
                                 const SizedBox(height: 16),
                                 Text(
-                                  AppLocalizations.of(context)!.noResponsesRecorded,
+                                  AppLocalizations.of(context)!
+                                      .noResponsesRecorded,
                                   style: GoogleFonts.inter(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w500,
@@ -1105,7 +1132,8 @@ class _SubmissionDetailViewState extends State<_SubmissionDetailView> {
                             itemBuilder: (context, index) {
                               final entry = responses.entries.elementAt(index);
                               final fieldId = entry.key;
-                              final fieldLabel = _fieldLabels[fieldId] ?? fieldId;
+                              final fieldLabel =
+                                  _fieldLabels[fieldId] ?? fieldId;
                               return _buildResponseField(
                                   fieldLabel, entry.value, index + 1);
                             },
@@ -1118,7 +1146,8 @@ class _SubmissionDetailViewState extends State<_SubmissionDetailView> {
     );
   }
 
-  Widget _buildResponseField(String fieldLabel, dynamic value, int questionNumber) {
+  Widget _buildResponseField(
+      String fieldLabel, dynamic value, int questionNumber) {
     // Handle different response types
     String displayValue = '';
     if (value is List) {
@@ -1231,12 +1260,15 @@ class _FormSubmissionsSheetState extends State<_FormSubmissionsSheet> {
   bool _loadingShifts = true;
 
   bool get _isDailyClassReport {
-    final title = widget.formTitle.toLowerCase();
-    if (title.contains('daily') || title.contains('class report')) return true;
     if (widget.submissions.isEmpty) return false;
     final first = widget.submissions.first.data() as Map<String, dynamic>?;
-    final tid = (first?['templateId'] ?? first?['template_id'])?.toString().toLowerCase();
-    return tid == 'daily_class_report';
+    final tid = (first?['templateId'] ?? first?['template_id'])
+        ?.toString()
+        .toLowerCase();
+    return isDailyClassReportForm(
+      formTitle: widget.formTitle,
+      templateId: tid,
+    );
   }
 
   @override
@@ -1356,7 +1388,8 @@ class _FormSubmissionsSheetState extends State<_FormSubmissionsSheet> {
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                 child: Row(
                   children: [
                     Expanded(
@@ -1392,7 +1425,8 @@ class _FormSubmissionsSheetState extends State<_FormSubmissionsSheet> {
                         onPressed: () => Navigator.pop(context),
                         icon: const Icon(Icons.close, size: 20),
                         color: const Color(0xff64748B),
-                        constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+                        constraints:
+                            const BoxConstraints(minWidth: 40, minHeight: 40),
                         padding: EdgeInsets.zero,
                       ),
                     ),
@@ -1414,7 +1448,8 @@ class _FormSubmissionsSheetState extends State<_FormSubmissionsSheet> {
 
   Widget _buildDailyReportView(ScrollController scrollController) {
     if (_loadingShifts) {
-      return const Center(child: CircularProgressIndicator(color: Color(0xff0386FF)));
+      return const Center(
+          child: CircularProgressIndicator(color: Color(0xff0386FF)));
     }
     final grouped = _groupedByStudent;
     return Column(
@@ -1448,7 +1483,8 @@ class _FormSubmissionsSheetState extends State<_FormSubmissionsSheet> {
                   itemBuilder: (context, index) {
                     final studentName = grouped.keys.elementAt(index);
                     final studentSubmissions = grouped[studentName]!;
-                    return _buildStudentGroupCard(studentName, studentSubmissions);
+                    return _buildStudentGroupCard(
+                        studentName, studentSubmissions);
                   },
                 ),
         ),
@@ -1456,8 +1492,10 @@ class _FormSubmissionsSheetState extends State<_FormSubmissionsSheet> {
     );
   }
 
-  Widget _buildStudentGroupCard(String studentName, List<QueryDocumentSnapshot> docs) {
-    final completed = docs.where((d) => (d.data() as Map)['status'] == 'completed').length;
+  Widget _buildStudentGroupCard(
+      String studentName, List<QueryDocumentSnapshot> docs) {
+    final completed =
+        docs.where((d) => (d.data() as Map)['status'] == 'completed').length;
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
       decoration: BoxDecoration(
@@ -1507,7 +1545,8 @@ class _FormSubmissionsSheetState extends State<_FormSubmissionsSheet> {
                       Row(
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
                               color: const Color(0xffF1F5F9),
                               borderRadius: BorderRadius.circular(4),
@@ -1565,9 +1604,13 @@ class _FormSubmissionsSheetState extends State<_FormSubmissionsSheet> {
     final shiftId = (data['shiftId'] ?? data['shift_id'])?.toString();
     final summary = shiftId != null ? _shiftSummaries[shiftId] : null;
     final dateStr = summary?.dayDate ??
-        (submittedAt != null ? DateFormat('MMM d').format(submittedAt) : 'Unknown');
-    final timeStr = submittedAt != null ? DateFormat('h:mm a').format(submittedAt) : '';
-    final dayPart = dateStr.contains(',') ? dateStr.split(',')[0].trim() : dateStr;
+        (submittedAt != null
+            ? DateFormat('MMM d').format(submittedAt)
+            : 'Unknown');
+    final timeStr =
+        submittedAt != null ? DateFormat('h:mm a').format(submittedAt) : '';
+    final dayPart =
+        dateStr.contains(',') ? dateStr.split(',')[0].trim() : dateStr;
     return InkWell(
       onTap: () => widget.onViewDetails(doc.id, widget.formTitle, data),
       child: Padding(
@@ -1632,7 +1675,8 @@ class _FormSubmissionsSheetState extends State<_FormSubmissionsSheet> {
               decoration: BoxDecoration(
                 color: const Color(0xffF0F9FF),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xffBAE6FD).withOpacity(0.5)),
+                border:
+                    Border.all(color: const Color(0xffBAE6FD).withOpacity(0.5)),
               ),
               child: const Icon(
                 Icons.visibility_outlined,
@@ -1657,7 +1701,8 @@ class _FormSubmissionsSheetState extends State<_FormSubmissionsSheet> {
           color: isSelected ? const Color(0xff0386FF) : const Color(0xffF1F5F9),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isSelected ? const Color(0xff0386FF) : const Color(0xffE2E8F0),
+            color:
+                isSelected ? const Color(0xff0386FF) : const Color(0xffE2E8F0),
           ),
         ),
         child: Text(
@@ -1686,11 +1731,15 @@ class _FormSubmissionsSheetState extends State<_FormSubmissionsSheet> {
         final submittedAt = (data['submittedAt'] as Timestamp?)?.toDate();
         final status = (data['status'] ?? 'completed').toString();
         final shiftId = (data['shiftId'] ?? data['shift_id'])?.toString();
-        final summary = shiftId != null && shiftId.isNotEmpty ? _shiftSummaries[shiftId] : null;
+        final summary = shiftId != null && shiftId.isNotEmpty
+            ? _shiftSummaries[shiftId]
+            : null;
         // Prefer class date (shift date) when available; always show submission time
         final String dateTitle = summary != null
             ? 'Class: ${summary.dayDate}'
-            : (submittedAt != null ? DateFormat('EEE, MMM d, yyyy').format(submittedAt) : 'Date unknown');
+            : (submittedAt != null
+                ? DateFormat('EEE, MMM d, yyyy').format(submittedAt)
+                : 'Date unknown');
         final String subtitleText = submittedAt != null
             ? 'Submitted ${DateFormat('MMM d').format(submittedAt)} at ${DateFormat('h:mm a').format(submittedAt)}'
             : '';
@@ -1702,7 +1751,8 @@ class _FormSubmissionsSheetState extends State<_FormSubmissionsSheet> {
           ),
           child: ListTile(
             onTap: () => widget.onViewDetails(doc.id, widget.formTitle, data),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             leading: Container(
               width: 40,
               height: 40,
@@ -1710,7 +1760,8 @@ class _FormSubmissionsSheetState extends State<_FormSubmissionsSheet> {
                 color: const Color(0xffF1F5F9),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Icon(Icons.calendar_today, size: 20, color: Color(0xff64748B)),
+              child: const Icon(Icons.calendar_today,
+                  size: 20, color: Color(0xff64748B)),
             ),
             title: Text(
               dateTitle,
@@ -1731,9 +1782,11 @@ class _FormSubmissionsSheetState extends State<_FormSubmissionsSheet> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (status.toLowerCase() == 'completed')
-                  const Icon(Icons.check_circle, size: 16, color: Color(0xff16A34A)),
+                  const Icon(Icons.check_circle,
+                      size: 16, color: Color(0xff16A34A)),
                 const SizedBox(width: 8),
-                const Icon(Icons.arrow_forward_ios, size: 14, color: Color(0xffCBD5E1)),
+                const Icon(Icons.arrow_forward_ios,
+                    size: 14, color: Color(0xffCBD5E1)),
               ],
             ),
           ),

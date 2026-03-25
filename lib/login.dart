@@ -1,4 +1,4 @@
-import 'dashboard.dart';
+import 'role_based_dashboard.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_login/flutter_login.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -89,7 +89,7 @@ class LoginScreen extends StatelessWidget {
       ],
       onSubmitAnimationCompleted: () {
         Navigator.of(context).pushReplacement(MaterialPageRoute(
-          builder: (context) => const DashboardPage(),
+          builder: (context) => const RoleBasedDashboard(),
         ));
       },
       onRecoverPassword: _recoverPassword,
