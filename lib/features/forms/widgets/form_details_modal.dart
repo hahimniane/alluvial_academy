@@ -6,6 +6,32 @@ import '../../../core/models/teaching_shift.dart';
 import '../../../core/services/form_labels_cache_service.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
+/// In-memory shift cache so repeat opens (modal / review) avoid extra reads.
+/// Entries expire after 5 minutes. Max 100 entries.
+final Map<String, TeachingShift> _formSubmissionShiftCache = {};
+final Map<String, DateTime> _formSubmissionShiftCacheTime = {};
+const Duration _shiftCacheTtl = Duration(minutes: 5);
+const int _shiftCacheMaxEntries = 100;
+
+bool _isShiftCacheValid(String key) {
+  final time = _formSubmissionShiftCacheTime[key];
+  if (time == null) return false;
+  return DateTime.now().difference(time) < _shiftCacheTtl;
+}
+
+void _putShiftCache(String key, TeachingShift shift) {
+  if (_formSubmissionShiftCache.length >= _shiftCacheMaxEntries &&
+      !_formSubmissionShiftCache.containsKey(key)) {
+    final oldest = _formSubmissionShiftCacheTime.entries.reduce(
+      (a, b) => a.value.isBefore(b.value) ? a : b,
+    );
+    _formSubmissionShiftCache.remove(oldest.key);
+    _formSubmissionShiftCacheTime.remove(oldest.key);
+  }
+  _formSubmissionShiftCache[key] = shift;
+  _formSubmissionShiftCacheTime[key] = DateTime.now();
+}
+
 /// Reusable form details modal for teachers
 class FormDetailsModal {
   FormDetailsModal._(); // Private constructor to prevent instantiation
@@ -17,7 +43,7 @@ class FormDetailsModal {
   }) {
     showDialog(
       context: context,
-      barrierColor: Colors.black.withOpacity(0.5),
+      barrierColor: Colors.black.withValues(alpha: 0.5),
       builder: (context) => Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         child: Container(
@@ -56,7 +82,7 @@ class FormDetailsModal {
               ),
               // Content
               Expanded(
-                child: _FormDetailsContent(
+                child: FormSubmissionDetailsView(
                   formId: formId,
                   shiftId: shiftId,
                   responses: responses,
@@ -70,42 +96,94 @@ class FormDetailsModal {
   }
 }
 
-class _FormDetailsContent extends StatefulWidget {
+/// Shared submission details view that can be used inside a dialog
+/// (via [FormDetailsModal]) or embedded inline in a master–detail layout.
+class FormSubmissionDetailsView extends StatefulWidget {
   final String formId;
   final String shiftId;
   final Map<String, dynamic> responses;
+  /// When provided (e.g. batched prefetch in admin review), skips shift read.
+  final TeachingShift? initialShift;
 
-  const _FormDetailsContent({
+  const FormSubmissionDetailsView({
+    super.key,
     required this.formId,
     required this.shiftId,
     required this.responses,
+    this.initialShift,
   });
 
   @override
-  State<_FormDetailsContent> createState() => _FormDetailsContentState();
+  State<FormSubmissionDetailsView> createState() => _FormSubmissionDetailsViewState();
 }
 
-class _FormDetailsContentState extends State<_FormDetailsContent> {
+class _FormSubmissionDetailsViewState extends State<FormSubmissionDetailsView> {
   Map<String, String>? _fieldLabels;
   bool _isLoadingLabels = true;
   TeachingShift? _shift;
   bool _isLoadingShift = true;
 
+  bool _shouldFetchShiftFromNetwork() {
+    if (widget.shiftId == 'N/A' || widget.shiftId.isEmpty) {
+      _shift = null;
+      _isLoadingShift = false;
+      return false;
+    }
+    if (widget.initialShift != null) {
+      _shift = widget.initialShift;
+      _isLoadingShift = false;
+      _putShiftCache(widget.shiftId, widget.initialShift!);
+      return false;
+    }
+    if (_isShiftCacheValid(widget.shiftId)) {
+      _shift = _formSubmissionShiftCache[widget.shiftId];
+      _isLoadingShift = false;
+      return false;
+    }
+    _shift = null;
+    _isLoadingShift = true;
+    return true;
+  }
+
   @override
   void initState() {
     super.initState();
+    _shouldFetchShiftFromNetwork();
+    if (_isLoadingShift) {
+      _loadShiftData();
+    }
     _loadFieldLabels();
-    _loadShiftData();
   }
-  
+
+  @override
+  void didUpdateWidget(covariant FormSubmissionDetailsView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.shiftId != widget.shiftId ||
+        oldWidget.formId != widget.formId) {
+      setState(() {
+        _fieldLabels = null;
+        _isLoadingLabels = true;
+        _shouldFetchShiftFromNetwork();
+      });
+      if (_isLoadingShift) {
+        _loadShiftData();
+      }
+      _loadFieldLabels();
+    } else if (widget.initialShift != null &&
+        !identical(oldWidget.initialShift, widget.initialShift)) {
+      setState(() {
+        _shift = widget.initialShift;
+        _isLoadingShift = false;
+        _putShiftCache(widget.shiftId, widget.initialShift!);
+      });
+    }
+  }
+
   Future<void> _loadShiftData() async {
     if (widget.shiftId == 'N/A' || widget.shiftId.isEmpty) {
-      setState(() {
-        _isLoadingShift = false;
-      });
       return;
     }
-    
+
     try {
       final shiftDoc = await FirebaseFirestore.instance
           .collection('teaching_shifts')
@@ -114,6 +192,7 @@ class _FormDetailsContentState extends State<_FormDetailsContent> {
 
       if (shiftDoc.exists) {
         final shift = TeachingShift.fromFirestore(shiftDoc);
+        _putShiftCache(widget.shiftId, shift);
         if (mounted) {
           setState(() {
             _shift = shift;
@@ -139,47 +218,22 @@ class _FormDetailsContentState extends State<_FormDetailsContent> {
 
   Future<void> _loadFieldLabels() async {
     try {
-      // First, try to get the form response document to extract templateId/formId
-      final formResponseDoc = await FirebaseFirestore.instance
-          .collection('form_responses')
-          .doc(widget.formId)
-          .get();
-      
-      if (!formResponseDoc.exists) {
-        debugPrint('⚠️ Form response document not found: ${widget.formId}');
+      final labels = await FormLabelsCacheService()
+          .getLabelsForFormResponse(widget.formId);
+      if (mounted) {
         setState(() {
-          _isLoadingLabels = false;
-        });
-        return;
-      }
-      
-      final formResponseData = formResponseDoc.data() ?? {};
-      final templateId = formResponseData['templateId'] as String?;
-      final formId = formResponseData['formId'] as String?;
-      
-      debugPrint('📋 Form response ${widget.formId}: templateId=$templateId, formId=$formId');
-      
-      // Use the cache service which handles both old and new systems
-      final labels = await FormLabelsCacheService().getLabelsForFormResponse(widget.formId);
-      
-      if (labels.isNotEmpty) {
-        debugPrint('✅ Loaded ${labels.length} field labels');
-        setState(() {
-          _fieldLabels = labels;
-          _isLoadingLabels = false;
-        });
-      } else {
-        debugPrint('⚠️ No field labels found for form response ${widget.formId}');
-        setState(() {
+          _fieldLabels = labels.isNotEmpty ? labels : null;
           _isLoadingLabels = false;
         });
       }
     } catch (e, stackTrace) {
       debugPrint('❌ Error loading field labels: $e');
       debugPrint('Stack trace: $stackTrace');
-      setState(() {
-        _isLoadingLabels = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoadingLabels = false;
+        });
+      }
     }
   }
 
@@ -195,7 +249,7 @@ class _FormDetailsContentState extends State<_FormDetailsContent> {
     if (_fieldLabels != null && _fieldLabels!.containsKey(fieldId)) {
       return _fieldLabels![fieldId]!;
     }
-    
+
     if (_fieldLabels != null) {
       for (var entry in _fieldLabels!.entries) {
         if (entry.key.toString() == fieldId.toString()) {
@@ -203,11 +257,11 @@ class _FormDetailsContentState extends State<_FormDetailsContent> {
         }
       }
     }
-    
+
     if (RegExp(r'^\d+$').hasMatch(fieldId)) {
       return AppLocalizations.of(context)!.formQuestionNumber(fieldId);
     }
-    
+
     return fieldId
         .replaceAll('_', ' ')
         .split(' ')
@@ -217,6 +271,7 @@ class _FormDetailsContentState extends State<_FormDetailsContent> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -243,7 +298,7 @@ class _FormDetailsContentState extends State<_FormDetailsContent> {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      AppLocalizations.of(context)!.loadingShiftInformation,
+                      l10n.loadingShiftInformation,
                       style: GoogleFonts.inter(
                         fontSize: 11,
                         color: Colors.grey.shade600,
@@ -265,7 +320,7 @@ class _FormDetailsContentState extends State<_FormDetailsContent> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      AppLocalizations.of(context)!.shiftInformationAutofilled,
+                      l10n.shiftInformationAutofilled,
                       style: GoogleFonts.inter(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
@@ -294,9 +349,9 @@ class _FormDetailsContentState extends State<_FormDetailsContent> {
                         final minutes = duration.inMinutes % 60;
                         return _buildShiftInfoRow(
                           'Duration',
-                          hours > 0 
-                            ? '$hours ${hours == 1 ? 'hour' : 'hours'}${minutes > 0 ? ' $minutes min' : ''}'
-                            : '$minutes min',
+                          hours > 0
+                              ? '$hours ${hours == 1 ? 'hour' : 'hours'}${minutes > 0 ? ' $minutes min' : ''}'
+                              : '$minutes min',
                         );
                       },
                     ),
@@ -310,39 +365,56 @@ class _FormDetailsContentState extends State<_FormDetailsContent> {
             ],
           ],
           const SizedBox(height: 8),
-          // Form Responses Section
-          Text(
-            AppLocalizations.of(context)!.formResponsesTitle,
-            style: GoogleFonts.inter(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: Colors.grey.shade900,
-            ),
-          ),
-          const SizedBox(height: 8),
-          if (_isLoadingLabels)
-            Padding(
-              padding: EdgeInsets.all(12.0),
-              child: Center(
-                child: SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Text(
+                  l10n.formResponsesTitle,
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.grey.shade900,
+                  ),
                 ),
               ),
-            ),
+              if (_isLoadingLabels && widget.responses.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(left: 8),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        width: 12,
+                        height: 12,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        l10n.formResponsesUpdatingLabels,
+                        style: GoogleFonts.inter(
+                          fontSize: 10,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
           if (!_isLoadingLabels && widget.responses.isEmpty)
             Padding(
-              padding: const EdgeInsets.all(12.0),
+              padding: const EdgeInsets.all(12),
               child: Text(
-                AppLocalizations.of(context)!.noResponses,
+                l10n.noResponses,
                 style: GoogleFonts.inter(
                   color: Colors.grey.shade400,
                   fontSize: 11,
                 ),
               ),
             ),
-          if (!_isLoadingLabels && widget.responses.isNotEmpty)
+          if (widget.responses.isNotEmpty)
             ...widget.responses.entries.map((entry) {
               final label = _getFieldLabel(entry.key);
               return Container(

@@ -85,6 +85,13 @@ class Task {
   // Labels and Sub-tasks (ConnectTeam style)
   final List<String> labels; // Task labels/tags
   final List<String> subTaskIds; // IDs of sub-tasks (references to other tasks)
+  // Acknowledgement tracking
+  /// When an assignee first opened this task (audit "acknowledged" KPI).
+  final Timestamp? firstOpenedAt;
+  /// When anyone first opened the task detail (creator, assignee, admin).
+  final Timestamp? firstViewedAt;
+  /// Per-assignee first open timestamps (keys: uid and/or value as stored in [assignedTo]).
+  final Map<String, Timestamp> assigneeFirstOpenedAt;
 
   Task({
     required this.id,
@@ -112,6 +119,9 @@ class Task {
     this.endTime,
     this.labels = const [],
     this.subTaskIds = const [],
+    this.firstOpenedAt,
+    this.firstViewedAt,
+    this.assigneeFirstOpenedAt = const {},
   });
 
   factory Task.fromFirestore(DocumentSnapshot doc) {
@@ -186,7 +196,21 @@ class Task {
       endTime: data['endTime'],
       labels: data['labels'] != null ? List<String>.from(data['labels']) : [],
       subTaskIds: data['subTaskIds'] != null ? List<String>.from(data['subTaskIds']) : [],
+      firstOpenedAt: data['firstOpenedAt'],
+      firstViewedAt: data['firstViewedAt'],
+      assigneeFirstOpenedAt: _parseAssigneeFirstOpenedMap(data['assigneeFirstOpenedAt']),
     );
+  }
+
+  static Map<String, Timestamp> _parseAssigneeFirstOpenedMap(dynamic raw) {
+    if (raw is! Map) return const {};
+    final out = <String, Timestamp>{};
+    raw.forEach((dynamic k, dynamic v) {
+      if (v is Timestamp) {
+        out[k.toString()] = v;
+      }
+    });
+    return out;
   }
 
   Map<String, dynamic> toFirestore() {
@@ -219,6 +243,10 @@ class Task {
       if (endTime != null) 'endTime': endTime,
       'labels': labels,
       'subTaskIds': subTaskIds,
+      if (firstOpenedAt != null) 'firstOpenedAt': firstOpenedAt,
+      if (firstViewedAt != null) 'firstViewedAt': firstViewedAt,
+      if (assigneeFirstOpenedAt.isNotEmpty)
+        'assigneeFirstOpenedAt': assigneeFirstOpenedAt,
     };
   }
 
@@ -246,6 +274,11 @@ class Task {
     String? location,
     String? startTime,
     String? endTime,
+    List<String>? labels,
+    List<String>? subTaskIds,
+    Timestamp? firstOpenedAt,
+    Timestamp? firstViewedAt,
+    Map<String, Timestamp>? assigneeFirstOpenedAt,
   }) {
     return Task(
       id: id ?? this.id,
@@ -273,6 +306,10 @@ class Task {
       endTime: endTime ?? this.endTime,
       labels: labels ?? this.labels,
       subTaskIds: subTaskIds ?? this.subTaskIds,
+      firstOpenedAt: firstOpenedAt ?? this.firstOpenedAt,
+      firstViewedAt: firstViewedAt ?? this.firstViewedAt,
+      assigneeFirstOpenedAt:
+          assigneeFirstOpenedAt ?? this.assigneeFirstOpenedAt,
     );
   }
 

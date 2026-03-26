@@ -638,7 +638,6 @@ class TaskService {
         final taskDoc = await taskRef.get();
         
         if (taskDoc.exists) {
-          final task = Task.fromFirestore(taskDoc);
           final taskData = taskDoc.data() as Map<String, dynamic>;
           final dueDate = (taskData['dueDate'] as Timestamp).toDate();
           
@@ -703,4 +702,107 @@ class TaskService {
       rethrow;
     }
   }
+
+  static List<String> _assignedToStrings(Map<String, dynamic> data) {
+    final list =
+        (data['assignedTo'] as List<dynamic>?)?.map((e) => e.toString()).toList() ??
+            <String>[];
+    return list;
+  }
+
+  /// True if [assigneeSlot] (one entry from [assignedTo]) matches [user].
+  static bool assigneeRawMatchesUser(String assigneeSlot, User user) {
+    final a = assigneeSlot.trim();
+    if (a.isEmpty) return false;
+    final uid = user.uid.trim();
+    final email = user.email?.trim().toLowerCase();
+    if (a == uid) return true;
+    if (a.toLowerCase() == uid.toLowerCase()) return true;
+    if (email != null && a.contains('@') && a.toLowerCase() == email) {
+      return true;
+    }
+    return false;
+  }
+
+  /// True if [user] is listed as an assignee (uid and/or email match, trimmed).
+  static bool userMatchesTaskAssignee(Map<String, dynamic> data, User user) {
+    final assignedTo = _assignedToStrings(data);
+    if (assignedTo.isEmpty) return false;
+    for (final raw in assignedTo) {
+      if (assigneeRawMatchesUser(raw, user)) return true;
+    }
+    return false;
+  }
+
+  /// Adds per-assignee open times (same instant for uid + email aliases when applicable).
+  static Map<String, dynamic>? mergeAssigneeFirstOpenedMap(
+    Map<String, dynamic> data,
+    User user,
+  ) {
+    if (!userMatchesTaskAssignee(data, user)) return null;
+    final assignedTo = _assignedToStrings(data);
+    final prev = data['assigneeFirstOpenedAt'];
+    final map = Map<String, dynamic>.from(
+      prev is Map ? prev.map((k, v) => MapEntry(k.toString(), v)) : {},
+    );
+    final keysToAdd = <String>{user.uid.trim()};
+    for (final raw in assignedTo) {
+      final a = raw.trim();
+      if (a.isEmpty) continue;
+      if (assigneeRawMatchesUser(a, user)) {
+        keysToAdd.add(a);
+        if (a.contains('@')) keysToAdd.add(a.toLowerCase());
+      }
+    }
+    final now = Timestamp.now();
+    var changed = false;
+    for (final k in keysToAdd) {
+      if (k.isEmpty) continue;
+      if (!map.containsKey(k)) {
+        map[k] = now;
+        changed = true;
+      }
+    }
+    return changed ? map : null;
+  }
+
+  /// Call when someone opens the task detail screen (web or mobile).
+  ///
+  /// - [firstViewedAt]: first open by **any** signed-in user (audit trail).
+  /// - [firstOpenedAt]: first open by an **assignee** only; drives
+  ///   teacher/admin audit "tasks acknowledged" KPIs (`firstOpenedAt != null`).
+  /// - [assigneeFirstOpenedAt]: map of assignee id → first open time (for creator UX).
+  Future<void> recordTaskDetailViewed(String taskId) async {
+    try {
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser == null) return;
+
+      final docRef = _taskCollection.doc(taskId);
+      await FirebaseFirestore.instance.runTransaction((txn) async {
+        final snap = await txn.get(docRef);
+        if (!snap.exists) return;
+        final data = snap.data() as Map<String, dynamic>;
+        final patch = <String, dynamic>{};
+
+        if (data['firstViewedAt'] == null) {
+          patch['firstViewedAt'] = FieldValue.serverTimestamp();
+        }
+        final isAssignee = userMatchesTaskAssignee(data, currentUser);
+        if (isAssignee && data['firstOpenedAt'] == null) {
+          patch['firstOpenedAt'] = FieldValue.serverTimestamp();
+        }
+        final mergedMap = mergeAssigneeFirstOpenedMap(data, currentUser);
+        if (mergedMap != null) {
+          patch['assigneeFirstOpenedAt'] = mergedMap;
+        }
+        if (patch.isEmpty) return;
+        txn.update(docRef, patch);
+      });
+    } catch (e, st) {
+      AppLogger.error('TaskService.recordTaskDetailViewed: $e\n$st');
+    }
+  }
+
+  /// @deprecated Use [recordTaskDetailViewed] (records view + assignee acknowledgement).
+  Future<void> recordFirstOpen(String taskId) => recordTaskDetailViewed(taskId);
 }

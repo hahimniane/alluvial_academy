@@ -8,22 +8,25 @@ class AuditFactor {
   
   // Mutable fields for the audit
   String outcome;
-  int rating; // 1-9 (1=worst, 9=best)
+  int rating; // 0-5 (0=Critical … 5=Excellent). Use [isNotApplicable] for true N/A (excluded from score).
   String paycutRecommendation;
   String coachActionPlan;
   String mentorReview;
   String ceoReview;
+  /// When true, factor is excluded from coach score denominator (distinct from rating 0 = Critical).
+  bool isNotApplicable;
 
   AuditFactor({
     required this.id,
     required this.title,
     required this.description,
     this.outcome = '',
-    this.rating = 9,
+    this.rating = 5,
     this.paycutRecommendation = '',
     this.coachActionPlan = '',
     this.mentorReview = '',
     this.ceoReview = '',
+    this.isNotApplicable = false,
   });
 
   Map<String, dynamic> toMap() => {
@@ -36,7 +39,14 @@ class AuditFactor {
     'coachActionPlan': coachActionPlan,
     'mentorReview': mentorReview,
     'ceoReview': ceoReview,
+    'isNotApplicable': isNotApplicable,
   };
+
+  /// Convert legacy 1-9 ratings to 0-5 scale on read
+  static int _migrateRating(int raw) {
+    if (raw > 5) return (raw * 5 / 9).round().clamp(0, 5);
+    return raw.clamp(0, 5);
+  }
 
   factory AuditFactor.fromMap(Map<String, dynamic> map) {
     return AuditFactor(
@@ -44,11 +54,12 @@ class AuditFactor {
       title: map['title'] ?? '',
       description: map['description'] ?? '',
       outcome: map['outcome'] ?? '',
-      rating: map['rating']?.toInt() ?? 9,
+      rating: _migrateRating(map['rating']?.toInt() ?? 5),
       paycutRecommendation: map['paycutRecommendation'] ?? '',
       coachActionPlan: map['coachActionPlan'] ?? '',
       mentorReview: map['mentorReview'] ?? '',
       ceoReview: map['ceoReview'] ?? '',
+      isNotApplicable: map['isNotApplicable'] == true,
     );
   }
 
@@ -59,6 +70,7 @@ class AuditFactor {
     String? coachActionPlan,
     String? mentorReview,
     String? ceoReview,
+    bool? isNotApplicable,
   }) {
     return AuditFactor(
       id: id,
@@ -70,6 +82,7 @@ class AuditFactor {
       coachActionPlan: coachActionPlan ?? this.coachActionPlan,
       mentorReview: mentorReview ?? this.mentorReview,
       ceoReview: ceoReview ?? this.ceoReview,
+      isNotApplicable: isNotApplicable ?? this.isNotApplicable,
     );
   }
 }
@@ -101,6 +114,7 @@ class TeacherAuditFull {
   final int totalClassesCompleted;
   final int totalClassesMissed;
   final int totalClassesCancelled;
+  final int excusedAbsences; // Shifts covered by approved leave requests
   final double completionRate;
 
   // Punctuality
@@ -129,6 +143,8 @@ class TeacherAuditFull {
 
   // Tasks
   final int overdueTasks;
+  final int totalTasksAssigned;
+  final int acknowledgedTasks;
   final int weeklyRecordingsSent;
 
   // Connecteam/System metrics
@@ -166,16 +182,33 @@ class TeacherAuditFull {
   final List<AuditIssue> issues;
 
   // ════════════════════════════════════════════════════════════════════════
+  // SECTION 5.1: CHANGE LOG (append-only edit history)
+  // ════════════════════════════════════════════════════════════════════════
+
+  final List<AuditChangeEntry> changeLog;
+
+  // ════════════════════════════════════════════════════════════════════════
   // SECTION 5.5: DETAILED DATA (from script)
   // ════════════════════════════════════════════════════════════════════════
 
   final List<Map<String, dynamic>> detailedShifts; // Full shift details
   final List<Map<String, dynamic>> detailedTimesheets; // Full timesheet details
   final List<Map<String, dynamic>> detailedForms; // Full form responses
+  /// Non-teaching forms (assignments/quizzes/assessments/etc.) for separate UI tabs.
+  final List<Map<String, dynamic>> detailedFormsNonTeaching;
   /// Forms submitted in the month with no schedule associated (auditor sees same total as All Submissions).
   final List<Map<String, dynamic>> detailedFormsNoSchedule;
   /// Forms rejected as duplicates (second+ per shift). Each map includes 'rejectionReason': 'duplicate'.
   final List<Map<String, dynamic>> detailedFormsRejected;
+
+  /// Admin accepts forms that failed auto rules; ids are `form_responses` doc ids.
+  final List<AdminFormAcceptanceOverride> adminFormAcceptanceOverrides;
+
+  /// When the teacher confirmed they read the payslip view for this month.
+  final DateTime? teacherAcknowledgedAt;
+
+  /// Optional 1:1 chat between coach/admin and teacher for this audit (Firestore `chats` doc id).
+  final String? discussionChatId;
 
   // ════════════════════════════════════════════════════════════════════════
   // SECTION 6: OVERALL SCORE
@@ -206,6 +239,7 @@ class TeacherAuditFull {
     required this.totalClassesCompleted,
     required this.totalClassesMissed,
     required this.totalClassesCancelled,
+    this.excusedAbsences = 0,
     required this.completionRate,
     required this.totalClockIns,
     required this.onTimeClockIns,
@@ -224,6 +258,8 @@ class TeacherAuditFull {
     required this.finalExamCompleted,
     required this.semesterProjectStatus,
     required this.overdueTasks,
+    this.totalTasksAssigned = 0,
+    this.acknowledgedTasks = 0,
     required this.weeklyRecordingsSent,
     required this.connecteamSignIns,
     required this.classRemindersSet,
@@ -234,11 +270,16 @@ class TeacherAuditFull {
     required this.status,
     this.reviewChain,
     required this.issues,
+    this.changeLog = const [],
     this.detailedShifts = const [],
     this.detailedTimesheets = const [],
     this.detailedForms = const [],
+    this.detailedFormsNonTeaching = const [],
     this.detailedFormsNoSchedule = const [],
     this.detailedFormsRejected = const [],
+    this.adminFormAcceptanceOverrides = const [],
+    this.teacherAcknowledgedAt,
+    this.discussionChatId,
     required this.automaticScore,
     required this.coachScore,
     required this.overallScore,
@@ -264,6 +305,7 @@ class TeacherAuditFull {
         'totalClassesCompleted': totalClassesCompleted,
         'totalClassesMissed': totalClassesMissed,
         'totalClassesCancelled': totalClassesCancelled,
+        'excusedAbsences': excusedAbsences,
         'completionRate': completionRate,
         'totalClockIns': totalClockIns,
         'onTimeClockIns': onTimeClockIns,
@@ -282,6 +324,8 @@ class TeacherAuditFull {
         'finalExamCompleted': finalExamCompleted,
         'semesterProjectStatus': semesterProjectStatus,
         'overdueTasks': overdueTasks,
+        'totalTasksAssigned': totalTasksAssigned,
+        'acknowledgedTasks': acknowledgedTasks,
         'weeklyRecordingsSent': weeklyRecordingsSent,
         'connecteamSignIns': connecteamSignIns,
         'classRemindersSet': classRemindersSet,
@@ -292,11 +336,19 @@ class TeacherAuditFull {
         'status': status.name,
         'reviewChain': reviewChain?.toMap(),
         'issues': issues.map((i) => i.toMap()).toList(),
+        'changeLog': changeLog.map((e) => e.toMap()).toList(),
         'detailedShifts': detailedShifts,
         'detailedTimesheets': detailedTimesheets,
         'detailedForms': detailedForms,
+        'detailedFormsNonTeaching': detailedFormsNonTeaching,
         'detailedFormsNoSchedule': detailedFormsNoSchedule,
         'detailedFormsRejected': detailedFormsRejected,
+        'adminFormAcceptanceOverrides':
+            adminFormAcceptanceOverrides.map((e) => e.toMap()).toList(),
+        'teacherAcknowledgedAt': teacherAcknowledgedAt != null
+            ? Timestamp.fromDate(teacherAcknowledgedAt!)
+            : null,
+        'discussionChatId': discussionChatId,
         'automaticScore': automaticScore,
         'coachScore': coachScore,
         'overallScore': overallScore,
@@ -329,6 +381,7 @@ class TeacherAuditFull {
       totalClassesCompleted: data['totalClassesCompleted'] ?? 0,
       totalClassesMissed: data['totalClassesMissed'] ?? 0,
       totalClassesCancelled: data['totalClassesCancelled'] ?? 0,
+      excusedAbsences: data['excusedAbsences'] ?? 0,
       completionRate: (data['completionRate'] ?? 0).toDouble(),
       totalClockIns: data['totalClockIns'] ?? 0,
       onTimeClockIns: data['onTimeClockIns'] ?? 0,
@@ -347,6 +400,8 @@ class TeacherAuditFull {
       finalExamCompleted: data['finalExamCompleted'] ?? false,
       semesterProjectStatus: data['semesterProjectStatus'] ?? 'Not started',
       overdueTasks: data['overdueTasks'] ?? 0,
+      totalTasksAssigned: data['totalTasksAssigned'] ?? 0,
+      acknowledgedTasks: data['acknowledgedTasks'] ?? 0,
       weeklyRecordingsSent: data['weeklyRecordingsSent'] ?? 0,
       connecteamSignIns: data['connecteamSignIns'] ?? 0,
       classRemindersSet: data['classRemindersSet'] ?? 0,
@@ -371,6 +426,10 @@ class TeacherAuditFull {
               ?.map((i) => AuditIssue.fromMap(i))
               .toList() ??
           [],
+      changeLog: (data['changeLog'] as List<dynamic>?)
+              ?.map((e) => AuditChangeEntry.fromMap(e as Map<String, dynamic>))
+              .toList() ??
+          [],
       detailedShifts: (data['detailedShifts'] as List<dynamic>?)
               ?.map((e) => e as Map<String, dynamic>)
               .toList() ??
@@ -383,6 +442,10 @@ class TeacherAuditFull {
               ?.map((e) => e as Map<String, dynamic>)
               .toList() ??
           [],
+      detailedFormsNonTeaching: (data['detailedFormsNonTeaching'] as List<dynamic>?)
+              ?.map((e) => e as Map<String, dynamic>)
+              .toList() ??
+          [],
       detailedFormsNoSchedule: (data['detailedFormsNoSchedule'] as List<dynamic>?)
               ?.map((e) => e as Map<String, dynamic>)
               .toList() ??
@@ -391,6 +454,15 @@ class TeacherAuditFull {
               ?.map((e) => e as Map<String, dynamic>)
               .toList() ??
           [],
+      adminFormAcceptanceOverrides:
+          (data['adminFormAcceptanceOverrides'] as List<dynamic>?)
+                  ?.map((e) => AdminFormAcceptanceOverride.fromMap(
+                      e as Map<String, dynamic>))
+                  .toList() ??
+              [],
+      teacherAcknowledgedAt:
+          (data['teacherAcknowledgedAt'] as Timestamp?)?.toDate(),
+      discussionChatId: data['discussionChatId']?.toString(),
       automaticScore: (data['automaticScore'] ?? 0).toDouble(),
       coachScore: (data['coachScore'] ?? 0).toDouble(),
       overallScore: (data['overallScore'] ?? 0).toDouble(),
@@ -487,23 +559,56 @@ class TeacherAuditFull {
     ];
   }
 
-  /// Calculate total score from 16 factors (max 144 = 16 * 9)
-  int get auditFactorTotalScore => auditFactors.fold(0, (sum, factor) => sum + factor.rating);
+  /// Sum of ratings for factors that are not marked N/A.
+  int get auditFactorTotalScore => auditFactors
+      .where((f) => !f.isNotApplicable)
+      .fold(0, (sum, factor) => sum + factor.rating);
   
-  /// Calculate percentage score from factors (0-100%)
+  /// Percentage from applicable factors only (0–100%).
   double get auditFactorPercentageScore {
-    if (auditFactors.isEmpty) return 0.0;
-    final maxScore = auditFactors.length * 9;
+    final applicable = auditFactors.where((f) => !f.isNotApplicable).toList();
+    if (applicable.isEmpty) return 0.0;
+    final maxScore = applicable.length * 5;
     return (auditFactorTotalScore / maxScore) * 100;
   }
-  
-  /// Get performance tier based on total score (<100 = Unsatisfactory, 130+ = Excellent)
-  String get auditFactorPerformanceTier {
-    final score = auditFactorTotalScore;
-    if (score < 100) return 'Unsatisfactory';
-    if (score >= 130) return 'Excellent';
-    if (score >= 115) return 'Good';
-    return 'Needs Improvement';
+
+  /// Fields that admins can edit in-app with change tracking.
+  static const Map<String, Type> editableFields = {
+    'totalClassesMissed': int,
+    'totalClassesCancelled': int,
+    'staffMeetingsScheduled': int,
+    'staffMeetingsMissed': int,
+    'meetingLateArrivals': int,
+    'quizzesGiven': int,
+    'assignmentsGiven': int,
+    'overdueTasks': int,
+    'weeklyRecordingsSent': int,
+    'classRemindersSet': int,
+    'internetDropOffs': int,
+    'midtermCompleted': bool,
+    'finalExamCompleted': bool,
+    'semesterProjectStatus': String,
+  };
+
+  /// Get the current value of an editable field by name.
+  dynamic getEditableFieldValue(String field) {
+    switch (field) {
+      case 'totalClassesMissed': return totalClassesMissed;
+      case 'totalClassesCancelled': return totalClassesCancelled;
+      case 'staffMeetingsScheduled': return staffMeetingsScheduled;
+      case 'staffMeetingsMissed': return staffMeetingsMissed;
+      case 'meetingLateArrivals': return meetingLateArrivals;
+      case 'quizzesGiven': return quizzesGiven;
+      case 'assignmentsGiven': return assignmentsGiven;
+      case 'overdueTasks': return overdueTasks;
+      case 'weeklyRecordingsSent': return weeklyRecordingsSent;
+      case 'classRemindersSet': return classRemindersSet;
+      case 'internetDropOffs': return internetDropOffs;
+      case 'midtermCompleted': return midtermCompleted;
+      case 'finalExamCompleted': return finalExamCompleted;
+      case 'semesterProjectStatus': return semesterProjectStatus;
+      default: return null;
+    }
   }
 }
 
@@ -633,6 +738,116 @@ class CoachEvaluation {
   }
 }
 
+/// Admin override: accept a teaching form that failed automatic rules (no_shift / no_timesheet).
+class AdminFormAcceptanceOverride {
+  final String formResponseId;
+  final String reason;
+  final String adminId;
+  final String adminName;
+  final DateTime acceptedAt;
+
+  const AdminFormAcceptanceOverride({
+    required this.formResponseId,
+    required this.reason,
+    required this.adminId,
+    required this.adminName,
+    required this.acceptedAt,
+  });
+
+  Map<String, dynamic> toMap() => {
+        'formResponseId': formResponseId,
+        'reason': reason,
+        'adminId': adminId,
+        'adminName': adminName,
+        'acceptedAt': Timestamp.fromDate(acceptedAt),
+      };
+
+  factory AdminFormAcceptanceOverride.fromMap(Map<String, dynamic> map) {
+    return AdminFormAcceptanceOverride(
+      formResponseId: map['formResponseId']?.toString() ?? '',
+      reason: map['reason']?.toString() ?? '',
+      adminId: map['adminId']?.toString() ?? '',
+      adminName: map['adminName']?.toString() ?? '',
+      acceptedAt: (map['acceptedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+    );
+  }
+}
+
+/// Advance payment pulled from advance-pay template submissions (`form_responses`).
+class AdvancePayment {
+  final String formResponseId;
+  final double amount;
+  final DateTime submittedAt;
+
+  const AdvancePayment({
+    required this.formResponseId,
+    required this.amount,
+    required this.submittedAt,
+  });
+
+  Map<String, dynamic> toMap() => {
+        'formResponseId': formResponseId,
+        'amount': amount,
+        'submittedAt': Timestamp.fromDate(submittedAt),
+      };
+
+  factory AdvancePayment.fromMap(Map<String, dynamic> map) {
+    return AdvancePayment(
+      formResponseId: map['formResponseId']?.toString() ?? '',
+      amount: (map['amount'] as num?)?.toDouble() ?? 0,
+      submittedAt:
+          (map['submittedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+    );
+  }
+}
+
+/// Coach-entered payment line during evaluation (penalty subtracts, bonus adds).
+class PaymentAdjustmentLine {
+  final String id;
+  final String type; // 'penalty' | 'bonus'
+  final double amount;
+  final String reason;
+  final String? factorId;
+  final DateTime createdAt;
+  final String createdById;
+  final String createdByName;
+
+  const PaymentAdjustmentLine({
+    required this.id,
+    required this.type,
+    required this.amount,
+    required this.reason,
+    this.factorId,
+    required this.createdAt,
+    required this.createdById,
+    required this.createdByName,
+  });
+
+  Map<String, dynamic> toMap() => {
+        'id': id,
+        'type': type,
+        'amount': amount,
+        'reason': reason,
+        if (factorId != null) 'factorId': factorId,
+        'createdAt': Timestamp.fromDate(createdAt),
+        'createdById': createdById,
+        'createdByName': createdByName,
+      };
+
+  factory PaymentAdjustmentLine.fromMap(Map<String, dynamic> map) {
+    return PaymentAdjustmentLine(
+      id: map['id']?.toString() ?? '',
+      type: map['type']?.toString() ?? 'penalty',
+      amount: (map['amount'] as num?)?.toDouble() ?? 0,
+      reason: map['reason']?.toString() ?? '',
+      factorId: map['factorId']?.toString(),
+      createdAt: (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      createdById: map['createdById']?.toString() ?? '',
+      createdByName: map['createdByName']?.toString() ?? '',
+    );
+  }
+}
+
 /// Payment summary with hourly rates by subject
 class PaymentSummary {
   final Map<String, SubjectPayment> paymentsBySubject;
@@ -646,6 +861,10 @@ class PaymentSummary {
   final DateTime? adjustedAt;
   // Individual shift payment adjustments: shiftId -> adjusted amount
   final Map<String, double> shiftPaymentAdjustments;
+  /// Coach evaluation adjustments; net = [netWithCoachLines] (gross − auto penalties + auto bonuses + adminAdjustment ± lines).
+  final List<PaymentAdjustmentLine> coachAdjustmentLines;
+  /// Confirmed advance payments (deducted after coach lines for displayed net).
+  final List<AdvancePayment> advancePayments;
 
   const PaymentSummary({
     required this.paymentsBySubject,
@@ -658,7 +877,32 @@ class PaymentSummary {
     required this.adminId,
     this.adjustedAt,
     this.shiftPaymentAdjustments = const {},
+    this.coachAdjustmentLines = const [],
+    this.advancePayments = const [],
   });
+
+  /// Automated subtotal before coach lines (same basis used when first computing pay).
+  double get automatedNetBase =>
+      totalGrossPayment - totalPenalties + totalBonuses + adminAdjustment;
+
+  /// Apply coach penalty (subtract) and bonus (add) lines on top of [automatedNetBase].
+  double netWithCoachLines() {
+    var delta = 0.0;
+    for (final l in coachAdjustmentLines) {
+      if (l.type == 'bonus') {
+        delta += l.amount;
+      } else {
+        delta -= l.amount;
+      }
+    }
+    return automatedNetBase + delta;
+  }
+
+  double get totalAdvanceDeduction =>
+      advancePayments.fold(0.0, (s, a) => s + a.amount.abs());
+
+  /// Stored [totalNetPayment] should match this after any payment-affecting update.
+  double netAfterAdvances() => netWithCoachLines() - totalAdvanceDeduction;
 
   Map<String, dynamic> toMap() => {
         'paymentsBySubject': paymentsBySubject.map((k, v) => MapEntry(k, v.toMap())),
@@ -671,11 +915,33 @@ class PaymentSummary {
         'adminId': adminId,
         'adjustedAt': adjustedAt != null ? Timestamp.fromDate(adjustedAt!) : null,
         'shiftPaymentAdjustments': shiftPaymentAdjustments,
+        'coachAdjustmentLines': coachAdjustmentLines.map((e) => e.toMap()).toList(),
+        'advancePayments': advancePayments.map((e) => e.toMap()).toList(),
       };
 
   factory PaymentSummary.fromMap(Map<String, dynamic> map) {
     final paymentsMap = map['paymentsBySubject'] as Map<String, dynamic>? ?? {};
     final adjustmentsMap = map['shiftPaymentAdjustments'] as Map<String, dynamic>? ?? {};
+    final linesRaw = map['coachAdjustmentLines'] as List<dynamic>? ??
+        map['adjustmentLines'] as List<dynamic>? ??
+        const [];
+    final lines = <PaymentAdjustmentLine>[];
+    for (final e in linesRaw) {
+      if (e is Map<String, dynamic>) {
+        lines.add(PaymentAdjustmentLine.fromMap(e));
+      } else if (e is Map) {
+        lines.add(PaymentAdjustmentLine.fromMap(Map<String, dynamic>.from(e)));
+      }
+    }
+    final advRaw = map['advancePayments'] as List<dynamic>? ?? const [];
+    final advances = <AdvancePayment>[];
+    for (final e in advRaw) {
+      if (e is Map<String, dynamic>) {
+        advances.add(AdvancePayment.fromMap(e));
+      } else if (e is Map) {
+        advances.add(AdvancePayment.fromMap(Map<String, dynamic>.from(e)));
+      }
+    }
     return PaymentSummary(
       paymentsBySubject: paymentsMap.map(
           (k, v) => MapEntry(k, SubjectPayment.fromMap(v as Map<String, dynamic>))),
@@ -690,6 +956,39 @@ class PaymentSummary {
       shiftPaymentAdjustments: adjustmentsMap.map(
         (k, v) => MapEntry(k, (v as num).toDouble()),
       ),
+      coachAdjustmentLines: lines,
+      advancePayments: advances,
+    );
+  }
+
+  PaymentSummary copyWith({
+    Map<String, SubjectPayment>? paymentsBySubject,
+    double? totalGrossPayment,
+    double? totalPenalties,
+    double? totalBonuses,
+    double? totalNetPayment,
+    double? adminAdjustment,
+    String? adjustmentReason,
+    String? adminId,
+    DateTime? adjustedAt,
+    Map<String, double>? shiftPaymentAdjustments,
+    List<PaymentAdjustmentLine>? coachAdjustmentLines,
+    List<AdvancePayment>? advancePayments,
+  }) {
+    return PaymentSummary(
+      paymentsBySubject: paymentsBySubject ?? this.paymentsBySubject,
+      totalGrossPayment: totalGrossPayment ?? this.totalGrossPayment,
+      totalPenalties: totalPenalties ?? this.totalPenalties,
+      totalBonuses: totalBonuses ?? this.totalBonuses,
+      totalNetPayment: totalNetPayment ?? this.totalNetPayment,
+      adminAdjustment: adminAdjustment ?? this.adminAdjustment,
+      adjustmentReason: adjustmentReason ?? this.adjustmentReason,
+      adminId: adminId ?? this.adminId,
+      adjustedAt: adjustedAt ?? this.adjustedAt,
+      shiftPaymentAdjustments:
+          shiftPaymentAdjustments ?? this.shiftPaymentAdjustments,
+      coachAdjustmentLines: coachAdjustmentLines ?? this.coachAdjustmentLines,
+      advancePayments: advancePayments ?? this.advancePayments,
     );
   }
   
@@ -760,11 +1059,11 @@ class SubjectPayment {
 /// Audit status in the review workflow
 enum AuditStatus {
   pending, // Initial state, auto metrics computed
-  coachReview, // Coach is filling evaluation
+  coachReview, // Unused — reserved for future workflow
   coachSubmitted, // Coach submitted, waiting for CEO
-  ceoReview, // CEO reviewing
+  ceoReview, // Unused — reserved for future workflow
   ceoApproved, // CEO approved, waiting for Founder
-  founderReview, // Founder reviewing
+  founderReview, // Unused — reserved for future workflow
   completed, // Fully approved
   disputed, // Teacher disputed something
 }
@@ -933,6 +1232,50 @@ class AuditIssue {
       date: map['date'] != null ? DateTime.parse(map['date']) : null,
       shiftId: map['shiftId'],
       penaltyAmount: (map['penaltyAmount'] as num?)?.toDouble(),
+    );
+  }
+}
+
+/// Single entry in the append-only audit change log.
+/// Tracks admin edits to editable audit fields.
+class AuditChangeEntry {
+  final String field;
+  final dynamic oldValue;
+  final dynamic newValue;
+  final String reason;
+  final String adminId;
+  final String adminName;
+  final DateTime changedAt;
+
+  const AuditChangeEntry({
+    required this.field,
+    required this.oldValue,
+    required this.newValue,
+    required this.reason,
+    required this.adminId,
+    required this.adminName,
+    required this.changedAt,
+  });
+
+  Map<String, dynamic> toMap() => {
+        'field': field,
+        'oldValue': oldValue,
+        'newValue': newValue,
+        'reason': reason,
+        'adminId': adminId,
+        'adminName': adminName,
+        'changedAt': Timestamp.fromDate(changedAt),
+      };
+
+  factory AuditChangeEntry.fromMap(Map<String, dynamic> map) {
+    return AuditChangeEntry(
+      field: map['field'] ?? '',
+      oldValue: map['oldValue'],
+      newValue: map['newValue'],
+      reason: map['reason'] ?? '',
+      adminId: map['adminId'] ?? '',
+      adminName: map['adminName'] ?? '',
+      changedAt: (map['changedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
   }
 }

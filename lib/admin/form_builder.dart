@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:uuid/uuid.dart';
 import 'dart:async';
 import '../core/models/form_template.dart';
 import '../core/services/form_template_service.dart';
@@ -226,7 +227,7 @@ class _FormBuilderState extends State<FormBuilder> {
       if (_questions.isEmpty && widget.editFormId == null) {
         _questions = [
           FormQuestion(
-            id: DateTime.now().millisecondsSinceEpoch.toString(),
+            id: const Uuid().v4(),
             type: QuestionType.shortAnswer,
             title: AppLocalizations.of(context)!.formsListNewquestion,
             required: false,
@@ -277,7 +278,7 @@ class _FormBuilderState extends State<FormBuilder> {
         // Convert FormFieldDefinition to FormQuestion
         // This is a rough mapping
         return FormQuestion(
-          id: fieldData['id'] ?? DateTime.now().millisecondsSinceEpoch.toString(),
+          id: fieldData['id'] ?? const Uuid().v4(),
           type: QuestionTypeExtension.fromFirestore(fieldData['type'] ?? 'text'),
           title: fieldData['label'] ?? '',
           required: fieldData['required'] ?? false,
@@ -299,7 +300,7 @@ class _FormBuilderState extends State<FormBuilder> {
     
     if (_questions.isEmpty) {
       _questions.add(FormQuestion(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        id: const Uuid().v4(),
         type: QuestionType.shortAnswer,
         title: AppLocalizations.of(context)!.formsListNewquestion,
         required: false,
@@ -754,7 +755,7 @@ class _FormBuilderState extends State<FormBuilder> {
   void _addQuestion() {
               setState(() {
       final newQ = FormQuestion(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        id: const Uuid().v4(),
         type: QuestionType.shortAnswer,
         title: AppLocalizations.of(context)!.formsListNewquestion,
         required: false,
@@ -775,7 +776,7 @@ class _FormBuilderState extends State<FormBuilder> {
             setState(() {
       final original = _questions[index];
       final copy = FormQuestion(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        id: const Uuid().v4(),
         type: original.type,
         title: '${original.title} (copy)',
         required: original.required,
@@ -867,7 +868,7 @@ class _FormBuilderState extends State<FormBuilder> {
         version: 1, // Will be overwritten by versioning logic
         allowedRoles: activeRoles,
         fields: fieldsList,
-        autoFillRules: [], // No autofill builder in UI yet
+        autoFillRules: [], // TODO: Add auto-fill rules UI. Currently only code-defined templates (FormTemplateService defaults) support auto-fill.
         isActive: true,
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),

@@ -24,6 +24,8 @@
   "commonSubmit": "إرسال",
   "commonReset": "إعادة تعيين",
   "commonClear": "مسح",
+  "commonExpandAll": "توسيع الكل",
+  "commonCollapseAll": "طي الكل",
   "commonRefresh": "تحديث",
   "commonExport": "تصدير",
   "commonCopy": "نسخ",
@@ -323,6 +325,21 @@
   "adminSubmissionsGeneralUnknown": "عام / غير معروف",
   "adminSubmissionsAllForms": "جميع النماذج",
   "adminSubmissionsFilterByForm": "تصفية حسب النموذج",
+  "adminSubmissionsReviewMode": "وضع المراجعة",
+  "adminSubmissionsSelectionModeTitle": "التحديد",
+  "adminSubmissionsNoTeacherSelected": "لم يتم اختيار أي مُعلّم",
+  "adminSubmissionsSelectionProgress": "{selectedCount} / {total} نماذج",
+  "@adminSubmissionsSelectionProgress": {
+    "placeholders": {
+      "selectedCount": { "type": "int" },
+      "total": { "type": "int" }
+    }
+  },
+  "adminSubmissionsExportFormatLabel": "التنسيق",
+  "adminSubmissionsExportExcelLabel": "Excel",
+  "adminSubmissionsExportPdfLabel": "PDF",
+  "adminSubmissionsExportProgressSubtitle": "جاري تجهيز الملف. التقدم لكل شخص:",
+  "adminSubmissionsSelectToViewDetails": "اختر تسليماً لعرض التفاصيل",
   "formDefaultTitle": "نموذج",
   "formResponses": "ردود",
   "formTapToView": "انقر للعرض",
@@ -1437,12 +1454,46 @@
   "auditFormsRejected": "Rejetés",
   "auditFormsRejectedBreakdown": "({noShift} sans shift, {duplicates} doublon)",
   "auditFormStatusAccepted": "Accepté",
+  "auditFormStatusAcceptedMissedShift": "مقبول (حصة فائتة في الجدول)",
+  "auditFormHintMissedShiftReport": "فائتة في الموعد المجدول؛ تم تقديم التقرير (لا تسجيل وقت لذلك الموعد).",
   "auditFormStatusRejectedDuplicate": "Rejeté (doublon)",
-  "auditFormStatusRejectedNoShift": "Rejeté (sans shift)",
+  "auditFormStatusRejectedNoShift": "مرفوض (بدون نوبة)",
+  "auditFormStatusRejectedNoTimesheet": "مرفوض (بدون سجل وقت)",
+  "auditFormsTabStatTotalTeaching": "إجمالي نماذج التدريس",
+  "auditFormsTabStatRejectedNoShift": "مرفوض (بدون نوبة)",
+  "auditFormsTabStatRejectedNoTimesheet": "مرفوض (بدون سجل وقت)",
+  "auditFormsTabStatRejectedDuplicate": "مرفوض (مكرر)",
+  "auditFormsTabStatReadiness": "نماذج الجاهزية",
+  "auditFormsSectionAccepted": "مقبول ({count})",
+  "@auditFormsSectionAccepted": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "auditFormsSectionRejectedNoShift": "مرفوض — لا نوبة مرتبطة ({count})",
+  "@auditFormsSectionRejectedNoShift": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "auditFormsSectionRejectedNoTimesheet": "مرفوض — لا سجل وقت ({count})",
+  "@auditFormsSectionRejectedNoTimesheet": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "auditFormsSectionRejectedDuplicate": "مرفوض — مكرر ({count})",
+  "@auditFormsSectionRejectedDuplicate": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
   "auditTotalLabel": "Total",
   "auditFormsSubmittedLabel": "Formulaires soumis",
   "auditGeneralOrUnlinked": "Général / Non lié",
   "auditNoFormsSubmitted": "Aucun formulaire soumis",
+  "auditNoAssignmentFormsInSnapshot": "لا توجد واجبات أو تقييمات في هذه المراجعة. أعد توليد مراجعة الشهر إذا بقيت تقارير الحصص في المكان الخطأ.",
+  "auditFactorNaShort": "غير منطبق (خارج النقاط)",
   "auditTierExcellent": "Excellent",
   "auditTierGood": "Bien",
   "auditTierNeedsImprovement": "À améliorer",
@@ -1458,6 +1509,13 @@
   "teacherAuditPerformanceSection": "Performance",
   "teacherAuditNetToReceive": "NET À PERCEVOIR",
   "teacherAuditPointsOfAttention": "Points d'attention",
+  "teacherAuditReportUnderReview": "هذا التقرير قيد المراجعة وقد يتغير قبل اعتماده.",
+  "teacherAuditScoreAuto": "تلقائي: {score}%",
+  "@teacherAuditScoreAuto": { "placeholders": { "score": {"type": "String"} } },
+  "teacherAuditScoreCoach": "المشرف: {score}%",
+  "@teacherAuditScoreCoach": { "placeholders": { "score": {"type": "String"} } },
+  "coachEvalSuggestedScore": "مقترح",
+  "coachEvalApplySuggestion": "تطبيق",
   "teacherAuditReportNotAvailable": "Rapport non disponible",
   "teacherAuditReportNotFinalizedMessage": "Votre rapport pour {month} n'est pas encore finalisé ou n'existe pas.",
   "teacherAuditClassesLabel": "Classes",
@@ -1489,6 +1547,37 @@
   "auditNetToPay": "NET À PAYER",
   "auditNoPaymentDataAvailable": "Aucune donnée de paiement disponible",
   "auditPaymentSummary": "Récapitulatif de paiement",
+  "auditCoachPaymentAdjustmentsTitle": "Lignes de paiement (coach)",
+  "auditNetAfterAdjustmentsHint": "Net estimé après lignes et avances",
+  "auditAddPaymentLine": "Ajouter une ligne",
+  "auditAmountLabel": "Montant (USD)",
+  "auditReasonLabel": "Motif",
+  "auditPaymentLineTypeLabel": "Type",
+  "auditPaymentLinePenalty": "Pénalité (déduit)",
+  "auditPaymentLineBonus": "Prime (ajouté)",
+  "auditAdvanceSectionTitle": "Paiements d'avance",
+  "auditAdvanceSectionSubtitle": "Charger les soumissions du formulaire d'avance pour ce mois.",
+  "auditAdvanceLoadFromForms": "Charger depuis les formulaires",
+  "auditBulkAcceptSelected": "Accepter la sélection (outrepasser)",
+  "auditBulkAcceptAllInSection": "Tout sélectionner (cette section)",
+  "auditBulkAcceptReasonTitle": "Motif de l'acceptation manuelle",
+  "auditBulkAcceptReasonHint": "Note courte (enregistrée sur l'audit)",
+  "auditBulkAcceptSuccess": "Formulaires acceptés ; métriques recalculées",
+  "auditBulkAcceptRunning": "Application…",
+  "auditAcknowledgeRead": "Je confirme avoir lu cette fiche de paie",
+  "auditAcknowledgeDone": "Accusé le {date}",
+  "@auditAcknowledgeDone": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "auditOpenDiscussion": "Ouvrir la discussion",
+  "auditDiscussionAdminButton": "Chat avec l'enseignant",
+  "teacherAuditPayslipCoachLines": "Ajustements d'évaluation",
+  "teacherAuditPayslipAdvances": "Avances (déduites)",
+  "teacherAuditClassesSection": "Cours du mois",
   "auditGrossSalary": "Salaire brut",
   "auditNetSalary": "Salaire net",
   "auditAdjustments": "Ajustements",
@@ -3691,6 +3780,24 @@
     }
   },
   "taskUnassigned": "Unassigned",
+  "taskAssigneeOpenTrackingTitle": "When assignees opened this task",
+  "taskAssigneeOpenedAt": "Opened {datetime}",
+  "@taskAssigneeOpenedAt": {
+    "placeholders": {
+      "datetime": {
+        "type": "String"
+      }
+    }
+  },
+  "taskAssigneeNotOpenedYet": "Not opened yet",
+  "taskDetailFirstViewedAt": "First time someone opened details: {datetime}",
+  "@taskDetailFirstViewedAt": {
+    "placeholders": {
+      "datetime": {
+        "type": "String"
+      }
+    }
+  },
   "taskSelectMultiple": "Select Multiple",
   "taskExitSelection": "Exit Selection",
   "editAllInSeriesCount": "Edit all in series ({count})",
@@ -4058,6 +4165,7 @@
   "chatMessagesLabel": "Chat Messages",
   "adjustmentAmountExampleHint": "e.g., +0.2 or -5",
   "formResponsesTitle": "Form Responses",
+  "formResponsesUpdatingLabels": "جارٍ تحديث التسميات…",
   "optionsCommaSeparatedExample": "e.g., Option 1, Option 2, Option 3",
   "readinessFormRequiredTitle": "Readiness Form Required",
   "requiredForRatingsBelow9": "Required for ratings below 9",
@@ -4097,5 +4205,223 @@
   "podcastArchived": "تم أرشفة البودكاست",
   "selectStudents": "اختر الطلاب",
   "selectAll": "تحديد الكل",
-  "deselectAll": "إلغاء تحديد الكل"
+  "deselectAll": "إلغاء تحديد الكل",
+  "auditReviewModeTitle": "وضع مراجعة التدقيق",
+  "auditReviewModeButton": "وضع المراجعة",
+  "auditReviewBackToList": "العودة إلى القائمة",
+  "auditReviewSelectTeacher": "اختر تدقيق معلم للمراجعة",
+  "auditOrphanForms": "نماذج بدون جدول ({count})",
+  "@auditOrphanForms": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "auditRejectedForms": "نماذج مرفوضة ({count})",
+  "@auditRejectedForms": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "auditFormNoMatchingShift": "لم يتم العثور على نوبة مطابقة",
+
+  "auditTabChangeLog": "سجل التغييرات",
+  "auditManualMetrics": "المقاييس اليدوية",
+  "auditMeetingsSection": "الاجتماعات",
+  "auditAcademicSection": "الأكاديمي",
+  "auditTasksCommunication": "المهام والتواصل",
+  "auditOverrideSection": "التصحيحات",
+  "auditEditField": "تعديل الحقل",
+  "auditEditFieldTitle": "تعديل: {fieldName}",
+  "@auditEditFieldTitle": {
+    "placeholders": {
+      "fieldName": { "type": "String" }
+    }
+  },
+  "auditCurrentValue": "القيمة الحالية",
+  "auditNewValue": "القيمة الجديدة",
+  "auditEditReason": "سبب التغيير",
+  "auditEditReasonHint": "اشرح سبب تغيير هذه القيمة",
+  "auditEditSuccess": "تم تحديث الحقل بنجاح",
+  "auditEditError": "فشل تحديث الحقل",
+  "auditNoChangesRecorded": "لا توجد تغييرات مسجلة",
+  "auditChangeLogSummary": "{count} تغييرات",
+  "@auditChangeLogSummary": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "auditChangedFieldFrom": "تم تغيير {field} من {oldValue} إلى {newValue}",
+  "@auditChangedFieldFrom": {
+    "placeholders": {
+      "field": { "type": "String" },
+      "oldValue": { "type": "String" },
+      "newValue": { "type": "String" }
+    }
+  },
+  "auditChangeReason": "السبب: {reason}",
+  "@auditChangeReason": {
+    "placeholders": {
+      "reason": { "type": "String" }
+    }
+  },
+  "auditFieldTotalClassesMissed": "الحصص الفائتة (تصحيح)",
+  "auditFieldTotalClassesCancelled": "الحصص الملغاة (تصحيح)",
+  "auditFieldStaffMeetingsScheduled": "الاجتماعات المجدولة",
+  "auditFieldStaffMeetingsMissed": "الاجتماعات الفائتة",
+  "auditFieldMeetingLateArrivals": "التأخر عن الاجتماعات",
+  "auditFieldQuizzesGiven": "الاختبارات المقدمة",
+  "auditFieldAssignmentsGiven": "الواجبات المقدمة",
+  "auditFieldOverdueTasks": "المهام المتأخرة",
+  "auditTaskAcknowledgement": "المهام المطّلع عليها",
+  "auditTaskAcknowledgementRate": "نسبة الاطلاع على المهام",
+  "auditExcusedAbsences": "الغيابات المبررة",
+  "auditExcused": "مبرر",
+  "auditViewTeachers": "المعلمون",
+  "auditViewAdmins": "المشرفون",
+  "adminAuditFormsSubmitted": "النماذج المقدمة",
+  "adminAuditTasksCompleted": "المهام المكتملة",
+  "adminAuditColumnAdmin": "مسؤول",
+  "adminAuditOverallScore": "النتيجة",
+  "adminAuditFormComplianceShort": "النماذج",
+  "adminAuditTaskEfficiencyShort": "كفاءة المهام",
+  "adminAuditOverdue": "متأخر",
+  "adminAuditAcknowledged": "تم الاطلاع",
+  "adminAuditTasksCreated": "مهام منشأة",
+  "adminAuditAvgCompletionDays": "متوسط الإنجاز (أيام)",
+  "adminAuditDetailTitle": "تفاصيل تدقيق المسؤول",
+  "adminAuditFormBreakdown": "الإرسالات حسب النموذج",
+  "adminAuditTaskLabels": "وسوم المهام",
+  "adminAuditCeoNotes": "ملاحظات المدير",
+  "adminAuditSaveNotes": "حفظ الملاحظات",
+  "adminAuditClose": "إغلاق",
+  "adminAuditNoBreakdown": "لا يوجد تفصيل لكل نموذج",
+  "adminAuditOpenDetail": "التفاصيل",
+  "adminAuditUnknownForm": "نموذج غير معروف",
+  "adminAuditSubTasksRatio": "شدة المهام الفرعية",
+  "adminAuditScoreHelpTitle": "كيف يُحسب هذا التقييم؟",
+  "adminAuditScoreHelpBody": "يجمع التقييم العام بين امتثال النماذج ({formPercent}٪) وكفاءة المهام ({taskPercent}٪). يمتثل المستوى 1 لمتوسط ثلاثة أجزاء: تقديمات نهاية الوردية مقابل أيام العمل في الشهر، تقييم المدربين كل أسبوعين (متوقع اثنان شهرياً)، وتقارير المدير الأسبوعية/التقدم/المالية مقابل نحو 4–5 أسابيع في الشهر. تعكس كفاءة المهام المكتملة مقابل المعينة، وتخفض النتيجة عند التأخير، مع مكافأة صغيرة عند إنشاء مهام. غالباً ما يعني التقييم المنخفض نقص النماذج المتكررة أو كثرة المهام غير المكتملة أو المتأخرة.",
+  "@adminAuditScoreHelpBody": {
+    "placeholders": {
+      "formPercent": { "type": "String" },
+      "taskPercent": { "type": "String" }
+    }
+  },
+  "adminAuditAdminListTitle": "المسؤولون",
+  "adminAuditAdminListCount": "{count, plural, zero{لا مسؤولين} one{مسؤول واحد} two{مسؤولان} few{{count} مسؤولين} many{{count} مسؤولاً} other{{count} مسؤول}}",
+  "@adminAuditAdminListCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "adminAuditAdminListHint": "افتح القائمة لتغيير المسؤول. كل صف يعرض النتيجة الإجمالية والامتثال للنماذج وكفاءة المهام؛ مرّر المؤشر لعرض أعداد النماذج والمهام.",
+  "adminAuditSelectAdminLabel": "عرض",
+  "adminAuditStatTooltipForms": "النماذج المقدمة هذا الشهر",
+  "adminAuditStatTooltipTasks": "المهام المنجزة / المعينة",
+  "adminAuditStatTooltipOverdue": "المهام المتأخرة",
+  "adminAuditStatTooltipAck": "المهام التي تم الاطلاع عليها / المعينة",
+  "adminAuditExportCsvButton": "تصدير CSV للمسؤولين",
+  "adminAuditExportEmpty": "لا توجد عمليات تدقيق للمسؤولين للتصدير لهذا الشهر.",
+  "@exportSavedNativeBody": {
+    "placeholders": {
+      "path": { "type": "String" }
+    }
+  },
+  "exportSavedNativeBody": "تم الحفظ: {path}",
+  "auditStatusUpdatedBanner": "تم تحديث تقرير التدقيق الخاص بك. راجع آخر حالة أدناه.",
+  "auditFieldWeeklyRecordingsSent": "التسجيلات الأسبوعية المرسلة",
+  "auditFieldClassRemindersSet": "تذكيرات الحصص المحددة",
+  "auditFieldInternetDropOffs": "انقطاعات الإنترنت",
+  "auditFieldMidtermCompleted": "اكتمال امتحان نصف الفصل",
+  "auditFieldFinalExamCompleted": "اكتمال الامتحان النهائي",
+  "auditFieldSemesterProjectStatus": "حالة مشروع الفصل الدراسي",
+  "auditSave": "حفظ",
+  "viewTeacherAudit": "عرض التدقيق",
+  "viewTeacherSubmissions": "عرض الإرسالات",
+
+  "auditIncidentsAndPenalties": "الحوادث والعقوبات",
+  "auditNoIncidents": "لا توجد حوادث أو عقوبات مسجلة",
+  "auditIncidentFactsFinding": "تقرير الحقائق والنتائج",
+  "auditIncidentPenalty": "سجل العقوبة",
+  "auditIncidentSubmittedBy": "مقدم من {name}",
+  "@auditIncidentSubmittedBy": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "auditIncidentViolationType": "المخالفة",
+  "auditIncidentRepercussion": "العواقب",
+  "auditIncidentAmountCut": "المبلغ المقتطع",
+  "auditIncidentDescription": "التفاصيل",
+  "auditIncidentActionRequested": "الإجراء المطلوب",
+  "auditIncidentOccurrence": "التكرار",
+  "auditIncidentTypeComplaint": "شكوى",
+  "auditIncidentTypeAwareness": "توعية",
+  "auditIncidentCount": "{count, plural, =0{لا توجد حوادث} =1{حادثة واحدة} other{{count} حوادث}}",
+  "@auditIncidentCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "auditIncidentLoading": "جاري تحميل الحوادث…",
+  "auditFilterDone": "مكتمل",
+  "auditSelectFormToView": "اختر نموذجًا لعرض محتواه",
+  "auditNoMatchingShift": "لم يتم العثور على حصة مطابقة لهذا النموذج.",
+  "adminAuditMetricsSidebarTitle": "المؤشرات المحسوبة",
+  "adminAuditTabFormsEval": "مراجعة النماذج",
+  "adminAuditTabTasksEval": "المهام",
+  "adminAuditTabContextForms": "نماذج سياقية",
+  "adminAuditTabEvalSummary": "ملخص التقييم",
+  "adminAuditEvalThemeFilter": "الموضوع / التصفية",
+  "adminAuditEvalCriteriaTitle": "معايير (0–5، غير منطبق)",
+  "adminAuditNoSubmissionsMonth": "لا توجد إرسالات مطابقة لهذا الشهر.",
+  "adminAuditSelectSubmissionHint": "اختر إرسالاً للمعاينة",
+  "adminAuditExportEvalPdf": "تصدير PDF للتقييم",
+  "adminAuditExportEvalExcel": "تصدير Excel للتقييم",
+  "adminAuditEvalSummaryTitle": "درجات التقييم اليدوي",
+  "adminAuditTasksForMonth": "مهام الشهر",
+  "adminAuditTaskStatsHeader": "معينة: {assigned} · منجزة: {done} · متأخرة: {overdue}",
+  "@adminAuditTaskStatsHeader": {
+    "placeholders": {
+      "assigned": { "type": "int" },
+      "done": { "type": "int" },
+      "overdue": { "type": "int" }
+    }
+  },
+  "adminAuditScoreNa": "غير منطبق",
+  "adminAuditContextFormsHint": "نماذج الوقائع وطلبات السلفة/الدفع لهذا المسؤول.",
+  "adminAuditEnteredScores": "الدرجات المدخلة",
+  "adminAuditEvalAverage": "المتوسط (الدرجات المدخلة فقط): {pct}٪",
+  "@adminAuditEvalAverage": {
+    "placeholders": {
+      "pct": { "type": "String" }
+    }
+  },
+  "adminAuditEvalExportDocTitle": "ورقة تقييم الأدمن",
+  "adminAuditEvalExportEvaluated": "المُقيَّم",
+  "adminAuditEvalExportEvaluator": "المقيّم",
+  "adminAuditEvalExportPeriod": "الفترة",
+  "adminAuditEvalExportDocumentDate": "تاريخ المستند",
+  "adminAuditEvalExportSubtitle": "حسب الموضوع · التقييم من 0 إلى 5 · غير متاح = لا ينطبق",
+  "adminAuditEvalExportCeoNotesHeading": "ملاحظات المدير التنفيذي",
+  "adminAuditEvalExportPaymentHeading": "تعديلات الراتب الشهرية",
+  "adminAuditEvalExportBonus": "مكافأة (شهرية، USD)",
+  "adminAuditEvalExportPaycut": "خصم (شهري، USD)",
+  "adminAuditEvalExportRationale": "التبرير / التفاصيل",
+  "adminAuditEvalExportTasksSection": "المهام",
+  "adminAuditEvalExportOtherSection": "معايير أخرى",
+  "adminAuditEvalExportAutoKpi": "مؤشرات تلقائية: الإجمالي {overall}% · النماذج {forms}% · المهام {tasks}%",
+  "@adminAuditEvalExportAutoKpi": {
+    "placeholders": {
+      "overall": { "type": "int" },
+      "forms": { "type": "int" },
+      "tasks": { "type": "int" }
+    }
+  },
+  "adminAuditEvalExportUnknownEvaluator": "—",
+  "adminAuditCeoBonusMonthly": "مكافأة (شهرية، USD)",
+  "adminAuditCeoPaycutMonthly": "خصم (شهري، USD)",
+  "adminAuditCeoAdjustmentRationale": "المبرر (مكافأة أو خصم)",
+  "adminAuditCeoPaymentAdjustmentsHint": "مبالغ شهرية اختيارية. أضف مبررًا قصيرًا عند إدخال أي مبلغ.",
+  "adminAuditEvalSectionCommentLabel": "تعليق المقيّم",
+  "adminAuditEvalSectionCommentHint": "اختياري. يُدرج في PDF/Excel تحت هذا القسم."
 }

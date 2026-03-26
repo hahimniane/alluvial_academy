@@ -27,19 +27,37 @@ class SidebarService {
   }
 
   /// Saves the current state of the sidebar (order and expansion).
-  Future<void> saveSidebarState(List<SidebarSection> sections) async {
+  Future<void> saveSidebarState(
+    List<SidebarSection> sections, {
+    Set<String> favoritedItemIds = const <String>{},
+  }) async {
     try {
       final preferences = SidebarPreferences(
         sectionOrder: sections.map((s) => s.id).toList(),
         sectionExpansionState: {
           for (var s in sections) s.id: s.isExpanded,
         },
+        favoritedItemIds: favoritedItemIds,
       );
 
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_prefsKey, jsonEncode(preferences.toJson()));
     } catch (e) {
       print('Error saving sidebar preferences: $e');
+    }
+  }
+
+  /// Loads pinned favorite sidebar items (by SidebarItem.id).
+  Future<Set<String>> loadFavoritedItemIds() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final jsonString = prefs.getString(_prefsKey);
+      if (jsonString == null) return const <String>{};
+      final preferences = SidebarPreferences.fromJson(jsonDecode(jsonString));
+      return preferences.favoritedItemIds;
+    } catch (e) {
+      print('Error loading sidebar favorite item ids: $e');
+      return const <String>{};
     }
   }
 

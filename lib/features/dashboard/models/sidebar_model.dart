@@ -103,15 +103,18 @@ class SidebarPreferences {
   final List<String> sectionOrder; // List of section IDs in order
   final Map<String, bool>
       sectionExpansionState; // Map of section ID to isExpanded
+  final Set<String> favoritedItemIds; // SidebarItem.id values
 
   SidebarPreferences({
     required this.sectionOrder,
     required this.sectionExpansionState,
-  });
+    Set<String>? favoritedItemIds,
+  }) : favoritedItemIds = favoritedItemIds ?? <String>{};
 
   Map<String, dynamic> toJson() => {
         'sectionOrder': sectionOrder,
         'sectionExpansionState': sectionExpansionState,
+        'favoritedItemIds': favoritedItemIds.toList(),
       };
 
   factory SidebarPreferences.fromJson(Map<String, dynamic> json) {
@@ -119,6 +122,9 @@ class SidebarPreferences {
       sectionOrder: List<String>.from(json['sectionOrder'] ?? []),
       sectionExpansionState:
           Map<String, bool>.from(json['sectionExpansionState'] ?? {}),
+      favoritedItemIds: Set<String>.from(
+        List<String>.from(json['favoritedItemIds'] ?? []),
+      ),
     );
   }
 }

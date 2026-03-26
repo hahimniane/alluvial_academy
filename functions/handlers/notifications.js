@@ -336,7 +336,173 @@ const sendAdminNotification = async (data) => {
   }
 };
 
+/**
+ * Send FCM to a single teacher when an audit becomes visible (coach submitted, etc.).
+ * Callable; caller must be authenticated (admin / coach with elevated access).
+ */
+const sendAuditNotification = async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      'unauthenticated',
+      'Must be signed in to send audit notifications'
+    );
+  }
+
+  const requestData = data.data || data;
+  const {teacherId, auditId, yearMonth, status} = requestData;
+
+  if (!teacherId || !auditId || !yearMonth) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'teacherId, auditId, and yearMonth are required'
+    );
+  }
+
+  const callerDoc = await admin.firestore().collection('users').doc(context.auth.uid).get();
+  if (!callerDoc.exists) {
+    throw new functions.https.HttpsError('permission-denied', 'Caller not found');
+  }
+  const callerData = callerDoc.data();
+  const callerType = String(callerData.user_type || '').toLowerCase();
+  const isAdmin =
+    callerType === 'admin' ||
+    callerType === 'ceo' ||
+    callerType === 'founder' ||
+    callerData.is_admin_teacher === true;
+
+  const auditSnap = await admin.firestore().collection('teacher_audits').doc(auditId).get();
+  if (!auditSnap.exists) {
+    throw new functions.https.HttpsError('not-found', 'Audit not found');
+  }
+  const auditData = auditSnap.data();
+  if (auditData.userId !== teacherId) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'teacherId does not match this audit'
+    );
+  }
+
+  const coachEval = auditData.coachEvaluation || {};
+  const auditCoachId = coachEval.coachId || '';
+  const isAssignedCoach =
+    callerType === 'teacher' && auditCoachId && auditCoachId === context.auth.uid;
+
+  if (!isAdmin && !isAssignedCoach) {
+    throw new functions.https.HttpsError(
+      'permission-denied',
+      'Only authorized reviewers or the assigned coach can send audit notifications'
+    );
+  }
+
+  const userDoc = await admin.firestore().collection('users').doc(teacherId).get();
+  if (!userDoc.exists) {
+    return {success: false, message: 'Teacher not found'};
+  }
+
+  const userData = userDoc.data();
+  const fcmTokensArray = userData.fcmTokens || [];
+  const tokens = [];
+
+  if (Array.isArray(fcmTokensArray) && fcmTokensArray.length > 0) {
+    fcmTokensArray.forEach((tokenObj) => {
+      if (tokenObj && tokenObj.token) {
+        tokens.push(tokenObj.token);
+      }
+    });
+  }
+
+  // Fall back to legacy single token field.
+  if (tokens.length === 0 && userData.fcmToken) {
+    tokens.push(userData.fcmToken);
+    console.log('[AUDIT] Using legacy fcmToken for teacher', teacherId);
+  }
+
+  if (tokens.length === 0) {
+    return {success: false, message: 'No FCM tokens for teacher', teacherId};
+  }
+
+  const title = 'Monthly audit update';
+  const body = `Your audit for ${yearMonth} is ready to review.`;
+
+  const messageData = {
+    type: 'audit_notification',
+    auditId: String(auditId),
+    yearMonth: String(yearMonth),
+    status: String(status || ''),
+    timestamp: new Date().toISOString(),
+    click_action: 'FLUTTER_NOTIFICATION_CLICK',
+  };
+
+  try {
+    const fcmMessage = {
+      notification: {title, body},
+      data: messageData,
+      tokens,
+      android: {
+        priority: 'high',
+        notification: {
+          sound: 'default',
+          channelId: 'high_importance_channel',
+        },
+      },
+      apns: {
+        payload: {
+          aps: {
+            sound: 'default',
+            badge: 1,
+          },
+        },
+      },
+    };
+
+    const response = await admin.messaging().sendEachForMulticast(fcmMessage);
+
+    // Clean up invalid tokens so future sends can recover.
+    const tokensToRemove = [];
+    response.responses.forEach((resp, idx) => {
+      if (!resp.success) {
+        const errorCode = resp.error?.code;
+        if (
+          errorCode === 'messaging/invalid-registration-token' ||
+          errorCode === 'messaging/registration-token-not-registered'
+        ) {
+          tokensToRemove.push(tokens[idx]);
+        }
+      }
+    });
+
+    if (tokensToRemove.length > 0) {
+      try {
+        const currentTokens = userData.fcmTokens || [];
+        const updatedTokens = currentTokens.filter(
+          (t) => t && !tokensToRemove.includes(t.token)
+        );
+        const updatePayload = {fcmTokens: updatedTokens};
+        if (userData.fcmToken && tokensToRemove.includes(userData.fcmToken)) {
+          updatePayload.fcmToken = admin.firestore.FieldValue.delete();
+        }
+        await admin.firestore().collection('users').doc(teacherId).update(updatePayload);
+        console.log(
+          `[AUDIT] Removed ${tokensToRemove.length} invalid token(s) for ${teacherId}`
+        );
+      } catch (cleanupError) {
+        console.error('[AUDIT] Failed to remove invalid tokens:', cleanupError);
+      }
+    }
+
+    return {
+      success: response.successCount > 0,
+      successCount: response.successCount,
+      failureCount: response.failureCount,
+    };
+  } catch (e) {
+    console.error('sendAuditNotification FCM error:', e);
+    throw new functions.https.HttpsError('internal', e.message || 'FCM send failed');
+  }
+};
+
 module.exports = {
   sendAdminNotification,
+  sendAuditNotification,
 };
 

@@ -341,12 +341,18 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
     setState(() => _isSaving = true);
 
     try {
-      // Calculate total hours
+      // Calculate total hours (use HH:MM:SS to match clock-out format)
       final duration = _clockOutDateTime!.difference(_clockInDateTime!);
       final hours = duration.inHours;
       final minutes = duration.inMinutes % 60;
-      final totalHoursStr = '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}';
+      final seconds = duration.inSeconds % 60;
+      final totalHoursStr = '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
       
+      // Recalculate pay from the new duration
+      final hourlyRate = (widget.timesheetData['hourly_rate'] as num?)?.toDouble() ?? 0.0;
+      final hoursWorked = duration.inSeconds / 3600.0;
+      final recalculatedPay = hoursWorked * hourlyRate;
+
       // Format times for display
       final startTimeStr = DateFormat('h:mm a').format(_clockInDateTime!);
       final endTimeStr = DateFormat('h:mm a').format(_clockOutDateTime!);
@@ -358,15 +364,20 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
         'start_time': widget.timesheetData['start_time'] ?? '',
         'end_time': widget.timesheetData['end_time'] ?? '',
         'total_hours': widget.timesheetData['total_hours'] ?? '00:00',
+        'payment_amount': widget.timesheetData['payment_amount'],
+        'total_pay': widget.timesheetData['total_pay'],
       };
 
-      // Update timesheet entry
+      // Update timesheet entry (includes recalculated pay)
       final updateData = <String, dynamic>{
         'clock_in_timestamp': Timestamp.fromDate(_clockInDateTime!),
         'clock_out_timestamp': Timestamp.fromDate(_clockOutDateTime!),
+        'effective_end_timestamp': Timestamp.fromDate(_clockOutDateTime!),
         'start_time': startTimeStr,
         'end_time': endTimeStr,
         'total_hours': totalHoursStr,
+        'payment_amount': recalculatedPay,
+        'total_pay': recalculatedPay,
         'status': 'pending', // Set to pending for admin review
         'employee_notes': _notesController.text.trim(),
         'edited_at': FieldValue.serverTimestamp(),

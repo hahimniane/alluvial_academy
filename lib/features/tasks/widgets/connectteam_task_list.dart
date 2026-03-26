@@ -55,7 +55,7 @@ class _ConnectTeamTaskListState extends State<ConnectTeamTaskList> {
             child: widget.tasks.isEmpty 
                 ? Center(child: Text(AppLocalizations.of(context)!.noTasksFound, style: ConnecteamStyle.cellText))
                 : ListView.separated(
-                    padding: const EdgeInsets.only(bottom: 80.0), // Space for FAB
+                    padding: const EdgeInsets.only(bottom: 64.0), // Space for FAB
                     itemCount: widget.tasks.length,
                     separatorBuilder: (c, i) => const Divider(
                       height: 1,
@@ -78,13 +78,13 @@ class _ConnectTeamTaskListState extends State<ConnectTeamTaskList> {
         widget.selectedTaskIds.length < widget.tasks.length;
     
     return Container(
-      height: 48,
+      height: 40,
       decoration: const BoxDecoration(
         color: Color(0xffF9FAFB),
         borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
         border: Border(bottom: BorderSide(color: ConnecteamStyle.borderColor)),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Row(
         children: [
           SizedBox(
@@ -132,13 +132,13 @@ class _ConnectTeamTaskListState extends State<ConnectTeamTaskList> {
       onTap: () => widget.onTaskTap(task),
       hoverColor: ConnecteamStyle.hoverColor,
       child: Container(
-        height: 64,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        constraints: const BoxConstraints(minHeight: 52),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         child: Row(
           children: [
             // Checkbox (for bulk selection) or Status checkbox
             Padding(
-              padding: const EdgeInsets.only(right: 16.0),
+              padding: const EdgeInsets.only(right: 10.0),
               child: widget.isBulkMode
                   ? Checkbox(
                       value: widget.selectedTaskIds.contains(task.id),

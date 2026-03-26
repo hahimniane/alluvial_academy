@@ -24,6 +24,8 @@
   "commonSubmit": "Submit",
   "commonReset": "Reset",
   "commonClear": "Clear",
+  "commonExpandAll": "Expand all",
+  "commonCollapseAll": "Collapse all",
   "commonRefresh": "Refresh",
   "commonExport": "Export",
   "commonCopy": "Copy",
@@ -451,6 +453,21 @@
   "adminSubmissionsFavoritesOnly": "Favorites Only",
   "adminSubmissionsApply": "Apply",
   "adminSubmissionsNoSubmissions": "No submissions found",
+  "adminSubmissionsReviewMode": "Review mode",
+  "adminSubmissionsSelectionModeTitle": "Selection",
+  "adminSubmissionsNoTeacherSelected": "No teacher selected",
+  "adminSubmissionsSelectionProgress": "{selectedCount} / {total} forms",
+  "@adminSubmissionsSelectionProgress": {
+    "placeholders": {
+      "selectedCount": { "type": "int" },
+      "total": { "type": "int" }
+    }
+  },
+  "adminSubmissionsExportFormatLabel": "Format",
+  "adminSubmissionsExportExcelLabel": "Excel",
+  "adminSubmissionsExportPdfLabel": "PDF",
+  "adminSubmissionsExportProgressSubtitle": "Preparing your file. Progress per person:",
+  "adminSubmissionsSelectToViewDetails": "Select a submission to view details",
   "adminSubmissionsTryAdjustingFilters": "Try adjusting your filters",
   "adminSubmissionsAddToFavorites": "Add to favorites",
   "adminSubmissionsLoadMore": "Load more",
@@ -1457,12 +1474,46 @@
     }
   },
   "auditFormStatusAccepted": "Accepted",
+  "auditFormStatusAcceptedMissedShift": "Accepted (missed scheduled class)",
+  "auditFormHintMissedShiftReport": "Missed on schedule; report filed (no timesheet on that slot).",
   "auditFormStatusRejectedDuplicate": "Rejected (duplicate)",
   "auditFormStatusRejectedNoShift": "Rejected (no shift)",
+  "auditFormStatusRejectedNoTimesheet": "Rejected (no timesheet)",
+  "auditFormsTabStatTotalTeaching": "Total teaching forms",
+  "auditFormsTabStatRejectedNoShift": "Rejected (no shift)",
+  "auditFormsTabStatRejectedNoTimesheet": "Rejected (no timesheet)",
+  "auditFormsTabStatRejectedDuplicate": "Rejected (duplicate)",
+  "auditFormsTabStatReadiness": "Readiness forms",
+  "auditFormsSectionAccepted": "Accepted ({count})",
+  "@auditFormsSectionAccepted": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "auditFormsSectionRejectedNoShift": "Rejected — no linked shift ({count})",
+  "@auditFormsSectionRejectedNoShift": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "auditFormsSectionRejectedNoTimesheet": "Rejected — no timesheet ({count})",
+  "@auditFormsSectionRejectedNoTimesheet": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "auditFormsSectionRejectedDuplicate": "Rejected — duplicate ({count})",
+  "@auditFormsSectionRejectedDuplicate": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
   "auditTotalLabel": "Total",
   "auditFormsSubmittedLabel": "Forms submitted",
   "auditGeneralOrUnlinked": "General / Unlinked",
   "auditNoFormsSubmitted": "No forms submitted",
+  "auditNoAssignmentFormsInSnapshot": "No assignment or assessment forms in this snapshot. Regenerate the monthly audit if class reports still look misfiled.",
+  "auditFactorNaShort": "N/A (skip score)",
   "auditTierExcellent": "Excellent",
   "auditTierGood": "Good",
   "auditTierNeedsImprovement": "Needs Improvement",
@@ -1478,6 +1529,13 @@
   "teacherAuditPerformanceSection": "Performance",
   "teacherAuditNetToReceive": "NET TO RECEIVE",
   "teacherAuditPointsOfAttention": "Points of attention",
+  "teacherAuditReportUnderReview": "This report is under review and may change before it is finalized.",
+  "teacherAuditScoreAuto": "Auto: {score}%",
+  "@teacherAuditScoreAuto": { "placeholders": { "score": {"type": "String"} } },
+  "teacherAuditScoreCoach": "Coach: {score}%",
+  "@teacherAuditScoreCoach": { "placeholders": { "score": {"type": "String"} } },
+  "coachEvalSuggestedScore": "Suggested",
+  "coachEvalApplySuggestion": "Apply",
   "teacherAuditReportNotAvailable": "Report not available",
   "teacherAuditReportNotFinalizedMessage": "Your report for {month} is not yet finalized or does not exist.",
   "@teacherAuditReportNotFinalizedMessage": {
@@ -1519,6 +1577,37 @@
   "auditNetToPay": "NET TO PAY",
   "auditNoPaymentDataAvailable": "No payment data available",
   "auditPaymentSummary": "Payment summary",
+  "auditCoachPaymentAdjustmentsTitle": "Coach payment lines",
+  "auditNetAfterAdjustmentsHint": "Estimated net after lines and advances",
+  "auditAddPaymentLine": "Add payment line",
+  "auditAmountLabel": "Amount (USD)",
+  "auditReasonLabel": "Reason",
+  "auditPaymentLineTypeLabel": "Type",
+  "auditPaymentLinePenalty": "Penalty (subtract)",
+  "auditPaymentLineBonus": "Bonus (add)",
+  "auditAdvanceSectionTitle": "Advance payments",
+  "auditAdvanceSectionSubtitle": "Load submissions from the advance-payment form for this teacher and month.",
+  "auditAdvanceLoadFromForms": "Load from advance forms",
+  "auditBulkAcceptSelected": "Accept selected (override rules)",
+  "auditBulkAcceptAllInSection": "Select all in this section",
+  "auditBulkAcceptReasonTitle": "Reason for manual acceptance",
+  "auditBulkAcceptReasonHint": "Short note (stored on the audit)",
+  "auditBulkAcceptSuccess": "Forms accepted; audit metrics were recalculated",
+  "auditBulkAcceptRunning": "Applying…",
+  "auditAcknowledgeRead": "I confirm I have read this payslip",
+  "auditAcknowledgeDone": "Acknowledged on {date}",
+  "@auditAcknowledgeDone": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "auditOpenDiscussion": "Open discussion",
+  "auditDiscussionAdminButton": "Open chat with teacher",
+  "teacherAuditPayslipCoachLines": "Evaluation adjustments",
+  "teacherAuditPayslipAdvances": "Advance payments (deducted)",
+  "teacherAuditClassesSection": "Classes this month",
   "auditGrossSalary": "Gross salary",
   "auditNetSalary": "Net salary",
   "auditAdjustments": "Adjustments",
@@ -3723,6 +3812,24 @@
     }
   },
   "taskUnassigned": "Unassigned",
+  "taskAssigneeOpenTrackingTitle": "When assignees opened this task",
+  "taskAssigneeOpenedAt": "Opened {datetime}",
+  "@taskAssigneeOpenedAt": {
+    "placeholders": {
+      "datetime": {
+        "type": "String"
+      }
+    }
+  },
+  "taskAssigneeNotOpenedYet": "Not opened yet",
+  "taskDetailFirstViewedAt": "First time someone opened details: {datetime}",
+  "@taskDetailFirstViewedAt": {
+    "placeholders": {
+      "datetime": {
+        "type": "String"
+      }
+    }
+  },
   "taskSelectMultiple": "Select Multiple",
   "taskExitSelection": "Exit Selection",
   "editAllInSeriesCount": "Edit all in series ({count})",
@@ -4117,6 +4224,7 @@
   "chatMessagesLabel": "Chat Messages",
   "adjustmentAmountExampleHint": "e.g., +0.2 or -5",
   "formResponsesTitle": "Form Responses",
+  "formResponsesUpdatingLabels": "Updating labels…",
   "optionsCommaSeparatedExample": "e.g., Option 1, Option 2, Option 3",
   "readinessFormRequiredTitle": "Readiness Form Required",
   "requiredForRatingsBelow9": "Required for ratings below 9",
@@ -4156,5 +4264,223 @@
   "podcastArchived": "Podcast archived",
   "selectStudents": "Select Students",
   "selectAll": "Select All",
-  "deselectAll": "Deselect All"
+  "deselectAll": "Deselect All",
+  "auditReviewModeTitle": "Audit Review Mode",
+  "auditReviewModeButton": "Review Mode",
+  "auditReviewBackToList": "Back to list",
+  "auditReviewSelectTeacher": "Select a teacher audit to review",
+  "auditOrphanForms": "Orphan forms ({count})",
+  "@auditOrphanForms": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "auditRejectedForms": "Rejected forms ({count})",
+  "@auditRejectedForms": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "auditFormNoMatchingShift": "No matching shift found",
+
+  "auditTabChangeLog": "Change Log",
+  "auditManualMetrics": "Manual metrics",
+  "auditMeetingsSection": "Meetings",
+  "auditAcademicSection": "Academic",
+  "auditTasksCommunication": "Tasks & communication",
+  "auditOverrideSection": "Overrides",
+  "auditEditField": "Edit field",
+  "auditEditFieldTitle": "Edit: {fieldName}",
+  "@auditEditFieldTitle": {
+    "placeholders": {
+      "fieldName": { "type": "String" }
+    }
+  },
+  "auditCurrentValue": "Current value",
+  "auditNewValue": "New value",
+  "auditEditReason": "Reason for change",
+  "auditEditReasonHint": "Explain why this value is being changed",
+  "auditEditSuccess": "Field updated successfully",
+  "auditEditError": "Failed to update field",
+  "auditNoChangesRecorded": "No changes recorded",
+  "auditChangeLogSummary": "{count} changes",
+  "@auditChangeLogSummary": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "auditChangedFieldFrom": "Changed {field} from {oldValue} to {newValue}",
+  "@auditChangedFieldFrom": {
+    "placeholders": {
+      "field": { "type": "String" },
+      "oldValue": { "type": "String" },
+      "newValue": { "type": "String" }
+    }
+  },
+  "auditChangeReason": "Reason: {reason}",
+  "@auditChangeReason": {
+    "placeholders": {
+      "reason": { "type": "String" }
+    }
+  },
+  "auditFieldTotalClassesMissed": "Classes missed (override)",
+  "auditFieldTotalClassesCancelled": "Classes cancelled (override)",
+  "auditFieldStaffMeetingsScheduled": "Staff meetings scheduled",
+  "auditFieldStaffMeetingsMissed": "Staff meetings missed",
+  "auditFieldMeetingLateArrivals": "Meeting late arrivals",
+  "auditFieldQuizzesGiven": "Quizzes given",
+  "auditFieldAssignmentsGiven": "Assignments given",
+  "auditFieldOverdueTasks": "Overdue tasks",
+  "auditTaskAcknowledgement": "Tasks acknowledged",
+  "auditTaskAcknowledgementRate": "Task acknowledgement",
+  "auditExcusedAbsences": "Excused absences",
+  "auditExcused": "Excused",
+  "auditViewTeachers": "Teachers",
+  "auditViewAdmins": "Admins",
+  "adminAuditFormsSubmitted": "Forms submitted",
+  "adminAuditTasksCompleted": "Tasks completed",
+  "adminAuditColumnAdmin": "Admin",
+  "adminAuditOverallScore": "Score",
+  "adminAuditFormComplianceShort": "Forms",
+  "adminAuditTaskEfficiencyShort": "Tasks eff.",
+  "adminAuditOverdue": "Overdue",
+  "adminAuditAcknowledged": "Acknowledged",
+  "adminAuditTasksCreated": "Tasks created",
+  "adminAuditAvgCompletionDays": "Avg completion (days)",
+  "adminAuditDetailTitle": "Admin audit detail",
+  "adminAuditFormBreakdown": "Submissions by form",
+  "adminAuditTaskLabels": "Task labels",
+  "adminAuditCeoNotes": "CEO notes",
+  "adminAuditSaveNotes": "Save notes",
+  "adminAuditClose": "Close",
+  "adminAuditNoBreakdown": "No per-form breakdown",
+  "adminAuditOpenDetail": "Details",
+  "adminAuditUnknownForm": "Unknown form",
+  "adminAuditSubTasksRatio": "Sub-task intensity",
+  "adminAuditScoreHelpTitle": "How is this score calculated?",
+  "adminAuditScoreHelpBody": "The overall score blends form compliance ({formPercent}%) and task efficiency ({taskPercent}%). Tier 1 form compliance averages three parts: Daily End of Shift submissions vs working weekdays in the month, bi-weekly coachee performance (2 expected per month), and weekly CEO/progress/finance reports vs about 4–5 weeks in the month. Task efficiency reflects completed vs assigned tasks, reduces the score for overdue work, and adds a small bonus for tasks you created. A low score usually means missing recurring forms or many incomplete or overdue assignments.",
+  "@adminAuditScoreHelpBody": {
+    "placeholders": {
+      "formPercent": { "type": "String" },
+      "taskPercent": { "type": "String" }
+    }
+  },
+  "adminAuditAdminListTitle": "Administrators",
+  "adminAuditAdminListCount": "{count, plural, one{1 admin} other{{count} admins}}",
+  "@adminAuditAdminListCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "adminAuditAdminListHint": "Open the menu to switch administrators. Each row shows overall score, form compliance, and task efficiency; hover for forms and task counts.",
+  "adminAuditSelectAdminLabel": "Viewing",
+  "adminAuditStatTooltipForms": "Forms submitted this month",
+  "adminAuditStatTooltipTasks": "Tasks completed / assigned",
+  "adminAuditStatTooltipOverdue": "Tasks flagged overdue",
+  "adminAuditStatTooltipAck": "Tasks acknowledged / assigned",
+  "adminAuditExportCsvButton": "Export admin CSV",
+  "adminAuditExportEmpty": "No admin audits to export for this month.",
+  "@exportSavedNativeBody": {
+    "placeholders": {
+      "path": { "type": "String" }
+    }
+  },
+  "exportSavedNativeBody": "Saved: {path}",
+  "auditStatusUpdatedBanner": "Your audit report has been updated. Review the latest status below.",
+  "auditFieldWeeklyRecordingsSent": "Weekly recordings sent",
+  "auditFieldClassRemindersSet": "Class reminders set",
+  "auditFieldInternetDropOffs": "Internet drop-offs",
+  "auditFieldMidtermCompleted": "Midterm completed",
+  "auditFieldFinalExamCompleted": "Final exam completed",
+  "auditFieldSemesterProjectStatus": "Semester project status",
+  "auditSave": "Save",
+  "viewTeacherAudit": "View Audit",
+  "viewTeacherSubmissions": "View Submissions",
+
+  "auditIncidentsAndPenalties": "Incidents & Penalties",
+  "auditNoIncidents": "No incidents or penalties recorded",
+  "auditIncidentFactsFinding": "Facts/Findings Report",
+  "auditIncidentPenalty": "Penalty Record",
+  "auditIncidentSubmittedBy": "Submitted by {name}",
+  "@auditIncidentSubmittedBy": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "auditIncidentViolationType": "Violation",
+  "auditIncidentRepercussion": "Repercussion",
+  "auditIncidentAmountCut": "Amount cut",
+  "auditIncidentDescription": "Details",
+  "auditIncidentActionRequested": "Action requested",
+  "auditIncidentOccurrence": "Occurrence",
+  "auditIncidentTypeComplaint": "Complaint",
+  "auditIncidentTypeAwareness": "Awareness",
+  "auditIncidentCount": "{count, plural, =0{No incidents} =1{1 incident} other{{count} incidents}}",
+  "@auditIncidentCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "auditIncidentLoading": "Loading incidents…",
+  "auditFilterDone": "Done",
+  "auditSelectFormToView": "Select a form to view its content",
+  "auditNoMatchingShift": "No matching shift found for this form.",
+  "adminAuditMetricsSidebarTitle": "Computed metrics",
+  "adminAuditTabFormsEval": "Forms review",
+  "adminAuditTabTasksEval": "Tasks",
+  "adminAuditTabContextForms": "Context forms",
+  "adminAuditTabEvalSummary": "Evaluation summary",
+  "adminAuditEvalThemeFilter": "Theme / filter",
+  "adminAuditEvalCriteriaTitle": "Evaluation criteria (0–5, N/A)",
+  "adminAuditNoSubmissionsMonth": "No matching submissions for this month.",
+  "adminAuditSelectSubmissionHint": "Select a submission to preview",
+  "adminAuditExportEvalPdf": "Export evaluation PDF",
+  "adminAuditExportEvalExcel": "Export evaluation Excel",
+  "adminAuditEvalSummaryTitle": "Manual evaluation scores",
+  "adminAuditTasksForMonth": "Tasks in month",
+  "adminAuditTaskStatsHeader": "Assigned: {assigned} · Done: {done} · Overdue flag: {overdue}",
+  "@adminAuditTaskStatsHeader": {
+    "placeholders": {
+      "assigned": { "type": "int" },
+      "done": { "type": "int" },
+      "overdue": { "type": "int" }
+    }
+  },
+  "adminAuditScoreNa": "N/A",
+  "adminAuditContextFormsHint": "Facts-finding and payment / advance submissions for this admin.",
+  "adminAuditEnteredScores": "Entered scores",
+  "adminAuditEvalAverage": "Average (entered scores only): {pct}%",
+  "@adminAuditEvalAverage": {
+    "placeholders": {
+      "pct": { "type": "String" }
+    }
+  },
+  "adminAuditEvalExportDocTitle": "Admin evaluation sheet",
+  "adminAuditEvalExportEvaluated": "Person evaluated",
+  "adminAuditEvalExportEvaluator": "Evaluator",
+  "adminAuditEvalExportPeriod": "Period",
+  "adminAuditEvalExportDocumentDate": "Document date",
+  "adminAuditEvalExportSubtitle": "Organized by theme · Rating 0–5 · N/A = not applicable",
+  "adminAuditEvalExportCeoNotesHeading": "CEO notes",
+  "adminAuditEvalExportPaymentHeading": "Monthly payment adjustments",
+  "adminAuditEvalExportBonus": "Bonus (monthly, USD)",
+  "adminAuditEvalExportPaycut": "Pay cut (monthly, USD)",
+  "adminAuditEvalExportRationale": "Justification / details",
+  "adminAuditEvalExportTasksSection": "Tasks",
+  "adminAuditEvalExportOtherSection": "Other criteria",
+  "adminAuditEvalExportAutoKpi": "Auto KPIs: overall {overall}% · forms {forms}% · tasks {tasks}%",
+  "@adminAuditEvalExportAutoKpi": {
+    "placeholders": {
+      "overall": { "type": "int" },
+      "forms": { "type": "int" },
+      "tasks": { "type": "int" }
+    }
+  },
+  "adminAuditEvalExportUnknownEvaluator": "—",
+  "adminAuditCeoBonusMonthly": "Bonus (monthly, USD)",
+  "adminAuditCeoPaycutMonthly": "Pay cut (monthly, USD)",
+  "adminAuditCeoAdjustmentRationale": "Justification (bonus or pay cut)",
+  "adminAuditCeoPaymentAdjustmentsHint": "Optional monthly amounts. Add a short justification when either amount is set.",
+  "adminAuditEvalSectionCommentLabel": "Evaluator comment",
+  "adminAuditEvalSectionCommentHint": "Optional. Included in PDF/Excel under this section."
 }

@@ -16,8 +16,19 @@ import '../../core/services/advanced_excel_export_service.dart';
 import '../../core/utils/app_logger.dart';
 import '../../features/shift_management/widgets/shift_details_dialog.dart';
 import '../../features/forms/widgets/form_details_modal.dart';
+import 'admin_audit_review_screen.dart';
 import 'coach_evaluation_screen.dart';
+import '../widgets/audit_detail_panel.dart';
+import '../../features/forms/screens/admin_all_submissions_screen.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
+import '../../core/config/admin_audit_compliance_config.dart';
+import '../../core/models/admin_audit.dart';
+import '../../core/services/admin_audit_service.dart';
+import '../../core/services/admin_audit_csv_export.dart';
+import '../../core/services/admin_audit_form_title_resolver.dart';
+import '../widgets/admin_audit_detail/admin_audit_evaluation_workspace.dart';
+import '../../core/utils/save_export_file.dart';
+import '../../core/utils/export_saved_snackbar.dart';
 
 /// Windows 11 Fluent Design Colors
 class Win11Colors {
@@ -31,7 +42,17 @@ class Win11Colors {
 
 /// Admin screen for managing all teacher audits
 class AdminAuditScreen extends StatefulWidget {
-  const AdminAuditScreen({super.key});
+  /// When non-null, pre-filter to this teacher on open.
+  final String? initialTeacherId;
+
+  /// When non-null, pre-select this yearMonth (e.g. '2026-03') on open.
+  final String? initialYearMonth;
+
+  const AdminAuditScreen({
+    super.key,
+    this.initialTeacherId,
+    this.initialYearMonth,
+  });
 
   @override
   State<AdminAuditScreen> createState() => _AdminAuditScreenState();
@@ -48,10 +69,17 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
   String _statusFilter = 'all';
   String _tierFilter = 'all';
   String _searchQuery = ''; // For search functionality
+  String? _filterTeacherId; // Cross-nav: filter to a specific teacher
   int _currentPage = 0;
   final int _itemsPerPage = 10;
   String? _sortColumn;
   bool _sortAscending = true;
+
+  // Admin audit view
+  String _viewMode = 'teachers'; // 'teachers' | 'admins'
+  List<AdminAudit> _adminAudits = [];
+  String? _selectedAdminAuditId;
+  bool _isLoadingAdminAudits = false;
 
   // Animation controller pour l'entrée
   late AnimationController _animationController;
@@ -59,10 +87,23 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
   final Color _primaryColor = Win11Colors.accent;
   final Color _backgroundColor = Win11Colors.background;
   final TextEditingController _searchController = TextEditingController();
+  final TextEditingController _adminCeoNotesController = TextEditingController();
+  final TextEditingController _adminCeoBonusController = TextEditingController();
+  final TextEditingController _adminCeoPaycutController = TextEditingController();
+  final TextEditingController _adminCeoAdjustmentRationaleController =
+      TextEditingController();
+  bool _isSavingAdminCeoNotes = false;
+  bool _bottomBarCollapsed = true;
 
   @override
   void initState() {
     super.initState();
+    if (widget.initialYearMonth != null) {
+      _selectedYearMonth = widget.initialYearMonth!;
+    }
+    if (widget.initialTeacherId != null) {
+      _filterTeacherId = widget.initialTeacherId;
+    }
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 800),
@@ -74,7 +115,27 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
   void dispose() {
     _animationController.dispose();
     _searchController.dispose();
+    _adminCeoNotesController.dispose();
+    _adminCeoBonusController.dispose();
+    _adminCeoPaycutController.dispose();
+    _adminCeoAdjustmentRationaleController.dispose();
     super.dispose();
+  }
+
+  void _syncAdminCeoFieldsFromAudit(AdminAudit a) {
+    _adminCeoNotesController.text = a.ceoNotes;
+    _adminCeoBonusController.text =
+        a.ceoBonusMonthlyUsd > 0 ? a.ceoBonusMonthlyUsd.toStringAsFixed(2) : '';
+    _adminCeoPaycutController.text =
+        a.ceoPaycutMonthlyUsd > 0 ? a.ceoPaycutMonthlyUsd.toStringAsFixed(2) : '';
+    _adminCeoAdjustmentRationaleController.text = a.ceoAdjustmentRationale;
+  }
+
+  void _clearAdminCeoFields() {
+    _adminCeoNotesController.clear();
+    _adminCeoBonusController.clear();
+    _adminCeoPaycutController.clear();
+    _adminCeoAdjustmentRationaleController.clear();
   }
 
   Future<void> _loadAudits({bool force = false}) async {
@@ -134,8 +195,65 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
     }
   }
 
+  Future<void> _loadAdminAudits() async {
+    if (_isLoadingAdminAudits) return;
+    setState(() => _isLoadingAdminAudits = true);
+    try {
+      final audits = await AdminAuditService.loadAdminAudits(_selectedYearMonth);
+      if (mounted) {
+        setState(() {
+          _adminAudits = audits;
+          final ids = audits.map((a) => a.id).toSet();
+          if (audits.isEmpty) {
+            _selectedAdminAuditId = null;
+            _clearAdminCeoFields();
+          } else if (_selectedAdminAuditId == null || !ids.contains(_selectedAdminAuditId)) {
+            _selectedAdminAuditId = audits.first.id;
+            _syncAdminCeoFieldsFromAudit(audits.first);
+          } else {
+            final selected = audits.firstWhere((a) => a.id == _selectedAdminAuditId);
+            _syncAdminCeoFieldsFromAudit(selected);
+          }
+        });
+      }
+    } catch (e) {
+      AppLogger.error('Error loading admin audits: $e');
+    } finally {
+      if (mounted) setState(() => _isLoadingAdminAudits = false);
+    }
+  }
+
+  Future<void> _generateAdminAudits() async {
+    setState(() => _isGenerating = true);
+    try {
+      final audits = await AdminAuditService.generateAdminAudits(_selectedYearMonth);
+      if (mounted) {
+        setState(() {
+          _adminAudits = audits;
+          if (audits.isEmpty) {
+            _selectedAdminAuditId = null;
+            _clearAdminCeoFields();
+          } else {
+            _selectedAdminAuditId = audits.first.id;
+            _syncAdminCeoFieldsFromAudit(audits.first);
+          }
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error generating admin audits: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isGenerating = false);
+    }
+  }
+
   List<TeacherAuditFull> get _filteredAudits {
     var filtered = _audits.where((audit) {
+      // Teacher ID filter (cross-nav)
+      if (_filterTeacherId != null && audit.oderId != _filterTeacherId) return false;
       // Status filter
       if (_statusFilter != 'all' && audit.status.name != _statusFilter) return false;
       // Tier filter
@@ -206,7 +324,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
     String? dialogStart = _selectedYearMonth;
     String? dialogEnd = _selectedEndYearMonth;
 
-    final result = await showDialog<Map<String, String>>(
+    final result = await showDialog<Map<String, String?>>(
       context: context,
       barrierColor: Colors.black.withOpacity(0.3),
       builder: (context) => StatefulBuilder(
@@ -475,7 +593,10 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
         _isLoading = true;
         _isRefreshing = false;
       });
-      Future.microtask(() => _loadAudits(force: true));
+      Future.microtask(() {
+        _loadAudits(force: true);
+        if (_viewMode == 'admins') _loadAdminAudits();
+      });
     }
   }
 
@@ -945,28 +1066,34 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
               // Header avec breadcrumb et stats intégrées
               _buildHeader(),
 
-              // Search and Filter Bar
-              if (!_isLoading)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8), // Reduced vertical from 12 to 8
-                  child: _buildSearchAndFilterBar(),
+              if (_viewMode == 'teachers') ...[
+                // Search and Filter Bar
+                if (!_isLoading)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                    child: _buildSearchAndFilterBar(),
+                  ),
+
+                // Table View with Progressive Loading
+                Expanded(
+                  child: _isLoading
+                      ? _buildSkeletonLoading()
+                      : _filteredAudits.isEmpty
+                          ? _buildEmptyState()
+                          : _buildTableView(),
                 ),
 
-              // Table View with Progressive Loading
-              Expanded(
-                child: _isLoading
-                    ? _buildSkeletonLoading()
-                    : _filteredAudits.isEmpty
-                        ? _buildEmptyState()
-                        : _buildTableView(),
-              ),
+                // Pagination
+                if (!_isLoading && _filteredAudits.isNotEmpty)
+                  _buildPagination(),
 
-              // Pagination
-              if (!_isLoading && _filteredAudits.isNotEmpty)
-                _buildPagination(),
-
-              // Bottom Action Bar
-              _buildBottomActionBar(),
+                // Bottom Action Bar
+                _buildBottomActionBar(),
+              ] else ...[
+                // Admin Audit View
+                Expanded(child: _buildAdminAuditSplitView()),
+                _buildBottomActionBar(),
+              ],
             ],
           ),
           // Loading overlay when refreshing data
@@ -986,7 +1113,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
     final total = _audits.length;
     final avgScore = _audits.isEmpty 
         ? 0.0 
-        : (_audits.fold(0.0, (s, a) => s + a.overallScore) / total) / 10;
+        : _audits.fold(0.0, (s, a) => s + a.overallScore) / total;
     
     // Calculate total payment - use gross payment if net is 0 or null
     double totalPayment = 0.0;
@@ -1025,17 +1152,77 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
     final pendingCount = _audits.where((a) => 
         a.status == AuditStatus.pending || a.status == AuditStatus.coachSubmitted).length;
 
+    final segmented = SegmentedButton<String>(
+      segments: [
+        ButtonSegment(
+          value: 'teachers',
+          label: Text(
+            AppLocalizations.of(context)!.auditViewTeachers,
+            style: GoogleFonts.inter(fontSize: 12),
+          ),
+          icon: const Icon(Icons.school_outlined, size: 16),
+        ),
+        ButtonSegment(
+          value: 'admins',
+          label: Text(
+            AppLocalizations.of(context)!.auditViewAdmins,
+            style: GoogleFonts.inter(fontSize: 12),
+          ),
+          icon: const Icon(Icons.admin_panel_settings_outlined, size: 16),
+        ),
+      ],
+      selected: {_viewMode},
+      onSelectionChanged: (selection) {
+        setState(() => _viewMode = selection.first);
+        if (_viewMode == 'admins' && _adminAudits.isEmpty) {
+          _loadAdminAudits();
+        }
+      },
+      style: ButtonStyle(
+        visualDensity: VisualDensity.compact,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
+    );
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       decoration: const BoxDecoration(
         color: Win11Colors.card,
         border: Border(bottom: BorderSide(color: Win11Colors.border, width: 1)),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          // Title section
-          Flexible(
-            flex: 2,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+          if (Navigator.of(context).canPop()) ...[
+            IconButton(
+              icon: const Icon(Icons.arrow_back, size: 20),
+              onPressed: () => Navigator.of(context).pop(),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+            ),
+            const SizedBox(width: 12),
+          ],
+              if (_viewMode == 'admins') ...[
+                segmented,
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Text(
+                    AppLocalizations.of(context)!.auditManagement,
+                    style: GoogleFonts.inter(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: Win11Colors.textMain,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ] else ...[
+                Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
@@ -1047,6 +1234,8 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
                     fontWeight: FontWeight.w600,
                     color: Win11Colors.textMain,
                   ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                 ),
                 Text(
                   AppLocalizations.of(context)!.manageTeacherPerformanceAndPayments,
@@ -1054,14 +1243,46 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
                     fontSize: 12,
                     color: Win11Colors.textSecondary,
                   ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
           ),
           const SizedBox(width: 16),
-          // User-friendly stats with labels - Flexible to prevent overflow
-          if (_audits.isNotEmpty && !_isLoading) ...[
-            Flexible(
+                segmented,
+              ],
+              const Spacer(),
+              if (_viewMode == 'admins') ...[
+                _buildHeaderAdminAuditControls(),
+                const SizedBox(width: 8),
+              ],
+              _buildHeaderAction(
+                icon: Icons.calendar_today_outlined,
+                label: _periodLabel,
+                onTap: _selectPeriod,
+              ),
+              const SizedBox(width: 8),
+              _buildHeaderAction(
+                icon: Icons.refresh_rounded,
+                label: AppLocalizations.of(context)!.commonRefresh,
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  if (_viewMode == 'admins') {
+                _loadAdminAudits();
+                  } else {
+                    _loadAudits(force: true);
+              }
+            },
+            ),
+            ],
+          ),
+          if (_viewMode == 'teachers' && _audits.isNotEmpty && !_isLoading) ...[
+            const SizedBox(height: 14),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
               child: _StatCard(
                 icon: Icons.group_rounded,
                 label: 'Teachers',
@@ -1070,16 +1291,16 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
               ),
             ),
             const SizedBox(width: 8),
-            Flexible(
+                Expanded(
               child: _StatCard(
                 icon: Icons.bar_chart_rounded,
                 label: 'Avg Score',
-                value: '${avgScore.toStringAsFixed(1)}/10',
+                    value: '${avgScore.toStringAsFixed(1)}%',
                 iconColor: Colors.purple,
               ),
             ),
             const SizedBox(width: 8),
-            Flexible(
+                Expanded(
               child: _StatCard(
                 icon: Icons.account_balance_wallet_rounded,
                 label: 'Total Payment',
@@ -1088,7 +1309,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
               ),
             ),
             const SizedBox(width: 8),
-            Flexible(
+                Expanded(
               child: _StatCard(
                 icon: Icons.description_rounded,
                 label: 'Pending',
@@ -1097,39 +1318,9 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
                 badge: pendingCount > 0 ? '!' : null,
               ),
             ),
-            const SizedBox(width: 8),
+              ],
+            ),
           ],
-          const Spacer(),
-          // Header Actions (Windows 11 style)
-          _buildHeaderAction(
-            icon: Icons.calendar_today_outlined,
-            label: _periodLabel,
-            onTap: _selectPeriod,
-          ),
-          const SizedBox(width: 8),
-          _buildHeaderAction(
-            icon: Icons.refresh_rounded,
-            label: AppLocalizations.of(context)!.commonRefresh,
-            onTap: () {
-              HapticFeedback.lightImpact();
-              _loadAudits(force: true);
-            },
-          ),
-          const SizedBox(width: 8),
-          // Profile icon
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              color: Win11Colors.border.withOpacity(0.5),
-              shape: BoxShape.circle,
-            ),
-            child: IconButton(
-              icon: Icon(Icons.person_outline, size: 16, color: Win11Colors.textSecondary),
-              onPressed: () {},
-              padding: EdgeInsets.zero,
-            ),
-          ),
         ],
       ),
     );
@@ -1201,6 +1392,20 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
             ),
           ),
         ),
+        if (_filterTeacherId != null) ...[
+          const SizedBox(width: 8),
+          Chip(
+            label: Text(
+              _audits.where((a) => a.oderId == _filterTeacherId).firstOrNull?.teacherName ?? _filterTeacherId!,
+              style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w500),
+            ),
+            deleteIcon: const Icon(Icons.close, size: 16),
+            onDeleted: () => setState(() => _filterTeacherId = null),
+            backgroundColor: _primaryColor.withOpacity(0.1),
+            side: BorderSide(color: _primaryColor.withOpacity(0.3)),
+            visualDensity: VisualDensity.compact,
+          ),
+        ],
         const SizedBox(width: 12),
         // Department dropdown
         Container(
@@ -1239,7 +1444,31 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
             padding: EdgeInsets.zero,
           ),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 8),
+        // Review Mode button
+        ElevatedButton.icon(
+          onPressed: _filteredAudits.isEmpty ? null : () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => AdminAuditReviewScreen(audits: _filteredAudits)),
+            ).then((_) {
+              if (mounted) _loadAudits(force: true);
+            });
+          },
+          icon: const Icon(Icons.view_sidebar_outlined, size: 18),
+          label: Text(
+            AppLocalizations.of(context)!.auditReviewModeButton,
+            style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600),
+          ),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xff0078D4),
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            elevation: 0,
+          ),
+        ),
+        const SizedBox(width: 8),
         // Export CSV button
         ElevatedButton.icon(
           onPressed: _exportToCSV,
@@ -1288,7 +1517,11 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
           const SizedBox(width: 8),
           _buildFilterChip('Submitted', 'coachSubmitted', _statusFilter, (val) => setState(() => _statusFilter = val)),
           const SizedBox(width: 8),
+          _buildFilterChip('CEO Approved', 'ceoApproved', _statusFilter, (val) => setState(() => _statusFilter = val)),
+          const SizedBox(width: 8),
           _buildFilterChip('Completed', 'completed', _statusFilter, (val) => setState(() => _statusFilter = val)),
+          const SizedBox(width: 8),
+          _buildFilterChip('Disputed', 'disputed', _statusFilter, (val) => setState(() => _statusFilter = val)),
         ],
       ),
     );
@@ -1321,7 +1554,10 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
 
   /// Build bottom action bar with Generate Audits button
   Widget _buildBottomActionBar() {
-    return Container(
+    final bool collapsed = _bottomBarCollapsed;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOut,
       decoration: BoxDecoration(
         color: Colors.black,
         boxShadow: [
@@ -1334,20 +1570,66 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
       ),
       child: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: EdgeInsets.symmetric(horizontal: 16, vertical: collapsed ? 6 : 12),
           child: Row(
             children: [
+              if (_viewMode == 'admins') ...[
+                if (!collapsed) ...[
+                Expanded(
+                  flex: 2,
+                  child: OutlinedButton.icon(
+                    onPressed: _adminAudits.isEmpty ? null : _exportAdminAuditsToCsv,
+                    icon: Icon(Icons.download, size: 18, color: Colors.grey.shade300),
+                    label: Text(
+                      AppLocalizations.of(context)!.adminAuditExportCsvButton,
+                      style: GoogleFonts.inter(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                        color: Colors.white,
+                      ),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      side: BorderSide(color: Colors.grey.shade600),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                ] else ...[
+                  Tooltip(
+                    message: AppLocalizations.of(context)!.adminAuditExportCsvButton,
+                    child: IconButton(
+                      onPressed: _adminAudits.isEmpty ? null : _exportAdminAuditsToCsv,
+                      icon: Icon(Icons.download, color: Colors.grey.shade300),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                ],
+              ],
               // Generate Audits button (Primary action)
+              if (!collapsed) ...[
               Expanded(
+                flex: _viewMode == 'admins' ? 3 : 1,
                 child: ElevatedButton.icon(
-                  onPressed: _isGenerating ? null : _showGenerateAuditDialog,
+                  onPressed: _isGenerating
+                      ? null
+                      : _viewMode == 'admins'
+                          ? _generateAdminAudits
+                          : _showGenerateAuditDialog,
                   icon: _isGenerating
                       ? const SizedBox(
                           width: 20,
                           height: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.yellow),
+                              valueColor:
+                                  AlwaysStoppedAnimation<Color>(Colors.yellow),
                           ),
                         )
                       : const Icon(Icons.bolt_rounded, color: Colors.yellow, size: 20),
@@ -1361,7 +1643,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.black,
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                       side: BorderSide(color: Colors.yellow.withOpacity(0.3), width: 1),
@@ -1370,12 +1652,1090 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
                   ),
                 ),
               ),
+                const SizedBox(width: 12),
+              ] else ...[
+                Tooltip(
+                  message: 'Generate Audits',
+                  child: IconButton(
+                    onPressed: _isGenerating
+                        ? null
+                        : (_viewMode == 'admins' ? _generateAdminAudits : _showGenerateAuditDialog),
+                    icon: Icon(Icons.bolt_rounded, color: Colors.yellow.shade200),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+                  ),
+                ),
+                const SizedBox(width: 6),
+              ],
+
+              Tooltip(
+                message: collapsed ? 'Expand' : 'Collapse',
+                child: IconButton(
+                  onPressed: () => setState(() => _bottomBarCollapsed = !collapsed),
+                  icon: Icon(
+                    collapsed ? Icons.expand_less_rounded : Icons.expand_more_rounded,
+                    color: Colors.white,
+                  ),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                ),
+              ),
             ],
           ),
         ),
       ),
     );
   }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // ADMIN AUDIT VIEW
+  // ══════════════════════════════════════════════════════════════════════
+
+  Future<void> _showAdminAuditDetailDialog(AdminAudit audit) async {
+    final l10n = AppLocalizations.of(context)!;
+    final notesController = TextEditingController(text: audit.ceoNotes);
+    final breakdown = audit.formsBreakdown.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    final titleFuture =
+        AdminAuditFormTitleResolver.resolveTitles(audit.formsBreakdown.keys);
+
+    try {
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) {
+          return AlertDialog(
+            title: Text(l10n.adminAuditDetailTitle),
+            content: SizedBox(
+              width: 500,
+              height: 420,
+              child: FutureBuilder<Map<String, String>>(
+                future: titleFuture,
+                builder: (context, snap) {
+                  if (snap.connectionState != ConnectionState.done) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  final titles = snap.data ?? {};
+                  final formPct =
+                      '${(AdminAuditComplianceConfig.overallWeightForm * 100).round()}';
+                  final taskPct =
+                      '${(AdminAuditComplianceConfig.overallWeightTask * 100).round()}';
+
+                  return SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '${l10n.adminAuditOverallScore}: ${audit.overallScore}%',
+                          style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${l10n.adminAuditFormComplianceShort}: ${audit.formComplianceScore}% · '
+                          '${l10n.adminAuditTaskEfficiencyShort}: ${audit.taskEfficiencyScore}%',
+                          style: GoogleFonts.inter(
+                              fontSize: 12, color: Win11Colors.textSecondary),
+                        ),
+                        Theme(
+                          data: Theme.of(context).copyWith(
+                            dividerColor: Colors.transparent,
+                          ),
+                          child: ExpansionTile(
+                            tilePadding: EdgeInsets.zero,
+                            title: Text(
+                              l10n.adminAuditScoreHelpTitle,
+                              style: GoogleFonts.inter(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: Win11Colors.accent,
+                              ),
+                            ),
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: Text(
+                                  l10n.adminAuditScoreHelpBody(
+                                      formPct, taskPct),
+                                  style: GoogleFonts.inter(
+                                    fontSize: 11,
+                                    height: 1.35,
+                                    color: Win11Colors.textSecondary,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(l10n.adminAuditTasksCreated,
+                            style: GoogleFonts.inter(
+                                fontWeight: FontWeight.w600, fontSize: 12)),
+                        Text('${audit.tasksCreatedByAdmin}',
+                            style: GoogleFonts.inter(fontSize: 13)),
+                        const SizedBox(height: 8),
+                        Text(l10n.adminAuditSubTasksRatio,
+                            style: GoogleFonts.inter(
+                                fontWeight: FontWeight.w600, fontSize: 12)),
+                        Text('${audit.subTasksRatio}%',
+                            style: GoogleFonts.inter(fontSize: 13)),
+                        const SizedBox(height: 8),
+                        Text(l10n.adminAuditAvgCompletionDays,
+                            style: GoogleFonts.inter(
+                                fontWeight: FontWeight.w600, fontSize: 12)),
+                        Text(
+                          audit.avgTaskCompletionDays > 0
+                              ? audit.avgTaskCompletionDays.toStringAsFixed(1)
+                              : '—',
+                          style: GoogleFonts.inter(fontSize: 13),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(l10n.adminAuditFormBreakdown,
+                            style: GoogleFonts.inter(
+                                fontWeight: FontWeight.w600, fontSize: 12)),
+                        const SizedBox(height: 4),
+                        if (breakdown.isEmpty)
+                          Text(
+                            l10n.adminAuditNoBreakdown,
+                            style: GoogleFonts.inter(
+                                fontSize: 12,
+                                color: Win11Colors.textSecondary),
+                          )
+                        else
+                          ...breakdown.take(40).map((e) {
+                            final id = e.key;
+                            final count = e.value;
+                            final resolved = titles[id];
+                            final displayTitle = id == '_unknown'
+                                ? l10n.adminAuditUnknownForm
+                                : ((resolved != null && resolved.isNotEmpty)
+                                    ? resolved
+                                    : id);
+                            final showIdHint = id != '_unknown' &&
+                                resolved != null &&
+                                resolved.isNotEmpty;
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 6),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          displayTitle,
+                                          style:
+                                              GoogleFonts.inter(fontSize: 11),
+                                          maxLines: 3,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        if (showIdHint)
+                                          Tooltip(
+                                            message: id,
+                                            child: Text(
+                                              id.length > 36
+                                                  ? '${id.substring(0, 36)}…'
+                                                  : id,
+                                              style: GoogleFonts.inter(
+                                                fontSize: 9,
+                                                color: Win11Colors
+                                                    .textSecondary,
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                  Text('$count',
+                                      style: GoogleFonts.inter(fontSize: 11)),
+                                ],
+                              ),
+                            );
+                          }),
+                        if (audit.tasksByLabel.isNotEmpty) ...[
+                          const SizedBox(height: 12),
+                          Text(l10n.adminAuditTaskLabels,
+                              style: GoogleFonts.inter(
+                                  fontWeight: FontWeight.w600, fontSize: 12)),
+                          const SizedBox(height: 4),
+                          ...audit.tasksByLabel.entries.map((e) => Padding(
+                                padding: const EdgeInsets.only(bottom: 2),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        e.key,
+                                        style: GoogleFonts.inter(fontSize: 11),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    Text('${e.value}',
+                                        style:
+                                            GoogleFonts.inter(fontSize: 11)),
+                                  ],
+                                ),
+                              )),
+                        ],
+                        const SizedBox(height: 12),
+                        Text(l10n.adminAuditCeoNotes,
+                            style: GoogleFonts.inter(
+                                fontWeight: FontWeight.w600, fontSize: 12)),
+                        const SizedBox(height: 4),
+                        TextField(
+                          controller: notesController,
+                          maxLines: 4,
+                          decoration: InputDecoration(
+                            border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(6)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: Text(l10n.adminAuditClose),
+              ),
+              FilledButton(
+                onPressed: () async {
+                  final text = notesController.text;
+                  await AdminAuditService.updateCeoWrittenFields(
+                    audit.id,
+                    ceoNotes: text,
+                    ceoBonusMonthlyUsd: audit.ceoBonusMonthlyUsd,
+                    ceoPaycutMonthlyUsd: audit.ceoPaycutMonthlyUsd,
+                    ceoAdjustmentRationale: audit.ceoAdjustmentRationale,
+                  );
+                  if (!mounted) return;
+                  setState(() {
+                    final i = _adminAudits.indexWhere((a) => a.id == audit.id);
+                    if (i >= 0) {
+                      _adminAudits[i] = _adminAudits[i].copyWith(ceoNotes: text);
+                    }
+                  });
+                  if (dialogContext.mounted) Navigator.pop(dialogContext);
+                },
+                child: Text(l10n.adminAuditSaveNotes),
+              ),
+            ],
+          );
+        },
+      );
+    } finally {
+      notesController.dispose();
+    }
+  }
+
+  Widget _buildAdminAuditsEmptyState() {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.admin_panel_settings_outlined, size: 48, color: Colors.grey.shade400),
+            const SizedBox(height: 12),
+            Text(
+              'No admin audits for $_selectedYearMonth',
+              style: GoogleFonts.inter(fontSize: 14, color: Win11Colors.textSecondary),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Click "Generate Audits" to compute admin metrics',
+              style: GoogleFonts.inter(fontSize: 12, color: Colors.grey.shade500),
+            ),
+          ],
+        ),
+      );
+    }
+
+  /// Compact admin picker for the header (left of month); count + hint in tooltip.
+  Widget _buildHeaderAdminAuditControls() {
+    if (_isLoadingAdminAudits) {
+      return SizedBox(
+        width: 36,
+        height: 30,
+        child: Center(
+          child: SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: Win11Colors.textSecondary.withValues(alpha: 0.6),
+            ),
+          ),
+        ),
+      );
+    }
+    if (_adminAudits.isEmpty) return const SizedBox.shrink();
+    return _buildHeaderAdminAuditDropdown();
+  }
+
+  Widget _buildHeaderAdminAuditDropdown() {
+    final l10n = AppLocalizations.of(context)!;
+    final sorted = List<AdminAudit>.from(_adminAudits)
+      ..sort((a, b) => a.adminName.toLowerCase().compareTo(b.adminName.toLowerCase()));
+    final currentId = _selectedAdminAuditId ?? sorted.first.id;
+    final safeValue = sorted.any((a) => a.id == currentId) ? currentId : sorted.first.id;
+
+    return Tooltip(
+      message:
+          '${l10n.adminAuditAdminListCount(sorted.length)}\n\n${l10n.adminAuditAdminListHint}',
+      waitDuration: const Duration(milliseconds: 450),
+      child: Container(
+        width: 180,
+        padding: const EdgeInsetsDirectional.only(start: 6, end: 2, top: 2, bottom: 2),
+      decoration: BoxDecoration(
+          border: Border.all(color: Win11Colors.border, width: 1),
+          borderRadius: BorderRadius.circular(6),
+        color: Win11Colors.card,
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: safeValue,
+                  isExpanded: true,
+                  isDense: true,
+        borderRadius: BorderRadius.circular(8),
+                  // DropdownButton asserts that itemHeight must be null or >= kMinInteractiveDimension.
+                  // kMinInteractiveDimension is typically 48px on desktop, so we keep it safe.
+                  itemHeight: 48,
+                  hint: Text(
+                    l10n.adminAuditAdminListTitle,
+                    style: GoogleFonts.inter(fontSize: 12),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  icon: Icon(Icons.arrow_drop_down, size: 20, color: Win11Colors.textMain),
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: Win11Colors.textMain,
+                  ),
+                  selectedItemBuilder: (context) {
+                    return sorted.map((a) {
+                      return Align(
+                        alignment: AlignmentDirectional.centerStart,
+                        child: Text(
+                          '${a.adminName} (${a.overallScore}%)',
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        ),
+                      );
+                    }).toList();
+                  },
+                  items: sorted.map((a) {
+                    final subline =
+                        '${l10n.adminAuditFormComplianceShort} ${a.formComplianceScore}% · ${l10n.adminAuditTaskEfficiencyShort} ${a.taskEfficiencyScore}%';
+                    final tip = [
+                      if (a.adminEmail.isNotEmpty) a.adminEmail,
+                      '${l10n.adminAuditFormsSubmitted}: ${a.formsSubmitted}',
+                      '${l10n.adminAuditTasksCompleted}: ${a.tasksCompleted} / ${a.totalTasksAssigned}',
+                      '${l10n.adminAuditOverdue}: ${a.tasksOverdue}',
+                      '${l10n.adminAuditAcknowledged}: ${a.tasksAcknowledged} / ${a.totalTasksAssigned}',
+                    ].join('\n');
+                    return DropdownMenuItem<String>(
+                      value: a.id,
+                      child: Tooltip(
+                        message: tip,
+                        waitDuration: const Duration(milliseconds: 450),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            mainAxisSize: MainAxisSize.min,
+          children: [
+                              Row(
+                children: [
+                  Expanded(
+                                    child: Text(
+                                      a.adminName,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: GoogleFonts.inter(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w700,
+                                        color: Win11Colors.textMain,
+                                      ),
+                                    ),
+                                  ),
+                                  Text(
+                                    '${a.overallScore}%',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w800,
+                                      color: Win11Colors.accent,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                subline,
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                                style: GoogleFonts.inter(
+                                  fontSize: 10,
+                                  color: Win11Colors.textSecondary,
+                                ),
+                              ),
+                ],
+              ),
+            ),
+                      ),
+                    );
+                  }).toList(),
+                  onChanged: (id) {
+                    if (id == null) return;
+                    HapticFeedback.selectionClick();
+                    final a = _adminAudits.firstWhere((x) => x.id == id);
+                    setState(() {
+                      _selectedAdminAuditId = id;
+                      _syncAdminCeoFieldsFromAudit(a);
+                    });
+                  },
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAdminAuditSplitView() {
+    if (_isLoadingAdminAudits) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_adminAudits.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+        child: _buildAdminAuditsEmptyState(),
+      );
+    }
+
+    final selected = _selectedAdminAuditId != null
+        ? _adminAudits.firstWhere(
+            (a) => a.id == _selectedAdminAuditId,
+            orElse: () => _adminAudits.first,
+          )
+        : _adminAudits.first;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
+                child: _buildAdminAuditDetailPanel(selected),
+    );
+  }
+
+  Widget _buildAdminAuditDetailPanel(AdminAudit audit) {
+    final l10n = AppLocalizations.of(context)!;
+
+    final titlesFuture = AdminAuditFormTitleResolver.resolveTitles(audit.formsBreakdown.keys);
+    final breakdown = audit.formsBreakdown.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+
+    Future<void> saveNotes() async {
+      setState(() => _isSavingAdminCeoNotes = true);
+      try {
+        final text = _adminCeoNotesController.text;
+        final bonus = double.tryParse(
+                _adminCeoBonusController.text.trim().replaceAll(',', '.')) ??
+            0.0;
+        final paycut = double.tryParse(
+                _adminCeoPaycutController.text.trim().replaceAll(',', '.')) ??
+            0.0;
+        final rationale = _adminCeoAdjustmentRationaleController.text;
+        await AdminAuditService.updateCeoWrittenFields(
+          audit.id,
+          ceoNotes: text,
+          ceoBonusMonthlyUsd: bonus,
+          ceoPaycutMonthlyUsd: paycut,
+          ceoAdjustmentRationale: rationale,
+        );
+        if (!mounted) return;
+        final i = _adminAudits.indexWhere((a) => a.id == audit.id);
+        if (i >= 0) {
+          setState(() => _adminAudits[i] = _adminAudits[i].copyWith(
+                ceoNotes: text,
+                ceoBonusMonthlyUsd: bonus,
+                ceoPaycutMonthlyUsd: paycut,
+                ceoAdjustmentRationale: rationale,
+              ));
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.adminAuditSaveNotes)),
+        );
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${l10n.errorE}: $e')),
+        );
+      } finally {
+        if (mounted) setState(() => _isSavingAdminCeoNotes = false);
+      }
+    }
+
+    return Container(
+      margin: EdgeInsets.zero,
+      decoration: BoxDecoration(
+        color: Win11Colors.card,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Win11Colors.border, width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+                  const SizedBox(height: 8),
+            Expanded(
+              child: AdminAuditEvaluationWorkspace(
+                key: ValueKey(audit.id),
+                audit: audit,
+                breakdownTab: SingleChildScrollView(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              FutureBuilder<Map<String, String>>(
+                                future: titlesFuture,
+                                builder: (context, snap) {
+                                  if (snap.connectionState != ConnectionState.done) {
+                                    return const Center(child: CircularProgressIndicator());
+                                  }
+                                  final titles = snap.data ?? {};
+                                  if (breakdown.isEmpty) {
+                                    return Text(
+                                      l10n.adminAuditNoBreakdown,
+                                      style: GoogleFonts.inter(fontSize: 12, color: Win11Colors.textSecondary),
+                                    );
+                                  }
+                                  return Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        l10n.adminAuditFormBreakdown,
+                                        style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 12),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      ...breakdown.take(40).map((e) {
+                                        final id = e.key;
+                                        final count = e.value;
+                                        final resolved = titles[id];
+                                        final displayTitle = id == '_unknown'
+                                            ? l10n.adminAuditUnknownForm
+                                            : ((resolved != null && resolved.isNotEmpty) ? resolved : id);
+                                        final showIdHint = id != '_unknown' && resolved != null && resolved.isNotEmpty;
+                                        return Padding(
+                                          padding: const EdgeInsets.only(bottom: 6),
+                                          child: Row(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Expanded(
+                                                child: Column(
+                                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                                  children: [
+                                                    Text(
+                                                      displayTitle,
+                                                      style: GoogleFonts.inter(fontSize: 11),
+                                                      maxLines: 3,
+                                                      overflow: TextOverflow.ellipsis,
+                                                    ),
+                                                    if (showIdHint)
+                                                      Tooltip(
+                                                        message: id,
+                                                        child: Text(
+                                                          id.length > 36 ? '${id.substring(0, 36)}…' : id,
+                                                          style: GoogleFonts.inter(fontSize: 9, color: Win11Colors.textSecondary),
+                                                          maxLines: 1,
+                                                          overflow: TextOverflow.ellipsis,
+                                                        ),
+                                                      ),
+                                                  ],
+                                                ),
+                                              ),
+                                              Text('$count', style: GoogleFonts.inter(fontSize: 11)),
+                                            ],
+                                          ),
+                                        );
+                                      }),
+                                    ],
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                ceoNotesTab: SingleChildScrollView(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF0F9FF),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xff38BDF8), width: 0.75),
+                        ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                              l10n.adminAuditEvalExportPaymentHeading,
+                              style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 13),
+                  ),
+                            const SizedBox(height: 6),
+                  Text(
+                              l10n.adminAuditCeoPaymentAdjustmentsHint,
+                    style: GoogleFonts.inter(fontSize: 11, color: Win11Colors.textSecondary),
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              l10n.adminAuditCeoBonusMonthly,
+                              style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 11),
+                            ),
+                            const SizedBox(height: 4),
+                            TextField(
+                              controller: _adminCeoBonusController,
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(decimal: true),
+                              decoration: InputDecoration(
+                                isDense: true,
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              l10n.adminAuditCeoPaycutMonthly,
+                              style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 11),
+                            ),
+                            const SizedBox(height: 4),
+                            TextField(
+                              controller: _adminCeoPaycutController,
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(decimal: true),
+                              decoration: InputDecoration(
+                                isDense: true,
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              l10n.adminAuditCeoAdjustmentRationale,
+                              style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 11),
+                            ),
+                            const SizedBox(height: 4),
+                            TextField(
+                              controller: _adminCeoAdjustmentRationaleController,
+                              maxLines: 3,
+                              decoration: InputDecoration(
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        l10n.adminAuditCeoNotes,
+                        style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 12),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: _adminCeoNotesController,
+                        maxLines: 6,
+                        decoration: InputDecoration(
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      FilledButton(
+                        onPressed: _isSavingAdminCeoNotes ? null : saveNotes,
+                        child: Text(_isSavingAdminCeoNotes ? 'Saving...' : l10n.adminAuditSaveNotes),
+                      ),
+                    ],
+                  ),
+                ),
+                onAdminEvalDraftPersisted: (scores, sectionComments) {
+                  final i = _adminAudits.indexWhere((a) => a.id == audit.id);
+                  if (i >= 0) {
+                  setState(() {
+                      _adminAudits[i] = _adminAudits[i].copyWith(
+                        adminEvalScores: scores,
+                        adminEvalSectionComments: sectionComments,
+                      );
+                    });
+                  }
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /* ======= Admin details (Forms + CEO notes) =======
+
+class _AdminAuditDetailPanel extends StatefulWidget {
+  final AdminAudit audit;
+  final void Function(String auditId, String notes) onCeoNotesSaved;
+
+  const _AdminAuditDetailPanel({
+    required this.audit,
+    required this.onCeoNotesSaved,
+  });
+
+  @override
+  State<_AdminAuditDetailPanel> createState() => _AdminAuditDetailPanelState();
+}
+
+class _AdminAuditDetailPanelState extends State<_AdminAuditDetailPanel> {
+  late TextEditingController _notesController;
+  late Future<Map<String, String>> _titlesFuture;
+  bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _notesController = TextEditingController(text: widget.audit.ceoNotes);
+    _titlesFuture = AdminAuditFormTitleResolver.resolveTitles(
+      widget.audit.formsBreakdown.keys,
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant _AdminAuditDetailPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.audit.id != widget.audit.id) {
+      _notesController.text = widget.audit.ceoNotes;
+      _titlesFuture = AdminAuditFormTitleResolver.resolveTitles(
+        widget.audit.formsBreakdown.keys,
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _notesController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _saveNotes() async {
+    final l10n = AppLocalizations.of(context)!;
+    final text = _notesController.text;
+    setState(() => _isSaving = true);
+    try {
+      await AdminAuditService.updateCeoNotes(widget.audit.id, text);
+      if (!mounted) return;
+      widget.onCeoNotesSaved(widget.audit.id, text);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.adminAuditSaveNotes)),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${l10n.errorE}: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final audit = widget.audit;
+    final formPct = '${(AdminAuditComplianceConfig.overallWeightForm * 100).round()}';
+    final taskPct = '${(AdminAuditComplianceConfig.overallWeightTask * 100).round()}';
+
+    return Container(
+      margin: const EdgeInsets.only(right: 24, top: 8, bottom: 8),
+      decoration: BoxDecoration(
+        color: Win11Colors.card,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Win11Colors.border, width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Container(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+              decoration: const BoxDecoration(
+                color: Color(0xffF9F9F9),
+                border: Border(
+                  bottom: BorderSide(color: Win11Colors.border, width: 1),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 16,
+                        backgroundColor: Win11Colors.accent.withOpacity(0.12),
+                        child: Text(
+                          audit.adminName.isNotEmpty ? audit.adminName[0].toUpperCase() : '?',
+                          style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 12, color: Win11Colors.accent),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              audit.adminName,
+                              style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 14, color: Win11Colors.textMain),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            Text(
+                              audit.adminEmail,
+                              style: GoogleFonts.inter(fontSize: 11, color: Win11Colors.textSecondary, overflow: TextOverflow.ellipsis),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Win11Colors.accent.withOpacity(0.10),
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        child: Text(
+                          '${audit.overallScore}%',
+                          style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w800, color: Win11Colors.accent),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '${l10n.adminAuditFormComplianceShort}: ${audit.formComplianceScore}% · ${l10n.adminAuditTaskEfficiencyShort}: ${audit.taskEfficiencyScore}%',
+                    style: GoogleFonts.inter(fontSize: 12, color: Win11Colors.textSecondary),
+                  ),
+                ],
+              ),
+            ),
+
+            DefaultTabController(
+              length: 3,
+              child: Column(
+                children: [
+                  TabBar(
+                    tabs: [
+                      Tab(text: l10n.adminAuditDetailTitle),
+                      Tab(text: l10n.adminAuditFormBreakdown),
+                      Tab(text: l10n.adminAuditCeoNotes),
+                    ],
+                    indicatorColor: Win11Colors.accent,
+                    labelColor: Win11Colors.accent,
+                    unselectedLabelColor: Win11Colors.textSecondary,
+                  ),
+                  Expanded(
+                    child: TabBarView(
+                      physics: const NeverScrollableScrollPhysics(),
+                      children: [
+                        // Overview
+                        SingleChildScrollView(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                l10n.adminAuditScoreHelpTitle,
+                                style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: Win11Colors.accent),
+                              ),
+                              const SizedBox(height: 8),
+                              Theme(
+                                data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                                child: ExpansionTile(
+                                  tilePadding: EdgeInsets.zero,
+                                  title: const SizedBox.shrink(),
+                                  children: [
+                                    Padding(
+                                      padding: const EdgeInsets.only(bottom: 8),
+                                      child: Text(
+                                        l10n.adminAuditScoreHelpBody(formPct, taskPct),
+                                        style: GoogleFonts.inter(fontSize: 11, height: 1.35, color: Win11Colors.textSecondary),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              Text(l10n.adminAuditTasksCreated, style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 12)),
+                              Text('${audit.tasksCreatedByAdmin}', style: GoogleFonts.inter(fontSize: 13)),
+                              const SizedBox(height: 10),
+                              Text(l10n.adminAuditSubTasksRatio, style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 12)),
+                              Text('${audit.subTasksRatio}%', style: GoogleFonts.inter(fontSize: 13)),
+                              const SizedBox(height: 10),
+                              Text(l10n.adminAuditAvgCompletionDays, style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 12)),
+                              Text(audit.avgTaskCompletionDays > 0 ? audit.avgTaskCompletionDays.toStringAsFixed(1) : '—', style: GoogleFonts.inter(fontSize: 13)),
+                              const SizedBox(height: 14),
+                              if (audit.tasksByLabel.isNotEmpty) ...[
+                                Text(l10n.adminAuditTaskLabels, style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 12)),
+                                const SizedBox(height: 6),
+                                ...audit.tasksByLabel.entries.map((e) => Padding(
+                                      padding: const EdgeInsets.only(bottom: 2),
+                                      child: Row(
+                                        children: [
+                                          Expanded(child: Text(e.key, style: GoogleFonts.inter(fontSize: 11), overflow: TextOverflow.ellipsis)),
+                                          Text('${e.value}', style: GoogleFonts.inter(fontSize: 11)),
+                                        ],
+                                      ),
+                                    )),
+                              ],
+                            ],
+                          ),
+                        ),
+
+                        // Forms
+                        SingleChildScrollView(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              FutureBuilder<Map<String, String>>(
+                                future: _titlesFuture,
+                                builder: (context, snap) {
+                                  if (snap.connectionState != ConnectionState.done) {
+                                    return const Center(child: CircularProgressIndicator());
+                                  }
+                                  final titles = snap.data ?? {};
+                                  final breakdown = audit.formsBreakdown.entries.toList()
+                                    ..sort((a, b) => b.value.compareTo(a.value));
+
+                                  if (breakdown.isEmpty) {
+                                    return Text(
+                                      l10n.adminAuditNoBreakdown,
+                                      style: GoogleFonts.inter(fontSize: 12, color: Win11Colors.textSecondary),
+                                    );
+                                  }
+
+                                  return Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        l10n.adminAuditFormBreakdown,
+                                        style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 12),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      ...breakdown.take(40).map((e) {
+                                        final id = e.key;
+                                        final count = e.value;
+                                        final resolved = titles[id];
+                                        final displayTitle = id == '_unknown'
+                                            ? l10n.adminAuditUnknownForm
+                                            : ((resolved != null && resolved.isNotEmpty) ? resolved : id);
+                                        final showIdHint = id != '_unknown' && resolved != null && resolved.isNotEmpty;
+                                        return Padding(
+                                          padding: const EdgeInsets.only(bottom: 6),
+                                          child: Row(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Expanded(
+                                                child: Column(
+                                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                                  children: [
+                                                    Text(
+                                                      displayTitle,
+                                                      style: GoogleFonts.inter(fontSize: 11),
+                                                      maxLines: 3,
+                                                      overflow: TextOverflow.ellipsis,
+                                                    ),
+                                                    if (showIdHint)
+                                                      Tooltip(
+                                                        message: id,
+                                                        child: Text(
+                                                          id.length > 36 ? '${id.substring(0, 36)}…' : id,
+                                                          style: GoogleFonts.inter(fontSize: 9, color: Win11Colors.textSecondary),
+                                                          maxLines: 1,
+                                                          overflow: TextOverflow.ellipsis,
+                                                        ),
+                                                      ),
+                                                  ],
+                                                ),
+                                              ),
+                                              Text('$count', style: GoogleFonts.inter(fontSize: 11)),
+                                            ],
+                                          ),
+                                        );
+                                      }),
+                                    ],
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        // CEO notes
+                        SingleChildScrollView(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                l10n.adminAuditCeoNotes,
+                                style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 12),
+                              ),
+                              const SizedBox(height: 8),
+                              TextField(
+                                controller: _notesController,
+                                maxLines: 6,
+                                decoration: InputDecoration(
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              FilledButton(
+                                onPressed: _isSaving ? null : _saveNotes,
+                                child: Text(_isSaving ? 'Saving...' : l10n.adminAuditSaveNotes),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+
+*/
 
   /// Build table view with columns matching the image layout
   Widget _buildTableView() {
@@ -1691,7 +3051,6 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
   }
 
   Widget _buildTableActions(TeacherAuditFull audit) {
-    final bool isPending = audit.status == AuditStatus.pending;
     final bool isCoachSubmitted = audit.status == AuditStatus.coachSubmitted;
     final bool isCompleted = audit.status == AuditStatus.completed;
     final bool isDisputed = audit.status == AuditStatus.disputed;
@@ -1707,25 +3066,26 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
           constraints: const BoxConstraints(),
           tooltip: AppLocalizations.of(context)!.viewAuditDetails,
         ),
-        
-        if (isPending) ...[
-          // If pending, coach needs to evaluate
-          const SizedBox(width: 8),
-          ElevatedButton(
-            onPressed: () => _openCoachEvaluation(audit),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _primaryColor,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              minimumSize: Size.zero,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-            ),
-            child: Text(
-              AppLocalizations.of(context)!.evaluate,
-              style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600),
-            ),
-          ),
-        ] else if (isCoachSubmitted) ...[
+        const SizedBox(width: 4),
+        // Cross-nav: open submissions for this teacher+month
+        IconButton(
+          icon: Icon(Icons.description_outlined, size: 18, color: Colors.grey.shade600),
+          onPressed: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => AdminAllSubmissionsScreen(
+                  initialTeacherId: audit.oderId,
+                  initialYearMonth: audit.yearMonth,
+                ),
+              ),
+            );
+          },
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(),
+          tooltip: AppLocalizations.of(context)!.viewTeacherSubmissions,
+        ),
+
+        if (isCoachSubmitted) ...[
           // Coach has submitted, CEO/owner needs to review
           const SizedBox(width: 8),
           ElevatedButton(
@@ -1835,6 +3195,64 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
     );
   }
 
+  Future<void> _exportAdminAuditsToCsv() async {
+    if (_adminAudits.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(AppLocalizations.of(context)!.adminAuditExportEmpty),
+          ),
+        );
+      }
+      return;
+    }
+    try {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(AppLocalizations.of(context)!.generatingCsv),
+            duration: const Duration(seconds: 1),
+          ),
+        );
+      }
+      final csv = AdminAuditCsvExport.build(_adminAudits);
+      if (kIsWeb) {
+        final blob = html.Blob([csv], 'text/csv');
+        final url = html.Url.createObjectUrlFromBlob(blob);
+        final anchor = html.AnchorElement(href: url)
+          ..setAttribute('download', 'admin_audits_$_selectedYearMonth.csv')
+          ..click();
+        html.Url.revokeObjectUrl(url);
+      } else {
+        final path = await saveExportUtf8String(
+          csv,
+          'admin_audits_$_selectedYearMonth.csv',
+        );
+        if (mounted) {
+          showNativeExportSavedSnackBar(context, path);
+        }
+        return;
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(AppLocalizations.of(context)!.csvExportedSuccessfully),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(AppLocalizations.of(context)!.errorExportingCsvE),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   Future<void> _exportToCSV() async {
     try {
       // Show loading indicator
@@ -1850,7 +3268,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
       // Use optimized parallel CSV generation
       final csv = await OptimizedCSVExporter.generateCSV(_filteredAudits);
 
-      // Download CSV (web only)
+      // Download CSV (web) or save to disk (native)
       if (kIsWeb) {
         final blob = html.Blob([csv], 'text/csv');
         final url = html.Url.createObjectUrlFromBlob(blob);
@@ -1858,6 +3276,15 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
           ..setAttribute('download', 'teacher_audits_$_selectedYearMonth.csv')
           ..click();
         html.Url.revokeObjectUrl(url);
+      } else {
+        final path = await saveExportUtf8String(
+          csv,
+          'teacher_audits_$_selectedYearMonth.csv',
+        );
+        if (mounted) {
+          showNativeExportSavedSnackBar(context, path);
+        }
+        return;
       }
 
       if (mounted) {
@@ -1905,19 +3332,25 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
       }
 
       // Use advanced Excel export with colors and formatting (locale for translated sheet/headers)
-      await AdvancedExcelExportService.exportToExcel(
+      final savedPath = await AdvancedExcelExportService.exportToExcel(
         audits: _filteredAudits,
         yearMonth: _selectedYearMonth,
         locale: Localizations.localeOf(context).languageCode,
       );
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(AppLocalizations.of(context)!.excelReportExportedSuccessfully),
-            backgroundColor: Colors.green,
-          ),
-        );
+        if (savedPath != null) {
+          showNativeExportSavedSnackBar(context, savedPath);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                AppLocalizations.of(context)!.excelReportExportedSuccessfully,
+              ),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -1968,10 +3401,14 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
           const SizedBox(width: 8),
           _buildFilterChip('Submitted', 'coachSubmitted', _statusFilter, (val) => setState(() => _statusFilter = val)),
           const SizedBox(width: 8),
+          _buildFilterChip('CEO Approved', 'ceoApproved', _statusFilter, (val) => setState(() => _statusFilter = val)),
+          const SizedBox(width: 8),
           _buildFilterChip('Completed', 'completed', _statusFilter, (val) => setState(() => _statusFilter = val)),
-          
+          const SizedBox(width: 8),
+          _buildFilterChip('Disputed', 'disputed', _statusFilter, (val) => setState(() => _statusFilter = val)),
+
           Container(height: 24, width: 1, color: Colors.grey[300], margin: const EdgeInsets.symmetric(horizontal: 12)),
-          
+
           // Tier Filters
            _buildFilterChip('🏆 Excellent', 'excellent', _tierFilter, (val) => setState(() => _tierFilter = val)),
            const SizedBox(width: 8),
@@ -1986,7 +3423,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
     final total = _audits.length;
     final avgScore = _audits.isEmpty 
         ? 0.0 
-        : (_audits.fold(0.0, (s, a) => s + a.overallScore) / total) / 10; // Convert to /10 scale
+        : _audits.fold(0.0, (s, a) => s + a.overallScore) / total;
     
     // Calculate total payment - use same logic as header (use gross if net is 0 or null)
     double totalPayment = 0.0;
@@ -2049,7 +3486,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
           child: _SummaryCard(
             icon: Icons.bar_chart_rounded,
             iconColor: Colors.purple,
-            value: '${avgScore.toStringAsFixed(1)}/10',
+            value: '${avgScore.toStringAsFixed(1)}%',
             label: 'Average Score',
             trend: '+2.1%',
             trendColor: Colors.green,
@@ -2099,7 +3536,6 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
             child: _ModernAuditCard(
               audit: audit,
               onTap: () => _showAuditDetails(audit),
-              onEvaluate: () => _openCoachEvaluation(audit),
               onAdjustPayment: () => _showPaymentAdjustmentDialog(audit),
               onReview: () => _showReviewDialog(audit),
             ),
@@ -2338,7 +3774,15 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
                   ),
                 ],
               ),
-              child: _AuditDetailFullPanel(audit: audit),
+              child: _AuditDetailFullPanel(
+                audit: audit,
+                onAuditChanged: (updated) {
+                  final idx = _audits.indexWhere((a) => a.id == updated.id);
+                  if (idx != -1) {
+                    setState(() => _audits[idx] = updated);
+                  }
+                },
+              ),
             ),
           ),
         );
@@ -2914,992 +4358,20 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
   }
 }
 
-/// Full audit detail panel – 680px side panel with 4 tabs (Overview, Activity, Payment, Forms).
-class _AuditDetailFullPanel extends StatefulWidget {
+/// Full audit detail panel – 680px side panel with 5 tabs (Overview, Activity, Payment, Forms, Change Log).
+/// Delegates to shared [AuditDetailFullPanel] from audit_detail_panel.dart.
+/// Kept as a private wrapper so existing call sites in this file don't change.
+class _AuditDetailFullPanel extends StatelessWidget {
   final TeacherAuditFull audit;
-  const _AuditDetailFullPanel({required this.audit});
+  final ValueChanged<TeacherAuditFull>? onAuditChanged;
+  const _AuditDetailFullPanel({required this.audit, this.onAuditChanged});
 
   @override
-  State<_AuditDetailFullPanel> createState() => _AuditDetailFullPanelState();
-}
-
-class _AuditDetailFullPanelState extends State<_AuditDetailFullPanel>
-    with SingleTickerProviderStateMixin {
-  late TabController _tab;
-
-  @override
-  void initState() {
-    super.initState();
-    _tab = TabController(length: 4, vsync: this);
-  }
-
-  @override
-  void dispose() {
-    _tab.dispose();
-    super.dispose();
-  }
-
-  Color _tierColor(String tier) {
-    switch (tier) {
-      case 'excellent': return const Color(0xFF10B981);
-      case 'good': return const Color(0xFF3B82F6);
-      case 'needsImprovement': return const Color(0xFFF59E0B);
-      default: return const Color(0xFFEF4444);
-    }
-  }
-
-  String _tierLabel(String tier) {
-    switch (tier) {
-      case 'excellent': return AppLocalizations.of(context)!.auditTierExcellent;
-      case 'good': return AppLocalizations.of(context)!.auditTierGood;
-      case 'needsImprovement': return AppLocalizations.of(context)!.auditTierNeedsImprovement;
-      default: return AppLocalizations.of(context)!.auditTierCritical;
-    }
-  }
-
-  Color _statusColor(AuditStatus s) {
-    switch (s) {
-      case AuditStatus.completed: return const Color(0xFF10B981);
-      case AuditStatus.coachSubmitted: return const Color(0xFF3B82F6);
-      case AuditStatus.disputed: return const Color(0xFFEF4444);
-      default: return const Color(0xFF9CA3AF);
-    }
-  }
-
-  String _statusLabel(AuditStatus s) {
-    switch (s) {
-      case AuditStatus.completed: return AppLocalizations.of(context)!.auditStatusCompleted;
-      case AuditStatus.coachSubmitted: return AppLocalizations.of(context)!.auditStatusSubmitted;
-      case AuditStatus.disputed: return AppLocalizations.of(context)!.auditStatusDisputed;
-      default: return AppLocalizations.of(context)!.auditStatusPending;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final audit = widget.audit;
-    final tier = audit.performanceTier;
-    final tc = _tierColor(tier);
-
-    return Column(
-      children: [
-        Container(
-          color: Colors.white,
-          padding: const EdgeInsets.fromLTRB(20, 16, 12, 0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  CircleAvatar(
-                    radius: 22,
-                    backgroundColor: tc.withOpacity(0.15),
-                    child: Text(
-                      audit.teacherName.isNotEmpty
-                          ? audit.teacherName[0].toUpperCase()
-                          : '?',
-                      style: GoogleFonts.inter(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: tc,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          audit.teacherName,
-                          style: GoogleFonts.inter(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            color: const Color(0xff1E293B),
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          '${audit.teacherEmail}  ·  ${audit.yearMonth}',
-                          style: GoogleFonts.inter(
-                            fontSize: 12,
-                            color: const Color(0xff64748B),
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close, size: 20),
-                    color: const Color(0xff64748B),
-                    onPressed: () => Navigator.of(context).pop(),
-                    padding: const EdgeInsets.all(4),
-                    constraints: const BoxConstraints(),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  _AuditDetailPill(
-                    label: '${audit.overallScore.toStringAsFixed(0)}%',
-                    color: tc,
-                  ),
-                  const SizedBox(width: 6),
-                  _AuditDetailPill(
-                    label: _tierLabel(tier),
-                    color: tc,
-                    outlined: true,
-                  ),
-                  const SizedBox(width: 6),
-                  _AuditDetailPill(
-                    label: _statusLabel(audit.status),
-                    color: _statusColor(audit.status),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-            ],
-          ),
-        ),
-        Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            border: Border(
-              bottom: BorderSide(color: Color(0xffE2E8F0), width: 1),
-            ),
-          ),
-          child: TabBar(
-            controller: _tab,
-            isScrollable: false,
-            labelColor: const Color(0xff0078D4),
-            unselectedLabelColor: const Color(0xff64748B),
-            indicatorColor: const Color(0xff0078D4),
-            indicatorWeight: 2,
-            labelStyle: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600),
-            unselectedLabelStyle: GoogleFonts.inter(fontSize: 13),
-            tabs: [
-              Tab(text: AppLocalizations.of(context)!.auditTabOverview),
-              Tab(text: AppLocalizations.of(context)!.auditTabActivity),
-              Tab(text: AppLocalizations.of(context)!.auditTabPayment),
-              Tab(text: AppLocalizations.of(context)!.auditTabForms),
-            ],
-          ),
-        ),
-        Expanded(
-          child: TabBarView(
-            controller: _tab,
-            physics: const NeverScrollableScrollPhysics(),
-            children: [
-              _AuditOverviewTab(audit: audit),
-              _AuditActivityTab(audit: audit),
-              _AuditPaymentTab(audit: audit),
-              _AuditFormsTab(audit: audit),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _AuditDetailPill extends StatelessWidget {
-  final String label;
-  final Color color;
-  final bool outlined;
-
-  const _AuditDetailPill({required this.label, required this.color, this.outlined = false});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: outlined ? Colors.transparent : color.withOpacity(0.12),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: outlined ? color : Colors.transparent),
-      ),
-      child: Text(
-        label,
-        style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: color),
-      ),
-    );
-  }
-}
-
-class _AuditOverviewTab extends StatelessWidget {
-  final TeacherAuditFull audit;
-  const _AuditOverviewTab({required this.audit});
-
-  @override
-  Widget build(BuildContext context) {
-    final hasIssues = audit.issues.isNotEmpty;
-
-    return ListView(
-      padding: const EdgeInsets.all(20),
-      children: [
-        _AuditSectionTitle(title: AppLocalizations.of(context)!.auditKeyIndicators),
-        const SizedBox(height: 10),
-        GridView.count(
-          crossAxisCount: 3,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          mainAxisSpacing: 10,
-          crossAxisSpacing: 10,
-          childAspectRatio: 1.6,
-          children: [
-            _AuditKpiCard(
-              icon: Icons.school_outlined,
-              color: const Color(0xFF3B82F6),
-              label: AppLocalizations.of(context)!.auditClassesCompleted,
-              value: '${audit.totalClassesCompleted} / ${audit.totalClassesScheduled}',
-            ),
-            _AuditKpiCard(
-              icon: Icons.timer_outlined,
-              color: const Color(0xFF10B981),
-              label: AppLocalizations.of(context)!.auditHoursTaught,
-              value: '${audit.totalHoursTaught.toStringAsFixed(1)} h',
-            ),
-            _AuditKpiCard(
-              icon: Icons.description_outlined,
-              color: const Color(0xFF8B5CF6),
-              label: AppLocalizations.of(context)!.auditTabForms,
-              value: '${audit.readinessFormsSubmitted} / ${audit.readinessFormsRequired}',
-            ),
-            _AuditKpiCard(
-              icon: Icons.check_circle_outline,
-              color: const Color(0xFF059669),
-              label: AppLocalizations.of(context)!.auditCompletionRateLabel,
-              value: '${audit.completionRate.clamp(0, 100).toStringAsFixed(0)}%',
-            ),
-            _AuditKpiCard(
-              icon: Icons.access_time_outlined,
-              color: audit.lateClockIns > 0 ? const Color(0xFFF59E0B) : const Color(0xFF10B981),
-              label: AppLocalizations.of(context)!.auditLateClockInsLabel,
-              value: audit.lateClockIns == 0 ? '✓ ${AppLocalizations.of(context)!.auditNoLateClockIns}' : '${audit.lateClockIns}',
-            ),
-            _AuditKpiCard(
-              icon: Icons.assignment_late_outlined,
-              color: audit.totalClassesMissed > 0 ? const Color(0xFFEF4444) : const Color(0xFF10B981),
-              label: AppLocalizations.of(context)!.auditClassesMissedLabel,
-              value: audit.totalClassesMissed > 0 ? '${audit.totalClassesMissed}' : '✓ ${AppLocalizations.of(context)!.auditNoMissedClasses}',
-            ),
-          ],
-        ),
-        const SizedBox(height: 20),
-        _AuditSectionTitle(title: AppLocalizations.of(context)!.auditPerformanceRates),
-        const SizedBox(height: 10),
-        _AuditRateBar(label: AppLocalizations.of(context)!.auditClassCompletionRate, rate: audit.completionRate, goodThreshold: 80, warningThreshold: 60),
-        const SizedBox(height: 8),
-        _AuditRateBar(label: AppLocalizations.of(context)!.punctuality, rate: audit.punctualityRate, goodThreshold: 85, warningThreshold: 70),
-        const SizedBox(height: 8),
-        _AuditRateBar(label: AppLocalizations.of(context)!.auditFormComplianceLabel, rate: audit.formComplianceRate, goodThreshold: 90, warningThreshold: 70),
-        if (audit.hoursTaughtBySubject.isNotEmpty) ...[
-          const SizedBox(height: 20),
-          _AuditSectionTitle(title: AppLocalizations.of(context)!.hoursBySubject),
-          const SizedBox(height: 10),
-          ...(audit.hoursTaughtBySubject.entries.toList()..sort((a, b) => b.value.compareTo(a.value)))
-              .take(8)
-              .map((e) => _AuditSubjectRow(
-                    subject: e.key,
-                    hours: e.value,
-                    maxHours: audit.hoursTaughtBySubject.values.fold(0.0, (a, b) => a > b ? a : b),
-                  )),
-        ],
-        const SizedBox(height: 20),
-        _AuditSectionTitle(title: AppLocalizations.of(context)!.auditIssuesAlerts),
-        const SizedBox(height: 8),
-        if (!hasIssues)
-          _AuditEmptyState(
-            icon: Icons.check_circle_outline,
-            message: AppLocalizations.of(context)!.auditNoIssuesDetected,
-            color: const Color(0xFF10B981),
-          )
-        else
-          Column(
-            children: audit.issues.map((issue) {
-              return Container(
-                margin: const EdgeInsets.only(bottom: 6),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFEF2F2),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFFFECACA)),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.warning_amber_rounded, size: 16, color: Color(0xFFEF4444)),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        '${issue.type}: ${issue.description}',
-                        style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF991B1B)),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }).toList(),
-          ),
-      ],
-    );
-  }
-}
-
-class _AuditActivityTab extends StatelessWidget {
-  final TeacherAuditFull audit;
-  const _AuditActivityTab({required this.audit});
-
-  @override
-  Widget build(BuildContext context) {
-    final shifts = audit.detailedShifts;
-
-    return shifts.isEmpty
-        ? _AuditEmptyState(icon: Icons.calendar_today_outlined, message: 'Aucun shift enregistré')
-        : Column(
-            children: [
-              Container(
-                color: const Color(0xFFF8FAFC),
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                child: Row(
-                  children: [
-                    _AuditMiniStat(label: AppLocalizations.of(context)!.auditTotalLabel, value: '${shifts.length}', icon: Icons.event_note),
-                    const SizedBox(width: 16),
-                    _AuditMiniStat(label: AppLocalizations.of(context)!.auditCompleted, value: '${audit.totalClassesCompleted}', icon: Icons.check_circle_outline, color: const Color(0xFF10B981)),
-                    const SizedBox(width: 16),
-                    _AuditMiniStat(label: AppLocalizations.of(context)!.auditMissed, value: '${audit.totalClassesMissed}', icon: Icons.cancel_outlined, color: audit.totalClassesMissed > 0 ? const Color(0xFFEF4444) : const Color(0xFF9CA3AF)),
-                    const SizedBox(width: 16),
-                    _AuditMiniStat(label: AppLocalizations.of(context)!.hours, value: '${audit.totalHoursTaught.toStringAsFixed(1)}h', icon: Icons.timer_outlined, color: const Color(0xFF3B82F6)),
-                  ],
-                ),
-              ),
-              const Divider(height: 1, color: Color(0xffE2E8F0)),
-              Expanded(
-                child: ListView.separated(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  itemCount: shifts.length,
-                  separatorBuilder: (_, __) => const Divider(height: 1, indent: 56, color: Color(0xffF1F5F9)),
-                  itemBuilder: (context, index) {
-                    final shift = shifts[index];
-                    final title = (shift['title'] as String?) ?? '—';
-                    final status = (shift['status'] as String?) ?? '';
-                    final start = (shift['start'] as Timestamp?)?.toDate();
-                    final duration = (shift['duration'] as num?)?.toDouble() ?? 0;
-
-                    final isDone = status == 'fullyCompleted' || status == 'completed' || status == 'partiallyCompleted';
-                    final isMissed = status == 'missed';
-                    final statusColor = isDone ? const Color(0xFF10B981) : isMissed ? const Color(0xFFEF4444) : const Color(0xFFF59E0B);
-                    final statusBg = isDone ? const Color(0xFFDCFCE7) : isMissed ? const Color(0xFFFEE2E2) : const Color(0xFFFEF3C7);
-                    final statusLabel = isDone ? 'Done' : isMissed ? 'Missed' : (status.isNotEmpty ? status : '—');
-
-                    return ListTile(
-                      dense: true,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
-                      leading: Container(
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(color: statusBg, borderRadius: BorderRadius.circular(8)),
-                        child: Icon(isDone ? Icons.check : isMissed ? Icons.close : Icons.schedule, size: 18, color: statusColor),
-                      ),
-                      title: Text(
-                        title,
-                        style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w500, color: const Color(0xff1E293B)),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      subtitle: Text(
-                        start != null ? DateFormat('EEE d MMM · HH:mm').format(start) : '—',
-                        style: GoogleFonts.inter(fontSize: 11, color: const Color(0xff94A3B8)),
-                      ),
-                      trailing: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                            decoration: BoxDecoration(color: statusBg, borderRadius: BorderRadius.circular(12)),
-                            child: Text(
-                              statusLabel,
-                              style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w600, color: statusColor),
-                            ),
-                          ),
-                          if (duration > 0) ...[
-                            const SizedBox(height: 2),
-                            Text(
-                              '${duration.toStringAsFixed(1)}h',
-                              style: GoogleFonts.inter(fontSize: 10, color: const Color(0xff94A3B8)),
-                            ),
-                          ],
-                        ],
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
-          );
-  }
-}
-
-class _AuditPaymentTab extends StatelessWidget {
-  final TeacherAuditFull audit;
-  const _AuditPaymentTab({required this.audit});
-
-  @override
-  Widget build(BuildContext context) {
-    final ps = audit.paymentSummary;
-
-    return ListView(
-      padding: const EdgeInsets.all(20),
-      children: [
-        _AuditSectionTitle(title: AppLocalizations.of(context)!.auditPaymentSummary),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: _AuditPayCard(
-                label: AppLocalizations.of(context)!.auditGrossSalary,
-                amount: ps?.totalGrossPayment ?? 0,
-                color: const Color(0xFF3B82F6),
-                icon: Icons.account_balance_wallet_outlined,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _AuditPayCard(
-                label: AppLocalizations.of(context)!.auditNetSalary,
-                amount: ps?.totalNetPayment ?? 0,
-                color: const Color(0xFF10B981),
-                icon: Icons.payments_outlined,
-                isHighlighted: true,
-              ),
-            ),
-          ],
-        ),
-        if (ps != null && (ps.shiftPaymentAdjustments.isNotEmpty || ps.adminAdjustment != 0)) ...[
-          const SizedBox(height: 16),
-          _AuditSectionTitle(title: AppLocalizations.of(context)!.auditAdjustments),
-          const SizedBox(height: 10),
-          if (ps.adminAdjustment != 0) ...[
-            _AuditAdjustmentRow(
-              amount: ps.adminAdjustment,
-              reason: ps.adjustmentReason.isNotEmpty ? ps.adjustmentReason : AppLocalizations.of(context)!.auditGlobalAdjustment,
-            ),
-          ],
-          ...ps.shiftPaymentAdjustments.entries.map((e) => _AuditAdjustmentRow(
-                amount: e.value,
-                reason: 'Shift ${e.key.length > 12 ? e.key.substring(e.key.length - 8) : e.key}',
-              )),
-          const SizedBox(height: 12),
-        ],
-        _AuditSectionTitle(title: AppLocalizations.of(context)!.auditPaymentCalculation),
-        const SizedBox(height: 10),
-        _AuditPayDetailRow(label: AppLocalizations.of(context)!.auditClassesCompleted, value: '${audit.totalClassesCompleted}'),
-        _AuditPayDetailRow(label: AppLocalizations.of(context)!.auditHoursWorked, value: '${audit.totalHoursTaught.toStringAsFixed(2)} h'),
-        _AuditPayDetailRow(label: AppLocalizations.of(context)!.auditFormsSubmittedLabel, value: '${audit.readinessFormsSubmitted} / ${audit.readinessFormsRequired}'),
-        if (ps != null) ...[
-          const Divider(height: 20, color: Color(0xffE2E8F0)),
-          _AuditPayDetailRow(label: AppLocalizations.of(context)!.teacherAuditGross, value: '\$${ps.totalGrossPayment.toStringAsFixed(2)}'),
-          _AuditPayDetailRow(
-            label: AppLocalizations.of(context)!.auditTotalAdjustments,
-            value: '\$${(ps.totalNetPayment - ps.totalGrossPayment).toStringAsFixed(2)}',
-            valueColor: ps.totalNetPayment >= ps.totalGrossPayment ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
-          ),
-          const Divider(height: 12, color: Color(0xffE2E8F0)),
-          _AuditPayDetailRow(
-            label: AppLocalizations.of(context)!.auditNetToPay,
-            value: '\$${ps.totalNetPayment.toStringAsFixed(2)}',
-            isBold: true,
-            valueColor: const Color(0xFF10B981),
-            fontSize: 16,
-          ),
-        ],
-        if (ps == null)
-          _AuditEmptyState(icon: Icons.money_off_outlined, message: AppLocalizations.of(context)!.auditNoPaymentDataAvailable),
-      ],
-    );
-  }
-}
-
-class _AuditAdjustmentRow extends StatelessWidget {
-  final double amount;
-  final String reason;
-
-  const _AuditAdjustmentRow({required this.amount, required this.reason});
-
-  @override
-  Widget build(BuildContext context) {
-    final isPositive = amount >= 0;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 6),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: isPositive ? const Color(0xFFF0FDF4) : const Color(0xFFFEF2F2),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: isPositive ? const Color(0xFFBBF7D0) : const Color(0xFFFECACA)),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            isPositive ? Icons.add_circle_outline : Icons.remove_circle_outline,
-            size: 16,
-            color: isPositive ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(reason, style: GoogleFonts.inter(fontSize: 12, color: const Color(0xff374151))),
-          ),
-          Text(
-            '${isPositive ? '+' : ''}\$${amount.toStringAsFixed(2)}',
-            style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: isPositive ? const Color(0xFF16A34A) : const Color(0xFFDC2626)),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AuditFormsTab extends StatelessWidget {
-  final TeacherAuditFull audit;
-  const _AuditFormsTab({required this.audit});
-
-  static String _extractStudentName(String title) {
-    final parts = title.split(' - ');
-    if (parts.length >= 3) return parts[2].trim();
-    if (parts.length == 2) return parts[1].trim();
-    return title.trim();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    const generalKey = 'General / Unknown';
-
-    final shiftIdToStudent = <String, String>{};
-    for (var shift in audit.detailedShifts) {
-      final id = shift['id'] as String? ?? '';
-      final title = shift['title'] as String? ?? '';
-      if (id.isNotEmpty) shiftIdToStudent[id] = _extractStudentName(title);
-    }
-
-    final allForms = <Map<String, dynamic>>[...audit.detailedForms];
-    for (final f in audit.detailedFormsNoSchedule) {
-      allForms.add({...f, '_noSchedule': true, 'rejectionReason': 'no_shift'});
-    }
-    for (final f in audit.detailedFormsRejected) {
-      allForms.add({...f, 'rejectionReason': f['rejectionReason'] ?? 'duplicate'});
-    }
-
-    final byStudent = <String, List<Map<String, dynamic>>>{};
-    for (var map in allForms) {
-      final sid = (map['shiftId'] as String?) ?? '';
-      final studentName = (sid.isNotEmpty && shiftIdToStudent.containsKey(sid)) ? shiftIdToStudent[sid]! : generalKey;
-      byStudent.putIfAbsent(studentName, () => []).add(map);
-    }
-
-    final sorted = byStudent.keys.toList()
-      ..sort((a, b) {
-        if (a == generalKey) return 1;
-        if (b == generalKey) return -1;
-        return a.compareTo(b);
-      });
-
-    if (allForms.isEmpty) {
-      return _AuditEmptyState(icon: Icons.description_outlined, message: AppLocalizations.of(context)!.auditNoFormsSubmitted);
-    }
-
-    final acceptedCount = audit.detailedForms.length;
-    final rejectedNoShift = audit.detailedFormsNoSchedule.length;
-    final rejectedDuplicates = audit.detailedFormsRejected.length;
-    final rejectedCount = rejectedNoShift + rejectedDuplicates;
-
-    return Column(
-      children: [
-        Container(
-          color: const Color(0xFFF8FAFC),
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-          child: Row(
-            children: [
-              _AuditMiniStat(label: AppLocalizations.of(context)!.auditTotalLabel, value: '${allForms.length}', icon: Icons.description_outlined),
-              const SizedBox(width: 16),
-              _AuditMiniStat(
-                label: AppLocalizations.of(context)!.auditFormsAccepted,
-                value: '$acceptedCount',
-                icon: Icons.check_circle_outline,
-                color: const Color(0xFF10B981),
-              ),
-              const SizedBox(width: 16),
-              _AuditMiniStat(
-                label: AppLocalizations.of(context)!.auditFormsRejected,
-                value: '$rejectedCount',
-                icon: Icons.cancel_outlined,
-                color: rejectedCount > 0 ? const Color(0xFFEF4444) : const Color(0xFF9CA3AF),
-              ),
-              if (rejectedCount > 0) ...[
-                const SizedBox(width: 12),
-                Text(
-                  AppLocalizations.of(context)!.auditFormsRejectedBreakdown(rejectedNoShift, rejectedDuplicates),
-                  style: GoogleFonts.inter(fontSize: 11, color: const Color(0xff64748B)),
-                ),
-              ],
-            ],
-          ),
-        ),
-        const Divider(height: 1, color: Color(0xffE2E8F0)),
-        Expanded(
-          child: ListView.builder(
-            padding: const EdgeInsets.only(bottom: 16),
-            itemCount: sorted.length,
-            itemBuilder: (context, si) {
-              final student = sorted[si];
-              final docs = byStudent[student]!;
-              final displayName = student == generalKey ? AppLocalizations.of(context)!.auditGeneralOrUnlinked : student;
-
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                    color: const Color(0xffF8FAFC),
-                    child: Row(
-                      children: [
-                        CircleAvatar(
-                          radius: 11,
-                          backgroundColor: const Color(0xff0078D4).withOpacity(0.15),
-                          child: Text(
-                            displayName[0].toUpperCase(),
-                            style: GoogleFonts.inter(fontSize: 9, color: const Color(0xff0078D4), fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            displayName,
-                            style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xff475569)),
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: const Color(0xff0078D4).withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(
-                            '${docs.length} form${docs.length > 1 ? 's' : ''}',
-                            style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w600, color: const Color(0xff0078D4)),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  ...docs.map((map) {
-                    final submittedAt = (map['submittedAt'] as Timestamp?)?.toDate();
-                    final dateStr = submittedAt != null ? DateFormat('MMM d, HH:mm').format(submittedAt) : '—';
-                    final rejectionReason = map['rejectionReason'] as String?;
-                    final isAccepted = rejectionReason == null || rejectionReason.isEmpty;
-                    final isNoShift = rejectionReason == 'no_shift' || map['_noSchedule'] == true;
-                    final isDuplicate = rejectionReason == 'duplicate';
-                    final formId = (map['id'] as String?) ?? '';
-                    final shiftId = (map['shiftId'] as String?)?.toString() ?? '';
-                    final responses = (map['responses'] as Map<String, dynamic>?) ?? {};
-
-                    String statusLabel;
-                    Color statusColor;
-                    Color statusBg;
-                    IconData statusIcon;
-                    if (isAccepted) {
-                      statusLabel = AppLocalizations.of(context)!.auditFormStatusAccepted;
-                      statusColor = const Color(0xFF16A34A);
-                      statusBg = const Color(0xFFDCFCE7);
-                      statusIcon = Icons.check_circle_outline;
-                    } else if (isDuplicate) {
-                      statusLabel = AppLocalizations.of(context)!.auditFormStatusRejectedDuplicate;
-                      statusColor = const Color(0xFFDC2626);
-                      statusBg = const Color(0xFFFEE2E2);
-                      statusIcon = Icons.copy_outlined;
-                    } else {
-                      statusLabel = AppLocalizations.of(context)!.auditFormStatusRejectedNoShift;
-                      statusColor = const Color(0xFFB45309);
-                      statusBg = const Color(0xFFFEF3C7);
-                      statusIcon = Icons.link_off_outlined;
-                    }
-
-                    return InkWell(
-                      onTap: () {
-                        FormDetailsModal.show(context, formId: formId, shiftId: shiftId, responses: responses);
-                      },
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                        child: Row(
-                          children: [
-                            Icon(statusIcon, size: 16, color: statusColor),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(dateStr, style: GoogleFonts.inter(fontSize: 13, color: const Color(0xff475569))),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: statusBg,
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text(
-                                statusLabel,
-                                style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: statusColor),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            const Icon(Icons.chevron_right, size: 16, color: Color(0xff94A3B8)),
-                          ],
-                        ),
-                      ),
-                    );
-                  }),
-                  const Divider(height: 1, color: Color(0xffF1F5F9)),
-                ],
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _AuditSectionTitle extends StatelessWidget {
-  final String title;
-  const _AuditSectionTitle({required this.title});
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      title.toUpperCase(),
-      style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w700, color: const Color(0xff9CA3AF), letterSpacing: 0.8),
-    );
-  }
-}
-
-class _AuditKpiCard extends StatelessWidget {
-  final IconData icon;
-  final Color color;
-  final String label;
-  final String value;
-
-  const _AuditKpiCard({required this.icon, required this.color, required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xffE2E8F0)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Icon(icon, size: 16, color: color),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(value, style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w700, color: const Color(0xff1E293B)), maxLines: 1, overflow: TextOverflow.ellipsis),
-              Text(label, style: GoogleFonts.inter(fontSize: 10, color: const Color(0xff94A3B8)), maxLines: 1, overflow: TextOverflow.ellipsis),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AuditRateBar extends StatelessWidget {
-  final String label;
-  final double rate;
-  final double goodThreshold;
-  final double warningThreshold;
-
-  const _AuditRateBar({required this.label, required this.rate, this.goodThreshold = 80, this.warningThreshold = 60});
-
-  Color get _color {
-    if (rate >= goodThreshold) return const Color(0xFF10B981);
-    if (rate >= warningThreshold) return const Color(0xFFF59E0B);
-    return const Color(0xFFEF4444);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final clamped = rate.clamp(0.0, 100.0);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(label, style: GoogleFonts.inter(fontSize: 12, color: const Color(0xff475569))),
-            Text('${clamped.toStringAsFixed(0)}%', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: _color)),
-          ],
-        ),
-        const SizedBox(height: 4),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(4),
-          child: LinearProgressIndicator(
-            value: clamped / 100,
-            minHeight: 6,
-            backgroundColor: const Color(0xffF1F5F9),
-            valueColor: AlwaysStoppedAnimation<Color>(_color),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _AuditSubjectRow extends StatelessWidget {
-  final String subject;
-  final double hours;
-  final double maxHours;
-
-  const _AuditSubjectRow({required this.subject, required this.hours, required this.maxHours});
-
-  @override
-  Widget build(BuildContext context) {
-    final fraction = maxHours > 0 ? (hours / maxHours).clamp(0.0, 1.0) : 0.0;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 140,
-            child: Text(subject, style: GoogleFonts.inter(fontSize: 12, color: const Color(0xff374151)), maxLines: 1, overflow: TextOverflow.ellipsis),
-          ),
-          Expanded(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(
-                value: fraction,
-                minHeight: 6,
-                backgroundColor: const Color(0xffF1F5F9),
-                valueColor: const AlwaysStoppedAnimation<Color>(Color(0xff0078D4)),
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          SizedBox(
-            width: 40,
-            child: Text('${hours.toStringAsFixed(1)}h', style: GoogleFonts.inter(fontSize: 11, color: const Color(0xff64748B), fontWeight: FontWeight.w600), textAlign: TextAlign.right),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AuditEmptyState extends StatelessWidget {
-  final IconData icon;
-  final String message;
-  final Color? color;
-
-  const _AuditEmptyState({required this.icon, required this.message, this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 40, color: color ?? const Color(0xffCBD5E1)),
-          const SizedBox(height: 12),
-          Text(message, style: GoogleFonts.inter(fontSize: 13, color: const Color(0xff94A3B8)), textAlign: TextAlign.center),
-        ],
-      ),
-    );
-  }
-}
-
-class _AuditMiniStat extends StatelessWidget {
-  final String label;
-  final String value;
-  final IconData icon;
-  final Color? color;
-
-  const _AuditMiniStat({required this.label, required this.value, required this.icon, this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(icon, size: 14, color: color ?? const Color(0xff9CA3AF)),
-        const SizedBox(width: 4),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(value, style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, color: color ?? const Color(0xff1E293B))),
-            Text(label, style: GoogleFonts.inter(fontSize: 10, color: const Color(0xff9CA3AF))),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-class _AuditPayCard extends StatelessWidget {
-  final String label;
-  final double amount;
-  final Color color;
-  final IconData icon;
-  final bool isHighlighted;
-
-  const _AuditPayCard({required this.label, required this.amount, required this.color, required this.icon, this.isHighlighted = false});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isHighlighted ? color.withOpacity(0.08) : Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: isHighlighted ? color.withOpacity(0.3) : const Color(0xffE2E8F0), width: isHighlighted ? 1.5 : 1),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(children: [Icon(icon, size: 16, color: color), const SizedBox(width: 6), Text(label, style: GoogleFonts.inter(fontSize: 12, color: const Color(0xff64748B)))]),
-          const SizedBox(height: 8),
-          Text('\$${amount.toStringAsFixed(2)}', style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.w800, color: isHighlighted ? color : const Color(0xff1E293B))),
-        ],
-      ),
-    );
-  }
-}
-
-class _AuditPayDetailRow extends StatelessWidget {
-  final String label;
-  final String value;
-  final bool isBold;
-  final Color? valueColor;
-  final double fontSize;
-
-  const _AuditPayDetailRow({required this.label, required this.value, this.isBold = false, this.valueColor, this.fontSize = 13});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: GoogleFonts.inter(fontSize: fontSize, fontWeight: isBold ? FontWeight.w700 : FontWeight.normal, color: const Color(0xff374151))),
-          Text(value, style: GoogleFonts.inter(fontSize: fontSize, fontWeight: isBold ? FontWeight.w700 : FontWeight.w600, color: valueColor ?? const Color(0xff1E293B))),
-        ],
-      ),
-    );
-  }
+  Widget build(BuildContext context) => AuditDetailFullPanel(
+        audit: audit,
+        enableEditing: true,
+        onAuditChanged: onAuditChanged,
+      );
 }
 
 /// Responsive stat tile for summary grid (NO OVERFLOW)
@@ -4201,14 +4673,12 @@ class _StatTile extends StatelessWidget {
 class _ModernAuditCard extends StatelessWidget {
   final TeacherAuditFull audit;
   final VoidCallback onTap;
-  final VoidCallback onEvaluate;
   final VoidCallback onAdjustPayment;
   final VoidCallback onReview;
 
   const _ModernAuditCard({
     required this.audit,
     required this.onTap,
-    required this.onEvaluate,
     required this.onAdjustPayment,
     required this.onReview,
   });
@@ -4336,28 +4806,21 @@ class _ModernAuditCard extends StatelessWidget {
                 ),
                 child: Row(
                   children: [
-                    // Action Secondaire : Ajuster
-                    _SecondaryActionButton(
-                      icon: Icons.edit_note_rounded,
-                      label: 'Adjust',
-                      onTap: onAdjustPayment,
-                    ),
-                    const SizedBox(width: 10),
-                    // Action Principale : Évaluer (plus visible)
                     Expanded(
-                      child: _PrimaryActionButton(
-                        icon: Icons.rate_review_rounded,
-                        label: 'Evaluate',
-                        onTap: onEvaluate,
+                      child: _SecondaryActionButton(
+                        icon: Icons.edit_note_rounded,
+                        label: 'Adjust',
+                        onTap: onAdjustPayment,
                       ),
                     ),
                     const SizedBox(width: 10),
-                    // Action de Validation : Review
-                    _SecondaryActionButton(
-                      icon: Icons.verified_user_rounded,
-                      label: 'Review',
-                      onTap: onReview,
-                      isHighlight: true,
+                    Expanded(
+                      child: _SecondaryActionButton(
+                        icon: Icons.verified_user_rounded,
+                        label: 'Review',
+                        onTap: onReview,
+                        isHighlight: true,
+                      ),
                     ),
                   ],
                 ),
@@ -4517,44 +4980,6 @@ class _MetricItem extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
         ),
       ],
-    );
-  }
-}
-
-class _PrimaryActionButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  const _PrimaryActionButton({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return ElevatedButton.icon(
-      onPressed: () {
-        HapticFeedback.lightImpact();
-        onTap();
-      },
-      icon: Icon(icon, size: 18),
-      label: Text(
-        label,
-        style: GoogleFonts.inter(
-          fontWeight: FontWeight.bold,
-          fontSize: 13,
-        ),
-        overflow: TextOverflow.ellipsis,
-      ),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        elevation: 2,
-      ),
     );
   }
 }
@@ -5562,7 +5987,9 @@ class _AuditDetailSheetState extends State<_AuditDetailSheet> {
           child: child,
         );
       },
-    );
+    ).then((_) {
+      // Refresh after potential edits in the detail panel
+    });
   }
 
   Future<void> _applyFormPenalty(double penaltyPerMissing) async {
@@ -6060,18 +6487,18 @@ class _StatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
         color: Win11Colors.border.withOpacity(0.3),
         borderRadius: BorderRadius.circular(6),
         border: Border.all(color: Win11Colors.border, width: 1),
       ),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, size: 14, color: iconColor),
           const SizedBox(width: 6),
-          Column(
+          Expanded(
+            child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -6082,17 +6509,23 @@ class _StatCard extends StatelessWidget {
                   color: Win11Colors.textSecondary,
                   fontWeight: FontWeight.w500,
                 ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
               Row(
-                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
+                    Expanded(
+                      child: Text(
                     value,
                     style: GoogleFonts.inter(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
                       color: Win11Colors.textMain,
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    softWrap: false,
+                      ),
                   ),
                   if (badge != null) ...[
                     const SizedBox(width: 4),
@@ -6109,12 +6542,16 @@ class _StatCard extends StatelessWidget {
                           fontWeight: FontWeight.bold,
                           color: Colors.white,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        softWrap: false,
                       ),
                     ),
                   ],
                 ],
               ),
             ],
+            ),
           ),
         ],
       ),
@@ -7482,16 +7919,16 @@ class _ExportDialogState extends State<_ExportDialog> {
 
   Future<void> _handleExport() async {
     setState(() => _isExporting = true);
-    
+    final messenger = ScaffoldMessenger.of(context);
+
     try {
+      String? savedPath;
       if (_exportAllMonths) {
-        // Export all months
-        await _exportAllMonthsData();
+        savedPath = await _exportAllMonthsData();
       } else {
-        // Export current month with filter
         final auditsToExport = _filteredAudits;
         if (auditsToExport.isEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
+          messenger.showSnackBar(
             SnackBar(
               content: Text(AppLocalizations.of(context)!.noDataToExportWithCurrent),
               backgroundColor: Colors.orange,
@@ -7500,26 +7937,32 @@ class _ExportDialogState extends State<_ExportDialog> {
           setState(() => _isExporting = false);
           return;
         }
-        
-        await AdvancedExcelExportService.exportToExcel(
+
+        final localeCode = Localizations.localeOf(context).languageCode;
+        savedPath = await AdvancedExcelExportService.exportToExcel(
           audits: auditsToExport,
           yearMonth: widget.selectedYearMonth,
-          locale: Localizations.localeOf(context).languageCode,
+          locale: localeCode,
         );
       }
-      
-      if (mounted) {
-        Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(
+
+      if (!mounted) return;
+      final l10n = AppLocalizations.of(context)!;
+      Navigator.of(context).pop();
+
+      if (savedPath != null) {
+        showNativeExportSavedWithMessenger(messenger, l10n, savedPath!);
+      } else {
+        messenger.showSnackBar(
           SnackBar(
-            content: Text(AppLocalizations.of(context)!.excelReportExportedSuccessfully),
+            content: Text(l10n.excelReportExportedSuccessfully),
             backgroundColor: Colors.green,
           ),
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        messenger.showSnackBar(
           SnackBar(
             content: Text(AppLocalizations.of(context)!.errorExportingE),
             backgroundColor: Colors.red,
@@ -7531,7 +7974,8 @@ class _ExportDialogState extends State<_ExportDialog> {
     }
   }
 
-  Future<void> _exportAllMonthsData() async {
+  Future<String?> _exportAllMonthsData() async {
+    final localeCode = Localizations.localeOf(context).languageCode;
     // PARALLEL LOADING: Load all months simultaneously for speed
     final List<Future<List<TeacherAuditFull>>> futures = _availableMonths.map(
       (month) => TeacherAuditService.getAuditsForMonth(yearMonth: month)
@@ -7555,10 +7999,10 @@ class _ExportDialogState extends State<_ExportDialog> {
     }
     
     // Export with "all" indicator - includes new pivot tables
-    await AdvancedExcelExportService.exportToExcel(
+    return AdvancedExcelExportService.exportToExcel(
       audits: allAudits,
       yearMonth: 'all_months',
-      locale: Localizations.localeOf(context).languageCode,
+      locale: localeCode,
     );
   }
 

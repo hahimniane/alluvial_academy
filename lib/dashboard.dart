@@ -50,8 +50,13 @@ import 'features/surah_podcast/screens/surah_podcast_screen.dart';
 import 'features/dashboard/widgets/custom_sidebar.dart';
 import 'features/dashboard/services/sidebar_service.dart';
 import 'features/dashboard/config/sidebar_config.dart';
+import 'features/dashboard/utils/sidebar_localization.dart';
+import 'features/dashboard/widgets/command_palette.dart';
+import 'package:flutter/services.dart';
 
 import 'core/constants/dashboard_constants.dart';
+import 'core/services/notification_service.dart';
+import 'core/services/teacher_audit_service.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 /// Main Dashboard widget that serves as the app's primary navigation interface
@@ -78,15 +83,62 @@ class _DashboardPageState extends State<DashboardPage> {
   Map<String, dynamic>? _userData;
   int _refreshTrigger = 0;
   String? _profilePicUrl; // Profile picture URL
+  Set<int> _badgeScreenIndices = {};
+
+  // Cache for lazy screen construction.
+  // Only screens that were visited are stored here, which avoids building all screens up-front.
+  final Map<int, Widget> _lazyScreensCache = <int, Widget>{};
+  static const int _screenCount = 28;
 
   // GlobalKey for accessing Scaffold state
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+
+  Future<void> _showCommandPalette() async {
+    final allowedIndexes = _allowedScreenIndexes(_userRole);
+    final structure = SidebarConfig.getStructureForRole(_userRole);
+
+    final items = <CommandPaletteItem>[];
+    for (final section in structure) {
+      for (final item in section.items) {
+        if (!allowedIndexes.contains(item.screenIndex)) continue;
+        items.add(
+          CommandPaletteItem(
+            title: SidebarLocalization.translate(context, item.label),
+            icon: item.icon,
+            screenIndex: item.screenIndex,
+          ),
+        );
+      }
+    }
+
+    if (!mounted || items.isEmpty) return;
+
+    await showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) {
+        return CommandPalette(
+          items: items,
+          onSelected: (item) {
+            Navigator.of(context).pop();
+            _onItemTapped(item.screenIndex);
+          },
+        );
+      },
+    );
+  }
 
   @override
   void initState() {
     super.initState();
     _loadUserData();
     _loadSidebarState();
+    _checkAuditNotifications();
+    if (!kIsWeb) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        NotificationService().processPendingNavigation();
+      });
+    }
   }
 
   @override
@@ -110,6 +162,7 @@ class _DashboardPageState extends State<DashboardPage> {
       AppLogger.debug(
           'Dashboard: Loading user data - Role: $role, ProfilePicUrl: ${profilePicUrl ?? "null"}');
       if (mounted) {
+        final prevRole = _userRole;
         final allowedIndexes = _allowedScreenIndexes(role);
         final nextSelectedIndex = allowedIndexes.contains(_selectedIndex)
             ? _selectedIndex
@@ -119,6 +172,11 @@ class _DashboardPageState extends State<DashboardPage> {
           _userData = data;
           _profilePicUrl = profilePicUrl;
           _selectedIndex = nextSelectedIndex;
+
+          // Role changes can alter allowed screens => reset lazy cache.
+          if (prevRole != role) {
+            _lazyScreensCache.clear();
+          }
         });
       }
     } catch (e) {
@@ -173,6 +231,23 @@ class _DashboardPageState extends State<DashboardPage> {
     widget.onRoleChanged?.call(newRole);
   }
 
+  Future<void> _checkAuditNotifications() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+      final count =
+          await TeacherAuditService.getUnreadAuditNotificationCount(user.uid);
+      if (mounted) {
+        setState(() {
+          _badgeScreenIndices = count > 0 ? {20} : {};
+        });
+      }
+    } catch (e) {
+      // Non-critical — don't block dashboard load
+      AppLogger.debug('Error checking audit notifications: $e');
+    }
+  }
+
   Future<void> _saveSidebarState() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -182,39 +257,100 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
-  // Get screens available in the dashboard (built dynamically to include refresh trigger)
-  List<Widget> get _screens => [
-        AdminDashboard(refreshTrigger: _refreshTrigger),
-        const UserManagementScreen(),
-        const WebsiteManagementScreen(),
-        const ShiftManagementScreen(),
-        const TeacherShiftScreen(),
-        const ChatPage(),
-        const TimeClockScreen(),
-        const AdminTimesheetReview(),
-        const FormScreen(),
-        FormResponsesScreen(key: ValueKey(_refreshTrigger)),
-        const FormsListScreen(), // Changed from FormBuilder to FormsListScreen - allows selecting and editing forms
-        const QuickTasksScreen(),
-        // Classes screen
-        const ZoomScreen(),
-        const TestRoleSystemScreen(),
-        const FirestoreDebugScreen(),
-        const SendNotificationScreen(),
-        const EnrollmentManagementScreen(),
-        const TeacherApplicationManagementScreen(),
-        const AdminSettingsScreen(),
-        // Additional screens for admin and teacher features
-        const AdminAuditScreen(), // Index 19
-        const TeacherAuditDetailScreen(), // Index 20 - Mon rapport mensuel (3 tabs: Résumé, Mes classes, Contester)
-        const TestAuditGenerationScreen(), // Index 21
-        const TeacherFormsScreen(), // Index 22 - Submit Form
-        const TeacherJobBoardScreen(), // Index 23 - Job Board / Opportunities
-        const AdminAllSubmissionsScreen(), // Index 24 - All submissions (admin)
-        const StudentProgressScreen(), // Index 25 - Student progress
-        const ClassRecordingsScreen(), // Index 26 - Class recordings
-        const SurahPodcastScreen(), // Index 27 - Surah Podcasts
-      ];
+  Widget _buildScreenForIndex(int index) {
+    // IMPORTANT: This factory avoids building every screen up-front.
+    // Only the requested index is created.
+    switch (index) {
+      case 0:
+        return AdminDashboard(
+          refreshTrigger: _refreshTrigger,
+          onNavigate: _onItemTapped,
+        );
+      case 1:
+        return const UserManagementScreen();
+      case 2:
+        return const WebsiteManagementScreen();
+      case 3:
+        return const ShiftManagementScreen();
+      case 4:
+        return const TeacherShiftScreen();
+      case 5:
+        return const ChatPage();
+      case 6:
+        return const TimeClockScreen();
+      case 7:
+        return const AdminTimesheetReview();
+      case 8:
+        return const FormScreen();
+      case 9:
+        return FormResponsesScreen(key: ValueKey(_refreshTrigger));
+      case 10:
+        return const FormsListScreen(); // Allows selecting and editing forms
+      case 11:
+        return const QuickTasksScreen();
+      case 12:
+        return const ZoomScreen();
+      case 13:
+        return const TestRoleSystemScreen();
+      case 14:
+        return const FirestoreDebugScreen();
+      case 15:
+        return const SendNotificationScreen();
+      case 16:
+        return const EnrollmentManagementScreen();
+      case 17:
+        return const TeacherApplicationManagementScreen();
+      case 18:
+        return const AdminSettingsScreen();
+      case 19:
+        return const AdminAuditScreen();
+      case 20:
+        return const TeacherAuditDetailScreen();
+      case 21:
+        return const TestAuditGenerationScreen();
+      case 22:
+        return TeacherFormsScreen(key: ValueKey(_refreshTrigger));
+      case 23:
+        return const TeacherJobBoardScreen();
+      case 24:
+        return AdminAllSubmissionsScreen(key: ValueKey(_refreshTrigger));
+      case 25:
+        return const StudentProgressScreen();
+      case 26:
+        return const ClassRecordingsScreen();
+      case 27:
+        return const SurahPodcastScreen();
+      default:
+        return const SizedBox.shrink();
+    }
+  }
+
+  Widget _getLazyScreen(int index) {
+    final existing = _lazyScreensCache[index];
+    if (existing != null) return existing;
+    final built = _buildScreenForIndex(index);
+    _lazyScreensCache[index] = built;
+    return built;
+  }
+
+  Widget _buildLazyIndexedStack() {
+    // Ensure the selected screen exists in cache.
+    _getLazyScreen(_selectedIndex);
+
+    return Stack(
+      fit: StackFit.expand,
+      children: _lazyScreensCache.entries.map((entry) {
+        final isSelected = entry.key == _selectedIndex;
+        return TickerMode(
+          enabled: isSelected,
+          child: Offstage(
+            offstage: !isSelected,
+            child: entry.value,
+          ),
+        );
+      }).toList(),
+    );
+  }
 
   Set<int> _allowedScreenIndexes(String? role) {
     final sections = SidebarConfig.getStructureForRole(role);
@@ -242,16 +378,22 @@ class _DashboardPageState extends State<DashboardPage> {
         return;
       }
       // Validate index is within bounds
-      if (index < 0 || index >= _screens.length) {
+      if (index < 0 || index >= _screenCount) {
         AppLogger.error(
-            'Invalid screen index: $index (max: ${_screens.length - 1})');
+            'Invalid screen index: $index (max: ${_screenCount - 1})');
         return;
       }
       setState(() {
         _selectedIndex = index;
-        // Trigger refresh for FormResponsesScreen (index 9) when navigated to
-        if (index == 9) {
+        // Trigger refresh for screens that need fresh data when navigated to
+        if (index == 9 || index == 22 || index == 24) {
           _refreshTrigger++;
+          // Refresh-trigger changes need new widget instances.
+          _lazyScreensCache.clear();
+        }
+        // Clear audit badge when opening My Report
+        if (index == 20) {
+          _badgeScreenIndices = {};
         }
       });
     }
@@ -1106,12 +1248,29 @@ class _DashboardPageState extends State<DashboardPage> {
   Widget build(BuildContext context) {
     final isMobile = MediaQuery.of(context).size.width < 800;
 
-    return Scaffold(
-      key: _scaffoldKey, // Attach the key here
-      backgroundColor: Colors.grey.shade100,
-      appBar: _buildAppBar(isMobile: isMobile),
-      drawer: isMobile ? _buildMobileDrawer() : null,
-      body: _buildBody(),
+    return Shortcuts(
+      shortcuts: <ShortcutActivator, Intent>{
+        // Key combos for command palette.
+        const SingleActivator(LogicalKeyboardKey.keyK, control: true): _OpenCommandPaletteIntent(),
+        const SingleActivator(LogicalKeyboardKey.keyK, meta: true): _OpenCommandPaletteIntent(),
+      },
+      child: Actions(
+        actions: <Type, Action<Intent>>{
+          _OpenCommandPaletteIntent: CallbackAction<_OpenCommandPaletteIntent>(
+            onInvoke: (intent) {
+              _showCommandPalette();
+              return;
+            },
+          ),
+        },
+        child: Scaffold(
+          key: _scaffoldKey, // Attach the key here
+          backgroundColor: Colors.grey.shade100,
+          appBar: _buildAppBar(isMobile: isMobile),
+          drawer: isMobile ? _buildMobileDrawer() : null,
+          body: _buildBody(),
+        ),
+      ),
     );
   }
 
@@ -1121,10 +1280,7 @@ class _DashboardPageState extends State<DashboardPage> {
 
     // On mobile, hide sidebar completely
     if (isMobile) {
-      return IndexedStack(
-        index: _selectedIndex,
-        children: _screens,
-      );
+      return _buildLazyIndexedStack();
     }
 
     // On desktop, show sidebar
@@ -1132,12 +1288,52 @@ class _DashboardPageState extends State<DashboardPage> {
       children: [
         _buildSideMenu(),
         Expanded(
-          child: IndexedStack(
-            index: _selectedIndex,
-            children: _screens,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildBreadcrumbBar(),
+              const SizedBox(height: 8),
+              Expanded(
+                child: _buildLazyIndexedStack(),
+              ),
+            ],
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildBreadcrumbBar() {
+    final structure = SidebarConfig.getStructureForRole(_userRole);
+    String? sectionLabel;
+    String? itemLabel;
+
+    for (final section in structure) {
+      for (final item in section.items) {
+        if (item.screenIndex == _selectedIndex) {
+          sectionLabel = SidebarLocalization.translate(context, section.title);
+          itemLabel = SidebarLocalization.translate(context, item.label);
+          break;
+        }
+      }
+      if (sectionLabel != null) break;
+    }
+
+    if (sectionLabel == null || itemLabel == null) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      child: Text(
+        '$sectionLabel / $itemLabel',
+        style: GoogleFonts.inter(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: const Color(0xFF6B7280),
+          letterSpacing: -0.1,
+        ),
+        overflow: TextOverflow.ellipsis,
+        maxLines: 1,
+      ),
     );
   }
 
@@ -1555,6 +1751,7 @@ class _DashboardPageState extends State<DashboardPage> {
         _saveSidebarState();
       },
       userRole: _userRole,
+      badgeScreenIndices: _badgeScreenIndices,
     );
   }
 
@@ -1752,4 +1949,8 @@ class _DashboardPageState extends State<DashboardPage> {
       ),
     );
   }
+}
+
+class _OpenCommandPaletteIntent extends Intent {
+  const _OpenCommandPaletteIntent();
 }

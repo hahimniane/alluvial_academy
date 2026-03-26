@@ -1,4 +1,8 @@
 {
+  "scripts": {
+    "discover-form-fields": "node scripts/discover_form_fields.mjs",
+    "export-forms-ai": "node scripts/export_forms_ai_context.mjs"
+  },
   "dependencies": {
     "exceljs": "^4.4.0",
     "firebase-admin": "^13.6.0",

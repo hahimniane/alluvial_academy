@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -9,10 +11,22 @@ import '../../../core/models/teaching_shift.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 import '../utils/form_submission_view_mode.dart';
 import '../widgets/form_details_modal.dart';
+import '../../../admin/screens/admin_audit_screen.dart';
+import 'admin_submissions_review_screen.dart';
 
 /// Admin screen – Gmail-density redesign.
 class AdminAllSubmissionsScreen extends StatefulWidget {
-  const AdminAllSubmissionsScreen({super.key});
+  /// When non-null, pre-select this teacher in the filter on open.
+  final String? initialTeacherId;
+
+  /// When non-null, pre-select this yearMonth (e.g. '2026-03') on open.
+  final String? initialYearMonth;
+
+  const AdminAllSubmissionsScreen({
+    super.key,
+    this.initialTeacherId,
+    this.initialYearMonth,
+  });
 
   @override
   State<AdminAllSubmissionsScreen> createState() =>
@@ -43,6 +57,7 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
 
   String _viewMode = 'by_teacher';
   final TextEditingController _searchController = TextEditingController();
+  Timer? _searchDebounce;
   String _searchQuery = '';
   String _teacherPickerSearchQuery = '';
 
@@ -80,11 +95,19 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.initialTeacherId != null) {
+      _selectedTeacherIds = {widget.initialTeacherId!};
+    }
+    if (widget.initialYearMonth != null) {
+      _selectedYearMonth = widget.initialYearMonth;
+      _showAllMonths = false;
+    }
     _initializeScreen();
   }
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _searchController.dispose();
     super.dispose();
   }
@@ -585,10 +608,9 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
     _lastSubmissionDoc = null;
     _hasMoreSubmissions = false;
     try {
-      final now = DateTime.now();
-      final currentYearMonth =
-          '${now.year}-${now.month.toString().padLeft(2, '0')}';
-      await _loadMonthSubmissions(currentYearMonth, setSelectedIfUnset: true);
+      final targetMonth = _selectedYearMonth ??
+          '${DateTime.now().year}-${DateTime.now().month.toString().padLeft(2, '0')}';
+      await _loadMonthSubmissions(targetMonth, setSelectedIfUnset: true);
     } catch (e) {
       AppLogger.error('Error loading current month submissions: $e');
       if (mounted) {
@@ -1339,12 +1361,29 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
     final l10n = AppLocalizations.of(context)!;
     final ym = _selectedYearMonth!;
     final count = _filteredSubmissions.length;
+    final monthIdx = _availableMonths.indexOf(ym);
+    final hasPrev = monthIdx >= 0 && monthIdx < _availableMonths.length - 1;
+    final hasNext = monthIdx > 0;
     return Container(
       width: double.infinity,
       color: const Color(0xffEFF6FF),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: Row(
         children: [
+          IconButton(
+            icon: const Icon(Icons.chevron_left, size: 20),
+            color: hasPrev ? _cPrimary : _cMuted,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            onPressed: hasPrev
+                ? () {
+                    final prev = _availableMonths[monthIdx + 1];
+                    setState(() => _selectedYearMonth = prev);
+                    _loadMonthSubmissions(prev);
+                  }
+                : null,
+          ),
+          const SizedBox(width: 4),
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
@@ -1371,6 +1410,19 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
                 ),
               ],
             ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.chevron_right, size: 20),
+            color: hasNext ? _cPrimary : _cMuted,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            onPressed: hasNext
+                ? () {
+                    final next = _availableMonths[monthIdx - 1];
+                    setState(() => _selectedYearMonth = next);
+                    _loadMonthSubmissions(next);
+                  }
+                : null,
           ),
           TextButton(
             onPressed: () {
@@ -1406,6 +1458,15 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
         children: [
           Row(
             children: [
+              if (Navigator.of(context).canPop()) ...[
+                IconButton(
+                  icon: const Icon(Icons.arrow_back, size: 18),
+                  onPressed: () => Navigator.of(context).pop(),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+                const SizedBox(width: 8),
+              ],
               Text(
                 l10n.adminAllSubmissionsTitle,
                 style: GoogleFonts.inter(
@@ -1417,6 +1478,47 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
                 style: GoogleFonts.inter(fontSize: 11, color: _cMuted),
               ),
               const Spacer(),
+              _iconBtn(
+                icon: Icons.view_sidebar_outlined,
+                tooltip: l10n.adminSubmissionsReviewMode,
+                onTap: _filteredSubmissions.isEmpty
+                    ? () {}
+                    : () {
+                        Navigator.of(context)
+                            .push(
+                          MaterialPageRoute(
+                            builder: (ctx) => AdminSubmissionsReviewScreen(
+                              submissions: List<QueryDocumentSnapshot>.from(
+                                  _filteredSubmissions),
+                              teachersData: _teachersData,
+                              formTitles: Map<String, String>.from(_formTitles),
+                              getShiftSummaries: _getShiftSummariesForIds,
+                            ),
+                          ),
+                        )
+                            .then((_) {
+                          if (mounted) _loadCurrentMonthSubmissions();
+                        });
+                      },
+              ),
+              const SizedBox(width: 4),
+              if (_selectedTeacherIds.length == 1) ...[
+                _iconBtn(
+                  icon: Icons.assessment_outlined,
+                  tooltip: l10n.viewTeacherAudit,
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => AdminAuditScreen(
+                          initialTeacherId: _selectedTeacherIds.first,
+                          initialYearMonth: _selectedYearMonth,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(width: 4),
+              ],
               _iconBtn(
                 icon: Icons.settings_outlined,
                 tooltip: l10n.adminPreferencesTitle,
@@ -1433,7 +1535,13 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
                   width: 200,
                   child: TextField(
                     controller: _searchController,
-                    onChanged: (v) => setState(() => _searchQuery = v),
+                    onChanged: (v) {
+                      _searchDebounce?.cancel();
+                      _searchDebounce = Timer(
+                          const Duration(milliseconds: 300), () {
+                        if (mounted) setState(() => _searchQuery = v);
+                      });
+                    },
                     style: GoogleFonts.inter(fontSize: 12),
                     decoration: InputDecoration(
                       hintText: l10n.adminSubmissionsSearchPlaceholder,

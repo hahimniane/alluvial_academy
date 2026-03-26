@@ -9,96 +9,122 @@ class FormLabelsCacheService {
   FormLabelsCacheService._internal();
 
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  
-  // Cache: formId -> Map<fieldId, label>
+
+  // Cache: formId -> Map<fieldId, label> with TTL
+  static const Duration _cacheTtl = Duration(minutes: 15);
+  static const int _maxCacheEntries = 200;
   final Map<String, Map<String, String>> _labelsCache = {};
-  
+  final Map<String, DateTime> _labelsCacheTime = {};
+
   // Cache: formResponseId -> formId/templateId (to avoid querying form_responses multiple times)
   final Map<String, String?> _formIdCache = {};
   final Map<String, String?> _templateIdCache = {};
-  
-  // Track loading states to prevent duplicate requests
-  final Set<String> _loadingFormIds = {};
-  final Set<String> _loadingTemplateIds = {};
-  final Set<String> _loadingResponseIds = {};
+
+  /// In-flight loads coalesce concurrent callers onto the same [Future].
+  final Map<String, Future<Map<String, String>>> _inFlightResponseLabels = {};
+  final Map<String, Future<Map<String, String>>> _inFlightFormLabels = {};
+  final Map<String, Future<Map<String, String>>> _inFlightTemplateLabels = {};
 
   /// Get field labels for a form response
   /// Returns cached labels if available, otherwise fetches from Firestore
-  Future<Map<String, String>> getLabelsForFormResponse(String formResponseId) async {
-    // Check if we already have the formId/templateId cached
-    String? formId = _formIdCache[formResponseId];
-    String? templateId = _templateIdCache[formResponseId];
-    
-    // If not cached, fetch from form_responses
-    if (formId == null && templateId == null && !_loadingResponseIds.contains(formResponseId)) {
-      _loadingResponseIds.add(formResponseId);
-      try {
-        final formResponseDoc = await _firestore
-            .collection('form_responses')
-            .doc(formResponseId)
-            .get();
-        
-        if (formResponseDoc.exists) {
-          final data = formResponseDoc.data() as Map<String, dynamic>?;
-          formId = data?['formId'] as String?;
-          templateId = data?['templateId'] as String?;
-          
-          // Cache the IDs
-          _formIdCache[formResponseId] = formId;
-          _templateIdCache[formResponseId] = templateId;
+  Future<Map<String, String>> getLabelsForFormResponse(String formResponseId) {
+    return _inFlightResponseLabels.putIfAbsent(
+      formResponseId,
+      () => _loadLabelsForFormResponse(formResponseId),
+    );
+  }
+
+  Future<Map<String, String>> _loadLabelsForFormResponse(
+      String formResponseId) async {
+    try {
+      String? formId = _formIdCache[formResponseId];
+      String? templateId = _templateIdCache[formResponseId];
+
+      if (formId == null && templateId == null) {
+        try {
+          final formResponseDoc = await _firestore
+              .collection('form_responses')
+              .doc(formResponseId)
+              .get();
+
+          if (formResponseDoc.exists) {
+            final data = formResponseDoc.data();
+            formId = data?['formId'] as String?;
+            templateId = data?['templateId'] as String?;
+            _formIdCache[formResponseId] = formId;
+            _templateIdCache[formResponseId] = templateId;
+          }
+        } catch (e) {
+          debugPrint('❌ Error fetching form response $formResponseId: $e');
         }
-      } catch (e) {
-        debugPrint('❌ Error fetching form response $formResponseId: $e');
-      } finally {
-        _loadingResponseIds.remove(formResponseId);
       }
+
+      if (formId != null) {
+        final labels = await getLabelsForForm(formId);
+        if (labels.isNotEmpty) return labels;
+      }
+
+      if (templateId != null) {
+        final labels = await getLabelsForTemplate(templateId);
+        if (labels.isNotEmpty) return labels;
+      }
+
+      // Fallback: formId might actually be a form_templates doc ID
+      // (older submissions may not have saved templateId separately)
+      if (formId != null && templateId == null) {
+        final labels = await getLabelsForTemplate(formId);
+        if (labels.isNotEmpty) return labels;
+      }
+
+      return {};
+    } finally {
+      _inFlightResponseLabels.remove(formResponseId);
     }
-    
-    // Try to get labels from formId (old system)
-    if (formId != null) {
-      final labels = await getLabelsForForm(formId);
-      if (labels.isNotEmpty) return labels;
+  }
+
+  bool _isCacheValid(String key) {
+    final time = _labelsCacheTime[key];
+    if (time == null) return false;
+    return DateTime.now().difference(time) < _cacheTtl;
+  }
+
+  void _putCache(String key, Map<String, String> labels) {
+    // Evict oldest entries if at capacity
+    if (_labelsCache.length >= _maxCacheEntries && !_labelsCache.containsKey(key)) {
+      final oldest = _labelsCacheTime.entries.reduce(
+        (a, b) => a.value.isBefore(b.value) ? a : b,
+      );
+      _labelsCache.remove(oldest.key);
+      _labelsCacheTime.remove(oldest.key);
     }
-    
-    // Try to get labels from templateId (new system)
-    if (templateId != null) {
-      final labels = await getLabelsForTemplate(templateId);
-      if (labels.isNotEmpty) return labels;
-    }
-    
-    return {};
+    _labelsCache[key] = labels;
+    _labelsCacheTime[key] = DateTime.now();
   }
 
   /// Get field labels for a form (old system)
-  Future<Map<String, String>> getLabelsForForm(String formId) async {
-    // Check cache first
-    if (_labelsCache.containsKey(formId)) {
-      return _labelsCache[formId]!;
+  Future<Map<String, String>> getLabelsForForm(String formId) {
+    if (_labelsCache.containsKey(formId) && _isCacheValid(formId)) {
+      return Future.value(_labelsCache[formId]!);
     }
-    
-    // Prevent duplicate requests
-    if (_loadingFormIds.contains(formId)) {
-      // Wait a bit and check cache again
-      await Future.delayed(const Duration(milliseconds: 100));
-      if (_labelsCache.containsKey(formId)) {
-        return _labelsCache[formId]!;
-      }
-      return {};
-    }
-    
-    _loadingFormIds.add(formId);
+    return _inFlightFormLabels.putIfAbsent(
+      formId,
+      () => _loadLabelsForForm(formId),
+    );
+  }
+
+  Future<Map<String, String>> _loadLabelsForForm(String formId) async {
     try {
       final formDoc = await _firestore.collection('form').doc(formId).get();
-      
+
       if (formDoc.exists) {
-        final formData = formDoc.data() as Map<String, dynamic>?;
+        final formData = formDoc.data();
         final labels = <String, String>{};
-        
+
         if (formData != null) {
           _extractLabelsFromFields(formData['fields'], labels);
-          
+
           if (labels.isNotEmpty) {
-            _labelsCache[formId] = labels;
+            _putCache(formId, labels);
             debugPrint('✅ Cached ${labels.length} labels for form $formId');
             return labels;
           }
@@ -107,49 +133,40 @@ class FormLabelsCacheService {
     } catch (e) {
       debugPrint('❌ Error fetching form $formId: $e');
     } finally {
-      _loadingFormIds.remove(formId);
+      _inFlightFormLabels.remove(formId);
     }
-    
+
     return {};
   }
 
   /// Get field labels for a template (new system)
-  Future<Map<String, String>> getLabelsForTemplate(String templateId) async {
-    // Check cache first
+  Future<Map<String, String>> getLabelsForTemplate(String templateId) {
     final cacheKey = 'template_$templateId';
-    if (_labelsCache.containsKey(cacheKey)) {
-      return _labelsCache[cacheKey]!;
+    if (_labelsCache.containsKey(cacheKey) && _isCacheValid(cacheKey)) {
+      return Future.value(_labelsCache[cacheKey]!);
     }
-    
-    // Prevent duplicate requests
-    if (_loadingTemplateIds.contains(templateId)) {
-      await Future.delayed(const Duration(milliseconds: 100));
-      if (_labelsCache.containsKey(cacheKey)) {
-        return _labelsCache[cacheKey]!;
-      }
-      return {};
-    }
-    
-    _loadingTemplateIds.add(templateId);
+    return _inFlightTemplateLabels.putIfAbsent(
+      templateId,
+      () => _loadLabelsForTemplate(templateId, cacheKey),
+    );
+  }
+
+  Future<Map<String, String>> _loadLabelsForTemplate(
+      String templateId, String cacheKey) async {
     try {
       final templateDoc = await _firestore
           .collection('form_templates')
           .doc(templateId)
           .get();
-      
+
       if (templateDoc.exists) {
         final raw = templateDoc.data();
-        if (raw is! Map<String, dynamic>) {
-          if (raw != null) {
-            debugPrint('❌ Template $templateId: data is ${raw.runtimeType}, expected Map');
-          }
-        } else {
-          final templateData = raw;
+        if (raw != null) {
           final labels = <String, String>{};
-          final fields = templateData['fields'];
+          final fields = raw['fields'];
           _extractLabelsFromFields(fields, labels);
           if (labels.isNotEmpty) {
-            _labelsCache[cacheKey] = labels;
+            _putCache(cacheKey, labels);
             debugPrint('✅ Cached ${labels.length} labels for template $templateId');
             return labels;
           }
@@ -159,9 +176,9 @@ class FormLabelsCacheService {
       debugPrint('❌ Error fetching template $templateId: $e');
       debugPrint('$stack');
     } finally {
-      _loadingTemplateIds.remove(templateId);
+      _inFlightTemplateLabels.remove(templateId);
     }
-    
+
     return {};
   }
 
@@ -172,10 +189,10 @@ class FormLabelsCacheService {
       // Fields is a Map: { "fieldId": { "label": "...", "type": "..." } }
       fields.forEach((fieldId, fieldData) {
         if (fieldData is Map) {
-          final label = fieldData['label']?.toString() ?? 
-                       fieldData['question']?.toString() ?? 
-                       fieldData['name']?.toString() ??
-                       '';
+          final label = fieldData['label']?.toString() ??
+              fieldData['question']?.toString() ??
+              fieldData['name']?.toString() ??
+              '';
           if (label.isNotEmpty) {
             labels[fieldId.toString()] = label;
           }
@@ -186,10 +203,10 @@ class FormLabelsCacheService {
       for (var field in fields) {
         if (field is Map) {
           final id = field['id']?.toString() ?? '';
-          final label = field['label']?.toString() ?? 
-                       field['question']?.toString() ?? 
-                       field['name']?.toString() ??
-                       '';
+          final label = field['label']?.toString() ??
+              field['question']?.toString() ??
+              field['name']?.toString() ??
+              '';
           if (id.isNotEmpty && label.isNotEmpty) {
             labels[id] = label;
           }
@@ -201,6 +218,7 @@ class FormLabelsCacheService {
   /// Clear the cache (useful for testing or when forms are updated)
   void clearCache() {
     _labelsCache.clear();
+    _labelsCacheTime.clear();
     _formIdCache.clear();
     _templateIdCache.clear();
     debugPrint('🗑️ Form labels cache cleared');
@@ -210,6 +228,8 @@ class FormLabelsCacheService {
   void clearFormCache(String formId) {
     _labelsCache.remove(formId);
     _labelsCache.remove('template_$formId');
+    _labelsCacheTime.remove(formId);
+    _labelsCacheTime.remove('template_$formId');
     _formIdCache.remove(formId);
     _templateIdCache.remove(formId);
   }
@@ -223,4 +243,3 @@ class FormLabelsCacheService {
     };
   }
 }
-

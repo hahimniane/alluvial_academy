@@ -1,7 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:async';
+import '../../features/chat/services/chat_service.dart';
 import '../models/teacher_audit_full.dart';
 import '../utils/app_logger.dart';
 
@@ -122,17 +124,24 @@ class TeacherAuditService {
           .collection('form_responses')
           .where('yearMonth', isEqualTo: yearMonth)
           .get(),
+      _firestore
+          .collection('tasks')
+          .where('dueDate', isGreaterThanOrEqualTo: queryStart)
+          .where('dueDate', isLessThanOrEqualTo: queryEnd)
+          .get(),
     ]);
 
     final shiftsSnapshot = dataFutures[0] as QuerySnapshot;
     final timesheetsSnapshot = dataFutures[1] as QuerySnapshot;
     final formsSnapshot = dataFutures[2] as QuerySnapshot;
+    final tasksSnapshot = dataFutures[3] as QuerySnapshot;
 
     // Debug: Log total data loaded
     AppLogger.debug('=== MONTH DATA LOADED ===');
     AppLogger.debug('Shifts: ${shiftsSnapshot.docs.length}');
     AppLogger.debug('Timesheets: ${timesheetsSnapshot.docs.length}');
     AppLogger.debug('Forms: ${formsSnapshot.docs.length}');
+    AppLogger.debug('Tasks: ${tasksSnapshot.docs.length}');
 
     // Debug: Log sample forms to see their structure
     if (formsSnapshot.docs.isNotEmpty) {
@@ -238,6 +247,7 @@ class TeacherAuditService {
       shifts: shiftsSnapshot,
       timesheets: timesheetsSnapshot,
       forms: formsSnapshot,
+      tasks: tasksSnapshot,
       users: usersSnapshot,
       startDate: startDate,
       endDate: endDate,
@@ -260,15 +270,56 @@ class TeacherAuditService {
     AppLogger.info('⚙️  Starting ultra-optimized single-pass processing...');
     
     // **OPTIMIZATION: Single-pass data processing - process all data once**
+    final repairCount = await _repairMissedShiftsWithTimesheetContradiction(
+      monthData.shifts,
+      monthData.timesheets,
+      startDate,
+      endDate,
+    );
+    var shiftsForPass = monthData.shifts;
+    if (repairCount > 0) {
+      shiftsForPass = await _fetchTeachingShiftsForAuditWindow(startDate, endDate);
+      if (kDebugMode) {
+        AppLogger.debug(
+          'Re-fetched teaching_shifts after auto-repair ($repairCount shift(s))',
+        );
+      }
+    }
+
     final teacherCaches = _processMonthDataSinglePass(
-      shifts: monthData.shifts,
+      shifts: shiftsForPass,
       timesheets: monthData.timesheets,
       forms: monthData.forms,
       startDate: startDate,
       endDate: endDate,
     );
-    
+
     AppLogger.info('✅ Single-pass processing complete in ${sw.elapsedMilliseconds}ms (${teacherCaches.length} teachers with data)');
+
+    // Group tasks by teacher: overdue, total assigned, acknowledged
+    final overdueByTeacher = <String, int>{};
+    final totalTasksByTeacher = <String, int>{};
+    final acknowledgedByTeacher = <String, int>{};
+    for (final taskDoc in monthData.tasks.docs) {
+      final data = taskDoc.data();
+      if (data == null) continue;
+      final dataMap = data as Map<String, dynamic>;
+      final assignedTo = (dataMap['assignedTo'] as List<dynamic>?)?.cast<String>() ?? [];
+      final status = dataMap['status'] as String? ?? 'todo';
+      final overdueDays = (dataMap['overdueDaysAtCompletion'] as num?)?.toInt() ?? 0;
+      final hasFirstOpened = dataMap['firstOpenedAt'] != null;
+      // Count as overdue if: incomplete, OR completed late
+      final isOverdue = (status != 'done') || (overdueDays > 0);
+      for (final tid in assignedTo) {
+        totalTasksByTeacher[tid] = (totalTasksByTeacher[tid] ?? 0) + 1;
+        if (hasFirstOpened) {
+          acknowledgedByTeacher[tid] = (acknowledgedByTeacher[tid] ?? 0) + 1;
+        }
+        if (isOverdue) {
+          overdueByTeacher[tid] = (overdueByTeacher[tid] ?? 0) + 1;
+        }
+      }
+    }
 
     // Build user map
     final usersMap = <String, Map<String, dynamic>>{};
@@ -316,6 +367,9 @@ class TeacherAuditService {
           startDate: startDate,
           endDate: endDate,
           rateMap: rateMap,
+          overdueTasks: overdueByTeacher[teacherId] ?? 0,
+          totalTasksAssigned: totalTasksByTeacher[teacherId] ?? 0,
+          acknowledgedTasks: acknowledgedByTeacher[teacherId] ?? 0,
         );
         
         audits.add(audit);
@@ -386,6 +440,42 @@ class TeacherAuditService {
   }) {
     final caches = <String, _TeacherCache>{};
 
+    // **PRE-SCAN: Extract approved leave periods per teacher from leave/excuse forms**
+    // Handles two leave systems:
+    //   1. Built-in leave_request form: formId='leave_request', status='approved', fields: start_date/end_date
+    //   2. Excuse form templates: templateId in _excuseTemplateIds, reviewStatus='accepted', fields: 1754402840684/1754402885007
+    final leavePeriods = <String, List<({DateTime start, DateTime end})>>{};
+    for (final form in forms.docs) {
+      final data = form.data();
+      if (data == null) continue;
+      final dataMap = data as Map<String, dynamic>;
+      final templateId = dataMap['templateId'] as String? ?? dataMap['formId'] as String? ?? '';
+
+      final teacherId = dataMap['userId'] as String? ?? dataMap['submitted_by'] as String?;
+      if (teacherId == null) continue;
+
+      final responses = (dataMap['responses'] as Map<String, dynamic>?) ?? {};
+      DateTime? leaveStart;
+      DateTime? leaveEnd;
+
+      if (templateId == 'leave_request') {
+        // Built-in leave request form: status field, start_date/end_date
+        if ((dataMap['status'] as String?)?.toLowerCase() != 'approved') continue;
+        leaveStart = _parseDateField(responses['start_date']);
+        leaveEnd = _parseDateField(responses['end_date']);
+      } else if (_excuseTemplateIds.contains(templateId)) {
+        // Excuse form: reviewStatus field, field IDs for dates
+        if ((dataMap['reviewStatus'] as String?)?.toLowerCase() != 'accepted') continue;
+        leaveStart = _parseDateField(responses['1754402840684']);
+        leaveEnd = _parseDateField(responses['1754402885007']);
+      } else {
+        continue;
+      }
+
+      if (leaveStart == null || leaveEnd == null) continue;
+      leavePeriods.putIfAbsent(teacherId, () => []).add((start: leaveStart, end: leaveEnd));
+    }
+
     // **PASS 1: Process shifts - O(n) instead of O(n×m)**
     for (final shift in shifts.docs) {
       final data = shift.data();
@@ -425,7 +515,14 @@ class TeacherAuditService {
           'hourlyRate': (dataMap['hourly_rate'] as num?)?.toDouble(),
         });
       } else if (status == 'missed') {
-        cache.missed++;
+        // Check if this missed shift is covered by an approved leave
+        final teacherLeaves = leavePeriods[teacherId];
+        if (teacherLeaves != null && teacherLeaves.any((lp) =>
+            !start.isBefore(lp.start) && start.isBefore(lp.end))) {
+          cache.excused++;
+        } else {
+          cache.missed++;
+        }
       } else if (status == 'cancelled') {
         cache.cancelled++;
       }
@@ -478,6 +575,10 @@ class TeacherAuditService {
     required DateTime startDate,
     required DateTime endDate,
     required Map<String, SubjectHourlyRate> rateMap,
+    int overdueTasks = 0,
+    int totalTasksAssigned = 0,
+    int acknowledgedTasks = 0,
+    Set<String> formAcceptanceOverrideIds = const {},
   }) {
     final teacherName = _formatName(userData);
     final teacherEmail = userData['e-mail'] ?? userData['email'] ?? '';
@@ -485,7 +586,14 @@ class TeacherAuditService {
     // Process detailed data using cache
     final shiftMetrics = _processShiftsFromCache(cache, startDate, endDate);
     final timesheetMetrics = _processTimesheetsFromCache(cache, cache.shifts, startDate, endDate);
-    final formMetrics = _processFormsFromCache(cache, cache.shifts, startDate, endDate, yearMonth);
+    final formMetrics = _processFormsFromCache(
+      cache,
+      cache.shifts,
+      startDate,
+      endDate,
+      yearMonth,
+      adminFormAcceptanceOverrideIds: formAcceptanceOverrideIds,
+    );
 
     // Build map of shifts with linked forms (only these count for payment)
     // Check BOTH ways forms can be linked:
@@ -537,7 +645,9 @@ class TeacherAuditService {
     }
     
     // Calculate scores and issues (using pre-computed metrics)
-    final completionRate = _calculateRate(cache.completed, cache.scheduled);
+    // Exclude excused absences from denominator so approved leaves don't hurt completion rate
+    final effectiveScheduled = cache.scheduled - shiftMetrics.excused;
+    final completionRate = _calculateRate(cache.completed, effectiveScheduled);
     final punctualityRate = _calculateRate(timesheetMetrics.onTime, timesheetMetrics.total);
     final formsRequired = cache.completed + cache.missed;
     final formCompliance = _calculateRate(formMetrics.submitted, formsRequired);
@@ -585,25 +695,53 @@ class TeacherAuditService {
       tier: tier,
       paymentSummary: paymentSummary,
       issues: issues,
+      overdueTasks: overdueTasks,
+      totalTasksAssigned: totalTasksAssigned,
+      acknowledgedTasks: acknowledgedTasks,
+      excusedAbsences: shiftMetrics.excused,
     );
   }
 
   /// **ULTRA-OPTIMIZATION: Batch write audits (10x faster than individual writes)**
   static Future<void> _writeAuditsBatch(List<TeacherAuditFull> audits) async {
     if (audits.isEmpty) return;
-    
+
+    // Preserve coach/admin/review customizations when monthly regen runs.
+    final existingById = <String, TeacherAuditFull>{};
+    const readChunk = 30; // Firestore whereIn limit
+    for (var i = 0; i < audits.length; i += readChunk) {
+      final end = (i + readChunk).clamp(0, audits.length);
+      final ids = audits
+          .sublist(i, end)
+          .map((a) => a.id)
+          .toList(growable: false);
+      final snap = await _firestore
+          .collection(_auditCollection)
+          .where(FieldPath.documentId, whereIn: ids)
+          .get();
+      for (final d in snap.docs) {
+        existingById[d.id] = TeacherAuditFull.fromFirestore(d);
+      }
+    }
+
     const maxBatchSize = 500; // Firestore batch limit
-    
     for (var i = 0; i < audits.length; i += maxBatchSize) {
       final batch = _firestore.batch();
       final end = (i + maxBatchSize).clamp(0, audits.length);
-      
+
       for (var j = i; j < end; j++) {
-        final audit = audits[j];
-        final docRef = _firestore.collection(_auditCollection).doc(audit.id);
-        batch.set(docRef, audit.toMap());
+        final computed = audits[j];
+        final existing = existingById[computed.id];
+        final toWrite = existing != null
+            ? _mergeComputedAuditWithExisting(
+                computed: computed,
+                existing: existing,
+              )
+            : computed;
+        final docRef = _firestore.collection(_auditCollection).doc(toWrite.id);
+        batch.set(docRef, toWrite.toMap());
       }
-      
+
       await batch.commit();
     }
   }
@@ -638,10 +776,19 @@ class TeacherAuditService {
       final timesheetMetrics = _processTimesheets(timesheets, shifts, startDate, endDate);
       
       // Process forms (extract duration from form responses)
-      final formMetrics = _processForms(forms, shifts, startDate, endDate, yearMonth);
+      final formMetrics = _processForms(
+        forms,
+        shifts,
+        timesheets,
+        startDate,
+        endDate,
+        yearMonth,
+      );
 
-      // Calculate scores and issues
-      final completionRate = _calculateRate(shiftMetrics.completed, shiftMetrics.scheduled);
+      // Calculate scores and issues (legacy single-teacher path; overrides not wired here)
+      // Exclude excused absences from denominator so approved leaves don't hurt completion rate
+      final effectiveScheduled = shiftMetrics.scheduled - shiftMetrics.excused;
+      final completionRate = _calculateRate(shiftMetrics.completed, effectiveScheduled);
       final punctualityRate = _calculateRate(timesheetMetrics.onTime, timesheetMetrics.total);
       final formsRequired = shiftMetrics.completed + shiftMetrics.missed;
       final formCompliance = _calculateRate(formMetrics.submitted, formsRequired);
@@ -682,6 +829,7 @@ class TeacherAuditService {
         tier: tier,
         paymentSummary: paymentSummary,
         issues: issues,
+        excusedAbsences: shiftMetrics.excused,
       );
 
       // Save to Firestore
@@ -751,6 +899,7 @@ class TeacherAuditService {
       completed: cache.completed,
       missed: cache.missed,
       cancelled: cache.cancelled,
+      excused: cache.excused,
       hoursBySubject: cache.hoursBySubject,
       totalHours: cache.totalHours,
       detailedShifts: detailedShifts,
@@ -859,10 +1008,18 @@ class TeacherAuditService {
     List<QueryDocumentSnapshot> shifts,
     DateTime startDate,
     DateTime endDate,
-    String yearMonth,
-  ) {
-    // Use existing form processing logic
-    return _processForms(cache.forms, shifts, startDate, endDate, yearMonth);
+    String yearMonth, {
+    Set<String> adminFormAcceptanceOverrideIds = const {},
+  }) {
+    return _processForms(
+      cache.forms,
+      shifts,
+      cache.timesheets,
+      startDate,
+      endDate,
+      yearMonth,
+      adminFormAcceptanceOverrideIds: adminFormAcceptanceOverrideIds,
+    );
   }
 
   /// **OPTIMIZATION 7: Efficient shift processing with individual shift rates**
@@ -1079,14 +1236,466 @@ class TeacherAuditService {
     );
   }
 
+  /// `form_templates/Sn0TEj7lFN1hJnLlfMBx` — Students Assessment/Grade Form.
+  static const String _studentGradeAssessmentTemplateId =
+      'Sn0TEj7lFN1hJnLlfMBx';
+
+  /// `form_templates/daily_class_report` — shift-linked class report (teaching).
+  static const String _dailyClassReportFormId = 'daily_class_report';
+
+  /// "Type of assessment … assignment or quiz" (multi_select on grade form).
+  /// Used elsewhere for stats; **do not** use this id alone to classify teaching vs
+  /// non-teaching — numeric field ids are reused across templates in Firestore.
+  static const String _studentGradeAssessmentTypeFieldId = '1754432189399';
+
+  /// True when [raw] is a non-empty string or a non-empty list (multi_select).
+  static bool _gradeAssessmentTypeFieldLooksFilled(dynamic raw) {
+    if (raw == null) return false;
+    if (raw is String) return raw.trim().isNotEmpty;
+    if (raw is List) return raw.isNotEmpty;
+    return true;
+  }
+
+  /// Daily Class Report (`form_templates/daily_class_report`) uses these keys; if
+  /// present, do **not** treat [_studentGradeAssessmentTypeFieldId] as proof of the
+  /// grade form — that numeric id can collide across builder templates.
+  ///
+  /// Includes legacy numeric ids from [FormMigrationService] / older submissions.
+  static bool _responsesLookLikeDailyClassReport(Map<String, dynamic> responses) {
+    return responses.containsKey('actual_duration') ||
+        responses.containsKey('lesson_covered') ||
+        responses.containsKey('used_curriculum') ||
+        responses.containsKey('session_quality') ||
+        responses.containsKey('teacher_notes') ||
+        responses.containsKey('students_present') ||
+        responses.containsKey('students_attended') ||
+        responses.containsKey('1754407297953') ||
+        responses.containsKey('1754407184691') ||
+        responses.containsKey('1754407509366') ||
+        responses.containsKey('1754406457284');
+  }
+
+  /// Grade / student assessment submissions belong on Assignments tab, not Teaching.
+  ///
+  /// [FormScreen] always writes `formId` (template doc id) but only writes
+  /// `templateId` when `isTemplate && templateId != null`; the legacy Firestore retry
+  /// payload omits `templateId` entirely — so matching **only** `templateId` misses
+  /// real grade submissions and they get classified as `daily` teaching forms.
+  ///
+  /// Fallback: responses field [_studentGradeAssessmentTypeFieldId] only for
+  /// non–routine-pipeline forms (onDemand / legacy / etc.) and when the map does
+  /// not look like Daily Class Report.
+  ///
+  /// **Routine pipeline** (`daily` / `weekly` / `monthly` from stored `formType` or
+  /// inferred `frequency`) matches [AdminAllSubmissionsScreen] — those submissions
+  /// must never be treated as grade forms based on a colliding numeric field id
+  /// alone. **Haystack** keywords in free-text (e.g. "midterm", "assignment") must
+  /// not override that ([_isTeachingFormData] runs the routine shortcut before
+  /// [_haystackLooksNonTeaching]).
+  static bool _isStudentGradeAssessmentFormData(
+    Map<String, dynamic> dataMap,
+    Map<String, dynamic> responses,
+  ) {
+    final tid = (dataMap['templateId'] as String? ?? '').trim();
+    final fid = (dataMap['formId'] as String? ?? '').trim();
+    if (tid == _studentGradeAssessmentTemplateId ||
+        fid == _studentGradeAssessmentTemplateId) {
+      return true;
+    }
+    if (tid == _dailyClassReportFormId || fid == _dailyClassReportFormId) {
+      return false;
+    }
+
+    final eff = _effectiveFormTypeForClassification(dataMap);
+    if (eff == 'daily' || eff == 'weekly' || eff == 'monthly') {
+      return false;
+    }
+
+    if (_responsesLookLikeDailyClassReport(responses)) return false;
+    return _gradeAssessmentTypeFieldLooksFilled(
+      responses[_studentGradeAssessmentTypeFieldId],
+    );
+  }
+
+  /// Teaching vs non-teaching split for audit tabs — aligned with how
+  /// [AdminAllSubmissionsScreen] buckets submissions: `daily` / `weekly` /
+  /// `monthly` are the routine class pipeline; everything else is "other".
+  ///
+  /// Readiness and old class forms often have `formType: legacy` (see
+  /// [FormScreen] when frequency was missing); those must stay with teaching
+  /// forms, not the assignments tab.
+  static bool _isTeachingFormData(Map<String, dynamic> dataMap) {
+    final shiftId = (dataMap['shiftId'] as String? ?? '').trim();
+
+    final effectiveType = _effectiveFormTypeForClassification(dataMap);
+    final formTitle = ((dataMap['formName'] as String?) ??
+            (dataMap['formTitle'] as String?) ??
+            (dataMap['title'] as String?) ??
+            '')
+        .toLowerCase();
+
+    final responses = (dataMap['responses'] is Map)
+        ? (dataMap['responses'] as Map).cast<String, dynamic>()
+        : const <String, dynamic>{};
+
+    if (_isStudentGradeAssessmentFormData(dataMap, responses)) return false;
+
+    // Routine class pipeline first: free-text in responses must not push these into
+    // Assignments (e.g. teacher writes "midterm review" or "assignment" in notes).
+    if (effectiveType == 'daily' ||
+        effectiveType == 'weekly' ||
+        effectiveType == 'monthly') {
+      return true;
+    }
+
+    // Assignment / quiz style forms (often onDemand) may still link to a shift.
+    final responseHaystack =
+        _compactResponseHaystackForClassification(responses, maxChars: 2000);
+
+    final haystack = '$effectiveType $formTitle $responseHaystack';
+
+    if (_haystackLooksNonTeaching(haystack)) return false;
+
+    if (shiftId.isNotEmpty) return true;
+
+    if (effectiveType == 'legacy') {
+      return true;
+    }
+
+    if (effectiveType == 'ondemand') {
+      const teachingLike = <String>[
+        'readiness',
+        'préparation',
+        'preparation',
+        'class report',
+        'cours journalier',
+        'daily class',
+        'rapport quotidien',
+        'formulaire de préparation',
+        'readiness form',
+      ];
+      if (teachingLike.any(formTitle.contains)) return true;
+      return false;
+    }
+
+    const teachingTokens = <String>[
+      'readiness',
+      'class report',
+      'classroom',
+      'cours journalier',
+      'preparation',
+      'préparation',
+      'formulaire de préparation',
+      'readiness form',
+    ];
+    if (teachingTokens.any(haystack.contains)) return true;
+
+    return false;
+  }
+
+  /// Same inference as [_buildDetailedForms] `formType` line, plus `frequency`
+  /// when `formType` was not persisted.
+  static String _effectiveFormTypeForClassification(
+      Map<String, dynamic> dataMap) {
+    var raw = (dataMap['formType'] as String? ?? '').trim().toLowerCase();
+    if (raw.isNotEmpty) return raw;
+
+    final freq = (dataMap['frequency'] as String? ?? '').trim().toLowerCase();
+    switch (freq) {
+      case 'persession':
+      case 'per_session':
+        return 'daily';
+      case 'weekly':
+        return 'weekly';
+      case 'monthly':
+        return 'monthly';
+      case 'ondemand':
+        return 'ondemand';
+      default:
+        break;
+    }
+
+    return (dataMap['templateId'] != null) ? 'daily' : 'legacy';
+  }
+
+  /// Firestore timesheet doc has both clock-in and clock-out timestamps.
+  static bool _timesheetDocHasClockPair(Map<String, dynamic> dataMap) {
+    final cin = dataMap['clock_in_timestamp'] as Timestamp? ??
+        dataMap['clock_in'] as Timestamp?;
+    final cout = dataMap['clock_out_timestamp'] as Timestamp? ??
+        dataMap['clock_out'] as Timestamp?;
+    return cin != null && cout != null;
+  }
+
+  /// [form_responses] doc IDs backed by a timesheet row with a full punch pair
+  /// and matching [form_response_id]. Legacy fallback (shift_id + form_completed
+  /// without form_response_id) is intentionally omitted in v1 to avoid ambiguous
+  /// multi-form-per-shift matches.
+  static Set<String> _buildTimesheetProofFormIdSet(
+    List<QueryDocumentSnapshot> timesheets,
+  ) {
+    final ids = <String>{};
+    for (final ts in timesheets) {
+      final raw = ts.data();
+      if (raw == null || raw is! Map<String, dynamic>) continue;
+      final d = raw;
+      if (!_timesheetDocHasClockPair(d)) continue;
+      final frid = (d['form_response_id']?.toString() ?? '').trim();
+      if (frid.isEmpty) continue;
+      ids.add(frid);
+    }
+    return ids;
+  }
+
+  /// Daily and legacy per-session teaching forms require timesheet proof for audit acceptance.
+  static bool _requiresTimesheetProofForTeachingAcceptance(
+    Map<String, dynamic> dataMap,
+  ) {
+    final t = _effectiveFormTypeForClassification(dataMap);
+    return t == 'daily';
+  }
+
+  static void _annotateDetailedFormsTimesheetBacked(
+    List<Map<String, dynamic>> detailed,
+    Set<String> proofFormIds,
+  ) {
+    for (final m in detailed) {
+      final id = (m['id'] as String? ?? '').trim();
+      m['timesheetBacked'] = id.isNotEmpty && proofFormIds.contains(id);
+    }
+  }
+
+  /// Same shift window as [_loadMonthDataParallel] (excludes future shifts past [now]).
+  static Future<QuerySnapshot> _fetchTeachingShiftsForAuditWindow(
+    DateTime startDate,
+    DateTime endDate,
+  ) async {
+    final queryStart = Timestamp.fromDate(startDate);
+    final now = DateTime.now();
+    final effectiveEndDate = endDate.isBefore(now) ? endDate : now;
+    final queryEndShifts = Timestamp.fromDate(
+      effectiveEndDate.add(const Duration(hours: 23, minutes: 59)),
+    );
+    return _firestore
+        .collection('teaching_shifts')
+        .where('shift_start', isGreaterThanOrEqualTo: queryStart)
+        .where('shift_start', isLessThanOrEqualTo: queryEndShifts)
+        .get();
+  }
+
+  /// Collects [shift_id] values from timesheets that have a full clock-in/out pair.
+  static Set<String> _timesheetShiftIdsWithClockPairSet(
+    QuerySnapshot timesheetsSnapshot,
+  ) {
+    final out = <String>{};
+    for (final ts in timesheetsSnapshot.docs) {
+      final raw = ts.data();
+      if (raw == null || raw is! Map<String, dynamic>) continue;
+      final d = raw;
+      if (!_timesheetDocHasClockPair(d)) continue;
+      final sid = (d['shift_id']?.toString() ?? '').trim();
+      if (sid.isEmpty) continue;
+      out.add(sid);
+      if (sid.length >= 8) {
+        out.add(sid.substring(sid.length - 8));
+      }
+    }
+    return out;
+  }
+
+  /// Whether any entry in [tsShiftIds] refers to [shiftDocId] (exact or last-8 suffix).
+  static bool _timesheetShiftIdSetLinksToShift(
+    Set<String> tsShiftIds,
+    String shiftDocId,
+  ) {
+    if (tsShiftIds.contains(shiftDocId)) return true;
+    if (shiftDocId.length >= 8) {
+      final suf = shiftDocId.substring(shiftDocId.length - 8);
+      if (tsShiftIds.contains(suf)) return true;
+    }
+    for (final t in tsShiftIds) {
+      if (t.isEmpty) continue;
+      if (shiftDocId == t) return true;
+      if (t.length >= 8 && shiftDocId.endsWith(t.substring(t.length - 8))) {
+        return true;
+      }
+      if (shiftDocId.length >= 8 &&
+          t.endsWith(shiftDocId.substring(shiftDocId.length - 8))) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /// [missed] + timesheet punch for same shift is inconsistent; repair Firestore and
+  /// let the next metrics pass treat the class as completed.
+  static Future<int> _repairMissedShiftsWithTimesheetContradiction(
+    QuerySnapshot shiftsSnapshot,
+    QuerySnapshot timesheetsSnapshot,
+    DateTime startDate,
+    DateTime endDate,
+  ) async {
+    final tsShiftIds = _timesheetShiftIdsWithClockPairSet(timesheetsSnapshot);
+    if (tsShiftIds.isEmpty) return 0;
+
+    final toFix = <DocumentReference>[];
+    for (final shift in shiftsSnapshot.docs) {
+      final raw = shift.data();
+      if (raw == null || raw is! Map<String, dynamic>) continue;
+      final dataMap = raw;
+      if (dataMap['isBanned'] == true) continue;
+      final startTimestamp = dataMap['shift_start'] as Timestamp?;
+      if (startTimestamp == null) continue;
+      final start = startTimestamp.toDate();
+      if (!_isDateInRange(start, startDate, endDate)) continue;
+      final status = (dataMap['status'] ?? 'scheduled').toString();
+      if (status != 'missed') continue;
+      if (!_timesheetShiftIdSetLinksToShift(tsShiftIds, shift.id)) continue;
+      toFix.add(shift.reference);
+    }
+    if (toFix.isEmpty) return 0;
+
+    var updated = 0;
+    const chunk = 450;
+    for (var i = 0; i < toFix.length; i += chunk) {
+      final batch = _firestore.batch();
+      final end = (i + chunk > toFix.length) ? toFix.length : i + chunk;
+      for (var j = i; j < end; j++) {
+        batch.update(toFix[j], {
+          'status': 'partiallyCompleted',
+          'last_modified': FieldValue.serverTimestamp(),
+          'status_repaired_missed_with_timesheet': true,
+        });
+        updated++;
+      }
+      await batch.commit();
+    }
+    AppLogger.info(
+      'TeacherAuditService: repaired $updated teaching_shifts missed→partiallyCompleted (timesheet punch existed)',
+    );
+    return updated;
+  }
+
+  static QueryDocumentSnapshot? _resolveShiftDocForFormShiftId(
+    String? formShiftId,
+    List<QueryDocumentSnapshot> shifts,
+    DateTime startDate,
+    DateTime endDate,
+  ) {
+    if (formShiftId == null) return null;
+    final fid = formShiftId.trim();
+    if (fid.isEmpty) return null;
+
+    for (final s in shifts) {
+      final raw = s.data();
+      if (raw == null || raw is! Map<String, dynamic>) continue;
+      final dataMap = raw;
+      if (dataMap['isBanned'] == true) continue;
+      final startTimestamp = dataMap['shift_start'] as Timestamp?;
+      if (startTimestamp == null) continue;
+      final start = startTimestamp.toDate();
+      if (!_isDateInRange(start, startDate, endDate)) continue;
+      if (s.id == fid) return s;
+    }
+    for (final s in shifts) {
+      final raw = s.data();
+      if (raw == null || raw is! Map<String, dynamic>) continue;
+      final dataMap = raw;
+      if (dataMap['isBanned'] == true) continue;
+      final startTimestamp = dataMap['shift_start'] as Timestamp?;
+      if (startTimestamp == null) continue;
+      final start = startTimestamp.toDate();
+      if (!_isDateInRange(start, startDate, endDate)) continue;
+      if (fid.length >= 8 &&
+          s.id.length >= 8 &&
+          s.id.endsWith(fid.substring(fid.length - 8))) {
+        return s;
+      }
+    }
+    return null;
+  }
+
+  static bool _shiftDocIsMissed(QueryDocumentSnapshot shift) {
+    final raw = shift.data();
+    if (raw is! Map<String, dynamic>) return false;
+    final st = raw['status'] ?? 'scheduled';
+    return st.toString() == 'missed';
+  }
+
+  static void _annotateTeachingFormAcceptanceKinds(
+    List<Map<String, dynamic>> detailed,
+    Set<String> proofFormIds,
+    Set<String> missedShiftExemptFormIds,
+  ) {
+    for (final m in detailed) {
+      final id = (m['id'] as String? ?? '').trim();
+      if (id.isEmpty) continue;
+      if (missedShiftExemptFormIds.contains(id)) {
+        m['acceptanceKind'] = 'missed_shift_linked';
+      } else if (proofFormIds.contains(id)) {
+        m['acceptanceKind'] = 'timesheet_linked';
+      } else {
+        m['acceptanceKind'] = 'weekly_or_monthly';
+      }
+    }
+  }
+
+  static String _compactResponseHaystackForClassification(
+    Map<String, dynamic> responses, {
+    int maxChars = 2500,
+  }) {
+    final buf = StringBuffer();
+    for (final e in responses.entries) {
+      buf.write('${e.key} ${e.value} ');
+      if (buf.length >= maxChars) break;
+    }
+    return buf.toString().toLowerCase();
+  }
+
+  /// Prefer multi-word phrases; avoid bare `exam` / `task` (false positives).
+  static bool _haystackLooksNonTeaching(String haystack) {
+    const phrases = <String>[
+      'student assessment',
+      'students assessment',
+      'grade form',
+      'formulaire d\'évaluation',
+      '/grade form',
+      'monthly quiz',
+      'homework',
+      'devoir maison',
+      'formulaire de devoir',
+      'formulaire de quiz',
+      'assignment form',
+      'quiz form',
+      'if this is an assignment',
+      'this is an assignment',
+      'type n/a if',
+      'midterm',
+      'final exam',
+      'quiz score',
+      ' qcm ',
+      'rubric',
+      'penalty',
+      'leave request',
+      'excuse',
+    ];
+    if (phrases.any(haystack.contains)) return true;
+    if (haystack.contains('assignment') && haystack.contains('grade')) {
+      return true;
+    }
+    return false;
+  }
+
   /// **OPTIMIZATION 9: Simplified form processing with Class Day validation**
   static FormMetrics _processForms(
     List<QueryDocumentSnapshot> forms,
     List<QueryDocumentSnapshot> shifts,
+    List<QueryDocumentSnapshot> timesheets,
     DateTime startDate,
     DateTime endDate,
-    String yearMonth,
-  ) {
+    String yearMonth, {
+    Set<String> adminFormAcceptanceOverrideIds = const {},
+  }) {
     // Build shift lookup for validation (exclude banned shifts)
     final validShiftIds = <String>{};
     for (final shift in shifts) {
@@ -1110,11 +1719,25 @@ class TeacherAuditService {
       if (sid.length >= 8) validShiftIdSuffixes.add(sid.substring(sid.length - 8));
     }
 
+    final teachingForms = <QueryDocumentSnapshot>[];
+    final nonTeachingForms = <QueryDocumentSnapshot>[];
+
+    for (final form in forms) {
+      final data = form.data();
+      if (data == null) continue;
+      final dataMap = data as Map<String, dynamic>;
+      if (_isTeachingFormData(dataMap)) {
+        teachingForms.add(form);
+      } else {
+        nonTeachingForms.add(form);
+      }
+    }
+
     final validForms = <QueryDocumentSnapshot>[];
     int linkedFormsCount = 0;
     int unlinkedFormsCount = 0;
     
-    for (final form in forms) {
+    for (final form in teachingForms) {
       final data = form.data();
       if (data == null) continue;
       final dataMap = data as Map<String, dynamic>;
@@ -1131,22 +1754,69 @@ class TeacherAuditService {
       } else {
         // Unlinked form - use 5-day tolerance with Class Day validation
         // This VALIDATES (not includes from other months) that the form belongs to this month
-        if (_validateUnlinkedForm(form, startDate, endDate, yearMonth)) {
+        if (_validateUnlinkedForm(form, startDate, endDate, yearMonth) ||
+            adminFormAcceptanceOverrideIds.contains(form.id)) {
           validForms.add(form);
           unlinkedFormsCount++;
         }
       }
     }
     
+    final proofFormIds = _buildTimesheetProofFormIdSet(timesheets);
+    // Also check teaching_shifts for form_response_id (set by linkFormToShift
+    // when form is submitted from Forms screen without a timesheetId).
+    for (final shift in shifts) {
+      final raw = shift.data();
+      if (raw == null || raw is! Map<String, dynamic>) continue;
+      final frid = (raw['form_response_id']?.toString() ?? '').trim();
+      if (frid.isNotEmpty) proofFormIds.add(frid);
+    }
+
+    // Daily/legacy: require timesheet proof unless the form is tied to a [missed] shift
+    // (report filed for a class held on another day — no timesheet on the scheduled slot).
+    final afterTimesheetGate = <QueryDocumentSnapshot>[];
+    final rejectNoTimesheet = <QueryDocumentSnapshot>[];
+    final missedShiftExemptFormIds = <String>{};
+    for (final form in validForms) {
+      final dataRaw = form.data();
+      if (dataRaw == null) continue;
+      if (dataRaw is! Map<String, dynamic>) continue;
+      final dataMap = dataRaw;
+      if (_requiresTimesheetProofForTeachingAcceptance(dataMap)) {
+        if (proofFormIds.contains(form.id)) {
+          afterTimesheetGate.add(form);
+        } else {
+          final shiftDoc = _resolveShiftDocForFormShiftId(
+            dataMap['shiftId'] as String?,
+            shifts,
+            startDate,
+            endDate,
+          );
+          if (shiftDoc != null && _shiftDocIsMissed(shiftDoc)) {
+            afterTimesheetGate.add(form);
+            missedShiftExemptFormIds.add(form.id);
+          } else if (adminFormAcceptanceOverrideIds.contains(form.id)) {
+            afterTimesheetGate.add(form);
+          } else {
+            rejectNoTimesheet.add(form);
+          }
+        }
+      } else {
+        afterTimesheetGate.add(form);
+      }
+    }
+
     if (kDebugMode) {
-      AppLogger.debug('Form counting for $yearMonth: total forms=${forms.length}, linked=$linkedFormsCount, unlinked=$unlinkedFormsCount, valid=${validForms.length}');
+      AppLogger.debug(
+        'Form counting for $yearMonth: total forms=${forms.length}, teaching=${teachingForms.length}, nonTeaching=${nonTeachingForms.length}, linked=$linkedFormsCount, unlinked=$unlinkedFormsCount, valid=${validForms.length}, afterTimesheetGate=${afterTimesheetGate.length}, rejectNoTimesheet=${rejectNoTimesheet.length}',
+      );
     }
 
     // Deduplicate by shift: first form per shift counts as accepted, rest as rejected (duplicate)
     final acceptedForms = <QueryDocumentSnapshot>[];
     final duplicateForms = <QueryDocumentSnapshot>[];
     final seenShiftKeys = <String>{};
-    for (final form in validForms) {
+    for (final form in afterTimesheetGate) {
       final dataMap = form.data() as Map<String, dynamic>?;
       final shiftId = dataMap?['shiftId'] as String?;
       if (shiftId == null || shiftId.isEmpty) {
@@ -1166,19 +1836,52 @@ class TeacherAuditService {
     }
 
     final detailedForms = _buildDetailedForms(acceptedForms, shifts);
+    _annotateDetailedFormsTimesheetBacked(detailedForms, proofFormIds);
+    _annotateTeachingFormAcceptanceKinds(
+      detailedForms,
+      proofFormIds,
+      missedShiftExemptFormIds,
+    );
 
-    // Forms with no schedule: submitted in month but not linked and not validated
+    // Rejected: failed shift/unlinked validation, or passed shift but missing timesheet proof (daily/legacy)
     final validFormIds = validForms.map((f) => f.id).toSet();
-    final formsWithNoSchedule = forms.where((f) => !validFormIds.contains(f.id)).toList();
-    final detailedFormsNoSchedule = _buildDetailedForms(formsWithNoSchedule, shifts);
-    for (final m in detailedFormsNoSchedule) {
-      m['rejectionReason'] = 'no_shift';
+    final rejectNoShift =
+        teachingForms.where((f) => !validFormIds.contains(f.id)).toList();
+
+    final rejectedDocs = <QueryDocumentSnapshot>[
+      ...rejectNoShift,
+      ...rejectNoTimesheet,
+    ];
+    final rejectionByFormId = <String, String>{};
+    for (final f in rejectNoShift) {
+      rejectionByFormId[f.id] = 'no_shift';
+    }
+    for (final f in rejectNoTimesheet) {
+      rejectionByFormId[f.id] = 'no_timesheet';
     }
 
+    final detailedFormsNoSchedule = _buildDetailedForms(rejectedDocs, shifts);
+    for (final m in detailedFormsNoSchedule) {
+      final id = m['id'] as String?;
+      if (id != null) {
+        m['rejectionReason'] = rejectionByFormId[id] ?? 'no_shift';
+      }
+    }
+    _annotateDetailedFormsTimesheetBacked(detailedFormsNoSchedule, proofFormIds);
+
     final detailedFormsRejected = _buildDetailedForms(duplicateForms, shifts);
+    final detailedFormsNonTeaching = _buildDetailedForms(nonTeachingForms, shifts);
+
     for (final m in detailedFormsRejected) {
       m['rejectionReason'] = 'duplicate';
     }
+    _annotateDetailedFormsTimesheetBacked(detailedFormsRejected, proofFormIds);
+    _annotateTeachingFormAcceptanceKinds(
+      detailedFormsRejected,
+      proofFormIds,
+      missedShiftExemptFormIds,
+    );
+    _annotateDetailedFormsTimesheetBacked(detailedFormsNonTeaching, proofFormIds);
 
     // Calculate total hours from forms (sum of all duration fields)
     double totalFormHours = 0;
@@ -1198,6 +1901,7 @@ class TeacherAuditService {
       submitted: acceptedForms.length,
       required: 0, // Will be set by caller based on completed + missed
       detailedForms: detailedForms,
+      detailedFormsNonTeaching: detailedFormsNonTeaching,
       detailedFormsNoSchedule: detailedFormsNoSchedule,
       detailedFormsRejected: detailedFormsRejected,
       totalFormHours: totalFormHours,
@@ -1269,7 +1973,10 @@ class TeacherAuditService {
       // Recognize all form types: daily, weekly, monthly, onDemand, legacy
       final formType = data['formType'] as String? ?? 
                       (data['templateId'] != null ? 'daily' : 'legacy');
-      final formName = data['formName'] as String? ?? 'Unknown Form';
+      final formName = (data['formName'] as String?) ??
+          (data['formTitle'] as String?) ??
+          (data['title'] as String?) ??
+          'Unknown Form';
       
       // Use direct lookups with fallback (avoid multiple map lookups)
       final usedCurriculum = responses['used_curriculum'] ?? 
@@ -1285,6 +1992,7 @@ class TeacherAuditService {
       
       detailed.add({
         'id': form.id,
+        'formId': data['formId'],
         'shiftId': shiftId,
         'shiftTitle': shiftTitle,
         'submittedAt': data['submittedAt'] as Timestamp?,
@@ -1293,6 +2001,7 @@ class TeacherAuditService {
         'durationHours': formDurationHours,
         'formType': formType, // daily, weekly, monthly, onDemand, or legacy
         'formName': formName, // Human-readable form name
+        'templateId': data['templateId'],
         'formVersion': data['formVersion'] ?? data['version'] ?? 2,
         'usedCurriculum': usedCurriculum,
         'sessionQuality': sessionQuality,
@@ -1569,6 +2278,182 @@ class TeacherAuditService {
     return '${userData['first_name'] ?? ''} ${userData['last_name'] ?? ''}'.trim();
   }
 
+  static List<AuditFactor> _auditFactorsFromFirestoreData(dynamic raw) {
+    if (raw is! List) return [];
+    final out = <AuditFactor>[];
+    for (final e in raw) {
+      if (e is Map<String, dynamic>) {
+        out.add(AuditFactor.fromMap(e));
+      } else if (e is Map) {
+        out.add(AuditFactor.fromMap(Map<String, dynamic>.from(e)));
+      }
+    }
+    return out;
+  }
+
+  /// Append-only changelog rows for [AuditFactor] edits (matched by [AuditFactor.id]).
+  static List<Map<String, dynamic>> _buildAuditFactorChangeLogMaps({
+    required List<AuditFactor> oldFactors,
+    required List<AuditFactor> newFactors,
+    required String adminId,
+    required String adminName,
+    required String reason,
+  }) {
+    final oldById = {for (final f in oldFactors) f.id: f};
+    final entries = <Map<String, dynamic>>[];
+
+    void push(String factorId, String subField, dynamic oldV, dynamic newV) {
+      if (oldV == newV) return;
+      entries.add(
+        AuditChangeEntry(
+          field: 'auditFactor.$factorId.$subField',
+          oldValue: oldV,
+          newValue: newV,
+          reason: reason,
+          adminId: adminId,
+          adminName: adminName,
+          changedAt: DateTime.now(),
+        ).toMap(),
+      );
+    }
+
+    for (final nf in newFactors) {
+      final of = oldById[nf.id];
+      if (of == null) continue;
+      push(nf.id, 'rating', of.rating, nf.rating);
+      push(nf.id, 'outcome', of.outcome, nf.outcome);
+      push(nf.id, 'paycutRecommendation', of.paycutRecommendation, nf.paycutRecommendation);
+      push(nf.id, 'coachActionPlan', of.coachActionPlan, nf.coachActionPlan);
+      push(nf.id, 'mentorReview', of.mentorReview, nf.mentorReview);
+      push(nf.id, 'ceoReview', of.ceoReview, nf.ceoReview);
+      push(nf.id, 'isNotApplicable', of.isNotApplicable, nf.isNotApplicable);
+    }
+    return entries;
+  }
+
+  static String _signatureCoachLines(List<PaymentAdjustmentLine> lines) {
+    return lines
+        .map((e) =>
+            '${e.id}|${e.type}|${e.amount}|${e.reason}|${e.factorId ?? ''}')
+        .join('~');
+  }
+
+  static List<Map<String, dynamic>> _coachLinesChangeLogMaps({
+    required List<PaymentAdjustmentLine> oldLines,
+    required List<PaymentAdjustmentLine> newLines,
+    required String adminId,
+    required String adminName,
+    required String reason,
+  }) {
+    final o = _signatureCoachLines(oldLines);
+    final n = _signatureCoachLines(newLines);
+    if (o == n) return [];
+    return [
+      AuditChangeEntry(
+        field: 'paymentSummary.coachAdjustmentLines',
+        oldValue: o,
+        newValue: n,
+        reason: reason,
+        adminId: adminId,
+        adminName: adminName,
+        changedAt: DateTime.now(),
+      ).toMap(),
+    ];
+  }
+
+  static PaymentSummary? _mergePaymentSummaryAfterRegen(
+    PaymentSummary? computed,
+    PaymentSummary? previous,
+  ) {
+    if (computed == null) return previous;
+    if (previous == null) {
+      return computed.copyWith(totalNetPayment: computed.netAfterAdvances());
+    }
+    final m = computed.copyWith(
+      adminAdjustment: previous.adminAdjustment,
+      adjustmentReason: previous.adjustmentReason,
+      adminId: previous.adminId,
+      adjustedAt: previous.adjustedAt,
+      coachAdjustmentLines: previous.coachAdjustmentLines,
+      advancePayments: previous.advancePayments,
+    );
+    return m.copyWith(totalNetPayment: m.netAfterAdvances());
+  }
+
+  static TeacherAuditFull _mergeComputedAuditWithExisting({
+    required TeacherAuditFull computed,
+    required TeacherAuditFull existing,
+  }) {
+    final mergedPs =
+        _mergePaymentSummaryAfterRegen(computed.paymentSummary, existing.paymentSummary);
+    final overall = (computed.automaticScore * 0.6) + (existing.coachScore * 0.4);
+    final tier = _calculateTier(overall);
+    return TeacherAuditFull(
+      id: computed.id,
+      oderId: computed.oderId,
+      teacherEmail: computed.teacherEmail,
+      teacherName: computed.teacherName,
+      yearMonth: computed.yearMonth,
+      hoursTaughtBySubject: computed.hoursTaughtBySubject,
+      totalHoursTaught: computed.totalHoursTaught,
+      totalScheduledHours: computed.totalScheduledHours,
+      totalWorkedHours: computed.totalWorkedHours,
+      totalFormHours: computed.totalFormHours,
+      totalClassesScheduled: computed.totalClassesScheduled,
+      totalClassesCompleted: computed.totalClassesCompleted,
+      totalClassesMissed: computed.totalClassesMissed,
+      totalClassesCancelled: computed.totalClassesCancelled,
+      excusedAbsences: computed.excusedAbsences,
+      completionRate: computed.completionRate,
+      totalClockIns: computed.totalClockIns,
+      onTimeClockIns: computed.onTimeClockIns,
+      lateClockIns: computed.lateClockIns,
+      avgLatencyMinutes: computed.avgLatencyMinutes,
+      punctualityRate: computed.punctualityRate,
+      readinessFormsRequired: computed.readinessFormsRequired,
+      readinessFormsSubmitted: computed.readinessFormsSubmitted,
+      formComplianceRate: computed.formComplianceRate,
+      staffMeetingsScheduled: computed.staffMeetingsScheduled,
+      staffMeetingsMissed: computed.staffMeetingsMissed,
+      meetingLateArrivals: computed.meetingLateArrivals,
+      quizzesGiven: computed.quizzesGiven,
+      assignmentsGiven: computed.assignmentsGiven,
+      midtermCompleted: computed.midtermCompleted,
+      finalExamCompleted: computed.finalExamCompleted,
+      semesterProjectStatus: computed.semesterProjectStatus,
+      overdueTasks: computed.overdueTasks,
+      totalTasksAssigned: computed.totalTasksAssigned,
+      acknowledgedTasks: computed.acknowledgedTasks,
+      weeklyRecordingsSent: computed.weeklyRecordingsSent,
+      connecteamSignIns: computed.connecteamSignIns,
+      classRemindersSet: computed.classRemindersSet,
+      internetDropOffs: computed.internetDropOffs,
+      coachEvaluation: existing.coachEvaluation,
+      auditFactors: existing.auditFactors,
+      paymentSummary: mergedPs,
+      status: existing.status,
+      reviewChain: existing.reviewChain,
+      issues: computed.issues,
+      changeLog: existing.changeLog,
+      detailedShifts: computed.detailedShifts,
+      detailedTimesheets: computed.detailedTimesheets,
+      detailedForms: computed.detailedForms,
+      detailedFormsNonTeaching: computed.detailedFormsNonTeaching,
+      detailedFormsNoSchedule: computed.detailedFormsNoSchedule,
+      detailedFormsRejected: computed.detailedFormsRejected,
+      adminFormAcceptanceOverrides: existing.adminFormAcceptanceOverrides,
+      teacherAcknowledgedAt: existing.teacherAcknowledgedAt,
+      discussionChatId: existing.discussionChatId,
+      automaticScore: computed.automaticScore,
+      coachScore: existing.coachScore,
+      overallScore: overall,
+      performanceTier: tier,
+      lastUpdated: DateTime.now(),
+      periodStart: computed.periodStart,
+      periodEnd: computed.periodEnd,
+    );
+  }
+
   static double _calculateRate(int numerator, int denominator) {
     return denominator > 0 ? (numerator / denominator) * 100 : 100;
   }
@@ -1614,7 +2499,7 @@ class TeacherAuditService {
     double punctualityRate,
     double formCompliance,
   ) {
-    return (completionRate * 0.3) + (punctualityRate * 0.2) + (formCompliance * 0.15) + 35;
+    return (completionRate * 0.45) + (punctualityRate * 0.30) + (formCompliance * 0.25);
   }
 
   static String _calculateTier(double score) {
@@ -1955,7 +2840,7 @@ class TeacherAuditService {
       }
     }
 
-    return PaymentSummary(
+    final base = PaymentSummary(
       paymentsBySubject: paymentsBySubject,
       totalGrossPayment: totalGross,
       totalPenalties: totalPenalties,
@@ -1965,7 +2850,10 @@ class TeacherAuditService {
       adjustmentReason: '',
       adminId: '',
       shiftPaymentAdjustments: adjustmentsToApply,
+      coachAdjustmentLines: const [],
+      advancePayments: const [],
     );
+    return base.copyWith(totalNetPayment: base.netAfterAdvances());
   }
 
   /// Calculate payment: Total Hours × Hourly Rate = Payment (LEGACY - kept for fallback)
@@ -2085,7 +2973,7 @@ class TeacherAuditService {
       AppLogger.warning('⚠️ No hours found for payment calculation! hoursBySubject is empty.');
     }
 
-    return PaymentSummary(
+    final legacy = PaymentSummary(
       paymentsBySubject: paymentsBySubject,
       totalGrossPayment: totalGross,
       totalPenalties: totalPenalties,
@@ -2094,7 +2982,11 @@ class TeacherAuditService {
       adminAdjustment: 0,
       adjustmentReason: '',
       adminId: '',
+      shiftPaymentAdjustments: const {},
+      coachAdjustmentLines: const [],
+      advancePayments: const [],
     );
+    return legacy.copyWith(totalNetPayment: legacy.netAfterAdvances());
   }
 
   static TeacherAuditFull _buildAudit({
@@ -2115,6 +3007,10 @@ class TeacherAuditService {
     required String tier,
     required PaymentSummary paymentSummary,
     required List<AuditIssue> issues,
+    int overdueTasks = 0,
+    int totalTasksAssigned = 0,
+    int acknowledgedTasks = 0,
+    int excusedAbsences = 0,
   }) {
     return TeacherAuditFull(
       id: '${teacherId}_$yearMonth',
@@ -2133,6 +3029,7 @@ class TeacherAuditService {
       totalClassesCompleted: shiftMetrics.completed,
       totalClassesMissed: shiftMetrics.missed,
       totalClassesCancelled: shiftMetrics.cancelled,
+      excusedAbsences: excusedAbsences,
       completionRate: completionRate,
       totalClockIns: timesheetMetrics.total,
       onTimeClockIns: timesheetMetrics.onTime,
@@ -2150,7 +3047,9 @@ class TeacherAuditService {
       midtermCompleted: false,
       finalExamCompleted: false,
       semesterProjectStatus: 'Not started',
-      overdueTasks: 0,
+      overdueTasks: overdueTasks,
+      totalTasksAssigned: totalTasksAssigned,
+      acknowledgedTasks: acknowledgedTasks,
       weeklyRecordingsSent: 0,
       connecteamSignIns: timesheetMetrics.total,
       classRemindersSet: 0,
@@ -2161,6 +3060,7 @@ class TeacherAuditService {
       detailedShifts: shiftMetrics.detailedShifts,
       detailedTimesheets: timesheetMetrics.detailedTimesheets,
       detailedForms: formMetrics.detailedForms,
+      detailedFormsNonTeaching: formMetrics.detailedFormsNonTeaching,
       detailedFormsNoSchedule: formMetrics.detailedFormsNoSchedule,
       detailedFormsRejected: formMetrics.detailedFormsRejected,
       automaticScore: autoScore,
@@ -2258,6 +3158,136 @@ class TeacherAuditService {
     }
   }
 
+  /// Returns distinct yearMonths that have audits for a specific teacher.
+  static Future<List<String>> getAvailableYearMonthsForTeacher(String teacherId) async {
+    try {
+      final snapshot = await _firestore
+          .collection(_auditCollection)
+          .where('oderId', isEqualTo: teacherId)
+          .get();
+      final set = <String>{};
+      for (var doc in snapshot.docs) {
+        final ym = doc.data()['yearMonth'] as String?;
+        if (ym != null && ym.isNotEmpty) set.add(ym);
+      }
+      final list = set.toList()..sort((a, b) => b.compareTo(a));
+      return list;
+    } catch (e) {
+      AppLogger.error('Error getting available yearMonths for teacher: $e');
+      return [];
+    }
+  }
+
+  /// Get suggested factor scores from Bi-Weekly Coachees Performance form responses.
+  /// Returns a map of factor ID → suggested score (0-5). Only includes factors with data.
+  static Future<Map<String, int>> getFormSuggestedScores({
+    required String teacherName,
+    required String yearMonth,
+  }) async {
+    try {
+      // Query form_responses for the Bi-Weekly Coachees form
+      const biWeeklyTemplateId = '0Nsvp0FofwFKa67mNVBX';
+      final snapshot = await _firestore
+          .collection('form_responses')
+          .where('yearMonth', isEqualTo: yearMonth)
+          .get();
+
+      // Filter for the Bi-Weekly form and matching coachee name
+      Map<String, dynamic>? bestResponse;
+      DateTime? latestSubmission;
+
+      for (final doc in snapshot.docs) {
+        final data = doc.data();
+        final templateId = data['templateId'] as String? ?? data['formId'] as String? ?? '';
+        if (templateId != biWeeklyTemplateId) continue;
+
+        // The Coachee field (1754625964834) contains the teacher's name
+        final responses = data['responses'] as Map<String, dynamic>? ?? {};
+        final coachee = responses['1754625964834'] as String? ?? '';
+        if (!_nameMatches(coachee, teacherName)) continue;
+
+        final submittedAt = (data['submittedAt'] as Timestamp?)?.toDate();
+        if (latestSubmission == null || (submittedAt != null && submittedAt.isAfter(latestSubmission))) {
+          bestResponse = responses;
+          latestSubmission = submittedAt;
+        }
+      }
+
+      if (bestResponse == null) return {};
+
+      final scores = <String, int>{};
+
+      // Map form fields to factor scores
+      _mapDropdownScore(bestResponse, '1754648183894', 'quiz_goal', scores,
+          {'0': 0, '1 - 2': 2, '3 - 5': 4, '7 +': 5});
+      _mapDropdownScore(bestResponse, '1754648245467', 'assignment_goal', scores,
+          {'0': 0, '1': 2, '2': 3, '3-5': 4, '6 +': 5});
+      _mapDropdownScore(bestResponse, '1754646853504', 'readiness_comments', scores,
+          {'0': 0, '1': 2, '2-4': 3, '5-7': 5});
+      _mapDropdownScore(bestResponse, '1754647396475', 'readiness_accuracy', scores, {
+        'Yes - this teacher has no problem with it': 5,
+        'No - yes this teacher has a mismatch': 2,
+        'I am lazy to check it out': 0,
+        'I will check it out later': 1,
+      });
+      _mapDropdownScore(bestResponse, '1754647852703', 'attendance', scores,
+          {'0': 5, '1': 4, '2': 3, '3': 2, '4': 1, '5 +': 0});
+      _mapDropdownScore(bestResponse, '1754648121895', 'midterm', scores,
+          {'0': 0, '1': 3, '2': 4, '3 - 5': 5, '6 +': 5});
+      _mapDropdownScore(bestResponse, '1754648359902', 'exam', scores,
+          {'0': 0, '1': 3, '2': 4, '3': 5});
+      _mapDropdownScore(bestResponse, '1754647920053', 'student_attendance', scores, {
+        'Yes - 100% attended': 5,
+        'Just > 50% attended': 3,
+        'Just < 50% attended': 1,
+        'No - 0% attended': 0,
+      });
+
+      return scores;
+    } catch (e) {
+      AppLogger.error('Error getting form suggested scores: $e');
+      return {};
+    }
+  }
+
+  /// Helper: map a dropdown form response value to a factor score
+  static void _mapDropdownScore(
+    Map<String, dynamic> responses,
+    String fieldId,
+    String factorId,
+    Map<String, int> scores,
+    Map<String, int> valueMap,
+  ) {
+    final value = responses[fieldId] as String?;
+    if (value == null || value.isEmpty) return;
+    // Try exact match first, then prefix match for flexible dropdown values
+    if (valueMap.containsKey(value)) {
+      scores[factorId] = valueMap[value]!;
+    } else {
+      for (final entry in valueMap.entries) {
+        if (value.startsWith(entry.key) || entry.key.startsWith(value)) {
+          scores[factorId] = entry.value;
+          break;
+        }
+      }
+    }
+  }
+
+  /// Helper: fuzzy name matching (handles "Ustaz", "Ustadha" prefixes and partial matches)
+  static bool _nameMatches(String formValue, String teacherName) {
+    if (formValue.isEmpty || teacherName.isEmpty) return false;
+    final a = formValue.toLowerCase().trim();
+    final b = teacherName.toLowerCase().trim();
+    if (a == b) return true;
+    // Check if either contains the other (handles prefix variations)
+    if (a.contains(b) || b.contains(a)) return true;
+    // Check last-name match (split by space, compare last tokens)
+    final aParts = a.split(RegExp(r'\s+'));
+    final bParts = b.split(RegExp(r'\s+'));
+    if (aParts.length > 1 && bParts.length > 1 && aParts.last == bParts.last) return true;
+    return false;
+  }
+
   /// Load audits for multiple months (e.g. two months or custom range). Merges and sorts by yearMonth desc, then overallScore desc.
   static Future<List<TeacherAuditFull>> getAuditsForYearMonths({
     required List<String> yearMonths,
@@ -2294,32 +3324,219 @@ class TeacherAuditService {
     }
   }
 
+  // ════════════════════════════════════════════════════════════════════════
+  // AUDIT NOTIFICATIONS
+  // ════════════════════════════════════════════════════════════════════════
+
+  /// Write a notification doc when an audit moves to a teacher-visible state.
+  /// Doc ID = {auditId}_{status} prevents duplicates per audit/status pair.
+  static Future<void> _createAuditNotification({
+    required String auditId,
+    required String teacherId,
+    required String yearMonth,
+    required AuditStatus newStatus,
+  }) async {
+    try {
+      final docId = '${auditId}_${newStatus.name}';
+      await _firestore.collection('audit_notifications').doc(docId).set({
+        'auditId': auditId,
+        'teacherId': teacherId,
+        'yearMonth': yearMonth,
+        'newStatus': newStatus.name,
+        'read': false,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      await _trySendAuditPushFcm(
+        teacherId: teacherId,
+        auditId: auditId,
+        yearMonth: yearMonth,
+        newStatus: newStatus,
+      );
+      await _trySendAuditInAppChatMessage(
+        teacherId: teacherId,
+        auditId: auditId,
+        yearMonth: yearMonth,
+        newStatus: newStatus,
+      );
+    } catch (e) {
+      // Non-fatal: log but don't block the audit operation
+      AppLogger.error('Error creating audit notification: $e');
+    }
+  }
+
+  /// Short text for [chats/*/messages] so the teacher sees it under Recent Chats.
+  static String? _auditInAppChatBody(String yearMonth, AuditStatus newStatus) {
+    switch (newStatus) {
+      case AuditStatus.coachSubmitted:
+        return '📋 Monthly audit update\n'
+            'Your audit for $yearMonth is ready to review in My Report.';
+      case AuditStatus.ceoApproved:
+        return '📋 Monthly audit update\n'
+            'Your audit for $yearMonth passed CEO review.';
+      case AuditStatus.completed:
+        return '📋 Monthly audit update\n'
+            'Your audit for $yearMonth is finalized. View it in My Report.';
+      default:
+        return null;
+    }
+  }
+
+  /// In-app chat message (1:1) from the signed-in coach/admin to the teacher.
+  /// Uses the same [chats] collection as the rest of the messenger UI.
+  static Future<void> _trySendAuditInAppChatMessage({
+    required String teacherId,
+    required String auditId,
+    required String yearMonth,
+    required AuditStatus newStatus,
+  }) async {
+    if (teacherId.isEmpty) return;
+    final content = _auditInAppChatBody(yearMonth, newStatus);
+    if (content == null) return;
+
+    final user = _auth.currentUser;
+    if (user == null) {
+      AppLogger.warning(
+        '_trySendAuditInAppChatMessage: no signed-in user (auditId=$auditId)',
+      );
+      return;
+    }
+    if (user.uid == teacherId) return;
+
+    try {
+      final chat = ChatService();
+      // Same Firestore doc as "Recent Chats" / ensureAuditDiscussionChatId: create
+      // chats/{sortedUid1_uid2} first, then write the message into that thread.
+      final chatId = await chat.getOrCreateIndividualChat(teacherId);
+      final auditRef = _firestore.collection(_auditCollection).doc(auditId);
+      final auditSnap = await auditRef.get();
+      if (auditSnap.exists) {
+        final existing =
+            auditSnap.data()?['discussionChatId'] as String? ?? '';
+        if (existing.isEmpty) {
+          await auditRef.update({
+            'discussionChatId': chatId,
+            'lastUpdated': FieldValue.serverTimestamp(),
+          });
+        }
+      }
+      await chat.sendMessage(
+        chatId,
+        content,
+        metadata: <String, dynamic>{
+          'audit_notification': true,
+          'auditId': auditId,
+          'yearMonth': yearMonth,
+          'status': newStatus.name,
+        },
+      );
+    } catch (e, st) {
+      AppLogger.error(
+        'Audit in-app chat message failed: $e',
+        error: e,
+        stackTrace: st,
+      );
+    }
+  }
+
+  /// Best-effort FCM via Cloud Function (teacher devices).
+  static Future<void> _trySendAuditPushFcm({
+    required String teacherId,
+    required String auditId,
+    required String yearMonth,
+    required AuditStatus newStatus,
+  }) async {
+    if (teacherId.isEmpty) {
+      AppLogger.warning(
+        '_trySendAuditPushFcm: teacherId is empty, '
+        'skipping push (auditId=$auditId, yearMonth=$yearMonth)',
+      );
+      return;
+    }
+    try {
+      final callable = FirebaseFunctions.instanceFor(region: 'us-central1')
+          .httpsCallable('sendAuditNotification');
+      final result = await callable.call(<String, dynamic>{
+        'teacherId': teacherId,
+        'auditId': auditId,
+        'yearMonth': yearMonth,
+        'status': newStatus.name,
+      });
+      final payload = result.data;
+      if (payload is Map) {
+        final ok = payload['success'] == true;
+        if (!ok) {
+          AppLogger.warning(
+            'sendAuditNotification: ${payload['message'] ?? payload} '
+            '(teacherId=$teacherId auditId=$auditId)',
+          );
+        }
+      }
+    } catch (e, st) {
+      AppLogger.error(
+        'sendAuditNotification callable failed: $e',
+        error: e,
+        stackTrace: st,
+      );
+    }
+  }
+
+  /// Returns the count of unread audit notifications for a teacher.
+  static Future<int> getUnreadAuditNotificationCount(String teacherId) async {
+    final snapshot = await _firestore
+        .collection('audit_notifications')
+        .where('teacherId', isEqualTo: teacherId)
+        .where('read', isEqualTo: false)
+        .get();
+    return snapshot.docs.length;
+  }
+
+  /// Marks all unread audit notifications for a teacher as read.
+  static Future<void> markAuditNotificationsRead(String teacherId) async {
+    final snapshot = await _firestore
+        .collection('audit_notifications')
+        .where('teacherId', isEqualTo: teacherId)
+        .where('read', isEqualTo: false)
+        .get();
+    if (snapshot.docs.isEmpty) return;
+    final batch = _firestore.batch();
+    for (final doc in snapshot.docs) {
+      batch.update(doc.reference, {'read': true});
+    }
+    await batch.commit();
+  }
+
   // Admin methods remain unchanged
   static Future<bool> submitCoachEvaluation({
     required String auditId,
     required CoachEvaluation evaluation,
   }) async {
     try {
+      // Read current autoScore to compute blended overall in a single write
+      final doc = await _firestore.collection(_auditCollection).doc(auditId).get();
+      if (!doc.exists) return false;
+      final data = doc.data();
+      if (data == null) return false;
+
+      final autoScore = (data['automaticScore'] as num?)?.toDouble() ?? 0;
+      final overallScore = (autoScore * 0.6) + (evaluation.totalScore * 0.4);
+      final tier = _calculateTier(overallScore);
+
       await _firestore.collection(_auditCollection).doc(auditId).update({
         'coachEvaluation': evaluation.toMap(),
         'coachScore': evaluation.totalScore,
+        'overallScore': overallScore,
+        'performanceTier': tier,
         'status': AuditStatus.coachSubmitted.name,
         'lastUpdated': FieldValue.serverTimestamp(),
       });
 
-      final doc = await _firestore.collection(_auditCollection).doc(auditId).get();
-      if (doc.exists) {
-        final data = doc.data();
-        if (data != null) {
-          final autoScore = (data['automaticScore'] as num?)?.toDouble() ?? 0;
-          final overallScore = (autoScore * 0.6) + (evaluation.totalScore * 0.4);
+      await _createAuditNotification(
+        auditId: auditId,
+        teacherId: data['userId'] as String? ?? '',
+        yearMonth: data['yearMonth'] as String? ?? '',
+        newStatus: AuditStatus.coachSubmitted,
+      );
 
-          await doc.reference.update({
-            'overallScore': overallScore,
-            'performanceTier': _calculateTier(overallScore),
-          });
-        }
-      }
       return true;
     } catch (e) {
       AppLogger.error('Error submitting evaluation: $e');
@@ -2330,43 +3547,122 @@ class TeacherAuditService {
   static Future<bool> updateAuditFactors({
     required String auditId,
     required List<AuditFactor> factors,
+    List<PaymentAdjustmentLine>? coachPaymentAdjustmentLines,
   }) async {
     try {
-      final totalScore = factors.fold(0, (sum, f) => sum + f.rating);
-      final maxScore = factors.length * 9;
+      final docRef = _firestore.collection(_auditCollection).doc(auditId);
+      final doc = await docRef.get();
+      if (!doc.exists) return false;
+      final data = doc.data();
+      if (data == null) return false;
+
+      final oldFactors = _auditFactorsFromFirestoreData(data['auditFactors']);
+
+      final applicable =
+          factors.where((f) => !f.isNotApplicable).toList();
+      final totalScore =
+          applicable.fold(0, (sum, f) => sum + f.rating);
+      final maxScore = applicable.isEmpty ? 1 : applicable.length * 5;
       final percentageScore = (totalScore / maxScore) * 100;
-      
-      String tier;
-      if (totalScore < 100) {
-        tier = 'Unsatisfactory';
-      } else if (totalScore >= 130) {
-        tier = 'Excellent';
-      } else if (totalScore >= 115) {
-        tier = 'Good';
-      } else {
-        tier = 'Needs Improvement';
+
+      final autoScore = (data['automaticScore'] as num?)?.toDouble() ?? 0;
+      final overallScore = (autoScore * 0.6) + (percentageScore * 0.4);
+      final tier = _calculateTier(overallScore);
+
+      final user = _auth.currentUser;
+      var adminId = '';
+      var adminName = '';
+      if (user != null) {
+        adminId = user.uid;
+        final userDoc = await _firestore.collection('users').doc(user.uid).get();
+        adminName = userDoc.exists && userDoc.data() != null
+            ? _formatName(userDoc.data()!)
+            : (user.email ?? '');
       }
 
-      await _firestore.collection(_auditCollection).doc(auditId).update({
+      final changeMaps = adminId.isNotEmpty
+          ? _buildAuditFactorChangeLogMaps(
+              oldFactors: oldFactors,
+              newFactors: factors,
+              adminId: adminId,
+              adminName: adminName,
+              reason: 'Coach evaluation update',
+            )
+          : <Map<String, dynamic>>[];
+
+      PaymentSummary? prevPs;
+      if (data['paymentSummary'] is Map) {
+        prevPs = PaymentSummary.fromMap(
+            Map<String, dynamic>.from(data['paymentSummary'] as Map));
+      }
+
+      final coachLinesArg = coachPaymentAdjustmentLines;
+      if (coachLinesArg != null &&
+          adminId.isNotEmpty &&
+          (prevPs != null || coachLinesArg.isNotEmpty)) {
+        changeMaps.addAll(_coachLinesChangeLogMaps(
+          oldLines: prevPs?.coachAdjustmentLines ?? const [],
+          newLines: coachLinesArg,
+          adminId: adminId,
+          adminName: adminName,
+          reason: 'Coach evaluation update',
+        ));
+      }
+
+      final updatePayload = <String, dynamic>{
         'auditFactors': factors.map((f) => f.toMap()).toList(),
         'coachScore': percentageScore,
+        'overallScore': overallScore,
+        'performanceTier': tier,
         'status': AuditStatus.coachSubmitted.name,
         'lastUpdated': FieldValue.serverTimestamp(),
-      });
-
-      final doc = await _firestore.collection(_auditCollection).doc(auditId).get();
-      if (doc.exists) {
-        final data = doc.data();
-        if (data != null) {
-          final autoScore = (data['automaticScore'] as num?)?.toDouble() ?? 0;
-          final overallScore = (autoScore * 0.6) + (percentageScore * 0.4);
-
-          await doc.reference.update({
-            'overallScore': overallScore,
-            'performanceTier': tier,
-          });
+      };
+      if (coachLinesArg != null) {
+        if (prevPs != null) {
+          final next =
+              prevPs.copyWith(coachAdjustmentLines: coachLinesArg);
+          updatePayload['paymentSummary'] =
+              next.copyWith(totalNetPayment: next.netAfterAdvances()).toMap();
+        } else if (coachLinesArg.isNotEmpty) {
+          final stub = PaymentSummary(
+            paymentsBySubject: {},
+            totalGrossPayment: 0,
+            totalPenalties: 0,
+            totalBonuses: 0,
+            totalNetPayment: 0,
+            adminAdjustment: 0,
+            adjustmentReason: '',
+            adminId: adminId,
+          );
+          final next = stub.copyWith(coachAdjustmentLines: coachLinesArg);
+          updatePayload['paymentSummary'] =
+              next.copyWith(totalNetPayment: next.netAfterAdvances()).toMap();
         }
       }
+      if (changeMaps.isNotEmpty) {
+        updatePayload['changeLog'] = FieldValue.arrayUnion(changeMaps);
+      }
+
+      // Stamp coach on submit so Cloud Function can authorize FCM (coach user_type is "teacher").
+      if (user != null) {
+        final coachMap = data['coachEvaluation'] is Map
+            ? Map<String, dynamic>.from(data['coachEvaluation'] as Map)
+            : <String, dynamic>{};
+        coachMap['coachId'] = user.uid;
+        if (adminName.isNotEmpty) coachMap['coachName'] = adminName;
+        coachMap['evaluatedAt'] = Timestamp.fromDate(DateTime.now());
+        updatePayload['coachEvaluation'] = coachMap;
+      }
+
+      await docRef.update(updatePayload);
+
+      await _createAuditNotification(
+        auditId: auditId,
+        teacherId: data['userId'] as String? ?? '',
+        yearMonth: data['yearMonth'] as String? ?? '',
+        newStatus: AuditStatus.coachSubmitted,
+      );
+
       return true;
     } catch (e) {
       AppLogger.error('Error updating audit factors: $e');
@@ -2399,20 +3695,351 @@ class TeacherAuditService {
       final data = doc.data();
       if (data == null) return false;
       final paymentData = data['paymentSummary'] as Map<String, dynamic>? ?? {};
-      final currentNet = (paymentData['totalNetPayment'] as num?)?.toDouble() ?? 0;
+      final ps = PaymentSummary.fromMap(Map<String, dynamic>.from(paymentData));
+      final next = ps.copyWith(
+        adminAdjustment: adjustment,
+        adjustmentReason: reason,
+        adminId: user.uid,
+        adjustedAt: DateTime.now(),
+      );
+      final withNet = next.copyWith(totalNetPayment: next.netAfterAdvances());
 
       await doc.reference.update({
-        'paymentSummary.adminAdjustment': adjustment,
-        'paymentSummary.adjustmentReason': reason,
-        'paymentSummary.adminId': user.uid,
-        'paymentSummary.adjustedAt': FieldValue.serverTimestamp(),
-        'paymentSummary.totalNetPayment': currentNet + adjustment,
+        'paymentSummary': withNet.toMap(),
         'lastUpdated': FieldValue.serverTimestamp(),
       });
       return true;
     } catch (e) {
       AppLogger.error('Error updating payment: $e');
       return false;
+    }
+  }
+
+  /// Advance-payment template doc id in `form_responses.formId`.
+  static const String advancePaymentFormTemplateId = 'ILMi0ShOhMvL6UUvXGLO';
+
+  static double _parseAdvanceAmountFromResponses(Map<String, dynamic>? responses) {
+    if (responses == null || responses.isEmpty) return 0;
+    var best = 0.0;
+    for (final v in responses.values) {
+      if (v is num && v.toDouble() > best) best = v.toDouble();
+      if (v is String) {
+        final p = double.tryParse(v.replaceAll(RegExp(r'[^0-9.-]'), ''));
+        if (p != null && p > best) best = p;
+      }
+    }
+    return best;
+  }
+
+  /// Loads advance-payment form submissions for a teacher/month from Firestore.
+  static Future<List<AdvancePayment>> fetchAdvancePaymentSubmissions({
+    required String userId,
+    required String yearMonth,
+  }) async {
+    try {
+      final snap = await _firestore
+          .collection('form_responses')
+          .where('formId', isEqualTo: advancePaymentFormTemplateId)
+          .where('userId', isEqualTo: userId)
+          .where('yearMonth', isEqualTo: yearMonth)
+          .get();
+      final list = <AdvancePayment>[];
+      for (final d in snap.docs) {
+        final m = d.data();
+        final responses = m['responses'] is Map
+            ? Map<String, dynamic>.from(m['responses'] as Map)
+            : null;
+        final amt = _parseAdvanceAmountFromResponses(responses);
+        var submitted = DateTime.now();
+        final ts = m['submittedAt'] as Timestamp? ??
+            m['createdAt'] as Timestamp? ??
+            m['submitted_at'] as Timestamp?;
+        if (ts != null) submitted = ts.toDate();
+        list.add(AdvancePayment(
+          formResponseId: d.id,
+          amount: amt,
+          submittedAt: submitted,
+        ));
+      }
+      return list;
+    } catch (e) {
+      AppLogger.error('fetchAdvancePaymentSubmissions: $e');
+      return [];
+    }
+  }
+
+  /// Persists coach-confirmed advance rows into [paymentSummary.advancePayments] and refreshes net.
+  static Future<bool> syncAuditAdvancePayments({
+    required String auditId,
+    required List<AdvancePayment> advances,
+  }) async {
+    try {
+      final doc = await _firestore.collection(_auditCollection).doc(auditId).get();
+      if (!doc.exists) return false;
+      final data = doc.data();
+      if (data == null) return false;
+      final raw = data['paymentSummary'];
+      final PaymentSummary ps;
+      if (raw is Map) {
+        ps = PaymentSummary.fromMap(Map<String, dynamic>.from(raw));
+      } else {
+        if (advances.isEmpty) return true;
+        final user = _auth.currentUser;
+        ps = PaymentSummary(
+          paymentsBySubject: {},
+          totalGrossPayment: 0,
+          totalPenalties: 0,
+          totalBonuses: 0,
+          totalNetPayment: 0,
+          adminAdjustment: 0,
+          adjustmentReason: '',
+          adminId: user?.uid ?? '',
+        );
+      }
+      final next = ps.copyWith(advancePayments: advances);
+      final withNet = next.copyWith(totalNetPayment: next.netAfterAdvances());
+      await doc.reference.update({
+        'paymentSummary': withNet.toMap(),
+        'lastUpdated': FieldValue.serverTimestamp(),
+      });
+      return true;
+    } catch (e) {
+      AppLogger.error('syncAuditAdvancePayments: $e');
+      return false;
+    }
+  }
+
+  /// Teacher confirms they have read the payslip for [yearMonth].
+  static Future<bool> acknowledgeTeacherAuditForMonth(String yearMonth) async {
+    final user = _auth.currentUser;
+    if (user == null) return false;
+    final docId = '${user.uid}_$yearMonth';
+    try {
+      await _firestore.collection(_auditCollection).doc(docId).update({
+        'teacherAcknowledgedAt': FieldValue.serverTimestamp(),
+        'lastUpdated': FieldValue.serverTimestamp(),
+      });
+      return true;
+    } catch (e) {
+      AppLogger.error('acknowledgeTeacherAuditForMonth: $e');
+      return false;
+    }
+  }
+
+  /// Ensures a 1:1 chat exists with the teacher and stores its id on the audit doc.
+  static Future<String?> ensureAuditDiscussionChatId(String auditId) async {
+    try {
+      final doc = await _firestore.collection(_auditCollection).doc(auditId).get();
+      if (!doc.exists) return null;
+      final data = doc.data();
+      if (data == null) return null;
+      final existing = data['discussionChatId'] as String?;
+      if (existing != null && existing.isNotEmpty) return existing;
+      final teacherId = data['userId'] as String? ?? '';
+      if (teacherId.isEmpty) return null;
+      final chatService = ChatService();
+      final chatId = await chatService.getOrCreateIndividualChat(teacherId);
+      await doc.reference.update({
+        'discussionChatId': chatId,
+        'lastUpdated': FieldValue.serverTimestamp(),
+      });
+      return chatId;
+    } catch (e) {
+      AppLogger.error('ensureAuditDiscussionChatId: $e');
+      return null;
+    }
+  }
+
+  /// Re-runs the monthly metrics pipeline for one audit and merges coach/payment overrides.
+  static Future<bool> recomputeSingleAuditPreservingCoach(String auditId) async {
+    try {
+      final snap =
+          await _firestore.collection(_auditCollection).doc(auditId).get();
+      if (!snap.exists) return false;
+      final existing = TeacherAuditFull.fromFirestore(snap);
+      final yearMonth = existing.yearMonth;
+      final teacherId = existing.oderId;
+      final dates = _parseYearMonth(yearMonth);
+      final startDate = dates['start']!;
+      final endDate = dates['end']!;
+
+      final monthData = await _loadMonthDataParallel(startDate, endDate, yearMonth);
+
+      final repairCount = await _repairMissedShiftsWithTimesheetContradiction(
+        monthData.shifts,
+        monthData.timesheets,
+        startDate,
+        endDate,
+      );
+      var shiftsForPass = monthData.shifts;
+      if (repairCount > 0) {
+        shiftsForPass = await _fetchTeachingShiftsForAuditWindow(startDate, endDate);
+      }
+
+      final teacherCaches = _processMonthDataSinglePass(
+        shifts: shiftsForPass,
+        timesheets: monthData.timesheets,
+        forms: monthData.forms,
+        startDate: startDate,
+        endDate: endDate,
+      );
+
+      final cache = teacherCaches[teacherId];
+      if (cache == null) return false;
+
+      final userSnap = await _firestore.collection('users').doc(teacherId).get();
+      if (!userSnap.exists || userSnap.data() == null) return false;
+      final userData = userSnap.data()!;
+
+      var overdueTasks = 0;
+      var totalTasksAssigned = 0;
+      var acknowledgedTasks = 0;
+      for (final taskDoc in monthData.tasks.docs) {
+        final raw = taskDoc.data();
+        if (raw is! Map<String, dynamic>) continue;
+        final dataMap = raw;
+        final assignedTo =
+            (dataMap['assignedTo'] as List<dynamic>?)?.cast<String>() ?? [];
+        if (!assignedTo.contains(teacherId)) continue;
+        totalTasksAssigned++;
+        if (dataMap['firstOpenedAt'] != null) acknowledgedTasks++;
+        final status = dataMap['status'] as String? ?? 'todo';
+        final overdueDays =
+            (dataMap['overdueDaysAtCompletion'] as num?)?.toInt() ?? 0;
+        final isOverdue = (status != 'done') || (overdueDays > 0);
+        if (isOverdue) overdueTasks++;
+      }
+
+      final rates = await _getCachedSubjectRates();
+      final rateMap = {for (var r in rates) r.subjectName.toLowerCase(): r};
+
+      final overrideIds = existing.adminFormAcceptanceOverrides
+          .map((e) => e.formResponseId)
+          .toSet();
+
+      final computed = _buildAuditFromCache(
+        teacherId: teacherId,
+        userData: userData,
+        cache: cache,
+        yearMonth: yearMonth,
+        startDate: startDate,
+        endDate: endDate,
+        rateMap: rateMap,
+        overdueTasks: overdueTasks,
+        totalTasksAssigned: totalTasksAssigned,
+        acknowledgedTasks: acknowledgedTasks,
+        formAcceptanceOverrideIds: overrideIds,
+      );
+
+      final merged =
+          _mergeComputedAuditWithExisting(computed: computed, existing: existing);
+
+      await _firestore
+          .collection(_auditCollection)
+          .doc(auditId)
+          .set(merged.toMap());
+      return true;
+    } catch (e, st) {
+      AppLogger.error('recomputeSingleAuditPreservingCoach: $e');
+      if (kDebugMode) AppLogger.error('$st');
+      return false;
+    }
+  }
+
+  /// Append admin overrides then recompute metrics/payment (same pipeline as generation).
+  static Future<bool> appendAdminFormAcceptanceOverrides({
+    required String auditId,
+    required List<String> formResponseIds,
+    required String reason,
+  }) async {
+    final user = _auth.currentUser;
+    if (user == null || formResponseIds.isEmpty) return false;
+    try {
+      final doc = await _firestore.collection(_auditCollection).doc(auditId).get();
+      if (!doc.exists) return false;
+      final existing = TeacherAuditFull.fromFirestore(doc);
+      final userDoc = await _firestore.collection('users').doc(user.uid).get();
+      final adminName = userDoc.exists && userDoc.data() != null
+          ? _formatName(userDoc.data()!)
+          : (user.email ?? '');
+      final now = DateTime.now();
+      final byId = {
+        for (final o in existing.adminFormAcceptanceOverrides) o.formResponseId: o,
+      };
+      for (final id in formResponseIds) {
+        if (id.isEmpty) continue;
+        byId[id] = AdminFormAcceptanceOverride(
+          formResponseId: id,
+          reason: reason,
+          adminId: user.uid,
+          adminName: adminName,
+          acceptedAt: now,
+        );
+      }
+      final merged = byId.values.toList();
+      await doc.reference.update({
+        'adminFormAcceptanceOverrides': merged.map((e) => e.toMap()).toList(),
+        'lastUpdated': FieldValue.serverTimestamp(),
+      });
+      return recomputeSingleAuditPreservingCoach(auditId);
+    } catch (e) {
+      AppLogger.error('appendAdminFormAcceptanceOverrides: $e');
+      return false;
+    }
+  }
+
+  /// Edit a single audit field with append-only change tracking.
+  /// Returns the updated [TeacherAuditFull], or null on failure.
+  static Future<TeacherAuditFull?> editAuditField({
+    required String auditId,
+    required String field,
+    required dynamic newValue,
+    required String reason,
+  }) async {
+    try {
+      if (!TeacherAuditFull.editableFields.containsKey(field)) {
+        AppLogger.error('Field "$field" is not editable');
+        return null;
+      }
+
+      final user = _auth.currentUser;
+      if (user == null) return null;
+
+      final userDoc = await _firestore.collection('users').doc(user.uid).get();
+      final adminName = userDoc.exists && userDoc.data() != null
+          ? _formatName(userDoc.data()!)
+          : user.email ?? '';
+
+      final docRef = _firestore.collection(_auditCollection).doc(auditId);
+      final doc = await docRef.get();
+      if (!doc.exists) return null;
+
+      final data = doc.data();
+      if (data == null) return null;
+      final oldValue = data[field];
+
+      final changeEntry = AuditChangeEntry(
+        field: field,
+        oldValue: oldValue,
+        newValue: newValue,
+        reason: reason,
+        adminId: user.uid,
+        adminName: adminName,
+        changedAt: DateTime.now(),
+      ).toMap();
+
+      await docRef.update({
+        field: newValue,
+        'changeLog': FieldValue.arrayUnion([changeEntry]),
+        'lastUpdated': FieldValue.serverTimestamp(),
+      });
+
+      // Re-read to return the updated audit
+      final updated = await docRef.get();
+      return TeacherAuditFull.fromFirestore(updated);
+    } catch (e) {
+      AppLogger.error('Error editing audit field: $e');
+      return null;
     }
   }
 
@@ -2484,11 +4111,34 @@ class TeacherAuditService {
         newStatus = status == 'approved' ? AuditStatus.completed : AuditStatus.ceoApproved;
       }
 
+      final auditDoc = await _firestore.collection(_auditCollection).doc(auditId).get();
+      if (!auditDoc.exists || auditDoc.data() == null) return false;
+      final auditData = auditDoc.data()!;
+
       await _firestore.collection(_auditCollection).doc(auditId).update({
         fieldPath: review.toMap(),
         'status': newStatus.name,
         'lastUpdated': FieldValue.serverTimestamp(),
       });
+
+      // Notify teacher on forward-moving approvals only
+      if (status == 'approved') {
+        final yearMonth =
+            (auditData['yearMonth'] as String?)?.trim().isNotEmpty == true
+                ? (auditData['yearMonth'] as String).trim()
+                : auditId.substring(auditId.length - 7);
+        final teacherId =
+            (auditData['userId'] as String?)?.trim().isNotEmpty == true
+                ? (auditData['userId'] as String).trim()
+                : auditId.substring(0, auditId.length - 8);
+        await _createAuditNotification(
+          auditId: auditId,
+          teacherId: teacherId,
+          yearMonth: yearMonth,
+          newStatus: newStatus,
+        );
+      }
+
       return true;
     } catch (e) {
       AppLogger.error('Error submitting review: $e');
@@ -2680,18 +4330,27 @@ class TeacherAuditService {
       
       // Load current month data
       final monthData = await _loadMonthDataParallel(startDate, endDate, yearMonth);
-      
-      // Get user data
+
+      final repairCount = await _repairMissedShiftsWithTimesheetContradiction(
+        monthData.shifts,
+        monthData.timesheets,
+        startDate,
+        endDate,
+      );
+      var shiftsForPass = monthData.shifts;
+      if (repairCount > 0) {
+        shiftsForPass = await _fetchTeachingShiftsForAuditWindow(startDate, endDate);
+      }
+
       final userDoc = await _firestore.collection('users').doc(teacherId).get();
-      if (!userDoc.exists) {
+      if (!userDoc.exists || userDoc.data() == null) {
         AppLogger.error('User $teacherId not found');
         return;
       }
-      final userData = userDoc.data()!;
-      
+
       // Process data for this teacher
       final cache = _processMonthDataSinglePass(
-        shifts: monthData.shifts,
+        shifts: shiftsForPass,
         timesheets: monthData.timesheets,
         forms: monthData.forms,
         startDate: startDate,
@@ -2737,9 +4396,19 @@ class TeacherAuditService {
       final rates = await _getCachedSubjectRates();
       final rateMap = {for (var r in rates) r.subjectName.toLowerCase(): r};
       
+      final overrideIds = audit.adminFormAcceptanceOverrides
+          .map((e) => e.formResponseId)
+          .toSet();
       // Process form metrics to get detailedForms for payment calculation
-      final formMetrics = _processFormsFromCache(cache, cache.shifts, startDate, endDate, yearMonth);
-      
+      final formMetrics = _processFormsFromCache(
+        cache,
+        cache.shifts,
+        startDate,
+        endDate,
+        yearMonth,
+        adminFormAcceptanceOverrideIds: overrideIds,
+      );
+
       // Calculate new payment
       final issues = _identifyIssues(
         _processShiftsFromCache(cache, startDate, endDate),
@@ -2761,14 +4430,18 @@ class TeacherAuditService {
         rateMap,
         existingAdjustments: existingAdjustments,
       );
-      
-      // Update audit with new payment (preserving adjustments)
+
+      final prev = audit.paymentSummary;
+      final merged = _mergePaymentSummaryAfterRegen(newPaymentSummary, prev);
+      if (merged == null) return;
+
       await auditDoc.reference.update({
-        'paymentSummary': newPaymentSummary.toMap(),
+        'paymentSummary': merged.toMap(),
         'lastUpdated': FieldValue.serverTimestamp(),
       });
       
-      AppLogger.info('Audit payment recalculated: \$${newPaymentSummary.totalNetPayment.toStringAsFixed(2)} (was \$${audit.paymentSummary?.totalNetPayment.toStringAsFixed(2) ?? '0.00'})');
+      AppLogger.info(
+          'Audit payment recalculated: \$${merged.totalNetPayment.toStringAsFixed(2)} (was \$${audit.paymentSummary?.totalNetPayment.toStringAsFixed(2) ?? '0.00'})');
     } catch (e) {
       AppLogger.error('Error recalculating audit payment: $e');
       // Don't throw - payment recalculation is nice-to-have
@@ -2938,6 +4611,155 @@ class TeacherAuditService {
       return false;
     }
   }
+
+  // ── Incident forms (facts/findings + penalties) ────────────────────────
+
+  /// Template IDs for "Forms/Facts Finding & Complaints Report"
+  static const _factsTemplateIds = <String>{
+    '5aXUrmtZnRGC5lj0bx7a', // modern (v2, teacher-facing)
+    'BvssujZxYz2aAFlFvlYD',  // migrated (admin/coach-facing)
+    '6HO5uWfYM4bTPl1LvJee',  // legacy original
+  };
+
+  /// Template IDs for "Monthly Penalty/Repercussion Record"
+  static const _penaltyTemplateIds = <String>{
+    '9brFmSdi0AVOCkLteVef',  // modern
+    'KbVHEqepuiEMTmtqZyfe',  // legacy original
+  };
+
+  /// All incident-related template IDs combined.
+  static final _allIncidentTemplateIds = {
+    ..._factsTemplateIds,
+    ..._penaltyTemplateIds,
+  };
+
+  // ── Leave/excuse forms ─────────────────────────────────────────────────
+
+  /// Template IDs for "Excuse Form for teachers & leaders"
+  static const _excuseTemplateIds = <String>{
+    '6YBwJQoLQ5tNU3RjDp7f',  // form_templates collection
+    'lo88vXRPGQb5P0qhXUIU',  // form collection
+  };
+
+  /// Parse a date field that may be a Timestamp or ISO string.
+  static DateTime? _parseDateField(dynamic value) {
+    if (value is Timestamp) return value.toDate();
+    if (value is String && value.isNotEmpty) return DateTime.tryParse(value);
+    return null;
+  }
+
+  /// Field IDs that hold the "about whom" target in each form variant.
+  /// Facts/findings: "Who or what is this report/complaints ABOUT?"
+  /// Penalty: "Who is this record about"
+  static const _targetFieldIds = <String>[
+    '1754483634804',                    // facts (numeric)
+    'field_1767867991660_bj3z1iytn',    // facts (migrated) — "What (title, form, or name)..." used as fallback
+    '1754475455754',                    // penalty (numeric)
+    'field_1767867991695_l4j7a38xm',    // penalty (migrated)
+  ];
+
+  /// Query form_responses for facts/findings and penalty forms that reference
+  /// [teacherName] in the target month [yearMonth].
+  ///
+  /// Returns a list of structured maps with normalised keys:
+  /// `{type, formName, submittedBy, submittedAt, subject, description,
+  ///  repercussion, violationType, amountCut, rawResponses, formResponseId}`
+  static Future<List<Map<String, dynamic>>> getIncidentFormsForTeacher({
+    required String teacherName,
+    required String yearMonth,
+  }) async {
+    try {
+      final snapshot = await _firestore
+          .collection('form_responses')
+          .where('yearMonth', isEqualTo: yearMonth)
+          .get();
+
+      final results = <Map<String, dynamic>>[];
+
+      for (final doc in snapshot.docs) {
+        final data = doc.data();
+        final templateId = data['templateId'] as String? ?? data['formId'] as String? ?? '';
+        if (!_allIncidentTemplateIds.contains(templateId)) continue;
+
+        final responses = (data['responses'] as Map<String, dynamic>?) ?? {};
+
+        // Check if this form references the teacher
+        bool matched = false;
+        for (final fid in _targetFieldIds) {
+          final val = responses[fid];
+          if (val == null) continue;
+          // multi_select fields may be stored as List
+          final values = val is List ? val.map((e) => e.toString()).toList() : [val.toString()];
+          for (final v in values) {
+            if (_nameMatches(v, teacherName)) {
+              matched = true;
+              break;
+            }
+          }
+          if (matched) break;
+        }
+        if (!matched) continue;
+
+        final isFacts = _factsTemplateIds.contains(templateId);
+        final submittedAt = (data['submittedAt'] as Timestamp?)?.toDate();
+
+        results.add({
+          'formResponseId': doc.id,
+          'type': isFacts ? 'facts_finding' : 'penalty',
+          'formName': data['formName'] as String? ?? data['formTitle'] as String? ?? (isFacts ? 'Facts/Findings Report' : 'Penalty Record'),
+          'submittedByName': _extractSubmitterName(responses, isFacts),
+          'submittedAt': submittedAt,
+          // Facts-specific
+          if (isFacts) 'subject': responses['1754509820261'] ?? responses['field_1767867991660_bj3z1iytn'] ?? '',
+          if (isFacts) 'reportType': responses['1754483410122'] ?? '', // "Complaint" or "Just Awareness"
+          if (isFacts) 'description': responses['1754483696467'] ?? '',
+          if (isFacts) 'repercussion': responses['1754483719927'] ?? responses['field_1767867991660_repercussion'] ?? '',
+          if (isFacts) 'actionRequested': responses['1754483797967'] ?? '',
+          // Penalty-specific
+          if (!isFacts) 'violationType': _joinIfList(responses['1754475667927'] ?? responses['field_1767867991695_945jhc6x5']),
+          if (!isFacts) 'repercussionType': _joinIfList(responses['1754475806194'] ?? responses['field_1767867991695_wni5ptlfg']),
+          if (!isFacts) 'amountCut': responses['1754475889796'] ?? responses['field_1767867991695_sw37t2ixe'] ?? '',
+          if (!isFacts) 'description': responses['1754475990192'] ?? responses['field_1767867991695_po6uhi9wm'] ?? '',
+          if (!isFacts) 'occurrenceCount': _joinIfList(responses['1754475912785'] ?? responses['field_1767867991695_mlsxnx078']),
+          'rawResponses': responses,
+        });
+      }
+
+      // Sort by submittedAt descending
+      results.sort((a, b) {
+        final aDate = a['submittedAt'] as DateTime?;
+        final bDate = b['submittedAt'] as DateTime?;
+        if (aDate == null && bDate == null) return 0;
+        if (aDate == null) return 1;
+        if (bDate == null) return -1;
+        return bDate.compareTo(aDate);
+      });
+
+      return results;
+    } catch (e) {
+      AppLogger.error('Error fetching incident forms: $e');
+      return [];
+    }
+  }
+
+  /// Extract the submitter name from the form responses.
+  static String _extractSubmitterName(Map<String, dynamic> responses, bool isFacts) {
+    if (isFacts) {
+      // "Your Name" field
+      return (responses['1754483204692'] ?? responses['field_1767867991660_0wgh09dsf'] ?? '').toString();
+    } else {
+      // "Name of leader submitting this form" field
+      final val = responses['1754475387446'] ?? responses['field_1767867991695_uqof5ww88'];
+      return _joinIfList(val);
+    }
+  }
+
+  /// Join a value that may be a List into a comma-separated string.
+  static String _joinIfList(dynamic val) {
+    if (val == null) return '';
+    if (val is List) return val.map((e) => e.toString()).join(', ');
+    return val.toString();
+  }
 }
 
 /// **ULTRA-OPTIMIZATION: Teacher data cache for pre-computed metrics**
@@ -2951,6 +4773,7 @@ class _TeacherCache {
   int completed = 0;
   int missed = 0;
   int cancelled = 0;
+  int excused = 0;
   int totalClockIns = 0;
   double totalHours = 0;
   final Map<String, double> hoursBySubject = {};
@@ -2962,6 +4785,7 @@ class MonthData {
   final QuerySnapshot shifts;
   final QuerySnapshot timesheets;
   final QuerySnapshot forms;
+  final QuerySnapshot tasks;
   final QuerySnapshot users;
   final DateTime startDate;
   final DateTime endDate;
@@ -2971,6 +4795,7 @@ class MonthData {
     required this.shifts,
     required this.timesheets,
     required this.forms,
+    required this.tasks,
     required this.users,
     required this.startDate,
     required this.endDate,
@@ -3068,6 +4893,7 @@ class ShiftMetrics {
   final int completed;
   final int missed;
   final int cancelled;
+  final int excused;
   final Map<String, double> hoursBySubject; // Scheduled hours by subject
   final double totalHours; // Total scheduled hours
   final List<Map<String, dynamic>> detailedShifts;
@@ -3082,6 +4908,7 @@ class ShiftMetrics {
     required this.completed,
     required this.missed,
     required this.cancelled,
+    this.excused = 0,
     required this.hoursBySubject,
     required this.totalHours,
     required this.detailedShifts,
@@ -3113,6 +4940,8 @@ class FormMetrics {
   final int submitted;
   int required;
   final List<Map<String, dynamic>> detailedForms;
+  /// Non-teaching forms (assignments/quizzes/assessments/etc.).
+  final List<Map<String, dynamic>> detailedFormsNonTeaching;
   /// Forms submitted in the month but with no schedule associated (not linked, not validated).
   /// Each map may include 'rejectionReason': 'no_shift'.
   final List<Map<String, dynamic>> detailedFormsNoSchedule;
@@ -3125,6 +4954,7 @@ class FormMetrics {
     required this.submitted,
     this.required = 0,
     required this.detailedForms,
+    this.detailedFormsNonTeaching = const [],
     this.detailedFormsNoSchedule = const [],
     this.detailedFormsRejected = const [],
     this.totalFormHours = 0,

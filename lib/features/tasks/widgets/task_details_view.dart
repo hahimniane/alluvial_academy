@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../../../core/enums/task_enums.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../models/task.dart';
 import '../services/task_service.dart';
@@ -21,10 +24,15 @@ class TaskDetailsView extends StatefulWidget {
   final Task task;
   final VoidCallback onTaskUpdated;
 
+  /// Resolved display names from the task list screen (`uid` / doc id → name).
+  /// When provided, labels show immediately instead of waiting on Firestore.
+  final Map<String, String> userDisplayNames;
+
   const TaskDetailsView({
     super.key,
     required this.task,
     required this.onTaskUpdated,
+    this.userDisplayNames = const {},
   });
 
   @override
@@ -46,6 +54,8 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
   late Task _currentTask;
   String? _assignedByName;
   List<String> _assignedToNames = [];
+  Timer? _parentCachePollTimer;
+  StreamSubscription<DocumentSnapshot>? _taskDocSub;
 
   @override
   void initState() {
@@ -54,7 +64,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
     _currentTask = widget.task;
 
     _animationController = AnimationController(
-      duration: const Duration(milliseconds: 500),
+      duration: const Duration(milliseconds: 180),
       vsync: this,
     );
 
@@ -63,72 +73,489 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
     );
 
     _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.3),
+      begin: const Offset(0, 0.06),
       end: Offset.zero,
     ).animate(CurvedAnimation(
       parent: _animationController,
-      curve: Curves.easeOutBack,
+      curve: Curves.easeOut,
     ));
+
+    _seedFromParentNameCache();
 
     _animationController.forward();
 
-    // Resolve user IDs to display names
+    // Fill any names still missing (cache hit avoids network for list-known users)
     _resolveUserNames();
+
+    _startParentCachePoll();
+
+    _taskService.recordTaskDetailViewed(widget.task.id);
+
+    if (_isCurrentUserTaskCreator(_currentTask)) {
+      _taskDocSub = FirebaseFirestore.instance
+          .collection('tasks')
+          .doc(widget.task.id)
+          .snapshots()
+          .listen((snap) {
+        if (!mounted || !snap.exists) return;
+        final fresh = Task.fromFirestore(snap);
+        setState(() {
+          _currentTask = _currentTask.copyWith(
+            firstOpenedAt: fresh.firstOpenedAt,
+            firstViewedAt: fresh.firstViewedAt,
+            assigneeFirstOpenedAt: fresh.assigneeFirstOpenedAt,
+          );
+        });
+      });
+    }
+  }
+
+  bool _isCurrentUserTaskCreator(Task task) {
+    final u = FirebaseAuth.instance.currentUser;
+    if (u == null) return false;
+    final c = task.createdBy.trim();
+    if (c.isEmpty) return false;
+    if (c == u.uid.trim()) return true;
+    final em = u.email?.trim().toLowerCase();
+    if (em != null && c.contains('@') && c.trim().toLowerCase() == em) {
+      return true;
+    }
+    return false;
+  }
+
+  Timestamp? _firstTimestampForAssigneeSlot(
+    Map<String, Timestamp> map,
+    String assigneeSlot,
+  ) {
+    if (map.isEmpty) return null;
+    final a = assigneeSlot.trim();
+    if (a.isEmpty) return null;
+    final direct = map[a];
+    if (direct != null) return direct;
+    final lower = a.toLowerCase();
+    for (final e in map.entries) {
+      if (e.key.toLowerCase() == lower) return e.value;
+    }
+    return null;
+  }
+
+  /// Parent screen may still be resolving ids into [userDisplayNames] after open.
+  void _startParentCachePoll() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (_mergeParentCacheIntoFields()) {
+        setState(() {});
+      }
+    });
+    var ticks = 0;
+    _parentCachePollTimer?.cancel();
+    _parentCachePollTimer =
+        Timer.periodic(const Duration(milliseconds: 400), (t) {
+      if (!mounted) {
+        t.cancel();
+        return;
+      }
+      ticks++;
+      if (ticks > 16) {
+        t.cancel();
+        return;
+      }
+      if (!_mergeParentCacheIntoFields()) {
+        if (!_anyDisplayNameMissing()) {
+          t.cancel();
+        }
+        return;
+      }
+      setState(() {});
+    });
+  }
+
+  bool _anyDisplayNameMissing() {
+    final cb = widget.task.createdBy.trim();
+    if (cb.isNotEmpty &&
+        (_assignedByName == null || _assignedByName!.trim().isEmpty)) {
+      return true;
+    }
+    final ids = widget.task.assignedTo
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
+    if (ids.length != _assignedToNames.length) return true;
+    for (var i = 0; i < ids.length; i++) {
+      if (_assignedToNames[i].trim().isEmpty) return true;
+    }
+    return false;
+  }
+
+  /// Returns true if any field was updated from [userDisplayNames].
+  bool _mergeParentCacheIntoFields() {
+    var changed = false;
+    final cb = widget.task.createdBy.trim();
+    if (cb.isNotEmpty &&
+        (_assignedByName == null || _assignedByName!.trim().isEmpty)) {
+      final v = _lookupCachedName(cb);
+      if (v != null) {
+        _assignedByName = v;
+        changed = true;
+      }
+    }
+    final ids = widget.task.assignedTo
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
+    if (ids.isEmpty) return changed;
+    if (_assignedToNames.length != ids.length) {
+      return changed;
+    }
+    for (var i = 0; i < ids.length; i++) {
+      if (_assignedToNames[i].trim().isNotEmpty) continue;
+      final v = _lookupCachedName(ids[i]);
+      if (v != null) {
+        _assignedToNames[i] = v;
+        changed = true;
+      }
+    }
+    return changed;
+  }
+
+  static bool _isReliableDisplayName(String? v) {
+    if (v == null || v.trim().isEmpty) return false;
+    if (v == 'Loading...' || v == '...') return false;
+    return true;
+  }
+
+  /// Cache keys may not match task ids exactly (casing, spacing, email vs uid).
+  String? _lookupCachedName(String rawId) {
+    final id = rawId.trim();
+    if (id.isEmpty) return null;
+    final c = widget.userDisplayNames;
+    for (final key in [id, id.toLowerCase()]) {
+      final v = c[key];
+      if (_isReliableDisplayName(v)) return v;
+    }
+    final idLower = id.toLowerCase();
+    for (final e in c.entries) {
+      if (e.key.trim().toLowerCase() == idLower &&
+          _isReliableDisplayName(e.value)) {
+        return e.value;
+      }
+    }
+    return null;
+  }
+
+  /// Pre-fill from [userDisplayNames] so the modal matches the list without waiting.
+  void _seedFromParentNameCache() {
+    final cb = widget.task.createdBy.trim();
+    if (cb.isNotEmpty) {
+      final v = _lookupCachedName(cb);
+      if (v != null) {
+        _assignedByName = v;
+      }
+    }
+    final ids = widget.task.assignedTo
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
+    if (ids.isEmpty) {
+      _assignedToNames = [];
+      return;
+    }
+    _assignedToNames = ids
+        .map((id) {
+          final v = _lookupCachedName(id);
+          return v ?? '';
+        })
+        .toList();
+  }
+
+  /// Resolves a user reference (UID, email, or legacy doc id) to a display string.
+  /// Matches [QuickTasksScreen._fetchUserNameIfMissing] fallbacks so task rows and
+  /// this modal stay consistent when `users` docs are not keyed by Firebase UID.
+  Future<String> _fetchUserDisplayName(
+    String userRef,
+    String unknownLabel,
+  ) async {
+    if (userRef.isEmpty) return unknownLabel;
+    try {
+      DocumentSnapshot<Map<String, dynamic>>? doc;
+
+      final direct =
+          await FirebaseFirestore.instance.collection('users').doc(userRef).get();
+      if (direct.exists) {
+        doc = direct;
+      } else {
+        final byUidField = await FirebaseFirestore.instance
+            .collection('users')
+            .where('uid', isEqualTo: userRef)
+            .limit(1)
+            .get();
+        if (byUidField.docs.isNotEmpty) {
+          doc = byUidField.docs.first;
+        }
+      }
+
+      final emailLower = userRef.trim().toLowerCase();
+      if (doc == null && userRef.contains('@')) {
+        final byEmailId =
+            await FirebaseFirestore.instance.collection('users').doc(emailLower).get();
+        if (byEmailId.exists) {
+          doc = byEmailId;
+        }
+      }
+      if (doc == null && userRef.contains('@')) {
+        final byEmailField = await FirebaseFirestore.instance
+            .collection('users')
+            .where('e-mail', isEqualTo: emailLower)
+            .limit(1)
+            .get();
+        if (byEmailField.docs.isNotEmpty) {
+          doc = byEmailField.docs.first;
+        }
+      }
+
+      if (doc == null || !doc.exists) {
+        return unknownLabel;
+      }
+
+      final d = doc.data()!;
+      final fullName =
+          '${(d['first_name'] ?? '').toString().trim()} ${(d['last_name'] ?? '').toString().trim()}'
+              .trim();
+      if (fullName.isNotEmpty) return fullName;
+
+      final email = (d['e-mail'] ?? d['email'] ?? '').toString();
+      if (email.isNotEmpty) {
+        if (email.contains('@')) {
+          final emailParts = email.split('@')[0].split('.');
+          return emailParts
+              .map((s) => s.isEmpty ? '' : '${s[0].toUpperCase()}${s.substring(1)}')
+              .join(' ');
+        }
+        return email;
+      }
+
+      final dn = (d['displayName'] ?? d['name'] ?? '').toString().trim();
+      if (dn.isNotEmpty) return dn;
+
+      return userRef.length > 12 ? '${userRef.substring(0, 12)}…' : userRef;
+    } catch (_) {
+      return unknownLabel;
+    }
   }
 
   Future<void> _resolveUserNames() async {
-    try {
-      // Resolve Assigned By
-      if (widget.task.createdBy.isNotEmpty) {
-        final creatorDoc = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(widget.task.createdBy)
-            .get();
-        if (creatorDoc.exists) {
-          final data = creatorDoc.data() as Map<String, dynamic>;
-          final fullName =
-              '${(data['first_name'] ?? '').toString().trim()} ${(data['last_name'] ?? '').toString().trim()}'
-                  .trim();
-          if (mounted)
-            setState(() => _assignedByName =
-                fullName.isNotEmpty
-                    ? fullName
-                    : (data['e-mail'] ?? AppLocalizations.of(context)!.commonUnknown));
-        }
-      }
+    if (!mounted) return;
+    final unknown = AppLocalizations.of(context)!.commonUnknownUser;
 
-      // Resolve Assigned To (list of user IDs)
-      if (widget.task.assignedTo.isNotEmpty) {
-        final List<Future<String>> futures =
-            widget.task.assignedTo.map<Future<String>>((uid) async {
-          try {
-            final doc = await FirebaseFirestore.instance
-                .collection('users')
-                .doc(uid)
-                .get();
-            if (doc.exists) {
-              final d = doc.data() as Map<String, dynamic>;
-              final fullName =
-                  '${(d['first_name'] ?? '').toString().trim()} ${(d['last_name'] ?? '').toString().trim()}'
-                      .trim();
-              return fullName.isNotEmpty
-                  ? fullName
-                  : (d['e-mail']?.toString() ?? uid);
-            }
-          } catch (_) {}
-          return uid; // fallback
-        }).toList();
+    // Do not use a single Future.wait without catchError — one failing future would
+    // cancel waiting and could leave names stuck on "Loading…".
+    Future<void> safe(Future<void> f) =>
+        f.catchError((Object _, StackTrace __) {});
 
-        final List<String> names = await Future.wait<String>(futures);
-        if (mounted) {
-          setState(() => _assignedToNames = List<String>.from(names));
-        }
+    await Future.wait<void>([
+      safe(_resolveCreatedByDisplay(unknown)),
+      safe(_resolveAssignedToDisplay(unknown)),
+    ]);
+  }
+
+  Future<void> _resolveCreatedByDisplay(String unknownLabel) async {
+    final id = widget.task.createdBy.trim();
+    if (id.isEmpty) return;
+    if (_assignedByName != null && _assignedByName!.trim().isNotEmpty) {
+      return;
+    }
+    final cached = _lookupCachedName(id);
+    if (cached != null) {
+      if (mounted) setState(() => _assignedByName = cached);
+      return;
+    }
+    final name = await _fetchUserDisplayName(id, unknownLabel).timeout(
+      const Duration(seconds: 12),
+      onTimeout: () => unknownLabel,
+    );
+    if (mounted) setState(() => _assignedByName = name);
+  }
+
+  Future<void> _resolveAssignedToDisplay(String unknownLabel) async {
+    final ids = widget.task.assignedTo
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
+    if (ids.isEmpty) {
+      if (mounted) setState(() => _assignedToNames = []);
+      return;
+    }
+    var names = List<String>.from(_assignedToNames);
+    if (names.length != ids.length) {
+      names = List.generate(
+        ids.length,
+        (i) => i < names.length ? names[i] : '',
+      );
+    }
+    // Re-apply cache in case the parent map was filled after seed (same reference).
+    for (var i = 0; i < ids.length; i++) {
+      if (names[i].trim().isNotEmpty) continue;
+      final hit = _lookupCachedName(ids[i]);
+      if (hit != null) names[i] = hit;
+    }
+
+    final pending = <int>[];
+    for (var i = 0; i < ids.length; i++) {
+      if (names[i].trim().isEmpty) pending.add(i);
+    }
+    if (pending.isNotEmpty) {
+      await Future.wait(pending.map((i) async {
+        names[i] = await _fetchUserDisplayName(ids[i], unknownLabel).timeout(
+          const Duration(seconds: 12),
+          onTimeout: () => unknownLabel,
+        );
+      }));
+    }
+    for (var i = 0; i < ids.length; i++) {
+      if (names[i].trim().isEmpty) {
+        final hit = _lookupCachedName(ids[i]);
+        if (hit != null) names[i] = hit;
       }
-    } catch (_) {}
+      if (names[i].trim().isEmpty) {
+        names[i] = unknownLabel;
+      }
+    }
+    if (mounted) setState(() => _assignedToNames = names);
+  }
+
+  String _formatAssigneesLine() {
+    final l10n = AppLocalizations.of(context)!;
+    final ids = widget.task.assignedTo
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
+    if (ids.isEmpty) return l10n.taskUnassigned;
+    if (_assignedToNames.length != ids.length) {
+      return l10n.commonLoading;
+    }
+    final parts = <String>[];
+    for (var i = 0; i < ids.length; i++) {
+      var n = _assignedToNames[i].trim();
+      if (n.isEmpty) {
+        n = _lookupCachedName(ids[i])?.trim() ?? '';
+      }
+      parts.add(
+        n.isNotEmpty ? n : l10n.commonLoading,
+      );
+    }
+    return parts.join(', ');
+  }
+
+  String _creatorDisplayLine() {
+    final l10n = AppLocalizations.of(context)!;
+    final id = widget.task.createdBy.trim();
+    if (id.isEmpty) return l10n.commonUnknown;
+    final resolved = _assignedByName?.trim();
+    if (resolved != null && resolved.isNotEmpty) {
+      return resolved;
+    }
+    final cached = _lookupCachedName(id);
+    if (cached != null) return cached;
+    return l10n.commonLoading;
+  }
+
+  Widget _buildCreatorAssigneeOpenSection() {
+    final l10n = AppLocalizations.of(context)!;
+    final df = DateFormat.yMMMd().add_jm();
+    final map = _currentTask.assigneeFirstOpenedAt;
+    final ids = _currentTask.assignedTo
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xffECFDF5),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xffA7F3D0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.visibility_outlined,
+                  size: 18, color: Color(0xff047857)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  l10n.taskAssigneeOpenTrackingTitle,
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xff065F46),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (_currentTask.firstViewedAt != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              l10n.taskDetailFirstViewedAt(
+                df.format(_currentTask.firstViewedAt!.toDate()),
+              ),
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                color: const Color(0xff047857),
+              ),
+            ),
+          ],
+          if (ids.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            ...ids.map((id) {
+              final name = _lookupCachedName(id) ?? id;
+              final ts = _firstTimestampForAssigneeSlot(map, id);
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      flex: 2,
+                      child: Text(
+                        name,
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xff1E293B),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      flex: 3,
+                      child: Text(
+                        ts != null
+                            ? l10n.taskAssigneeOpenedAt(df.format(ts.toDate()))
+                            : l10n.taskAssigneeNotOpenedYet,
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: ts != null
+                              ? const Color(0xff047857)
+                              : const Color(0xff94A3B8),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ],
+        ],
+      ),
+    );
   }
 
   @override
   void dispose() {
+    _taskDocSub?.cancel();
+    _parentCachePollTimer?.cancel();
     _animationController.dispose();
     _notesController.dispose();
     super.dispose();
@@ -163,12 +590,12 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
 
   Widget _buildHeader() {
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.fromLTRB(14, 12, 6, 12),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
             _getStatusColor(_currentStatus),
-            _getStatusColor(_currentStatus).withOpacity(0.8),
+            _getStatusColor(_currentStatus).withOpacity(0.85),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -182,71 +609,84 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(
-                _getStatusIcon(_currentStatus),
-                color: Colors.white,
-                size: 28,
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Icon(
+                  _getStatusIcon(_currentStatus),
+                  color: Colors.white,
+                  size: 22,
+                ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   widget.task.title,
                   style: GoogleFonts.inter(
-                    fontSize: 22,
+                    fontSize: 15,
                     fontWeight: FontWeight.w700,
+                    height: 1.25,
                     color: Colors.white,
                   ),
+                  maxLines: 4,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-              // Edit button - allows editing and publishing drafts
               IconButton(
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
                 onPressed: () {
-                  Navigator.of(context).pop(); // Close details dialog
-                  // Open edit dialog
+                  Navigator.of(context).pop();
                   showDialog(
                     context: context,
                     builder: (context) => AddEditTaskDialog(
                       task: widget.task,
                     ),
                   ).then((_) {
-                    // Refresh task when dialog closes
                     widget.onTaskUpdated();
                   });
                 },
-                icon: const Icon(Icons.edit, color: Colors.white),
+                icon: const Icon(Icons.edit_outlined, color: Colors.white, size: 20),
                 tooltip: widget.task.isDraft ? 'Edit & Publish Draft' : 'Edit Task',
               ),
               IconButton(
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
                 onPressed: () => Navigator.of(context).pop(),
-                icon: const Icon(Icons.close, color: Colors.white),
+                icon: const Icon(Icons.close, color: Colors.white, size: 22),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          Row(
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               _buildStatusChip(_currentStatus),
-              const SizedBox(width: 12),
               _buildPriorityChip(widget.task.priority),
-              if (widget.task.isRecurring && widget.task.enhancedRecurrence.type != EnhancedRecurrenceType.none) ...[
-                const SizedBox(width: 12),
+              if (widget.task.isRecurring &&
+                  widget.task.enhancedRecurrence.type != EnhancedRecurrenceType.none)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.25),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.white.withOpacity(0.3)),
+                    color: Colors.white.withOpacity(0.22),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.white.withOpacity(0.35)),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.repeat, size: 14, color: Colors.white),
+                      const Icon(Icons.repeat, size: 12, color: Colors.white),
                       const SizedBox(width: 4),
                       Text(
                         AppLocalizations.of(context)!.recurring,
                         style: GoogleFonts.inter(
-                          fontSize: 12,
+                          fontSize: 11,
                           fontWeight: FontWeight.w600,
                           color: Colors.white,
                         ),
@@ -254,7 +694,6 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
                     ],
                   ),
                 ),
-              ],
             ],
           ),
         ],
@@ -264,23 +703,27 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
 
   Widget _buildBody() {
     return Padding(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
       child: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildInfoSection(),
-            const SizedBox(height: 24),
+            if (_isCurrentUserTaskCreator(_currentTask)) ...[
+              const SizedBox(height: 14),
+              _buildCreatorAssigneeOpenSection(),
+            ],
+            const SizedBox(height: 14),
             _buildDescriptionSection(),
-            const SizedBox(height: 24),
+            const SizedBox(height: 14),
             _buildAttachmentsSection(),
-            const SizedBox(height: 24),
+            const SizedBox(height: 14),
             _buildStatusUpdateSection(),
             if (_currentStatus != TaskStatus.todo) ...[
-              const SizedBox(height: 24),
+              const SizedBox(height: 14),
               _buildNotesSection(),
             ],
-            const SizedBox(height: 32),
+            const SizedBox(height: 20),
             TaskCommentsSection(task: _currentTask),
           ],
         ),
@@ -290,10 +733,10 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
 
   Widget _buildInfoSection() {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: const Color(0xffF8FAFC),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xffE2E8F0)),
       ),
       child: Column(
@@ -303,37 +746,29 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
             'Due Date',
             DateFormat('MMM dd, yyyy • h:mm a').format(widget.task.dueDate),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 10),
           _buildInfoRow(
             Icons.person,
             'Assigned To',
-            _assignedToNames.isEmpty
-                ? (widget.task.assignedTo.isEmpty
-                    ? AppLocalizations.of(context)!.taskUnassigned
-                    : AppLocalizations.of(context)!.commonLoading)
-                : _assignedToNames.join(', '),
+            _formatAssigneesLine(),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 10),
           _buildInfoRow(
             Icons.person_outline,
             'Assigned By',
-            (_assignedByName != null && _assignedByName!.isNotEmpty)
-                ? _assignedByName!
-                : (widget.task.createdBy.isNotEmpty
-                    ? AppLocalizations.of(context)!.commonLoading
-                    : AppLocalizations.of(context)!.commonUnknown),
+            _creatorDisplayLine(),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 10),
           _buildInfoRow(
             Icons.access_time,
             'Created',
             DateFormat('MMM dd, yyyy').format(widget.task.createdAt.toDate()),
           ),
-          // Recurrence Details Section
-          if (widget.task.isRecurring && widget.task.enhancedRecurrence.type != EnhancedRecurrenceType.none) ...[
-            const SizedBox(height: 16),
+          if (widget.task.isRecurring &&
+              widget.task.enhancedRecurrence.type != EnhancedRecurrenceType.none) ...[
+            const SizedBox(height: 10),
             const Divider(height: 1, color: Color(0xffE2E8F0)),
-            const SizedBox(height: 16),
+            const SizedBox(height: 10),
             _buildRecurrenceSection(),
           ],
         ],
@@ -425,7 +860,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
                       ),
                     ),
                   );
-                }).toList(),
+                }),
               ],
             ),
           ),
@@ -481,22 +916,27 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
     return _buildAttributeRow(
       icon: icon,
       label: label,
-      child: Text(value, style: ConnecteamStyle.cellText),
+      child: Text(
+        value,
+        style: ConnecteamStyle.cellText.copyWith(fontSize: 13, height: 1.35),
+      ),
     );
   }
 
   Widget _buildAttributeRow({required IconData icon, required String label, required Widget child}) {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, color: Colors.grey, size: 20),
-        const SizedBox(width: 12),
+        Icon(icon, color: Colors.grey[600], size: 18),
+        const SizedBox(width: 10),
         SizedBox(
-          width: 100,
+          width: 92,
           child: Text(
             label,
-            style: const TextStyle(
-              color: Colors.grey,
+            style: TextStyle(
+              color: Colors.grey[700],
               fontWeight: FontWeight.w500,
+              fontSize: 12,
             ),
           ),
         ),
@@ -512,15 +952,15 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
         Text(
           AppLocalizations.of(context)!.description,
           style: GoogleFonts.inter(
-            fontSize: 16,
+            fontSize: 14,
             fontWeight: FontWeight.w600,
             color: const Color(0xff1E293B),
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
         Container(
           width: double.infinity,
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: const Color(0xffF8FAFC),
             borderRadius: BorderRadius.circular(12),
@@ -859,7 +1299,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
   /// not allow Update Status / accept until the underlying application has a match.
   bool get _isNoMatchApplicationTask {
     final title = (widget.task.title).toLowerCase();
-    final desc = (widget.task.description ?? '').toLowerCase();
+    final desc = widget.task.description.toLowerCase();
     final isApplicationFormTask = title.contains('application form') ||
         title.contains('update application');
     final indicatesNoMatch = desc.contains('unable to');
@@ -873,7 +1313,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
         !_isNoMatchApplicationTask;
 
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
       decoration: const BoxDecoration(
         color: Color(0xffF8FAFC),
         borderRadius: BorderRadius.only(
@@ -888,7 +1328,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
               onPressed: () => Navigator.of(context).pop(),
               style: OutlinedButton.styleFrom(
                 side: const BorderSide(color: Color(0xffE2E8F0)),
-                padding: const EdgeInsets.symmetric(vertical: 16),
+                padding: const EdgeInsets.symmetric(vertical: 12),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -896,14 +1336,14 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
               child: Text(
                 AppLocalizations.of(context)!.commonCancel,
                 style: GoogleFonts.inter(
-                  fontSize: 16,
+                  fontSize: 14,
                   fontWeight: FontWeight.w600,
                   color: const Color(0xff64748B),
                 ),
               ),
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
           Expanded(
             flex: 2,
             child: Tooltip(
@@ -917,7 +1357,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
                     ? _getStatusColor(_currentStatus)
                     : const Color(0xffE2E8F0),
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
+                padding: const EdgeInsets.symmetric(vertical: 12),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -947,7 +1387,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
                               ? 'Submit Task'
                               : 'Update Status',
                           style: GoogleFonts.inter(
-                            fontSize: 16,
+                            fontSize: 14,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -963,15 +1403,15 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
 
   Widget _buildStatusChip(TaskStatus status) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.2),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
       ),
       child: Text(
         _getStatusLabel(status),
         style: GoogleFonts.inter(
-          fontSize: 12,
+          fontSize: 11,
           fontWeight: FontWeight.w600,
           color: Colors.white,
         ),
@@ -981,10 +1421,10 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
 
   Widget _buildPriorityChip(TaskPriority priority) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.2),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -998,7 +1438,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
           Text(
             _getPriorityLabel(priority),
             style: GoogleFonts.inter(
-              fontSize: 12,
+              fontSize: 11,
               fontWeight: FontWeight.w600,
               color: Colors.white,
             ),
@@ -1039,10 +1479,24 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
         status: _currentStatus,
         isRecurring: widget.task.isRecurring,
         recurrenceType: widget.task.recurrenceType,
+        enhancedRecurrence: widget.task.enhancedRecurrence,
         createdAt: widget.task.createdAt,
         attachments: _currentTask.attachments,
         completedAt: completedAt,
         overdueDaysAtCompletion: overdueFrozen,
+        isArchived: widget.task.isArchived,
+        archivedAt: widget.task.archivedAt,
+        startDate: widget.task.startDate,
+        isDraft: widget.task.isDraft,
+        publishedAt: widget.task.publishedAt,
+        location: widget.task.location,
+        startTime: widget.task.startTime,
+        endTime: widget.task.endTime,
+        labels: widget.task.labels,
+        subTaskIds: widget.task.subTaskIds,
+        firstOpenedAt: _currentTask.firstOpenedAt,
+        firstViewedAt: _currentTask.firstViewedAt,
+        assigneeFirstOpenedAt: _currentTask.assigneeFirstOpenedAt,
       );
 
       await _taskService.updateTask(widget.task.id, updatedTask);
@@ -1158,18 +1612,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
 
           if (mounted) {
             setState(() {
-              _currentTask = Task(
-                id: _currentTask.id,
-                title: _currentTask.title,
-                description: _currentTask.description,
-                createdBy: _currentTask.createdBy,
-                assignedTo: _currentTask.assignedTo,
-                dueDate: _currentTask.dueDate,
-                priority: _currentTask.priority,
-                status: _currentTask.status,
-                isRecurring: _currentTask.isRecurring,
-                recurrenceType: _currentTask.recurrenceType,
-                createdAt: _currentTask.createdAt,
+              _currentTask = _currentTask.copyWith(
                 attachments: [..._currentTask.attachments, attachment],
               );
             });
@@ -1288,18 +1731,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
             widget.task.id, attachment.id);
 
         setState(() {
-          _currentTask = Task(
-            id: _currentTask.id,
-            title: _currentTask.title,
-            description: _currentTask.description,
-            createdBy: _currentTask.createdBy,
-            assignedTo: _currentTask.assignedTo,
-            dueDate: _currentTask.dueDate,
-            priority: _currentTask.priority,
-            status: _currentTask.status,
-            isRecurring: _currentTask.isRecurring,
-            recurrenceType: _currentTask.recurrenceType,
-            createdAt: _currentTask.createdAt,
+          _currentTask = _currentTask.copyWith(
             attachments: _currentTask.attachments
                 .where((a) => a.id != attachment.id)
                 .toList(),
