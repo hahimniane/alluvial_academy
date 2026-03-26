@@ -52,8 +52,9 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
   bool _showAllMonths = false;
   String? _selectedStatus;
 
-  /// Form filter: null = all forms, otherwise same keys as _filteredByForm (e.g. _kDailyClassReportKey).
-  String? _selectedFormKey;
+  /// Form filter: empty = all forms; otherwise submissions must match one of these
+  /// logical keys (same as [_formKeyForDoc], e.g. [_kDailyClassReportKey]).
+  final Set<String> _selectedFormKeys = {};
 
   String _viewMode = 'by_teacher';
   final TextEditingController _searchController = TextEditingController();
@@ -1102,20 +1103,20 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
   }
 
   List<QueryDocumentSnapshot> get _filteredSubmissions {
+    final formKeysSig = (_selectedFormKeys.toList()..sort()).join('|');
     final cacheKey =
-        '${_allSubmissions.length}_${_selectedTeacherIds.join(',')}:${_selectedYearMonth}_${_showAllMonths}_${_selectedStatus}_${_selectedFormKey}_${_searchQuery}_${_formTitles.length}_${_teachersData.length}';
+        '${_allSubmissions.length}_${_selectedTeacherIds.join(',')}:${_selectedYearMonth}_${_showAllMonths}_${_selectedStatus}_${formKeysSig}_${_searchQuery}_${_formTitles.length}_${_teachersData.length}';
     if (_filteredCache != null && cacheKey == _filterCacheKey) {
       return _filteredCache!;
     }
     final filterTeacher = _selectedTeacherIds.isNotEmpty;
     final filterMonth = !_showAllMonths && _selectedYearMonth != null;
     final filterStatus = _selectedStatus != null;
-    final filterForm = _selectedFormKey != null;
+    final filterForm = _selectedFormKeys.isNotEmpty;
     final filterSearch = _searchQuery.isNotEmpty;
     final q = filterSearch ? _searchQuery.toLowerCase() : '';
     final targetMonth = filterMonth ? _selectedYearMonth! : '';
     final targetStatus = filterStatus ? _selectedStatus!.toLowerCase() : '';
-    final targetFormKey = filterForm ? _selectedFormKey! : '';
     final result = <QueryDocumentSnapshot>[];
     for (final doc in _allSubmissions) {
       final data = doc.data() as Map<String, dynamic>;
@@ -1138,7 +1139,7 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
       }
       if (filterForm) {
         final key = _formKeyForDoc(data);
-        if (key != targetFormKey) continue;
+        if (key == null || !_selectedFormKeys.contains(key)) continue;
       }
       if (filterSearch) {
         final userId = data['userId'] as String?;
@@ -1449,7 +1450,7 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
     final hasActiveFilters = _selectedTeacherIds.isNotEmpty ||
         !_showAllMonths ||
         _selectedStatus != null ||
-        _selectedFormKey != null;
+        _selectedFormKeys.isNotEmpty;
     return Container(
       color: Colors.white,
       padding: const EdgeInsets.fromLTRB(12, 6, 8, 0),
@@ -1615,11 +1616,8 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
                         ),
                         const SizedBox(width: 4),
                         _chip(
-                          label: _selectedFormKey == null
-                              ? (AppLocalizations.of(context)!
-                                  .adminSubmissionsAllForms)
-                              : _formKeyToDisplayTitle(_selectedFormKey!),
-                          active: _selectedFormKey != null,
+                          label: _selectedFormKeysLabel,
+                          active: _selectedFormKeys.isNotEmpty,
                           onTap: _showFormPicker,
                         ),
                         if (hasActiveFilters) ...[
@@ -1630,7 +1628,7 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
                               _showAllMonths = true;
                               _selectedYearMonth = null;
                               _selectedStatus = null;
-                              _selectedFormKey = null;
+                              _selectedFormKeys.clear();
                             }),
                             child: Container(
                               height: 26,
@@ -1772,6 +1770,25 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
     if (key == _kWeeklyReportKey) return 1;
     if (key == _kMonthlyReportKey) return 2;
     return 3;
+  }
+
+  String get _selectedFormKeysLabel {
+    final l10n = AppLocalizations.of(context)!;
+    if (_selectedFormKeys.isEmpty) return l10n.adminSubmissionsAllForms;
+    final keys = _selectedFormKeys.toList()
+      ..sort((a, b) {
+        final oa = _formKeySortOrder(a);
+        final ob = _formKeySortOrder(b);
+        if (oa != ob) return oa.compareTo(ob);
+        return _formKeyToDisplayTitle(a)
+            .toLowerCase()
+            .compareTo(_formKeyToDisplayTitle(b).toLowerCase());
+      });
+    final titles =
+        keys.map(_formKeyToDisplayTitle).where((s) => s.isNotEmpty).toList();
+    if (titles.isEmpty) return l10n.adminSubmissionsAllForms;
+    if (titles.length <= 2) return titles.join(', ');
+    return '${titles.take(2).join(', ')} +${titles.length - 2}';
   }
 
   Widget _buildTeacherView() {
@@ -2389,92 +2406,116 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
   void _showFormPicker() {
     final l10n = AppLocalizations.of(context)!;
     final availableKeys = _availableFormKeysForPicker;
-    showDialog(
+    final tempSelected = Set<String>.from(_selectedFormKeys);
+
+    showDialog<void>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(
-          l10n.adminSubmissionsFilterByForm,
-          style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600),
-        ),
-        contentPadding: const EdgeInsets.fromLTRB(24, 12, 24, 12),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              InkWell(
-                onTap: () {
-                  setState(() => _selectedFormKey = null);
-                  Navigator.pop(context);
-                },
-                child: Container(
-                  height: 36,
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Row(
-                    children: [
-                      Text(
-                        l10n.adminSubmissionsAllForms,
-                        style: GoogleFonts.inter(
-                          fontSize: 12,
-                          fontWeight: _selectedFormKey == null
-                              ? FontWeight.w600
-                              : FontWeight.w400,
-                          color: _selectedFormKey == null ? _cPrimary : _cText,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: Text(
+                l10n.adminSubmissionsFilterByForm,
+                style: GoogleFonts.inter(
+                    fontSize: 14, fontWeight: FontWeight.w600),
+              ),
+              contentPadding: const EdgeInsets.fromLTRB(24, 12, 24, 12),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    InkWell(
+                      onTap: () =>
+                          setDialogState(() => tempSelected.clear()),
+                      child: Container(
+                        height: 36,
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Row(
+                          children: [
+                            Text(
+                              l10n.adminSubmissionsAllForms,
+                              style: GoogleFonts.inter(
+                                fontSize: 12,
+                                fontWeight: tempSelected.isEmpty
+                                    ? FontWeight.w600
+                                    : FontWeight.w400,
+                                color: tempSelected.isEmpty
+                                    ? _cPrimary
+                                    : _cText,
+                              ),
+                            ),
+                            const Spacer(),
+                            if (tempSelected.isEmpty)
+                              const Icon(Icons.check,
+                                  size: 16, color: Color(0xff0386FF)),
+                          ],
                         ),
                       ),
-                      const Spacer(),
-                      if (_selectedFormKey == null)
-                        const Icon(Icons.check,
-                            size: 16, color: Color(0xff0386FF)),
-                    ],
-                  ),
-                ),
-              ),
-              ...availableKeys.map((key) {
-                final isSelected = _selectedFormKey == key;
-                final label = _formKeyToDisplayTitle(key);
-                if (label.isEmpty) return const SizedBox.shrink();
-                return InkWell(
-                  onTap: () {
-                    setState(() => _selectedFormKey = key);
-                    Navigator.pop(context);
-                  },
-                  child: Container(
-                    height: 36,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            label,
-                            style: GoogleFonts.inter(
-                              fontSize: 12,
-                              fontWeight: isSelected
-                                  ? FontWeight.w600
-                                  : FontWeight.w400,
-                              color: isSelected ? _cPrimary : _cText,
-                            ),
-                            overflow: TextOverflow.ellipsis,
+                    ),
+                    ...availableKeys.map((key) {
+                      final isSelected = tempSelected.contains(key);
+                      final label = _formKeyToDisplayTitle(key);
+                      if (label.isEmpty) return const SizedBox.shrink();
+                      return InkWell(
+                        onTap: () => setDialogState(() {
+                          if (isSelected) {
+                            tempSelected.remove(key);
+                          } else {
+                            tempSelected.add(key);
+                          }
+                        }),
+                        child: Container(
+                          height: 36,
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  label,
+                                  style: GoogleFonts.inter(
+                                    fontSize: 12,
+                                    fontWeight: isSelected
+                                        ? FontWeight.w600
+                                        : FontWeight.w400,
+                                    color: isSelected ? _cPrimary : _cText,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              if (isSelected)
+                                const Icon(Icons.check,
+                                    size: 16, color: Color(0xff0386FF)),
+                            ],
                           ),
                         ),
-                        if (isSelected)
-                          const Icon(Icons.check,
-                              size: 16, color: Color(0xff0386FF)),
-                      ],
-                    ),
-                  ),
-                );
-              }),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child:
-                Text(l10n.commonCancel, style: const TextStyle(fontSize: 12)),
-          ),
-        ],
-      ),
+                      );
+                    }),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: Text(l10n.commonCancel,
+                      style: const TextStyle(fontSize: 12)),
+                ),
+                TextButton(
+                  onPressed: () {
+                    setState(() {
+                      _selectedFormKeys
+                        ..clear()
+                        ..addAll(tempSelected);
+                    });
+                    Navigator.pop(dialogContext);
+                  },
+                  child: Text(l10n.adminSubmissionsApply,
+                      style: const TextStyle(fontSize: 12)),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 
