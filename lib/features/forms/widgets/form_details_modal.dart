@@ -105,12 +105,16 @@ class FormSubmissionDetailsView extends StatefulWidget {
   /// When provided (e.g. batched prefetch in admin review), skips shift read.
   final TeachingShift? initialShift;
 
+  /// Optional scroll controller (e.g. [DraggableScrollableSheet] in review mode).
+  final ScrollController? scrollController;
+
   const FormSubmissionDetailsView({
     super.key,
     required this.formId,
     required this.shiftId,
     required this.responses,
     this.initialShift,
+    this.scrollController,
   });
 
   @override
@@ -273,6 +277,7 @@ class _FormSubmissionDetailsViewState extends State<FormSubmissionDetailsView> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     return SingleChildScrollView(
+      controller: widget.scrollController,
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

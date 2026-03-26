@@ -5,7 +5,6 @@ import 'package:intl/intl.dart';
 
 import 'package:alluwalacademyadmin/core/models/teaching_shift.dart';
 import 'package:alluwalacademyadmin/core/services/admin_submissions_export_service.dart';
-import 'package:alluwalacademyadmin/core/services/form_labels_cache_service.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 import '../widgets/form_details_modal.dart';
@@ -48,6 +47,21 @@ class _AdminSubmissionsReviewScreenState
     extends State<AdminSubmissionsReviewScreen> {
   final Set<String> _selectedDocIds = {};
   QueryDocumentSnapshot? _focusedDoc;
+
+  /// Resolve shift id field across inconsistent Firestore schemas.
+  /// Returns '' when shift should be treated as missing.
+  String _resolveShiftId(Map<String, dynamic>? data) {
+    final raw = data?['shiftId'] ??
+        data?['shift_id'] ??
+        data?['linkedShiftId'] ??
+        data?['linked_shift_id'];
+    final sid = raw?.toString().trim() ?? '';
+    if (sid.isEmpty) return '';
+    if (sid.toLowerCase() == 'n/a') return '';
+    // Keep exact 'N/A' out as well (FormDetailsModal checks by equality).
+    if (sid == 'N/A') return '';
+    return sid;
+  }
 
   Map<String, List<QueryDocumentSnapshot>> get _byTeacher {
     final m = <String, List<QueryDocumentSnapshot>>{};
@@ -150,8 +164,7 @@ class _AdminSubmissionsReviewScreenState
     for (final doc in widget.submissions) {
       if (!_selectedDocIds.contains(doc.id)) continue;
       final data = doc.data() as Map<String, dynamic>?;
-      final sid =
-          (data?['shiftId'] ?? data?['shift_id'] ?? '').toString().trim();
+      final sid = _resolveShiftId(data);
       if (sid.isNotEmpty) shiftIds.add(sid);
     }
 
@@ -455,14 +468,14 @@ class _AdminSubmissionsReviewScreenState
           return _SubmissionDetailScroll(
             title: _submissionTitle(doc),
             doc: doc,
+            shiftId: _resolveShiftId(doc.data() as Map<String, dynamic>?),
             scrollController: scroll,
             onOpenFull: () {
               final data = doc.data() as Map<String, dynamic>?;
               FormDetailsModal.show(
                 context,
                 formId: doc.id,
-                shiftId:
-                    (data?['shiftId'] ?? data?['shift_id'] ?? '').toString(),
+                shiftId: _resolveShiftId(data),
                 responses:
                     (data?['responses'] as Map<String, dynamic>?) ?? {},
               );
@@ -490,12 +503,13 @@ class _AdminSubmissionsReviewScreenState
     return _SubmissionDetailScroll(
       title: _submissionTitle(doc),
       doc: doc,
+      shiftId: _resolveShiftId(doc.data() as Map<String, dynamic>?),
       onOpenFull: () {
         final data = doc.data() as Map<String, dynamic>?;
         FormDetailsModal.show(
           context,
           formId: doc.id,
-          shiftId: (data?['shiftId'] ?? data?['shift_id'] ?? '').toString(),
+          shiftId: _resolveShiftId(data),
           responses: (data?['responses'] as Map<String, dynamic>?) ?? {},
         );
       },
@@ -506,12 +520,14 @@ class _AdminSubmissionsReviewScreenState
 class _SubmissionDetailScroll extends StatelessWidget {
   final String title;
   final QueryDocumentSnapshot doc;
+  final String shiftId;
   final ScrollController? scrollController;
   final VoidCallback onOpenFull;
 
   const _SubmissionDetailScroll({
     required this.title,
     required this.doc,
+    required this.shiftId,
     this.scrollController,
     required this.onOpenFull,
   });
@@ -519,6 +535,10 @@ class _SubmissionDetailScroll extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final data = doc.data() as Map<String, dynamic>?;
+    final responses = Map<String, dynamic>.from(
+      data?['responses'] ?? data?['answers'] ?? {},
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -544,73 +564,14 @@ class _SubmissionDetailScroll extends StatelessWidget {
         ),
         const Divider(height: 1),
         Expanded(
-          child: FutureBuilder<Map<String, String>>(
-            future: FormLabelsCacheService().getLabelsForFormResponse(doc.id),
-            builder: (context, snap) {
-              if (snap.connectionState != ConnectionState.done) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              final labels = snap.data ?? {};
-              final data = doc.data() as Map<String, dynamic>?;
-              final responses = Map<String, dynamic>.from(
-                  data?['responses'] ?? data?['answers'] ?? {});
-              final entries = responses.entries
-                  .where((e) => !e.key.toString().startsWith('_'))
-                  .toList()
-                ..sort((a, b) =>
-                    a.key.toString().compareTo(b.key.toString()));
-              if (entries.isEmpty) {
-                return Center(
-                  child: Text(
-                    l10n.adminSubmissionsNoSubmissions,
-                    style: GoogleFonts.inter(color: _kMuted),
-                  ),
-                );
-              }
-              return ListView.builder(
-                controller: scrollController,
-                padding: const EdgeInsets.all(16),
-                itemCount: entries.length,
-                itemBuilder: (context, i) {
-                  final e = entries[i];
-                  final q = labels[e.key.toString()] ?? e.key.toString();
-                  final a = _formatAnswer(e.value);
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          q,
-                          style: GoogleFonts.inter(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: _kText,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          a,
-                          style: GoogleFonts.inter(
-                            fontSize: 12,
-                            color: _kMuted,
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              );
-            },
+          child: FormSubmissionDetailsView(
+            formId: doc.id,
+            shiftId: shiftId,
+            responses: responses,
+            scrollController: scrollController,
           ),
         ),
       ],
     );
-  }
-
-  static String _formatAnswer(dynamic v) {
-    if (v == null) return '—';
-    if (v is Map || v is List) return v.toString();
-    return v.toString();
   }
 }
