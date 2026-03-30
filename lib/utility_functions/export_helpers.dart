@@ -10,6 +10,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+import 'package:alluwalacademyadmin/core/utils/export_saved_snackbar.dart';
+import 'package:alluwalacademyadmin/core/utils/save_export_file.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class ExportHelpers {
@@ -98,7 +100,7 @@ class ExportHelpers {
                 'Best for data analysis and advanced formatting',
                 Icons.table_chart,
                 const Color(0xff10B981),
-                () =>
+                (ScaffoldMessengerState _, AppLocalizations __) =>
                     _exportToExcel(headersOrSheets, dataOrSheets, baseFileName),
               ),
               // CSV option disabled for multi-sheet exports as CSV doesn't support it
@@ -110,8 +112,13 @@ class ExportHelpers {
                   'Universal format compatible with all applications',
                   Icons.description,
                   const Color(0xff6366F1),
-                  () => _exportToCsv(headersOrSheets as List<String>,
-                      dataOrSheets as List<List<String>>, baseFileName),
+                  (messenger, l10n) => _exportToCsv(
+                    headersOrSheets as List<String>,
+                    dataOrSheets as List<List<String>>,
+                    baseFileName,
+                    messenger: messenger,
+                    l10n: l10n,
+                  ),
                 ),
               ],
             ],
@@ -139,7 +146,8 @@ class ExportHelpers {
     String description,
     IconData icon,
     Color color,
-    VoidCallback onTap,
+    void Function(ScaffoldMessengerState messenger, AppLocalizations l10n)
+        onExportSelected,
   ) {
     return InkWell(
       onTap: () {
@@ -148,8 +156,10 @@ class ExportHelpers {
               'Export already in progress, ignoring duplicate request');
           return;
         }
+        final messenger = ScaffoldMessenger.of(context);
+        final l10n = AppLocalizations.of(context)!;
         Navigator.of(context).pop();
-        onTap();
+        onExportSelected(messenger, l10n);
       },
       borderRadius: BorderRadius.circular(12),
       child: Container(
@@ -486,11 +496,13 @@ class ExportHelpers {
   }
 
   // Export to CSV format (existing functionality)
-  static void _exportToCsv(
+  static Future<void> _exportToCsv(
     List<String> headers,
     List<List<String>> data,
-    String baseFileName,
-  ) {
+    String baseFileName, {
+    ScaffoldMessengerState? messenger,
+    AppLocalizations? l10n,
+  }) async {
     if (_isExporting) {
       AppLogger.debug('Export already in progress, skipping CSV export');
       return;
@@ -498,43 +510,43 @@ class ExportHelpers {
 
     _isExporting = true;
     try {
-      List<List<String>> csvData = [
+      final csvData = <List<String>>[
         headers,
         ...data,
       ];
 
-      String csv = const ListToCsvConverter().convert(csvData);
+      final csv = const ListToCsvConverter().convert(csvData);
 
       if (kIsWeb) {
-        // Create a Blob
         final bytes = utf8.encode(csv);
         final blob = html.Blob([bytes]);
 
-        // Create a link element
         final url = html.Url.createObjectUrlFromBlob(blob);
         final anchor = html.AnchorElement()
           ..href = url
           ..style.display = 'none'
-          ..download = "$baseFileName.csv";
+          ..download = '$baseFileName.csv';
 
-        // Add to DOM, click, then remove
         html.document.body?.children.add(anchor);
         anchor.click();
         html.document.body?.children.remove(anchor);
 
-        // Clean up URL after download
         Future.delayed(const Duration(milliseconds: 1000), () {
           html.Url.revokeObjectUrl(url);
         });
 
-        AppLogger.error('CSV file exported successfully: $baseFileName.csv');
+        AppLogger.debug('CSV file exported successfully: $baseFileName.csv');
       } else {
-        AppLogger.error('CSV export is only supported on web platform');
+        final path = await saveExportUtf8String(csv, '$baseFileName.csv');
+        if (messenger != null && l10n != null) {
+          showNativeExportSavedWithMessenger(messenger, l10n, path);
+        } else {
+          AppLogger.info('CSV saved to $path');
+        }
       }
     } catch (e) {
       AppLogger.error('Error exporting to CSV: $e');
     } finally {
-      // Reset the exporting flag after a delay
       Future.delayed(const Duration(milliseconds: 500), () {
         _isExporting = false;
       });
@@ -586,11 +598,18 @@ class ExportHelpers {
   }
 }
 
-// Legacy function for backward compatibility
-void exportData(
+/// Legacy CSV export; pass [context] for native SnackBar feedback.
+Future<void> exportData(
+  BuildContext context,
   List<String> headers,
   List<List<String>> data,
   String fileName,
 ) {
-  ExportHelpers._exportToCsv(headers, data, fileName.replaceAll('.csv', ''));
+  return ExportHelpers._exportToCsv(
+    headers,
+    data,
+    fileName.replaceAll('.csv', ''),
+    messenger: ScaffoldMessenger.of(context),
+    l10n: AppLocalizations.of(context)!,
+  );
 }

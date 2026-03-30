@@ -420,20 +420,49 @@ class MyApp extends StatelessWidget {
 
             if (kReleaseMode) return appContent;
 
+            // Avoid Material [Banner] here: on Flutter Web + DevicePreview it can trigger
+            // "A _RenderLayoutBuilder was mutated in performLayout" when overlays
+            // activate during a parent LayoutBuilder layout pass.
             final label = _useProdFirebase ? 'PROD' : 'DEV';
             final color =
                 _useProdFirebase ? const Color(0xFFDC2626) : const Color(0xFF16A34A);
 
-            return Banner(
-              message: label,
-              location: BannerLocation.topStart,
-              color: color,
-              textStyle: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.8,
-              ),
-              child: appContent,
+            return Stack(
+              clipBehavior: Clip.none,
+              fit: StackFit.passthrough,
+              children: [
+                appContent,
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  child: IgnorePointer(
+                    child: Material(
+                      color: Colors.transparent,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: color,
+                          borderRadius: const BorderRadius.only(
+                            bottomRight: Radius.circular(4),
+                          ),
+                        ),
+                        child: Text(
+                          label,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.8,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             );
           },
           debugShowCheckedModeBanner: false,

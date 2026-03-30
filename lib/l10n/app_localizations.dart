@@ -244,6 +244,18 @@ abstract class AppLocalizations {
   /// **'Clear'**
   String get commonClear;
 
+  /// No description provided for @commonExpandAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Expand all'**
+  String get commonExpandAll;
+
+  /// No description provided for @commonCollapseAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Collapse all'**
+  String get commonCollapseAll;
+
   /// No description provided for @commonRefresh.
   ///
   /// In en, this message translates to:
@@ -2037,6 +2049,60 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No submissions found'**
   String get adminSubmissionsNoSubmissions;
+
+  /// No description provided for @adminSubmissionsReviewMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Review mode'**
+  String get adminSubmissionsReviewMode;
+
+  /// No description provided for @adminSubmissionsSelectionModeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Selection'**
+  String get adminSubmissionsSelectionModeTitle;
+
+  /// No description provided for @adminSubmissionsNoTeacherSelected.
+  ///
+  /// In en, this message translates to:
+  /// **'No teacher selected'**
+  String get adminSubmissionsNoTeacherSelected;
+
+  /// No description provided for @adminSubmissionsSelectionProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'{selectedCount} / {total} forms'**
+  String adminSubmissionsSelectionProgress(int selectedCount, int total);
+
+  /// No description provided for @adminSubmissionsExportFormatLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Format'**
+  String get adminSubmissionsExportFormatLabel;
+
+  /// No description provided for @adminSubmissionsExportExcelLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Excel'**
+  String get adminSubmissionsExportExcelLabel;
+
+  /// No description provided for @adminSubmissionsExportPdfLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'PDF'**
+  String get adminSubmissionsExportPdfLabel;
+
+  /// No description provided for @adminSubmissionsExportProgressSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Preparing your file. Progress per person:'**
+  String get adminSubmissionsExportProgressSubtitle;
+
+  /// No description provided for @adminSubmissionsSelectToViewDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Select a submission to view details'**
+  String get adminSubmissionsSelectToViewDetails;
 
   /// No description provided for @adminSubmissionsTryAdjustingFilters.
   ///
@@ -7420,6 +7486,18 @@ abstract class AppLocalizations {
   /// **'Accepted'**
   String get auditFormStatusAccepted;
 
+  /// No description provided for @auditFormStatusAcceptedMissedShift.
+  ///
+  /// In en, this message translates to:
+  /// **'Accepted (missed scheduled class)'**
+  String get auditFormStatusAcceptedMissedShift;
+
+  /// No description provided for @auditFormHintMissedShiftReport.
+  ///
+  /// In en, this message translates to:
+  /// **'Missed on schedule; report filed (no timesheet on that slot).'**
+  String get auditFormHintMissedShiftReport;
+
   /// No description provided for @auditFormStatusRejectedDuplicate.
   ///
   /// In en, this message translates to:
@@ -7431,6 +7509,66 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Rejected (no shift)'**
   String get auditFormStatusRejectedNoShift;
+
+  /// No description provided for @auditFormStatusRejectedNoTimesheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Rejected (no timesheet)'**
+  String get auditFormStatusRejectedNoTimesheet;
+
+  /// No description provided for @auditFormsTabStatTotalTeaching.
+  ///
+  /// In en, this message translates to:
+  /// **'Total teaching forms'**
+  String get auditFormsTabStatTotalTeaching;
+
+  /// No description provided for @auditFormsTabStatRejectedNoShift.
+  ///
+  /// In en, this message translates to:
+  /// **'Rejected (no shift)'**
+  String get auditFormsTabStatRejectedNoShift;
+
+  /// No description provided for @auditFormsTabStatRejectedNoTimesheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Rejected (no timesheet)'**
+  String get auditFormsTabStatRejectedNoTimesheet;
+
+  /// No description provided for @auditFormsTabStatRejectedDuplicate.
+  ///
+  /// In en, this message translates to:
+  /// **'Rejected (duplicate)'**
+  String get auditFormsTabStatRejectedDuplicate;
+
+  /// No description provided for @auditFormsTabStatReadiness.
+  ///
+  /// In en, this message translates to:
+  /// **'Readiness forms'**
+  String get auditFormsTabStatReadiness;
+
+  /// No description provided for @auditFormsSectionAccepted.
+  ///
+  /// In en, this message translates to:
+  /// **'Accepted ({count})'**
+  String auditFormsSectionAccepted(int count);
+
+  /// No description provided for @auditFormsSectionRejectedNoShift.
+  ///
+  /// In en, this message translates to:
+  /// **'Rejected — no linked shift ({count})'**
+  String auditFormsSectionRejectedNoShift(int count);
+
+  /// No description provided for @auditFormsSectionRejectedNoTimesheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Rejected — no timesheet ({count})'**
+  String auditFormsSectionRejectedNoTimesheet(int count);
+
+  /// No description provided for @auditFormsSectionRejectedDuplicate.
+  ///
+  /// In en, this message translates to:
+  /// **'Rejected — duplicate ({count})'**
+  String auditFormsSectionRejectedDuplicate(int count);
 
   /// No description provided for @auditTotalLabel.
   ///
@@ -7455,6 +7593,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No forms submitted'**
   String get auditNoFormsSubmitted;
+
+  /// No description provided for @auditNoAssignmentFormsInSnapshot.
+  ///
+  /// In en, this message translates to:
+  /// **'No assignment or assessment forms in this snapshot. Regenerate the monthly audit if class reports still look misfiled.'**
+  String get auditNoAssignmentFormsInSnapshot;
+
+  /// No description provided for @auditFactorNaShort.
+  ///
+  /// In en, this message translates to:
+  /// **'N/A (skip score)'**
+  String get auditFactorNaShort;
 
   /// No description provided for @auditTierExcellent.
   ///
@@ -7545,6 +7695,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Points of attention'**
   String get teacherAuditPointsOfAttention;
+
+  /// No description provided for @teacherAuditReportUnderReview.
+  ///
+  /// In en, this message translates to:
+  /// **'This report is under review and may change before it is finalized.'**
+  String get teacherAuditReportUnderReview;
+
+  /// No description provided for @teacherAuditScoreAuto.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto: {score}%'**
+  String teacherAuditScoreAuto(String score);
+
+  /// No description provided for @teacherAuditScoreCoach.
+  ///
+  /// In en, this message translates to:
+  /// **'Coach: {score}%'**
+  String teacherAuditScoreCoach(String score);
+
+  /// No description provided for @coachEvalSuggestedScore.
+  ///
+  /// In en, this message translates to:
+  /// **'Suggested'**
+  String get coachEvalSuggestedScore;
+
+  /// No description provided for @coachEvalApplySuggestion.
+  ///
+  /// In en, this message translates to:
+  /// **'Apply'**
+  String get coachEvalApplySuggestion;
 
   /// No description provided for @teacherAuditReportNotAvailable.
   ///
@@ -7731,6 +7911,150 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Payment summary'**
   String get auditPaymentSummary;
+
+  /// No description provided for @auditCoachPaymentAdjustmentsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Coach payment lines'**
+  String get auditCoachPaymentAdjustmentsTitle;
+
+  /// No description provided for @auditNetAfterAdjustmentsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Estimated net after lines and advances'**
+  String get auditNetAfterAdjustmentsHint;
+
+  /// No description provided for @auditAddPaymentLine.
+  ///
+  /// In en, this message translates to:
+  /// **'Add payment line'**
+  String get auditAddPaymentLine;
+
+  /// No description provided for @auditAmountLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Amount (USD)'**
+  String get auditAmountLabel;
+
+  /// No description provided for @auditReasonLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Reason'**
+  String get auditReasonLabel;
+
+  /// No description provided for @auditPaymentLineTypeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Type'**
+  String get auditPaymentLineTypeLabel;
+
+  /// No description provided for @auditPaymentLinePenalty.
+  ///
+  /// In en, this message translates to:
+  /// **'Penalty (subtract)'**
+  String get auditPaymentLinePenalty;
+
+  /// No description provided for @auditPaymentLineBonus.
+  ///
+  /// In en, this message translates to:
+  /// **'Bonus (add)'**
+  String get auditPaymentLineBonus;
+
+  /// No description provided for @auditAdvanceSectionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Advance payments'**
+  String get auditAdvanceSectionTitle;
+
+  /// No description provided for @auditAdvanceSectionSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Load submissions from the advance-payment form for this teacher and month.'**
+  String get auditAdvanceSectionSubtitle;
+
+  /// No description provided for @auditAdvanceLoadFromForms.
+  ///
+  /// In en, this message translates to:
+  /// **'Load from advance forms'**
+  String get auditAdvanceLoadFromForms;
+
+  /// No description provided for @auditBulkAcceptSelected.
+  ///
+  /// In en, this message translates to:
+  /// **'Accept selected (override rules)'**
+  String get auditBulkAcceptSelected;
+
+  /// No description provided for @auditBulkAcceptAllInSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Select all in this section'**
+  String get auditBulkAcceptAllInSection;
+
+  /// No description provided for @auditBulkAcceptReasonTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Reason for manual acceptance'**
+  String get auditBulkAcceptReasonTitle;
+
+  /// No description provided for @auditBulkAcceptReasonHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Short note (stored on the audit)'**
+  String get auditBulkAcceptReasonHint;
+
+  /// No description provided for @auditBulkAcceptSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Forms accepted; audit metrics were recalculated'**
+  String get auditBulkAcceptSuccess;
+
+  /// No description provided for @auditBulkAcceptRunning.
+  ///
+  /// In en, this message translates to:
+  /// **'Applying…'**
+  String get auditBulkAcceptRunning;
+
+  /// No description provided for @auditAcknowledgeRead.
+  ///
+  /// In en, this message translates to:
+  /// **'I confirm I have read this payslip'**
+  String get auditAcknowledgeRead;
+
+  /// No description provided for @auditAcknowledgeDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Acknowledged on {date}'**
+  String auditAcknowledgeDone(String date);
+
+  /// No description provided for @auditOpenDiscussion.
+  ///
+  /// In en, this message translates to:
+  /// **'Open discussion'**
+  String get auditOpenDiscussion;
+
+  /// No description provided for @auditDiscussionAdminButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Open chat with teacher'**
+  String get auditDiscussionAdminButton;
+
+  /// No description provided for @teacherAuditPayslipCoachLines.
+  ///
+  /// In en, this message translates to:
+  /// **'Evaluation adjustments'**
+  String get teacherAuditPayslipCoachLines;
+
+  /// No description provided for @teacherAuditPayslipAdvances.
+  ///
+  /// In en, this message translates to:
+  /// **'Advance payments (deducted)'**
+  String get teacherAuditPayslipAdvances;
+
+  /// No description provided for @teacherAuditClassesSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Classes this month'**
+  String get teacherAuditClassesSection;
 
   /// No description provided for @auditGrossSalary.
   ///
@@ -17281,6 +17605,30 @@ abstract class AppLocalizations {
   /// **'Unassigned'**
   String get taskUnassigned;
 
+  /// No description provided for @taskAssigneeOpenTrackingTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'When assignees opened this task'**
+  String get taskAssigneeOpenTrackingTitle;
+
+  /// No description provided for @taskAssigneeOpenedAt.
+  ///
+  /// In en, this message translates to:
+  /// **'Opened {datetime}'**
+  String taskAssigneeOpenedAt(String datetime);
+
+  /// No description provided for @taskAssigneeNotOpenedYet.
+  ///
+  /// In en, this message translates to:
+  /// **'Not opened yet'**
+  String get taskAssigneeNotOpenedYet;
+
+  /// No description provided for @taskDetailFirstViewedAt.
+  ///
+  /// In en, this message translates to:
+  /// **'First time someone opened details: {datetime}'**
+  String taskDetailFirstViewedAt(String datetime);
+
   /// No description provided for @taskSelectMultiple.
   ///
   /// In en, this message translates to:
@@ -18523,6 +18871,12 @@ abstract class AppLocalizations {
   /// **'Form Responses'**
   String get formResponsesTitle;
 
+  /// No description provided for @formResponsesUpdatingLabels.
+  ///
+  /// In en, this message translates to:
+  /// **'Updating labels…'**
+  String get formResponsesUpdatingLabels;
+
   /// No description provided for @optionsCommaSeparatedExample.
   ///
   /// In en, this message translates to:
@@ -18738,6 +19092,840 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Deselect All'**
   String get deselectAll;
+
+  /// No description provided for @auditReviewModeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Audit Review Mode'**
+  String get auditReviewModeTitle;
+
+  /// No description provided for @auditReviewModeButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Review Mode'**
+  String get auditReviewModeButton;
+
+  /// No description provided for @auditReviewBackToList.
+  ///
+  /// In en, this message translates to:
+  /// **'Back to list'**
+  String get auditReviewBackToList;
+
+  /// No description provided for @auditReviewSelectTeacher.
+  ///
+  /// In en, this message translates to:
+  /// **'Select a teacher audit to review'**
+  String get auditReviewSelectTeacher;
+
+  /// No description provided for @auditOrphanForms.
+  ///
+  /// In en, this message translates to:
+  /// **'Orphan forms ({count})'**
+  String auditOrphanForms(int count);
+
+  /// No description provided for @auditRejectedForms.
+  ///
+  /// In en, this message translates to:
+  /// **'Rejected forms ({count})'**
+  String auditRejectedForms(int count);
+
+  /// No description provided for @auditFormNoMatchingShift.
+  ///
+  /// In en, this message translates to:
+  /// **'No matching shift found'**
+  String get auditFormNoMatchingShift;
+
+  /// No description provided for @auditTabChangeLog.
+  ///
+  /// In en, this message translates to:
+  /// **'Change Log'**
+  String get auditTabChangeLog;
+
+  /// No description provided for @auditManualMetrics.
+  ///
+  /// In en, this message translates to:
+  /// **'Manual metrics'**
+  String get auditManualMetrics;
+
+  /// No description provided for @auditMeetingsSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Meetings'**
+  String get auditMeetingsSection;
+
+  /// No description provided for @auditAcademicSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Academic'**
+  String get auditAcademicSection;
+
+  /// No description provided for @auditTasksCommunication.
+  ///
+  /// In en, this message translates to:
+  /// **'Tasks & communication'**
+  String get auditTasksCommunication;
+
+  /// No description provided for @auditOverrideSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Overrides'**
+  String get auditOverrideSection;
+
+  /// No description provided for @auditEditField.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit field'**
+  String get auditEditField;
+
+  /// No description provided for @auditEditFieldTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit: {fieldName}'**
+  String auditEditFieldTitle(String fieldName);
+
+  /// No description provided for @auditCurrentValue.
+  ///
+  /// In en, this message translates to:
+  /// **'Current value'**
+  String get auditCurrentValue;
+
+  /// No description provided for @auditNewValue.
+  ///
+  /// In en, this message translates to:
+  /// **'New value'**
+  String get auditNewValue;
+
+  /// No description provided for @auditEditReason.
+  ///
+  /// In en, this message translates to:
+  /// **'Reason for change'**
+  String get auditEditReason;
+
+  /// No description provided for @auditEditReasonHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Explain why this value is being changed'**
+  String get auditEditReasonHint;
+
+  /// No description provided for @auditEditSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Field updated successfully'**
+  String get auditEditSuccess;
+
+  /// No description provided for @auditEditError.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to update field'**
+  String get auditEditError;
+
+  /// No description provided for @auditNoChangesRecorded.
+  ///
+  /// In en, this message translates to:
+  /// **'No changes recorded'**
+  String get auditNoChangesRecorded;
+
+  /// No description provided for @auditChangeLogSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} changes'**
+  String auditChangeLogSummary(int count);
+
+  /// No description provided for @auditChangedFieldFrom.
+  ///
+  /// In en, this message translates to:
+  /// **'Changed {field} from {oldValue} to {newValue}'**
+  String auditChangedFieldFrom(String field, String oldValue, String newValue);
+
+  /// No description provided for @auditChangeReason.
+  ///
+  /// In en, this message translates to:
+  /// **'Reason: {reason}'**
+  String auditChangeReason(String reason);
+
+  /// No description provided for @auditFieldTotalClassesMissed.
+  ///
+  /// In en, this message translates to:
+  /// **'Classes missed (override)'**
+  String get auditFieldTotalClassesMissed;
+
+  /// No description provided for @auditFieldTotalClassesCancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Classes cancelled (override)'**
+  String get auditFieldTotalClassesCancelled;
+
+  /// No description provided for @auditFieldStaffMeetingsScheduled.
+  ///
+  /// In en, this message translates to:
+  /// **'Staff meetings scheduled'**
+  String get auditFieldStaffMeetingsScheduled;
+
+  /// No description provided for @auditFieldStaffMeetingsMissed.
+  ///
+  /// In en, this message translates to:
+  /// **'Staff meetings missed'**
+  String get auditFieldStaffMeetingsMissed;
+
+  /// No description provided for @auditFieldMeetingLateArrivals.
+  ///
+  /// In en, this message translates to:
+  /// **'Meeting late arrivals'**
+  String get auditFieldMeetingLateArrivals;
+
+  /// No description provided for @auditFieldQuizzesGiven.
+  ///
+  /// In en, this message translates to:
+  /// **'Quizzes given'**
+  String get auditFieldQuizzesGiven;
+
+  /// No description provided for @auditFieldAssignmentsGiven.
+  ///
+  /// In en, this message translates to:
+  /// **'Assignments given'**
+  String get auditFieldAssignmentsGiven;
+
+  /// No description provided for @auditFieldOverdueTasks.
+  ///
+  /// In en, this message translates to:
+  /// **'Overdue tasks'**
+  String get auditFieldOverdueTasks;
+
+  /// No description provided for @auditTaskAcknowledgement.
+  ///
+  /// In en, this message translates to:
+  /// **'Tasks acknowledged'**
+  String get auditTaskAcknowledgement;
+
+  /// No description provided for @auditTaskAcknowledgementRate.
+  ///
+  /// In en, this message translates to:
+  /// **'Task acknowledgement'**
+  String get auditTaskAcknowledgementRate;
+
+  /// No description provided for @auditExcusedAbsences.
+  ///
+  /// In en, this message translates to:
+  /// **'Excused absences'**
+  String get auditExcusedAbsences;
+
+  /// No description provided for @auditExcused.
+  ///
+  /// In en, this message translates to:
+  /// **'Excused'**
+  String get auditExcused;
+
+  /// No description provided for @auditViewTeachers.
+  ///
+  /// In en, this message translates to:
+  /// **'Teachers'**
+  String get auditViewTeachers;
+
+  /// No description provided for @auditViewAdmins.
+  ///
+  /// In en, this message translates to:
+  /// **'Admins'**
+  String get auditViewAdmins;
+
+  /// No description provided for @adminAuditFormsSubmitted.
+  ///
+  /// In en, this message translates to:
+  /// **'Forms submitted'**
+  String get adminAuditFormsSubmitted;
+
+  /// No description provided for @adminAuditTasksCompleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Tasks completed'**
+  String get adminAuditTasksCompleted;
+
+  /// No description provided for @adminAuditColumnAdmin.
+  ///
+  /// In en, this message translates to:
+  /// **'Admin'**
+  String get adminAuditColumnAdmin;
+
+  /// No description provided for @adminAuditOverallScore.
+  ///
+  /// In en, this message translates to:
+  /// **'Score'**
+  String get adminAuditOverallScore;
+
+  /// No description provided for @adminAuditFormComplianceShort.
+  ///
+  /// In en, this message translates to:
+  /// **'Forms'**
+  String get adminAuditFormComplianceShort;
+
+  /// No description provided for @adminAuditTaskEfficiencyShort.
+  ///
+  /// In en, this message translates to:
+  /// **'Tasks eff.'**
+  String get adminAuditTaskEfficiencyShort;
+
+  /// No description provided for @adminAuditOverdue.
+  ///
+  /// In en, this message translates to:
+  /// **'Overdue'**
+  String get adminAuditOverdue;
+
+  /// No description provided for @adminAuditAcknowledged.
+  ///
+  /// In en, this message translates to:
+  /// **'Acknowledged'**
+  String get adminAuditAcknowledged;
+
+  /// No description provided for @adminAuditTasksCreated.
+  ///
+  /// In en, this message translates to:
+  /// **'Tasks created'**
+  String get adminAuditTasksCreated;
+
+  /// No description provided for @adminAuditAvgCompletionDays.
+  ///
+  /// In en, this message translates to:
+  /// **'Avg completion (days)'**
+  String get adminAuditAvgCompletionDays;
+
+  /// No description provided for @adminAuditDetailTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Admin audit detail'**
+  String get adminAuditDetailTitle;
+
+  /// No description provided for @adminAuditFormBreakdown.
+  ///
+  /// In en, this message translates to:
+  /// **'Submissions by form'**
+  String get adminAuditFormBreakdown;
+
+  /// No description provided for @adminAuditTaskLabels.
+  ///
+  /// In en, this message translates to:
+  /// **'Task labels'**
+  String get adminAuditTaskLabels;
+
+  /// No description provided for @adminAuditCeoNotes.
+  ///
+  /// In en, this message translates to:
+  /// **'CEO notes'**
+  String get adminAuditCeoNotes;
+
+  /// No description provided for @adminAuditSaveNotes.
+  ///
+  /// In en, this message translates to:
+  /// **'Save notes'**
+  String get adminAuditSaveNotes;
+
+  /// No description provided for @adminAuditClose.
+  ///
+  /// In en, this message translates to:
+  /// **'Close'**
+  String get adminAuditClose;
+
+  /// No description provided for @adminAuditNoBreakdown.
+  ///
+  /// In en, this message translates to:
+  /// **'No per-form breakdown'**
+  String get adminAuditNoBreakdown;
+
+  /// No description provided for @adminAuditOpenDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'Details'**
+  String get adminAuditOpenDetail;
+
+  /// No description provided for @adminAuditUnknownForm.
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown form'**
+  String get adminAuditUnknownForm;
+
+  /// No description provided for @adminAuditSubTasksRatio.
+  ///
+  /// In en, this message translates to:
+  /// **'Sub-task intensity'**
+  String get adminAuditSubTasksRatio;
+
+  /// No description provided for @adminAuditScoreHelpTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'How is this score calculated?'**
+  String get adminAuditScoreHelpTitle;
+
+  /// No description provided for @adminAuditScoreHelpBody.
+  ///
+  /// In en, this message translates to:
+  /// **'The overall score blends form compliance ({formPercent}%) and task efficiency ({taskPercent}%). Tier 1 form compliance averages three parts: Daily End of Shift submissions vs working weekdays in the month, bi-weekly coachee performance (2 expected per month), and weekly CEO/progress/finance reports vs about 4–5 weeks in the month. Task efficiency reflects completed vs assigned tasks, reduces the score for overdue work, and adds a small bonus for tasks you created. A low score usually means missing recurring forms or many incomplete or overdue assignments.'**
+  String adminAuditScoreHelpBody(String formPercent, String taskPercent);
+
+  /// No description provided for @adminAuditAdminListTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Administrators'**
+  String get adminAuditAdminListTitle;
+
+  /// No description provided for @adminAuditAdminListCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one{1 admin} other{{count} admins}}'**
+  String adminAuditAdminListCount(int count);
+
+  /// No description provided for @adminAuditAdminListHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Open the menu to switch administrators. Each row shows overall score, form compliance, and task efficiency; hover for forms and task counts.'**
+  String get adminAuditAdminListHint;
+
+  /// No description provided for @adminAuditSelectAdminLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Viewing'**
+  String get adminAuditSelectAdminLabel;
+
+  /// No description provided for @adminAuditStatTooltipForms.
+  ///
+  /// In en, this message translates to:
+  /// **'Forms submitted this month'**
+  String get adminAuditStatTooltipForms;
+
+  /// No description provided for @adminAuditStatTooltipTasks.
+  ///
+  /// In en, this message translates to:
+  /// **'Tasks completed / assigned'**
+  String get adminAuditStatTooltipTasks;
+
+  /// No description provided for @adminAuditStatTooltipOverdue.
+  ///
+  /// In en, this message translates to:
+  /// **'Tasks flagged overdue'**
+  String get adminAuditStatTooltipOverdue;
+
+  /// No description provided for @adminAuditStatTooltipAck.
+  ///
+  /// In en, this message translates to:
+  /// **'Tasks acknowledged / assigned'**
+  String get adminAuditStatTooltipAck;
+
+  /// No description provided for @adminAuditExportCsvButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Export admin CSV'**
+  String get adminAuditExportCsvButton;
+
+  /// No description provided for @adminAuditExportEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No admin audits to export for this month.'**
+  String get adminAuditExportEmpty;
+
+  /// No description provided for @exportSavedNativeBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved: {path}'**
+  String exportSavedNativeBody(String path);
+
+  /// No description provided for @auditStatusUpdatedBanner.
+  ///
+  /// In en, this message translates to:
+  /// **'Your audit report has been updated. Review the latest status below.'**
+  String get auditStatusUpdatedBanner;
+
+  /// No description provided for @auditFieldWeeklyRecordingsSent.
+  ///
+  /// In en, this message translates to:
+  /// **'Weekly recordings sent'**
+  String get auditFieldWeeklyRecordingsSent;
+
+  /// No description provided for @auditFieldClassRemindersSet.
+  ///
+  /// In en, this message translates to:
+  /// **'Class reminders set'**
+  String get auditFieldClassRemindersSet;
+
+  /// No description provided for @auditFieldInternetDropOffs.
+  ///
+  /// In en, this message translates to:
+  /// **'Internet drop-offs'**
+  String get auditFieldInternetDropOffs;
+
+  /// No description provided for @auditFieldMidtermCompleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Midterm completed'**
+  String get auditFieldMidtermCompleted;
+
+  /// No description provided for @auditFieldFinalExamCompleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Final exam completed'**
+  String get auditFieldFinalExamCompleted;
+
+  /// No description provided for @auditFieldSemesterProjectStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Semester project status'**
+  String get auditFieldSemesterProjectStatus;
+
+  /// No description provided for @auditSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get auditSave;
+
+  /// No description provided for @viewTeacherAudit.
+  ///
+  /// In en, this message translates to:
+  /// **'View Audit'**
+  String get viewTeacherAudit;
+
+  /// No description provided for @viewTeacherSubmissions.
+  ///
+  /// In en, this message translates to:
+  /// **'View Submissions'**
+  String get viewTeacherSubmissions;
+
+  /// No description provided for @auditIncidentsAndPenalties.
+  ///
+  /// In en, this message translates to:
+  /// **'Incidents & Penalties'**
+  String get auditIncidentsAndPenalties;
+
+  /// No description provided for @auditNoIncidents.
+  ///
+  /// In en, this message translates to:
+  /// **'No incidents or penalties recorded'**
+  String get auditNoIncidents;
+
+  /// No description provided for @auditIncidentFactsFinding.
+  ///
+  /// In en, this message translates to:
+  /// **'Facts/Findings Report'**
+  String get auditIncidentFactsFinding;
+
+  /// No description provided for @auditIncidentPenalty.
+  ///
+  /// In en, this message translates to:
+  /// **'Penalty Record'**
+  String get auditIncidentPenalty;
+
+  /// No description provided for @auditIncidentSubmittedBy.
+  ///
+  /// In en, this message translates to:
+  /// **'Submitted by {name}'**
+  String auditIncidentSubmittedBy(String name);
+
+  /// No description provided for @auditIncidentViolationType.
+  ///
+  /// In en, this message translates to:
+  /// **'Violation'**
+  String get auditIncidentViolationType;
+
+  /// No description provided for @auditIncidentRepercussion.
+  ///
+  /// In en, this message translates to:
+  /// **'Repercussion'**
+  String get auditIncidentRepercussion;
+
+  /// No description provided for @auditIncidentAmountCut.
+  ///
+  /// In en, this message translates to:
+  /// **'Amount cut'**
+  String get auditIncidentAmountCut;
+
+  /// No description provided for @auditIncidentDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Details'**
+  String get auditIncidentDescription;
+
+  /// No description provided for @auditIncidentActionRequested.
+  ///
+  /// In en, this message translates to:
+  /// **'Action requested'**
+  String get auditIncidentActionRequested;
+
+  /// No description provided for @auditIncidentOccurrence.
+  ///
+  /// In en, this message translates to:
+  /// **'Occurrence'**
+  String get auditIncidentOccurrence;
+
+  /// No description provided for @auditIncidentTypeComplaint.
+  ///
+  /// In en, this message translates to:
+  /// **'Complaint'**
+  String get auditIncidentTypeComplaint;
+
+  /// No description provided for @auditIncidentTypeAwareness.
+  ///
+  /// In en, this message translates to:
+  /// **'Awareness'**
+  String get auditIncidentTypeAwareness;
+
+  /// No description provided for @auditIncidentCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{No incidents} =1{1 incident} other{{count} incidents}}'**
+  String auditIncidentCount(int count);
+
+  /// No description provided for @auditIncidentLoading.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading incidents…'**
+  String get auditIncidentLoading;
+
+  /// No description provided for @auditFilterDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get auditFilterDone;
+
+  /// No description provided for @auditSelectFormToView.
+  ///
+  /// In en, this message translates to:
+  /// **'Select a form to view its content'**
+  String get auditSelectFormToView;
+
+  /// No description provided for @auditNoMatchingShift.
+  ///
+  /// In en, this message translates to:
+  /// **'No matching shift found for this form.'**
+  String get auditNoMatchingShift;
+
+  /// No description provided for @adminAuditMetricsSidebarTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Computed metrics'**
+  String get adminAuditMetricsSidebarTitle;
+
+  /// No description provided for @adminAuditTabFormsEval.
+  ///
+  /// In en, this message translates to:
+  /// **'Forms review'**
+  String get adminAuditTabFormsEval;
+
+  /// No description provided for @adminAuditTabTasksEval.
+  ///
+  /// In en, this message translates to:
+  /// **'Tasks'**
+  String get adminAuditTabTasksEval;
+
+  /// No description provided for @adminAuditTabContextForms.
+  ///
+  /// In en, this message translates to:
+  /// **'Context forms'**
+  String get adminAuditTabContextForms;
+
+  /// No description provided for @adminAuditTabEvalSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'Evaluation summary'**
+  String get adminAuditTabEvalSummary;
+
+  /// No description provided for @adminAuditEvalThemeFilter.
+  ///
+  /// In en, this message translates to:
+  /// **'Theme / filter'**
+  String get adminAuditEvalThemeFilter;
+
+  /// No description provided for @adminAuditEvalCriteriaTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Evaluation criteria (0–5, N/A)'**
+  String get adminAuditEvalCriteriaTitle;
+
+  /// No description provided for @adminAuditNoSubmissionsMonth.
+  ///
+  /// In en, this message translates to:
+  /// **'No matching submissions for this month.'**
+  String get adminAuditNoSubmissionsMonth;
+
+  /// No description provided for @adminAuditSelectSubmissionHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Select a submission to preview'**
+  String get adminAuditSelectSubmissionHint;
+
+  /// No description provided for @adminAuditExportEvalPdf.
+  ///
+  /// In en, this message translates to:
+  /// **'Export evaluation PDF'**
+  String get adminAuditExportEvalPdf;
+
+  /// No description provided for @adminAuditExportEvalExcel.
+  ///
+  /// In en, this message translates to:
+  /// **'Export evaluation Excel'**
+  String get adminAuditExportEvalExcel;
+
+  /// No description provided for @adminAuditEvalSummaryTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Manual evaluation scores'**
+  String get adminAuditEvalSummaryTitle;
+
+  /// No description provided for @adminAuditTasksForMonth.
+  ///
+  /// In en, this message translates to:
+  /// **'Tasks in month'**
+  String get adminAuditTasksForMonth;
+
+  /// No description provided for @adminAuditTaskStatsHeader.
+  ///
+  /// In en, this message translates to:
+  /// **'Assigned: {assigned} · Done: {done} · Overdue flag: {overdue}'**
+  String adminAuditTaskStatsHeader(int assigned, int done, int overdue);
+
+  /// No description provided for @adminAuditScoreNa.
+  ///
+  /// In en, this message translates to:
+  /// **'N/A'**
+  String get adminAuditScoreNa;
+
+  /// No description provided for @adminAuditContextFormsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Facts-finding and payment / advance submissions for this admin.'**
+  String get adminAuditContextFormsHint;
+
+  /// No description provided for @adminAuditEnteredScores.
+  ///
+  /// In en, this message translates to:
+  /// **'Entered scores'**
+  String get adminAuditEnteredScores;
+
+  /// No description provided for @adminAuditEvalAverage.
+  ///
+  /// In en, this message translates to:
+  /// **'Average (entered scores only): {pct}%'**
+  String adminAuditEvalAverage(String pct);
+
+  /// No description provided for @adminAuditEvalExportDocTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Admin evaluation sheet'**
+  String get adminAuditEvalExportDocTitle;
+
+  /// No description provided for @adminAuditEvalExportEvaluated.
+  ///
+  /// In en, this message translates to:
+  /// **'Person evaluated'**
+  String get adminAuditEvalExportEvaluated;
+
+  /// No description provided for @adminAuditEvalExportEvaluator.
+  ///
+  /// In en, this message translates to:
+  /// **'Evaluator'**
+  String get adminAuditEvalExportEvaluator;
+
+  /// No description provided for @adminAuditEvalExportPeriod.
+  ///
+  /// In en, this message translates to:
+  /// **'Period'**
+  String get adminAuditEvalExportPeriod;
+
+  /// No description provided for @adminAuditEvalExportDocumentDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Document date'**
+  String get adminAuditEvalExportDocumentDate;
+
+  /// No description provided for @adminAuditEvalExportSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Organized by theme · Rating 0–5 · N/A = not applicable'**
+  String get adminAuditEvalExportSubtitle;
+
+  /// No description provided for @adminAuditEvalExportCeoNotesHeading.
+  ///
+  /// In en, this message translates to:
+  /// **'CEO notes'**
+  String get adminAuditEvalExportCeoNotesHeading;
+
+  /// No description provided for @adminAuditEvalExportPaymentHeading.
+  ///
+  /// In en, this message translates to:
+  /// **'Monthly payment adjustments'**
+  String get adminAuditEvalExportPaymentHeading;
+
+  /// No description provided for @adminAuditEvalExportBonus.
+  ///
+  /// In en, this message translates to:
+  /// **'Bonus (monthly, USD)'**
+  String get adminAuditEvalExportBonus;
+
+  /// No description provided for @adminAuditEvalExportPaycut.
+  ///
+  /// In en, this message translates to:
+  /// **'Pay cut (monthly, USD)'**
+  String get adminAuditEvalExportPaycut;
+
+  /// No description provided for @adminAuditEvalExportRationale.
+  ///
+  /// In en, this message translates to:
+  /// **'Justification / details'**
+  String get adminAuditEvalExportRationale;
+
+  /// No description provided for @adminAuditEvalExportTasksSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Tasks'**
+  String get adminAuditEvalExportTasksSection;
+
+  /// No description provided for @adminAuditEvalExportOtherSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Other criteria'**
+  String get adminAuditEvalExportOtherSection;
+
+  /// No description provided for @adminAuditEvalExportAutoKpi.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto KPIs: overall {overall}% · forms {forms}% · tasks {tasks}%'**
+  String adminAuditEvalExportAutoKpi(int overall, int forms, int tasks);
+
+  /// No description provided for @adminAuditEvalExportUnknownEvaluator.
+  ///
+  /// In en, this message translates to:
+  /// **'—'**
+  String get adminAuditEvalExportUnknownEvaluator;
+
+  /// No description provided for @adminAuditCeoBonusMonthly.
+  ///
+  /// In en, this message translates to:
+  /// **'Bonus (monthly, USD)'**
+  String get adminAuditCeoBonusMonthly;
+
+  /// No description provided for @adminAuditCeoPaycutMonthly.
+  ///
+  /// In en, this message translates to:
+  /// **'Pay cut (monthly, USD)'**
+  String get adminAuditCeoPaycutMonthly;
+
+  /// No description provided for @adminAuditCeoAdjustmentRationale.
+  ///
+  /// In en, this message translates to:
+  /// **'Justification (bonus or pay cut)'**
+  String get adminAuditCeoAdjustmentRationale;
+
+  /// No description provided for @adminAuditCeoPaymentAdjustmentsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Optional monthly amounts. Add a short justification when either amount is set.'**
+  String get adminAuditCeoPaymentAdjustmentsHint;
+
+  /// No description provided for @adminAuditEvalSectionCommentLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Evaluator comment'**
+  String get adminAuditEvalSectionCommentLabel;
+
+  /// No description provided for @adminAuditEvalSectionCommentHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Optional. Included in PDF/Excel under this section.'**
+  String get adminAuditEvalSectionCommentHint;
 }
 
 class _AppLocalizationsDelegate

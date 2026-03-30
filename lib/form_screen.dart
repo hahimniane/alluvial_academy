@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'dart:typed_data';
+import 'package:image/image.dart' as img;
 import 'package:intl/intl.dart';
 import 'core/services/user_role_service.dart';
 import 'core/services/shift_form_service.dart';
@@ -137,6 +138,29 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
       if (templateDoc.exists && mounted) {
         // Convert template to form format
         final template = FormTemplate.fromFirestore(templateDoc);
+        if (!template.isActive) {
+          AppLogger.warning(
+              'FormScreen: Blocked auto-select template $formId because it is inactive');
+          if (mounted) {
+            setState(() => _isAutoSelecting = false);
+            _showAutoSelectBlockedMessage(
+              'This form is inactive and cannot be opened automatically.',
+            );
+          }
+          return;
+        }
+        if (!_canAccessTemplate(template)) {
+          AppLogger.warning(
+              'FormScreen: Blocked auto-select template $formId due to role access');
+          if (mounted) {
+            setState(() => _isAutoSelecting = false);
+            _showAutoSelectBlockedMessage(
+              'You do not have permission to access this form.',
+              isError: true,
+            );
+          }
+          return;
+        }
         final formData = _convertTemplateToFormData(template);
 
         debugPrint('✅ FormScreen: Template found - "${template.name}"');
@@ -161,6 +185,30 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
 
       if (formDoc.exists && mounted) {
         final formData = formDoc.data()!;
+        final status = (formData['status'] ?? 'active').toString().toLowerCase();
+        if (status != 'active') {
+          AppLogger.warning(
+              'FormScreen: Blocked auto-select old form $formId because status=$status');
+          if (mounted) {
+            setState(() => _isAutoSelecting = false);
+            _showAutoSelectBlockedMessage(
+              'This form is inactive and no longer available.',
+            );
+          }
+          return;
+        }
+        if (!_canAccessForm(formData)) {
+          AppLogger.warning(
+              'FormScreen: Blocked auto-select old form $formId due to permissions');
+          if (mounted) {
+            setState(() => _isAutoSelecting = false);
+            _showAutoSelectBlockedMessage(
+              'You do not have permission to access this form.',
+              isError: true,
+            );
+          }
+          return;
+        }
         debugPrint(
             '✅ FormScreen: Form found - "${formData['title'] ?? 'Untitled'}"');
 
@@ -197,6 +245,19 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
       debugPrint('❌ FormScreen: Error auto-selecting form: $e');
       if (mounted) setState(() => _isAutoSelecting = false);
     }
+  }
+
+  void _showAutoSelectBlockedMessage(String message, {bool isError = false}) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: isError ? Colors.red : Colors.orange,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    });
   }
 
   /// Convert FormTemplate to the format expected by FormScreen (legacy form format)
@@ -341,23 +402,52 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
     }
   }
 
+  /// Helper method to normalize role names from legacy/new sources.
+  String _normalizeRole(String role) {
+    final normalized = role.trim().toLowerCase();
+    switch (normalized) {
+      case 'teachers':
+      case 'tutor':
+      case 'tutors':
+      case 'instructor':
+      case 'instructors':
+        return 'teacher';
+      case 'admins':
+      case 'administrator':
+      case 'administrators':
+        return 'admin';
+      case 'coaches':
+        return 'coach';
+      case 'students':
+        return 'student';
+      case 'parents':
+        return 'parent';
+      default:
+        return normalized;
+    }
+  }
+
+  bool _canAccessTemplate(FormTemplate template) {
+    if (_currentUserRole == null) return false;
+
+    final allowedRoles = template.allowedRoles;
+    if (allowedRoles == null || allowedRoles.isEmpty) {
+      return true;
+    }
+
+    final currentRole = _normalizeRole(_currentUserRole!);
+    for (final role in allowedRoles) {
+      if (_normalizeRole(role) == currentRole) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   /// Helper method to check if roles match (handles both singular and plural forms)
   bool _roleMatches(String allowedRole, String? userRole) {
     if (userRole == null) return false;
-
-    // Direct match
-    if (allowedRole == userRole) return true;
-
-    // Handle plural to singular conversion
-    Map<String, String> pluralToSingular = {
-      'admins': 'admin',
-      'teachers': 'teacher',
-      'students': 'student',
-      'parents': 'parent',
-    };
-
-    String singularAllowedRole = pluralToSingular[allowedRole] ?? allowedRole;
-    return singularAllowedRole == userRole;
+    return _normalizeRole(allowedRole) == _normalizeRole(userRole);
   }
 
   /// Check if the current user can access a specific form
@@ -3193,9 +3283,15 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
     // SECURITY CHECK: Orphan Prevention
     // If this is the Readiness Form but we don't have a shiftId (context),
     // we MUST force the user to select which class they are reporting for.
-    final readinessFormId = await ShiftFormService.getReadinessFormId();
+    String? readinessFormId;
+    try {
+      readinessFormId = await ShiftFormService.getReadinessFormId();
+    } catch (e) {
+      AppLogger.warning(
+          'FormScreen: Unable to resolve readiness form ID during selection: $e');
+    }
 
-    if (formId == readinessFormId && widget.shiftId == null) {
+    if (readinessFormId != null && formId == readinessFormId && widget.shiftId == null) {
       if (mounted) {
         final selectedShift = await _showShiftSelectionDialog();
         if (selectedShift != null) {
@@ -3870,76 +3966,6 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
       Uint8List imageBytes, String fileName) async {
     const maxRetries = 3;
 
-    // Test basic Firebase Storage connectivity
-    try {
-      AppLogger.debug('=== Testing Firebase Storage Connectivity ===');
-      final storage = FirebaseStorage.instance;
-      AppLogger.debug('Storage bucket: ${storage.bucket}');
-
-      // Test with a tiny file first
-      final testData = Uint8List.fromList([1, 2, 3, 4, 5]); // 5 bytes
-      final testRef = storage
-          .ref()
-          .child('test_${DateTime.now().millisecondsSinceEpoch}.txt');
-
-      AppLogger.debug('Attempting small test upload...');
-      final uploadTask = testRef.putData(testData);
-
-      // Monitor the upload task state
-      uploadTask.snapshotEvents.listen((snapshot) {
-        AppLogger.debug('Test upload state: ${snapshot.state}');
-        AppLogger.debug(
-            'Test upload progress: ${snapshot.bytesTransferred}/${snapshot.totalBytes}');
-      });
-
-      final testUpload = await uploadTask.timeout(
-        const Duration(seconds: 10),
-        onTimeout: () {
-          AppLogger.debug(
-              'Test upload task final state: ${uploadTask.snapshot.state}');
-          AppLogger.debug(
-              'Test upload bytes transferred: ${uploadTask.snapshot.bytesTransferred}');
-          throw Exception('Test upload timeout');
-        },
-      );
-
-      AppLogger.info('Test upload successful! Cleaning up...');
-      await testRef
-          .delete()
-          .catchError((e) => AppLogger.error('Cleanup error: $e'));
-      AppLogger.debug('=== Storage connectivity test PASSED ===');
-    } catch (e) {
-      AppLogger.error('=== Storage connectivity test FAILED ===');
-      AppLogger.error('Error: $e');
-      AppLogger.error('Error type: ${e.runtimeType}');
-      if (e.toString().contains('XMLHttpRequest')) {
-        AppLogger.debug(
-            'CORS/Network issue detected - this is common in web development');
-      } else if (e.toString().contains('permission')) {
-        AppLogger.debug('Permission issue detected');
-      } else if (e.toString().contains('network')) {
-        AppLogger.debug('Network connectivity issue detected');
-      }
-      AppLogger.debug('This indicates a fundamental connectivity issue');
-      AppLogger.debug('Possible solutions:');
-      AppLogger.debug(
-          '1. Check Firebase Storage is enabled in Firebase Console');
-      AppLogger.debug('2. Check network/firewall settings');
-      AppLogger.debug('3. Try from a different network');
-      AppLogger.debug('4. Check CORS configuration');
-      return null;
-    }
-
-    // Verify authentication status
-    final currentUser = FirebaseAuth.instance.currentUser;
-    AppLogger.debug('=== Authentication Status ===');
-    AppLogger.debug('User logged in: ${currentUser != null}');
-    AppLogger.debug('User ID: ${currentUser?.uid}');
-    AppLogger.debug('User email: ${currentUser?.email}');
-    AppLogger.debug(
-        'Auth token: ${currentUser?.refreshToken != null ? "Available" : "Missing"}');
-    AppLogger.debug('=============================');
-
     for (int attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         AppLogger.debug(
@@ -4046,41 +4072,48 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
   Future<Uint8List> _compressImage(
       Uint8List imageBytes, String fileName) async {
     try {
-      // For web, we'll use a simple quality reduction approach
-      // This is a basic implementation - in production you might want to use image package
-
-      // If the image is very large, we'll reduce quality significantly
-      if (imageBytes.length > 2 * 1024 * 1024) {
-        // > 2MB
-        AppLogger.debug(
-            'Image is very large (${(imageBytes.length / (1024 * 1024)).toStringAsFixed(2)}MB), applying maximum compression');
-        // For very large images, we'll return a significantly reduced version
-        // This is a simplified approach - you might want to integrate image compression library
-        return _reduceImageSize(imageBytes, 0.3); // 30% quality
-      } else if (imageBytes.length > 1024 * 1024) {
-        // > 1MB
-        AppLogger.debug(
-            'Image is large (${(imageBytes.length / (1024 * 1024)).toStringAsFixed(2)}MB), applying medium compression');
-        return _reduceImageSize(imageBytes, 0.6); // 60% quality
-      } else {
-        AppLogger.debug('Image size is acceptable, applying light compression');
-        return _reduceImageSize(imageBytes, 0.8); // 80% quality
+      final decoded = img.decodeImage(imageBytes);
+      if (decoded == null) {
+        AppLogger.debug('Could not decode image, returning original');
+        return imageBytes;
       }
+
+      // Determine max width based on file size
+      int maxWidth;
+      int quality;
+      if (imageBytes.length > 2 * 1024 * 1024) {
+        maxWidth = 1920;
+        quality = 70;
+        AppLogger.debug(
+            'Image is very large (${(imageBytes.length / (1024 * 1024)).toStringAsFixed(2)}MB), resizing to ${maxWidth}px and quality $quality');
+      } else if (imageBytes.length > 1024 * 1024) {
+        maxWidth = 2560;
+        quality = 75;
+        AppLogger.debug(
+            'Image is large (${(imageBytes.length / (1024 * 1024)).toStringAsFixed(2)}MB), resizing to ${maxWidth}px and quality $quality');
+      } else {
+        maxWidth = decoded.width; // keep original dimensions
+        quality = 80;
+        AppLogger.debug('Image size is acceptable, re-encoding at quality $quality');
+      }
+
+      // Resize if wider than max
+      var processed = decoded;
+      if (decoded.width > maxWidth) {
+        processed = img.copyResize(decoded, width: maxWidth);
+        AppLogger.debug('Resized from ${decoded.width}x${decoded.height} to ${processed.width}x${processed.height}');
+      }
+
+      // Encode as JPEG
+      final compressed = Uint8List.fromList(img.encodeJpg(processed, quality: quality));
+      AppLogger.debug(
+          'Compressed: ${(imageBytes.length / 1024).toStringAsFixed(0)}KB -> ${(compressed.length / 1024).toStringAsFixed(0)}KB');
+      return compressed;
     } catch (e) {
       AppLogger.error('Error compressing image: $e');
       AppLogger.debug('Returning original image');
       return imageBytes;
     }
-  }
-
-  Uint8List _reduceImageSize(Uint8List imageBytes, double quality) {
-    // This is a simplified size reduction
-    // In a real implementation, you would use image processing libraries
-    // For now, we'll just return the original bytes with a warning
-    AppLogger.debug(
-        'Note: Image compression not fully implemented. Consider using image processing library.');
-    AppLogger.debug('Returning original image bytes for now.');
-    return imageBytes;
   }
 
   Future<void> _pickImage(
@@ -4470,6 +4503,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
       final Map<String, dynamic> submissionData = {
         'formId': selectedFormId,
         'formName': formName, // Store form name for easier identification
+        'formTitle': formName, // Denormalized for fast admin reads (admin screen looks for formTitle/form_title/title)
         'formType': formType, // Store form type for audit system
         if (isTemplate && templateId != null)
           'templateId': templateId, // Store template ID for new system
@@ -4520,6 +4554,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
         final legacySubmissionData = <String, dynamic>{
           'formId': selectedFormId,
           'formName': formName,
+          'formTitle': formName,
           'formType': formType,
           if (frequency != null) 'frequency': frequency,
           'userId': currentUser.uid,
@@ -4565,11 +4600,29 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
           reportedHours: null, // Can be extracted from form responses if needed
         );
       } else if (widget.shiftId != null) {
-        // Link directly to shift (missed shift case - no timesheet entry)
-        linkedSuccessfully = await ShiftFormService.linkFormToShift(
+        // No timesheetId provided — try to find the timesheet for this shift
+        // so the audit's timesheet-proof gate can find the form_response_id.
+        try {
+          final tsSnap = await FirebaseFirestore.instance
+              .collection('timesheet_entries')
+              .where('shift_id', isEqualTo: widget.shiftId)
+              .limit(1)
+              .get();
+          if (tsSnap.docs.isNotEmpty) {
+            linkedSuccessfully = await ShiftFormService.linkFormToTimesheet(
+              timesheetId: tsSnap.docs.first.id,
+              formResponseId: docRef.id,
+              reportedHours: null,
+            );
+          }
+        } catch (e) {
+          AppLogger.warning('FormScreen: Could not look up timesheet for shift ${widget.shiftId}: $e');
+        }
+        // Also link directly to shift (covers missed shift case and keeps shift doc updated)
+        await ShiftFormService.linkFormToShift(
           shiftId: widget.shiftId!,
           formResponseId: docRef.id,
-          reportedHours: null, // Can be extracted from form responses if needed
+          reportedHours: null,
         );
       }
 

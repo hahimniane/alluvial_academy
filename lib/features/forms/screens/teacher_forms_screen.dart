@@ -82,6 +82,31 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
     return value.toLowerCase().trim();
   }
 
+  String _normalizeRoleName(String role) {
+    final normalized = role.trim().toLowerCase();
+    switch (normalized) {
+      case 'tutor':
+      case 'tutors':
+      case 'teacher':
+      case 'teachers':
+      case 'instructor':
+      case 'instructors':
+        return 'teacher';
+      case 'admins':
+      case 'administrator':
+      case 'administrators':
+        return 'admin';
+      case 'coaches':
+        return 'coach';
+      case 'students':
+        return 'student';
+      case 'parents':
+        return 'parent';
+      default:
+        return normalized;
+    }
+  }
+
   bool _matchesSearch(FormTemplate template, FormCategory category) {
     final query = _normalizeSearch(_searchQuery);
     if (query.isEmpty) return true;
@@ -101,8 +126,10 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
 
   Future<void> _loadAllData() async {
     await _loadUserRole();
-    await _loadTemplates();
-    await _loadSubmissionStatus();
+    await Future.wait([
+      _loadTemplates(),
+      _loadSubmissionStatus(),
+    ]);
   }
 
   Future<void> _loadUserRole() async {
@@ -150,8 +177,13 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
       
       // Organize templates by category
       _templatesByCategory = {};
+      int studentAssessmentTemplatesFound = 0;
+      int studentAssessmentTemplatesVisible = 0;
       
       for (var template in latestTemplatesByName.values) {
+        if (template.category == FormCategory.studentAssessment) {
+          studentAssessmentTemplatesFound++;
+        }
         
         // Map category: if frequency is perSession/weekly/monthly, treat as teaching category
         // This fixes templates in Firestore with category "other" but frequency "perSession"
@@ -165,7 +197,7 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
         
         // Check role access - strict filtering for teachers
         if (_userRole != null) {
-          final userRoleLower = _userRole!.toLowerCase();
+          final userRoleLower = _normalizeRoleName(_userRole!);
           
           // Admins and coaches can see all forms
           if (userRoleLower == 'admin' || userRoleLower == 'coach') {
@@ -179,16 +211,20 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
             
             if (hasAllowedRoles) {
               // If allowedRoles is set, teacher must be in the list
-              if (!template.allowedRoles!.contains('teacher')) {
+              final normalizedAllowedRoles = template.allowedRoles!
+                  .map(_normalizeRoleName)
+                  .toSet();
+              if (!normalizedAllowedRoles.contains('teacher')) {
                 continue; // Skip this form - it's not for teachers
               }
             } else {
               // If no allowedRoles, only show if it's a teacher-relevant category OR teaching frequency
-              // Teaching, feedback, and administrative forms are for teachers
+              // Teaching, feedback, administrative, and student assessment forms are for teachers
               // Daily/weekly/monthly reports are always for teachers
               final isTeacherCategory = displayCategory == FormCategory.teaching ||
                   displayCategory == FormCategory.feedback ||
                   displayCategory == FormCategory.administrative ||
+                  displayCategory == FormCategory.studentAssessment ||
                   template.frequency == FormFrequency.perSession ||
                   template.frequency == FormFrequency.weekly ||
                   template.frequency == FormFrequency.monthly;
@@ -200,7 +236,10 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
           } else {
             // For other roles (students, parents, etc.), apply strict filtering
             if (template.allowedRoles != null && template.allowedRoles!.isNotEmpty) {
-              if (!template.allowedRoles!.contains(userRoleLower)) {
+              final normalizedAllowedRoles = template.allowedRoles!
+                  .map(_normalizeRoleName)
+                  .toSet();
+              if (!normalizedAllowedRoles.contains(userRoleLower)) {
                 continue;
               }
             } else {
@@ -214,6 +253,9 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
         // Use displayCategory (may be mapped from "other" to "teaching")
         _templatesByCategory.putIfAbsent(displayCategory, () => []);
         _templatesByCategory[displayCategory]!.add(template);
+        if (template.category == FormCategory.studentAssessment) {
+          studentAssessmentTemplatesVisible++;
+        }
         
       }
       
@@ -237,12 +279,21 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
         ];
       }
       
-      // Add default student assessment if none found
+      // Add default student assessment only when no active one exists in backend.
+      // If backend templates exist but are filtered out, avoid masking with fallback.
       if (!_templatesByCategory.containsKey(FormCategory.studentAssessment) ||
           _templatesByCategory[FormCategory.studentAssessment]!.isEmpty) {
-        _templatesByCategory[FormCategory.studentAssessment] = [
-          FormTemplateService.defaultStudentAssessment,
-        ];
+        if (studentAssessmentTemplatesFound == 0) {
+          _templatesByCategory[FormCategory.studentAssessment] = [
+            FormTemplateService.defaultStudentAssessment,
+          ];
+        } else {
+          AppLogger.warning(
+            'TeacherFormsScreen: Student assessment templates exist in backend '
+            '($studentAssessmentTemplatesFound found) but none are visible '
+            'for role=$_userRole. Check allowedRoles/category values.',
+          );
+        }
       }
       
       // Add default administrative templates
@@ -333,33 +384,37 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
       // Check daily submissions for today
       // Note: Order of where clauses must match index: formType, userId, submittedAt
       final todayTimestamp = Timestamp.fromDate(DateTime(now.year, now.month, now.day));
-      final dailySubmissions = await FirebaseFirestore.instance
-          .collection('form_responses')
-          .where('formType', isEqualTo: 'daily') // First field in index
-          .where('userId', isEqualTo: user.uid) // Second field in index
-          .where('submittedAt', isGreaterThanOrEqualTo: todayTimestamp) // Third field in index
-          .orderBy('submittedAt', descending: true)
-          .limit(1)
-          .get();
-      
-      // Check weekly submissions for this week
       final weekStartTimestamp = Timestamp.fromDate(weekStart);
-      final weeklySubmissions = await FirebaseFirestore.instance
-          .collection('form_responses')
-          .where('formType', isEqualTo: 'weekly') // First field in index
-          .where('userId', isEqualTo: user.uid) // Second field in index
-          .where('submittedAt', isGreaterThanOrEqualTo: weekStartTimestamp) // Third field in index
-          .orderBy('submittedAt', descending: true)
-          .limit(1)
-          .get();
-      
-      // Check monthly submissions for this month
-      final monthlySubmissions = await FirebaseFirestore.instance
-          .collection('form_responses')
-          .where('userId', isEqualTo: user.uid)
-          .where('formType', isEqualTo: 'monthly')
-          .where('yearMonth', isEqualTo: yearMonth)
-          .get();
+      final results = await Future.wait([
+        // Check daily submissions for today
+        FirebaseFirestore.instance
+            .collection('form_responses')
+            .where('formType', isEqualTo: 'daily')
+            .where('userId', isEqualTo: user.uid)
+            .where('submittedAt', isGreaterThanOrEqualTo: todayTimestamp)
+            .orderBy('submittedAt', descending: true)
+            .limit(1)
+            .get(),
+        // Check weekly submissions for this week
+        FirebaseFirestore.instance
+            .collection('form_responses')
+            .where('formType', isEqualTo: 'weekly')
+            .where('userId', isEqualTo: user.uid)
+            .where('submittedAt', isGreaterThanOrEqualTo: weekStartTimestamp)
+            .orderBy('submittedAt', descending: true)
+            .limit(1)
+            .get(),
+        // Check monthly submissions for this month
+        FirebaseFirestore.instance
+            .collection('form_responses')
+            .where('userId', isEqualTo: user.uid)
+            .where('formType', isEqualTo: 'monthly')
+            .where('yearMonth', isEqualTo: yearMonth)
+            .get(),
+      ]);
+      final dailySubmissions = results[0];
+      final weeklySubmissions = results[1];
+      final monthlySubmissions = results[2];
       
       if (mounted) {
         setState(() {
@@ -988,8 +1043,23 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
       AppLogger.error('Error checking existing submission: $e');
     }
 
+    // Look up the timesheet for this shift so the form submission can link to it
+    String? timesheetId;
+    try {
+      final tsSnapshot = await FirebaseFirestore.instance
+          .collection('timesheet_entries')
+          .where('shift_id', isEqualTo: shiftId)
+          .limit(1)
+          .get();
+      if (tsSnapshot.docs.isNotEmpty) {
+        timesheetId = tsSnapshot.docs.first.id;
+      }
+    } catch (e) {
+      AppLogger.error('Error looking up timesheet for shift $shiftId: $e');
+    }
+
     // No existing submission - navigate to fill form with new template
-    _navigateToForm(template, shiftId: shiftId);
+    _navigateToForm(template, shiftId: shiftId, timesheetId: timesheetId);
   }
 
   /// Show old format form submission in read-only view
@@ -1368,7 +1438,7 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
     );
   }
 
-  Future<void> _navigateToForm(FormTemplate template, {String? shiftId}) async {
+  Future<void> _navigateToForm(FormTemplate template, {String? shiftId, String? timesheetId}) async {
     // For weekly and monthly forms, fetch the latest version (same as daily forms)
     // This ensures users always get the latest version, not a cached old one
     FormTemplate? latestTemplate = template;
@@ -1399,7 +1469,8 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
       MaterialPageRoute(
         builder: (context) => FormScreen(
           template: latestTemplate, // Use latest version for weekly/monthly
-          shiftId: shiftId, 
+          shiftId: shiftId,
+          timesheetId: timesheetId,
         ),
       ),
     ).then((_) {

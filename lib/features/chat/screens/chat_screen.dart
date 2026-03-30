@@ -48,11 +48,15 @@ class ChatScreen extends StatefulWidget {
   final ChatUser chatUser;
   /// True when this is a shared admin-support conversation.
   final bool isAdminSupportChat;
+  final String? initialMessage;
+  final bool forceAllowMessaging;
 
   const ChatScreen({
     super.key,
     required this.chatUser,
     this.isAdminSupportChat = false,
+    this.initialMessage,
+    this.forceAllowMessaging = false,
   });
 
   @override
@@ -68,8 +72,11 @@ class _ChatScreenState extends State<ChatScreen> {
 
   bool _isComposing = false;
   ChatMessage? _replyingTo;
-  bool _hasPermission = true;
+  /// Starts false for 1:1 chats until permission is resolved (avoids "open then lock" flash).
+  bool _hasPermission = false;
   bool _checkingPermission = true;
+  /// True if the messages stream shows at least one message from the other user (reply rights).
+  bool _unlockedByInboundMessages = false;
   String? _relationshipContext;
   bool _isUploading = false;
 
@@ -84,12 +91,14 @@ class _ChatScreenState extends State<ChatScreen> {
 
   // Cache the messages stream to prevent rebuilding on every setState
   late Stream<List<ChatMessage>> _messagesStream;
+  StreamSubscription<List<ChatMessage>>? _inboundUnlockSubscription;
 
   // @mention support
   List<Map<String, dynamic>> _groupMembers = [];
   bool _showMentionSuggestions = false;
   String _mentionQuery = '';
   int _mentionStartIndex = -1;
+  String? _auditTemplateMessage;
 
   /// The effective chat ID used for message routing.
   /// For admin-support chats opened by a non-admin user, this is the generated
@@ -104,6 +113,10 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.initialMessage != null && widget.initialMessage!.trim().isNotEmpty) {
+      _auditTemplateMessage = widget.initialMessage!.trim();
+      _insertAuditTemplate(replace: true);
+    }
     _messageController.addListener(_onTextChanged);
 
     // Compute the effective chat ID for admin support chats
@@ -142,6 +155,23 @@ class _ChatScreenState extends State<ChatScreen> {
       );
     }
 
+    // If Firestore permission rules or timing make canMessage miss inbound thread, still
+    // allow reply when we already display messages from the other party.
+    _inboundUnlockSubscription = _messagesStream.listen((messages) {
+      if (!mounted || widget.chatUser.isGroup || widget.forceAllowMessaging) return;
+      final uid = _chatService.currentUserId;
+      if (uid == null) return;
+      final otherId = widget.chatUser.id;
+      if (otherId.contains('_')) return;
+      final hasInbound = messages.any((m) => m.senderId == otherId);
+      if (!hasInbound) return;
+      setState(() {
+        _unlockedByInboundMessages = true;
+        _hasPermission = true;
+        _checkingPermission = false;
+      });
+    });
+
     // Mark messages as read when opening chat
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _chatService.markMessagesAsRead(
@@ -152,7 +182,29 @@ class _ChatScreenState extends State<ChatScreen> {
     });
   }
 
+  void _insertAuditTemplate({bool replace = false}) {
+    final template = _auditTemplateMessage;
+    if (template == null || template.isEmpty) return;
+    final current = _messageController.text.trim();
+    final next = (replace || current.isEmpty) ? template : '$current\n\n$template';
+    _messageController.text = next;
+    _messageController.selection = TextSelection.fromPosition(
+      TextPosition(offset: next.length),
+    );
+    setState(() => _isComposing = next.trim().isNotEmpty);
+    _messageFocusNode.requestFocus();
+  }
+
   Future<void> _checkPermissionAndContext() async {
+    if (widget.forceAllowMessaging) {
+      if (mounted) {
+        setState(() {
+          _hasPermission = true;
+          _checkingPermission = false;
+        });
+      }
+      return;
+    }
     final currentUserId = FirebaseAuth.instance.currentUser?.uid;
 
     // Admin support chats always have permission (any user can message admin,
@@ -183,7 +235,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
       if (mounted) {
         setState(() {
-          _hasPermission = canMessage;
+          _hasPermission = canMessage || _unlockedByInboundMessages;
           _relationshipContext = context;
           _checkingPermission = false;
         });
@@ -192,7 +244,7 @@ class _ChatScreenState extends State<ChatScreen> {
       AppLogger.error('Error checking chat permission: $e');
       if (mounted) {
         setState(() {
-          _hasPermission = false;
+          _hasPermission = _unlockedByInboundMessages;
           _checkingPermission = false;
         });
       }
@@ -278,6 +330,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   void dispose() {
+    _inboundUnlockSubscription?.cancel();
     // Clear the current open chat so notifications resume
     NotificationService.setCurrentOpenChat(null);
     _messageController.dispose();
@@ -591,6 +644,9 @@ class _ChatScreenState extends State<ChatScreen> {
               case 'leave_group':
                 _showLeaveGroupDialog();
                 break;
+              case 'insert_audit_template':
+                _insertAuditTemplate();
+                break;
             }
           },
           itemBuilder: (context) => _buildMenuItems(),
@@ -839,6 +895,50 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Widget _buildMessageInput() {
+    // While resolving 1:1 permission, show loading — not the text field (avoids false "unlocked" flash).
+    final showPermissionLoading = !widget.chatUser.isGroup &&
+        !widget.forceAllowMessaging &&
+        _checkingPermission &&
+        !_unlockedByInboundMessages;
+    if (showPermissionLoading) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border(top: BorderSide(color: Colors.grey.shade200)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, -2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            const SizedBox(
+              width: 22,
+              height: 22,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(Color(0xff0386FF)),
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                'Checking chat permissions…',
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  color: const Color(0xff6B7280),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     // Show permission denied message
     if (!widget.chatUser.isGroup && !_hasPermission && !_checkingPermission) {
       return Container(
@@ -908,6 +1008,22 @@ class _ChatScreenState extends State<ChatScreen> {
 
           // Reply preview
           if (_replyingTo != null) _buildReplyPreview(),
+
+          if (_auditTemplateMessage != null && _auditTemplateMessage!.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: () => _insertAuditTemplate(),
+                  icon: const Icon(Icons.content_paste_rounded, size: 16),
+                  label: Text(
+                    'Insert audit template',
+                    style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ),
+            ),
 
           // Message input row
           Padding(
@@ -1899,6 +2015,20 @@ class _ChatScreenState extends State<ChatScreen> {
 
   List<PopupMenuEntry<String>> _buildMenuItems() {
     List<PopupMenuEntry<String>> items = [
+      if (_auditTemplateMessage != null && _auditTemplateMessage!.isNotEmpty)
+        PopupMenuItem(
+          value: 'insert_audit_template',
+          child: Row(
+            children: [
+              const Icon(Icons.content_paste_rounded, color: Color(0xff0386FF)),
+              const SizedBox(width: 12),
+              Text(
+                'Insert audit template',
+                style: GoogleFonts.inter(color: const Color(0xff374151)),
+              ),
+            ],
+          ),
+        ),
       PopupMenuItem(
         value: 'clear_chat',
         child: Row(

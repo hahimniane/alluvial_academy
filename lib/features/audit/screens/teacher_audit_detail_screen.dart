@@ -1,10 +1,15 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/models/teacher_audit_full.dart';
 import '../../../core/services/teacher_audit_service.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import '../../chat/models/chat_user.dart';
+import '../../chat/screens/chat_screen.dart';
+import '../../chat/screens/chat_page.dart';
+import '../../../core/services/form_labels_cache_service.dart';
+import '../../forms/widgets/form_details_modal.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 // ─── Palette ─────────────────────────────────────────────────────────────────
@@ -16,7 +21,7 @@ const _slate = Color(0xff64748B);
 const _bg = Color(0xFFF8FAFC);
 const _border = Color(0xFFE2E8F0);
 
-/// Teacher's monthly audit view — 3 tabs, zero extra Firestore queries.
+/// Teacher's monthly audit — single scroll payslip-style view.
 /// Data comes from TeacherAuditFull (detailedShifts, detailedForms) already loaded.
 class TeacherAuditDetailScreen extends StatefulWidget {
   final String? yearMonth;
@@ -26,26 +31,30 @@ class TeacherAuditDetailScreen extends StatefulWidget {
   State<TeacherAuditDetailScreen> createState() => _TeacherAuditDetailScreenState();
 }
 
-class _TeacherAuditDetailScreenState extends State<TeacherAuditDetailScreen>
-    with SingleTickerProviderStateMixin {
-  late TabController _tab;
+class _TeacherAuditDetailScreenState extends State<TeacherAuditDetailScreen> {
   TeacherAuditFull? _audit;
   bool _isLoading = true;
   String _selectedYearMonth = '';
+  List<String> _availableMonths = [];
+  int _unreadNotifications = 0;
+  bool _ackBusy = false;
 
   @override
   void initState() {
     super.initState();
-    _tab = TabController(length: 3, vsync: this);
     _selectedYearMonth =
         widget.yearMonth ?? DateFormat('yyyy-MM').format(DateTime.now());
+    _loadAvailableMonths();
     _loadAudit();
   }
 
-  @override
-  void dispose() {
-    _tab.dispose();
-    super.dispose();
+  Future<void> _loadAvailableMonths() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    final months = await TeacherAuditService.getAvailableYearMonthsForTeacher(user.uid);
+    if (mounted) {
+      setState(() => _availableMonths = months);
+    }
   }
 
   Future<void> _loadAudit() async {
@@ -60,9 +69,14 @@ class _TeacherAuditDetailScreenState extends State<TeacherAuditDetailScreen>
       yearMonth: _selectedYearMonth,
     );
 
-    // Teachers only see completed audits
+    // Teachers see audits from coachSubmitted onward (not just completed)
+    const viewableStatuses = {
+      AuditStatus.coachSubmitted,
+      AuditStatus.ceoApproved,
+      AuditStatus.completed,
+    };
     if (audit == null ||
-        audit.status != AuditStatus.completed ||
+        !viewableStatuses.contains(audit.status) ||
         audit.oderId != user.uid) {
       setState(() {
         _audit = null;
@@ -71,18 +85,28 @@ class _TeacherAuditDetailScreenState extends State<TeacherAuditDetailScreen>
       return;
     }
 
+    // Check for unread audit notifications and mark as read
+    final count =
+        await TeacherAuditService.getUnreadAuditNotificationCount(user.uid);
+    if (count > 0) {
+      await TeacherAuditService.markAuditNotificationsRead(user.uid);
+    }
+
     setState(() {
       _audit = audit;
       _isLoading = false;
+      _unreadNotifications = count;
     });
   }
 
   void _selectMonth() async {
-    final now = DateTime.now();
-    final months = List.generate(12, (i) {
-      final date = DateTime(now.year, now.month - i);
-      return DateFormat('yyyy-MM').format(date);
-    });
+    // Use Firestore-backed months if available, fall back to last 12 months
+    final months = _availableMonths.isNotEmpty
+        ? _availableMonths
+        : List.generate(12, (i) {
+            final date = DateTime(DateTime.now().year, DateTime.now().month - i);
+            return DateFormat('yyyy-MM').format(date);
+          });
 
     final selected = await showDialog<String>(
       context: context,
@@ -141,44 +165,176 @@ class _TeacherAuditDetailScreenState extends State<TeacherAuditDetailScreen>
             tooltip: AppLocalizations.of(context)!.commonRefresh,
           ),
         ],
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(44),
-          child: Container(
-            decoration: const BoxDecoration(
-              border: Border(bottom: BorderSide(color: _border)),
-            ),
-            child: TabBar(
-              controller: _tab,
-              labelColor: _blue,
-              unselectedLabelColor: _slate,
-              indicatorColor: _blue,
-              indicatorWeight: 2,
-              labelStyle:
-                  GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600),
-              unselectedLabelStyle: GoogleFonts.inter(fontSize: 13),
-              tabs: [
-                Tab(text: AppLocalizations.of(context)!.teacherAuditTabSummary),
-                Tab(text: AppLocalizations.of(context)!.teacherAuditTabMyClasses),
-                Tab(text: AppLocalizations.of(context)!.teacherAuditTabDispute),
-              ],
-            ),
-          ),
-        ),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: _blue))
           : _audit == null
               ? _buildEmptyState()
-              : TabBarView(
-                  controller: _tab,
-                  physics: const NeverScrollableScrollPhysics(),
+              : Column(
                   children: [
-                    _SummaryTab(audit: _audit!),
-                    _ClassesTab(audit: _audit!),
-                    _DisputeTab(
-                        audit: _audit!, onSubmit: _loadAudit),
+                    // Audit status updated banner
+                    if (_unreadNotifications > 0)
+                      Container(
+                        margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: _blue.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(10),
+                          border:
+                              Border.all(color: _blue.withOpacity(0.2)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.notifications_active,
+                                color: _blue, size: 20),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                AppLocalizations.of(context)!
+                                    .auditStatusUpdatedBanner,
+                                style: GoogleFonts.inter(
+                                    fontSize: 13,
+                                    color: _blue.withOpacity(0.9)),
+                              ),
+                            ),
+                            GestureDetector(
+                              onTap: () =>
+                                  setState(() => _unreadNotifications = 0),
+                              child: Icon(Icons.close,
+                                  size: 18,
+                                  color: _blue.withOpacity(0.5)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    Expanded(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.only(bottom: 24),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _SummaryTab(audit: _audit!, shrinkWrap: true),
+                            _teacherActionsCard(_audit!),
+                            const SizedBox(height: 8),
+                            Text(
+                              AppLocalizations.of(context)!
+                                  .teacherAuditClassesSection,
+                              style: GoogleFonts.inter(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: _slate,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            SizedBox(
+                              height: 420,
+                              child: _ClassesTab(
+                                audit: _audit!,
+                                embeddedListHeight: 360,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            _DisputeTab(
+              audit: _audit!,
+              onSubmit: _loadAudit,
+              embedded: true,
+            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   ],
                 ),
+    );
+  }
+
+  Widget _teacherActionsCard(TeacherAuditFull audit) {
+    final loc = AppLocalizations.of(context)!;
+    final ack = audit.teacherAcknowledgedAt;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: _border),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (ack != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(
+                  loc.auditAcknowledgeDone(
+                    DateFormat.yMMMd().add_jm().format(ack),
+                  ),
+                  style: GoogleFonts.inter(fontSize: 12, color: _green),
+                ),
+              )
+            else
+              FilledButton.icon(
+                onPressed: _ackBusy
+                    ? null
+                    : () async {
+                        setState(() => _ackBusy = true);
+                        final ok = await TeacherAuditService
+                            .acknowledgeTeacherAuditForMonth(audit.yearMonth);
+                        if (mounted) setState(() => _ackBusy = false);
+                        if (ok) await _loadAudit();
+                      },
+                icon: _ackBusy
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.check_circle_outline, size: 20),
+                label: Text(loc.auditAcknowledgeRead),
+              ),
+            const SizedBox(height: 10),
+            OutlinedButton.icon(
+              onPressed: () async {
+                final uid = FirebaseAuth.instance.currentUser?.uid;
+                if (uid == null) return;
+                final coachId = audit.coachEvaluation?.coachId.trim() ?? '';
+                if (coachId.isNotEmpty) {
+                  final doc = await FirebaseFirestore.instance
+                      .collection('users')
+                      .doc(coachId)
+                      .get();
+                  final d = doc.data() ?? {};
+                  final name =
+                      '${d['first_name'] ?? ''} ${d['last_name'] ?? ''}'.trim();
+                  final chatUser = ChatUser(
+                    id: coachId,
+                    name: name.isNotEmpty ? name : coachId,
+                    email: (d['email'] ?? d['e-mail'] ?? '').toString(),
+                  );
+                  if (!context.mounted) return;
+                  await Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => ChatScreen(chatUser: chatUser),
+                    ),
+                  );
+                  return;
+                }
+                if (!context.mounted) return;
+                await Navigator.of(context).push(
+                  MaterialPageRoute<void>(builder: (_) => const ChatPage()),
+                );
+              },
+              icon: const Icon(Icons.forum_outlined, size: 20),
+              label: Text(loc.auditOpenDiscussion),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -227,7 +383,8 @@ class _TeacherAuditDetailScreenState extends State<TeacherAuditDetailScreen>
 // ─────────────────────────────────────────────────────────────────────────────
 class _SummaryTab extends StatelessWidget {
   final TeacherAuditFull audit;
-  const _SummaryTab({required this.audit});
+  final bool shrinkWrap;
+  const _SummaryTab({required this.audit, this.shrinkWrap = false});
 
   Color get _tierColor {
     switch (audit.performanceTier) {
@@ -262,9 +419,30 @@ class _SummaryTab extends StatelessWidget {
     final grossPay = ps?.totalGrossPayment ?? 0;
     final hasIssues = audit.issues.isNotEmpty;
 
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
+    final body = <Widget>[
+        // ── Review-in-progress banner ──────────────────────────────────────
+        if (audit.status != AuditStatus.completed)
+          Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: _orange.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: _orange.withOpacity(0.3)),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.info_outline, size: 18, color: _orange),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    AppLocalizations.of(context)!.teacherAuditReportUnderReview,
+                    style: GoogleFonts.inter(fontSize: 13, color: _orange.withOpacity(0.9)),
+                  ),
+                ),
+              ],
+            ),
+          ),
         // ── Hero : Score + Salaire ─────────────────────────────────────────
         Container(
           padding: const EdgeInsets.all(20),
@@ -319,6 +497,13 @@ class _SummaryTab extends StatelessWidget {
                       style: GoogleFonts.inter(
                           fontSize: 13, color: _slate),
                     ),
+                    if (audit.coachScore > 0) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        '${AppLocalizations.of(context)!.teacherAuditScoreAuto(audit.automaticScore.toStringAsFixed(0))}  •  ${AppLocalizations.of(context)!.teacherAuditScoreCoach(audit.coachScore.toStringAsFixed(0))}',
+                        style: GoogleFonts.inter(fontSize: 11, color: _slate),
+                      ),
+                    ],
                     const SizedBox(height: 10),
                     Container(
                       padding: const EdgeInsets.symmetric(
@@ -488,6 +673,44 @@ class _SummaryTab extends StatelessWidget {
                   color: ps.adminAdjustment >= 0 ? _green : _red,
                 ),
               ],
+              if (ps != null && ps.coachAdjustmentLines.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  AppLocalizations.of(context)!.teacherAuditPayslipCoachLines,
+                  style: GoogleFonts.inter(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: _slate,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                for (final l in ps.coachAdjustmentLines)
+                  _PayRow(
+                    label: '${l.type} · ${l.reason}',
+                    value: l.type == 'bonus'
+                        ? '+\$${l.amount.toStringAsFixed(2)}'
+                        : '-\$${l.amount.toStringAsFixed(2)}',
+                    color: l.type == 'bonus' ? _green : _red,
+                  ),
+              ],
+              if (ps != null && ps.advancePayments.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  AppLocalizations.of(context)!.teacherAuditPayslipAdvances,
+                  style: GoogleFonts.inter(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: _slate,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                for (final a in ps.advancePayments)
+                  _PayRow(
+                    label: a.formResponseId,
+                    value: '-\$${a.amount.abs().toStringAsFixed(2)}',
+                    color: _orange,
+                  ),
+              ],
               const Divider(height: 16, color: _border),
               _PayRow(
                 label: AppLocalizations.of(context)!.teacherAuditNetToReceive,
@@ -604,7 +827,20 @@ class _SummaryTab extends StatelessWidget {
           ),
         ],
         const SizedBox(height: 24),
-      ],
+    ];
+    if (shrinkWrap) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: body,
+        ),
+      );
+    }
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: body,
     );
   }
 }
@@ -612,230 +848,307 @@ class _SummaryTab extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 // ONGLET 2 — Mes classes (audit.detailedShifts + audit.detailedForms, no Firestore)
 // ─────────────────────────────────────────────────────────────────────────────
-class _ClassesTab extends StatelessWidget {
+class _ClassesTab extends StatefulWidget {
   final TeacherAuditFull audit;
-  const _ClassesTab({required this.audit});
+  final double? embeddedListHeight;
+  const _ClassesTab({required this.audit, this.embeddedListHeight});
 
   @override
-  Widget build(BuildContext context) {
-    final shifts = audit.detailedShifts;
+  State<_ClassesTab> createState() => _ClassesTabState();
+}
 
-    // ShiftIds that have a form (full id + last 8 chars for suffix matching)
-    final formsShiftIds = <String>{};
-    for (final f in audit.detailedForms) {
+class _ClassesTabState extends State<_ClassesTab> {
+  String? _expandedShiftId;
+
+  // Lookup: shiftId -> form data (for inline expansion)
+  late final Map<String, Map<String, dynamic>> _formByShiftId;
+  late final Set<String> _formsShiftIds;
+
+  @override
+  void initState() {
+    super.initState();
+    _buildFormLookups();
+    _preloadFormLabels();
+  }
+
+  void _buildFormLookups() {
+    _formByShiftId = {};
+    _formsShiftIds = {};
+    for (final f in widget.audit.detailedForms) {
       final sid = (f['shiftId'] as String?) ?? '';
       if (sid.isNotEmpty) {
-        formsShiftIds.add(sid);
+        _formsShiftIds.add(sid);
         if (sid.length >= 8) {
-          formsShiftIds.add(sid.substring(sid.length - 8));
+          _formsShiftIds.add(sid.substring(sid.length - 8));
+        }
+        _formByShiftId[sid] = f;
+        // Also store by last-8-char suffix for matching
+        if (sid.length >= 8) {
+          _formByShiftId.putIfAbsent(sid.substring(sid.length - 8), () => f);
         }
       }
     }
+  }
 
-    bool hasFormForShift(String shiftId) {
-      if (formsShiftIds.contains(shiftId)) return true;
-      if (shiftId.length >= 8 &&
-          formsShiftIds.contains(shiftId.substring(shiftId.length - 8))) {
-        return true;
+  void _preloadFormLabels() {
+    for (final f in widget.audit.detailedForms) {
+      final formId = f['id'] as String? ?? '';
+      if (formId.isNotEmpty) {
+        FormLabelsCacheService().getLabelsForFormResponse(formId);
       }
-      return false;
     }
+  }
+
+  bool _hasFormForShift(String shiftId) {
+    if (_formsShiftIds.contains(shiftId)) return true;
+    if (shiftId.length >= 8 &&
+        _formsShiftIds.contains(shiftId.substring(shiftId.length - 8))) {
+      return true;
+    }
+    return false;
+  }
+
+  Map<String, dynamic>? _getFormForShift(String shiftId) {
+    final form = _formByShiftId[shiftId];
+    if (form != null) return form;
+    if (shiftId.length >= 8) {
+      return _formByShiftId[shiftId.substring(shiftId.length - 8)];
+    }
+    return null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final shifts = widget.audit.detailedShifts;
+    final l10n = AppLocalizations.of(context)!;
 
     if (shifts.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.calendar_today_outlined,
-                size: 48, color: _slate),
+            const Icon(Icons.calendar_today_outlined, size: 48, color: _slate),
             const SizedBox(height: 12),
-            Text(AppLocalizations.of(context)!.noClassesFound,
-                style:
-                    GoogleFonts.inter(color: _slate, fontSize: 14)),
+            Text(l10n.noClassesFound, style: GoogleFonts.inter(color: _slate, fontSize: 14)),
           ],
         ),
       );
     }
 
-    // Sort by start (detailedShifts use 'start', not 'scheduledAt')
     final sorted = [...shifts]..sort((a, b) {
-        final aT =
-            (a['start'] as Timestamp?)?.toDate() ??
-                DateTime(1970);
-        final bT =
-            (b['start'] as Timestamp?)?.toDate() ??
-                DateTime(1970);
+        final aT = (a['start'] as Timestamp?)?.toDate() ?? DateTime(1970);
+        final bT = (b['start'] as Timestamp?)?.toDate() ?? DateTime(1970);
         return aT.compareTo(bT);
       });
 
-    final done = sorted
-        .where((s) =>
-            (s['status'] as String?) == 'completed' ||
-            (s['status'] as String?) == 'fullyCompleted' ||
-            (s['status'] as String?) == 'partiallyCompleted')
-        .length;
-    final missed = sorted
-        .where((s) => (s['status'] as String?) == 'missed')
-        .length;
+    final done = sorted.where((s) {
+      final st = s['status'] as String?;
+      return st == 'completed' || st == 'fullyCompleted' || st == 'partiallyCompleted';
+    }).length;
+    final missed = sorted.where((s) => (s['status'] as String?) == 'missed').length;
+
+    final orphanForms = widget.audit.detailedFormsNoSchedule;
+    final rejectedForms = widget.audit.detailedFormsRejected;
 
     return Column(
       children: [
         Container(
           color: Colors.white,
-          padding: const EdgeInsets.symmetric(
-              horizontal: 16, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           child: Row(
             children: [
-              _MiniStat(
-                label: 'Total',
-                value: '${sorted.length}',
-                icon: Icons.event_note_outlined,
-              ),
+              _MiniStat(label: 'Total', value: '${sorted.length}', icon: Icons.event_note_outlined),
               const SizedBox(width: 20),
-              _MiniStat(
-                label: 'Réalisées',
-                value: '$done',
-                icon: Icons.check_circle_outline,
-                color: _green,
-              ),
+              _MiniStat(label: 'Réalisées', value: '$done', icon: Icons.check_circle_outline, color: _green),
               const SizedBox(width: 20),
-              _MiniStat(
-                label: 'Manquées',
-                value: '$missed',
-                icon: Icons.cancel_outlined,
-                color: missed > 0 ? _red : _slate,
-              ),
+              _MiniStat(label: 'Manquées', value: '$missed', icon: Icons.cancel_outlined, color: missed > 0 ? _red : _slate),
               const SizedBox(width: 20),
-              _MiniStat(
-                label: 'Forms',
-                value: '${audit.readinessFormsSubmitted}',
-                icon: Icons.description_outlined,
-                color: _blue,
-              ),
+              _MiniStat(label: 'Forms', value: '${widget.audit.readinessFormsSubmitted}', icon: Icons.description_outlined, color: _blue),
             ],
           ),
         ),
         const Divider(height: 1, color: _border),
-        Expanded(
-          child: ListView.separated(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            itemCount: sorted.length,
-            separatorBuilder: (_, __) => const Divider(
-                height: 1, indent: 56, color: Color(0xFFF1F5F9)),
-            itemBuilder: (context, index) {
-              final shift = sorted[index];
-              final shiftId =
-                  (shift['id'] as String?) ?? '';
-              final title =
-                  (shift['title'] as String?) ?? '—';
-              final status =
-                  (shift['status'] as String?) ?? '';
-              final startAt =
-                  (shift['start'] as Timestamp?)
-                      ?.toDate();
-              final duration =
-                  (shift['duration'] as num?)
-                          ?.toDouble() ??
-                      0;
-              final hasForm = hasFormForShift(shiftId);
+        if (widget.embeddedListHeight != null)
+          SizedBox(
+            height: widget.embeddedListHeight!,
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              itemCount: sorted.length +
+                  (orphanForms.isNotEmpty ? 1 : 0) +
+                  (rejectedForms.isNotEmpty ? 1 : 0),
+              itemBuilder: (context, index) {
+                if (index < sorted.length) {
+                  return _buildShiftRow(context, sorted[index]);
+                }
+                final orphanIndex = sorted.length;
+                if (orphanForms.isNotEmpty && index == orphanIndex) {
+                  return _buildOrphanFormsSection(context, orphanForms);
+                }
+                return _buildRejectedFormsSection(context, rejectedForms);
+              },
+            ),
+          )
+        else
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              itemCount: sorted.length +
+                  (orphanForms.isNotEmpty ? 1 : 0) +
+                  (rejectedForms.isNotEmpty ? 1 : 0),
+              itemBuilder: (context, index) {
+                if (index < sorted.length) {
+                  return _buildShiftRow(context, sorted[index]);
+                }
+                final orphanIndex = sorted.length;
+                if (orphanForms.isNotEmpty && index == orphanIndex) {
+                  return _buildOrphanFormsSection(context, orphanForms);
+                }
+                return _buildRejectedFormsSection(context, rejectedForms);
+              },
+            ),
+          ),
+      ],
+    );
+  }
 
-              final isDone = status == 'completed' ||
-                  status == 'fullyCompleted' ||
-                  status == 'partiallyCompleted';
-              final isMissed = status == 'missed';
+  Widget _buildShiftRow(BuildContext context, Map<String, dynamic> shift) {
+    final shiftId = (shift['id'] as String?) ?? '';
+    final title = (shift['title'] as String?) ?? '—';
+    final status = (shift['status'] as String?) ?? '';
+    final startAt = (shift['start'] as Timestamp?)?.toDate();
+    final duration = (shift['duration'] as num?)?.toDouble() ?? 0;
+    final hasForm = _hasFormForShift(shiftId);
+    final isExpanded = _expandedShiftId == shiftId;
 
-              final statusColor = isDone
-                  ? _green
-                  : isMissed
-                      ? _red
-                      : _orange;
-              final statusBg = isDone
-                  ? const Color(0xFFDCFCE7)
-                  : isMissed
-                      ? const Color(0xFFFEE2E2)
-                      : const Color(0xFFFEF3C7);
+    final isDone = status == 'completed' || status == 'fullyCompleted' || status == 'partiallyCompleted';
+    final isMissed = status == 'missed';
+    final statusColor = isDone ? _green : isMissed ? _red : _orange;
+    final statusBg = isDone ? const Color(0xFFDCFCE7) : isMissed ? const Color(0xFFFEE2E2) : const Color(0xFFFEF3C7);
 
-              return ListTile(
-                contentPadding:
-                    const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 4),
-                leading: Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: statusBg,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(
-                    isDone
-                        ? Icons.check
-                        : isMissed
-                            ? Icons.close
-                            : Icons.schedule,
-                    size: 20,
-                    color: statusColor,
-                  ),
-                ),
-                title: Text(
-                  title,
-                  style: GoogleFonts.inter(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: const Color(0xff1E293B),
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                subtitle: Text(
-                  startAt != null
-                      ? DateFormat('EEE d MMM · HH:mm')
-                          .format(startAt)
-                      : '—',
-                  style: GoogleFonts.inter(
-                      fontSize: 11, color: _slate),
-                ),
-                trailing: Column(
-                  mainAxisAlignment:
-                      MainAxisAlignment.center,
-                  crossAxisAlignment:
-                      CrossAxisAlignment.end,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 7, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: hasForm
-                            ? const Color(0xFFDCFCE7)
-                            : const Color(0xFFFEF3C7),
-                        borderRadius:
-                            BorderRadius.circular(10),
-                      ),
-                      child: Text(
-                        hasForm ? '✓ Form' : 'Form ?',
-                        style: GoogleFonts.inter(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                          color: hasForm
-                              ? const Color(0xFF16A34A)
-                              : const Color(0xFFB45309),
-                        ),
-                      ),
+    return Column(
+      children: [
+        ListTile(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          onTap: hasForm ? () {
+            setState(() {
+              _expandedShiftId = isExpanded ? null : shiftId;
+            });
+          } : null,
+          leading: Container(
+            width: 40, height: 40,
+            decoration: BoxDecoration(color: statusBg, borderRadius: BorderRadius.circular(10)),
+            child: Icon(isDone ? Icons.check : isMissed ? Icons.close : Icons.schedule, size: 20, color: statusColor),
+          ),
+          title: Text(title, style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w500, color: const Color(0xff1E293B)), maxLines: 1, overflow: TextOverflow.ellipsis),
+          subtitle: Text(
+            startAt != null ? DateFormat('EEE d MMM · HH:mm').format(startAt) : '—',
+            style: GoogleFonts.inter(fontSize: 11, color: _slate),
+          ),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: hasForm ? const Color(0xFFDCFCE7) : const Color(0xFFFEF3C7),
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                    const SizedBox(height: 3),
-                    Text(
-                      duration > 0
-                          ? '${duration.toStringAsFixed(1)}h'
-                          : '',
-                      style: GoogleFonts.inter(
-                          fontSize: 10, color: _slate),
+                    child: Text(
+                      hasForm ? '✓ Form' : 'Form ?',
+                      style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w600, color: hasForm ? const Color(0xFF16A34A) : const Color(0xFFB45309)),
                     ),
-                  ],
-                ),
-              );
-            },
+                  ),
+                  const SizedBox(height: 3),
+                  Text(duration > 0 ? '${duration.toStringAsFixed(1)}h' : '', style: GoogleFonts.inter(fontSize: 10, color: _slate)),
+                ],
+              ),
+              if (hasForm) ...[
+                const SizedBox(width: 4),
+                Icon(isExpanded ? Icons.expand_less : Icons.expand_more, size: 18, color: _slate),
+              ],
+            ],
           ),
         ),
+        // Expanded form content
+        if (isExpanded && hasForm) _buildExpandedFormContent(shiftId),
+        const Divider(height: 1, indent: 56, color: Color(0xFFF1F5F9)),
       ],
+    );
+  }
+
+  Widget _buildExpandedFormContent(String shiftId) {
+    final formData = _getFormForShift(shiftId);
+    if (formData == null) return const SizedBox.shrink();
+
+    final formId = (formData['id'] as String?) ?? '';
+    final responses = (formData['responses'] as Map<String, dynamic>?) ?? {};
+
+    return Container(
+      margin: const EdgeInsets.only(left: 56, right: 16, bottom: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: _border),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: FormSubmissionDetailsView(
+          formId: formId,
+          shiftId: shiftId,
+          responses: responses,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOrphanFormsSection(BuildContext context, List<Map<String, dynamic>> forms) {
+    final l10n = AppLocalizations.of(context)!;
+    return ExpansionTile(
+      tilePadding: const EdgeInsets.symmetric(horizontal: 16),
+      leading: const Icon(Icons.link_off_outlined, size: 20, color: _orange),
+      title: Text(
+        l10n.auditOrphanForms(forms.length),
+        style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: const Color(0xFFB45309)),
+      ),
+      children: forms.map((f) {
+        final submittedAt = (f['submittedAt'] as Timestamp?)?.toDate();
+        final dateStr = submittedAt != null ? DateFormat('MMM d, HH:mm').format(submittedAt) : '—';
+        return ListTile(
+          dense: true,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 24),
+          leading: const Icon(Icons.description_outlined, size: 16, color: _orange),
+          title: Text(dateStr, style: GoogleFonts.inter(fontSize: 12, color: const Color(0xff475569))),
+          subtitle: Text(l10n.auditFormNoMatchingShift, style: GoogleFonts.inter(fontSize: 11, color: _slate)),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildRejectedFormsSection(BuildContext context, List<Map<String, dynamic>> forms) {
+    final l10n = AppLocalizations.of(context)!;
+    return ExpansionTile(
+      tilePadding: const EdgeInsets.symmetric(horizontal: 16),
+      leading: const Icon(Icons.copy_outlined, size: 20, color: _red),
+      title: Text(
+        l10n.auditRejectedForms(forms.length),
+        style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: const Color(0xFFDC2626)),
+      ),
+      children: forms.map((f) {
+        final submittedAt = (f['submittedAt'] as Timestamp?)?.toDate();
+        final dateStr = submittedAt != null ? DateFormat('MMM d, HH:mm').format(submittedAt) : '—';
+        final reason = (f['rejectionReason'] as String?) ?? 'duplicate';
+        return ListTile(
+          dense: true,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 24),
+          leading: const Icon(Icons.copy_outlined, size: 16, color: _red),
+          title: Text(dateStr, style: GoogleFonts.inter(fontSize: 12, color: const Color(0xff475569))),
+          subtitle: Text(reason, style: GoogleFonts.inter(fontSize: 11, color: _slate)),
+        );
+      }).toList(),
     );
   }
 }
@@ -846,9 +1159,13 @@ class _ClassesTab extends StatelessWidget {
 class _DisputeTab extends StatefulWidget {
   final TeacherAuditFull audit;
   final VoidCallback onSubmit;
+  final bool embedded;
 
-  const _DisputeTab(
-      {required this.audit, required this.onSubmit});
+  const _DisputeTab({
+    required this.audit,
+    required this.onSubmit,
+    this.embedded = false,
+  });
 
   @override
   State<_DisputeTab> createState() => _DisputeTabState();
@@ -922,9 +1239,7 @@ class _DisputeTabState extends State<_DisputeTab> {
     final existingDispute =
         widget.audit.reviewChain?.teacherDispute;
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
+    final column = Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
@@ -1168,7 +1483,16 @@ class _DisputeTabState extends State<_DisputeTab> {
             ),
           ],
         ],
-      ),
+    );
+    if (widget.embedded) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: column,
+      );
+    }
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: column,
     );
   }
 }

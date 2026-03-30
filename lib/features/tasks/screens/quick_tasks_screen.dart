@@ -7,7 +7,6 @@ import '../models/task.dart';
 import '../services/task_service.dart';
 import '../widgets/add_edit_task_dialog.dart';
 import '../widgets/task_details_view.dart';
-import '../widgets/connectteam_task_list.dart';
 import '../widgets/multiple_task_creation_dialog.dart';
 import '../widgets/user_selection_dialog.dart' as task_filters;
 import '../../../core/services/user_role_service.dart';
@@ -56,6 +55,9 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
   bool _isBulkMode = false;
   bool? _filterRecurring; // null = all, true = recurring only, false = non-recurring only
   List<String> _filterLabels = []; // Filter by labels/tags
+
+  /// When false, filter chips are hidden so the task list starts higher on screen.
+  bool _filtersPanelExpanded = false;
 
   @override
   void initState() {
@@ -201,21 +203,16 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
       body: SafeArea(
         child: Column(
           children: [
-            // Connecteam Header
-            _buildConnecteamHeader(),
-            // Filter Tabs
-            _buildFilterTabs(),
-            // Comprehensive Filter Bar
-            _buildComprehensiveFilterBar(),
+            _buildTasksChrome(),
             // Bulk Actions Bar (when tasks are selected)
             if (_selectedTaskIds.isNotEmpty) _buildBulkActionsBar(),
             // Task content
             Expanded(
               child: Padding(
                 padding: EdgeInsets.only(
-                  left: 16.0,
-                  right: 16.0,
-                  bottom: _isAdmin ? 80.0 : 16.0, // Extra space for FAB
+                  left: 12.0,
+                  right: 12.0,
+                  bottom: _isAdmin ? 72.0 : 12.0, // Space for FAB
                 ),
                 child: StreamBuilder<List<Task>>(
                   stream: _taskStream,
@@ -252,9 +249,8 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
                 // Switch between grid and list view
                 return Column(
                   children: [
-                    // Task summary statistics (ConnectTeam style)
-                    _buildTaskSummary(totalTasks, openTasks, doneTasks),
-                    const SizedBox(height: 16),
+                    _buildTaskSummarySlim(totalTasks, openTasks, doneTasks),
+                    const SizedBox(height: 6),
                     // Task list
                     Expanded(
                       child: _viewMode == 'list'
@@ -264,7 +260,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
                     // Bulk Mode Toggle Button
                     if (_isAdmin)
                       Padding(
-                        padding: const EdgeInsets.all(16.0),
+                        padding: const EdgeInsets.fromLTRB(0, 6, 0, 4),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.end,
                           children: [
@@ -336,62 +332,153 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
     );
   }
 
-  /// Connecteam Header
-  Widget _buildConnecteamHeader() {
-    return Container(
-      padding: const EdgeInsets.all(16),
+  /// Compact top chrome: title + search, tabs, optional filter panel (collapsed by default).
+  Widget _buildTasksChrome() {
+    final l10n = AppLocalizations.of(context)!;
+    return Material(
       color: Colors.white,
-      child: Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(AppLocalizations.of(context)!.navTasks, style: ConnecteamStyle.headerTitle),
-          const SizedBox(width: 12),
-          // Search Bar (Pill shaped) - Made flexible for mobile
-          Expanded(
-            child: Container(
-              height: 40,
-              constraints: const BoxConstraints(maxWidth: 400),
-              decoration: BoxDecoration(
-                color: ConnecteamStyle.background,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: ConnecteamStyle.borderColor),
-              ),
-              child: TextField(
-                controller: _searchController,
-                onChanged: (value) {
-                  setState(() {
-                    _searchQuery = value;
-                  });
-                },
-                decoration: InputDecoration(
-                  hintText: AppLocalizations.of(context)!.searchTasks,
-                  prefixIcon: Icon(Icons.search, size: 20, color: Colors.grey),
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.only(top: 8),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Text(
+                  l10n.navTasks,
+                  style: GoogleFonts.inter(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: ConnecteamStyle.textDark,
+                    letterSpacing: -0.3,
+                  ),
                 ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Container(
+                    height: 36,
+                    constraints: const BoxConstraints(maxWidth: 480),
+                    decoration: BoxDecoration(
+                      color: ConnecteamStyle.background,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: ConnecteamStyle.borderColor),
+                    ),
+                    child: TextField(
+                      controller: _searchController,
+                      onChanged: (value) {
+                        setState(() => _searchQuery = value);
+                      },
+                      style: GoogleFonts.inter(fontSize: 14),
+                      decoration: InputDecoration(
+                        hintText: l10n.searchTasks,
+                        prefixIcon:
+                            Icon(Icons.search, size: 20, color: Colors.grey[600]),
+                        border: InputBorder.none,
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(8, 0, 8, 2),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _buildTabItem("All Tasks", 'all', isActive: _selectedTab == 'all'),
+                  _buildTabItem(
+                      "My Tasks", 'my_tasks', isActive: _selectedTab == 'my_tasks'),
+                  _buildTabItem("Today", 'today', isActive: _selectedTab == 'today'),
+                  if (_isAdmin)
+                    _buildTabItem("Drafts", 'drafts', isActive: _selectedTab == 'drafts'),
+                ],
               ),
             ),
           ),
+          if (_filtersPanelExpanded) ...[
+            Padding(
+              padding: const EdgeInsets.only(left: 4, right: 8),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  style: TextButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  ),
+                  onPressed: () =>
+                      setState(() => _filtersPanelExpanded = false),
+                  icon: const Icon(Icons.expand_less, size: 20),
+                  label: Text(l10n.hideFilters),
+                ),
+              ),
+            ),
+            _buildComprehensiveFilterBar(),
+          ] else
+            _buildFiltersToggleRow(),
+          const Divider(height: 1, thickness: 1, color: Color(0xffE5E7EB)),
         ],
       ),
     );
   }
 
-  /// Filter Tabs (Simplified Connecteam style)
-  Widget _buildFilterTabs() {
-    return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      margin: const EdgeInsets.only(bottom: 16),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            _buildTabItem("All Tasks", 'all', isActive: _selectedTab == 'all'),
-            _buildTabItem("My Tasks", 'my_tasks', isActive: _selectedTab == 'my_tasks'),
-            _buildTabItem("Today", 'today', isActive: _selectedTab == 'today'),
-            if (_isAdmin) _buildTabItem("Drafts", 'drafts', isActive: _selectedTab == 'drafts'),
+  Widget _buildFiltersToggleRow() {
+    final l10n = AppLocalizations.of(context)!;
+    final n = _activeFilterTypeCount;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 0, 8, 6),
+      child: Row(
+        children: [
+          TextButton.icon(
+            style: TextButton.styleFrom(
+              visualDensity: VisualDensity.compact,
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            ),
+            onPressed: () => setState(() => _filtersPanelExpanded = true),
+            icon: const Icon(Icons.tune, size: 18),
+            label: Text(l10n.showFilters),
+          ),
+          if (n > 0) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(20),
+                onTap: () => setState(() => _filtersPanelExpanded = true),
+                child: Chip(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  labelPadding: EdgeInsets.zero,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  visualDensity: VisualDensity.compact,
+                  label: Text(
+                    l10n.filtersCount(n),
+                    style: GoogleFonts.inter(fontSize: 12),
+                  ),
+                ),
+              ),
+            ),
+            TextButton(
+              style: TextButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+              ),
+              onPressed: _clearAllFilters,
+              child: Text(
+                l10n.clearAll,
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.red.shade700,
+                ),
+              ),
+            ),
           ],
-        ),
+        ],
       ),
     );
   }
@@ -404,21 +491,25 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
         });
       },
       child: Padding(
-        padding: const EdgeInsets.only(right: 24.0),
+        padding: const EdgeInsets.only(right: 14.0, left: 6, top: 2, bottom: 4),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
             Text(
               label,
               style: GoogleFonts.inter(
+                fontSize: 13,
                 fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
-                color: isActive ? ConnecteamStyle.primaryBlue : ConnecteamStyle.textGrey,
+                color: isActive
+                    ? ConnecteamStyle.primaryBlue
+                    : ConnecteamStyle.textGrey,
               ),
             ),
             if (isActive)
               Container(
                 height: 2,
-                width: 20,
-                margin: const EdgeInsets.only(top: 4),
+                width: 18,
+                margin: const EdgeInsets.only(top: 2),
                 color: ConnecteamStyle.primaryBlue,
               ),
           ],
@@ -432,7 +523,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
     return Container(
       width: double.infinity,
       color: Colors.white,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
       // Use Wrap to make all filters visible without scrolling
       child: Wrap(
         spacing: 8.0, // Horizontal space between chips
@@ -666,6 +757,18 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
         _dueDateRange != null ||
         _filterRecurring != null ||
         _filterLabels.isNotEmpty;
+  }
+
+  int get _activeFilterTypeCount {
+    var n = 0;
+    if (_selectedStatus != null) n++;
+    if (_selectedPriority != null) n++;
+    if (_filterAssignedToUserIds.isNotEmpty) n++;
+    if (_filterAssignedByUserId != null) n++;
+    if (_dueDateRange != null) n++;
+    if (_filterRecurring != null) n++;
+    if (_filterLabels.isNotEmpty) n++;
+    return n;
   }
 
   void _clearAllFilters() {
@@ -2605,93 +2708,68 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
     );
   }
 
-  // NEW: Task summary statistics (ConnectTeam style) - Clickable stats
-  Widget _buildTaskSummary(int totalTasks, int openTasks, int doneTasks) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: const Color(0xffF9FAFB),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: const Color(0xffE5E7EB),
-          width: 1,
-        ),
-      ),
-      child: Wrap(
-        spacing: 8.0,
-        runSpacing: 8.0,
-        crossAxisAlignment: WrapCrossAlignment.center,
+  /// One-line summary so the list starts immediately below the toolbar.
+  Widget _buildTaskSummarySlim(int totalTasks, int openTasks, int doneTasks) {
+    final l10n = AppLocalizations.of(context)!;
+    final muted = GoogleFonts.inter(
+      fontSize: 12,
+      color: const Color(0xff6B7280),
+      fontWeight: FontWeight.w500,
+    );
+    return Padding(
+      padding: const EdgeInsets.only(top: 4, bottom: 2),
+      child: Row(
         children: [
-          Text(
-            AppLocalizations.of(context)!.theViewContains,
-            style: GoogleFonts.inter(
-              fontSize: 13,
-              color: const Color(0xff6B7280),
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: const Color(0xff111827).withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              '$totalTasks task${totalTasks == 1 ? '' : 's'} in total',
-              style: GoogleFonts.inter(
-                fontSize: 13,
-                color: const Color(0xff111827),
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          // Clickable Open Tasks
-          InkWell(
-            onTap: () {
-              setState(() {
-                _selectedStatus = TaskStatus.todo; // Filter to open tasks
-              });
-            },
-            borderRadius: BorderRadius.circular(8),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: const Color(0xff0386FF).withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                '$openTasks open task${openTasks == 1 ? '' : 's'}',
-                style: GoogleFonts.inter(
-                  fontSize: 13,
-                  color: const Color(0xff0386FF),
-                  fontWeight: FontWeight.w600,
+          Expanded(
+            child: Wrap(
+              spacing: 6,
+              runSpacing: 2,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Text(l10n.theViewContains, style: muted),
+                Text(
+                  '$totalTasks task${totalTasks == 1 ? '' : 's'}',
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xff111827),
+                  ),
                 ),
-              ),
-            ),
-          ),
-          // Clickable Done Tasks
-          InkWell(
-            onTap: () {
-              setState(() {
-                _selectedStatus = TaskStatus.done; // Filter to done tasks
-              });
-            },
-            borderRadius: BorderRadius.circular(8),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: const Color(0xff10B981).withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                '$doneTasks done task${doneTasks == 1 ? '' : 's'}',
-                style: GoogleFonts.inter(
-                  fontSize: 13,
-                  color: const Color(0xff10B981),
-                  fontWeight: FontWeight.w600,
+                Text('·', style: muted),
+                InkWell(
+                  onTap: () => setState(() => _selectedStatus = TaskStatus.todo),
+                  borderRadius: BorderRadius.circular(4),
+                  child: Padding(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+                    child: Text(
+                      '$openTasks open',
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xff0386FF),
+                      ),
+                    ),
+                  ),
                 ),
-              ),
+                Text('·', style: muted),
+                InkWell(
+                  onTap: () => setState(() => _selectedStatus = TaskStatus.done),
+                  borderRadius: BorderRadius.circular(4),
+                  child: Padding(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+                    child: Text(
+                      '$doneTasks done',
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xff10B981),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -2702,7 +2780,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
   // Mobile-friendly list view to prevent overflow
   Widget _buildGroupedTaskList(List<Task> tasks) {
     return ListView.separated(
-      padding: const EdgeInsets.only(bottom: 100), // Space for FAB
+      padding: const EdgeInsets.only(bottom: 72), // Space for FAB
       itemCount: tasks.length,
       separatorBuilder: (context, index) => const Divider(height: 1, color: Color(0xFFE2E8F0)),
       itemBuilder: (context, index) {
@@ -2715,7 +2793,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
               : () => _showTaskDetailsDialog(task),
           child: Container(
             color: isSelected ? ConnecteamStyle.primaryBlue.withOpacity(0.05) : Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -3889,6 +3967,14 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
   }
 
   void _showTaskDetailsDialog(Task task) {
+    if (task.createdBy.isNotEmpty) {
+      _fetchUserNameIfMissing(task.createdBy);
+    }
+    for (final id in task.assignedTo) {
+      if (id.trim().isNotEmpty) {
+        _fetchUserNameIfMissing(id.trim());
+      }
+    }
     showDialog(
       context: context,
       barrierDismissible: true,
@@ -3897,19 +3983,19 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
   }
 
   Widget _buildTaskDetailsDialog(Task task) {
+    final mq = MediaQuery.sizeOf(context);
+    final maxW = (mq.width * 0.88).clamp(280.0, 500.0);
+    final maxH = (mq.height * 0.78).clamp(360.0, 580.0);
     return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      elevation: 16,
-      child: Container(
-        width: MediaQuery.of(context).size.width * 0.9,
-        constraints: const BoxConstraints(
-          maxHeight: 700,
-          maxWidth: 600,
-        ),
+      elevation: 12,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: maxW, maxHeight: maxH),
         child: TaskDetailsView(
           task: task,
+          userDisplayNames: _userIdToName,
           onTaskUpdated: () {
-            // Refresh the task list when task is updated
             setState(() {});
           },
         ),

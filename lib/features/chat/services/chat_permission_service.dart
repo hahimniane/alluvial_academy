@@ -27,6 +27,16 @@ class ChatPermissionService {
   static const int _shiftLookbackDays = 30;
   
   String? get currentUserId => _auth.currentUser?.uid;
+
+  bool _isPrivilegedAdmin(Map<String, dynamic> userData) {
+    final role = (userData['user_type'] as String?)?.toLowerCase() ?? '';
+    final isAdminTeacher = userData['is_admin_teacher'] == true;
+    return role == 'admin' ||
+        role == 'super_admin' ||
+        role == 'ceo' ||
+        role == 'founder' ||
+        (role == 'teacher' && isAdminTeacher);
+  }
   
   /// Check if user1 can message user2
   Future<bool> canMessage(String userId1, String userId2) async {
@@ -46,8 +56,8 @@ class ChatPermissionService {
       final user2Role = (user2Data['user_type'] as String?)?.toLowerCase() ?? '';
       
       // Rule 1: Admins can message everyone
-      if (user1Role == 'admin' || user1Role == 'super_admin') return true;
-      if (user2Role == 'admin' || user2Role == 'super_admin') return true;
+      if (_isPrivilegedAdmin(user1Data)) return true;
+      if (_isPrivilegedAdmin(user2Data)) return true;
       
       // Rule 2: Student messaging
       if (user1Role == 'student') {
@@ -66,8 +76,9 @@ class ChatPermissionService {
         if (user2Role == 'parent') {
           return await canTeacherMessageParent(userId1, userId2);
         }
-        // Teachers can't message other teachers directly (unless admin)
-        return false;
+        // Teacher → teacher: allow if the other person already wrote in this 1:1
+        // thread (coach/auditor often has user_type teacher without is_admin_teacher).
+        return await _otherPartyHasMessagedInDirectChat(userId1, userId2);
       }
       
       // Rule 4: Parent messaging
@@ -78,7 +89,13 @@ class ChatPermissionService {
         // Parents can't message students or other parents directly
         return false;
       }
-      
+
+      // Fallback: any role pair can reply once the other user has messaged first
+      // in the shared direct chat (covers edge cases missed above).
+      if (await _otherPartyHasMessagedInDirectChat(userId1, userId2)) {
+        return true;
+      }
+
       return false;
     } catch (e) {
       AppLogger.error('ChatPermissionService: Error checking canMessage: $e');
@@ -94,6 +111,7 @@ class ChatPermissionService {
       
       final userData = userDoc.data()!;
       final userRole = (userData['user_type'] as String?)?.toLowerCase() ?? '';
+      final isPrivileged = _isPrivilegedAdmin(userData);
       
       List<ChatUser> contacts = [];
       
@@ -129,6 +147,10 @@ class ChatPermissionService {
           contacts.addAll(childrenTeachers);
           break;
       }
+
+      if (isPrivileged && contacts.isEmpty) {
+        contacts = await _getAllUsersExceptCurrent(userId);
+      }
       
       // Remove duplicates based on user ID
       final uniqueContacts = <String, ChatUser>{};
@@ -153,6 +175,7 @@ class ChatPermissionService {
       
       final userData = userDoc.data()!;
       final userRole = (userData['user_type'] as String?)?.toLowerCase() ?? '';
+      final isPrivileged = _isPrivilegedAdmin(userData);
       
       final groupedContacts = <String, List<ChatUser>>{
         'Administrators': [],
@@ -202,6 +225,23 @@ class ChatPermissionService {
           final childrenTeachers = await _getParentChildrenTeachers(userId);
           groupedContacts['Teachers'] = childrenTeachers;
           break;
+      }
+
+      if (isPrivileged &&
+          groupedContacts['Teachers']!.isEmpty &&
+          groupedContacts['Students']!.isEmpty &&
+          groupedContacts['Parents']!.isEmpty) {
+        final allUsers = await _getAllUsersExceptCurrent(userId);
+        for (final user in allUsers) {
+          final role = user.role?.toLowerCase() ?? '';
+          if (role == 'teacher') {
+            groupedContacts['Teachers']!.add(user);
+          } else if (role == 'student') {
+            groupedContacts['Students']!.add(user);
+          } else if (role == 'parent') {
+            groupedContacts['Parents']!.add(user);
+          }
+        }
       }
       
       // Remove empty groups
@@ -332,7 +372,7 @@ class ChatPermissionService {
   /// Get relationship context string for display
   Future<String?> getRelationshipContext(String userId1, String userId2) async {
     final relationship = await getRelationshipType(userId1, userId2);
-    
+
     switch (relationship) {
       case ChatRelationshipType.teacherStudent:
         return 'Your teacher';
@@ -341,7 +381,62 @@ class ChatPermissionService {
       case ChatRelationshipType.adminUser:
         return 'Administrator';
       case ChatRelationshipType.none:
-        return null;
+        break;
+    }
+
+    if (relationship == ChatRelationshipType.none &&
+        await _otherPartyHasMessagedInDirectChat(userId1, userId2)) {
+      final otherDoc =
+          await _firestore.collection('users').doc(userId2).get();
+      final data = otherDoc.data();
+      if (data != null && _isPrivilegedAdmin(data)) {
+        return 'Administrator';
+      }
+      final otherRole = (data?['user_type'] as String?)?.toLowerCase() ?? '';
+      if (otherRole == 'teacher') {
+        return 'Staff / coach';
+      }
+      return 'Conversation';
+    }
+
+    return null;
+  }
+
+  static String _directChatIdForUsers(String userId1, String userId2) {
+    final sorted = [userId1, userId2]..sort();
+    return '${sorted[0]}_${sorted[1]}';
+  }
+
+  /// Whether [otherUserId] has sent at least one message in the 1:1 chat with [viewerId].
+  Future<bool> _otherPartyHasMessagedInDirectChat(
+    String viewerId,
+    String otherUserId,
+  ) async {
+    try {
+      final chatId = _directChatIdForUsers(viewerId, otherUserId);
+      final chatDoc = await _firestore.collection('chats').doc(chatId).get();
+      if (!chatDoc.exists) return false;
+
+      // Fast path: [last_message] on the chat doc (no subcollection index).
+      final last =
+          chatDoc.data()?['last_message'] as Map<String, dynamic>?;
+      final lastSender = last?['sender_id'] as String?;
+      if (lastSender == otherUserId) return true;
+
+      final snap = await _firestore
+          .collection('chats')
+          .doc(chatId)
+          .collection('messages')
+          .where('sender_id', isEqualTo: otherUserId)
+          .limit(1)
+          .get();
+
+      return snap.docs.isNotEmpty;
+    } catch (e) {
+      AppLogger.error(
+        'ChatPermissionService: Error checking direct-chat thread: $e',
+      );
+      return false;
     }
   }
   

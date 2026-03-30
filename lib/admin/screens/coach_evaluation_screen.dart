@@ -1,5 +1,8 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
+import 'package:uuid/uuid.dart';
 import '../../core/models/teacher_audit_full.dart';
 import '../../core/services/teacher_audit_service.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
@@ -30,11 +33,16 @@ class CoachEvaluationScreen extends StatefulWidget {
 }
 
 class _CoachEvaluationScreenState extends State<CoachEvaluationScreen> {
+  static const _uuid = Uuid();
   late List<AuditFactor> _factors;
+  late List<PaymentAdjustmentLine> _coachLines;
+  late List<AdvancePayment> _advanceDraft;
   bool _isSubmitting = false;
   final Map<String, TextEditingController> _outcomeControllers = {};
   final Map<String, TextEditingController> _paycutControllers = {};
   final Map<String, TextEditingController> _actionPlanControllers = {};
+  Map<String, int> _suggestedScores = {};
+  bool _suggestionsLoaded = false;
 
   @override
   void initState() {
@@ -43,6 +51,10 @@ class _CoachEvaluationScreenState extends State<CoachEvaluationScreen> {
     _factors = widget.audit.auditFactors.isEmpty
         ? TeacherAuditFull.getDefaultAuditFactors()
         : widget.audit.auditFactors.map((f) => AuditFactor.fromMap(f.toMap())).toList();
+    _coachLines = List<PaymentAdjustmentLine>.from(
+        widget.audit.paymentSummary?.coachAdjustmentLines ?? const []);
+    _advanceDraft = List<AdvancePayment>.from(
+        widget.audit.paymentSummary?.advancePayments ?? const []);
 
     // Initialize controllers for text fields
     for (var factor in _factors) {
@@ -50,6 +62,27 @@ class _CoachEvaluationScreenState extends State<CoachEvaluationScreen> {
       _paycutControllers[factor.id] = TextEditingController(text: factor.paycutRecommendation);
       _actionPlanControllers[factor.id] = TextEditingController(text: factor.coachActionPlan);
     }
+
+    // Load form-based suggested scores (only if factors haven't been edited yet)
+    final hasDefaultRatings = _factors.every((f) => f.rating == 5);
+    if (hasDefaultRatings) {
+      _loadSuggestedScores();
+    }
+  }
+
+  Future<void> _loadSuggestedScores() async {
+    try {
+      final scores = await TeacherAuditService.getFormSuggestedScores(
+        teacherName: widget.audit.teacherName,
+        yearMonth: widget.audit.yearMonth,
+      );
+      if (mounted && scores.isNotEmpty) {
+        setState(() {
+          _suggestedScores = scores;
+          _suggestionsLoaded = true;
+        });
+      }
+    } catch (_) {}
   }
 
   @override
@@ -82,6 +115,11 @@ class _CoachEvaluationScreenState extends State<CoachEvaluationScreen> {
       await TeacherAuditService.updateAuditFactors(
         auditId: widget.audit.id,
         factors: _factors,
+        coachPaymentAdjustmentLines: _coachLines,
+      );
+      await TeacherAuditService.syncAuditAdvancePayments(
+        auditId: widget.audit.id,
+        advances: _advanceDraft,
       );
 
       if (mounted) {
@@ -114,9 +152,11 @@ class _CoachEvaluationScreenState extends State<CoachEvaluationScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final totalScore = _factors.fold(0, (sum, f) => sum + f.rating);
-    final maxScore = _factors.length * 9;
-    final percentageScore = maxScore > 0 ? (totalScore / maxScore) * 100 : 0.0;
+    final applicable = _factors.where((f) => !f.isNotApplicable).toList();
+    final totalScore = applicable.fold(0, (sum, f) => sum + f.rating);
+    final maxScore = applicable.isEmpty ? 1 : applicable.length * 5;
+    final percentageScore =
+        maxScore > 0 ? (totalScore / maxScore) * 100 : 0.0;
 
     // Handle empty factors case - show loading or error state
     if (_factors.isEmpty) {
@@ -153,8 +193,10 @@ class _CoachEvaluationScreenState extends State<CoachEvaluationScreen> {
     return Material(
       color: Win11Colors.bg,
       child: SafeArea(
-        child: Container(
-          width: 550, // Fixed width for Side Panel
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 640),
+          child: Container(
+          width: 550,
           decoration: const BoxDecoration(
             color: Win11Colors.bg,
             border: Border(left: BorderSide(color: Win11Colors.border, width: 1)),
@@ -163,15 +205,22 @@ class _CoachEvaluationScreenState extends State<CoachEvaluationScreen> {
             children: [
               _buildPanelHeader(totalScore, maxScore, percentageScore),
               Expanded(
-                child: ListView.builder(
+                child: ListView(
                   padding: const EdgeInsets.all(24),
-                  itemCount: _factors.length,
-                  itemBuilder: (context, index) => _buildFactorCard(_factors[index], index),
+                  children: [
+                    _buildPaymentAdjustmentsCard(),
+                    _buildAdvanceCard(),
+                    ...List.generate(
+                      _factors.length,
+                      (index) => _buildFactorCard(_factors[index], index),
+                    ),
+                  ],
                 ),
               ),
               _buildStickyFooter(),
             ],
           ),
+        ),
         ),
       ),
     );
@@ -278,7 +327,8 @@ class _CoachEvaluationScreenState extends State<CoachEvaluationScreen> {
   }
 
   Widget _buildFactorCard(AuditFactor factor, int index) {
-    final needsAttention = factor.rating < 9;
+    final needsAttention =
+        !factor.isNotApplicable && factor.rating < 5;
     final outcomeController = _outcomeControllers[factor.id];
     final paycutController = _paycutControllers[factor.id];
     final actionPlanController = _actionPlanControllers[factor.id];
@@ -356,12 +406,33 @@ class _CoachEvaluationScreenState extends State<CoachEvaluationScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          
-          // Quick Rating Selector (1-9 horizontal bar)
-          _buildFieldLabel('Rating (1 to 9)'),
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: FilterChip(
+              label: Text(AppLocalizations.of(context)!.auditFactorNaShort),
+              selected: factor.isNotApplicable,
+              onSelected: (v) {
+                setState(() {
+                  final idx = _factors.indexWhere((f) => f.id == factor.id);
+                  if (idx != -1) {
+                    _factors[idx] = factor.copyWith(isNotApplicable: v);
+                  }
+                });
+              },
+            ),
+          ),
+          const SizedBox(height: 12),
+          // Quick Rating Selector (0-5 horizontal bar)
+          _buildFieldLabel('Rating (0 to 5)'),
           const SizedBox(height: 8),
           _buildRatingBar(factor),
+
+          // Show form-based suggestion if available
+          if (_suggestedScores.containsKey(factor.id)) ...[
+            const SizedBox(height: 8),
+            _buildSuggestionChip(factor),
+          ],
 
           const SizedBox(height: 16),
           _buildFieldLabel('OBSERVATIONS'),
@@ -371,7 +442,7 @@ class _CoachEvaluationScreenState extends State<CoachEvaluationScreen> {
             maxLines: 3,
           ),
 
-          // Conditional: Show paycut and action plan if rating < 9
+          // Conditional: Show paycut and action plan if rating < 5
           if (needsAttention) ...[
             const SizedBox(height: 16),
             Container(
@@ -413,48 +484,308 @@ class _CoachEvaluationScreenState extends State<CoachEvaluationScreen> {
     );
   }
 
-  /// Quick Rating Selector - Horizontal bar 1-9 (Windows 11 style)
+  static const _ratingLabels = [
+    'Critical',
+    'Below',
+    'Meets',
+    'Good',
+    'Excellent',
+    'Outstanding',
+  ];
+
+  /// Suggestion chip from form data
+  Widget _buildSuggestionChip(AuditFactor factor) {
+    final suggested = _suggestedScores[factor.id]!;
+    final isApplied = factor.rating == suggested;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: isApplied ? Colors.green.shade50 : Colors.blue.shade50,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: isApplied ? Colors.green.shade200 : Colors.blue.shade200,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            isApplied ? Icons.check_circle : Icons.lightbulb_outline,
+            size: 14,
+            color: isApplied ? Colors.green.shade700 : Colors.blue.shade700,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            '${AppLocalizations.of(context)!.coachEvalSuggestedScore}: $suggested/5',
+            style: GoogleFonts.inter(
+              fontSize: 11,
+              color: isApplied ? Colors.green.shade700 : Colors.blue.shade700,
+            ),
+          ),
+          if (!isApplied) ...[
+            const SizedBox(width: 8),
+            InkWell(
+              onTap: () {
+                setState(() {
+                  final idx = _factors.indexWhere((f) => f.id == factor.id);
+                  if (idx != -1) {
+                    _factors[idx] = factor.copyWith(rating: suggested);
+                  }
+                });
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade100,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  AppLocalizations.of(context)!.coachEvalApplySuggestion,
+                  style: GoogleFonts.inter(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.blue.shade800,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// Quick Rating Selector - Horizontal bar 0-5 (Windows 11 style)
   Widget _buildRatingBar(AuditFactor factor) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: List.generate(9, (i) {
-        final score = i + 1;
+      children: List.generate(6, (i) {
+        final score = i;
         final isSelected = factor.rating == score;
         return InkWell(
-          onTap: () {
-            setState(() {
-              final idx = _factors.indexWhere((f) => f.id == factor.id);
-              if (idx != -1) {
-                _factors[idx] = factor.copyWith(rating: score);
-              }
-            });
-          },
+          onTap: factor.isNotApplicable
+              ? null
+              : () {
+                  setState(() {
+                    final idx = _factors.indexWhere((f) => f.id == factor.id);
+                    if (idx != -1) {
+                      _factors[idx] = factor.copyWith(rating: score);
+                    }
+                  });
+                },
           borderRadius: BorderRadius.circular(4),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
-            width: 42,
-            height: 42,
+            width: 72,
+            height: 50,
             decoration: BoxDecoration(
-              color: isSelected ? Win11Colors.accent : Win11Colors.bg,
+              color: factor.isNotApplicable
+                  ? Win11Colors.bg.withOpacity(0.5)
+                  : (isSelected ? Win11Colors.accent : Win11Colors.bg),
               borderRadius: BorderRadius.circular(4),
               border: Border.all(
                 color: isSelected ? Win11Colors.accent : Win11Colors.border,
                 width: 1,
               ),
             ),
-            child: Center(
-              child: Text(
-                '$score',
-                style: GoogleFonts.inter(
-                  color: isSelected ? Colors.white : Win11Colors.textMain,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                  fontSize: 14,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  '$score',
+                  style: GoogleFonts.inter(
+                    color: isSelected ? Colors.white : Win11Colors.textMain,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                    fontSize: 14,
+                  ),
                 ),
-              ),
+                Text(
+                  _ratingLabels[score],
+                  style: GoogleFonts.inter(
+                    color: isSelected ? Colors.white70 : Win11Colors.textSecondary,
+                    fontSize: 9,
+                  ),
+                ),
+              ],
             ),
           ),
         );
       }),
+    );
+  }
+
+  Widget _buildPaymentAdjustmentsCard() {
+    final loc = AppLocalizations.of(context)!;
+    final ps = widget.audit.paymentSummary;
+    var previewNet = 0.0;
+    if (ps != null) {
+      final tmp = ps.copyWith(
+        coachAdjustmentLines: _coachLines,
+        advancePayments: _advanceDraft,
+      );
+      previewNet = tmp.netAfterAdvances();
+    }
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Win11Colors.card,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Win11Colors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            loc.auditCoachPaymentAdjustmentsTitle,
+            style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 14),
+          ),
+          const SizedBox(height: 8),
+          if (ps != null)
+            Text(
+              '${loc.auditNetAfterAdjustmentsHint}: \$${previewNet.toStringAsFixed(2)}',
+              style: GoogleFonts.inter(
+                  fontSize: 12, color: Win11Colors.textSecondary),
+            ),
+          const SizedBox(height: 12),
+          ..._coachLines.map((l) => ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                title: Text(
+                  '${l.type} \$${l.amount.toStringAsFixed(2)} — ${l.reason}',
+                  style: GoogleFonts.inter(fontSize: 12),
+                ),
+                trailing: IconButton(
+                  icon: const Icon(Icons.delete_outline, size: 20),
+                  onPressed: () => setState(() => _coachLines.remove(l)),
+                ),
+              )),
+          TextButton.icon(
+            onPressed: _isSubmitting ? null : _onAddCoachLine,
+            icon: const Icon(Icons.add, size: 18),
+            label: Text(loc.auditAddPaymentLine),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _onAddCoachLine() async {
+    final loc = AppLocalizations.of(context)!;
+    var type = 'penalty';
+    final amountCtrl = TextEditingController();
+    final reasonCtrl = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setD) => AlertDialog(
+          title: Text(loc.auditAddPaymentLine),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButtonFormField<String>(
+                value: type,
+                decoration: InputDecoration(labelText: loc.auditPaymentLineTypeLabel),
+                items: [
+                  DropdownMenuItem(value: 'penalty', child: Text(loc.auditPaymentLinePenalty)),
+                  DropdownMenuItem(value: 'bonus', child: Text(loc.auditPaymentLineBonus)),
+                ],
+                onChanged: (v) => setD(() => type = v ?? 'penalty'),
+              ),
+              TextField(
+                controller: amountCtrl,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: InputDecoration(labelText: loc.auditAmountLabel),
+              ),
+              TextField(
+                controller: reasonCtrl,
+                decoration: InputDecoration(labelText: loc.auditReasonLabel),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(loc.commonCancel),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(loc.commonOk),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (ok != true || !mounted) return;
+    final u = FirebaseAuth.instance.currentUser;
+    if (u == null) return;
+    final amt = double.tryParse(amountCtrl.text.replaceAll(',', '.')) ?? 0;
+    if (amt <= 0) return;
+    setState(() {
+      _coachLines.add(PaymentAdjustmentLine(
+        id: _uuid.v4(),
+        type: type,
+        amount: amt,
+        reason: reasonCtrl.text.trim().isEmpty ? '—' : reasonCtrl.text.trim(),
+        factorId: null,
+        createdAt: DateTime.now(),
+        createdById: u.uid,
+        createdByName: u.displayName ?? u.email ?? u.uid,
+      ));
+    });
+  }
+
+  Widget _buildAdvanceCard() {
+    final loc = AppLocalizations.of(context)!;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Win11Colors.card,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Win11Colors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            loc.auditAdvanceSectionTitle,
+            style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 14),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            loc.auditAdvanceSectionSubtitle,
+            style: GoogleFonts.inter(fontSize: 11, color: Win11Colors.textSecondary),
+          ),
+          const SizedBox(height: 12),
+          TextButton.icon(
+            onPressed: _isSubmitting
+                ? null
+                : () async {
+                    final list =
+                        await TeacherAuditService.fetchAdvancePaymentSubmissions(
+                      userId: widget.audit.oderId,
+                      yearMonth: widget.audit.yearMonth,
+                    );
+                    if (mounted) setState(() => _advanceDraft = list);
+                  },
+            icon: const Icon(Icons.cloud_download_outlined, size: 18),
+            label: Text(loc.auditAdvanceLoadFromForms),
+          ),
+          ..._advanceDraft.map((a) => ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                title: Text(
+                  '\$${a.amount.toStringAsFixed(2)} · ${a.formResponseId}',
+                  style: GoogleFonts.inter(fontSize: 12),
+                ),
+                subtitle: Text(
+                  DateFormat.yMMMd().format(a.submittedAt),
+                  style: GoogleFonts.inter(fontSize: 10),
+                ),
+              )),
+        ],
+      ),
     );
   }
 
@@ -569,8 +900,8 @@ class _CoachEvaluationScreenState extends State<CoachEvaluationScreen> {
   }
 
   Color _getRatingColor(int rating) {
-    if (rating >= 8) return Colors.green.shade700;
-    if (rating >= 5) return Colors.orange.shade700;
+    if (rating >= 4) return Colors.green.shade700;
+    if (rating >= 3) return Colors.orange.shade700;
     return Colors.red.shade700;
   }
 

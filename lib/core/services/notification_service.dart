@@ -10,6 +10,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 import 'package:alluwalacademyadmin/features/chat/screens/chat_screen.dart';
 import 'package:alluwalacademyadmin/features/chat/models/chat_user.dart';
+import 'package:alluwalacademyadmin/features/audit/screens/teacher_audit_detail_screen.dart';
 
 /// Background message handler - must be a top-level function
 @pragma('vm:entry-point')
@@ -254,6 +255,31 @@ class NotificationService {
     // Check if this is a chat message notification
     final notificationType = data['type'] as String?;
     final chatId = data['chatId'] as String?;
+
+    if (notificationType == 'audit_notification' && notification == null) {
+      await _localNotifications.show(
+        message.messageId?.hashCode ?? data.hashCode,
+        'Monthly audit update',
+        'Your audit is ready to review.',
+        const NotificationDetails(
+          android: AndroidNotificationDetails(
+            'high_importance_channel',
+            'High Importance Notifications',
+            channelDescription: 'Important notifications including audits',
+            importance: Importance.high,
+            priority: Priority.high,
+            icon: '@mipmap/ic_launcher',
+          ),
+          iOS: DarwinNotificationDetails(
+            presentAlert: true,
+            presentBadge: true,
+            presentSound: true,
+          ),
+        ),
+        payload: jsonEncode(message.data),
+      );
+      return;
+    }
     
     // Suppress notification if user is currently viewing this chat
     if (notificationType == 'chat_message' && chatId != null) {
@@ -366,6 +392,25 @@ class NotificationService {
   /// Navigate to chat screen if notification is a chat message
   Future<void> _navigateToChatIfNeeded(Map<String, dynamic> data) async {
     final type = data['type'] as String?;
+
+    if (type == 'audit_notification') {
+      final yearMonth = data['yearMonth'] as String?;
+      if (yearMonth == null || yearMonth.isEmpty) {
+        debugPrint('audit_notification: missing yearMonth');
+        return;
+      }
+      final nav = NotificationService.navigatorKey.currentState;
+      if (nav == null) {
+        debugPrint('audit_notification: no navigator');
+        return;
+      }
+      nav.push(
+        MaterialPageRoute<void>(
+          builder: (_) => TeacherAuditDetailScreen(yearMonth: yearMonth),
+        ),
+      );
+      return;
+    }
     
     if (type == 'chat_message') {
       final senderId = data['senderId'] as String?;

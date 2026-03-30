@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -9,10 +11,22 @@ import '../../../core/models/teaching_shift.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 import '../utils/form_submission_view_mode.dart';
 import '../widgets/form_details_modal.dart';
+import '../../../admin/screens/admin_audit_screen.dart';
+import 'admin_submissions_review_screen.dart';
 
 /// Admin screen – Gmail-density redesign.
 class AdminAllSubmissionsScreen extends StatefulWidget {
-  const AdminAllSubmissionsScreen({super.key});
+  /// When non-null, pre-select this teacher in the filter on open.
+  final String? initialTeacherId;
+
+  /// When non-null, pre-select this yearMonth (e.g. '2026-03') on open.
+  final String? initialYearMonth;
+
+  const AdminAllSubmissionsScreen({
+    super.key,
+    this.initialTeacherId,
+    this.initialYearMonth,
+  });
 
   @override
   State<AdminAllSubmissionsScreen> createState() =>
@@ -38,11 +52,13 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
   bool _showAllMonths = false;
   String? _selectedStatus;
 
-  /// Form filter: null = all forms, otherwise same keys as _filteredByForm (e.g. _kDailyClassReportKey).
-  String? _selectedFormKey;
+  /// Form filter: empty = all forms; otherwise submissions must match one of these
+  /// logical keys (same as [_formKeyForDoc], e.g. [_kDailyClassReportKey]).
+  final Set<String> _selectedFormKeys = {};
 
   String _viewMode = 'by_teacher';
   final TextEditingController _searchController = TextEditingController();
+  Timer? _searchDebounce;
   String _searchQuery = '';
   String _teacherPickerSearchQuery = '';
 
@@ -80,11 +96,19 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.initialTeacherId != null) {
+      _selectedTeacherIds = {widget.initialTeacherId!};
+    }
+    if (widget.initialYearMonth != null) {
+      _selectedYearMonth = widget.initialYearMonth;
+      _showAllMonths = false;
+    }
     _initializeScreen();
   }
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _searchController.dispose();
     super.dispose();
   }
@@ -585,10 +609,9 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
     _lastSubmissionDoc = null;
     _hasMoreSubmissions = false;
     try {
-      final now = DateTime.now();
-      final currentYearMonth =
-          '${now.year}-${now.month.toString().padLeft(2, '0')}';
-      await _loadMonthSubmissions(currentYearMonth, setSelectedIfUnset: true);
+      final targetMonth = _selectedYearMonth ??
+          '${DateTime.now().year}-${DateTime.now().month.toString().padLeft(2, '0')}';
+      await _loadMonthSubmissions(targetMonth, setSelectedIfUnset: true);
     } catch (e) {
       AppLogger.error('Error loading current month submissions: $e');
       if (mounted) {
@@ -1080,20 +1103,20 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
   }
 
   List<QueryDocumentSnapshot> get _filteredSubmissions {
+    final formKeysSig = (_selectedFormKeys.toList()..sort()).join('|');
     final cacheKey =
-        '${_allSubmissions.length}_${_selectedTeacherIds.join(',')}:${_selectedYearMonth}_${_showAllMonths}_${_selectedStatus}_${_selectedFormKey}_${_searchQuery}_${_formTitles.length}_${_teachersData.length}';
+        '${_allSubmissions.length}_${_selectedTeacherIds.join(',')}:${_selectedYearMonth}_${_showAllMonths}_${_selectedStatus}_${formKeysSig}_${_searchQuery}_${_formTitles.length}_${_teachersData.length}';
     if (_filteredCache != null && cacheKey == _filterCacheKey) {
       return _filteredCache!;
     }
     final filterTeacher = _selectedTeacherIds.isNotEmpty;
     final filterMonth = !_showAllMonths && _selectedYearMonth != null;
     final filterStatus = _selectedStatus != null;
-    final filterForm = _selectedFormKey != null;
+    final filterForm = _selectedFormKeys.isNotEmpty;
     final filterSearch = _searchQuery.isNotEmpty;
     final q = filterSearch ? _searchQuery.toLowerCase() : '';
     final targetMonth = filterMonth ? _selectedYearMonth! : '';
     final targetStatus = filterStatus ? _selectedStatus!.toLowerCase() : '';
-    final targetFormKey = filterForm ? _selectedFormKey! : '';
     final result = <QueryDocumentSnapshot>[];
     for (final doc in _allSubmissions) {
       final data = doc.data() as Map<String, dynamic>;
@@ -1116,7 +1139,7 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
       }
       if (filterForm) {
         final key = _formKeyForDoc(data);
-        if (key != targetFormKey) continue;
+        if (key == null || !_selectedFormKeys.contains(key)) continue;
       }
       if (filterSearch) {
         final userId = data['userId'] as String?;
@@ -1339,12 +1362,29 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
     final l10n = AppLocalizations.of(context)!;
     final ym = _selectedYearMonth!;
     final count = _filteredSubmissions.length;
+    final monthIdx = _availableMonths.indexOf(ym);
+    final hasPrev = monthIdx >= 0 && monthIdx < _availableMonths.length - 1;
+    final hasNext = monthIdx > 0;
     return Container(
       width: double.infinity,
       color: const Color(0xffEFF6FF),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: Row(
         children: [
+          IconButton(
+            icon: const Icon(Icons.chevron_left, size: 20),
+            color: hasPrev ? _cPrimary : _cMuted,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            onPressed: hasPrev
+                ? () {
+                    final prev = _availableMonths[monthIdx + 1];
+                    setState(() => _selectedYearMonth = prev);
+                    _loadMonthSubmissions(prev);
+                  }
+                : null,
+          ),
+          const SizedBox(width: 4),
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
@@ -1372,6 +1412,19 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
               ],
             ),
           ),
+          IconButton(
+            icon: const Icon(Icons.chevron_right, size: 20),
+            color: hasNext ? _cPrimary : _cMuted,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            onPressed: hasNext
+                ? () {
+                    final next = _availableMonths[monthIdx - 1];
+                    setState(() => _selectedYearMonth = next);
+                    _loadMonthSubmissions(next);
+                  }
+                : null,
+          ),
           TextButton(
             onPressed: () {
               setState(() {
@@ -1397,7 +1450,7 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
     final hasActiveFilters = _selectedTeacherIds.isNotEmpty ||
         !_showAllMonths ||
         _selectedStatus != null ||
-        _selectedFormKey != null;
+        _selectedFormKeys.isNotEmpty;
     return Container(
       color: Colors.white,
       padding: const EdgeInsets.fromLTRB(12, 6, 8, 0),
@@ -1406,6 +1459,15 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
         children: [
           Row(
             children: [
+              if (Navigator.of(context).canPop()) ...[
+                IconButton(
+                  icon: const Icon(Icons.arrow_back, size: 18),
+                  onPressed: () => Navigator.of(context).pop(),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+                const SizedBox(width: 8),
+              ],
               Text(
                 l10n.adminAllSubmissionsTitle,
                 style: GoogleFonts.inter(
@@ -1417,6 +1479,47 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
                 style: GoogleFonts.inter(fontSize: 11, color: _cMuted),
               ),
               const Spacer(),
+              _iconBtn(
+                icon: Icons.view_sidebar_outlined,
+                tooltip: l10n.adminSubmissionsReviewMode,
+                onTap: _filteredSubmissions.isEmpty
+                    ? () {}
+                    : () {
+                        Navigator.of(context)
+                            .push(
+                          MaterialPageRoute(
+                            builder: (ctx) => AdminSubmissionsReviewScreen(
+                              submissions: List<QueryDocumentSnapshot>.from(
+                                  _filteredSubmissions),
+                              teachersData: _teachersData,
+                              formTitles: Map<String, String>.from(_formTitles),
+                              getShiftSummaries: _getShiftSummariesForIds,
+                            ),
+                          ),
+                        )
+                            .then((_) {
+                          if (mounted) _loadCurrentMonthSubmissions();
+                        });
+                      },
+              ),
+              const SizedBox(width: 4),
+              if (_selectedTeacherIds.length == 1) ...[
+                _iconBtn(
+                  icon: Icons.assessment_outlined,
+                  tooltip: l10n.viewTeacherAudit,
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => AdminAuditScreen(
+                          initialTeacherId: _selectedTeacherIds.first,
+                          initialYearMonth: _selectedYearMonth,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(width: 4),
+              ],
               _iconBtn(
                 icon: Icons.settings_outlined,
                 tooltip: l10n.adminPreferencesTitle,
@@ -1433,7 +1536,13 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
                   width: 200,
                   child: TextField(
                     controller: _searchController,
-                    onChanged: (v) => setState(() => _searchQuery = v),
+                    onChanged: (v) {
+                      _searchDebounce?.cancel();
+                      _searchDebounce = Timer(
+                          const Duration(milliseconds: 300), () {
+                        if (mounted) setState(() => _searchQuery = v);
+                      });
+                    },
                     style: GoogleFonts.inter(fontSize: 12),
                     decoration: InputDecoration(
                       hintText: l10n.adminSubmissionsSearchPlaceholder,
@@ -1507,11 +1616,8 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
                         ),
                         const SizedBox(width: 4),
                         _chip(
-                          label: _selectedFormKey == null
-                              ? (AppLocalizations.of(context)!
-                                  .adminSubmissionsAllForms)
-                              : _formKeyToDisplayTitle(_selectedFormKey!),
-                          active: _selectedFormKey != null,
+                          label: _selectedFormKeysLabel,
+                          active: _selectedFormKeys.isNotEmpty,
                           onTap: _showFormPicker,
                         ),
                         if (hasActiveFilters) ...[
@@ -1522,7 +1628,7 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
                               _showAllMonths = true;
                               _selectedYearMonth = null;
                               _selectedStatus = null;
-                              _selectedFormKey = null;
+                              _selectedFormKeys.clear();
                             }),
                             child: Container(
                               height: 26,
@@ -1664,6 +1770,25 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
     if (key == _kWeeklyReportKey) return 1;
     if (key == _kMonthlyReportKey) return 2;
     return 3;
+  }
+
+  String get _selectedFormKeysLabel {
+    final l10n = AppLocalizations.of(context)!;
+    if (_selectedFormKeys.isEmpty) return l10n.adminSubmissionsAllForms;
+    final keys = _selectedFormKeys.toList()
+      ..sort((a, b) {
+        final oa = _formKeySortOrder(a);
+        final ob = _formKeySortOrder(b);
+        if (oa != ob) return oa.compareTo(ob);
+        return _formKeyToDisplayTitle(a)
+            .toLowerCase()
+            .compareTo(_formKeyToDisplayTitle(b).toLowerCase());
+      });
+    final titles =
+        keys.map(_formKeyToDisplayTitle).where((s) => s.isNotEmpty).toList();
+    if (titles.isEmpty) return l10n.adminSubmissionsAllForms;
+    if (titles.length <= 2) return titles.join(', ');
+    return '${titles.take(2).join(', ')} +${titles.length - 2}';
   }
 
   Widget _buildTeacherView() {
@@ -2281,92 +2406,116 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
   void _showFormPicker() {
     final l10n = AppLocalizations.of(context)!;
     final availableKeys = _availableFormKeysForPicker;
-    showDialog(
+    final tempSelected = Set<String>.from(_selectedFormKeys);
+
+    showDialog<void>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(
-          l10n.adminSubmissionsFilterByForm,
-          style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600),
-        ),
-        contentPadding: const EdgeInsets.fromLTRB(24, 12, 24, 12),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              InkWell(
-                onTap: () {
-                  setState(() => _selectedFormKey = null);
-                  Navigator.pop(context);
-                },
-                child: Container(
-                  height: 36,
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Row(
-                    children: [
-                      Text(
-                        l10n.adminSubmissionsAllForms,
-                        style: GoogleFonts.inter(
-                          fontSize: 12,
-                          fontWeight: _selectedFormKey == null
-                              ? FontWeight.w600
-                              : FontWeight.w400,
-                          color: _selectedFormKey == null ? _cPrimary : _cText,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: Text(
+                l10n.adminSubmissionsFilterByForm,
+                style: GoogleFonts.inter(
+                    fontSize: 14, fontWeight: FontWeight.w600),
+              ),
+              contentPadding: const EdgeInsets.fromLTRB(24, 12, 24, 12),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    InkWell(
+                      onTap: () =>
+                          setDialogState(() => tempSelected.clear()),
+                      child: Container(
+                        height: 36,
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Row(
+                          children: [
+                            Text(
+                              l10n.adminSubmissionsAllForms,
+                              style: GoogleFonts.inter(
+                                fontSize: 12,
+                                fontWeight: tempSelected.isEmpty
+                                    ? FontWeight.w600
+                                    : FontWeight.w400,
+                                color: tempSelected.isEmpty
+                                    ? _cPrimary
+                                    : _cText,
+                              ),
+                            ),
+                            const Spacer(),
+                            if (tempSelected.isEmpty)
+                              const Icon(Icons.check,
+                                  size: 16, color: Color(0xff0386FF)),
+                          ],
                         ),
                       ),
-                      const Spacer(),
-                      if (_selectedFormKey == null)
-                        const Icon(Icons.check,
-                            size: 16, color: Color(0xff0386FF)),
-                    ],
-                  ),
-                ),
-              ),
-              ...availableKeys.map((key) {
-                final isSelected = _selectedFormKey == key;
-                final label = _formKeyToDisplayTitle(key);
-                if (label.isEmpty) return const SizedBox.shrink();
-                return InkWell(
-                  onTap: () {
-                    setState(() => _selectedFormKey = key);
-                    Navigator.pop(context);
-                  },
-                  child: Container(
-                    height: 36,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            label,
-                            style: GoogleFonts.inter(
-                              fontSize: 12,
-                              fontWeight: isSelected
-                                  ? FontWeight.w600
-                                  : FontWeight.w400,
-                              color: isSelected ? _cPrimary : _cText,
-                            ),
-                            overflow: TextOverflow.ellipsis,
+                    ),
+                    ...availableKeys.map((key) {
+                      final isSelected = tempSelected.contains(key);
+                      final label = _formKeyToDisplayTitle(key);
+                      if (label.isEmpty) return const SizedBox.shrink();
+                      return InkWell(
+                        onTap: () => setDialogState(() {
+                          if (isSelected) {
+                            tempSelected.remove(key);
+                          } else {
+                            tempSelected.add(key);
+                          }
+                        }),
+                        child: Container(
+                          height: 36,
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  label,
+                                  style: GoogleFonts.inter(
+                                    fontSize: 12,
+                                    fontWeight: isSelected
+                                        ? FontWeight.w600
+                                        : FontWeight.w400,
+                                    color: isSelected ? _cPrimary : _cText,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              if (isSelected)
+                                const Icon(Icons.check,
+                                    size: 16, color: Color(0xff0386FF)),
+                            ],
                           ),
                         ),
-                        if (isSelected)
-                          const Icon(Icons.check,
-                              size: 16, color: Color(0xff0386FF)),
-                      ],
-                    ),
-                  ),
-                );
-              }),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child:
-                Text(l10n.commonCancel, style: const TextStyle(fontSize: 12)),
-          ),
-        ],
-      ),
+                      );
+                    }),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: Text(l10n.commonCancel,
+                      style: const TextStyle(fontSize: 12)),
+                ),
+                TextButton(
+                  onPressed: () {
+                    setState(() {
+                      _selectedFormKeys
+                        ..clear()
+                        ..addAll(tempSelected);
+                    });
+                    Navigator.pop(dialogContext);
+                  },
+                  child: Text(l10n.adminSubmissionsApply,
+                      style: const TextStyle(fontSize: 12)),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 

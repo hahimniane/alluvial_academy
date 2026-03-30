@@ -24,6 +24,8 @@
   "commonSubmit": "Soumettre",
   "commonReset": "Réinitialiser",
   "commonClear": "Effacer",
+  "commonExpandAll": "Tout développer",
+  "commonCollapseAll": "Tout réduire",
   "commonRefresh": "Actualiser",
   "commonExport": "Exporter",
   "commonCopy": "Copier",
@@ -339,6 +341,21 @@
   "adminSubmissionsFavoritesOnly": "Favoris uniquement",
   "adminSubmissionsApply": "Appliquer",
   "adminSubmissionsNoSubmissions": "Aucune soumission trouvée",
+  "adminSubmissionsReviewMode": "Mode revue",
+  "adminSubmissionsSelectionModeTitle": "Sélection",
+  "adminSubmissionsNoTeacherSelected": "Aucun enseignant sélectionné",
+  "adminSubmissionsSelectionProgress": "{selectedCount} / {total} formulaires",
+  "@adminSubmissionsSelectionProgress": {
+    "placeholders": {
+      "selectedCount": { "type": "int" },
+      "total": { "type": "int" }
+    }
+  },
+  "adminSubmissionsExportFormatLabel": "Format",
+  "adminSubmissionsExportExcelLabel": "Excel",
+  "adminSubmissionsExportPdfLabel": "PDF",
+  "adminSubmissionsExportProgressSubtitle": "Préparation du fichier. Progression par personne :",
+  "adminSubmissionsSelectToViewDetails": "Sélectionnez une soumission pour voir les détails",
   "adminSubmissionsTryAdjustingFilters": "Essayez d'ajuster les filtres",
   "adminSubmissionsAddToFavorites": "Ajouter aux favoris",
   "adminSubmissionsLoadMore": "Charger plus",
@@ -1244,12 +1261,46 @@
   "auditFormsRejected": "Rejetés",
   "auditFormsRejectedBreakdown": "({noShift} sans shift, {duplicates} doublon)",
   "auditFormStatusAccepted": "Accepté",
+  "auditFormStatusAcceptedMissedShift": "Accepté (créneau manqué au planning)",
+  "auditFormHintMissedShiftReport": "Manqué au créneau prévu ; rapport déposé (pas de pointage sur ce créneau).",
   "auditFormStatusRejectedDuplicate": "Rejeté (doublon)",
   "auditFormStatusRejectedNoShift": "Rejeté (sans shift)",
+  "auditFormStatusRejectedNoTimesheet": "Rejeté (sans feuille de temps)",
+  "auditFormsTabStatTotalTeaching": "Total formulaires d'enseignement",
+  "auditFormsTabStatRejectedNoShift": "Rejetés (sans shift)",
+  "auditFormsTabStatRejectedNoTimesheet": "Rejetés (sans feuille de temps)",
+  "auditFormsTabStatRejectedDuplicate": "Rejetés (doublon)",
+  "auditFormsTabStatReadiness": "Formulaires de préparation",
+  "auditFormsSectionAccepted": "Acceptés ({count})",
+  "@auditFormsSectionAccepted": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "auditFormsSectionRejectedNoShift": "Rejetés — sans shift lié ({count})",
+  "@auditFormsSectionRejectedNoShift": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "auditFormsSectionRejectedNoTimesheet": "Rejetés — sans feuille de temps ({count})",
+  "@auditFormsSectionRejectedNoTimesheet": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "auditFormsSectionRejectedDuplicate": "Rejetés — doublon ({count})",
+  "@auditFormsSectionRejectedDuplicate": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
   "auditTotalLabel": "Total",
   "auditFormsSubmittedLabel": "Formulaires soumis",
   "auditGeneralOrUnlinked": "Général / Non lié",
   "auditNoFormsSubmitted": "Aucun formulaire soumis",
+  "auditNoAssignmentFormsInSnapshot": "Aucun devoir ni évaluation dans cet audit. Régénérez l’audit du mois si des rapports de cours semblent encore mal classés.",
+  "auditFactorNaShort": "N/A (hors score)",
   "auditTierExcellent": "Excellent",
   "auditTierGood": "Bien",
   "auditTierNeedsImprovement": "À améliorer",
@@ -1265,6 +1316,13 @@
   "teacherAuditPerformanceSection": "Performance",
   "teacherAuditNetToReceive": "NET À PERCEVOIR",
   "teacherAuditPointsOfAttention": "Points d'attention",
+  "teacherAuditReportUnderReview": "Ce rapport est en cours de révision et peut changer avant sa finalisation.",
+  "teacherAuditScoreAuto": "Auto: {score}%",
+  "@teacherAuditScoreAuto": { "placeholders": { "score": {"type": "String"} } },
+  "teacherAuditScoreCoach": "Coach: {score}%",
+  "@teacherAuditScoreCoach": { "placeholders": { "score": {"type": "String"} } },
+  "coachEvalSuggestedScore": "Suggéré",
+  "coachEvalApplySuggestion": "Appliquer",
   "teacherAuditReportNotAvailable": "Rapport non disponible",
   "teacherAuditReportNotFinalizedMessage": "Votre rapport pour {month} n'est pas encore finalisé ou n'existe pas.",
   "teacherAuditClassesLabel": "Classes",
@@ -1296,6 +1354,37 @@
   "auditNetToPay": "NET À PAYER",
   "auditNoPaymentDataAvailable": "Aucune donnée de paiement disponible",
   "auditPaymentSummary": "Récapitulatif de paiement",
+  "auditCoachPaymentAdjustmentsTitle": "Lignes de paiement (coach)",
+  "auditNetAfterAdjustmentsHint": "Net estimé après lignes et avances",
+  "auditAddPaymentLine": "Ajouter une ligne",
+  "auditAmountLabel": "Montant (USD)",
+  "auditReasonLabel": "Motif",
+  "auditPaymentLineTypeLabel": "Type",
+  "auditPaymentLinePenalty": "Pénalité (déduit)",
+  "auditPaymentLineBonus": "Prime (ajouté)",
+  "auditAdvanceSectionTitle": "Paiements d'avance",
+  "auditAdvanceSectionSubtitle": "Charger les soumissions du formulaire d'avance pour ce mois.",
+  "auditAdvanceLoadFromForms": "Charger depuis les formulaires",
+  "auditBulkAcceptSelected": "Accepter la sélection (outrepasser)",
+  "auditBulkAcceptAllInSection": "Tout sélectionner (cette section)",
+  "auditBulkAcceptReasonTitle": "Motif de l'acceptation manuelle",
+  "auditBulkAcceptReasonHint": "Note courte (enregistrée sur l'audit)",
+  "auditBulkAcceptSuccess": "Formulaires acceptés ; métriques recalculées",
+  "auditBulkAcceptRunning": "Application…",
+  "auditAcknowledgeRead": "Je confirme avoir lu cette fiche de paie",
+  "auditAcknowledgeDone": "Accusé le {date}",
+  "@auditAcknowledgeDone": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "auditOpenDiscussion": "Ouvrir la discussion",
+  "auditDiscussionAdminButton": "Chat avec l'enseignant",
+  "teacherAuditPayslipCoachLines": "Ajustements d'évaluation",
+  "teacherAuditPayslipAdvances": "Avances (déduites)",
+  "teacherAuditClassesSection": "Cours du mois",
   "auditGrossSalary": "Salaire brut",
   "auditNetSalary": "Salaire net",
   "auditAdjustments": "Ajustements",
@@ -3612,6 +3701,24 @@
     }
   },
   "taskUnassigned": "Non attribué",
+  "taskAssigneeOpenTrackingTitle": "Ouverture de la tâche par les assignés",
+  "taskAssigneeOpenedAt": "Ouvert le {datetime}",
+  "@taskAssigneeOpenedAt": {
+    "placeholders": {
+      "datetime": {
+        "type": "String"
+      }
+    }
+  },
+  "taskAssigneeNotOpenedYet": "Pas encore ouvert",
+  "taskDetailFirstViewedAt": "Première ouverture du détail : {datetime}",
+  "@taskDetailFirstViewedAt": {
+    "placeholders": {
+      "datetime": {
+        "type": "String"
+      }
+    }
+  },
   "taskSelectMultiple": "Sélection multiple",
   "taskExitSelection": "Quitter la sélection",
   "editAllInSeriesCount": "Modifier toute la série ({count})",
@@ -4006,6 +4113,7 @@
   "chatMessagesLabel": "Messages de discussion",
   "adjustmentAmountExampleHint": "e.g., +0.2 or -5",
   "formResponsesTitle": "Réponses au formulaire",
+  "formResponsesUpdatingLabels": "Mise à jour des libellés…",
   "optionsCommaSeparatedExample": "ex. Option 1, Option 2, Option 3",
   "readinessFormRequiredTitle": "Formulaire de préparation requis",
   "requiredForRatingsBelow9": "Note requise ci-dessous 9",
@@ -4045,5 +4153,223 @@
   "podcastArchived": "Podcast archivé",
   "selectStudents": "Sélectionner les Étudiants",
   "selectAll": "Tout sélectionner",
-  "deselectAll": "Tout désélectionner"
+  "deselectAll": "Tout désélectionner",
+  "auditReviewModeTitle": "Mode révision d'audit",
+  "auditReviewModeButton": "Mode révision",
+  "auditReviewBackToList": "Retour à la liste",
+  "auditReviewSelectTeacher": "Sélectionnez un audit enseignant à examiner",
+  "auditOrphanForms": "Formulaires orphelins ({count})",
+  "@auditOrphanForms": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "auditRejectedForms": "Formulaires rejetés ({count})",
+  "@auditRejectedForms": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "auditFormNoMatchingShift": "Aucun créneau correspondant trouvé",
+
+  "auditTabChangeLog": "Historique",
+  "auditManualMetrics": "Métriques manuelles",
+  "auditMeetingsSection": "Réunions",
+  "auditAcademicSection": "Académique",
+  "auditTasksCommunication": "Tâches et communication",
+  "auditOverrideSection": "Corrections",
+  "auditEditField": "Modifier le champ",
+  "auditEditFieldTitle": "Modifier : {fieldName}",
+  "@auditEditFieldTitle": {
+    "placeholders": {
+      "fieldName": { "type": "String" }
+    }
+  },
+  "auditCurrentValue": "Valeur actuelle",
+  "auditNewValue": "Nouvelle valeur",
+  "auditEditReason": "Raison de la modification",
+  "auditEditReasonHint": "Expliquez pourquoi cette valeur est modifiée",
+  "auditEditSuccess": "Champ mis à jour avec succès",
+  "auditEditError": "Échec de la mise à jour du champ",
+  "auditNoChangesRecorded": "Aucune modification enregistrée",
+  "auditChangeLogSummary": "{count} modifications",
+  "@auditChangeLogSummary": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "auditChangedFieldFrom": "{field} modifié de {oldValue} à {newValue}",
+  "@auditChangedFieldFrom": {
+    "placeholders": {
+      "field": { "type": "String" },
+      "oldValue": { "type": "String" },
+      "newValue": { "type": "String" }
+    }
+  },
+  "auditChangeReason": "Raison : {reason}",
+  "@auditChangeReason": {
+    "placeholders": {
+      "reason": { "type": "String" }
+    }
+  },
+  "auditFieldTotalClassesMissed": "Classes manquées (correction)",
+  "auditFieldTotalClassesCancelled": "Classes annulées (correction)",
+  "auditFieldStaffMeetingsScheduled": "Réunions prévues",
+  "auditFieldStaffMeetingsMissed": "Réunions manquées",
+  "auditFieldMeetingLateArrivals": "Retards aux réunions",
+  "auditFieldQuizzesGiven": "Quiz donnés",
+  "auditFieldAssignmentsGiven": "Devoirs donnés",
+  "auditFieldOverdueTasks": "Tâches en retard",
+  "auditTaskAcknowledgement": "Tâches consultées",
+  "auditTaskAcknowledgementRate": "Consultation des tâches",
+  "auditExcusedAbsences": "Absences excusées",
+  "auditExcused": "Excusé",
+  "auditViewTeachers": "Enseignants",
+  "auditViewAdmins": "Administrateurs",
+  "adminAuditFormsSubmitted": "Formulaires soumis",
+  "adminAuditTasksCompleted": "Tâches terminées",
+  "adminAuditColumnAdmin": "Admin",
+  "adminAuditOverallScore": "Score",
+  "adminAuditFormComplianceShort": "Formulaires",
+  "adminAuditTaskEfficiencyShort": "Effic. tâches",
+  "adminAuditOverdue": "En retard",
+  "adminAuditAcknowledged": "Accusé réception",
+  "adminAuditTasksCreated": "Tâches créées",
+  "adminAuditAvgCompletionDays": "Moy. clôture (jours)",
+  "adminAuditDetailTitle": "Détail audit admin",
+  "adminAuditFormBreakdown": "Soumissions par formulaire",
+  "adminAuditTaskLabels": "Étiquettes de tâches",
+  "adminAuditCeoNotes": "Notes CEO",
+  "adminAuditSaveNotes": "Enregistrer les notes",
+  "adminAuditClose": "Fermer",
+  "adminAuditNoBreakdown": "Pas de détail par formulaire",
+  "adminAuditOpenDetail": "Détails",
+  "adminAuditUnknownForm": "Formulaire inconnu",
+  "adminAuditSubTasksRatio": "Intensité sous-tâches",
+  "adminAuditScoreHelpTitle": "Comment ce score est-il calculé ?",
+  "adminAuditScoreHelpBody": "Le score global combine la conformité des formulaires ({formPercent} %) et l’efficacité des tâches ({taskPercent} %). La conformité Tier 1 moyenne trois volets : soumissions « fin de service » vs jours ouvrés du mois, performance coachees bi-hebdomadaire (2 attendues par mois), et rapports hebdo CEO/progrès/finance vs environ 4 à 5 semaines dans le mois. L’efficacité des tâches reflète le rapport terminées / assignées, pénalise les retards et ajoute un bonus si vous créez des tâches. Un score bas indique souvent des formulaires récurrents manquants ou beaucoup de tâches incomplètes ou en retard.",
+  "@adminAuditScoreHelpBody": {
+    "placeholders": {
+      "formPercent": { "type": "String" },
+      "taskPercent": { "type": "String" }
+    }
+  },
+  "adminAuditAdminListTitle": "Administrateurs",
+  "adminAuditAdminListCount": "{count, plural, one{1 administrateur} other{{count} administrateurs}}",
+  "@adminAuditAdminListCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "adminAuditAdminListHint": "Ouvrez le menu pour changer d’administrateur. Chaque ligne affiche le score global, les formulaires et l’efficacité des tâches ; survolez pour les volumes et le détail des tâches.",
+  "adminAuditSelectAdminLabel": "Afficher",
+  "adminAuditStatTooltipForms": "Formulaires envoyés ce mois-ci",
+  "adminAuditStatTooltipTasks": "Tâches terminées / assignées",
+  "adminAuditStatTooltipOverdue": "Tâches en retard",
+  "adminAuditStatTooltipAck": "Tâches consultées / assignées",
+  "adminAuditExportCsvButton": "Exporter CSV admins",
+  "adminAuditExportEmpty": "Aucun audit admin à exporter pour ce mois.",
+  "@exportSavedNativeBody": {
+    "placeholders": {
+      "path": { "type": "String" }
+    }
+  },
+  "exportSavedNativeBody": "Enregistré : {path}",
+  "auditStatusUpdatedBanner": "Votre rapport d'audit a été mis à jour. Consultez le dernier statut ci-dessous.",
+  "auditFieldWeeklyRecordingsSent": "Enregistrements hebdomadaires envoyés",
+  "auditFieldClassRemindersSet": "Rappels de cours définis",
+  "auditFieldInternetDropOffs": "Coupures internet",
+  "auditFieldMidtermCompleted": "Examen mi-session terminé",
+  "auditFieldFinalExamCompleted": "Examen final terminé",
+  "auditFieldSemesterProjectStatus": "Statut du projet semestriel",
+  "auditSave": "Enregistrer",
+  "viewTeacherAudit": "Voir l'audit",
+  "viewTeacherSubmissions": "Voir les soumissions",
+
+  "auditIncidentsAndPenalties": "Incidents et pénalités",
+  "auditNoIncidents": "Aucun incident ou pénalité enregistré",
+  "auditIncidentFactsFinding": "Rapport de constat",
+  "auditIncidentPenalty": "Dossier de pénalité",
+  "auditIncidentSubmittedBy": "Soumis par {name}",
+  "@auditIncidentSubmittedBy": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "auditIncidentViolationType": "Violation",
+  "auditIncidentRepercussion": "Répercussion",
+  "auditIncidentAmountCut": "Montant déduit",
+  "auditIncidentDescription": "Détails",
+  "auditIncidentActionRequested": "Action demandée",
+  "auditIncidentOccurrence": "Occurrence",
+  "auditIncidentTypeComplaint": "Plainte",
+  "auditIncidentTypeAwareness": "Sensibilisation",
+  "auditIncidentCount": "{count, plural, =0{Aucun incident} =1{1 incident} other{{count} incidents}}",
+  "@auditIncidentCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "auditIncidentLoading": "Chargement des incidents…",
+  "auditFilterDone": "Terminé",
+  "auditSelectFormToView": "Sélectionnez un formulaire pour voir son contenu",
+  "auditNoMatchingShift": "Aucun cours correspondant trouvé pour ce formulaire.",
+  "adminAuditMetricsSidebarTitle": "Indicateurs calculés",
+  "adminAuditTabFormsEval": "Formulaires",
+  "adminAuditTabTasksEval": "Tâches",
+  "adminAuditTabContextForms": "Formulaires contexte",
+  "adminAuditTabEvalSummary": "Synthèse évaluation",
+  "adminAuditEvalThemeFilter": "Thème / filtre",
+  "adminAuditEvalCriteriaTitle": "Critères (0–5, N/A)",
+  "adminAuditNoSubmissionsMonth": "Aucune soumission correspondante pour ce mois.",
+  "adminAuditSelectSubmissionHint": "Sélectionnez une soumission pour l’aperçu",
+  "adminAuditExportEvalPdf": "Exporter PDF (évaluation)",
+  "adminAuditExportEvalExcel": "Exporter Excel (évaluation)",
+  "adminAuditEvalSummaryTitle": "Scores d’évaluation manuelle",
+  "adminAuditTasksForMonth": "Tâches du mois",
+  "adminAuditTaskStatsHeader": "Assignées : {assigned} · Terminées : {done} · Marquées retard : {overdue}",
+  "@adminAuditTaskStatsHeader": {
+    "placeholders": {
+      "assigned": { "type": "int" },
+      "done": { "type": "int" },
+      "overdue": { "type": "int" }
+    }
+  },
+  "adminAuditScoreNa": "N/A",
+  "adminAuditContextFormsHint": "Constats et demandes d’avance / paiement pour cet admin.",
+  "adminAuditEnteredScores": "Notes saisies",
+  "adminAuditEvalAverage": "Moyenne (notes saisies) : {pct} %",
+  "@adminAuditEvalAverage": {
+    "placeholders": {
+      "pct": { "type": "String" }
+    }
+  },
+  "adminAuditEvalExportDocTitle": "Fiche d'évaluation — Admin",
+  "adminAuditEvalExportEvaluated": "Personne évaluée",
+  "adminAuditEvalExportEvaluator": "Évaluateur",
+  "adminAuditEvalExportPeriod": "Période",
+  "adminAuditEvalExportDocumentDate": "Date du document",
+  "adminAuditEvalExportSubtitle": "Par thème · Notation 0 à 5 · N/A = non applicable",
+  "adminAuditEvalExportCeoNotesHeading": "Notes du CEO",
+  "adminAuditEvalExportPaymentHeading": "Ajustements de rémunération (mensuel)",
+  "adminAuditEvalExportBonus": "Prime (mensuelle, USD)",
+  "adminAuditEvalExportPaycut": "Retenue (mensuelle, USD)",
+  "adminAuditEvalExportRationale": "Justification / détails",
+  "adminAuditEvalExportTasksSection": "Tâches",
+  "adminAuditEvalExportOtherSection": "Autres critères",
+  "adminAuditEvalExportAutoKpi": "Indicateurs auto : global {overall} % · formulaires {forms} % · tâches {tasks} %",
+  "@adminAuditEvalExportAutoKpi": {
+    "placeholders": {
+      "overall": { "type": "int" },
+      "forms": { "type": "int" },
+      "tasks": { "type": "int" }
+    }
+  },
+  "adminAuditEvalExportUnknownEvaluator": "—",
+  "adminAuditCeoBonusMonthly": "Prime (mensuelle, USD)",
+  "adminAuditCeoPaycutMonthly": "Retenue (mensuelle, USD)",
+  "adminAuditCeoAdjustmentRationale": "Justification (prime ou retenue)",
+  "adminAuditCeoPaymentAdjustmentsHint": "Montants mensuels optionnels. Ajoutez une courte justification si un montant est renseigné.",
+  "adminAuditEvalSectionCommentLabel": "Commentaire de l'évaluateur",
+  "adminAuditEvalSectionCommentHint": "Facultatif. Repris dans le PDF/Excel sous cette section."
 }

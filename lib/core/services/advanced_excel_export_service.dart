@@ -4,6 +4,8 @@ import 'package:intl/intl.dart';
 import 'package:universal_html/html.dart' as html;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/teacher_audit_full.dart';
+import '../utils/save_export_file.dart';
+import 'audit_class_log_row_builder.dart';
 
 /// Translations for Excel export (no BuildContext in service, so we use locale code).
 class _ExcelExportL10n {
@@ -127,9 +129,49 @@ class _ExcelExportL10n {
 /// Organized by Teacher with monthly breakdown - PIVOT TABLE STYLE
 /// Months are columns, Teachers are rows
 class AdvancedExcelExportService {
+  /// Compute aligned gross & net from the row builder (single source of truth).
+  static ({double gross, double net}) _alignedPay(TeacherAuditFull audit) {
+    final totals = AuditClassLogRowBuilder.computeTotals(audit);
+    final gross = totals.grossBySource;
+    final ps = audit.paymentSummary;
+    if (ps == null) return (gross: gross, net: gross);
+    final coachDelta = ps.coachAdjustmentLines.fold<double>(
+      0.0, (acc, e) => acc + (e.type == 'bonus' ? e.amount : -e.amount));
+    final net = gross - ps.totalPenalties + ps.totalBonuses +
+        ps.adminAdjustment + coachDelta - ps.totalAdvanceDeduction;
+    return (gross: gross, net: net);
+  }
+
+  /// Sum of row-builder [baseAmount] per shift [subject] (for per-subject Excel rows).
+  static Map<String, double> _rowBuilderGrossBySubject(TeacherAuditFull audit) {
+    final out = <String, double>{};
+    for (final r in AuditClassLogRowBuilder.buildRows(audit)) {
+      final k = r.subject.trim();
+      if (k.isEmpty) continue;
+      out[k] = (out[k] ?? 0.0) + r.baseAmount;
+    }
+    return out;
+  }
+
+  static double _grossForSubjectKey(
+    Map<String, double> grossBySubject,
+    String subjectKey,
+    double fallback,
+  ) {
+    if (grossBySubject.containsKey(subjectKey)) {
+      return grossBySubject[subjectKey]!;
+    }
+    final lower = subjectKey.trim().toLowerCase();
+    for (final e in grossBySubject.entries) {
+      if (e.key.trim().toLowerCase() == lower) return e.value;
+    }
+    return fallback;
+  }
+
   /// Export audits to a well-formatted Excel file with multiple sheets.
   /// [locale] e.g. 'en' or 'fr' to translate sheet names and content.
-  static Future<void> exportToExcel({
+  /// Returns the absolute file path when saved on a native platform; `null` on web.
+  static Future<String?> exportToExcel({
     required List<TeacherAuditFull> audits,
     required String yearMonth,
     bool groupByTeacher = true,
@@ -178,21 +220,25 @@ class AdvancedExcelExportService {
         throw Exception('Failed to encode Excel file');
       }
       
+      final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
+      final fileName = 'teacher_audit_report_${yearMonth}_$timestamp.xlsx';
+
       // Download in browser (unique filename so you don't open an old cached file)
       if (kIsWeb) {
-        final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
-        final fileName = 'teacher_audit_report_${yearMonth}_$timestamp.xlsx';
         final blob = html.Blob([bytes], 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         final url = html.Url.createObjectUrlFromBlob(blob);
-        final anchor = html.AnchorElement(href: url)
+        html.AnchorElement(href: url)
           ..setAttribute('download', fileName)
           ..click();
         html.Url.revokeObjectUrl(url);
+      } else {
+        return saveExportBytes(bytes, fileName);
       }
-      
+
       if (kDebugMode) {
         print('✅ Excel exported in ${stopwatch.elapsedMilliseconds}ms');
       }
+      return null;
     } catch (e) {
       if (kDebugMode) {
         print('❌ Error exporting Excel: $e');
@@ -362,9 +408,9 @@ class AdvancedExcelExportService {
             horizontalAlign: HorizontalAlign.Center,
           );
           
-          // Payment
+          // Payment (aligned net from row builder + payment summary adjustments)
           final paymentCell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: startCol + 5, rowIndex: row));
-          paymentCell.value = TextCellValue('\$${audit.paymentSummary?.totalNetPayment.toStringAsFixed(0) ?? '0'}');
+          paymentCell.value = TextCellValue('\$${_alignedPay(audit).net.toStringAsFixed(0)}');
           paymentCell.cellStyle = CellStyle(
             backgroundColorHex: ExcelColor.fromHexString('#DCFCE7'),
             fontColorHex: ExcelColor.fromHexString('#166534'),
@@ -658,8 +704,8 @@ class AdvancedExcelExportService {
         final audit = auditByMonth[month];
         final cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: monthIdx + 1, rowIndex: row));
         
-        if (audit != null && audit.paymentSummary != null) {
-          final payment = audit.paymentSummary!.totalNetPayment;
+        if (audit != null) {
+          final payment = _alignedPay(audit).net;
           totalPayment += payment;
           monthTotals[month] = (monthTotals[month] ?? 0) + payment;
           monthsWithData++;
@@ -1262,14 +1308,15 @@ class AdvancedExcelExportService {
     }
   }
   
-  /// Creates an academic metrics comparison sheet by month
+  /// Creates an overdue tasks comparison sheet by month
+  /// (Quizzes, Assignments, Meetings fields removed — no data source yet)
   static void _createAcademicMetricsComparisonSheet(
     Excel excel,
     Map<String, List<TeacherAuditFull>> auditsByTeacher,
     List<String> allMonths,
   ) {
-    final sheet = excel['📖 Academic by Month'];
-    
+    final sheet = excel['📖 Overdue Tasks by Month'];
+
     final headerStyle = CellStyle(
       bold: true,
       fontSize: 11,
@@ -1277,94 +1324,44 @@ class AdvancedExcelExportService {
       backgroundColorHex: ExcelColor.fromHexString('#1E40AF'),
       horizontalAlign: HorizontalAlign.Center,
     );
-    
-    // Headers: Teacher | Month1 (Quizzes, Assignments, Meetings Missed, Overdue Tasks) | Month2... | Totals
+
+    // Headers: Teacher | Month1 Overdue Tasks | Month2 Overdue Tasks | ... | Total
     final headers = ['Teacher'];
     for (var month in allMonths) {
-      headers.addAll([
-        '${_formatYearMonth(month)} - Quizzes',
-        '${_formatYearMonth(month)} - Assignments',
-        '${_formatYearMonth(month)} - Meetings Missed',
-        '${_formatYearMonth(month)} - Overdue Tasks',
-      ]);
+      headers.add('${_formatYearMonth(month)} - Overdue Tasks');
     }
-    headers.addAll(['Total Quizzes', 'Total Assignments', 'Total Meetings Missed', 'Total Overdue Tasks']);
-    
+    headers.add('Total Overdue Tasks');
+
     for (var i = 0; i < headers.length; i++) {
       final cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 0));
       cell.value = TextCellValue(headers[i]);
       cell.cellStyle = headerStyle;
     }
-    
+
     // Data rows
     int row = 1;
     final sortedTeachers = auditsByTeacher.keys.toList()..sort();
-    
+
     for (var teacherName in sortedTeachers) {
       final teacherAudits = auditsByTeacher[teacherName]!;
       final auditByMonth = <String, TeacherAuditFull>{};
       for (var audit in teacherAudits) {
         auditByMonth[audit.yearMonth] = audit;
       }
-      
+
       // Teacher name
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row))
         ..value = TextCellValue(teacherName)
         ..cellStyle = CellStyle(bold: true);
-      
-      // Academic metrics for each month
-      int totalQuizzes = 0;
-      int totalAssignments = 0;
-      int totalMeetingsMissed = 0;
+
       int totalOverdueTasks = 0;
-      
       int col = 1;
+
       for (var month in allMonths) {
         final audit = auditByMonth[month];
-        
+        final tasksCell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: row));
+
         if (audit != null) {
-          // Quizzes
-          final quizCell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: row));
-          quizCell.value = TextCellValue(audit.quizzesGiven.toString());
-          quizCell.cellStyle = CellStyle(
-            horizontalAlign: HorizontalAlign.Center,
-            backgroundColorHex: audit.quizzesGiven > 0
-                ? ExcelColor.fromHexString('#DCFCE7')
-                : ExcelColor.fromHexString('#FEE2E2'),
-          );
-          totalQuizzes += audit.quizzesGiven;
-          col++;
-          
-          // Assignments
-          final assignCell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: row));
-          assignCell.value = TextCellValue(audit.assignmentsGiven.toString());
-          assignCell.cellStyle = CellStyle(
-            horizontalAlign: HorizontalAlign.Center,
-            backgroundColorHex: audit.assignmentsGiven > 0
-                ? ExcelColor.fromHexString('#DCFCE7')
-                : ExcelColor.fromHexString('#FEE2E2'),
-          );
-          totalAssignments += audit.assignmentsGiven;
-          col++;
-          
-          // Meetings Missed
-          final meetingsCell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: row));
-          meetingsCell.value = TextCellValue(audit.staffMeetingsMissed.toString());
-          meetingsCell.cellStyle = CellStyle(
-            horizontalAlign: HorizontalAlign.Center,
-            backgroundColorHex: audit.staffMeetingsMissed > 0
-                ? ExcelColor.fromHexString('#FEE2E2')
-                : ExcelColor.fromHexString('#DCFCE7'),
-            fontColorHex: audit.staffMeetingsMissed > 0
-                ? ExcelColor.fromHexString('#DC2626')
-                : ExcelColor.black,
-            bold: audit.staffMeetingsMissed > 0,
-          );
-          totalMeetingsMissed += audit.staffMeetingsMissed;
-          col++;
-          
-          // Overdue Tasks
-          final tasksCell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: row));
           tasksCell.value = TextCellValue(audit.overdueTasks.toString());
           tasksCell.cellStyle = CellStyle(
             horizontalAlign: HorizontalAlign.Center,
@@ -1377,55 +1374,20 @@ class AdvancedExcelExportService {
             bold: audit.overdueTasks > 0,
           );
           totalOverdueTasks += audit.overdueTasks;
-          col++;
         } else {
-          // No data
-          for (var i = 0; i < 4; i++) {
-            sheet.cell(CellIndex.indexByColumnRow(columnIndex: col + i, rowIndex: row))
-              ..value = TextCellValue('-')
-              ..cellStyle = CellStyle(
-                fontColorHex: ExcelColor.fromHexString('#9CA3AF'),
-                horizontalAlign: HorizontalAlign.Center,
-              );
-          }
-          col += 4;
+          tasksCell.value = TextCellValue('-');
+          tasksCell.cellStyle = CellStyle(
+            fontColorHex: ExcelColor.fromHexString('#9CA3AF'),
+            horizontalAlign: HorizontalAlign.Center,
+          );
         }
+        col++;
       }
-      
-      // Totals
-      final totalQuizCell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: row));
-      totalQuizCell.value = TextCellValue(totalQuizzes.toString());
-      totalQuizCell.cellStyle = CellStyle(
-        bold: true,
-        horizontalAlign: HorizontalAlign.Center,
-        backgroundColorHex: ExcelColor.fromHexString('#F3F4F6'),
-      );
-      col++;
-      
-      final totalAssignCell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: row));
-      totalAssignCell.value = TextCellValue(totalAssignments.toString());
-      totalAssignCell.cellStyle = CellStyle(
-        bold: true,
-        horizontalAlign: HorizontalAlign.Center,
-        backgroundColorHex: ExcelColor.fromHexString('#F3F4F6'),
-      );
-      col++;
-      
-      final totalMeetingsCell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: row));
-      totalMeetingsCell.value = TextCellValue(totalMeetingsMissed.toString());
-      totalMeetingsCell.cellStyle = CellStyle(
-        bold: true,
-        horizontalAlign: HorizontalAlign.Center,
-        backgroundColorHex: totalMeetingsMissed > 0
-            ? ExcelColor.fromHexString('#FEE2E2')
-            : ExcelColor.fromHexString('#DCFCE7'),
-        fontColorHex: totalMeetingsMissed > 0 ? ExcelColor.fromHexString('#DC2626') : ExcelColor.black,
-      );
-      col++;
-      
-      final totalTasksCell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: row));
-      totalTasksCell.value = TextCellValue(totalOverdueTasks.toString());
-      totalTasksCell.cellStyle = CellStyle(
+
+      // Total
+      final totalCell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: row));
+      totalCell.value = TextCellValue(totalOverdueTasks.toString());
+      totalCell.cellStyle = CellStyle(
         bold: true,
         horizontalAlign: HorizontalAlign.Center,
         backgroundColorHex: totalOverdueTasks > 0
@@ -1433,14 +1395,14 @@ class AdvancedExcelExportService {
             : ExcelColor.fromHexString('#DCFCE7'),
         fontColorHex: totalOverdueTasks > 0 ? ExcelColor.fromHexString('#DC2626') : ExcelColor.black,
       );
-      
+
       row++;
     }
-    
+
     // Set column widths
     sheet.setColumnWidth(0, 25);
     for (var i = 1; i < headers.length; i++) {
-      sheet.setColumnWidth(i, 18);
+      sheet.setColumnWidth(i, 22);
     }
   }
   
@@ -1667,9 +1629,9 @@ class AdvancedExcelExportService {
           );
           metricIdx++;
           
-          // Payment
+          // Payment (aligned net from row builder + payment summary adjustments)
           final paymentCell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: startCol + metricIdx, rowIndex: row));
-          paymentCell.value = TextCellValue('\$${audit.paymentSummary?.totalNetPayment.toStringAsFixed(0) ?? '0'}');
+          paymentCell.value = TextCellValue('\$${_alignedPay(audit).net.toStringAsFixed(0)}');
           paymentCell.cellStyle = CellStyle(
             backgroundColorHex: ExcelColor.fromHexString('#DCFCE7'),
             fontColorHex: ExcelColor.fromHexString('#166534'),
@@ -1756,7 +1718,7 @@ class AdvancedExcelExportService {
           audit.totalClassesScheduled.toString(),
           audit.totalClassesCompleted.toString(),
           '${audit.totalWorkedHours.toStringAsFixed(1)}h',
-          '\$${audit.paymentSummary?.totalNetPayment.toStringAsFixed(2) ?? '0.00'}',
+          '\$${_alignedPay(audit).net.toStringAsFixed(2)}',
           '${audit.detailedForms.length}',
         ];
         
@@ -1898,7 +1860,7 @@ class AdvancedExcelExportService {
               audit.totalClassesCompleted.toString(),
               audit.totalClassesMissed.toString(),
               '${audit.totalWorkedHours.toStringAsFixed(1)}h',
-              '\$${audit.paymentSummary?.totalNetPayment.toStringAsFixed(2) ?? '0.00'}',
+              '\$${_alignedPay(audit).net.toStringAsFixed(2)}',
               audit.issues.length.toString(),
             ]
           : [
@@ -1912,7 +1874,7 @@ class AdvancedExcelExportService {
               audit.totalClassesCompleted.toString(),
               audit.totalClassesMissed.toString(),
               '${audit.totalWorkedHours.toStringAsFixed(1)}h',
-              '\$${audit.paymentSummary?.totalNetPayment.toStringAsFixed(2) ?? '0.00'}',
+              '\$${_alignedPay(audit).net.toStringAsFixed(2)}',
               audit.issues.length.toString(),
             ];
       
@@ -2082,6 +2044,8 @@ class AdvancedExcelExportService {
       if (audit.paymentSummary == null) continue;
       
       final payment = audit.paymentSummary!;
+      final aligned = _alignedPay(audit);
+      final grossBySubject = _rowBuilderGrossBySubject(audit);
       
       // If has subject-level payments
       if (payment.paymentsBySubject.isNotEmpty) {
@@ -2091,21 +2055,28 @@ class AdvancedExcelExportService {
           // Calculate total individual shift adjustments for this teacher
           final shiftAdjustmentsTotal = payment.shiftPaymentAdjustments.values.fold(0.0, (sum, adj) => sum + adj);
           
+          final grossRb = _grossForSubjectKey(
+            grossBySubject,
+            entry.key,
+            subjectPay.grossAmount,
+          );
+          final netRb = grossRb - subjectPay.penalties + subjectPay.bonuses;
+          
           final data = [
             audit.teacherName,
             entry.key,
             subjectPay.hoursTaught.toStringAsFixed(1),
             '\$${subjectPay.hourlyRate.toStringAsFixed(2)}',
-            '\$${subjectPay.grossAmount.toStringAsFixed(2)}',
+            '\$${grossRb.toStringAsFixed(2)}',
             '\$${subjectPay.penalties.toStringAsFixed(2)}',
             '\$${subjectPay.bonuses.toStringAsFixed(2)}',
-            '\$${subjectPay.netAmount.toStringAsFixed(2)}',
+            '\$${netRb.toStringAsFixed(2)}',
             '\$${payment.adminAdjustment.toStringAsFixed(2)}',
             shiftAdjustmentsTotal != 0 
                 ? '\$${shiftAdjustmentsTotal.toStringAsFixed(2)} (${payment.shiftPaymentAdjustments.length} shifts)'
                 : 'None',
             payment.adjustmentReason,
-            '\$${payment.totalNetPayment.toStringAsFixed(2)}',
+            '\$${aligned.net.toStringAsFixed(2)}',
           ];
           
           for (var colIdx = 0; colIdx < data.length; colIdx++) {
@@ -2157,22 +2128,25 @@ class AdvancedExcelExportService {
       } else {
         // Summary row only
         final shiftAdjustmentsTotal = payment.shiftPaymentAdjustments.values.fold(0.0, (sum, adj) => sum + adj);
+        final grossAligned = aligned.gross;
+        final netBeforeGlobal =
+            grossAligned - payment.totalPenalties + payment.totalBonuses;
         
         final data = [
           audit.teacherName,
           'All Subjects',
           audit.totalWorkedHours.toStringAsFixed(1),
           '-',
-          '\$${payment.totalGrossPayment.toStringAsFixed(2)}',
+          '\$${grossAligned.toStringAsFixed(2)}',
           '\$${payment.totalPenalties.toStringAsFixed(2)}',
           '\$${payment.totalBonuses.toStringAsFixed(2)}',
-          '\$${(payment.totalGrossPayment - payment.totalPenalties + payment.totalBonuses).toStringAsFixed(2)}',
+          '\$${netBeforeGlobal.toStringAsFixed(2)}',
           '\$${payment.adminAdjustment.toStringAsFixed(2)}',
           shiftAdjustmentsTotal != 0 
               ? '\$${shiftAdjustmentsTotal.toStringAsFixed(2)} (${payment.shiftPaymentAdjustments.length} shifts)'
               : 'None',
           payment.adjustmentReason,
-          '\$${payment.totalNetPayment.toStringAsFixed(2)}',
+          '\$${aligned.net.toStringAsFixed(2)}',
         ];
         
         for (var colIdx = 0; colIdx < data.length; colIdx++) {
@@ -2192,10 +2166,16 @@ class AdvancedExcelExportService {
       }
     }
     
-    // Total row
-    final totalGross = audits.fold(0.0, (sum, a) => sum + (a.paymentSummary?.totalGrossPayment ?? 0));
+    // Total row (aligned gross/net; same audits as rows with paymentSummary)
+    final totalGross = audits.fold(0.0, (sum, a) {
+      if (a.paymentSummary == null) return sum;
+      return sum + _alignedPay(a).gross;
+    });
     final totalPenalties = audits.fold(0.0, (sum, a) => sum + (a.paymentSummary?.totalPenalties ?? 0));
-    final totalNet = audits.fold(0.0, (sum, a) => sum + (a.paymentSummary?.totalNetPayment ?? 0));
+    final totalNet = audits.fold(0.0, (sum, a) {
+      if (a.paymentSummary == null) return sum;
+      return sum + _alignedPay(a).net;
+    });
     
     row++;
     final totalStyle = CellStyle(
@@ -2264,128 +2244,23 @@ class AdvancedExcelExportService {
     var row = 1;
     for (var audit in audits) {
       if (audit.detailedShifts.isEmpty) continue;
-      
-      // Get adjustments map
-      final adjustments = audit.paymentSummary?.shiftPaymentAdjustments ?? {};
-      
-      // Build a map of shiftId -> form info (and by last-8-chars suffix for ID mismatch fallback)
-      final shiftForms = <String, Map<String, dynamic>>{};
-      final shiftFormsBySuffix = <String, Map<String, dynamic>>{};
-      for (var form in audit.detailedForms) {
-        final sid = form['shiftId'] as String?;
-        if (sid == null || sid.isEmpty) continue;
-        shiftForms[sid] = form;
-        if (sid.length >= 8) shiftFormsBySuffix[sid.substring(sid.length - 8)] = form;
-      }
-      // Map shiftId -> timesheet (and by suffix) for worked hours / payment
-      final timesheetByShiftId = <String, Map<String, dynamic>>{};
-      final timesheetBySuffix = <String, Map<String, dynamic>>{};
-      for (var ts in audit.detailedTimesheets) {
-        final tsMap = ts as Map<String, dynamic>;
-        final sid = tsMap['shift_id'] as String? ?? tsMap['shiftId'] as String?;
-        if (sid != null && sid.isNotEmpty) {
-          timesheetByShiftId[sid] = tsMap;
-          if (sid.length >= 8) timesheetBySuffix[sid.substring(sid.length - 8)] = tsMap;
-        }
-      }
-      
-      // Get shift payments from detailedShifts (if available) or calculate
-      for (var shiftData in audit.detailedShifts) {
-        final shiftId = shiftData['id'] as String? ?? '';
-        if (shiftId.isEmpty) continue;
-        
-        final shiftStart = (shiftData['start'] as Timestamp?)?.toDate();
-        final status = shiftData['status'] as String? ?? 'unknown';
-        final subject = shiftData['subject_display_name'] as String? ?? 
-                       shiftData['subject'] as String? ?? 'N/A';
-        
-        // Scheduled hours from duration (minutes or hours)
-        final scheduledMinutes = (shiftData['duration_minutes'] as num?)?.toDouble() ?? 0;
-        final durationHours = (shiftData['duration'] as num?)?.toDouble() ?? 0;
-        final scheduledHours = scheduledMinutes > 0 ? scheduledMinutes / 60.0 : durationHours;
-        
-        final timesheetEntry = timesheetByShiftId[shiftId] ?? (shiftId.length >= 8 ? timesheetBySuffix[shiftId.substring(shiftId.length - 8)] : null) ?? <String, dynamic>{};
-        // Worked hours = same as "Total Worked" in Shift Details: clock_in to effective_end/clock_out, capped at shift end
-        double workedHours = 0;
-        if (timesheetEntry.isNotEmpty) {
-          final clockInRaw = timesheetEntry['clock_in_time'] ?? timesheetEntry['clock_in_timestamp'] ?? timesheetEntry['clockIn'];
-          final clockOutRaw = timesheetEntry['effective_end_timestamp'] ?? timesheetEntry['clock_out_time'] ?? timesheetEntry['clock_out_timestamp'] ?? timesheetEntry['clockOut'];
-          final shiftEndDt = (shiftData['end'] as Timestamp?)?.toDate();
-          final shiftStartDt = (shiftData['start'] as Timestamp?)?.toDate();
-          if (clockInRaw != null && clockOutRaw != null && clockInRaw is Timestamp && clockOutRaw is Timestamp) {
-            DateTime start = (clockInRaw as Timestamp).toDate();
-            DateTime end = (clockOutRaw as Timestamp).toDate();
-            if (shiftEndDt != null && end.isAfter(shiftEndDt)) end = shiftEndDt;
-            if (shiftStartDt != null && start.isBefore(shiftStartDt)) start = shiftStartDt;
-            final dur = end.difference(start);
-            if (!dur.isNegative) workedHours = dur.inSeconds / 3600.0;
-          }
-          if (workedHours <= 0) {
-            final mins = (timesheetEntry['worked_minutes'] as num?)?.toDouble() ?? (timesheetEntry['workedMinutes'] as num?)?.toDouble();
-            if (mins != null && mins > 0) workedHours = mins / 60.0;
-          }
-        }
-        if (workedHours <= 0 && (status.toString().toLowerCase().contains('completed') || status.toString().toLowerCase().contains('fully') || status.toString().toLowerCase().contains('partially'))) {
-          workedHours = scheduledHours;
-        }
-        
-        // Get form info (try exact shiftId then suffix match)
-        final formData = shiftForms[shiftId] ?? (shiftId.length >= 8 ? shiftFormsBySuffix[shiftId.substring(shiftId.length - 8)] : null);
-        final hasForm = formData != null;
-        final formHours = formData != null
-            ? ((formData['durationHours'] as num?)?.toDouble() ?? 0)
-            : 0.0;
-        
-        // Determine payment source
-        String paymentSource = 'None';
-        double baseAmount = 0.0;
-        
-        if (timesheetEntry.isNotEmpty) {
-          final paymentAmount = (timesheetEntry['payment_amount'] as num?)?.toDouble() ?? 0;
-          final totalPay = (timesheetEntry['total_pay'] as num?)?.toDouble() ?? 0;
-          if (paymentAmount > 0 || totalPay > 0) {
-            paymentSource = 'Timesheet';
-            baseAmount = paymentAmount > 0 ? paymentAmount : totalPay;
-          }
-        }
-        
-        // If no timesheet payment, check form
-        if (baseAmount == 0 && hasForm && formHours > 0) {
-          final hourlyRate = (shiftData['hourly_rate'] as num?)?.toDouble() ?? 0;
-          if (hourlyRate > 0) {
-            paymentSource = 'Form Duration';
-            baseAmount = formHours * hourlyRate;
-          }
-        }
-        
-        // If still no payment and shift has no form, it's orphan
-        if (!hasForm) {
-          paymentSource = 'Orphan (No Form)';
-          baseAmount = 0.0;
-        }
-        
-        // Get manual adjustment
-        final adjustment = adjustments[shiftId] ?? 0.0;
-        final finalPayment = baseAmount + adjustment;
-        
-        // Get hourly rate
-        final hourlyRate = (shiftData['hourly_rate'] as num?)?.toDouble() ?? 0;
-        
+      final rows = AuditClassLogRowBuilder.buildRows(audit);
+      for (final shiftRow in rows) {
         final data = [
           audit.teacherName,
-          shiftId.length > 12 ? shiftId.substring(0, 12) : shiftId,
-          shiftStart != null ? DateFormat('MMM d, yyyy HH:mm').format(shiftStart) : 'N/A',
-          subject,
-          status,
-          scheduledHours.toStringAsFixed(2),
-          workedHours > 0 ? workedHours.toStringAsFixed(2) : '-',
-          formHours > 0 ? formHours.toStringAsFixed(2) : '-',
-          hasForm ? 'Yes' : 'No',
-          paymentSource,
-          '\$${baseAmount.toStringAsFixed(2)}',
-          adjustment != 0 ? '\$${adjustment.toStringAsFixed(2)}' : '-',
-          '\$${finalPayment.toStringAsFixed(2)}',
-          hourlyRate > 0 ? '\$${hourlyRate.toStringAsFixed(2)}' : '-',
+          shiftRow.shiftId.length > 12 ? shiftRow.shiftId.substring(0, 12) : shiftRow.shiftId,
+          shiftRow.shiftStart != null ? DateFormat('MMM d, yyyy HH:mm').format(shiftRow.shiftStart!) : 'N/A',
+          shiftRow.subject,
+          shiftRow.statusRaw,
+          shiftRow.scheduledHours.toStringAsFixed(2),
+          shiftRow.workedHours > 0 ? shiftRow.workedHours.toStringAsFixed(2) : '-',
+          shiftRow.formHours > 0 ? shiftRow.formHours.toStringAsFixed(2) : '-',
+          shiftRow.hasForm ? 'Yes' : 'No',
+          shiftRow.paymentSource,
+          '\$${shiftRow.baseAmount.toStringAsFixed(2)}',
+          shiftRow.manualAdjustment != 0 ? '\$${shiftRow.manualAdjustment.toStringAsFixed(2)}' : '-',
+          '\$${shiftRow.finalPayment.toStringAsFixed(2)}',
+          shiftRow.hourlyRate > 0 ? '\$${shiftRow.hourlyRate.toStringAsFixed(2)}' : '-',
         ];
         
         for (var colIdx = 0; colIdx < data.length; colIdx++) {
@@ -2395,10 +2270,10 @@ class AdvancedExcelExportService {
           // Color code "Has Form"
           if (colIdx == 8) {
             cell.cellStyle = CellStyle(
-              backgroundColorHex: hasForm 
+              backgroundColorHex: shiftRow.hasForm
                   ? ExcelColor.fromHexString('#C8E6C9')
                   : ExcelColor.fromHexString('#FFCDD2'),
-              fontColorHex: hasForm 
+              fontColorHex: shiftRow.hasForm
                   ? ExcelColor.fromHexString('#2E7D32')
                   : ExcelColor.fromHexString('#C62828'),
               bold: true,
@@ -2409,14 +2284,14 @@ class AdvancedExcelExportService {
           // Color code "Payment Source"
           if (colIdx == 9) {
             cell.cellStyle = CellStyle(
-              backgroundColorHex: paymentSource.contains('Timesheet')
+              backgroundColorHex: shiftRow.paymentSource.contains('Timesheet')
                   ? ExcelColor.fromHexString('#E1F5FE')
-                  : paymentSource.contains('Form')
+                  : shiftRow.paymentSource.contains('Form')
                       ? ExcelColor.fromHexString('#F3E5F5')
-                      : paymentSource.contains('Orphan')
+                      : shiftRow.paymentSource.contains('Orphan')
                           ? ExcelColor.fromHexString('#FFEBEE')
                           : ExcelColor.fromHexString('#F5F5F5'),
-              fontColorHex: paymentSource.contains('Orphan')
+              fontColorHex: shiftRow.paymentSource.contains('Orphan')
                   ? ExcelColor.fromHexString('#C62828')
                   : ExcelColor.black,
               horizontalAlign: HorizontalAlign.Center,
@@ -2424,9 +2299,9 @@ class AdvancedExcelExportService {
           }
           
           // Color adjustments
-          if (colIdx == 11 && adjustment != 0) {
+          if (colIdx == 11 && shiftRow.manualAdjustment != 0) {
             cell.cellStyle = CellStyle(
-              fontColorHex: adjustment > 0 
+              fontColorHex: shiftRow.manualAdjustment > 0 
                   ? ExcelColor.fromHexString('#2E7D32')
                   : ExcelColor.fromHexString('#C62828'),
               bold: true,
@@ -2520,87 +2395,13 @@ class AdvancedExcelExportService {
 
   /// Totals from Activity sheet logic (same as Activité): hrs from timesheets, hrs from forms, pay by source, sum Final Pay.
   static Map<String, double> _computeActivityTotalsForAudit(TeacherAuditFull audit) {
-    double totalWorkedFromTs = 0, totalFormHrs = 0, payFromTs = 0, payFromForm = 0, sumFinalPay = 0;
-    final shiftForms = <String, Map<String, dynamic>>{};
-    final shiftFormsBySuffix = <String, Map<String, dynamic>>{};
-    for (var form in audit.detailedForms) {
-      final sid = form['shiftId'] as String?;
-      if (sid == null || sid.isEmpty) continue;
-      shiftForms[sid] = form;
-      if (sid.length >= 8) shiftFormsBySuffix[sid.substring(sid.length - 8)] = form;
-    }
-    final adjustments = audit.paymentSummary?.shiftPaymentAdjustments ?? {};
-    final timesheetByShiftId = <String, Map<String, dynamic>>{};
-    final timesheetBySuffix = <String, Map<String, dynamic>>{};
-    for (var ts in audit.detailedTimesheets) {
-      final tsMap = ts as Map<String, dynamic>;
-      final sid = tsMap['shift_id'] as String? ?? tsMap['shiftId'] as String?;
-      if (sid != null && sid.isNotEmpty) {
-        timesheetByShiftId[sid] = tsMap;
-        if (sid.length >= 8) timesheetBySuffix[sid.substring(sid.length - 8)] = tsMap;
-      }
-    }
-    for (var shiftData in audit.detailedShifts) {
-      final shiftId = shiftData['id'] as String? ?? '';
-      if (shiftId.isEmpty) continue;
-      final status = shiftData['status'] as String? ?? 'unknown';
-      final duration = (shiftData['duration'] as num?)?.toDouble() ?? 0.0;
-      final formData = shiftForms[shiftId] ?? (shiftId.length >= 8 ? shiftFormsBySuffix[shiftId.substring(shiftId.length - 8)] : null);
-      final hasForm = formData != null;
-      final formHours = hasForm ? ((formData!['durationHours'] as num?)?.toDouble() ?? 0) : 0.0;
-      totalFormHrs += formHours;
-      String paymentSource = 'None';
-      double baseAmount = 0.0;
-      final timesheetEntry = timesheetByShiftId[shiftId] ?? (shiftId.length >= 8 ? timesheetBySuffix[shiftId.substring(shiftId.length - 8)] : null) ?? <String, dynamic>{};
-      if (timesheetEntry.isNotEmpty) {
-        final pay = (timesheetEntry['payment_amount'] as num?)?.toDouble() ?? (timesheetEntry['total_pay'] as num?)?.toDouble() ?? 0;
-        if (pay > 0) {
-          paymentSource = 'Timesheet';
-          baseAmount = pay;
-        }
-      }
-      if (baseAmount == 0 && hasForm && formHours > 0) {
-        final rate = (shiftData['hourlyRate'] as num?)?.toDouble() ?? 0;
-        if (rate > 0) {
-          paymentSource = 'Form Duration';
-          baseAmount = formHours * rate;
-        }
-      }
-      final adj = adjustments[shiftId] ?? 0.0;
-      final finalPay = baseAmount + adj;
-      sumFinalPay += finalPay;
-      if (paymentSource == 'Timesheet') payFromTs += baseAmount;
-      if (paymentSource == 'Form Duration') payFromForm += baseAmount;
-      double workedHours = 0;
-      if (timesheetEntry.isNotEmpty) {
-        final clockInRaw = timesheetEntry['clock_in_time'] ?? timesheetEntry['clock_in_timestamp'] ?? timesheetEntry['clockIn'];
-        final clockOutRaw = timesheetEntry['effective_end_timestamp'] ?? timesheetEntry['clock_out_time'] ?? timesheetEntry['clock_out_timestamp'] ?? timesheetEntry['clockOut'];
-        final shiftEndDt = (shiftData['end'] as Timestamp?)?.toDate();
-        final shiftStartDt = (shiftData['start'] as Timestamp?)?.toDate();
-        if (clockInRaw != null && clockOutRaw != null && clockInRaw is Timestamp && clockOutRaw is Timestamp) {
-          DateTime start = (clockInRaw as Timestamp).toDate();
-          DateTime end = (clockOutRaw as Timestamp).toDate();
-          if (shiftEndDt != null && end.isAfter(shiftEndDt)) end = shiftEndDt;
-          if (shiftStartDt != null && start.isBefore(shiftStartDt)) start = shiftStartDt;
-          final dur = end.difference(start);
-          if (!dur.isNegative) workedHours = dur.inSeconds / 3600.0;
-        }
-        if (workedHours <= 0) {
-          final mins = (timesheetEntry['worked_minutes'] as num?)?.toDouble() ?? (timesheetEntry['workedMinutes'] as num?)?.toDouble();
-          if (mins != null && mins > 0) workedHours = mins / 60.0;
-        }
-      }
-      if (workedHours <= 0 && (status.toString().toLowerCase().contains('completed') || status.toString().toLowerCase().contains('fully') || status.toString().toLowerCase().contains('partially'))) {
-        workedHours = duration;
-      }
-      totalWorkedFromTs += workedHours;
-    }
+    final totals = AuditClassLogRowBuilder.computeTotals(audit);
     return {
-      'totalWorkedFromTs': totalWorkedFromTs,
-      'totalFormHrs': totalFormHrs,
-      'payFromTs': payFromTs,
-      'payFromForm': payFromForm,
-      'sumFinalPay': sumFinalPay,
+      'totalWorkedFromTs': totals.totalWorkedFromTs,
+      'totalFormHrs': totals.totalFormHours,
+      'payFromTs': totals.payFromTs,
+      'payFromForm': totals.payFromForm,
+      'sumFinalPay': totals.sumFinalPay,
     };
   }
 
@@ -2900,8 +2701,8 @@ class AdvancedExcelExportService {
         // Worked hours = same as "Total Worked" in Shift Details: clock_in to effective_end/clock_out, capped at shift end
         double workedHours = 0;
         if (timesheetEntry.isNotEmpty) {
-          final clockInRaw = timesheetEntry['clock_in_time'] ?? timesheetEntry['clock_in_timestamp'] ?? timesheetEntry['clockIn'];
-          final clockOutRaw = timesheetEntry['effective_end_timestamp'] ?? timesheetEntry['clock_out_time'] ?? timesheetEntry['clock_out_timestamp'] ?? timesheetEntry['clockOut'];
+          final clockInRaw = timesheetEntry['clock_in_timestamp'] ?? timesheetEntry['clock_in_time'] ?? timesheetEntry['clockIn'];
+          final clockOutRaw = timesheetEntry['clock_out_timestamp'] ?? timesheetEntry['effective_end_timestamp'] ?? timesheetEntry['clock_out_time'] ?? timesheetEntry['clockOut'];
           final shiftEndDt = (shiftData['end'] as Timestamp?)?.toDate();
           final shiftStartDt = (shiftData['start'] as Timestamp?)?.toDate();
           if (clockInRaw != null && clockOutRaw != null && clockInRaw is Timestamp && clockOutRaw is Timestamp) {
@@ -2999,10 +2800,11 @@ class AdvancedExcelExportService {
       final subjectLabel = ps != null && ps.paymentsBySubject.isNotEmpty
           ? (ps.paymentsBySubject.length == 1 ? ps.paymentsBySubject.values.first.subjectName : 'All')
           : '-';
-      final gross = (ps != null ? ps.totalGrossPayment : 0.0);
+      final aligned = _alignedPay(audit);
+      final gross = aligned.gross;
       final penalties = ps?.totalPenalties ?? 0;
       final bonuses = ps?.totalBonuses ?? 0;
-      final net = ps?.totalNetPayment ?? 0;
+      final net = aligned.net;
       final adj = ps?.adminAdjustment ?? 0;
       final rowData = [
         audit.teacherName,
@@ -3127,7 +2929,7 @@ class AdvancedExcelExportService {
         final factor = audit.auditFactors.length > factorIdx
             ? audit.auditFactors[factorIdx]
             : null;
-        final rating = factor?.rating ?? 9;
+        final rating = factor?.rating ?? 5;
         totalRating += rating;
         
         final cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: factorIdx + 1, rowIndex: row));
@@ -3135,12 +2937,12 @@ class AdvancedExcelExportService {
         cell.cellStyle = CellStyle(
           backgroundColorHex: _getRatingColor(rating),
           horizontalAlign: HorizontalAlign.Center,
-          fontColorHex: rating < 5 ? ExcelColor.white : ExcelColor.black,
+          fontColorHex: rating < 2 ? ExcelColor.white : ExcelColor.black,
         );
       }
       
       // Total and average
-      final maxScore = factorTitles.length * 9;
+      final maxScore = factorTitles.length * 5;
       final avgRating = totalRating / factorTitles.length;
       
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: factorTitles.length + 1, rowIndex: row))
@@ -3564,10 +3366,10 @@ class AdvancedExcelExportService {
   }
   
   static ExcelColor _getRatingColor(int rating) {
-    if (rating >= 8) return ExcelColor.fromHexString('#4CAF50');
-    if (rating >= 6) return ExcelColor.fromHexString('#8BC34A');
-    if (rating >= 4) return ExcelColor.fromHexString('#FFC107');
-    if (rating >= 2) return ExcelColor.fromHexString('#FF9800');
+    if (rating >= 4) return ExcelColor.fromHexString('#4CAF50');
+    if (rating >= 3) return ExcelColor.fromHexString('#8BC34A');
+    if (rating >= 2) return ExcelColor.fromHexString('#FFC107');
+    if (rating >= 1) return ExcelColor.fromHexString('#FF9800');
     return ExcelColor.fromHexString('#F44336');
   }
   

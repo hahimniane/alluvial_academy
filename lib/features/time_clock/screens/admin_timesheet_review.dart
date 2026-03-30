@@ -1122,13 +1122,19 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
 
   double _calculatePayment(TimesheetEntry timesheet) {
     try {
-      // Use payment_amount from database if available (preferred - already validated and capped)
-      if (timesheet.paymentAmount != null && timesheet.paymentAmount! > 0) {
+      // For edited-but-unapproved timesheets, always recalculate from hours
+      // because the stored payment_amount may be from before the edit (legacy
+      // entries) or already updated by the edit dialog — either way, deriving
+      // from the current total_hours × hourly_rate is the safest approach.
+      final forceRecalc = timesheet.isEdited && !timesheet.editApproved;
+
+      if (!forceRecalc &&
+          timesheet.paymentAmount != null &&
+          timesheet.paymentAmount! > 0) {
         return timesheet.paymentAmount!;
       }
 
-      // Fallback: Calculate from hours if payment_amount is missing (legacy data)
-      // Parse total hours (format: "HH:MM" or "HH:MM:SS")
+      // Calculate from hours (format: "HH:MM" or "HH:MM:SS")
       final parts = timesheet.totalHours.split(':');
       if (parts.length < 2) return 0.0;
 
@@ -1136,11 +1142,8 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
       final minutes = int.parse(parts[1]);
       final seconds = parts.length > 2 ? int.parse(parts[2]) : 0;
 
-      // Calculate total hours including seconds for accuracy
       final totalHoursDecimal = hours + (minutes / 60.0) + (seconds / 3600.0);
 
-      // Payment = hours worked × hourly rate
-      // Hourly rate comes from the shift or teacher's rate
       return totalHoursDecimal * timesheet.hourlyRate;
     } catch (e) {
       AppLogger.error('Error calculating payment: $e');
@@ -1307,11 +1310,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
     try {
       final original = timesheet.originalData!;
 
-      // Revert to original data
-      await FirebaseFirestore.instance
-          .collection('timesheet_entries')
-          .doc(timesheet.documentId!)
-          .update({
+      final revertData = <String, dynamic>{
         'clock_in_timestamp': original['clock_in_timestamp'],
         'clock_out_timestamp': original['clock_out_timestamp'],
         'start_time': original['start_time'],
@@ -1323,7 +1322,20 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
             FieldValue.delete(), // Remove original data after revert
         'edit_reverted_at': FieldValue.serverTimestamp(),
         'updated_at': FieldValue.serverTimestamp(),
-      });
+      };
+
+      // Restore pay fields if the original snapshot captured them
+      if (original.containsKey('payment_amount') && original['payment_amount'] != null) {
+        revertData['payment_amount'] = original['payment_amount'];
+      }
+      if (original.containsKey('total_pay') && original['total_pay'] != null) {
+        revertData['total_pay'] = original['total_pay'];
+      }
+
+      await FirebaseFirestore.instance
+          .collection('timesheet_entries')
+          .doc(timesheet.documentId!)
+          .update(revertData);
 
       _showSuccessSnackBar('Timesheet reverted to original data');
     } catch (e) {
@@ -3809,13 +3821,14 @@ class TimesheetReviewDataSource extends DataGridSource {
 
   double _calculatePayment(TimesheetEntry timesheet) {
     try {
-      // Use payment_amount from database if available (preferred - already validated and capped)
-      if (timesheet.paymentAmount != null && timesheet.paymentAmount! > 0) {
+      final forceRecalc = timesheet.isEdited && !timesheet.editApproved;
+
+      if (!forceRecalc &&
+          timesheet.paymentAmount != null &&
+          timesheet.paymentAmount! > 0) {
         return timesheet.paymentAmount!;
       }
 
-      // Fallback: Calculate from hours if payment_amount is missing (legacy data)
-      // Parse total hours (format: "HH:MM" or "HH:MM:SS")
       final parts = timesheet.totalHours.split(':');
       if (parts.length < 2) return 0.0;
 
@@ -3823,7 +3836,6 @@ class TimesheetReviewDataSource extends DataGridSource {
       final minutes = int.parse(parts[1]);
       final seconds = parts.length > 2 ? int.parse(parts[2]) : 0;
 
-      // Calculate total hours including seconds for accuracy
       final totalHoursDecimal = hours + (minutes / 60.0) + (seconds / 3600.0);
 
       return totalHoursDecimal * timesheet.hourlyRate;

@@ -26,11 +26,17 @@ import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 import 'teacher_home_screen.dart'; // Unified teacher dashboard
 import '../widgets/date_strip_calendar.dart';
 import '../widgets/timeline_shift_card.dart';
+import '../widgets/admin_cards/admin_action_cards.dart';
 
 class AdminDashboard extends StatefulWidget {
   final int? refreshTrigger;
+  final void Function(int screenIndex)? onNavigate;
 
-  const AdminDashboard({super.key, this.refreshTrigger});
+  const AdminDashboard({
+    super.key,
+    this.refreshTrigger,
+    this.onNavigate,
+  });
 
   @override
   State<AdminDashboard> createState() => _AdminDashboardState();
@@ -52,7 +58,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
   void initState() {
     super.initState();
     _loadUserData();
-    _loadStats();
   }
 
   @override
@@ -61,7 +66,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
     // Reload data when refresh trigger changes
     if (widget.refreshTrigger != oldWidget.refreshTrigger) {
       _loadUserData();
-      _loadStats();
     }
   }
 
@@ -77,6 +81,14 @@ class _AdminDashboardState extends State<AdminDashboard> {
       // Load teacher-specific stats if user is a teacher
       if (role?.toLowerCase() == 'teacher') {
         _loadTeacherStats();
+      }
+
+      // For this redesign: admin uses per-card queries (no global stats reads).
+      // Other roles keep using the existing stats loading logic.
+      final lowerRole = role?.toLowerCase() ?? '';
+      final isAdmin = lowerRole == 'admin' || lowerRole == 'super_admin';
+      if (!isAdmin && lowerRole != 'teacher') {
+        _loadStats();
       }
     }
   }
@@ -185,6 +197,14 @@ class _AdminDashboardState extends State<AdminDashboard> {
     try {
       final role = userRole ?? await UserRoleService.getCurrentUserRole();
       final isAdmin = role?.toLowerCase() == 'admin' || role?.toLowerCase() == 'super_admin';
+      // Redesign: Admin home cards use per-card queries (no global KPI/stat reads).
+      if (isAdmin) {
+        if (mounted && stats.isNotEmpty) {
+          setState(() => stats = {});
+        }
+        return;
+      }
+
       if (!isAdmin) {
         // Only admins can load global stats (users/forms/responses). Other roles should not query admin-only data.
         if (mounted && stats.isNotEmpty) {
@@ -411,10 +431,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 
   Future<void> _refreshDashboardData() async {
-    await Future.wait([
-      _loadUserData(),
-      _loadStats(),
-    ]);
+    // Admin home uses per-card queries; avoid global stats reads.
+    await _loadUserData();
   }
 
   @override
@@ -535,55 +553,58 @@ class _AdminDashboardState extends State<AdminDashboard> {
       return _buildMobileAdminDashboard();
     }
 
-    // Desktop layout
+    // Desktop layout: actionable cards (no global KPI reads).
     return SingleChildScrollView(
       primary: true,
       child: Column(
         children: [
-          // Modern Header with Gradient
           _buildModernHeader(),
-          const SizedBox(height: 32),
-
-          // Key Performance Indicators
-          _buildKPISection(),
-          const SizedBox(height: 32),
-
-          // User Analytics Section
-          _buildUserAnalyticsSection(),
-          const SizedBox(height: 32),
-
-          // System Performance & Quick Actions
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                flex: 3,
-                child: _buildSystemPerformanceCard(),
-              ),
-              const SizedBox(width: 24),
-              Expanded(
-                flex: 2,
-                child: _buildQuickActionsCard(),
-              ),
-            ],
+          const SizedBox(height: 24),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 0),
+            child: Column(
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: PendingTimesheetsCard(
+                        onNavigate: widget.onNavigate,
+                      ),
+                    ),
+                    const SizedBox(width: 24),
+                    Expanded(
+                      child: OverdueTasksCard(
+                        onNavigate: widget.onNavigate,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: RecentSubmissionsCard(
+                        onNavigate: widget.onNavigate,
+                      ),
+                    ),
+                    const SizedBox(width: 24),
+                    Expanded(
+                      child: UpcomingShiftsCard(
+                        onNavigate: widget.onNavigate,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                ApplicantsToReviewCard(
+                  onNavigate: widget.onNavigate,
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 32),
-
-          // Recent Activity & System Health
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                flex: 2,
-                child: _buildRecentActivityCard(),
-              ),
-              const SizedBox(width: 24),
-              Expanded(
-                flex: 1,
-                child: _buildSystemHealthCard(),
-              ),
-            ],
-          ),
+          const SizedBox(height: 24),
         ],
       ),
     );
@@ -591,6 +612,47 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
   Widget _buildMobileAdminDashboard() {
     final theme = Theme.of(context);
+
+    // Actionable cards mobile layout (replaces KPI/system-health placeholders).
+    if (widget.refreshTrigger != null) {
+      return RefreshIndicator(
+        color: theme.colorScheme.primary,
+        onRefresh: _refreshDashboardData,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 12),
+              _buildMobileAdminWelcomeCard(),
+              const SizedBox(height: 16),
+              PendingTimesheetsCard(
+                onNavigate: widget.onNavigate,
+              ),
+              const SizedBox(height: 16),
+              OverdueTasksCard(
+                onNavigate: widget.onNavigate,
+              ),
+              const SizedBox(height: 16),
+              RecentSubmissionsCard(
+                onNavigate: widget.onNavigate,
+              ),
+              const SizedBox(height: 16),
+              UpcomingShiftsCard(
+                onNavigate: widget.onNavigate,
+              ),
+              const SizedBox(height: 16),
+              ApplicantsToReviewCard(
+                onNavigate: widget.onNavigate,
+              ),
+              const SizedBox(height: 20),
+            ],
+          ),
+        ),
+      );
+    }
+
     final metrics = [
       {
         'title': 'Total Users',
@@ -660,8 +722,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
     final firstName = userData?['first_name'] ?? userData?['name'] ?? 'Admin';
     final roleDisplay = UserRoleService.getRoleDisplayName(userRole);
     final greeting = _getGreeting();
-    final uptime =
-        _formatPercentage(stats['uptime_percentage'], fractionDigits: 1);
 
     return Container(
       padding: const EdgeInsets.all(22),
@@ -741,89 +801,13 @@ class _AdminDashboardState extends State<AdminDashboard> {
             ],
           ),
           const SizedBox(height: 18),
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: [
-              _buildHeroMetricChip(
-                label: AppLocalizations.of(context)!.adminDashboardActivetoday,
-                value: _formatCompactNumber(stats['active_users']),
-                icon: Icons.groups_rounded,
-              ),
-              _buildHeroMetricChip(
-                label: AppLocalizations.of(context)!.adminDashboardOnlinenow,
-                value: _formatCompactNumber(stats['online_now']),
-                icon: Icons.wifi_tethering_rounded,
-              ),
-              _buildHeroMetricChip(
-                label: AppLocalizations.of(context)!.adminDashboardLiveforms,
-                value: _formatCompactNumber(stats['active_forms']),
-                icon: Icons.assignment_rounded,
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.18),
-              borderRadius: BorderRadius.circular(18),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.25),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.auto_graph_rounded,
-                    color: Colors.white,
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        AppLocalizations.of(context)!.platformUptime,
-                        style: GoogleFonts.inter(
-                          fontSize: 12,
-                          color: Colors.white.withOpacity(0.75),
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        uptime,
-                        style: GoogleFonts.inter(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.25),
-                    borderRadius: BorderRadius.circular(40),
-                  ),
-                  child: Text(
-                    AppLocalizations.of(context)!.avgResponseResponserate,
-                    style: GoogleFonts.inter(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ],
+          const SizedBox(height: 14),
+          Text(
+            'Quick actions are available below.',
+            style: GoogleFonts.inter(
+              fontSize: 13,
+              color: Colors.white.withOpacity(0.78),
+              fontWeight: FontWeight.w500,
             ),
           ),
         ],
@@ -1419,47 +1403,16 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     color: Colors.white.withOpacity(0.8),
                   ),
                 ),
-                const SizedBox(height: 24),
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  children: [
-                    _buildHeaderStat('Users Online',
-                        '${stats['online_now'] ?? 0}', Icons.people),
-                    _buildHeaderStat('Active Forms',
-                        '${stats['active_forms'] ?? 0}', Icons.assignment),
-                    _buildHeaderStat(
-                        'System Health',
-                        '${stats['uptime_percentage']?.toStringAsFixed(1) ?? '99.8'}%',
-                        Icons.health_and_safety),
-                  ],
+                const SizedBox(height: 16),
+                Text(
+                  'Use the cards below to review and manage what needs attention.',
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    color: Colors.white.withOpacity(0.75),
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: ElevatedButton.icon(
-              onPressed: () {
-                _loadStats();
-                _loadUserData();
-              },
-              icon: const Icon(Icons.refresh, size: 18),
-              label: Text(AppLocalizations.of(context)!.refreshData),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: const Color(0xff0F172A),
-                elevation: 0,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
             ),
           ),
         ],

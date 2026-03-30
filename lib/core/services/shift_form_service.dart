@@ -19,26 +19,33 @@ class ShiftFormService {
     return null;
   }
 
-  /// Get the readiness form ID from config (async, reads from Firestore)
-  /// Always uses the new template system (form_templates collection).
-  /// Legacy forms from 'form' collection are disabled.
+  /// Get the readiness form ID from config (async, reads from Firestore).
+  /// Prefers the active daily template; falls back to legacy config if none.
   static Future<String> getReadinessFormId() async {
-    // Always use new template system
-    AppLogger.debug('ShiftFormService: Using new template system');
     try {
-      final template = await FormTemplateService.getActiveDailyTemplate();
-      if (template != null && template.id.isNotEmpty) {
-        AppLogger.debug('ShiftFormService: Using template ID: ${template.id}');
+      final isPilot = await PilotFlagService.isCurrentUserPilot();
+      if (!isPilot) {
+        AppLogger.warning(
+            'ShiftFormService: Non-pilot user requested readiness form; enforcing template-only readiness');
+      }
+
+      final template =
+          await FormTemplateService.getActiveDailyTemplate(forceRefresh: true);
+      if (template != null &&
+          template.id.isNotEmpty &&
+          template.isActive &&
+          template.frequency.name == 'perSession') {
+        AppLogger.debug(
+            'ShiftFormService: Using active daily template ID: ${template.id}');
         return template.id;
       }
     } catch (e) {
-      AppLogger.error('ShiftFormService: Error getting template: $e');
+      AppLogger.error('ShiftFormService: Error getting active daily template: $e');
     }
 
-    // Fallback to old config-based form ID only if no template exists
-    AppLogger.warning('ShiftFormService: No active daily template found, falling back to legacy form ID');
-    final fallbackId = await FormConfigService.getReadinessFormId();
-    return fallbackId;
+    AppLogger.warning(
+        'ShiftFormService: No active daily template found, falling back to legacy form ID');
+    return await FormConfigService.getReadinessFormId();
   }
   
   /// Synchronous getter for backward compatibility - uses cached value or fallback
@@ -46,25 +53,26 @@ class ShiftFormService {
   @Deprecated('Use getReadinessFormId() instead for fresh config values')
   static String get readinessFormId => 'Ur1oW7SmFsMyNniTf6jS';
 
-  /// Get the readiness form template
-  /// Always uses the new template system (form_templates collection).
-  /// Legacy forms from 'form' collection are disabled.
+  /// Get the readiness form template (template system first, then legacy `form` doc).
   static Future<Map<String, dynamic>?> getReadinessFormTemplate() async {
     try {
-      AppLogger.debug('ShiftFormService: Loading new template');
-      final template = await FormTemplateService.getActiveDailyTemplate();
-      if (template != null) {
-        AppLogger.debug('ShiftFormService: Using template: ${template.name}');
+      final template =
+          await FormTemplateService.getActiveDailyTemplate(forceRefresh: true);
+      if (template != null && template.isActive) {
+        AppLogger.debug(
+            'ShiftFormService: Using active daily template: ${template.name}');
         return _convertTemplateToFormFormat(template);
       }
 
-      // Fallback to legacy form only if no template exists
-      AppLogger.warning('ShiftFormService: No active daily template found, falling back to legacy form');
+      AppLogger.warning(
+          'ShiftFormService: No active daily template found, falling back to legacy form');
       final formId = await FormConfigService.getReadinessFormId();
       final doc = await _firestore.collection('form').doc(formId).get();
       if (doc.exists) {
         return doc.data();
       }
+      AppLogger.warning(
+          'ShiftFormService: No active daily template available for readiness');
       return null;
     } catch (e) {
       AppLogger.error('ShiftFormService: Error getting readiness form template: $e');

@@ -2528,7 +2528,21 @@ class _TimeClockScreenState extends State<TimeClockScreen>
     if (shouldFillForm == true && mounted) {
       // User chose to complete now - navigate to form
       // Get the form ID from config (async)
-      final readinessFormId = await ShiftFormService.getReadinessFormId();
+      String readinessFormId;
+      try {
+        readinessFormId = await ShiftFormService.getReadinessFormId();
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+                'No active daily readiness template is configured. Please contact admin.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        _debugLog('⚠️ Unable to open readiness form: $e', isError: true);
+        return;
+      }
       if (mounted) {
         Navigator.push(
           context,

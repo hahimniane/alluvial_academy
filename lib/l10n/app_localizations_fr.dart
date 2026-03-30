@@ -81,6 +81,12 @@ class AppLocalizationsFr extends AppLocalizations {
   String get commonClear => 'Effacer';
 
   @override
+  String get commonExpandAll => 'Tout développer';
+
+  @override
+  String get commonCollapseAll => 'Tout réduire';
+
+  @override
   String get commonRefresh => 'Actualiser';
 
   @override
@@ -1059,6 +1065,38 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get adminSubmissionsNoSubmissions => 'Aucune soumission trouvée';
+
+  @override
+  String get adminSubmissionsReviewMode => 'Mode revue';
+
+  @override
+  String get adminSubmissionsSelectionModeTitle => 'Sélection';
+
+  @override
+  String get adminSubmissionsNoTeacherSelected =>
+      'Aucun enseignant sélectionné';
+
+  @override
+  String adminSubmissionsSelectionProgress(int selectedCount, int total) {
+    return '$selectedCount / $total formulaires';
+  }
+
+  @override
+  String get adminSubmissionsExportFormatLabel => 'Format';
+
+  @override
+  String get adminSubmissionsExportExcelLabel => 'Excel';
+
+  @override
+  String get adminSubmissionsExportPdfLabel => 'PDF';
+
+  @override
+  String get adminSubmissionsExportProgressSubtitle =>
+      'Préparation du fichier. Progression par personne :';
+
+  @override
+  String get adminSubmissionsSelectToViewDetails =>
+      'Sélectionnez une soumission pour voir les détails';
 
   @override
   String get adminSubmissionsTryAdjustingFilters =>
@@ -3973,10 +4011,59 @@ class AppLocalizationsFr extends AppLocalizations {
   String get auditFormStatusAccepted => 'Accepté';
 
   @override
+  String get auditFormStatusAcceptedMissedShift =>
+      'Accepté (créneau manqué au planning)';
+
+  @override
+  String get auditFormHintMissedShiftReport =>
+      'Manqué au créneau prévu ; rapport déposé (pas de pointage sur ce créneau).';
+
+  @override
   String get auditFormStatusRejectedDuplicate => 'Rejeté (doublon)';
 
   @override
   String get auditFormStatusRejectedNoShift => 'Rejeté (sans shift)';
+
+  @override
+  String get auditFormStatusRejectedNoTimesheet =>
+      'Rejeté (sans feuille de temps)';
+
+  @override
+  String get auditFormsTabStatTotalTeaching =>
+      'Total formulaires d\'enseignement';
+
+  @override
+  String get auditFormsTabStatRejectedNoShift => 'Rejetés (sans shift)';
+
+  @override
+  String get auditFormsTabStatRejectedNoTimesheet =>
+      'Rejetés (sans feuille de temps)';
+
+  @override
+  String get auditFormsTabStatRejectedDuplicate => 'Rejetés (doublon)';
+
+  @override
+  String get auditFormsTabStatReadiness => 'Formulaires de préparation';
+
+  @override
+  String auditFormsSectionAccepted(int count) {
+    return 'Acceptés ($count)';
+  }
+
+  @override
+  String auditFormsSectionRejectedNoShift(int count) {
+    return 'Rejetés — sans shift lié ($count)';
+  }
+
+  @override
+  String auditFormsSectionRejectedNoTimesheet(int count) {
+    return 'Rejetés — sans feuille de temps ($count)';
+  }
+
+  @override
+  String auditFormsSectionRejectedDuplicate(int count) {
+    return 'Rejetés — doublon ($count)';
+  }
 
   @override
   String get auditTotalLabel => 'Total';
@@ -3989,6 +4076,13 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get auditNoFormsSubmitted => 'Aucun formulaire soumis';
+
+  @override
+  String get auditNoAssignmentFormsInSnapshot =>
+      'Aucun devoir ni évaluation dans cet audit. Régénérez l’audit du mois si des rapports de cours semblent encore mal classés.';
+
+  @override
+  String get auditFactorNaShort => 'N/A (hors score)';
 
   @override
   String get auditTierExcellent => 'Excellent';
@@ -4034,6 +4128,26 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get teacherAuditPointsOfAttention => 'Points d\'attention';
+
+  @override
+  String get teacherAuditReportUnderReview =>
+      'Ce rapport est en cours de révision et peut changer avant sa finalisation.';
+
+  @override
+  String teacherAuditScoreAuto(String score) {
+    return 'Auto: $score%';
+  }
+
+  @override
+  String teacherAuditScoreCoach(String score) {
+    return 'Coach: $score%';
+  }
+
+  @override
+  String get coachEvalSuggestedScore => 'Suggéré';
+
+  @override
+  String get coachEvalApplySuggestion => 'Appliquer';
 
   @override
   String get teacherAuditReportNotAvailable => 'Rapport non disponible';
@@ -4134,6 +4248,84 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get auditPaymentSummary => 'Récapitulatif de paiement';
+
+  @override
+  String get auditCoachPaymentAdjustmentsTitle => 'Lignes de paiement (coach)';
+
+  @override
+  String get auditNetAfterAdjustmentsHint =>
+      'Net estimé après lignes et avances';
+
+  @override
+  String get auditAddPaymentLine => 'Ajouter une ligne';
+
+  @override
+  String get auditAmountLabel => 'Montant (USD)';
+
+  @override
+  String get auditReasonLabel => 'Motif';
+
+  @override
+  String get auditPaymentLineTypeLabel => 'Type';
+
+  @override
+  String get auditPaymentLinePenalty => 'Pénalité (déduit)';
+
+  @override
+  String get auditPaymentLineBonus => 'Prime (ajouté)';
+
+  @override
+  String get auditAdvanceSectionTitle => 'Paiements d\'avance';
+
+  @override
+  String get auditAdvanceSectionSubtitle =>
+      'Charger les soumissions du formulaire d\'avance pour ce mois.';
+
+  @override
+  String get auditAdvanceLoadFromForms => 'Charger depuis les formulaires';
+
+  @override
+  String get auditBulkAcceptSelected => 'Accepter la sélection (outrepasser)';
+
+  @override
+  String get auditBulkAcceptAllInSection => 'Tout sélectionner (cette section)';
+
+  @override
+  String get auditBulkAcceptReasonTitle => 'Motif de l\'acceptation manuelle';
+
+  @override
+  String get auditBulkAcceptReasonHint =>
+      'Note courte (enregistrée sur l\'audit)';
+
+  @override
+  String get auditBulkAcceptSuccess =>
+      'Formulaires acceptés ; métriques recalculées';
+
+  @override
+  String get auditBulkAcceptRunning => 'Application…';
+
+  @override
+  String get auditAcknowledgeRead => 'Je confirme avoir lu cette fiche de paie';
+
+  @override
+  String auditAcknowledgeDone(String date) {
+    return 'Accusé le $date';
+  }
+
+  @override
+  String get auditOpenDiscussion => 'Ouvrir la discussion';
+
+  @override
+  String get auditDiscussionAdminButton => 'Chat avec l\'enseignant';
+
+  @override
+  String get teacherAuditPayslipCoachLines => 'Ajustements d\'évaluation';
+
+  @override
+  String get teacherAuditPayslipAdvances => 'Avances (déduites)';
+
+  @override
+  String get teacherAuditClassesSection => 'Cours du mois';
 
   @override
   String get auditGrossSalary => 'Salaire brut';
@@ -9533,6 +9725,23 @@ class AppLocalizationsFr extends AppLocalizations {
   String get taskUnassigned => 'Non attribué';
 
   @override
+  String get taskAssigneeOpenTrackingTitle =>
+      'Ouverture de la tâche par les assignés';
+
+  @override
+  String taskAssigneeOpenedAt(String datetime) {
+    return 'Ouvert le $datetime';
+  }
+
+  @override
+  String get taskAssigneeNotOpenedYet => 'Pas encore ouvert';
+
+  @override
+  String taskDetailFirstViewedAt(String datetime) {
+    return 'Première ouverture du détail : $datetime';
+  }
+
+  @override
   String get taskSelectMultiple => 'Sélection multiple';
 
   @override
@@ -10264,6 +10473,9 @@ class AppLocalizationsFr extends AppLocalizations {
   String get formResponsesTitle => 'Réponses au formulaire';
 
   @override
+  String get formResponsesUpdatingLabels => 'Mise à jour des libellés…';
+
+  @override
   String get optionsCommaSeparatedExample => 'ex. Option 1, Option 2, Option 3';
 
   @override
@@ -10381,4 +10593,479 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get deselectAll => 'Tout désélectionner';
+
+  @override
+  String get auditReviewModeTitle => 'Mode révision d\'audit';
+
+  @override
+  String get auditReviewModeButton => 'Mode révision';
+
+  @override
+  String get auditReviewBackToList => 'Retour à la liste';
+
+  @override
+  String get auditReviewSelectTeacher =>
+      'Sélectionnez un audit enseignant à examiner';
+
+  @override
+  String auditOrphanForms(int count) {
+    return 'Formulaires orphelins ($count)';
+  }
+
+  @override
+  String auditRejectedForms(int count) {
+    return 'Formulaires rejetés ($count)';
+  }
+
+  @override
+  String get auditFormNoMatchingShift => 'Aucun créneau correspondant trouvé';
+
+  @override
+  String get auditTabChangeLog => 'Historique';
+
+  @override
+  String get auditManualMetrics => 'Métriques manuelles';
+
+  @override
+  String get auditMeetingsSection => 'Réunions';
+
+  @override
+  String get auditAcademicSection => 'Académique';
+
+  @override
+  String get auditTasksCommunication => 'Tâches et communication';
+
+  @override
+  String get auditOverrideSection => 'Corrections';
+
+  @override
+  String get auditEditField => 'Modifier le champ';
+
+  @override
+  String auditEditFieldTitle(String fieldName) {
+    return 'Modifier : $fieldName';
+  }
+
+  @override
+  String get auditCurrentValue => 'Valeur actuelle';
+
+  @override
+  String get auditNewValue => 'Nouvelle valeur';
+
+  @override
+  String get auditEditReason => 'Raison de la modification';
+
+  @override
+  String get auditEditReasonHint =>
+      'Expliquez pourquoi cette valeur est modifiée';
+
+  @override
+  String get auditEditSuccess => 'Champ mis à jour avec succès';
+
+  @override
+  String get auditEditError => 'Échec de la mise à jour du champ';
+
+  @override
+  String get auditNoChangesRecorded => 'Aucune modification enregistrée';
+
+  @override
+  String auditChangeLogSummary(int count) {
+    return '$count modifications';
+  }
+
+  @override
+  String auditChangedFieldFrom(String field, String oldValue, String newValue) {
+    return '$field modifié de $oldValue à $newValue';
+  }
+
+  @override
+  String auditChangeReason(String reason) {
+    return 'Raison : $reason';
+  }
+
+  @override
+  String get auditFieldTotalClassesMissed => 'Classes manquées (correction)';
+
+  @override
+  String get auditFieldTotalClassesCancelled => 'Classes annulées (correction)';
+
+  @override
+  String get auditFieldStaffMeetingsScheduled => 'Réunions prévues';
+
+  @override
+  String get auditFieldStaffMeetingsMissed => 'Réunions manquées';
+
+  @override
+  String get auditFieldMeetingLateArrivals => 'Retards aux réunions';
+
+  @override
+  String get auditFieldQuizzesGiven => 'Quiz donnés';
+
+  @override
+  String get auditFieldAssignmentsGiven => 'Devoirs donnés';
+
+  @override
+  String get auditFieldOverdueTasks => 'Tâches en retard';
+
+  @override
+  String get auditTaskAcknowledgement => 'Tâches consultées';
+
+  @override
+  String get auditTaskAcknowledgementRate => 'Consultation des tâches';
+
+  @override
+  String get auditExcusedAbsences => 'Absences excusées';
+
+  @override
+  String get auditExcused => 'Excusé';
+
+  @override
+  String get auditViewTeachers => 'Enseignants';
+
+  @override
+  String get auditViewAdmins => 'Administrateurs';
+
+  @override
+  String get adminAuditFormsSubmitted => 'Formulaires soumis';
+
+  @override
+  String get adminAuditTasksCompleted => 'Tâches terminées';
+
+  @override
+  String get adminAuditColumnAdmin => 'Admin';
+
+  @override
+  String get adminAuditOverallScore => 'Score';
+
+  @override
+  String get adminAuditFormComplianceShort => 'Formulaires';
+
+  @override
+  String get adminAuditTaskEfficiencyShort => 'Effic. tâches';
+
+  @override
+  String get adminAuditOverdue => 'En retard';
+
+  @override
+  String get adminAuditAcknowledged => 'Accusé réception';
+
+  @override
+  String get adminAuditTasksCreated => 'Tâches créées';
+
+  @override
+  String get adminAuditAvgCompletionDays => 'Moy. clôture (jours)';
+
+  @override
+  String get adminAuditDetailTitle => 'Détail audit admin';
+
+  @override
+  String get adminAuditFormBreakdown => 'Soumissions par formulaire';
+
+  @override
+  String get adminAuditTaskLabels => 'Étiquettes de tâches';
+
+  @override
+  String get adminAuditCeoNotes => 'Notes CEO';
+
+  @override
+  String get adminAuditSaveNotes => 'Enregistrer les notes';
+
+  @override
+  String get adminAuditClose => 'Fermer';
+
+  @override
+  String get adminAuditNoBreakdown => 'Pas de détail par formulaire';
+
+  @override
+  String get adminAuditOpenDetail => 'Détails';
+
+  @override
+  String get adminAuditUnknownForm => 'Formulaire inconnu';
+
+  @override
+  String get adminAuditSubTasksRatio => 'Intensité sous-tâches';
+
+  @override
+  String get adminAuditScoreHelpTitle => 'Comment ce score est-il calculé ?';
+
+  @override
+  String adminAuditScoreHelpBody(String formPercent, String taskPercent) {
+    return 'Le score global combine la conformité des formulaires ($formPercent %) et l’efficacité des tâches ($taskPercent %). La conformité Tier 1 moyenne trois volets : soumissions « fin de service » vs jours ouvrés du mois, performance coachees bi-hebdomadaire (2 attendues par mois), et rapports hebdo CEO/progrès/finance vs environ 4 à 5 semaines dans le mois. L’efficacité des tâches reflète le rapport terminées / assignées, pénalise les retards et ajoute un bonus si vous créez des tâches. Un score bas indique souvent des formulaires récurrents manquants ou beaucoup de tâches incomplètes ou en retard.';
+  }
+
+  @override
+  String get adminAuditAdminListTitle => 'Administrateurs';
+
+  @override
+  String adminAuditAdminListCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count administrateurs',
+      one: '1 administrateur',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get adminAuditAdminListHint =>
+      'Ouvrez le menu pour changer d’administrateur. Chaque ligne affiche le score global, les formulaires et l’efficacité des tâches ; survolez pour les volumes et le détail des tâches.';
+
+  @override
+  String get adminAuditSelectAdminLabel => 'Afficher';
+
+  @override
+  String get adminAuditStatTooltipForms => 'Formulaires envoyés ce mois-ci';
+
+  @override
+  String get adminAuditStatTooltipTasks => 'Tâches terminées / assignées';
+
+  @override
+  String get adminAuditStatTooltipOverdue => 'Tâches en retard';
+
+  @override
+  String get adminAuditStatTooltipAck => 'Tâches consultées / assignées';
+
+  @override
+  String get adminAuditExportCsvButton => 'Exporter CSV admins';
+
+  @override
+  String get adminAuditExportEmpty =>
+      'Aucun audit admin à exporter pour ce mois.';
+
+  @override
+  String exportSavedNativeBody(String path) {
+    return 'Enregistré : $path';
+  }
+
+  @override
+  String get auditStatusUpdatedBanner =>
+      'Votre rapport d\'audit a été mis à jour. Consultez le dernier statut ci-dessous.';
+
+  @override
+  String get auditFieldWeeklyRecordingsSent =>
+      'Enregistrements hebdomadaires envoyés';
+
+  @override
+  String get auditFieldClassRemindersSet => 'Rappels de cours définis';
+
+  @override
+  String get auditFieldInternetDropOffs => 'Coupures internet';
+
+  @override
+  String get auditFieldMidtermCompleted => 'Examen mi-session terminé';
+
+  @override
+  String get auditFieldFinalExamCompleted => 'Examen final terminé';
+
+  @override
+  String get auditFieldSemesterProjectStatus => 'Statut du projet semestriel';
+
+  @override
+  String get auditSave => 'Enregistrer';
+
+  @override
+  String get viewTeacherAudit => 'Voir l\'audit';
+
+  @override
+  String get viewTeacherSubmissions => 'Voir les soumissions';
+
+  @override
+  String get auditIncidentsAndPenalties => 'Incidents et pénalités';
+
+  @override
+  String get auditNoIncidents => 'Aucun incident ou pénalité enregistré';
+
+  @override
+  String get auditIncidentFactsFinding => 'Rapport de constat';
+
+  @override
+  String get auditIncidentPenalty => 'Dossier de pénalité';
+
+  @override
+  String auditIncidentSubmittedBy(String name) {
+    return 'Soumis par $name';
+  }
+
+  @override
+  String get auditIncidentViolationType => 'Violation';
+
+  @override
+  String get auditIncidentRepercussion => 'Répercussion';
+
+  @override
+  String get auditIncidentAmountCut => 'Montant déduit';
+
+  @override
+  String get auditIncidentDescription => 'Détails';
+
+  @override
+  String get auditIncidentActionRequested => 'Action demandée';
+
+  @override
+  String get auditIncidentOccurrence => 'Occurrence';
+
+  @override
+  String get auditIncidentTypeComplaint => 'Plainte';
+
+  @override
+  String get auditIncidentTypeAwareness => 'Sensibilisation';
+
+  @override
+  String auditIncidentCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count incidents',
+      one: '1 incident',
+      zero: 'Aucun incident',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get auditIncidentLoading => 'Chargement des incidents…';
+
+  @override
+  String get auditFilterDone => 'Terminé';
+
+  @override
+  String get auditSelectFormToView =>
+      'Sélectionnez un formulaire pour voir son contenu';
+
+  @override
+  String get auditNoMatchingShift =>
+      'Aucun cours correspondant trouvé pour ce formulaire.';
+
+  @override
+  String get adminAuditMetricsSidebarTitle => 'Indicateurs calculés';
+
+  @override
+  String get adminAuditTabFormsEval => 'Formulaires';
+
+  @override
+  String get adminAuditTabTasksEval => 'Tâches';
+
+  @override
+  String get adminAuditTabContextForms => 'Formulaires contexte';
+
+  @override
+  String get adminAuditTabEvalSummary => 'Synthèse évaluation';
+
+  @override
+  String get adminAuditEvalThemeFilter => 'Thème / filtre';
+
+  @override
+  String get adminAuditEvalCriteriaTitle => 'Critères (0–5, N/A)';
+
+  @override
+  String get adminAuditNoSubmissionsMonth =>
+      'Aucune soumission correspondante pour ce mois.';
+
+  @override
+  String get adminAuditSelectSubmissionHint =>
+      'Sélectionnez une soumission pour l’aperçu';
+
+  @override
+  String get adminAuditExportEvalPdf => 'Exporter PDF (évaluation)';
+
+  @override
+  String get adminAuditExportEvalExcel => 'Exporter Excel (évaluation)';
+
+  @override
+  String get adminAuditEvalSummaryTitle => 'Scores d’évaluation manuelle';
+
+  @override
+  String get adminAuditTasksForMonth => 'Tâches du mois';
+
+  @override
+  String adminAuditTaskStatsHeader(int assigned, int done, int overdue) {
+    return 'Assignées : $assigned · Terminées : $done · Marquées retard : $overdue';
+  }
+
+  @override
+  String get adminAuditScoreNa => 'N/A';
+
+  @override
+  String get adminAuditContextFormsHint =>
+      'Constats et demandes d’avance / paiement pour cet admin.';
+
+  @override
+  String get adminAuditEnteredScores => 'Notes saisies';
+
+  @override
+  String adminAuditEvalAverage(String pct) {
+    return 'Moyenne (notes saisies) : $pct %';
+  }
+
+  @override
+  String get adminAuditEvalExportDocTitle => 'Fiche d\'évaluation — Admin';
+
+  @override
+  String get adminAuditEvalExportEvaluated => 'Personne évaluée';
+
+  @override
+  String get adminAuditEvalExportEvaluator => 'Évaluateur';
+
+  @override
+  String get adminAuditEvalExportPeriod => 'Période';
+
+  @override
+  String get adminAuditEvalExportDocumentDate => 'Date du document';
+
+  @override
+  String get adminAuditEvalExportSubtitle =>
+      'Par thème · Notation 0 à 5 · N/A = non applicable';
+
+  @override
+  String get adminAuditEvalExportCeoNotesHeading => 'Notes du CEO';
+
+  @override
+  String get adminAuditEvalExportPaymentHeading =>
+      'Ajustements de rémunération (mensuel)';
+
+  @override
+  String get adminAuditEvalExportBonus => 'Prime (mensuelle, USD)';
+
+  @override
+  String get adminAuditEvalExportPaycut => 'Retenue (mensuelle, USD)';
+
+  @override
+  String get adminAuditEvalExportRationale => 'Justification / détails';
+
+  @override
+  String get adminAuditEvalExportTasksSection => 'Tâches';
+
+  @override
+  String get adminAuditEvalExportOtherSection => 'Autres critères';
+
+  @override
+  String adminAuditEvalExportAutoKpi(int overall, int forms, int tasks) {
+    return 'Indicateurs auto : global $overall % · formulaires $forms % · tâches $tasks %';
+  }
+
+  @override
+  String get adminAuditEvalExportUnknownEvaluator => '—';
+
+  @override
+  String get adminAuditCeoBonusMonthly => 'Prime (mensuelle, USD)';
+
+  @override
+  String get adminAuditCeoPaycutMonthly => 'Retenue (mensuelle, USD)';
+
+  @override
+  String get adminAuditCeoAdjustmentRationale =>
+      'Justification (prime ou retenue)';
+
+  @override
+  String get adminAuditCeoPaymentAdjustmentsHint =>
+      'Montants mensuels optionnels. Ajoutez une courte justification si un montant est renseigné.';
+
+  @override
+  String get adminAuditEvalSectionCommentLabel =>
+      'Commentaire de l\'évaluateur';
+
+  @override
+  String get adminAuditEvalSectionCommentHint =>
+      'Facultatif. Repris dans le PDF/Excel sous cette section.';
 }

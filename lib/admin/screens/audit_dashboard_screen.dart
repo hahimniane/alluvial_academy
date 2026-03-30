@@ -1,12 +1,18 @@
+import 'dart:convert';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'dart:html' as html;
-import 'dart:convert';
+import 'package:alluwalacademyadmin/core/utils/export_saved_snackbar.dart';
+import 'package:alluwalacademyadmin/core/utils/save_export_file.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
+
 import '../../core/models/teacher_audit_metrics.dart';
 import '../../core/services/audit_metrics_service.dart';
-import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
+import 'dart:html' if (dart.library.io) '../../utility_functions/html_stub.dart'
+    as html;
 
 /// Admin dashboard for viewing teacher audit metrics
 class AuditDashboardScreen extends StatefulWidget {
@@ -139,7 +145,7 @@ class _AuditDashboardScreenState extends State<AuditDashboardScreen> {
           const SizedBox(width: 16),
           // Export button
           ElevatedButton.icon(
-            onPressed: _exportToCSV,
+            onPressed: () => _exportToCSV(),
             icon: const Icon(Icons.download, size: 18),
             label: Text(AppLocalizations.of(context)!.exportCsv),
             style: ElevatedButton.styleFrom(
@@ -160,20 +166,42 @@ class _AuditDashboardScreenState extends State<AuditDashboardScreen> {
           const SizedBox(width: 16),
         ],
       ),
-      body: Column(
-        children: [
-          // Filters
-          _buildFilters(),
-          // Summary cards
-          if (!_isLoading) _buildSummaryCards(),
-          // Metrics list
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _metrics.isEmpty
-                    ? _buildEmptyState()
-                    : _buildMetricsList(),
-          ),
+      // Scroll the full page so summary KPIs cannot push the teacher list / empty
+      // state below the fold (users otherwise only "see stats").
+      body: CustomScrollView(
+        slivers: [
+          SliverToBoxAdapter(child: _buildFilters()),
+          if (_isLoading)
+            const SliverFillRemaining(
+              hasScrollBody: false,
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else ...[
+            SliverToBoxAdapter(child: _buildSummaryCards()),
+            if (_metrics.isEmpty)
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: _buildEmptyState(),
+              )
+            else
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final metrics = _metrics[index];
+                      return Padding(
+                        padding: EdgeInsets.only(
+                          bottom: index == _metrics.length - 1 ? 0 : 16,
+                        ),
+                        child: _buildMetricsCard(metrics),
+                      );
+                    },
+                    childCount: _metrics.length,
+                  ),
+                ),
+              ),
+          ],
         ],
       ),
     );
@@ -276,76 +304,97 @@ class _AuditDashboardScreenState extends State<AuditDashboardScreen> {
   Widget _buildSummaryCards() {
     final tierCounts = _summary['tierCounts'] as Map<String, int>? ?? {};
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        children: [
-          _buildSummaryCard(
-            'Total Teachers',
-            '${_summary['totalTeachers'] ?? 0}',
-            Icons.people,
-            const Color(0xff0386FF),
-          ),
-          const SizedBox(width: 16),
-          _buildSummaryCard(
-            'Avg Score',
-            '${(_summary['avgOverallScore'] ?? 0).toStringAsFixed(1)}%',
-            Icons.score,
-            const Color(0xff10B981),
-          ),
-          const SizedBox(width: 16),
-          _buildSummaryCard(
-            'Completion Rate',
-            '${(_summary['avgCompletionRate'] ?? 0).toStringAsFixed(1)}%',
-            Icons.check_circle,
-            const Color(0xff8B5CF6),
-          ),
-          const SizedBox(width: 16),
-          _buildSummaryCard(
-            'Excellent',
-            '${tierCounts['Excellent'] ?? 0}',
-            Icons.emoji_events,
-            const Color(0xffF59E0B),
-          ),
-          const SizedBox(width: 16),
-          _buildSummaryCard(
-            'Critical',
-            '${tierCounts['Critical'] ?? 0}',
-            Icons.warning,
-            const Color(0xffEF4444),
-          ),
-        ],
+    final cardWidgets = <Widget>[
+      _buildSummaryCard(
+        'Total Teachers',
+        '${_summary['totalTeachers'] ?? 0}',
+        Icons.people,
+        const Color(0xff0386FF),
       ),
+      _buildSummaryCard(
+        'Avg Score',
+        '${(_summary['avgOverallScore'] ?? 0).toStringAsFixed(1)}%',
+        Icons.score,
+        const Color(0xff10B981),
+      ),
+      _buildSummaryCard(
+        'Completion Rate',
+        '${(_summary['avgCompletionRate'] ?? 0).toStringAsFixed(1)}%',
+        Icons.check_circle,
+        const Color(0xff8B5CF6),
+      ),
+      _buildSummaryCard(
+        'Excellent',
+        '${tierCounts['Excellent'] ?? 0}',
+        Icons.emoji_events,
+        const Color(0xffF59E0B),
+      ),
+      _buildSummaryCard(
+        'Critical',
+        '${tierCounts['Critical'] ?? 0}',
+        Icons.warning,
+        const Color(0xffEF4444),
+      ),
+    ];
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth >= 1100) {
+          return Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                for (var i = 0; i < cardWidgets.length; i++) ...[
+                  if (i > 0) const SizedBox(width: 16),
+                  Expanded(child: cardWidgets[i]),
+                ],
+              ],
+            ),
+          );
+        }
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          child: Row(
+            children: [
+              for (var i = 0; i < cardWidgets.length; i++) ...[
+                if (i > 0) const SizedBox(width: 16),
+                SizedBox(width: 200, child: cardWidgets[i]),
+              ],
+            ],
+          ),
+        );
+      },
     );
   }
 
   Widget _buildSummaryCard(String title, String value, IconData icon, Color color) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(10),
             ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(icon, color: color, size: 24),
-            ),
-            const SizedBox(width: 12),
-            Column(
+            child: Icon(icon, color: color, size: 24),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
@@ -354,6 +403,7 @@ class _AuditDashboardScreenState extends State<AuditDashboardScreen> {
                     fontSize: 12,
                     color: Colors.grey[600],
                   ),
+                  overflow: TextOverflow.ellipsis,
                 ),
                 Text(
                   value,
@@ -362,23 +412,13 @@ class _AuditDashboardScreenState extends State<AuditDashboardScreen> {
                     fontWeight: FontWeight.w700,
                     color: const Color(0xff111827),
                   ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
-    );
-  }
-
-  Widget _buildMetricsList() {
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: _metrics.length,
-      itemBuilder: (context, index) {
-        final metrics = _metrics[index];
-        return _buildMetricsCard(metrics);
-      },
     );
   }
 
@@ -602,18 +642,20 @@ class _AuditDashboardScreenState extends State<AuditDashboardScreen> {
   }
 
   Future<void> _computeMetricsForPilot() async {
-    // Compute metrics directly in Dart for the pilot user
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(AppLocalizations.of(context)!.computingMetricsThisMayTakeA)),
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final l10n = AppLocalizations.of(context)!;
+    messenger.showSnackBar(
+      SnackBar(content: Text(l10n.computingMetricsThisMayTakeA)),
     );
 
     try {
-      // Get pilot user info
       final pilotDoc = await FirebaseFirestore.instance
           .collection('users')
           .doc('Thz8PIVUGpS5cjlIYBJAemjoQxw1')
           .get();
 
+      if (!mounted) return;
       if (!pilotDoc.exists) {
         throw Exception('Pilot user not found');
       }
@@ -627,20 +669,29 @@ class _AuditDashboardScreenState extends State<AuditDashboardScreen> {
         pilotOnly: true,
       );
 
+      if (!mounted) return;
       if (metrics != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Metrics computed! Score: ${metrics.overallScore.toStringAsFixed(1)}%')),
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              l10n.auditMetricsComputed(metrics.overallScore.toStringAsFixed(1)),
+            ),
+          ),
         );
         _loadMetrics();
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppLocalizations.of(context)!.errorE), backgroundColor: Colors.red),
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(l10n.errorE),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
 
-  void _exportToCSV() {
+  Future<void> _exportToCSV() async {
     if (_metrics.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(AppLocalizations.of(context)!.noDataToExport)),
@@ -649,28 +700,47 @@ class _AuditDashboardScreenState extends State<AuditDashboardScreen> {
     }
 
     final csvData = StringBuffer();
-    // Header
-    csvData.writeln('Teacher Name,Email,Month,Scheduled,Completed,Missed,Completion Rate,Punctuality Rate,Form Compliance,Overall Score,Tier');
+    csvData.writeln(
+        'Teacher Name,Email,Month,Scheduled,Completed,Missed,Completion Rate,Punctuality Rate,Form Compliance,Overall Score,Tier');
 
-    // Data rows
     for (final m in _metrics) {
       csvData.writeln(
         '${m.teacherName},${m.teacherEmail},${m.yearMonth},${m.scheduledClasses},${m.completedClasses},${m.missedClasses},${m.completionRate.toStringAsFixed(1)},${m.punctualityRate.toStringAsFixed(1)},${m.formComplianceRate.toStringAsFixed(1)},${m.overallScore.toStringAsFixed(1)},${m.performanceTier.displayName}',
       );
     }
 
-    // Download
-    final bytes = utf8.encode(csvData.toString());
-    final blob = html.Blob([bytes]);
-    final url = html.Url.createObjectUrlFromBlob(blob);
-    html.AnchorElement(href: url)
-      ..setAttribute('download', 'audit_report_$_selectedMonth.csv')
-      ..click();
-    html.Url.revokeObjectUrl(url);
+    final content = csvData.toString();
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(AppLocalizations.of(context)!.csvExportedSuccessfully)),
-    );
+    if (kIsWeb) {
+      final bytes = utf8.encode(content);
+      final blob = html.Blob([bytes]);
+      final url = html.Url.createObjectUrlFromBlob(blob);
+      final anchor = html.AnchorElement()
+        ..href = url
+        ..style.display = 'none'
+        ..download = 'audit_report_$_selectedMonth.csv';
+      html.document.body?.children.add(anchor);
+      anchor.click();
+      html.document.body?.children.remove(anchor);
+      Future.delayed(const Duration(milliseconds: 1000), () {
+        html.Url.revokeObjectUrl(url);
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(AppLocalizations.of(context)!.csvExportedSuccessfully),
+          ),
+        );
+      }
+    } else {
+      final path = await saveExportUtf8String(
+        content,
+        'audit_report_$_selectedMonth.csv',
+      );
+      if (mounted) {
+        showNativeExportSavedSnackBar(context, path);
+      }
+    }
   }
 
   void _generateReport() {
