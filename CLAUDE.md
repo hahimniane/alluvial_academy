@@ -21,7 +21,7 @@ lib/
 ### Rules for `lib/core/`
 
 `core/` is for code used by 3+ features. It contains ONLY:
-- `core/services/` — auth, connectivity, theme, language, timezone, notifications, user_role, settings, version, app_logger (~10 services MAX)
+- `core/services/` — auth, connectivity, theme, language, timezone, notifications, user_role, settings, version, prayer_time, islamic_calendar, chat (~16 services MAX)
 - `core/models/` — `user.dart`, `employee_model.dart` (truly shared user models ONLY)
 - `core/utils/` — generic utilities (platform detection, timezone conversion, file export)
 - `core/widgets/` — generic UI (responsive builder, role switcher, fade animations)
