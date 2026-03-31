@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../core/services/user_role_service.dart';
-import '../../../system_settings_screen.dart';
+import 'package:alluwalacademyadmin/features/settings/screens/system_settings_screen.dart';
 
 import 'package:flutter/foundation.dart'
     show kIsWeb, defaultTargetPlatform, TargetPlatform;

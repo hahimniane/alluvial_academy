@@ -1,4 +1,4 @@
-import 'role_based_dashboard.dart';
+import 'package:alluwalacademyadmin/features/dashboard/screens/role_based_dashboard.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_login/flutter_login.dart';
 import 'package:firebase_auth/firebase_auth.dart';

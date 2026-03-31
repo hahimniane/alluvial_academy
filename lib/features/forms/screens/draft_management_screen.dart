@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/services/form_draft_service.dart';
 import '../../../core/models/form_draft.dart';
-import '../../../debug_firestore_screen.dart';
+import 'package:alluwalacademyadmin/features/settings/screens/debug_firestore_screen.dart';
 import 'form_builder.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';

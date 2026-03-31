@@ -9,12 +9,12 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'dart:typed_data';
 import 'package:image/image.dart' as img;
 import 'package:intl/intl.dart';
-import 'core/services/user_role_service.dart';
-import 'core/services/shift_form_service.dart';
-import 'core/services/shift_service.dart';
-import 'core/enums/shift_enums.dart';
-import 'features/forms/widgets/form_details_modal.dart';
-import 'features/forms/utils/form_localization.dart';
+import 'package:alluwalacademyadmin/core/services/user_role_service.dart';
+import 'package:alluwalacademyadmin/core/services/shift_form_service.dart';
+import 'package:alluwalacademyadmin/core/services/shift_service.dart';
+import 'package:alluwalacademyadmin/core/enums/shift_enums.dart';
+import 'package:alluwalacademyadmin/features/forms/widgets/form_details_modal.dart';
+import 'package:alluwalacademyadmin/features/forms/utils/form_localization.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 import 'package:alluwalacademyadmin/core/models/form_template.dart';

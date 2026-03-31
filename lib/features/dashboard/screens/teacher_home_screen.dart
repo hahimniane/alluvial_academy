@@ -23,7 +23,7 @@ import '../../settings/screens/mobile_settings_screen.dart';
 import '../../tasks/screens/quick_tasks_screen.dart';
 import '../../tasks/models/task.dart';
 import '../../tasks/services/task_service.dart';
-import '../../../form_screen.dart';
+import 'package:alluwalacademyadmin/features/forms/screens/form_screen.dart';
 import '../../forms/screens/my_submissions_screen.dart';
 import '../../forms/screens/teacher_forms_screen.dart';
 import '../../assignments/screens/teacher_assignments_screen.dart';

@@ -6,10 +6,10 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'core/services/user_role_service.dart';
-import 'dashboard.dart';
-import 'features/parent/screens/parent_dashboard_layout.dart';
-import 'features/dashboard/screens/mobile_dashboard_screen.dart';
+import 'package:alluwalacademyadmin/core/services/user_role_service.dart';
+import 'package:alluwalacademyadmin/features/dashboard/screens/dashboard.dart';
+import 'package:alluwalacademyadmin/features/parent/screens/parent_dashboard_layout.dart';
+import 'package:alluwalacademyadmin/features/dashboard/screens/mobile_dashboard_screen.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';

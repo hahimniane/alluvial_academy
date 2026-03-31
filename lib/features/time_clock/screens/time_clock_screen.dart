@@ -39,7 +39,7 @@ import '../../../core/services/shift_form_service.dart';
 import '../../../core/services/notification_service.dart';
 import '../../../core/models/teaching_shift.dart';
 import '../../../core/utils/platform_utils.dart';
-import '../../../form_screen.dart';
+import 'package:alluwalacademyadmin/features/forms/screens/form_screen.dart';
 import 'dart:convert';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';

@@ -10,7 +10,7 @@ import '../../../core/enums/shift_enums.dart';
 import '../../../core/services/form_template_service.dart';
 import '../../../core/services/user_role_service.dart';
 import '../../../core/services/shift_form_service.dart';
-import '../../../form_screen.dart';
+import 'package:alluwalacademyadmin/features/forms/screens/form_screen.dart';
 import '../../../core/utils/app_logger.dart';
 import '../widgets/form_details_modal.dart';
 import '../screens/my_submissions_screen.dart';

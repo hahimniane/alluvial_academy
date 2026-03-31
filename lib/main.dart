@@ -16,7 +16,7 @@ import 'package:device_preview/device_preview.dart';
 import 'package:provider/provider.dart';
 import 'l10n/app_localizations.dart';
 
-import 'role_based_dashboard.dart';
+import 'features/dashboard/screens/role_based_dashboard.dart';
 import 'firebase_options.dart' as prod_firebase;
 import 'firebase_options_dev.dart' as dev_firebase;
 import 'core/constants/app_constants.dart';
