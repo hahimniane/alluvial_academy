@@ -6,7 +6,7 @@ import 'package:flutter_timezone/flutter_timezone.dart';
 import '../../../widgets/modern_header.dart';
 import '../../../shared/widgets/fade_in_slide.dart';
 import '../../../core/models/enrollment_request.dart';
-import '../../../core/services/enrollment_service.dart';
+import 'package:alluwalacademyadmin/features/enrollment_management/services/enrollment_service.dart';
 import 'enrollment_success_page.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 

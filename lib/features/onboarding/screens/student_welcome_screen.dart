@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 
-import '../../../core/services/onboarding_service.dart';
+import 'package:alluwalacademyadmin/features/onboarding/services/onboarding_service.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 /// Welcome onboarding slides for new students

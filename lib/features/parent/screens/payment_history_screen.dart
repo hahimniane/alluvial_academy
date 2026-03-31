@@ -4,7 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
 import 'package:alluwalacademyadmin/core/models/payment.dart';
-import 'package:alluwalacademyadmin/core/services/payment_service.dart';
+import 'package:alluwalacademyadmin/features/parent/services/payment_service.dart';
 import 'package:alluwalacademyadmin/features/parent/screens/invoice_detail_screen.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 

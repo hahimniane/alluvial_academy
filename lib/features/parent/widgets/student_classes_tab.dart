@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'package:alluwalacademyadmin/core/models/teaching_shift.dart';
-import 'package:alluwalacademyadmin/core/services/parent_service.dart';
-import 'package:alluwalacademyadmin/core/services/shift_service.dart';
-import 'package:alluwalacademyadmin/core/services/video_call_service.dart';
+import 'package:alluwalacademyadmin/features/parent/services/parent_service.dart';
+import 'package:alluwalacademyadmin/features/shift_management/services/shift_service.dart';
+import 'package:alluwalacademyadmin/features/livekit/services/video_call_service.dart';
 import 'package:alluwalacademyadmin/features/parent/widgets/parent_presence_card.dart';
 import 'package:alluwalacademyadmin/features/parent/widgets/attendance_calendar.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';

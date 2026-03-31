@@ -1,8 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'settings_service.dart';
+import 'package:alluwalacademyadmin/core/services/settings_service.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
-import '../enums/wage_enums.dart';
+import 'package:alluwalacademyadmin/core/enums/wage_enums.dart';
 
 class WageManagementService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;

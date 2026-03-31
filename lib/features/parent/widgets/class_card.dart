@@ -4,7 +4,7 @@ import 'package:intl/intl.dart';
 
 import 'package:alluwalacademyadmin/core/models/teaching_shift.dart';
 import 'package:alluwalacademyadmin/core/enums/shift_enums.dart';
-import 'package:alluwalacademyadmin/core/services/video_call_service.dart';
+import 'package:alluwalacademyadmin/features/livekit/services/video_call_service.dart';
 
 class ClassCard extends StatelessWidget {
   final TeachingShift shift;

@@ -5,8 +5,8 @@ import 'package:intl/intl.dart';
 
 import 'package:alluwalacademyadmin/core/models/invoice.dart';
 import 'package:alluwalacademyadmin/core/models/payment.dart';
-import 'package:alluwalacademyadmin/core/services/invoice_service.dart';
-import 'package:alluwalacademyadmin/core/services/invoice_pdf_service.dart';
+import 'package:alluwalacademyadmin/features/parent/services/invoice_service.dart';
+import 'package:alluwalacademyadmin/features/parent/services/invoice_pdf_service.dart';
 import 'package:alluwalacademyadmin/features/parent/screens/payment_screen.dart';
 import 'package:alluwalacademyadmin/features/parent/widgets/beautiful_invoice_widget.dart';
 import 'package:printing/printing.dart';

@@ -5,12 +5,12 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/models/teaching_shift.dart';
-import '../../../core/services/shift_service.dart';
-import '../../../core/services/video_call_service.dart';
+import 'package:alluwalacademyadmin/features/shift_management/services/shift_service.dart';
+import 'package:alluwalacademyadmin/features/livekit/services/video_call_service.dart';
 import '../../../core/services/user_role_service.dart';
 import '../../../core/enums/shift_enums.dart';
 import '../../../core/utils/app_logger.dart';
-import '../../../core/services/onboarding_service.dart';
+import 'package:alluwalacademyadmin/features/onboarding/services/onboarding_service.dart';
 import '../../onboarding/services/student_feature_tour.dart';
 import '../../recordings/screens/class_recordings_screen.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';

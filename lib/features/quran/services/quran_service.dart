@@ -2,8 +2,8 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
-import '../models/quran_models.dart';
-import '../utils/app_logger.dart';
+import 'package:alluwalacademyadmin/core/models/quran_models.dart';
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 
 class QuranService {
   static const String _baseUrl = 'https://api.alquran.cloud/v1';

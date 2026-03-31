@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
 import 'package:alluwalacademyadmin/core/models/invoice.dart';
-import 'package:alluwalacademyadmin/core/services/invoice_data_service.dart';
+import 'package:alluwalacademyadmin/features/parent/services/invoice_data_service.dart';
 import 'package:alluwalacademyadmin/core/services/mock_company_service.dart' show CompanyInfo, AdminInfo;
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 

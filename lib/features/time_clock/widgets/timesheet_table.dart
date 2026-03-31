@@ -8,7 +8,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../core/constants/app_constants.dart' as constants;
 import '../models/timesheet_entry.dart';
-import '../../../core/services/location_service.dart';
+import 'package:alluwalacademyadmin/features/shift_management/services/location_service.dart';
 import '../../../utility_functions/export_helpers.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';

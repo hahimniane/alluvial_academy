@@ -1,5 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../utils/app_logger.dart';
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 
 /// Service to manage form configuration from Firestore
 /// This replaces hardcoded form IDs with config-driven values

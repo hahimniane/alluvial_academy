@@ -4,14 +4,14 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
-import '../models/teaching_shift.dart';
-import '../models/employee_model.dart';
-import '../models/enhanced_recurrence.dart';
-import 'wage_management_service.dart';
-import '../enums/shift_enums.dart';
-import '../utils/timezone_utils.dart';
-import '../utils/environment_utils.dart';
-import '../utils/performance_logger.dart';
+import 'package:alluwalacademyadmin/core/models/teaching_shift.dart';
+import 'package:alluwalacademyadmin/core/models/employee_model.dart';
+import 'package:alluwalacademyadmin/core/models/enhanced_recurrence.dart';
+import 'package:alluwalacademyadmin/features/shift_management/services/wage_management_service.dart';
+import 'package:alluwalacademyadmin/core/enums/shift_enums.dart';
+import 'package:alluwalacademyadmin/core/utils/timezone_utils.dart';
+import 'package:alluwalacademyadmin/core/utils/environment_utils.dart';
+import 'package:alluwalacademyadmin/core/utils/performance_logger.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 

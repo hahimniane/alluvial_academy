@@ -12,7 +12,7 @@ import './admin_dashboard_screen.dart';
 import '../../tasks/screens/quick_tasks_screen.dart';
 import '../../shift_management/screens/teacher_shift_screen.dart';
 import '../../forms/screens/teacher_forms_screen.dart';
-import '../../../core/services/profile_picture_service.dart';
+import 'package:alluwalacademyadmin/features/profile/services/profile_picture_service.dart';
 import '../../settings/screens/mobile_settings_screen.dart';
 import '../../notifications/screens/mobile_notification_screen.dart';
 import '../../user_management/screens/mobile_user_management_screen.dart';
@@ -29,7 +29,7 @@ import '../../quiz/screens/quiz_home_screen.dart'; // Quiz feature
 import '../../tutor/screens/ai_tutor_screen.dart'; // AI Tutor feature
 
 // Onboarding imports
-import '../../../core/services/onboarding_service.dart';
+import 'package:alluwalacademyadmin/features/onboarding/services/onboarding_service.dart';
 import '../../onboarding/screens/student_welcome_screen.dart';
 import '../../onboarding/services/student_feature_tour.dart';
 

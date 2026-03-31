@@ -10,7 +10,7 @@ import 'package:universal_html/html.dart' as html;
 import '../../../core/models/teacher_audit_full.dart';
 import '../services/teacher_audit_service.dart';
 import '../../../core/models/teaching_shift.dart';
-import '../../../core/services/form_labels_cache_service.dart';
+import 'package:alluwalacademyadmin/features/forms/services/form_labels_cache_service.dart';
 import '../services/audit_performance_optimizer.dart';
 import '../services/advanced_excel_export_service.dart';
 import '../../../core/utils/app_logger.dart';

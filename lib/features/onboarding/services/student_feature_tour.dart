@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
 
-import '../../../core/services/onboarding_service.dart';
+import 'package:alluwalacademyadmin/features/onboarding/services/onboarding_service.dart';
 import '../../../core/utils/app_logger.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 

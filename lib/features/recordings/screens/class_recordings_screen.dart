@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
-import 'package:alluwalacademyadmin/core/services/class_recording_service.dart';
+import 'package:alluwalacademyadmin/features/recordings/services/class_recording_service.dart';
 import 'package:alluwalacademyadmin/features/surah_podcast/widgets/video_player_widget.dart';
 
 const String _unknownStudentKey = '__unknown_student__';

@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';  // For custom fonts
 import 'package:firebase_auth/firebase_auth.dart';  // Firebase authentication
 import 'dart:async';  // For asynchronous operations and timers
-import '../../../core/services/shift_timesheet_service.dart';  // Shift/timesheet operations
-import '../../../core/services/location_service.dart';  // Location handling
+import 'package:alluwalacademyadmin/features/time_clock/services/shift_timesheet_service.dart';  // Shift/timesheet operations
+import 'package:alluwalacademyadmin/features/shift_management/services/location_service.dart';  // Location handling
 import '../../../core/models/teaching_shift.dart';  // Shift data model
 import '../../../core/utils/platform_utils.dart';  // Platform detection
 

@@ -13,7 +13,7 @@ import '../../../utility_functions/html_stub.dart'
 import '../../../utility_functions/export_helpers.dart';
 import '../../../core/models/teaching_shift.dart';
 import '../../../core/enums/shift_enums.dart';
-import '../../../core/services/shift_service.dart';
+import 'package:alluwalacademyadmin/features/shift_management/services/shift_service.dart';
 import '../../../core/services/prayer_time_service.dart';
 import '../../../core/services/islamic_calendar_service.dart';
 import 'package:intl/intl.dart';

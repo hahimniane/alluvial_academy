@@ -6,10 +6,10 @@ import 'package:intl/intl.dart';
 
 import 'package:alluwalacademyadmin/core/models/teaching_shift.dart';
 import 'package:alluwalacademyadmin/core/enums/shift_enums.dart';
-import 'package:alluwalacademyadmin/core/services/parent_service.dart';
-import 'package:alluwalacademyadmin/core/services/shift_service.dart';
-import 'package:alluwalacademyadmin/core/services/video_call_service.dart';
-import 'package:alluwalacademyadmin/core/services/livekit_service.dart';
+import 'package:alluwalacademyadmin/features/parent/services/parent_service.dart';
+import 'package:alluwalacademyadmin/features/shift_management/services/shift_service.dart';
+import 'package:alluwalacademyadmin/features/livekit/services/video_call_service.dart';
+import 'package:alluwalacademyadmin/features/livekit/services/livekit_service.dart';
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 

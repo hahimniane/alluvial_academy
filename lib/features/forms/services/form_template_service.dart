@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../models/form_template.dart';
-import '../utils/app_logger.dart';
+import 'package:alluwalacademyadmin/core/models/form_template.dart';
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 
 /// Service for managing form templates with versioning and frequency support
 class FormTemplateService {

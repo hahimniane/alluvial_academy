@@ -3,8 +3,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
 import 'package:alluwalacademyadmin/core/models/teaching_shift.dart';
-import 'package:alluwalacademyadmin/core/services/parent_service.dart';
-import 'package:alluwalacademyadmin/core/services/video_call_service.dart';
+import 'package:alluwalacademyadmin/features/parent/services/parent_service.dart';
+import 'package:alluwalacademyadmin/features/livekit/services/video_call_service.dart';
 import 'package:alluwalacademyadmin/features/tasks/models/task.dart';
 import 'package:alluwalacademyadmin/features/tasks/services/task_service.dart';
 import 'package:alluwalacademyadmin/features/parent/widgets/student_quick_stats_card.dart';

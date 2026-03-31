@@ -14,14 +14,14 @@ import 'package:livekit_client/livekit_client.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:http/http.dart' as http;
 
-import '../../features/quran/widgets/quran_reader.dart';
-import '../../features/livekit/widgets/call_whiteboard.dart';
-import '../models/teaching_shift.dart';
-import 'livekit_session_service.dart';
-import '../utils/app_logger.dart';
-import '../utils/environment_utils.dart';
-import '../utils/picture_in_picture.dart'
-    if (dart.library.io) '../utils/picture_in_picture_stub.dart' as pip;
+import 'package:alluwalacademyadmin/features/quran/widgets/quran_reader.dart';
+import 'package:alluwalacademyadmin/features/livekit/widgets/call_whiteboard.dart';
+import 'package:alluwalacademyadmin/core/models/teaching_shift.dart';
+import 'package:alluwalacademyadmin/features/livekit/services/livekit_session_service.dart';
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+import 'package:alluwalacademyadmin/core/utils/environment_utils.dart';
+import 'package:alluwalacademyadmin/core/utils/picture_in_picture.dart'
+    if (dart.library.io) 'package:alluwalacademyadmin/core/utils/picture_in_picture_stub.dart' as pip;
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 /// LiveKit join token response from Cloud Functions

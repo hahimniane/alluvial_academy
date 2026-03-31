@@ -8,7 +8,7 @@ import '../services/teacher_audit_service.dart';
 import '../../chat/models/chat_user.dart';
 import '../../chat/screens/chat_screen.dart';
 import '../../chat/screens/chat_page.dart';
-import '../../../core/services/form_labels_cache_service.dart';
+import 'package:alluwalacademyadmin/features/forms/services/form_labels_cache_service.dart';
 import '../../forms/widgets/form_details_modal.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 

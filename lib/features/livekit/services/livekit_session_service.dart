@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
-import '../utils/app_logger.dart';
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 
 class _ShiftAttendanceWindow {
   const _ShiftAttendanceWindow({

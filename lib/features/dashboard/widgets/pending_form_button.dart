@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../../../core/services/shift_form_service.dart';
+import 'package:alluwalacademyadmin/features/shift_management/services/shift_form_service.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 /// Button widget that shows "Fill" if form doesn't exist, or "View" (eye icon) if it does

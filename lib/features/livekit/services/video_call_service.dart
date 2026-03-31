@@ -4,13 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-import '../models/teaching_shift.dart';
-import '../enums/shift_enums.dart';
-import '../utils/app_logger.dart';
-import 'mobile_classes_access_service.dart';
-import 'user_role_service.dart';
-import 'livekit_service.dart';
-import 'join_link_service.dart';
+import 'package:alluwalacademyadmin/core/models/teaching_shift.dart';
+import 'package:alluwalacademyadmin/core/enums/shift_enums.dart';
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+import 'package:alluwalacademyadmin/features/shift_management/services/mobile_classes_access_service.dart';
+import 'package:alluwalacademyadmin/core/services/user_role_service.dart';
+import 'package:alluwalacademyadmin/features/livekit/services/livekit_service.dart';
+import 'package:alluwalacademyadmin/features/livekit/services/join_link_service.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 /// Unified video call service for joining classes

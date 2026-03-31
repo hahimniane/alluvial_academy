@@ -6,11 +6,11 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../core/models/teaching_shift.dart';
 import '../../../core/enums/shift_enums.dart';
-// import '../../../core/services/shift_service.dart'; // Unused
-import '../../../core/services/shift_timesheet_service.dart';
-import '../../../core/services/location_service.dart';
-import '../../../core/services/shift_form_service.dart';
-import '../../../core/services/form_template_service.dart';
+// import 'package:alluwalacademyadmin/features/shift_management/services/shift_service.dart'; // Unused
+import 'package:alluwalacademyadmin/features/time_clock/services/shift_timesheet_service.dart';
+import 'package:alluwalacademyadmin/features/shift_management/services/location_service.dart';
+import 'package:alluwalacademyadmin/features/shift_management/services/shift_form_service.dart';
+import 'package:alluwalacademyadmin/features/forms/services/form_template_service.dart';
 import '../../../core/services/user_role_service.dart';
 import '../../../core/utils/timezone_utils.dart';
 import '../../../core/utils/app_logger.dart';
@@ -20,8 +20,8 @@ import 'report_schedule_issue_dialog.dart';
 import 'reschedule_shift_dialog.dart';
 import 'package:flutter/foundation.dart';
 // Zoom imports removed - using LiveKit now
-import '../../../core/services/video_call_service.dart';
-import '../../../core/services/mobile_classes_access_service.dart';
+import 'package:alluwalacademyadmin/features/livekit/services/video_call_service.dart';
+import 'package:alluwalacademyadmin/features/shift_management/services/mobile_classes_access_service.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class ShiftDetailsDialog extends StatefulWidget {

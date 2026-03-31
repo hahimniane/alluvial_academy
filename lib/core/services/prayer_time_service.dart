@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'location_service.dart';
+import 'package:alluwalacademyadmin/features/shift_management/services/location_service.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 

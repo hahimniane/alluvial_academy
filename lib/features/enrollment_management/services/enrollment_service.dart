@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
-import '../models/enrollment_request.dart';
+import 'package:alluwalacademyadmin/core/models/enrollment_request.dart';
 
 class EnrollmentService {
   final CollectionReference _collection = 

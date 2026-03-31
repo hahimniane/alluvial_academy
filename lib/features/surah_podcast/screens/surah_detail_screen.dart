@@ -4,7 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:alluwalacademyadmin/core/constants/surah_data.dart';
-import 'package:alluwalacademyadmin/core/services/surah_podcast_service.dart';
+import 'package:alluwalacademyadmin/features/surah_podcast/services/surah_podcast_service.dart';
 
 import '../widgets/podcast_player_widget.dart';
 import '../widgets/video_player_widget.dart';

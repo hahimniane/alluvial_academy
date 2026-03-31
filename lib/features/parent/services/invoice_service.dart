@@ -2,7 +2,7 @@ import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'package:alluwalacademyadmin/core/models/invoice.dart';
-import 'package:alluwalacademyadmin/core/services/invoice_pdf_service.dart';
+import 'package:alluwalacademyadmin/features/parent/services/invoice_pdf_service.dart';
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 
 class InvoiceService {

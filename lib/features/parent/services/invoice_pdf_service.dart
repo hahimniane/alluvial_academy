@@ -3,9 +3,9 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:intl/intl.dart';
 
-import '../models/invoice.dart';
-import 'invoice_data_service.dart';
-import 'mock_company_service.dart' show CompanyInfo, AdminInfo;
+import 'package:alluwalacademyadmin/core/models/invoice.dart';
+import 'package:alluwalacademyadmin/features/parent/services/invoice_data_service.dart';
+import 'package:alluwalacademyadmin/core/services/mock_company_service.dart' show CompanyInfo, AdminInfo;
 
 /// Service for generating PDF invoices
 class InvoicePdfService {

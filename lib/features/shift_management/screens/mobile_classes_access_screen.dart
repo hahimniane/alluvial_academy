@@ -2,7 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import 'package:alluwalacademyadmin/core/services/mobile_classes_access_service.dart';
+import 'package:alluwalacademyadmin/features/shift_management/services/mobile_classes_access_service.dart';
 import 'package:alluwalacademyadmin/core/services/user_role_service.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 

@@ -8,7 +8,7 @@ import 'package:timezone/timezone.dart' as tz;
 import '../../../core/models/job_opportunity.dart';
 import '../../../core/models/teaching_shift.dart';
 import '../../../core/services/job_board_service.dart';
-import '../../../core/services/shift_service.dart';
+import 'package:alluwalacademyadmin/features/shift_management/services/shift_service.dart';
 import '../../../core/services/timezone_service.dart';
 import '../../../core/utils/timezone_utils.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';

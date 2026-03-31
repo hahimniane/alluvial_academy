@@ -15,7 +15,7 @@ import '../models/chat_user.dart';
 import '../models/chat_message.dart';
 import '../widgets/message_bubble.dart';
 import '../../../core/utils/app_logger.dart';
-import '../../../core/services/livekit_service.dart';
+import 'package:alluwalacademyadmin/features/livekit/services/livekit_service.dart';
 import '../../../core/services/notification_service.dart';
 import '../../../l10n/app_localizations.dart';
 

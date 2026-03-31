@@ -6,7 +6,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
-import 'package:alluwalacademyadmin/core/services/form_labels_cache_service.dart';
+import 'package:alluwalacademyadmin/features/forms/services/form_labels_cache_service.dart';
 import 'package:alluwalacademyadmin/core/models/teaching_shift.dart';
 import '../../../core/utils/save_export_file.dart';
 

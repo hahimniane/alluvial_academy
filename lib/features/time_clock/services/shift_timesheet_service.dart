@@ -1,11 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
-import '../models/teaching_shift.dart';
-import '../enums/shift_enums.dart';
-import '../utils/performance_logger.dart';
-import 'location_service.dart';
-import 'shift_service.dart';
+import 'package:alluwalacademyadmin/core/models/teaching_shift.dart';
+import 'package:alluwalacademyadmin/core/enums/shift_enums.dart';
+import 'package:alluwalacademyadmin/core/utils/performance_logger.dart';
+import 'package:alluwalacademyadmin/features/shift_management/services/location_service.dart';
+import 'package:alluwalacademyadmin/features/shift_management/services/shift_service.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 

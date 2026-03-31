@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'package:alluwalacademyadmin/core/enums/shift_enums.dart';
 import 'package:alluwalacademyadmin/core/models/teaching_shift.dart';
-import 'package:alluwalacademyadmin/core/services/shift_service.dart';
+import 'package:alluwalacademyadmin/features/shift_management/services/shift_service.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class StudentProgressTab extends StatefulWidget {

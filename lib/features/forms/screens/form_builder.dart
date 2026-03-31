@@ -5,7 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:uuid/uuid.dart';
 import 'dart:async';
 import '../../../core/models/form_template.dart';
-import '../../../core/services/form_template_service.dart';
+import 'package:alluwalacademyadmin/features/forms/services/form_template_service.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 // --- MODELS ---

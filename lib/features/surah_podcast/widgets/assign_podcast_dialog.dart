@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import 'package:alluwalacademyadmin/core/services/surah_podcast_service.dart';
+import 'package:alluwalacademyadmin/features/surah_podcast/services/surah_podcast_service.dart';
 import 'package:alluwalacademyadmin/core/services/user_role_service.dart';
 
 class AssignPodcastDialog extends StatefulWidget {

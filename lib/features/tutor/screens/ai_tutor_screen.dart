@@ -13,8 +13,8 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/models/teaching_shift.dart';
-import '../../../core/services/location_service.dart';
-import '../../../core/services/shift_timesheet_service.dart';
+import 'package:alluwalacademyadmin/features/shift_management/services/location_service.dart';
+import 'package:alluwalacademyadmin/features/time_clock/services/shift_timesheet_service.dart';
 import '../../../core/utils/app_logger.dart';
 import '../../../core/utils/platform_utils.dart';
 import '../../../core/utils/timezone_utils.dart';

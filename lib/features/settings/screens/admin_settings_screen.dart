@@ -3,7 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/constants/build_info.dart';
-import '../../../core/services/mobile_classes_access_service.dart';
+import 'package:alluwalacademyadmin/features/shift_management/services/mobile_classes_access_service.dart';
 import '../../../core/services/user_role_service.dart';
 import '../../shift_management/screens/mobile_classes_access_screen.dart';
 

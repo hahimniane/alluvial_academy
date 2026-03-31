@@ -6,7 +6,7 @@ import 'package:intl/intl.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 import '../../../core/models/teaching_shift.dart';
-import '../../../core/services/form_labels_cache_service.dart';
+import 'package:alluwalacademyadmin/features/forms/services/form_labels_cache_service.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 import '../utils/form_submission_view_mode.dart';
 import '../widgets/form_details_modal.dart';

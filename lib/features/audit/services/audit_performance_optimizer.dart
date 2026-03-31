@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 import '../../../core/models/teacher_audit_full.dart';
 import 'teacher_audit_service.dart';
-import '../../../core/services/form_labels_cache_service.dart';
+import 'package:alluwalacademyadmin/features/forms/services/form_labels_cache_service.dart';
 
 /// **OPTIMIZATION 1: Parallel Data Loading**
 /// Load audits, labels, and other data in parallel instead of sequentially

@@ -1,5 +1,5 @@
 import 'package:shared_preferences/shared_preferences.dart';
-import '../utils/app_logger.dart';
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 
 /// Service to manage onboarding state and preferences
 class OnboardingService {

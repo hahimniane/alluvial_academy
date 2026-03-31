@@ -1,8 +1,8 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 
-import '../utils/app_logger.dart';
-import '../utils/environment_utils.dart';
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+import 'package:alluwalacademyadmin/core/utils/environment_utils.dart';
 
 class JoinLinkService {
   static const String joinShiftParam = 'joinShift';
