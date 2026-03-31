@@ -2,9 +2,9 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
-import '../models/teacher_audit_full.dart';
-import '../services/teacher_audit_service.dart';
-import '../services/form_labels_cache_service.dart';
+import '../../../core/models/teacher_audit_full.dart';
+import 'teacher_audit_service.dart';
+import '../../../core/services/form_labels_cache_service.dart';
 
 /// **OPTIMIZATION 1: Parallel Data Loading**
 /// Load audits, labels, and other data in parallel instead of sequentially

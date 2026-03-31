@@ -4,7 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 import '../../../core/models/teacher_audit_full.dart';
-import '../../../core/services/teacher_audit_service.dart';
+import '../services/teacher_audit_service.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 /// Windows 11 Fluent Design Colors

@@ -3,9 +3,9 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:async';
-import '../../features/chat/services/chat_service.dart';
-import '../models/teacher_audit_full.dart';
-import '../utils/app_logger.dart';
+import '../../chat/services/chat_service.dart';
+import '../../../core/models/teacher_audit_full.dart';
+import '../../../core/utils/app_logger.dart';
 
 /// Optimized service for computing and managing teacher audit metrics
 class TeacherAuditService {

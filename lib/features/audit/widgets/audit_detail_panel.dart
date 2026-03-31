@@ -4,8 +4,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/models/teacher_audit_full.dart';
-import '../../../core/services/audit_class_log_row_builder.dart';
-import '../../../core/services/teacher_audit_service.dart';
+import '../services/audit_class_log_row_builder.dart';
+import '../services/teacher_audit_service.dart';
 import '../../../core/utils/app_logger.dart';
 import '../../chat/models/chat_user.dart';
 import '../../chat/screens/chat_screen.dart';

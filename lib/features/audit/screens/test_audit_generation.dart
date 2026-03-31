@@ -4,7 +4,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../../../core/services/teacher_audit_service.dart';
+import '../services/teacher_audit_service.dart';
 import '../../../core/utils/app_logger.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 

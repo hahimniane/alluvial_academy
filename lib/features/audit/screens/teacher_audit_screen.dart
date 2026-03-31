@@ -4,7 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import '../../../core/models/teacher_audit_metrics.dart';
-import '../../../core/services/audit_metrics_service.dart';
+import '../services/audit_metrics_service.dart';
 import '../../../core/services/pilot_flag_service.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 

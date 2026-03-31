@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-import '../config/admin_audit_compliance_config.dart';
+import '../../../core/config/admin_audit_compliance_config.dart';
 
 /// Loads [form_responses] for admin audit evaluation UI (CEO allowlist + submitter filter).
 class AdminAuditCeoSubmissionsService {

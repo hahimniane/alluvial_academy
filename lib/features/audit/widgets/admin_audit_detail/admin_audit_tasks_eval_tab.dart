@@ -5,7 +5,7 @@ import 'package:intl/intl.dart';
 import '../../../../core/config/admin_audit_evaluation_taxonomy.dart';
 import '../../../../core/enums/task_enums.dart';
 import '../../../../core/models/admin_audit.dart';
-import '../../../../core/services/admin_audit_tasks_query_service.dart';
+import '../../services/admin_audit_tasks_query_service.dart';
 import '../../../tasks/models/task.dart';
 import '../../../../l10n/app_localizations.dart';
 

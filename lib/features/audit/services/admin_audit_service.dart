@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../config/admin_audit_compliance_config.dart';
-import '../models/admin_audit.dart';
-import '../utils/app_logger.dart';
+import '../../../core/config/admin_audit_compliance_config.dart';
+import '../../../core/models/admin_audit.dart';
+import '../../../core/utils/app_logger.dart';
 
 /// Service for computing and storing admin audit KPIs.
 class AdminAuditService {

@@ -4,7 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/models/teacher_audit_full.dart';
-import '../../../core/services/teacher_audit_service.dart';
+import '../services/teacher_audit_service.dart';
 import '../../chat/models/chat_user.dart';
 import '../../chat/screens/chat_screen.dart';
 import '../../chat/screens/chat_page.dart';

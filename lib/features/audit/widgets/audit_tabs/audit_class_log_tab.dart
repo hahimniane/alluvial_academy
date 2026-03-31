@@ -4,7 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/models/teacher_audit_full.dart';
-import '../../../../core/services/audit_class_log_row_builder.dart';
+import '../../services/audit_class_log_row_builder.dart';
 import '../../../../core/utils/app_logger.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../audit_shared_widgets.dart';

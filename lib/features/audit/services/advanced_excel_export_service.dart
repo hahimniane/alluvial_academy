@@ -3,8 +3,8 @@ import 'package:excel/excel.dart';
 import 'package:intl/intl.dart';
 import 'package:universal_html/html.dart' as html;
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../models/teacher_audit_full.dart';
-import '../utils/save_export_file.dart';
+import '../../../core/models/teacher_audit_full.dart';
+import '../../../core/utils/save_export_file.dart';
 import 'audit_class_log_row_builder.dart';
 
 /// Translations for Excel export (no BuildContext in service, so we use locale code).

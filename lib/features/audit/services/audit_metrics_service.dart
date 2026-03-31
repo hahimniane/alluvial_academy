@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../models/teacher_audit_metrics.dart';
-import '../utils/app_logger.dart';
+import '../../../core/models/teacher_audit_metrics.dart';
+import '../../../core/utils/app_logger.dart';
 
 /// Service for computing and retrieving teacher audit metrics
 class AuditMetricsService {

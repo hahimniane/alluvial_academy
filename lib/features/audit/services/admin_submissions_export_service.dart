@@ -8,9 +8,9 @@ import 'package:printing/printing.dart';
 
 import 'package:alluwalacademyadmin/core/services/form_labels_cache_service.dart';
 import 'package:alluwalacademyadmin/core/models/teaching_shift.dart';
-import '../utils/save_export_file.dart';
+import '../../../core/utils/save_export_file.dart';
 
-import 'dart:html' if (dart.library.io) '../../utility_functions/html_stub.dart' as html;
+import 'dart:html' if (dart.library.io) '../../../utility_functions/html_stub.dart' as html;
 
 /// Export service for Admin → All submissions (review mode).
 /// Generates a single file (PDF or Excel) containing the selected submissions,

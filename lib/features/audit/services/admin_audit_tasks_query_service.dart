@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-import '../../features/tasks/models/task.dart';
+import '../../tasks/models/task.dart';
 
 /// Tasks touching an admin in a calendar month (same window as [AdminAuditService]).
 class AdminAuditTasksQueryService {

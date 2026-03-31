@@ -6,10 +6,10 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
-import '../config/admin_audit_evaluation_taxonomy.dart';
-import '../models/admin_audit.dart';
-import '../utils/save_export_file.dart';
-import 'dart:html' if (dart.library.io) '../../utility_functions/html_stub.dart' as html;
+import '../../../core/config/admin_audit_evaluation_taxonomy.dart';
+import '../../../core/models/admin_audit.dart';
+import '../../../core/utils/save_export_file.dart';
+import 'dart:html' if (dart.library.io) '../../../utility_functions/html_stub.dart' as html;
 
 /// Labels for PDF/Excel admin evaluation exports (from [AppLocalizations]).
 class AdminEvalExportLabels {

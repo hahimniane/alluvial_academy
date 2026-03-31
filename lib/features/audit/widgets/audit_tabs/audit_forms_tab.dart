@@ -4,7 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/models/teacher_audit_full.dart';
-import '../../../../core/services/teacher_audit_service.dart';
+import '../../services/teacher_audit_service.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../forms/widgets/form_details_modal.dart' show FormSubmissionDetailsView;
 import '../audit_shared_widgets.dart';
