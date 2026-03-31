@@ -11,7 +11,7 @@ import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 import 'package:alluwalacademyadmin/features/audit/models/teacher_audit_metrics.dart';
 import '../services/audit_metrics_service.dart';
-import 'dart:html' if (dart.library.io) '../../../utility_functions/html_stub.dart'
+import 'dart:html' if (dart.library.io) 'package:alluwalacademyadmin/core/utils/html_stub.dart'
     as html;
 
 /// Admin dashboard for viewing teacher audit metrics

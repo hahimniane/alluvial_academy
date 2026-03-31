@@ -9,7 +9,7 @@ import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 import 'package:alluwalacademyadmin/features/audit/config/admin_audit_evaluation_taxonomy.dart';
 import 'package:alluwalacademyadmin/features/audit/models/admin_audit.dart';
 import '../../../core/utils/save_export_file.dart';
-import 'dart:html' if (dart.library.io) '../../../utility_functions/html_stub.dart' as html;
+import 'dart:html' if (dart.library.io) 'package:alluwalacademyadmin/core/utils/html_stub.dart' as html;
 
 /// Labels for PDF/Excel admin evaluation exports (from [AppLocalizations]).
 class AdminEvalExportLabels {

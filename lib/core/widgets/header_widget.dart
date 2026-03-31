@@ -1,4 +1,4 @@
-import 'package:alluwalacademyadmin/widgets/export_widget.dart';
+import 'package:alluwalacademyadmin/core/widgets/export_widget.dart';
 import 'package:flutter/material.dart';
 import '../../features/user_management/screens/add_user_screen.dart';
 import '../../core/constants/app_constants.dart';

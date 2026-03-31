@@ -14,7 +14,7 @@ import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 import 'package:alluwalacademyadmin/features/profile/services/profile_picture_service.dart';
 import 'package:alluwalacademyadmin/core/services/notification_service.dart';
 import 'package:alluwalacademyadmin/features/audit/services/teacher_audit_service.dart';
-import 'package:alluwalacademyadmin/shared/widgets/role_switcher.dart';
+import 'package:alluwalacademyadmin/core/widgets/role_switcher.dart';
 import 'package:alluwalacademyadmin/features/dashboard/screens/admin_dashboard_screen.dart';
 import 'package:alluwalacademyadmin/features/dashboard/screens/teacher_job_board_screen.dart';
 import 'package:alluwalacademyadmin/features/dashboard/screens/role_based_dashboard.dart';

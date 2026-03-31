@@ -15,7 +15,7 @@ import 'parent_profile_screen.dart';
 import 'parent_classes_screen.dart';
 import '../../recordings/screens/class_recordings_screen.dart';
 import '../../settings/screens/role_settings_screen.dart';
-import '../../../shared/widgets/role_switcher.dart';
+import 'package:alluwalacademyadmin/core/widgets/role_switcher.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 /// Parent Dashboard Layout with sidebar navigation

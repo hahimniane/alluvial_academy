@@ -9,9 +9,9 @@ import 'package:csv/csv.dart';
 import 'package:universal_html/html.dart' as html;
 
 import 'package:alluwalacademyadmin/core/constants/app_constants.dart';
-import 'package:alluwalacademyadmin/shared/widgets/header_widget.dart';
+import 'package:alluwalacademyadmin/core/widgets/header_widget.dart';
 import 'package:alluwalacademyadmin/core/models/employee_model.dart';
-import 'package:alluwalacademyadmin/utility_functions/export_helpers.dart';
+import 'package:alluwalacademyadmin/core/utils/export_helpers.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';

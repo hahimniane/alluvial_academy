@@ -8,7 +8,7 @@ import '../../../core/models/user.dart';
 import 'package:alluwalacademyadmin/features/shift_management/models/enhanced_recurrence.dart';
 import 'package:alluwalacademyadmin/features/shift_management/enums/shift_enums.dart';
 import 'package:alluwalacademyadmin/features/tasks/enums/task_enums.dart';
-import '../../../shared/widgets/enhanced_recurrence_picker.dart';
+import 'package:alluwalacademyadmin/features/shift_management/widgets/enhanced_recurrence_picker.dart';
 import '../../../core/utils/connecteam_style.dart';
 import '../models/task.dart';
 import '../services/task_service.dart';

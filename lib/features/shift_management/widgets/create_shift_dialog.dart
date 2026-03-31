@@ -8,7 +8,7 @@ import 'package:alluwalacademyadmin/features/shift_management/models/enhanced_re
 import 'package:alluwalacademyadmin/features/shift_management/models/subject.dart';
 import 'package:alluwalacademyadmin/features/shift_management/services/shift_service.dart';
 import 'package:alluwalacademyadmin/features/shift_management/services/subject_service.dart';
-import '../../../shared/widgets/enhanced_recurrence_picker.dart';
+import 'package:alluwalacademyadmin/features/shift_management/widgets/enhanced_recurrence_picker.dart';
 import '../../../core/services/timezone_service.dart';
 import '../../../core/utils/timezone_utils.dart';
 import '../../../core/widgets/timezone_selector_field.dart';

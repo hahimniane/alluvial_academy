@@ -8,9 +8,9 @@ import 'package:alluwalacademyadmin/features/settings/screens/system_settings_sc
 import 'package:flutter/foundation.dart'
     show kIsWeb, defaultTargetPlatform, TargetPlatform;
 // Conditional import - uses dart:html on web, stub on other platforms
-import '../../../utility_functions/html_stub.dart'
+import 'package:alluwalacademyadmin/core/utils/html_stub.dart'
     if (dart.library.html) 'dart:html' as html;
-import '../../../utility_functions/export_helpers.dart';
+import 'package:alluwalacademyadmin/core/utils/export_helpers.dart';
 import 'package:alluwalacademyadmin/features/shift_management/models/teaching_shift.dart';
 import 'package:alluwalacademyadmin/features/shift_management/enums/shift_enums.dart';
 import 'package:alluwalacademyadmin/features/shift_management/services/shift_service.dart';

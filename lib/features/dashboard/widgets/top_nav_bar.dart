@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../core/services/auth_service.dart';
+import 'package:alluwalacademyadmin/core/services/auth_service.dart';
 
 class TopNavBar extends StatelessWidget implements PreferredSizeWidget {
   final String title;

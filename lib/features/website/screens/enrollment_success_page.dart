@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../../shared/widgets/fade_in_slide.dart';
+import 'package:alluwalacademyadmin/core/widgets/fade_in_slide.dart';
 import 'landing_page.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 

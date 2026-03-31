@@ -1,18 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../features/website/screens/landing_page.dart';
-import '../features/website/screens/program_selection_page.dart';
-import '../features/website/screens/islamic_courses_page.dart';
-import '../features/website/screens/afrolingual_page.dart';
-import '../features/website/screens/tutoring_literacy_page.dart';
-import '../features/website/screens/teacher_application_screen.dart';
-import '../features/website/screens/about_page.dart';
-import '../features/website/screens/contact_page.dart';
-import '../features/website/screens/math_page.dart';
-import '../features/website/screens/programming_page.dart';
-import '../features/website/screens/teachers_page.dart';
-import '../features/website/screens/team_page.dart';
-import '../main.dart';
+import 'package:alluwalacademyadmin/features/website/screens/landing_page.dart';
+import 'package:alluwalacademyadmin/features/website/screens/program_selection_page.dart';
+import 'package:alluwalacademyadmin/features/website/screens/islamic_courses_page.dart';
+import 'package:alluwalacademyadmin/features/website/screens/afrolingual_page.dart';
+import 'package:alluwalacademyadmin/features/website/screens/tutoring_literacy_page.dart';
+import 'package:alluwalacademyadmin/features/website/screens/teacher_application_screen.dart';
+import 'package:alluwalacademyadmin/features/website/screens/about_page.dart';
+import 'package:alluwalacademyadmin/features/website/screens/contact_page.dart';
+import 'package:alluwalacademyadmin/features/website/screens/math_page.dart';
+import 'package:alluwalacademyadmin/features/website/screens/programming_page.dart';
+import 'package:alluwalacademyadmin/features/website/screens/teachers_page.dart';
+import 'package:alluwalacademyadmin/features/website/screens/team_page.dart';
+import 'package:alluwalacademyadmin/main.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class ModernHeader extends StatefulWidget {
