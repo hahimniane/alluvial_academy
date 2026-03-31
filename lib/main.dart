@@ -1,10 +1,13 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'core/services/auth_service.dart';
+import 'core/services/error_reporting_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
@@ -242,7 +245,6 @@ Future<void> main() async {
         details.exception
             .toString()
             .contains('!identical(kind, PointerDeviceKind.trackpad)')) {
-      // Silently ignore trackpad gesture assertion errors
       if (kDebugMode) {
         AppLogger.debug(
             'Ignoring trackpad gesture assertion: ${details.exception}');
@@ -252,7 +254,6 @@ Future<void> main() async {
 
     // For other errors, be conservative on web to avoid inspector crashes
     if (kIsWeb) {
-      // Work around a web debug inspector type error with LegacyJavaScriptObject
       final msg = details.exception.toString();
       if (msg.contains('LegacyJavaScriptObject') ||
           msg.contains('DiagnosticsNode') ||
@@ -263,14 +264,43 @@ Future<void> main() async {
         }
         return;
       }
-      // Dump to console without structured inspector overlay
+      // Report to Firestore for remote tracing
+      ErrorReportingService.reportError(
+        details.exception,
+        details.stack,
+        context: 'flutter_error',
+        fatal: false,
+      );
       FlutterError.dumpErrorToConsole(details);
       return;
     }
 
-    // Non-web: use default handler
+    // Native: report to Crashlytics + Firestore
+    if (!kIsWeb) {
+      FirebaseCrashlytics.instance.recordFlutterError(details);
+    }
+    ErrorReportingService.reportError(
+      details.exception,
+      details.stack,
+      context: 'flutter_error',
+      fatal: false,
+    );
     FlutterError.presentError(details);
   };
+
+  // Catch async errors not handled by Flutter framework
+  PlatformDispatcher.instance.onError = (error, stack) {
+    ErrorReportingService.reportError(error, stack, context: 'platform_async', fatal: true);
+    if (!kIsWeb) {
+      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+    }
+    return true;
+  };
+
+  // Initialize Crashlytics on native platforms
+  if (!kIsWeb) {
+    await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(kReleaseMode);
+  }
 
   // Use runWidget for web multiview compatibility
   if (kIsWeb) {
@@ -903,14 +933,20 @@ class _AuthenticationWrapperState extends State<AuthenticationWrapper> {
 
         // If the snapshot has user data, then they're already signed in
         if (snapshot.hasData && snapshot.data != null) {
+          // Set user context for error reporting so all errors are traceable
+          final user = snapshot.data!;
+          ErrorReportingService.setUser(user.uid, email: user.email);
+          ErrorReportingService.addBreadcrumb('user_authenticated');
+          if (!kIsWeb) {
+            FirebaseCrashlytics.instance.setUserIdentifier(user.uid);
+          }
+
           _triggerJoinLinkHandling();
-          // Use the unified role-based dashboard across platforms.
-          // DashboardPage adapts layout responsively (drawer on small screens).
           return const RoleBasedDashboard();
         }
 
-        // Otherwise, they're not signed in
-        // On mobile (native or mobile web), show mobile login; on desktop web, show web login
+        // Not signed in — clear user context
+        ErrorReportingService.clearUser();
         return _isMobile(context) ? const MobileLoginScreen() : const EmployeeHubApp();
       },
     );
@@ -1091,6 +1127,7 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
 
       if (user != null) {
         AppLogger.info('AuthService login succeeded for uid=${user.uid}');
+        ErrorReportingService.addBreadcrumb('login_email');
       }
     } on FirebaseAuthException catch (e) {
       String errorMessage;
@@ -1156,6 +1193,7 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
 
       if (user != null) {
         AppLogger.info('Google sign-in succeeded for uid=${user.uid}');
+        ErrorReportingService.addBreadcrumb('login_google');
       }
     } on FirebaseAuthException catch (e) {
       String errorMessage;

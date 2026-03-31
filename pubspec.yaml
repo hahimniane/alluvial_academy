@@ -55,6 +55,7 @@ dependencies:
   country_picker: ^2.0.26
   image_picker: ^1.0.7
   image: ^4.3.0
+  firebase_crashlytics: ^5.1.0
   firebase_messaging: ^16.1.0
   flutter_local_notifications: ^19.5.0
   package_info_plus: ^8.0.0

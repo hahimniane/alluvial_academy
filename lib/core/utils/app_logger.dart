@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'package:logger/logger.dart';
+import 'package:alluwalacademyadmin/core/services/error_reporting_service.dart';
 
 class _ErrorOnlyFilter extends LogFilter {
   @override
@@ -127,16 +129,36 @@ class AppLogger {
   }
 
   /// Log an error message (recoverable errors)
-  /// Use for errors that were caught and handled
-  static void error(dynamic message, {dynamic error, StackTrace? stackTrace}) {
+  /// Use for errors that were caught and handled.
+  /// Errors are also sent to Firestore error_logs for remote tracing.
+  static void error(dynamic message, {dynamic error, StackTrace? stackTrace, String? context}) {
     _logger.e(message, error: error, stackTrace: stackTrace);
+    // Report to Firestore in release mode (and debug if opted in)
+    if (kReleaseMode || _remoteLoggingInDebug) {
+      ErrorReportingService.reportError(
+        error ?? message,
+        stackTrace,
+        context: context,
+      );
+    }
   }
 
   /// Log a fatal error (critical errors)
-  /// Use for critical errors that might cause app instability
-  static void fatal(dynamic message, {dynamic error, StackTrace? stackTrace}) {
+  /// Use for critical errors that might cause app instability.
+  /// Fatal errors are always sent to Firestore error_logs.
+  static void fatal(dynamic message, {dynamic error, StackTrace? stackTrace, String? context}) {
     _logger.f(message, error: error, stackTrace: stackTrace);
+    ErrorReportingService.reportError(
+      error ?? message,
+      stackTrace,
+      context: context,
+      fatal: true,
+    );
   }
+
+  /// Enable remote error logging even in debug mode (off by default)
+  static bool _remoteLoggingInDebug = false;
+  static void enableRemoteLoggingInDebug() => _remoteLoggingInDebug = true;
 
   /// Log a trace message (very detailed debugging)
   /// Use for extremely verbose debugging when you need to trace execution
