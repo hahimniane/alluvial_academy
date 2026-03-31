@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../core/models/form_template.dart';
-import '../core/services/form_template_service.dart';
-import '../core/utils/app_logger.dart';
+import '../../../core/models/form_template.dart';
+import '../../../core/services/form_template_service.dart';
+import '../../../core/utils/app_logger.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 /// Admin screen for managing form templates

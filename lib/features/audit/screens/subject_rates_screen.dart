@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../../core/models/teacher_audit_full.dart';
-import '../../core/services/teacher_audit_service.dart';
-import '../../core/utils/app_logger.dart';
+import '../../../core/models/teacher_audit_full.dart';
+import '../../../core/services/teacher_audit_service.dart';
+import '../../../core/utils/app_logger.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 /// Admin screen for managing subject hourly rates

@@ -9,9 +9,9 @@ import 'package:alluwalacademyadmin/core/utils/export_saved_snackbar.dart';
 import 'package:alluwalacademyadmin/core/utils/save_export_file.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
-import '../../core/models/teacher_audit_metrics.dart';
-import '../../core/services/audit_metrics_service.dart';
-import 'dart:html' if (dart.library.io) '../../utility_functions/html_stub.dart'
+import '../../../core/models/teacher_audit_metrics.dart';
+import '../../../core/services/audit_metrics_service.dart';
+import 'dart:html' if (dart.library.io) '../../../utility_functions/html_stub.dart'
     as html;
 
 /// Admin dashboard for viewing teacher audit metrics

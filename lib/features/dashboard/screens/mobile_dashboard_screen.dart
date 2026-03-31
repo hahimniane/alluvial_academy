@@ -22,7 +22,7 @@ import './teacher_job_board_screen.dart';
 import '../../profile/screens/teacher_profile_screen.dart';
 import '../../student/screens/student_classes_screen.dart'; // Student classes screen
 import '../../student/screens/student_progress_screen.dart'; // Student progress screen
-import '../../admin/screens/admin_classes_screen.dart'; // Admin classes screen
+import '../../shift_management/screens/admin_classes_screen.dart'; // Admin classes screen
 import '../../recordings/screens/class_recordings_screen.dart';
 import '../../surah_podcast/screens/surah_podcast_screen.dart';
 import '../../quiz/screens/quiz_home_screen.dart'; // Quiz feature

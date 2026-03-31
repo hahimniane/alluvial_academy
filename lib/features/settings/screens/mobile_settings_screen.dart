@@ -14,7 +14,7 @@ import '../../../core/services/onboarding_service.dart';
 import '../../../core/services/mobile_classes_access_service.dart';
 import '../../onboarding/services/student_feature_tour.dart';
 import 'notification_preferences_screen.dart';
-import '../../admin/screens/mobile_classes_access_screen.dart';
+import '../../shift_management/screens/mobile_classes_access_screen.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 

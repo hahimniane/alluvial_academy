@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../core/models/teacher_audit_full.dart';
+import '../../../core/models/teacher_audit_full.dart';
 import '../widgets/audit_detail_panel.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 

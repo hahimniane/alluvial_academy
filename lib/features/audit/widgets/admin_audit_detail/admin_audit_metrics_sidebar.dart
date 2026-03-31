@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../../core/config/admin_audit_compliance_config.dart';
-import '../../../core/models/admin_audit.dart';
-import '../../../core/services/admin_audit_form_title_resolver.dart';
-import '../../../l10n/app_localizations.dart';
+import '../../../../core/config/admin_audit_compliance_config.dart';
+import '../../../../core/models/admin_audit.dart';
+import '../../../../core/services/admin_audit_form_title_resolver.dart';
+import '../../../../l10n/app_localizations.dart';
 
 /// Left rail: all [AdminAudit] KPIs (mirrors teacher evaluation stats column pattern).
 class AdminAuditMetricsSidebar extends StatefulWidget {

@@ -5,7 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/constants/build_info.dart';
 import '../../../core/services/mobile_classes_access_service.dart';
 import '../../../core/services/user_role_service.dart';
-import '../../admin/screens/mobile_classes_access_screen.dart';
+import '../../shift_management/screens/mobile_classes_access_screen.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';

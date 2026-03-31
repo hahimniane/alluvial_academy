@@ -11,7 +11,7 @@ import '../../../core/models/teaching_shift.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 import '../utils/form_submission_view_mode.dart';
 import '../widgets/form_details_modal.dart';
-import '../../../admin/screens/admin_audit_screen.dart';
+import '../../audit/screens/admin_audit_screen.dart';
 import 'admin_submissions_review_screen.dart';
 
 /// Admin screen – Gmail-density redesign.

@@ -2,9 +2,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../../core/models/admin_audit.dart';
-import '../../../core/services/admin_audit_evaluation_export_service.dart';
-import '../../../l10n/app_localizations.dart';
+import '../../../../core/models/admin_audit.dart';
+import '../../../../core/services/admin_audit_evaluation_export_service.dart';
+import '../../../../l10n/app_localizations.dart';
 
 class AdminAuditSummaryEvalTab extends StatelessWidget {
   final AdminAudit audit;
