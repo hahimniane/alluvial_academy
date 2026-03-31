@@ -20,7 +20,7 @@ import 'role_based_dashboard.dart';
 import 'firebase_options.dart' as prod_firebase;
 import 'firebase_options_dev.dart' as dev_firebase;
 import 'core/constants/app_constants.dart';
-import 'screens/landing_page.dart';
+import 'features/website/screens/landing_page.dart';
 import 'core/utils/timezone_utils.dart';
 import 'core/utils/auth_debug_logger.dart';
 import 'features/auth/screens/mobile_login_screen.dart';

@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/services/join_link_service.dart';
 import '../../../core/services/livekit_service.dart';
-import '../../../screens/landing_page.dart';
+import '../../website/screens/landing_page.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class GuestJoinScreen extends StatefulWidget {

@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../widgets/modern_header.dart';
-import '../shared/widgets/fade_in_slide.dart';
+import '../../../widgets/modern_header.dart';
+import '../../../shared/widgets/fade_in_slide.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class ContactPage extends StatefulWidget {

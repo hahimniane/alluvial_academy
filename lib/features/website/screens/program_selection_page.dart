@@ -3,10 +3,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl_phone_field/intl_phone_field.dart';
 import 'package:country_picker/country_picker.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
-import '../widgets/modern_header.dart';
-import '../shared/widgets/fade_in_slide.dart';
-import '../core/models/enrollment_request.dart';
-import '../core/services/enrollment_service.dart';
+import '../../../widgets/modern_header.dart';
+import '../../../shared/widgets/fade_in_slide.dart';
+import '../../../core/models/enrollment_request.dart';
+import '../../../core/services/enrollment_service.dart';
 import 'enrollment_success_page.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 

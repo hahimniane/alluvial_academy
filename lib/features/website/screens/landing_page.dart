@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../widgets/modern_header.dart';
-import '../shared/widgets/fade_in_slide.dart';
+import '../../../widgets/modern_header.dart';
+import '../../../shared/widgets/fade_in_slide.dart';
 import 'program_selection_page.dart';
 import 'teachers_page.dart';
 import 'islamic_courses_page.dart';

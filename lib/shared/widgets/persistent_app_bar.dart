@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../screens/landing_page.dart';
-import '../../screens/islamic_courses_page.dart';
-import '../../screens/tutoring_literacy_page.dart';
-import '../../screens/afrolingual_page.dart';
+import '../../features/website/screens/landing_page.dart';
+import '../../features/website/screens/islamic_courses_page.dart';
+import '../../features/website/screens/tutoring_literacy_page.dart';
+import '../../features/website/screens/afrolingual_page.dart';
 import '../../main.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 

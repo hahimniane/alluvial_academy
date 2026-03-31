@@ -6,7 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/services/user_role_service.dart';
 import '../../../form_screen.dart';
-import '../../../screens/landing_page.dart';
+import '../../website/screens/landing_page.dart';
 import '../../dashboard/widgets/custom_sidebar.dart';
 import 'parent_dashboard_screen.dart';
 import 'parent_invoices_screen.dart';

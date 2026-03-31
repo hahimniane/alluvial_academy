@@ -1,18 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../widgets/modern_header.dart';
-import '../shared/widgets/fade_in_slide.dart';
+import '../../../widgets/modern_header.dart';
+import '../../../shared/widgets/fade_in_slide.dart';
 import 'program_selection_page.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
-class MathPage extends StatefulWidget {
-  const MathPage({super.key});
+class AfrolingualPage extends StatefulWidget {
+  const AfrolingualPage({super.key});
 
   @override
-  State<MathPage> createState() => _MathPageState();
+  State<AfrolingualPage> createState() => _AfrolingualPageState();
 }
 
-class _MathPageState extends State<MathPage> {
+class _AfrolingualPageState extends State<AfrolingualPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -27,7 +27,7 @@ class _MathPageState extends State<MathPage> {
                 children: [
                   _buildHeroSection(),
                   _buildProgramOverview(),
-                  _buildTopicsSection(),
+                  _buildLanguagesOffered(),
                   _buildCTASection(),
                 ],
               ),
@@ -46,7 +46,7 @@ class _MathPageState extends State<MathPage> {
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color(0xffEFF6FF), Color(0xffDBEAFE)],
+          colors: [Color(0xffFFF7ED), Color(0xffFFFBEB)],
         ),
       ),
       child: Column(
@@ -56,16 +56,16 @@ class _MathPageState extends State<MathPage> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
-                color: const Color(0xff3B82F6).withOpacity(0.1),
+                color: const Color(0xffF59E0B).withOpacity(0.1),
                 borderRadius: BorderRadius.circular(50),
-                border: Border.all(color: const Color(0xff3B82F6).withOpacity(0.2)),
+                border: Border.all(color: const Color(0xffF59E0B).withOpacity(0.2)),
               ),
               child: Text(
-                AppLocalizations.of(context)!.mathematicsProgram,
+                AppLocalizations.of(context)!.globalLanguagesProgram,
                 style: GoogleFonts.inter(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
-                  color: const Color(0xff3B82F6),
+                  color: const Color(0xffF59E0B),
                 ),
               ),
             ),
@@ -74,7 +74,7 @@ class _MathPageState extends State<MathPage> {
           FadeInSlide(
             delay: 0.2,
             child: Text(
-              AppLocalizations.of(context)!.masterMathematicsWithNconfidenceClarity,
+              AppLocalizations.of(context)!.masterEnglishAfricanNindigenousLanguages,
               textAlign: TextAlign.center,
               style: GoogleFonts.inter(
                 fontSize: MediaQuery.of(context).size.width > 600 ? 48 : 32,
@@ -91,7 +91,7 @@ class _MathPageState extends State<MathPage> {
             child: Container(
               constraints: const BoxConstraints(maxWidth: 700),
               child: Text(
-                AppLocalizations.of(context)!.fromBasicArithmeticToAdvancedCalculus,
+                AppLocalizations.of(context)!.fromMasteringEnglishGrammarAndVocabulary,
                 textAlign: TextAlign.center,
                 style: GoogleFonts.inter(
                   fontSize: 18,
@@ -142,7 +142,7 @@ class _MathPageState extends State<MathPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          AppLocalizations.of(context)!.whyChooseOurMathProgram,
+          AppLocalizations.of(context)!.languageExcellence,
           style: GoogleFonts.inter(
             fontSize: 32,
             fontWeight: FontWeight.w800,
@@ -151,7 +151,7 @@ class _MathPageState extends State<MathPage> {
         ),
         const SizedBox(height: 24),
         Text(
-          AppLocalizations.of(context)!.mathematicsIsMoreThanJustNumbers,
+          AppLocalizations.of(context)!.ourLanguageProgramsAreDesignedTo,
           style: GoogleFonts.inter(
             fontSize: 16,
             color: const Color(0xff374151),
@@ -160,21 +160,21 @@ class _MathPageState extends State<MathPage> {
         ),
         const SizedBox(height: 32),
         _buildFeatureItem(
-          Icons.functions_rounded,
-          'Concept Mastery',
-          'Focus on understanding the "why" behind the math, not just memorizing formulas.',
+          Icons.school_rounded,
+          'English Mastery',
+          'Comprehensive support including homework help, reading comprehension, grammar, vocabulary, and exam preparation.',
         ),
         const SizedBox(height: 16),
         _buildFeatureItem(
-          Icons.trending_up_rounded,
-          'Personalized Pace',
-          'Learn at your own speed with customized lesson plans tailored to your level.',
+          Icons.language_rounded,
+          'African Languages',
+          'Authentic instruction in major African languages from native speakers.',
         ),
         const SizedBox(height: 16),
         _buildFeatureItem(
-          Icons.assignment_turned_in_rounded,
-          'Exam Preparation',
-          'Targeted practice for school exams, standardized tests, and competitions.',
+          Icons.psychology_rounded,
+          'Personalized Learning',
+          'Tailored curriculum to meet individual student needs and goals.',
         ),
       ],
     );
@@ -188,13 +188,13 @@ class _MathPageState extends State<MathPage> {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(32),
           gradient: const LinearGradient(
-            colors: [Color(0xff3B82F6), Color(0xff2563EB)],
+            colors: [Color(0xffF59E0B), Color(0xffD97706)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xff3B82F6).withOpacity(0.3),
+              color: const Color(0xffF59E0B).withOpacity(0.3),
               blurRadius: 30,
               offset: const Offset(0, 15),
             ),
@@ -202,7 +202,7 @@ class _MathPageState extends State<MathPage> {
         ),
         child: const Center(
           child: Icon(
-            Icons.calculate_rounded,
+            Icons.translate_rounded,
             color: Colors.white,
             size: 120,
           ),
@@ -219,10 +219,10 @@ class _MathPageState extends State<MathPage> {
           width: 48,
           height: 48,
           decoration: BoxDecoration(
-            color: const Color(0xff3B82F6).withOpacity(0.1),
+            color: const Color(0xffF59E0B).withOpacity(0.1),
             borderRadius: BorderRadius.circular(16),
           ),
-          child: Icon(icon, color: const Color(0xff3B82F6), size: 24),
+          child: Icon(icon, color: const Color(0xffF59E0B), size: 24),
         ),
         const SizedBox(width: 16),
         Expanded(
@@ -253,20 +253,19 @@ class _MathPageState extends State<MathPage> {
     );
   }
 
-  Widget _buildTopicsSection() {
-    final topics = [
-      _buildTopicCard('Elementary Math', 'Grades K-5', const Color(0xff10B981), 
-          description: 'Building a strong foundation in arithmetic, shapes, and problem-solving.'),
-      _buildTopicCard('Pre-Algebra & Algebra', 'Grades 6-9', const Color(0xffF59E0B), 
-          description: 'Mastering variables, equations, functions, and graphing.'),
-      _buildTopicCard('Geometry', 'Grades 8-10', const Color(0xff8B5CF6), 
-          description: 'Exploring shapes, sizes, relative positions, and properties of space.'),
-      _buildTopicCard('Trigonometry', 'Grades 10-11', const Color(0xffEF4444), 
-          description: 'Understanding relationships between side lengths and angles of triangles.'),
-      _buildTopicCard('Calculus', 'Grades 11-12+', const Color(0xff06B6D4), 
-          description: 'Diving into limits, derivatives, integrals, and infinite series.'),
-      _buildTopicCard('Statistics', 'High School & College', const Color(0xff3B82F6), 
-          description: 'Analyzing data, probability, distributions, and inference.'),
+  Widget _buildLanguagesOffered() {
+    final languages = [
+      _buildLanguageCard('English', 'Global', const Color(0xff3B82F6), 
+          description: 'Complete support for reading, writing, grammar, vocabulary, and exam prep.'),
+      _buildLanguageCard('French', 'Global', const Color(0xff6366F1), 
+          description: 'Master French language skills including conversation, grammar, and cultural understanding.'),
+      _buildLanguageCard('Adlam', 'West Africa', const Color(0xff8B5CF6),
+          description: 'Learn the Adlam script for writing Fulani (Fulfulde/Pular), a modern alphabet created to preserve and promote this important West African language.'),
+      _buildLanguageCard('Swahili', 'East Africa', const Color(0xff10B981)),
+      _buildLanguageCard('Yoruba', 'West Africa', const Color(0xff8B5CF6)),
+      _buildLanguageCard('Amharic', 'Horn of Africa', const Color(0xffEF4444)),
+      _buildLanguageCard('Wolof', 'West Africa', const Color(0xff06B6D4)),
+      _buildLanguageCard('Hausa', 'West & Central Africa', const Color(0xffF59E0B)),
     ];
 
     return Container(
@@ -276,7 +275,7 @@ class _MathPageState extends State<MathPage> {
       child: Column(
         children: [
           Text(
-            AppLocalizations.of(context)!.topicsWeCover,
+            AppLocalizations.of(context)!.languagesWeOffer,
             textAlign: TextAlign.center,
             style: GoogleFonts.inter(
               fontSize: 36,
@@ -293,14 +292,16 @@ class _MathPageState extends State<MathPage> {
                 final isTablet = constraints.maxWidth > 600;
                 
                 if (!isTablet) {
+                  // Mobile: Column
                   return Column(
-                    children: topics.map((card) => Padding(
+                    children: languages.map((card) => Padding(
                       padding: const EdgeInsets.only(bottom: 24),
                       child: card,
                     )).toList(),
                   );
                 }
 
+                // Tablet/Desktop: Grid
                 final crossAxisCount = isDesktop ? 3 : 2;
                 return GridView.count(
                   shrinkWrap: true,
@@ -308,8 +309,8 @@ class _MathPageState extends State<MathPage> {
                   crossAxisCount: crossAxisCount,
                   crossAxisSpacing: 32,
                   mainAxisSpacing: 32,
-                  childAspectRatio: isDesktop ? 1.1 : 1.2,
-                  children: topics,
+                  childAspectRatio: isDesktop ? 0.85 : 0.9,
+                  children: languages,
                 );
               },
             ),
@@ -319,7 +320,7 @@ class _MathPageState extends State<MathPage> {
     );
   }
 
-  Widget _buildTopicCard(String topic, String level, Color color, {String? description}) {
+  Widget _buildLanguageCard(String language, String region, Color color, {String? description}) {
     return FadeInSlide(
       child: Container(
         padding: const EdgeInsets.all(24),
@@ -337,7 +338,8 @@ class _MathPageState extends State<MathPage> {
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisAlignment: MainAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Container(
               width: 60,
@@ -347,12 +349,19 @@ class _MathPageState extends State<MathPage> {
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Center(
-                child: Icon(Icons.functions, color: color, size: 30),
+                child: Text(
+                  language[0],
+                  style: GoogleFonts.inter(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                    color: color,
+                  ),
+                ),
               ),
             ),
             const SizedBox(height: 24),
             Text(
-              topic,
+              language,
               style: GoogleFonts.inter(
                 fontSize: 20,
                 fontWeight: FontWeight.w700,
@@ -361,7 +370,7 @@ class _MathPageState extends State<MathPage> {
             ),
             const SizedBox(height: 4),
             Text(
-              level,
+              region,
               style: GoogleFonts.inter(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
@@ -369,25 +378,44 @@ class _MathPageState extends State<MathPage> {
               ),
             ),
             if (description != null) ...[
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               Text(
                 description,
                 style: GoogleFonts.inter(
-                  fontSize: 13,
+                  fontSize: 12,
                   color: const Color(0xff6B7280),
-                  height: 1.4,
+                  height: 1.3,
                 ),
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
               ),
             ],
-            const SizedBox(height: 20),
+            const Spacer(),
+            const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
               child: OutlinedButton(
                 onPressed: () {
+                  // Map language to subject based on new system
+                  String subject;
+                  bool isLanguageSelection = true;
+                  String? selectedLanguage;
+                  
+                  if (language == 'English' || language == 'French' || language == 'Adlam') {
+                    subject = language;
+                    selectedLanguage = null;
+                  } else {
+                    // For other African languages, use "African Languages (Other)" and pre-select the language
+                    subject = 'African Languages (Other)';
+                    selectedLanguage = language;
+                  }
+                  
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => const ProgramSelectionPage(initialSubject: 'Math'),
+                      builder: (context) => const ProgramSelectionPage(
+                        initialSubject: 'AfroLanguage: Poular, Mandingo, Swahili',
+                      ),
                     ),
                   );
                 },
@@ -413,13 +441,13 @@ class _MathPageState extends State<MathPage> {
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 80),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
-          colors: [Color(0xff3B82F6), Color(0xff1E40AF)],
+          colors: [Color(0xffF59E0B), Color(0xffD97706)],
         ),
       ),
       child: Column(
         children: [
           Text(
-            AppLocalizations.of(context)!.unlockYourMathPotentialToday,
+            AppLocalizations.of(context)!.beginYourLanguageJourney,
             textAlign: TextAlign.center,
             style: GoogleFonts.inter(
               fontSize: 32,
@@ -430,7 +458,7 @@ class _MathPageState extends State<MathPage> {
           ),
           const SizedBox(height: 16),
           Text(
-            AppLocalizations.of(context)!.joinThousandsOfStudentsExcellingIn,
+            AppLocalizations.of(context)!.connectWithTheWorldThroughLanguage,
             style: GoogleFonts.inter(
               fontSize: 18,
               color: Colors.white.withOpacity(0.9),
@@ -442,13 +470,15 @@ class _MathPageState extends State<MathPage> {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => const ProgramSelectionPage(initialSubject: 'Math'),
+                  builder: (context) => const ProgramSelectionPage(
+                    initialSubject: 'AfroLanguage: Poular, Mandingo, Swahili',
+                  ),
                 ),
               );
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.white,
-              foregroundColor: const Color(0xff3B82F6),
+              foregroundColor: const Color(0xffF59E0B),
               padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -467,4 +497,3 @@ class _MathPageState extends State<MathPage> {
     );
   }
 }
-

@@ -38,7 +38,7 @@ import 'features/audit/screens/teacher_audit_detail_screen.dart';
 import 'admin/screens/test_audit_generation.dart';
 import 'features/forms/screens/teacher_forms_screen.dart';
 import 'features/dashboard/screens/teacher_job_board_screen.dart';
-import 'screens/landing_page.dart';
+import 'features/website/screens/landing_page.dart';
 import 'role_based_dashboard.dart';
 import 'core/services/profile_picture_service.dart';
 import 'features/profile/screens/teacher_profile_screen.dart';

@@ -1,18 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../widgets/modern_header.dart';
-import '../shared/widgets/fade_in_slide.dart';
+import '../../../widgets/modern_header.dart';
+import '../../../shared/widgets/fade_in_slide.dart';
 import 'program_selection_page.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
-class ProgrammingPage extends StatefulWidget {
-  const ProgrammingPage({super.key});
+class MathPage extends StatefulWidget {
+  const MathPage({super.key});
 
   @override
-  State<ProgrammingPage> createState() => _ProgrammingPageState();
+  State<MathPage> createState() => _MathPageState();
 }
 
-class _ProgrammingPageState extends State<ProgrammingPage> {
+class _MathPageState extends State<MathPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -27,7 +27,7 @@ class _ProgrammingPageState extends State<ProgrammingPage> {
                 children: [
                   _buildHeroSection(),
                   _buildProgramOverview(),
-                  _buildTracksSection(),
+                  _buildTopicsSection(),
                   _buildCTASection(),
                 ],
               ),
@@ -46,7 +46,7 @@ class _ProgrammingPageState extends State<ProgrammingPage> {
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color(0xff111827), Color(0xff1F2937)],
+          colors: [Color(0xffEFF6FF), Color(0xffDBEAFE)],
         ),
       ),
       child: Column(
@@ -56,16 +56,16 @@ class _ProgrammingPageState extends State<ProgrammingPage> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
-                color: const Color(0xff3B82F6).withOpacity(0.2),
+                color: const Color(0xff3B82F6).withOpacity(0.1),
                 borderRadius: BorderRadius.circular(50),
-                border: Border.all(color: const Color(0xff3B82F6).withOpacity(0.4)),
+                border: Border.all(color: const Color(0xff3B82F6).withOpacity(0.2)),
               ),
               child: Text(
-                AppLocalizations.of(context)!.codingTechnology,
+                AppLocalizations.of(context)!.mathematicsProgram,
                 style: GoogleFonts.inter(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
-                  color: const Color(0xff60A5FA),
+                  color: const Color(0xff3B82F6),
                 ),
               ),
             ),
@@ -74,12 +74,12 @@ class _ProgrammingPageState extends State<ProgrammingPage> {
           FadeInSlide(
             delay: 0.2,
             child: Text(
-              AppLocalizations.of(context)!.buildTheFutureWithCode,
+              AppLocalizations.of(context)!.masterMathematicsWithNconfidenceClarity,
               textAlign: TextAlign.center,
               style: GoogleFonts.inter(
                 fontSize: MediaQuery.of(context).size.width > 600 ? 48 : 32,
                 fontWeight: FontWeight.w900,
-                color: Colors.white,
+                color: const Color(0xff111827),
                 height: 1.1,
                 letterSpacing: -1,
               ),
@@ -91,11 +91,11 @@ class _ProgrammingPageState extends State<ProgrammingPage> {
             child: Container(
               constraints: const BoxConstraints(maxWidth: 700),
               child: Text(
-                AppLocalizations.of(context)!.fromLogicalThinkingForKidsTo,
+                AppLocalizations.of(context)!.fromBasicArithmeticToAdvancedCalculus,
                 textAlign: TextAlign.center,
                 style: GoogleFonts.inter(
                   fontSize: 18,
-                  color: Colors.white.withOpacity(0.8),
+                  color: const Color(0xff6B7280),
                   height: 1.6,
                 ),
               ),
@@ -142,7 +142,7 @@ class _ProgrammingPageState extends State<ProgrammingPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          AppLocalizations.of(context)!.whyLearnToCode,
+          AppLocalizations.of(context)!.whyChooseOurMathProgram,
           style: GoogleFonts.inter(
             fontSize: 32,
             fontWeight: FontWeight.w800,
@@ -151,7 +151,7 @@ class _ProgrammingPageState extends State<ProgrammingPage> {
         ),
         const SizedBox(height: 24),
         Text(
-          AppLocalizations.of(context)!.codingIsTheLiteracyOfThe,
+          AppLocalizations.of(context)!.mathematicsIsMoreThanJustNumbers,
           style: GoogleFonts.inter(
             fontSize: 16,
             color: const Color(0xff374151),
@@ -160,21 +160,21 @@ class _ProgrammingPageState extends State<ProgrammingPage> {
         ),
         const SizedBox(height: 32),
         _buildFeatureItem(
-          Icons.lightbulb_rounded,
-          'Computational Thinking',
-          'Learn how to break down problems and think logically—a skill valuable in any field.',
+          Icons.functions_rounded,
+          'Concept Mastery',
+          'Focus on understanding the "why" behind the math, not just memorizing formulas.',
         ),
         const SizedBox(height: 16),
         _buildFeatureItem(
-          Icons.rocket_launch_rounded,
-          'Project-Based Learning',
-          'Build real-world projects from games to websites, gaining practical experience.',
+          Icons.trending_up_rounded,
+          'Personalized Pace',
+          'Learn at your own speed with customized lesson plans tailored to your level.',
         ),
         const SizedBox(height: 16),
         _buildFeatureItem(
-          Icons.work_rounded,
-          'Career Ready',
-          'Gain in-demand skills for high-paying jobs in tech and beyond.',
+          Icons.assignment_turned_in_rounded,
+          'Exam Preparation',
+          'Targeted practice for school exams, standardized tests, and competitions.',
         ),
       ],
     );
@@ -188,13 +188,13 @@ class _ProgrammingPageState extends State<ProgrammingPage> {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(32),
           gradient: const LinearGradient(
-            colors: [Color(0xff111827), Color(0xff374151)],
+            colors: [Color(0xff3B82F6), Color(0xff2563EB)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.2),
+              color: const Color(0xff3B82F6).withOpacity(0.3),
               blurRadius: 30,
               offset: const Offset(0, 15),
             ),
@@ -202,7 +202,7 @@ class _ProgrammingPageState extends State<ProgrammingPage> {
         ),
         child: const Center(
           child: Icon(
-            Icons.code_rounded,
+            Icons.calculate_rounded,
             color: Colors.white,
             size: 120,
           ),
@@ -253,20 +253,20 @@ class _ProgrammingPageState extends State<ProgrammingPage> {
     );
   }
 
-  Widget _buildTracksSection() {
-    final tracks = [
-      _buildTrackCard('Coding for Kids', 'Ages 7-12', const Color(0xffF59E0B), 
-          description: 'Introduction to logic, algorithms, and creativity through Scratch and Python basics.'),
-      _buildTrackCard('Web Development', 'Teens & Adults', const Color(0xff3B82F6), 
-          description: 'Build responsive websites using HTML, CSS, JavaScript, and modern frameworks.'),
-      _buildTrackCard('Mobile App Dev', 'Teens & Adults', const Color(0xff10B981), 
-          description: 'Create iOS and Android apps with Flutter and Dart.'),
-      _buildTrackCard('Python Programming', 'All Ages', const Color(0xff8B5CF6), 
-          description: 'Data science, automation, and backend development with Python.'),
-      _buildTrackCard('Game Development', 'Teens', const Color(0xffEF4444), 
-          description: 'Design and code your own video games using Unity or Godot.'),
-      _buildTrackCard('Intro to CS', 'High School', const Color(0xff06B6D4), 
-          description: 'Preparation for AP Computer Science and university-level studies.'),
+  Widget _buildTopicsSection() {
+    final topics = [
+      _buildTopicCard('Elementary Math', 'Grades K-5', const Color(0xff10B981), 
+          description: 'Building a strong foundation in arithmetic, shapes, and problem-solving.'),
+      _buildTopicCard('Pre-Algebra & Algebra', 'Grades 6-9', const Color(0xffF59E0B), 
+          description: 'Mastering variables, equations, functions, and graphing.'),
+      _buildTopicCard('Geometry', 'Grades 8-10', const Color(0xff8B5CF6), 
+          description: 'Exploring shapes, sizes, relative positions, and properties of space.'),
+      _buildTopicCard('Trigonometry', 'Grades 10-11', const Color(0xffEF4444), 
+          description: 'Understanding relationships between side lengths and angles of triangles.'),
+      _buildTopicCard('Calculus', 'Grades 11-12+', const Color(0xff06B6D4), 
+          description: 'Diving into limits, derivatives, integrals, and infinite series.'),
+      _buildTopicCard('Statistics', 'High School & College', const Color(0xff3B82F6), 
+          description: 'Analyzing data, probability, distributions, and inference.'),
     ];
 
     return Container(
@@ -276,7 +276,7 @@ class _ProgrammingPageState extends State<ProgrammingPage> {
       child: Column(
         children: [
           Text(
-            AppLocalizations.of(context)!.learningTracks,
+            AppLocalizations.of(context)!.topicsWeCover,
             textAlign: TextAlign.center,
             style: GoogleFonts.inter(
               fontSize: 36,
@@ -294,7 +294,7 @@ class _ProgrammingPageState extends State<ProgrammingPage> {
                 
                 if (!isTablet) {
                   return Column(
-                    children: tracks.map((card) => Padding(
+                    children: topics.map((card) => Padding(
                       padding: const EdgeInsets.only(bottom: 24),
                       child: card,
                     )).toList(),
@@ -309,7 +309,7 @@ class _ProgrammingPageState extends State<ProgrammingPage> {
                   crossAxisSpacing: 32,
                   mainAxisSpacing: 32,
                   childAspectRatio: isDesktop ? 1.1 : 1.2,
-                  children: tracks,
+                  children: topics,
                 );
               },
             ),
@@ -319,7 +319,7 @@ class _ProgrammingPageState extends State<ProgrammingPage> {
     );
   }
 
-  Widget _buildTrackCard(String track, String audience, Color color, {String? description}) {
+  Widget _buildTopicCard(String topic, String level, Color color, {String? description}) {
     return FadeInSlide(
       child: Container(
         padding: const EdgeInsets.all(24),
@@ -347,12 +347,12 @@ class _ProgrammingPageState extends State<ProgrammingPage> {
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Center(
-                child: Icon(Icons.terminal_rounded, color: color, size: 30),
+                child: Icon(Icons.functions, color: color, size: 30),
               ),
             ),
             const SizedBox(height: 24),
             Text(
-              track,
+              topic,
               style: GoogleFonts.inter(
                 fontSize: 20,
                 fontWeight: FontWeight.w700,
@@ -361,7 +361,7 @@ class _ProgrammingPageState extends State<ProgrammingPage> {
             ),
             const SizedBox(height: 4),
             Text(
-              audience,
+              level,
               style: GoogleFonts.inter(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
@@ -387,7 +387,7 @@ class _ProgrammingPageState extends State<ProgrammingPage> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => const ProgramSelectionPage(initialSubject: 'Programming'),
+                      builder: (context) => const ProgramSelectionPage(initialSubject: 'Math'),
                     ),
                   );
                 },
@@ -413,13 +413,13 @@ class _ProgrammingPageState extends State<ProgrammingPage> {
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 80),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
-          colors: [Color(0xff111827), Color(0xff374151)],
+          colors: [Color(0xff3B82F6), Color(0xff1E40AF)],
         ),
       ),
       child: Column(
         children: [
           Text(
-            AppLocalizations.of(context)!.startCodingToday,
+            AppLocalizations.of(context)!.unlockYourMathPotentialToday,
             textAlign: TextAlign.center,
             style: GoogleFonts.inter(
               fontSize: 32,
@@ -430,7 +430,7 @@ class _ProgrammingPageState extends State<ProgrammingPage> {
           ),
           const SizedBox(height: 16),
           Text(
-            AppLocalizations.of(context)!.empowerYourselfWithTheSkillsOf,
+            AppLocalizations.of(context)!.joinThousandsOfStudentsExcellingIn,
             style: GoogleFonts.inter(
               fontSize: 18,
               color: Colors.white.withOpacity(0.9),
@@ -442,13 +442,13 @@ class _ProgrammingPageState extends State<ProgrammingPage> {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => const ProgramSelectionPage(initialSubject: 'Programming'),
+                  builder: (context) => const ProgramSelectionPage(initialSubject: 'Math'),
                 ),
               );
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xff3B82F6),
-              foregroundColor: Colors.white,
+              backgroundColor: Colors.white,
+              foregroundColor: const Color(0xff3B82F6),
               padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),

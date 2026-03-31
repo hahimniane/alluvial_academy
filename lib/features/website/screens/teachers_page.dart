@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import '../core/enums/ui_enums.dart';
+import '../../../core/enums/ui_enums.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../widgets/modern_header.dart';
-import '../shared/widgets/fade_in_slide.dart';
+import '../../../widgets/modern_header.dart';
+import '../../../shared/widgets/fade_in_slide.dart';
 import 'teacher_application_screen.dart';
 import 'leadership_application_screen.dart';
 import 'contact_page.dart';
