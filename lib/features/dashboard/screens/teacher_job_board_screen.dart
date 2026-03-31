@@ -7,7 +7,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:alluwalacademyadmin/features/dashboard/models/job_opportunity.dart';
 import 'package:alluwalacademyadmin/features/shift_management/models/teaching_shift.dart';
-import '../../../core/services/job_board_service.dart';
+import '../../../features/dashboard/services/job_board_service.dart';
 import 'package:alluwalacademyadmin/features/shift_management/services/shift_service.dart';
 import '../../../core/services/timezone_service.dart';
 import '../../../core/utils/timezone_utils.dart';

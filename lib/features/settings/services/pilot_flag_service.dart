@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../utils/app_logger.dart';
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 
 /// Service to manage pilot/beta testing flags for specific users
 /// Allows testing new features (like new form templates) on selected users

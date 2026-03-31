@@ -5,7 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:alluwalacademyadmin/features/audit/models/teacher_audit_metrics.dart';
 import '../services/audit_metrics_service.dart';
-import '../../../core/services/pilot_flag_service.dart';
+import '../../../features/settings/services/pilot_flag_service.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 /// Teacher's personal audit dashboard

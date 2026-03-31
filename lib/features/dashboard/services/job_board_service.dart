@@ -1,9 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_functions/cloud_functions.dart';
-import '../models/enrollment_request.dart';
+import 'package:alluwalacademyadmin/core/models/enrollment_request.dart';
 import 'package:alluwalacademyadmin/features/dashboard/models/job_opportunity.dart';
-import '../utils/app_logger.dart';
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 
 class JobBoardService {
   final CollectionReference _jobCollection = 

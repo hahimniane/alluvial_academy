@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
-import 'package:alluwalacademyadmin/core/services/mock_company_service.dart';
+import 'package:alluwalacademyadmin/features/settings/services/mock_company_service.dart';
 
 /// Service for fetching invoice-related data (parent names, student names, etc.)
 class InvoiceDataService {

@@ -3,7 +3,7 @@ import 'package:geocoding/geocoding.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:alluwalacademyadmin/core/services/location_preference_service.dart';
+import 'package:alluwalacademyadmin/features/settings/services/location_preference_service.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 

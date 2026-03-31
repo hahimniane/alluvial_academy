@@ -4,7 +4,7 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:alluwalacademyadmin/features/shift_management/services/location_service.dart';
-import 'location_preference_service.dart';
+import 'package:alluwalacademyadmin/features/settings/services/location_preference_service.dart';
 import 'prayer_time_service.dart';
 import 'user_role_service.dart';
 import 'timezone_service.dart';

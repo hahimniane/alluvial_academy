@@ -7,7 +7,7 @@ import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'package:alluwalacademyadmin/features/dashboard/models/job_opportunity.dart';
 import '../../../core/models/employee_model.dart';
-import '../../../core/services/job_board_service.dart';
+import '../../../features/dashboard/services/job_board_service.dart';
 import '../../../core/utils/app_logger.dart';
 import '../../shift_management/widgets/create_shift_dialog.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';

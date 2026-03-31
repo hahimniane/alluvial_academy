@@ -36,7 +36,7 @@ import 'package:alluwalacademyadmin/features/tasks/enums/task_enums.dart';
 import 'package:alluwalacademyadmin/features/shift_management/services/shift_service.dart';
 import 'package:alluwalacademyadmin/features/time_clock/services/shift_timesheet_service.dart';
 import 'package:alluwalacademyadmin/features/shift_management/services/shift_form_service.dart';
-import '../../../core/services/shift_repository.dart';
+import '../../../features/shift_management/services/shift_repository.dart';
 import 'package:alluwalacademyadmin/features/tasks/services/task_repository.dart';
 import '../../../core/services/user_role_service.dart';
 import 'package:alluwalacademyadmin/features/profile/services/profile_picture_service.dart';
