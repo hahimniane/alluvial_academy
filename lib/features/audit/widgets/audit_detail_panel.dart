@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
-import '../../../core/models/teacher_audit_full.dart';
+import 'package:alluwalacademyadmin/features/audit/models/teacher_audit_full.dart';
 import '../services/audit_class_log_row_builder.dart';
 import '../services/teacher_audit_service.dart';
 import '../../../core/utils/app_logger.dart';

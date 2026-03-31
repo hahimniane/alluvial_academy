@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
-import '../../../core/models/teacher_audit_metrics.dart';
+import 'package:alluwalacademyadmin/features/audit/models/teacher_audit_metrics.dart';
 import '../services/audit_metrics_service.dart';
 import '../../../core/services/pilot_flag_service.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';

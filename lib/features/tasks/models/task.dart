@@ -1,8 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../../../core/models/enhanced_recurrence.dart';
-import '../../../core/enums/shift_enums.dart';
+import 'package:alluwalacademyadmin/features/shift_management/models/enhanced_recurrence.dart';
+import 'package:alluwalacademyadmin/features/shift_management/enums/shift_enums.dart';
 
-import '../../../core/enums/task_enums.dart';
+import 'package:alluwalacademyadmin/features/tasks/enums/task_enums.dart';
 
 class TaskAttachment {
   final String id;

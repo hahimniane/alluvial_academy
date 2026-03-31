@@ -4,8 +4,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../../../core/models/teaching_shift.dart';
-import '../../../core/enums/shift_enums.dart';
+import 'package:alluwalacademyadmin/features/shift_management/models/teaching_shift.dart';
+import 'package:alluwalacademyadmin/features/shift_management/enums/shift_enums.dart';
 // import 'package:alluwalacademyadmin/features/shift_management/services/shift_service.dart'; // Unused
 import 'package:alluwalacademyadmin/features/time_clock/services/shift_timesheet_service.dart';
 import 'package:alluwalacademyadmin/features/shift_management/services/location_service.dart';

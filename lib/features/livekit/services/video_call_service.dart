@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-import 'package:alluwalacademyadmin/core/models/teaching_shift.dart';
-import 'package:alluwalacademyadmin/core/enums/shift_enums.dart';
+import 'package:alluwalacademyadmin/features/shift_management/models/teaching_shift.dart';
+import 'package:alluwalacademyadmin/features/shift_management/enums/shift_enums.dart';
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 import 'package:alluwalacademyadmin/features/shift_management/services/mobile_classes_access_service.dart';
 import 'package:alluwalacademyadmin/core/services/user_role_service.dart';

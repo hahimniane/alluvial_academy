@@ -4,7 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 
-import '../../../../core/models/teacher_audit_full.dart';
+import 'package:alluwalacademyadmin/features/audit/models/teacher_audit_full.dart';
 import '../../services/audit_class_log_row_builder.dart';
 import '../../services/teacher_audit_service.dart';
 import '../../../../l10n/app_localizations.dart';

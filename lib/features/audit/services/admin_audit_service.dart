@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../../../core/config/admin_audit_compliance_config.dart';
-import '../../../core/models/admin_audit.dart';
+import 'package:alluwalacademyadmin/features/audit/config/admin_audit_compliance_config.dart';
+import 'package:alluwalacademyadmin/features/audit/models/admin_audit.dart';
 import '../../../core/utils/app_logger.dart';
 
 /// Service for computing and storing admin audit KPIs.

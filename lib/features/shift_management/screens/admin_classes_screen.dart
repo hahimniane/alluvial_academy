@@ -3,11 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
-import '../../../core/models/teaching_shift.dart';
+import 'package:alluwalacademyadmin/features/shift_management/models/teaching_shift.dart';
 import 'package:alluwalacademyadmin/features/shift_management/services/shift_service.dart';
 import 'package:alluwalacademyadmin/features/livekit/services/video_call_service.dart';
 import 'package:alluwalacademyadmin/features/livekit/services/livekit_service.dart';
-import '../../../core/enums/shift_enums.dart';
+import 'package:alluwalacademyadmin/features/shift_management/enums/shift_enums.dart';
 import '../../recordings/screens/class_recordings_screen.dart';
 import '../../../core/utils/app_logger.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';

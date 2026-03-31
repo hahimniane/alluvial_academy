@@ -19,7 +19,7 @@
 // - Handles edge cases like expired shifts, network issues, and state mismatches
 // ============================================================================
 
-import '../../../core/enums/shift_enums.dart';
+import 'package:alluwalacademyadmin/features/shift_management/enums/shift_enums.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart'
@@ -37,7 +37,7 @@ import 'package:alluwalacademyadmin/features/shift_management/services/location_
 import 'package:alluwalacademyadmin/features/time_clock/services/shift_timesheet_service.dart';
 import 'package:alluwalacademyadmin/features/shift_management/services/shift_form_service.dart';
 import '../../../core/services/notification_service.dart';
-import '../../../core/models/teaching_shift.dart';
+import 'package:alluwalacademyadmin/features/shift_management/models/teaching_shift.dart';
 import '../../../core/utils/platform_utils.dart';
 import 'package:alluwalacademyadmin/features/forms/screens/form_screen.dart';
 import 'dart:convert';

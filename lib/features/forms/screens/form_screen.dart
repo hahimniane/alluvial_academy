@@ -12,12 +12,12 @@ import 'package:intl/intl.dart';
 import 'package:alluwalacademyadmin/core/services/user_role_service.dart';
 import 'package:alluwalacademyadmin/features/shift_management/services/shift_form_service.dart';
 import 'package:alluwalacademyadmin/features/shift_management/services/shift_service.dart';
-import 'package:alluwalacademyadmin/core/enums/shift_enums.dart';
+import 'package:alluwalacademyadmin/features/shift_management/enums/shift_enums.dart';
 import 'package:alluwalacademyadmin/features/forms/widgets/form_details_modal.dart';
 import 'package:alluwalacademyadmin/features/forms/utils/form_localization.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
-import 'package:alluwalacademyadmin/core/models/form_template.dart';
+import 'package:alluwalacademyadmin/features/forms/models/form_template.dart';
 import 'package:alluwalacademyadmin/features/forms/services/form_template_service.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 

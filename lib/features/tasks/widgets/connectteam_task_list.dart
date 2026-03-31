@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/task.dart';
-import '../../../core/enums/task_enums.dart';
+import 'package:alluwalacademyadmin/features/tasks/enums/task_enums.dart';
 import '../../../core/utils/connecteam_style.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 

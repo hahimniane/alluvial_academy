@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:alluwalacademyadmin/core/models/teaching_shift.dart';
-import 'package:alluwalacademyadmin/core/enums/shift_enums.dart';
+import 'package:alluwalacademyadmin/features/shift_management/models/teaching_shift.dart';
+import 'package:alluwalacademyadmin/features/shift_management/enums/shift_enums.dart';
 
 void main() {
   group('TeachingShift Platform Tracking', () {

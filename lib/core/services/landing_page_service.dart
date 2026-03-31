@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../models/landing_page_content.dart';
+import 'package:alluwalacademyadmin/features/website_management/models/landing_page_content.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 

@@ -1,7 +1,7 @@
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 import 'package:intl/intl.dart';
 
-import '../enums/shift_enums.dart';
+import 'package:alluwalacademyadmin/features/shift_management/enums/shift_enums.dart';
 
 DateTime _weekdayReferenceDate(WeekDay day) {
   // 2020-01-06 is a Monday. Use it as a stable reference week.

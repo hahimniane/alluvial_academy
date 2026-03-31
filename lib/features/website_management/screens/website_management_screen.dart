@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../../core/models/landing_page_content.dart';
+import 'package:alluwalacademyadmin/features/website_management/models/landing_page_content.dart';
 import '../../../core/services/landing_page_service.dart';
 import '../widgets/hero_section_editor.dart';
 import '../widgets/features_section_editor.dart';

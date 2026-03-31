@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../../core/enums/task_enums.dart';
+import 'package:alluwalacademyadmin/features/tasks/enums/task_enums.dart';
 import 'package:intl/intl.dart';
 import '../models/task.dart';
 import '../services/task_service.dart';

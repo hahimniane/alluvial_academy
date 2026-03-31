@@ -4,7 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
-import '../../../core/models/teaching_shift.dart';
+import 'package:alluwalacademyadmin/features/shift_management/models/teaching_shift.dart';
 import '../../../core/utils/timezone_utils.dart';
 import '../../../core/widgets/timezone_selector_field.dart';
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';

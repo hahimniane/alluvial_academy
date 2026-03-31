@@ -1,5 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:alluwalacademyadmin/core/models/staff_leaderboard.dart';
+import 'package:alluwalacademyadmin/features/dashboard/models/staff_leaderboard.dart';
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 
 /// Service for generating and managing staff leaderboards

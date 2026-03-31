@@ -3,7 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import '../models/task.dart';
 import '../../../core/services/user_role_service.dart';
-import '../../../core/enums/task_enums.dart';
+import 'package:alluwalacademyadmin/features/tasks/enums/task_enums.dart';
 import 'file_attachment_service.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';

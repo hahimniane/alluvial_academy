@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../core/models/landing_page_content.dart';
+import 'package:alluwalacademyadmin/features/website_management/models/landing_page_content.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class TestimonialsSectionEditor extends StatelessWidget {

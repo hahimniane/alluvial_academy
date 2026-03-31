@@ -5,8 +5,8 @@ import 'package:intl/intl.dart';
 import 'package:timezone/timezone.dart' as tz;
 
 import '../enums/shift_enums.dart';
-import '../utils/timezone_utils.dart';
-import '../utils/weekday_localization.dart';
+import 'package:alluwalacademyadmin/core/utils/timezone_utils.dart';
+import 'package:alluwalacademyadmin/core/utils/weekday_localization.dart';
 
 /// Time slot for a specific weekday (allows different times per day)
 class WeekdayTimeSlot {

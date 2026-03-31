@@ -5,7 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';  // Firebase authentication
 import 'dart:async';  // For asynchronous operations and timers
 import 'package:alluwalacademyadmin/features/time_clock/services/shift_timesheet_service.dart';  // Shift/timesheet operations
 import 'package:alluwalacademyadmin/features/shift_management/services/location_service.dart';  // Location handling
-import '../../../core/models/teaching_shift.dart';  // Shift data model
+import 'package:alluwalacademyadmin/features/shift_management/models/teaching_shift.dart';  // Shift data model
 import '../../../core/utils/platform_utils.dart';  // Platform detection
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';  // Logging utility

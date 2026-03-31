@@ -16,7 +16,7 @@ import 'package:http/http.dart' as http;
 
 import 'package:alluwalacademyadmin/features/quran/widgets/quran_reader.dart';
 import 'package:alluwalacademyadmin/features/livekit/widgets/call_whiteboard.dart';
-import 'package:alluwalacademyadmin/core/models/teaching_shift.dart';
+import 'package:alluwalacademyadmin/features/shift_management/models/teaching_shift.dart';
 import 'package:alluwalacademyadmin/features/livekit/services/livekit_session_service.dart';
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 import 'package:alluwalacademyadmin/core/utils/environment_utils.dart';

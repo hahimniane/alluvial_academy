@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
-import '../../../../core/config/admin_audit_evaluation_taxonomy.dart';
-import '../../../../core/models/admin_audit.dart';
+import 'package:alluwalacademyadmin/features/audit/config/admin_audit_evaluation_taxonomy.dart';
+import 'package:alluwalacademyadmin/features/audit/models/admin_audit.dart';
 import '../../services/admin_audit_ceo_submissions_service.dart';
 import '../../services/admin_audit_form_title_resolver.dart' show AdminAuditFormTitleResolver;
 import '../../../forms/widgets/form_details_modal.dart' show FormSubmissionDetailsView;

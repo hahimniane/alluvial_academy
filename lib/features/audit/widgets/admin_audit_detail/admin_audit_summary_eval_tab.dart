@@ -2,7 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../../../core/models/admin_audit.dart';
+import 'package:alluwalacademyadmin/features/audit/models/admin_audit.dart';
 import '../../services/admin_audit_evaluation_export_service.dart';
 import '../../../../l10n/app_localizations.dart';
 

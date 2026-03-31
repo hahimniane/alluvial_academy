@@ -4,7 +4,7 @@ import 'package:intl_phone_field/intl_phone_field.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:country_picker/country_picker.dart';
 import '../../../widgets/modern_header.dart';
-import '../../../core/models/teacher_application.dart';
+import 'package:alluwalacademyadmin/features/website/models/teacher_application.dart';
 import '../../../shared/widgets/fade_in_slide.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 

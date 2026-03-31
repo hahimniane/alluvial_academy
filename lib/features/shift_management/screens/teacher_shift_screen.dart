@@ -7,7 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../dashboard/widgets/date_strip_calendar.dart';
 import '../../dashboard/widgets/timeline_shift_card.dart';
-import '../../../core/models/teaching_shift.dart';
+import 'package:alluwalacademyadmin/features/shift_management/models/teaching_shift.dart';
 import 'package:alluwalacademyadmin/features/shift_management/services/shift_service.dart';
 import 'package:alluwalacademyadmin/features/time_clock/services/shift_timesheet_service.dart';
 import 'package:alluwalacademyadmin/features/shift_management/services/location_service.dart';

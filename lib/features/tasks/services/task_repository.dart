@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:alluwalacademyadmin/features/tasks/models/task.dart';
-import 'package:alluwalacademyadmin/core/enums/task_enums.dart';
+import 'package:alluwalacademyadmin/features/tasks/enums/task_enums.dart';
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 
 /// Optimized repository for task data with caching and performance optimizations

@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-import 'package:alluwalacademyadmin/core/models/payment.dart';
+import 'package:alluwalacademyadmin/features/parent/models/payment.dart';
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 
 class PaymentService {

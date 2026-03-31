@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
-import '../../../../core/config/admin_audit_evaluation_taxonomy.dart';
-import '../../../../core/enums/task_enums.dart';
-import '../../../../core/models/admin_audit.dart';
+import 'package:alluwalacademyadmin/features/audit/config/admin_audit_evaluation_taxonomy.dart';
+import 'package:alluwalacademyadmin/features/tasks/enums/task_enums.dart';
+import 'package:alluwalacademyadmin/features/audit/models/admin_audit.dart';
 import '../../services/admin_audit_tasks_query_service.dart';
 import '../../../tasks/models/task.dart';
 import '../../../../l10n/app_localizations.dart';

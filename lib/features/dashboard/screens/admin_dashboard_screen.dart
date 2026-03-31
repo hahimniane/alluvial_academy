@@ -11,8 +11,8 @@ import 'package:flutter/foundation.dart'
 import '../../../utility_functions/html_stub.dart'
     if (dart.library.html) 'dart:html' as html;
 import '../../../utility_functions/export_helpers.dart';
-import '../../../core/models/teaching_shift.dart';
-import '../../../core/enums/shift_enums.dart';
+import 'package:alluwalacademyadmin/features/shift_management/models/teaching_shift.dart';
+import 'package:alluwalacademyadmin/features/shift_management/enums/shift_enums.dart';
 import 'package:alluwalacademyadmin/features/shift_management/services/shift_service.dart';
 import '../../../core/services/prayer_time_service.dart';
 import '../../../core/services/islamic_calendar_service.dart';

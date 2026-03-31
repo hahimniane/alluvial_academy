@@ -2,7 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import 'package:alluwalacademyadmin/core/models/invoice.dart';
+import 'package:alluwalacademyadmin/features/parent/models/invoice.dart';
 import 'package:alluwalacademyadmin/features/parent/services/invoice_service.dart';
 import 'package:alluwalacademyadmin/features/parent/screens/invoice_detail_screen.dart';
 import 'package:alluwalacademyadmin/features/parent/screens/payment_screen.dart';

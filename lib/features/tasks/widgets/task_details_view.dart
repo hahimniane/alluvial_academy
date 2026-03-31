@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import '../../../core/enums/task_enums.dart';
+import 'package:alluwalacademyadmin/features/tasks/enums/task_enums.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
@@ -14,8 +14,8 @@ import '../services/file_attachment_service.dart';
 import 'task_comments_section.dart';
 import 'add_edit_task_dialog.dart';
 import '../../../core/utils/connecteam_style.dart';
-import '../../../core/models/enhanced_recurrence.dart';
-import '../../../core/enums/shift_enums.dart';
+import 'package:alluwalacademyadmin/features/shift_management/models/enhanced_recurrence.dart';
+import 'package:alluwalacademyadmin/features/shift_management/enums/shift_enums.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';

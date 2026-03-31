@@ -1,4 +1,4 @@
-import '../../../core/models/admin_audit.dart';
+import 'package:alluwalacademyadmin/features/audit/models/admin_audit.dart';
 
 /// Builds a CSV snapshot of [AdminAudit] rows for spreadsheet review.
 class AdminAuditCsvExport {

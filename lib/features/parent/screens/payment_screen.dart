@@ -4,8 +4,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import 'package:alluwalacademyadmin/core/models/invoice.dart';
-import 'package:alluwalacademyadmin/core/models/payment.dart';
+import 'package:alluwalacademyadmin/features/parent/models/invoice.dart';
+import 'package:alluwalacademyadmin/features/parent/models/payment.dart';
 import 'package:alluwalacademyadmin/features/parent/services/invoice_service.dart';
 import 'package:alluwalacademyadmin/features/parent/services/payment_service.dart';
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';

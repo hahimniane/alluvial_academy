@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-import '../../../core/enums/timesheet_enums.dart';
+import 'package:alluwalacademyadmin/features/time_clock/enums/timesheet_enums.dart';
 
 class TimesheetEntry {
   final String? documentId; // Firebase document ID for updates

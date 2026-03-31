@@ -9,7 +9,7 @@ import 'package:alluwalacademyadmin/core/utils/export_saved_snackbar.dart';
 import 'package:alluwalacademyadmin/core/utils/save_export_file.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
-import '../../../core/models/teacher_audit_metrics.dart';
+import 'package:alluwalacademyadmin/features/audit/models/teacher_audit_metrics.dart';
 import '../services/audit_metrics_service.dart';
 import 'dart:html' if (dart.library.io) '../../../utility_functions/html_stub.dart'
     as html;

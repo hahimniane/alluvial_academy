@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import 'package:alluwalacademyadmin/core/constants/surah_data.dart';
+import 'package:alluwalacademyadmin/features/surah_podcast/constants/surah_data.dart';
 import 'package:alluwalacademyadmin/features/surah_podcast/services/surah_podcast_service.dart';
 
 import '../widgets/podcast_player_widget.dart';

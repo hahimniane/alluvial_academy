@@ -1,5 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../../../core/models/teacher_audit_metrics.dart';
+import 'package:alluwalacademyadmin/features/audit/models/teacher_audit_metrics.dart';
 import '../../../core/utils/app_logger.dart';
 
 /// Service for computing and retrieving teacher audit metrics

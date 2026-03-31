@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
-import '../../../core/enums/timesheet_enums.dart';
+import 'package:alluwalacademyadmin/features/time_clock/enums/timesheet_enums.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import 'package:syncfusion_flutter_core/theme.dart';
 import 'package:intl/intl.dart';

@@ -7,7 +7,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
 import 'package:alluwalacademyadmin/features/forms/services/form_labels_cache_service.dart';
-import 'package:alluwalacademyadmin/core/models/teaching_shift.dart';
+import 'package:alluwalacademyadmin/features/shift_management/models/teaching_shift.dart';
 import '../../../core/utils/save_export_file.dart';
 
 import 'dart:html' if (dart.library.io) '../../../utility_functions/html_stub.dart' as html;

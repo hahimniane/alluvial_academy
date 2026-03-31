@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
-import 'package:alluwalacademyadmin/core/models/invoice.dart';
+import 'package:alluwalacademyadmin/features/parent/models/invoice.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class InvoiceCard extends StatelessWidget {

@@ -12,7 +12,7 @@ import 'package:livekit_client/livekit_client.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../../core/models/teaching_shift.dart';
+import 'package:alluwalacademyadmin/features/shift_management/models/teaching_shift.dart';
 import 'package:alluwalacademyadmin/features/shift_management/services/location_service.dart';
 import 'package:alluwalacademyadmin/features/time_clock/services/shift_timesheet_service.dart';
 import '../../../core/utils/app_logger.dart';

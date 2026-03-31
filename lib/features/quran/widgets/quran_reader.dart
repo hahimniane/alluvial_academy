@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../../core/models/quran_models.dart';
+import 'package:alluwalacademyadmin/features/quran/models/quran_models.dart';
 import 'package:alluwalacademyadmin/features/quran/services/quran_service.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 

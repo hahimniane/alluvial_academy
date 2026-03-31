@@ -4,7 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'form_builder.dart';
-import '../../../core/models/form_template.dart';
+import 'package:alluwalacademyadmin/features/forms/models/form_template.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 /// Forms List Screen - Google Forms style list view

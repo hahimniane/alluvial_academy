@@ -5,7 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import 'package:syncfusion_flutter_core/theme.dart';
-import '../../../core/models/teacher_application.dart';
+import 'package:alluwalacademyadmin/features/website/models/teacher_application.dart';
 import '../../../core/services/user_role_service.dart';
 import '../../../utility_functions/export_helpers.dart';
 import 'dart:async';

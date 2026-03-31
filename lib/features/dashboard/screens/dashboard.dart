@@ -9,7 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 import 'package:alluwalacademyadmin/core/services/user_role_service.dart';
 import 'package:alluwalacademyadmin/core/constants/app_constants.dart';
-import 'package:alluwalacademyadmin/core/constants/dashboard_constants.dart';
+import 'package:alluwalacademyadmin/features/dashboard/constants/dashboard_constants.dart';
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 import 'package:alluwalacademyadmin/features/profile/services/profile_picture_service.dart';
 import 'package:alluwalacademyadmin/core/services/notification_service.dart';

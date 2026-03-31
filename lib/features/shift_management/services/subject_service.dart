@@ -1,5 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:alluwalacademyadmin/core/models/subject.dart';
+import 'package:alluwalacademyadmin/features/shift_management/models/subject.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 

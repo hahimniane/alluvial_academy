@@ -2,14 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
-import 'package:alluwalacademyadmin/core/models/teaching_shift.dart';
+import 'package:alluwalacademyadmin/features/shift_management/models/teaching_shift.dart';
 import 'package:alluwalacademyadmin/features/parent/services/parent_service.dart';
 import 'package:alluwalacademyadmin/features/livekit/services/video_call_service.dart';
 import 'package:alluwalacademyadmin/features/tasks/models/task.dart';
 import 'package:alluwalacademyadmin/features/tasks/services/task_service.dart';
 import 'package:alluwalacademyadmin/features/parent/widgets/student_quick_stats_card.dart';
 import 'package:alluwalacademyadmin/features/parent/widgets/parent_presence_card.dart';
-import 'package:alluwalacademyadmin/core/enums/task_enums.dart';
+import 'package:alluwalacademyadmin/features/tasks/enums/task_enums.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class StudentOverviewTab extends StatefulWidget {

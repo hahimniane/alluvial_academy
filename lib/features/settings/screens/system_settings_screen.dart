@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:alluwalacademyadmin/core/enums/wage_enums.dart';
+import 'package:alluwalacademyadmin/features/shift_management/enums/wage_enums.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:alluwalacademyadmin/features/shift_management/services/wage_management_service.dart';
 

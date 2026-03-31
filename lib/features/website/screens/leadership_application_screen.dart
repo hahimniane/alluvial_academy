@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl_phone_field/intl_phone_field.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../widgets/modern_header.dart';
-import '../../../core/models/leadership_application.dart';
+import 'package:alluwalacademyadmin/features/website/models/leadership_application.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class LeadershipApplicationScreen extends StatefulWidget {

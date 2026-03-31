@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../../core/enums/shift_enums.dart';
+import 'package:alluwalacademyadmin/features/shift_management/enums/shift_enums.dart';
 import '../../../core/models/employee_model.dart';
-import '../../../core/models/subject.dart';
+import 'package:alluwalacademyadmin/features/shift_management/models/subject.dart';
 import 'create_shift_dialog.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 

@@ -4,7 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:async';
 import '../../chat/services/chat_service.dart';
-import '../../../core/models/teacher_audit_full.dart';
+import 'package:alluwalacademyadmin/features/audit/models/teacher_audit_full.dart';
 import '../../../core/utils/app_logger.dart';
 
 /// Optimized service for computing and managing teacher audit metrics

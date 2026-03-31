@@ -1,5 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../../../core/models/teacher_audit_full.dart';
+import 'package:alluwalacademyadmin/features/audit/models/teacher_audit_full.dart';
 
 class AuditClassLogRow {
   final String shiftId;

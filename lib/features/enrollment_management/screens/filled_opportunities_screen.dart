@@ -5,7 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
-import '../../../core/models/job_opportunity.dart';
+import 'package:alluwalacademyadmin/features/dashboard/models/job_opportunity.dart';
 import '../../../core/models/employee_model.dart';
 import '../../../core/services/job_board_service.dart';
 import '../../../core/utils/app_logger.dart';

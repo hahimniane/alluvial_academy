@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
-import 'package:alluwalacademyadmin/core/models/quran_models.dart';
+import 'package:alluwalacademyadmin/features/quran/models/quran_models.dart';
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 
 class QuranService {

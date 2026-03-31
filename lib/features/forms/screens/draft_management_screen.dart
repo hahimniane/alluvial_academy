@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:alluwalacademyadmin/features/forms/services/form_draft_service.dart';
-import '../../../core/models/form_draft.dart';
+import 'package:alluwalacademyadmin/features/forms/models/form_draft.dart';
 import 'package:alluwalacademyadmin/features/settings/screens/debug_firestore_screen.dart';
 import 'form_builder.dart';
 

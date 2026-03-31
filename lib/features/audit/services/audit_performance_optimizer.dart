@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
-import '../../../core/models/teacher_audit_full.dart';
+import 'package:alluwalacademyadmin/features/audit/models/teacher_audit_full.dart';
 import 'teacher_audit_service.dart';
 import 'package:alluwalacademyadmin/features/forms/services/form_labels_cache_service.dart';
 

@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
-import '../../../core/models/teaching_shift.dart';
-import '../../../core/enums/shift_enums.dart';
-import '../../../core/constants/shift_colors.dart';
+import 'package:alluwalacademyadmin/features/shift_management/models/teaching_shift.dart';
+import 'package:alluwalacademyadmin/features/shift_management/enums/shift_enums.dart';
+import 'package:alluwalacademyadmin/features/shift_management/constants/shift_colors.dart';
 import '../../../core/utils/timezone_utils.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 

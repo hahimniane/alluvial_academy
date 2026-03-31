@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:alluwalacademyadmin/core/models/form_draft.dart';
+import 'package:alluwalacademyadmin/features/forms/models/form_draft.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 

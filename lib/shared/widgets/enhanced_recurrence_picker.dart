@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
-import '../../core/models/enhanced_recurrence.dart';
-import '../../core/enums/shift_enums.dart';
+import 'package:alluwalacademyadmin/features/shift_management/models/enhanced_recurrence.dart';
+import 'package:alluwalacademyadmin/features/shift_management/enums/shift_enums.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 import '../../core/utils/weekday_localization.dart';
 

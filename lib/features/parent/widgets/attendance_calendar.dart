@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
-import 'package:alluwalacademyadmin/core/models/teaching_shift.dart';
-import 'package:alluwalacademyadmin/core/enums/shift_enums.dart';
+import 'package:alluwalacademyadmin/features/shift_management/models/teaching_shift.dart';
+import 'package:alluwalacademyadmin/features/shift_management/enums/shift_enums.dart';
 
 class AttendanceCalendar extends StatelessWidget {
   final List<TeachingShift> shifts;
