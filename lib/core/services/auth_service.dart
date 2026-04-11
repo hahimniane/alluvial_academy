@@ -16,6 +16,77 @@ import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
+  // Shared post-login logic
+  Future<void> handleSuccessfulLogin(User user) async {
+    // Web: make sure the freshly-signed-in user's token is ready before any Firestore calls.
+    // This avoids rare timing issues where early Firestore reads can run unauthenticated.
+    if (kIsWeb) {
+      try {
+        await user.getIdToken(true);
+        AppLogger.debug('AuthService: refreshed ID token after login (web)');
+      } catch (e) {
+        AppLogger.error('AuthService: failed to refresh ID token after login: $e');
+      }
+    }
+
+    // Check if the user exists in our system (Firestore users collection)
+    var userData = await UserRoleService.getCurrentUserData();
+    if (userData == null) {
+      if (user.phoneNumber != null && user.phoneNumber!.isNotEmpty) {
+        try {
+          AppLogger.info('AuthService: New phone user ${user.uid} — auto-provisioning as circle_member');
+          await _provisionCircleMemberUser(user);
+          UserRoleService.clearCache();
+          userData = await UserRoleService.getCurrentUserData();
+        } catch (e) {
+          AppLogger.error('AuthService: Failed to provision circle_member for ${user.uid}: $e');
+          await _auth.signOut();
+          throw FirebaseAuthException(
+            code: 'user-not-registered',
+            message:
+                'Failed to create your account. Please try again or contact support.',
+          );
+        }
+      }
+
+      if (userData == null) {
+        AppLogger.debug('AuthService: User authenticated but no Firestore document found for ${user.uid}');
+        await _auth.signOut();
+        throw FirebaseAuthException(
+          code: 'user-not-registered',
+          message:
+              'No account found with your credentials. Please contact an administrator to create your account.',
+        );
+      }
+    }
+
+    // Check if the user is active before proceeding
+    final isActive = await UserRoleService.isUserActive(user.email);
+    if (!isActive) {
+      // If the user is not active, sign them out immediately
+      await _auth.signOut();
+      // Throw a specific exception to be caught in the UI
+      throw FirebaseAuthException(
+        code: 'user-deactivated',
+        message:
+            'Your account has been archived. Please contact an administrator for assistance.',
+      );
+    }
+
+    // Update last login time in Firestore
+    await _updateLastLoginTime(user);
+
+    // Update timezone on login (non-blocking)
+    TimezoneService.updateUserTimezoneOnLogin().catchError((e) {
+      AppLogger.error('AuthService: Failed to update timezone: $e');
+    });
+
+    // Initialize location and prayer times for teachers (non-blocking)
+    _initializeTeacherServices(user).catchError((e) {
+      AppLogger.error('AuthService: Background teacher initialization failed: $e');
+    });
+  }
+
   // Sign in with email and password
   Future<User?> signInWithEmailAndPassword(
       String email, String password) async {
@@ -25,55 +96,7 @@ class AuthService {
       User? user = result.user;
 
       if (user != null) {
-        // Web: make sure the freshly-signed-in user's token is ready before any Firestore calls.
-        // This avoids rare timing issues where early Firestore reads can run unauthenticated.
-        if (kIsWeb) {
-          try {
-            await user.getIdToken(true);
-            AppLogger.debug('AuthService: refreshed ID token after login (web)');
-          } catch (e) {
-            AppLogger.error('AuthService: failed to refresh ID token after login: $e');
-          }
-        }
-
-        // Check if the user exists in our system (Firestore users collection)
-        final userData = await UserRoleService.getCurrentUserData();
-        if (userData == null) {
-          AppLogger.debug('AuthService: User authenticated but no Firestore document found for ${user.email}');
-          // Sign out and throw error
-          await _auth.signOut();
-          throw FirebaseAuthException(
-            code: 'user-not-registered',
-            message:
-                'No account found with this email. Please contact an administrator to create your account.',
-          );
-        }
-
-        // Check if the user is active before proceeding
-        final isActive = await UserRoleService.isUserActive(user.email!);
-        if (!isActive) {
-          // If the user is not active, sign them out immediately
-          await _auth.signOut();
-          // Throw a specific exception to be caught in the UI
-          throw FirebaseAuthException(
-            code: 'user-deactivated',
-            message:
-                'Your account has been archived. Please contact an administrator for assistance.',
-          );
-        }
-
-        // Update last login time in Firestore
-        await _updateLastLoginTime(user);
-
-        // Update timezone on login (non-blocking)
-        TimezoneService.updateUserTimezoneOnLogin().catchError((e) {
-          AppLogger.error('AuthService: Failed to update timezone: $e');
-        });
-
-        // Initialize location and prayer times for teachers (non-blocking)
-        _initializeTeacherServices(user).catchError((e) {
-          AppLogger.error('AuthService: Background teacher initialization failed: $e');
-        });
+        await handleSuccessfulLogin(user);
       }
 
       return user;
@@ -123,18 +146,6 @@ class AuthService {
       final User? user = result.user;
 
       if (user != null) {
-        // Web: refresh ID token
-        if (kIsWeb) {
-          try {
-            await user.getIdToken(true);
-            AppLogger.debug(
-                'AuthService: refreshed ID token after Google login (web)');
-          } catch (e) {
-            AppLogger.error(
-                'AuthService: failed to refresh ID token after Google login: $e');
-          }
-        }
-
         // Check if the user exists in our system
         final userDoc = await FirebaseFirestore.instance
             .collection('users')
@@ -161,34 +172,14 @@ class AuthService {
           }
         }
 
-        // Check if the user is active
-        final isActive = await UserRoleService.isUserActive(user.email!);
-        if (!isActive) {
-          await _auth.signOut();
+        try {
+          await handleSuccessfulLogin(user);
+          AppLogger.info(
+              'AuthService: Google sign-in succeeded for ${user.email}');
+        } catch (e) {
           await googleSignIn.signOut();
-          throw FirebaseAuthException(
-            code: 'user-deactivated',
-            message:
-                'Your account has been archived. Please contact an administrator for assistance.',
-          );
+          rethrow;
         }
-
-        // Update last login time
-        await _updateLastLoginTime(user);
-
-        // Update timezone (non-blocking)
-        TimezoneService.updateUserTimezoneOnLogin().catchError((e) {
-          AppLogger.error('AuthService: Failed to update timezone: $e');
-        });
-
-        // Initialize teacher services (non-blocking)
-        _initializeTeacherServices(user).catchError((e) {
-          AppLogger.error(
-              'AuthService: Background teacher initialization failed: $e');
-        });
-
-        AppLogger.info(
-            'AuthService: Google sign-in succeeded for ${user.email}');
       }
 
       return user;
@@ -311,43 +302,68 @@ class AuthService {
           await uidDoc.reference.update({
             'last_login': FieldValue.serverTimestamp(),
           });
-          AppLogger.debug('AuthService: Last login time updated for ${user.email}');
+          AppLogger.debug('AuthService: Last login time updated for uid ${user.uid}');
           return;
         }
       } catch (_) {
-        // Ignore and fallback to legacy email lookup below.
+        // Ignore and fallback
       }
 
-      // Legacy: lookup by email (some projects store user docs by email key).
+      // Legacy: lookup by email
       final email = user.email?.toLowerCase();
-      if (email == null) return;
+      if (email != null && email.isNotEmpty) {
+        try {
+          final emailDoc = await users.doc(email).get();
+          if (emailDoc.exists) {
+            await emailDoc.reference.update({
+              'last_login': FieldValue.serverTimestamp(),
+            });
+            AppLogger.debug('AuthService: Last login time updated for ${user.email}');
+            return;
+          }
+        } catch (_) {}
 
-      // Prefer updating the email-id document if it exists (legacy schema).
-      try {
-        final emailDoc = await users.doc(email).get();
-        if (emailDoc.exists) {
-          await emailDoc.reference.update({
+        QuerySnapshot userQuery = await users.where('e-mail', isEqualTo: email).limit(1).get();
+        if (userQuery.docs.isEmpty) {
+          userQuery = await users.where('email', isEqualTo: email).limit(1).get();
+        }
+
+        // Check aliases if using a generated student/kiosk auth email
+        if (userQuery.docs.isEmpty && email.endsWith('@alluwaleducationhub.org')) {
+          final alias = email.split('@')[0];
+          userQuery = await users.where('student_code', isEqualTo: alias).limit(1).get();
+          if (userQuery.docs.isEmpty) {
+            userQuery = await users.where('studentCode', isEqualTo: alias).limit(1).get();
+          }
+          if (userQuery.docs.isEmpty) {
+            userQuery = await users.where('kiosk_code', isEqualTo: alias).limit(1).get();
+          }
+        }
+
+        if (userQuery.docs.isNotEmpty) {
+          final userDoc = userQuery.docs.first;
+          await userDoc.reference.update({
             'last_login': FieldValue.serverTimestamp(),
           });
           AppLogger.debug('AuthService: Last login time updated for ${user.email}');
           return;
         }
-      } catch (_) {
-        // Ignore and fallback to query-by-field below.
       }
 
-      final QuerySnapshot userQuery =
-          await users.where('e-mail', isEqualTo: email).limit(1).get();
-
-      if (userQuery.docs.isNotEmpty) {
-        final userDoc = userQuery.docs.first;
-        await userDoc.reference.update({
-          'last_login': FieldValue.serverTimestamp(),
-        });
-        AppLogger.debug('AuthService: Last login time updated for ${user.email}');
-      } else {
-        AppLogger.debug('AuthService: User document not found for ${user.email}');
+      // Fallback: lookup by phone number
+      final phoneNumber = user.phoneNumber;
+      if (phoneNumber != null && phoneNumber.isNotEmpty) {
+        final phoneQuery = await users.where('phone_number', isEqualTo: phoneNumber).limit(1).get();
+        if (phoneQuery.docs.isNotEmpty) {
+          await phoneQuery.docs.first.reference.update({
+            'last_login': FieldValue.serverTimestamp(),
+          });
+          AppLogger.debug('AuthService: Last login time updated for phone $phoneNumber');
+          return;
+        }
       }
+
+      AppLogger.debug('AuthService: User document not found for last login update (uid: ${user.uid})');
     } on FirebaseException catch (e) {
       if (e.code == 'permission-denied') {
         // Not critical for normal app usage; avoid spamming error logs for roles that can't update metadata.
@@ -435,6 +451,54 @@ class AuthService {
         code: 'unknown-error',
         message: 'An unexpected error occurred. Please try again later.',
       );
+    }
+  }
+
+  Future<void> _provisionCircleMemberUser(User user) async {
+    final phone = user.phoneNumber!;
+    final firestore = FirebaseFirestore.instance;
+
+    // Step 1: Create the user document first (critical — must succeed)
+    final userRef = firestore.collection('users').doc(user.uid);
+    await userRef.set({
+      'user_type': 'circle_member',
+      'phone_number': phone,
+      'is_active': true,
+      'created_at': FieldValue.serverTimestamp(),
+      'first_name': '',
+      'last_name': '',
+      'name': phone,
+    });
+    AppLogger.info('AuthService: Created circle_member doc for $phone (uid=${user.uid})');
+
+    // Step 2: Link pending invites and members (non-blocking — failures here
+    // should not prevent login since the user doc already exists)
+    try {
+      final inviteQuery = await firestore
+          .collection('circle_invites')
+          .where('contact_info', isEqualTo: phone)
+          .where('status', isEqualTo: 'pending')
+          .get();
+
+      final memberQuery = await firestore
+          .collection('circle_members')
+          .where('contact_info', isEqualTo: phone)
+          .where('status', isEqualTo: 'invited')
+          .get();
+
+      if (inviteQuery.docs.isNotEmpty || memberQuery.docs.isNotEmpty) {
+        final batch = firestore.batch();
+        for (final doc in inviteQuery.docs) {
+          batch.update(doc.reference, {'existing_user_id': user.uid});
+        }
+        for (final doc in memberQuery.docs) {
+          batch.update(doc.reference, {'user_id': user.uid});
+        }
+        await batch.commit();
+        AppLogger.info('AuthService: Linked ${inviteQuery.docs.length} invite(s) and ${memberQuery.docs.length} member record(s) for $phone');
+      }
+    } catch (e) {
+      AppLogger.error('AuthService: Failed to link invites/members for $phone (non-fatal): $e');
     }
   }
 

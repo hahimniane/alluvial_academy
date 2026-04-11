@@ -379,6 +379,27 @@
   },
   "chatGroupCreateFailed": "Failed to create group. Please try again.",
   "chatGroupAdminsOnly": "Only administrators can create group chats",
+  "chatVideo": "Video",
+  "chatEditMessage": "Edit",
+  "chatMessageEdited": "Message edited",
+  "chatFailedEditMessage": "Failed to edit message",
+  "chatEditYourMessage": "Edit your message...",
+  "chatSave": "Save",
+  "chatSupportInbox": "Support Inbox",
+  "chatDirectMessage": "Direct Message",
+  "chatSendPersonalMessage": "Send a personal message",
+  "chatSupportChat": "Support Chat",
+  "chatStartSupportWith": "Start a support conversation with {name}",
+  "@chatStartSupportWith": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "chatSendingVideo": "Sending video...",
+  "chatVideoSent": "Video sent!",
+  "chatFailedSendVideo": "Failed to send video",
   "roleAdmin": "Administrator",
   "roleTeacher": "Teacher",
   "roleStudent": "Student",
@@ -4482,5 +4503,281 @@
   "adminAuditCeoAdjustmentRationale": "Justification (bonus or pay cut)",
   "adminAuditCeoPaymentAdjustmentsHint": "Optional monthly amounts. Add a short justification when either amount is set.",
   "adminAuditEvalSectionCommentLabel": "Evaluator comment",
-  "adminAuditEvalSectionCommentHint": "Optional. Included in PDF/Excel under this section."
+  "adminAuditEvalSectionCommentHint": "Optional. Included in PDF/Excel under this section.",
+  "commonAdd": "Add",
+  "tontineSavings": "Savings",
+  "tontineTooltipDescription": "A rotating savings circle where members each contribute a fixed amount every cycle, and one member receives the entire pooled amount. This rotates until every member has received exactly once. No interest, no fees.",
+  "tontineCircles": "Circles",
+  "tontineAdminCircles": "Admin Circles",
+  "tontineHomeSubtitle": "Track your savings circles, invite members, and manage each monthly payout cycle.",
+  "tontineSignInRequired": "Sign in to view your savings circles.",
+  "tontineNoCirclesTitle": "No circles yet",
+  "tontineNoCirclesSubtitle": "Create your first rotating savings circle to start collecting monthly contributions.",
+  "tontineMyCircles": "My circles",
+  "tontinePendingInvites": "Pending invites: {count}",
+  "@tontinePendingInvites": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tontineReviewInvite": "Review invite",
+  "tontineCreateCircle": "Create Circle",
+  "tontineCircleDetails": "Circle Dashboard",
+  "tontineCircleNotFound": "Circle not found.",
+  "tontineStatusForming": "Forming",
+  "tontineStatusActive": "Active",
+  "tontineStatusCompleted": "Completed",
+  "tontineStatusCancelled": "Cancelled",
+  "tontineCyclePending": "Pending",
+  "tontineCycleInProgress": "In progress",
+  "tontineCycleCompleted": "Completed",
+  "tontineCurrentCycle": "Current cycle",
+  "tontineDueDate": "Due date",
+  "tontineCurrentRecipient": "Current recipient",
+  "tontineRecipientPending": "Recipient pending",
+  "tontineMonthOf": "Month {month} of {total}",
+  "@tontineMonthOf": {
+    "placeholders": {
+      "month": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "tontineConfirmedCount": "Confirmed payments",
+  "tontineCircleCompletedMessage": "This circle has finished every payout cycle.",
+  "tontineWaitingForCycle": "Waiting for the first cycle to be created.",
+  "tontineCircleStillForming": "Circle is still forming",
+  "tontineMembersJoined": "{active} of {total} members joined",
+  "@tontineMembersJoined": {
+    "placeholders": {
+      "active": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "tontineWaitingForMembers": "Waiting for members",
+  "tontineActivateCircle": "Activate Circle",
+  "tontineExpectedAmount": "Expected amount",
+  "tontineSubmittedAmount": "Submitted amount",
+  "tontineReceiptAttached": "Receipt attached",
+  "tontineRejectionReason": "Rejection reason",
+  "tontineReviewSubmissions": "Review Submissions",
+  "tontineSubmitPayment": "Submit Payment",
+  "tontinePaymentConfirmed": "Payment confirmed",
+  "tontineContributionPending": "Unpaid",
+  "tontineContributionSubmitted": "Submitted",
+  "tontineContributionConfirmed": "Confirmed",
+  "tontineContributionRejected": "Rejected",
+  "tontineContributionMissed": "Missed",
+  "tontineMemberInvited": "Invited",
+  "tontineInviteByEmail": "Email",
+  "tontineInviteByPhone": "Phone",
+  "tontineMissedMoveToBack": "Move to back",
+  "tontineMissedSuspend": "Suspend member",
+  "tontineNoDeadline": "No deadline set",
+  "tontineDueToday": "Due today",
+  "tontineDueInDays": "Due in {days} days",
+  "@tontineDueInDays": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "tontineOverdueBy": "Overdue by {duration}",
+  "@tontineOverdueBy": {
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "tontinePosition": "Position {position}",
+  "@tontinePosition": {
+    "placeholders": {
+      "position": {
+        "type": "int"
+      }
+    }
+  },
+  "tontinePaymentStatusBoard": "Payment status board",
+  "tontinePaymentDetails": "Payment details",
+  "tontineAmount": "Amount",
+  "tontineAmountMatchesExpected": "Amount matches the expected contribution.",
+  "tontineAmountDoesNotMatchExpected": "Amount does not match the expected contribution.",
+  "tontinePaymentDate": "Payment date",
+  "tontineReceipt": "Receipt",
+  "tontineUseCamera": "Use camera",
+  "tontineChooseFromGallery": "Choose from gallery",
+  "tontineSelectedReceipt": "Selected receipt",
+  "tontineReceiptRequired": "A receipt is required before submission.",
+  "tontinePaymentSubmitted": "Payment submitted successfully.",
+  "tontineSubmissionFailed": "Could not submit payment: {error}",
+  "@tontineSubmissionFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "tontineCreateFailed": "Could not create circle: {error}",
+  "@tontineCreateFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "tontineMarkPayoutSent": "Mark Payout Sent",
+  "tontinePayoutMarkedSent": "Payout marked as sent.",
+  "tontineReviewProgress": "Review progress",
+  "tontineConfirmedOf": "{confirmed} of {total} confirmed",
+  "@tontineConfirmedOf": {
+    "placeholders": {
+      "confirmed": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "tontineRejectContribution": "Reject",
+  "tontineConfirmContribution": "Confirm",
+  "tontineJoinCircle": "Join Circle",
+  "tontineJoinFailed": "Could not join circle: {error}",
+  "@tontineJoinFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "tontineInvitePreview": "Review this savings circle before you accept the invite.",
+  "tontineCircleHead": "Circle head",
+  "tontineStepBasics": "Basics",
+  "tontineStepRules": "Rules",
+  "tontineStepInvite": "Invite",
+  "tontineStepOrder": "Order",
+  "tontineStepReview": "Review",
+  "tontineCircleName": "Circle name",
+  "tontineCircleNameRequired": "Circle name is required.",
+  "tontineContributionAmount": "Contribution amount",
+  "tontineMonthlyContribution": "Monthly contribution",
+  "tontineMemberCount": "Member count",
+  "tontineStartDate": "Start date",
+  "tontineFrequency": "Contribution frequency",
+  "tontineFrequencyWeekly": "Weekly",
+  "tontineFrequencyBiweekly": "Every 2 weeks",
+  "tontineFrequencyMonthly": "Monthly",
+  "tontineFrequencyQuarterly": "Quarterly",
+  "tontineHintCircleName": "Give your circle a name members will recognize",
+  "tontineHintAmount": "How much each member contributes per cycle",
+  "tontineHintMemberCount": "Total members including you",
+  "tontineHintStartDate": "The date when the first cycle begins",
+  "tontineHintFrequency": "How often members contribute and payouts happen",
+  "tontineHintGracePeriod": "Extra days allowed after the due date before a payment is marked late",
+  "tontineHintMissedPayment": "What happens if a member misses their payment",
+  "tontineHintPaymentInstructions": "Tell members how to send their payment (e.g. Zelle, CashApp, bank transfer)",
+  "tontineGracePeriodDays": "Grace period (days)",
+  "tontineMissedPaymentAction": "Missed payment action",
+  "tontinePaymentInstructions": "Payment instructions",
+  "tontinePaymentInstructionsRequired": "Payment instructions are required.",
+  "tontineInviteExistingUsersOnly": "Invite members by email or phone number. They will receive a notification to join.",
+  "tontineInviteMethod": "Invite method",
+  "tontineInviteEmail": "Email address",
+  "tontineInvitePhone": "Phone number",
+  "tontineEnterInviteLookup": "Enter an email or phone number to invite.",
+  "tontineParticipantsAdded": "Participants added: {current}/{total}",
+  "@tontineParticipantsAdded": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "tontineNeedAllMembersBeforeOrdering": "Add every member before setting the payout order.",
+  "tontinePayoutOrder": "Payout order",
+  "tontineYou": "You",
+  "tontineUnableToLoadProfile": "Unable to load your profile.",
+  "tontineEnterValidAmount": "Enter a valid amount.",
+  "tontineInvalidGracePeriod": "Enter a valid grace period.",
+  "tontineMinimumMembers": "A circle needs at least 2 members.",
+  "tontineNeedExactMemberCount": "Add the exact member count before continuing.",
+  "tontineMemberCountReached": "You already added the target number of members.",
+  "tontineUserNotFound": "No existing user matched that contact.",
+  "tontineUserAlreadyAdded": "That user is already in the circle.",
+  "tontineSelectedMethodUnavailable": "That user does not have the selected contact method saved.",
+  "tontineNoActiveCycle": "No active cycle yet",
+  "tontinePotAmount": "Pot amount",
+  "tontineCircleActivated": "Circle activated. The first cycle will appear shortly.",
+  "tontineReorderHint": "Drag the handle to change who receives payment first",
+  "tontineAllMembersJoined": "All members have joined!",
+  "tontineCreatedByYou": "Created by you",
+  "tontineCirclesCreated": "My circles",
+  "tontineCirclesJoined": "Circles I joined",
+  "tontineEnrollmentMode": "Enrollment mode",
+  "tontineManualSelection": "Manual selection",
+  "tontineManualSelectionDesc": "Pick specific teachers to add",
+  "tontineOpenEnrollment": "Open enrollment",
+  "tontineOpenEnrollmentDesc": "Eligible teachers can browse and join",
+  "tontineEligibilityRules": "Eligibility rules",
+  "tontineIncomeMultiplier": "Min. income multiplier",
+  "tontineIncomeMultiplierHint": "Teacher's estimated monthly income must be at least this many times the contribution amount",
+  "tontineMinTenure": "Min. tenure (months)",
+  "tontineMinTenureHint": "Teacher must have been employed for at least this many months",
+  "tontineMinShifts": "Min. shifts (last 30 days)",
+  "tontineMinShiftsHint": "Teacher must have taught at least this many shifts in the last 30 days",
+  "tontineMaxMembers": "Max members",
+  "tontineMaxMembersHint": "Leave at 0 for unlimited",
+  "tontineUnlimited": "Unlimited",
+  "tontineAvailableCircles": "Available circles",
+  "tontineJoinCircle": "Join circle",
+  "tontineNotEligible": "Not eligible",
+  "tontineEligible": "Eligible",
+  "tontineCircleFull": "Circle is full",
+  "tontineJoinSuccess": "Successfully joined the circle!",
+  "tontineEstimatedIncome": "Est. monthly income: {amount}",
+  "@tontineEstimatedIncome": {
+    "placeholders": {
+      "amount": {"type": "String"}
+    }
+  },
+  "tontineIncomeRequirement": "Income must be {multiplier}x the contribution",
+  "@tontineIncomeRequirement": {
+    "placeholders": {
+      "multiplier": {"type": "String"}
+    }
+  },
+  "tontineTenureRequirement": "{months}+ months tenure required",
+  "@tontineTenureRequirement": {
+    "placeholders": {
+      "months": {"type": "int"}
+    }
+  },
+  "tontineShiftsRequirement": "{count}+ shifts in last 30 days",
+  "@tontineShiftsRequirement": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "tontineOpenCircleCreated": "Open circle created. Eligible teachers will be notified.",
+  "tontineSpotsLeft": "{count} spots left",
+  "@tontineSpotsLeft": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "tontineOpenSpots": "Open spots"
 }

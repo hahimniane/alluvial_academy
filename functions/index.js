@@ -24,6 +24,7 @@ const chatHandlers = require('./handlers/chat');
 const directCallHandlers = require('./handlers/direct_calls');
 const aiTutorHandlers = require('./handlers/ai_tutor');
 const attendanceHandlers = require('./handlers/attendance');
+const circleHandlers = require('./handlers/circles');
 // Temporarily commented out to allow deployment
 // const { fixDecemberForms } = require('./fix_december_forms');
 const newImplementation = require('./new_implementation');
@@ -87,6 +88,14 @@ exports.createPaymentSession = onCall(paymentHandlers.createPaymentSession);
 exports.getPaymentHistory = onCall(paymentHandlers.getPaymentHistory);
 exports.handlePayoneerWebhook = functions.https.onRequest(paymentHandlers.handlePayoneerWebhook);
 exports.generateInvoicesForPeriod = paymentHandlers.generateInvoicesForPeriod;
+exports.onCircleActivated = circleHandlers.onCircleActivated;
+exports.onContributionStatusChanged = circleHandlers.onContributionStatusChanged;
+exports.onCycleCompleted = circleHandlers.onCycleCompleted;
+exports.onMemberJoined = circleHandlers.onMemberJoined;
+exports.onInviteCreated = circleHandlers.onInviteCreated;
+exports.onOpenCircleCreated = circleHandlers.onOpenCircleCreated;
+exports.onOpenCircleMemberAdded = circleHandlers.onOpenCircleMemberAdded;
+exports.resendCircleInvite = circleHandlers.resendCircleInvite;
 
 // Zoom host management removed - all video calls now use LiveKit
 

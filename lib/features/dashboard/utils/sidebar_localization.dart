@@ -42,8 +42,14 @@ class SidebarLocalization {
         return AppLocalizations.of(context)!.sidebarReports;
       case 'Responses':
         return AppLocalizations.of(context)!.responses;
+      case 'Savings':
+        return AppLocalizations.of(context)!.tontineSavings;
       case 'Roles (Test)':
         return AppLocalizations.of(context)!.sidebarRolestest;
+      case 'Admin Circles':
+        return AppLocalizations.of(context)!.tontineAdminCircles;
+      case 'Circles':
+        return AppLocalizations.of(context)!.tontineCircles;
       case 'Settings':
         return AppLocalizations.of(context)!.settingsTitle;
       case 'Shifts':

@@ -614,7 +614,19 @@ class _ClassRecordingsScreenState extends State<ClassRecordingsScreen> {
     return const Color(0xFF0E7490);
   }
 
-  String _statusLabel(String status) {
+  bool _isProcessingRecording(ClassRecordingItem recording) {
+    final mergeStatus = recording.mergeStatus?.trim().toLowerCase();
+    return recording.status.trim().toLowerCase() == 'starting' ||
+        mergeStatus == 'pending' ||
+        mergeStatus == 'merging';
+  }
+
+  String _statusLabel(ClassRecordingItem recording) {
+    if (_isProcessingRecording(recording)) {
+      return 'Processing';
+    }
+
+    final status = recording.status;
     switch (status.toLowerCase()) {
       case 'active':
       case 'complete':
@@ -630,7 +642,12 @@ class _ClassRecordingsScreenState extends State<ClassRecordingsScreen> {
     }
   }
 
-  Color _statusColor(String status) {
+  Color _statusColor(ClassRecordingItem recording) {
+    if (_isProcessingRecording(recording)) {
+      return const Color(0xFFF59E0B);
+    }
+
+    final status = recording.status;
     switch (status.toLowerCase()) {
       case 'active':
       case 'complete':
@@ -1274,7 +1291,7 @@ class _ClassRecordingsScreenState extends State<ClassRecordingsScreen> {
     int fragmentNumber,
     int totalFragments,
   ) {
-    final statusColor = _statusColor(recording.status);
+    final statusColor = _statusColor(recording);
     final retentionColor = _retentionCountdownColor(recording.deleteAfter);
     final retentionText = _formatRetentionCountdown(recording.deleteAfter);
     final deleteOnLabel = recording.deleteAfter == null
@@ -1350,7 +1367,7 @@ class _ClassRecordingsScreenState extends State<ClassRecordingsScreen> {
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    _statusLabel(recording.status),
+                    _statusLabel(recording),
                     style: GoogleFonts.inter(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
@@ -1458,7 +1475,9 @@ class _ClassRecordingsScreenState extends State<ClassRecordingsScreen> {
                         ? 'Loading...'
                         : recording.canPlay
                             ? 'Play Recording'
-                            : 'Not Ready Yet',
+                            : _isProcessingRecording(recording)
+                                ? 'Processing...'
+                                : 'Not Ready Yet',
                     style: GoogleFonts.inter(fontWeight: FontWeight.w600),
                   ),
                   style: ElevatedButton.styleFrom(

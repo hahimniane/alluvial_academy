@@ -8,6 +8,7 @@
     "deploy": "firebase deploy --only functions",
     "deploy:dev": "firebase deploy --only functions --project alluwal-dev",
     "deploy:prod": "firebase deploy --only functions --project alluwal-academy",
+    "merge:worker": "node scripts/merge-worker.js",
     "logs": "firebase functions:log",
     "test": "jest --runInBand",
     "test:watch": "jest --watch",
@@ -26,7 +27,8 @@
     "livekit-server-sdk": "^2.15.0",
     "luxon": "^3.7.2",
     "nodemailer": "^6.10.1",
-    "rrule": "^2.8.1"
+    "rrule": "^2.8.1",
+    "twilio": "^5.13.1"
   },
   "devDependencies": {
     "dotenv": "^17.2.3",

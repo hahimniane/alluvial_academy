@@ -879,6 +879,50 @@ class AppLocalizationsAr extends AppLocalizations {
   String get chatGroupAdminsOnly => 'المسؤولون فقط يمكنهم إنشاء محادثات جماعية';
 
   @override
+  String get chatVideo => 'فيديو';
+
+  @override
+  String get chatEditMessage => 'تعديل';
+
+  @override
+  String get chatMessageEdited => 'تم تعديل الرسالة';
+
+  @override
+  String get chatFailedEditMessage => 'فشل تعديل الرسالة';
+
+  @override
+  String get chatEditYourMessage => 'عدّل رسالتك...';
+
+  @override
+  String get chatSave => 'حفظ';
+
+  @override
+  String get chatSupportInbox => 'صندوق الدعم';
+
+  @override
+  String get chatDirectMessage => 'رسالة مباشرة';
+
+  @override
+  String get chatSendPersonalMessage => 'إرسال رسالة شخصية';
+
+  @override
+  String get chatSupportChat => 'محادثة الدعم';
+
+  @override
+  String chatStartSupportWith(String name) {
+    return 'بدء محادثة دعم مع $name';
+  }
+
+  @override
+  String get chatSendingVideo => 'جارٍ إرسال الفيديو...';
+
+  @override
+  String get chatVideoSent => 'تم إرسال الفيديو!';
+
+  @override
+  String get chatFailedSendVideo => 'فشل إرسال الفيديو';
+
+  @override
   String get roleAdmin => 'مسؤول';
 
   @override
@@ -10822,4 +10866,541 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get adminAuditEvalSectionCommentHint =>
       'اختياري. يُدرج في PDF/Excel تحت هذا القسم.';
+
+  @override
+  String get commonAdd => 'إضافة';
+
+  @override
+  String get tontineSavings => 'الادخار';
+
+  @override
+  String get tontineTooltipDescription =>
+      'دائرة ادخار دورية حيث يساهم كل عضو بمبلغ ثابت في كل دورة، ويستلم عضو واحد المبلغ المجمع بالكامل. يدور هذا حتى يستلم كل عضو مرة واحدة بالضبط. بدون فوائد، وبدون رسوم.';
+
+  @override
+  String get tontineCircles => 'الدوائر';
+
+  @override
+  String get tontineAdminCircles => 'دوائر المسؤول';
+
+  @override
+  String get tontineHomeSubtitle =>
+      'تابع دوائر الادخار، وادعُ الأعضاء، وأدر كل دورة شهرية.';
+
+  @override
+  String get tontineSignInRequired =>
+      'سجل الدخول لعرض دوائر الادخار الخاصة بك.';
+
+  @override
+  String get tontineNoCirclesTitle => 'لا توجد دوائر بعد';
+
+  @override
+  String get tontineNoCirclesSubtitle =>
+      'أنشئ أول دائرة ادخار دوارة لبدء جمع المساهمات الشهرية.';
+
+  @override
+  String get tontineMyCircles => 'دوائري';
+
+  @override
+  String tontinePendingInvites(int count) {
+    return 'الدعوات المعلقة: $count';
+  }
+
+  @override
+  String get tontineReviewInvite => 'عرض الدعوة';
+
+  @override
+  String get tontineCreateCircle => 'إنشاء دائرة';
+
+  @override
+  String get tontineCircleDetails => 'لوحة الدائرة';
+
+  @override
+  String get tontineCircleNotFound => 'تعذر العثور على الدائرة.';
+
+  @override
+  String get tontineStatusForming => 'قيد التكوين';
+
+  @override
+  String get tontineStatusActive => 'نشطة';
+
+  @override
+  String get tontineStatusCompleted => 'مكتملة';
+
+  @override
+  String get tontineStatusCancelled => 'ملغاة';
+
+  @override
+  String get tontineCyclePending => 'قيد الانتظار';
+
+  @override
+  String get tontineCycleInProgress => 'قيد التنفيذ';
+
+  @override
+  String get tontineCycleCompleted => 'مكتمل';
+
+  @override
+  String get tontineCurrentCycle => 'الدورة الحالية';
+
+  @override
+  String get tontineDueDate => 'تاريخ الاستحقاق';
+
+  @override
+  String get tontineCurrentRecipient => 'المستفيد الحالي';
+
+  @override
+  String get tontineRecipientPending => 'المستفيد قيد الانتظار';
+
+  @override
+  String tontineMonthOf(int month, int total) {
+    return 'الشهر $month من $total';
+  }
+
+  @override
+  String get tontineConfirmedCount => 'المدفوعات المؤكدة';
+
+  @override
+  String get tontineCircleCompletedMessage =>
+      'أكملت هذه الدائرة جميع دورات الصرف.';
+
+  @override
+  String get tontineWaitingForCycle => 'بانتظار إنشاء الدورة الأولى.';
+
+  @override
+  String get tontineCircleStillForming => 'الدائرة ما زالت قيد التكوين';
+
+  @override
+  String tontineMembersJoined(int active, int total) {
+    return 'انضم $active من أصل $total أعضاء';
+  }
+
+  @override
+  String get tontineWaitingForMembers => 'بانتظار الأعضاء';
+
+  @override
+  String get tontineActivateCircle => 'تفعيل الدائرة';
+
+  @override
+  String get tontineExpectedAmount => 'المبلغ المتوقع';
+
+  @override
+  String get tontineSubmittedAmount => 'المبلغ المرسل';
+
+  @override
+  String get tontineReceiptAttached => 'الإيصال مرفق';
+
+  @override
+  String get tontineRejectionReason => 'سبب الرفض';
+
+  @override
+  String get tontineReviewSubmissions => 'مراجعة الإرسالات';
+
+  @override
+  String get tontineSubmitPayment => 'إرسال الدفعة';
+
+  @override
+  String get tontinePaymentConfirmed => 'تم تأكيد الدفع';
+
+  @override
+  String get tontineContributionPending => 'غير مدفوع';
+
+  @override
+  String get tontineContributionSubmitted => 'مُرسل';
+
+  @override
+  String get tontineContributionConfirmed => 'مؤكد';
+
+  @override
+  String get tontineContributionRejected => 'مرفوض';
+
+  @override
+  String get tontineContributionMissed => 'فائت';
+
+  @override
+  String get tontineMemberInvited => 'مدعو';
+
+  @override
+  String get tontineInviteByEmail => 'البريد الإلكتروني';
+
+  @override
+  String get tontineInviteByPhone => 'الهاتف';
+
+  @override
+  String get tontineMissedMoveToBack => 'نقل إلى الخلف';
+
+  @override
+  String get tontineMissedSuspend => 'تعليق العضو';
+
+  @override
+  String get tontineNoDeadline => 'لا يوجد موعد نهائي';
+
+  @override
+  String get tontineDueToday => 'مستحق اليوم';
+
+  @override
+  String tontineDueInDays(int days) {
+    return 'مستحق خلال $days يومًا';
+  }
+
+  @override
+  String tontineOverdueBy(String duration) {
+    return 'متأخر بمقدار $duration';
+  }
+
+  @override
+  String tontinePosition(int position) {
+    return 'الترتيب $position';
+  }
+
+  @override
+  String get tontinePaymentStatusBoard => 'لوحة حالة المدفوعات';
+
+  @override
+  String get tontinePaymentDetails => 'تفاصيل الدفع';
+
+  @override
+  String get tontineAmount => 'المبلغ';
+
+  @override
+  String get tontineAmountMatchesExpected => 'المبلغ يطابق المساهمة المتوقعة.';
+
+  @override
+  String get tontineAmountDoesNotMatchExpected =>
+      'المبلغ لا يطابق المساهمة المتوقعة.';
+
+  @override
+  String get tontinePaymentDate => 'تاريخ الدفع';
+
+  @override
+  String get tontineReceipt => 'الإيصال';
+
+  @override
+  String get tontineUseCamera => 'استخدام الكاميرا';
+
+  @override
+  String get tontineChooseFromGallery => 'الاختيار من المعرض';
+
+  @override
+  String get tontineSelectedReceipt => 'الإيصال المحدد';
+
+  @override
+  String get tontineReceiptRequired => 'إرفاق الإيصال مطلوب قبل الإرسال.';
+
+  @override
+  String get tontinePaymentSubmitted => 'تم إرسال الدفعة بنجاح.';
+
+  @override
+  String tontineSubmissionFailed(String error) {
+    return 'تعذر إرسال الدفعة: $error';
+  }
+
+  @override
+  String tontineCreateFailed(String error) {
+    return 'تعذر إنشاء الدائرة: $error';
+  }
+
+  @override
+  String get tontineMarkPayoutSent => 'تحديد أن الصرف تم';
+
+  @override
+  String get tontinePayoutMarkedSent => 'تم تحديد الصرف على أنه مرسل.';
+
+  @override
+  String get tontineReviewProgress => 'تقدم المراجعة';
+
+  @override
+  String tontineConfirmedOf(int confirmed, int total) {
+    return 'تم تأكيد $confirmed من $total';
+  }
+
+  @override
+  String get tontineRejectContribution => 'رفض';
+
+  @override
+  String get tontineConfirmContribution => 'تأكيد';
+
+  @override
+  String get tontineJoinCircle => 'انضم للدائرة';
+
+  @override
+  String tontineJoinFailed(String error) {
+    return 'تعذر الانضمام إلى الدائرة: $error';
+  }
+
+  @override
+  String get tontineInvitePreview => 'راجع دائرة الادخار هذه قبل قبول الدعوة.';
+
+  @override
+  String get tontineCircleHead => 'رئيس الدائرة';
+
+  @override
+  String get tontineStepBasics => 'الأساسيات';
+
+  @override
+  String get tontineStepRules => 'القواعد';
+
+  @override
+  String get tontineStepInvite => 'الدعوة';
+
+  @override
+  String get tontineStepOrder => 'الترتيب';
+
+  @override
+  String get tontineStepReview => 'المراجعة';
+
+  @override
+  String get tontineCircleName => 'اسم الدائرة';
+
+  @override
+  String get tontineCircleNameRequired => 'اسم الدائرة مطلوب.';
+
+  @override
+  String get tontineContributionAmount => 'مبلغ المساهمة';
+
+  @override
+  String get tontineMonthlyContribution => 'المساهمة الشهرية';
+
+  @override
+  String get tontineMemberCount => 'عدد الأعضاء';
+
+  @override
+  String get tontineStartDate => 'تاريخ البدء';
+
+  @override
+  String get tontineFrequency => 'تكرار المساهمة';
+
+  @override
+  String get tontineFrequencyWeekly => 'أسبوعي';
+
+  @override
+  String get tontineFrequencyBiweekly => 'كل أسبوعين';
+
+  @override
+  String get tontineFrequencyMonthly => 'شهري';
+
+  @override
+  String get tontineFrequencyQuarterly => 'ربع سنوي';
+
+  @override
+  String get tontineHintCircleName => 'أعطِ دائرتك اسمًا يعرفه الأعضاء';
+
+  @override
+  String get tontineHintAmount => 'المبلغ الذي يساهم به كل عضو في كل دورة';
+
+  @override
+  String get tontineHintMemberCount => 'إجمالي الأعضاء بما فيهم أنت';
+
+  @override
+  String get tontineHintStartDate => 'تاريخ بدء الدورة الأولى';
+
+  @override
+  String get tontineHintFrequency => 'عدد مرات المساهمة والدفعات';
+
+  @override
+  String get tontineHintGracePeriod =>
+      'أيام إضافية مسموح بها بعد تاريخ الاستحقاق قبل اعتبار الدفع متأخرًا';
+
+  @override
+  String get tontineHintMissedPayment => 'ماذا يحدث إذا فوّت عضو دفعته';
+
+  @override
+  String get tontineHintPaymentInstructions =>
+      'أخبر الأعضاء بكيفية إرسال مدفوعاتهم (مثلاً: تحويل بنكي، موبايل موني)';
+
+  @override
+  String get tontineGracePeriodDays => 'فترة السماح (أيام)';
+
+  @override
+  String get tontineMissedPaymentAction => 'إجراء عند تفويت الدفع';
+
+  @override
+  String get tontinePaymentInstructions => 'تعليمات الدفع';
+
+  @override
+  String get tontinePaymentInstructionsRequired => 'تعليمات الدفع مطلوبة.';
+
+  @override
+  String get tontineInviteExistingUsersOnly =>
+      'قم بدعوة الأعضاء عبر البريد الإلكتروني أو رقم الهاتف. سيتلقون إشعارًا للانضمام.';
+
+  @override
+  String get tontineInviteMethod => 'طريقة الدعوة';
+
+  @override
+  String get tontineInviteEmail => 'البريد الإلكتروني';
+
+  @override
+  String get tontineInvitePhone => 'رقم الهاتف';
+
+  @override
+  String get tontineEnterInviteLookup =>
+      'أدخل بريدًا إلكترونيًا أو رقم هاتف لدعوته.';
+
+  @override
+  String tontineParticipantsAdded(int current, int total) {
+    return 'تمت إضافة المشاركين: $current/$total';
+  }
+
+  @override
+  String get tontineNeedAllMembersBeforeOrdering =>
+      'أضف جميع الأعضاء قبل تحديد ترتيب الصرف.';
+
+  @override
+  String get tontinePayoutOrder => 'ترتيب الصرف';
+
+  @override
+  String get tontineYou => 'أنت';
+
+  @override
+  String get tontineUnableToLoadProfile => 'تعذر تحميل ملفك الشخصي.';
+
+  @override
+  String get tontineEnterValidAmount => 'أدخل مبلغًا صالحًا.';
+
+  @override
+  String get tontineInvalidGracePeriod => 'أدخل فترة سماح صالحة.';
+
+  @override
+  String get tontineMinimumMembers => 'تحتاج الدائرة إلى عضوين على الأقل.';
+
+  @override
+  String get tontineNeedExactMemberCount =>
+      'أضف العدد المطلوب تمامًا من الأعضاء قبل المتابعة.';
+
+  @override
+  String get tontineMemberCountReached =>
+      'لقد أضفت بالفعل العدد المستهدف من الأعضاء.';
+
+  @override
+  String get tontineUserNotFound =>
+      'لم يتم العثور على مستخدم حالي يطابق جهة الاتصال هذه.';
+
+  @override
+  String get tontineUserAlreadyAdded => 'هذا المستخدم موجود بالفعل في الدائرة.';
+
+  @override
+  String get tontineSelectedMethodUnavailable =>
+      'هذا المستخدم لا يملك طريقة الاتصال المحددة محفوظة.';
+
+  @override
+  String get tontineNoActiveCycle => 'لا توجد دورة نشطة حاليًا';
+
+  @override
+  String get tontinePotAmount => 'قيمة الحصيلة';
+
+  @override
+  String get tontineCircleActivated =>
+      'تم تفعيل الدائرة. ستظهر الدورة الأولى قريبًا.';
+
+  @override
+  String get tontineReorderHint =>
+      'اسحب المقبض لتغيير ترتيب من يستلم الدفعة أولاً';
+
+  @override
+  String get tontineAllMembersJoined => 'انضم جميع الأعضاء!';
+
+  @override
+  String get tontineCreatedByYou => 'أنشأته أنت';
+
+  @override
+  String get tontineCirclesCreated => 'دوائري';
+
+  @override
+  String get tontineCirclesJoined => 'دوائر انضممت إليها';
+
+  @override
+  String get tontineEnrollmentMode => 'وضع التسجيل';
+
+  @override
+  String get tontineManualSelection => 'اختيار يدوي';
+
+  @override
+  String get tontineManualSelectionDesc => 'اختر المعلمين للإضافة';
+
+  @override
+  String get tontineOpenEnrollment => 'تسجيل مفتوح';
+
+  @override
+  String get tontineOpenEnrollmentDesc =>
+      'يمكن للمعلمين المؤهلين التصفح والانضمام';
+
+  @override
+  String get tontineEligibilityRules => 'قواعد الأهلية';
+
+  @override
+  String get tontineIncomeMultiplier => 'مضاعف الدخل الأدنى';
+
+  @override
+  String get tontineIncomeMultiplierHint =>
+      'يجب أن يكون الدخل الشهري المقدر للمعلم على الأقل هذا العدد من مرات مبلغ المساهمة';
+
+  @override
+  String get tontineMinTenure => 'الحد الأدنى للخبرة (أشهر)';
+
+  @override
+  String get tontineMinTenureHint =>
+      'يجب أن يكون المعلم قد عمل لمدة هذا العدد من الأشهر على الأقل';
+
+  @override
+  String get tontineMinShifts => 'الحد الأدنى للنوبات (آخر 30 يومًا)';
+
+  @override
+  String get tontineMinShiftsHint =>
+      'يجب أن يكون المعلم قد درّس هذا العدد من النوبات على الأقل في آخر 30 يومًا';
+
+  @override
+  String get tontineMaxMembers => 'الحد الأقصى للأعضاء';
+
+  @override
+  String get tontineMaxMembersHint => 'اتركه 0 لعدد غير محدود';
+
+  @override
+  String get tontineUnlimited => 'غير محدود';
+
+  @override
+  String get tontineAvailableCircles => 'الدوائر المتاحة';
+
+  @override
+  String get tontineNotEligible => 'غير مؤهل';
+
+  @override
+  String get tontineEligible => 'مؤهل';
+
+  @override
+  String get tontineCircleFull => 'الدائرة ممتلئة';
+
+  @override
+  String get tontineJoinSuccess => 'تم الانضمام إلى الدائرة بنجاح!';
+
+  @override
+  String tontineEstimatedIncome(String amount) {
+    return 'الدخل الشهري المقدر: $amount';
+  }
+
+  @override
+  String tontineIncomeRequirement(String multiplier) {
+    return 'يجب أن يكون الدخل $multiplier ضعف المساهمة';
+  }
+
+  @override
+  String tontineTenureRequirement(int months) {
+    return '$months+ أشهر خبرة مطلوبة';
+  }
+
+  @override
+  String tontineShiftsRequirement(int count) {
+    return '$count+ نوبات في آخر 30 يومًا';
+  }
+
+  @override
+  String get tontineOpenCircleCreated =>
+      'تم إنشاء دائرة مفتوحة. سيتم إخطار المعلمين المؤهلين.';
+
+  @override
+  String tontineSpotsLeft(int count) {
+    return '$count أماكن متبقية';
+  }
+
+  @override
+  String get tontineOpenSpots => 'أماكن مفتوحة';
 }

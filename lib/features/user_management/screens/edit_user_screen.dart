@@ -33,6 +33,7 @@ class _EditUserScreenState extends State<EditUserScreen>
   bool _isLoading = false;
   bool _hasChanges = false;
   bool _aiTutorEnabled = false;
+  bool _tontineEnabled = false;
 
   final List<Map<String, dynamic>> _userTypes = [
     {
@@ -91,6 +92,7 @@ class _EditUserScreenState extends State<EditUserScreen>
         TextEditingController(text: widget.employee.kioskCode);
     _selectedUserType = widget.employee.userType;
     _aiTutorEnabled = widget.employee.aiTutorEnabled;
+    _tontineEnabled = widget.employee.tontineEnabled;
     _secondaryRoles = Set<String>.from(widget.employee.secondaryRoles);
 
     // Add listeners to track changes
@@ -144,6 +146,7 @@ class _EditUserScreenState extends State<EditUserScreen>
         'title': _titleController.text.trim(),
         'user_type': _selectedUserType,
         'ai_tutor_enabled': _aiTutorEnabled,
+        'tontine_enabled': _tontineEnabled,
         'secondary_roles': _secondaryRoles.toList(),
         'updated_at': Timestamp.now(),
       };
@@ -245,6 +248,8 @@ class _EditUserScreenState extends State<EditUserScreen>
                           const SizedBox(height: 24),
                           _buildAITutorAccessSection(),
                         ],
+                        const SizedBox(height: 24),
+                        _buildTontineAccessSection(),
                         const SizedBox(height: 32),
                         _buildActionButtons(),
                       ],
@@ -912,6 +917,107 @@ class _EditUserScreenState extends State<EditUserScreen>
                   onChanged: (value) {
                     setState(() {
                       _aiTutorEnabled = value;
+                      _hasChanges = true;
+                    });
+                  },
+                  activeColor: const Color(0xff10B981),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTontineAccessSection() {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xffE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xff10B981).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.groups_rounded,
+                  color: Color(0xff10B981),
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Tontine / Savings Circles',
+                style: GoogleFonts.inter(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xff111827),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: _tontineEnabled
+                  ? const Color(0xff10B981).withOpacity(0.05)
+                  : const Color(0xffF9FAFB),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: _tontineEnabled
+                    ? const Color(0xff10B981).withOpacity(0.3)
+                    : const Color(0xffE2E8F0),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  _tontineEnabled ? Icons.check_circle : Icons.block,
+                  color: _tontineEnabled
+                      ? const Color(0xff10B981)
+                      : const Color(0xff9CA3AF),
+                  size: 24,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Enable Tontine',
+                        style: GoogleFonts.inter(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xff111827),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Allow this user to access savings circles',
+                        style: GoogleFonts.inter(
+                          fontSize: 13,
+                          color: const Color(0xff6B7280),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Switch(
+                  value: _tontineEnabled,
+                  onChanged: (value) {
+                    setState(() {
+                      _tontineEnabled = value;
                       _hasChanges = true;
                     });
                   },

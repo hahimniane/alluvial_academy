@@ -30,6 +30,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   bool _isAdmin = false;
   Map<String, List<ChatUser>> _groupedContacts = {};
   bool _loadingContacts = true;
+  bool _supportInboxCollapsed = true;
 
   @override
   void initState() {
@@ -57,9 +58,10 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       setState(() => _loadingContacts = false);
       return;
     }
-    
+
     try {
-      final contacts = await _permissionService.getEligibleContactsGrouped(userId);
+      final contacts =
+          await _permissionService.getEligibleContactsGrouped(userId);
       if (mounted) {
         setState(() {
           _groupedContacts = contacts;
@@ -195,7 +197,8 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
           ),
           filled: true,
           fillColor: const Color(0xffF3F4F6),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
             borderSide: BorderSide.none,
@@ -272,7 +275,8 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildChatList(List<ChatUser> normalChats, List<ChatUser> supportChats) {
+  Widget _buildChatList(
+      List<ChatUser> normalChats, List<ChatUser> supportChats) {
     final filteredNormal = _searchQuery.isEmpty
         ? normalChats
         : normalChats
@@ -305,60 +309,96 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
 
     final items = <Widget>[];
 
-    // Admin support inbox section (only for admins)
+    // Collapsible admin support inbox section (only for admins)
     if (filteredSupport.isNotEmpty) {
+      final unreadSupportCount =
+          filteredSupport.fold<int>(0, (sum, chat) => sum + chat.unreadCount);
+
       items.add(
-        Padding(
-          padding: const EdgeInsets.fromLTRB(8, 12, 8, 8),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: const Color(0xffEF4444).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(6),
+        InkWell(
+          onTap: () {
+            setState(() {
+              _supportInboxCollapsed = !_supportInboxCollapsed;
+            });
+          },
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(8, 12, 8, 8),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xffEF4444).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: const Icon(Icons.support_agent,
+                      size: 16, color: Color(0xffEF4444)),
                 ),
-                child: const Icon(Icons.support_agent,
-                    size: 16, color: Color(0xffEF4444)),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Support Inbox',
-                style: GoogleFonts.inter(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xff6B7280),
-                  letterSpacing: 0.5,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: const Color(0xffFEE2E2),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  '${filteredSupport.length}',
+                const SizedBox(width: 8),
+                Text(
+                  'Support Inbox',
                   style: GoogleFonts.inter(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: const Color(0xffEF4444),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xff6B7280),
+                    letterSpacing: 0.5,
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(width: 8),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: unreadSupportCount > 0
+                        ? const Color(0xffFEE2E2)
+                        : const Color(0xffF1F5F9),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '${filteredSupport.length}',
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: unreadSupportCount > 0
+                          ? const Color(0xffEF4444)
+                          : const Color(0xff64748B),
+                    ),
+                  ),
+                ),
+                if (unreadSupportCount > 0) ...[
+                  const SizedBox(width: 6),
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: const BoxDecoration(
+                      color: Color(0xffEF4444),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ],
+                const Spacer(),
+                Icon(
+                  _supportInboxCollapsed
+                      ? Icons.expand_more
+                      : Icons.expand_less,
+                  size: 20,
+                  color: const Color(0xff9CA3AF),
+                ),
+              ],
+            ),
           ),
         ),
       );
 
-      for (final chat in filteredSupport) {
-        items.add(ChatUserListItem(
-          user: chat,
-          onTap: () => _openAdminSupportChat(chat),
-          showLastMessage: true,
-        ));
+      if (!_supportInboxCollapsed) {
+        for (final chat in filteredSupport) {
+          items.add(ChatUserListItem(
+            user: chat,
+            onTap: () => _openAdminSupportChat(chat),
+            showLastMessage: true,
+          ));
+        }
       }
 
       if (filteredNormal.isNotEmpty) {
@@ -421,8 +461,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
 
     // Check if "Admin Support" matches search (for non-admins)
     final showAdminSupport = !_isAdmin &&
-        (_searchQuery.isEmpty ||
-            'admin support'.contains(_searchQuery));
+        (_searchQuery.isEmpty || 'admin support'.contains(_searchQuery));
 
     if (filteredGroups.isEmpty && !showAdminSupport) {
       return _buildEmptyState(
@@ -519,6 +558,8 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                 ...users.map((user) => ChatUserListItem(
                       user: user,
                       onTap: () => _openChat(user),
+                      onLongPress:
+                          _isAdmin ? () => _showContactOptions(user) : null,
                       showLastMessage: false,
                     )),
               ],
@@ -579,7 +620,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   Widget _getGroupIcon(String groupName) {
     IconData icon;
     Color color;
-    
+
     switch (groupName) {
       case 'Administrators':
         icon = Icons.admin_panel_settings;
@@ -601,7 +642,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
         icon = Icons.people;
         color = const Color(0xff6B7280);
     }
-    
+
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
@@ -801,15 +842,6 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   }
 
   void _openChat(ChatUser user) async {
-    // For individual chats, ensure the conversation is created so it appears in Recent Chats
-    if (!user.isGroup) {
-      try {
-        await _chatService.getOrCreateIndividualChat(user.id);
-      } catch (e) {
-        AppLogger.error('Error creating chat: $e');
-      }
-    }
-
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => ChatScreen(chatUser: user),
@@ -819,26 +851,20 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
 
   /// Non-admin user taps "Admin Support" contact — creates/gets the support chat
   /// and opens ChatScreen with a virtual admin_support ChatUser.
-  void _openAdminSupportChatAsUser() async {
-    try {
-      await _chatService.getOrCreateAdminSupportChat();
-      final supportUser = ChatUser(
-        id: ChatService.adminSupportId,
-        name: 'Admin Support',
-        email: 'Message the school administrators',
-        role: 'admin',
-      );
+  void _openAdminSupportChatAsUser() {
+    final supportUser = ChatUser(
+      id: ChatService.adminSupportId,
+      name: 'Admin Support',
+      email: 'Message the school administrators',
+      role: 'admin',
+    );
 
-      if (!mounted) return;
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (context) =>
-              ChatScreen(chatUser: supportUser, isAdminSupportChat: true),
-        ),
-      );
-    } catch (e) {
-      AppLogger.error('Error opening admin support chat: $e');
-    }
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) =>
+            ChatScreen(chatUser: supportUser, isAdminSupportChat: true),
+      ),
+    );
   }
 
   /// Admin taps a support conversation from the Support Inbox.
@@ -848,6 +874,89 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       MaterialPageRoute(
         builder: (context) =>
             ChatScreen(chatUser: chat, isAdminSupportChat: true),
+      ),
+    );
+  }
+
+  /// Admin initiates a support conversation with a specific user.
+  void _openAdminSupportChatWithUser(ChatUser user) {
+    final chatId = _generateChatId(user.id, ChatService.adminSupportId);
+    final supportUser = ChatUser(
+      id: chatId,
+      name: user.name,
+      email: user.email,
+      profilePicture: user.profilePicture,
+      role: user.role,
+    );
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) =>
+            ChatScreen(chatUser: supportUser, isAdminSupportChat: true),
+      ),
+    );
+  }
+
+  String _generateChatId(String userId1, String userId2) {
+    final sortedIds = [userId1, userId2]..sort();
+    return '${sortedIds[0]}_${sortedIds[1]}';
+  }
+
+  void _showContactOptions(ChatUser user) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.symmetric(vertical: 12),
+              decoration: BoxDecoration(
+                color: const Color(0xffE5E7EB),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.chat, color: Color(0xff0386FF)),
+              title: Text(
+                'Direct Message',
+                style: GoogleFonts.inter(fontWeight: FontWeight.w500),
+              ),
+              subtitle: Text(
+                'Send a personal message',
+                style: GoogleFonts.inter(
+                    fontSize: 13, color: const Color(0xff6B7280)),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                _openChat(user);
+              },
+            ),
+            ListTile(
+              leading:
+                  const Icon(Icons.support_agent, color: Color(0xffEF4444)),
+              title: Text(
+                'Support Chat',
+                style: GoogleFonts.inter(fontWeight: FontWeight.w500),
+              ),
+              subtitle: Text(
+                'Start a support conversation with ${user.displayName}',
+                style: GoogleFonts.inter(
+                    fontSize: 13, color: const Color(0xff6B7280)),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                _openAdminSupportChatWithUser(user);
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
       ),
     );
   }

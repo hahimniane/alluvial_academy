@@ -15,6 +15,7 @@ import 'parent_profile_screen.dart';
 import 'parent_classes_screen.dart';
 import '../../recordings/screens/class_recordings_screen.dart';
 import '../../settings/screens/role_settings_screen.dart';
+import '../../tontine/screens/tontine_home_screen.dart';
 import 'package:alluwalacademyadmin/core/widgets/role_switcher.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
@@ -32,7 +33,8 @@ class _ParentDashboardLayoutState extends State<ParentDashboardLayout> {
   bool _isSideMenuCollapsed = false;
   int _selectedIndex = 0;
   String? _userRole;
-  static const int _screenCount = 8; // Dashboard, Invoices, Payments, Forms, Profile, Settings, Classes, Recordings
+  static const int _screenCount =
+      9; // Dashboard, Invoices, Payments, Forms, Profile, Settings, Classes, Recordings, Circles
 
   @override
   void initState() {
@@ -78,7 +80,8 @@ class _ParentDashboardLayoutState extends State<ParentDashboardLayout> {
   }
 
   Widget _buildScreenForIndex(int index) {
-    final parentId = UserRoleService.getCurrentUserId() ?? FirebaseAuth.instance.currentUser?.uid;
+    final parentId = UserRoleService.getCurrentUserId() ??
+        FirebaseAuth.instance.currentUser?.uid;
 
     switch (index) {
       case 0:
@@ -92,11 +95,14 @@ class _ParentDashboardLayoutState extends State<ParentDashboardLayout> {
       case 4:
         return const ParentProfileScreen();
       case 5:
-        return RoleSettingsScreen(title: AppLocalizations.of(context)!.parentSettings);
+        return RoleSettingsScreen(
+            title: AppLocalizations.of(context)!.parentSettings);
       case 6:
         return const ParentClassesScreen();
       case 7:
         return const ClassRecordingsScreen();
+      case 8:
+        return const TontineHomeScreen();
       default:
         return const _AccessDeniedScreen();
     }
@@ -137,7 +143,8 @@ class _ParentDashboardLayoutState extends State<ParentDashboardLayout> {
   Widget _buildBody({required bool isCompact}) {
     final content = IndexedStack(
       index: _selectedIndex,
-      children: List<Widget>.generate(_screenCount, (i) => _buildScreenForIndex(i)),
+      children:
+          List<Widget>.generate(_screenCount, (i) => _buildScreenForIndex(i)),
     );
 
     if (isCompact) {
@@ -251,7 +258,8 @@ class _ParentDashboardLayoutState extends State<ParentDashboardLayout> {
                   color: const Color(0xFFEFF6FF),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.person, color: Color(0xFF1D4ED8), size: 20),
+                child: const Icon(Icons.person,
+                    color: Color(0xFF1D4ED8), size: 20),
               ),
               if (!compact) ...[
                 const SizedBox(width: 8),
@@ -275,7 +283,8 @@ class _ParentDashboardLayoutState extends State<ParentDashboardLayout> {
                 children: [
                   const Icon(Icons.person, size: 20, color: Color(0xFF6B7280)),
                   const SizedBox(width: 12),
-                  Text(AppLocalizations.of(context)!.profile, style: GoogleFonts.inter()),
+                  Text(AppLocalizations.of(context)!.profile,
+                      style: GoogleFonts.inter()),
                 ],
               ),
             ),
@@ -285,7 +294,8 @@ class _ParentDashboardLayoutState extends State<ParentDashboardLayout> {
                 children: [
                   const Icon(Icons.logout, size: 20, color: Color(0xFFDC2626)),
                   const SizedBox(width: 12),
-                  Text(AppLocalizations.of(context)!.settingsSignOut, style: GoogleFonts.inter(color: const Color(0xFFDC2626))),
+                  Text(AppLocalizations.of(context)!.settingsSignOut,
+                      style: GoogleFonts.inter(color: const Color(0xFFDC2626))),
                 ],
               ),
             ),
@@ -306,7 +316,8 @@ class _ParentDashboardLayoutState extends State<ParentDashboardLayout> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(AppLocalizations.of(context)!.settingsSignOut, style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+        title: Text(AppLocalizations.of(context)!.settingsSignOut,
+            style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
         content: Text(
           AppLocalizations.of(context)!.settingsSignOutConfirm,
           style: GoogleFonts.inter(),
@@ -314,7 +325,8 @@ class _ParentDashboardLayoutState extends State<ParentDashboardLayout> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: Text(AppLocalizations.of(context)!.commonCancel, style: GoogleFonts.inter()),
+            child: Text(AppLocalizations.of(context)!.commonCancel,
+                style: GoogleFonts.inter()),
           ),
           ElevatedButton(
             onPressed: () => Navigator.of(context).pop(true),
@@ -322,7 +334,8 @@ class _ParentDashboardLayoutState extends State<ParentDashboardLayout> {
               backgroundColor: const Color(0xFFDC2626),
               foregroundColor: Colors.white,
             ),
-            child: Text(AppLocalizations.of(context)!.settingsSignOut, style: GoogleFonts.inter()),
+            child: Text(AppLocalizations.of(context)!.settingsSignOut,
+                style: GoogleFonts.inter()),
           ),
         ],
       ),

@@ -31,6 +31,12 @@ async function main() {
   }
 
   const limit = flags.limit || 20;
+  const hasFilters =
+    Boolean(flags.email) ||
+    Boolean(flags.session) ||
+    Boolean(flags.fatal) ||
+    Boolean(flags.context);
+
   let query = db.collection('error_logs').orderBy('timestamp', 'desc');
 
   if (flags.email) {
@@ -52,27 +58,63 @@ async function main() {
 
   query = query.limit(limit);
 
-  const snapshot = await query.get();
+  let docs;
+  try {
+    const snapshot = await query.get();
+    docs = snapshot.docs;
+  } catch (error) {
+    const needsIndex =
+      error?.code === 9 ||
+      String(error?.message || '').includes('FAILED_PRECONDITION') ||
+      String(error?.details || '').includes('requires an index');
 
-  if (snapshot.empty) {
+    if (!hasFilters || !needsIndex) {
+      throw error;
+    }
+
+    const fallbackLimit = Math.max(limit * 100, 2000);
+    console.warn(
+      '\nContext-aware query needs a Firestore index. Falling back to in-memory filtering of recent logs.',
+    );
+    console.warn(`Fetching last ${fallbackLimit} error logs ordered by timestamp.\n`);
+
+    const fallbackSnapshot = await db
+      .collection('error_logs')
+      .orderBy('timestamp', 'desc')
+      .limit(fallbackLimit)
+      .get();
+    docs = fallbackSnapshot.docs;
+  }
+
+  const filteredDocs = docs.filter((doc) => {
+    const d = doc.data() || {};
+
+    if (flags.email && d.userEmail !== flags.email) return false;
+    if (flags.session && d.sessionId !== flags.session) return false;
+    if (flags.fatal && d.fatal !== true) return false;
+    if (flags.context && d.context !== flags.context) return false;
+
+    if (flags.hours) {
+      const errorTime = d.timestamp ? d.timestamp.toDate() : new Date(d.clientTimestamp);
+      const cutoff = new Date(Date.now() - flags.hours * 60 * 60 * 1000);
+      if (errorTime < cutoff) return false;
+    }
+
+    return true;
+  }).slice(0, limit);
+
+  if (filteredDocs.length === 0) {
     console.log('\nNo error logs found matching your criteria.\n');
     return;
   }
 
   console.log(`\n${'='.repeat(80)}`);
-  console.log(`  ERROR LOGS (${snapshot.size} results)`);
+  console.log(`  ERROR LOGS (${filteredDocs.length} results)`);
   console.log(`${'='.repeat(80)}\n`);
 
-  snapshot.docs.forEach((doc, i) => {
+  filteredDocs.forEach((doc, i) => {
     const d = doc.data();
     const ts = d.timestamp ? d.timestamp.toDate().toISOString() : d.clientTimestamp || '?';
-
-    // Filter by hours if specified
-    if (flags.hours) {
-      const errorTime = d.timestamp ? d.timestamp.toDate() : new Date(d.clientTimestamp);
-      const cutoff = new Date(Date.now() - flags.hours * 60 * 60 * 1000);
-      if (errorTime < cutoff) return;
-    }
 
     console.log(`--- Error #${i + 1} ---`);
     console.log(`  Time:      ${ts}`);

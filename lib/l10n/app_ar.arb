@@ -284,6 +284,27 @@
   "chatGroupCreatedSuccess": "تم إنشاء المجموعة \"{name}\" بنجاح!",
   "chatGroupCreateFailed": "فشل إنشاء المجموعة. حاول مرة أخرى.",
   "chatGroupAdminsOnly": "المسؤولون فقط يمكنهم إنشاء محادثات جماعية",
+  "chatVideo": "فيديو",
+  "chatEditMessage": "تعديل",
+  "chatMessageEdited": "تم تعديل الرسالة",
+  "chatFailedEditMessage": "فشل تعديل الرسالة",
+  "chatEditYourMessage": "عدّل رسالتك...",
+  "chatSave": "حفظ",
+  "chatSupportInbox": "صندوق الدعم",
+  "chatDirectMessage": "رسالة مباشرة",
+  "chatSendPersonalMessage": "إرسال رسالة شخصية",
+  "chatSupportChat": "محادثة الدعم",
+  "chatStartSupportWith": "بدء محادثة دعم مع {name}",
+  "@chatStartSupportWith": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "chatSendingVideo": "جارٍ إرسال الفيديو...",
+  "chatVideoSent": "تم إرسال الفيديو!",
+  "chatFailedSendVideo": "فشل إرسال الفيديو",
   "roleAdmin": "مسؤول",
   "roleTeacher": "معلم",
   "roleStudent": "طالب",
@@ -4423,5 +4444,281 @@
   "adminAuditCeoAdjustmentRationale": "المبرر (مكافأة أو خصم)",
   "adminAuditCeoPaymentAdjustmentsHint": "مبالغ شهرية اختيارية. أضف مبررًا قصيرًا عند إدخال أي مبلغ.",
   "adminAuditEvalSectionCommentLabel": "تعليق المقيّم",
-  "adminAuditEvalSectionCommentHint": "اختياري. يُدرج في PDF/Excel تحت هذا القسم."
+  "adminAuditEvalSectionCommentHint": "اختياري. يُدرج في PDF/Excel تحت هذا القسم.",
+  "commonAdd": "إضافة",
+  "tontineSavings": "الادخار",
+  "tontineTooltipDescription": "دائرة ادخار دورية حيث يساهم كل عضو بمبلغ ثابت في كل دورة، ويستلم عضو واحد المبلغ المجمع بالكامل. يدور هذا حتى يستلم كل عضو مرة واحدة بالضبط. بدون فوائد، وبدون رسوم.",
+  "tontineCircles": "الدوائر",
+  "tontineAdminCircles": "دوائر المسؤول",
+  "tontineHomeSubtitle": "تابع دوائر الادخار، وادعُ الأعضاء، وأدر كل دورة شهرية.",
+  "tontineSignInRequired": "سجل الدخول لعرض دوائر الادخار الخاصة بك.",
+  "tontineNoCirclesTitle": "لا توجد دوائر بعد",
+  "tontineNoCirclesSubtitle": "أنشئ أول دائرة ادخار دوارة لبدء جمع المساهمات الشهرية.",
+  "tontineMyCircles": "دوائري",
+  "tontinePendingInvites": "الدعوات المعلقة: {count}",
+  "@tontinePendingInvites": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tontineReviewInvite": "عرض الدعوة",
+  "tontineCreateCircle": "إنشاء دائرة",
+  "tontineCircleDetails": "لوحة الدائرة",
+  "tontineCircleNotFound": "تعذر العثور على الدائرة.",
+  "tontineStatusForming": "قيد التكوين",
+  "tontineStatusActive": "نشطة",
+  "tontineStatusCompleted": "مكتملة",
+  "tontineStatusCancelled": "ملغاة",
+  "tontineCyclePending": "قيد الانتظار",
+  "tontineCycleInProgress": "قيد التنفيذ",
+  "tontineCycleCompleted": "مكتمل",
+  "tontineCurrentCycle": "الدورة الحالية",
+  "tontineDueDate": "تاريخ الاستحقاق",
+  "tontineCurrentRecipient": "المستفيد الحالي",
+  "tontineRecipientPending": "المستفيد قيد الانتظار",
+  "tontineMonthOf": "الشهر {month} من {total}",
+  "@tontineMonthOf": {
+    "placeholders": {
+      "month": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "tontineConfirmedCount": "المدفوعات المؤكدة",
+  "tontineCircleCompletedMessage": "أكملت هذه الدائرة جميع دورات الصرف.",
+  "tontineWaitingForCycle": "بانتظار إنشاء الدورة الأولى.",
+  "tontineCircleStillForming": "الدائرة ما زالت قيد التكوين",
+  "tontineMembersJoined": "انضم {active} من أصل {total} أعضاء",
+  "@tontineMembersJoined": {
+    "placeholders": {
+      "active": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "tontineWaitingForMembers": "بانتظار الأعضاء",
+  "tontineActivateCircle": "تفعيل الدائرة",
+  "tontineExpectedAmount": "المبلغ المتوقع",
+  "tontineSubmittedAmount": "المبلغ المرسل",
+  "tontineReceiptAttached": "الإيصال مرفق",
+  "tontineRejectionReason": "سبب الرفض",
+  "tontineReviewSubmissions": "مراجعة الإرسالات",
+  "tontineSubmitPayment": "إرسال الدفعة",
+  "tontinePaymentConfirmed": "تم تأكيد الدفع",
+  "tontineContributionPending": "غير مدفوع",
+  "tontineContributionSubmitted": "مُرسل",
+  "tontineContributionConfirmed": "مؤكد",
+  "tontineContributionRejected": "مرفوض",
+  "tontineContributionMissed": "فائت",
+  "tontineMemberInvited": "مدعو",
+  "tontineInviteByEmail": "البريد الإلكتروني",
+  "tontineInviteByPhone": "الهاتف",
+  "tontineMissedMoveToBack": "نقل إلى الخلف",
+  "tontineMissedSuspend": "تعليق العضو",
+  "tontineNoDeadline": "لا يوجد موعد نهائي",
+  "tontineDueToday": "مستحق اليوم",
+  "tontineDueInDays": "مستحق خلال {days} يومًا",
+  "@tontineDueInDays": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "tontineOverdueBy": "متأخر بمقدار {duration}",
+  "@tontineOverdueBy": {
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "tontinePosition": "الترتيب {position}",
+  "@tontinePosition": {
+    "placeholders": {
+      "position": {
+        "type": "int"
+      }
+    }
+  },
+  "tontinePaymentStatusBoard": "لوحة حالة المدفوعات",
+  "tontinePaymentDetails": "تفاصيل الدفع",
+  "tontineAmount": "المبلغ",
+  "tontineAmountMatchesExpected": "المبلغ يطابق المساهمة المتوقعة.",
+  "tontineAmountDoesNotMatchExpected": "المبلغ لا يطابق المساهمة المتوقعة.",
+  "tontinePaymentDate": "تاريخ الدفع",
+  "tontineReceipt": "الإيصال",
+  "tontineUseCamera": "استخدام الكاميرا",
+  "tontineChooseFromGallery": "الاختيار من المعرض",
+  "tontineSelectedReceipt": "الإيصال المحدد",
+  "tontineReceiptRequired": "إرفاق الإيصال مطلوب قبل الإرسال.",
+  "tontinePaymentSubmitted": "تم إرسال الدفعة بنجاح.",
+  "tontineSubmissionFailed": "تعذر إرسال الدفعة: {error}",
+  "@tontineSubmissionFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "tontineCreateFailed": "تعذر إنشاء الدائرة: {error}",
+  "@tontineCreateFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "tontineMarkPayoutSent": "تحديد أن الصرف تم",
+  "tontinePayoutMarkedSent": "تم تحديد الصرف على أنه مرسل.",
+  "tontineReviewProgress": "تقدم المراجعة",
+  "tontineConfirmedOf": "تم تأكيد {confirmed} من {total}",
+  "@tontineConfirmedOf": {
+    "placeholders": {
+      "confirmed": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "tontineRejectContribution": "رفض",
+  "tontineConfirmContribution": "تأكيد",
+  "tontineJoinCircle": "الانضمام إلى الدائرة",
+  "tontineJoinFailed": "تعذر الانضمام إلى الدائرة: {error}",
+  "@tontineJoinFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "tontineInvitePreview": "راجع دائرة الادخار هذه قبل قبول الدعوة.",
+  "tontineCircleHead": "رئيس الدائرة",
+  "tontineStepBasics": "الأساسيات",
+  "tontineStepRules": "القواعد",
+  "tontineStepInvite": "الدعوة",
+  "tontineStepOrder": "الترتيب",
+  "tontineStepReview": "المراجعة",
+  "tontineCircleName": "اسم الدائرة",
+  "tontineCircleNameRequired": "اسم الدائرة مطلوب.",
+  "tontineContributionAmount": "مبلغ المساهمة",
+  "tontineMonthlyContribution": "المساهمة الشهرية",
+  "tontineMemberCount": "عدد الأعضاء",
+  "tontineStartDate": "تاريخ البدء",
+  "tontineFrequency": "تكرار المساهمة",
+  "tontineFrequencyWeekly": "أسبوعي",
+  "tontineFrequencyBiweekly": "كل أسبوعين",
+  "tontineFrequencyMonthly": "شهري",
+  "tontineFrequencyQuarterly": "ربع سنوي",
+  "tontineHintCircleName": "أعطِ دائرتك اسمًا يعرفه الأعضاء",
+  "tontineHintAmount": "المبلغ الذي يساهم به كل عضو في كل دورة",
+  "tontineHintMemberCount": "إجمالي الأعضاء بما فيهم أنت",
+  "tontineHintStartDate": "تاريخ بدء الدورة الأولى",
+  "tontineHintFrequency": "عدد مرات المساهمة والدفعات",
+  "tontineHintGracePeriod": "أيام إضافية مسموح بها بعد تاريخ الاستحقاق قبل اعتبار الدفع متأخرًا",
+  "tontineHintMissedPayment": "ماذا يحدث إذا فوّت عضو دفعته",
+  "tontineHintPaymentInstructions": "أخبر الأعضاء بكيفية إرسال مدفوعاتهم (مثلاً: تحويل بنكي، موبايل موني)",
+  "tontineGracePeriodDays": "فترة السماح (أيام)",
+  "tontineMissedPaymentAction": "إجراء عند تفويت الدفع",
+  "tontinePaymentInstructions": "تعليمات الدفع",
+  "tontinePaymentInstructionsRequired": "تعليمات الدفع مطلوبة.",
+  "tontineInviteExistingUsersOnly": "قم بدعوة الأعضاء عبر البريد الإلكتروني أو رقم الهاتف. سيتلقون إشعارًا للانضمام.",
+  "tontineInviteMethod": "طريقة الدعوة",
+  "tontineInviteEmail": "البريد الإلكتروني",
+  "tontineInvitePhone": "رقم الهاتف",
+  "tontineEnterInviteLookup": "أدخل بريدًا إلكترونيًا أو رقم هاتف لدعوته.",
+  "tontineParticipantsAdded": "تمت إضافة المشاركين: {current}/{total}",
+  "@tontineParticipantsAdded": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "tontineNeedAllMembersBeforeOrdering": "أضف جميع الأعضاء قبل تحديد ترتيب الصرف.",
+  "tontinePayoutOrder": "ترتيب الصرف",
+  "tontineYou": "أنت",
+  "tontineUnableToLoadProfile": "تعذر تحميل ملفك الشخصي.",
+  "tontineEnterValidAmount": "أدخل مبلغًا صالحًا.",
+  "tontineInvalidGracePeriod": "أدخل فترة سماح صالحة.",
+  "tontineMinimumMembers": "تحتاج الدائرة إلى عضوين على الأقل.",
+  "tontineNeedExactMemberCount": "أضف العدد المطلوب تمامًا من الأعضاء قبل المتابعة.",
+  "tontineMemberCountReached": "لقد أضفت بالفعل العدد المستهدف من الأعضاء.",
+  "tontineUserNotFound": "لم يتم العثور على مستخدم حالي يطابق جهة الاتصال هذه.",
+  "tontineUserAlreadyAdded": "هذا المستخدم موجود بالفعل في الدائرة.",
+  "tontineSelectedMethodUnavailable": "هذا المستخدم لا يملك طريقة الاتصال المحددة محفوظة.",
+  "tontineNoActiveCycle": "لا توجد دورة نشطة حاليًا",
+  "tontinePotAmount": "قيمة الحصيلة",
+  "tontineCircleActivated": "تم تفعيل الدائرة. ستظهر الدورة الأولى قريبًا.",
+  "tontineReorderHint": "اسحب المقبض لتغيير ترتيب من يستلم الدفعة أولاً",
+  "tontineAllMembersJoined": "انضم جميع الأعضاء!",
+  "tontineCreatedByYou": "أنشأته أنت",
+  "tontineCirclesCreated": "دوائري",
+  "tontineCirclesJoined": "دوائر انضممت إليها",
+  "tontineEnrollmentMode": "وضع التسجيل",
+  "tontineManualSelection": "اختيار يدوي",
+  "tontineManualSelectionDesc": "اختر المعلمين للإضافة",
+  "tontineOpenEnrollment": "تسجيل مفتوح",
+  "tontineOpenEnrollmentDesc": "يمكن للمعلمين المؤهلين التصفح والانضمام",
+  "tontineEligibilityRules": "قواعد الأهلية",
+  "tontineIncomeMultiplier": "مضاعف الدخل الأدنى",
+  "tontineIncomeMultiplierHint": "يجب أن يكون الدخل الشهري المقدر للمعلم على الأقل هذا العدد من مرات مبلغ المساهمة",
+  "tontineMinTenure": "الحد الأدنى للخبرة (أشهر)",
+  "tontineMinTenureHint": "يجب أن يكون المعلم قد عمل لمدة هذا العدد من الأشهر على الأقل",
+  "tontineMinShifts": "الحد الأدنى للنوبات (آخر 30 يومًا)",
+  "tontineMinShiftsHint": "يجب أن يكون المعلم قد درّس هذا العدد من النوبات على الأقل في آخر 30 يومًا",
+  "tontineMaxMembers": "الحد الأقصى للأعضاء",
+  "tontineMaxMembersHint": "اتركه 0 لعدد غير محدود",
+  "tontineUnlimited": "غير محدود",
+  "tontineAvailableCircles": "الدوائر المتاحة",
+  "tontineJoinCircle": "انضم للدائرة",
+  "tontineNotEligible": "غير مؤهل",
+  "tontineEligible": "مؤهل",
+  "tontineCircleFull": "الدائرة ممتلئة",
+  "tontineJoinSuccess": "تم الانضمام إلى الدائرة بنجاح!",
+  "tontineEstimatedIncome": "الدخل الشهري المقدر: {amount}",
+  "@tontineEstimatedIncome": {
+    "placeholders": {
+      "amount": {"type": "String"}
+    }
+  },
+  "tontineIncomeRequirement": "يجب أن يكون الدخل {multiplier} ضعف المساهمة",
+  "@tontineIncomeRequirement": {
+    "placeholders": {
+      "multiplier": {"type": "String"}
+    }
+  },
+  "tontineTenureRequirement": "{months}+ أشهر خبرة مطلوبة",
+  "@tontineTenureRequirement": {
+    "placeholders": {
+      "months": {"type": "int"}
+    }
+  },
+  "tontineShiftsRequirement": "{count}+ نوبات في آخر 30 يومًا",
+  "@tontineShiftsRequirement": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "tontineOpenCircleCreated": "تم إنشاء دائرة مفتوحة. سيتم إخطار المعلمين المؤهلين.",
+  "tontineSpotsLeft": "{count} أماكن متبقية",
+  "@tontineSpotsLeft": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "tontineOpenSpots": "أماكن مفتوحة"
 }

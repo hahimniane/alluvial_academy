@@ -182,6 +182,19 @@ class SidebarConfig {
         ],
       ),
       SidebarSection(
+        id: 'savings',
+        title: 'Savings',
+        items: [
+          const SidebarItem(
+            id: 'circles',
+            label: 'Circles',
+            icon: Icons.groups,
+            screenIndex: 28,
+            colorValue: 0xff10B981,
+          ),
+        ],
+      ),
+      SidebarSection(
         id: 'system',
         title: 'System',
         items: [
@@ -314,6 +327,19 @@ class SidebarConfig {
         ],
       ),
       SidebarSection(
+        id: 'savings',
+        title: 'Savings',
+        items: [
+          const SidebarItem(
+            id: 'circles',
+            label: 'Circles',
+            icon: Icons.groups,
+            screenIndex: 28,
+            colorValue: 0xff10B981,
+          ),
+        ],
+      ),
+      SidebarSection(
         id: 'reports',
         title: 'Reports',
         items: [
@@ -381,6 +407,13 @@ class SidebarConfig {
             icon: Icons.payments,
             screenIndex: 2,
             colorValue: 0xff059669,
+          ),
+          const SidebarItem(
+            id: 'circles',
+            label: 'Circles',
+            icon: Icons.groups,
+            screenIndex: 8,
+            colorValue: 0xff10B981,
           ),
         ],
       ),
@@ -473,6 +506,19 @@ class SidebarConfig {
             icon: Icons.podcasts,
             screenIndex: 27,
             colorValue: 0xff0E72ED,
+          ),
+        ],
+      ),
+      SidebarSection(
+        id: 'savings',
+        title: 'Savings',
+        items: [
+          const SidebarItem(
+            id: 'circles',
+            label: 'Circles',
+            icon: Icons.groups,
+            screenIndex: 28,
+            colorValue: 0xff10B981,
           ),
         ],
       ),

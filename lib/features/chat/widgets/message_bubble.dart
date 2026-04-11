@@ -1,6 +1,13 @@
+import 'dart:math' as math;
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:emoji_picker_flutter/emoji_picker_flutter.dart' as emoji_picker;
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:map_launcher/map_launcher.dart';
+import 'package:video_player/video_player.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/chat_message.dart';
 import 'voice_message_player.dart';
@@ -9,21 +16,25 @@ import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 class MessageBubble extends StatefulWidget {
   final ChatMessage message;
   final bool isCurrentUser;
+  final String? currentUserId;
   final Function(ChatMessage)? onReply;
   final Function(ChatMessage)? onDelete;
   final Function(ChatMessage)? onForward;
   final Function(ChatMessage, String)? onReaction;
   final Function(String)? onImageTap;
+  final Function(ChatMessage)? onEdit;
 
   const MessageBubble({
     super.key,
     required this.message,
     required this.isCurrentUser,
+    this.currentUserId,
     this.onReply,
     this.onDelete,
     this.onForward,
     this.onReaction,
     this.onImageTap,
+    this.onEdit,
   });
 
   @override
@@ -31,7 +42,15 @@ class MessageBubble extends StatefulWidget {
 }
 
 class _MessageBubbleState extends State<MessageBubble> {
-  bool _showReactions = false;
+  static const String _moreReactionToken = '__more__';
+  static const List<String> _quickReactions = <String>[
+    '👍',
+    '❤️',
+    '😂',
+    '🎉',
+    '😮',
+    '😢',
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -41,13 +60,6 @@ class _MessageBubbleState extends State<MessageBubble> {
 
     return GestureDetector(
       onLongPress: () => _showMessageMenu(context),
-      onTap: () {
-        if (_showReactions) {
-          setState(() {
-            _showReactions = false;
-          });
-        }
-      },
       child: Container(
         margin: EdgeInsets.only(
           top: 4,
@@ -89,57 +101,51 @@ class _MessageBubbleState extends State<MessageBubble> {
                     ),
 
                   // Reply preview
-                  if (widget.message.metadata != null &&
+                  if (!widget.message.deletedForEveryone &&
+                      widget.message.metadata != null &&
                       widget.message.metadata!['reply_to'] != null)
                     _buildReplyPreview(),
 
                   // Message bubble
-                  Stack(
-                    children: [
-                      Container(
-                        constraints: BoxConstraints(
-                          maxWidth: MediaQuery.of(context).size.width * 0.7,
-                        ),
-                        decoration: BoxDecoration(
-                          color: widget.isCurrentUser
-                              ? const Color(0xff0386FF)
-                              : Colors.white,
-                          borderRadius: BorderRadius.only(
-                            topLeft: const Radius.circular(20),
-                            topRight: const Radius.circular(20),
-                            bottomLeft:
-                                Radius.circular(widget.isCurrentUser ? 20 : 4),
-                            bottomRight:
-                                Radius.circular(widget.isCurrentUser ? 4 : 20),
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.08),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.only(
-                            topLeft: const Radius.circular(20),
-                            topRight: const Radius.circular(20),
-                            bottomLeft:
-                                Radius.circular(widget.isCurrentUser ? 20 : 4),
-                            bottomRight:
-                                Radius.circular(widget.isCurrentUser ? 4 : 20),
-                          ),
-                          child: _buildMessageContent(),
-                        ),
+                  Container(
+                    constraints: BoxConstraints(
+                      maxWidth: MediaQuery.of(context).size.width * 0.7,
+                    ),
+                    decoration: BoxDecoration(
+                      color: widget.isCurrentUser
+                          ? const Color(0xff0386FF)
+                          : Colors.white,
+                      borderRadius: BorderRadius.only(
+                        topLeft: const Radius.circular(20),
+                        topRight: const Radius.circular(20),
+                        bottomLeft:
+                            Radius.circular(widget.isCurrentUser ? 20 : 4),
+                        bottomRight:
+                            Radius.circular(widget.isCurrentUser ? 4 : 20),
                       ),
-                      if (_showReactions) _buildReactionPicker(),
-                    ],
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.08),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.only(
+                        topLeft: const Radius.circular(20),
+                        topRight: const Radius.circular(20),
+                        bottomLeft:
+                            Radius.circular(widget.isCurrentUser ? 20 : 4),
+                        bottomRight:
+                            Radius.circular(widget.isCurrentUser ? 4 : 20),
+                      ),
+                      child: _buildMessageContent(),
+                    ),
                   ),
 
                   // Message reactions display
-                  if (widget.message.metadata != null &&
-                      widget.message.metadata!['reactions'] != null)
-                    _buildReactionsDisplay(),
+                  if (widget.message.hasReactions) _buildReactionsDisplay(),
                 ],
               ),
             ),
@@ -220,8 +226,14 @@ class _MessageBubbleState extends State<MessageBubble> {
   }
 
   Widget _buildMessageContent() {
-    if (widget.message.isImage) {
+    if (widget.message.deletedForEveryone) {
+      return _buildDeletedMessage();
+    } else if (widget.message.isImage) {
       return _buildImageMessage();
+    } else if (widget.message.isVideo) {
+      return _buildVideoMessage();
+    } else if (widget.message.isLocation) {
+      return _buildLocationMessage();
     } else if (widget.message.isVoice) {
       return _buildVoiceMessage();
     } else if (widget.message.isFile) {
@@ -265,6 +277,49 @@ class _MessageBubbleState extends State<MessageBubble> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildRichText(widget.message.content),
+          const SizedBox(height: 6),
+          _buildTimestamp(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDeletedMessage() {
+    final text = widget.message.deletedPreviewText(widget.currentUserId);
+    final textColor = widget.isCurrentUser
+        ? Colors.white.withValues(alpha: 0.88)
+        : const Color(0xFF6B7280);
+    final iconColor = widget.isCurrentUser
+        ? Colors.white.withValues(alpha: 0.72)
+        : const Color(0xFF9CA3AF);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.block_outlined,
+                size: 16,
+                color: iconColor,
+              ),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  text,
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontStyle: FontStyle.italic,
+                    color: textColor,
+                    height: 1.35,
+                  ),
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 6),
           _buildTimestamp(),
         ],
@@ -324,6 +379,7 @@ class _MessageBubbleState extends State<MessageBubble> {
 
   Widget _buildImageMessage() {
     final imageUrl = widget.message.fileUrl;
+    final caption = widget.message.metadata?['caption'] as String?;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -364,9 +420,378 @@ class _MessageBubbleState extends State<MessageBubble> {
           ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: _buildTimestamp(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (caption != null && caption.isNotEmpty) ...[
+                _buildRichText(caption),
+                const SizedBox(height: 4),
+              ],
+              _buildTimestamp(),
+            ],
+          ),
         ),
       ],
+    );
+  }
+
+  Widget _buildVideoMessage() {
+    final videoUrl = widget.message.fileUrl;
+    final caption = widget.message.metadata?['caption'] as String?;
+    final videoWidth =
+        math.min(MediaQuery.of(context).size.width * 0.62, 250.0);
+    final videoHeight = videoWidth * 0.72;
+
+    if (videoUrl == null || videoUrl.isEmpty) {
+      return _buildTextMessage();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        InkWell(
+          onTap: () => _openVideoPlayer(videoUrl, caption: caption),
+          child: SizedBox(
+            width: videoWidth,
+            height: videoHeight,
+            child: _InlineChatVideoPlayer(
+              key: ValueKey('${widget.message.id}:$videoUrl'),
+              videoUrl: videoUrl,
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.videocam_rounded,
+                    size: 14,
+                    color: widget.isCurrentUser
+                        ? Colors.white.withValues(alpha: 0.85)
+                        : const Color(0xff6B7280),
+                  ),
+                  if (widget.message.fileSizeFormatted.isNotEmpty) ...[
+                    const SizedBox(width: 6),
+                    Text(
+                      widget.message.fileSizeFormatted,
+                      style: GoogleFonts.inter(
+                        fontSize: 11,
+                        color: widget.isCurrentUser
+                            ? Colors.white.withValues(alpha: 0.8)
+                            : const Color(0xff6B7280),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              if (caption != null && caption.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                _buildRichText(caption),
+                const SizedBox(height: 4),
+              ],
+              _buildTimestamp(),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLocationMessage() {
+    final latitude = widget.message.latitude;
+    final longitude = widget.message.longitude;
+    final title = widget.message.locationName ?? 'Shared location';
+    final subtitle = widget.message.locationSubtitle;
+    final canOpenMap = latitude != null && longitude != null;
+    final coordinateText = canOpenMap
+        ? '${latitude.toStringAsFixed(5)}, ${longitude.toStringAsFixed(5)}'
+        : null;
+    final accentColor = widget.isCurrentUser
+        ? const Color(0xFF7DD3FC)
+        : const Color(0xFF0891B2);
+    final primaryTextColor =
+        widget.isCurrentUser ? Colors.white : const Color(0xFF111827);
+    final secondaryTextColor = widget.isCurrentUser
+        ? Colors.white.withValues(alpha: 0.78)
+        : const Color(0xFF6B7280);
+
+    return InkWell(
+      onTap: canOpenMap
+          ? () => _openLocation(
+                latitude,
+                longitude,
+                title,
+                subtitle: subtitle,
+              )
+          : null,
+      borderRadius: BorderRadius.circular(22),
+      child: Container(
+        width: 252,
+        decoration: BoxDecoration(
+          color: widget.isCurrentUser
+              ? const Color(0xFF082F49)
+              : const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(
+            color: widget.isCurrentUser
+                ? Colors.white.withValues(alpha: 0.08)
+                : const Color(0xFFE2E8F0),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              height: 126,
+              decoration: BoxDecoration(
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(21),
+                ),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: widget.isCurrentUser
+                      ? const [
+                          Color(0xFF0C4A6E),
+                          Color(0xFF075985),
+                          Color(0xFF0369A1),
+                        ]
+                      : const [
+                          Color(0xFFE2E8F0),
+                          Color(0xFFF8FAFC),
+                          Color(0xFFE2E8F0),
+                        ],
+                ),
+              ),
+              child: Stack(
+                children: [
+                  Positioned(
+                    left: 14,
+                    top: 20,
+                    right: 18,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.16),
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 34,
+                            height: 34,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.22),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(
+                              Icons.location_on_rounded,
+                              color: widget.isCurrentUser
+                                  ? Colors.white
+                                  : const Color(0xFF0F172A),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  'Pinned location',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: widget.isCurrentUser
+                                        ? Colors.white
+                                        : const Color(0xFF0F172A),
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  canOpenMap
+                                      ? 'Tap to choose a map app'
+                                      : 'Location unavailable',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 10,
+                                    color: widget.isCurrentUser
+                                        ? Colors.white.withValues(alpha: 0.74)
+                                        : const Color(0xFF475569),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    left: 18,
+                    top: 72,
+                    child: Transform.rotate(
+                      angle: -0.32,
+                      child: Container(
+                        width: 108,
+                        height: 10,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.22),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    right: 22,
+                    top: 78,
+                    child: Transform.rotate(
+                      angle: 0.48,
+                      child: Container(
+                        width: 92,
+                        height: 10,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.18),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    left: 126,
+                    top: 50,
+                    child: Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.18),
+                            blurRadius: 14,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
+                      ),
+                      child: Icon(
+                        Icons.place_rounded,
+                        color: accentColor,
+                        size: 24,
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    left: 112,
+                    bottom: 18,
+                    child: Container(
+                      width: 68,
+                      height: 18,
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.18),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: primaryTextColor,
+                      height: 1.25,
+                    ),
+                  ),
+                  if (subtitle != null && subtitle.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      subtitle,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        color: secondaryTextColor,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                  if (coordinateText != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      coordinateText,
+                      style: GoogleFonts.inter(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: secondaryTextColor,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 7,
+                        ),
+                        decoration: BoxDecoration(
+                          color: widget.isCurrentUser
+                              ? Colors.white.withValues(alpha: 0.12)
+                              : const Color(0xFFE0F2FE),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.map_outlined,
+                              size: 14,
+                              color: widget.isCurrentUser
+                                  ? Colors.white
+                                  : const Color(0xFF0369A1),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Choose map app',
+                              style: GoogleFonts.inter(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: widget.isCurrentUser
+                                    ? Colors.white
+                                    : const Color(0xFF0369A1),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Spacer(),
+                      _buildTimestamp(),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -456,10 +881,200 @@ class _MessageBubbleState extends State<MessageBubble> {
     }
   }
 
+  Future<void> _openVideoPlayer(String videoUrl, {String? caption}) async {
+    if (!mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => _ChatVideoPlayerScreen(
+          videoUrl: videoUrl,
+          caption: caption,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openLocation(double latitude, double longitude, String label,
+      {String? subtitle}) async {
+    if (kIsWeb) {
+      await _openLocationFallback(latitude, longitude);
+      return;
+    }
+
+    try {
+      final availableMaps = await MapLauncher.installedMaps;
+      if (!mounted) return;
+
+      if (availableMaps.isEmpty) {
+        await _openLocationFallback(latitude, longitude);
+        return;
+      }
+
+      await showModalBottomSheet<void>(
+        context: context,
+        backgroundColor: Colors.transparent,
+        builder: (sheetContext) {
+          return SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.12),
+                      blurRadius: 20,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(18, 18, 18, 10),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE0F2FE),
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: const Icon(
+                              Icons.map_rounded,
+                              color: Color(0xFF0369A1),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  'Open location',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                    color: const Color(0xFF111827),
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  label,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.inter(
+                                    fontSize: 12,
+                                    color: const Color(0xFF6B7280),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Flexible(
+                      child: ListView.separated(
+                        shrinkWrap: true,
+                        padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                        itemCount: availableMaps.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 6),
+                        itemBuilder: (context, index) {
+                          final map = availableMaps[index];
+                          return InkWell(
+                            borderRadius: BorderRadius.circular(18),
+                            onTap: () async {
+                              Navigator.of(sheetContext).pop();
+                              await map.showMarker(
+                                coords: Coords(latitude, longitude),
+                                title: label,
+                                description: subtitle,
+                              );
+                            },
+                            child: Ink(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 12,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF8FAFC),
+                                borderRadius: BorderRadius.circular(18),
+                                border: Border.all(
+                                  color: const Color(0xFFE5E7EB),
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  SvgPicture.asset(
+                                    map.icon,
+                                    width: 28,
+                                    height: 28,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      map.mapName,
+                                      style: GoogleFonts.inter(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                        color: const Color(0xFF111827),
+                                      ),
+                                    ),
+                                  ),
+                                  const Icon(
+                                    Icons.chevron_right_rounded,
+                                    color: Color(0xFF9CA3AF),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      );
+    } catch (_) {
+      await _openLocationFallback(latitude, longitude);
+    }
+  }
+
+  Future<void> _openLocationFallback(double latitude, double longitude) async {
+    final uri = Uri.parse(
+      'https://www.google.com/maps/search/?api=1&query=$latitude,$longitude',
+    );
+
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
   Widget _buildTimestamp() {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
+        if (widget.message.isEdited) ...[
+          Text(
+            'edited ',
+            style: GoogleFonts.inter(
+              fontSize: 11,
+              fontStyle: FontStyle.italic,
+              color: widget.isCurrentUser
+                  ? Colors.white.withOpacity(0.6)
+                  : const Color(0xff9CA3AF),
+              fontWeight: FontWeight.w400,
+            ),
+          ),
+        ],
         Text(
           _formatTimestamp(widget.message.timestamp),
           style: GoogleFonts.inter(
@@ -533,84 +1148,279 @@ class _MessageBubbleState extends State<MessageBubble> {
     );
   }
 
-  Widget _buildReactionPicker() {
-    final reactions = ['👍', '❤️', '😂', '😮', '😢', '😡'];
+  Future<void> _showReactionPicker() async {
+    final selectedReaction = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        final currentUserReaction = widget.currentUserId == null
+            ? null
+            : widget.message.reactions?[widget.currentUserId!];
 
-    return Positioned(
-      top: -50,
-      right: widget.isCurrentUser ? 0 : null,
-      left: widget.isCurrentUser ? null : 0,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(25),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 10,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: reactions
-              .map(
-                (reaction) => GestureDetector(
-                  onTap: () {
-                    widget.onReaction?.call(widget.message, reaction);
-                    setState(() {
-                      _showReactions = false;
-                    });
-                  },
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: Text(
-                      reaction,
-                      style: const TextStyle(fontSize: 20),
-                    ),
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Align(
+              alignment: Alignment.bottomCenter,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 420),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.12),
+                        blurRadius: 18,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: Text(
+                          AppLocalizations.of(context)!.chatReact,
+                          style: GoogleFonts.inter(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF111827),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        height: 58,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: _quickReactions.length + 1,
+                          separatorBuilder: (_, __) => const SizedBox(width: 8),
+                          itemBuilder: (context, index) {
+                            if (index == _quickReactions.length) {
+                              return InkWell(
+                                onTap: () => Navigator.of(
+                                  sheetContext,
+                                ).pop(_moreReactionToken),
+                                borderRadius: BorderRadius.circular(16),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF8FAFC),
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(
+                                      color: const Color(0xFFE5E7EB),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(
+                                        Icons.add_reaction_outlined,
+                                        color: Color(0xFF0386FF),
+                                        size: 18,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        'More',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                          color: const Color(0xFF374151),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            }
+
+                            final reaction = _quickReactions[index];
+                            final isSelected = currentUserReaction == reaction;
+                            return InkWell(
+                              onTap: () =>
+                                  Navigator.of(sheetContext).pop(reaction),
+                              borderRadius: BorderRadius.circular(16),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 150),
+                                width: 54,
+                                decoration: BoxDecoration(
+                                  color: isSelected
+                                      ? const Color(0xFFE0F2FE)
+                                      : const Color(0xFFF8FAFC),
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(
+                                    color: isSelected
+                                        ? const Color(0xFF0386FF)
+                                        : const Color(0xFFE5E7EB),
+                                  ),
+                                ),
+                                alignment: Alignment.center,
+                                child: Text(
+                                  reaction,
+                                  style: const TextStyle(fontSize: 26),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              )
-              .toList(),
-        ),
-      ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+
+    if (!mounted) return;
+
+    String? resolvedReaction = selectedReaction;
+    if (selectedReaction == _moreReactionToken) {
+      resolvedReaction = await _showFullReactionPicker();
+    }
+
+    if (resolvedReaction != null) {
+      widget.onReaction?.call(widget.message, resolvedReaction);
+    }
+  }
+
+  Future<String?> _showFullReactionPicker() {
+    return showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+            child: Container(
+              height: 380,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.12),
+                    blurRadius: 18,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                    child: Row(
+                      children: [
+                        Text(
+                          AppLocalizations.of(context)!.chatReact,
+                          style: GoogleFonts.inter(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF111827),
+                          ),
+                        ),
+                        const Spacer(),
+                        IconButton(
+                          onPressed: () => Navigator.of(sheetContext).pop(),
+                          icon: const Icon(
+                            Icons.close,
+                            color: Color(0xFF6B7280),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: emoji_picker.EmojiPicker(
+                      onEmojiSelected: (_, emoji) =>
+                          Navigator.of(sheetContext).pop(emoji.emoji),
+                      config: const emoji_picker.Config(
+                        height: 320,
+                        emojiViewConfig: emoji_picker.EmojiViewConfig(
+                          backgroundColor: Colors.white,
+                          columns: 8,
+                          emojiSizeMax: 28,
+                        ),
+                        categoryViewConfig: emoji_picker.CategoryViewConfig(
+                          backgroundColor: Colors.white,
+                          indicatorColor: Color(0xFF0386FF),
+                          iconColor: Color(0xFF94A3B8),
+                          iconColorSelected: Color(0xFF0386FF),
+                          backspaceColor: Color(0xFF0386FF),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
   Widget _buildReactionsDisplay() {
-    final reactions =
-        widget.message.metadata!['reactions'] as Map<String, dynamic>;
-    if (reactions.isEmpty) return const SizedBox.shrink();
+    final reactionCounts = widget.message.reactionCounts;
+    if (reactionCounts.isEmpty) return const SizedBox.shrink();
+    final currentUserReaction = widget.currentUserId == null
+        ? null
+        : widget.message.reactions?[widget.currentUserId!];
 
     return Container(
       margin: const EdgeInsets.only(top: 4),
       child: Wrap(
-        children: reactions.entries.map((entry) {
-          final reaction = entry.key;
-          final count = entry.value as int;
+        children: reactionCounts.entries.map((entry) {
+          final emoji = entry.key;
+          final count = entry.value;
+          final isSelected = currentUserReaction == emoji;
           return Container(
             margin: const EdgeInsets.only(right: 4, top: 2),
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-            decoration: BoxDecoration(
-              color: Colors.white,
+            child: InkWell(
+              onTap: () => widget.onReaction?.call(widget.message, emoji),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xffE5E7EB)),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(reaction, style: const TextStyle(fontSize: 12)),
-                const SizedBox(width: 2),
-                Text(
-                  count.toString(),
-                  style: GoogleFonts.inter(
-                    fontSize: 10,
-                    color: const Color(0xff6B7280),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: isSelected ? const Color(0xFFE0F2FE) : Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: isSelected
+                        ? const Color(0xFF0386FF)
+                        : const Color(0xffE5E7EB),
                   ),
                 ),
-              ],
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(emoji, style: const TextStyle(fontSize: 12)),
+                    if (count > 1) ...[
+                      const SizedBox(width: 4),
+                      Text(
+                        count.toString(),
+                        style: GoogleFonts.inter(
+                          fontSize: 10,
+                          color: const Color(0xff6B7280),
+                          fontWeight:
+                              isSelected ? FontWeight.w700 : FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
             ),
           );
         }).toList(),
@@ -622,16 +1432,18 @@ class _MessageBubbleState extends State<MessageBubble> {
     final RenderBox renderBox = context.findRenderObject() as RenderBox;
     final Offset offset = renderBox.localToGlobal(Offset.zero);
     final Size size = renderBox.size;
-
-    showMenu(
-      context: context,
-      position: RelativeRect.fromLTRB(
-        offset.dx,
-        offset.dy + size.height,
-        offset.dx + size.width,
-        offset.dy + size.height + 100,
-      ),
-      items: [
+    final canEdit = widget.isCurrentUser &&
+        !widget.message.deletedForEveryone &&
+        (widget.message.messageType == 'text' ||
+            widget.message.messageType == null);
+    final canReact = !widget.message.deletedForEveryone;
+    final canReply = !widget.message.deletedForEveryone;
+    final canCopy = !widget.message.deletedForEveryone &&
+        (widget.message.messageType == 'text' ||
+            widget.message.messageType == null);
+    final canForward = !widget.message.deletedForEveryone;
+    final menuItems = <PopupMenuEntry<String>>[
+      if (canReact)
         PopupMenuItem(
           value: 'react',
           child: Row(
@@ -645,6 +1457,7 @@ class _MessageBubbleState extends State<MessageBubble> {
             ],
           ),
         ),
+      if (canReply)
         PopupMenuItem(
           value: 'reply',
           child: Row(
@@ -658,6 +1471,7 @@ class _MessageBubbleState extends State<MessageBubble> {
             ],
           ),
         ),
+      if (canCopy)
         PopupMenuItem(
           value: 'copy',
           child: Row(
@@ -671,6 +1485,7 @@ class _MessageBubbleState extends State<MessageBubble> {
             ],
           ),
         ),
+      if (canForward)
         PopupMenuItem(
           value: 'forward',
           child: Row(
@@ -684,22 +1499,44 @@ class _MessageBubbleState extends State<MessageBubble> {
             ],
           ),
         ),
-        // Delete functionality disabled - messages are permanent
-        // if (widget.isCurrentUser)
-        //   PopupMenuItem(
-        //     value: 'delete',
-        //     child: Row(
-        //       children: [
-        //         const Icon(Icons.delete, color: Colors.red),
-        //         const SizedBox(width: 12),
-        //         Text(
-        //           'Delete',
-        //           style: GoogleFonts.inter(color: Colors.red),
-        //         ),
-        //       ],
-        //     ),
-        //   ),
-      ],
+      if (canEdit)
+        PopupMenuItem(
+          value: 'edit',
+          child: Row(
+            children: [
+              const Icon(Icons.edit, color: Color(0xff6B7280)),
+              const SizedBox(width: 12),
+              Text(
+                'Edit',
+                style: GoogleFonts.inter(color: const Color(0xff374151)),
+              ),
+            ],
+          ),
+        ),
+      PopupMenuItem(
+        value: 'delete',
+        child: Row(
+          children: [
+            const Icon(Icons.delete_outline, color: Colors.red),
+            const SizedBox(width: 12),
+            Text(
+              AppLocalizations.of(context)!.commonDelete,
+              style: GoogleFonts.inter(color: Colors.red),
+            ),
+          ],
+        ),
+      ),
+    ];
+
+    showMenu(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        offset.dx,
+        offset.dy + size.height,
+        offset.dx + size.width,
+        offset.dy + size.height + 100,
+      ),
+      items: menuItems,
     ).then((value) {
       if (value != null) {
         _handleMenuAction(value);
@@ -710,9 +1547,7 @@ class _MessageBubbleState extends State<MessageBubble> {
   void _handleMenuAction(String action) {
     switch (action) {
       case 'react':
-        setState(() {
-          _showReactions = !_showReactions;
-        });
+        _showReactionPicker();
         break;
       case 'reply':
         widget.onReply?.call(widget.message);
@@ -732,6 +1567,9 @@ class _MessageBubbleState extends State<MessageBubble> {
         break;
       case 'forward':
         widget.onForward?.call(widget.message);
+        break;
+      case 'edit':
+        widget.onEdit?.call(widget.message);
         break;
       case 'delete':
         widget.onDelete?.call(widget.message);
@@ -755,5 +1593,432 @@ class _MessageBubbleState extends State<MessageBubble> {
       // Older - show date and time
       return '${timestamp.day}/${timestamp.month} ${timestamp.hour.toString().padLeft(2, '0')}:${timestamp.minute.toString().padLeft(2, '0')}';
     }
+  }
+}
+
+class _InlineChatVideoPlayer extends StatefulWidget {
+  final String videoUrl;
+
+  const _InlineChatVideoPlayer({super.key, required this.videoUrl});
+
+  @override
+  State<_InlineChatVideoPlayer> createState() => _InlineChatVideoPlayerState();
+}
+
+class _InlineChatVideoPlayerState extends State<_InlineChatVideoPlayer> {
+  late VideoPlayerController _controller;
+  bool _isInitialized = false;
+  bool _hasError = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = _buildController(widget.videoUrl);
+    _initializeController();
+  }
+
+  @override
+  void didUpdateWidget(covariant _InlineChatVideoPlayer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.videoUrl != widget.videoUrl) {
+      _controller.dispose();
+      _isInitialized = false;
+      _hasError = false;
+      _controller = _buildController(widget.videoUrl);
+      _initializeController();
+    }
+  }
+
+  VideoPlayerController _buildController(String url) {
+    return VideoPlayerController.networkUrl(
+      Uri.parse(url),
+      videoPlayerOptions: VideoPlayerOptions(
+        mixWithOthers: false,
+      ),
+    );
+  }
+
+  Future<void> _initializeController() async {
+    try {
+      await _controller.initialize();
+      await _controller.setLooping(false);
+      await _controller.setVolume(0);
+      if (!mounted) return;
+      setState(() {
+        _isInitialized = true;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _hasError = true;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_hasError) {
+      return _buildFallback(
+        child: const Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.play_circle_outline_rounded,
+              color: Colors.white70,
+              size: 38,
+            ),
+            SizedBox(height: 8),
+            Text(
+              'Open video',
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (!_isInitialized) {
+      return _buildFallback(
+        child: const SizedBox(
+          width: 26,
+          height: 26,
+          child: CircularProgressIndicator(
+            strokeWidth: 2.4,
+            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+          ),
+        ),
+      );
+    }
+
+    return AspectRatio(
+      aspectRatio: 1 / 0.72,
+      child: _buildVideoFrame(),
+    );
+  }
+
+  Widget _buildVideoFrame() {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: ColoredBox(
+        color: Colors.black,
+        child: ValueListenableBuilder<VideoPlayerValue>(
+          valueListenable: _controller,
+          builder: (context, value, _) {
+            final videoSize = value.isInitialized ? value.size : Size.zero;
+
+            return Stack(
+              alignment: Alignment.center,
+              children: [
+                Positioned.fill(
+                  child: videoSize.isEmpty
+                      ? const SizedBox.shrink()
+                      : ClipRect(
+                          child: FittedBox(
+                            fit: BoxFit.cover,
+                            child: SizedBox(
+                              width: videoSize.width,
+                              height: videoSize.height,
+                              child: VideoPlayer(_controller),
+                            ),
+                          ),
+                        ),
+                ),
+                Container(
+                  width: 58,
+                  height: 58,
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.45),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.play_arrow_rounded,
+                    color: Colors.white,
+                    size: 34,
+                  ),
+                ),
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.transparent,
+                          Colors.black.withValues(alpha: 0.55),
+                        ],
+                      ),
+                    ),
+                    child: LinearProgressIndicator(
+                      value: value.isInitialized &&
+                              value.duration.inMilliseconds > 0
+                          ? value.position.inMilliseconds /
+                              value.duration.inMilliseconds
+                          : 0,
+                      minHeight: 3,
+                      backgroundColor: Colors.white24,
+                      valueColor: const AlwaysStoppedAnimation<Color>(
+                        Color(0xFF0386FF),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFallback({required Widget child}) {
+    return Container(
+      height: 200,
+      width: 250,
+      decoration: BoxDecoration(
+        color: Colors.black87,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      alignment: Alignment.center,
+      child: child,
+    );
+  }
+}
+
+class _ChatVideoPlayerScreen extends StatefulWidget {
+  final String videoUrl;
+  final String? caption;
+
+  const _ChatVideoPlayerScreen({
+    required this.videoUrl,
+    this.caption,
+  });
+
+  @override
+  State<_ChatVideoPlayerScreen> createState() => _ChatVideoPlayerScreenState();
+}
+
+class _ChatVideoPlayerScreenState extends State<_ChatVideoPlayerScreen> {
+  late final VideoPlayerController _controller;
+  bool _isInitialized = false;
+  bool _hasError = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl));
+    _initialize();
+  }
+
+  Future<void> _initialize() async {
+    try {
+      await _controller.initialize();
+      await _controller.setLooping(false);
+      await _controller.setVolume(1.0);
+      await _controller.play();
+      if (!mounted) return;
+      setState(() {
+        _isInitialized = true;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _hasError = true;
+      });
+    }
+  }
+
+  bool _isFinished(VideoPlayerValue value) {
+    if (!value.isInitialized || value.duration == Duration.zero) {
+      return false;
+    }
+    return value.position >= value.duration - const Duration(milliseconds: 300);
+  }
+
+  Future<void> _togglePlayback() async {
+    if (!_isInitialized) return;
+    final value = _controller.value;
+    if (_isFinished(value)) {
+      await _controller.seekTo(Duration.zero);
+      await _controller.play();
+      return;
+    }
+    if (value.isPlaying) {
+      await _controller.pause();
+    } else {
+      await _controller.play();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: SafeArea(
+        child: Stack(
+          children: [
+            Center(
+              child: _hasError
+                  ? Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.broken_image_outlined,
+                            color: Colors.white70,
+                            size: 44,
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Unable to play this video.',
+                            style: GoogleFonts.inter(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : !_isInitialized
+                      ? const CircularProgressIndicator(
+                          color: Colors.white,
+                        )
+                      : ValueListenableBuilder<VideoPlayerValue>(
+                          valueListenable: _controller,
+                          builder: (context, value, _) {
+                            final isFinished = _isFinished(value);
+                            final showOverlay = !value.isPlaying;
+
+                            return Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Expanded(
+                                  child: Center(
+                                    child: AspectRatio(
+                                      aspectRatio: value.aspectRatio <= 0
+                                          ? 16 / 9
+                                          : value.aspectRatio,
+                                      child: Stack(
+                                        alignment: Alignment.center,
+                                        children: [
+                                          Positioned.fill(
+                                            child: VideoPlayer(_controller),
+                                          ),
+                                          Positioned.fill(
+                                            child: GestureDetector(
+                                              behavior: HitTestBehavior.opaque,
+                                              onTap: _togglePlayback,
+                                              child: Container(
+                                                color: Colors.transparent,
+                                              ),
+                                            ),
+                                          ),
+                                          if (showOverlay)
+                                            Container(
+                                              width: 68,
+                                              height: 68,
+                                              decoration: BoxDecoration(
+                                                color: Colors.black
+                                                    .withValues(alpha: 0.42),
+                                                shape: BoxShape.circle,
+                                              ),
+                                              child: Icon(
+                                                isFinished
+                                                    ? Icons.replay_rounded
+                                                    : Icons.play_arrow_rounded,
+                                                color: Colors.white,
+                                                size: 42,
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                Padding(
+                                  padding:
+                                      const EdgeInsets.fromLTRB(20, 0, 20, 28),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      VideoProgressIndicator(
+                                        _controller,
+                                        allowScrubbing: true,
+                                        colors: const VideoProgressColors(
+                                          playedColor: Color(0xFF38BDF8),
+                                          bufferedColor: Colors.white38,
+                                          backgroundColor: Colors.white24,
+                                        ),
+                                      ),
+                                      if (widget.caption != null &&
+                                          widget.caption!
+                                              .trim()
+                                              .isNotEmpty) ...[
+                                        const SizedBox(height: 16),
+                                        Text(
+                                          widget.caption!.trim(),
+                                          style: GoogleFonts.inter(
+                                            color: Colors.white,
+                                            fontSize: 14,
+                                            height: 1.4,
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+            ),
+            Positioned(
+              top: 8,
+              left: 8,
+              child: IconButton(
+                onPressed: () => Navigator.of(context).pop(),
+                icon: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.4),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.arrow_back_rounded,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

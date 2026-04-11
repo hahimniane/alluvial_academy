@@ -886,6 +886,50 @@ class AppLocalizationsEn extends AppLocalizations {
       'Only administrators can create group chats';
 
   @override
+  String get chatVideo => 'Video';
+
+  @override
+  String get chatEditMessage => 'Edit';
+
+  @override
+  String get chatMessageEdited => 'Message edited';
+
+  @override
+  String get chatFailedEditMessage => 'Failed to edit message';
+
+  @override
+  String get chatEditYourMessage => 'Edit your message...';
+
+  @override
+  String get chatSave => 'Save';
+
+  @override
+  String get chatSupportInbox => 'Support Inbox';
+
+  @override
+  String get chatDirectMessage => 'Direct Message';
+
+  @override
+  String get chatSendPersonalMessage => 'Send a personal message';
+
+  @override
+  String get chatSupportChat => 'Support Chat';
+
+  @override
+  String chatStartSupportWith(String name) {
+    return 'Start a support conversation with $name';
+  }
+
+  @override
+  String get chatSendingVideo => 'Sending video...';
+
+  @override
+  String get chatVideoSent => 'Video sent!';
+
+  @override
+  String get chatFailedSendVideo => 'Failed to send video';
+
+  @override
   String get roleAdmin => 'Administrator';
 
   @override
@@ -10834,4 +10878,547 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get adminAuditEvalSectionCommentHint =>
       'Optional. Included in PDF/Excel under this section.';
+
+  @override
+  String get commonAdd => 'Add';
+
+  @override
+  String get tontineSavings => 'Savings';
+
+  @override
+  String get tontineTooltipDescription =>
+      'A rotating savings circle where members each contribute a fixed amount every cycle, and one member receives the entire pooled amount. This rotates until every member has received exactly once. No interest, no fees.';
+
+  @override
+  String get tontineCircles => 'Circles';
+
+  @override
+  String get tontineAdminCircles => 'Admin Circles';
+
+  @override
+  String get tontineHomeSubtitle =>
+      'Track your savings circles, invite members, and manage each monthly payout cycle.';
+
+  @override
+  String get tontineSignInRequired => 'Sign in to view your savings circles.';
+
+  @override
+  String get tontineNoCirclesTitle => 'No circles yet';
+
+  @override
+  String get tontineNoCirclesSubtitle =>
+      'Create your first rotating savings circle to start collecting monthly contributions.';
+
+  @override
+  String get tontineMyCircles => 'My circles';
+
+  @override
+  String tontinePendingInvites(int count) {
+    return 'Pending invites: $count';
+  }
+
+  @override
+  String get tontineReviewInvite => 'Review invite';
+
+  @override
+  String get tontineCreateCircle => 'Create Circle';
+
+  @override
+  String get tontineCircleDetails => 'Circle Dashboard';
+
+  @override
+  String get tontineCircleNotFound => 'Circle not found.';
+
+  @override
+  String get tontineStatusForming => 'Forming';
+
+  @override
+  String get tontineStatusActive => 'Active';
+
+  @override
+  String get tontineStatusCompleted => 'Completed';
+
+  @override
+  String get tontineStatusCancelled => 'Cancelled';
+
+  @override
+  String get tontineCyclePending => 'Pending';
+
+  @override
+  String get tontineCycleInProgress => 'In progress';
+
+  @override
+  String get tontineCycleCompleted => 'Completed';
+
+  @override
+  String get tontineCurrentCycle => 'Current cycle';
+
+  @override
+  String get tontineDueDate => 'Due date';
+
+  @override
+  String get tontineCurrentRecipient => 'Current recipient';
+
+  @override
+  String get tontineRecipientPending => 'Recipient pending';
+
+  @override
+  String tontineMonthOf(int month, int total) {
+    return 'Month $month of $total';
+  }
+
+  @override
+  String get tontineConfirmedCount => 'Confirmed payments';
+
+  @override
+  String get tontineCircleCompletedMessage =>
+      'This circle has finished every payout cycle.';
+
+  @override
+  String get tontineWaitingForCycle =>
+      'Waiting for the first cycle to be created.';
+
+  @override
+  String get tontineCircleStillForming => 'Circle is still forming';
+
+  @override
+  String tontineMembersJoined(int active, int total) {
+    return '$active of $total members joined';
+  }
+
+  @override
+  String get tontineWaitingForMembers => 'Waiting for members';
+
+  @override
+  String get tontineActivateCircle => 'Activate Circle';
+
+  @override
+  String get tontineExpectedAmount => 'Expected amount';
+
+  @override
+  String get tontineSubmittedAmount => 'Submitted amount';
+
+  @override
+  String get tontineReceiptAttached => 'Receipt attached';
+
+  @override
+  String get tontineRejectionReason => 'Rejection reason';
+
+  @override
+  String get tontineReviewSubmissions => 'Review Submissions';
+
+  @override
+  String get tontineSubmitPayment => 'Submit Payment';
+
+  @override
+  String get tontinePaymentConfirmed => 'Payment confirmed';
+
+  @override
+  String get tontineContributionPending => 'Unpaid';
+
+  @override
+  String get tontineContributionSubmitted => 'Submitted';
+
+  @override
+  String get tontineContributionConfirmed => 'Confirmed';
+
+  @override
+  String get tontineContributionRejected => 'Rejected';
+
+  @override
+  String get tontineContributionMissed => 'Missed';
+
+  @override
+  String get tontineMemberInvited => 'Invited';
+
+  @override
+  String get tontineInviteByEmail => 'Email';
+
+  @override
+  String get tontineInviteByPhone => 'Phone';
+
+  @override
+  String get tontineMissedMoveToBack => 'Move to back';
+
+  @override
+  String get tontineMissedSuspend => 'Suspend member';
+
+  @override
+  String get tontineNoDeadline => 'No deadline set';
+
+  @override
+  String get tontineDueToday => 'Due today';
+
+  @override
+  String tontineDueInDays(int days) {
+    return 'Due in $days days';
+  }
+
+  @override
+  String tontineOverdueBy(String duration) {
+    return 'Overdue by $duration';
+  }
+
+  @override
+  String tontinePosition(int position) {
+    return 'Position $position';
+  }
+
+  @override
+  String get tontinePaymentStatusBoard => 'Payment status board';
+
+  @override
+  String get tontinePaymentDetails => 'Payment details';
+
+  @override
+  String get tontineAmount => 'Amount';
+
+  @override
+  String get tontineAmountMatchesExpected =>
+      'Amount matches the expected contribution.';
+
+  @override
+  String get tontineAmountDoesNotMatchExpected =>
+      'Amount does not match the expected contribution.';
+
+  @override
+  String get tontinePaymentDate => 'Payment date';
+
+  @override
+  String get tontineReceipt => 'Receipt';
+
+  @override
+  String get tontineUseCamera => 'Use camera';
+
+  @override
+  String get tontineChooseFromGallery => 'Choose from gallery';
+
+  @override
+  String get tontineSelectedReceipt => 'Selected receipt';
+
+  @override
+  String get tontineReceiptRequired =>
+      'A receipt is required before submission.';
+
+  @override
+  String get tontinePaymentSubmitted => 'Payment submitted successfully.';
+
+  @override
+  String tontineSubmissionFailed(String error) {
+    return 'Could not submit payment: $error';
+  }
+
+  @override
+  String tontineCreateFailed(String error) {
+    return 'Could not create circle: $error';
+  }
+
+  @override
+  String get tontineMarkPayoutSent => 'Mark Payout Sent';
+
+  @override
+  String get tontinePayoutMarkedSent => 'Payout marked as sent.';
+
+  @override
+  String get tontineReviewProgress => 'Review progress';
+
+  @override
+  String tontineConfirmedOf(int confirmed, int total) {
+    return '$confirmed of $total confirmed';
+  }
+
+  @override
+  String get tontineRejectContribution => 'Reject';
+
+  @override
+  String get tontineConfirmContribution => 'Confirm';
+
+  @override
+  String get tontineJoinCircle => 'Join circle';
+
+  @override
+  String tontineJoinFailed(String error) {
+    return 'Could not join circle: $error';
+  }
+
+  @override
+  String get tontineInvitePreview =>
+      'Review this savings circle before you accept the invite.';
+
+  @override
+  String get tontineCircleHead => 'Circle head';
+
+  @override
+  String get tontineStepBasics => 'Basics';
+
+  @override
+  String get tontineStepRules => 'Rules';
+
+  @override
+  String get tontineStepInvite => 'Invite';
+
+  @override
+  String get tontineStepOrder => 'Order';
+
+  @override
+  String get tontineStepReview => 'Review';
+
+  @override
+  String get tontineCircleName => 'Circle name';
+
+  @override
+  String get tontineCircleNameRequired => 'Circle name is required.';
+
+  @override
+  String get tontineContributionAmount => 'Contribution amount';
+
+  @override
+  String get tontineMonthlyContribution => 'Monthly contribution';
+
+  @override
+  String get tontineMemberCount => 'Member count';
+
+  @override
+  String get tontineStartDate => 'Start date';
+
+  @override
+  String get tontineFrequency => 'Contribution frequency';
+
+  @override
+  String get tontineFrequencyWeekly => 'Weekly';
+
+  @override
+  String get tontineFrequencyBiweekly => 'Every 2 weeks';
+
+  @override
+  String get tontineFrequencyMonthly => 'Monthly';
+
+  @override
+  String get tontineFrequencyQuarterly => 'Quarterly';
+
+  @override
+  String get tontineHintCircleName =>
+      'Give your circle a name members will recognize';
+
+  @override
+  String get tontineHintAmount => 'How much each member contributes per cycle';
+
+  @override
+  String get tontineHintMemberCount => 'Total members including you';
+
+  @override
+  String get tontineHintStartDate => 'The date when the first cycle begins';
+
+  @override
+  String get tontineHintFrequency =>
+      'How often members contribute and payouts happen';
+
+  @override
+  String get tontineHintGracePeriod =>
+      'Extra days allowed after the due date before a payment is marked late';
+
+  @override
+  String get tontineHintMissedPayment =>
+      'What happens if a member misses their payment';
+
+  @override
+  String get tontineHintPaymentInstructions =>
+      'Tell members how to send their payment (e.g. Zelle, CashApp, bank transfer)';
+
+  @override
+  String get tontineGracePeriodDays => 'Grace period (days)';
+
+  @override
+  String get tontineMissedPaymentAction => 'Missed payment action';
+
+  @override
+  String get tontinePaymentInstructions => 'Payment instructions';
+
+  @override
+  String get tontinePaymentInstructionsRequired =>
+      'Payment instructions are required.';
+
+  @override
+  String get tontineInviteExistingUsersOnly =>
+      'Invite members by email or phone number. They will receive a notification to join.';
+
+  @override
+  String get tontineInviteMethod => 'Invite method';
+
+  @override
+  String get tontineInviteEmail => 'Email address';
+
+  @override
+  String get tontineInvitePhone => 'Phone number';
+
+  @override
+  String get tontineEnterInviteLookup =>
+      'Enter an email or phone number to invite.';
+
+  @override
+  String tontineParticipantsAdded(int current, int total) {
+    return 'Participants added: $current/$total';
+  }
+
+  @override
+  String get tontineNeedAllMembersBeforeOrdering =>
+      'Add every member before setting the payout order.';
+
+  @override
+  String get tontinePayoutOrder => 'Payout order';
+
+  @override
+  String get tontineYou => 'You';
+
+  @override
+  String get tontineUnableToLoadProfile => 'Unable to load your profile.';
+
+  @override
+  String get tontineEnterValidAmount => 'Enter a valid amount.';
+
+  @override
+  String get tontineInvalidGracePeriod => 'Enter a valid grace period.';
+
+  @override
+  String get tontineMinimumMembers => 'A circle needs at least 2 members.';
+
+  @override
+  String get tontineNeedExactMemberCount =>
+      'Add the exact member count before continuing.';
+
+  @override
+  String get tontineMemberCountReached =>
+      'You already added the target number of members.';
+
+  @override
+  String get tontineUserNotFound => 'No existing user matched that contact.';
+
+  @override
+  String get tontineUserAlreadyAdded => 'That user is already in the circle.';
+
+  @override
+  String get tontineSelectedMethodUnavailable =>
+      'That user does not have the selected contact method saved.';
+
+  @override
+  String get tontineNoActiveCycle => 'No active cycle yet';
+
+  @override
+  String get tontinePotAmount => 'Pot amount';
+
+  @override
+  String get tontineCircleActivated =>
+      'Circle activated. The first cycle will appear shortly.';
+
+  @override
+  String get tontineReorderHint =>
+      'Drag the handle to change who receives payment first';
+
+  @override
+  String get tontineAllMembersJoined => 'All members have joined!';
+
+  @override
+  String get tontineCreatedByYou => 'Created by you';
+
+  @override
+  String get tontineCirclesCreated => 'My circles';
+
+  @override
+  String get tontineCirclesJoined => 'Circles I joined';
+
+  @override
+  String get tontineEnrollmentMode => 'Enrollment mode';
+
+  @override
+  String get tontineManualSelection => 'Manual selection';
+
+  @override
+  String get tontineManualSelectionDesc => 'Pick specific teachers to add';
+
+  @override
+  String get tontineOpenEnrollment => 'Open enrollment';
+
+  @override
+  String get tontineOpenEnrollmentDesc =>
+      'Eligible teachers can browse and join';
+
+  @override
+  String get tontineEligibilityRules => 'Eligibility rules';
+
+  @override
+  String get tontineIncomeMultiplier => 'Min. income multiplier';
+
+  @override
+  String get tontineIncomeMultiplierHint =>
+      'Teacher\'s estimated monthly income must be at least this many times the contribution amount';
+
+  @override
+  String get tontineMinTenure => 'Min. tenure (months)';
+
+  @override
+  String get tontineMinTenureHint =>
+      'Teacher must have been employed for at least this many months';
+
+  @override
+  String get tontineMinShifts => 'Min. shifts (last 30 days)';
+
+  @override
+  String get tontineMinShiftsHint =>
+      'Teacher must have taught at least this many shifts in the last 30 days';
+
+  @override
+  String get tontineMaxMembers => 'Max members';
+
+  @override
+  String get tontineMaxMembersHint => 'Leave at 0 for unlimited';
+
+  @override
+  String get tontineUnlimited => 'Unlimited';
+
+  @override
+  String get tontineAvailableCircles => 'Available circles';
+
+  @override
+  String get tontineNotEligible => 'Not eligible';
+
+  @override
+  String get tontineEligible => 'Eligible';
+
+  @override
+  String get tontineCircleFull => 'Circle is full';
+
+  @override
+  String get tontineJoinSuccess => 'Successfully joined the circle!';
+
+  @override
+  String tontineEstimatedIncome(String amount) {
+    return 'Est. monthly income: $amount';
+  }
+
+  @override
+  String tontineIncomeRequirement(String multiplier) {
+    return 'Income must be ${multiplier}x the contribution';
+  }
+
+  @override
+  String tontineTenureRequirement(int months) {
+    return '$months+ months tenure required';
+  }
+
+  @override
+  String tontineShiftsRequirement(int count) {
+    return '$count+ shifts in last 30 days';
+  }
+
+  @override
+  String get tontineOpenCircleCreated =>
+      'Open circle created. Eligible teachers will be notified.';
+
+  @override
+  String tontineSpotsLeft(int count) {
+    return '$count spots left';
+  }
+
+  @override
+  String get tontineOpenSpots => 'Open spots';
 }

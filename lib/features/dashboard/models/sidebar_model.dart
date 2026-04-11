@@ -15,6 +15,7 @@ class SidebarItem {
     Icons.chat.codePoint: Icons.chat,
     Icons.dashboard.codePoint: Icons.dashboard,
     Icons.description.codePoint: Icons.description,
+    Icons.groups.codePoint: Icons.groups,
     Icons.list_alt.codePoint: Icons.list_alt,
     Icons.menu_book.codePoint: Icons.menu_book,
     Icons.notifications.codePoint: Icons.notifications,
@@ -50,7 +51,8 @@ class SidebarItem {
 
   factory SidebarItem.fromJson(Map<String, dynamic> json) {
     final rawIconCode = json['iconCode'];
-    final iconCode = rawIconCode is int ? rawIconCode : int.tryParse('$rawIconCode');
+    final iconCode =
+        rawIconCode is int ? rawIconCode : int.tryParse('$rawIconCode');
 
     return SidebarItem(
       id: json['id'],

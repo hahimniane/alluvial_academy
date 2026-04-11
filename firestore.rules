@@ -100,7 +100,15 @@ service cloud.firestore {
 
         (request.resource.data.uid != null && request.resource.data.uid == request.auth.uid) ||
 
-        ((request.resource.data['e-mail'] is string) && authEmail() != '' && request.resource.data['e-mail'].lower() == authEmail())
+        ((request.resource.data['e-mail'] is string) && authEmail() != '' && request.resource.data['e-mail'].lower() == authEmail()) ||
+        
+        ((request.resource.data.email is string) && authEmail() != '' && request.resource.data.email.lower() == authEmail()) ||
+
+        ((request.resource.data.student_code is string) && authEmail() != '' && (request.resource.data.student_code.lower() + '@alluwaleducationhub.org') == authEmail()) ||
+
+        ((request.resource.data.studentCode is string) && authEmail() != '' && (request.resource.data.studentCode.lower() + '@alluwaleducationhub.org') == authEmail()) ||
+
+        ((request.resource.data.kiosk_code is string) && authEmail() != '' && (request.resource.data.kiosk_code.lower() + '@alluwaleducationhub.org') == authEmail())
 
       );
 
@@ -262,9 +270,15 @@ service cloud.firestore {
 
       
 
-      // Allow create/delete operations only for admins
+      // Allow create for admins, or self-provisioning as circle_member via phone auth
+      allow create: if isAdmin() || (
+        isSignedIn() &&
+        request.auth.uid == userId &&
+        request.resource.data.user_type == 'circle_member' &&
+        request.resource.data.is_active == true
+      );
 
-      allow create, delete: if isAdmin();
+      allow delete: if isAdmin();
 
     }
 
@@ -537,9 +551,11 @@ service cloud.firestore {
       // The query filters by participants on the client side
       allow read: if isSignedIn();
 
-      // Allow create if user is creating a chat they're a participant in
+      // Allow create if user is creating a chat they're a participant in,
+      // or if an admin is creating an admin-support chat for another user
       allow create: if isSignedIn() &&
-                       request.auth.uid in request.resource.data.participants;
+                       (request.auth.uid in request.resource.data.participants ||
+                        (isNewAdminSupportChat() && isAdmin()));
 
       // Allow update if user is a participant, OR if admin updating an admin-support chat
       allow update: if isSignedIn() &&
@@ -746,6 +762,83 @@ service cloud.firestore {
     match /surah_podcasts/{podcastId} {
       allow read: if isSignedIn();
       allow create, update, delete: if isSignedIn() && isAdmin();
+    }
+
+    // Savings circles - authenticated reads, creator/admin writes
+    match /circles/{circleId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() &&
+        request.resource.data.created_by == request.auth.uid;
+      allow update: if isSignedIn() &&
+        (isAdmin() || resource.data.created_by == request.auth.uid);
+      allow delete: if isAdmin();
+    }
+
+    // Circle members - members can read their own records, heads/admins can manage membership.
+    match /circle_members/{memberId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && (
+        isAdmin() ||
+        request.resource.data.user_id == request.auth.uid ||
+        getAfter(/databases/$(database)/documents/circles/$(request.resource.data.circle_id)).data.created_by == request.auth.uid
+      );
+      allow update, delete: if isSignedIn() && (
+        isAdmin() ||
+        resource.data.user_id == request.auth.uid ||
+        get(/databases/$(database)/documents/circles/$(resource.data.circle_id)).data.created_by == request.auth.uid ||
+        (request.auth.token.phone_number != null &&
+         resource.data.contact_info == request.auth.token.phone_number)
+      );
+    }
+
+    // Circle cycles - created/advanced by Cloud Functions, head can mark payout sent
+    match /circle_cycles/{cycleId} {
+      allow read: if isSignedIn();
+      allow create: if false;
+      allow update: if isSignedIn() && (
+        isAdmin() ||
+        get(/databases/$(database)/documents/circles/$(resource.data.circle_id)).data.created_by == request.auth.uid
+      );
+      allow delete: if false;
+    }
+
+    // Contributions - member submits own proof, head/admin confirms and rejects
+    match /circle_contributions/{contributionId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && (
+        isAdmin() ||
+        request.resource.data.user_id == request.auth.uid ||
+        getAfter(/databases/$(database)/documents/circles/$(request.resource.data.circle_id)).data.created_by == request.auth.uid
+      );
+      allow update: if isSignedIn() && (
+        isAdmin() ||
+        resource.data.user_id == request.auth.uid ||
+        get(/databases/$(database)/documents/circles/$(resource.data.circle_id)).data.created_by == request.auth.uid
+      );
+      allow delete: if isAdmin();
+    }
+
+    // Invites - inviter, invitee, or admin can access
+    match /circle_invites/{inviteId} {
+      allow read: if isSignedIn() && (
+        isAdmin() ||
+        resource.data.created_by == request.auth.uid ||
+        resource.data.existing_user_id == request.auth.uid ||
+        (request.auth.token.phone_number != null &&
+         resource.data.contact_info == request.auth.token.phone_number)
+      );
+      allow create: if isSignedIn() && (
+        isAdmin() ||
+        request.resource.data.created_by == request.auth.uid
+      );
+      allow update: if isSignedIn() && (
+        isAdmin() ||
+        resource.data.created_by == request.auth.uid ||
+        resource.data.existing_user_id == request.auth.uid ||
+        (request.auth.token.phone_number != null &&
+         resource.data.contact_info == request.auth.token.phone_number)
+      );
+      allow delete: if isAdmin();
     }
 
     // Podcast assignments - teachers can create/manage their own, students can read assigned

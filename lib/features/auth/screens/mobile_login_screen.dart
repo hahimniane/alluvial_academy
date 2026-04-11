@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../../core/services/auth_service.dart';
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 import '../../../l10n/app_localizations.dart';
+import 'mobile_phone_login_screen.dart';
 
 /// Beautiful mobile-optimized login screen
 class MobileLoginScreen extends StatefulWidget {
@@ -425,8 +426,6 @@ class _MobileLoginScreenState extends State<MobileLoginScreen> with SingleTicker
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12),
                                   ),
-                                  disabledBackgroundColor:
-                                      const Color(0xff0386FF).withOpacity(0.6),
                                 ),
                                 child: _isLoading
                                     ? const SizedBox(
@@ -447,6 +446,35 @@ class _MobileLoginScreenState extends State<MobileLoginScreen> with SingleTicker
                                           letterSpacing: 0.5,
                                         ),
                                       ),
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            // Phone Login Option
+                            SizedBox(
+                              height: 44,
+                              child: OutlinedButton.icon(
+                                onPressed: _isLoading ? null : () {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (_) => const MobilePhoneLoginScreen(),
+                                    ),
+                                  );
+                                },
+                                icon: const Icon(Icons.phone_android, size: 20),
+                                label: Text(
+                                  'Sign in with Phone',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: const Color(0xff111827),
+                                  side: const BorderSide(color: Color(0xffE5E7EB)),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
                               ),
                             ),
                           ],

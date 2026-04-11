@@ -1732,6 +1732,90 @@ abstract class AppLocalizations {
   /// **'Only administrators can create group chats'**
   String get chatGroupAdminsOnly;
 
+  /// No description provided for @chatVideo.
+  ///
+  /// In en, this message translates to:
+  /// **'Video'**
+  String get chatVideo;
+
+  /// No description provided for @chatEditMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit'**
+  String get chatEditMessage;
+
+  /// No description provided for @chatMessageEdited.
+  ///
+  /// In en, this message translates to:
+  /// **'Message edited'**
+  String get chatMessageEdited;
+
+  /// No description provided for @chatFailedEditMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to edit message'**
+  String get chatFailedEditMessage;
+
+  /// No description provided for @chatEditYourMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit your message...'**
+  String get chatEditYourMessage;
+
+  /// No description provided for @chatSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get chatSave;
+
+  /// No description provided for @chatSupportInbox.
+  ///
+  /// In en, this message translates to:
+  /// **'Support Inbox'**
+  String get chatSupportInbox;
+
+  /// No description provided for @chatDirectMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Direct Message'**
+  String get chatDirectMessage;
+
+  /// No description provided for @chatSendPersonalMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Send a personal message'**
+  String get chatSendPersonalMessage;
+
+  /// No description provided for @chatSupportChat.
+  ///
+  /// In en, this message translates to:
+  /// **'Support Chat'**
+  String get chatSupportChat;
+
+  /// No description provided for @chatStartSupportWith.
+  ///
+  /// In en, this message translates to:
+  /// **'Start a support conversation with {name}'**
+  String chatStartSupportWith(String name);
+
+  /// No description provided for @chatSendingVideo.
+  ///
+  /// In en, this message translates to:
+  /// **'Sending video...'**
+  String get chatSendingVideo;
+
+  /// No description provided for @chatVideoSent.
+  ///
+  /// In en, this message translates to:
+  /// **'Video sent!'**
+  String get chatVideoSent;
+
+  /// No description provided for @chatFailedSendVideo.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to send video'**
+  String get chatFailedSendVideo;
+
   /// No description provided for @roleAdmin.
   ///
   /// In en, this message translates to:
@@ -19926,6 +20010,972 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Optional. Included in PDF/Excel under this section.'**
   String get adminAuditEvalSectionCommentHint;
+
+  /// No description provided for @commonAdd.
+  ///
+  /// In en, this message translates to:
+  /// **'Add'**
+  String get commonAdd;
+
+  /// No description provided for @tontineSavings.
+  ///
+  /// In en, this message translates to:
+  /// **'Savings'**
+  String get tontineSavings;
+
+  /// No description provided for @tontineTooltipDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'A rotating savings circle where members each contribute a fixed amount every cycle, and one member receives the entire pooled amount. This rotates until every member has received exactly once. No interest, no fees.'**
+  String get tontineTooltipDescription;
+
+  /// No description provided for @tontineCircles.
+  ///
+  /// In en, this message translates to:
+  /// **'Circles'**
+  String get tontineCircles;
+
+  /// No description provided for @tontineAdminCircles.
+  ///
+  /// In en, this message translates to:
+  /// **'Admin Circles'**
+  String get tontineAdminCircles;
+
+  /// No description provided for @tontineHomeSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Track your savings circles, invite members, and manage each monthly payout cycle.'**
+  String get tontineHomeSubtitle;
+
+  /// No description provided for @tontineSignInRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in to view your savings circles.'**
+  String get tontineSignInRequired;
+
+  /// No description provided for @tontineNoCirclesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No circles yet'**
+  String get tontineNoCirclesTitle;
+
+  /// No description provided for @tontineNoCirclesSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Create your first rotating savings circle to start collecting monthly contributions.'**
+  String get tontineNoCirclesSubtitle;
+
+  /// No description provided for @tontineMyCircles.
+  ///
+  /// In en, this message translates to:
+  /// **'My circles'**
+  String get tontineMyCircles;
+
+  /// No description provided for @tontinePendingInvites.
+  ///
+  /// In en, this message translates to:
+  /// **'Pending invites: {count}'**
+  String tontinePendingInvites(int count);
+
+  /// No description provided for @tontineReviewInvite.
+  ///
+  /// In en, this message translates to:
+  /// **'Review invite'**
+  String get tontineReviewInvite;
+
+  /// No description provided for @tontineCreateCircle.
+  ///
+  /// In en, this message translates to:
+  /// **'Create Circle'**
+  String get tontineCreateCircle;
+
+  /// No description provided for @tontineCircleDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Circle Dashboard'**
+  String get tontineCircleDetails;
+
+  /// No description provided for @tontineCircleNotFound.
+  ///
+  /// In en, this message translates to:
+  /// **'Circle not found.'**
+  String get tontineCircleNotFound;
+
+  /// No description provided for @tontineStatusForming.
+  ///
+  /// In en, this message translates to:
+  /// **'Forming'**
+  String get tontineStatusForming;
+
+  /// No description provided for @tontineStatusActive.
+  ///
+  /// In en, this message translates to:
+  /// **'Active'**
+  String get tontineStatusActive;
+
+  /// No description provided for @tontineStatusCompleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Completed'**
+  String get tontineStatusCompleted;
+
+  /// No description provided for @tontineStatusCancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancelled'**
+  String get tontineStatusCancelled;
+
+  /// No description provided for @tontineCyclePending.
+  ///
+  /// In en, this message translates to:
+  /// **'Pending'**
+  String get tontineCyclePending;
+
+  /// No description provided for @tontineCycleInProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'In progress'**
+  String get tontineCycleInProgress;
+
+  /// No description provided for @tontineCycleCompleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Completed'**
+  String get tontineCycleCompleted;
+
+  /// No description provided for @tontineCurrentCycle.
+  ///
+  /// In en, this message translates to:
+  /// **'Current cycle'**
+  String get tontineCurrentCycle;
+
+  /// No description provided for @tontineDueDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Due date'**
+  String get tontineDueDate;
+
+  /// No description provided for @tontineCurrentRecipient.
+  ///
+  /// In en, this message translates to:
+  /// **'Current recipient'**
+  String get tontineCurrentRecipient;
+
+  /// No description provided for @tontineRecipientPending.
+  ///
+  /// In en, this message translates to:
+  /// **'Recipient pending'**
+  String get tontineRecipientPending;
+
+  /// No description provided for @tontineMonthOf.
+  ///
+  /// In en, this message translates to:
+  /// **'Month {month} of {total}'**
+  String tontineMonthOf(int month, int total);
+
+  /// No description provided for @tontineConfirmedCount.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirmed payments'**
+  String get tontineConfirmedCount;
+
+  /// No description provided for @tontineCircleCompletedMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'This circle has finished every payout cycle.'**
+  String get tontineCircleCompletedMessage;
+
+  /// No description provided for @tontineWaitingForCycle.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for the first cycle to be created.'**
+  String get tontineWaitingForCycle;
+
+  /// No description provided for @tontineCircleStillForming.
+  ///
+  /// In en, this message translates to:
+  /// **'Circle is still forming'**
+  String get tontineCircleStillForming;
+
+  /// No description provided for @tontineMembersJoined.
+  ///
+  /// In en, this message translates to:
+  /// **'{active} of {total} members joined'**
+  String tontineMembersJoined(int active, int total);
+
+  /// No description provided for @tontineWaitingForMembers.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for members'**
+  String get tontineWaitingForMembers;
+
+  /// No description provided for @tontineActivateCircle.
+  ///
+  /// In en, this message translates to:
+  /// **'Activate Circle'**
+  String get tontineActivateCircle;
+
+  /// No description provided for @tontineExpectedAmount.
+  ///
+  /// In en, this message translates to:
+  /// **'Expected amount'**
+  String get tontineExpectedAmount;
+
+  /// No description provided for @tontineSubmittedAmount.
+  ///
+  /// In en, this message translates to:
+  /// **'Submitted amount'**
+  String get tontineSubmittedAmount;
+
+  /// No description provided for @tontineReceiptAttached.
+  ///
+  /// In en, this message translates to:
+  /// **'Receipt attached'**
+  String get tontineReceiptAttached;
+
+  /// No description provided for @tontineRejectionReason.
+  ///
+  /// In en, this message translates to:
+  /// **'Rejection reason'**
+  String get tontineRejectionReason;
+
+  /// No description provided for @tontineReviewSubmissions.
+  ///
+  /// In en, this message translates to:
+  /// **'Review Submissions'**
+  String get tontineReviewSubmissions;
+
+  /// No description provided for @tontineSubmitPayment.
+  ///
+  /// In en, this message translates to:
+  /// **'Submit Payment'**
+  String get tontineSubmitPayment;
+
+  /// No description provided for @tontinePaymentConfirmed.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment confirmed'**
+  String get tontinePaymentConfirmed;
+
+  /// No description provided for @tontineContributionPending.
+  ///
+  /// In en, this message translates to:
+  /// **'Unpaid'**
+  String get tontineContributionPending;
+
+  /// No description provided for @tontineContributionSubmitted.
+  ///
+  /// In en, this message translates to:
+  /// **'Submitted'**
+  String get tontineContributionSubmitted;
+
+  /// No description provided for @tontineContributionConfirmed.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirmed'**
+  String get tontineContributionConfirmed;
+
+  /// No description provided for @tontineContributionRejected.
+  ///
+  /// In en, this message translates to:
+  /// **'Rejected'**
+  String get tontineContributionRejected;
+
+  /// No description provided for @tontineContributionMissed.
+  ///
+  /// In en, this message translates to:
+  /// **'Missed'**
+  String get tontineContributionMissed;
+
+  /// No description provided for @tontineMemberInvited.
+  ///
+  /// In en, this message translates to:
+  /// **'Invited'**
+  String get tontineMemberInvited;
+
+  /// No description provided for @tontineInviteByEmail.
+  ///
+  /// In en, this message translates to:
+  /// **'Email'**
+  String get tontineInviteByEmail;
+
+  /// No description provided for @tontineInviteByPhone.
+  ///
+  /// In en, this message translates to:
+  /// **'Phone'**
+  String get tontineInviteByPhone;
+
+  /// No description provided for @tontineMissedMoveToBack.
+  ///
+  /// In en, this message translates to:
+  /// **'Move to back'**
+  String get tontineMissedMoveToBack;
+
+  /// No description provided for @tontineMissedSuspend.
+  ///
+  /// In en, this message translates to:
+  /// **'Suspend member'**
+  String get tontineMissedSuspend;
+
+  /// No description provided for @tontineNoDeadline.
+  ///
+  /// In en, this message translates to:
+  /// **'No deadline set'**
+  String get tontineNoDeadline;
+
+  /// No description provided for @tontineDueToday.
+  ///
+  /// In en, this message translates to:
+  /// **'Due today'**
+  String get tontineDueToday;
+
+  /// No description provided for @tontineDueInDays.
+  ///
+  /// In en, this message translates to:
+  /// **'Due in {days} days'**
+  String tontineDueInDays(int days);
+
+  /// No description provided for @tontineOverdueBy.
+  ///
+  /// In en, this message translates to:
+  /// **'Overdue by {duration}'**
+  String tontineOverdueBy(String duration);
+
+  /// No description provided for @tontinePosition.
+  ///
+  /// In en, this message translates to:
+  /// **'Position {position}'**
+  String tontinePosition(int position);
+
+  /// No description provided for @tontinePaymentStatusBoard.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment status board'**
+  String get tontinePaymentStatusBoard;
+
+  /// No description provided for @tontinePaymentDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment details'**
+  String get tontinePaymentDetails;
+
+  /// No description provided for @tontineAmount.
+  ///
+  /// In en, this message translates to:
+  /// **'Amount'**
+  String get tontineAmount;
+
+  /// No description provided for @tontineAmountMatchesExpected.
+  ///
+  /// In en, this message translates to:
+  /// **'Amount matches the expected contribution.'**
+  String get tontineAmountMatchesExpected;
+
+  /// No description provided for @tontineAmountDoesNotMatchExpected.
+  ///
+  /// In en, this message translates to:
+  /// **'Amount does not match the expected contribution.'**
+  String get tontineAmountDoesNotMatchExpected;
+
+  /// No description provided for @tontinePaymentDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment date'**
+  String get tontinePaymentDate;
+
+  /// No description provided for @tontineReceipt.
+  ///
+  /// In en, this message translates to:
+  /// **'Receipt'**
+  String get tontineReceipt;
+
+  /// No description provided for @tontineUseCamera.
+  ///
+  /// In en, this message translates to:
+  /// **'Use camera'**
+  String get tontineUseCamera;
+
+  /// No description provided for @tontineChooseFromGallery.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose from gallery'**
+  String get tontineChooseFromGallery;
+
+  /// No description provided for @tontineSelectedReceipt.
+  ///
+  /// In en, this message translates to:
+  /// **'Selected receipt'**
+  String get tontineSelectedReceipt;
+
+  /// No description provided for @tontineReceiptRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'A receipt is required before submission.'**
+  String get tontineReceiptRequired;
+
+  /// No description provided for @tontinePaymentSubmitted.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment submitted successfully.'**
+  String get tontinePaymentSubmitted;
+
+  /// No description provided for @tontineSubmissionFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not submit payment: {error}'**
+  String tontineSubmissionFailed(String error);
+
+  /// No description provided for @tontineCreateFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not create circle: {error}'**
+  String tontineCreateFailed(String error);
+
+  /// No description provided for @tontineMarkPayoutSent.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark Payout Sent'**
+  String get tontineMarkPayoutSent;
+
+  /// No description provided for @tontinePayoutMarkedSent.
+  ///
+  /// In en, this message translates to:
+  /// **'Payout marked as sent.'**
+  String get tontinePayoutMarkedSent;
+
+  /// No description provided for @tontineReviewProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'Review progress'**
+  String get tontineReviewProgress;
+
+  /// No description provided for @tontineConfirmedOf.
+  ///
+  /// In en, this message translates to:
+  /// **'{confirmed} of {total} confirmed'**
+  String tontineConfirmedOf(int confirmed, int total);
+
+  /// No description provided for @tontineRejectContribution.
+  ///
+  /// In en, this message translates to:
+  /// **'Reject'**
+  String get tontineRejectContribution;
+
+  /// No description provided for @tontineConfirmContribution.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm'**
+  String get tontineConfirmContribution;
+
+  /// No description provided for @tontineJoinCircle.
+  ///
+  /// In en, this message translates to:
+  /// **'Join circle'**
+  String get tontineJoinCircle;
+
+  /// No description provided for @tontineJoinFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not join circle: {error}'**
+  String tontineJoinFailed(String error);
+
+  /// No description provided for @tontineInvitePreview.
+  ///
+  /// In en, this message translates to:
+  /// **'Review this savings circle before you accept the invite.'**
+  String get tontineInvitePreview;
+
+  /// No description provided for @tontineCircleHead.
+  ///
+  /// In en, this message translates to:
+  /// **'Circle head'**
+  String get tontineCircleHead;
+
+  /// No description provided for @tontineStepBasics.
+  ///
+  /// In en, this message translates to:
+  /// **'Basics'**
+  String get tontineStepBasics;
+
+  /// No description provided for @tontineStepRules.
+  ///
+  /// In en, this message translates to:
+  /// **'Rules'**
+  String get tontineStepRules;
+
+  /// No description provided for @tontineStepInvite.
+  ///
+  /// In en, this message translates to:
+  /// **'Invite'**
+  String get tontineStepInvite;
+
+  /// No description provided for @tontineStepOrder.
+  ///
+  /// In en, this message translates to:
+  /// **'Order'**
+  String get tontineStepOrder;
+
+  /// No description provided for @tontineStepReview.
+  ///
+  /// In en, this message translates to:
+  /// **'Review'**
+  String get tontineStepReview;
+
+  /// No description provided for @tontineCircleName.
+  ///
+  /// In en, this message translates to:
+  /// **'Circle name'**
+  String get tontineCircleName;
+
+  /// No description provided for @tontineCircleNameRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Circle name is required.'**
+  String get tontineCircleNameRequired;
+
+  /// No description provided for @tontineContributionAmount.
+  ///
+  /// In en, this message translates to:
+  /// **'Contribution amount'**
+  String get tontineContributionAmount;
+
+  /// No description provided for @tontineMonthlyContribution.
+  ///
+  /// In en, this message translates to:
+  /// **'Monthly contribution'**
+  String get tontineMonthlyContribution;
+
+  /// No description provided for @tontineMemberCount.
+  ///
+  /// In en, this message translates to:
+  /// **'Member count'**
+  String get tontineMemberCount;
+
+  /// No description provided for @tontineStartDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Start date'**
+  String get tontineStartDate;
+
+  /// No description provided for @tontineFrequency.
+  ///
+  /// In en, this message translates to:
+  /// **'Contribution frequency'**
+  String get tontineFrequency;
+
+  /// No description provided for @tontineFrequencyWeekly.
+  ///
+  /// In en, this message translates to:
+  /// **'Weekly'**
+  String get tontineFrequencyWeekly;
+
+  /// No description provided for @tontineFrequencyBiweekly.
+  ///
+  /// In en, this message translates to:
+  /// **'Every 2 weeks'**
+  String get tontineFrequencyBiweekly;
+
+  /// No description provided for @tontineFrequencyMonthly.
+  ///
+  /// In en, this message translates to:
+  /// **'Monthly'**
+  String get tontineFrequencyMonthly;
+
+  /// No description provided for @tontineFrequencyQuarterly.
+  ///
+  /// In en, this message translates to:
+  /// **'Quarterly'**
+  String get tontineFrequencyQuarterly;
+
+  /// No description provided for @tontineHintCircleName.
+  ///
+  /// In en, this message translates to:
+  /// **'Give your circle a name members will recognize'**
+  String get tontineHintCircleName;
+
+  /// No description provided for @tontineHintAmount.
+  ///
+  /// In en, this message translates to:
+  /// **'How much each member contributes per cycle'**
+  String get tontineHintAmount;
+
+  /// No description provided for @tontineHintMemberCount.
+  ///
+  /// In en, this message translates to:
+  /// **'Total members including you'**
+  String get tontineHintMemberCount;
+
+  /// No description provided for @tontineHintStartDate.
+  ///
+  /// In en, this message translates to:
+  /// **'The date when the first cycle begins'**
+  String get tontineHintStartDate;
+
+  /// No description provided for @tontineHintFrequency.
+  ///
+  /// In en, this message translates to:
+  /// **'How often members contribute and payouts happen'**
+  String get tontineHintFrequency;
+
+  /// No description provided for @tontineHintGracePeriod.
+  ///
+  /// In en, this message translates to:
+  /// **'Extra days allowed after the due date before a payment is marked late'**
+  String get tontineHintGracePeriod;
+
+  /// No description provided for @tontineHintMissedPayment.
+  ///
+  /// In en, this message translates to:
+  /// **'What happens if a member misses their payment'**
+  String get tontineHintMissedPayment;
+
+  /// No description provided for @tontineHintPaymentInstructions.
+  ///
+  /// In en, this message translates to:
+  /// **'Tell members how to send their payment (e.g. Zelle, CashApp, bank transfer)'**
+  String get tontineHintPaymentInstructions;
+
+  /// No description provided for @tontineGracePeriodDays.
+  ///
+  /// In en, this message translates to:
+  /// **'Grace period (days)'**
+  String get tontineGracePeriodDays;
+
+  /// No description provided for @tontineMissedPaymentAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Missed payment action'**
+  String get tontineMissedPaymentAction;
+
+  /// No description provided for @tontinePaymentInstructions.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment instructions'**
+  String get tontinePaymentInstructions;
+
+  /// No description provided for @tontinePaymentInstructionsRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment instructions are required.'**
+  String get tontinePaymentInstructionsRequired;
+
+  /// No description provided for @tontineInviteExistingUsersOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'Invite members by email or phone number. They will receive a notification to join.'**
+  String get tontineInviteExistingUsersOnly;
+
+  /// No description provided for @tontineInviteMethod.
+  ///
+  /// In en, this message translates to:
+  /// **'Invite method'**
+  String get tontineInviteMethod;
+
+  /// No description provided for @tontineInviteEmail.
+  ///
+  /// In en, this message translates to:
+  /// **'Email address'**
+  String get tontineInviteEmail;
+
+  /// No description provided for @tontineInvitePhone.
+  ///
+  /// In en, this message translates to:
+  /// **'Phone number'**
+  String get tontineInvitePhone;
+
+  /// No description provided for @tontineEnterInviteLookup.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter an email or phone number to invite.'**
+  String get tontineEnterInviteLookup;
+
+  /// No description provided for @tontineParticipantsAdded.
+  ///
+  /// In en, this message translates to:
+  /// **'Participants added: {current}/{total}'**
+  String tontineParticipantsAdded(int current, int total);
+
+  /// No description provided for @tontineNeedAllMembersBeforeOrdering.
+  ///
+  /// In en, this message translates to:
+  /// **'Add every member before setting the payout order.'**
+  String get tontineNeedAllMembersBeforeOrdering;
+
+  /// No description provided for @tontinePayoutOrder.
+  ///
+  /// In en, this message translates to:
+  /// **'Payout order'**
+  String get tontinePayoutOrder;
+
+  /// No description provided for @tontineYou.
+  ///
+  /// In en, this message translates to:
+  /// **'You'**
+  String get tontineYou;
+
+  /// No description provided for @tontineUnableToLoadProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to load your profile.'**
+  String get tontineUnableToLoadProfile;
+
+  /// No description provided for @tontineEnterValidAmount.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a valid amount.'**
+  String get tontineEnterValidAmount;
+
+  /// No description provided for @tontineInvalidGracePeriod.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a valid grace period.'**
+  String get tontineInvalidGracePeriod;
+
+  /// No description provided for @tontineMinimumMembers.
+  ///
+  /// In en, this message translates to:
+  /// **'A circle needs at least 2 members.'**
+  String get tontineMinimumMembers;
+
+  /// No description provided for @tontineNeedExactMemberCount.
+  ///
+  /// In en, this message translates to:
+  /// **'Add the exact member count before continuing.'**
+  String get tontineNeedExactMemberCount;
+
+  /// No description provided for @tontineMemberCountReached.
+  ///
+  /// In en, this message translates to:
+  /// **'You already added the target number of members.'**
+  String get tontineMemberCountReached;
+
+  /// No description provided for @tontineUserNotFound.
+  ///
+  /// In en, this message translates to:
+  /// **'No existing user matched that contact.'**
+  String get tontineUserNotFound;
+
+  /// No description provided for @tontineUserAlreadyAdded.
+  ///
+  /// In en, this message translates to:
+  /// **'That user is already in the circle.'**
+  String get tontineUserAlreadyAdded;
+
+  /// No description provided for @tontineSelectedMethodUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'That user does not have the selected contact method saved.'**
+  String get tontineSelectedMethodUnavailable;
+
+  /// No description provided for @tontineNoActiveCycle.
+  ///
+  /// In en, this message translates to:
+  /// **'No active cycle yet'**
+  String get tontineNoActiveCycle;
+
+  /// No description provided for @tontinePotAmount.
+  ///
+  /// In en, this message translates to:
+  /// **'Pot amount'**
+  String get tontinePotAmount;
+
+  /// No description provided for @tontineCircleActivated.
+  ///
+  /// In en, this message translates to:
+  /// **'Circle activated. The first cycle will appear shortly.'**
+  String get tontineCircleActivated;
+
+  /// No description provided for @tontineReorderHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Drag the handle to change who receives payment first'**
+  String get tontineReorderHint;
+
+  /// No description provided for @tontineAllMembersJoined.
+  ///
+  /// In en, this message translates to:
+  /// **'All members have joined!'**
+  String get tontineAllMembersJoined;
+
+  /// No description provided for @tontineCreatedByYou.
+  ///
+  /// In en, this message translates to:
+  /// **'Created by you'**
+  String get tontineCreatedByYou;
+
+  /// No description provided for @tontineCirclesCreated.
+  ///
+  /// In en, this message translates to:
+  /// **'My circles'**
+  String get tontineCirclesCreated;
+
+  /// No description provided for @tontineCirclesJoined.
+  ///
+  /// In en, this message translates to:
+  /// **'Circles I joined'**
+  String get tontineCirclesJoined;
+
+  /// No description provided for @tontineEnrollmentMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Enrollment mode'**
+  String get tontineEnrollmentMode;
+
+  /// No description provided for @tontineManualSelection.
+  ///
+  /// In en, this message translates to:
+  /// **'Manual selection'**
+  String get tontineManualSelection;
+
+  /// No description provided for @tontineManualSelectionDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick specific teachers to add'**
+  String get tontineManualSelectionDesc;
+
+  /// No description provided for @tontineOpenEnrollment.
+  ///
+  /// In en, this message translates to:
+  /// **'Open enrollment'**
+  String get tontineOpenEnrollment;
+
+  /// No description provided for @tontineOpenEnrollmentDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Eligible teachers can browse and join'**
+  String get tontineOpenEnrollmentDesc;
+
+  /// No description provided for @tontineEligibilityRules.
+  ///
+  /// In en, this message translates to:
+  /// **'Eligibility rules'**
+  String get tontineEligibilityRules;
+
+  /// No description provided for @tontineIncomeMultiplier.
+  ///
+  /// In en, this message translates to:
+  /// **'Min. income multiplier'**
+  String get tontineIncomeMultiplier;
+
+  /// No description provided for @tontineIncomeMultiplierHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Teacher\'s estimated monthly income must be at least this many times the contribution amount'**
+  String get tontineIncomeMultiplierHint;
+
+  /// No description provided for @tontineMinTenure.
+  ///
+  /// In en, this message translates to:
+  /// **'Min. tenure (months)'**
+  String get tontineMinTenure;
+
+  /// No description provided for @tontineMinTenureHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Teacher must have been employed for at least this many months'**
+  String get tontineMinTenureHint;
+
+  /// No description provided for @tontineMinShifts.
+  ///
+  /// In en, this message translates to:
+  /// **'Min. shifts (last 30 days)'**
+  String get tontineMinShifts;
+
+  /// No description provided for @tontineMinShiftsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Teacher must have taught at least this many shifts in the last 30 days'**
+  String get tontineMinShiftsHint;
+
+  /// No description provided for @tontineMaxMembers.
+  ///
+  /// In en, this message translates to:
+  /// **'Max members'**
+  String get tontineMaxMembers;
+
+  /// No description provided for @tontineMaxMembersHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave at 0 for unlimited'**
+  String get tontineMaxMembersHint;
+
+  /// No description provided for @tontineUnlimited.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlimited'**
+  String get tontineUnlimited;
+
+  /// No description provided for @tontineAvailableCircles.
+  ///
+  /// In en, this message translates to:
+  /// **'Available circles'**
+  String get tontineAvailableCircles;
+
+  /// No description provided for @tontineNotEligible.
+  ///
+  /// In en, this message translates to:
+  /// **'Not eligible'**
+  String get tontineNotEligible;
+
+  /// No description provided for @tontineEligible.
+  ///
+  /// In en, this message translates to:
+  /// **'Eligible'**
+  String get tontineEligible;
+
+  /// No description provided for @tontineCircleFull.
+  ///
+  /// In en, this message translates to:
+  /// **'Circle is full'**
+  String get tontineCircleFull;
+
+  /// No description provided for @tontineJoinSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Successfully joined the circle!'**
+  String get tontineJoinSuccess;
+
+  /// No description provided for @tontineEstimatedIncome.
+  ///
+  /// In en, this message translates to:
+  /// **'Est. monthly income: {amount}'**
+  String tontineEstimatedIncome(String amount);
+
+  /// No description provided for @tontineIncomeRequirement.
+  ///
+  /// In en, this message translates to:
+  /// **'Income must be {multiplier}x the contribution'**
+  String tontineIncomeRequirement(String multiplier);
+
+  /// No description provided for @tontineTenureRequirement.
+  ///
+  /// In en, this message translates to:
+  /// **'{months}+ months tenure required'**
+  String tontineTenureRequirement(int months);
+
+  /// No description provided for @tontineShiftsRequirement.
+  ///
+  /// In en, this message translates to:
+  /// **'{count}+ shifts in last 30 days'**
+  String tontineShiftsRequirement(int count);
+
+  /// No description provided for @tontineOpenCircleCreated.
+  ///
+  /// In en, this message translates to:
+  /// **'Open circle created. Eligible teachers will be notified.'**
+  String get tontineOpenCircleCreated;
+
+  /// No description provided for @tontineSpotsLeft.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} spots left'**
+  String tontineSpotsLeft(int count);
+
+  /// No description provided for @tontineOpenSpots.
+  ///
+  /// In en, this message translates to:
+  /// **'Open spots'**
+  String get tontineOpenSpots;
 }
 
 class _AppLocalizationsDelegate

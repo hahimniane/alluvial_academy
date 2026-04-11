@@ -10,17 +10,19 @@ Move from LiveKit Cloud ($156/month) to self-hosted on Hostinger VPS ($0).
 
 ---
 
-## Step 1: Create DNS Record
+## Step 1: Create DNS Records
 
 Go to your DNS provider for `alluwaleducationhub.org` and add:
 
 | Type | Name | Value | TTL |
 |------|------|-------|-----|
 | A | live | 187.77.221.13 | 300 |
+| A | turn | 187.77.221.13 | 300 |
 
 Wait a few minutes for propagation. Verify with:
 ```bash
 dig live.alluwaleducationhub.org
+dig turn.alluwaleducationhub.org
 ```
 
 ---
@@ -42,7 +44,8 @@ chmod +x /root/setup-livekit-vps.sh
 The script automatically:
 - Opens firewall ports
 - Creates all config files in `/opt/livekit/`
-- Starts LiveKit server, Egress, Redis, and Caddy (SSL) via Docker
+- Starts LiveKit server, Egress, Redis, and Caddy layer-4 via Docker
+- Uses `turn.alluwaleducationhub.org` for TURN/TLS and TURN/UDP fallback
 - Verifies everything is running
 
 ---

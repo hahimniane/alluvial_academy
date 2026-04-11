@@ -204,11 +204,45 @@ const _hasConflictingShift = async ({teacherId, shiftStartUtc, shiftEndUtc}) => 
 
 const _buildGeneratedShiftId = ({templateId, shiftStartUtc}) => {
   const seconds = Math.floor(shiftStartUtc.toSeconds());
-  return `tpl_${templateId}_${seconds}`;
+  // Avoid double tpl_ prefix if the templateId already has it
+  const prefix = templateId.startsWith('tpl_') ? '' : 'tpl_';
+  return `${prefix}${templateId}_${seconds}`;
+};
+
+const _generateAutoName = (teacherName, subject, studentNames) => {
+  let subjectName = subject || '';
+  switch (subject) {
+    case 'quranStudies': subjectName = 'Quran'; break;
+    case 'hadithStudies': subjectName = 'Hadith'; break;
+    case 'fiqh': subjectName = 'Fiqh'; break;
+    case 'arabicLanguage': subjectName = 'Arabic'; break;
+    case 'islamicHistory': subjectName = 'Islamic History'; break;
+    case 'aqeedah': subjectName = 'Aqeedah'; break;
+    default:
+      if (subjectName.length > 0) {
+        subjectName = subjectName.charAt(0).toUpperCase() + subjectName.slice(1);
+      }
+      break;
+  }
+  
+  if (!studentNames || studentNames.length === 0) {
+    return `${teacherName} - ${subjectName}`;
+  } else if (studentNames.length === 1) {
+    return `${teacherName} - ${subjectName} - ${studentNames[0]}`;
+  } else if (studentNames.length <= 3) {
+    return `${teacherName} - ${subjectName} - ${studentNames.join(', ')}`;
+  } else {
+    return `${teacherName} - ${subjectName} - ${studentNames.slice(0, 2).join(', ')} +${studentNames.length - 2} more`;
+  }
 };
 
 const _buildGeneratedShiftData = ({templateId, shiftId, template, shiftStartUtc, shiftEndUtc}) => {
   const videoProvider = (template.video_provider || template.videoProvider || 'livekit').toString().trim().toLowerCase();
+
+  let autoName = template.auto_generated_name;
+  if (!autoName) {
+    autoName = _generateAutoName(template.teacher_name, template.subject, template.student_names || []);
+  }
 
   return {
     id: shiftId,
@@ -223,7 +257,7 @@ const _buildGeneratedShiftData = ({templateId, shiftId, template, shiftStartUtc,
     subject: template.subject,
     subject_id: template.subject_id || null,
     subject_display_name: template.subject_display_name || null,
-    auto_generated_name: template.auto_generated_name || null,
+    auto_generated_name: autoName,
     custom_name: template.custom_name || null,
     hourly_rate: template.hourly_rate ?? null,
     status: 'scheduled',

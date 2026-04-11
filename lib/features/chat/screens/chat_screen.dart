@@ -8,12 +8,14 @@ import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:record/record.dart';
 import 'package:path_provider/path_provider.dart' as path_provider;
+import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import '../services/chat_service.dart';
 import '../services/chat_permission_service.dart';
 import '../models/chat_user.dart';
 import '../models/chat_message.dart';
 import '../widgets/message_bubble.dart';
+import 'media_preview_screen.dart';
 import '../../../core/utils/app_logger.dart';
 import 'package:alluwalacademyadmin/features/livekit/services/livekit_service.dart';
 import '../../../core/services/notification_service.dart';
@@ -46,6 +48,7 @@ class _VoiceRecordingProfile {
 
 class ChatScreen extends StatefulWidget {
   final ChatUser chatUser;
+
   /// True when this is a shared admin-support conversation.
   final bool isAdminSupportChat;
   final String? initialMessage;
@@ -72,9 +75,11 @@ class _ChatScreenState extends State<ChatScreen> {
 
   bool _isComposing = false;
   ChatMessage? _replyingTo;
+
   /// Starts false for 1:1 chats until permission is resolved (avoids "open then lock" flash).
   bool _hasPermission = false;
   bool _checkingPermission = true;
+
   /// True if the messages stream shows at least one message from the other user (reply rights).
   bool _unlockedByInboundMessages = false;
   String? _relationshipContext;
@@ -113,7 +118,8 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
-    if (widget.initialMessage != null && widget.initialMessage!.trim().isNotEmpty) {
+    if (widget.initialMessage != null &&
+        widget.initialMessage!.trim().isNotEmpty) {
       _auditTemplateMessage = widget.initialMessage!.trim();
       _insertAuditTemplate(replace: true);
     }
@@ -158,7 +164,8 @@ class _ChatScreenState extends State<ChatScreen> {
     // If Firestore permission rules or timing make canMessage miss inbound thread, still
     // allow reply when we already display messages from the other party.
     _inboundUnlockSubscription = _messagesStream.listen((messages) {
-      if (!mounted || widget.chatUser.isGroup || widget.forceAllowMessaging) return;
+      if (!mounted || widget.chatUser.isGroup || widget.forceAllowMessaging)
+        return;
       final uid = _chatService.currentUserId;
       if (uid == null) return;
       final otherId = widget.chatUser.id;
@@ -186,7 +193,8 @@ class _ChatScreenState extends State<ChatScreen> {
     final template = _auditTemplateMessage;
     if (template == null || template.isEmpty) return;
     final current = _messageController.text.trim();
-    final next = (replace || current.isEmpty) ? template : '$current\n\n$template';
+    final next =
+        (replace || current.isEmpty) ? template : '$current\n\n$template';
     _messageController.text = next;
     _messageController.selection = TextSelection.fromPosition(
       TextPosition(offset: next.length),
@@ -879,14 +887,17 @@ class _ChatScreenState extends State<ChatScreen> {
                 message.senderId == _chatService.currentUserId;
 
             return MessageBubble(
+              key: ValueKey(message.id),
               message: message,
               isCurrentUser: isCurrentUser,
+              currentUserId: _chatService.currentUserId,
               onReply: (message) => _setReplyMessage(message),
               onDelete: (message) => _deleteMessage(message),
               onForward: (message) => _forwardMessage(message),
               onReaction: (message, reaction) =>
                   _addReaction(message, reaction),
               onImageTap: (url) => _showImagePreview(url),
+              onEdit: (message) => _editMessage(message),
             );
           },
         );
@@ -1009,7 +1020,8 @@ class _ChatScreenState extends State<ChatScreen> {
           // Reply preview
           if (_replyingTo != null) _buildReplyPreview(),
 
-          if (_auditTemplateMessage != null && _auditTemplateMessage!.isNotEmpty)
+          if (_auditTemplateMessage != null &&
+              _auditTemplateMessage!.isNotEmpty)
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
               child: Align(
@@ -1019,7 +1031,8 @@ class _ChatScreenState extends State<ChatScreen> {
                   icon: const Icon(Icons.content_paste_rounded, size: 16),
                   label: Text(
                     'Insert audit template',
-                    style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600),
+                    style: GoogleFonts.inter(
+                        fontSize: 12, fontWeight: FontWeight.w600),
                   ),
                 ),
               ),
@@ -1068,6 +1081,21 @@ class _ChatScreenState extends State<ChatScreen> {
                                 const SizedBox(width: 12),
                                 Text(
                                   AppLocalizations.of(context)!.chatCamera,
+                                  style: GoogleFonts.inter(
+                                      color: const Color(0xff374151)),
+                                ),
+                              ],
+                            ),
+                          ),
+                          PopupMenuItem(
+                            value: 'video',
+                            child: Row(
+                              children: [
+                                const Icon(Icons.videocam,
+                                    color: Color(0xffF97316)),
+                                const SizedBox(width: 12),
+                                Text(
+                                  'Video',
                                   style: GoogleFonts.inter(
                                       color: const Color(0xff374151)),
                                 ),
@@ -1282,6 +1310,9 @@ class _ChatScreenState extends State<ChatScreen> {
         case 'camera':
           await _pickImage(ImageSource.camera);
           break;
+        case 'video':
+          await _pickVideo();
+          break;
         case 'file':
           await _pickFile();
           break;
@@ -1304,6 +1335,20 @@ class _ChatScreenState extends State<ChatScreen> {
     );
 
     if (pickedFile != null) {
+      if (!mounted) return;
+      final result = await Navigator.push<MediaPreviewResult>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => MediaPreviewScreen(
+            file: File(pickedFile.path),
+            isVideo: false,
+            recipientName: widget.chatUser.displayName,
+          ),
+        ),
+      );
+
+      if (result == null || !mounted) return; // User cancelled
+
       setState(() => _isUploading = true);
       _showMessage('Sending image...', isError: false);
 
@@ -1312,10 +1357,51 @@ class _ChatScreenState extends State<ChatScreen> {
           _chatTargetId,
           File(pickedFile.path),
           isGroupChat: widget.chatUser.isGroup,
+          caption: result.caption,
         );
         _showMessage('Image sent!', isError: false);
       } catch (e) {
         _showMessage('Failed to send image');
+      } finally {
+        if (mounted) setState(() => _isUploading = false);
+      }
+    }
+  }
+
+  Future<void> _pickVideo() async {
+    final XFile? pickedFile = await _imagePicker.pickVideo(
+      source: ImageSource.gallery,
+      maxDuration: const Duration(minutes: 5),
+    );
+
+    if (pickedFile != null) {
+      if (!mounted) return;
+      final result = await Navigator.push<MediaPreviewResult>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => MediaPreviewScreen(
+            file: File(pickedFile.path),
+            isVideo: true,
+            recipientName: widget.chatUser.displayName,
+          ),
+        ),
+      );
+
+      if (result == null || !mounted) return; // User cancelled
+
+      setState(() => _isUploading = true);
+      _showMessage('Sending video...', isError: false);
+
+      try {
+        await _chatService.sendVideoMessage(
+          _chatTargetId,
+          File(pickedFile.path),
+          isGroupChat: widget.chatUser.isGroup,
+          caption: result.caption,
+        );
+        _showMessage('Video sent!', isError: false);
+      } catch (e) {
+        _showMessage('Failed to send video');
       } finally {
         if (mounted) setState(() => _isUploading = false);
       }
@@ -1388,15 +1474,163 @@ class _ChatScreenState extends State<ChatScreen> {
 
       // Get current position
       final position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+        ),
       );
 
-      // Send location message
+      String? locationName;
+      String? locationSubtitle;
+      try {
+        final placemarks = await placemarkFromCoordinates(
+          position.latitude,
+          position.longitude,
+        );
+        if (placemarks.isNotEmpty) {
+          final placemark = placemarks.first;
+          locationName = _buildLocationTitle(placemark);
+          locationSubtitle = _buildLocationSubtitle(placemark);
+        }
+      } catch (e) {
+        AppLogger.error('Error reverse geocoding location: $e');
+      }
+
+      if (!mounted) return;
+
+      final shouldSend = await showModalBottomSheet<bool>(
+        context: context,
+        backgroundColor: Colors.transparent,
+        builder: (sheetContext) {
+          final coordinates = _formatCoordinates(
+            position.latitude,
+            position.longitude,
+          );
+          final title = locationName ?? 'Current location';
+          final subtitle = locationSubtitle ?? coordinates;
+
+          return SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.12),
+                      blurRadius: 18,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Share location',
+                      style: GoogleFonts.inter(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF111827),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    InkWell(
+                      onTap: () => Navigator.of(sheetContext).pop(true),
+                      borderRadius: BorderRadius.circular(18),
+                      child: Ink(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(color: const Color(0xFFE5E7EB)),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              width: 44,
+                              height: 44,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFEF4444)
+                                    .withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: const Icon(
+                                Icons.my_location_rounded,
+                                color: Color(0xFFEF4444),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Send current location',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700,
+                                      color: const Color(0xFF111827),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    title,
+                                    style: GoogleFonts.inter(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: const Color(0xFF374151),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    subtitle,
+                                    style: GoogleFonts.inter(
+                                      fontSize: 12,
+                                      color: const Color(0xFF6B7280),
+                                      height: 1.35,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: () => Navigator.of(sheetContext).pop(false),
+                        child: Text(
+                          AppLocalizations.of(context)!.commonCancel,
+                          style: GoogleFonts.inter(
+                            color: const Color(0xFF6B7280),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      );
+
+      if (shouldSend != true) return;
+
       await _chatService.sendLocationMessage(
         _chatTargetId,
         position.latitude,
         position.longitude,
-        'My Location',
+        locationName ?? 'Current location',
+        locationSubtitle: locationSubtitle,
         isGroupChat: widget.chatUser.isGroup,
       );
 
@@ -1405,6 +1639,52 @@ class _ChatScreenState extends State<ChatScreen> {
       AppLogger.error('Error sending location: $e');
       _showMessage('Failed to get location');
     }
+  }
+
+  String _buildLocationTitle(Placemark placemark) {
+    final primaryParts = [
+      placemark.name,
+      placemark.street,
+    ]
+        .whereType<String>()
+        .map((part) => part.trim())
+        .where((part) => part.isNotEmpty)
+        .toList();
+
+    if (primaryParts.isNotEmpty) {
+      return primaryParts.first;
+    }
+
+    final fallbackParts = [
+      placemark.subLocality,
+      placemark.locality,
+      placemark.administrativeArea,
+    ]
+        .whereType<String>()
+        .map((part) => part.trim())
+        .where((part) => part.isNotEmpty)
+        .toList();
+
+    return fallbackParts.isNotEmpty ? fallbackParts.first : 'Current location';
+  }
+
+  String _buildLocationSubtitle(Placemark placemark) {
+    final parts = [
+      placemark.subLocality,
+      placemark.locality,
+      placemark.administrativeArea,
+      placemark.country,
+    ]
+        .whereType<String>()
+        .map((part) => part.trim())
+        .where((part) => part.isNotEmpty)
+        .toList();
+
+    return parts.join(', ');
+  }
+
+  String _formatCoordinates(double latitude, double longitude) {
+    return '${latitude.toStringAsFixed(5)}, ${longitude.toStringAsFixed(5)}';
   }
 
   Widget _buildRecordingControls() {
@@ -1829,54 +2109,179 @@ class _ChatScreenState extends State<ChatScreen> {
     _messageFocusNode.requestFocus();
   }
 
-  void _deleteMessage(ChatMessage message) {
-    // Check if user is the sender
-    if (message.senderId != _chatService.currentUserId) {
-      _showMessage('You can only delete your own messages');
-      return;
+  Future<bool> _canDeleteMessageForEveryone(ChatMessage message) async {
+    final currentUserId = _chatService.currentUserId;
+    if (currentUserId == null ||
+        message.deletedForEveryone ||
+        message.isSystem) {
+      return false;
     }
+    if (!_chatService.isWithinDeleteForEveryoneWindow(message.timestamp)) {
+      return false;
+    }
+    if (message.senderId == currentUserId) {
+      return true;
+    }
+    if (!widget.chatUser.isGroup) {
+      return false;
+    }
+    return _chatService.isGroupAdmin(_chatTargetId);
+  }
 
-    showDialog(
+  Future<void> _deleteMessage(ChatMessage message) async {
+    final currentUserId = _chatService.currentUserId;
+    if (currentUserId == null) return;
+
+    final canDeleteForEveryone = await _canDeleteMessageForEveryone(message);
+    if (!mounted) return;
+
+    final action = await showModalBottomSheet<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(
-          AppLocalizations.of(context)!.chatDeleteMessage,
-          style: GoogleFonts.inter(fontWeight: FontWeight.w600),
-        ),
-        content: Text(
-          AppLocalizations.of(context)!.chatDeleteMessageConfirm,
-          style: GoogleFonts.inter(),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text(
-              AppLocalizations.of(context)!.commonCancel,
-              style: GoogleFonts.inter(color: const Color(0xff6B7280)),
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.12),
+                    blurRadius: 18,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ListTile(
+                    leading: const Icon(
+                      Icons.delete_outline,
+                      color: Color(0xFF111827),
+                    ),
+                    title: Text(
+                      'Delete for me',
+                      style: GoogleFonts.inter(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF111827),
+                      ),
+                    ),
+                    subtitle: Text(
+                      'Remove this message from your view only.',
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        color: const Color(0xFF6B7280),
+                      ),
+                    ),
+                    onTap: () => Navigator.of(sheetContext).pop('me'),
+                  ),
+                  if (canDeleteForEveryone)
+                    ListTile(
+                      leading: const Icon(
+                        Icons.delete_sweep_outlined,
+                        color: Colors.red,
+                      ),
+                      title: Text(
+                        'Delete for everyone',
+                        style: GoogleFonts.inter(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.red,
+                        ),
+                      ),
+                      subtitle: Text(
+                        widget.chatUser.isGroup &&
+                                message.senderId != currentUserId
+                            ? 'Remove this message for everyone in the group.'
+                            : 'Replace this message with a deleted placeholder.',
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: const Color(0xFF6B7280),
+                        ),
+                      ),
+                      onTap: () => Navigator.of(sheetContext).pop('everyone'),
+                    ),
+                  ListTile(
+                    leading: const Icon(Icons.close, color: Color(0xFF6B7280)),
+                    title: Text(
+                      AppLocalizations.of(context)!.commonCancel,
+                      style: GoogleFonts.inter(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF374151),
+                      ),
+                    ),
+                    onTap: () => Navigator.of(sheetContext).pop(),
+                  ),
+                ],
+              ),
             ),
           ),
-          TextButton(
+        );
+      },
+    );
+
+    if (!mounted || action == null) return;
+
+    if (action == 'me') {
+      final success = await _chatService.deleteMessageForMe(
+        _chatTargetId,
+        message.id,
+        isGroupChat: widget.chatUser.isGroup,
+      );
+      if (!mounted) return;
+      if (!success) {
+        _showMessage('Failed to delete message');
+        return;
+      }
+
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
+        SnackBar(
+          content: const Text('Message deleted for you'),
+          backgroundColor: const Color(0xff059669),
+          behavior: SnackBarBehavior.floating,
+          action: SnackBarAction(
+            label: 'Undo',
+            textColor: Colors.white,
             onPressed: () async {
-              Navigator.of(context).pop();
-              final success = await _chatService.deleteMessage(
+              final restored = await _chatService.restoreDeletedMessageForMe(
                 _chatTargetId,
                 message.id,
                 isGroupChat: widget.chatUser.isGroup,
               );
-              if (success) {
-                _showMessage('Message deleted', isError: false);
-              } else {
-                _showMessage('Failed to delete message');
+              if (!mounted) return;
+              if (!restored) {
+                _showMessage('Failed to restore message');
               }
             },
-            child: Text(
-              AppLocalizations.of(context)!.commonDelete,
-              style: GoogleFonts.inter(color: Colors.red),
-            ),
           ),
-        ],
-      ),
-    );
+        ),
+      );
+      return;
+    }
+
+    if (action == 'everyone') {
+      final success = await _chatService.deleteMessage(
+        _chatTargetId,
+        message.id,
+        isGroupChat: widget.chatUser.isGroup,
+      );
+      if (!mounted) return;
+      if (success) {
+        _showMessage('Message deleted', isError: false);
+      } else {
+        _showMessage(
+          'Could not delete for everyone. The time limit may have expired.',
+        );
+      }
+    }
   }
 
   void _forwardMessage(ChatMessage message) {
@@ -1893,18 +2298,94 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  void _addReaction(ChatMessage message, String reaction) async {
-    final success = await _chatService.addReaction(
-      _chatTargetId,
-      message.id,
-      reaction,
-      isGroupChat: widget.chatUser.isGroup,
+  void _editMessage(ChatMessage message) {
+    final editController = TextEditingController(text: message.content);
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          'Edit Message',
+          style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+        ),
+        content: TextField(
+          controller: editController,
+          maxLines: null,
+          autofocus: true,
+          style: GoogleFonts.inter(fontSize: 15),
+          decoration: InputDecoration(
+            hintText: 'Edit your message...',
+            hintStyle: GoogleFonts.inter(color: const Color(0xff9CA3AF)),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide:
+                  const BorderSide(color: Color(0xff0386FF), width: 1.5),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              AppLocalizations.of(context)!.commonCancel,
+              style: GoogleFonts.inter(color: const Color(0xff6B7280)),
+            ),
+          ),
+          TextButton(
+            onPressed: () async {
+              final newContent = editController.text.trim();
+              if (newContent.isEmpty || newContent == message.content) {
+                Navigator.pop(context);
+                return;
+              }
+              Navigator.pop(context);
+              final success = await _chatService.editMessage(
+                _chatTargetId,
+                message.id,
+                newContent,
+                isGroupChat: widget.chatUser.isGroup,
+              );
+              if (success) {
+                _showMessage('Message edited', isError: false);
+              } else {
+                _showMessage('Failed to edit message');
+              }
+            },
+            child: Text(
+              'Save',
+              style: GoogleFonts.inter(
+                color: const Color(0xff0386FF),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
+  }
 
-    if (success) {
-      _showMessage('$reaction added', isError: false);
-    } else {
-      _showMessage('Failed to add reaction');
+  void _addReaction(ChatMessage message, String reaction) async {
+    final currentUserId = _chatService.currentUserId;
+    final currentReaction =
+        currentUserId == null ? null : message.reactions?[currentUserId];
+
+    final success = currentReaction == reaction
+        ? await _chatService.removeReaction(
+            _chatTargetId,
+            message.id,
+            isGroupChat: widget.chatUser.isGroup,
+          )
+        : await _chatService.addReaction(
+            _chatTargetId,
+            message.id,
+            reaction,
+            isGroupChat: widget.chatUser.isGroup,
+          );
+
+    if (!success) {
+      _showMessage('Failed to update reaction');
     }
   }
 

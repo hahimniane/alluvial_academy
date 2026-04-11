@@ -12,6 +12,7 @@ class CustomSidebar extends StatefulWidget {
   final VoidCallback onToggleCollapse;
   final String? userRole;
   final Set<int> badgeScreenIndices;
+  final Set<String> hiddenSectionIds;
 
   const CustomSidebar({
     super.key,
@@ -21,6 +22,7 @@ class CustomSidebar extends StatefulWidget {
     required this.onToggleCollapse,
     this.userRole,
     this.badgeScreenIndices = const {},
+    this.hiddenSectionIds = const {},
   });
 
   @override
@@ -56,7 +58,8 @@ class _CustomSidebarState extends State<CustomSidebar> {
   @override
   void didUpdateWidget(CustomSidebar oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.userRole != widget.userRole) {
+    if (oldWidget.userRole != widget.userRole ||
+        oldWidget.hiddenSectionIds != widget.hiddenSectionIds) {
       _loadSidebar();
       return;
     }
@@ -96,12 +99,16 @@ class _CustomSidebarState extends State<CustomSidebar> {
 
   Future<void> _loadSidebar() async {
     setState(() => _isLoading = true);
-    final sections = await _sidebarService.loadSidebar(widget.userRole);
+    var sections = await _sidebarService.loadSidebar(widget.userRole);
+    if (widget.hiddenSectionIds.isNotEmpty) {
+      sections = sections
+          .where((s) => !widget.hiddenSectionIds.contains(s.id))
+          .toList();
+    }
     final favoriteIds = await _sidebarService.loadFavoritedItemIds();
     if (mounted) {
       setState(() {
         _sections = sections;
-        // Ensure it's mutable (some defaults can be unmodifiable sets).
         _favoriteItemIds = Set<String>.from(favoriteIds);
         _manualExpandedSectionIds =
             sections.where((s) => s.isExpanded).map((s) => s.id).toSet();

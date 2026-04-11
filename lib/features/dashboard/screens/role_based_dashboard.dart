@@ -109,12 +109,11 @@ class _RoleBasedDashboardState extends State<RoleBasedDashboard>
     _lastPresenceUpdate = now;
 
     try {
-      await FirebaseFirestore.instance.collection('users').doc(userId).set(
+      await FirebaseFirestore.instance.collection('users').doc(userId).update(
         {
           'is_online': isOnline,
           'last_seen': FieldValue.serverTimestamp(),
         },
-        SetOptions(merge: true),
       );
     } catch (e) {
       AppLogger.error('Presence update failed: $e');
@@ -328,6 +327,9 @@ class _RoleBasedDashboardState extends State<RoleBasedDashboard>
           key: const ValueKey('dashboard_parent'),
           onRoleChanged: _onRoleChanged,
         );
+      case 'circle_member':
+        AppLogger.debug('=== Returning MobileDashboardScreen for circle_member on web ===');
+        return const MobileDashboardScreen();
       default:
         AppLogger.debug('=== Returning UnknownRoleScreen ===');
         return _buildUnknownRoleScreen();

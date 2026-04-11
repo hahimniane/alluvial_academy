@@ -13,6 +13,7 @@ class ClassRecordingItem {
   final String teacherName;
   final List<String> studentIds;
   final String status;
+  final String? mergeStatus;
   final String? error;
   final String filePath;
   final String? bucket;
@@ -34,6 +35,7 @@ class ClassRecordingItem {
     required this.teacherName,
     this.studentIds = const [],
     required this.status,
+    this.mergeStatus,
     this.error,
     required this.filePath,
     this.bucket,
@@ -81,6 +83,7 @@ class ClassRecordingItem {
       teacherName: data['teacherName']?.toString() ?? '',
       studentIds: _parseStringList(data['studentIds']),
       status: data['status']?.toString() ?? 'unknown',
+      mergeStatus: data['mergeStatus']?.toString(),
       error: data['error']?.toString(),
       filePath: data['filePath']?.toString() ?? '',
       bucket: data['bucket']?.toString(),

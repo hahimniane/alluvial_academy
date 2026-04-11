@@ -12,6 +12,7 @@ import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 class ChatService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  static const Duration deleteForEveryoneWindow = Duration(days: 2);
 
   /// Virtual user ID for the shared admin support inbox.
   /// Non-admin users message this ID; all admins can see and respond.
@@ -55,7 +56,10 @@ class ChatService {
         .snapshots()
         .asyncMap((chatSnapshot) async {
       try {
-        final chatUsers = await _processChatSnapshot(chatSnapshot.docs);
+        final visibleChats = chatSnapshot.docs
+            .where((doc) => _hasRecentMessage(doc.data()))
+            .toList();
+        final chatUsers = await _processChatSnapshot(visibleChats);
 
         chatUsers.sort((a, b) => (b.lastMessageTime ?? DateTime(0))
             .compareTo(a.lastMessageTime ?? DateTime(0)));
@@ -79,7 +83,10 @@ class ChatService {
         .snapshots()
         .asyncMap((chatSnapshot) async {
       try {
-        final chatUsers = await _processAdminSupportSnapshot(chatSnapshot.docs);
+        final visibleChats = chatSnapshot.docs
+            .where((doc) => _hasRecentMessage(doc.data()))
+            .toList();
+        final chatUsers = await _processAdminSupportSnapshot(visibleChats);
         chatUsers.sort((a, b) => (b.lastMessageTime ?? DateTime(0))
             .compareTo(a.lastMessageTime ?? DateTime(0)));
         return chatUsers;
@@ -90,6 +97,75 @@ class ChatService {
     });
   }
 
+  bool _hasRecentMessage(Map<String, dynamic> chatData) {
+    return chatData['last_message'] is Map;
+  }
+
+  bool _isMessageHiddenForCurrentUser(Map<String, dynamic> messageData) {
+    if (currentUserId == null) return false;
+    final deletedForUsers = messageData['deleted_for_users'];
+    return deletedForUsers is Map && deletedForUsers.containsKey(currentUserId);
+  }
+
+  Map<String, dynamic>? _extractVisibleLastMessage(
+      Map<String, dynamic> chatData) {
+    final lastMessage = chatData['last_message'];
+    if (lastMessage is! Map) return null;
+    final messageData = Map<String, dynamic>.from(lastMessage);
+    if (_isMessageHiddenForCurrentUser(messageData)) {
+      return null;
+    }
+    return messageData;
+  }
+
+  Future<Map<String, dynamic>?> _resolveVisibleLastMessage(
+    String chatId,
+    Map<String, dynamic> chatData,
+  ) async {
+    final preferredMessage = _extractVisibleLastMessage(chatData);
+    if (preferredMessage != null) {
+      return preferredMessage;
+    }
+
+    final recentMessages = await _firestore
+        .collection('chats')
+        .doc(chatId)
+        .collection('messages')
+        .orderBy('timestamp', descending: true)
+        .limit(20)
+        .get();
+
+    for (final doc in recentMessages.docs) {
+      final data = doc.data();
+      if (!_isMessageHiddenForCurrentUser(data)) {
+        return data;
+      }
+    }
+
+    return null;
+  }
+
+  String _recentMessagePreview(Map<String, dynamic>? lastMessage) {
+    if (lastMessage == null) return '';
+    final isDeleted = lastMessage['deleted_for_everyone'] == true ||
+        lastMessage['message_type'] == 'deleted';
+    if (!isDeleted) {
+      return lastMessage['content']?.toString() ?? '';
+    }
+
+    final deletedBy = lastMessage['deleted_by']?.toString();
+    final deletedByName = lastMessage['deleted_by_name']?.toString();
+    final deletedByAdmin = lastMessage['deleted_by_admin'] == true;
+
+    if (deletedBy == currentUserId) {
+      return 'You deleted this message';
+    }
+    if (deletedByAdmin && deletedByName != null && deletedByName.isNotEmpty) {
+      return 'This message was deleted by admin $deletedByName';
+    }
+    return 'This message was deleted';
+  }
+
   /// Process admin support chat docs — show the real user's name/avatar,
   /// but keep the chat ID so messages route to the correct conversation.
   Future<List<ChatUser>> _processAdminSupportSnapshot(
@@ -98,8 +174,7 @@ class ChatService {
     for (var chatDoc in docs) {
       final participants =
           List<String>.from(chatDoc.data()['participants'] ?? []);
-      final realUserId = participants.firstWhere(
-          (id) => id != adminSupportId,
+      final realUserId = participants.firstWhere((id) => id != adminSupportId,
           orElse: () => '');
       if (realUserId.isNotEmpty) {
         allUserIds.add(realUserId);
@@ -107,40 +182,39 @@ class ChatService {
     }
 
     final usersData = await _fetchUsersDataInBatch(allUserIds);
-    final chatFutures = <Future<ChatUser>>[];
+    final chatFutures = <Future<ChatUser?>>[];
 
     for (var chatDoc in docs) {
       final chatData = chatDoc.data();
-      final participants =
-          List<String>.from(chatData['participants'] ?? []);
-      final realUserId = participants.firstWhere(
-          (id) => id != adminSupportId,
+      final participants = List<String>.from(chatData['participants'] ?? []);
+      final realUserId = participants.firstWhere((id) => id != adminSupportId,
           orElse: () => '');
       if (realUserId.isNotEmpty && usersData.containsKey(realUserId)) {
-        chatFutures.add(_getUnreadCount(chatDoc.id).then(
-          (unreadCount) => _createAdminSupportChatUser(
+        chatFutures.add(() async {
+          final lastMessage =
+              await _resolveVisibleLastMessage(chatDoc.id, chatData);
+          if (lastMessage == null) return null;
+          final unreadCount = await _getUnreadCount(chatDoc.id);
+          return _createAdminSupportChatUser(
             chatDoc,
             realUserId,
             usersData[realUserId]!,
             unreadCount,
-          ),
-        ));
+            lastMessage: lastMessage,
+          );
+        }());
       }
     }
 
-    return Future.wait(chatFutures);
+    return (await Future.wait(chatFutures)).whereType<ChatUser>().toList();
   }
 
   /// Creates a ChatUser for an admin-support conversation, showing the real
   /// user's info but using the chat document ID for routing.
-  ChatUser _createAdminSupportChatUser(
-    DocumentSnapshot chatDoc,
-    String realUserId,
-    Map<String, dynamic> userData,
-    int unreadCount,
-  ) {
+  ChatUser _createAdminSupportChatUser(DocumentSnapshot chatDoc,
+      String realUserId, Map<String, dynamic> userData, int unreadCount,
+      {Map<String, dynamic>? lastMessage}) {
     final chatData = chatDoc.data() as Map<String, dynamic>;
-    final lastMessage = chatData['last_message'] as Map<String, dynamic>?;
     final presence = PresenceUtils.resolvePresence(userData);
 
     return ChatUser(
@@ -154,7 +228,7 @@ class ChatService {
       role: userData['user_type'],
       isOnline: presence.isOnline,
       lastSeen: presence.lastSeen,
-      lastMessage: lastMessage?['content'] ?? '',
+      lastMessage: _recentMessagePreview(lastMessage),
       lastMessageTime: lastMessage != null
           ? (lastMessage['timestamp'] as Timestamp?)?.toDate()
           : (chatData['created_at'] as Timestamp?)?.toDate(),
@@ -167,21 +241,28 @@ class ChatService {
   Future<List<ChatUser>> _processChatSnapshot(
       List<QueryDocumentSnapshot<Map<String, dynamic>>> docs) async {
     final allUserIds = <String>{};
-    final chatFutures = <Future<ChatUser>>[];
+    final chatFutures = <Future<ChatUser?>>[];
 
     for (var chatDoc in docs) {
       final chatData = chatDoc.data();
-      final participants =
-          List<String>.from(chatData['participants'] ?? []);
+      final participants = List<String>.from(chatData['participants'] ?? []);
 
       if (chatData['chat_type'] == 'group') {
-        chatFutures.add(_getUnreadCount(chatDoc.id).then(
-          (unreadCount) =>
-              _createGroupChatUser(chatDoc, chatData, unreadCount),
-        ));
+        chatFutures.add(() async {
+          final lastMessage =
+              await _resolveVisibleLastMessage(chatDoc.id, chatData);
+          if (lastMessage == null) return null;
+          final unreadCount = await _getUnreadCount(chatDoc.id);
+          return _createGroupChatUser(
+            chatDoc,
+            chatData,
+            unreadCount,
+            lastMessage: lastMessage,
+          );
+        }());
       } else {
-        final otherUserId = participants
-            .firstWhere((id) => id != currentUserId, orElse: () => '');
+        final otherUserId = participants.firstWhere((id) => id != currentUserId,
+            orElse: () => '');
         if (otherUserId.isNotEmpty && otherUserId != adminSupportId) {
           allUserIds.add(otherUserId);
         }
@@ -193,26 +274,30 @@ class ChatService {
     for (var chatDoc in docs) {
       final chatData = chatDoc.data();
       if (chatData['chat_type'] != 'group') {
-        final participants =
-            List<String>.from(chatData['participants'] ?? []);
-        final otherUserId = participants
-            .firstWhere((id) => id != currentUserId, orElse: () => '');
+        final participants = List<String>.from(chatData['participants'] ?? []);
+        final otherUserId = participants.firstWhere((id) => id != currentUserId,
+            orElse: () => '');
         // Skip admin_support chats in the normal list — they're shown separately for admins
         if (otherUserId == adminSupportId) continue;
         if (otherUserId.isNotEmpty && usersData.containsKey(otherUserId)) {
-          chatFutures.add(_getUnreadCount(chatDoc.id).then(
-            (unreadCount) => _createIndividualChatUser(
+          chatFutures.add(() async {
+            final lastMessage =
+                await _resolveVisibleLastMessage(chatDoc.id, chatData);
+            if (lastMessage == null) return null;
+            final unreadCount = await _getUnreadCount(chatDoc.id);
+            return _createIndividualChatUser(
               chatDoc,
               otherUserId,
               usersData[otherUserId]!,
               unreadCount,
-            ),
-          ));
+              lastMessage: lastMessage,
+            );
+          }());
         }
       }
     }
 
-    return Future.wait(chatFutures);
+    return (await Future.wait(chatFutures)).whereType<ChatUser>().toList();
   }
 
   Future<Map<String, Map<String, dynamic>>> _fetchUsersDataInBatch(
@@ -222,7 +307,8 @@ class ChatService {
     // Firestore whereIn has a limit of 30, so batch the queries
     final idList = userIds.toList();
     for (var i = 0; i < idList.length; i += 30) {
-      final batch = idList.sublist(i, i + 30 > idList.length ? idList.length : i + 30);
+      final batch =
+          idList.sublist(i, i + 30 > idList.length ? idList.length : i + 30);
       final userDocs = await _firestore
           .collection('users')
           .where(FieldPath.documentId, whereIn: batch)
@@ -235,11 +321,8 @@ class ChatService {
   }
 
   ChatUser _createGroupChatUser(
-    DocumentSnapshot chatDoc,
-    Map<String, dynamic> chatData,
-    int unreadCount,
-  ) {
-    final lastMessage = chatData['last_message'] as Map<String, dynamic>?;
+      DocumentSnapshot chatDoc, Map<String, dynamic> chatData, int unreadCount,
+      {Map<String, dynamic>? lastMessage}) {
     final participants = List<String>.from(chatData['participants'] ?? []);
 
     return ChatUser(
@@ -250,21 +333,17 @@ class ChatService {
       participants: participants,
       createdBy: chatData['created_by'],
       participantCount: participants.length,
-      lastMessage: lastMessage?['content'] ?? '',
+      lastMessage: _recentMessagePreview(lastMessage),
       lastMessageTime: (lastMessage?['timestamp'] as Timestamp?)?.toDate() ??
           (chatData['created_at'] as Timestamp?)?.toDate(),
       unreadCount: unreadCount,
     );
   }
 
-  ChatUser _createIndividualChatUser(
-    DocumentSnapshot chatDoc,
-    String userId,
-    Map<String, dynamic> userData,
-    int unreadCount,
-  ) {
+  ChatUser _createIndividualChatUser(DocumentSnapshot chatDoc, String userId,
+      Map<String, dynamic> userData, int unreadCount,
+      {Map<String, dynamic>? lastMessage}) {
     final chatData = chatDoc.data() as Map<String, dynamic>;
-    final lastMessage = chatData['last_message'] as Map<String, dynamic>?;
     final presence = PresenceUtils.resolvePresence(userData);
 
     return ChatUser(
@@ -277,7 +356,7 @@ class ChatService {
       role: userData['user_type'],
       isOnline: presence.isOnline,
       lastSeen: presence.lastSeen,
-      lastMessage: lastMessage?['content'] ?? '',
+      lastMessage: _recentMessagePreview(lastMessage),
       lastMessageTime: lastMessage != null
           ? (lastMessage['timestamp'] as Timestamp?)?.toDate()
           : (chatData['created_at'] as Timestamp?)
@@ -316,6 +395,7 @@ class ChatService {
         .snapshots()
         .map((snapshot) => snapshot.docs
             .map((doc) => ChatMessage.fromMap(doc.data(), doc.id))
+            .where((message) => !message.isDeletedForUser(currentUserId))
             .toList());
   }
 
@@ -428,7 +508,7 @@ class ChatService {
 
   /// Upload an image and send as a message
   Future<void> sendImageMessage(String chatIdOrUserId, File imageFile,
-      {bool isGroupChat = false}) async {
+      {bool isGroupChat = false, String? caption}) async {
     if (currentUserId == null) return;
 
     try {
@@ -444,15 +524,21 @@ class ChatService {
       final downloadUrl = await uploadTask.ref.getDownloadURL();
       final fileSize = await imageFile.length();
 
+      final displayText = caption != null && caption.trim().isNotEmpty
+          ? caption.trim()
+          : '📷 Photo';
+
       await sendMessage(
         chatIdOrUserId,
-        '📷 Photo',
+        displayText,
         messageType: 'image',
         metadata: {
           'file_url': downloadUrl,
           'file_name': fileName,
           'file_size': fileSize,
           'mime_type': 'image/${fileName.split('.').last}',
+          if (caption != null && caption.trim().isNotEmpty)
+            'caption': caption.trim(),
         },
         isGroupChat: isGroupChat,
       );
@@ -539,6 +625,124 @@ class ChatService {
       AppLogger.error('Error sending voice message: $e');
       rethrow;
     }
+  }
+
+  /// Upload a video and send as a message
+  Future<void> sendVideoMessage(String chatIdOrUserId, File videoFile,
+      {bool isGroupChat = false, String? caption}) async {
+    if (currentUserId == null) return;
+
+    try {
+      final fileName =
+          'video_${DateTime.now().millisecondsSinceEpoch}_${videoFile.path.split('/').last}';
+      final ref = FirebaseStorage.instance
+          .ref()
+          .child('chat_videos')
+          .child(currentUserId!)
+          .child(fileName);
+
+      final uploadTask = await ref.putFile(
+        videoFile,
+        SettableMetadata(contentType: 'video/mp4'),
+      );
+      final downloadUrl = await uploadTask.ref.getDownloadURL();
+      final fileSize = await videoFile.length();
+
+      final displayText = caption != null && caption.trim().isNotEmpty
+          ? caption.trim()
+          : '🎥 Video';
+
+      await sendMessage(
+        chatIdOrUserId,
+        displayText,
+        messageType: 'video',
+        metadata: {
+          'file_url': downloadUrl,
+          'file_name': fileName,
+          'file_size': fileSize,
+          'mime_type': 'video/mp4',
+          if (caption != null && caption.trim().isNotEmpty)
+            'caption': caption.trim(),
+        },
+        isGroupChat: isGroupChat,
+      );
+    } catch (e) {
+      AppLogger.error('Error sending video message: $e');
+      rethrow;
+    }
+  }
+
+  /// Edit a message's text content (WhatsApp-style)
+  Future<bool> editMessage(
+      String chatIdOrUserId, String messageId, String newContent,
+      {bool isGroupChat = false}) async {
+    if (currentUserId == null) return false;
+
+    try {
+      final chatId = isGroupChat || chatIdOrUserId.contains('_')
+          ? chatIdOrUserId
+          : _generateChatId(currentUserId!, chatIdOrUserId);
+
+      final messageRef = _firestore
+          .collection('chats')
+          .doc(chatId)
+          .collection('messages')
+          .doc(messageId);
+
+      // Verify the message belongs to the current user
+      final messageDoc = await messageRef.get();
+      if (!messageDoc.exists) return false;
+      final data = messageDoc.data()!;
+      if (data['sender_id'] != currentUserId) return false;
+      if (data['deleted_for_everyone'] == true ||
+          data['message_type'] == 'deleted') {
+        return false;
+      }
+
+      await messageRef.update({
+        'content': newContent,
+        'is_edited': true,
+        'edited_at': FieldValue.serverTimestamp(),
+      });
+
+      // Also update last_message on the chat doc if this was the latest message
+      final chatDocRef = _firestore.collection('chats').doc(chatId);
+      final chatDoc = await chatDocRef.get();
+      if (chatDoc.exists) {
+        final chatData = chatDoc.data()!;
+        final lastMessage = chatData['last_message'] as Map<String, dynamic>?;
+        if (lastMessage != null && lastMessage['sender_id'] == currentUserId) {
+          await chatDocRef.update({
+            'last_message.content': newContent,
+          });
+        }
+      }
+
+      return true;
+    } catch (e) {
+      AppLogger.error('Error editing message: $e');
+      return false;
+    }
+  }
+
+  /// Create an admin-support chat for a specific user (admin-initiated).
+  Future<String> getOrCreateAdminSupportChatForUser(String userId) async {
+    if (currentUserId == null) throw Exception('User not authenticated');
+
+    final chatId = _generateChatId(userId, adminSupportId);
+    final chatDocRef = _firestore.collection('chats').doc(chatId);
+    final chatDoc = await chatDocRef.get();
+
+    if (!chatDoc.exists) {
+      await chatDocRef.set({
+        'participants': [userId, adminSupportId],
+        'chat_type': 'admin_support',
+        'created_at': FieldValue.serverTimestamp(),
+        'updated_at': FieldValue.serverTimestamp(),
+      });
+    }
+
+    return chatId;
   }
 
   String _extractFileExtension(String filePath) {
@@ -696,7 +900,7 @@ class ChatService {
       final currentParticipants =
           List<String>.from(groupData['participants'] ?? []);
 
-      if (!adminIds.contains(currentUserId)) {
+      if (!adminIds.contains(currentUserId) && !(await _isAppAdmin())) {
         throw Exception('Only group administrators can add members');
       }
 
@@ -749,7 +953,23 @@ class ChatService {
       final groupData = groupDoc.data()!;
       final adminIds = List<String>.from(groupData['admin_ids'] ?? []);
 
-      return adminIds.contains(currentUserId);
+      // Group-level admin OR app-level admin
+      if (adminIds.contains(currentUserId)) return true;
+      return await _isAppAdmin();
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Check if the current user is an app-level administrator.
+  Future<bool> _isAppAdmin() async {
+    if (currentUserId == null) return false;
+    try {
+      final userDoc =
+          await _firestore.collection('users').doc(currentUserId).get();
+      if (!userDoc.exists) return false;
+      final userType = userDoc.data()?['user_type'] as String?;
+      return userType == 'admin';
     } catch (e) {
       return false;
     }
@@ -769,7 +989,7 @@ class ChatService {
       final groupData = groupDoc.data()!;
       final adminIds = List<String>.from(groupData['admin_ids'] ?? []);
 
-      if (!adminIds.contains(currentUserId)) {
+      if (!adminIds.contains(currentUserId) && !(await _isAppAdmin())) {
         throw Exception('Only group administrators can edit group info');
       }
 
@@ -806,8 +1026,9 @@ class ChatService {
       final adminIds = List<String>.from(groupData['admin_ids'] ?? []);
       final participants = List<String>.from(groupData['participants'] ?? []);
 
-      // Check if current user is admin
-      if (!adminIds.contains(currentUserId)) {
+      // Check if current user is group admin or app-level admin
+      final isAppLevelAdmin = await _isAppAdmin();
+      if (!adminIds.contains(currentUserId) && !isAppLevelAdmin) {
         throw Exception('Only group administrators can remove members');
       }
 
@@ -991,7 +1212,8 @@ class ChatService {
     for (var doc in messagesQuery.docs) {
       final data = doc.data();
       // Filter out current user's messages in client
-      if (data['sender_id'] != currentUserId) {
+      if (data['sender_id'] != currentUserId &&
+          !_isMessageHiddenForCurrentUser(data)) {
         batch.update(doc.reference, {'is_read': true});
       }
     }
@@ -1028,11 +1250,49 @@ class ChatService {
     int count = 0;
     for (var doc in unreadQuery.docs) {
       final data = doc.data();
-      if (data['sender_id'] != currentUserId) {
+      if (data['sender_id'] != currentUserId &&
+          !_isMessageHiddenForCurrentUser(data)) {
         count++;
       }
     }
     return count;
+  }
+
+  Future<void> _touchChatVisibility(String chatId) async {
+    if (currentUserId == null) return;
+    try {
+      await _firestore.collection('chats').doc(chatId).update({
+        'visibility_updated_at.$currentUserId': FieldValue.serverTimestamp(),
+      });
+    } catch (_) {
+      // Ignore missing chat docs or transient refresh failures.
+    }
+  }
+
+  Future<void> _refreshLastMessage(String chatId) async {
+    final latestMessage = await _firestore
+        .collection('chats')
+        .doc(chatId)
+        .collection('messages')
+        .orderBy('timestamp', descending: true)
+        .limit(1)
+        .get();
+
+    if (latestMessage.docs.isNotEmpty) {
+      await _firestore.collection('chats').doc(chatId).update({
+        'last_message': latestMessage.docs.first.data(),
+        'updated_at': FieldValue.serverTimestamp(),
+      });
+    } else {
+      await _firestore.collection('chats').doc(chatId).update({
+        'last_message': FieldValue.delete(),
+        'updated_at': FieldValue.serverTimestamp(),
+      });
+    }
+  }
+
+  bool isWithinDeleteForEveryoneWindow(DateTime timestamp) {
+    return DateTime.now().difference(timestamp) <= deleteForEveryoneWindow;
   }
 
   bool _isUserOnline(dynamic lastLogin) {
@@ -1093,7 +1353,68 @@ class ChatService {
 
   // ============ MESSAGE OPERATIONS ============
 
-  /// Delete a message (only sender can delete their own messages)
+  /// Delete a message for the current user only.
+  Future<bool> deleteMessageForMe(String chatIdOrUserId, String messageId,
+      {bool isGroupChat = false}) async {
+    if (currentUserId == null) return false;
+
+    try {
+      final chatId = isGroupChat || chatIdOrUserId.contains('_')
+          ? chatIdOrUserId
+          : _generateChatId(currentUserId!, chatIdOrUserId);
+
+      final messageRef = _firestore
+          .collection('chats')
+          .doc(chatId)
+          .collection('messages')
+          .doc(messageId);
+
+      final messageDoc = await messageRef.get();
+      if (!messageDoc.exists) return false;
+      await messageRef.update({
+        'deleted_for_users.$currentUserId': true,
+      });
+      await _touchChatVisibility(chatId);
+
+      return true;
+    } catch (e) {
+      AppLogger.error('Error deleting message for me: $e');
+      return false;
+    }
+  }
+
+  Future<bool> restoreDeletedMessageForMe(
+      String chatIdOrUserId, String messageId,
+      {bool isGroupChat = false}) async {
+    if (currentUserId == null) return false;
+
+    try {
+      final chatId = isGroupChat || chatIdOrUserId.contains('_')
+          ? chatIdOrUserId
+          : _generateChatId(currentUserId!, chatIdOrUserId);
+
+      final messageRef = _firestore
+          .collection('chats')
+          .doc(chatId)
+          .collection('messages')
+          .doc(messageId);
+
+      final messageDoc = await messageRef.get();
+      if (!messageDoc.exists) return false;
+
+      await messageRef.update({
+        'deleted_for_users.$currentUserId': FieldValue.delete(),
+      });
+      await _touchChatVisibility(chatId);
+
+      return true;
+    } catch (e) {
+      AppLogger.error('Error restoring deleted message for me: $e');
+      return false;
+    }
+  }
+
+  /// Delete a message for everyone using a WhatsApp-style placeholder.
   Future<bool> deleteMessage(String chatIdOrUserId, String messageId,
       {bool isGroupChat = false}) async {
     if (currentUserId == null) return false;
@@ -1113,40 +1434,50 @@ class ChatService {
       if (!messageDoc.exists) return false;
 
       final messageData = messageDoc.data()!;
+      final senderId = messageData['sender_id']?.toString();
+      final isSender = senderId == currentUserId;
+      final isDeleted = messageData['deleted_for_everyone'] == true ||
+          messageData['message_type'] == 'deleted';
+      if (isDeleted) return false;
 
-      // Only sender can delete their own message
-      if (messageData['sender_id'] != currentUserId) {
-        AppLogger.error('Cannot delete message: not the sender');
+      final timestamp = messageData['timestamp'] is Timestamp
+          ? (messageData['timestamp'] as Timestamp).toDate()
+          : null;
+      if (timestamp == null || !isWithinDeleteForEveryoneWindow(timestamp)) {
         return false;
       }
 
-      // Delete the message
-      await messageRef.delete();
-
-      // Update last_message if this was the last message
-      final latestMessage = await _firestore
-          .collection('chats')
-          .doc(chatId)
-          .collection('messages')
-          .orderBy('timestamp', descending: true)
-          .limit(1)
-          .get();
-
-      if (latestMessage.docs.isNotEmpty) {
-        await _firestore.collection('chats').doc(chatId).update({
-          'last_message': latestMessage.docs.first.data(),
-          'updated_at': FieldValue.serverTimestamp(),
-        });
-      } else {
-        await _firestore.collection('chats').doc(chatId).update({
-          'last_message': FieldValue.delete(),
-          'updated_at': FieldValue.serverTimestamp(),
-        });
+      bool isAdminDeletingOthers = false;
+      if (!isSender) {
+        if (!isGroupChat) {
+          return false;
+        }
+        final isAdmin = await isGroupAdmin(chatId);
+        if (!isAdmin) {
+          return false;
+        }
+        isAdminDeletingOthers = true;
       }
+
+      await messageRef.update({
+        'content': '',
+        'message_type': 'deleted',
+        'metadata': <String, dynamic>{},
+        'reactions': <String, dynamic>{},
+        'is_edited': false,
+        'edited_at': FieldValue.delete(),
+        'deleted_for_everyone': true,
+        'deleted_by': currentUserId,
+        'deleted_by_name': await _getUserDisplayName(currentUserId!),
+        'deleted_by_admin': isAdminDeletingOthers,
+        'deleted_at': FieldValue.serverTimestamp(),
+      });
+
+      await _refreshLastMessage(chatId);
 
       return true;
     } catch (e) {
-      AppLogger.error('Error deleting message: $e');
+      AppLogger.error('Error deleting message for everyone: $e');
       return false;
     }
   }
@@ -1200,6 +1531,14 @@ class ChatService {
           .collection('messages')
           .doc(messageId);
 
+      final messageDoc = await messageRef.get();
+      if (!messageDoc.exists) return false;
+      final messageData = messageDoc.data()!;
+      if (messageData['deleted_for_everyone'] == true ||
+          messageData['message_type'] == 'deleted') {
+        return false;
+      }
+
       // Add reaction (user can only have one reaction per message)
       await messageRef.update({
         'reactions.$currentUserId': reaction,
@@ -1227,6 +1566,14 @@ class ChatService {
           .doc(chatId)
           .collection('messages')
           .doc(messageId);
+
+      final messageDoc = await messageRef.get();
+      if (!messageDoc.exists) return false;
+      final messageData = messageDoc.data()!;
+      if (messageData['deleted_for_everyone'] == true ||
+          messageData['message_type'] == 'deleted') {
+        return false;
+      }
 
       await messageRef.update({
         'reactions.$currentUserId': FieldValue.delete(),
@@ -1290,7 +1637,7 @@ class ChatService {
   /// Send a location message
   Future<void> sendLocationMessage(String chatIdOrUserId, double latitude,
       double longitude, String? locationName,
-      {bool isGroupChat = false}) async {
+      {String? locationSubtitle, bool isGroupChat = false}) async {
     if (currentUserId == null) return;
 
     try {
@@ -1298,12 +1645,13 @@ class ChatService {
 
       await sendMessage(
         chatIdOrUserId,
-        '📍 $displayName',
+        displayName,
         messageType: 'location',
         metadata: {
           'latitude': latitude,
           'longitude': longitude,
           'location_name': locationName,
+          'location_subtitle': locationSubtitle,
         },
         isGroupChat: isGroupChat,
       );

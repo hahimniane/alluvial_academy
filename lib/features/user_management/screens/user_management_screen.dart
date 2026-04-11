@@ -569,6 +569,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
         onDeleteUser: _deleteUser,
         onViewCredentials: _viewStudentCredentials,
         onToggleAITutor: _toggleAITutor,
+        onToggleTontine: _toggleTontine,
         context: context,
       );
       _adminDataSource = AdminEmployeeDataSource(
@@ -580,6 +581,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
         onEditUser: _editUser,
         onDeleteUser: _deleteUser,
         onToggleAITutor: _toggleAITutor,
+        onToggleTontine: _toggleTontine,
         context: context,
       );
     }
@@ -673,15 +675,14 @@ class _UserManagementScreenState extends State<UserManagementScreen>
 
   Future<void> _loadParentStudentRelationships() async {
     try {
-      // Clear existing maps
-      _parentStudentMap.clear();
-      _studentParentMap.clear();
-
       // Query all students with guardian_ids
       final studentsSnapshot = await FirebaseFirestore.instance
           .collection('users')
           .where('user_type', isEqualTo: 'student')
           .get();
+
+      final newParentStudentMap = <String, List<String>>{};
+      final newStudentParentMap = <String, String>{};
 
       for (var doc in studentsSnapshot.docs) {
         final data = doc.data();
@@ -692,22 +693,28 @@ class _UserManagementScreenState extends State<UserManagementScreen>
           ..._extractStringList(data['guardianIds']),
         }.toList();
 
-        AppLogger.debug(
-            'Student: ${data['first_name']} ${data['last_name']} (ID: $studentId, Email: $studentEmail)');
-        AppLogger.debug('  Guardian IDs: $guardianIds');
-
         if (guardianIds.isNotEmpty) {
           // For each guardian, add this student to their list
           for (final guardianId in guardianIds) {
             final parentId = guardianId;
-            _parentStudentMap.putIfAbsent(parentId, () => []).add(studentId);
+            newParentStudentMap.putIfAbsent(parentId, () => []);
+            if (!newParentStudentMap[parentId]!.contains(studentId)) {
+              newParentStudentMap[parentId]!.add(studentId);
+            }
 
             // Store the first parent for display purposes
-            if (!_studentParentMap.containsKey(studentId)) {
-              _studentParentMap[studentId] = parentId;
+            if (!newStudentParentMap.containsKey(studentId)) {
+              newStudentParentMap[studentId] = parentId;
             }
           }
         }
+      }
+
+      if (mounted) {
+        _parentStudentMap.clear();
+        _parentStudentMap.addAll(newParentStudentMap);
+        _studentParentMap.clear();
+        _studentParentMap.addAll(newStudentParentMap);
       }
 
       AppLogger.debug('=== Parent-Student Mapping Debug ===');
@@ -971,7 +978,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
       // Get all student IDs for this parent
       final studentIds = _parentStudentMap[_currentParentFilter] ?? [];
       regularUsers = regularUsers.where((emp) {
-        if (emp.userType != 'student') return false;
+        if (emp.userType.toLowerCase() != 'student') return false;
         // Check if this student's document ID matches the parent's children
         return studentIds.contains(emp.documentId);
       }).toList();
@@ -1153,6 +1160,38 @@ class _UserManagementScreenState extends State<UserManagementScreen>
       _refreshData();
     } catch (e) {
       _showErrorSnackBar('Error updating AI Tutor access: $e');
+    }
+  }
+
+  Future<void> _toggleTontine(Employee employee) async {
+    try {
+      final newValue = !employee.tontineEnabled;
+
+      final userQuery = await FirebaseFirestore.instance
+          .collection('users')
+          .where('e-mail', isEqualTo: employee.email)
+          .limit(1)
+          .get();
+
+      if (userQuery.docs.isEmpty) {
+        _showErrorSnackBar('User not found');
+        return;
+      }
+
+      await userQuery.docs.first.reference.update({
+        'tontine_enabled': newValue,
+        'updated_at': Timestamp.now(),
+      });
+
+      _showSuccessSnackBar(
+        newValue
+            ? 'Tontine enabled for ${employee.firstName}'
+            : 'Tontine disabled for ${employee.firstName}',
+      );
+
+      _refreshData();
+    } catch (e) {
+      _showErrorSnackBar('Error updating Tontine access: $e');
     }
   }
 
@@ -2294,6 +2333,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
             _currentFilterType = null;
             _currentStatusFilter = null;
             _currentParentFilter = parentId;
+            _currentSearchTerm = '';
             _applyFilters();
           });
         },

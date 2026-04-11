@@ -10,23 +10,23 @@ class _ErrorOnlyFilter extends LogFilter {
 }
 
 /// Centralized logger for the application with throttling support.
-/// 
+///
 /// Usage:
 /// ```dart
 /// import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
-/// 
+///
 /// // Debug messages (verbose information)
 /// AppLogger.debug('User data: $userData');
-/// 
+///
 /// // Info messages (general information)
 /// AppLogger.info('User logged in successfully');
-/// 
+///
 /// // Warning messages (potential issues)
 /// AppLogger.warning('API response took longer than expected');
-/// 
+///
 /// // Error messages (errors that don't crash the app)
 /// AppLogger.error('Failed to load data', error: e, stackTrace: stackTrace);
-/// 
+///
 /// // Fatal errors (critical errors)
 /// AppLogger.fatal('Critical system failure', error: e, stackTrace: stackTrace);
 /// ```
@@ -63,7 +63,7 @@ class AppLogger {
   static bool _shouldThrottle(String key) {
     final now = DateTime.now();
     final lastTime = _lastLogTimes[key];
-    
+
     if (lastTime == null || now.difference(lastTime) >= _throttleDuration) {
       _lastLogTimes[key] = now;
       return false; // Don't throttle, allow log
@@ -74,7 +74,7 @@ class AppLogger {
   /// Check if message should be suppressed based on prefix
   static bool _shouldSuppressDebug(String message) {
     if (enableVerboseDebug) return false;
-    
+
     final msgStr = message.toString();
     for (final prefix in _suppressedDebugPrefixes) {
       if (msgStr.contains(prefix)) {
@@ -90,18 +90,19 @@ class AppLogger {
   static void debug(dynamic message, {dynamic error, StackTrace? stackTrace}) {
     if (!enableNonErrorLogs) return;
     final msgStr = message.toString();
-    
+
     // Suppress verbose debug from certain services unless explicitly enabled
     if (_shouldSuppressDebug(msgStr)) {
       return;
     }
-    
+
     _logger.d(message, error: error, stackTrace: stackTrace);
   }
 
   /// Log a debug message with throttling (prevents spam)
   /// Use for debug messages that might be called frequently
-  static void debugThrottled(String key, dynamic message, {dynamic error, StackTrace? stackTrace}) {
+  static void debugThrottled(String key, dynamic message,
+      {dynamic error, StackTrace? stackTrace}) {
     if (!enableNonErrorLogs) return;
     if (_shouldThrottle(key)) return;
     debug(message, error: error, stackTrace: stackTrace);
@@ -115,7 +116,8 @@ class AppLogger {
   }
 
   /// Log an info message with throttling
-  static void infoThrottled(String key, dynamic message, {dynamic error, StackTrace? stackTrace}) {
+  static void infoThrottled(String key, dynamic message,
+      {dynamic error, StackTrace? stackTrace}) {
     if (!enableNonErrorLogs) return;
     if (_shouldThrottle(key)) return;
     info(message, error: error, stackTrace: stackTrace);
@@ -123,15 +125,22 @@ class AppLogger {
 
   /// Log a warning message (potential issues)
   /// Use for situations that might cause problems but aren't errors yet
-  static void warning(dynamic message, {dynamic error, StackTrace? stackTrace}) {
+  static void warning(dynamic message,
+      {dynamic error, StackTrace? stackTrace}) {
     if (!enableNonErrorLogs) return;
     _logger.w(message, error: error, stackTrace: stackTrace);
+  }
+
+  /// Record a breadcrumb for later error correlation.
+  static void breadcrumb(String crumb) {
+    ErrorReportingService.addBreadcrumb(crumb);
   }
 
   /// Log an error message (recoverable errors)
   /// Use for errors that were caught and handled.
   /// Errors are also sent to Firestore error_logs for remote tracing.
-  static void error(dynamic message, {dynamic error, StackTrace? stackTrace, String? context}) {
+  static void error(dynamic message,
+      {dynamic error, StackTrace? stackTrace, String? context}) {
     _logger.e(message, error: error, stackTrace: stackTrace);
     // Report to Firestore in release mode (and debug if opted in)
     if (kReleaseMode || _remoteLoggingInDebug) {
@@ -143,10 +152,30 @@ class AppLogger {
     }
   }
 
+  /// Log an operational diagnostic that must survive production filtering.
+  ///
+  /// Use this for important state transitions that are not programmer errors
+  /// but still need to be queryable from Firestore in production.
+  static void diagnostic(
+    String message, {
+    StackTrace? stackTrace,
+    String? context,
+  }) {
+    _logger.e(message, stackTrace: stackTrace);
+    if (kReleaseMode || _remoteLoggingInDebug) {
+      ErrorReportingService.reportError(
+        message,
+        stackTrace,
+        context: context,
+      );
+    }
+  }
+
   /// Log a fatal error (critical errors)
   /// Use for critical errors that might cause app instability.
   /// Fatal errors are always sent to Firestore error_logs.
-  static void fatal(dynamic message, {dynamic error, StackTrace? stackTrace, String? context}) {
+  static void fatal(dynamic message,
+      {dynamic error, StackTrace? stackTrace, String? context}) {
     _logger.f(message, error: error, stackTrace: stackTrace);
     ErrorReportingService.reportError(
       error ?? message,

@@ -185,7 +185,7 @@ class UserRoleService {
         }
 
         // Fallback: Query by email field (try both 'email' and 'e-mail' variants)
-        if (userData == null) {
+        if (userData == null && currentUser.email != null) {
           // First try 'email' field (standard)
           QuerySnapshot userQuery = await _firestore
               .collection('users')
@@ -202,11 +202,26 @@ class UserRoleService {
                 .get();
           }
 
-          if (userQuery.docs.isEmpty) return null;
+          if (userQuery.docs.isNotEmpty) {
+            userData = userQuery.docs.first.data() as Map<String, dynamic>;
+          }
+        }
 
-          userData = userQuery.docs.first.data() as Map<String, dynamic>;
+        // Fallback: Query by phone number (for phone auth)
+        if (userData == null && currentUser.phoneNumber != null) {
+          QuerySnapshot phoneQuery = await _firestore
+              .collection('users')
+              .where('phone_number', isEqualTo: currentUser.phoneNumber)
+              .limit(1)
+              .get();
+              
+          if (phoneQuery.docs.isNotEmpty) {
+            userData = phoneQuery.docs.first.data() as Map<String, dynamic>;
+          }
         }
       }
+
+      if (userData == null) return null;
 
       // Cache the result (use UID as cache key)
       _cachedUserData = userData;
@@ -289,6 +304,8 @@ class UserRoleService {
         return 'Student';
       case 'parent':
         return 'Parent';
+      case 'circle_member':
+        return 'Member';
       default:
         return 'User';
     }
@@ -491,7 +508,7 @@ class UserRoleService {
   }
 
   /// Check if user is active
-  static Future<bool> isUserActive(String userEmail) async {
+  static Future<bool> isUserActive(String? userEmail) async {
     try {
       // First try to get user by UID if we have currentUser
       final User? currentUser = _auth.currentUser;
@@ -505,6 +522,10 @@ class UserRoleService {
           final userData = userDocByUid.data() as Map<String, dynamic>;
           return userData['is_active'] as bool? ?? true;
         }
+      }
+
+      if (userEmail == null || userEmail.isEmpty) {
+        return true;
       }
 
       // Fallback: Query by email

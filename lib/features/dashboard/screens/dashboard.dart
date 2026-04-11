@@ -17,7 +17,6 @@ import 'package:alluwalacademyadmin/features/audit/services/teacher_audit_servic
 import 'package:alluwalacademyadmin/core/widgets/role_switcher.dart';
 import 'package:alluwalacademyadmin/features/dashboard/screens/admin_dashboard_screen.dart';
 import 'package:alluwalacademyadmin/features/dashboard/screens/teacher_job_board_screen.dart';
-import 'package:alluwalacademyadmin/features/dashboard/screens/role_based_dashboard.dart';
 import 'package:alluwalacademyadmin/features/dashboard/widgets/custom_sidebar.dart';
 import 'package:alluwalacademyadmin/features/dashboard/services/sidebar_service.dart';
 import 'package:alluwalacademyadmin/features/dashboard/config/sidebar_config.dart';
@@ -27,13 +26,11 @@ import 'package:alluwalacademyadmin/features/chat/screens/chat_page.dart';
 import 'package:alluwalacademyadmin/features/forms/screens/form_screen.dart';
 import 'package:alluwalacademyadmin/features/forms/screens/form_responses_screen.dart';
 import 'package:alluwalacademyadmin/features/forms/screens/admin_all_submissions_screen.dart';
-import 'package:alluwalacademyadmin/features/forms/screens/form_builder.dart';
 import 'package:alluwalacademyadmin/features/forms/screens/forms_list_screen.dart';
 import 'package:alluwalacademyadmin/features/forms/screens/teacher_forms_screen.dart';
 import 'package:alluwalacademyadmin/features/tasks/screens/quick_tasks_screen.dart';
 import 'package:alluwalacademyadmin/features/shift_management/screens/shift_management_screen.dart';
 import 'package:alluwalacademyadmin/features/shift_management/screens/teacher_shift_screen.dart';
-import 'package:alluwalacademyadmin/features/shift_management/screens/job_scheduling.dart';
 import 'package:alluwalacademyadmin/features/time_clock/screens/time_clock_screen.dart';
 import 'package:alluwalacademyadmin/features/time_clock/screens/admin_timesheet_review.dart';
 import 'package:alluwalacademyadmin/features/user_management/screens/user_management_screen.dart';
@@ -46,7 +43,6 @@ import 'package:alluwalacademyadmin/features/settings/screens/admin_settings_scr
 import 'package:alluwalacademyadmin/features/settings/screens/test_role_system.dart';
 import 'package:alluwalacademyadmin/features/settings/screens/firestore_debug_screen.dart';
 import 'package:alluwalacademyadmin/features/audit/screens/admin_audit_screen.dart';
-import 'package:alluwalacademyadmin/features/audit/screens/teacher_audit_screen.dart';
 import 'package:alluwalacademyadmin/features/audit/screens/teacher_audit_detail_screen.dart';
 import 'package:alluwalacademyadmin/features/audit/screens/test_audit_generation.dart';
 import 'package:alluwalacademyadmin/features/profile/screens/teacher_profile_screen.dart';
@@ -54,6 +50,8 @@ import 'package:alluwalacademyadmin/features/settings/screens/mobile_settings_sc
 import 'package:alluwalacademyadmin/features/student/screens/student_progress_screen.dart';
 import 'package:alluwalacademyadmin/features/recordings/screens/class_recordings_screen.dart';
 import 'package:alluwalacademyadmin/features/surah_podcast/screens/surah_podcast_screen.dart';
+import 'package:alluwalacademyadmin/features/tontine/screens/admin_circles_screen.dart';
+import 'package:alluwalacademyadmin/features/tontine/screens/tontine_home_screen.dart';
 import 'package:alluwalacademyadmin/features/website/screens/landing_page.dart';
 
 /// Main Dashboard widget that serves as the app's primary navigation interface
@@ -85,7 +83,7 @@ class _DashboardPageState extends State<DashboardPage> {
   // Cache for lazy screen construction.
   // Only screens that were visited are stored here, which avoids building all screens up-front.
   final Map<int, Widget> _lazyScreensCache = <int, Widget>{};
-  static const int _screenCount = 28;
+  static const int _screenCount = 30;
 
   // GlobalKey for accessing Scaffold state
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
@@ -317,6 +315,10 @@ class _DashboardPageState extends State<DashboardPage> {
         return const ClassRecordingsScreen();
       case 27:
         return const SurahPodcastScreen();
+      case 28:
+        return const TontineHomeScreen();
+      case 29:
+        return const AdminCirclesScreen();
       default:
         return const SizedBox.shrink();
     }
@@ -350,7 +352,12 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Set<int> _allowedScreenIndexes(String? role) {
-    final sections = SidebarConfig.getStructureForRole(role);
+    final isAdmin = role == 'admin' || role == 'super_admin';
+    final tontineOn = _userData?['tontine_enabled'] as bool? ?? false;
+    var sections = SidebarConfig.getStructureForRole(role);
+    if (!isAdmin && !tontineOn) {
+      sections = sections.where((s) => s.id != 'savings').toList();
+    }
     return sections
         .expand((section) => section.items)
         .map((item) => item.screenIndex)
@@ -1248,8 +1255,10 @@ class _DashboardPageState extends State<DashboardPage> {
     return Shortcuts(
       shortcuts: <ShortcutActivator, Intent>{
         // Key combos for command palette.
-        const SingleActivator(LogicalKeyboardKey.keyK, control: true): _OpenCommandPaletteIntent(),
-        const SingleActivator(LogicalKeyboardKey.keyK, meta: true): _OpenCommandPaletteIntent(),
+        const SingleActivator(LogicalKeyboardKey.keyK, control: true):
+            _OpenCommandPaletteIntent(),
+        const SingleActivator(LogicalKeyboardKey.keyK, meta: true):
+            _OpenCommandPaletteIntent(),
       },
       child: Actions(
         actions: <Type, Action<Intent>>{
@@ -1316,7 +1325,8 @@ class _DashboardPageState extends State<DashboardPage> {
       if (sectionLabel != null) break;
     }
 
-    if (sectionLabel == null || itemLabel == null) return const SizedBox.shrink();
+    if (sectionLabel == null || itemLabel == null)
+      return const SizedBox.shrink();
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
@@ -1737,6 +1747,13 @@ class _DashboardPageState extends State<DashboardPage> {
 
   /// Builds the side navigation menu
   Widget _buildSideMenu() {
+    final isAdmin = _userRole == 'admin' || _userRole == 'super_admin';
+    final tontineEnabled =
+        _userData?['tontine_enabled'] as bool? ?? false;
+    final hiddenSections = <String>{
+      if (!isAdmin && !tontineEnabled) 'savings',
+    };
+
     return CustomSidebar(
       selectedIndex: _selectedIndex,
       onItemSelected: _onItemTapped,
@@ -1749,6 +1766,7 @@ class _DashboardPageState extends State<DashboardPage> {
       },
       userRole: _userRole,
       badgeScreenIndices: _badgeScreenIndices,
+      hiddenSectionIds: hiddenSections,
     );
   }
 

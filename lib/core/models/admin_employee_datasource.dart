@@ -14,6 +14,7 @@ class AdminEmployeeDataSource extends DataGridSource {
     required this.onEditUser,
     required this.onDeleteUser,
     this.onToggleAITutor,
+    this.onToggleTontine,
     required this.context,
   }) {
     _employees = employees.map<DataGridRow>((e) {
@@ -37,6 +38,7 @@ class AdminEmployeeDataSource extends DataGridSource {
   final Function(Employee) onEditUser;
   final Function(Employee) onDeleteUser;
   final Function(Employee)? onToggleAITutor;
+  final Function(Employee)? onToggleTontine;
   final BuildContext context;
 
   List<DataGridRow> _employees = [];
@@ -97,6 +99,20 @@ class AdminEmployeeDataSource extends DataGridSource {
                     tooltip: employee.aiTutorEnabled
                         ? 'Disable AI Tutor'
                         : 'Enable AI Tutor',
+                  ),
+                // Tontine toggle
+                if (onToggleTontine != null && employee.isActive)
+                  _buildActionButton(
+                    icon: employee.tontineEnabled
+                        ? Icons.groups
+                        : Icons.groups_outlined,
+                    color: employee.tontineEnabled
+                        ? const Color(0xff10B981)
+                        : const Color(0xff9CA3AF),
+                    onTap: () => onToggleTontine!(employee),
+                    tooltip: employee.tontineEnabled
+                        ? 'Disable Tontine'
+                        : 'Enable Tontine',
                   ),
                 if (employee.isAdminTeacher)
                   _buildActionButton(

@@ -27,6 +27,8 @@ import '../../recordings/screens/class_recordings_screen.dart';
 import '../../surah_podcast/screens/surah_podcast_screen.dart';
 import '../../quiz/screens/quiz_home_screen.dart'; // Quiz feature
 import '../../tutor/screens/ai_tutor_screen.dart'; // AI Tutor feature
+import '../../tontine/screens/tontine_home_screen.dart';
+import '../../tontine/screens/circle_member_profile_setup_screen.dart';
 
 // Onboarding imports
 import 'package:alluwalacademyadmin/features/onboarding/services/onboarding_service.dart';
@@ -62,6 +64,8 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
   bool _showOnboarding = false;
   bool _onboardingChecked = false;
   bool _aiTutorEnabled = false;
+  bool _tontineEnabled = false;
+  bool _showCircleMemberProfileSetup = false;
   final ChatService _chatService = ChatService();
   StreamSubscription<DocumentSnapshot>? _userDocSubscription;
 
@@ -90,6 +94,14 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
         _onboardingChecked = true;
       }
 
+      // Check if circle_member needs profile setup (first_name empty)
+      bool needsCircleProfileSetup = false;
+      if (role?.toLowerCase() == 'circle_member') {
+        final firstName = (data?['first_name'] as String? ?? '').trim();
+        final profileDone = data?['profile_completed'] as bool? ?? false;
+        needsCircleProfileSetup = firstName.isEmpty && !profileDone;
+      }
+
       if (mounted) {
         setState(() {
           _userRole = role;
@@ -97,7 +109,9 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
           _profilePictureUrl = profilePicUrl;
           _isLoading = false;
           _showOnboarding = needsOnboarding;
+          _showCircleMemberProfileSetup = needsCircleProfileSetup;
           _aiTutorEnabled = data?['ai_tutor_enabled'] as bool? ?? false;
+          _tontineEnabled = data?['tontine_enabled'] as bool? ?? false;
         });
 
         // Set up real-time listener for AI Tutor access changes
@@ -135,9 +149,12 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
       if (snapshot.exists) {
         final data = snapshot.data();
         final newAiTutorEnabled = data?['ai_tutor_enabled'] as bool? ?? false;
-        if (newAiTutorEnabled != _aiTutorEnabled) {
+        final newTontineEnabled = data?['tontine_enabled'] as bool? ?? false;
+        if (newAiTutorEnabled != _aiTutorEnabled ||
+            newTontineEnabled != _tontineEnabled) {
           setState(() {
             _aiTutorEnabled = newAiTutorEnabled;
+            _tontineEnabled = newTontineEnabled;
           });
         }
       }
@@ -311,12 +328,27 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
                 ),
                 onTap: () {
                   Navigator.pop(context);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const TeacherProfileScreen(),
-                    ),
-                  );
+                  if (_userRole?.toLowerCase() == 'circle_member') {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => CircleMemberProfileSetupScreen(
+                          isEditing: true,
+                          onComplete: () {
+                            Navigator.pop(context);
+                            _loadUserData();
+                          },
+                        ),
+                      ),
+                    );
+                  } else {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const TeacherProfileScreen(),
+                      ),
+                    );
+                  }
                 },
               ),
 
@@ -474,39 +506,44 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
   List<Widget> get _screens {
     final role = _userRole?.toLowerCase();
 
-    // ONLY Teachers get time clock, shifts, forms, job board
-    if (role == 'teacher') {
+    if (role == 'circle_member') {
       return [
-        const TeacherHomeScreen(), // Use the new screen
-        const TeacherShiftScreen(),
-        const ChatPage(),
-        const TeacherFormsScreen(), // Replaced ZoomScreen with Forms
-        const TeacherJobBoardScreen(),
+        const TontineHomeScreen(),
       ];
     }
 
-    // Admins get additional admin features
+    if (role == 'teacher') {
+      return [
+        const TeacherHomeScreen(),
+        const TeacherShiftScreen(),
+        const ChatPage(),
+        const TeacherFormsScreen(),
+        const TeacherJobBoardScreen(),
+        if (_tontineEnabled) const TontineHomeScreen(),
+      ];
+    }
+
     if (role == 'admin') {
       return [
         const AdminDashboard(refreshTrigger: 0),
-        const AdminClassesScreen(), // All classes view for admins
+        const AdminClassesScreen(),
         const TeacherFormsScreen(),
         const MobileNotificationScreen(),
         const MobileUserManagementScreen(),
         const ChatPage(),
         const QuickTasksScreen(),
+        const TontineHomeScreen(),
       ];
     }
 
-    // Students get classes as their main screen
     if (role == 'student') {
       return [
-        const StudentClassesScreen(), // Main screen for students
-        const QuizHomeScreen(), // Quiz feature
+        const StudentClassesScreen(),
+        const QuizHomeScreen(),
         const ChatPage(),
         const QuickTasksScreen(),
         const StudentProgressScreen(),
-        // Note: AI Tutor is accessed via FAB, not bottom navigation
+        if (_tontineEnabled) const TontineHomeScreen(),
       ];
     }
 
@@ -515,6 +552,7 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
       const AdminDashboard(refreshTrigger: 0),
       const ChatPage(),
       const QuickTasksScreen(),
+      if (_tontineEnabled) const TontineHomeScreen(),
     ];
   }
 
@@ -523,48 +561,63 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
     final l10n = AppLocalizations.of(context)!;
     final role = _userRole?.toLowerCase();
 
-    // ONLY Teachers get Clock, Shifts, Forms, and Job Board tabs
-    if (role == 'teacher') {
+    if (role == 'circle_member') {
       return [
+        _NavItemData(Icons.groups_rounded, l10n.tontineCircles, 0),
+      ];
+    }
+
+    if (role == 'teacher') {
+      final items = [
         _NavItemData(Icons.home_rounded, l10n.navHome, 0),
         _NavItemData(Icons.calendar_today_rounded, l10n.navShifts, 1),
         _NavItemData(Icons.chat_bubble_rounded, l10n.navChat, 2, isChat: true),
         _NavItemData(Icons.description_rounded, l10n.navForms, 3),
         _NavItemData(Icons.work_outline_rounded, l10n.navJobs, 4),
       ];
+      if (_tontineEnabled) {
+        items.add(_NavItemData(Icons.groups_rounded, l10n.tontineCircles, 5));
+      }
+      return items;
     }
 
-    // Admins get admin features
     if (role == 'admin') {
       return [
         _NavItemData(Icons.home_rounded, l10n.navHome, 0),
-        _NavItemData(
-            Icons.school_rounded, l10n.navClasses, 1), // All classes view
+        _NavItemData(Icons.school_rounded, l10n.navClasses, 1),
         _NavItemData(Icons.description_rounded, l10n.navForms, 2),
         _NavItemData(Icons.notifications_rounded, l10n.navNotify, 3),
         _NavItemData(Icons.people_rounded, l10n.navUsers, 4),
         _NavItemData(Icons.chat_bubble_rounded, l10n.navChat, 5, isChat: true),
         _NavItemData(Icons.task_alt_rounded, l10n.navTasks, 6),
+        _NavItemData(Icons.groups_rounded, l10n.tontineCircles, 7),
       ];
     }
 
-    // Students get classes-focused navigation
     if (role == 'student') {
-      return [
+      final items = [
         _NavItemData(Icons.school_rounded, l10n.navClasses, 0),
         _NavItemData(Icons.quiz_rounded, l10n.navQuiz, 1),
         _NavItemData(Icons.chat_bubble_rounded, l10n.navChat, 2, isChat: true),
         _NavItemData(Icons.task_alt_rounded, l10n.navTasks, 3),
         _NavItemData(Icons.insights_rounded, l10n.progress, 4),
       ];
+      if (_tontineEnabled) {
+        items.add(_NavItemData(Icons.groups_rounded, l10n.tontineCircles, 5));
+      }
+      return items;
     }
 
     // Parents get basic features
-    return [
+    final items = [
       _NavItemData(Icons.home_rounded, l10n.navHome, 0),
       _NavItemData(Icons.chat_bubble_rounded, l10n.navChat, 1, isChat: true),
       _NavItemData(Icons.task_alt_rounded, l10n.navTasks, 2),
     ];
+    if (_tontineEnabled) {
+      items.add(_NavItemData(Icons.groups_rounded, l10n.tontineCircles, 3));
+    }
+    return items;
   }
 
   void _onItemTapped(int index) {
@@ -694,6 +747,82 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
             }
           });
         },
+      );
+    }
+
+    final isCircleMember = _userRole?.toLowerCase() == 'circle_member';
+
+    if (isCircleMember && _showCircleMemberProfileSetup) {
+      return CircleMemberProfileSetupScreen(
+        onComplete: () {
+          setState(() {
+            _showCircleMemberProfileSetup = false;
+          });
+          _loadUserData();
+        },
+      );
+    }
+
+    if (isCircleMember) {
+      return Scaffold(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        appBar: AppBar(
+          elevation: 0,
+          backgroundColor: Theme.of(context).cardColor,
+          toolbarHeight: 70,
+          title: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: const Color(0xffF8FAFC),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: Image.asset(
+                    'assets/Alluwal_Education_Hub_Logo.png',
+                    fit: BoxFit.contain,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Flexible(
+                child: Text(
+                  'Alluwal',
+                  style: GoogleFonts.inter(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: Theme.of(context).textTheme.titleLarge?.color,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            Padding(
+              padding: const EdgeInsets.only(right: 16),
+              child: GestureDetector(
+                onTap: _showProfileMenu,
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).primaryColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    Icons.person,
+                    color: Theme.of(context).primaryColor,
+                    size: 24,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+        body: const TontineHomeScreen(),
       );
     }
 

@@ -21,7 +21,8 @@ import 'package:alluwalacademyadmin/features/livekit/services/livekit_session_se
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 import 'package:alluwalacademyadmin/core/utils/environment_utils.dart';
 import 'package:alluwalacademyadmin/core/utils/picture_in_picture.dart'
-    if (dart.library.io) 'package:alluwalacademyadmin/core/utils/picture_in_picture_stub.dart' as pip;
+    if (dart.library.io) 'package:alluwalacademyadmin/core/utils/picture_in_picture_stub.dart'
+    as pip;
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 /// LiveKit join token response from Cloud Functions
@@ -917,7 +918,8 @@ class LiveKitCallScreen extends StatefulWidget {
   State<LiveKitCallScreen> createState() => _LiveKitCallScreenState();
 }
 
-class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
+class _LiveKitCallScreenState extends State<LiveKitCallScreen>
+    with WidgetsBindingObserver {
   static const String _hostControlTopic = 'alluwal_host_control';
   static const String _whiteboardTopic = 'alluwal_whiteboard';
   static const Duration _pointerSendThrottle = Duration(milliseconds: 50);
@@ -934,7 +936,8 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
   bool _manualDisconnect = false;
   bool _reconnecting = false;
   int _reconnectAttempts = 0;
-  bool _recordingEnsureTriggered = false;
+  DateTime? _lastRecordingEnsureAt;
+  DateTime? _connectedAt;
 
   DateTime? _lastPointerSentAt;
   Timer? _pointerSendTimer;
@@ -1016,11 +1019,70 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _currentToken = widget.token;
     _currentLivekitUrl = widget.livekitUrl;
     _roomLocked = widget.initialRoomLocked;
+    AppLogger.breadcrumb(
+      'livekit_screen_init shift=${widget.shiftId} room=${widget.roomName}',
+    );
     _connectToRoom();
     _startNoShowDetection();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    AppLogger.breadcrumb(
+      'livekit_app_lifecycle state=$state shift=${widget.shiftId} room=${widget.roomName}',
+    );
+  }
+
+  String _diagnosticSnapshot({
+    DisconnectReason? reason,
+    String? trigger,
+    String? extra,
+  }) {
+    final room = _room;
+    final localIdentity = room?.localParticipant?.identity ?? 'none';
+    final remoteParticipantCount = room?.remoteParticipants.length ?? 0;
+    final connectedFor = _connectedAt == null
+        ? 'not_connected'
+        : DateTime.now().difference(_connectedAt!).inSeconds.toString();
+
+    return [
+      'shiftId=${widget.shiftId}',
+      'room=${widget.roomName}',
+      'role=${_resolvedSessionRole()}',
+      'isTeacher=${widget.isTeacher}',
+      'audioOnly=${widget.isAudioOnlyMode}',
+      'manualDisconnect=$_manualDisconnect',
+      'connecting=$_connecting',
+      'reconnecting=$_reconnecting',
+      'reconnectAttempts=$_reconnectAttempts',
+      'roomLocked=$_roomLocked',
+      'reason=${reason?.name ?? 'none'}',
+      'trigger=${trigger ?? 'none'}',
+      'localIdentity=$localIdentity',
+      'remoteParticipantCount=$remoteParticipantCount',
+      'connectedForSeconds=$connectedFor',
+      if (extra != null && extra.isNotEmpty) 'extra=$extra',
+    ].join(' ');
+  }
+
+  void _logLiveKitDiagnostic(
+    String event, {
+    DisconnectReason? reason,
+    String? trigger,
+    String? extra,
+    StackTrace? stackTrace,
+  }) {
+    final message =
+        'LiveKit diagnostic: $event ${_diagnosticSnapshot(reason: reason, trigger: trigger, extra: extra)}';
+    AppLogger.diagnostic(
+      message,
+      context: 'livekit_$event',
+      stackTrace: stackTrace,
+    );
   }
 
   void _startNoShowDetection() {
@@ -1409,6 +1471,72 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
     }
   }
 
+  String _disconnectDialogTitle(DisconnectReason? reason) {
+    switch (reason) {
+      case DisconnectReason.duplicateIdentity:
+        return 'Signed in somewhere else';
+      case DisconnectReason.participantRemoved:
+        return 'Removed from class';
+      case DisconnectReason.roomDeleted:
+        return 'Class ended';
+      case DisconnectReason.joinFailure:
+        return 'Could not join class';
+      case DisconnectReason.signalingConnectionFailure:
+        return 'Class connection lost';
+      case DisconnectReason.reconnectAttemptsExceeded:
+        return 'Could not reconnect';
+      default:
+        return 'Class connection ended';
+    }
+  }
+
+  String _disconnectDialogMessage(DisconnectReason? reason) {
+    switch (reason) {
+      case DisconnectReason.duplicateIdentity:
+        return 'This class was closed because the same account joined from another device or browser tab.';
+      case DisconnectReason.participantRemoved:
+        return 'You were removed from this class by the host.';
+      case DisconnectReason.roomDeleted:
+        return 'This class is no longer available.';
+      case DisconnectReason.joinFailure:
+        return 'The class could not finish connecting. This usually means the browser or network blocked the media connection.';
+      case DisconnectReason.stateMismatch:
+        return 'The class connection fell out of sync and had to close.';
+      case DisconnectReason.serverShutdown:
+        return 'The class connection ended because the call server restarted.';
+      case DisconnectReason.signalingConnectionFailure:
+        return 'The class connection dropped because the browser could no longer reach the call server.';
+      case DisconnectReason.reconnectAttemptsExceeded:
+        return 'The class connection could not recover after several retry attempts.';
+      case DisconnectReason.disconnected:
+        return 'The class connection was closed before media could recover.';
+      default:
+        final name = reason?.name ?? 'unknown';
+        return 'The class connection ended unexpectedly ($name).';
+    }
+  }
+
+  Future<void> _showUnexpectedDisconnectDialog(DisconnectReason? reason) async {
+    if (!mounted) return;
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: Text(_disconnectDialogTitle(reason)),
+          content: Text(_disconnectDialogMessage(reason)),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Future<void> _disposeRoom() async {
     try {
       // Explicitly stop mic and camera before disposing
@@ -1434,6 +1562,11 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
   Future<void> _attemptReconnect(DisconnectReason? reason) async {
     if (_reconnecting || _manualDisconnect) return;
     if (_reconnectAttempts >= _maxReconnectAttempts) {
+      _logLiveKitDiagnostic(
+        'reconnect_exhausted',
+        reason: reason,
+        extra: 'maxReconnectAttempts=$_maxReconnectAttempts',
+      );
       if (mounted) {
         setState(() {
           _reconnecting = false;
@@ -1445,6 +1578,11 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
     }
 
     _reconnectAttempts += 1;
+    _logLiveKitDiagnostic(
+      'reconnect_attempt_started',
+      reason: reason,
+      extra: 'attempt=$_reconnectAttempts',
+    );
     if (mounted) {
       setState(() {
         _reconnecting = true;
@@ -1476,7 +1614,18 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
       if (!mounted) return;
       await _connectToRoom();
     } catch (e) {
-      AppLogger.error('LiveKit: Reconnect attempt failed: $e');
+      _logLiveKitDiagnostic(
+        'reconnect_attempt_failed',
+        reason: reason,
+        extra: 'attempt=$_reconnectAttempts error=$e',
+        stackTrace: StackTrace.current,
+      );
+      AppLogger.error(
+        'LiveKit: Reconnect attempt failed: $e',
+        error: e,
+        stackTrace: StackTrace.current,
+        context: 'livekit_reconnect_failed',
+      );
       if (mounted) {
         setState(() {
           _reconnecting = false;
@@ -1763,6 +1912,10 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
       });
 
       _reconnectAttempts = 0;
+      _connectedAt = DateTime.now();
+      AppLogger.breadcrumb(
+        'livekit_connect_success shift=${widget.shiftId} room=${widget.roomName}',
+      );
 
       // Automatically enable camera and microphone when joining
       try {
@@ -1803,7 +1956,17 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
         _requestWhiteboardProject();
       }
     } catch (e) {
-      AppLogger.error('LiveKit: Failed to connect: $e');
+      _logLiveKitDiagnostic(
+        'connect_failed',
+        extra: 'error=$e',
+        stackTrace: StackTrace.current,
+      );
+      AppLogger.error(
+        'LiveKit: Failed to connect: $e',
+        error: e,
+        stackTrace: StackTrace.current,
+        context: 'livekit_connect_failed',
+      );
       setState(() {
         _connecting = false;
         _error = 'Failed to connect: $e';
@@ -1814,6 +1977,10 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
   void _setupRoomListeners(EventsListener<RoomEvent> listener) {
     listener
       ..on<RoomConnectedEvent>((event) {
+        _connectedAt = DateTime.now();
+        AppLogger.breadcrumb(
+          'livekit_room_connected shift=${widget.shiftId} room=${widget.roomName}',
+        );
         final currentUserId = FirebaseAuth.instance.currentUser?.uid;
         if (currentUserId == null) {
           AppLogger.warning(
@@ -1827,18 +1994,25 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
           role: _resolvedSessionRole(),
         );
 
-        if (!_recordingEnsureTriggered && widget.shiftId.trim().isNotEmpty) {
-          _recordingEnsureTriggered = true;
-          LiveKitService.ensureShiftRecording(widget.shiftId);
-        }
+        _triggerShiftRecordingEnsure('room_connected');
       })
       ..on<RoomReconnectingEvent>((event) {
+        AppLogger.breadcrumb(
+          'livekit_room_reconnecting shift=${widget.shiftId} room=${widget.roomName}',
+        );
+        _logLiveKitDiagnostic(
+          'room_reconnecting',
+          extra: 'targetReconnectAttempt=${_reconnectAttempts + 1}',
+        );
         AppLogger.warning('LiveKit: Reconnecting to room...');
         if (mounted) {
           setState(() => _reconnecting = true);
         }
       })
       ..on<RoomReconnectedEvent>((event) async {
+        AppLogger.breadcrumb(
+          'livekit_room_reconnected shift=${widget.shiftId} room=${widget.roomName}',
+        );
         AppLogger.info('LiveKit: Reconnected to room');
         if (mounted) {
           setState(() => _reconnecting = false);
@@ -1846,16 +2020,24 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
         // Ensure audio tracks are working after reconnection
         // This is critical for fixing audio loss after network changes
         await _ensureAudioPlayback();
+        _triggerShiftRecordingEnsure('room_reconnected');
       })
       ..on<RoomDisconnectedEvent>((event) async {
-        AppLogger.info(
-            'LiveKit: Disconnected from room. Reason: ${event.reason}');
+        final shouldReconnect = _shouldAttemptReconnect(event.reason);
+        _logLiveKitDiagnostic(
+          'room_disconnected',
+          reason: event.reason,
+          extra: 'shouldReconnect=$shouldReconnect',
+        );
+        AppLogger.breadcrumb(
+          'livekit_room_disconnected reason=${event.reason?.name ?? 'none'} shift=${widget.shiftId} room=${widget.roomName}',
+        );
 
         if (_manualDisconnect) {
           return;
         }
 
-        if (_shouldAttemptReconnect(event.reason)) {
+        if (shouldReconnect) {
           await _attemptReconnect(event.reason);
           return;
         }
@@ -1870,6 +2052,12 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
         }
 
         if (mounted) {
+          await _showUnexpectedDisconnectDialog(event.reason);
+          if (!mounted) return;
+          _logLiveKitDiagnostic(
+            'room_disconnected_navigate_pop',
+            reason: event.reason,
+          );
           Navigator.of(context).pop();
         }
       })
@@ -1877,6 +2065,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
         AppLogger.info(
             'LiveKit: Participant connected: ${event.participant.identity}');
         setState(() {});
+        _triggerShiftRecordingEnsure('participant_connected');
 
         // Cancel no-show timers when relevant participant joins
         if (!widget.isTeacher) {
@@ -1935,6 +2124,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
         if (mounted) setState(() {});
       })
       ..on<TrackPublishedEvent>((event) {
+        _triggerShiftRecordingEnsure('remote_track_published');
         _syncLocalMediaState();
         setState(() {});
       })
@@ -1949,6 +2139,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
         setState(() {});
       })
       ..on<LocalTrackPublishedEvent>((event) {
+        _triggerShiftRecordingEnsure('local_track_published');
         _syncLocalMediaState();
         setState(() {});
       })
@@ -1978,6 +2169,28 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
           _ensureAudioPlayback();
         }
       });
+  }
+
+  void _triggerShiftRecordingEnsure(String reason) {
+    // TODO(recording): Re-enable when VPS is upgraded to KVM 8
+    // Recording is paused — current VPS (KVM 4) cannot handle concurrent egress.
+    return;
+
+    // ignore: dead_code
+    final shiftId = widget.shiftId.trim();
+    if (shiftId.isEmpty) return;
+
+    final now = DateTime.now();
+    final lastTriggeredAt = _lastRecordingEnsureAt;
+    if (lastTriggeredAt != null &&
+        now.difference(lastTriggeredAt) < const Duration(seconds: 3)) {
+      return;
+    }
+
+    _lastRecordingEnsureAt = now;
+    AppLogger.debug(
+        'LiveKit: Ensuring recording after $reason (shiftId: $shiftId)');
+    unawaited(LiveKitService.ensureShiftRecording(shiftId));
   }
 
   bool _isModeratorMessage(RemoteParticipant? participant) {
@@ -2576,22 +2789,29 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
 
     if (shouldLeave == true) {
       _manualDisconnect = true;
-      await _disconnect();
+      await _disconnect(trigger: 'leave_button');
       if (mounted) {
         Navigator.of(context).pop();
       }
     }
   }
 
-  Future<void> _disconnect() async {
+  Future<void> _disconnect({String trigger = 'manual_disconnect'}) async {
     try {
       _manualDisconnect = true;
+      _logLiveKitDiagnostic(
+        'client_disconnect_requested',
+        trigger: trigger,
+      );
+      AppLogger.breadcrumb(
+        'livekit_client_disconnect trigger=$trigger shift=${widget.shiftId} room=${widget.roomName}',
+      );
       final currentUserId = FirebaseAuth.instance.currentUser?.uid;
       if (currentUserId != null) {
         await _sessionService.recordParticipantLeave(
           shiftId: widget.shiftId,
           userId: currentUserId,
-          disconnectReason: 'manual_disconnect',
+          disconnectReason: trigger,
         );
       }
 
@@ -2630,6 +2850,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _screenShareUiHideTimer?.cancel();
     _screenShareTransformController.dispose();
     _disposePictureInPictureResources();
@@ -2637,7 +2858,13 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
     _remotePointerHideTimer?.cancel();
     _cancelNoShowTimers();
     _whiteboardProjectController.close();
-    _disconnect();
+    _logLiveKitDiagnostic(
+      'widget_dispose',
+      trigger:
+          _manualDisconnect ? 'already_manual_disconnect' : 'widget_dispose',
+      stackTrace: StackTrace.current,
+    );
+    _disconnect(trigger: 'widget_dispose');
     super.dispose();
   }
 
@@ -2813,7 +3040,8 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
           children: [
             _buildBody(activeScreenShare),
             _buildPictureInPictureRenderer(),
-            if (!_isScreenShareFullscreen) _buildRecordingNoticeBanner(),
+            // TODO(recording): Re-enable when VPS is upgraded to KVM 8
+            // if (!_isScreenShareFullscreen) _buildRecordingNoticeBanner(),
           ],
         ),
         bottomNavigationBar: _isScreenShareFullscreen ? null : _buildControls(),

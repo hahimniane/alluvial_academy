@@ -10,6 +10,7 @@ const { onSchedule } = require('firebase-functions/v2/scheduler');
 const {
   RoomServiceClient,
   TrackType,
+  TrackSource,
   EgressClient,
   EgressStatus,
   EncodedFileOutput,
@@ -355,6 +356,140 @@ const _buildRecordingFilePath = ({ shiftId, roomName, prefix }) => {
   return `${prefix}/${year}/${month}/${day}/${safeShiftId}/${safeRoom}_${timestamp}`;
 };
 
+const _normalizeRecordingEgressMode = (raw) => {
+  const normalized = String(raw || '').trim().toLowerCase();
+  return normalized === 'track_composite' ? 'track_composite' : 'room_composite';
+};
+
+const _buildTrackCompositeKey = ({ audioTrackId, videoTrackId }) => (
+  `${String(audioTrackId || '').trim()}::${String(videoTrackId || '').trim()}`
+);
+
+const _buildTrackCompositeParticipantFilePath = ({ basePath, identity }) => {
+  const safeIdentity = _safePathSegment(identity, 'participant');
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  return `${basePath}/tracks/${safeIdentity}_${timestamp}.mp4`;
+};
+
+const _looksLikeStorageFilePath = (rawPath) => {
+  const normalized = String(rawPath || '').trim().replace(/\/+$/, '');
+  if (!normalized) return false;
+  const lastSegment = normalized.split('/').pop() || '';
+  return lastSegment.includes('.');
+};
+
+const _normalizeTrackArtifactEntries = (value) => {
+  if (!Array.isArray(value)) return [];
+
+  const seen = new Set();
+  const result = [];
+  for (const item of value) {
+    if (!item || typeof item !== 'object') continue;
+
+    const egressId = String(item.egress_id || item.egressId || '').trim();
+    const identity = String(item.identity || '').trim();
+    const filePath = String(item.file_path || item.filePath || '').trim();
+    const audioTrackId = String(item.audio_track_id || item.audioTrackId || '').trim();
+    const videoTrackId = String(item.video_track_id || item.videoTrackId || '').trim();
+    const status = _normalizeRecordingStatus(item.status);
+    const dedupeKey =
+      egressId ||
+      filePath ||
+      `${identity}::${audioTrackId}::${videoTrackId}::${status || 'unknown'}`;
+    if (!dedupeKey || seen.has(dedupeKey)) continue;
+    seen.add(dedupeKey);
+
+    result.push({
+      egress_id: egressId || null,
+      identity: identity || null,
+      file_path: filePath || null,
+      audio_track_id: audioTrackId || null,
+      video_track_id: videoTrackId || null,
+      status: status || null,
+      started_at_iso: item.started_at_iso || item.startedAtIso || null,
+      ended_at_iso: item.ended_at_iso || item.endedAtIso || null,
+      error: item.error || null,
+    });
+  }
+
+  return result;
+};
+
+const _mergeTrackArtifactEntries = (existingEntries, nextEntries) => {
+  const merged = new Map();
+  for (const item of _normalizeTrackArtifactEntries(existingEntries)) {
+    const key =
+      item.egress_id ||
+      item.file_path ||
+      `${item.identity || ''}::${item.audio_track_id || ''}::${item.video_track_id || ''}`;
+    if (!key) continue;
+    merged.set(key, item);
+  }
+  for (const item of _normalizeTrackArtifactEntries(nextEntries)) {
+    const key =
+      item.egress_id ||
+      item.file_path ||
+      `${item.identity || ''}::${item.audio_track_id || ''}::${item.video_track_id || ''}`;
+    if (!key) continue;
+    merged.set(key, item);
+  }
+  return Array.from(merged.values());
+};
+
+const _listRoomParticipants = async (roomService, roomName) => {
+  try {
+    return await roomService.listParticipants(roomName);
+  } catch (err) {
+    if (_isLiveKitNotFoundError(err)) {
+      return [];
+    }
+    throw err;
+  }
+};
+
+const _pickParticipantTrack = (tracks, type, preferredSources = []) => {
+  if (!Array.isArray(tracks)) return null;
+
+  const candidates = tracks.filter((track) => (
+    track &&
+    track.sid &&
+    track.type === type
+  ));
+  if (candidates.length === 0) return null;
+
+  for (const preferredSource of preferredSources) {
+    const match = candidates.find((track) => track.source === preferredSource);
+    if (match) return match;
+  }
+
+  return candidates[0];
+};
+
+const _extractRecordableParticipantTracks = (participantInfo) => {
+  if (!participantInfo || !participantInfo.identity) return null;
+
+  const identity = String(participantInfo.identity || '').trim();
+  if (!identity || isSystemParticipantIdentity(identity)) return null;
+
+  const tracks = Array.isArray(participantInfo.tracks) ? participantInfo.tracks : [];
+  const audioTrack = _pickParticipantTrack(
+    tracks,
+    TrackType.AUDIO,
+    [TrackSource.MICROPHONE, TrackSource.UNKNOWN],
+  );
+  const videoTrack = _pickParticipantTrack(
+    tracks,
+    TrackType.VIDEO,
+    [TrackSource.CAMERA, TrackSource.UNKNOWN],
+  );
+
+  return {
+    identity,
+    audioTrackId: audioTrack?.sid ? String(audioTrack.sid).trim() : '',
+    videoTrackId: videoTrack?.sid ? String(videoTrack.sid).trim() : '',
+  };
+};
+
 const _normalizeUserRoleString = (raw) => {
   if (typeof raw !== 'string') return '';
   return raw.trim().toLowerCase();
@@ -512,12 +647,31 @@ const _isStorageNotFoundError = (err) => {
 };
 
 const _deleteClassRecordingAssets = async ({ recordingRef, recordingData }) => {
-  const filePath = String(recordingData?.file_path || '').trim();
-  if (filePath) {
-    const bucketNameRaw = String(recordingData?.bucket || _getDefaultRecordingBucketName() || '').trim();
-    const bucket = bucketNameRaw
-      ? admin.storage().bucket(bucketNameRaw)
-      : admin.storage().bucket();
+  const bucketNameRaw = String(recordingData?.bucket || _getDefaultRecordingBucketName() || '').trim();
+  const bucket = bucketNameRaw
+    ? admin.storage().bucket(bucketNameRaw)
+    : admin.storage().bucket();
+
+  const filePaths = new Set();
+  const prefixPaths = new Set();
+  const addPathCandidate = (candidate) => {
+    const normalized = String(candidate || '').trim().replace(/\/+$/, '');
+    if (!normalized) return;
+    if (_looksLikeStorageFilePath(normalized)) {
+      filePaths.add(normalized);
+      return;
+    }
+    prefixPaths.add(normalized);
+  };
+
+  addPathCandidate(recordingData?.file_path);
+  addPathCandidate(recordingData?.merged_file_path);
+
+  for (const item of _normalizeTrackArtifactEntries(recordingData?.track_files)) {
+    addPathCandidate(item.file_path);
+  }
+
+  for (const filePath of filePaths) {
     const file = bucket.file(filePath);
     try {
       await file.delete({ ignoreNotFound: true });
@@ -526,6 +680,19 @@ const _deleteClassRecordingAssets = async ({ recordingRef, recordingData }) => {
         throw err;
       }
     }
+  }
+
+  for (const prefixPath of prefixPaths) {
+    const [files] = await bucket.getFiles({ prefix: `${prefixPath}/` });
+    await Promise.all(files.map(async (file) => {
+      try {
+        await file.delete({ ignoreNotFound: true });
+      } catch (err) {
+        if (!_isStorageNotFoundError(err)) {
+          throw err;
+        }
+      }
+    }));
   }
 
   await recordingRef.delete();
@@ -614,6 +781,11 @@ const _upsertClassRecordingDoc = async ({
   requestedAtIso,
   startedAtIso,
   failedAtIso,
+  egressMode,
+  trackFiles,
+  mergeStatus,
+  mergedFilePath,
+  mergeCompletedAtIso,
 }) => {
   if (!shiftId || !segmentId || !filePath) return null;
 
@@ -625,6 +797,7 @@ const _upsertClassRecordingDoc = async ({
   const requestedAtTs = _toFirestoreTimestamp(requestedAtIso);
   const startedAtTs = _toFirestoreTimestamp(startedAtIso);
   const failedAtTs = _toFirestoreTimestamp(failedAtIso);
+  const mergeCompletedAtTs = _toFirestoreTimestamp(mergeCompletedAtIso);
   const sortTs = startedAtTs || requestedAtTs || shiftStartTs || admin.firestore.Timestamp.now();
   const sortIso =
     startedAtIso ||
@@ -666,9 +839,17 @@ const _upsertClassRecordingDoc = async ({
       file_path: filePath,
       bucket: bucket || null,
       layout: layout || null,
+      egress_mode: _normalizeRecordingEgressMode(egressMode),
       status: status || 'starting',
       egress_id: egressId || null,
       error: error || admin.firestore.FieldValue.delete(),
+      track_files: Array.isArray(trackFiles)
+        ? _normalizeTrackArtifactEntries(trackFiles)
+        : admin.firestore.FieldValue.delete(),
+      merge_status: mergeStatus || admin.firestore.FieldValue.delete(),
+      merged_file_path: mergedFilePath || admin.firestore.FieldValue.delete(),
+      merge_completed_at_iso: mergeCompletedAtIso || null,
+      merge_completed_at: mergeCompletedAtTs || null,
       requested_by: requestedBy || null,
       requested_at_iso: requestedAtIso || null,
       requested_at: requestedAtTs || null,
@@ -729,6 +910,7 @@ const _getLiveKitRecordingConfig = () => {
   const credentialsRaw = process.env.LIVEKIT_RECORDING_GCP_CREDENTIALS_JSON;
   const credentialsJson = _normalizeServiceAccountJson(credentialsRaw);
   const layout = process.env.LIVEKIT_RECORDING_LAYOUT?.trim() || 'grid';
+  const egressMode = _normalizeRecordingEgressMode(process.env.LIVEKIT_RECORDING_EGRESS_MODE);
   const prefixRaw = process.env.LIVEKIT_RECORDING_FILE_PREFIX?.trim() || 'class-recordings';
   const prefix = prefixRaw.replace(/^\/+/, '').replace(/\/+$/, '');
   const hasBucket = Boolean(bucket);
@@ -755,6 +937,507 @@ const _getLiveKitRecordingConfig = () => {
     credentialsJson,
     layout,
     prefix,
+    egressMode,
+  };
+};
+
+const _ensureTrackCompositeShiftRecording = async ({
+  uid,
+  shiftId,
+  shiftData,
+  teacherId,
+  studentIds,
+  roomName,
+  shiftRef,
+  egressClient,
+  roomService,
+  recordingConfig,
+}) => {
+  const existingRecording = shiftData.livekit_recording || {};
+  const existingStatus = _normalizeRecordingStatus(
+    existingRecording.status || shiftData.livekit_recording_status,
+  );
+  const existingEgressId =
+    existingRecording.egress_id || shiftData.livekit_recording_egress_id || null;
+  const existingEgressType = _normalizeRecordingStatus(
+    existingRecording.egress_type || shiftData.livekit_recording_egress_type,
+  );
+
+  if (existingEgressId) {
+    const existingEgressInfo = await _getEgressInfoById(egressClient, existingEgressId);
+    if (existingEgressInfo && _isEgressInProgress(existingEgressInfo.status)) {
+      return {
+        success: true,
+        recordingEnabled: true,
+        recordingStarted: false,
+        alreadyRecording: true,
+        status: existingStatus || 'active',
+        egressId: existingEgressId,
+        filePath:
+          existingRecording.file_path || shiftData.livekit_recording_file_path || null,
+      };
+    }
+  }
+
+  if (
+    (existingStatus === 'starting' || existingStatus === 'active') &&
+    existingEgressType === 'room_composite'
+  ) {
+    return {
+      success: true,
+      recordingEnabled: true,
+      recordingStarted: false,
+      alreadyRecording: true,
+      status: existingStatus || 'active',
+      egressType: 'room_composite',
+      filePath:
+        existingRecording.file_path || shiftData.livekit_recording_file_path || null,
+    };
+  }
+
+  const participantInfos = await _listRoomParticipants(roomService, roomName);
+  const candidateParticipants = participantInfos
+    .map(_extractRecordableParticipantTracks)
+    .filter((item) => item && item.audioTrackId && item.videoTrackId);
+
+  if (candidateParticipants.length === 0) {
+    return {
+      success: true,
+      recordingEnabled: true,
+      recordingStarted: false,
+      reason: 'Waiting for participant audio/video tracks',
+    };
+  }
+
+  let activeTrackKeys = new Set();
+  try {
+    const activeEgresses = await egressClient.listEgress({ roomName, active: true });
+    activeTrackKeys = new Set(
+      activeEgresses
+        .filter((item) => _isEgressInProgress(item.status))
+        .filter((item) => item.request?.case === 'trackComposite')
+        .map((item) => _buildTrackCompositeKey({
+          audioTrackId: item.request?.value?.audioTrackId,
+          videoTrackId: item.request?.value?.videoTrackId,
+        }))
+        .filter(Boolean),
+    );
+  } catch (err) {
+    if (!_isLiveKitNotFoundError(err)) {
+      console.warn('[LiveKit] Failed to list active track-composite egresses:', err?.message || err);
+    }
+  }
+
+  const requestedAtIso = new Date().toISOString();
+  const reservation = await admin.firestore().runTransaction(async (tx) => {
+    const currentSnap = await tx.get(shiftRef);
+    if (!currentSnap.exists) {
+      throw new HttpsError('not-found', 'Shift not found');
+    }
+
+    const currentData = currentSnap.data() || {};
+    const currentRecording = currentData.livekit_recording || {};
+    const currentStatus = _normalizeRecordingStatus(
+      currentRecording.status || currentData.livekit_recording_status,
+    );
+    const currentType = _normalizeRecordingStatus(
+      currentRecording.egress_type || currentData.livekit_recording_egress_type,
+    );
+
+    if (
+      (currentStatus === 'starting' || currentStatus === 'active') &&
+      currentType === 'room_composite'
+    ) {
+      return {
+        blockedByRoomComposite: true,
+        status: currentStatus || 'active',
+        filePath:
+          currentRecording.file_path || currentData.livekit_recording_file_path || null,
+      };
+    }
+
+    let segmentId =
+      currentRecording.current_segment_id ||
+      currentData.livekit_recording_current_segment_id ||
+      null;
+    let basePath =
+      currentRecording.file_path ||
+      currentData.livekit_recording_file_path ||
+      null;
+
+    const currentTrackEgresses = _normalizeTrackArtifactEntries(currentRecording.track_egresses);
+    const startedAtValue =
+      currentRecording.started_at ||
+      currentData.livekit_recording_started_at ||
+      null;
+    const startedAtIso =
+      currentRecording.started_at_iso ||
+      _toIsoString(currentRecording.started_at) ||
+      _toIsoString(currentData.livekit_recording_started_at);
+    const previousSegments = Array.isArray(currentData.livekit_recording_segments)
+      ? currentData.livekit_recording_segments
+      : [];
+    let nextSegments = previousSegments;
+    let shouldUpdateShift = false;
+
+    const canReuseSession = (
+      (currentStatus === 'starting' || currentStatus === 'active') &&
+      (currentType === '' || currentType === 'track_composite') &&
+      segmentId &&
+      basePath
+    );
+
+    if (!canReuseSession) {
+      segmentId = `seg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      basePath = _buildRecordingFilePath({
+        shiftId,
+        roomName,
+        prefix: recordingConfig.prefix,
+      });
+      nextSegments = [
+        ...previousSegments,
+        {
+          segment_id: segmentId,
+          file_path: basePath,
+          requested_by: uid,
+          requested_at_iso: requestedAtIso,
+          status: 'starting',
+          merge_status: 'pending',
+        },
+      ];
+      shouldUpdateShift = true;
+    }
+
+    const reservedEntries = [];
+    const existingTrackKeys = new Set(
+      currentTrackEgresses
+        .filter((item) => item.status !== 'failed')
+        .map((item) => _buildTrackCompositeKey({
+          audioTrackId: item.audio_track_id,
+          videoTrackId: item.video_track_id,
+        })),
+    );
+
+    for (const participant of candidateParticipants) {
+      const trackKey = _buildTrackCompositeKey(participant);
+      if (!trackKey || existingTrackKeys.has(trackKey) || activeTrackKeys.has(trackKey)) {
+        continue;
+      }
+
+      const reservedEntry = {
+        identity: participant.identity,
+        audio_track_id: participant.audioTrackId,
+        video_track_id: participant.videoTrackId,
+        file_path: _buildTrackCompositeParticipantFilePath({
+          basePath,
+          identity: participant.identity,
+        }),
+        status: 'starting',
+        started_at_iso: null,
+        ended_at_iso: null,
+        error: null,
+      };
+      reservedEntries.push(reservedEntry);
+      currentTrackEgresses.push(reservedEntry);
+      existingTrackKeys.add(trackKey);
+    }
+
+    if (reservedEntries.length === 0 && !shouldUpdateShift) {
+      return {
+        blockedByRoomComposite: false,
+        basePath,
+        segmentId,
+        reservedEntries: [],
+        trackEgresses: currentTrackEgresses,
+        startedAtIso,
+      };
+    }
+
+    const hasActiveEntries = currentTrackEgresses.some((item) => item.status === 'active');
+    const nextStatus = hasActiveEntries ? 'active' : 'starting';
+    nextSegments = nextSegments.map((segment) => {
+      if (segment?.segment_id !== segmentId) return segment;
+      return {
+        ...segment,
+        file_path: basePath,
+        status: nextStatus,
+        merge_status: 'pending',
+      };
+    });
+
+    tx.update(shiftRef, {
+      'livekit_recording.status': nextStatus,
+      'livekit_recording.room_name': roomName,
+      'livekit_recording.egress_type': 'track_composite',
+      'livekit_recording.storage_mode': recordingConfig.mode,
+      'livekit_recording.bucket': recordingConfig.bucket || admin.firestore.FieldValue.delete(),
+      'livekit_recording.file_path': basePath,
+      'livekit_recording.current_segment_id': segmentId,
+      'livekit_recording.track_egresses': currentTrackEgresses,
+      'livekit_recording.merge_status': 'pending',
+      'livekit_recording.merged_file_path': admin.firestore.FieldValue.delete(),
+      'livekit_recording.requested_by': uid,
+      'livekit_recording.requested_at': admin.firestore.FieldValue.serverTimestamp(),
+      'livekit_recording.started_at': startedAtValue || admin.firestore.FieldValue.delete(),
+      'livekit_recording.updated_at': admin.firestore.FieldValue.serverTimestamp(),
+      'livekit_recording.error': admin.firestore.FieldValue.delete(),
+      'livekit_recording.egress_id': admin.firestore.FieldValue.delete(),
+      'livekit_recording.failed_at': admin.firestore.FieldValue.delete(),
+      livekit_recording_status: nextStatus,
+      livekit_recording_file_path: basePath,
+      livekit_recording_current_segment_id: segmentId,
+      livekit_recording_egress_type: 'track_composite',
+      livekit_recording_requested_by: uid,
+      livekit_recording_requested_at: admin.firestore.FieldValue.serverTimestamp(),
+      livekit_recording_updated_at: admin.firestore.FieldValue.serverTimestamp(),
+      livekit_recording_error: admin.firestore.FieldValue.delete(),
+      livekit_recording_egress_id: admin.firestore.FieldValue.delete(),
+      livekit_recording_failed_at: admin.firestore.FieldValue.delete(),
+      livekit_recording_segments: nextSegments,
+    });
+
+    return {
+      blockedByRoomComposite: false,
+      basePath,
+      segmentId,
+      reservedEntries,
+      trackEgresses: currentTrackEgresses,
+      startedAtIso,
+    };
+  });
+
+  if (reservation.blockedByRoomComposite) {
+    return {
+      success: true,
+      recordingEnabled: true,
+      recordingStarted: false,
+      alreadyRecording: true,
+      status: reservation.status || 'active',
+      egressType: 'room_composite',
+      filePath: reservation.filePath || null,
+    };
+  }
+
+  if (!Array.isArray(reservation.reservedEntries) || reservation.reservedEntries.length === 0) {
+    if (Array.isArray(reservation.trackEgresses) && reservation.trackEgresses.length > 0) {
+      return {
+        success: true,
+        recordingEnabled: true,
+        recordingStarted: false,
+        alreadyRecording: true,
+        status: 'active',
+        egressType: 'track_composite',
+        filePath: reservation.basePath || null,
+      };
+    }
+    return {
+      success: true,
+      recordingEnabled: true,
+      recordingStarted: false,
+      reason: 'Waiting for new participant tracks',
+    };
+  }
+
+  const gcpUpload = new GCPUpload({
+    bucket: recordingConfig.bucket,
+    credentials: recordingConfig.credentialsJson,
+  });
+
+  const startResults = await Promise.allSettled(
+    reservation.reservedEntries.map(async (entry) => {
+      const fileOutput = new EncodedFileOutput({
+        filepath: entry.file_path,
+        fileType: EncodedFileType.MP4,
+        output: {
+          case: 'gcp',
+          value: gcpUpload,
+        },
+      });
+
+      const egressInfo = await egressClient.startTrackCompositeEgress(
+        roomName,
+        { file: fileOutput },
+        {
+          audioTrackId: entry.audio_track_id,
+          videoTrackId: entry.video_track_id,
+        },
+      );
+
+      return {
+        ...entry,
+        egress_id: egressInfo.egressId,
+        status: 'active',
+        started_at_iso: new Date().toISOString(),
+      };
+    }),
+  );
+
+  const resultByTrackKey = new Map();
+  for (let i = 0; i < reservation.reservedEntries.length; i += 1) {
+    const reservedEntry = reservation.reservedEntries[i];
+    const trackKey = _buildTrackCompositeKey({
+      audioTrackId: reservedEntry.audio_track_id,
+      videoTrackId: reservedEntry.video_track_id,
+    });
+    const settled = startResults[i];
+    if (settled.status === 'fulfilled') {
+      resultByTrackKey.set(trackKey, {
+        type: 'success',
+        entry: settled.value,
+      });
+      continue;
+    }
+
+    const message = `${settled.reason?.message || String(settled.reason || 'Failed to start track composite egress')}`
+      .trim()
+      .slice(0, 500);
+    resultByTrackKey.set(trackKey, {
+      type: 'failed',
+      error: message,
+    });
+    console.error(
+      `[LiveKit] Failed to start track composite egress for ${reservedEntry.identity}:`,
+      settled.reason,
+    );
+  }
+
+  const finalized = await admin.firestore().runTransaction(async (tx) => {
+    const currentSnap = await tx.get(shiftRef);
+    const currentData = currentSnap.data() || {};
+    const currentRecording = currentData.livekit_recording || {};
+    const existingTrackEgresses = _normalizeTrackArtifactEntries(currentRecording.track_egresses);
+    const updatedTrackEgresses = existingTrackEgresses.map((item) => {
+      const trackKey = _buildTrackCompositeKey({
+        audioTrackId: item.audio_track_id,
+        videoTrackId: item.video_track_id,
+      });
+      const result = resultByTrackKey.get(trackKey);
+      if (!result) return item;
+      if (result.type === 'success') {
+        return {
+          ...item,
+          ...result.entry,
+          error: null,
+        };
+      }
+      return {
+        ...item,
+        status: 'failed',
+        error: result.error,
+      };
+    });
+
+    const hasActive = updatedTrackEgresses.some((item) => item.status === 'active');
+    const hasStarting = updatedTrackEgresses.some((item) => item.status === 'starting');
+    const nextStatus = hasActive ? 'active' : (hasStarting ? 'starting' : 'failed');
+    const nextMergeStatus = hasActive || hasStarting ? 'pending' : 'failed';
+    const firstStartedAtIso =
+      reservation.startedAtIso ||
+      updatedTrackEgresses.find((item) => item.started_at_iso)?.started_at_iso ||
+      null;
+    const startedAtValue =
+      currentRecording.started_at ||
+      currentData.livekit_recording_started_at ||
+      null;
+    const previousSegments = Array.isArray(currentData.livekit_recording_segments)
+      ? currentData.livekit_recording_segments
+      : [];
+    const nextSegments = previousSegments.map((segment) => {
+      if (segment?.segment_id !== reservation.segmentId) return segment;
+      return {
+        ...segment,
+        file_path: reservation.basePath,
+        status: nextStatus,
+        merge_status: nextMergeStatus,
+      };
+    });
+
+    const combinedError = hasActive
+      ? null
+      : updatedTrackEgresses.find((item) => item.error)?.error ||
+        'Failed to start track composite recording';
+
+    tx.update(shiftRef, {
+      'livekit_recording.status': nextStatus,
+      'livekit_recording.room_name': roomName,
+      'livekit_recording.egress_type': 'track_composite',
+      'livekit_recording.storage_mode': recordingConfig.mode,
+      'livekit_recording.bucket': recordingConfig.bucket || admin.firestore.FieldValue.delete(),
+      'livekit_recording.file_path': reservation.basePath,
+      'livekit_recording.current_segment_id': reservation.segmentId,
+      'livekit_recording.track_egresses': updatedTrackEgresses,
+      'livekit_recording.merge_status': nextMergeStatus,
+      'livekit_recording.merged_file_path': admin.firestore.FieldValue.delete(),
+      'livekit_recording.started_at': startedAtValue ||
+        (firstStartedAtIso ? admin.firestore.FieldValue.serverTimestamp() : admin.firestore.FieldValue.delete()),
+      'livekit_recording.started_by': hasActive
+        ? (currentRecording.started_by || uid)
+        : admin.firestore.FieldValue.delete(),
+      'livekit_recording.failed_at': nextStatus === 'failed'
+        ? admin.firestore.FieldValue.serverTimestamp()
+        : admin.firestore.FieldValue.delete(),
+      'livekit_recording.updated_at': admin.firestore.FieldValue.serverTimestamp(),
+      'livekit_recording.error': combinedError || admin.firestore.FieldValue.delete(),
+      livekit_recording_status: nextStatus,
+      livekit_recording_file_path: reservation.basePath,
+      livekit_recording_current_segment_id: reservation.segmentId,
+      livekit_recording_egress_type: 'track_composite',
+      livekit_recording_started_at: startedAtValue ||
+        (firstStartedAtIso ? admin.firestore.FieldValue.serverTimestamp() : admin.firestore.FieldValue.delete()),
+      livekit_recording_updated_at: admin.firestore.FieldValue.serverTimestamp(),
+      livekit_recording_error: combinedError || admin.firestore.FieldValue.delete(),
+      livekit_recording_failed_at: nextStatus === 'failed'
+        ? admin.firestore.FieldValue.serverTimestamp()
+        : admin.firestore.FieldValue.delete(),
+      livekit_recording_segments: nextSegments,
+    });
+
+    return {
+      trackEgresses: updatedTrackEgresses,
+      status: nextStatus,
+      mergeStatus: nextMergeStatus,
+      startedAtIso: firstStartedAtIso,
+      error: combinedError,
+    };
+  });
+
+  await _upsertClassRecordingDoc({
+    shiftId,
+    shiftData,
+    teacherId,
+    studentIds,
+    roomName,
+    segmentId: reservation.segmentId,
+    filePath: reservation.basePath,
+    bucket: recordingConfig.bucket,
+    layout: 'track_composite',
+    status: finalized.status,
+    error: finalized.error,
+    requestedBy: uid,
+    requestedAtIso,
+    startedAtIso: finalized.startedAtIso,
+    egressMode: 'track_composite',
+    trackFiles: finalized.trackEgresses,
+    mergeStatus: finalized.mergeStatus,
+  });
+
+  if (finalized.status === 'failed') {
+    return {
+      success: false,
+      recordingEnabled: true,
+      recordingStarted: false,
+      error: finalized.error || 'Failed to start recording',
+    };
+  }
+
+  return {
+    success: true,
+    recordingEnabled: true,
+    recordingStarted: true,
+    status: finalized.status,
+    egressType: 'track_composite',
+    filePath: reservation.basePath,
+    startedTrackCount: finalized.trackEgresses.filter((item) => item.status === 'active').length,
   };
 };
 
@@ -846,6 +1529,21 @@ const ensureLiveKitShiftRecording = onCall({
   const host = normalizeLiveKitHostForServerApi(livekitConfig.url);
   const roomService = new RoomServiceClient(host, livekitConfig.apiKey, livekitConfig.apiSecret);
   const egressClient = new EgressClient(host, livekitConfig.apiKey, livekitConfig.apiSecret);
+
+  if (recordingConfig.egressMode === 'track_composite') {
+    return _ensureTrackCompositeShiftRecording({
+      uid,
+      shiftId,
+      shiftData,
+      teacherId,
+      studentIds,
+      roomName,
+      shiftRef,
+      egressClient,
+      roomService,
+      recordingConfig,
+    });
+  }
 
   const existingRecording = shiftData.livekit_recording || {};
   const existingStatus = _normalizeRecordingStatus(
@@ -1013,6 +1711,7 @@ const ensureLiveKitShiftRecording = onCall({
     status: 'starting',
     requestedBy: uid,
     requestedAtIso,
+    egressMode: 'room_composite',
   });
 
   try {
@@ -1103,6 +1802,7 @@ const ensureLiveKitShiftRecording = onCall({
       requestedBy: uid,
       requestedAtIso,
       startedAtIso,
+      egressMode: 'room_composite',
     });
 
     return {
@@ -1162,6 +1862,7 @@ const ensureLiveKitShiftRecording = onCall({
       requestedBy: uid,
       requestedAtIso,
       failedAtIso,
+      egressMode: 'room_composite',
     });
 
     return {
@@ -2103,7 +2804,11 @@ const listClassRecordings = onCall({}, async (request) => {
     .map((doc) => {
       const data = doc.data() || {};
       const status = _normalizeRecordingStatus(data.status);
-      const filePath = typeof data.file_path === 'string' ? data.file_path : null;
+      const filePath = typeof data.file_path === 'string' ? data.file_path.trim() : null;
+      const mergedFilePath = typeof data.merged_file_path === 'string'
+        ? data.merged_file_path.trim()
+        : null;
+      const mergeStatus = _normalizeRecordingStatus(data.merge_status) || null;
       const deleteAfterDate = _getRecordingDeleteAtDate(data);
       const deleteAfterIso = deleteAfterDate ? deleteAfterDate.toISOString() : null;
       const isExpired = deleteAfterDate ? deleteAfterDate.getTime() <= nowMs : false;
@@ -2125,9 +2830,13 @@ const listClassRecordings = onCall({}, async (request) => {
         studentIds: visibleStudentIds,
         status: status || 'unknown',
         error: data.error || null,
-        filePath,
+        filePath: mergedFilePath || filePath,
         bucket: data.bucket || null,
-        egressType: data.layout === 'auto_track' ? 'auto_track' : 'composite',
+        egressType: _normalizeRecordingStatus(data.egress_mode) || (
+          data.layout === 'auto_track' ? 'auto_track' : 'composite'
+        ),
+        mergeStatus,
+        mergedFilePath: mergedFilePath || null,
         shiftStartIso: _toIsoString(data.shift_start),
         shiftEndIso: _toIsoString(data.shift_end),
         requestedAtIso: data.requested_at_iso || _toIsoString(data.requested_at),
@@ -2143,7 +2852,12 @@ const listClassRecordings = onCall({}, async (request) => {
     .filter((item) => includeFailed || item.status !== 'failed')
     .map(({ _isExpired, ...item }) => ({
       ...item,
-      canPlay: item.status !== 'starting' && item.status !== 'failed',
+      canPlay: item.status !== 'starting' &&
+        item.status !== 'failed' &&
+        (
+          item.mergeStatus == null ||
+          (item.mergeStatus === 'completed' && Boolean(item.mergedFilePath))
+        ),
     }))
     .sort(_sortRecordingsNewestFirst);
 
@@ -2184,7 +2898,12 @@ const getClassRecordingPlaybackUrl = onCall({}, async (request) => {
 
   const data = recordingSnap.data() || {};
   const filePath = typeof data.file_path === 'string' ? data.file_path.trim() : '';
-  if (!filePath) {
+  const mergeStatus = _normalizeRecordingStatus(data.merge_status) || null;
+  const mergedFilePath = typeof data.merged_file_path === 'string'
+    ? data.merged_file_path.trim()
+    : '';
+
+  if (!filePath && !mergedFilePath) {
     throw new HttpsError('failed-precondition', 'Recording file path is missing');
   }
 
@@ -2233,6 +2952,14 @@ const getClassRecordingPlaybackUrl = onCall({}, async (request) => {
     );
   }
 
+  if (mergeStatus === 'pending' || mergeStatus === 'merging') {
+    throw new HttpsError('failed-precondition', 'Recording is being processed');
+  }
+
+  if (mergeStatus === 'failed') {
+    throw new HttpsError('failed-precondition', 'Recording processing failed');
+  }
+
   const bucketName = typeof data.bucket === 'string' && data.bucket.trim()
     ? data.bucket.trim()
     : _getDefaultRecordingBucketName();
@@ -2272,8 +2999,45 @@ const getClassRecordingPlaybackUrl = onCall({}, async (request) => {
     };
   };
 
+  if (mergeStatus === 'completed') {
+    if (!mergedFilePath) {
+      throw new HttpsError(
+        'failed-precondition',
+        'Recording is not available yet. Please try again shortly.',
+      );
+    }
+
+    const mergedFile = bucket.file(mergedFilePath);
+    const [exists] = await mergedFile.exists();
+    if (!exists) {
+      throw new HttpsError(
+        'failed-precondition',
+        'Recording is not available yet. Please try again shortly.',
+      );
+    }
+
+    const mergedUrl = await _generateFileUrl(mergedFile);
+
+    await recordingRef.set({
+      last_playback_requested_at: admin.firestore.FieldValue.serverTimestamp(),
+      last_playback_requested_by: uid,
+      updated_at: admin.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+
+    return {
+      success: true,
+      recordingId,
+      shiftId: data.shift_id || null,
+      filePath: mergedUrl.filePath,
+      url: mergedUrl.url,
+      contentType: mergedUrl.contentType,
+      sizeBytes: mergedUrl.sizeBytes,
+      expiresAtIso: mergedUrl.expiresAtIso,
+    };
+  }
+
   // Check if filePath is a direct file (legacy .mp4) or a directory prefix (auto-track)
-  const isLegacyFile = filePath.endsWith('.mp4');
+  const isLegacyFile = _looksLikeStorageFilePath(filePath);
   let primaryUrl = null;
   let trackFiles = [];
 

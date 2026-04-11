@@ -14,6 +14,7 @@ class UserEmployeeDataSource extends DataGridSource {
     required this.onDeleteUser,
     this.onViewCredentials,
     this.onToggleAITutor,
+    this.onToggleTontine,
     required this.context,
   }) {
     _employees = employees.map<DataGridRow>((e) {
@@ -42,6 +43,7 @@ class UserEmployeeDataSource extends DataGridSource {
   final Function(Employee) onDeleteUser;
   final Function(Employee)? onViewCredentials;
   final Function(Employee)? onToggleAITutor;
+  final Function(Employee)? onToggleTontine;
   final BuildContext context;
 
   List<DataGridRow> _employees = [];
@@ -108,6 +110,20 @@ class UserEmployeeDataSource extends DataGridSource {
                     tooltip: employee.aiTutorEnabled
                         ? 'Disable AI Tutor'
                         : 'Enable AI Tutor',
+                  ),
+                // Tontine toggle
+                if (onToggleTontine != null && employee.isActive)
+                  _buildActionButton(
+                    icon: employee.tontineEnabled
+                        ? Icons.groups
+                        : Icons.groups_outlined,
+                    color: employee.tontineEnabled
+                        ? const Color(0xff10B981)
+                        : const Color(0xff9CA3AF),
+                    onTap: () => onToggleTontine!(employee),
+                    tooltip: employee.tontineEnabled
+                        ? 'Disable Tontine'
+                        : 'Enable Tontine',
                   ),
                 // Edit button - always available for active users
                 if (employee.isActive)
@@ -242,18 +258,22 @@ class UserEmployeeDataSource extends DataGridSource {
                       ),
                     ),
                   ),
-                Expanded(
-                  child: Text(
-                    dataGridCell.value.toString(),
-                    style: GoogleFonts.inter(
-                      fontSize: 13,
-                      color: isArchived
-                          ? const Color(0xff9CA3AF)
-                          : const Color(0xff374151),
-                      decoration:
-                          isArchived ? TextDecoration.lineThrough : null,
+                Flexible(
+                  child: Tooltip(
+                    message: dataGridCell.value.toString(),
+                    child: Text(
+                      dataGridCell.value.toString(),
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        color: isArchived
+                            ? const Color(0xff9CA3AF)
+                            : const Color(0xff374151),
+                        decoration:
+                            isArchived ? TextDecoration.lineThrough : null,
+                      ),
+                      textAlign: TextAlign.center,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    textAlign: TextAlign.center,
                   ),
                 ),
               ],

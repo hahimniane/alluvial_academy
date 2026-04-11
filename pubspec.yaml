@@ -3,7 +3,7 @@ description: "A new Flutter project."
 
 
 
-version: 1.0.7+20
+version: 1.0.8+0
 
 environment:
   sdk: ^3.4.3
@@ -50,6 +50,7 @@ dependencies:
   uuid: ^4.5.1
   geolocator: ^14.0.2
   geocoding: ^4.0.0
+  map_launcher: ^4.5.0
   http: ^1.1.0
   mailer: ^6.5.0
   country_picker: ^2.0.26

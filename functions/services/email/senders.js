@@ -524,6 +524,70 @@ const sendDailyShiftGenerationReport = async ({
   }
 };
 
+const sendCircleInviteEmail = async (email, circleName, isExistingUser = false, inviterName = '') => {
+  const transporter = createTransporter();
+
+  const invitedByLine = inviterName
+    ? `<strong>${inviterName}</strong> has invited you to join the savings circle <strong>${circleName}</strong> on Alluwal.`
+    : `You have been invited to join the savings circle <strong>${circleName}</strong> on Alluwal.`;
+
+  const userActionSection = isExistingUser
+    ? `
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="https://alluwaleducationhub.org" style="background-color: #0F766E; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Open Alluwal</a>
+      </div>
+      <p style="font-size: 14px; color: #64748B;">Log in to your account and go to the "Savings" section to view and accept your invitation. You can also access it via the Alluwal mobile app.</p>
+    `
+    : `
+      <p style="font-size: 15px; color: #0F172A; text-align: center; font-weight: bold; margin-top: 30px;">To join, download the Alluwal app:</p>
+      <div style="text-align: center; margin: 20px 0;">
+        <a href="https://apps.apple.com/us/app/alluwal-education/id6754095805" style="display: inline-block; margin-right: 10px;">
+          <img src="https://upload.wikimedia.org/wikipedia/commons/3/3c/Download_on_the_App_Store_Badge.svg" alt="Download on the App Store" height="40">
+        </a>
+        <a href="https://play.google.com/store/apps/details?id=org.alluvaleducationhub.academy" style="display: inline-block;">
+          <img src="https://upload.wikimedia.org/wikipedia/commons/7/78/Google_Play_Store_badge_EN.svg" alt="Get it on Google Play" height="40">
+        </a>
+      </div>
+      <p style="font-size: 14px; color: #64748B; text-align: center;">After downloading, sign up and navigate to the "Savings" section to accept your invitation.</p>
+    `;
+
+  const subjectPrefix = inviterName ? `${inviterName} invited you` : "You're invited";
+
+  const mailOptions = {
+    from: 'Alluwal Education Hub <support@alluwaleducationhub.org>',
+    to: email,
+    subject: `${subjectPrefix} to join ${circleName}`,
+    html: `
+      <!DOCTYPE html>
+      <html>
+      <body style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background-color: #0F766E; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
+          <h1 style="margin: 0; font-size: 24px;">Savings Circle Invitation</h1>
+        </div>
+        <div style="padding: 20px; background-color: #f9f9f9; border-radius: 0 0 8px 8px; border: 1px solid #e5e7eb; border-top: none;">
+          <h2 style="color: #0F172A; margin-top: 0;">Assalamu Alaikum,</h2>
+          <p>${invitedByLine}</p>
+          <p>A savings circle (tontine) is a trusted way to save together with your community. Each member contributes a fixed amount every cycle, and one member receives the entire pooled amount. It rotates until everyone has received exactly once. No interest, no fees.</p>
+          
+          ${userActionSection}
+          
+          <p style="margin-top: 30px; font-size: 14px; color: #64748B;">If you didn't expect this invitation, you can safely ignore this email or contact us at support@alluwaleducationhub.org.</p>
+          <p style="margin-bottom: 0;">Best regards,<br>Alluwal Team</p>
+        </div>
+      </body>
+      </html>
+    `,
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    return true;
+  } catch (error) {
+    console.error('[email] Failed to send circle invite email:', error);
+    return false;
+  }
+};
+
 module.exports = {
   sendPasswordResetEmail,
   sendWelcomeEmail,
@@ -531,5 +595,6 @@ module.exports = {
   sendTaskAssignmentEmail,
   sendTestEmail,
   sendDailyShiftGenerationReport,
+  sendCircleInviteEmail,
 };
 
