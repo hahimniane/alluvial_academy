@@ -3,7 +3,7 @@ description: "A new Flutter project."
 
 
 
-version: 1.0.8+0
+version: 1.0.8+2
 
 environment:
   sdk: ^3.4.3
@@ -135,6 +135,7 @@ flutter:
      - assets/sounds/
      - assets/data/
      - assets/images/staff/
+     - assets/curriculum/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

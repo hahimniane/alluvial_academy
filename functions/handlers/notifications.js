@@ -501,8 +501,209 @@ const sendAuditNotification = async (data, context) => {
   }
 };
 
+/**
+ * Send FCM to leadership when a teacher approves or disputes an audit.
+ * Callable; caller must be the teacher who owns the audit.
+ */
+const sendTeacherAuditDecisionNotification = async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      'unauthenticated',
+      'Must be signed in to send teacher audit decision notifications'
+    );
+  }
+
+  const requestData = data.data || data;
+  const {auditId, yearMonth, decision, notes} = requestData;
+
+  if (!auditId || !yearMonth || !decision) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'auditId, yearMonth, and decision are required'
+    );
+  }
+
+  if (!['approved', 'rejected'].includes(String(decision))) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'decision must be approved or rejected'
+    );
+  }
+
+  const auditSnap = await admin.firestore().collection('teacher_audits').doc(auditId).get();
+  if (!auditSnap.exists) {
+    throw new functions.https.HttpsError('not-found', 'Audit not found');
+  }
+
+  const auditData = auditSnap.data() || {};
+  const teacherId = String(auditData.userId || auditData.oderId || '').trim();
+  if (!teacherId || teacherId !== context.auth.uid) {
+    throw new functions.https.HttpsError(
+      'permission-denied',
+      'Only the teacher assigned to this audit can send this notification'
+    );
+  }
+
+  const teacherDoc = await admin.firestore().collection('users').doc(teacherId).get();
+  const teacherData = teacherDoc.data() || {};
+  const teacherName =
+    `${teacherData.first_name || ''} ${teacherData.last_name || ''}`.trim() ||
+    teacherData['e-mail'] ||
+    teacherData.email ||
+    teacherId;
+
+  const recipientIds = new Set();
+
+  const coachId = String(auditData?.coachEvaluation?.coachId || '').trim();
+  if (coachId && coachId !== teacherId) {
+    recipientIds.add(coachId);
+  }
+
+  const leadershipSnapshot = await admin
+    .firestore()
+    .collection('users')
+    .where('user_type', 'in', ['admin', 'super_admin', 'ceo', 'founder'])
+    .where('is_active', '==', true)
+    .get();
+
+  leadershipSnapshot.docs.forEach((doc) => {
+    if (doc.id !== teacherId) {
+      recipientIds.add(doc.id);
+    }
+  });
+
+  const dualRoleSnapshot = await admin
+    .firestore()
+    .collection('users')
+    .where('user_type', '==', 'teacher')
+    .where('is_admin_teacher', '==', true)
+    .where('is_active', '==', true)
+    .get();
+
+  dualRoleSnapshot.docs.forEach((doc) => {
+    if (doc.id !== teacherId) {
+      recipientIds.add(doc.id);
+    }
+  });
+
+  if (recipientIds.size === 0) {
+    return {
+      success: false,
+      message: 'No leadership recipients found',
+      totalRecipients: 0,
+    };
+  }
+
+  const normalizedDecision = String(decision);
+  const title =
+    normalizedDecision === 'approved'
+      ? 'Teacher approved audit'
+      : 'Teacher disputed audit';
+  const body =
+    normalizedDecision === 'approved'
+      ? `${teacherName} approved the audit for ${yearMonth}.`
+      : `${teacherName} disputed the audit for ${yearMonth}.`;
+
+  const messageData = {
+    type: 'teacher_audit_response',
+    auditId: String(auditId),
+    yearMonth: String(yearMonth),
+    decision: normalizedDecision,
+    teacherId,
+    teacherName: String(teacherName),
+    notes: String(notes || ''),
+    timestamp: new Date().toISOString(),
+    click_action: 'FLUTTER_NOTIFICATION_CLICK',
+  };
+
+  const results = {
+    totalRecipients: recipientIds.size,
+    fcmSuccess: 0,
+    fcmFailed: 0,
+    details: [],
+  };
+
+  for (const userId of recipientIds) {
+    const recipientResult = {
+      userId,
+      fcmSent: false,
+      errors: [],
+    };
+
+    try {
+      const userDoc = await admin.firestore().collection('users').doc(userId).get();
+      if (!userDoc.exists) {
+        recipientResult.errors.push('User not found');
+        results.details.push(recipientResult);
+        continue;
+      }
+
+      const userData = userDoc.data() || {};
+      const fcmTokensArray = Array.isArray(userData.fcmTokens) ? userData.fcmTokens : [];
+      const tokens = [];
+
+      fcmTokensArray.forEach((tokenObj) => {
+        if (tokenObj && tokenObj.token) {
+          tokens.push(tokenObj.token);
+        }
+      });
+
+      if (tokens.length === 0 && userData.fcmToken) {
+        tokens.push(userData.fcmToken);
+      }
+
+      if (tokens.length === 0) {
+        recipientResult.errors.push('No FCM tokens');
+        results.fcmFailed += 1;
+        results.details.push(recipientResult);
+        continue;
+      }
+
+      const response = await admin.messaging().sendEachForMulticast({
+        notification: {title, body},
+        data: messageData,
+        tokens,
+        android: {
+          priority: 'high',
+          notification: {
+            sound: 'default',
+            channelId: 'high_importance_channel',
+          },
+        },
+        apns: {
+          payload: {
+            aps: {
+              sound: 'default',
+              badge: 1,
+            },
+          },
+        },
+      });
+
+      if (response.successCount > 0) {
+        recipientResult.fcmSent = true;
+        results.fcmSuccess += 1;
+      } else {
+        results.fcmFailed += 1;
+        recipientResult.errors.push('FCM send failed');
+      }
+
+      results.details.push(recipientResult);
+    } catch (error) {
+      recipientResult.errors.push(error.message || String(error));
+      results.fcmFailed += 1;
+      results.details.push(recipientResult);
+    }
+  }
+
+  return {
+    success: results.fcmSuccess > 0,
+    ...results,
+  };
+};
+
 module.exports = {
   sendAdminNotification,
   sendAuditNotification,
+  sendTeacherAuditDecisionNotification,
 };
-

@@ -28,29 +28,22 @@ class _RoleSwitcherState extends State<RoleSwitcher> {
   bool _isLoading = true;
   bool _hasDualRoles = false;
   bool _isSwitching = false;
-  StreamSubscription? _userSubscription;
+  Timer? _userPollTimer;
+  bool _isPollingUserData = false;
+
+  static const Duration _userPollInterval = Duration(seconds: 30);
 
   @override
   void initState() {
     super.initState();
     _loadRoleData();
-    _setupUserListener();
+    _startUserPolling();
   }
 
   @override
   void dispose() {
-    final subscription = _userSubscription;
-    _userSubscription = null;
-
-    if (subscription != null) {
-      try {
-        subscription.cancel().catchError((e, st) {
-          AppLogger.error('RoleSwitcher: error cancelling user listener: $e');
-        });
-      } catch (e) {
-        AppLogger.error('RoleSwitcher: error cancelling user listener: $e');
-      }
-    }
+    _userPollTimer?.cancel();
+    _userPollTimer = null;
     super.dispose();
   }
 
@@ -78,110 +71,98 @@ class _RoleSwitcherState extends State<RoleSwitcher> {
     }
   }
 
-  Future<void> _setupUserListener() async {
+  void _startUserPolling() {
+    _pollUserData();
+    _userPollTimer?.cancel();
+    _userPollTimer = Timer.periodic(
+      _userPollInterval,
+      (_) => _pollUserData(),
+    );
+  }
+
+  Future<void> _pollUserData() async {
+    if (!mounted || _isPollingUserData) return;
+
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
+    _isPollingUserData = true;
     final email = user.email?.toLowerCase();
     final uid = user.uid;
 
-    // Prefer UID doc listener (most reliable) and fallback to email query for legacy users.
-    bool shouldUseUidDoc = false;
     try {
-      final doc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
-      shouldUseUidDoc = doc.exists;
-    } catch (e) {
-      // If UID lookup fails, we'll attempt the email query below.
-      AppLogger.error('RoleSwitcher: error checking user doc by uid: $e');
-    }
+      final uidDoc =
+          await FirebaseFirestore.instance.collection('users').doc(uid).get();
+      if (!mounted) return;
 
-    if (!mounted) return;
-
-    // Listen to changes in the user's document
-    void handleUserData(Map<String, dynamic>? userData) {
-      if (userData == null) return;
-
-      final isAdminTeacher = userData['is_admin_teacher'] as bool? ?? false;
-      final userType = (userData['user_type'] as String?)?.trim().toLowerCase();
-      final secondaryRoles = List<String>.from(userData['secondary_roles'] ?? []);
-
-      // Check if dual role status changed
-      // Any admin has dual modes (admin + teacher). Teachers with is_admin_teacher also have dual roles.
-      // Users with secondary_roles also have dual roles.
-      final newHasDualRoles =
-          (userType == 'admin' || userType == 'super_admin') ||
-          (isAdminTeacher && userType == 'teacher') ||
-          secondaryRoles.isNotEmpty;
-
-      if (newHasDualRoles != _hasDualRoles) {
-        AppLogger.debug(
-            'Role change detected: hasDualRoles changed from $_hasDualRoles to $newHasDualRoles');
-
-        // Reload role data when dual role status changes
-        _loadRoleData();
-
-        // If user lost admin privileges, notify parent
-        if (!newHasDualRoles && _hasDualRoles) {
-          // User lost dual-role privileges - switch back to primary role
-          UserRoleService.switchActiveRole(userType ?? 'teacher')
-              .then((success) {
-            if (success && mounted) {
-              widget.onRoleChanged?.call(userType ?? 'teacher');
-
-              // Show notification
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Row(
-                    children: [
-                      Icon(Icons.info, color: Colors.white, size: 20),
-                      SizedBox(width: 8),
-                      Text(AppLocalizations.of(context)!.adminPrivilegesHaveBeenRevoked),
-                    ],
-                  ),
-                  backgroundColor: Colors.orange,
-                  behavior: SnackBarBehavior.floating,
-                  duration: Duration(seconds: 3),
-                ),
-              );
-            }
-          });
-        }
+      if (uidDoc.exists) {
+        _handleUserData(uidDoc.data());
+        return;
       }
-    }
 
-    if (shouldUseUidDoc) {
-      _userSubscription = FirebaseFirestore.instance
+      if (email == null) return;
+
+      final querySnapshot = await FirebaseFirestore.instance
           .collection('users')
-          .doc(uid)
-          .snapshots()
-          .listen(
-        (docSnapshot) {
-          handleUserData(docSnapshot.data());
-        },
-        onError: (error) {
-          AppLogger.error('Error listening to user changes (uid doc): $error');
-        },
-      );
-      return;
+          .where('e-mail', isEqualTo: email)
+          .limit(1)
+          .get();
+      if (!mounted) return;
+
+      if (querySnapshot.docs.isNotEmpty) {
+        _handleUserData(querySnapshot.docs.first.data());
+      }
+    } catch (e) {
+      AppLogger.error('RoleSwitcher: error polling user changes: $e');
+    } finally {
+      _isPollingUserData = false;
     }
+  }
 
-    if (email == null) return;
+  void _handleUserData(Map<String, dynamic>? userData) {
+    if (!mounted || userData == null) return;
 
-    _userSubscription = FirebaseFirestore.instance
-        .collection('users')
-        .where('e-mail', isEqualTo: email)
-        .limit(1)
-        .snapshots()
-        .listen(
-      (querySnapshot) {
-        if (querySnapshot.docs.isNotEmpty) {
-          handleUserData(querySnapshot.docs.first.data());
+    final isAdminTeacher = userData['is_admin_teacher'] as bool? ?? false;
+    final userType = (userData['user_type'] as String?)?.trim().toLowerCase();
+    final secondaryRoles = List<String>.from(userData['secondary_roles'] ?? []);
+
+    final newHasDualRoles =
+        (userType == 'admin' || userType == 'super_admin') ||
+            (isAdminTeacher && userType == 'teacher') ||
+            secondaryRoles.isNotEmpty;
+
+    if (newHasDualRoles == _hasDualRoles) return;
+
+    AppLogger.debug(
+        'Role change detected: hasDualRoles changed from $_hasDualRoles to $newHasDualRoles');
+
+    _loadRoleData();
+
+    if (!newHasDualRoles && _hasDualRoles) {
+      UserRoleService.switchActiveRole(userType ?? 'teacher').then((success) {
+        if (success && mounted) {
+          widget.onRoleChanged?.call(userType ?? 'teacher');
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.info, color: Colors.white, size: 20),
+                  const SizedBox(width: 8),
+                  Text(
+                    AppLocalizations.of(context)!
+                        .adminPrivilegesHaveBeenRevoked,
+                  ),
+                ],
+              ),
+              backgroundColor: Colors.orange,
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 3),
+            ),
+          );
         }
-      },
-      onError: (error) {
-        AppLogger.error('Error listening to user changes (email query): $error');
-      },
-    );
+      });
+    }
   }
 
   Color _roleColor(String role) {
@@ -263,7 +244,8 @@ class _RoleSwitcherState extends State<RoleSwitcher> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(AppLocalizations.of(context)!.failedToSwitchRolePleaseTry),
+            content:
+                Text(AppLocalizations.of(context)!.failedToSwitchRolePleaseTry),
             backgroundColor: Colors.red,
           ),
         );

@@ -47,6 +47,9 @@ exports.sendCustomPasswordResetEmail = functions.https.onCall(
 exports.sendTestEmail = functions.https.onCall(emailHandlers.sendTestEmail);
 exports.sendAdminNotification = functions.https.onCall(notificationHandlers.sendAdminNotification);
 exports.sendAuditNotification = functions.https.onCall(notificationHandlers.sendAuditNotification);
+exports.sendTeacherAuditDecisionNotification = functions.https.onCall(
+  notificationHandlers.sendTeacherAuditDecisionNotification
+);
 
 exports.sendTaskStatusUpdateNotification = onCall(taskHandlers.sendTaskStatusUpdateNotification);
 exports.sendTaskCommentNotification = onCall(taskHandlers.sendTaskCommentNotification);

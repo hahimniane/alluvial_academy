@@ -111,6 +111,10 @@ class _ChatScreenState extends State<ChatScreen> {
   /// doc ID stored in chatUser.id.
   late final String _effectiveChatId;
 
+  /// The real (non-admin) user's ID in an admin support chat.
+  /// Used to distinguish user messages from other-admin messages.
+  String? _supportRealUserId;
+
   /// Convenience getter: returns the correct ID to pass to ChatService methods.
   String get _chatTargetId =>
       widget.isAdminSupportChat ? _effectiveChatId : widget.chatUser.id;
@@ -132,9 +136,20 @@ class _ChatScreenState extends State<ChatScreen> {
       final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
       final ids = [uid, ChatService.adminSupportId]..sort();
       _effectiveChatId = '${ids[0]}_${ids[1]}';
+      _supportRealUserId = uid;
     } else if (widget.isAdminSupportChat) {
       // Admin viewing a support conversation — chatUser.id is the doc ID
       _effectiveChatId = widget.chatUser.id;
+      // Extract the real user ID from the doc ID
+      // Format is either '{userId}_admin_support' or 'admin_support_{userId}'
+      final docId = widget.chatUser.id;
+      const adminId = ChatService.adminSupportId;
+      if (docId.startsWith('${adminId}_')) {
+        _supportRealUserId = docId.substring(adminId.length + 1);
+      } else if (docId.endsWith('_$adminId')) {
+        _supportRealUserId =
+            docId.substring(0, docId.length - adminId.length - 1);
+      }
     } else {
       _effectiveChatId = widget.chatUser.id;
     }
@@ -885,11 +900,18 @@ class _ChatScreenState extends State<ChatScreen> {
             final message = messages[index];
             final isCurrentUser =
                 message.senderId == _chatService.currentUserId;
+            // In admin support chats, messages from other admins
+            // should appear on the right with a distinct color
+            final isOtherAdmin = widget.isAdminSupportChat &&
+                !isCurrentUser &&
+                _supportRealUserId != null &&
+                message.senderId != _supportRealUserId;
 
             return MessageBubble(
               key: ValueKey(message.id),
               message: message,
               isCurrentUser: isCurrentUser,
+              isOtherAdmin: isOtherAdmin,
               currentUserId: _chatService.currentUserId,
               onReply: (message) => _setReplyMessage(message),
               onDelete: (message) => _deleteMessage(message),

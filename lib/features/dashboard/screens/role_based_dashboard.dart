@@ -36,9 +36,10 @@ class _RoleBasedDashboardState extends State<RoleBasedDashboard>
   Timer? _presenceTimer;
   DateTime? _lastPresenceUpdate;
   String? _presenceUserId;
-  StreamSubscription<DocumentSnapshot>? _userDocSubscription;
+  Timer? _userDocPollTimer;
   Timer? _userDocTimeout;
   bool _userRoleResolved = false;
+  bool _isPollingUserDocument = false;
 
   // Retry mechanism for loading user role
   int _roleLoadRetryCount = 0;
@@ -47,6 +48,7 @@ class _RoleBasedDashboardState extends State<RoleBasedDashboard>
 
   static const Duration _presenceInterval = Duration(minutes: 1);
   static const Duration _presenceMinInterval = Duration(seconds: 20);
+  static const Duration _userDocPollInterval = Duration(seconds: 1);
   static const Duration _userDocWaitTimeout = Duration(seconds: 30);
 
   @override
@@ -54,12 +56,12 @@ class _RoleBasedDashboardState extends State<RoleBasedDashboard>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _startPresenceTracking();
-    _subscribeToUserDocument();
+    _startUserDocumentResolution();
   }
 
   @override
   void dispose() {
-    _userDocSubscription?.cancel();
+    _userDocPollTimer?.cancel();
     _userDocTimeout?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     _stopPresenceTracking(setOffline: true);
@@ -120,74 +122,45 @@ class _RoleBasedDashboardState extends State<RoleBasedDashboard>
     }
   }
 
-  /// Real-time listener on users/{uid}. Resolves the auth-vs-database race: as soon as the
-  /// Cloud Function (or any backend) writes the user doc, we get the role and show the dashboard.
-  void _subscribeToUserDocument() {
+  /// Polls for the user document instead of using a Firestore snapshot stream.
+  ///
+  /// On Flutter web, canceling a just-created Firestore listener can hit a
+  /// cloud_firestore_web late-init bug. Polling avoids that listener lifecycle
+  /// path while still handling the auth-vs-database race during startup.
+  void _startUserDocumentResolution() {
     final User? currentUser = FirebaseAuth.instance.currentUser;
     if (currentUser == null) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           userRole = null;
           userData = null;
           isLoading = false;
         });
+      }
       return;
     }
 
     final String uid = currentUser.uid;
     UserRoleService.clearCache();
+    _userRoleResolved = false;
+    _isPollingUserDocument = false;
+    _userDocPollTimer?.cancel();
+    _userDocTimeout?.cancel();
 
     AppLogger.debug(
-        '=== RoleBasedDashboard: subscribing to users/$uid (real-time) ===');
+        '=== RoleBasedDashboard: polling for users/$uid during startup ===');
 
-    _userDocSubscription = FirebaseFirestore.instance
-        .collection('users')
-        .doc(uid)
-        .snapshots()
-        .listen(
-      (DocumentSnapshot snapshot) {
-        if (_userRoleResolved || !mounted) return;
-        if (!snapshot.exists) return;
-
-        final data = snapshot.data() as Map<String, dynamic>?;
-        if (data == null) return;
-
-        final userType = (data['user_type'] as String?)?.trim().toLowerCase() ??
-            (data['userType'] as String?)?.trim().toLowerCase();
-        if (userType == null || userType.isEmpty) return;
-
-        _userRoleResolved = true;
-        UserRoleService.setCachedUserDataForUid(uid, data);
-
-        UserRoleService.getCurrentUserRole().then((String? activeRole) {
-          if (!mounted || !_userRoleResolved) return;
-          _userDocTimeout?.cancel();
-          _userDocSubscription?.cancel();
-          setState(() {
-            userRole = activeRole ?? userType;
-            userData = data;
-            isLoading = false;
-          });
-          AppLogger.debug('Role loaded via listener: $userRole');
-        });
-      },
-      onError: (Object e) {
-        AppLogger.error('User document listener error: $e');
-        if (!mounted || _userRoleResolved) return;
-        _userDocTimeout?.cancel();
-        _userDocSubscription?.cancel();
-        setState(() {
-          error = e.toString();
-          isLoading = false;
-        });
-      },
+    _pollForUserDocument(uid);
+    _userDocPollTimer = Timer.periodic(
+      _userDocPollInterval,
+      (_) => _pollForUserDocument(uid),
     );
 
     _userDocTimeout = Timer(_userDocWaitTimeout, () {
       if (!mounted || _userRoleResolved) return;
       _userRoleResolved = true;
-      _userDocSubscription?.cancel();
-      _userDocSubscription = null;
+      _userDocPollTimer?.cancel();
+      _userDocPollTimer = null;
       AppLogger.debug(
           'RoleBasedDashboard: user doc not ready after ${_userDocWaitTimeout.inSeconds}s');
       setState(() {
@@ -198,7 +171,58 @@ class _RoleBasedDashboardState extends State<RoleBasedDashboard>
     });
   }
 
-  /// One-shot load (used by role switcher). Not used for initial load; initial load uses listener.
+  Future<void> _pollForUserDocument(String uid) async {
+    if (!mounted || _userRoleResolved || _isPollingUserDocument) return;
+
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null || currentUser.uid != uid) {
+      _userDocPollTimer?.cancel();
+      _userDocTimeout?.cancel();
+      if (!mounted) return;
+      setState(() {
+        userRole = null;
+        userData = null;
+        isLoading = false;
+      });
+      return;
+    }
+
+    _isPollingUserDocument = true;
+    try {
+      final data = await UserRoleService.getCurrentUserData();
+      if (!mounted || _userRoleResolved || data == null) return;
+
+      final userType = (data['user_type'] as String?)?.trim().toLowerCase() ??
+          (data['userType'] as String?)?.trim().toLowerCase();
+      if (userType == null || userType.isEmpty) return;
+
+      UserRoleService.setCachedUserDataForUid(uid, data);
+      final activeRole = await UserRoleService.getCurrentUserRole();
+      if (!mounted || _userRoleResolved) return;
+
+      _userRoleResolved = true;
+      _userDocPollTimer?.cancel();
+      _userDocPollTimer = null;
+      _userDocTimeout?.cancel();
+      _userDocTimeout = null;
+
+      setState(() {
+        userRole = activeRole ?? userType;
+        userData = data;
+        isLoading = false;
+        error = null;
+      });
+      AppLogger.debug('Role loaded via polling: $userRole');
+    } catch (e) {
+      if (!_userRoleResolved) {
+        AppLogger.error('User document polling error: $e');
+      }
+    } finally {
+      _isPollingUserDocument = false;
+    }
+  }
+
+  /// One-shot load (used by role switcher). Initial dashboard load uses polling.
   Future<void> _loadUserRole({bool isRetry = false}) async {
     try {
       AppLogger.debug(
@@ -328,7 +352,8 @@ class _RoleBasedDashboardState extends State<RoleBasedDashboard>
           onRoleChanged: _onRoleChanged,
         );
       case 'circle_member':
-        AppLogger.debug('=== Returning MobileDashboardScreen for circle_member on web ===');
+        AppLogger.debug(
+            '=== Returning MobileDashboardScreen for circle_member on web ===');
         return const MobileDashboardScreen();
       default:
         AppLogger.debug('=== Returning UnknownRoleScreen ===');

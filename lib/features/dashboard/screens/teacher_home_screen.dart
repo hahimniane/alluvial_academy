@@ -30,6 +30,8 @@ import '../../assignments/screens/teacher_assignments_screen.dart';
 import '../../recordings/screens/class_recordings_screen.dart';
 import '../../surah_podcast/screens/surah_podcast_screen.dart';
 import '../screens/admin_dashboard_screen.dart';
+import '../../audit/models/teacher_audit_full.dart';
+import '../../audit/screens/teacher_audit_detail_screen.dart';
 import 'package:alluwalacademyadmin/features/shift_management/models/teaching_shift.dart';
 import 'package:alluwalacademyadmin/features/shift_management/enums/shift_enums.dart';
 import 'package:alluwalacademyadmin/features/tasks/enums/task_enums.dart';
@@ -47,6 +49,8 @@ import '../../forms/widgets/form_details_modal.dart';
 import '../widgets/pending_form_button.dart';
 import '../widgets/date_strip_calendar.dart';
 import '../widgets/timeline_shift_card.dart';
+import '../services/teacher_dashboard_metrics_service.dart';
+import '../../audit/services/teacher_audit_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class TeacherHomeScreen extends StatefulWidget {
@@ -87,6 +91,8 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
   int _pendingFormsCount = 0;
   List<Map<String, dynamic>> _pendingFormShifts =
       []; // List of shifts needing forms
+  TeacherDashboardMonthSnapshot? _monthlySnapshot;
+  bool _auditDecisionBusy = false;
 
   // Real-time stream subscriptions
   StreamSubscription? _shiftsSubscription;
@@ -151,6 +157,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
           _upcomingShifts =
               futureShifts; // Keep all for potential future use, but display only first
         });
+        unawaited(_loadMonthlySnapshot(shifts: shifts));
         debugPrint('🔄 Home: Shifts updated via stream');
       },
       onError: (e) {
@@ -171,6 +178,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
       // Reload stats when timesheets change
       debugPrint('🔄 Home: Timesheets updated - reloading stats');
       _loadStats(user.uid);
+      unawaited(_loadMonthlySnapshot());
     }, onError: (e) {
       debugPrint('❌ Home: Timesheet stream error: $e');
     });
@@ -287,6 +295,11 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
         // Load pending forms count
         await _loadPendingFormsCount(user.uid);
 
+        final monthlySnapshot =
+            await TeacherDashboardMetricsService.loadCurrentSnapshot(
+          shifts: allShifts,
+        );
+
         if (mounted) {
           setState(() {
             _activeShift = active;
@@ -296,6 +309,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
             futureShifts.sort((a, b) => a.shiftStart.compareTo(b.shiftStart));
             _upcomingShifts = futureShifts; // All upcoming, sorted by time
             _filterShiftsForDate(_selectedDate); // This filters out past shifts
+            _monthlySnapshot = monthlySnapshot;
             _isLoading = false;
           });
           debugPrint(
@@ -550,6 +564,174 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
     }
   }
 
+  Future<void> _loadMonthlySnapshot({List<TeachingShift>? shifts}) async {
+    try {
+      final snapshot = await TeacherDashboardMetricsService.loadCurrentSnapshot(
+        shifts: shifts ?? _allShifts,
+      );
+      if (!mounted) return;
+      setState(() {
+        _monthlySnapshot = snapshot;
+      });
+    } catch (e) {
+      debugPrint('Error loading monthly dashboard snapshot: $e');
+    }
+  }
+
+  Future<void> _openAuditReport(TeacherAuditFull audit) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) =>
+            TeacherAuditDetailScreen(yearMonth: audit.yearMonth),
+      ),
+    );
+    await _loadMonthlySnapshot();
+  }
+
+  Future<void> _approveAudit(TeacherAuditFull audit) async {
+    if (_auditDecisionBusy) return;
+    setState(() => _auditDecisionBusy = true);
+    final ok = await TeacherAuditService.submitTeacherReview(
+      auditId: audit.id,
+      approved: true,
+      notes: 'Approved from teacher dashboard',
+    );
+    if (mounted) {
+      setState(() => _auditDecisionBusy = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            ok
+                ? 'Audit approved. Leaders have been notified.'
+                : 'Could not approve the audit right now.',
+          ),
+          backgroundColor:
+              ok ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+        ),
+      );
+    }
+    if (ok) {
+      await _loadMonthlySnapshot();
+    }
+  }
+
+  Future<void> _showAuditDisputeDialog(TeacherAuditFull audit) async {
+    final reasonController = TextEditingController();
+    final suggestedController = TextEditingController();
+    bool isSubmitting = false;
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              title: Text(
+                'Disapprove Audit',
+                style: GoogleFonts.inter(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 18,
+                ),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: reasonController,
+                    maxLines: 4,
+                    decoration: const InputDecoration(
+                      labelText: 'Why are you disputing this result?',
+                      hintText: 'Share what looks incorrect in the evaluation.',
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: suggestedController,
+                    decoration: const InputDecoration(
+                      labelText: 'Correct value (optional)',
+                      hintText:
+                          'Example: 18 hours, 2 absences, 1 late clock-in',
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isSubmitting
+                      ? null
+                      : () => Navigator.of(dialogContext).pop(),
+                  child: Text(AppLocalizations.of(context)!.commonCancel),
+                ),
+                FilledButton(
+                  onPressed: isSubmitting
+                      ? null
+                      : () async {
+                          final reason = reasonController.text.trim();
+                          final suggestedValue =
+                              suggestedController.text.trim();
+                          if (reason.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Please enter a reason first.'),
+                                backgroundColor: Color(0xFFEF4444),
+                              ),
+                            );
+                            return;
+                          }
+
+                          setDialogState(() => isSubmitting = true);
+                          final ok =
+                              await TeacherAuditService.submitTeacherReview(
+                            auditId: audit.id,
+                            approved: false,
+                            notes: reason,
+                            suggestedValue:
+                                suggestedValue.isEmpty ? null : suggestedValue,
+                          );
+                          if (!context.mounted) return;
+                          Navigator.of(dialogContext).pop();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                ok
+                                    ? 'Audit dispute submitted. Leaders have been notified.'
+                                    : 'Could not submit the audit dispute right now.',
+                              ),
+                              backgroundColor: ok
+                                  ? const Color(0xFF10B981)
+                                  : const Color(0xFFEF4444),
+                            ),
+                          );
+                          if (ok) {
+                            await _loadMonthlySnapshot();
+                          }
+                        },
+                  child: isSubmitting
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : Text(AppLocalizations.of(context)!.reject),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    reasonController.dispose();
+    suggestedController.dispose();
+  }
+
   Future<void> _launchURL(String url) async {
     try {
       debugPrint('🌐 Attempting to open URL: $url');
@@ -631,6 +813,13 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: _buildCompactEarningsCard(),
             ),
+            if (_monthlySnapshot != null) ...[
+              const SizedBox(height: 16),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: _buildMonthlyPerformanceSection(),
+              ),
+            ],
             const SizedBox(height: 16),
             if (_pendingFormsCount > 0) ...[
               Padding(
@@ -746,8 +935,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               IconButton(
-                icon: const Icon(Icons.podcasts,
-                    color: Colors.white, size: 24),
+                icon: const Icon(Icons.podcasts, color: Colors.white, size: 24),
                 onPressed: () {
                   Navigator.push(
                     context,
@@ -943,6 +1131,428 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
         ],
       ),
     );
+  }
+
+  Widget _buildMonthlyPerformanceSection() {
+    final snapshot = _monthlySnapshot;
+    if (snapshot == null) return const SizedBox.shrink();
+
+    final audit = snapshot.latestVisibleAudit;
+    final monthLabel = DateFormat('MMMM yyyy').format(snapshot.monthStart);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              'Monthly Performance',
+              style: GoogleFonts.inter(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFF1E293B),
+              ),
+            ),
+            const Spacer(),
+            Text(
+              monthLabel,
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF64748B),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildMonthlyMetricCard(
+                      icon: Icons.schedule_rounded,
+                      label: 'Hours taught',
+                      value: '${snapshot.hoursTaught.toStringAsFixed(1)} h',
+                      accent: const Color(0xFF0EA5E9),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildMonthlyMetricCard(
+                      icon: Icons.description_outlined,
+                      label: 'Submitted forms',
+                      value: '${snapshot.submittedForms}',
+                      accent: const Color(0xFF10B981),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildMonthlyMetricCard(
+                      icon: Icons.timer_off_outlined,
+                      label: 'Total lateness',
+                      value: '${snapshot.lateClockIns}',
+                      accent: const Color(0xFFF59E0B),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildMonthlyMetricCard(
+                      icon: Icons.event_busy_outlined,
+                      label: 'Total absences',
+                      value: '${snapshot.absences}',
+                      accent: const Color(0xFFEF4444),
+                      helperText: snapshot.excusedAbsences > 0
+                          ? '${snapshot.excusedAbsences} excused'
+                          : null,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              if (audit != null)
+                _buildAuditReviewCard(audit)
+              else
+                _buildNoAuditCard(),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMonthlyMetricCard({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color accent,
+    String? helperText,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: accent.withOpacity(0.06),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: accent.withOpacity(0.14)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: accent.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: accent, size: 18),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            value,
+            style: GoogleFonts.inter(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: const Color(0xFF0F172A),
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: const Color(0xFF475569),
+            ),
+          ),
+          if (helperText != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              helperText,
+              style: GoogleFonts.inter(
+                fontSize: 11,
+                color: const Color(0xFF64748B),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAuditReviewCard(TeacherAuditFull audit) {
+    final hasTeacherResponse = TeacherAuditService.hasTeacherResponded(audit);
+    final approvedByTeacher = TeacherAuditService.didTeacherApprove(audit);
+    final rejectedByTeacher = TeacherAuditService.didTeacherDisapprove(audit);
+    final responseAt = TeacherAuditService.teacherRespondedAt(audit);
+    final statusColor = rejectedByTeacher
+        ? const Color(0xFFEF4444)
+        : approvedByTeacher
+            ? const Color(0xFF10B981)
+            : const Color(0xFF0386FF);
+    final statusLabel = rejectedByTeacher
+        ? 'Disputed'
+        : approvedByTeacher
+            ? 'Approved by you'
+            : 'Review required';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            statusColor.withOpacity(0.12),
+            Colors.white,
+          ],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: statusColor.withOpacity(0.18)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Audit Evaluation Result',
+                      style: GoogleFonts.inter(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF0F172A),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      DateFormat('MMMM yyyy')
+                          .format(DateTime.parse('${audit.yearMonth}-01')),
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        color: const Color(0xFF64748B),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: statusColor,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  statusLabel,
+                  style: GoogleFonts.inter(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: _buildAuditMiniMetric(
+                  label: 'Overall score',
+                  value: '${audit.overallScore.toStringAsFixed(0)}%',
+                ),
+              ),
+              Expanded(
+                child: _buildAuditMiniMetric(
+                  label: 'Tier',
+                  value: audit.performanceTier,
+                ),
+              ),
+              Expanded(
+                child: _buildAuditMiniMetric(
+                  label: 'Audit status',
+                  value: _humanizeAuditStatus(audit.status),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          if (hasTeacherResponse && responseAt != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Text(
+                approvedByTeacher
+                    ? 'You approved this result on ${DateFormat.yMMMd().add_jm().format(responseAt)}.'
+                    : 'You disputed this result on ${DateFormat.yMMMd().add_jm().format(responseAt)}. Leaders have been notified.',
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  color: statusColor,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Text(
+                'Please approve or dispute this evaluation after reviewing the result.',
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  color: const Color(0xFF475569),
+                ),
+              ),
+            ),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => _openAuditReport(audit),
+                  icon: const Icon(Icons.open_in_new, size: 18),
+                  label: const Text('Open report'),
+                ),
+              ),
+              if (!hasTeacherResponse) ...[
+                const SizedBox(width: 10),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _auditDecisionBusy
+                        ? null
+                        : () => _showAuditDisputeDialog(audit),
+                    icon: const Icon(Icons.flag_outlined, size: 18),
+                    label: Text(AppLocalizations.of(context)!.reject),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFFEF4444),
+                      side: const BorderSide(color: Color(0xFFEF4444)),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed:
+                        _auditDecisionBusy ? null : () => _approveAudit(audit),
+                    icon: _auditDecisionBusy
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(Icons.check_circle_outline, size: 18),
+                    label: Text(AppLocalizations.of(context)!.approve),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAuditMiniMetric({
+    required String label,
+    required String value,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          value,
+          style: GoogleFonts.inter(
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            color: const Color(0xFF0F172A),
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          style: GoogleFonts.inter(
+            fontSize: 11,
+            color: const Color(0xFF64748B),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildNoAuditCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Audit Evaluation Result',
+            style: GoogleFonts.inter(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: const Color(0xFF0F172A),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'No teacher audit result is available to review yet.',
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              color: const Color(0xFF64748B),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _humanizeAuditStatus(AuditStatus status) {
+    switch (status) {
+      case AuditStatus.coachSubmitted:
+        return 'Coach submitted';
+      case AuditStatus.ceoApproved:
+        return 'CEO approved';
+      case AuditStatus.completed:
+        return 'Completed';
+      case AuditStatus.disputed:
+        return 'Disputed';
+      case AuditStatus.pending:
+        return 'Pending';
+      case AuditStatus.coachReview:
+        return 'Coach review';
+      case AuditStatus.ceoReview:
+        return 'CEO review';
+      case AuditStatus.founderReview:
+        return 'Founder review';
+    }
   }
 
   Widget _buildCompactEarningItem(String label, double amount) {

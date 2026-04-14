@@ -1033,7 +1033,48 @@ class _MobileSettingsScreenState extends State<MobileSettingsScreen> {
             ),
             
             const SizedBox(height: 24),
-            
+
+            // Account Security Section
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Text(
+                      'ACCOUNT SECURITY',
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xff6B7280),
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
+                  _buildSettingsTile(
+                    icon: Icons.lock_outline_rounded,
+                    title: 'Change Password',
+                    subtitle: 'Update your account password',
+                    onTap: () => _showChangePasswordDialog(context),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
             // App Settings Section
             Container(
               margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -1265,6 +1306,200 @@ class _MobileSettingsScreenState extends State<MobileSettingsScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  void _showChangePasswordDialog(BuildContext context) {
+    final currentPwController = TextEditingController();
+    final newPwController = TextEditingController();
+    final confirmPwController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    bool obscureCurrent = true;
+    bool obscureNew = true;
+    bool obscureConfirm = true;
+    bool saving = false;
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              title: Text(
+                'Change Password',
+                style: GoogleFonts.inter(
+                    fontWeight: FontWeight.w700, fontSize: 20),
+              ),
+              content: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextFormField(
+                      controller: currentPwController,
+                      obscureText: obscureCurrent,
+                      decoration: InputDecoration(
+                        labelText: 'Current Password',
+                        prefixIcon: const Icon(Icons.lock_outline),
+                        suffixIcon: IconButton(
+                          icon: Icon(obscureCurrent
+                              ? Icons.visibility_off
+                              : Icons.visibility),
+                          onPressed: () => setDialogState(
+                              () => obscureCurrent = !obscureCurrent),
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      validator: (v) => v == null || v.isEmpty
+                          ? 'Enter your current password'
+                          : null,
+                    ),
+                    const SizedBox(height: 14),
+                    TextFormField(
+                      controller: newPwController,
+                      obscureText: obscureNew,
+                      decoration: InputDecoration(
+                        labelText: 'New Password',
+                        prefixIcon: const Icon(Icons.lock_rounded),
+                        suffixIcon: IconButton(
+                          icon: Icon(obscureNew
+                              ? Icons.visibility_off
+                              : Icons.visibility),
+                          onPressed: () => setDialogState(
+                              () => obscureNew = !obscureNew),
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      validator: (v) {
+                        if (v == null || v.isEmpty) {
+                          return 'Enter a new password';
+                        }
+                        if (v.length < 6) {
+                          return 'Password must be at least 6 characters';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 14),
+                    TextFormField(
+                      controller: confirmPwController,
+                      obscureText: obscureConfirm,
+                      decoration: InputDecoration(
+                        labelText: 'Confirm New Password',
+                        prefixIcon: const Icon(Icons.lock_rounded),
+                        suffixIcon: IconButton(
+                          icon: Icon(obscureConfirm
+                              ? Icons.visibility_off
+                              : Icons.visibility),
+                          onPressed: () => setDialogState(
+                              () => obscureConfirm = !obscureConfirm),
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      validator: (v) {
+                        if (v != newPwController.text) {
+                          return 'Passwords do not match';
+                        }
+                        return null;
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: Text('Cancel',
+                      style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+                ),
+                ElevatedButton(
+                  onPressed: saving
+                      ? null
+                      : () async {
+                          if (!formKey.currentState!.validate()) return;
+                          setDialogState(() => saving = true);
+                          try {
+                            final user =
+                                FirebaseAuth.instance.currentUser!;
+                            final credential =
+                                EmailAuthProvider.credential(
+                              email: user.email!,
+                              password: currentPwController.text,
+                            );
+                            await user.reauthenticateWithCredential(
+                                credential);
+                            await user.updatePassword(
+                                newPwController.text);
+                            if (ctx.mounted) Navigator.pop(ctx);
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'Password changed successfully.',
+                                    style: GoogleFonts.inter(
+                                        fontWeight: FontWeight.w600),
+                                  ),
+                                  backgroundColor:
+                                      const Color(0xff10B981),
+                                ),
+                              );
+                            }
+                          } on FirebaseAuthException catch (e) {
+                            setDialogState(() => saving = false);
+                            final msg = e.code == 'wrong-password'
+                                ? 'Current password is incorrect.'
+                                : e.code == 'weak-password'
+                                    ? 'New password is too weak.'
+                                    : 'Failed to change password.';
+                            if (ctx.mounted) {
+                              ScaffoldMessenger.of(ctx).showSnackBar(
+                                SnackBar(
+                                  content: Text(msg,
+                                      style: GoogleFonts.inter(
+                                          fontWeight: FontWeight.w600)),
+                                  backgroundColor:
+                                      const Color(0xffEF4444),
+                                ),
+                              );
+                            }
+                          } catch (_) {
+                            setDialogState(() => saving = false);
+                          }
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xff0386FF),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: saving
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : Text('Update Password',
+                          style: GoogleFonts.inter(
+                              fontWeight: FontWeight.w600)),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 

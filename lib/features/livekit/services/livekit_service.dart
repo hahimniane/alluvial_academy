@@ -23,6 +23,8 @@ import 'package:alluwalacademyadmin/core/utils/environment_utils.dart';
 import 'package:alluwalacademyadmin/core/utils/picture_in_picture.dart'
     if (dart.library.io) 'package:alluwalacademyadmin/core/utils/picture_in_picture_stub.dart'
     as pip;
+import 'package:alluwalacademyadmin/core/utils/web_runtime_info.dart'
+    as web_runtime;
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 /// LiveKit join token response from Cloud Functions
@@ -1048,6 +1050,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen>
     final connectedFor = _connectedAt == null
         ? 'not_connected'
         : DateTime.now().difference(_connectedAt!).inSeconds.toString();
+    final webRuntime = kIsWeb ? web_runtime.buildRuntimeDiagnostic() : '';
 
     return [
       'shiftId=${widget.shiftId}',
@@ -1065,6 +1068,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen>
       'localIdentity=$localIdentity',
       'remoteParticipantCount=$remoteParticipantCount',
       'connectedForSeconds=$connectedFor',
+      if (webRuntime.isNotEmpty) 'web=$webRuntime',
       if (extra != null && extra.isNotEmpty) 'extra=$extra',
     ].join(' ');
   }

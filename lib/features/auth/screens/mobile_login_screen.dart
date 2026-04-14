@@ -52,6 +52,148 @@ class _MobileLoginScreenState extends State<MobileLoginScreen> with SingleTicker
     super.dispose();
   }
 
+  void _showForgotPasswordDialog(BuildContext context) {
+    final emailController = TextEditingController(
+      text: _emailController.text.trim(),
+    );
+    final formKey = GlobalKey<FormState>();
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        bool sending = false;
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            final l10n = AppLocalizations.of(ctx)!;
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              title: Text(
+                l10n.forgotPassword,
+                style: GoogleFonts.inter(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 20,
+                ),
+              ),
+              content: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Enter your email and we\'ll send you a link to reset your password.',
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        color: const Color(0xff6B7280),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: emailController,
+                      keyboardType: TextInputType.emailAddress,
+                      decoration: InputDecoration(
+                        labelText: l10n.loginEmail,
+                        prefixIcon: const Icon(Icons.email_outlined),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return l10n.loginFieldRequired;
+                        }
+                        if (!value.contains('@')) {
+                          return l10n.loginInvalidEmail;
+                        }
+                        return null;
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: Text(
+                    l10n.commonCancel,
+                    style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: sending
+                      ? null
+                      : () async {
+                          if (!formKey.currentState!.validate()) return;
+                          setDialogState(() => sending = true);
+                          try {
+                            await FirebaseAuth.instance
+                                .sendPasswordResetEmail(
+                              email: emailController.text.trim(),
+                            );
+                            if (ctx.mounted) Navigator.pop(ctx);
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'Password reset email sent. Check your inbox.',
+                                    style: GoogleFonts.inter(
+                                        fontWeight: FontWeight.w600),
+                                  ),
+                                  backgroundColor: const Color(0xff10B981),
+                                ),
+                              );
+                            }
+                          } on FirebaseAuthException catch (e) {
+                            setDialogState(() => sending = false);
+                            final msg = e.code == 'user-not-found'
+                                ? 'No account found with this email.'
+                                : 'Failed to send reset email. Try again.';
+                            if (ctx.mounted) {
+                              ScaffoldMessenger.of(ctx).showSnackBar(
+                                SnackBar(
+                                  content: Text(msg,
+                                      style: GoogleFonts.inter(
+                                          fontWeight: FontWeight.w600)),
+                                  backgroundColor: const Color(0xffEF4444),
+                                ),
+                              );
+                            }
+                          } catch (_) {
+                            setDialogState(() => sending = false);
+                          }
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xff0386FF),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: sending
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : Text(
+                          'Send Reset Link',
+                          style:
+                              GoogleFonts.inter(fontWeight: FontWeight.w600),
+                        ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   Future<void> _handleSignIn() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -412,7 +554,33 @@ class _MobileLoginScreenState extends State<MobileLoginScreen> with SingleTicker
                                 return null;
                               },
                             ),
-                            const SizedBox(height: 14),
+                            const SizedBox(height: 8),
+
+                            // Forgot Password Link
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: TextButton(
+                                onPressed: _isLoading
+                                    ? null
+                                    : () => _showForgotPasswordDialog(context),
+                                style: TextButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 4, vertical: 2),
+                                  minimumSize: Size.zero,
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                ),
+                                child: Text(
+                                  l10n.forgotPassword,
+                                  style: GoogleFonts.inter(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: const Color(0xff0386FF),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
 
                             // Sign In Button
                             SizedBox(

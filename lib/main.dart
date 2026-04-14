@@ -48,8 +48,8 @@ import 'features/livekit/screens/guest_join_screen.dart';
 // const String _firebaseEnv =
 //     String.fromEnvironment('FIREBASE_ENV', defaultValue: '');
 
-    const String _firebaseEnv = 'prod'; // change to 'dev' to switch projects and prod to run the production project
-
+const String _firebaseEnv =
+    'prod'; // change to 'dev' to switch projects and prod to run the production project
 
 bool get _useProdFirebase {
   final env = _firebaseEnv.trim().toLowerCase();
@@ -73,7 +73,8 @@ bool get _isMobileWebPlatform {
       defaultTargetPlatform == TargetPlatform.iOS;
 }
 
-bool get _isMobileLikePlatform => _isNativeMobilePlatform || _isMobileWebPlatform;
+bool get _isMobileLikePlatform =>
+    _isNativeMobilePlatform || _isMobileWebPlatform;
 
 bool _isMobileLayout(BuildContext context) {
   if (_isMobileLikePlatform) return true;
@@ -199,9 +200,12 @@ Future<void> main() async {
   // Firestore web SDK stability:
   // Disable IndexedDB persistence on web to avoid rare internal assertion crashes
   // that can occur due to corrupted browser cache/state or multi-tab contention.
+  // Also allow the SDK to fall back to long-polling on restrictive networks
+  // where WebChannel streaming can become unstable.
   if (kIsWeb) {
     FirebaseFirestore.instance.settings = const Settings(
       persistenceEnabled: false,
+      webExperimentalAutoDetectLongPolling: true,
     );
   }
 
@@ -290,7 +294,8 @@ Future<void> main() async {
 
   // Catch async errors not handled by Flutter framework
   PlatformDispatcher.instance.onError = (error, stack) {
-    ErrorReportingService.reportError(error, stack, context: 'platform_async', fatal: true);
+    ErrorReportingService.reportError(error, stack,
+        context: 'platform_async', fatal: true);
     if (!kIsWeb) {
       FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
     }
@@ -299,7 +304,8 @@ Future<void> main() async {
 
   // Initialize Crashlytics on native platforms
   if (!kIsWeb) {
-    await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(kReleaseMode);
+    await FirebaseCrashlytics.instance
+        .setCrashlyticsCollectionEnabled(kReleaseMode);
   }
 
   // Use runWidget for web multiview compatibility
@@ -381,7 +387,8 @@ class MyApp extends StatelessWidget {
 
     // NATIVE MOBILE (iOS/Android) - Always go to AuthenticationWrapper
     if (!kIsWeb) {
-      AppLogger.debug('=== Native platform detected (${Platform.operatingSystem}) - going to AuthenticationWrapper ===');
+      AppLogger.debug(
+          '=== Native platform detected (${Platform.operatingSystem}) - going to AuthenticationWrapper ===');
       return const AuthenticationWrapper();
     }
 
@@ -392,7 +399,8 @@ class MyApp extends StatelessWidget {
     }
 
     if (JoinLinkService.hasPendingJoin) {
-      AppLogger.debug('=== Join link detected: routing to AuthenticationWrapper ===');
+      AppLogger.debug(
+          '=== Join link detected: routing to AuthenticationWrapper ===');
       return const AuthenticationWrapper();
     }
 
@@ -413,9 +421,11 @@ class MyApp extends StatelessWidget {
       builder: (context, themeService, languageService, child) {
         final previewLocale = DevicePreview.locale(context);
         // Ensure we always have a valid supported locale
-        final appLocale = languageService.locale ?? 
-            (previewLocale != null && LanguageService.supportedLocales.any((l) => l.languageCode == previewLocale.languageCode) 
-                ? previewLocale 
+        final appLocale = languageService.locale ??
+            (previewLocale != null &&
+                    LanguageService.supportedLocales.any(
+                        (l) => l.languageCode == previewLocale.languageCode)
+                ? previewLocale
                 : const Locale('en'));
         return MaterialApp(
           // Navigator key for notification navigation
@@ -454,8 +464,9 @@ class MyApp extends StatelessWidget {
             // "A _RenderLayoutBuilder was mutated in performLayout" when overlays
             // activate during a parent LayoutBuilder layout pass.
             final label = _useProdFirebase ? 'PROD' : 'DEV';
-            final color =
-                _useProdFirebase ? const Color(0xFFDC2626) : const Color(0xFF16A34A);
+            final color = _useProdFirebase
+                ? const Color(0xFFDC2626)
+                : const Color(0xFF16A34A);
 
             return Stack(
               clipBehavior: Clip.none,
@@ -612,7 +623,8 @@ class _FirebaseInitializerState extends State<FirebaseInitializer> {
               ),
               const SizedBox(height: 8),
               Text(
-                AppLocalizations.of(context)!.pleaseCheckYourInternetConnectionAnd,
+                AppLocalizations.of(context)!
+                    .pleaseCheckYourInternetConnectionAnd,
                 style: GoogleFonts.inter(
                   fontSize: 14,
                   color: const Color(0xff6B7280),
@@ -752,7 +764,8 @@ class _AuthenticationWrapperState extends State<AuthenticationWrapper> {
       if (shift == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(AppLocalizations.of(context)!.thisClassLinkIsNoLonger),
+            content:
+                Text(AppLocalizations.of(context)!.thisClassLinkIsNoLonger),
             backgroundColor: Colors.red,
           ),
         );
@@ -842,7 +855,9 @@ class _AuthenticationWrapperState extends State<AuthenticationWrapper> {
         // Handle errors gracefully during auth state changes
         if (snapshot.hasError) {
           AppLogger.error('Auth state error: ${snapshot.error}');
-          return _isMobile(context) ? const MobileLoginScreen() : const EmployeeHubApp();
+          return _isMobile(context)
+              ? const MobileLoginScreen()
+              : const EmployeeHubApp();
         }
         // Handle connection states properly
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -947,7 +962,9 @@ class _AuthenticationWrapperState extends State<AuthenticationWrapper> {
 
         // Not signed in — clear user context
         ErrorReportingService.clearUser();
-        return _isMobile(context) ? const MobileLoginScreen() : const EmployeeHubApp();
+        return _isMobile(context)
+            ? const MobileLoginScreen()
+            : const EmployeeHubApp();
       },
     );
   }
@@ -1419,7 +1436,8 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
                         color: const Color(0xff111827),
                       ),
                       decoration: InputDecoration(
-                        hintText: AppLocalizations.of(context)!.loginEnterPassword,
+                        hintText:
+                            AppLocalizations.of(context)!.loginEnterPassword,
                         hintStyle: GoogleFonts.inter(
                           color: const Color(0xff9CA3AF),
                           fontSize: 16,
@@ -1436,7 +1454,9 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
                               _obscurePassword = !_obscurePassword;
                             });
                           },
-                          tooltip: _obscurePassword ? 'Show password' : 'Hide password',
+                          tooltip: _obscurePassword
+                              ? 'Show password'
+                              : 'Hide password',
                         ),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),

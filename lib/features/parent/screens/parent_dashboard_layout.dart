@@ -14,6 +14,7 @@ import 'payment_history_screen.dart';
 import 'parent_profile_screen.dart';
 import 'parent_classes_screen.dart';
 import '../../recordings/screens/class_recordings_screen.dart';
+import '../../curriculum/screens/curriculum_books_screen.dart';
 import '../../settings/screens/role_settings_screen.dart';
 import '../../tontine/screens/tontine_home_screen.dart';
 import 'package:alluwalacademyadmin/core/widgets/role_switcher.dart';
@@ -34,7 +35,7 @@ class _ParentDashboardLayoutState extends State<ParentDashboardLayout> {
   int _selectedIndex = 0;
   String? _userRole;
   static const int _screenCount =
-      9; // Dashboard, Invoices, Payments, Forms, Profile, Settings, Classes, Recordings, Circles
+      10; // Dashboard, Invoices, Payments, Forms, Profile, Settings, Classes, Recordings, Circles, Curriculum Books
 
   @override
   void initState() {
@@ -103,6 +104,8 @@ class _ParentDashboardLayoutState extends State<ParentDashboardLayout> {
         return const ClassRecordingsScreen();
       case 8:
         return const TontineHomeScreen();
+      case 9:
+        return const CurriculumBooksScreen();
       default:
         return const _AccessDeniedScreen();
     }

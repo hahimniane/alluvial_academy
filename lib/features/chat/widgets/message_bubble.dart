@@ -16,6 +16,7 @@ import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 class MessageBubble extends StatefulWidget {
   final ChatMessage message;
   final bool isCurrentUser;
+  final bool isOtherAdmin;
   final String? currentUserId;
   final Function(ChatMessage)? onReply;
   final Function(ChatMessage)? onDelete;
@@ -28,6 +29,7 @@ class MessageBubble extends StatefulWidget {
     super.key,
     required this.message,
     required this.isCurrentUser,
+    this.isOtherAdmin = false,
     this.currentUserId,
     this.onReply,
     this.onDelete,
@@ -58,34 +60,44 @@ class _MessageBubbleState extends State<MessageBubble> {
       return _buildSystemMessage();
     }
 
+    // Other admin messages align right (like current user) but with a distinct color
+    final bool alignRight = widget.isCurrentUser || widget.isOtherAdmin;
+
+    // Blue for current user, teal for other admin, white for regular user
+    final Color bubbleColor = widget.isCurrentUser
+        ? const Color(0xff0386FF)
+        : widget.isOtherAdmin
+            ? const Color(0xff0F766E)
+            : Colors.white;
+
     return GestureDetector(
       onLongPress: () => _showMessageMenu(context),
       child: Container(
         margin: EdgeInsets.only(
           top: 4,
           bottom: 4,
-          left: widget.isCurrentUser ? 48 : 12,
-          right: widget.isCurrentUser ? 12 : 48,
+          left: alignRight ? 48 : 12,
+          right: alignRight ? 12 : 48,
         ),
         child: Row(
-          mainAxisAlignment: widget.isCurrentUser
+          mainAxisAlignment: alignRight
               ? MainAxisAlignment.end
               : MainAxisAlignment.start,
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             // Profile picture for received messages
-            if (!widget.isCurrentUser) ...[
+            if (!alignRight) ...[
               _buildAvatar(),
               const SizedBox(width: 8),
             ],
 
             Flexible(
               child: Column(
-                crossAxisAlignment: widget.isCurrentUser
+                crossAxisAlignment: alignRight
                     ? CrossAxisAlignment.end
                     : CrossAxisAlignment.start,
                 children: [
-                  // Sender name (only for received messages)
+                  // Sender name (for received messages and other admin messages)
                   if (!widget.isCurrentUser &&
                       widget.message.senderName.isNotEmpty)
                     Padding(
@@ -95,7 +107,9 @@ class _MessageBubbleState extends State<MessageBubble> {
                         style: GoogleFonts.inter(
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
-                          color: const Color(0xff0386FF),
+                          color: widget.isOtherAdmin
+                              ? const Color(0xff0F766E)
+                              : const Color(0xff0386FF),
                         ),
                       ),
                     ),
@@ -112,16 +126,14 @@ class _MessageBubbleState extends State<MessageBubble> {
                       maxWidth: MediaQuery.of(context).size.width * 0.7,
                     ),
                     decoration: BoxDecoration(
-                      color: widget.isCurrentUser
-                          ? const Color(0xff0386FF)
-                          : Colors.white,
+                      color: bubbleColor,
                       borderRadius: BorderRadius.only(
                         topLeft: const Radius.circular(20),
                         topRight: const Radius.circular(20),
                         bottomLeft:
-                            Radius.circular(widget.isCurrentUser ? 20 : 4),
+                            Radius.circular(alignRight ? 20 : 4),
                         bottomRight:
-                            Radius.circular(widget.isCurrentUser ? 4 : 20),
+                            Radius.circular(alignRight ? 4 : 20),
                       ),
                       boxShadow: [
                         BoxShadow(
@@ -336,7 +348,7 @@ class _MessageBubbleState extends State<MessageBubble> {
         text,
         style: GoogleFonts.inter(
           fontSize: 15,
-          color: widget.isCurrentUser ? Colors.white : const Color(0xff2D3748),
+          color: (widget.isCurrentUser || widget.isOtherAdmin) ? Colors.white : const Color(0xff2D3748),
           height: 1.4,
         ),
       );
@@ -369,7 +381,7 @@ class _MessageBubbleState extends State<MessageBubble> {
       text: TextSpan(
         style: GoogleFonts.inter(
           fontSize: 15,
-          color: widget.isCurrentUser ? Colors.white : const Color(0xff2D3748),
+          color: (widget.isCurrentUser || widget.isOtherAdmin) ? Colors.white : const Color(0xff2D3748),
           height: 1.4,
         ),
         children: spans,
@@ -512,12 +524,13 @@ class _MessageBubbleState extends State<MessageBubble> {
     final coordinateText = canOpenMap
         ? '${latitude.toStringAsFixed(5)}, ${longitude.toStringAsFixed(5)}'
         : null;
-    final accentColor = widget.isCurrentUser
+    final bool isDarkBubble = widget.isCurrentUser || widget.isOtherAdmin;
+    final accentColor = isDarkBubble
         ? const Color(0xFF7DD3FC)
         : const Color(0xFF0891B2);
     final primaryTextColor =
-        widget.isCurrentUser ? Colors.white : const Color(0xFF111827);
-    final secondaryTextColor = widget.isCurrentUser
+        isDarkBubble ? Colors.white : const Color(0xFF111827);
+    final secondaryTextColor = isDarkBubble
         ? Colors.white.withValues(alpha: 0.78)
         : const Color(0xFF6B7280);
 

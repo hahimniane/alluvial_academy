@@ -52,6 +52,7 @@ import 'package:alluwalacademyadmin/features/recordings/screens/class_recordings
 import 'package:alluwalacademyadmin/features/surah_podcast/screens/surah_podcast_screen.dart';
 import 'package:alluwalacademyadmin/features/tontine/screens/admin_circles_screen.dart';
 import 'package:alluwalacademyadmin/features/tontine/screens/tontine_home_screen.dart';
+import 'package:alluwalacademyadmin/features/curriculum/screens/curriculum_books_screen.dart';
 import 'package:alluwalacademyadmin/features/website/screens/landing_page.dart';
 
 /// Main Dashboard widget that serves as the app's primary navigation interface
@@ -83,7 +84,7 @@ class _DashboardPageState extends State<DashboardPage> {
   // Cache for lazy screen construction.
   // Only screens that were visited are stored here, which avoids building all screens up-front.
   final Map<int, Widget> _lazyScreensCache = <int, Widget>{};
-  static const int _screenCount = 30;
+  static const int _screenCount = 31;
 
   // GlobalKey for accessing Scaffold state
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
@@ -319,6 +320,8 @@ class _DashboardPageState extends State<DashboardPage> {
         return const TontineHomeScreen();
       case 29:
         return const AdminCirclesScreen();
+      case 30:
+        return const CurriculumBooksScreen();
       default:
         return const SizedBox.shrink();
     }
@@ -1748,8 +1751,7 @@ class _DashboardPageState extends State<DashboardPage> {
   /// Builds the side navigation menu
   Widget _buildSideMenu() {
     final isAdmin = _userRole == 'admin' || _userRole == 'super_admin';
-    final tontineEnabled =
-        _userData?['tontine_enabled'] as bool? ?? false;
+    final tontineEnabled = _userData?['tontine_enabled'] as bool? ?? false;
     final hiddenSections = <String>{
       if (!isAdmin && !tontineEnabled) 'savings',
     };

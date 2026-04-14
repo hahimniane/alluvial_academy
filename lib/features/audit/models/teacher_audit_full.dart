@@ -5,7 +5,7 @@ class AuditFactor {
   final String id;
   final String title;
   final String description; // From 'Key.csv'
-  
+
   // Mutable fields for the audit
   String outcome;
   int rating; // 0-5 (0=Critical … 5=Excellent). Use [isNotApplicable] for true N/A (excluded from score).
@@ -13,6 +13,7 @@ class AuditFactor {
   String coachActionPlan;
   String mentorReview;
   String ceoReview;
+
   /// When true, factor is excluded from coach score denominator (distinct from rating 0 = Critical).
   bool isNotApplicable;
 
@@ -30,17 +31,17 @@ class AuditFactor {
   });
 
   Map<String, dynamic> toMap() => {
-    'id': id,
-    'title': title,
-    'description': description,
-    'outcome': outcome,
-    'rating': rating,
-    'paycutRecommendation': paycutRecommendation,
-    'coachActionPlan': coachActionPlan,
-    'mentorReview': mentorReview,
-    'ceoReview': ceoReview,
-    'isNotApplicable': isNotApplicable,
-  };
+        'id': id,
+        'title': title,
+        'description': description,
+        'outcome': outcome,
+        'rating': rating,
+        'paycutRecommendation': paycutRecommendation,
+        'coachActionPlan': coachActionPlan,
+        'mentorReview': mentorReview,
+        'ceoReview': ceoReview,
+        'isNotApplicable': isNotApplicable,
+      };
 
   /// Convert legacy 1-9 ratings to 0-5 scale on read
   static int _migrateRating(int raw) {
@@ -101,13 +102,17 @@ class TeacherAuditFull {
   // ════════════════════════════════════════════════════════════════════════
 
   // Hours taught by subject
-  final Map<String, double> hoursTaughtBySubject; // {"Quran": 10.5, "Arabic": 5.0}
-  final double totalHoursTaught; // Total scheduled hours (legacy - kept for compatibility)
-  
+  final Map<String, double>
+      hoursTaughtBySubject; // {"Quran": 10.5, "Arabic": 5.0}
+  final double
+      totalHoursTaught; // Total scheduled hours (legacy - kept for compatibility)
+
   // New detailed hours metrics
   final double totalScheduledHours; // Total hours programmed/scheduled
-  final double totalWorkedHours; // Total hours actually worked (from workedMinutes in shifts)
-  final double totalFormHours; // Total hours reported in readiness forms (from duration field)
+  final double
+      totalWorkedHours; // Total hours actually worked (from workedMinutes in shifts)
+  final double
+      totalFormHours; // Total hours reported in readiness forms (from duration field)
 
   // Schedule metrics
   final int totalClassesScheduled;
@@ -139,7 +144,8 @@ class TeacherAuditFull {
   final int assignmentsGiven;
   final bool midtermCompleted;
   final bool finalExamCompleted;
-  final String semesterProjectStatus; // "Not started", "In progress", "Completed"
+  final String
+      semesterProjectStatus; // "Not started", "In progress", "Completed"
 
   // Tasks
   final int overdueTasks;
@@ -158,7 +164,7 @@ class TeacherAuditFull {
 
   /// Legacy coach evaluation (kept for backward compatibility)
   final CoachEvaluation? coachEvaluation;
-  
+
   /// New 16-factor audit model (matches Excel structure)
   final List<AuditFactor> auditFactors;
 
@@ -196,8 +202,10 @@ class TeacherAuditFull {
   final List<Map<String, dynamic>> detailedForms; // Full form responses
   /// Non-teaching forms (assignments/quizzes/assessments/etc.) for separate UI tabs.
   final List<Map<String, dynamic>> detailedFormsNonTeaching;
+
   /// Forms submitted in the month with no schedule associated (auditor sees same total as All Submissions).
   final List<Map<String, dynamic>> detailedFormsNoSchedule;
+
   /// Forms rejected as duplicates (second+ per shift). Each map includes 'rejectionReason': 'duplicate'.
   final List<Map<String, dynamic>> detailedFormsRejected;
 
@@ -354,7 +362,8 @@ class TeacherAuditFull {
         'overallScore': overallScore,
         'performanceTier': performanceTier,
         'lastUpdated': Timestamp.fromDate(lastUpdated),
-        'periodStart': periodStart != null ? Timestamp.fromDate(periodStart!) : null,
+        'periodStart':
+            periodStart != null ? Timestamp.fromDate(periodStart!) : null,
         'periodEnd': periodEnd != null ? Timestamp.fromDate(periodEnd!) : null,
       };
 
@@ -410,8 +419,9 @@ class TeacherAuditFull {
           ? CoachEvaluation.fromMap(data['coachEvaluation'])
           : null,
       auditFactors: (data['auditFactors'] as List<dynamic>?)
-          ?.map((f) => AuditFactor.fromMap(f as Map<String, dynamic>))
-          .toList() ?? getDefaultAuditFactors(),
+              ?.map((f) => AuditFactor.fromMap(f as Map<String, dynamic>))
+              .toList() ??
+          getDefaultAuditFactors(),
       paymentSummary: data['paymentSummary'] != null
           ? PaymentSummary.fromMap(data['paymentSummary'])
           : null,
@@ -442,14 +452,16 @@ class TeacherAuditFull {
               ?.map((e) => e as Map<String, dynamic>)
               .toList() ??
           [],
-      detailedFormsNonTeaching: (data['detailedFormsNonTeaching'] as List<dynamic>?)
-              ?.map((e) => e as Map<String, dynamic>)
-              .toList() ??
-          [],
-      detailedFormsNoSchedule: (data['detailedFormsNoSchedule'] as List<dynamic>?)
-              ?.map((e) => e as Map<String, dynamic>)
-              .toList() ??
-          [],
+      detailedFormsNonTeaching:
+          (data['detailedFormsNonTeaching'] as List<dynamic>?)
+                  ?.map((e) => e as Map<String, dynamic>)
+                  .toList() ??
+              [],
+      detailedFormsNoSchedule:
+          (data['detailedFormsNoSchedule'] as List<dynamic>?)
+                  ?.map((e) => e as Map<String, dynamic>)
+                  .toList() ??
+              [],
       detailedFormsRejected: (data['detailedFormsRejected'] as List<dynamic>?)
               ?.map((e) => e as Map<String, dynamic>)
               .toList() ??
@@ -467,7 +479,8 @@ class TeacherAuditFull {
       coachScore: (data['coachScore'] ?? 0).toDouble(),
       overallScore: (data['overallScore'] ?? 0).toDouble(),
       performanceTier: data['performanceTier'] ?? 'needsImprovement',
-      lastUpdated: (data['lastUpdated'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      lastUpdated:
+          (data['lastUpdated'] as Timestamp?)?.toDate() ?? DateTime.now(),
       periodStart: (data['periodStart'] as Timestamp?)?.toDate(),
       periodEnd: (data['periodEnd'] as Timestamp?)?.toDate(),
     );
@@ -479,12 +492,14 @@ class TeacherAuditFull {
       AuditFactor(
         id: 'exam',
         title: 'Exam Quality',
-        description: 'Quality and relevance of test questions drawn for students.',
+        description:
+            'Quality and relevance of test questions drawn for students.',
       ),
       AuditFactor(
         id: 'midterm',
         title: 'Midterm',
-        description: 'Evaluation of midterm content, difficulty, and relevance.',
+        description:
+            'Evaluation of midterm content, difficulty, and relevance.',
       ),
       AuditFactor(
         id: 'quiz_goal',
@@ -494,7 +509,8 @@ class TeacherAuditFull {
       AuditFactor(
         id: 'assignment_goal',
         title: 'Weekly Assignment Goal',
-        description: 'Are students receiving and completing weekly assignments?',
+        description:
+            'Are students receiving and completing weekly assignments?',
       ),
       AuditFactor(
         id: 'tasks_compliance',
@@ -509,11 +525,13 @@ class TeacherAuditFull {
       AuditFactor(
         id: 'readiness_accuracy',
         title: 'Class Readiness Sheet: Overall Compliance & Accuracy',
-        description: 'Accuracy and consistency of reporting in the readiness form.',
+        description:
+            'Accuracy and consistency of reporting in the readiness form.',
       ),
       AuditFactor(
         id: 'readiness_comments',
-        title: 'Class Readiness Sheet: Soundness and clarity of Comments/Feedback',
+        title:
+            'Class Readiness Sheet: Soundness and clarity of Comments/Feedback',
         description: 'Clarity and soundness of feedback/comments.',
       ),
       AuditFactor(
@@ -529,12 +547,14 @@ class TeacherAuditFull {
       AuditFactor(
         id: 'device_env',
         title: 'Stability of: Teacher\'s Device, Internet & Class Environment',
-        description: 'Stability of internet and suitability of class environment.',
+        description:
+            'Stability of internet and suitability of class environment.',
       ),
       AuditFactor(
         id: 'energy',
         title: 'Teacher\'s energy, creativity and fondness during work',
-        description: 'Friendliness, fondness, and creative techniques in class.',
+        description:
+            'Friendliness, fondness, and creative techniques in class.',
       ),
       AuditFactor(
         id: 'curriculum',
@@ -563,7 +583,7 @@ class TeacherAuditFull {
   int get auditFactorTotalScore => auditFactors
       .where((f) => !f.isNotApplicable)
       .fold(0, (sum, factor) => sum + factor.rating);
-  
+
   /// Percentage from applicable factors only (0–100%).
   double get auditFactorPercentageScore {
     final applicable = auditFactors.where((f) => !f.isNotApplicable).toList();
@@ -593,21 +613,36 @@ class TeacherAuditFull {
   /// Get the current value of an editable field by name.
   dynamic getEditableFieldValue(String field) {
     switch (field) {
-      case 'totalClassesMissed': return totalClassesMissed;
-      case 'totalClassesCancelled': return totalClassesCancelled;
-      case 'staffMeetingsScheduled': return staffMeetingsScheduled;
-      case 'staffMeetingsMissed': return staffMeetingsMissed;
-      case 'meetingLateArrivals': return meetingLateArrivals;
-      case 'quizzesGiven': return quizzesGiven;
-      case 'assignmentsGiven': return assignmentsGiven;
-      case 'overdueTasks': return overdueTasks;
-      case 'weeklyRecordingsSent': return weeklyRecordingsSent;
-      case 'classRemindersSet': return classRemindersSet;
-      case 'internetDropOffs': return internetDropOffs;
-      case 'midtermCompleted': return midtermCompleted;
-      case 'finalExamCompleted': return finalExamCompleted;
-      case 'semesterProjectStatus': return semesterProjectStatus;
-      default: return null;
+      case 'totalClassesMissed':
+        return totalClassesMissed;
+      case 'totalClassesCancelled':
+        return totalClassesCancelled;
+      case 'staffMeetingsScheduled':
+        return staffMeetingsScheduled;
+      case 'staffMeetingsMissed':
+        return staffMeetingsMissed;
+      case 'meetingLateArrivals':
+        return meetingLateArrivals;
+      case 'quizzesGiven':
+        return quizzesGiven;
+      case 'assignmentsGiven':
+        return assignmentsGiven;
+      case 'overdueTasks':
+        return overdueTasks;
+      case 'weeklyRecordingsSent':
+        return weeklyRecordingsSent;
+      case 'classRemindersSet':
+        return classRemindersSet;
+      case 'internetDropOffs':
+        return internetDropOffs;
+      case 'midtermCompleted':
+        return midtermCompleted;
+      case 'finalExamCompleted':
+        return finalExamCompleted;
+      case 'semesterProjectStatus':
+        return semesterProjectStatus;
+      default:
+        return null;
     }
   }
 }
@@ -716,7 +751,8 @@ class CoachEvaluation {
     return CoachEvaluation(
       coachId: map['coachId'] ?? '',
       coachName: map['coachName'] ?? '',
-      evaluatedAt: (map['evaluatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      evaluatedAt:
+          (map['evaluatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       readinessFormAccuracy: map['readinessFormAccuracy'] ?? 0,
       classBayanaDone: map['classBayanaDone'] ?? 0,
       leftCommentInReadinessForm: map['leftCommentInReadinessForm'] ?? 0,
@@ -726,13 +762,17 @@ class CoachEvaluation {
       communicationResponsiveness: map['communicationResponsiveness'] ?? 0,
       classRemindersFrequency: map['classRemindersFrequency'] ?? 0,
       curriculumCompliance: map['curriculumCompliance'] ?? 0,
-      coachCommunicationResponsiveness: map['coachCommunicationResponsiveness'] ?? 0,
+      coachCommunicationResponsiveness:
+          map['coachCommunicationResponsiveness'] ?? 0,
       followedUpOnLastMonthIssues: map['followedUpOnLastMonthIssues'] ?? false,
-      documentedComplaintsAndPayCuts: map['documentedComplaintsAndPayCuts'] ?? false,
+      documentedComplaintsAndPayCuts:
+          map['documentedComplaintsAndPayCuts'] ?? false,
       timesReviewedGroupChat: map['timesReviewedGroupChat'] ?? 0,
       coachRelationshipRating: map['coachRelationshipRating'] ?? 0,
-      payoutRepercussionRecommendation: map['payoutRepercussionRecommendation'] ?? '',
-      actionablePlanToPreventRecurrence: map['actionablePlanToPreventRecurrence'] ?? '',
+      payoutRepercussionRecommendation:
+          map['payoutRepercussionRecommendation'] ?? '',
+      actionablePlanToPreventRecurrence:
+          map['actionablePlanToPreventRecurrence'] ?? '',
       additionalNotes: map['additionalNotes'] ?? '',
     );
   }
@@ -861,8 +901,10 @@ class PaymentSummary {
   final DateTime? adjustedAt;
   // Individual shift payment adjustments: shiftId -> adjusted amount
   final Map<String, double> shiftPaymentAdjustments;
+
   /// Coach evaluation adjustments; net = [netWithCoachLines] (gross − auto penalties + auto bonuses + adminAdjustment ± lines).
   final List<PaymentAdjustmentLine> coachAdjustmentLines;
+
   /// Confirmed advance payments (deducted after coach lines for displayed net).
   final List<AdvancePayment> advancePayments;
 
@@ -905,7 +947,8 @@ class PaymentSummary {
   double netAfterAdvances() => netWithCoachLines() - totalAdvanceDeduction;
 
   Map<String, dynamic> toMap() => {
-        'paymentsBySubject': paymentsBySubject.map((k, v) => MapEntry(k, v.toMap())),
+        'paymentsBySubject':
+            paymentsBySubject.map((k, v) => MapEntry(k, v.toMap())),
         'totalGrossPayment': totalGrossPayment,
         'totalPenalties': totalPenalties,
         'totalBonuses': totalBonuses,
@@ -913,15 +956,18 @@ class PaymentSummary {
         'adminAdjustment': adminAdjustment,
         'adjustmentReason': adjustmentReason,
         'adminId': adminId,
-        'adjustedAt': adjustedAt != null ? Timestamp.fromDate(adjustedAt!) : null,
+        'adjustedAt':
+            adjustedAt != null ? Timestamp.fromDate(adjustedAt!) : null,
         'shiftPaymentAdjustments': shiftPaymentAdjustments,
-        'coachAdjustmentLines': coachAdjustmentLines.map((e) => e.toMap()).toList(),
+        'coachAdjustmentLines':
+            coachAdjustmentLines.map((e) => e.toMap()).toList(),
         'advancePayments': advancePayments.map((e) => e.toMap()).toList(),
       };
 
   factory PaymentSummary.fromMap(Map<String, dynamic> map) {
     final paymentsMap = map['paymentsBySubject'] as Map<String, dynamic>? ?? {};
-    final adjustmentsMap = map['shiftPaymentAdjustments'] as Map<String, dynamic>? ?? {};
+    final adjustmentsMap =
+        map['shiftPaymentAdjustments'] as Map<String, dynamic>? ?? {};
     final linesRaw = map['coachAdjustmentLines'] as List<dynamic>? ??
         map['adjustmentLines'] as List<dynamic>? ??
         const [];
@@ -943,8 +989,8 @@ class PaymentSummary {
       }
     }
     return PaymentSummary(
-      paymentsBySubject: paymentsMap.map(
-          (k, v) => MapEntry(k, SubjectPayment.fromMap(v as Map<String, dynamic>))),
+      paymentsBySubject: paymentsMap.map((k, v) =>
+          MapEntry(k, SubjectPayment.fromMap(v as Map<String, dynamic>))),
       totalGrossPayment: (map['totalGrossPayment'] ?? 0).toDouble(),
       totalPenalties: (map['totalPenalties'] ?? 0).toDouble(),
       totalBonuses: (map['totalBonuses'] ?? 0).toDouble(),
@@ -991,12 +1037,12 @@ class PaymentSummary {
       advancePayments: advancePayments ?? this.advancePayments,
     );
   }
-  
+
   /// Get maximum allowed payment per hour for a subject
   static double getMaxHourlyRate(String subjectName) {
     final subjectLower = subjectName.toLowerCase();
     // Quran-related subjects: max $4/hour
-    if (subjectLower.contains('quran') || 
+    if (subjectLower.contains('quran') ||
         subjectLower.contains('qur\'an') ||
         subjectLower.contains('tajweed') ||
         subjectLower.contains('hifz') ||
@@ -1006,7 +1052,7 @@ class PaymentSummary {
     // All other subjects (English, Math, etc.): max $5/hour
     return 5.0;
   }
-  
+
   /// Get maximum allowed payment for a shift based on hours and subject
   static double getMaxShiftPayment(String subjectName, double hours) {
     return getMaxHourlyRate(subjectName) * hours;
@@ -1070,12 +1116,14 @@ enum AuditStatus {
 
 /// Review chain tracking who reviewed and when
 class ReviewChain {
+  final ReviewEntry? teacherReview;
   final ReviewEntry? coachReview;
   final ReviewEntry? ceoReview;
   final ReviewEntry? founderReview;
   final TeacherDispute? teacherDispute;
 
   const ReviewChain({
+    this.teacherReview,
     this.coachReview,
     this.ceoReview,
     this.founderReview,
@@ -1083,6 +1131,7 @@ class ReviewChain {
   });
 
   Map<String, dynamic> toMap() => {
+        'teacherReview': teacherReview?.toMap(),
         'coachReview': coachReview?.toMap(),
         'ceoReview': ceoReview?.toMap(),
         'founderReview': founderReview?.toMap(),
@@ -1091,6 +1140,9 @@ class ReviewChain {
 
   factory ReviewChain.fromMap(Map<String, dynamic> map) {
     return ReviewChain(
+      teacherReview: map['teacherReview'] != null
+          ? ReviewEntry.fromMap(map['teacherReview'])
+          : null,
       coachReview: map['coachReview'] != null
           ? ReviewEntry.fromMap(map['coachReview'])
           : null,
@@ -1180,7 +1232,8 @@ class TeacherDispute {
         'suggestedValue': suggestedValue,
         'status': status,
         'adminResponse': adminResponse,
-        'resolvedAt': resolvedAt != null ? Timestamp.fromDate(resolvedAt!) : null,
+        'resolvedAt':
+            resolvedAt != null ? Timestamp.fromDate(resolvedAt!) : null,
       };
 
   factory TeacherDispute.fromMap(Map<String, dynamic> map) {
@@ -1318,7 +1371,8 @@ class SubjectHourlyRate {
       subjectId: docId,
       subjectName: map['subjectName'] ?? '',
       hourlyRate: (map['hourlyRate'] ?? 0).toDouble(),
-      penaltyRatePerMissedClass: (map['penaltyRatePerMissedClass'] ?? 0).toDouble(),
+      penaltyRatePerMissedClass:
+          (map['penaltyRatePerMissedClass'] ?? 0).toDouble(),
       bonusRatePerExcellence: (map['bonusRatePerExcellence'] ?? 0).toDouble(),
       isActive: map['isActive'] ?? true,
       updatedAt: (map['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
@@ -1326,4 +1380,3 @@ class SubjectHourlyRate {
     );
   }
 }
-
