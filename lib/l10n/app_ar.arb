@@ -1689,6 +1689,92 @@
   "invoiceDetails": "Invoice Details",
   "invoiceNotFoundForThisPayment": "Invoice Not Found For This Payment",
   "invoices": "Invoices",
+  "sidebarFinance": "المالية",
+  "sidebarCreateInvoice": "إنشاء فاتورة",
+  "sidebarAllInvoices": "جميع الفواتير",
+  "adminInvoiceBalanceDue": "المتبقي: {amount}",
+  "@adminInvoiceBalanceDue": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "adminInvoiceFilterAll": "الكل",
+  "adminInvoiceInvalidNumbers": "أدخل مبالغ صحيحة",
+  "adminInvoicesTitle": "جميع الفواتير",
+  "adminInvoicesSubtitle": "عرض الفواتير وتعديلها وحذفها وتنزيل ملفات PDF.",
+  "adminInvoiceDownloadPdf": "تنزيل PDF",
+  "adminInvoicePrintPdf": "طباعة",
+  "adminInvoiceEdit": "تعديل",
+  "adminInvoiceDelete": "حذف",
+  "adminInvoiceDeleteTitle": "حذف الفاتورة",
+  "adminInvoiceDeleteConfirm": "حذف {number}؟ لا يمكن التراجع.",
+  "@adminInvoiceDeleteConfirm": {
+    "placeholders": {
+      "number": {
+        "type": "String"
+      }
+    }
+  },
+  "adminInvoiceBillingPeriodChip": "الفترة: {period}",
+  "@adminInvoiceBillingPeriodChip": {
+    "placeholders": {
+      "period": {
+        "type": "String"
+      }
+    }
+  },
+  "adminInvoiceEditBillingPeriodLabel": "فترة الفوترة",
+  "adminInvoiceEditBillingPeriodHint": "yyyy-MM (مثال 2026-01)، اختياري",
+  "invoiceDetailPayerStudentLine": "من {parent} | الطالب: {student}",
+  "@invoiceDetailPayerStudentLine": {
+    "placeholders": {
+      "parent": {
+        "type": "String"
+      },
+      "student": {
+        "type": "String"
+      }
+    }
+  },
+  "invoiceDetailBillingMonthLine": "فترة الفوترة: {month}",
+  "@invoiceDetailBillingMonthLine": {
+    "placeholders": {
+      "month": {
+        "type": "String"
+      }
+    }
+  },
+  "invoiceDisplayDocumentTitle": "فاتورة",
+  "invoiceDisplayInvoiceNumberLabel": "رقم الفاتورة",
+  "invoiceDisplayIssueDateLabel": "تاريخ الإصدار",
+  "invoiceDisplayLineItemsTitle": "البنود",
+  "invoiceDisplaySubtotal": "المجموع الفرعي",
+  "invoiceDisplayPaidToward": "المدفوع حتى الآن",
+  "invoiceDisplayAmountDue": "المبلغ المستحق",
+  "invoiceDisplayContactLabel": "الهاتف",
+  "invoiceDisplayEmailLabel": "البريد الإلكتروني",
+  "invoiceDisplayReceivedBy": "استلمها {name}",
+  "@invoiceDisplayReceivedBy": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "invoiceDisplayParentFallback": "ولي الأمر",
+  "invoiceDisplayItemQuantityLine": "{quantity} × {unitPrice}",
+  "@invoiceDisplayItemQuantityLine": {
+    "placeholders": {
+      "quantity": {
+        "type": "int"
+      },
+      "unitPrice": {
+        "type": "String"
+      }
+    }
+  },
   "isAdminIsadmin": "Is Admin Isadmin",
   "isParentIsparent": "Is Parent Isparent",
   "isStudentIsstudent": "Is Student Isstudent",
@@ -2043,6 +2129,8 @@
   "passwordResetInitiatedForAllUsers": "Password Reset Initiated For All Users",
   "passwordResetSuccessfully": "Password Reset Successfully",
   "payInvoice": "Pay Invoice",
+  "continueToSecureCheckout": "المتابعة إلى الدفع الآمن",
+  "invoiceAlreadyPaid": "مدفوعة مسبقاً",
   "payNow": "Pay Now",
   "paySettings": "Pay Settings",
   "payment": "Payment",

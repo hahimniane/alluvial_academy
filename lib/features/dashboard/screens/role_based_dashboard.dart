@@ -311,6 +311,8 @@ class _RoleBasedDashboardState extends State<RoleBasedDashboard>
     AppLogger.debug(
         '=== RoleBasedDashboard routing for role: ${userRole!.toLowerCase()}, isNativeMobile: $_isNativeMobile ===');
 
+    final normalizedRole = userRole!.toLowerCase();
+
     // On native mobile (iOS/Android), use MobileDashboardScreen with bottom navigation
     if (_isNativeMobile) {
       AppLogger.debug(
@@ -319,7 +321,6 @@ class _RoleBasedDashboardState extends State<RoleBasedDashboard>
     }
 
     // On web, route based on role
-    final normalizedRole = userRole!.toLowerCase();
     switch (normalizedRole) {
       case 'admin':
       case 'super_admin':
@@ -592,6 +593,7 @@ class _RoleBasedDashboardState extends State<RoleBasedDashboard>
     );
   }
 }
+
 
 // ⚠️ DEPRECATED - Teachers now use DashboardPage directly (with navigation)
 // This class can be DELETED after verification

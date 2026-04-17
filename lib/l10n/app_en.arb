@@ -1720,6 +1720,92 @@
   "invoiceDetails": "Invoice Details",
   "invoiceNotFoundForThisPayment": "Invoice Not Found For This Payment",
   "invoices": "Invoices",
+  "sidebarFinance": "Finance",
+  "sidebarCreateInvoice": "Create Invoice",
+  "sidebarAllInvoices": "All Invoices",
+  "adminInvoiceBalanceDue": "Balance due: {amount}",
+  "@adminInvoiceBalanceDue": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "adminInvoiceFilterAll": "All",
+  "adminInvoiceInvalidNumbers": "Enter valid amounts",
+  "adminInvoicesTitle": "All invoices",
+  "adminInvoicesSubtitle": "View, edit, delete, and download PDFs for parent billing.",
+  "adminInvoiceDownloadPdf": "Download PDF",
+  "adminInvoicePrintPdf": "Print",
+  "adminInvoiceEdit": "Edit",
+  "adminInvoiceDelete": "Delete",
+  "adminInvoiceDeleteTitle": "Delete invoice",
+  "adminInvoiceDeleteConfirm": "Delete {number}? This cannot be undone.",
+  "@adminInvoiceDeleteConfirm": {
+    "placeholders": {
+      "number": {
+        "type": "String"
+      }
+    }
+  },
+  "adminInvoiceBillingPeriodChip": "Billing: {period}",
+  "@adminInvoiceBillingPeriodChip": {
+    "placeholders": {
+      "period": {
+        "type": "String"
+      }
+    }
+  },
+  "adminInvoiceEditBillingPeriodLabel": "Billing period",
+  "adminInvoiceEditBillingPeriodHint": "yyyy-MM (e.g. 2026-01), optional",
+  "invoiceDetailPayerStudentLine": "From {parent} | Student: {student}",
+  "@invoiceDetailPayerStudentLine": {
+    "placeholders": {
+      "parent": {
+        "type": "String"
+      },
+      "student": {
+        "type": "String"
+      }
+    }
+  },
+  "invoiceDetailBillingMonthLine": "Billing period: {month}",
+  "@invoiceDetailBillingMonthLine": {
+    "placeholders": {
+      "month": {
+        "type": "String"
+      }
+    }
+  },
+  "invoiceDisplayDocumentTitle": "Invoice",
+  "invoiceDisplayInvoiceNumberLabel": "Invoice number",
+  "invoiceDisplayIssueDateLabel": "Issue date",
+  "invoiceDisplayLineItemsTitle": "Line items",
+  "invoiceDisplaySubtotal": "Subtotal",
+  "invoiceDisplayPaidToward": "Paid to date",
+  "invoiceDisplayAmountDue": "Amount due",
+  "invoiceDisplayContactLabel": "Phone",
+  "invoiceDisplayEmailLabel": "Email",
+  "invoiceDisplayReceivedBy": "Received by {name}",
+  "@invoiceDisplayReceivedBy": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "invoiceDisplayParentFallback": "Parent",
+  "invoiceDisplayItemQuantityLine": "{quantity} × {unitPrice}",
+  "@invoiceDisplayItemQuantityLine": {
+    "placeholders": {
+      "quantity": {
+        "type": "int"
+      },
+      "unitPrice": {
+        "type": "String"
+      }
+    }
+  },
   "isAdminIsadmin": "Is Admin Isadmin",
   "isParentIsparent": "Is Parent Isparent",
   "isStudentIsstudent": "Is Student Isstudent",
@@ -2074,6 +2160,8 @@
   "passwordResetInitiatedForAllUsers": "Password Reset Initiated For All Users",
   "passwordResetSuccessfully": "Password Reset Successfully",
   "payInvoice": "Pay Invoice",
+  "continueToSecureCheckout": "Continue to secure checkout",
+  "invoiceAlreadyPaid": "Already paid",
   "payNow": "Pay Now",
   "paySettings": "Pay Settings",
   "payment": "Payment",

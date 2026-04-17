@@ -3,6 +3,7 @@ const admin = require('firebase-admin');
 const {onSchedule} = require('firebase-functions/v2/scheduler');
 
 const {createPayoneerClient} = require('../services/payoneer/client');
+const stripeCheckout = require('../services/stripe/checkout');
 const {generateInvoiceFromShifts} = require('../utils/invoice_generator');
 
 const _isAdminRole = (data) => {
@@ -73,6 +74,16 @@ const createInvoice = async (request) => {
   const currency = (data.currency || 'USD').toString().trim();
   const shiftIds = Array.isArray(data.shiftIds || data.shift_ids) ? data.shiftIds || data.shift_ids : [];
 
+  // Parse optional access cutoff date (ISO string from client)
+  const rawAccessCutoff = data.accessCutoffDate || data.access_cutoff_date;
+  let accessCutoffTimestamp = null;
+  if (rawAccessCutoff) {
+    const parsed = new Date(rawAccessCutoff);
+    if (!isNaN(parsed.getTime())) {
+      accessCutoffTimestamp = admin.firestore.Timestamp.fromDate(parsed);
+    }
+  }
+
   if (!parentId || !studentId) {
     throw new functions.https.HttpsError(
       'invalid-argument',
@@ -111,6 +122,18 @@ const createInvoice = async (request) => {
       shift_ids: Array.isArray(i.shift_ids || i.shiftIds) ? i.shift_ids || i.shiftIds : [],
     }));
     const totalAmount = Number(items.reduce((sum, i) => sum + _toNumber(i.total), 0).toFixed(2));
+    const periodFromRequest = (data.period || data.period_label || '').toString().trim();
+
+    // Accept an explicit due date from the client (ISO string); fall back to 7 days from now.
+    const rawDueDate = data.dueDate || data.due_date;
+    let dueDateTimestamp;
+    if (rawDueDate) {
+      const parsed = new Date(rawDueDate);
+      dueDateTimestamp = isNaN(parsed.getTime())
+        ? null
+        : admin.firestore.Timestamp.fromDate(parsed);
+    }
+
     invoicePayload = {
       parent_id: parentId,
       student_id: studentId,
@@ -119,9 +142,11 @@ const createInvoice = async (request) => {
       paid_amount: 0,
       currency,
       issued_date: admin.firestore.FieldValue.serverTimestamp(),
-      due_date: admin.firestore.FieldValue.serverTimestamp(),
+      due_date: dueDateTimestamp || null,
+      access_cutoff_date: accessCutoffTimestamp || null,
       items,
       shift_ids: [],
+      period: periodFromRequest || null,
     };
   } else {
     throw new functions.https.HttpsError(
@@ -147,7 +172,17 @@ const createInvoice = async (request) => {
       issued_date: invoicePayload.issued_date || admin.firestore.Timestamp.fromDate(now),
       due_date:
         invoicePayload.due_date ||
-        admin.firestore.Timestamp.fromDate(new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)),
+        admin.firestore.Timestamp.fromDate(new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)),
+      access_cutoff_date: (() => {
+        if (invoicePayload.access_cutoff_date) return invoicePayload.access_cutoff_date;
+        // Default: due_date + 1 day
+        const dueDate = invoicePayload.due_date
+          ? invoicePayload.due_date.toDate()
+          : new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+        return admin.firestore.Timestamp.fromDate(
+          new Date(dueDate.getTime() + 24 * 60 * 60 * 1000)
+        );
+      })(),
       items: invoicePayload.items || [],
       shift_ids: invoicePayload.shift_ids || [],
       created_at: admin.firestore.FieldValue.serverTimestamp(),
@@ -188,6 +223,95 @@ const getParentInvoices = async (request) => {
   const snap = await query.orderBy('due_date', 'desc').limit(limit).get();
   const invoices = snap.docs.map((d) => ({id: d.id, ...d.data()}));
   return {success: true, invoices};
+};
+
+/**
+ * Shared Firestore transaction: update payment + invoice when a provider reports a final status.
+ * @param {FirebaseFirestore.Transaction} tx
+ * @param {FirebaseFirestore.Firestore} db
+ * @param {FirebaseFirestore.DocumentReference} paymentRef
+ * @param {{ status: string, extraPaymentFields?: Record<string, unknown> }} params
+ */
+const applyPaymentStatusInTransaction = async (tx, db, paymentRef, {status, extraPaymentFields = {}}) => {
+  const paymentSnap = await tx.get(paymentRef);
+  if (!paymentSnap.exists) {
+    throw new Error('Payment not found');
+  }
+  const payment = paymentSnap.data();
+  const invoiceId = (payment.invoice_id || '').toString();
+  const invoiceRef = db.collection('invoices').doc(invoiceId);
+  const invoiceSnap = await tx.get(invoiceRef);
+  if (!invoiceSnap.exists) {
+    throw new Error('Invoice not found');
+  }
+
+  const currentPaymentStatus = (payment.status || '').toString();
+  const amount = _toNumber(payment.amount);
+  const invoice = invoiceSnap.data();
+  const currentPaid = _toNumber(invoice.paid_amount);
+  const total = _toNumber(invoice.total_amount);
+  const dueDate = invoice.due_date?.toDate ? invoice.due_date.toDate() : null;
+
+  const normalized = (status || '').toString().trim().toLowerCase();
+
+  if (currentPaymentStatus === 'completed' && normalized === 'completed') {
+    return {alreadyProcessed: true};
+  }
+
+  if (normalized === 'completed') {
+    const newPaid = Number((currentPaid + amount).toFixed(2));
+    const invoiceStatus =
+      newPaid >= total ? 'paid' : dueDate && dueDate.getTime() < Date.now() ? 'overdue' : 'pending';
+
+    tx.set(
+      paymentRef,
+      {
+        status: 'completed',
+        ...extraPaymentFields,
+        completed_at: admin.firestore.FieldValue.serverTimestamp(),
+        updated_at: admin.firestore.FieldValue.serverTimestamp(),
+      },
+      {merge: true}
+    );
+
+    tx.set(
+      invoiceRef,
+      {
+        paid_amount: newPaid,
+        status: invoiceStatus,
+        updated_at: admin.firestore.FieldValue.serverTimestamp(),
+      },
+      {merge: true}
+    );
+
+    return {updated: true, invoiceStatus, newPaid};
+  }
+
+  if (normalized === 'failed') {
+    tx.set(
+      paymentRef,
+      {
+        status: 'failed',
+        ...extraPaymentFields,
+        completed_at: admin.firestore.FieldValue.serverTimestamp(),
+        updated_at: admin.firestore.FieldValue.serverTimestamp(),
+      },
+      {merge: true}
+    );
+    return {updated: true};
+  }
+
+  tx.set(
+    paymentRef,
+    {
+      status: normalized,
+      ...extraPaymentFields,
+      updated_at: admin.firestore.FieldValue.serverTimestamp(),
+    },
+    {merge: true}
+  );
+
+  return {updated: true};
 };
 
 const getPaymentHistory = async (request) => {
@@ -237,6 +361,7 @@ const createPaymentSession = async (request) => {
   const invoice = invoiceSnap.data();
   const parentId = (invoice.parent_id || '').toString();
   const currency = (invoice.currency || 'USD').toString();
+  const invoiceNumber = (invoice.invoice_number || '').toString();
   const totalAmount = _toNumber(invoice.total_amount);
   const paidAmount = _toNumber(invoice.paid_amount);
   const remaining = Number((totalAmount - paidAmount).toFixed(2));
@@ -251,6 +376,70 @@ const createPaymentSession = async (request) => {
   }
 
   const paymentRef = db.collection('payments').doc();
+
+  if (stripeCheckout.isStripeConfigured()) {
+    const {success: successUrl, cancel: cancelUrl} = stripeCheckout.getCheckoutUrls();
+    if (!successUrl || !cancelUrl) {
+      throw new functions.https.HttpsError(
+        'failed-precondition',
+        'Stripe is configured but STRIPE_CHECKOUT_SUCCESS_URL and STRIPE_CHECKOUT_CANCEL_URL must be set (absolute URLs, e.g. your Flutter web parent invoices page).'
+      );
+    }
+
+    await paymentRef.set({
+      invoice_id: invoiceId,
+      parent_id: parentId,
+      amount: remaining,
+      status: 'pending',
+      payment_method: 'stripe',
+      created_at: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    const Stripe = require('stripe');
+    const stripe = new Stripe(stripeCheckout.getStripeSecretKey());
+
+    try {
+      const session = await stripeCheckout.createCheckoutSession({
+        stripe,
+        amountMajor: remaining,
+        currency,
+        paymentId: paymentRef.id,
+        invoiceId,
+        invoiceNumber,
+        successUrl,
+        cancelUrl,
+        customerEmail: request.auth.token?.email || undefined,
+      });
+
+      await paymentRef.set(
+        {
+          stripe_checkout_session_id: session.id,
+          status: 'processing',
+          checkout_url: session.url,
+        },
+        {merge: true}
+      );
+
+      return {
+        success: true,
+        paymentId: paymentRef.id,
+        checkoutUrl: session.url,
+        provider: 'stripe',
+      };
+    } catch (err) {
+      console.error('createPaymentSession (Stripe) error:', err);
+      await paymentRef.set(
+        {
+          status: 'failed',
+          error_message: err.message || String(err),
+          updated_at: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        {merge: true}
+      );
+      throw new functions.https.HttpsError('internal', err.message || String(err));
+    }
+  }
+
   await paymentRef.set({
     invoice_id: invoiceId,
     parent_id: parentId,
@@ -282,6 +471,7 @@ const createPaymentSession = async (request) => {
       success: true,
       paymentId: paymentRef.id,
       checkoutUrl: session.checkoutUrl,
+      provider: 'payoneer',
       mock: payoneer.config.isMock,
     };
   } catch (err) {
@@ -294,6 +484,116 @@ const createPaymentSession = async (request) => {
       {merge: true}
     );
 
+    throw new functions.https.HttpsError('internal', err.message || String(err));
+  }
+};
+
+/**
+ * Creates a PaymentIntent for in-app (mobile) Payment Sheet.
+ * Returns client_secret, ephemeralKey, customer, and publishableKey.
+ */
+const createPaymentIntent = async (request) => {
+  if (!request.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Authentication required');
+  }
+
+  const data = request.data || {};
+  const invoiceId = (data.invoiceId || data.invoice_id || '').toString().trim();
+  if (!invoiceId) {
+    throw new functions.https.HttpsError('invalid-argument', 'Missing invoiceId');
+  }
+
+  if (!stripeCheckout.isStripeConfigured()) {
+    throw new functions.https.HttpsError('failed-precondition', 'Stripe is not configured');
+  }
+
+  const db = admin.firestore();
+  const invoiceRef = db.collection('invoices').doc(invoiceId);
+  const invoiceSnap = await invoiceRef.get();
+  if (!invoiceSnap.exists) {
+    throw new functions.https.HttpsError('not-found', 'Invoice not found');
+  }
+
+  const invoice = invoiceSnap.data();
+  const parentId = (invoice.parent_id || '').toString();
+  const currency = (invoice.currency || 'USD').toString();
+  const totalAmount = _toNumber(invoice.total_amount);
+  const paidAmount = _toNumber(invoice.paid_amount);
+  const remaining = Number((totalAmount - paidAmount).toFixed(2));
+
+  if (remaining <= 0) {
+    throw new functions.https.HttpsError('failed-precondition', 'Invoice is already paid');
+  }
+
+  const isAdmin = await _isAdminUid(request.auth.uid);
+  if (!isAdmin && request.auth.uid !== parentId) {
+    throw new functions.https.HttpsError('permission-denied', 'Cannot pay another user\'s invoice');
+  }
+
+  const Stripe = require('stripe');
+  const stripe = new Stripe(stripeCheckout.getStripeSecretKey());
+
+  // Get or create Stripe Customer
+  const userDoc = await db.collection('users').doc(parentId).get();
+  const userData = userDoc.exists ? userDoc.data() : {};
+  const email = request.auth.token?.email || userData['e-mail'] || undefined;
+  const name = [userData.first_name, userData.last_name].filter(Boolean).join(' ') || undefined;
+
+  const customerId = await stripeCheckout.getOrCreateCustomer({
+    stripe,
+    parentId,
+    email,
+    name,
+  });
+
+  // Create payment record in Firestore
+  const paymentRef = db.collection('payments').doc();
+  await paymentRef.set({
+    invoice_id: invoiceId,
+    parent_id: parentId,
+    amount: remaining,
+    status: 'pending',
+    payment_method: 'stripe',
+    created_at: admin.firestore.FieldValue.serverTimestamp(),
+  });
+
+  try {
+    const {paymentIntent, ephemeralKey} = await stripeCheckout.createPaymentIntentForSheet({
+      stripe,
+      amountMajor: remaining,
+      currency,
+      customerId,
+      paymentId: paymentRef.id,
+      invoiceId,
+    });
+
+    await paymentRef.set(
+      {
+        stripe_payment_intent_id: paymentIntent.id,
+        status: 'processing',
+        updated_at: admin.firestore.FieldValue.serverTimestamp(),
+      },
+      {merge: true}
+    );
+
+    return {
+      success: true,
+      paymentId: paymentRef.id,
+      paymentIntent: paymentIntent.client_secret,
+      ephemeralKey: ephemeralKey.secret,
+      customer: customerId,
+      publishableKey: stripeCheckout.getStripePublishableKey(),
+    };
+  } catch (err) {
+    console.error('createPaymentIntent error:', err);
+    await paymentRef.set(
+      {
+        status: 'failed',
+        error_message: err.message || String(err),
+        updated_at: admin.firestore.FieldValue.serverTimestamp(),
+      },
+      {merge: true}
+    );
     throw new functions.https.HttpsError('internal', err.message || String(err));
   }
 };
@@ -341,88 +641,152 @@ const handlePayoneerWebhook = async (req, res) => {
         throw new Error('Payment not found');
       }
       const payment = paymentSnap.data();
-      const invoiceId = (payment.invoice_id || '').toString();
-      const invoiceRef = db.collection('invoices').doc(invoiceId);
-      const invoiceSnap = await tx.get(invoiceRef);
-      if (!invoiceSnap.exists) {
-        throw new Error('Invoice not found');
-      }
-
-      const currentPaymentStatus = (payment.status || '').toString();
-      const amount = _toNumber(payment.amount);
-      const invoice = invoiceSnap.data();
-      const currentPaid = _toNumber(invoice.paid_amount);
-      const total = _toNumber(invoice.total_amount);
-      const dueDate = invoice.due_date?.toDate ? invoice.due_date.toDate() : null;
-
-      if (currentPaymentStatus === 'completed' && status === 'completed') {
-        return {alreadyProcessed: true};
-      }
-
-      if (status === 'completed') {
-        const newPaid = Number((currentPaid + amount).toFixed(2));
-        const invoiceStatus =
-          newPaid >= total
-            ? 'paid'
-            : dueDate && dueDate.getTime() < Date.now()
-            ? 'overdue'
-            : 'pending';
-
-        tx.set(
-          paymentRef,
-          {
-            status: 'completed',
-            payoneer_transaction_id: transactionId || payment.payoneer_transaction_id || null,
-            completed_at: admin.firestore.FieldValue.serverTimestamp(),
-            updated_at: admin.firestore.FieldValue.serverTimestamp(),
-          },
-          {merge: true}
-        );
-
-        tx.set(
-          invoiceRef,
-          {
-            paid_amount: newPaid,
-            status: invoiceStatus,
-            updated_at: admin.firestore.FieldValue.serverTimestamp(),
-          },
-          {merge: true}
-        );
-
-        return {updated: true, invoiceStatus, newPaid};
-      }
-
-      if (status === 'failed') {
-        tx.set(
-          paymentRef,
-          {
-            status: 'failed',
-            payoneer_transaction_id: transactionId || payment.payoneer_transaction_id || null,
-            completed_at: admin.firestore.FieldValue.serverTimestamp(),
-            updated_at: admin.firestore.FieldValue.serverTimestamp(),
-          },
-          {merge: true}
-        );
-        return {updated: true};
-      }
-
-      tx.set(
-        paymentRef,
-        {
-          status,
-          payoneer_transaction_id: transactionId || payment.payoneer_transaction_id || null,
-          updated_at: admin.firestore.FieldValue.serverTimestamp(),
-        },
-        {merge: true}
-      );
-
-      return {updated: true};
+      const extra = {
+        payoneer_transaction_id: transactionId || payment.payoneer_transaction_id || null,
+      };
+      return applyPaymentStatusInTransaction(tx, db, paymentRef, {
+        status,
+        extraPaymentFields: extra,
+      });
     });
 
     res.status(200).json({success: true, ...result});
   } catch (err) {
     console.error('handlePayoneerWebhook error:', err);
     res.status(500).json({error: err.message || String(err)});
+  }
+};
+
+/**
+ * Stripe sends signed webhook events. Configure the endpoint URL in the Stripe Dashboard
+ * and set STRIPE_WEBHOOK_SECRET (from the Dashboard signing secret).
+ * Requires raw body (Firebase v1 HTTP functions provide req.rawBody).
+ */
+const handleStripeWebhook = async (req, res) => {
+  if (req.method !== 'POST') {
+    res.status(405).send('Method Not Allowed');
+    return;
+  }
+
+  const webhookSecret = (process.env.STRIPE_WEBHOOK_SECRET || '').trim();
+  const stripeSecretKey = stripeCheckout.getStripeSecretKey();
+  if (!webhookSecret || !stripeSecretKey) {
+    console.error('Stripe webhook: STRIPE_WEBHOOK_SECRET or STRIPE_SECRET_KEY not set');
+    res.status(500).send('Stripe webhook not configured');
+    return;
+  }
+
+  const Stripe = require('stripe');
+  const stripe = new Stripe(stripeSecretKey);
+  const sig = req.headers['stripe-signature'];
+  let event;
+  try {
+    event = stripe.webhooks.constructEvent(req.rawBody, sig, webhookSecret);
+  } catch (err) {
+    console.error('Stripe webhook signature verification failed:', err.message);
+    res.status(400).send(`Webhook Error: ${err.message}`);
+    return;
+  }
+
+  const db = admin.firestore();
+
+  const paymentIntentIdFromSession = (session) => {
+    const pi = session.payment_intent;
+    if (typeof pi === 'string') return pi;
+    if (pi && typeof pi === 'object' && pi.id) return pi.id;
+    return null;
+  };
+
+  try {
+    if (event.type === 'checkout.session.expired') {
+      const session = event.data.object;
+      const paymentId = ((session.metadata && session.metadata.payment_id) || '').toString().trim();
+      if (paymentId) {
+        const paymentRef = db.collection('payments').doc(paymentId);
+        await db.runTransaction(async (tx) => {
+          const snap = await tx.get(paymentRef);
+          if (!snap.exists) return;
+          const st = (snap.data().status || '').toString();
+          if (st === 'completed') return;
+          await applyPaymentStatusInTransaction(tx, db, paymentRef, {
+            status: 'failed',
+            extraPaymentFields: {stripe_checkout_session_id: session.id},
+          });
+        });
+      }
+      res.json({received: true});
+      return;
+    }
+
+    if (
+      event.type === 'checkout.session.async_payment_succeeded' ||
+      (event.type === 'checkout.session.completed' && event.data.object.payment_status === 'paid')
+    ) {
+      const session = event.data.object;
+      const paymentId = ((session.metadata && session.metadata.payment_id) || '').toString().trim();
+      if (!paymentId) {
+        console.warn('Stripe webhook: missing payment_id metadata on session', session.id);
+        res.json({received: true, ignored: 'no payment_id'});
+        return;
+      }
+      const paymentRef = db.collection('payments').doc(paymentId);
+      const intentId = paymentIntentIdFromSession(session);
+      const result = await db.runTransaction(async (tx) => {
+        return applyPaymentStatusInTransaction(tx, db, paymentRef, {
+          status: 'completed',
+          extraPaymentFields: {
+            stripe_checkout_session_id: session.id,
+            ...(intentId ? {stripe_payment_intent_id: intentId} : {}),
+          },
+        });
+      });
+      res.json({received: true, ...result});
+      return;
+    }
+
+    // Handle PaymentIntent succeeded (from mobile Payment Sheet)
+    if (event.type === 'payment_intent.succeeded') {
+      const intent = event.data.object;
+      const paymentId = ((intent.metadata && intent.metadata.payment_id) || '').toString().trim();
+      if (!paymentId) {
+        console.warn('Stripe webhook: missing payment_id metadata on payment_intent', intent.id);
+        res.json({received: true, ignored: 'no payment_id'});
+        return;
+      }
+      const paymentRef = db.collection('payments').doc(paymentId);
+      const result = await db.runTransaction(async (tx) => {
+        return applyPaymentStatusInTransaction(tx, db, paymentRef, {
+          status: 'completed',
+          extraPaymentFields: {
+            stripe_payment_intent_id: intent.id,
+          },
+        });
+      });
+      res.json({received: true, ...result});
+      return;
+    }
+
+    // Handle PaymentIntent failed
+    if (event.type === 'payment_intent.payment_failed') {
+      const intent = event.data.object;
+      const paymentId = ((intent.metadata && intent.metadata.payment_id) || '').toString().trim();
+      if (paymentId) {
+        const paymentRef = db.collection('payments').doc(paymentId);
+        await db.runTransaction(async (tx) => {
+          return applyPaymentStatusInTransaction(tx, db, paymentRef, {
+            status: 'failed',
+            extraPaymentFields: {stripe_payment_intent_id: intent.id},
+          });
+        });
+      }
+      res.json({received: true});
+      return;
+    }
+
+    res.json({received: true, ignored: event.type});
+  } catch (err) {
+    console.error('handleStripeWebhook error:', err);
+    res.status(500).send(err.message || String(err));
   }
 };
 
@@ -445,7 +809,9 @@ module.exports = {
   createInvoice,
   getParentInvoices,
   createPaymentSession,
+  createPaymentIntent,
   handlePayoneerWebhook,
+  handleStripeWebhook,
   getPaymentHistory,
   generateInvoicesForPeriod,
 };

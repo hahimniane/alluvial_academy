@@ -30,7 +30,8 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   bool _isAdmin = false;
   Map<String, List<ChatUser>> _groupedContacts = {};
   bool _loadingContacts = true;
-  bool _supportInboxCollapsed = true;
+  /// Expanded by default so admin support threads are visible without an extra tap.
+  bool _supportInboxCollapsed = false;
 
   @override
   void initState() {
@@ -851,7 +852,18 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
 
   /// Non-admin user taps "Admin Support" contact — creates/gets the support chat
   /// and opens ChatScreen with a virtual admin_support ChatUser.
-  void _openAdminSupportChatAsUser() {
+  Future<void> _openAdminSupportChatAsUser() async {
+    try {
+      await _chatService.getOrCreateAdminSupportChat();
+    } catch (e, st) {
+      AppLogger.error(
+        'ChatPage: getOrCreateAdminSupportChat failed',
+        error: e,
+        stackTrace: st,
+      );
+    }
+    if (!mounted) return;
+
     final supportUser = ChatUser(
       id: ChatService.adminSupportId,
       name: 'Admin Support',
@@ -879,7 +891,30 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   }
 
   /// Admin initiates a support conversation with a specific user.
-  void _openAdminSupportChatWithUser(ChatUser user) {
+  Future<void> _openAdminSupportChatWithUser(ChatUser user) async {
+    try {
+      await _chatService.getOrCreateAdminSupportChatForUser(user.id);
+    } catch (e, st) {
+      AppLogger.error(
+        'ChatPage: getOrCreateAdminSupportChatForUser failed',
+        error: e,
+        stackTrace: st,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              AppLocalizations.of(context)!.somethingWentWrong,
+              style: GoogleFonts.inter(),
+            ),
+            backgroundColor: const Color(0xffEF4444),
+          ),
+        );
+      }
+      return;
+    }
+    if (!mounted) return;
+
     final chatId = _generateChatId(user.id, ChatService.adminSupportId);
     final supportUser = ChatUser(
       id: chatId,

@@ -33,6 +33,7 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
   String? _studentName;
   String? _error;
   String? _userId;
+  bool _isAccessSuspended = false;
   Timer? _refreshTimer;
 
   @override
@@ -117,11 +118,12 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
         return;
       }
 
-      // Load student name
+      // Load student name and access suspension status
       final userData = await UserRoleService.getCurrentUserData();
       if (userData != null && mounted) {
         setState(() {
           _studentName = userData['first_name'] ?? 'Student';
+          _isAccessSuspended = userData['access_suspended'] == true;
         });
       }
 
@@ -221,6 +223,12 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
                 child: _buildHeader(),
               ),
 
+              // Suspension banner
+              if (_isAccessSuspended)
+                SliverToBoxAdapter(
+                  child: _buildSuspensionBanner(),
+                ),
+
               // Content
               if (_isLoading)
                 const SliverFillRemaining(
@@ -292,6 +300,38 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildSuspensionBanner() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFEF2F2),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFFECACA), width: 1.5),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.warning_amber_rounded,
+            color: Color(0xFFDC2626),
+            size: 20,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Your account has an outstanding invoice. Class access is suspended until payment is received. Please contact your administrator.',
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                color: const Color(0xFFB91C1C),
+                height: 1.5,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -902,10 +942,67 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
   }
 
   Future<void> _joinClass(TeachingShift shift) async {
+    if (_isAccessSuspended) {
+      _showSuspensionDialog();
+      return;
+    }
     await VideoCallService.joinClass(
       context,
       shift,
       isTeacher: false, // Student joining
+    );
+  }
+
+  void _showSuspensionDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        icon: Container(
+          width: 56,
+          height: 56,
+          decoration: BoxDecoration(
+            color: const Color(0xFFFEF2F2),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: const Icon(
+            Icons.lock_outline_rounded,
+            color: Color(0xFFDC2626),
+            size: 28,
+          ),
+        ),
+        title: Text(
+          'Class Access Suspended',
+          style: GoogleFonts.inter(
+            fontWeight: FontWeight.w700,
+            fontSize: 17,
+            color: const Color(0xFF111827),
+          ),
+          textAlign: TextAlign.center,
+        ),
+        content: Text(
+          'Your account has an outstanding unpaid invoice. Class access is suspended until payment is received.\n\nPlease contact your administrator to resolve this.',
+          style: GoogleFonts.inter(
+            fontSize: 14,
+            color: const Color(0xFF6B7280),
+            height: 1.6,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        actionsAlignment: MainAxisAlignment.center,
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFF1E3A5F),
+            ),
+            child: Text(
+              'OK',
+              style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -4648,6 +4648,115 @@ class AppLocalizationsFr extends AppLocalizations {
   String get invoices => 'Factures';
 
   @override
+  String get sidebarFinance => 'Finances';
+
+  @override
+  String get sidebarCreateInvoice => 'Créer une facture';
+
+  @override
+  String get sidebarAllInvoices => 'Toutes les factures';
+
+  @override
+  String adminInvoiceBalanceDue(String amount) {
+    return 'Solde dû : $amount';
+  }
+
+  @override
+  String get adminInvoiceFilterAll => 'Toutes';
+
+  @override
+  String get adminInvoiceInvalidNumbers => 'Saisissez des montants valides';
+
+  @override
+  String get adminInvoicesTitle => 'Toutes les factures';
+
+  @override
+  String get adminInvoicesSubtitle =>
+      'Consulter, modifier, supprimer et télécharger les PDF de facturation.';
+
+  @override
+  String get adminInvoiceDownloadPdf => 'Télécharger le PDF';
+
+  @override
+  String get adminInvoicePrintPdf => 'Imprimer';
+
+  @override
+  String get adminInvoiceEdit => 'Modifier';
+
+  @override
+  String get adminInvoiceDelete => 'Supprimer';
+
+  @override
+  String get adminInvoiceDeleteTitle => 'Supprimer la facture';
+
+  @override
+  String adminInvoiceDeleteConfirm(String number) {
+    return 'Supprimer $number ? Cette action est irréversible.';
+  }
+
+  @override
+  String adminInvoiceBillingPeriodChip(String period) {
+    return 'Période : $period';
+  }
+
+  @override
+  String get adminInvoiceEditBillingPeriodLabel => 'Période de facturation';
+
+  @override
+  String get adminInvoiceEditBillingPeriodHint =>
+      'aaaa-MM (ex. 2026-01), optionnel';
+
+  @override
+  String invoiceDetailPayerStudentLine(String parent, String student) {
+    return 'De $parent | Élève : $student';
+  }
+
+  @override
+  String invoiceDetailBillingMonthLine(String month) {
+    return 'Période de facturation : $month';
+  }
+
+  @override
+  String get invoiceDisplayDocumentTitle => 'Facture';
+
+  @override
+  String get invoiceDisplayInvoiceNumberLabel => 'Numéro de facture';
+
+  @override
+  String get invoiceDisplayIssueDateLabel => 'Date d\'émission';
+
+  @override
+  String get invoiceDisplayLineItemsTitle => 'Détail des lignes';
+
+  @override
+  String get invoiceDisplaySubtotal => 'Sous-total';
+
+  @override
+  String get invoiceDisplayPaidToward => 'Payé à ce jour';
+
+  @override
+  String get invoiceDisplayAmountDue => 'Montant dû';
+
+  @override
+  String get invoiceDisplayContactLabel => 'Téléphone';
+
+  @override
+  String get invoiceDisplayEmailLabel => 'Courriel';
+
+  @override
+  String invoiceDisplayReceivedBy(String name) {
+    return 'Reçu par $name';
+  }
+
+  @override
+  String get invoiceDisplayParentFallback => 'Parent';
+
+  @override
+  String invoiceDisplayItemQuantityLine(int quantity, String unitPrice) {
+    return '$quantity × $unitPrice';
+  }
+
+  @override
   String get isAdminIsadmin => 'Est administrateur Isadmin';
 
   @override
@@ -5790,6 +5899,12 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get payInvoice => 'Facture de paye';
+
+  @override
+  String get continueToSecureCheckout => 'Continuer vers le paiement sécurisé';
+
+  @override
+  String get invoiceAlreadyPaid => 'Déjà payée';
 
   @override
   String get payNow => 'Payez maintenant';

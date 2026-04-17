@@ -153,6 +153,20 @@
       ]
     },
     {
+      "collectionGroup": "invoices",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "created_at",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
       "collectionGroup": "payments",
       "queryScope": "COLLECTION",
       "fields": [
@@ -163,6 +177,20 @@
         {
           "fieldPath": "created_at",
           "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "payments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "parent_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "invoice_id",
+          "order": "ASCENDING"
         }
       ]
     },

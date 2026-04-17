@@ -4533,6 +4533,115 @@ class AppLocalizationsEn extends AppLocalizations {
   String get invoices => 'Invoices';
 
   @override
+  String get sidebarFinance => 'Finance';
+
+  @override
+  String get sidebarCreateInvoice => 'Create Invoice';
+
+  @override
+  String get sidebarAllInvoices => 'All Invoices';
+
+  @override
+  String adminInvoiceBalanceDue(String amount) {
+    return 'Balance due: $amount';
+  }
+
+  @override
+  String get adminInvoiceFilterAll => 'All';
+
+  @override
+  String get adminInvoiceInvalidNumbers => 'Enter valid amounts';
+
+  @override
+  String get adminInvoicesTitle => 'All invoices';
+
+  @override
+  String get adminInvoicesSubtitle =>
+      'View, edit, delete, and download PDFs for parent billing.';
+
+  @override
+  String get adminInvoiceDownloadPdf => 'Download PDF';
+
+  @override
+  String get adminInvoicePrintPdf => 'Print';
+
+  @override
+  String get adminInvoiceEdit => 'Edit';
+
+  @override
+  String get adminInvoiceDelete => 'Delete';
+
+  @override
+  String get adminInvoiceDeleteTitle => 'Delete invoice';
+
+  @override
+  String adminInvoiceDeleteConfirm(String number) {
+    return 'Delete $number? This cannot be undone.';
+  }
+
+  @override
+  String adminInvoiceBillingPeriodChip(String period) {
+    return 'Billing: $period';
+  }
+
+  @override
+  String get adminInvoiceEditBillingPeriodLabel => 'Billing period';
+
+  @override
+  String get adminInvoiceEditBillingPeriodHint =>
+      'yyyy-MM (e.g. 2026-01), optional';
+
+  @override
+  String invoiceDetailPayerStudentLine(String parent, String student) {
+    return 'From $parent | Student: $student';
+  }
+
+  @override
+  String invoiceDetailBillingMonthLine(String month) {
+    return 'Billing period: $month';
+  }
+
+  @override
+  String get invoiceDisplayDocumentTitle => 'Invoice';
+
+  @override
+  String get invoiceDisplayInvoiceNumberLabel => 'Invoice number';
+
+  @override
+  String get invoiceDisplayIssueDateLabel => 'Issue date';
+
+  @override
+  String get invoiceDisplayLineItemsTitle => 'Line items';
+
+  @override
+  String get invoiceDisplaySubtotal => 'Subtotal';
+
+  @override
+  String get invoiceDisplayPaidToward => 'Paid to date';
+
+  @override
+  String get invoiceDisplayAmountDue => 'Amount due';
+
+  @override
+  String get invoiceDisplayContactLabel => 'Phone';
+
+  @override
+  String get invoiceDisplayEmailLabel => 'Email';
+
+  @override
+  String invoiceDisplayReceivedBy(String name) {
+    return 'Received by $name';
+  }
+
+  @override
+  String get invoiceDisplayParentFallback => 'Parent';
+
+  @override
+  String invoiceDisplayItemQuantityLine(int quantity, String unitPrice) {
+    return '$quantity × $unitPrice';
+  }
+
+  @override
   String get isAdminIsadmin => 'Is Admin Isadmin';
 
   @override
@@ -5644,6 +5753,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get payInvoice => 'Pay Invoice';
+
+  @override
+  String get continueToSecureCheckout => 'Continue to secure checkout';
+
+  @override
+  String get invoiceAlreadyPaid => 'Already paid';
 
   @override
   String get payNow => 'Pay Now';

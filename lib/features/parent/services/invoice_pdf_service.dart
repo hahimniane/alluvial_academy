@@ -27,6 +27,8 @@ class InvoicePdfService {
     final money = NumberFormat.simpleCurrency(name: invoice.currency);
     final dateFormat = DateFormat.yMMMMd();
     final monthFormat = DateFormat.yMMMM();
+    final billingMonthLabel =
+        invoice.displayBillingPeriod ?? monthFormat.format(invoice.issuedDate);
 
     // Create PDF document
     final pdf = pw.Document();
@@ -41,22 +43,24 @@ class InvoicePdfService {
             children: [
               // Header Section
               _buildHeader(companyInfo),
-              pw.SizedBox(height: 32),
+              pw.SizedBox(height: 28),
 
               // Invoice Title
-              _buildInvoiceTitle(),
-              pw.SizedBox(height: 24),
+              _buildInvoiceTitle(invoice.invoiceNumber.isNotEmpty
+                  ? invoice.invoiceNumber
+                  : invoice.id),
+              pw.SizedBox(height: 22),
 
               // Invoice Info
               _buildInvoiceInfo(invoice, dateFormat),
-              pw.SizedBox(height: 24),
+              pw.SizedBox(height: 22),
 
               // Payer/Student Section
               if (resolvedParentName != null || resolvedStudentName != null)
                 _buildPayerStudentSection(
                   resolvedParentName ?? 'Parent',
                   resolvedStudentName ?? invoice.studentId,
-                  monthFormat.format(invoice.issuedDate),
+                  billingMonthLabel,
                 ),
               if (resolvedParentName != null || resolvedStudentName != null) pw.SizedBox(height: 24),
 
@@ -83,14 +87,22 @@ class InvoicePdfService {
     return pw.Row(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
-        // Logo placeholder (can be replaced with actual image later)
+        pw.Container(
+          width: 5,
+          height: 88,
+          decoration: const pw.BoxDecoration(
+            color: PdfColors.blue700,
+            borderRadius: pw.BorderRadius.all(pw.Radius.circular(3)),
+          ),
+        ),
+        pw.SizedBox(width: 14),
         pw.Container(
           width: 64,
           height: 64,
           decoration: pw.BoxDecoration(
-            color: PdfColors.blue50,
-            border: pw.Border.all(color: PdfColors.blue500, width: 2),
-            borderRadius: pw.BorderRadius.circular(8),
+            color: PdfColors.blue100,
+            border: pw.Border.all(color: PdfColors.blue500, width: 1.5),
+            borderRadius: pw.BorderRadius.circular(10),
           ),
           child: pw.Center(
             child: pw.Text(
@@ -111,7 +123,7 @@ class InvoicePdfService {
               pw.Text(
                 companyInfo.name,
                 style: pw.TextStyle(
-                  fontSize: 24,
+                  fontSize: 22,
                   fontWeight: pw.FontWeight.bold,
                   color: PdfColors.grey900,
                 ),
@@ -120,7 +132,7 @@ class InvoicePdfService {
               pw.Text(
                 companyInfo.fullAddress,
                 style: pw.TextStyle(
-                  fontSize: 12,
+                  fontSize: 11,
                   color: PdfColors.grey600,
                 ),
               ),
@@ -128,15 +140,15 @@ class InvoicePdfService {
               pw.Text(
                 'Contact: ${companyInfo.phone}',
                 style: pw.TextStyle(
-                  fontSize: 12,
+                  fontSize: 11,
                   color: PdfColors.grey600,
                 ),
               ),
-              pw.SizedBox(height: 4),
+              pw.SizedBox(height: 2),
               pw.Text(
                 'Email: ${companyInfo.email}',
                 style: pw.TextStyle(
-                  fontSize: 12,
+                  fontSize: 11,
                   color: PdfColors.grey600,
                 ),
               ),
@@ -147,21 +159,61 @@ class InvoicePdfService {
     );
   }
 
-  static pw.Widget _buildInvoiceTitle() {
+  static pw.Widget _buildInvoiceTitle(String invoiceNumber) {
     return pw.Container(
-      padding: const pw.EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       decoration: pw.BoxDecoration(
-        color: PdfColors.blue50,
-        border: pw.Border.all(color: PdfColors.blue200),
-        borderRadius: pw.BorderRadius.circular(8),
+        color: PdfColors.blue100,
+        borderRadius: pw.BorderRadius.circular(10),
+        border: pw.Border.all(color: PdfColors.blue200, width: 1),
       ),
-      child: pw.Text(
-        'Monthly Fees Payment',
-        style: pw.TextStyle(
-          fontSize: 18,
-          fontWeight: pw.FontWeight.bold,
-          color: PdfColors.blue700,
-        ),
+      child: pw.Row(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.Container(
+            width: 5,
+            height: 52,
+            color: PdfColors.blue700,
+          ),
+          pw.Expanded(
+            child: pw.Padding(
+              padding: const pw.EdgeInsets.fromLTRB(16, 14, 16, 14),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text(
+                    'INVOICE',
+                    style: pw.TextStyle(
+                      fontSize: 11,
+                      letterSpacing: 1.2,
+                      fontWeight: pw.FontWeight.bold,
+                      color: PdfColors.blue700,
+                    ),
+                  ),
+                  pw.SizedBox(height: 4),
+                  pw.Text(
+                    'Tuition & fees',
+                    style: pw.TextStyle(
+                      fontSize: 17,
+                      fontWeight: pw.FontWeight.bold,
+                      color: PdfColors.grey900,
+                    ),
+                  ),
+                  if (invoiceNumber.isNotEmpty) ...[
+                    pw.SizedBox(height: 4),
+                    pw.Text(
+                      invoiceNumber,
+                      style: pw.TextStyle(
+                        fontSize: 12,
+                        color: PdfColors.grey700,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -182,6 +234,10 @@ class InvoicePdfService {
           _buildInfoRow('Payment Date', dateFormat.format(invoice.issuedDate)),
           pw.SizedBox(height: 12),
           _buildInfoRow('Due Date', dateFormat.format(invoice.dueDate)),
+          if (invoice.displayBillingPeriod != null) ...[
+            pw.SizedBox(height: 12),
+            _buildInfoRow('Billing period', invoice.displayBillingPeriod!),
+          ],
         ],
       ),
     );
@@ -228,7 +284,7 @@ class InvoicePdfService {
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
           pw.Text(
-            'From: $parentName | For Student: $studentName',
+            'From: $parentName  |  Student: $studentName',
             style: pw.TextStyle(
               fontSize: 13,
               color: PdfColors.grey900,
@@ -237,7 +293,7 @@ class InvoicePdfService {
           ),
           pw.SizedBox(height: 8),
           pw.Text(
-            'For the month(s) of: $month',
+            'Billing period: $month',
             style: pw.TextStyle(
               fontSize: 12,
               color: PdfColors.grey600,

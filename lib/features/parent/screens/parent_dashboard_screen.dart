@@ -34,7 +34,8 @@ class ParentDashboardScreen extends StatefulWidget {
 class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
   String? _parentId;
   Future<List<Map<String, dynamic>>>? _childrenFuture;
-  Future<Map<String, double>>? _summaryFuture;
+  Stream<Map<String, double>>? _summaryStream;
+  Stream<List<String>>? _suspendedChildrenStream;
   Future<_ParentProgressOverview>? _progressOverviewFuture;
   Future<_ParentAttendanceAnalyticsOverview>? _attendanceAnalyticsFuture;
   _AttendanceReportPeriod _attendancePeriod = _AttendanceReportPeriod.weekly;
@@ -66,8 +67,10 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
       _parentId = parentId;
       _parentFirstName = (userData?['first_name'] ?? '').toString().trim();
       _childrenFuture = childrenFuture;
-      _summaryFuture =
-          parentId == null ? null : ParentService.getFinancialSummary(parentId);
+      _summaryStream =
+          parentId == null ? null : ParentService.watchFinancialSummary(parentId);
+      _suspendedChildrenStream =
+          parentId == null ? null : _watchSuspendedChildren(parentId);
       _progressOverviewFuture =
           childrenFuture?.then(_buildParentProgressOverview);
       _attendanceAnalyticsFuture = childrenFuture?.then(
@@ -85,7 +88,8 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
     final childrenFuture = ParentService.getParentChildren(parentId);
     setState(() {
       _childrenFuture = childrenFuture;
-      _summaryFuture = ParentService.getFinancialSummary(parentId);
+      _summaryStream = ParentService.watchFinancialSummary(parentId);
+      _suspendedChildrenStream = _watchSuspendedChildren(parentId);
       _progressOverviewFuture =
           childrenFuture.then(_buildParentProgressOverview);
       _attendanceAnalyticsFuture = childrenFuture.then(
@@ -96,6 +100,22 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
         ),
       );
     });
+  }
+
+  /// Real-time stream of child student names that are currently suspended.
+  Stream<List<String>> _watchSuspendedChildren(String parentId) {
+    return FirebaseFirestore.instance
+        .collection('users')
+        .where('guardian_ids', arrayContains: parentId)
+        .where('access_suspended', isEqualTo: true)
+        .snapshots()
+        .map((snap) => snap.docs.map((doc) {
+              final data = doc.data();
+              final first = (data['first_name'] ?? '').toString().trim();
+              final last = (data['last_name'] ?? '').toString().trim();
+              final name = '$first $last'.trim();
+              return name.isNotEmpty ? name : doc.id;
+            }).toList());
   }
 
   @override
@@ -135,13 +155,93 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                FutureBuilder<Map<String, double>>(
-                  future: _summaryFuture,
+                // Suspension alert banner — shown when any child is suspended
+                StreamBuilder<List<String>>(
+                  stream: _suspendedChildrenStream,
+                  builder: (context, snapshot) {
+                    final suspended = snapshot.data ?? [];
+                    if (suspended.isEmpty) return const SizedBox.shrink();
+                    final names = suspended.join(', ');
+                    final count = suspended.length;
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 16),
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFEF2F2),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: const Color(0xFFFECACA)),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(Icons.lock_outline_rounded,
+                              color: Color(0xFFDC2626), size: 22),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  count == 1
+                                      ? 'Platform access suspended'
+                                      : '$count students have been suspended',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w800,
+                                    color: const Color(0xFF991B1B),
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  '$names ${count == 1 ? 'has' : 'have'} lost platform access due to an unpaid invoice. Pay now to restore access immediately.',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 13,
+                                    color: const Color(0xFFB91C1C),
+                                    height: 1.5,
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                                GestureDetector(
+                                  onTap: () => Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (_) => ParentInvoicesScreen(
+                                        parentId: parentId,
+                                        initialStatus: InvoiceStatus.pending,
+                                      ),
+                                    ),
+                                  ),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 14, vertical: 8),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFDC2626),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      'View & pay invoices',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+                StreamBuilder<Map<String, double>>(
+                  stream: _summaryStream,
                   builder: (context, snapshot) {
                     final data = snapshot.data;
-                    final outstanding = data?['outstanding'] ?? 0;
-                    final overdue = data?['overdue'] ?? 0;
-                    final paid = data?['paid'] ?? 0;
+                    final outstanding = (data?['outstanding'] ?? 0).toDouble();
+                    final overdue = (data?['overdue'] ?? 0).toDouble();
+                    final paid = (data?['paid'] ?? 0).toDouble();
                     return FinancialSummaryCard(
                       outstanding: outstanding,
                       overdue: overdue,

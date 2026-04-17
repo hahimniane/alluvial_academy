@@ -1,7 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
-import 'package:alluwalacademyadmin/features/parent/models/payment.dart';
+import 'package:alluwalacademyadmin/core/services/user_role_service.dart';
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+import 'package:alluwalacademyadmin/features/parent/models/invoice.dart';
+import 'package:alluwalacademyadmin/features/parent/models/payment.dart';
 
 class PaymentService {
   static FirebaseFirestore get _firestore => FirebaseFirestore.instance;
@@ -39,6 +42,26 @@ class PaymentService {
       throw Exception('Payment not found');
     }
     return Payment.fromFirestore(doc);
+  }
+
+  /// Real-time payments for an invoice. Constrains by `parent_id` for non-admins so
+  /// Firestore rules (`payments`: read if `parent_id == request.auth.uid || isAdmin()`)
+  /// accept the query. Admins query by `invoice_id` only.
+  static Stream<QuerySnapshot<Object?>> watchPaymentsForInvoiceSnapshots(Invoice invoice) async* {
+    final uid = UserRoleService.getCurrentUserId() ?? FirebaseAuth.instance.currentUser?.uid;
+    final isAdmin = await UserRoleService.isAdmin();
+
+    if (isAdmin) {
+      yield* _payments.where('invoice_id', isEqualTo: invoice.id).snapshots();
+      return;
+    }
+    if (uid == null) {
+      return;
+    }
+    yield* _payments
+        .where('invoice_id', isEqualTo: invoice.id)
+        .where('parent_id', isEqualTo: uid)
+        .snapshots();
   }
 }
 

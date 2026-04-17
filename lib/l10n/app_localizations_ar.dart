@@ -4519,6 +4519,115 @@ class AppLocalizationsAr extends AppLocalizations {
   String get invoices => 'Invoices';
 
   @override
+  String get sidebarFinance => 'المالية';
+
+  @override
+  String get sidebarCreateInvoice => 'إنشاء فاتورة';
+
+  @override
+  String get sidebarAllInvoices => 'جميع الفواتير';
+
+  @override
+  String adminInvoiceBalanceDue(String amount) {
+    return 'المتبقي: $amount';
+  }
+
+  @override
+  String get adminInvoiceFilterAll => 'الكل';
+
+  @override
+  String get adminInvoiceInvalidNumbers => 'أدخل مبالغ صحيحة';
+
+  @override
+  String get adminInvoicesTitle => 'جميع الفواتير';
+
+  @override
+  String get adminInvoicesSubtitle =>
+      'عرض الفواتير وتعديلها وحذفها وتنزيل ملفات PDF.';
+
+  @override
+  String get adminInvoiceDownloadPdf => 'تنزيل PDF';
+
+  @override
+  String get adminInvoicePrintPdf => 'طباعة';
+
+  @override
+  String get adminInvoiceEdit => 'تعديل';
+
+  @override
+  String get adminInvoiceDelete => 'حذف';
+
+  @override
+  String get adminInvoiceDeleteTitle => 'حذف الفاتورة';
+
+  @override
+  String adminInvoiceDeleteConfirm(String number) {
+    return 'حذف $number؟ لا يمكن التراجع.';
+  }
+
+  @override
+  String adminInvoiceBillingPeriodChip(String period) {
+    return 'الفترة: $period';
+  }
+
+  @override
+  String get adminInvoiceEditBillingPeriodLabel => 'فترة الفوترة';
+
+  @override
+  String get adminInvoiceEditBillingPeriodHint =>
+      'yyyy-MM (مثال 2026-01)، اختياري';
+
+  @override
+  String invoiceDetailPayerStudentLine(String parent, String student) {
+    return 'من $parent | الطالب: $student';
+  }
+
+  @override
+  String invoiceDetailBillingMonthLine(String month) {
+    return 'فترة الفوترة: $month';
+  }
+
+  @override
+  String get invoiceDisplayDocumentTitle => 'فاتورة';
+
+  @override
+  String get invoiceDisplayInvoiceNumberLabel => 'رقم الفاتورة';
+
+  @override
+  String get invoiceDisplayIssueDateLabel => 'تاريخ الإصدار';
+
+  @override
+  String get invoiceDisplayLineItemsTitle => 'البنود';
+
+  @override
+  String get invoiceDisplaySubtotal => 'المجموع الفرعي';
+
+  @override
+  String get invoiceDisplayPaidToward => 'المدفوع حتى الآن';
+
+  @override
+  String get invoiceDisplayAmountDue => 'المبلغ المستحق';
+
+  @override
+  String get invoiceDisplayContactLabel => 'الهاتف';
+
+  @override
+  String get invoiceDisplayEmailLabel => 'البريد الإلكتروني';
+
+  @override
+  String invoiceDisplayReceivedBy(String name) {
+    return 'استلمها $name';
+  }
+
+  @override
+  String get invoiceDisplayParentFallback => 'ولي الأمر';
+
+  @override
+  String invoiceDisplayItemQuantityLine(int quantity, String unitPrice) {
+    return '$quantity × $unitPrice';
+  }
+
+  @override
   String get isAdminIsadmin => 'Is Admin Isadmin';
 
   @override
@@ -5630,6 +5739,12 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get payInvoice => 'Pay Invoice';
+
+  @override
+  String get continueToSecureCheckout => 'المتابعة إلى الدفع الآمن';
+
+  @override
+  String get invoiceAlreadyPaid => 'مدفوعة مسبقاً';
 
   @override
   String get payNow => 'Pay Now';

@@ -1362,7 +1362,7 @@ class _ChatScreenState extends State<ChatScreen> {
         context,
         MaterialPageRoute(
           builder: (_) => MediaPreviewScreen(
-            file: File(pickedFile.path),
+            file: pickedFile,
             isVideo: false,
             recipientName: widget.chatUser.displayName,
           ),
@@ -1377,7 +1377,7 @@ class _ChatScreenState extends State<ChatScreen> {
       try {
         await _chatService.sendImageMessage(
           _chatTargetId,
-          File(pickedFile.path),
+          pickedFile,
           isGroupChat: widget.chatUser.isGroup,
           caption: result.caption,
         );
@@ -1402,7 +1402,7 @@ class _ChatScreenState extends State<ChatScreen> {
         context,
         MaterialPageRoute(
           builder: (_) => MediaPreviewScreen(
-            file: File(pickedFile.path),
+            file: pickedFile,
             isVideo: true,
             recipientName: widget.chatUser.displayName,
           ),
@@ -1417,7 +1417,7 @@ class _ChatScreenState extends State<ChatScreen> {
       try {
         await _chatService.sendVideoMessage(
           _chatTargetId,
-          File(pickedFile.path),
+          pickedFile,
           isGroupChat: widget.chatUser.isGroup,
           caption: result.caption,
         );
@@ -1445,17 +1445,27 @@ class _ChatScreenState extends State<ChatScreen> {
         'zip',
         'rar'
       ],
+      withData: true, // ensures bytes are available on web
     );
 
-    if (result != null && result.files.single.path != null) {
+    if (result != null) {
+      final platformFile = result.files.single;
+      // Prefer pre-loaded bytes (always available on web); fall back to reading from path on native.
+      final bytes = platformFile.bytes ??
+          (platformFile.path != null && !kIsWeb
+              ? await File(platformFile.path!).readAsBytes()
+              : null);
+
+      if (bytes == null || !mounted) return;
+
       setState(() => _isUploading = true);
       _showMessage('Sending file...', isError: false);
 
       try {
         await _chatService.sendFileMessage(
           _chatTargetId,
-          File(result.files.single.path!),
-          result.files.single.name,
+          bytes,
+          platformFile.name,
           isGroupChat: widget.chatUser.isGroup,
         );
         _showMessage('File sent!', isError: false);
@@ -2089,13 +2099,17 @@ class _ChatScreenState extends State<ChatScreen> {
       };
     }
 
-    _chatService.sendMessage(
-      widget.isAdminSupportChat ? _effectiveChatId : widget.chatUser.id,
-      text,
-      metadata: metadata,
-      isGroupChat: widget.chatUser.isGroup,
-    );
     _messageController.clear();
+    try {
+      await _chatService.sendMessage(
+        widget.isAdminSupportChat ? _effectiveChatId : widget.chatUser.id,
+        text,
+        metadata: metadata,
+        isGroupChat: widget.chatUser.isGroup,
+      );
+    } catch (e, st) {
+      AppLogger.error('ChatScreen: sendMessage failed', error: e, stackTrace: st);
+    }
     _messageFocusNode.requestFocus();
 
     // Clear reply

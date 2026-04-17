@@ -10,6 +10,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -212,6 +213,12 @@ Future<void> main() async {
   // Initialize Firebase Cloud Messaging background handler
   if (!kIsWeb) {
     FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+  }
+
+  // Initialize Stripe for in-app payments (mobile only)
+  if (_isNativeMobilePlatform) {
+    Stripe.publishableKey =
+        const String.fromEnvironment('STRIPE_PUBLISHABLE_KEY', defaultValue: 'pk_test_51TMEFtJP4KlJutBkLGQpHmVbFtOY1a3tJJpJFD4s4ZLxfDPMmdvfpfSadyKRMiqKel8nmBIudqRBQ8FevL5LTCKR00ytCmjIIj');
   }
 
   // Initialize timezone database

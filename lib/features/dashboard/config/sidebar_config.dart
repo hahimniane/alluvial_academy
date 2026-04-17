@@ -176,6 +176,19 @@ class SidebarConfig {
         ],
       ),
       SidebarSection(
+        id: 'finance',
+        title: 'Finance',
+        items: [
+          const SidebarItem(
+            id: 'invoices',
+            label: 'Invoices',
+            icon: Icons.receipt_long,
+            screenIndex: 31,
+            colorValue: 0xff10B981,
+          ),
+        ],
+      ),
+      SidebarSection(
         id: 'website',
         title: 'Website',
         items: [

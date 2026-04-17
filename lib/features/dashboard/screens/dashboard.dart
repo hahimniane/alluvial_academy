@@ -54,6 +54,7 @@ import 'package:alluwalacademyadmin/features/tontine/screens/admin_circles_scree
 import 'package:alluwalacademyadmin/features/tontine/screens/tontine_home_screen.dart';
 import 'package:alluwalacademyadmin/features/curriculum/screens/curriculum_books_screen.dart';
 import 'package:alluwalacademyadmin/features/website/screens/landing_page.dart';
+import 'package:alluwalacademyadmin/features/parent/screens/admin_invoice_hub_screen.dart';
 
 /// Main Dashboard widget that serves as the app's primary navigation interface
 class DashboardPage extends StatefulWidget {
@@ -84,7 +85,7 @@ class _DashboardPageState extends State<DashboardPage> {
   // Cache for lazy screen construction.
   // Only screens that were visited are stored here, which avoids building all screens up-front.
   final Map<int, Widget> _lazyScreensCache = <int, Widget>{};
-  static const int _screenCount = 31;
+  static const int _screenCount = 33;
 
   // GlobalKey for accessing Scaffold state
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
@@ -322,6 +323,8 @@ class _DashboardPageState extends State<DashboardPage> {
         return const AdminCirclesScreen();
       case 30:
         return const CurriculumBooksScreen();
+      case 31:
+        return const AdminInvoiceHubScreen();
       default:
         return const SizedBox.shrink();
     }

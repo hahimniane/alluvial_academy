@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
 
 enum InvoiceStatus {
   pending,
@@ -69,8 +70,13 @@ class Invoice {
   final DateTime dueDate;
   final List<InvoiceItem> items;
   final List<String> shiftIds;
+  /// Billing period label, usually `yyyy-MM` (e.g. from admin create flow).
+  final String? period;
   final DateTime? createdAt;
   final DateTime? updatedAt;
+  /// Date at which access is suspended if the invoice is still unpaid.
+  /// Null means no cutoff is set (access is never suspended for this invoice).
+  final DateTime? accessCutoffDate;
 
   const Invoice({
     required this.id,
@@ -85,8 +91,10 @@ class Invoice {
     required this.dueDate,
     required this.items,
     required this.shiftIds,
+    this.period,
     this.createdAt,
     this.updatedAt,
+    this.accessCutoffDate,
   });
 
   factory Invoice.fromFirestore(DocumentSnapshot doc) {
@@ -95,6 +103,8 @@ class Invoice {
   }
 
   factory Invoice.fromMap(Map<String, dynamic> data, {String? id}) {
+    final periodRaw =
+        (data['period'] ?? data['billing_period'] ?? data['billingPeriod'])?.toString().trim() ?? '';
     return Invoice(
       id: id ?? (data['id'] ?? '').toString(),
       invoiceNumber: (data['invoice_number'] ?? data['invoiceNumber'] ?? '').toString(),
@@ -112,12 +122,15 @@ class Invoice {
           .map((e) => InvoiceItem.fromMap(Map<String, dynamic>.from(e)))
           .toList(),
       shiftIds: List<String>.from(data['shift_ids'] ?? data['shiftIds'] ?? const []),
+      period: periodRaw.isEmpty ? null : periodRaw,
       createdAt: _parseDateTime(data['created_at'] ?? data['createdAt']),
       updatedAt: _parseDateTime(data['updated_at'] ?? data['updatedAt']),
+      accessCutoffDate: _parseDateTime(data['access_cutoff_date'] ?? data['accessCutoffDate']),
     );
   }
 
   Map<String, dynamic> toMap() {
+    final periodOut = period;
     return {
       'invoice_number': invoiceNumber,
       'parent_id': parentId,
@@ -130,10 +143,17 @@ class Invoice {
       'due_date': Timestamp.fromDate(dueDate),
       'items': items.map((e) => e.toMap()).toList(),
       if (shiftIds.isNotEmpty) 'shift_ids': shiftIds,
+      if (periodOut != null && periodOut.isNotEmpty) 'period': periodOut,
       if (createdAt != null) 'created_at': Timestamp.fromDate(createdAt!),
       if (updatedAt != null) 'updated_at': Timestamp.fromDate(updatedAt!),
+      if (accessCutoffDate != null)
+        'access_cutoff_date': Timestamp.fromDate(accessCutoffDate!),
     };
   }
+
+  /// The effective cutoff date: stored value, or dueDate + 1 day if not set.
+  DateTime get effectiveAccessCutoffDate =>
+      accessCutoffDate ?? dueDate.add(const Duration(days: 1));
 
   bool get isFullyPaid => paidAmount >= totalAmount && totalAmount > 0;
 
@@ -145,6 +165,21 @@ class Invoice {
 
   bool get isOverdue =>
       !isFullyPaid && DateTime.now().isAfter(dueDate) && status != InvoiceStatus.cancelled;
+
+  /// `period` is usually `yyyy-MM`. Returns a readable month, or the raw string, or null.
+  String? get displayBillingPeriod {
+    final p = period;
+    if (p == null || p.isEmpty) return null;
+    final parts = p.split('-');
+    if (parts.length >= 2) {
+      final y = int.tryParse(parts[0]);
+      final m = int.tryParse(parts[1]);
+      if (y != null && m != null && m >= 1 && m <= 12) {
+        return DateFormat.yMMMM().format(DateTime(y, m));
+      }
+    }
+    return p;
+  }
 
   static InvoiceStatus _parseStatus(dynamic value) {
     if (value is InvoiceStatus) return value;

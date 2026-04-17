@@ -46,6 +46,19 @@ class InvoiceService {
     return Invoice.fromFirestore(doc);
   }
 
+  /// Real-time stream for a single invoice document.
+  static Stream<Invoice?> watchInvoice(String invoiceId) {
+    return _invoices.doc(invoiceId).snapshots().map((doc) {
+      if (!doc.exists) return null;
+      try {
+        return Invoice.fromFirestore(doc);
+      } catch (e) {
+        AppLogger.error('InvoiceService: Failed to parse invoice $invoiceId: $e');
+        return null;
+      }
+    });
+  }
+
   /// Generate and return PDF bytes for an invoice
   /// This replaces the old method that expected a stored PDF URL
   static Future<Uint8List> generateInvoicePDF(String invoiceId) async {

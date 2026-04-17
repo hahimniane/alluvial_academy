@@ -28,6 +28,7 @@
     "luxon": "^3.7.2",
     "nodemailer": "^6.10.1",
     "rrule": "^2.8.1",
+    "stripe": "^17.7.0",
     "twilio": "^5.13.1"
   },
   "devDependencies": {

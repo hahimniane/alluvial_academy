@@ -8656,6 +8656,192 @@ abstract class AppLocalizations {
   /// **'Invoices'**
   String get invoices;
 
+  /// No description provided for @sidebarFinance.
+  ///
+  /// In en, this message translates to:
+  /// **'Finance'**
+  String get sidebarFinance;
+
+  /// No description provided for @sidebarCreateInvoice.
+  ///
+  /// In en, this message translates to:
+  /// **'Create Invoice'**
+  String get sidebarCreateInvoice;
+
+  /// No description provided for @sidebarAllInvoices.
+  ///
+  /// In en, this message translates to:
+  /// **'All Invoices'**
+  String get sidebarAllInvoices;
+
+  /// No description provided for @adminInvoiceBalanceDue.
+  ///
+  /// In en, this message translates to:
+  /// **'Balance due: {amount}'**
+  String adminInvoiceBalanceDue(String amount);
+
+  /// No description provided for @adminInvoiceFilterAll.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get adminInvoiceFilterAll;
+
+  /// No description provided for @adminInvoiceInvalidNumbers.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter valid amounts'**
+  String get adminInvoiceInvalidNumbers;
+
+  /// No description provided for @adminInvoicesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'All invoices'**
+  String get adminInvoicesTitle;
+
+  /// No description provided for @adminInvoicesSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'View, edit, delete, and download PDFs for parent billing.'**
+  String get adminInvoicesSubtitle;
+
+  /// No description provided for @adminInvoiceDownloadPdf.
+  ///
+  /// In en, this message translates to:
+  /// **'Download PDF'**
+  String get adminInvoiceDownloadPdf;
+
+  /// No description provided for @adminInvoicePrintPdf.
+  ///
+  /// In en, this message translates to:
+  /// **'Print'**
+  String get adminInvoicePrintPdf;
+
+  /// No description provided for @adminInvoiceEdit.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit'**
+  String get adminInvoiceEdit;
+
+  /// No description provided for @adminInvoiceDelete.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get adminInvoiceDelete;
+
+  /// No description provided for @adminInvoiceDeleteTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete invoice'**
+  String get adminInvoiceDeleteTitle;
+
+  /// No description provided for @adminInvoiceDeleteConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete {number}? This cannot be undone.'**
+  String adminInvoiceDeleteConfirm(String number);
+
+  /// No description provided for @adminInvoiceBillingPeriodChip.
+  ///
+  /// In en, this message translates to:
+  /// **'Billing: {period}'**
+  String adminInvoiceBillingPeriodChip(String period);
+
+  /// No description provided for @adminInvoiceEditBillingPeriodLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Billing period'**
+  String get adminInvoiceEditBillingPeriodLabel;
+
+  /// No description provided for @adminInvoiceEditBillingPeriodHint.
+  ///
+  /// In en, this message translates to:
+  /// **'yyyy-MM (e.g. 2026-01), optional'**
+  String get adminInvoiceEditBillingPeriodHint;
+
+  /// No description provided for @invoiceDetailPayerStudentLine.
+  ///
+  /// In en, this message translates to:
+  /// **'From {parent} | Student: {student}'**
+  String invoiceDetailPayerStudentLine(String parent, String student);
+
+  /// No description provided for @invoiceDetailBillingMonthLine.
+  ///
+  /// In en, this message translates to:
+  /// **'Billing period: {month}'**
+  String invoiceDetailBillingMonthLine(String month);
+
+  /// No description provided for @invoiceDisplayDocumentTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Invoice'**
+  String get invoiceDisplayDocumentTitle;
+
+  /// No description provided for @invoiceDisplayInvoiceNumberLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Invoice number'**
+  String get invoiceDisplayInvoiceNumberLabel;
+
+  /// No description provided for @invoiceDisplayIssueDateLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Issue date'**
+  String get invoiceDisplayIssueDateLabel;
+
+  /// No description provided for @invoiceDisplayLineItemsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Line items'**
+  String get invoiceDisplayLineItemsTitle;
+
+  /// No description provided for @invoiceDisplaySubtotal.
+  ///
+  /// In en, this message translates to:
+  /// **'Subtotal'**
+  String get invoiceDisplaySubtotal;
+
+  /// No description provided for @invoiceDisplayPaidToward.
+  ///
+  /// In en, this message translates to:
+  /// **'Paid to date'**
+  String get invoiceDisplayPaidToward;
+
+  /// No description provided for @invoiceDisplayAmountDue.
+  ///
+  /// In en, this message translates to:
+  /// **'Amount due'**
+  String get invoiceDisplayAmountDue;
+
+  /// No description provided for @invoiceDisplayContactLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Phone'**
+  String get invoiceDisplayContactLabel;
+
+  /// No description provided for @invoiceDisplayEmailLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Email'**
+  String get invoiceDisplayEmailLabel;
+
+  /// No description provided for @invoiceDisplayReceivedBy.
+  ///
+  /// In en, this message translates to:
+  /// **'Received by {name}'**
+  String invoiceDisplayReceivedBy(String name);
+
+  /// No description provided for @invoiceDisplayParentFallback.
+  ///
+  /// In en, this message translates to:
+  /// **'Parent'**
+  String get invoiceDisplayParentFallback;
+
+  /// No description provided for @invoiceDisplayItemQuantityLine.
+  ///
+  /// In en, this message translates to:
+  /// **'{quantity} × {unitPrice}'**
+  String invoiceDisplayItemQuantityLine(int quantity, String unitPrice);
+
   /// No description provided for @isAdminIsadmin.
   ///
   /// In en, this message translates to:
@@ -10779,6 +10965,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Pay Invoice'**
   String get payInvoice;
+
+  /// No description provided for @continueToSecureCheckout.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue to secure checkout'**
+  String get continueToSecureCheckout;
+
+  /// No description provided for @invoiceAlreadyPaid.
+  ///
+  /// In en, this message translates to:
+  /// **'Already paid'**
+  String get invoiceAlreadyPaid;
 
   /// No description provided for @payNow.
   ///

@@ -31,6 +31,7 @@ import '../../tutor/screens/ai_tutor_screen.dart'; // AI Tutor feature
 import '../../curriculum/screens/curriculum_books_screen.dart';
 import '../../tontine/screens/tontine_home_screen.dart';
 import '../../tontine/screens/circle_member_profile_setup_screen.dart';
+import 'package:alluwalacademyadmin/features/parent/screens/admin_invoice_hub_screen.dart';
 
 // Onboarding imports
 import 'package:alluwalacademyadmin/features/onboarding/services/onboarding_service.dart';
@@ -526,7 +527,7 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
       ];
     }
 
-    if (role == 'admin') {
+    if (role == 'admin' || role == 'super_admin') {
       return [
         const AdminDashboard(refreshTrigger: 0),
         const ChatPage(),
@@ -584,7 +585,7 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
       return items;
     }
 
-    if (role == 'admin') {
+    if (role == 'admin' || role == 'super_admin') {
       return [
         _NavItemData(Icons.home_rounded, l10n.navHome, 0),
         _NavItemData(Icons.chat_bubble_rounded, l10n.navChat, 1, isChat: true),
@@ -1230,6 +1231,17 @@ class _AdminMoreScreen extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final items = <_MoreItem>[
+      _MoreItem(
+        icon: Icons.receipt_long_rounded,
+        label: l10n.invoices,
+        color: const Color(0xff10B981),
+        screen: Scaffold(
+          appBar: AppBar(
+            title: Text(l10n.invoices),
+          ),
+          body: const AdminInvoiceHubScreen(),
+        ),
+      ),
       _MoreItem(
         icon: Icons.description_rounded,
         label: l10n.navForms,

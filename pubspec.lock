@@ -715,6 +715,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.0.34"
+  flutter_stripe:
+    dependency: "direct main"
+    description:
+      name: flutter_stripe
+      sha256: "03ec6f6af8d53dcced0534d2b52840ac4331d9320870c4167957133b2aa45194"
+      url: "https://pub.dev"
+    source: hosted
+    version: "12.6.0"
   flutter_svg:
     dependency: "direct main"
     description:
@@ -1153,10 +1161,10 @@ packages:
     dependency: transitive
     description:
       name: matcher
-      sha256: "12956d0ad8390bbcc63ca2e1469c0619946ccb52809807067a7020d57e647aa6"
+      sha256: dc0b7dc7651697ea4ff3e69ef44b0407ea32c487a39fff6a4004fa585e901861
       url: "https://pub.dev"
     source: hosted
-    version: "0.12.18"
+    version: "0.12.19"
   material_color_utilities:
     dependency: transitive
     description:
@@ -1642,6 +1650,30 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.4.1"
+  stripe_android:
+    dependency: transitive
+    description:
+      name: stripe_android
+      sha256: "596b2c2f18b6be571a99ef3dffe812ee7c99e134753234fd9110964b48e206c9"
+      url: "https://pub.dev"
+    source: hosted
+    version: "12.6.0"
+  stripe_ios:
+    dependency: transitive
+    description:
+      name: stripe_ios
+      sha256: e228c8e8a2e16770bd043a7f93ec26f559763188110dd81baf1aa146a3fd28ab
+      url: "https://pub.dev"
+    source: hosted
+    version: "12.6.0"
+  stripe_platform_interface:
+    dependency: transitive
+    description:
+      name: stripe_platform_interface
+      sha256: fddc7f83f38674358faa67064695397641957923b9c730eda8bdc8acc477f9f6
+      url: "https://pub.dev"
+    source: hosted
+    version: "12.6.0"
   syncfusion_flutter_calendar:
     dependency: "direct main"
     description:
@@ -1702,10 +1734,10 @@ packages:
     dependency: transitive
     description:
       name: test_api
-      sha256: "93167629bfc610f71560ab9312acdda4959de4df6fac7492c89ff0d3886f6636"
+      sha256: "8161c84903fd860b26bfdefb7963b3f0b68fee7adea0f59ef805ecca346f0c7a"
       url: "https://pub.dev"
     source: hosted
-    version: "0.7.9"
+    version: "0.7.10"
   timezone:
     dependency: "direct main"
     description:

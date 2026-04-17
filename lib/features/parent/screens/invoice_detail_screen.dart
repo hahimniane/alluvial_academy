@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -6,11 +8,11 @@ import 'package:intl/intl.dart';
 import 'package:alluwalacademyadmin/features/parent/models/invoice.dart';
 import 'package:alluwalacademyadmin/features/parent/models/payment.dart';
 import 'package:alluwalacademyadmin/features/parent/services/invoice_service.dart';
+import 'package:alluwalacademyadmin/features/parent/services/payment_service.dart';
 import 'package:alluwalacademyadmin/features/parent/services/invoice_pdf_service.dart';
 import 'package:alluwalacademyadmin/features/parent/screens/payment_screen.dart';
 import 'package:alluwalacademyadmin/features/parent/widgets/beautiful_invoice_widget.dart';
-import 'package:printing/printing.dart';
-import 'package:pdf/pdf.dart';
+import 'package:alluwalacademyadmin/features/parent/utils/invoice_printing.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class InvoiceDetailScreen extends StatelessWidget {
@@ -72,7 +74,9 @@ class InvoiceDetailScreen extends StatelessWidget {
                                 },
                           icon: const Icon(Icons.credit_card_rounded, size: 18),
                           label: Text(
-                            invoice.isFullyPaid ? 'Paid' : 'Pay Invoice',
+                            invoice.isFullyPaid
+                                ? AppLocalizations.of(context)!.parentInvoicesPaid
+                                : AppLocalizations.of(context)!.payInvoice,
                             style: GoogleFonts.inter(fontWeight: FontWeight.w800),
                           ),
                           style: ElevatedButton.styleFrom(
@@ -112,7 +116,7 @@ class InvoiceDetailScreen extends StatelessWidget {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
-                      color: statusColor.withOpacity(0.12),
+                      color: statusColor.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(999),
                     ),
                     child: Text(
@@ -130,65 +134,76 @@ class InvoiceDetailScreen extends StatelessWidget {
                 // Beautiful Invoice Widget
                 BeautifulInvoiceWidget(invoice: invoice),
                 const SizedBox(height: 18),
-                Text(
-                  AppLocalizations.of(context)!.payments,
-                  style: GoogleFonts.inter(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                    color: const Color(0xFF111827),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-                  stream: FirebaseFirestore.instance
-                      .collection('payments')
-                      .where('invoice_id', isEqualTo: invoice.id)
-                      .snapshots(),
-                  builder: (context, snap) {
-                    if (snap.connectionState == ConnectionState.waiting) {
-                      return const Center(child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator()));
-                    }
-                    if (snap.hasError) {
-                      return _inlineError('Failed to load payments: ${snap.error}');
-                    }
-                    final docs = snap.data?.docs ?? const [];
-                    final payments = docs
-                        .map((d) => Payment.fromFirestore(d))
-                        .toList()
-                      ..sort((a, b) {
-                        final aTime = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-                        final bTime = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-                        return bTime.compareTo(aTime);
-                      });
-
-                    if (payments.isEmpty) {
-                      return _inlineEmpty('No payments for this invoice yet.');
-                    }
-
-                    return Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: const Color(0xFFE5E7EB)),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        AppLocalizations.of(context)!.payments,
+                        style: GoogleFonts.inter(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          color: const Color(0xFF111827),
+                        ),
                       ),
-                      child: Column(
-                        children: payments.map((p) {
-                          final date = p.createdAt == null ? '' : DateFormat.yMMMd().format(p.createdAt!);
-                          return ListTile(
-                            leading: _statusDot(p.status),
-                            title: Text(
-                              money.format(p.amount),
-                              style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w800),
+                      const SizedBox(height: 10),
+                      StreamBuilder<QuerySnapshot<Object?>>(
+                        stream: PaymentService.watchPaymentsForInvoiceSnapshots(invoice),
+                        builder: (context, snap) {
+                          if (snap.connectionState == ConnectionState.waiting) {
+                            return const Center(
+                              child: Padding(
+                                padding: EdgeInsets.all(12),
+                                child: CircularProgressIndicator(),
+                              ),
+                            );
+                          }
+                          if (snap.hasError) {
+                            return _inlineError('Failed to load payments: ${snap.error}');
+                          }
+                          final docs = snap.data?.docs ?? const [];
+                          final payments = docs
+                              .map((d) => Payment.fromFirestore(d))
+                              .toList()
+                            ..sort((a, b) {
+                              final aTime = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+                              final bTime = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+                              return bTime.compareTo(aTime);
+                            });
+
+                          if (payments.isEmpty) {
+                            return _inlineEmpty('No payments for this invoice yet.');
+                          }
+
+                          return Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: const Color(0xFFE5E7EB)),
                             ),
-                            subtitle: Text(
-                              '${p.status.name.toUpperCase()}${date.isEmpty ? '' : ' • $date'}',
-                              style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF6B7280)),
+                            child: Column(
+                              children: payments.map((p) {
+                                final date =
+                                    p.createdAt == null ? '' : DateFormat.yMMMd().format(p.createdAt!);
+                                return ListTile(
+                                  leading: _statusDot(p.status),
+                                  title: Text(
+                                    money.format(p.amount),
+                                    style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w800),
+                                  ),
+                                  subtitle: Text(
+                                    '${p.status.name.toUpperCase()}${date.isEmpty ? '' : ' • $date'}',
+                                    style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF6B7280)),
+                                  ),
+                                );
+                              }).toList(),
                             ),
                           );
-                        }).toList(),
+                        },
                       ),
-                    );
-                  },
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -210,15 +225,22 @@ class InvoiceDetailScreen extends StatelessWidget {
         ),
       );
 
-      // Generate PDF
-      final pdfBytes = await InvoicePdfService.generateInvoicePDF(invoice);
+      // Generate PDF (bounded wait — Firestore lookups can stall on poor networks)
+      final pdfBytes = await InvoicePdfService.generateInvoicePDF(invoice).timeout(
+        const Duration(seconds: 45),
+        onTimeout: () => throw TimeoutException('invoice_pdf'),
+      );
 
       if (!context.mounted) return;
       Navigator.of(context).pop(); // Close loading dialog
 
-      // Share/Save PDF using printing package
-      await Printing.layoutPdf(
-        onLayout: (PdfPageFormat format) async => pdfBytes,
+      final safeName = (invoice.invoiceNumber.isNotEmpty
+              ? invoice.invoiceNumber
+              : invoice.id)
+          .replaceAll(RegExp(r'[^\w\-]+'), '_');
+      await presentInvoicePdfBytes(
+        bytes: pdfBytes,
+        filename: 'Invoice_$safeName.pdf',
       );
     } catch (e) {
       if (!context.mounted) return;

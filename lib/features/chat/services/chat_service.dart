@@ -1,7 +1,9 @@
-import 'dart:io';
+import 'dart:io' show File;
+import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:image_picker/image_picker.dart';
 import '../models/chat_message.dart';
 import '../models/chat_user.dart';
 import '../../../core/services/user_role_service.dart';
@@ -23,6 +25,22 @@ class ChatService {
 
   /// Whether the given ID refers to the shared admin support chat.
   static bool isAdminSupportChat(String id) => id == adminSupportId;
+
+  /// Firestore chat document ID for admin support is `{sortedUid1}_{sortedUid2}`
+  /// where one segment is exactly [adminSupportId]. Returns the real user's UID
+  /// or null if [chatDocId] is not an admin-support conversation id.
+  static String? humanUserIdFromAdminSupportChatDocId(String chatDocId) {
+    if (chatDocId == adminSupportId) return null;
+    final prefix = '${adminSupportId}_';
+    if (chatDocId.startsWith(prefix)) {
+      return chatDocId.substring(prefix.length);
+    }
+    final suffix = '_$adminSupportId';
+    if (chatDocId.endsWith(suffix)) {
+      return chatDocId.substring(0, chatDocId.length - suffix.length);
+    }
+    return null;
+  }
 
   // Get all users for browsing (except current user)
   Stream<List<ChatUser>> getAllUsers() {
@@ -84,14 +102,14 @@ class ChatService {
         .asyncMap((chatSnapshot) async {
       try {
         final visibleChats = chatSnapshot.docs
-            .where((doc) => _hasRecentMessage(doc.data()))
+            .where((doc) => _includeDocInAdminSupportInbox(doc.data()))
             .toList();
         final chatUsers = await _processAdminSupportSnapshot(visibleChats);
         chatUsers.sort((a, b) => (b.lastMessageTime ?? DateTime(0))
             .compareTo(a.lastMessageTime ?? DateTime(0)));
         return chatUsers;
-      } catch (e) {
-        AppLogger.error('Error in getAdminSupportChats: $e');
+      } catch (e, st) {
+        AppLogger.error('Error in getAdminSupportChats: $e\n$st');
         return <ChatUser>[];
       }
     });
@@ -99,6 +117,26 @@ class ChatService {
 
   bool _hasRecentMessage(Map<String, dynamic> chatData) {
     return chatData['last_message'] is Map;
+  }
+
+  /// Support inbox should list threads even if `last_message` on the chat doc is
+  /// missing or not yet materialized — [_processAdminSupportSnapshot] can load
+  /// preview from the [messages] subcollection instead.
+  bool _includeDocInAdminSupportInbox(Map<String, dynamic> chatData) {
+    if (_hasRecentMessage(chatData)) return true;
+    return chatData['chat_type'] == 'admin_support';
+  }
+
+  Map<String, dynamic> _fallbackUserRowForSupportInbox(String userId) {
+    return {
+      'first_name': 'User',
+      'last_name': userId.length > 10 ? '${userId.substring(0, 10)}…' : userId,
+      'email': '',
+      'e-mail': '',
+      'user_type': null,
+      'profile_picture': null,
+      'profile_picture_url': null,
+    };
   }
 
   bool _isMessageHiddenForCurrentUser(Map<String, dynamic> messageData) {
@@ -189,21 +227,23 @@ class ChatService {
       final participants = List<String>.from(chatData['participants'] ?? []);
       final realUserId = participants.firstWhere((id) => id != adminSupportId,
           orElse: () => '');
-      if (realUserId.isNotEmpty && usersData.containsKey(realUserId)) {
-        chatFutures.add(() async {
-          final lastMessage =
-              await _resolveVisibleLastMessage(chatDoc.id, chatData);
-          if (lastMessage == null) return null;
-          final unreadCount = await _getUnreadCount(chatDoc.id);
-          return _createAdminSupportChatUser(
-            chatDoc,
-            realUserId,
-            usersData[realUserId]!,
-            unreadCount,
-            lastMessage: lastMessage,
-          );
-        }());
-      }
+      if (realUserId.isEmpty) continue;
+
+      chatFutures.add(() async {
+        final lastMessage =
+            await _resolveVisibleLastMessage(chatDoc.id, chatData);
+        // Admin-initiated support chats may have no messages yet — still show them.
+        final unreadCount = await _getUnreadCount(chatDoc.id);
+        final userRow = usersData[realUserId] ??
+            _fallbackUserRowForSupportInbox(realUserId);
+        return _createAdminSupportChatUser(
+          chatDoc,
+          realUserId,
+          userRow,
+          unreadCount,
+          lastMessage: lastMessage,
+        );
+      }());
     }
 
     return (await Future.wait(chatFutures)).whereType<ChatUser>().toList();
@@ -437,6 +477,16 @@ class ChatService {
         'created_at': FieldValue.serverTimestamp(),
         'updated_at': FieldValue.serverTimestamp(),
       });
+    } else {
+      // Repair docs created by older code with corrupted participants.
+      final data = chatDoc.data()!;
+      final participants = List<String>.from(data['participants'] ?? []);
+      if (!participants.contains(adminSupportId) || data['chat_type'] != 'admin_support') {
+        await chatDocRef.update({
+          'participants': [currentUserId, adminSupportId],
+          'chat_type': 'admin_support',
+        });
+      }
     }
 
     return chatId;
@@ -488,13 +538,27 @@ class ChatService {
         await chatDocRef.collection('messages').add(messageData);
         return;
       } else {
-        await chatDocRef.set({
-          'participants': [currentUserId, chatIdOrUserId],
-          'chat_type': 'individual',
-          'created_at': FieldValue.serverTimestamp(),
-          'updated_at': FieldValue.serverTimestamp(),
-          'last_message': messageData,
-        });
+        final supportHumanId =
+            ChatService.humanUserIdFromAdminSupportChatDocId(chatId);
+        if (supportHumanId != null) {
+          // Composite id was passed (e.g. from ChatScreen admin support). Must
+          // store literal admin_support in participants or Support Inbox misses it.
+          await chatDocRef.set({
+            'participants': [supportHumanId, adminSupportId],
+            'chat_type': 'admin_support',
+            'created_at': FieldValue.serverTimestamp(),
+            'updated_at': FieldValue.serverTimestamp(),
+            'last_message': messageData,
+          });
+        } else {
+          await chatDocRef.set({
+            'participants': [currentUserId, chatIdOrUserId],
+            'chat_type': 'individual',
+            'created_at': FieldValue.serverTimestamp(),
+            'updated_at': FieldValue.serverTimestamp(),
+            'last_message': messageData,
+          });
+        }
       }
     } else {
       await chatDocRef.update({
@@ -507,22 +571,27 @@ class ChatService {
   }
 
   /// Upload an image and send as a message
-  Future<void> sendImageMessage(String chatIdOrUserId, File imageFile,
+  Future<void> sendImageMessage(String chatIdOrUserId, XFile imageFile,
       {bool isGroupChat = false, String? caption}) async {
     if (currentUserId == null) return;
 
     try {
+      final bytes = await imageFile.readAsBytes();
+      final ext = imageFile.name.split('.').last.toLowerCase();
       final fileName =
-          '${DateTime.now().millisecondsSinceEpoch}_${imageFile.path.split('/').last}';
+          '${DateTime.now().millisecondsSinceEpoch}_${imageFile.name}';
       final ref = FirebaseStorage.instance
           .ref()
           .child('chat_images')
           .child(currentUserId!)
           .child(fileName);
 
-      final uploadTask = await ref.putFile(imageFile);
+      final uploadTask = await ref.putData(
+        bytes,
+        SettableMetadata(contentType: 'image/$ext'),
+      );
       final downloadUrl = await uploadTask.ref.getDownloadURL();
-      final fileSize = await imageFile.length();
+      final fileSize = bytes.length;
 
       final displayText = caption != null && caption.trim().isNotEmpty
           ? caption.trim()
@@ -536,7 +605,7 @@ class ChatService {
           'file_url': downloadUrl,
           'file_name': fileName,
           'file_size': fileSize,
-          'mime_type': 'image/${fileName.split('.').last}',
+          'mime_type': 'image/$ext',
           if (caption != null && caption.trim().isNotEmpty)
             'caption': caption.trim(),
         },
@@ -550,7 +619,7 @@ class ChatService {
 
   /// Upload a file and send as a message
   Future<void> sendFileMessage(
-      String chatIdOrUserId, File file, String originalFileName,
+      String chatIdOrUserId, Uint8List bytes, String originalFileName,
       {bool isGroupChat = false}) async {
     if (currentUserId == null) return;
 
@@ -563,9 +632,9 @@ class ChatService {
           .child(currentUserId!)
           .child(fileName);
 
-      final uploadTask = await ref.putFile(file);
+      final uploadTask = await ref.putData(bytes);
       final downloadUrl = await uploadTask.ref.getDownloadURL();
-      final fileSize = await file.length();
+      final fileSize = bytes.length;
 
       await sendMessage(
         chatIdOrUserId,
@@ -628,25 +697,28 @@ class ChatService {
   }
 
   /// Upload a video and send as a message
-  Future<void> sendVideoMessage(String chatIdOrUserId, File videoFile,
+  Future<void> sendVideoMessage(String chatIdOrUserId, XFile videoFile,
       {bool isGroupChat = false, String? caption}) async {
     if (currentUserId == null) return;
 
     try {
+      final bytes = await videoFile.readAsBytes();
+      final ext = videoFile.name.split('.').last.toLowerCase();
+      final mimeType = 'video/$ext';
       final fileName =
-          'video_${DateTime.now().millisecondsSinceEpoch}_${videoFile.path.split('/').last}';
+          'video_${DateTime.now().millisecondsSinceEpoch}_${videoFile.name}';
       final ref = FirebaseStorage.instance
           .ref()
           .child('chat_videos')
           .child(currentUserId!)
           .child(fileName);
 
-      final uploadTask = await ref.putFile(
-        videoFile,
-        SettableMetadata(contentType: 'video/mp4'),
+      final uploadTask = await ref.putData(
+        bytes,
+        SettableMetadata(contentType: mimeType),
       );
       final downloadUrl = await uploadTask.ref.getDownloadURL();
-      final fileSize = await videoFile.length();
+      final fileSize = bytes.length;
 
       final displayText = caption != null && caption.trim().isNotEmpty
           ? caption.trim()
@@ -660,7 +732,7 @@ class ChatService {
           'file_url': downloadUrl,
           'file_name': fileName,
           'file_size': fileSize,
-          'mime_type': 'video/mp4',
+          'mime_type': mimeType,
           if (caption != null && caption.trim().isNotEmpty)
             'caption': caption.trim(),
         },
@@ -740,6 +812,21 @@ class ChatService {
         'created_at': FieldValue.serverTimestamp(),
         'updated_at': FieldValue.serverTimestamp(),
       });
+    } else {
+      // Repair docs created by older code that stored the chat doc ID as a participant
+      // instead of the literal 'admin_support' string.
+      final data = chatDoc.data()!;
+      final participants = List<String>.from(data['participants'] ?? []);
+      final needsRepair = !participants.contains(adminSupportId) ||
+          data['chat_type'] != 'admin_support';
+      if (needsRepair) {
+        AppLogger.error('[SupportChat] Repairing corrupted doc: $chatId old participants=$participants');
+        await chatDocRef.update({
+          'participants': [userId, adminSupportId],
+          'chat_type': 'admin_support',
+        });
+        AppLogger.error('[SupportChat] Repaired: $chatId');
+      }
     }
 
     return chatId;

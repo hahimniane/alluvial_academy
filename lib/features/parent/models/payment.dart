@@ -16,6 +16,8 @@ class Payment {
   final String paymentMethod;
   final String? payoneerSessionId;
   final String? payoneerTransactionId;
+  final String? stripeCheckoutSessionId;
+  final String? stripePaymentIntentId;
   final DateTime? createdAt;
   final DateTime? completedAt;
 
@@ -28,6 +30,8 @@ class Payment {
     required this.paymentMethod,
     this.payoneerSessionId,
     this.payoneerTransactionId,
+    this.stripeCheckoutSessionId,
+    this.stripePaymentIntentId,
     this.createdAt,
     this.completedAt,
   });
@@ -48,6 +52,10 @@ class Payment {
       payoneerSessionId: (data['payoneer_session_id'] ?? data['payoneerSessionId'])?.toString(),
       payoneerTransactionId:
           (data['payoneer_transaction_id'] ?? data['payoneerTransactionId'])?.toString(),
+      stripeCheckoutSessionId:
+          (data['stripe_checkout_session_id'] ?? data['stripeCheckoutSessionId'])?.toString(),
+      stripePaymentIntentId:
+          (data['stripe_payment_intent_id'] ?? data['stripePaymentIntentId'])?.toString(),
       createdAt: _parseDateTime(data['created_at'] ?? data['createdAt']),
       completedAt: _parseDateTime(data['completed_at'] ?? data['completedAt']),
     );
@@ -62,6 +70,8 @@ class Payment {
       'payment_method': paymentMethod,
       if (payoneerSessionId != null) 'payoneer_session_id': payoneerSessionId,
       if (payoneerTransactionId != null) 'payoneer_transaction_id': payoneerTransactionId,
+      if (stripeCheckoutSessionId != null) 'stripe_checkout_session_id': stripeCheckoutSessionId,
+      if (stripePaymentIntentId != null) 'stripe_payment_intent_id': stripePaymentIntentId,
       if (createdAt != null) 'created_at': Timestamp.fromDate(createdAt!),
       if (completedAt != null) 'completed_at': Timestamp.fromDate(completedAt!),
     };

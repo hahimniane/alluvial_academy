@@ -19,6 +19,7 @@ const testLivekitHandlers = require('./handlers/test_livekit');
 const migrationLivekitHandlers = require('./handlers/migration_livekit');
 const passwordHandlers = require('./handlers/password');
 const paymentHandlers = require('./handlers/payments');
+const invoiceAccessHandlers = require('./handlers/invoice_access');
 const noShowHandlers = require('./handlers/no_show');
 const chatHandlers = require('./handlers/chat');
 const directCallHandlers = require('./handlers/direct_calls');
@@ -86,10 +87,16 @@ exports.fixTimesheetsPayAndStatus = shiftHandlers.fixTimesheetsPayAndStatus;
 
 // Parent billing (invoices & payments)
 exports.createInvoice = onCall(paymentHandlers.createInvoice);
+
+// Invoice access control (student suspension)
+exports.onInvoiceWrite = invoiceAccessHandlers.onInvoiceWrite;
+exports.checkAccessCutoffs = invoiceAccessHandlers.checkAccessCutoffs;
 exports.getParentInvoices = onCall(paymentHandlers.getParentInvoices);
 exports.createPaymentSession = onCall(paymentHandlers.createPaymentSession);
+exports.createPaymentIntent = onCall(paymentHandlers.createPaymentIntent);
 exports.getPaymentHistory = onCall(paymentHandlers.getPaymentHistory);
 exports.handlePayoneerWebhook = functions.https.onRequest(paymentHandlers.handlePayoneerWebhook);
+exports.handleStripeWebhook = functions.https.onRequest(paymentHandlers.handleStripeWebhook);
 exports.generateInvoicesForPeriod = paymentHandlers.generateInvoicesForPeriod;
 exports.onCircleActivated = circleHandlers.onCircleActivated;
 exports.onContributionStatusChanged = circleHandlers.onContributionStatusChanged;

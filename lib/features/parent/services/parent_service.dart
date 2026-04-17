@@ -97,6 +97,50 @@ class ParentService {
     return false;
   }
 
+  /// Real-time stream of financial totals — updates the moment any invoice
+  /// for this parent changes in Firestore (e.g. after a payment webhook fires).
+  static Stream<Map<String, double>> watchFinancialSummary(String parentId) {
+    return _firestore
+        .collection('invoices')
+        .where('parent_id', isEqualTo: parentId)
+        .orderBy('issued_date', descending: true)
+        .limit(200)
+        .snapshots()
+        .map((snapshot) {
+      double outstanding = 0;
+      double overdue = 0;
+      double paid = 0;
+      final now = DateTime.now();
+
+      for (final doc in snapshot.docs) {
+        try {
+          final invoice = Invoice.fromFirestore(doc);
+          paid += invoice.paidAmount;
+
+          final remaining = invoice.remainingBalance;
+          final cancelled = invoice.status == InvoiceStatus.cancelled;
+          if (cancelled || invoice.isFullyPaid) continue;
+
+          outstanding += remaining;
+          if (invoice.dueDate.isBefore(now)) {
+            overdue += remaining;
+          }
+        } catch (e) {
+          AppLogger.error(
+              'ParentService: watchFinancialSummary parse error for ${doc.id}: $e');
+        }
+      }
+
+      return {
+        'outstanding': outstanding,
+        'overdue': overdue,
+        'paid': paid,
+      };
+    }).handleError((e) {
+      AppLogger.error('ParentService: watchFinancialSummary stream error: $e');
+    });
+  }
+
   static Future<Map<String, double>> getFinancialSummary(
       String parentId) async {
     try {

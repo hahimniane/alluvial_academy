@@ -16,6 +16,12 @@ class SidebarLocalization {
         return AppLocalizations.of(context)!.sidebarCommunication;
       case 'Dashboard':
         return AppLocalizations.of(context)!.navDashboard;
+      case 'Finance':
+        return AppLocalizations.of(context)!.sidebarFinance;
+      case 'Create Invoice':
+        return AppLocalizations.of(context)!.sidebarCreateInvoice;
+      case 'All Invoices':
+        return AppLocalizations.of(context)!.sidebarAllInvoices;
       case 'Debug':
         return AppLocalizations.of(context)!.debug;
       case 'Form Builder':

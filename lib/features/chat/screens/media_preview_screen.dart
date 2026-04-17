@@ -1,6 +1,9 @@
-import 'dart:io';
+import 'dart:io' show File;
+import 'dart:typed_data';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:video_player/video_player.dart';
 
 /// Result returned when user confirms sending from the preview screen.
@@ -11,7 +14,7 @@ class MediaPreviewResult {
 
 /// Full-screen preview for photos/videos before sending (WhatsApp-style).
 class MediaPreviewScreen extends StatefulWidget {
-  final File file;
+  final XFile file;
   final bool isVideo;
   final String recipientName;
 
@@ -30,17 +33,31 @@ class _MediaPreviewScreenState extends State<MediaPreviewScreen> {
   final TextEditingController _captionController = TextEditingController();
   VideoPlayerController? _videoController;
   bool _videoInitialized = false;
+  Uint8List? _imageBytes;
 
   @override
   void initState() {
     super.initState();
     if (widget.isVideo) {
       _initVideo();
+    } else {
+      _loadImageBytes();
     }
   }
 
+  Future<void> _loadImageBytes() async {
+    final bytes = await widget.file.readAsBytes();
+    if (mounted) setState(() => _imageBytes = bytes);
+  }
+
   Future<void> _initVideo() async {
-    _videoController = VideoPlayerController.file(widget.file);
+    if (kIsWeb) {
+      // On web, XFile.path is a blob URL — use networkUrl
+      _videoController =
+          VideoPlayerController.networkUrl(Uri.parse(widget.file.path));
+    } else {
+      _videoController = VideoPlayerController.file(File(widget.file.path));
+    }
     try {
       await _videoController!.initialize();
       if (mounted) {
@@ -106,12 +123,17 @@ class _MediaPreviewScreenState extends State<MediaPreviewScreen> {
     if (widget.isVideo) {
       return _buildVideoPreview();
     }
+    if (_imageBytes == null) {
+      return const Center(
+        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+      );
+    }
     return InteractiveViewer(
       minScale: 0.5,
       maxScale: 3.0,
       child: Center(
-        child: Image.file(
-          widget.file,
+        child: Image.memory(
+          _imageBytes!,
           fit: BoxFit.contain,
         ),
       ),

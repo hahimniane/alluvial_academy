@@ -157,6 +157,14 @@ service cloud.firestore {
 
     }
 
+    // Dashboard / chat presence heartbeat (RoleBasedDashboard → users/{uid})
+    // diff().changedKeys() may list only fields whose values differ (e.g. only last_seen on heartbeat).
+    function isPresenceOnlyUpdate() {
+      return request.resource.data.diff(resource.data).changedKeys().hasOnly(['is_online', 'last_seen'])
+        || request.resource.data.diff(resource.data).changedKeys().hasOnly(['last_seen'])
+        || request.resource.data.diff(resource.data).changedKeys().hasOnly(['is_online']);
+    }
+
     
 
     // Helper to resolve the owner of a form submission across legacy field names
@@ -266,9 +274,13 @@ service cloud.firestore {
 
         isUserDocOwnerAfterWrite(userId) && isFcmTokenOnlyUpdate()
 
+      ) || (
+
+        isUserDocOwnerAfterWrite(userId) && isPresenceOnlyUpdate()
+
       );
 
-      
+
 
       // Allow create for admins, or self-provisioning as circle_member via phone auth
       allow create: if isAdmin() || (
