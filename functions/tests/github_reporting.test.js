@@ -353,12 +353,7 @@ describe('github reporting helpers', () => {
     expect(period.periodEnd.toISOString()).toBe('2026-04-27T00:00:00.000Z');
   });
 
-  test('generateWeeklyCtoReportForDate refreshes the same weekly response when more pushes land', async () => {
-    const periodStart = new Date('2026-04-20T00:00:00.000Z');
-    const runDocId = __test__.buildRunDocId({
-      templateId: 'cto_weekly_engineering_report',
-      periodStart,
-    });
+  test('submitCtoReportForEvent stores one response per push and reuses it for retries', async () => {
     const db = createFakeDb({
       users: {
         user_123: {
@@ -373,52 +368,31 @@ describe('github reporting helpers', () => {
           isActive: true,
         },
       },
-      github_activity_events: {
-        event_1: {
-          pushedAt: admin.firestore.Timestamp.fromDate(new Date('2026-04-20T18:12:35.000Z')),
-          commits: [
-            {
-              id: 'commit_1',
-              message: 'Handle GitHub noreply commit authors',
-              timestamp: '2026-04-20T18:12:35.000Z',
-              files: ['functions/handlers/github_reporting.js'],
-            },
-          ],
-        },
-        event_2: {
-          pushedAt: admin.firestore.Timestamp.fromDate(new Date('2026-04-20T18:23:28.000Z')),
-          commits: [
-            {
-              id: 'commit_2',
-              message: 'Preserve selected weekly form template',
-              timestamp: '2026-04-20T18:23:28.000Z',
-              files: ['lib/features/forms/screens/teacher_forms_screen.dart'],
-            },
-          ],
-        },
-      },
-      automation_runs: {
-        [runDocId]: {
-          status: 'submitted',
-          templateId: 'cto_weekly_engineering_report',
-          formResponseId: 'existing_response',
-        },
-      },
-      form_responses: {
-        existing_response: {
-          templateId: 'cto_weekly_engineering_report',
-          responses: {
-            work_summary: 'Old summary',
-          },
-        },
-      },
+      github_activity_events: {},
+      form_responses: {},
     });
+    const event = {
+      pushedAt: admin.firestore.Timestamp.fromDate(new Date('2026-04-20T18:23:28.000Z')),
+      commits: [
+        {
+          id: 'commit_2',
+          message: 'Preserve selected weekly form template',
+          timestamp: '2026-04-20T18:23:28.000Z',
+          files: ['lib/features/forms/screens/teacher_forms_screen.dart'],
+        },
+        {
+          id: 'commit_1',
+          message: 'Handle GitHub noreply commit authors',
+          timestamp: '2026-04-20T18:12:35.000Z',
+          files: ['functions/handlers/github_reporting.js'],
+        },
+      ],
+    };
 
-    const result = await __test__.generateWeeklyCtoReportForDate({
+    const result = await __test__.submitCtoReportForEvent({
       db,
-      referenceDate: new Date('2026-04-20T18:23:28.000Z'),
-      periodMode: 'current',
-      updateExisting: true,
+      eventDocId: 'event_2',
+      event,
       config: {
         templateId: 'cto_weekly_engineering_report',
         reporterName: 'Hassimiou Niane',
@@ -430,15 +404,37 @@ describe('github reporting helpers', () => {
       },
     });
 
-    const storedResponse = db._collections.get('form_responses').get('existing_response');
+    const retryResult = await __test__.submitCtoReportForEvent({
+      db,
+      eventDocId: 'event_2',
+      event,
+      config: {
+        templateId: 'cto_weekly_engineering_report',
+        reporterName: 'Hassimiou Niane',
+        reporterEmail: 'hassimiou.niane@maine.edu',
+        reporterUserId: '',
+        authorEmails: [],
+        authorUsernames: [],
+        repositoryAllowlist: [],
+      },
+    });
+
+    const storedResponse = db._collections
+      .get('form_responses')
+      .get('cto_weekly_engineering_report_event_2');
+    const storedEvent = db._collections.get('github_activity_events').get('event_2');
 
     expect(result.skipped).toBe(false);
-    expect(result.updated).toBe(true);
-    expect(result.formResponseId).toBe('existing_response');
+    expect(result.updated).toBe(false);
+    expect(result.formResponseId).toBe('cto_weekly_engineering_report_event_2');
+    expect(retryResult.updated).toBe(true);
     expect(db._collections.get('form_responses').size).toBe(1);
-    expect(storedResponse.reportDate).toBe('26/04/2026');
-    expect(storedResponse.responses.report_date).toBe('26/04/2026');
+    expect(storedResponse.reportDate).toBe('20/04/2026');
+    expect(storedResponse.responses.report_date).toBe('20/04/2026');
+    expect(storedResponse.githubEventIds).toEqual(['event_2']);
     expect(storedResponse.githubCommitIds).toEqual(['commit_2', 'commit_1']);
+    expect(storedEvent.formResponseId).toBe('cto_weekly_engineering_report_event_2');
+    expect(storedEvent.reportDate).toBe('20/04/2026');
     expect(storedResponse.responses.work_summary).toContain(
       '- Preserve selected weekly form template',
     );
@@ -456,6 +452,7 @@ describe('github reporting helpers', () => {
         email: 'hassimiou.niane@maine.edu',
         name: 'Hassimiou Niane',
       },
+      reportDate: new Date('2026-04-20T18:23:28.000Z'),
       periodStart: new Date('2026-04-13T00:00:00.000Z'),
       periodEnd: new Date('2026-04-20T00:00:00.000Z'),
       workSummary: 'Worked mainly on payments and dashboard updates.',
@@ -469,12 +466,12 @@ describe('github reporting helpers', () => {
     expect(submission.frequency).toBe('weekly');
     expect(submission.userId).toBe('user_123');
     expect(submission.responses).toEqual({
-      report_date: '19/04/2026',
+      report_date: '20/04/2026',
       reporter_name: 'Hassimiou Niane',
       work_summary: 'Worked mainly on payments and dashboard updates.',
       follow_up: '',
     });
-    expect(submission.reportDate).toBe('19/04/2026');
+    expect(submission.reportDate).toBe('20/04/2026');
     expect(submission.yearMonth).toBe('2026-04');
     expect(submission.githubEventIds).toEqual(['event_1']);
     expect(submission.githubCommitIds).toEqual(['commit_1']);

@@ -384,6 +384,10 @@ function buildRunDocId({templateId, periodStart}) {
   return `${templateId}_${formatDateKey(periodStart)}`;
 }
 
+function buildEventFormResponseId({templateId, eventDocId}) {
+  return `${templateId}_${eventDocId}`;
+}
+
 function splitName(fullName) {
   const parts = normalizeString(fullName).split(/\s+/).filter(Boolean);
   if (parts.length === 0) return {firstName: '', lastName: ''};
@@ -432,6 +436,8 @@ function buildFormSubmission({
   templateId,
   formName,
   reporter,
+  reportDate,
+  automationMode = 'per_push',
   periodStart,
   periodEnd,
   workSummary,
@@ -439,9 +445,9 @@ function buildFormSubmission({
   commitIds,
 }) {
   const {firstName, lastName} = splitName(reporter.name);
-  const reportingDate = addUtcDays(periodEnd, -1);
+  const reportingDate = toDate(reportDate) || addUtcDays(periodEnd, -1);
   const yearMonth = reportingDate.toISOString().slice(0, 7);
-  const reportDate = formatDateForField(reportingDate);
+  const formattedReportDate = formatDateForField(reportingDate);
 
   return {
     formId: templateId,
@@ -460,7 +466,7 @@ function buildFormSubmission({
     userFirstName: firstName,
     userLastName: lastName,
     responses: {
-      report_date: reportDate,
+      report_date: formattedReportDate,
       reporter_name: reporter.name,
       work_summary: workSummary,
       follow_up: '',
@@ -470,11 +476,76 @@ function buildFormSubmission({
     lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
     yearMonth,
     automationSource: 'github_weekly_cto_report',
-    reportDate,
+    automationMode,
+    reportDate: formattedReportDate,
     reportingPeriodStart: periodStart.toISOString(),
     reportingPeriodEnd: periodEnd.toISOString(),
     githubEventIds: eventDocIds,
     githubCommitIds: commitIds,
+  };
+}
+
+async function submitCtoReportForEvent({
+  db = admin.firestore(),
+  eventDocId,
+  event,
+  config = getConfig(),
+}) {
+  const [reporter, template] = await Promise.all([
+    resolveReporter(db, config),
+    resolveTemplate(db, config.templateId),
+  ]);
+
+  const pushedAt =
+    toDate(event?.pushedAt) ||
+    toDate(event?.commits?.[0]?.timestamp) ||
+    new Date();
+  const period = getWeeklyPeriod(pushedAt, 'current');
+  const commits = Array.isArray(event?.commits)
+    ? event.commits.map((commit) => ({
+      ...commit,
+      files: Array.isArray(commit?.files) ? commit.files : [],
+      message: sanitizeCommitMessage(commit?.message),
+      timestamp: commit?.timestamp || null,
+    }))
+    : [];
+  const commitIds = unique(commits.map((commit) => normalizeString(commit.id)).filter(Boolean));
+  const workSummary = buildWeeklyWorkSummary(commits);
+  const submission = buildFormSubmission({
+    templateId: template.id,
+    formName: template.name,
+    reporter,
+    reportDate: pushedAt,
+    automationMode: 'per_push',
+    periodStart: period.periodStart,
+    periodEnd: period.periodEnd,
+    workSummary,
+    eventDocIds: [eventDocId],
+    commitIds,
+  });
+
+  const formResponseId = buildEventFormResponseId({
+    templateId: template.id,
+    eventDocId,
+  });
+  const formRef = db.collection('form_responses').doc(formResponseId);
+  const existingForm = await formRef.get();
+
+  await formRef.set(submission, {merge: true});
+  await db.collection(GITHUB_ACTIVITY_COLLECTION).doc(eventDocId).set({
+    formResponseId,
+    reportDate: submission.reportDate,
+    reportSubmittedAt: admin.firestore.FieldValue.serverTimestamp(),
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  }, {merge: true});
+
+  return {
+    ok: true,
+    skipped: false,
+    updated: existingForm.exists,
+    formResponseId,
+    reportingPeriodStart: period.periodStart.toISOString(),
+    reportingPeriodEnd: period.periodEnd.toISOString(),
   };
 }
 
@@ -639,6 +710,7 @@ async function generateWeeklyCtoReportForDate({
     templateId: template.id,
     formName: template.name,
     reporter,
+    automationMode: 'weekly_aggregate',
     periodStart: period.periodStart,
     periodEnd: period.periodEnd,
     workSummary,
@@ -721,10 +793,9 @@ async function ingestGitHubActivity(req, res) {
       .doc(result.docId)
       .set(result.event, {merge: true});
 
-    const reportRefresh = await generateWeeklyCtoReportForDate({
-      referenceDate: toDate(result.event.pushedAt) || new Date(),
-      periodMode: 'current',
-      updateExisting: true,
+    const reportSubmission = await submitCtoReportForEvent({
+      eventDocId: result.docId,
+      event: result.event,
       config,
     });
 
@@ -734,7 +805,7 @@ async function ingestGitHubActivity(req, res) {
       eventId: result.docId,
       repository: result.event.repositoryFullName,
       branch: result.event.branch,
-      reportRefresh,
+      reportSubmission,
     });
   } catch (error) {
     console.error('[github_reporting] ingest failed', error);
@@ -791,16 +862,7 @@ const generateWeeklyCtoReport = onSchedule({
   memory: '256MiB',
   region: 'us-central1',
 }, async () => {
-  try {
-    const result = await generateWeeklyCtoReportForDate({
-      periodMode: 'previous',
-      updateExisting: true,
-    });
-    console.log('[github_reporting] weekly run result', result);
-  } catch (error) {
-    console.error('[github_reporting] scheduled run failed', error);
-    throw error;
-  }
+  console.log('[github_reporting] weekly schedule skipped; per-push submission mode is active');
 });
 
 module.exports = {
@@ -815,7 +877,9 @@ module.exports = {
     describeChangedPath,
     getWeeklyPeriod,
     buildRunDocId,
+    buildEventFormResponseId,
     collectCommitsFromEvents,
     generateWeeklyCtoReportForDate,
+    submitCtoReportForEvent,
   },
 };

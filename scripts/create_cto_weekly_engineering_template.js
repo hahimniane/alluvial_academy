@@ -76,14 +76,14 @@ async function createOrUpdateTemplate() {
   const payload = {
     name: TEMPLATE_NAME,
     description:
-      'Short weekly software work summary for CTO updates. Focus on what was worked on, not hours or activity counts.',
+      'Short CTO engineering update captured from GitHub pushes. Focus on what was worked on, not hours or activity counts.',
     frequency: 'weekly',
     category: 'administrative',
     version: nextVersion,
     allowedRoles: ['admin', 'super_admin'],
     themeColor: '#0F766E',
     fields: {
-      report_date: buildField('report_date', 'Week ending date', 'date', 1, {
+      report_date: buildField('report_date', 'Report date', 'date', 1, {
         required: true,
       }),
       reporter_name: buildField('reporter_name', 'Name', 'text', 2, {
@@ -92,13 +92,13 @@ async function createOrUpdateTemplate() {
       }),
       work_summary: buildField(
         'work_summary',
-        'What was worked on this week?',
+        'What was worked on?',
         'long_text',
         3,
         {
           required: true,
           placeholder:
-            'Keep it high level. Focus on the main software work completed or in progress.',
+            'Keep it high level. Focus on the main software work reflected in this push or update.',
         },
       ),
       follow_up: buildField(
