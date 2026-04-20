@@ -26,6 +26,7 @@ const directCallHandlers = require('./handlers/direct_calls');
 const aiTutorHandlers = require('./handlers/ai_tutor');
 const attendanceHandlers = require('./handlers/attendance');
 const circleHandlers = require('./handlers/circles');
+const githubReportingHandlers = require('./handlers/github_reporting');
 // Temporarily commented out to allow deployment
 // const { fixDecemberForms } = require('./fix_december_forms');
 const newImplementation = require('./new_implementation');
@@ -111,6 +112,13 @@ exports.resendCircleInvite = circleHandlers.resendCircleInvite;
 
 // Form management functions
 exports.checkIncompleteReadinessForms = formHandlers.checkIncompleteReadinessForms;
+exports.ingestGitHubActivity = functions.https.onRequest(
+  githubReportingHandlers.ingestGitHubActivity
+);
+exports.runCtoWeeklyReportNow = functions.https.onRequest(
+  githubReportingHandlers.runCtoWeeklyReportHttp
+);
+exports.generateWeeklyCtoReport = githubReportingHandlers.generateWeeklyCtoReport;
 
 // Timezone management functions
 exports.updateUserTimezone = timezoneHandlers.updateUserTimezone;

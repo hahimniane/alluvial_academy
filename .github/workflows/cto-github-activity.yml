@@ -1,0 +1,21 @@
+name: CTO GitHub Activity Ingest
+
+on:
+  push:
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send push payload to Firestore ingest endpoint
+        env:
+          CTO_REPORT_INGEST_URL: https://us-central1-alluwal-academy.cloudfunctions.net/ingestGitHubActivity
+          CTO_REPORT_INGEST_SECRET: ${{ secrets.CTO_REPORT_INGEST_SECRET }}
+          GITHUB_EVENT_PATH: ${{ github.event_path }}
+        run: |
+          curl --fail --show-error --silent \
+            -X POST "$CTO_REPORT_INGEST_URL" \
+            -H "Content-Type: application/json" \
+            -H "X-GitHub-Event: push" \
+            -H "X-GitHub-Report-Secret: $CTO_REPORT_INGEST_SECRET" \
+            --data @"$GITHUB_EVENT_PATH"
