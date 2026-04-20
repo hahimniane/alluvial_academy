@@ -348,14 +348,23 @@ function addUtcDays(date, days) {
   return new Date(date.getTime() + days * 24 * 60 * 60 * 1000);
 }
 
-function getPreviousWeeklyPeriod(referenceDate = new Date()) {
+function getWeeklyPeriod(referenceDate = new Date(), mode = 'previous') {
   const ref = startOfUtcDay(referenceDate);
   const weekday = ref.getUTCDay();
   const distanceToMonday = (weekday + 6) % 7;
   const currentWeekStart = addUtcDays(ref, -distanceToMonday);
+  if (mode === 'current') {
+    return {
+      periodStart: currentWeekStart,
+      periodEnd: addUtcDays(currentWeekStart, 7),
+    };
+  }
+
   const periodEnd = currentWeekStart;
-  const periodStart = addUtcDays(periodEnd, -7);
-  return {periodStart, periodEnd};
+  return {
+    periodStart: addUtcDays(periodEnd, -7),
+    periodEnd,
+  };
 }
 
 function formatDateKey(date) {
@@ -565,25 +574,28 @@ async function generateWeeklyCtoReportForDate({
   db = admin.firestore(),
   referenceDate = new Date(),
   force = false,
+  periodMode = 'previous',
+  updateExisting = false,
   config = getConfig(),
 }) {
-  const period = getPreviousWeeklyPeriod(referenceDate);
+  const period = getWeeklyPeriod(referenceDate, periodMode);
   const runDocId = buildRunDocId({
     templateId: config.templateId,
     periodStart: period.periodStart,
   });
   const runRef = db.collection(AUTOMATION_RUNS_COLLECTION).doc(runDocId);
   const existingRun = await runRef.get();
+  const existingData = existingRun.data() || {};
+  const existingFormResponseId = normalizeString(existingData.formResponseId);
 
   if (!force && existingRun.exists) {
-    const existingData = existingRun.data() || {};
-    if (existingData.status === 'submitted') {
+    if (existingData.status === 'submitted' && !updateExisting) {
       return {
         ok: true,
         skipped: true,
         reason: 'already_submitted',
         runDocId,
-        formResponseId: existingData.formResponseId || null,
+        formResponseId: existingFormResponseId || null,
       };
     }
   }
@@ -634,12 +646,21 @@ async function generateWeeklyCtoReportForDate({
     commitIds: commits.map((commit) => commit.id),
   });
 
-  const formRef = await db.collection('form_responses').add(submission);
+  let formResponseId = existingFormResponseId;
+  let wasUpdated = false;
+
+  if (formResponseId) {
+    wasUpdated = true;
+    await db.collection('form_responses').doc(formResponseId).set(submission, {merge: true});
+  } else {
+    const formRef = await db.collection('form_responses').add(submission);
+    formResponseId = formRef.id;
+  }
 
   await runRef.set({
     status: 'submitted',
     templateId: template.id,
-    formResponseId: formRef.id,
+    formResponseId,
     reporterUserId: reporter.uid,
     reportingPeriodStart: period.periodStart.toISOString(),
     reportingPeriodEnd: period.periodEnd.toISOString(),
@@ -651,8 +672,9 @@ async function generateWeeklyCtoReportForDate({
   return {
     ok: true,
     skipped: false,
+    updated: wasUpdated,
     runDocId,
-    formResponseId: formRef.id,
+    formResponseId,
     reportingPeriodStart: period.periodStart.toISOString(),
     reportingPeriodEnd: period.periodEnd.toISOString(),
   };
@@ -699,12 +721,20 @@ async function ingestGitHubActivity(req, res) {
       .doc(result.docId)
       .set(result.event, {merge: true});
 
+    const reportRefresh = await generateWeeklyCtoReportForDate({
+      referenceDate: toDate(result.event.pushedAt) || new Date(),
+      periodMode: 'current',
+      updateExisting: true,
+      config,
+    });
+
     res.status(200).json({
       ok: true,
       skipped: false,
       eventId: result.docId,
       repository: result.event.repositoryFullName,
       branch: result.event.branch,
+      reportRefresh,
     });
   } catch (error) {
     console.error('[github_reporting] ingest failed', error);
@@ -737,11 +767,15 @@ async function runCtoWeeklyReportHttp(req, res) {
   const body = parseJsonBody(req.body);
   const referenceDate = toDate(body.referenceDate) || new Date();
   const force = body.force === true;
+  const periodMode = normalizeLower(body.periodMode) === 'current' ? 'current' : 'previous';
+  const updateExisting = body.updateExisting !== false;
 
   try {
     const result = await generateWeeklyCtoReportForDate({
       referenceDate,
       force,
+      periodMode,
+      updateExisting,
       config,
     });
     res.status(200).json(result);
@@ -758,7 +792,10 @@ const generateWeeklyCtoReport = onSchedule({
   region: 'us-central1',
 }, async () => {
   try {
-    const result = await generateWeeklyCtoReportForDate({});
+    const result = await generateWeeklyCtoReportForDate({
+      periodMode: 'previous',
+      updateExisting: true,
+    });
     console.log('[github_reporting] weekly run result', result);
   } catch (error) {
     console.error('[github_reporting] scheduled run failed', error);
@@ -776,8 +813,9 @@ module.exports = {
     buildFormSubmission,
     extractFocusAreas,
     describeChangedPath,
-    getPreviousWeeklyPeriod,
+    getWeeklyPeriod,
     buildRunDocId,
     collectCommitsFromEvents,
+    generateWeeklyCtoReportForDate,
   },
 };

@@ -19,6 +19,117 @@ admin.firestore.FieldValue = {
 
 const { __test__ } = require('../handlers/github_reporting');
 
+function readField(data, path) {
+  return String(path || '')
+    .split('.')
+    .filter(Boolean)
+    .reduce((value, key) => (value == null ? undefined : value[key]), data);
+}
+
+function toComparable(value) {
+  if (value && typeof value.toDate === 'function') {
+    return value.toDate().getTime();
+  }
+  if (value instanceof Date) return value.getTime();
+  return value;
+}
+
+class FakeDocSnapshot {
+  constructor(id, data) {
+    this.id = id;
+    this._data = data;
+    this.exists = data !== undefined;
+  }
+
+  data() {
+    return this._data;
+  }
+}
+
+class FakeDocRef {
+  constructor(store, id) {
+    this.store = store;
+    this.id = id;
+  }
+
+  async get() {
+    return new FakeDocSnapshot(this.id, this.store.get(this.id));
+  }
+
+  async set(data, options = {}) {
+    const current = this.store.get(this.id);
+    if (options.merge && current && typeof current === 'object') {
+      this.store.set(this.id, {...current, ...data});
+      return;
+    }
+    this.store.set(this.id, {...data});
+  }
+}
+
+class FakeCollectionRef {
+  constructor(store, filters = [], limitCount = null) {
+    this.store = store;
+    this.filters = filters;
+    this.limitCount = limitCount;
+  }
+
+  doc(id) {
+    return new FakeDocRef(this.store, id);
+  }
+
+  where(field, op, value) {
+    return new FakeCollectionRef(this.store, [...this.filters, {field, op, value}], this.limitCount);
+  }
+
+  limit(count) {
+    return new FakeCollectionRef(this.store, this.filters, count);
+  }
+
+  async get() {
+    let docs = [...this.store.entries()]
+      .filter(([, data]) => this.filters.every(({field, op, value}) => {
+        const left = toComparable(readField(data, field));
+        const right = toComparable(value);
+        if (op === '==') return left === right;
+        if (op === '>=') return left >= right;
+        if (op === '<') return left < right;
+        throw new Error(`Unsupported operator in fake query: ${op}`);
+      }))
+      .map(([id, data]) => new FakeDocSnapshot(id, data));
+
+    if (typeof this.limitCount === 'number') {
+      docs = docs.slice(0, this.limitCount);
+    }
+
+    return {
+      docs,
+      empty: docs.length === 0,
+    };
+  }
+
+  async add(data) {
+    const id = `auto_${this.store.size + 1}`;
+    this.store.set(id, {...data});
+    return {id};
+  }
+}
+
+function createFakeDb(seed = {}) {
+  const collections = new Map(
+    Object.entries(seed).map(([name, docs]) => [name, new Map(Object.entries(docs || {}))]),
+  );
+
+  return {
+    _collections: collections,
+    collection(name) {
+      if (!collections.has(name)) {
+        collections.set(name, new Map());
+      }
+      return new FakeCollectionRef(collections.get(name));
+    },
+  };
+}
+
 describe('github reporting helpers', () => {
   test('sanitizePushPayload keeps only matching CTO commits and derives focus areas', () => {
     const payload = {
@@ -230,6 +341,110 @@ describe('github reporting helpers', () => {
       'commit_new',
       'commit_shared',
     ]);
+  });
+
+  test('getWeeklyPeriod supports current-week rollups for push-triggered refreshes', () => {
+    const period = __test__.getWeeklyPeriod(
+      new Date('2026-04-22T15:45:00.000Z'),
+      'current',
+    );
+
+    expect(period.periodStart.toISOString()).toBe('2026-04-20T00:00:00.000Z');
+    expect(period.periodEnd.toISOString()).toBe('2026-04-27T00:00:00.000Z');
+  });
+
+  test('generateWeeklyCtoReportForDate refreshes the same weekly response when more pushes land', async () => {
+    const periodStart = new Date('2026-04-20T00:00:00.000Z');
+    const runDocId = __test__.buildRunDocId({
+      templateId: 'cto_weekly_engineering_report',
+      periodStart,
+    });
+    const db = createFakeDb({
+      users: {
+        user_123: {
+          'e-mail': 'hassimiou.niane@maine.edu',
+          first_name: 'Hassimiou',
+          last_name: 'Niane',
+        },
+      },
+      form_templates: {
+        cto_weekly_engineering_report: {
+          name: 'CTO Weekly Engineering Report',
+          isActive: true,
+        },
+      },
+      github_activity_events: {
+        event_1: {
+          pushedAt: admin.firestore.Timestamp.fromDate(new Date('2026-04-20T18:12:35.000Z')),
+          commits: [
+            {
+              id: 'commit_1',
+              message: 'Handle GitHub noreply commit authors',
+              timestamp: '2026-04-20T18:12:35.000Z',
+              files: ['functions/handlers/github_reporting.js'],
+            },
+          ],
+        },
+        event_2: {
+          pushedAt: admin.firestore.Timestamp.fromDate(new Date('2026-04-20T18:23:28.000Z')),
+          commits: [
+            {
+              id: 'commit_2',
+              message: 'Preserve selected weekly form template',
+              timestamp: '2026-04-20T18:23:28.000Z',
+              files: ['lib/features/forms/screens/teacher_forms_screen.dart'],
+            },
+          ],
+        },
+      },
+      automation_runs: {
+        [runDocId]: {
+          status: 'submitted',
+          templateId: 'cto_weekly_engineering_report',
+          formResponseId: 'existing_response',
+        },
+      },
+      form_responses: {
+        existing_response: {
+          templateId: 'cto_weekly_engineering_report',
+          responses: {
+            work_summary: 'Old summary',
+          },
+        },
+      },
+    });
+
+    const result = await __test__.generateWeeklyCtoReportForDate({
+      db,
+      referenceDate: new Date('2026-04-20T18:23:28.000Z'),
+      periodMode: 'current',
+      updateExisting: true,
+      config: {
+        templateId: 'cto_weekly_engineering_report',
+        reporterName: 'Hassimiou Niane',
+        reporterEmail: 'hassimiou.niane@maine.edu',
+        reporterUserId: '',
+        authorEmails: [],
+        authorUsernames: [],
+        repositoryAllowlist: [],
+      },
+    });
+
+    const storedResponse = db._collections.get('form_responses').get('existing_response');
+
+    expect(result.skipped).toBe(false);
+    expect(result.updated).toBe(true);
+    expect(result.formResponseId).toBe('existing_response');
+    expect(db._collections.get('form_responses').size).toBe(1);
+    expect(storedResponse.reportDate).toBe('26/04/2026');
+    expect(storedResponse.responses.report_date).toBe('26/04/2026');
+    expect(storedResponse.githubCommitIds).toEqual(['commit_2', 'commit_1']);
+    expect(storedResponse.responses.work_summary).toContain(
+      '- Preserve selected weekly form template',
+    );
+    expect(storedResponse.responses.work_summary).toContain(
+      '- Handle GitHub noreply commit authors',
+    );
   });
 
   test('buildFormSubmission targets the CTO template with minimal fields', () => {
