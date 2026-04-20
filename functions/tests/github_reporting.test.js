@@ -163,6 +163,36 @@ describe('github reporting helpers', () => {
     expect(summary.toLowerCase()).not.toContain('times worked');
   });
 
+  test('buildWeeklyWorkSummary falls back to file-based work areas when commit messages are weak', () => {
+    const summary = __test__.buildWeeklyWorkSummary([
+      {
+        id: 'commit_1',
+        message: 'update',
+        files: [
+          'functions/handlers/payments.js',
+          'lib/features/parent/screens/payment_screen.dart',
+        ],
+      },
+      {
+        id: 'commit_2',
+        message: 'wip',
+        files: [
+          'lib/features/dashboard/screens/dashboard.dart',
+        ],
+      },
+    ]);
+
+    expect(summary).toContain('Worked mainly on');
+    expect(summary).toContain('payments backend');
+    expect(summary).toContain('parent and billing experience');
+    expect(summary).toContain('dashboard updates');
+    expect(summary).toContain('Main work areas:');
+    expect(summary).toContain('- Payments backend.');
+    expect(summary).toContain('- Parent and billing experience.');
+    expect(summary.toLowerCase()).not.toContain('\n- update');
+    expect(summary.toLowerCase()).not.toContain('\n- wip');
+  });
+
   test('collectCommitsFromEvents dedupes shared commits across multiple push events', () => {
     const result = __test__.collectCommitsFromEvents([
       {
@@ -224,10 +254,12 @@ describe('github reporting helpers', () => {
     expect(submission.frequency).toBe('weekly');
     expect(submission.userId).toBe('user_123');
     expect(submission.responses).toEqual({
+      report_date: '19/04/2026',
       reporter_name: 'Hassimiou Niane',
       work_summary: 'Worked mainly on payments and dashboard updates.',
       follow_up: '',
     });
+    expect(submission.reportDate).toBe('19/04/2026');
     expect(submission.yearMonth).toBe('2026-04');
     expect(submission.githubEventIds).toEqual(['event_1']);
     expect(submission.githubCommitIds).toEqual(['commit_1']);

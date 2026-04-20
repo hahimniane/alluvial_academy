@@ -83,7 +83,10 @@ async function createOrUpdateTemplate() {
     allowedRoles: ['admin', 'super_admin'],
     themeColor: '#0F766E',
     fields: {
-      reporter_name: buildField('reporter_name', 'Name', 'text', 1, {
+      report_date: buildField('report_date', 'Week ending date', 'date', 1, {
+        required: true,
+      }),
+      reporter_name: buildField('reporter_name', 'Name', 'text', 2, {
         required: true,
         placeholder: 'e.g. Hassimiou Niane',
       }),
@@ -91,7 +94,7 @@ async function createOrUpdateTemplate() {
         'work_summary',
         'What was worked on this week?',
         'long_text',
-        2,
+        3,
         {
           required: true,
           placeholder:
@@ -102,7 +105,7 @@ async function createOrUpdateTemplate() {
         'follow_up',
         'Anything to note for follow-up?',
         'text',
-        3,
+        4,
         {
           required: false,
           placeholder:
@@ -128,7 +131,7 @@ async function createOrUpdateTemplate() {
   console.log(`- version: ${nextVersion}`);
   console.log('- frequency: weekly');
   console.log('- allowedRoles: admin, super_admin');
-  console.log('- fields: reporter_name, work_summary, follow_up');
+  console.log('- fields: report_date, reporter_name, work_summary, follow_up');
   console.log('- global weekly template config unchanged');
 }
 

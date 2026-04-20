@@ -16,6 +16,33 @@ const DEFAULT_AUTHOR_USERNAMES = [
   'hahimniane',
   'hashimniane',
 ];
+const GENERIC_COMMIT_MESSAGE_PATTERNS = [
+  /^(wip|test|tests|deploy|deployment|cleanup|misc|tmp|temp|changes?|updates?|fix(es)?|final)$/i,
+  /^(small|minor|quick)\s+(changes?|updates?|fix(es)?)$/i,
+  /^(more|misc)\s+changes?$/i,
+  /^(bug\s+)?fix(es)?$/i,
+];
+const GENERIC_COMMIT_TOKENS = new Set([
+  'wip',
+  'test',
+  'tests',
+  'deploy',
+  'deployment',
+  'cleanup',
+  'misc',
+  'tmp',
+  'temp',
+  'change',
+  'changes',
+  'update',
+  'updates',
+  'fix',
+  'fixes',
+  'small',
+  'minor',
+  'quick',
+  'final',
+]);
 
 function normalizeString(value) {
   return String(value || '').trim();
@@ -44,6 +71,12 @@ function naturalJoin(values) {
   if (items.length === 1) return items[0];
   if (items.length === 2) return `${items[0]} and ${items[1]}`;
   return `${items.slice(0, -1).join(', ')}, and ${items[items.length - 1]}`;
+}
+
+function upperFirst(value) {
+  const normalized = normalizeString(value);
+  if (!normalized) return '';
+  return `${normalized[0].toUpperCase()}${normalized.slice(1)}`;
 }
 
 function toDate(value) {
@@ -151,10 +184,20 @@ function sanitizeCommitMessage(message) {
 }
 
 function isUsefulCommitMessage(message) {
-  const normalized = normalizeLower(message);
+  const normalized = normalizeLower(message)
+    .replace(/[^\w\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
   if (!normalized) return false;
   if (normalized.startsWith('merge pull request')) return false;
   if (normalized.startsWith('merge branch')) return false;
+  if (GENERIC_COMMIT_MESSAGE_PATTERNS.some((pattern) => pattern.test(normalized))) {
+    return false;
+  }
+  const tokens = normalized.split(' ').filter(Boolean);
+  if (tokens.length <= 4 && tokens.every((token) => GENERIC_COMMIT_TOKENS.has(token))) {
+    return false;
+  }
   return true;
 }
 
@@ -319,6 +362,15 @@ function formatDateKey(date) {
   return date.toISOString().slice(0, 10);
 }
 
+function formatDateForField(date) {
+  const value = toDate(date);
+  if (!value) return '';
+  const day = String(value.getUTCDate()).padStart(2, '0');
+  const month = String(value.getUTCMonth() + 1).padStart(2, '0');
+  const year = String(value.getUTCFullYear());
+  return `${day}/${month}/${year}`;
+}
+
 function buildRunDocId({templateId, periodStart}) {
   return `${templateId}_${formatDateKey(periodStart)}`;
 }
@@ -341,6 +393,9 @@ function buildWeeklyWorkSummary(commits) {
       .map((commit) => sanitizeCommitMessage(commit.message))
       .filter(isUsefulCommitMessage),
   ).slice(0, 6);
+  const fallbackHighlights = focusAreas
+    .slice(0, 4)
+    .map((area) => `- ${upperFirst(area)}.`);
 
   const lines = [];
   if (focusAreas.length > 0) {
@@ -355,6 +410,10 @@ function buildWeeklyWorkSummary(commits) {
     for (const message of usefulMessages) {
       lines.push(`- ${message}`);
     }
+  } else if (fallbackHighlights.length > 0) {
+    lines.push('');
+    lines.push('Main work areas:');
+    lines.push(...fallbackHighlights);
   }
 
   return lines.join('\n').trim();
@@ -373,6 +432,7 @@ function buildFormSubmission({
   const {firstName, lastName} = splitName(reporter.name);
   const reportingDate = addUtcDays(periodEnd, -1);
   const yearMonth = reportingDate.toISOString().slice(0, 7);
+  const reportDate = formatDateForField(reportingDate);
 
   return {
     formId: templateId,
@@ -391,6 +451,7 @@ function buildFormSubmission({
     userFirstName: firstName,
     userLastName: lastName,
     responses: {
+      report_date: reportDate,
       reporter_name: reporter.name,
       work_summary: workSummary,
       follow_up: '',
@@ -400,6 +461,7 @@ function buildFormSubmission({
     lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
     yearMonth,
     automationSource: 'github_weekly_cto_report',
+    reportDate,
     reportingPeriodStart: periodStart.toISOString(),
     reportingPeriodEnd: periodEnd.toISOString(),
     githubEventIds: eventDocIds,
