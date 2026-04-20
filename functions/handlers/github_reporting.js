@@ -189,12 +189,21 @@ function matchesAllowedAuthor(commit, payload, config) {
   const senderLogin = normalizeLower(payload?.sender?.login);
   const pusherEmail = normalizeLower(payload?.pusher?.email);
   const pusherName = normalizeLower(payload?.pusher?.name);
+  const isGitHubNoReplyEmail = authorEmail.endsWith('@users.noreply.github.com');
 
   if (config.authorEmails.includes(authorEmail)) return true;
-  if (config.authorEmails.includes(pusherEmail) && !authorEmail) return true;
-  if (config.authorUsernames.includes(senderLogin) && !authorEmail) return true;
-  if (config.authorUsernames.includes(authorName) && !authorEmail) return true;
-  if (config.authorUsernames.includes(pusherName) && !authorEmail) return true;
+  if ((isGitHubNoReplyEmail || !authorEmail) && config.authorEmails.includes(pusherEmail)) {
+    return true;
+  }
+  if ((isGitHubNoReplyEmail || !authorEmail) && config.authorUsernames.includes(senderLogin)) {
+    return true;
+  }
+  if ((isGitHubNoReplyEmail || !authorEmail) && config.authorUsernames.includes(authorName)) {
+    return true;
+  }
+  if ((isGitHubNoReplyEmail || !authorEmail) && config.authorUsernames.includes(pusherName)) {
+    return true;
+  }
   return false;
 }
 

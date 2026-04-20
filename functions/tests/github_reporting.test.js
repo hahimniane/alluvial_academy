@@ -90,6 +90,50 @@ describe('github reporting helpers', () => {
     ]);
   });
 
+  test('sanitizePushPayload accepts GitHub no-reply author emails when the sender login matches', () => {
+    const payload = {
+      ref: 'refs/heads/main',
+      before: 'before_sha',
+      after: 'after_sha',
+      repository: {
+        full_name: 'hahimniane/alluvial_academy',
+        name: 'alluvial_academy',
+      },
+      sender: {
+        login: 'hahimniane',
+      },
+      pusher: {
+        name: 'Hashim Niane',
+        email: 'hassimiou.niane@maine.edu',
+      },
+      commits: [
+        {
+          id: 'commit_noreply',
+          message: 'Tune weekly engineering automation',
+          timestamp: '2026-04-20T14:00:00.000Z',
+          url: 'https://github.com/example/commit/commit_noreply',
+          author: {
+            name: 'Hashim Niane',
+            email: 'hashimniane@users.noreply.github.com',
+          },
+          added: [],
+          modified: ['scripts/create_cto_weekly_engineering_template.js'],
+          removed: [],
+        },
+      ],
+    };
+
+    const result = __test__.sanitizePushPayload(payload, {
+      authorEmails: ['hassimiou.niane@maine.edu'],
+      authorUsernames: ['hahimniane'],
+      repositoryAllowlist: [],
+    });
+
+    expect(result.skip).toBe(false);
+    expect(result.event.commitIds).toEqual(['commit_noreply']);
+    expect(result.event.focusAreas).toEqual(['project scripts']);
+  });
+
   test('buildWeeklyWorkSummary stays high level and uses focus areas plus commit messages', () => {
     const summary = __test__.buildWeeklyWorkSummary([
       {
