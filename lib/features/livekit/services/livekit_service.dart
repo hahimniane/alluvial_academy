@@ -1852,6 +1852,8 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen>
         defaultAudioPublishOptions: const AudioPublishOptions(
           dtx:
               true, // Discontinuous transmission - saves bandwidth during silence
+          red:
+              true, // Redundant audio encoding - protects voice against packet loss
         ),
         defaultScreenShareCaptureOptions:
             const _ScreenShareCaptureOptionsWithCursor(
@@ -2172,6 +2174,12 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen>
         if (event.streamState == StreamState.active) {
           _ensureAudioPlayback();
         }
+      })
+      ..on<ParticipantConnectionQualityUpdatedEvent>((event) {
+        AppLogger.debug(
+          'LiveKit: Connection quality - ${event.participant.identity}: ${event.connectionQuality.name}',
+        );
+        if (mounted) setState(() {});
       });
   }
 
@@ -4636,10 +4644,60 @@ class _ParticipantTile extends StatelessWidget {
                 ),
               ),
             ),
+
+          // Connection quality badge
+          Positioned(
+            top: 6,
+            right: 6,
+            child: _buildConnectionQualityBadge(participant),
+          ),
         ],
       ),
     );
   }
+}
+
+Widget _buildConnectionQualityBadge(Participant participant,
+    {double iconSize = 14}) {
+  final quality = participant.connectionQuality;
+  IconData icon;
+  Color color;
+  String tooltip;
+  switch (quality) {
+    case ConnectionQuality.excellent:
+      icon = Icons.signal_wifi_4_bar;
+      color = Colors.green.shade400;
+      tooltip = 'Excellent connection';
+      break;
+    case ConnectionQuality.good:
+      icon = Icons.signal_wifi_4_bar;
+      color = Colors.lightGreen.shade300;
+      tooltip = 'Good connection';
+      break;
+    case ConnectionQuality.poor:
+      icon = Icons.signal_wifi_bad;
+      color = Colors.orange.shade400;
+      tooltip = 'Poor connection';
+      break;
+    case ConnectionQuality.lost:
+      icon = Icons.signal_wifi_off;
+      color = Colors.red.shade400;
+      tooltip = 'Connection lost';
+      break;
+    case ConnectionQuality.unknown:
+      return const SizedBox.shrink();
+  }
+  return Tooltip(
+    message: tooltip,
+    child: Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: Colors.black54,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Icon(icon, color: color, size: iconSize),
+    ),
+  );
 }
 
 VideoTrack? _getParticipantScreenShareVideoTrack(Participant participant) {
@@ -4988,6 +5046,11 @@ class _ParticipantCameraTile extends StatelessWidget {
               ),
               overflow: TextOverflow.ellipsis,
             ),
+          ),
+          Positioned(
+            top: 4,
+            right: 4,
+            child: _buildConnectionQualityBadge(participant, iconSize: 11),
           ),
         ],
       ),
