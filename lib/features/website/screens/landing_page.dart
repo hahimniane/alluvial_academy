@@ -1,75 +1,81 @@
+import 'dart:async';
+
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:alluwalacademyadmin/core/widgets/modern_header.dart';
-import 'package:alluwalacademyadmin/core/widgets/fade_in_slide.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
+import '../widgets/modern_header.dart';
+import '../shared/widgets/fade_in_slide.dart';
 import 'program_selection_page.dart';
-import 'teachers_page.dart';
-import 'islamic_courses_page.dart';
-import 'math_page.dart';
-import 'programming_page.dart';
-import 'english_page.dart';
-import 'afrolingual_page.dart';
-import 'tutoring_literacy_page.dart';
+import 'teacher_application_screen.dart';
+import 'team_page.dart';
+import '../core/constants/pricing_plan_ids.dart'
+    show PricingPlanIds;
+import '../core/models/program_catalog.dart';
+import '../core/models/public_site_cms_models.dart';
+import '../core/services/pricing_quote_service.dart';
+import '../core/services/public_site_cms_service.dart';
+import 'unified_programs_page.dart';
 import 'about_page.dart';
 
+/// Lets [ModernHeader] scroll the landing page when it is already visible.
+class LandingSectionScope extends InheritedWidget {
+  const LandingSectionScope({
+    super.key,
+    required this.scrollToSection,
+    required super.child,
+  });
+
+  final void Function(String? section) scrollToSection;
+
+  static LandingSectionScope? maybeOf(BuildContext context) {
+    return context.getInheritedWidgetOfExactType<LandingSectionScope>();
+  }
+
+  @override
+  bool updateShouldNotify(LandingSectionScope oldWidget) => false;
+}
+
 class LandingPage extends StatefulWidget {
-  const LandingPage({super.key});
+  final String? initialSection;
+
+  const LandingPage({super.key, this.initialSection});
 
   @override
   State<LandingPage> createState() => _LandingPageState();
 }
 
+/// Uniform pricing card height so every tier aligns in the grid.
+const double _kLandingPricingCardHeight = 448;
+
+/// Uniform row height for each course link on the landing programs grid.
+const double _kLandingCourseRowHeight = 72;
+
 class _LandingPageState extends State<LandingPage> with SingleTickerProviderStateMixin {
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _landingScrollController = ScrollController();
   List<String> _suggestions = [];
+  final GlobalKey _programsSectionKey = GlobalKey();
+  final GlobalKey _pricingSectionKey = GlobalKey();
+  final GlobalKey _aboutSectionKey = GlobalKey();
+  final GlobalKey _ctaSectionKey = GlobalKey();
+  int _pricingHoursPerWeek = 4;
+  /// Firestore public pricing (optional); empty map = use hard-coded defaults.
+  PublicSiteCmsPricingDoc _publicPricing = const PublicSiteCmsPricingDoc();
+  /// Landing hero background + optional image URLs (fallback to bundled assets).
+  PublicSiteLandingDoc _landing = const PublicSiteLandingDoc();
   late AnimationController _floatController;
   late Animation<double> _floatAnimation;
-  late PageController _testimonialController;
-  int _currentTestimonialIndex = 0;
-  
-  final List<String> _allSubjects = [
-    'Maths',
-    'Islamic Studies',
-    'English',
-    'Programming',
-    'Arabic',
-    'Quran',
-    'Science',
-    'Physics',
-    'Chemistry'
-  ];
+  StreamSubscription<User?>? _authSubscription;
 
-  final List<Map<String, String>> _testimonials = [
-    {
-      'name': 'Aisha Muhammad',
-      'role': 'Parent of 3 students',
-      'text': 'Alhamdulillah, my children have grown so much in their Islamic knowledge since joining. The teachers are patient, knowledgeable, and truly care about each student\'s progress.',
-    },
-    {
-      'name': 'Ibrahim Diallo',
-      'role': 'Parent',
-      'text': 'The Afrolingual program has been a blessing. My son is now fluent in Mandinka and connected to his heritage. The quality of education here is exceptional.',
-    },
-    {
-      'name': 'Fatima Al-Hassan',
-      'role': 'Parent of 2 students',
-      'text': 'The tutoring program helped my daughter improve her grades significantly. The Islamic studies classes have strengthened our children\'s faith and character.',
-    },
-    {
-      'name': 'Mahmoud Bakr',
-      'role': 'Parent',
-      'text': 'Excellent Quran memorization program! My daughter has memorized 5 Juz in just one year. The teachers use modern techniques while maintaining traditional values.',
-    },
-    {
-      'name': 'Khadijah Williams',
-      'role': 'Parent of 4 students',
-      'text': 'This academy has been a cornerstone for our family. All my children attend different programs and each one is thriving. The community here is warm and supportive.',
-    },
-    {
-      'name': 'Omar Sheikh',
-      'role': 'Parent',
-      'text': 'The online classes are well-structured and engaging. My sons look forward to their Islamic studies classes. The teachers make learning fun while being thorough.',
-    },
+  final List<String> _allSubjects = [
+    'Islamic Program (Arabic, Quran, etc...)',
+    'AfroLanguages (Pular, Mandingo, Swahili, Wolof, etc...)',
+    'After School Tutoring (Math, Science, Physics, etc...)',
+    'Adult Literacy (Reading and Writing English & French, etc...)',
+    'Coding',
+    'Entrepreneurship',
   ];
 
   @override
@@ -84,48 +90,95 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
     _floatAnimation = Tween<double>(begin: -10.0, end: 10.0).animate(
       CurvedAnimation(parent: _floatController, curve: Curves.easeInOutSine),
     );
-    
-    _testimonialController = PageController();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final s = widget.initialSection?.trim();
+      if (s != null && s.isNotEmpty) {
+        _scrollToSection(s);
+      }
+    });
+    // Reload CMS whenever auth changes (e.g. after sign-out) and drop cached
+    // Firestore broadcast streams so [ModernHeader] social icons get a fresh listener.
+    _authSubscription = FirebaseAuth.instance.authStateChanges().listen((_) {
+      PublicSiteCmsService.invalidatePublicCmsFirestoreBroadcastCaches();
+      _loadPublicCms();
+    });
+  }
+
+  Color get _heroBgColor =>
+      Color(PublicSiteLandingDoc.parseHeroBackgroundArgb(_landing.heroBackgroundColorHex));
+
+  /// Navy-style border on hero collage; matches background when using default.
+  Color get _heroBorderAccent => _heroBgColor;
+
+  bool get _heroUseLightForeground => _heroBgColor.computeLuminance() < 0.45;
+
+  Color get _heroPrimaryTextColor =>
+      _heroUseLightForeground ? Colors.white : const Color(0xff111827);
+
+  Color get _heroSecondaryTextColor => _heroUseLightForeground
+      ? Colors.white.withValues(alpha: 0.88)
+      : const Color(0xff4B5563);
+
+  Future<void> _loadPublicCms() async {
+    final results = await Future.wait<Object>([
+      PublicSiteCmsService.getPricingDoc(),
+      PublicSiteCmsService.getLandingDoc(),
+    ]);
+    if (!mounted) return;
+    setState(() {
+      _publicPricing = results[0] as PublicSiteCmsPricingDoc;
+      _landing = results[1] as PublicSiteLandingDoc;
+    });
+  }
+
+  Widget _heroSlotImage({
+    required String networkUrlField,
+    required String assetPath,
+    BoxFit fit = BoxFit.cover,
+  }) {
+    final uri = PublicSiteLandingDoc.heroImageUri(networkUrlField);
+    if (uri != null) {
+      return Image.network(
+        uri.toString(),
+        fit: fit,
+        // Many CDNs (e.g. stock sites) omit CORP headers; default web decode fails
+        // with statusCode 0. Prefer <img> on web so the browser loads like a normal page.
+        webHtmlElementStrategy:
+            kIsWeb ? WebHtmlElementStrategy.prefer : WebHtmlElementStrategy.never,
+        loadingBuilder: (context, child, progress) {
+          if (progress == null) return child;
+          return const Center(
+            child: SizedBox(
+              width: 28,
+              height: 28,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          );
+        },
+        errorBuilder: (_, __, ___) => Image.asset(assetPath, fit: fit),
+      );
+    }
+    return Image.asset(assetPath, fit: fit);
+  }
+
+  String _fmtUsd(double v) => '\$${v.toStringAsFixed(2)}';
+
+  PublicSitePlanPricing? _cmsPlan(String planId) => _publicPricing.plans[planId];
+
+  List<String> _pricingBullets(String planId, List<String> defaults) {
+    final b = _cmsPlan(planId)?.bullets;
+    if (b != null && b.isNotEmpty) return b;
+    return defaults;
   }
 
   @override
   void dispose() {
+    _authSubscription?.cancel();
     _searchController.dispose();
+    _landingScrollController.dispose();
     _floatController.dispose();
-    _testimonialController.dispose();
     super.dispose();
-  }
-  
-  void _previousTestimonial() {
-    if (_currentTestimonialIndex > 0) {
-      _testimonialController.previousPage(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-      );
-    } else {
-      // Loop to last
-      _testimonialController.animateToPage(
-        _testimonials.length - 1,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-      );
-    }
-  }
-  
-  void _nextTestimonial() {
-    if (_currentTestimonialIndex < _testimonials.length - 1) {
-      _testimonialController.nextPage(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-      );
-    } else {
-      // Loop to first
-      _testimonialController.animateToPage(
-        0,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-      );
-    }
   }
 
   void _onSearchChanged(String query) {
@@ -142,6 +195,17 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
   }
 
   void _onSuggestionSelected(String subject) {
+    final nav = ProgramCatalog.landingSearchRoute(subject);
+    if (nav != null) {
+      Navigator.push(
+        context,
+        UnifiedProgramsPageRoutes.fade(
+          initialCategory: nav.categoryId,
+          initialProgramId: nav.programId,
+        ),
+      );
+      return;
+    }
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -152,39 +216,88 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xffFAFAFA), // Softer white
-      body: Column(
-        children: [
-          const ModernHeader(),
-          Expanded(
-            child: SingleChildScrollView(
-              physics: const BouncingScrollPhysics(), // Smoother scroll
-              child: Column(
-                children: [
-                  _buildHeroSection(),
-                  _buildProgramsSection(),
-                  _buildEnrollSection(),
-                  _buildAboutUsSection(),
-                  _buildTestimonialSection(),
-                  _buildFooterPlaceholder(),
-                ],
+    return LandingSectionScope(
+      scrollToSection: _scrollToSection,
+      child: Scaffold(
+        backgroundColor: const Color(0xffFAFAFA), // Softer white
+        body: Column(
+          children: [
+            const ModernHeader(),
+            Expanded(
+              child: SingleChildScrollView(
+                controller: _landingScrollController,
+                physics: const BouncingScrollPhysics(), // Smoother scroll
+                child: Column(
+                  children: [
+                    _buildHeroSection(),
+                    _buildProgramsSection(key: _programsSectionKey),
+                    _buildPricingSection(key: _pricingSectionKey),
+                    _buildAboutUsSection(key: _aboutSectionKey),
+                    _buildEnrollSection(key: _ctaSectionKey),
+                    _buildFooterPlaceholder(),
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
+  void _scrollToTop() {
+    if (!_landingScrollController.hasClients) return;
+    _landingScrollController.animateTo(
+      0,
+      duration: const Duration(milliseconds: 450),
+      curve: Curves.easeInOut,
+    );
+  }
+
+  void _scrollToSection(String? raw) {
+    final section = raw?.trim().toLowerCase();
+    if (section == null || section.isEmpty) {
+      _scrollToTop();
+      return;
+    }
+
+    final GlobalKey? key = section == 'programs'
+        ? _programsSectionKey
+        : section == 'pricing'
+            ? _pricingSectionKey
+            : section == 'about'
+                ? _aboutSectionKey
+                : (section == 'contact' ||
+                        section == 'enroll' ||
+                        section == 'cta')
+                    ? _ctaSectionKey
+                    : null;
+
+    void ensure() {
+      final ctx = key?.currentContext;
+      if (ctx != null) {
+        Scrollable.ensureVisible(
+          ctx,
+          duration: const Duration(milliseconds: 450),
+          curve: Curves.easeInOut,
+          alignment: 0.06,
+        );
+      }
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) => ensure());
+  }
+
   Widget _buildHeroSection() {
     final isDesktop = MediaQuery.of(context).size.width > 1024;
+    final topPad = isDesktop ? 48.0 : 56.0;
+    final bottomPad = isDesktop ? 48.0 : 40.0;
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 60),
-      decoration: const BoxDecoration(
-        color: Color(0xff001E4E), // Deep Navy Blue background from image
+      padding: EdgeInsets.fromLTRB(24, topPad, 24, bottomPad),
+      decoration: BoxDecoration(
+        color: _heroBgColor,
       ),
       child: Container(
         constraints: const BoxConstraints(maxWidth: 1200),
@@ -209,24 +322,101 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
   }
 
   Widget _buildHeroContent() {
+    final loc = AppLocalizations.of(context)!;
+    final w = MediaQuery.sizeOf(context).width;
+    final isNarrow = w < 640;
+    final headlineSize = isNarrow ? 30.0 : 48.0;
+    final searchHeight = isNarrow ? 46.0 : 50.0;
+    final searchFontSize = isNarrow ? 14.0 : 15.0;
+    final searchShadow = isNarrow
+        ? [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.06),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ]
+        : [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.1),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ];
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         FadeInSlide(
           delay: 0.2,
-          child: Text(
-            'Learn with online tutoring\nfrom anywhere in the world',
+          child:           Text(
+            loc.landingHeroHeadline,
             style: GoogleFonts.inter(
-              fontSize: 48,
+              fontSize: headlineSize,
               fontWeight: FontWeight.w700,
-              color: Colors.white,
-              height: 1.2,
+              color: _heroPrimaryTextColor,
+              height: isNarrow ? 1.22 : 1.2,
             ),
           ),
         ),
-        const SizedBox(height: 32),
-        
-        // Search Bar
+        SizedBox(height: isNarrow ? 14 : 18),
+        FadeInSlide(
+          delay: 0.26,
+          child: Text(
+            loc.landingHeroSubtitle,
+            style: GoogleFonts.inter(
+              fontSize: isNarrow ? 15 : 16,
+              fontWeight: FontWeight.w400,
+              height: 1.45,
+              color: _heroSecondaryTextColor,
+            ),
+          ),
+        ),
+        SizedBox(height: isNarrow ? 22 : 28),
+
+        // Primary CTA — Explore Our Programs (stronger visual weight than search)
+        FadeInSlide(
+          delay: 0.35,
+          child: Padding(
+            padding: EdgeInsets.only(bottom: isNarrow ? 20 : 16),
+            child: SizedBox(
+              width: isNarrow ? double.infinity : null,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    UnifiedProgramsPageRoutes.fade(),
+                  );
+                },
+                icon: Icon(Icons.apps_rounded, size: isNarrow ? 22 : 20),
+                label: Text(
+                  loc.heroExplorePrograms,
+                  style: GoogleFonts.inter(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: _heroUseLightForeground
+                      ? _heroBgColor
+                      : const Color(0xff111827),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: isNarrow ? 28 : 36,
+                    vertical: isNarrow ? 16 : 18,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                  elevation: 3,
+                  shadowColor: Colors.black.withValues(alpha: 0.2),
+                ),
+              ),
+            ),
+          ),
+        ),
+
+        // Search Bar — secondary path: lighter presence on small screens
         FadeInSlide(
           delay: 0.4,
           child: Container(
@@ -234,44 +424,18 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Our Teachers Button
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => const TeachersPage()),
-                      );
-                    },
-                    icon: const Icon(Icons.school_rounded, size: 20),
-                    label: Text(
-                      'Our Teachers',
-                      style: GoogleFonts.inter(fontWeight: FontWeight.w600),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: const Color(0xff001E4E),
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(30),
-                      ),
-                    ),
-                  ),
-                ),
-
                 Container(
-                  height: 50, // Smaller, more compact
+                  height: searchHeight,
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(25),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
+                    borderRadius: BorderRadius.circular(searchHeight / 2),
+                    border: isNarrow
+                        ? Border.all(
+                            color: Colors.white.withValues(alpha: 0.45),
+                            width: 1,
+                          )
+                        : null,
+                    boxShadow: searchShadow,
                   ),
                   child: TextField(
                     controller: _searchController,
@@ -279,23 +443,30 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
                     onSubmitted: (value) {
                       if (value.isNotEmpty) _onSuggestionSelected(value);
                     },
-                    style: GoogleFonts.inter(fontSize: 15),
+                    style: GoogleFonts.inter(fontSize: searchFontSize),
                     decoration: InputDecoration(
-                      hintText: 'What would you like to learn?',
+                      hintText: loc.landingHeroSearchHint,
                       hintStyle: GoogleFonts.inter(
                         color: const Color(0xff9CA3AF),
-                        fontSize: 15,
+                        fontSize: searchFontSize,
                       ),
                       suffixIcon: Padding(
-                        padding: const EdgeInsets.only(right: 16),
-                        child: Icon(Icons.search, color: const Color(0xff3B82F6), size: 22),
+                        padding: EdgeInsets.only(right: isNarrow ? 12 : 16),
+                        child: Icon(
+                          Icons.search,
+                          color: const Color(0xff3B82F6),
+                          size: isNarrow ? 20 : 22,
+                        ),
                       ),
                       border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: isNarrow ? 20 : 24,
+                        vertical: isNarrow ? 12 : 14,
+                      ),
                     ),
                   ),
                 ),
-                
+
                 // Suggestions Dropdown
                 if (_suggestions.isNotEmpty)
                   Container(
@@ -306,7 +477,7 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
+                          color: Colors.black.withValues(alpha: 0.1),
                           blurRadius: 20,
                           offset: const Offset(0, 8),
                         ),
@@ -340,7 +511,44 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
           ),
         ),
 
-        const SizedBox(height: 24),
+        const SizedBox(height: 12),
+
+        // Our Teachers — secondary CTA
+        FadeInSlide(
+          delay: 0.45,
+          child: OutlinedButton.icon(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const TeamPage(
+                    initialCategory: 'teacher',
+                  ),
+                ),
+              );
+            },
+            icon: const Icon(Icons.school_rounded, size: 18),
+            label: Text(
+              loc.ourTeachers,
+              style: GoogleFonts.inter(
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+              ),
+            ),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: _heroPrimaryTextColor.withValues(alpha: 0.95),
+              side: BorderSide(
+                  color: _heroPrimaryTextColor.withValues(alpha: 0.4)),
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 16, vertical: 10),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(30),
+              ),
+            ),
+          ),
+        ),
+
+        SizedBox(height: isNarrow ? 22 : 24),
 
         // Quick Categories - Simple text links/chips
         FadeInSlide(
@@ -349,13 +557,19 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
             spacing: 16,
             runSpacing: 12,
             children: [
-              _TextCategoryLink('Islamic Studies', categoryType: CategoryType.islamicStudies),
-              _TextCategoryLink('Languages', categoryType: CategoryType.languages),
-              _TextCategoryLink('Adult Literacy', categoryType: CategoryType.adultLiteracy),
-              _TextCategoryLink('After School Tutoring', categoryType: CategoryType.afterSchoolTutoring),
-              _TextCategoryLink('Maths', categoryType: CategoryType.math),
-              _TextCategoryLink('Programming', categoryType: CategoryType.programming),
-              _TextCategoryLink('English (Students)', categoryType: CategoryType.english),
+              _TextCategoryLink('Islamic Studies',
+                  categoryType: CategoryType.islamicStudies, idleTextColor: _heroPrimaryTextColor),
+              _TextCategoryLink('Languages',
+                  categoryType: CategoryType.languages, idleTextColor: _heroPrimaryTextColor),
+              _TextCategoryLink('Adult Literacy',
+                  categoryType: CategoryType.adultLiteracy, idleTextColor: _heroPrimaryTextColor),
+              _TextCategoryLink('After School Tutoring',
+                  categoryType: CategoryType.afterSchoolTutoring, idleTextColor: _heroPrimaryTextColor),
+              _TextCategoryLink('Maths', categoryType: CategoryType.math, idleTextColor: _heroPrimaryTextColor),
+              _TextCategoryLink('Programming',
+                  categoryType: CategoryType.programming, idleTextColor: _heroPrimaryTextColor),
+              _TextCategoryLink('English (Students)',
+                  categoryType: CategoryType.english, idleTextColor: _heroPrimaryTextColor),
             ],
           ),
         ),
@@ -393,7 +607,7 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
                   Text(
                     'Excellent',
                     style: GoogleFonts.inter(
-                      color: Colors.white,
+                      color: _heroPrimaryTextColor,
                       fontWeight: FontWeight.w500,
                       fontSize: 14,
                     ),
@@ -416,7 +630,7 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
               Text(
                 'Trusted by Muslim families worldwide',
                 style: GoogleFonts.inter(
-                  color: Colors.white.withOpacity(0.8),
+                  color: _heroSecondaryTextColor,
                   fontSize: 12,
                 ),
               ),
@@ -430,13 +644,13 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
   Widget _buildFeatureItem(String text) {
     return Row(
       children: [
-        const Icon(Icons.check, color: Colors.white, size: 20),
+        Icon(Icons.check, color: _heroPrimaryTextColor, size: 20),
         const SizedBox(width: 8),
         Expanded(
           child: Text(
             text,
             style: GoogleFonts.inter(
-              color: Colors.white,
+              color: _heroPrimaryTextColor,
               fontSize: 15,
               fontWeight: FontWeight.w400,
             ),
@@ -496,9 +710,9 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
                       bottomLeft: Radius.circular(36),
                       bottomRight: Radius.circular(96),
                     ),
-                    child: Image.asset(
-                      'assets/background_images/smiling_student.jpg', // Laptop/learning image
-                      fit: BoxFit.cover,
+                    child: _heroSlotImage(
+                      networkUrlField: _landing.heroMainImageUrl,
+                      assetPath: 'assets/background_images/smiling_student.jpg',
                     ),
                   ),
                 ),
@@ -514,10 +728,12 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: const Color(0xffA5D6A7), // Light green accent
-                    border: Border.all(color: const Color(0xff001E4E), width: 4),
-                    image: const DecorationImage(
-                      image: AssetImage('assets/teachers/elham_shifa.jpg'), // Placeholder woman
-                      fit: BoxFit.cover,
+                    border: Border.all(color: _heroBorderAccent, width: 4),
+                  ),
+                  child: ClipOval(
+                    child: _heroSlotImage(
+                      networkUrlField: _landing.heroLeftImageUrl,
+                      assetPath: 'assets/teachers/elham_shifa.jpg',
                     ),
                   ),
                 ),
@@ -538,10 +754,18 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
                       bottomRight: Radius.circular(10),
                     ),
                     color: const Color(0xffFFE082), // Amber accent
-                    border: Border.all(color: const Color(0xff001E4E), width: 4),
-                    image: const DecorationImage(
-                      image: AssetImage('assets/teachers/mohammed_kosiah.jpg'), // Placeholder man
-                      fit: BoxFit.cover,
+                    border: Border.all(color: _heroBorderAccent, width: 4),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(66),
+                      topRight: Radius.circular(66),
+                      bottomLeft: Radius.circular(66),
+                      bottomRight: Radius.circular(6),
+                    ),
+                    child: _heroSlotImage(
+                      networkUrlField: _landing.heroRightImageUrl,
+                      assetPath: 'assets/teachers/mohammed_kosiah.jpg',
                     ),
                   ),
                 ),
@@ -553,191 +777,654 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
     );
   }
 
-  Widget _buildProgramsSection() {
+  Widget _buildProgramsSection({Key? key}) {
     final isDesktop = MediaQuery.of(context).size.width > 1024;
-    final isTablet = MediaQuery.of(context).size.width > 600;
-    
-    final programs = [
-      _ProgramCard(
-        title: 'Islamic Studies',
-        icon: Icons.mosque_rounded,
-        color: const Color(0xff3B82F6),
-        description: 'Quran, Hadith, Arabic, Tawhid, Tafsir & more',
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const IslamicCoursesPage()),
-          );
-        },
-      ),
-      _ProgramCard(
-        title: 'Languages',
-        icon: Icons.language_rounded,
-        color: const Color(0xffF59E0B),
-        description: 'French & African languages',
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const AfrolingualPage()),
-          );
-        },
-      ),
-      _ProgramCard(
-        title: 'Adult Literacy',
-        icon: Icons.menu_book_rounded,
-        color: const Color(0xffEC4899),
-        description: 'English learning for adults',
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const ProgramSelectionPage(initialSubject: 'Adult Literacy'),
-            ),
-          );
-        },
-      ),
-      _ProgramCard(
-        title: 'After School Tutoring',
-        icon: Icons.school_rounded,
-        color: const Color(0xffEF4444),
-        description: 'Math, Science, Programming & more',
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const ProgramSelectionPage(initialSubject: 'After School Tutoring'),
-            ),
-          );
-        },
-      ),
-      _ProgramCard(
-        title: 'Math Classes',
-        icon: Icons.functions_rounded,
-        color: const Color(0xff10B981),
-        description: 'From elementary to advanced calculus',
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const MathPage()),
-          );
-        },
-      ),
-      _ProgramCard(
-        title: 'Programming',
-        icon: Icons.code_rounded,
-        color: const Color(0xff8B5CF6),
-        description: 'Web, mobile & software development',
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const ProgrammingPage()),
-          );
-        },
-      ),
-    ];
+    final loc = AppLocalizations.of(context)!;
 
     return Container(
+      key: key,
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 80),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color(0xffF9FAFB), Color(0xffFFFFFF)],
-        ),
-      ),
-      child: Container(
-        constraints: const BoxConstraints(maxWidth: 1200),
-        child: Column(
-          children: [
-            FadeInSlide(
-              delay: 0.1,
-              child: Text(
-                'Find Your Program',
-                textAlign: TextAlign.center,
-                style: GoogleFonts.inter(
-                  fontSize: isDesktop ? 42 : 32,
-                  fontWeight: FontWeight.w800,
-                  color: const Color(0xff111827),
-                  height: 1.2,
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            FadeInSlide(
-              delay: 0.2,
-              child: Container(
-                constraints: const BoxConstraints(maxWidth: 600),
+      padding: EdgeInsets.symmetric(horizontal: 24, vertical: isDesktop ? 52 : 44),
+      color: Colors.white,
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1200),
+          child: Column(
+            children: [
+              FadeInSlide(
+                delay: 0.1,
                 child: Text(
-                  'Explore our comprehensive range of educational programs designed to meet your learning goals',
+                  loc.landingExploreMainCourses,
                   textAlign: TextAlign.center,
                   style: GoogleFonts.inter(
-                    fontSize: 18,
-                    color: const Color(0xff6B7280),
-                    height: 1.6,
+                    fontSize: isDesktop ? 32 : 26,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xff1e3a5f),
                   ),
                 ),
               ),
-            ),
-            const SizedBox(height: 48),
-            LayoutBuilder(
-              builder: (context, constraints) {
-                if (constraints.maxWidth < 600) {
-                  // Mobile: Single column
-                  return Column(
-                    children: programs.map((program) => Padding(
-                      padding: const EdgeInsets.only(bottom: 20),
-                      child: program,
-                    )).toList(),
-                  );
-                } else if (constraints.maxWidth < 1024) {
-                  // Tablet: 2 columns
-                  return GridView.count(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    crossAxisCount: 2,
-                    crossAxisSpacing: 20,
-                    mainAxisSpacing: 20,
-                    childAspectRatio: 1.15,
-                    children: programs,
-                  );
-                } else if (constraints.maxWidth < 1400) {
-                  // Medium Desktop: 3 columns
-                  return GridView.count(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    crossAxisCount: 3,
-                    crossAxisSpacing: 24,
-                    mainAxisSpacing: 24,
-                    childAspectRatio: 1.0,
-                    children: programs,
-                  );
-                } else {
-                  // Large Desktop: 5 columns in a single row
-                  return Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: programs.map((program) => Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        child: program,
+              const SizedBox(height: 12),
+              FadeInSlide(
+                delay: 0.2,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 700),
+                  child: Text(
+                    loc.landingProgramsDescription,
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.inter(fontSize: 16, color: const Color(0xff6b7280), height: 1.6),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 36),
+              isDesktop
+                  ? IntrinsicHeight(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(
+                            child: _buildCategoryColumn(
+                              stretchBody: true,
+                              title: loc.navMegaColIslamicAfro,
+                              color: const Color(0xff1e88e5),
+                              items: [
+                                _CourseItem(loc.navMegaLinkIslamicStudies, loc.landingCourseBlurbIslamic, Icons.mosque_rounded, () => Navigator.push(context, UnifiedProgramsPageRoutes.fade(initialCategory: ProgramCatalog.catIslamic))),
+                                _CourseItem(loc.navMegaLinkAfroLanguages, loc.landingCourseBlurbAfro, Icons.language_rounded, () => Navigator.push(context, UnifiedProgramsPageRoutes.fade(initialCategory: ProgramCatalog.catLanguages))),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 24),
+                          Expanded(
+                            child: _buildCategoryColumn(
+                              stretchBody: true,
+                              title: loc.navMegaColAcademic,
+                              color: const Color(0xff43a047),
+                              items: [
+                                _CourseItem(loc.navMegaLinkMath, loc.landingCourseBlurbMath, Icons.functions_rounded, () => Navigator.push(context, UnifiedProgramsPageRoutes.fade(initialCategory: ProgramCatalog.catMath))),
+                                _CourseItem(loc.navMegaLinkProgramming, loc.landingCourseBlurbProgramming, Icons.code_rounded, () => Navigator.push(context, UnifiedProgramsPageRoutes.fade(initialCategory: ProgramCatalog.catProgramming))),
+                                _CourseItem(loc.navMegaLinkAdultLiteracy, loc.landingCourseBlurbAdultLiteracy, Icons.menu_book_rounded, () => Navigator.push(context, UnifiedProgramsPageRoutes.fade(initialCategory: ProgramCatalog.catEnglish))),
+                                _CourseItem(loc.navMegaLinkAfterSchool, loc.landingCourseBlurbAfterSchool, Icons.school_rounded, () => Navigator.push(context, UnifiedProgramsPageRoutes.fade(initialCategory: ProgramCatalog.catAfterSchool))),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
-                    )).toList(),
-                  );
-                }
-              },
-            ),
-          ],
+                    )
+                  : Column(
+                      children: [
+                        _buildCategoryColumn(
+                          stretchBody: false,
+                          title: loc.navMegaColIslamicAfro,
+                          color: const Color(0xff1e88e5),
+                          items: [
+                            _CourseItem(loc.navMegaLinkIslamicStudies, loc.landingCourseBlurbIslamic, Icons.mosque_rounded, () => Navigator.push(context, UnifiedProgramsPageRoutes.fade(initialCategory: ProgramCatalog.catIslamic))),
+                            _CourseItem(loc.navMegaLinkAfroLanguages, loc.landingCourseBlurbAfro, Icons.language_rounded, () => Navigator.push(context, UnifiedProgramsPageRoutes.fade(initialCategory: ProgramCatalog.catLanguages))),
+                          ],
+                        ),
+                        const SizedBox(height: 24),
+                        _buildCategoryColumn(
+                          stretchBody: false,
+                          title: loc.navMegaColAcademic,
+                          color: const Color(0xff43a047),
+                          items: [
+                            _CourseItem(loc.navMegaLinkMath, loc.landingCourseBlurbMath, Icons.functions_rounded, () => Navigator.push(context, UnifiedProgramsPageRoutes.fade(initialCategory: ProgramCatalog.catMath))),
+                            _CourseItem(loc.navMegaLinkProgramming, loc.landingCourseBlurbProgramming, Icons.code_rounded, () => Navigator.push(context, UnifiedProgramsPageRoutes.fade(initialCategory: ProgramCatalog.catProgramming))),
+                            _CourseItem(loc.navMegaLinkAdultLiteracy, loc.landingCourseBlurbAdultLiteracy, Icons.menu_book_rounded, () => Navigator.push(context, UnifiedProgramsPageRoutes.fade(initialCategory: ProgramCatalog.catEnglish))),
+                            _CourseItem(loc.navMegaLinkAfterSchool, loc.landingCourseBlurbAfterSchool, Icons.school_rounded, () => Navigator.push(context, UnifiedProgramsPageRoutes.fade(initialCategory: ProgramCatalog.catAfterSchool))),
+                          ],
+                        ),
+                      ],
+                    ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildEnrollSection() {
+  Widget _buildCategoryColumn({
+    required String title,
+    required Color color,
+    required List<_CourseItem> items,
+    bool stretchBody = false,
+  }) {
+    final body = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (var i = 0; i < items.length; i++)
+          _buildCourseRowTile(
+            items[i],
+            color,
+            showDivider: i < items.length - 1,
+          ),
+        if (stretchBody) const Spacer(),
+      ],
+    );
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xffe5e7eb)),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 12, offset: const Offset(0, 4)),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: stretchBody ? MainAxisSize.max : MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: const BorderRadius.only(topLeft: Radius.circular(15), topRight: Radius.circular(15)),
+            ),
+            child: Text(
+              title,
+              style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white),
+            ),
+          ),
+          if (stretchBody)
+            Expanded(child: body)
+          else
+            body,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCourseRowTile(_CourseItem item, Color color, {required bool showDivider}) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: item.onTap,
+        hoverColor: const Color(0xfff9fafb),
+        splashColor: color.withValues(alpha: 0.08),
+        child: Container(
+          height: _kLandingCourseRowHeight,
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          decoration: BoxDecoration(
+            border: showDivider
+                ? Border(bottom: BorderSide(color: Colors.grey.shade100))
+                : null,
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Icon(item.icon, size: 22, color: color),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.inter(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xff1f2937),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      item.subtitle,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        height: 1.35,
+                        color: const Color(0xff6b7280),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right_rounded, size: 20, color: Colors.grey.shade400),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPricingPlanCard({
+    required String trackId,
+    required IconData planIcon,
+    required String title,
+    required String subtitle,
+    required Color accent,
+    required List<String> features,
+    required double cardWidth,
+  }) {
+    final loc = AppLocalizations.of(context)!;
+    final snapshot = PricingQuoteService.buildSnapshotV2(
+      trackId: trackId,
+      hoursPerWeek: _pricingHoursPerWeek,
+      cmsOverrides: _publicPricing.planOverridesForQuotes(),
+    );
+    final hourly = (snapshot?['hourlyRateUsd'] as num?)?.toDouble() ?? 0;
+    final monthly = (snapshot?['monthlyEstimateUsd'] as num?)?.toDouble() ?? 0;
+    final discounted = snapshot?['discountApplied'] == true;
+
+    return SizedBox(
+      width: cardWidth,
+      height: _kLandingPricingCardHeight,
+      child: Material(
+        elevation: 4,
+        shadowColor: Colors.black.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: const Color(0xffebe8e3)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                height: 8,
+                decoration: BoxDecoration(
+                  color: accent,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(17),
+                    topRight: Radius.circular(17),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 6),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(planIcon, size: 24, color: accent),
+                      const SizedBox(height: 10),
+                      Text(
+                        title,
+                        style: GoogleFonts.lora(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xff111827),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        subtitle,
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: const Color(0xff6b7280),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        '${_fmtUsd(hourly)}/${loc.pricingPerHour}',
+                        style: GoogleFonts.inter(
+                          fontSize: 28,
+                          fontWeight: FontWeight.w800,
+                          color: accent,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      if (trackId != PricingPlanIds.group)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: discounted
+                                ? const Color(0xffecfdf3)
+                                : const Color(0xfff3f4f6),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Text(
+                            loc.pricingDiscountBadge,
+                            style: GoogleFonts.inter(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: discounted
+                                  ? const Color(0xff15803d)
+                                  : const Color(0xff6b7280),
+                            ),
+                          ),
+                        ),
+                      const SizedBox(height: 12),
+                      for (final ex in features) ...[
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 6),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(Icons.check_circle, size: 16, color: accent),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  ex,
+                                  style: GoogleFonts.inter(
+                                    fontSize: 12,
+                                    color: const Color(0xff4b5563),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                      const Spacer(),
+                      Text(
+                        '${_pricingHoursPerWeek} hrs × ${_fmtUsd(hourly)}/hr × ${trackId == PricingPlanIds.group ? '4.33' : '4'} weeks ≈ \$${monthly.toStringAsFixed(0)}/mo',
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xff374151),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ProgramSelectionPage(
+                            initialTrackId: trackId,
+                            initialPricingPlanSummary: title,
+                            initialHoursPerWeek: _pricingHoursPerWeek,
+                          ),
+                        ),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: accent,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: Text(
+                      loc.landingPricingContinueWithPlan,
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _pricingCardsWrap(double w, AppLocalizations loc) {
+    const gap = 16.0;
+    final count = 3;
+    int cols;
+    if (w > 1024) {
+      cols = count;
+    } else if (w > 640) {
+      cols = 2;
+    } else {
+      cols = 1;
+    }
+    if (cols > count) cols = count;
+    final cardW = (w - gap * (cols - 1)) / cols;
+
+    Widget wrapCard(Widget inner) {
+      return SizedBox(
+        width: cardW,
+        child: _HoverScaleCard(child: inner),
+      );
+    }
+
+    final children = <Widget>[
+      wrapCard(
+        _buildPricingPlanCard(
+          trackId: PricingPlanIds.islamic,
+          planIcon: Icons.mosque_rounded,
+          title: loc.pricingTrackIslamicTitle,
+          subtitle: loc.pricingTrackIslamicDesc,
+          accent: const Color(0xff2563eb),
+          features: _pricingBullets(PricingPlanIds.islamic, const [
+            '1-on-1 Quran, Arabic, and AdLam',
+            'Flexible weekday scheduling',
+            'Discount at 4+ hours/week',
+          ]),
+          cardWidth: cardW,
+        ),
+      ),
+      wrapCard(
+        _buildPricingPlanCard(
+          trackId: PricingPlanIds.tutoring,
+          planIcon: Icons.school_outlined,
+          title: loc.pricingTrackTutoringTitle,
+          subtitle: loc.pricingTrackTutoringDesc,
+          accent: const Color(0xff16a34a),
+          features: _pricingBullets(PricingPlanIds.tutoring, const [
+            'Math, science, literacy support',
+            'Personalized one-on-one coaching',
+            'Discount at 4+ hours/week',
+          ]),
+          cardWidth: cardW,
+        ),
+      ),
+      wrapCard(
+        _buildPricingPlanCard(
+          trackId: PricingPlanIds.group,
+          planIcon: Icons.groups_rounded,
+          title: loc.pricingTrackGroupTitle,
+          subtitle: loc.pricingTrackGroupDesc,
+          accent: const Color(0xff7c3aed),
+          features: _pricingBullets(PricingPlanIds.group, const [
+            'Weekend group classes',
+            'Flat hourly rate',
+            'Community learning setting',
+          ]),
+          cardWidth: cardW,
+        ),
+      ),
+    ];
+
+    return Wrap(
+      spacing: gap,
+      runSpacing: gap,
+      alignment: WrapAlignment.center,
+      crossAxisAlignment: WrapCrossAlignment.start,
+      children: children,
+    );
+  }
+
+  Widget _buildPricingSection({Key? key}) {
+    final isDesktop = MediaQuery.of(context).size.width > 1024;
+    final loc = AppLocalizations.of(context)!;
+
+    return Container(
+      key: key,
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(horizontal: 24, vertical: isDesktop ? 52 : 44),
+      color: const Color(0xFFF7F5F2),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1200),
+          child: Column(
+            children: [
+              FadeInSlide(
+                delay: 0.08,
+                duration: const Duration(milliseconds: 520),
+                beginOffset: const Offset(0, 0.12),
+                child: Text(
+                  loc.landingTransparentRates,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.inter(
+                    fontSize: isDesktop ? 32 : 26,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xff1a1a1a),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              FadeInSlide(
+                delay: 0.14,
+                duration: const Duration(milliseconds: 520),
+                beginOffset: const Offset(0, 0.1),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 700),
+                  child: Text(
+                    loc.landingPricingDescription,
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.inter(fontSize: 16, color: const Color(0xff6b6560), height: 1.6),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 28),
+              FadeInSlide(
+                delay: 0.2,
+                duration: const Duration(milliseconds: 480),
+                beginOffset: const Offset(0, 0.08),
+                child: Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: List.generate(8, (i) {
+                    final h = i + 1;
+                    final selected = h == _pricingHoursPerWeek;
+                    return ChoiceChip(
+                      label: Text('$h ${loc.pricingHoursPerWeek}'),
+                      selected: selected,
+                      onSelected: (_) => setState(() => _pricingHoursPerWeek = h),
+                    );
+                  }),
+                ),
+              ),
+              const SizedBox(height: 28),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final w = constraints.maxWidth;
+                  return _pricingCardsWrap(w, loc);
+                },
+              ),
+              const SizedBox(height: 40),
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: const Color(0xfffff3cd),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xffffc107)),
+                ),
+                child: Column(
+                  children: [
+                    Text(
+                      loc.landingPaymentPolicyText1,
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w700, color: const Color(0xffc62828)),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      loc.landingPaymentPolicyText2,
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.inter(fontSize: 14, color: const Color(0xff374151), height: 1.5),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xffdbeafe),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  loc.landingContactInfo,
+                  style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: const Color(0xff1e40af)),
+                ),
+              ),
+              const SizedBox(height: 32),
+              SizedBox(
+                width: isDesktop ? 300 : double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ProgramSelectionPage())),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xff1e88e5),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    elevation: 0,
+                  ),
+                  child: Text(loc.landingEnrollNow, style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w600)),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Wrap(
+                alignment: WrapAlignment.center,
+                spacing: 8,
+                runSpacing: 4,
+                children: [
+                  TextButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const TeacherApplicationScreen()),
+                      );
+                    },
+                    icon: const Icon(Icons.school_outlined, size: 18, color: Color(0xff2563EB)),
+                    label: Text(
+                      loc.applyToTeach,
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xff2563EB),
+                      ),
+                    ),
+                  ),
+                  TextButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const ProgramSelectionPage(initialAdditionalStudents: 1),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.groups_2_outlined, size: 18, color: Color(0xff2563EB)),
+                    label: Text(
+                      loc.landingPricingEnrollMultipleStudents,
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xff2563EB),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEnrollSection({Key? key}) {
     final isDesktop = MediaQuery.of(context).size.width > 1024;
     
     return Container(
+      key: key,
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 80),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 56),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -758,7 +1445,7 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Ready to Start Learning?',
+                            AppLocalizations.of(context)!.landingCtaTitle,
                             style: GoogleFonts.inter(
                               fontSize: 42,
                               fontWeight: FontWeight.w800,
@@ -768,7 +1455,7 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
                           ),
                           const SizedBox(height: 16),
                           Text(
-                            'Join thousands of students worldwide who are already benefiting from our comprehensive educational programs. Start your journey today with a free trial class.',
+                            AppLocalizations.of(context)!.landingCtaBody,
                             style: GoogleFonts.inter(
                               fontSize: 18,
                               color: Colors.white.withOpacity(0.9),
@@ -797,7 +1484,7 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
                                   elevation: 4,
                                 ),
                                 child: Text(
-                                  'Enroll Now',
+                                  AppLocalizations.of(context)!.landingEnrollNow,
                                   style: GoogleFonts.inter(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w600,
@@ -810,7 +1497,9 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
-                                      builder: (context) => const TeachersPage(),
+                                      builder: (context) => const TeamPage(
+                                        initialCategory: 'teacher',
+                                      ),
                                     ),
                                   );
                                 },
@@ -823,7 +1512,7 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
                                   ),
                                 ),
                                 child: Text(
-                                  'Meet Our Teachers',
+                                  AppLocalizations.of(context)!.ourTeachers,
                                   style: GoogleFonts.inter(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w600,
@@ -881,7 +1570,7 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Ready to Start Learning?',
+                          AppLocalizations.of(context)!.landingCtaTitle,
                           style: GoogleFonts.inter(
                             fontSize: 32,
                             fontWeight: FontWeight.w800,
@@ -891,7 +1580,7 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          'Join thousands of students worldwide who are already benefiting from our comprehensive educational programs. Start your journey today with a free trial class.',
+                          AppLocalizations.of(context)!.landingCtaBody,
                           style: GoogleFonts.inter(
                             fontSize: 16,
                             color: Colors.white.withOpacity(0.9),
@@ -920,7 +1609,7 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
                               elevation: 4,
                             ),
                             child: Text(
-                              'Enroll Now',
+                              AppLocalizations.of(context)!.landingEnrollNow,
                               style: GoogleFonts.inter(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
@@ -936,7 +1625,9 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) => const TeachersPage(),
+                                  builder: (context) => const TeamPage(
+                                    initialCategory: 'teacher',
+                                  ),
                                 ),
                               );
                             },
@@ -949,7 +1640,7 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
                               ),
                             ),
                             child: Text(
-                              'Meet Our Teachers',
+                              AppLocalizations.of(context)!.ourTeachers,
                               style: GoogleFonts.inter(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
@@ -998,12 +1689,13 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
     );
   }
 
-  Widget _buildAboutUsSection() {
+  Widget _buildAboutUsSection({Key? key}) {
     final isDesktop = MediaQuery.of(context).size.width > 1024;
     
     return Container(
+      key: key,
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 80),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 56),
       decoration: const BoxDecoration(
         color: Colors.white,
       ),
@@ -1180,245 +1872,6 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
     );
   }
 
-  Widget _buildTestimonialSection() {
-    final isDesktop = MediaQuery.of(context).size.width > 1024;
-    
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 80),
-      color: const Color(0xff003399), // Darker blue background
-      child: Container(
-        constraints: const BoxConstraints(maxWidth: 1200),
-        child: isDesktop
-            ? Row(
-                children: [
-                  Expanded(child: _buildTestimonialContent()),
-                  const SizedBox(width: 64),
-                  Expanded(child: _buildTestimonialImage()),
-                ],
-              )
-            : Column(
-                children: [
-                  _buildTestimonialImage(),
-                  const SizedBox(height: 48),
-                  _buildTestimonialContent(),
-                ],
-              ),
-      ),
-    );
-  }
-
-  Widget _buildTestimonialContent() {
-    final isMobile = MediaQuery.of(context).size.width < 768;
-    
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            CircleAvatar(
-              radius: isMobile ? 24 : 32,
-              backgroundColor: Colors.white.withOpacity(0.2),
-              child: Icon(
-                Icons.person_rounded,
-                size: isMobile ? 30 : 40,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    _testimonials[_currentTestimonialIndex]['name']!,
-                    style: GoogleFonts.inter(
-                      fontSize: isMobile ? 16 : 18,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                    ),
-                  ),
-                  Text(
-                    _testimonials[_currentTestimonialIndex]['role']!,
-                    style: GoogleFonts.inter(
-                      fontSize: isMobile ? 12 : 14,
-                      color: Colors.white.withOpacity(0.8),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 32),
-        SizedBox(
-          height: isMobile ? 250 : 220,
-          child: PageView.builder(
-            controller: _testimonialController,
-            onPageChanged: (index) {
-              setState(() {
-                _currentTestimonialIndex = index;
-              });
-            },
-            itemCount: _testimonials.length,
-            itemBuilder: (context, index) {
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Left Arrow
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: IconButton(
-                      onPressed: _previousTestimonial,
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                      icon: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          Icons.chevron_left,
-                          color: Colors.white,
-                          size: isMobile ? 24 : 28,
-                        ),
-                      ),
-                    ),
-                  ),
-                  SizedBox(width: isMobile ? 4 : 8),
-                  // Testimonial Text Bubble
-                  Expanded(
-                    child: Container(
-                      padding: EdgeInsets.all(isMobile ? 20 : 32),
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.only(
-                          topLeft: Radius.zero,
-                          topRight: Radius.circular(24),
-                          bottomLeft: Radius.circular(24),
-                          bottomRight: Radius.circular(24),
-                        ),
-                      ),
-                      child: SingleChildScrollView(
-                        child: Text(
-                          _testimonials[index]['text']!,
-                          style: GoogleFonts.inter(
-                            fontSize: isMobile ? 16 : 20,
-                            height: 1.5,
-                            color: const Color(0xff111827),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  SizedBox(width: isMobile ? 4 : 8),
-                  // Right Arrow
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: IconButton(
-                      onPressed: _nextTestimonial,
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                      icon: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          Icons.chevron_right,
-                          color: Colors.white,
-                          size: isMobile ? 24 : 28,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              );
-            },
-          ),
-        ),
-        const SizedBox(height: 24),
-        // Dots indicator
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: List.generate(
-            _testimonials.length,
-            (index) => _buildDot(index == _currentTestimonialIndex),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildTestimonialImage() {
-    return Column(
-      children: [
-        Container(
-          width: double.infinity,
-          constraints: const BoxConstraints(maxHeight: 400),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.2),
-                blurRadius: 30,
-                offset: const Offset(0, 15),
-              ),
-            ],
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: Image.asset(
-              'assets/background_images/zoom_class.jpeg',
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) {
-                return Container(
-                  height: 300,
-                  color: Colors.grey[300],
-                  child: const Icon(Icons.image, size: 100, color: Colors.grey),
-                );
-              },
-            ),
-          ),
-        ),
-        const SizedBox(height: 24),
-        Text(
-          'With your tutor, you will be able to learn and apply on the go.',
-          textAlign: TextAlign.center,
-          style: GoogleFonts.inter(
-            fontSize: 16,
-            color: Colors.white,
-            height: 1.5,
-          ),
-        ),
-        const SizedBox(height: 24),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            _buildDot(false),
-            const SizedBox(width: 8),
-            _buildDot(false),
-            const SizedBox(width: 8),
-            _buildDot(true),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDot(bool isActive) {
-    return Container(
-      width: isActive ? 12 : 8,
-      height: isActive ? 12 : 8,
-      decoration: BoxDecoration(
-        color: isActive ? Colors.white : Colors.white.withOpacity(0.4),
-        shape: BoxShape.circle,
-      ),
-    );
-  }
-
   Widget _buildFooterPlaceholder() {
     return Container(
       width: double.infinity,
@@ -1429,6 +1882,34 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
           '© 2024 Alluwal Education Hub',
           style: GoogleFonts.inter(color: Colors.white54),
         ),
+      ),
+    );
+  }
+}
+
+/// Subtle hover feedback on pricing cards (web/desktop); no-op feel on touch.
+class _HoverScaleCard extends StatefulWidget {
+  final Widget child;
+
+  const _HoverScaleCard({required this.child});
+
+  @override
+  State<_HoverScaleCard> createState() => _HoverScaleCardState();
+}
+
+class _HoverScaleCardState extends State<_HoverScaleCard> {
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: AnimatedScale(
+        scale: _hover ? 1.012 : 1.0,
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOutCubic,
+        child: widget.child,
       ),
     );
   }
@@ -1445,108 +1926,25 @@ enum CategoryType {
   general,
 }
 
-class _ProgramCard extends StatelessWidget {
+class _CourseItem {
   final String title;
+  final String subtitle;
   final IconData icon;
-  final Color color;
-  final String description;
   final VoidCallback onTap;
-
-  const _ProgramCard({
-    required this.title,
-    required this.icon,
-    required this.color,
-    required this.description,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return FadeInSlide(
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(20),
-          child: Container(
-            padding: const EdgeInsets.all(28),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: const Color(0xffE5E7EB), width: 1),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.04),
-                  blurRadius: 20,
-                  offset: const Offset(0, 8),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: 56,
-                      height: 56,
-                      decoration: BoxDecoration(
-                        color: color.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Icon(icon, color: color, size: 28),
-                    ),
-                    const SizedBox(height: 20),
-                    Text(
-                      title,
-                      style: GoogleFonts.inter(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                        color: const Color(0xff111827),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      description,
-                      style: GoogleFonts.inter(
-                        fontSize: 14,
-                        color: const Color(0xff6B7280),
-                        height: 1.5,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                Row(
-                  children: [
-                    Text(
-                      'Learn more',
-                      style: GoogleFonts.inter(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: color,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Icon(Icons.arrow_forward_rounded, color: color, size: 18),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+  const _CourseItem(this.title, this.subtitle, this.icon, this.onTap);
 }
 
 class _TextCategoryLink extends StatefulWidget {
   final String label;
   final CategoryType categoryType;
+  /// Base text color when not hovered (hero uses CMS-driven contrast).
+  final Color idleTextColor;
 
-  const _TextCategoryLink(this.label, {this.categoryType = CategoryType.general});
+  const _TextCategoryLink(
+    this.label, {
+    this.categoryType = CategoryType.general,
+    this.idleTextColor = Colors.white,
+  });
 
   @override
   State<_TextCategoryLink> createState() => _TextCategoryLinkState();
@@ -1588,57 +1986,56 @@ class _TextCategoryLinkState extends State<_TextCategoryLink> {
             case CategoryType.islamicStudies:
               Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (context) => const IslamicCoursesPage(),
+                UnifiedProgramsPageRoutes.fade(
+                  initialCategory: ProgramCatalog.catIslamic,
                 ),
               );
               break;
             case CategoryType.math:
               Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (context) => const MathPage(),
+                UnifiedProgramsPageRoutes.fade(
+                  initialCategory: ProgramCatalog.catMath,
                 ),
               );
               break;
             case CategoryType.programming:
               Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (context) => const ProgrammingPage(),
+                UnifiedProgramsPageRoutes.fade(
+                  initialCategory: ProgramCatalog.catProgramming,
                 ),
               );
               break;
             case CategoryType.english:
-              // English for students - goes to After School Tutoring
               Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (context) => const ProgramSelectionPage(initialSubject: 'After School Tutoring'),
+                UnifiedProgramsPageRoutes.fade(
+                  initialCategory: ProgramCatalog.catAfterSchool,
                 ),
               );
               break;
             case CategoryType.adultLiteracy:
               Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (context) => const ProgramSelectionPage(initialSubject: 'Adult Literacy'),
+                UnifiedProgramsPageRoutes.fade(
+                  initialCategory: ProgramCatalog.catEnglish,
                 ),
               );
               break;
             case CategoryType.languages:
               Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (context) => const AfrolingualPage(),
+                UnifiedProgramsPageRoutes.fade(
+                  initialCategory: ProgramCatalog.catLanguages,
                 ),
               );
               break;
             case CategoryType.afterSchoolTutoring:
               Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (context) => const ProgramSelectionPage(initialSubject: 'After School Tutoring'),
+                UnifiedProgramsPageRoutes.fade(
+                  initialCategory: ProgramCatalog.catAfterSchool,
                 ),
               );
               break;

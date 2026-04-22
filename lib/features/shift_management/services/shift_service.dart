@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 import 'package:alluwalacademyadmin/features/shift_management/models/teaching_shift.dart';
@@ -42,6 +43,103 @@ class ShiftService {
   static FirebaseFirestore get _firestore => FirebaseFirestore.instance;
   static final FirebaseAuth _auth = FirebaseAuth.instance;
   static FirebaseFunctions get _functions => FirebaseFunctions.instance;
+
+  /// Gen2 HTTPS callables for this project are deployed in `us-central1`.
+  static final FirebaseFunctions _functionsUsCentral1 =
+      FirebaseFunctions.instanceFor(region: 'us-central1');
+
+  /// Claims a published shift for the signed-in teacher.
+  ///
+  /// **Native:** uses the `claimShift` HTTPS callable (same logic as server).
+  ///
+  /// **Web:** Gen2 callables sit behind Cloud Run; browser preflight/invoker
+  /// issues often surface as `[firebase_functions/internal]`. The same claim
+  /// is allowed by Firestore rules (`canClaimShift` in `firestore.rules`), so
+  /// web uses a client [Transaction] that mirrors the callable update.
+  static Future<void> claimPublishedShift(String shiftId) async {
+    if (kIsWeb) {
+      await _claimPublishedShiftFirestoreWeb(shiftId);
+      return;
+    }
+    final callable = _functions.httpsCallable('claimShift');
+    await callable.call(<String, dynamic>{'shiftId': shiftId});
+  }
+
+  static Future<void> _claimPublishedShiftFirestoreWeb(String shiftId) async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      throw FirebaseException(
+        plugin: 'shift_claim',
+        code: 'unauthenticated',
+        message: 'Not signed in',
+      );
+    }
+    final uid = user.uid;
+    final shiftRef = _shiftsCollection.doc(shiftId);
+    final userRef = _firestore.collection('users').doc(uid);
+
+    await _firestore.runTransaction((transaction) async {
+      final shiftSnap = await transaction.get(shiftRef);
+      if (!shiftSnap.exists) {
+        throw FirebaseException(
+          plugin: 'shift_claim',
+          code: 'not-found',
+          message: 'Shift not found',
+        );
+      }
+      final sd = shiftSnap.data()! as Map<String, dynamic>;
+      if (sd['is_published'] != true) {
+        throw FirebaseException(
+          plugin: 'shift_claim',
+          code: 'failed-precondition',
+          message: 'Shift is no longer available for claiming',
+        );
+      }
+      final statusNorm = (sd['status'] ?? '').toString().toLowerCase();
+      if (statusNorm != 'scheduled') {
+        throw FirebaseException(
+          plugin: 'shift_claim',
+          code: 'failed-precondition',
+          message: 'Shift is no longer available for claiming',
+        );
+      }
+      if (sd['teacher_id'] == uid) {
+        throw FirebaseException(
+          plugin: 'shift_claim',
+          code: 'already-exists',
+          message: 'You are already the teacher for this shift',
+        );
+      }
+      final userSnap = await transaction.get(userRef);
+      if (!userSnap.exists) {
+        throw FirebaseException(
+          plugin: 'shift_claim',
+          code: 'not-found',
+          message: 'User profile not found',
+        );
+      }
+      final ud = userSnap.data()! as Map<String, dynamic>;
+      final fn = (ud['first_name'] ?? '').toString();
+      final ln = (ud['last_name'] ?? '').toString();
+      var teacherName = ('$fn $ln').trim();
+      if (teacherName.isEmpty) {
+        teacherName = 'Teacher';
+      }
+
+      transaction.update(shiftRef, {
+        'teacher_id': uid,
+        'teacher_name': teacherName,
+        'is_published': false,
+        'published_at': null,
+        'published_by': null,
+        'original_teacher_id': FieldValue.delete(),
+        'original_teacher_name': FieldValue.delete(),
+        'claimed_via_shift_trade': true,
+        'shift_trade_claimed_at': FieldValue.serverTimestamp(),
+        'last_modified': FieldValue.serverTimestamp(),
+      });
+    });
+  }
 
   // Collection reference
   static CollectionReference get _shiftsCollection =>
@@ -187,7 +285,7 @@ class ShiftService {
       AppLogger.debug(
           'ShiftService: Scheduling lifecycle tasks for shift ${shift.id} (cancel=$cancel)');
       await callable.call(payload);
-      AppLogger.error('ShiftService: Lifecycle tasks scheduled successfully');
+      AppLogger.debug('ShiftService: Lifecycle tasks scheduled successfully');
     } on FirebaseFunctionsException catch (e) {
       AppLogger.error(
           'ShiftService: Cloud Functions error while scheduling lifecycle tasks: ${e.code} ${e.message}');
@@ -2243,6 +2341,24 @@ class ShiftService {
       AppLogger.error('Error getting today\'s shifts: $e');
       return [];
     }
+  }
+
+  /// Helper to check if clock-in is allowed for a shift right now.
+  /// Used to unify clock-in rules across the dashboard and shift details.
+  static bool canClockInNow(TeachingShift shift) {
+    final now = DateTime.now();
+    final shiftStart = shift.shiftStart;
+    final shiftEnd = shift.shiftEnd;
+
+    // Window: from 1 minute before start until the end of the shift.
+    // We allow a 1-minute buffer for "programmed" or early clock-in readiness.
+    final clockInWindowStart = shiftStart.subtract(const Duration(minutes: 1));
+
+    return (now.isAfter(clockInWindowStart) ||
+            now.isAtSameMomentAs(clockInWindowStart)) &&
+        now.isBefore(shiftEnd) &&
+        (shift.status == ShiftStatus.scheduled ||
+            shift.status == ShiftStatus.active);
   }
 
   /// Get current active shift for teacher

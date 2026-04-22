@@ -23,7 +23,7 @@ class _AboutPageState extends State<AboutPage> {
 
   Future<void> _loadLeadership() async {
     try {
-      final staff = await loadStaffData();
+      final staff = await loadStaffDataWithCmsFallback();
       if (mounted) {
         setState(() {
           _leadership =
@@ -193,12 +193,12 @@ class _AboutPageState extends State<AboutPage> {
               runSpacing: 24,
               alignment: WrapAlignment.center,
               children: [
-                _buildValueCard('Authenticity', 'Rooted in Quran & Sunnah', Icons.verified_rounded),
-                _buildValueCard('Compassion', 'Patience & care for all', Icons.volunteer_activism_rounded),
-                _buildValueCard('Excellence', 'High standards in education', Icons.star_rounded),
-                _buildValueCard('Community', 'Supportive global network', Icons.groups_rounded),
-                _buildValueCard('Knowledge', 'Transformative learning', Icons.menu_book_rounded),
-                _buildValueCard('Accessibility', 'Available worldwide', Icons.public_rounded),
+                _buildValueCard(AppLocalizations.of(context)!.aboutValuesAuthenticity, AppLocalizations.of(context)!.aboutValuesAuthenticityDesc, Icons.verified_rounded),
+                _buildValueCard(AppLocalizations.of(context)!.aboutValuesCompassion, AppLocalizations.of(context)!.aboutValuesCompassionDesc, Icons.volunteer_activism_rounded),
+                _buildValueCard(AppLocalizations.of(context)!.aboutValuesExcellence, AppLocalizations.of(context)!.aboutValuesExcellenceDesc, Icons.star_rounded),
+                _buildValueCard(AppLocalizations.of(context)!.aboutValuesCommunity, AppLocalizations.of(context)!.aboutValuesCommunityDesc, Icons.groups_rounded),
+                _buildValueCard(AppLocalizations.of(context)!.aboutValuesKnowledge, AppLocalizations.of(context)!.aboutValuesKnowledgeDesc, Icons.menu_book_rounded),
+                _buildValueCard(AppLocalizations.of(context)!.aboutValuesAccessibility, AppLocalizations.of(context)!.aboutValuesAccessibilityDesc, Icons.public_rounded),
               ],
             ),
           ),

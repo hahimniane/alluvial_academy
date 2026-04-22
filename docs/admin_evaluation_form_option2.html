@@ -1,0 +1,313 @@
+
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font-sans); }
+.wrap { padding: 1.5rem 0; }
+.header { margin-bottom: 1.5rem; }
+.header h2 { font-size: 18px; font-weight: 500; color: var(--color-text-primary); }
+.header p { font-size: 13px; color: var(--color-text-secondary); margin-top: 4px; }
+.admin-row { display: flex; gap: 12px; margin-bottom: 1.5rem; flex-wrap: wrap; }
+.admin-row input, .admin-row select { flex: 1; min-width: 160px; }
+.section { background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); margin-bottom: 1rem; overflow: hidden; }
+.section-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; cursor: pointer; background: var(--color-background-secondary); }
+.section-title { font-size: 14px; font-weight: 500; color: var(--color-text-primary); display: flex; align-items: center; gap: 8px; }
+.section-badge { font-size: 11px; padding: 2px 8px; border-radius: 999px; font-weight: 400; }
+.section-score { font-size: 13px; color: var(--color-text-secondary); }
+.section-body { padding: 0 16px 4px; }
+.criteria-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 0.5px solid var(--color-border-tertiary); gap: 12px; }
+.criteria-row:last-child { border-bottom: none; }
+.criteria-label { font-size: 13px; color: var(--color-text-primary); flex: 1; line-height: 1.5; }
+.criteria-label small { display: block; font-size: 11px; color: var(--color-text-secondary); margin-top: 2px; }
+.score-group { display: flex; gap: 4px; align-items: center; flex-shrink: 0; }
+.score-btn { width: 30px; height: 30px; border-radius: 6px; border: 0.5px solid var(--color-border-tertiary); background: transparent; font-size: 12px; font-weight: 500; cursor: pointer; color: var(--color-text-secondary); transition: background 0.1s; display: flex; align-items: center; justify-content: center; }
+.score-btn:hover { background: var(--color-background-secondary); }
+.score-btn.active-0 { background: #FCEBEB; border-color: #E24B4A; color: #A32D2D; }
+.score-btn.active-1 { background: #FAEEDA; border-color: #EF9F27; color: #854F0B; }
+.score-btn.active-2 { background: #FAEEDA; border-color: #BA7517; color: #633806; }
+.score-btn.active-3 { background: #E6F1FB; border-color: #378ADD; color: #185FA5; }
+.score-btn.active-4 { background: #EAF3DE; border-color: #639922; color: #3B6D11; }
+.score-btn.active-5 { background: #E1F5EE; border-color: #1D9E75; color: #0F6E56; }
+.score-btn.active-na { background: var(--color-background-secondary); border-color: var(--color-border-secondary); color: var(--color-text-secondary); }
+.summary-bar { background: var(--color-background-secondary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); padding: 1rem 1.25rem; margin-top: 1.5rem; display: flex; gap: 16px; flex-wrap: wrap; align-items: center; justify-content: space-between; }
+.summary-item { text-align: center; }
+.summary-item .val { font-size: 22px; font-weight: 500; color: var(--color-text-primary); }
+.summary-item .lbl { font-size: 11px; color: var(--color-text-secondary); margin-top: 2px; }
+.progress-track { flex: 1; min-width: 120px; height: 8px; background: var(--color-border-tertiary); border-radius: 4px; overflow: hidden; }
+.progress-fill { height: 100%; border-radius: 4px; transition: width 0.3s; }
+.btn-export { padding: 8px 20px; border-radius: var(--border-radius-md); border: 0.5px solid var(--color-border-secondary); background: transparent; font-size: 13px; cursor: pointer; color: var(--color-text-primary); }
+.btn-export:hover { background: var(--color-background-secondary); }
+.collapsed .section-body { display: none; }
+.chevron { font-size: 12px; color: var(--color-text-secondary); transition: transform 0.2s; }
+.collapsed .chevron { transform: rotate(-90deg); }
+.comment-row { padding: 10px 0; }
+.comment-row textarea { width: 100%; font-size: 12px; padding: 6px 10px; border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-md); resize: vertical; font-family: var(--font-sans); color: var(--color-text-primary); background: transparent; min-height: 56px; }
+</style>
+
+<div class="wrap">
+  <div class="header">
+    <h2>Fiche d'évaluation — Admin</h2>
+    <p>Notation de 0 à 5 par critère · N/A = non applicable</p>
+  </div>
+
+  <div class="admin-row">
+    <input type="text" id="adminName" placeholder="Nom de l'admin évalué" />
+    <input type="text" id="evaluatorName" placeholder="Évaluateur" />
+    <input type="date" id="evalDate" />
+    <select id="evalPeriod">
+      <option value="">Période</option>
+      <option>Semaine</option>
+      <option>Mois</option>
+      <option>Semestre</option>
+    </select>
+  </div>
+
+  <div id="sections"></div>
+
+  <div class="summary-bar">
+    <div class="summary-item"><div class="val" id="totalScore">—</div><div class="lbl">Score total</div></div>
+    <div class="summary-item"><div class="val" id="pct">—</div><div class="lbl">% obtenu</div></div>
+    <div class="summary-item" style="flex:1; min-width:140px;">
+      <div class="progress-track"><div class="progress-fill" id="progBar" style="width:0%; background:#1D9E75;"></div></div>
+      <div class="lbl" style="margin-top:6px;" id="progLbl">Aucune note saisie</div>
+    </div>
+    <button class="btn-export" onclick="exportSummary()">Exporter résumé ↗</button>
+  </div>
+</div>
+
+<script>
+const DATA = [
+  {
+    id: "ponctualite",
+    title: "Ponctualité & présence",
+    color: "#E6F1FB",
+    borderColor: "#378ADD",
+    textColor: "#185FA5",
+    criteria: [
+      { id:"p1", label:"Respect de l'horaire de prise de service", hint:"Heure de début de shift déclarée vs attendue" },
+      { id:"p2", label:"Respect de l'horaire de fin de service", hint:"Heure de fin déclarée et cohérente" },
+      { id:"p3", label:"Nombre total d'heures travaillées conforme", hint:"Total heures reportées = heures prévues" },
+      { id:"p4", label:"Présence aux sessions Zoom hosting assignées", hint:"Démarrage et fin du hosting effectués" },
+      { id:"p5", label:"Absence de shifts manqués cette semaine", hint:"Aucun shift non couvert ni non excusé" },
+      { id:"p6", label:"Excuse soumise au moins 2 jours avant absence prévisible", hint:"Respect du délai du formulaire d'excuse" },
+    ]
+  },
+  {
+    id: "rapports",
+    title: "Soumission des formulaires & rapports",
+    color: "#E1F5EE",
+    borderColor: "#1D9E75",
+    textColor: "#0F6E56",
+    criteria: [
+      { id:"r1", label:"Soumission quotidienne du formulaire End of Shift", hint:"Formulaire complété et envoyé après chaque shift" },
+      { id:"r2", label:"Soumission du formulaire Zoom Hosting", hint:"Formulaire rempli à chaque session de hosting" },
+      { id:"r3", label:"Soumission du rapport de synthèse hebdomadaire", hint:"Marketing Weekly Progress Report soumis" },
+      { id:"r4", label:"Exactitude et exhaustivité des informations saisies", hint:"Pas de champs vides ou incohérents" },
+      { id:"r5", label:"Qualité et clarté de la liste des réalisations", hint:"Achievements détaillés avec temps passé" },
+      { id:"r6", label:"Liste des défis documentée avec précision", hint:"Challenges nommés et expliqués" },
+      { id:"r7", label:"Formulaires de plaintes / facts-finding soumis si nécessaire", hint:"Signalement effectué le cas échéant" },
+    ]
+  },
+  {
+    id: "gestion_taches",
+    title: "Gestion des tâches & suivi",
+    color: "#EEEDFE",
+    borderColor: "#7F77DD",
+    textColor: "#534AB7",
+    criteria: [
+      { id:"t1", label:"Tâches en retard (overdue) réduites ou nulles", hint:"Nombre d'overdues à la fin du shift" },
+      { id:"t2", label:"Tâches assignées à soi-même renseignées", hint:"Nombre de nouvelles tâches auto-assignées déclaré" },
+      { id:"t3", label:"Tâches assignées aux membres de l'équipe renseignées", hint:"Nombre de tâches déléguées déclaré" },
+      { id:"t4", label:"Tâches complétées listées avec leur titre", hint:"Toutes les tâches clôturées sont nommées" },
+      { id:"t5", label:"Suivi des données overdue hebdomadaires (Mamoudou/CEO)", hint:"Rapport overdue soumis avec preuves" },
+      { id:"t6", label:"Objectifs du shift partagés en début de service", hint:"Shift goals postés dans le groupe Eboard" },
+    ]
+  },
+  {
+    id: "supervision",
+    title: "Supervision des enseignants & étudiants",
+    color: "#FAECE7",
+    borderColor: "#D85A30",
+    textColor: "#993C1D",
+    criteria: [
+      { id:"s1", label:"Contrôle des absences et retards d'enseignants", hint:"Enseignants absents/retards identifiés et consignés" },
+      { id:"s2", label:"Notification WhatsApp aux enseignants absents/en retard", hint:"Message envoyé dans les délais" },
+      { id:"s3", label:"Vérification du formulaire d'excuse pour les enseignants signalés", hint:"Excuse vérifiée avant pénalité" },
+      { id:"s4", label:"Observation des salles Zoom (rotation durant le hosting)", hint:"Nombre de fois où les salles ont été observées" },
+      { id:"s5", label:"Test de niveau des étudiants effectué pendant le hosting", hint:"Nom élève, enseignant et contenu testés documentés" },
+      { id:"s6", label:"Suivi des nouveaux étudiants (All in One Sheet consulté)", hint:"Nombre de nouveaux étudiants attendus vérifié" },
+      { id:"s7", label:"Formulaire Students Status rempli pour tout changement", hint:"Nouveau, transfert, abandon, ajustement documenté" },
+      { id:"s8", label:"Enseignants à faible conformité au programme identifiés", hint:"2 enseignants les moins conformes listés" },
+    ]
+  },
+  {
+    id: "bayana",
+    title: "Organisation Bayana & événements",
+    color: "#FBEAF0",
+    borderColor: "#D4537E",
+    textColor: "#993556",
+    criteria: [
+      { id:"b1", label:"Présences Bayana documentées par enseignant", hint:"Tous les groupes d'étudiants renseignés" },
+      { id:"b2", label:"Suivi de la ponctualité du Bayana", hint:"Démarrage à l'heure noté" },
+      { id:"b3", label:"Relance des parents/enseignants pour absences Bayana", hint:"Contact effectué pour absences du mois précédent" },
+      { id:"b4", label:"Qualité du compte-rendu global du Bayana", hint:"Impression générale rédigée (1-3 phrases)" },
+    ]
+  },
+  {
+    id: "communication",
+    title: "Communication & leadership",
+    color: "#EAF3DE",
+    borderColor: "#639922",
+    textColor: "#3B6D11",
+    criteria: [
+      { id:"c1", label:"Appel de bilan de 5 min effectué après chaque shift (Chernor)", hint:"Check-out call complété avant soumission du formulaire" },
+      { id:"c2", label:"Coordination avec le successeur de hosting", hint:"Passation confirmée au suivant" },
+      { id:"c3", label:"Revue des formulaires de l'équipe et actions prises", hint:"Formulaires assignés consultés et traités" },
+      { id:"c4", label:"Mentions positives (shout-outs) documentées", hint:"Leaders/enseignants ayant aidé cités" },
+      { id:"c5", label:"Niveau de contrôle perçu sur les enseignants et projets", hint:"Auto-évaluation Weekly Report" },
+    ]
+  },
+  {
+    id: "finance",
+    title: "Gestion financière & horaires",
+    color: "#FAEEDA",
+    borderColor: "#EF9F27",
+    textColor: "#854F0B",
+    criteria: [
+      { id:"f1", label:"Approbation des heures de pointage des enseignants", hint:"Clock-in approuvés pour la semaine" },
+      { id:"f2", label:"Demandes de paiement/avance justifiées et correctes", hint:"Formulaire Payment Request correctement rempli" },
+      { id:"f3", label:"Calendriers enseignants à jour (jours, horaires)", hint:"Schedules vérifiés et corrects" },
+    ]
+  },
+  {
+    id: "innovation",
+    title: "Innovation & amélioration continue",
+    color: "#E1F5EE",
+    borderColor: "#0F6E56",
+    textColor: "#085041",
+    criteria: [
+      { id:"i1", label:"Innovation ou amélioration système/plateforme pendant le shift", hint:"Déclaré dans le formulaire End of Shift" },
+      { id:"i2", label:"Audit mensuel du travail des enseignants effectué (4e semaine)", hint:"Résultats envoyés à chaque enseignant" },
+      { id:"i3", label:"Contenu/info mis à jour sur les plateformes", hint:"Sites, documents, fiches à jour" },
+    ]
+  }
+];
+
+const scores = {};
+
+function renderSections() {
+  const container = document.getElementById("sections");
+  DATA.forEach(sec => {
+    const div = document.createElement("div");
+    div.className = "section";
+    div.id = "sec_" + sec.id;
+    div.innerHTML = `
+      <div class="section-header" onclick="toggleSection('${sec.id}')">
+        <div class="section-title">
+          <span class="section-badge" style="background:${sec.color};color:${sec.textColor};border:0.5px solid ${sec.borderColor};">${sec.criteria.length} critères</span>
+          ${sec.title}
+        </div>
+        <div style="display:flex;gap:12px;align-items:center;">
+          <span class="section-score" id="score_${sec.id}">—</span>
+          <span class="chevron">▼</span>
+        </div>
+      </div>
+      <div class="section-body">
+        ${sec.criteria.map(c => `
+          <div class="criteria-row">
+            <div class="criteria-label">${c.label}<small>${c.hint}</small></div>
+            <div class="score-group" id="grp_${c.id}">
+              ${[0,1,2,3,4,5].map(n => `<button class="score-btn" onclick="setScore('${c.id}',${n})" id="btn_${c.id}_${n}">${n}</button>`).join("")}
+              <button class="score-btn" onclick="setScore('${c.id}','na')" id="btn_${c.id}_na" style="font-size:11px;">N/A</button>
+            </div>
+          </div>
+        `).join("")}
+        <div class="comment-row">
+          <textarea placeholder="Commentaire pour cette section (optionnel)..." id="cmt_${sec.id}"></textarea>
+        </div>
+      </div>
+    `;
+    container.appendChild(div);
+  });
+}
+
+function setScore(id, val) {
+  scores[id] = val;
+  const btns = document.querySelectorAll(`[id^="btn_${id}_"]`);
+  btns.forEach(b => b.className = "score-btn");
+  const active = document.getElementById(`btn_${id}_${val}`);
+  if (active) active.className = val === 'na' ? "score-btn active-na" : `score-btn active-${val}`;
+  updateSectionScore(id);
+  updateTotal();
+}
+
+function updateSectionScore(cid) {
+  DATA.forEach(sec => {
+    if (sec.criteria.find(c => c.id === cid)) {
+      const vals = sec.criteria.map(c => scores[c.id]).filter(v => v !== undefined && v !== 'na');
+      const naCount = sec.criteria.filter(c => scores[c.id] === 'na').length;
+      const el = document.getElementById("score_" + sec.id);
+      if (vals.length === 0) { el.textContent = "—"; return; }
+      const sum = vals.reduce((a,b) => a+b, 0);
+      const max = (sec.criteria.length - naCount) * 5;
+      el.textContent = `${sum}/${max}`;
+    }
+  });
+}
+
+function updateTotal() {
+  const all = Object.values(scores).filter(v => v !== 'na');
+  if (all.length === 0) {
+    document.getElementById("totalScore").textContent = "—";
+    document.getElementById("pct").textContent = "—";
+    document.getElementById("progBar").style.width = "0%";
+    document.getElementById("progLbl").textContent = "Aucune note saisie";
+    return;
+  }
+  const sum = all.reduce((a,b) => a+b, 0);
+  const naCount = Object.values(scores).filter(v => v === 'na').length;
+  const totalCriteria = DATA.reduce((a,s) => a + s.criteria.length, 0);
+  const applicable = totalCriteria - naCount;
+  const max = applicable * 5;
+  const pct = Math.round((sum / max) * 100);
+  document.getElementById("totalScore").textContent = `${sum}/${max}`;
+  document.getElementById("pct").textContent = `${pct}%`;
+  const bar = document.getElementById("progBar");
+  bar.style.width = pct + "%";
+  bar.style.background = pct >= 80 ? "#1D9E75" : pct >= 60 ? "#378ADD" : pct >= 40 ? "#EF9F27" : "#E24B4A";
+  const mention = pct >= 80 ? "Excellent" : pct >= 60 ? "Satisfaisant" : pct >= 40 ? "À améliorer" : "Insuffisant";
+  document.getElementById("progLbl").textContent = mention + " · " + all.length + " critères notés";
+}
+
+function toggleSection(id) {
+  const sec = document.getElementById("sec_" + id);
+  sec.classList.toggle("collapsed");
+}
+
+function exportSummary() {
+  const name = document.getElementById("adminName").value || "Admin";
+  const evaluator = document.getElementById("evaluatorName").value || "—";
+  const date = document.getElementById("evalDate").value || "—";
+  const period = document.getElementById("evalPeriod").value || "—";
+  let lines = [`Évaluation Admin — ${name}`, `Évaluateur: ${evaluator} | Date: ${date} | Période: ${period}`, ""];
+  DATA.forEach(sec => {
+    const vals = sec.criteria.map(c => scores[c.id]).filter(v => v !== undefined && v !== 'na');
+    const naCount = sec.criteria.filter(c => scores[c.id] === 'na').length;
+    const sum = vals.reduce((a,b)=>a+b,0);
+    const max = (sec.criteria.length - naCount) * 5;
+    lines.push(`[${sec.title}] ${vals.length > 0 ? sum+"/"+max : "Non évalué"}`);
+    sec.criteria.forEach(c => {
+      const v = scores[c.id];
+      lines.push(`  • ${c.label}: ${v === undefined ? "—" : v === 'na' ? "N/A" : v+"/5"}`);
+    });
+    const cmt = document.getElementById("cmt_"+sec.id)?.value;
+    if (cmt) lines.push(`  Commentaire: ${cmt}`);
+    lines.push("");
+  });
+  const total = document.getElementById("totalScore").textContent;
+  const pct = document.getElementById("pct").textContent;
+  lines.push(`Score total: ${total} (${pct})`);
+  sendPrompt("Voici le résumé de l'évaluation admin :\n\n" + lines.join("\n"));
+}
+
+renderSections();
+</script>

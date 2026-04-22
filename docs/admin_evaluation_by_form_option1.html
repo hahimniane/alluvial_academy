@@ -1,0 +1,332 @@
+
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+.wrap { padding: 1.5rem 0; }
+.header { margin-bottom: 1.5rem; }
+.header h2 { font-size: 18px; font-weight: 500; color: var(--color-text-primary); }
+.header p { font-size: 13px; color: var(--color-text-secondary); margin-top: 4px; }
+.admin-row { display: flex; gap: 12px; margin-bottom: 1.5rem; flex-wrap: wrap; }
+.admin-row input, .admin-row select { flex: 1; min-width: 150px; }
+.section { background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); margin-bottom: 1rem; overflow: hidden; }
+.section-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; cursor: pointer; background: var(--color-background-secondary); }
+.section-title { font-size: 14px; font-weight: 500; color: var(--color-text-primary); display: flex; align-items: center; gap: 8px; }
+.section-badge { font-size: 11px; padding: 2px 8px; border-radius: 999px; font-weight: 400; }
+.section-score { font-size: 13px; color: var(--color-text-secondary); }
+.section-body { padding: 0 16px 4px; }
+.criteria-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 0.5px solid var(--color-border-tertiary); gap: 12px; }
+.criteria-row:last-child { border-bottom: none; }
+.criteria-label { font-size: 13px; color: var(--color-text-primary); flex: 1; line-height: 1.5; }
+.criteria-label small { display: block; font-size: 11px; color: var(--color-text-secondary); margin-top: 2px; }
+.score-group { display: flex; gap: 4px; align-items: center; flex-shrink: 0; }
+.score-btn { width: 30px; height: 30px; border-radius: 6px; border: 0.5px solid var(--color-border-tertiary); background: transparent; font-size: 12px; font-weight: 500; cursor: pointer; color: var(--color-text-secondary); display: flex; align-items: center; justify-content: center; }
+.score-btn:hover { background: var(--color-background-secondary); }
+.score-btn.active-0 { background: #FCEBEB; border-color: #E24B4A; color: #A32D2D; }
+.score-btn.active-1 { background: #FAEEDA; border-color: #EF9F27; color: #854F0B; }
+.score-btn.active-2 { background: #FAEEDA; border-color: #BA7517; color: #633806; }
+.score-btn.active-3 { background: #E6F1FB; border-color: #378ADD; color: #185FA5; }
+.score-btn.active-4 { background: #EAF3DE; border-color: #639922; color: #3B6D11; }
+.score-btn.active-5 { background: #E1F5EE; border-color: #1D9E75; color: #0F6E56; }
+.score-btn.active-na { background: var(--color-background-secondary); border-color: var(--color-border-secondary); color: var(--color-text-secondary); }
+.summary-bar { background: var(--color-background-secondary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); padding: 1rem 1.25rem; margin-top: 1.5rem; display: flex; gap: 16px; flex-wrap: wrap; align-items: center; justify-content: space-between; }
+.summary-item .val { font-size: 22px; font-weight: 500; color: var(--color-text-primary); }
+.summary-item .lbl { font-size: 11px; color: var(--color-text-secondary); margin-top: 2px; }
+.progress-track { flex: 1; min-width: 120px; height: 8px; background: var(--color-border-tertiary); border-radius: 4px; overflow: hidden; }
+.progress-fill { height: 100%; border-radius: 4px; transition: width 0.3s; }
+.btn-export { padding: 8px 20px; border-radius: var(--border-radius-md); border: 0.5px solid var(--color-border-secondary); background: transparent; font-size: 13px; cursor: pointer; color: var(--color-text-primary); }
+.btn-export:hover { background: var(--color-background-secondary); }
+.collapsed .section-body { display: none; }
+.chevron { font-size: 12px; color: var(--color-text-secondary); transition: transform 0.2s; }
+.collapsed .chevron { transform: rotate(-90deg); }
+.comment-row { padding: 10px 0; }
+.comment-row textarea { width: 100%; font-size: 12px; padding: 6px 10px; border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-md); resize: vertical; font-family: var(--font-sans); color: var(--color-text-primary); background: transparent; min-height: 52px; }
+</style>
+
+<div class="wrap">
+  <div class="header">
+    <h2>Fiche d'évaluation — Admin</h2>
+    <p>Organisée par formulaire · Notation 0 à 5 · N/A = non applicable</p>
+  </div>
+
+  <div class="admin-row">
+    <input type="text" id="adminName" placeholder="Nom de l'admin évalué" />
+    <input type="text" id="evaluatorName" placeholder="Évaluateur" />
+    <input type="date" id="evalDate" />
+    <select id="evalPeriod">
+      <option value="">Période</option>
+      <option>Semaine</option>
+      <option>Mois</option>
+      <option>Semestre</option>
+    </select>
+  </div>
+
+  <div id="sections"></div>
+
+  <div class="summary-bar">
+    <div class="summary-item"><div class="val" id="totalScore">—</div><div class="lbl">Score total</div></div>
+    <div class="summary-item"><div class="val" id="pct">—</div><div class="lbl">% obtenu</div></div>
+    <div class="summary-item" style="flex:1;min-width:140px;">
+      <div class="progress-track"><div class="progress-fill" id="progBar" style="width:0%;background:#1D9E75;"></div></div>
+      <div class="lbl" style="margin-top:6px;" id="progLbl">Aucune note saisie</div>
+    </div>
+    <button class="btn-export" onclick="exportSummary()">Exporter résumé ↗</button>
+  </div>
+</div>
+
+<script>
+const DATA = [
+  {
+    id:"f1", title:"1 · Daily End of Shift — CEO",
+    color:"#E6F1FB", border:"#378ADD", text:"#185FA5",
+    criteria:[
+      { id:"f1c1", label:"Objectifs du shift partagés dans le groupe Eboard en début de service", hint:"Question 5 — shift goals copiés/collés" },
+      { id:"f1c2", label:"Réalisations listées avec le temps passé sur chacune", hint:"Question 6 — achievements + durée" },
+      { id:"f1c3", label:"Heure de début de shift déclarée correctement", hint:"Question 8" },
+      { id:"f1c4", label:"Nombre total d'heures travaillées renseigné", hint:"Question 9" },
+      { id:"f1c5", label:"Heure de fin de shift déclarée", hint:"Question 10" },
+      { id:"f1c6", label:"Défis du jour listés", hint:"Question 12" },
+      { id:"f1c7", label:"Shifts manqués cette semaine déclarés honnêtement", hint:"Question 13" },
+      { id:"f1c8", label:"Rapports de fin de shift manqués déclarés", hint:"Question 14" },
+      { id:"f1c9", label:"Nombre de nouvelles tâches auto-assignées renseigné", hint:"Question 15" },
+      { id:"f1c10", label:"Nombre de tâches assignées à d'autres membres renseigné", hint:"Question 16" },
+      { id:"f1c11", label:"Innovation ou amélioration système/plateforme déclarée", hint:"Question 17" },
+      { id:"f1c12", label:"Appel de bilan 5 min avec Chernor effectué avant soumission", hint:"Question 18" },
+      { id:"f1c13", label:"Formulaires de l'équipe revus et actions prises", hint:"Question 19" },
+      { id:"f1c14", label:"Nombre de tâches en retard (overdue) renseigné", hint:"Question 20" },
+      { id:"f1c15", label:"Tâches complétées et clôturées listées par titre", hint:"Question 21" },
+    ]
+  },
+  {
+    id:"f2", title:"2 · Daily Zoom Hosting — CEO",
+    color:"#E1F5EE", border:"#1D9E75", text:"#0F6E56",
+    criteria:[
+      { id:"f2c1", label:"Heure de début du hosting déclarée", hint:"Question 3" },
+      { id:"f2c2", label:"Heure de fin du hosting déclarée", hint:"Question 4" },
+      { id:"f2c3", label:"Qualité de la connexion Internet reportée", hint:"Question 9" },
+      { id:"f2c4", label:"Aide apportée et réalisations du hosting documentées", hint:"Question 10" },
+      { id:"f2c5", label:"Prédécesseur du hosting identifié", hint:"Question 11" },
+      { id:"f2c6", label:"Défis du hosting listés", hint:"Question 12" },
+      { id:"f2c7", label:"Successeur du hosting confirmé présent", hint:"Question 13 & 14" },
+      { id:"f2c8", label:"Enseignants programmés listés avec horaires", hint:"Question 15" },
+      { id:"f2c9", label:"Enseignants absents signalés (avec noms des étudiants)", hint:"Question 16" },
+      { id:"f2c10", label:"Enseignants en retard signalés avec durée du retard", hint:"Question 17" },
+      { id:"f2c11", label:"Notification WhatsApp envoyée aux enseignants absents/en retard", hint:"Question 18" },
+      { id:"f2c12", label:"Formulaire d'excuse vérifié pour enseignants signalés", hint:"Question 19" },
+      { id:"f2c13", label:"Nombre de fois où les salles ont été observées", hint:"Question 23" },
+      { id:"f2c14", label:"Test de niveau étudiant effectué (nom élève, enseignant, contenu)", hint:"Question 24" },
+      { id:"f2c15", label:"All in One Sheet consulté pour nouveaux étudiants attendus", hint:"Question 26" },
+      { id:"f2c16", label:"Nombre de nouveaux étudiants renseigné", hint:"Question 27" },
+      { id:"f2c17", label:"Shout-outs aux leaders/enseignants ayant aidé", hint:"Question 28" },
+    ]
+  },
+  {
+    id:"f3", title:"3 · Formulaire d'excuse — Enseignants & Leaders",
+    color:"#FAECE7", border:"#D85A30", text:"#993C1D",
+    criteria:[
+      { id:"f3c1", label:"Excuse soumise au moins 2 jours avant la date prévue", hint:"Question 13 — délai respecté" },
+      { id:"f3c2", label:"Motif d'excuse clairement expliqué", hint:"Question 6" },
+      { id:"f3c3", label:"Nombre de jours et dates précis renseignés", hint:"Questions 7 & 8" },
+      { id:"f3c4", label:"Date de retour au travail spécifiée", hint:"Question 9" },
+      { id:"f3c5", label:"Congé payé ou non payé identifié correctement", hint:"Question 10" },
+      { id:"f3c6", label:"Remplaçant trouvé ou arrangement fait", hint:"Questions 11 & 12" },
+      { id:"f3c7", label:"Justificatif (preuve) uploadé si absence hors congé payé", hint:"Question 15" },
+    ]
+  },
+  {
+    id:"f4", title:"4 · Facts Finding & Complaints Report — Leaders/CEO",
+    color:"#FBEAF0", border:"#D4537E", text:"#993556",
+    criteria:[
+      { id:"f4c1", label:"Formulaire consulté quotidiennement pour revue des signalements", hint:"Note introductive du formulaire" },
+      { id:"f4c2", label:"Objet du rapport clairement identifié", hint:"Questions 3 & 4" },
+      { id:"f4c3", label:"Leader(s) concerné(s) mentionné(s)", hint:"Question 9" },
+      { id:"f4c4", label:"Constat / findings expliqués brièvement", hint:"Question 10" },
+      { id:"f4c5", label:"Répercussions potentielles selon les règlements indiquées", hint:"Question 11" },
+      { id:"f4c6", label:"Action demandée au leader clairement formulée", hint:"Question 12" },
+    ]
+  },
+  {
+    id:"f5", title:"5 · Group Bayana Attendance — Kadijatu",
+    color:"#EEEDFE", border:"#7F77DD", text:"#534AB7",
+    criteria:[
+      { id:"f5c1", label:"Nom et numéro du conférencier invité renseignés", hint:"Question 2" },
+      { id:"f5c2", label:"Présences des enseignants listées et total renseigné", hint:"Questions 5 & 6" },
+      { id:"f5c3", label:"Présences des étudiants par groupe d'enseignant documentées", hint:"Questions 14 à 32" },
+      { id:"f5c4", label:"Bayana démarré à l'heure", hint:"Question 9" },
+      { id:"f5c5", label:"Compte-rendu général du Bayana rédigé (1-3 phrases)", hint:"Question 10" },
+      { id:"f5c6", label:"Relance des parents/enseignants pour absences du mois précédent", hint:"Questions 33 & 34" },
+      { id:"f5c7", label:"Live Facebook et récitateur Coran présents vérifiés", hint:"Questions 12 & 13" },
+    ]
+  },
+  {
+    id:"f6", title:"6 · Marketing Weekly Progress Summary",
+    color:"#EAF3DE", border:"#639922", text:"#3B6D11",
+    criteria:[
+      { id:"f6c1", label:"Nombre de posts publiés cette semaine renseigné", hint:"Question 7" },
+      { id:"f6c2", label:"Réalisations de la semaine documentées", hint:"Question 8" },
+      { id:"f6c3", label:"Défis de la semaine documentés", hint:"Question 9" },
+      { id:"f6c4", label:"Calendriers enseignants vérifiés et à jour", hint:"Question 10" },
+      { id:"f6c5", label:"Nombre de tâches identifiées et assignées cette semaine", hint:"Question 12" },
+      { id:"f6c6", label:"Formulaires revus cette semaine listés", hint:"Question 13" },
+      { id:"f6c7", label:"Flyers et vidéos produits cette semaine renseignés", hint:"Questions 14 & 15" },
+      { id:"f6c8", label:"Nombre de soumissions Zoom Hosting et End of Shift cette semaine", hint:"Questions 17 & 19" },
+      { id:"f6c9", label:"Nombre d'étudiants recrutés personnellement cette semaine", hint:"Question 18" },
+      { id:"f6c10", label:"2 enseignants les moins conformes au programme identifiés", hint:"Question 20" },
+      { id:"f6c11", label:"Niveau de contrôle sur enseignants, projets, tâches auto-évalué", hint:"Question 21" },
+      { id:"f6c12", label:"Approbation des clock-in des enseignants effectuée", hint:"Questions 22 & 23" },
+    ]
+  },
+  {
+    id:"f7", title:"7 · Payment Request / Advance — CEO",
+    color:"#FAEEDA", border:"#EF9F27", text:"#854F0B",
+    criteria:[
+      { id:"f7c1", label:"Objet de la demande clairement justifié", hint:"Question 5" },
+      { id:"f7c2", label:"Bénéfice pour l'institution expliqué", hint:"Question 6" },
+      { id:"f7c3", label:"Montant et date de besoin précisés", hint:"Questions 8 & 9" },
+      { id:"f7c4", label:"Engagement de remboursement confirmé", hint:"Question 11" },
+    ]
+  },
+  {
+    id:"f8", title:"8 · Students Status Form — CEO",
+    color:"#E1F5EE", border:"#5DCAA5", text:"#0F6E56",
+    criteria:[
+      { id:"f8c1", label:"Type de soumission correctement identifié (nouveau, transfert, abandon…)", hint:"Question 2 & 3" },
+      { id:"f8c2", label:"Informations complètes sur l'étudiant et le parent renseignées", hint:"Questions 5, 6, 7" },
+      { id:"f8c3", label:"Horaire et jours de cours configurés et communiqués", hint:"Questions 9, 10, 11" },
+      { id:"f8c4", label:"Enseignant assigné renseigné", hint:"Question 13" },
+      { id:"f8c5", label:"Étudiant/parent ajouté au groupe WhatsApp parents", hint:"Question 21" },
+      { id:"f8c6", label:"Frais expliqués et facture envoyée", hint:"Questions 22 & 23" },
+      { id:"f8c7", label:"Lettre d'admission envoyée et expliquée (nouveau étudiant)", hint:"Question 25" },
+      { id:"f8c8", label:"Lien Zoom envoyé et expliqué au parent/étudiant", hint:"Question 34" },
+      { id:"f8c9", label:"Raison d'abandon documentée et démarches de rétention faites", hint:"Questions 30, 32" },
+      { id:"f8c10", label:"Suppression de l'étudiant sur les plateformes instruite (abandon)", hint:"Question 33" },
+    ]
+  },
+  {
+    id:"f9", title:"9 · Weekly Overdues Data — Mamoudou/CEO",
+    color:"#F1EFE8", border:"#888780", text:"#444441",
+    criteria:[
+      { id:"f9c1", label:"Nombre de tâches en retard renseigné", hint:"Question 2" },
+      { id:"f9c2", label:"Preuve (evidence) jointe", hint:"Question 3" },
+      { id:"f9c3", label:"Note/contexte ajouté si nécessaire", hint:"Question 4" },
+      { id:"f9c4", label:"Soumission hebdomadaire régulière", hint:"Cohérence semaine par semaine" },
+    ]
+  }
+];
+
+const scores = {};
+
+function renderSections() {
+  const container = document.getElementById("sections");
+  DATA.forEach(sec => {
+    const div = document.createElement("div");
+    div.className = "section collapsed";
+    div.id = "sec_" + sec.id;
+    div.innerHTML = `
+      <div class="section-header" onclick="toggleSection('${sec.id}')">
+        <div class="section-title">
+          <span class="section-badge" style="background:${sec.color};color:${sec.text};border:0.5px solid ${sec.border};">${sec.criteria.length} critères</span>
+          ${sec.title}
+        </div>
+        <div style="display:flex;gap:12px;align-items:center;">
+          <span class="section-score" id="score_${sec.id}">—</span>
+          <span class="chevron">▼</span>
+        </div>
+      </div>
+      <div class="section-body">
+        ${sec.criteria.map(c => `
+          <div class="criteria-row">
+            <div class="criteria-label">${c.label}<small>${c.hint}</small></div>
+            <div class="score-group">
+              ${[0,1,2,3,4,5].map(n=>`<button class="score-btn" onclick="setScore('${c.id}',${n})" id="btn_${c.id}_${n}">${n}</button>`).join("")}
+              <button class="score-btn" onclick="setScore('${c.id}','na')" id="btn_${c.id}_na" style="font-size:11px;">N/A</button>
+            </div>
+          </div>
+        `).join("")}
+        <div class="comment-row">
+          <textarea placeholder="Commentaire pour ce formulaire (optionnel)..." id="cmt_${sec.id}"></textarea>
+        </div>
+      </div>
+    `;
+    container.appendChild(div);
+  });
+}
+
+function setScore(id, val) {
+  scores[id] = val;
+  DATA.forEach(sec => sec.criteria.forEach(c => {
+    if (c.id === id) {
+      [0,1,2,3,4,5,'na'].forEach(n => {
+        const b = document.getElementById(`btn_${id}_${n}`);
+        if (b) b.className = "score-btn" + (n === 'na' ? ' score-btn' : '');
+      });
+      const active = document.getElementById(`btn_${id}_${val}`);
+      if (active) active.className = val === 'na' ? "score-btn active-na" : `score-btn active-${val}`;
+      updateSectionScore(sec.id);
+    }
+  }));
+  updateTotal();
+}
+
+function updateSectionScore(secId) {
+  const sec = DATA.find(s => s.id === secId);
+  const vals = sec.criteria.map(c => scores[c.id]).filter(v => v !== undefined && v !== 'na');
+  const naCount = sec.criteria.filter(c => scores[c.id] === 'na').length;
+  const el = document.getElementById("score_" + secId);
+  if (vals.length === 0) { el.textContent = "—"; return; }
+  const sum = vals.reduce((a,b)=>a+b,0);
+  const max = (sec.criteria.length - naCount) * 5;
+  el.textContent = `${sum}/${max}`;
+}
+
+function updateTotal() {
+  const all = Object.values(scores).filter(v => v !== 'na');
+  if (all.length === 0) {
+    document.getElementById("totalScore").textContent = "—";
+    document.getElementById("pct").textContent = "—";
+    document.getElementById("progBar").style.width = "0%";
+    document.getElementById("progLbl").textContent = "Aucune note saisie";
+    return;
+  }
+  const sum = all.reduce((a,b)=>a+b,0);
+  const naCount = Object.values(scores).filter(v=>'na'===v).length;
+  const total = DATA.reduce((a,s)=>a+s.criteria.length,0);
+  const max = (total - naCount) * 5;
+  const pct = Math.round(sum/max*100);
+  document.getElementById("totalScore").textContent = `${sum}/${max}`;
+  document.getElementById("pct").textContent = `${pct}%`;
+  const bar = document.getElementById("progBar");
+  bar.style.width = pct+"%";
+  bar.style.background = pct>=80?"#1D9E75":pct>=60?"#378ADD":pct>=40?"#EF9F27":"#E24B4A";
+  const m = pct>=80?"Excellent":pct>=60?"Satisfaisant":pct>=40?"À améliorer":"Insuffisant";
+  document.getElementById("progLbl").textContent = m+" · "+all.length+" critères notés";
+}
+
+function toggleSection(id) {
+  document.getElementById("sec_"+id).classList.toggle("collapsed");
+}
+
+function exportSummary() {
+  const name = document.getElementById("adminName").value||"Admin";
+  const ev = document.getElementById("evaluatorName").value||"—";
+  const dt = document.getElementById("evalDate").value||"—";
+  const per = document.getElementById("evalPeriod").value||"—";
+  let lines=[`Évaluation Admin — ${name}`,`Évaluateur: ${ev} | Date: ${dt} | Période: ${per}`,""];
+  DATA.forEach(sec=>{
+    const vals=sec.criteria.map(c=>scores[c.id]).filter(v=>v!==undefined&&v!=='na');
+    const na=sec.criteria.filter(c=>scores[c.id]==='na').length;
+    const sum=vals.reduce((a,b)=>a+b,0);
+    const max=(sec.criteria.length-na)*5;
+    lines.push(`[${sec.title}] ${vals.length>0?sum+"/"+max:"Non évalué"}`);
+    sec.criteria.forEach(c=>{
+      const v=scores[c.id];
+      lines.push(`  • ${c.label}: ${v===undefined?"—":v==='na'?"N/A":v+"/5"}`);
+    });
+    const cmt=document.getElementById("cmt_"+sec.id)?.value;
+    if(cmt) lines.push(`  Commentaire: ${cmt}`);
+    lines.push("");
+  });
+  lines.push(`Score total: ${document.getElementById("totalScore").textContent} (${document.getElementById("pct").textContent})`);
+  sendPrompt("Voici le résumé de l'évaluation admin :\n\n"+lines.join("\n"));
+}
+
+renderSections();
+</script>

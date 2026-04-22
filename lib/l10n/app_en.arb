@@ -55,7 +55,7 @@
   "loginTooManyAttempts": "Too many failed attempts. Please wait and try again.",
   "loginFailed": "Login failed. Please try again.",
   "loginUnexpectedError": "An unexpected error occurred.",
-  "loginAlluvialHub": "Alluvial Education Hub",
+  "loginAlluvialHub": "Alluwal Education Hub",
   "settingsTitle": "Settings",
   "settingsViewProfile": "View Profile",
   "settingsHelpSupport": "Help & Support",
@@ -81,15 +81,28 @@
   "profileSpecialties": "Specialties",
   "profileEditProfile": "Edit Profile",
   "profileCompleteProfile": "Complete Your Profile",
-  "profileHelpParents": "Help parents and students learn about your expertise",
+  "profileHelpParents": "Keep your in-app profile up to date — admins use it to match you with families.",
+  "profilePrivacyNotice": "This information is private to you and admins. It is not shown on the public website. Admins manage the public Team page separately from the CMS.",
   "profileFullName": "Full Name",
+  "profileFullNameHint": "Enter your full name",
   "profileProfessionalTitle": "Professional Title",
+  "profileProfessionalTitleHint": "e.g., Quran & Tajweed Specialist, Arabic Teacher",
   "profileBiography": "Biography",
+  "profileBiographyHint": "A short summary of your background and teaching approach",
   "profileYearsExperience": "Years of Experience",
+  "profileYearsExperienceHint": "e.g., 10+ years",
+  "profileSpecialtiesHint": "e.g., Quran Memorization, Tajweed, Arabic Grammar, Islamic Studies",
   "profileEducationCerts": "Education & Certifications",
+  "profileEducationCertsHint": "e.g., PhD in Islamic Theology from Al-Azhar University, Ijazah in Quran",
   "profileSaving": "Saving...",
   "profileSaveProfile": "Save Profile",
   "profileSavedSuccess": "Profile saved successfully!",
+  "profilePhotoChangeHint": "Tap the camera icon to change your photo",
+  "profilePhotoUpdated": "Profile photo updated",
+  "profilePhotoUploadFailed": "Could not update profile photo",
+  "profilePhotoFromGallery": "Choose from gallery",
+  "profilePhotoFromCamera": "Take a photo",
+  "profilePhotoRemove": "Remove photo",
   "profilePercentComplete": "Profile {percent}% complete",
   "@profilePercentComplete": {
     "placeholders": {
@@ -108,6 +121,17 @@
   "languageFrench": "French",
   "languageArabic": "Arabic",
   "navHome": "Home",
+  "navTestimonials": "Stories",
+  "navEnrollSection": "Enroll",
+  "headerTaglineLine1": "Faith-centered learning online.",
+  "headerTaglineLine2": "Islamic, African & academic paths.",
+  "headerInstagramTooltip": "View on Instagram",
+  "headerFacebookTooltip": "View on Facebook",
+  "headerTiktokTooltip": "View on TikTok",
+  "headerSocialOpenError": "Could not open the link.",
+  "navPricing": "Pricing",
+  "navAbout": "About",
+  "navOurTeam": "Our Team",
   "navShifts": "Shifts",
   "navChat": "Chat",
   "navForms": "Forms",
@@ -116,6 +140,201 @@
   "navNotify": "Notify",
   "navUsers": "Users",
   "navTasks": "Tasks",
+  "landingOurPrograms": "Our Programs",
+  "landingExploreMainCourses": "Explore Our Main Courses",
+  "landingProgramsDescription": "Discover comprehensive learning paths designed for non-Arabic speakers to master the Quran, Islamic Studies, and Arabic language.",
+  "landingCourseBlurbIslamic": "Quran, Arabic, Tawhid, Hadith, Tafsir",
+  "landingCourseBlurbAfro": "Pular, Mandingo, Swahili, Wolof, Yoruba",
+  "landingCourseBlurbMath": "Elementary through advanced calculus",
+  "landingCourseBlurbProgramming": "Web, mobile, and software development",
+  "landingCourseBlurbAdultLiteracy": "Reading and writing in English and French",
+  "landingCourseBlurbAfterSchool": "Math, science, physics, and more",
+  "landingLearnMore": "Learn More",
+  "landingPricingPlan": "Pricing Plan",
+  "landingTransparentRates": "Transparent & Affordable Rates",
+  "landingPricingDescription": "Choose the plan that fits your schedule. All prices are informational - contact us to enroll.",
+  "landingPricingTrackIslamic": "Islamic & AdLam",
+  "landingPricingTrackTutoring": "Tutoring & literacy",
+  "landingEnrollNow": "Enroll Now",
+  "landingPricingEnrollMultipleStudents": "Enroll multiple students",
+  "landingCtaTitle": "Ready to start learning?",
+  "landingCtaBody": "Many families and learners work with us for Islamic studies, languages, tutoring, and more. Explore our programs and get in touch when you are ready to enroll.",
+  "landingPaymentPolicy": "Payment Policy",
+  "landingPaymentPolicyText1": "Payment must be made at the beginning of each month, not at the end.",
+  "landingPaymentPolicyText2": "Payment methods: Zelle (646-338-1286), MoneyGram, Bank Transfer, CashApp, or Western Union.",
+  "landingContactInfo": "WhatsApp: (+1) 646-872-8590  |  alluwalacademy@gmail.com",
+  "navMegaColIslamicAfro": "Islamic & AfroLanguages",
+  "navMegaColAcademic": "Academic & tutoring",
+  "navMegaColAdults": "Adults & literacy",
+  "navMegaColTeam": "Teaching & careers",
+  "navMegaLinkIslamicStudies": "Islamic Studies",
+  "navMegaLinkAfroLanguages": "AfroLanguages & AdLam",
+  "navMegaLinkMath": "Math Classes",
+  "navMegaLinkProgramming": "Programming",
+  "navMegaLinkAfterSchool": "After School Tutoring",
+  "navMegaLinkAdultLiteracy": "Adult Literacy",
+  "landingPricingContinueWithPlan": "Continue with this plan",
+  "landingPricingChangePlan": "Change plan",
+  "pricingPlanIslamic14Title": "Islamic & AdLam — 1–4 hrs/week",
+  "pricingPlanIslamic14Subtitle": "30 min and 1 hour sessions",
+  "pricingPlanIslamicWeekendTitle": "Islamic & AdLam — Weekend group",
+  "pricingPlanIslamicWeekendSubtitle": "Fri / Sat / Sun, 2 hours per day",
+  "pricingPlanTutoring5Title": "Tutoring & literacy — 5+ hrs/week",
+  "pricingPlanTutoring5Subtitle": "Higher weekly hours",
+  "pricingPlanTutoring13Title": "Tutoring & literacy — 1–3 hrs/week",
+  "pricingPlanTutoring13Subtitle": "1 hour sessions",
+  "pricingPlanTutoring4Title": "Tutoring & literacy — 4+ hrs/week",
+  "pricingPlanTutoring4Subtitle": "1 hour sessions",
+  "pricingRate30min": "30 min session",
+  "pricingRate1hour": "1 hour session",
+  "pricingRatePerHour": "Per hour",
+  "pricingBandUnder4HrsPerHr": "Under 4 hrs/week (per hr)",
+  "pricingBand4PlusHrsPerHr": "4+ hrs/week (per hr)",
+  "pricingBandUnder5HrsPerHr": "Under 5 hrs/week (per hr)",
+  "pricingBand5PlusHrsPerHr": "5+ hrs/week (per hr)",
+  "pricingExamplePrefix": "Example",
+  "enrollmentSelectedPlanBanner": "Selected pricing plan",
+  "enrollmentChoosePricingTier": "Choose your pricing tier",
+  "enrollmentPricingTierHint": "Pick the plan that matches how you want to learn. You can change it before you submit.",
+  "enrollmentPricingRequired": "Please choose a pricing tier to continue.",
+  "enrollmentChangePricingTier": "Change tier",
+  "enrollmentPlanProgramMismatch": "Your program doesn’t match this pricing tier. Change the program or pick another tier.",
+  "enrollmentMultiStudentTrackHint": "Each child can choose a different program. Estimated pricing uses each student’s program.",
+  "enrollmentMultiStudentHoursHint": "The hours and price at the top are for the first child only. For each additional child, use Hours per week under their program card—you’ll see the same monthly estimate there and can adjust again on the Schedule step.",
+  "enrollmentFlowContinue": "Continue",
+  "enrollmentFlowSubmit": "Submit enrollment",
+  "enrollmentNavNextStudent": "Next student",
+  "enrollmentStepYouAndContact": "You & contact",
+  "enrollmentStepChildren": "Children",
+  "enrollmentStepClasses": "Classes",
+  "enrollmentStepTimes": "Times",
+  "enrollmentWizardRoleTitle": "Who's enrolling",
+  "enrollmentWizardRoleSubtitle": "Student, parent, or guardian — and how many children if applicable.",
+  "enrollmentWizardProgramTitle": "Program & pricing",
+  "enrollmentWizardProgramSubtitle": "Track, hours per week, subject, level, and class type.",
+  "enrollmentWizardStudentsTitle": "Student details",
+  "enrollmentWizardStudentsSubtitle": "Names, ages, and genders for each learner.",
+  "enrollmentWizardScheduleTitle": "Schedule",
+  "enrollmentWizardScheduleSubtitle": "Preferred days, times, and notes.",
+  "enrollmentWizardContactTitle": "Contact & review",
+  "enrollmentWizardContactSubtitle": "Review your selections, enter contact details, then submit.",
+  "enrollmentContactPanelTitle": "Your contact info",
+  "enrollmentContactPanelHint": "We use this to confirm enrollment and reach you about scheduling.",
+  "enrollmentContactParentFullNameLabel": "Parent / guardian name",
+  "enrollmentContactParentFullNameHint": "As on ID or school records",
+  "enrollmentContactEmailFieldLabel": "Email",
+  "enrollmentParentNameRequired": "Please enter the parent or guardian name.",
+  "enrollmentRoleStudentTitle": "Student",
+  "enrollmentRoleStudentSubtitle": "I'm signing up for myself.",
+  "enrollmentRoleParentTitle": "Parent",
+  "enrollmentRoleParentSubtitle": "I'm enrolling one or more children.",
+  "enrollmentRoleGuardianTitle": "Guardian",
+  "enrollmentRoleGuardianSubtitle": "I'm responsible for a learner's enrollment.",
+  "accountLinked": "Account Linked",
+  "alreadyHaveChildEnrolled": "Already have a child enrolled?",
+  "welcomeBack": "Welcome back",
+  "selectCountry": "Select Country",
+  "city": "City",
+  "enrollmentSummaryPanelTitle": "Your selections",
+  "enrollmentSummaryTapToExpand": "Show summary",
+  "enrollmentSummaryTapToCollapse": "Hide summary",
+  "enrollmentProgramSameForAllTitle": "Program for all your children",
+  "enrollmentProgramSameForAllSubtitle": "Everyone uses the same class type, level, and subject. You can change this below if needed.",
+  "enrollmentProgramDifferentProgramsLink": "Use a different program for one or more children",
+  "enrollmentProgramSameProgramLink": "Use the same program for everyone",
+  "enrollmentProgramWizardProgress": "Student {current} of {total}",
+  "@enrollmentProgramWizardProgress": {
+    "placeholders": {
+      "current": {"type": "int"},
+      "total": {"type": "int"}
+    }
+  },
+  "enrollmentProgramWizardCtaHint": "Complete the fields for this student, then tap Continue. When all students are done, Continue moves you to the next step.",
+  "enrollmentSummaryLineDetail": "{program} · {hours} hrs/wk · {price}",
+  "@enrollmentSummaryLineDetail": {
+    "placeholders": {
+      "program": {"type": "String"},
+      "hours": {"type": "int"},
+      "price": {"type": "String"}
+    }
+  },
+  "enrollmentSummaryAllChildrenTitle": "All {count} children",
+  "@enrollmentSummaryAllChildrenTitle": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "enrollmentProgramFieldLabel": "Program",
+  "enrollmentFooterWeeklyHoursSum": "{count} students · {hours} total hrs/wk",
+  "@enrollmentFooterWeeklyHoursSum": {
+    "placeholders": {
+      "count": {"type": "int"},
+      "hours": {"type": "int"}
+    }
+  },
+  "enrollmentFooterHouseholdTotalMo": "Est. {total}/mo total",
+  "@enrollmentFooterHouseholdTotalMo": {
+    "placeholders": {
+      "total": {"type": "String"}
+    }
+  },
+  "enrollmentFooterPerChildSameMo": "{each}/mo per child",
+  "@enrollmentFooterPerChildSameMo": {
+    "placeholders": {
+      "each": {"type": "String"}
+    }
+  },
+  "enrollmentSummarySameProgramHouseholdDetail": "{program} · {hours} hrs/wk each · {each} per child · {total} household/mo",
+  "@enrollmentSummarySameProgramHouseholdDetail": {
+    "placeholders": {
+      "program": {"type": "String"},
+      "hours": {"type": "int"},
+      "each": {"type": "String"},
+      "total": {"type": "String"}
+    }
+  },
+  "enrollmentCustomTimePickEndTitle": "End time",
+  "enrollmentCustomTimeInvalidRange": "End time must be after start time.",
+  "enrollmentFooterDetails": "Details",
+  "enrollmentScheduleDetailedSlotsTitle": "Pick specific time slots (optional)",
+  "enrollmentScheduleDefaultSubtitle": "Choose days and a general time. Open optional slots only if you want exact times now.",
+  "enrollmentScheduleSelectTimeOfDayOrSlots": "Select a time of day, or open “Pick specific time slots” below.",
+  "enrollmentStudentProgramTrackMissing": "Student {studentNumber}: choose a program category (the three options), then level and class type.",
+  "@enrollmentStudentProgramTrackMissing": {
+    "placeholders": {
+      "studentNumber": {
+        "type": "int"
+      }
+    }
+  },
+  "enrollmentTierRatesLabel": "Est. rates (USD)",
+  "enrollmentDurationSetToWeekend": "Weekend group pricing uses 2-hour sessions. Session length set to 2 hrs.",
+  "enrollmentDurationSetToStandardTier": "This tier uses 30-minute or 1-hour sessions. Session length was adjusted to match.",
+  "enrollmentTutoring4PlusWeeklyMinimum": "This plan requires at least 4 hours per week in total. Select more preferred days or a longer session length.",
+  "enrollmentTutoring4PlusWeeklyMinimumStudent": "Student {studentNumber}: at least 4 hours per week are required—add more days or a longer session length.",
+  "@enrollmentTutoring4PlusWeeklyMinimumStudent": {
+    "placeholders": {
+      "studentNumber": {
+        "type": "int"
+      }
+    }
+  },
+  "enrollmentTutoring4PlusWeeklyHint": "4+ hrs/week means four or more total hours each week. Your days × session length should reach at least 4 (for example, four 1-hour days or two 2-hour days).",
+  "enrollmentScheduleDurationRestricted": "Only session lengths that match your pricing tier are available below.",
+  "enrollmentScheduleSelectDuration": "Please select a session duration.",
+  "enrollmentScheduleDurationNotAllowed": "Choose a session length that matches your pricing tier.",
+  "enrollmentScheduleConfirmTimesHint": "Exact class times are confirmed with you after we review your request.",
+  "enrollmentStudentHoursPerWeek": "Hours per week for this student",
+  "enrollmentSchedulingNotesLabel": "Scheduling notes (optional)",
+  "enrollmentSchedulingNotesHint": "e.g. prefer after 4pm weekdays, avoid Fridays…",
+  "enrollmentStudentHoursMissing": "Student {studentNumber}: set hours per week for this student in Schedule preferences.",
+  "@enrollmentStudentHoursMissing": {
+    "placeholders": {
+      "studentNumber": {
+        "type": "int"
+      }
+    }
+  },
   "navQuiz": "Quiz",
   "navDashboard": "Dashboard",
   "navTimeClock": "Time Clock",
@@ -236,8 +455,12 @@
   "shiftFilterHint": "Showing shifts for {name}. Use ← → above to view other weeks, or switch to List to scroll all {count} shifts",
   "@shiftFilterHint": {
     "placeholders": {
-      "name": {"type": "String"},
-      "count": {"type": "int"}
+      "name": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
     }
   },
   "shiftReassignTeacher": "Reassign to another teacher",
@@ -245,7 +468,9 @@
   "shiftReassignConfirm": "Are you sure you want to reassign this shift to {teacherName}?",
   "@shiftReassignConfirm": {
     "placeholders": {
-      "teacherName": {"type": "String"}
+      "teacherName": {
+        "type": "String"
+      }
     }
   },
   "shiftReassignSuccess": "Shift reassigned successfully",
@@ -256,7 +481,9 @@
   "shiftOriginalTeacher": "Original: {teacherName}",
   "@shiftOriginalTeacher": {
     "placeholders": {
-      "teacherName": {"type": "String"}
+      "teacherName": {
+        "type": "String"
+      }
     }
   },
   "shiftReportIssue": "Report schedule issue",
@@ -379,27 +606,6 @@
   },
   "chatGroupCreateFailed": "Failed to create group. Please try again.",
   "chatGroupAdminsOnly": "Only administrators can create group chats",
-  "chatVideo": "Video",
-  "chatEditMessage": "Edit",
-  "chatMessageEdited": "Message edited",
-  "chatFailedEditMessage": "Failed to edit message",
-  "chatEditYourMessage": "Edit your message...",
-  "chatSave": "Save",
-  "chatSupportInbox": "Support Inbox",
-  "chatDirectMessage": "Direct Message",
-  "chatSendPersonalMessage": "Send a personal message",
-  "chatSupportChat": "Support Chat",
-  "chatStartSupportWith": "Start a support conversation with {name}",
-  "@chatStartSupportWith": {
-    "placeholders": {
-      "name": {
-        "type": "String"
-      }
-    }
-  },
-  "chatSendingVideo": "Sending video...",
-  "chatVideoSent": "Video sent!",
-  "chatFailedSendVideo": "Failed to send video",
   "roleAdmin": "Administrator",
   "roleTeacher": "Teacher",
   "roleStudent": "Student",
@@ -480,8 +686,12 @@
   "adminSubmissionsSelectionProgress": "{selectedCount} / {total} forms",
   "@adminSubmissionsSelectionProgress": {
     "placeholders": {
-      "selectedCount": { "type": "int" },
-      "total": { "type": "int" }
+      "selectedCount": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
     }
   },
   "adminSubmissionsExportFormatLabel": "Format",
@@ -496,12 +706,22 @@
   "adminSubmissionsPriorityForm": "Priority Form",
   "adminSubmissionsGroupedByTeacher": "Grouped by Teacher",
   "adminSubmissionsCount": "{count} submission(s)",
-  "@adminSubmissionsCount": { "placeholders": { "count": { "type": "int" } } },
+  "@adminSubmissionsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "adminSubmissionsShiftDetail": "{date} • {students}",
   "@adminSubmissionsShiftDetail": {
     "placeholders": {
-      "date": { "type": "String" },
-      "students": { "type": "String" }
+      "date": {
+        "type": "String"
+      },
+      "students": {
+        "type": "String"
+      }
     }
   },
   "adminSubmissionsGeneralUnknown": "General / Unknown",
@@ -514,7 +734,13 @@
   "adminPreferencesFavoriteTeachers": "Favorite Teachers",
   "adminPreferencesSaved": "Preferences saved",
   "adminPreferencesFavoriteCount": "{count} teacher(s) marked as favorite",
-  "@adminPreferencesFavoriteCount": { "placeholders": { "count": { "type": "int" } } },
+  "@adminPreferencesFavoriteCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "adminPreferencesUseStarHint": "Use the star icon on teacher cards to add favorites",
   "adminPreferencesDefaultTeachersHint": "When you set favorite teachers, they are shown by default. Clear the teacher filter on the screen to see all submissions.",
   "formNoResults": "No results found",
@@ -566,6 +792,7 @@
   "timesheetApprovedLocked": "This timesheet has been approved and cannot be edited",
   "timesheetClockInTime": "Clock In Time",
   "timesheetClockOutTime": "Clock Out Time",
+  "timesheetClockOutNextDayHint": "Clock-out moves to the next calendar day when it would be before clock-in on the timesheet date (overnight sessions).",
   "timesheetPaymentCalculation": "Payment Calculation",
   "timesheetProvideReason": "Please provide a reason for editing this timesheet",
   "timesheetProvideMoreDetails": "Please provide more details (at least 10 characters)",
@@ -760,12 +987,24 @@
   "jobAlreadyFilled": "Already Filled",
   "jobAcceptStudent": "Accept Student",
   "jobAcceptedSuccess": "Job accepted! Admin will finalize the schedule and contact you.",
+  "jobBoardNotAvailableHint": "If you are not available for this student, you do not need to submit a response—you can close this dialog.",
+  "jobBoardResponseSubmitted": "Response submitted to admin.",
+  "jobBoardDeclineTeacher": "Decline",
+  "jobBoardTeacherResponseDeclined": "Declined",
+  "jobBoardDeclineTeacherConfirmTitle": "Decline this response?",
+  "jobBoardDeclineTeacherConfirmBody": "The teacher can submit a new response later. If this posting was closed because they marked fully available, it will reopen for other teachers.",
+  "jobBoardHiddenFullAvailabilityBanner": "Hidden from teachers: a teacher marked fully available. Reopen to show this posting on the job board again (responses are kept).",
+  "jobBoardReopenForTeachersButton": "Reopen for teachers",
+  "jobBoardVisibleToTeachersHint": "Visible on the teacher job board — partial and new responses are allowed until someone marks fully available or you close the posting.",
+  "jobBoardReopenedForTeachers": "Job board reopened. Teachers can see and respond again.",
+  "jobBoardClosedOtherReasonHint": "This posting is not on the teacher job board (closed by an admin or another workflow).",
+  "jobBoardAcceptedByTeacherHint": "A teacher accepted this student from the job board (matched flow).",
   "zeroResults": "0 Results",
   "time1000Am": "10:00 AM",
   "time1200Pm": "12:00:00 PM",
   "aComputer": "A Computer",
-  "aNewVersionOfAlluvialAcademy": "A New Version Of Alluvial Academy",
-  "aNewVersionOfAlluvialAcademy2": "A New Version Of Alluvial Academy2",
+  "aNewVersionOfAlluvialAcademy": "A New Version Of Alluwal Academy",
+  "aNewVersionOfAlluvialAcademy2": "A New Version Of Alluwal Academy2",
   "aPhone": "A Phone",
   "aTablet": "A Tablet",
   "abilityToSwitchBetweenAdminAnd": "Ability To Switch Between Admin And",
@@ -925,7 +1164,7 @@
   "assalamuAlaikumFirstname": "Assalamu Alaikum Firstname",
   "assignTo": "Assign To",
   "assignTo2": "Assign To2",
-  "assignToStudents": "Assign To Students",
+  "assignToStudents": "Assign to Students",
   "assignedByAssignedbyname": "Assigned By Assignedbyname",
   "assignedTo": "Assigned To",
   "assignedTo2": "Assigned To2",
@@ -976,7 +1215,7 @@
   "block": "Block",
   "blueTaskStatusUpdateNotification": "Blue Task Status Update Notification",
   "bonusPerExcellence": "Bonus Per Excellence",
-  "bookFreeTrialClass": "Book Free Trial Class",
+  "bookFreeTrialClass": "Request enrollment",
   "breakDuration": "Break Duration",
   "briefDescriptionOfTheSubject": "Brief Description Of The Subject",
   "broadcastLiveTeachersCanNowSee": "Broadcast Live Teachers Can Now See",
@@ -1031,6 +1270,12 @@
   "chooseYourPreferredExportFormat": "Choose Your Preferred Export Format",
   "chooseYourProgram": "Choose Your Program",
   "claimShift": "Claim Shift",
+  "claimShiftErrorAlreadyTeacher": "You are already assigned to this shift.",
+  "claimShiftErrorAuth": "Please sign in again, then try claiming.",
+  "claimShiftErrorGeneric": "Could not claim this shift. Try again.",
+  "claimShiftErrorNotFound": "This shift could not be found.",
+  "claimShiftErrorPermission": "You do not have permission to claim shifts. Ask an admin.",
+  "claimShiftErrorUnavailable": "This shift is no longer available to claim.",
   "classCards": "Class Cards",
   "classReportNotSubmitted": "Class Report Not Submitted",
   "classReportSubmitted": "Class Report Submitted",
@@ -1362,7 +1607,7 @@
   "failedLoginAttempt15MinutesAgo": "Failed Login Attempt15Minutes Ago",
   "failedToAddFileE": "Failed To Add File E",
   "failedToAddMembers": "Failed To Add Members",
-  "failedToClaimShiftPleaseTry": "Failed To Claim Shift Please Try",
+  "failedToClaimShiftPleaseTry": "Could not claim this shift. Try again.",
   "failedToCleanupDraftsE": "Failed To Cleanup Drafts E",
   "failedToDeleteAssignmentE": "Failed To Delete Assignment E",
   "failedToDeleteDraftE": "Failed To Delete Draft E",
@@ -1426,7 +1671,7 @@
   "finalizeSchedule": "Finalize Schedule",
   "finalizeSchedulesForMatchedStudentsAnd": "Finalize Schedules For Matched Students And",
   "financialSummary": "Financial Summary",
-  "findPrograms": "Find Programs",
+  "findPrograms": "Courses",
   "findShiftsForAStudentMatching": "Find Shifts For AStudent Matching",
   "firstName": "First Name",
   "firstName2": "First Name2",
@@ -1483,6 +1728,7 @@
   "auditNoLateClockIns": "None",
   "auditNoMissedClasses": "None",
   "auditClassCompletionRate": "Class completion",
+  "teacherAuditShiftFromTradeNotice": "Claimed via shift trade.",
   "auditFormComplianceLabel": "Form compliance",
   "auditNoIssuesDetected": "No issues detected",
   "auditFormsAccepted": "Accepted",
@@ -1490,8 +1736,12 @@
   "auditFormsRejectedBreakdown": "({noShift} no shift, {duplicates} duplicate)",
   "@auditFormsRejectedBreakdown": {
     "placeholders": {
-      "noShift": {"type": "int"},
-      "duplicates": {"type": "int"}
+      "noShift": {
+        "type": "int"
+      },
+      "duplicates": {
+        "type": "int"
+      }
     }
   },
   "auditFormStatusAccepted": "Accepted",
@@ -1508,25 +1758,33 @@
   "auditFormsSectionAccepted": "Accepted ({count})",
   "@auditFormsSectionAccepted": {
     "placeholders": {
-      "count": {"type": "int"}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "auditFormsSectionRejectedNoShift": "Rejected — no linked shift ({count})",
   "@auditFormsSectionRejectedNoShift": {
     "placeholders": {
-      "count": {"type": "int"}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "auditFormsSectionRejectedNoTimesheet": "Rejected — no timesheet ({count})",
   "@auditFormsSectionRejectedNoTimesheet": {
     "placeholders": {
-      "count": {"type": "int"}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "auditFormsSectionRejectedDuplicate": "Rejected — duplicate ({count})",
   "@auditFormsSectionRejectedDuplicate": {
     "placeholders": {
-      "count": {"type": "int"}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "auditTotalLabel": "Total",
@@ -1543,6 +1801,11 @@
   "auditStatusSubmitted": "Submitted",
   "auditStatusDisputed": "Disputed",
   "auditStatusPending": "Pending",
+  "teacherHomeStatsCompletedWeek": "Completed",
+  "teacherHomeStatsWeekEarnings": "Earnings",
+  "teacherHomeStatsAbsencesMtd": "Absences (month)",
+  "teacherHomeStatsAssignmentsMtd": "Assessments & assignments (month)",
+  "teacherHomeStatsLateMtd": "Late clock-ins (month)",
   "teacherAuditTabSummary": "Summary",
   "teacherAuditTabMyClasses": "My classes",
   "teacherAuditTabDispute": "Dispute",
@@ -1552,16 +1815,30 @@
   "teacherAuditPointsOfAttention": "Points of attention",
   "teacherAuditReportUnderReview": "This report is under review and may change before it is finalized.",
   "teacherAuditScoreAuto": "Auto: {score}%",
-  "@teacherAuditScoreAuto": { "placeholders": { "score": {"type": "String"} } },
+  "@teacherAuditScoreAuto": {
+    "placeholders": {
+      "score": {
+        "type": "String"
+      }
+    }
+  },
   "teacherAuditScoreCoach": "Coach: {score}%",
-  "@teacherAuditScoreCoach": { "placeholders": { "score": {"type": "String"} } },
+  "@teacherAuditScoreCoach": {
+    "placeholders": {
+      "score": {
+        "type": "String"
+      }
+    }
+  },
   "coachEvalSuggestedScore": "Suggested",
   "coachEvalApplySuggestion": "Apply",
   "teacherAuditReportNotAvailable": "Report not available",
   "teacherAuditReportNotFinalizedMessage": "Your report for {month} is not yet finalized or does not exist.",
   "@teacherAuditReportNotFinalizedMessage": {
     "placeholders": {
-      "month": {"type": "String"}
+      "month": {
+        "type": "String"
+      }
     }
   },
   "teacherAuditClassesLabel": "Classes",
@@ -1572,7 +1849,9 @@
   "teacherAuditContestationError": "Error: {message}",
   "@teacherAuditContestationError": {
     "placeholders": {
-      "message": {"type": "String"}
+      "message": {
+        "type": "String"
+      }
     }
   },
   "teacherAuditNewDispute": "New dispute",
@@ -1720,92 +1999,6 @@
   "invoiceDetails": "Invoice Details",
   "invoiceNotFoundForThisPayment": "Invoice Not Found For This Payment",
   "invoices": "Invoices",
-  "sidebarFinance": "Finance",
-  "sidebarCreateInvoice": "Create Invoice",
-  "sidebarAllInvoices": "All Invoices",
-  "adminInvoiceBalanceDue": "Balance due: {amount}",
-  "@adminInvoiceBalanceDue": {
-    "placeholders": {
-      "amount": {
-        "type": "String"
-      }
-    }
-  },
-  "adminInvoiceFilterAll": "All",
-  "adminInvoiceInvalidNumbers": "Enter valid amounts",
-  "adminInvoicesTitle": "All invoices",
-  "adminInvoicesSubtitle": "View, edit, delete, and download PDFs for parent billing.",
-  "adminInvoiceDownloadPdf": "Download PDF",
-  "adminInvoicePrintPdf": "Print",
-  "adminInvoiceEdit": "Edit",
-  "adminInvoiceDelete": "Delete",
-  "adminInvoiceDeleteTitle": "Delete invoice",
-  "adminInvoiceDeleteConfirm": "Delete {number}? This cannot be undone.",
-  "@adminInvoiceDeleteConfirm": {
-    "placeholders": {
-      "number": {
-        "type": "String"
-      }
-    }
-  },
-  "adminInvoiceBillingPeriodChip": "Billing: {period}",
-  "@adminInvoiceBillingPeriodChip": {
-    "placeholders": {
-      "period": {
-        "type": "String"
-      }
-    }
-  },
-  "adminInvoiceEditBillingPeriodLabel": "Billing period",
-  "adminInvoiceEditBillingPeriodHint": "yyyy-MM (e.g. 2026-01), optional",
-  "invoiceDetailPayerStudentLine": "From {parent} | Student: {student}",
-  "@invoiceDetailPayerStudentLine": {
-    "placeholders": {
-      "parent": {
-        "type": "String"
-      },
-      "student": {
-        "type": "String"
-      }
-    }
-  },
-  "invoiceDetailBillingMonthLine": "Billing period: {month}",
-  "@invoiceDetailBillingMonthLine": {
-    "placeholders": {
-      "month": {
-        "type": "String"
-      }
-    }
-  },
-  "invoiceDisplayDocumentTitle": "Invoice",
-  "invoiceDisplayInvoiceNumberLabel": "Invoice number",
-  "invoiceDisplayIssueDateLabel": "Issue date",
-  "invoiceDisplayLineItemsTitle": "Line items",
-  "invoiceDisplaySubtotal": "Subtotal",
-  "invoiceDisplayPaidToward": "Paid to date",
-  "invoiceDisplayAmountDue": "Amount due",
-  "invoiceDisplayContactLabel": "Phone",
-  "invoiceDisplayEmailLabel": "Email",
-  "invoiceDisplayReceivedBy": "Received by {name}",
-  "@invoiceDisplayReceivedBy": {
-    "placeholders": {
-      "name": {
-        "type": "String"
-      }
-    }
-  },
-  "invoiceDisplayParentFallback": "Parent",
-  "invoiceDisplayItemQuantityLine": "{quantity} × {unitPrice}",
-  "@invoiceDisplayItemQuantityLine": {
-    "placeholders": {
-      "quantity": {
-        "type": "int"
-      },
-      "unitPrice": {
-        "type": "String"
-      }
-    }
-  },
   "isAdminIsadmin": "Is Admin Isadmin",
   "isParentIsparent": "Is Parent Isparent",
   "isStudentIsstudent": "Is Student Isstudent",
@@ -1907,7 +2100,7 @@
   "locationIsMandatoryPleaseWaitFor": "Location Is Mandatory Please Wait For",
   "locationOptional": "Location Optional",
   "logIn": "Log In",
-  "logInSignUp": "Log In Sign Up",
+  "logInSignUp": "Log In",
   "logOutOfYourAccount": "Log Out Of Your Account",
   "loginLogs": "Login Logs",
   "logs": "Logs",
@@ -2100,6 +2293,7 @@
   "notifyMeBeforeDueDate": "Notify Me Before Due Date",
   "notifyMeBeforeShift": "Notify Me Before Shift",
   "number": "Number",
+  "offerShiftToOtherTeachers": "Offer this shift to other teachers",
   "oftenFewDaysAWeek": "Often Few Days AWeek",
   "okay": "Okay",
   "oldDraftsCleanedUpSuccessfully": "Old Drafts Cleaned Up Successfully",
@@ -2160,8 +2354,6 @@
   "passwordResetInitiatedForAllUsers": "Password Reset Initiated For All Users",
   "passwordResetSuccessfully": "Password Reset Successfully",
   "payInvoice": "Pay Invoice",
-  "continueToSecureCheckout": "Continue to secure checkout",
-  "invoiceAlreadyPaid": "Already paid",
   "payNow": "Pay Now",
   "paySettings": "Pay Settings",
   "payment": "Payment",
@@ -2270,6 +2462,7 @@
   "qualityIslamicEducationFromAnywhereIn": "Quality Islamic Education From Anywhere In",
   "questionLabel": "Question Label",
   "quickActions": "Quick Actions",
+  "quickAccessTrading": "Trading",
   "quickEdit": "Quick Edit",
   "quickEditOrFullEditorFor": "Quick Edit Or Full Editor For",
   "quickStats": "Quick Stats",
@@ -2417,7 +2610,15 @@
   "select": "Select",
   "selectABackupToRestoreFrom": "Select ABackup To Restore From",
   "selectAFormToGetStarted": "Select AForm To Get Started",
-  "selectAProgramForEachStudent": "Select AProgram For Each Student",
+  "selectAProgramForEachStudent": "Enroll all students in the same program?",
+  "programWillApplyToAllStudents": "This program will apply to all {count} students.",
+  "@programWillApplyToAllStudents": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "selectARoleAndSetThe": "Select ARole And Set The",
   "selectAShift": "Select AShift",
   "selectAShiftToReportAn": "Select AShift To Report An",
@@ -2573,7 +2774,7 @@
   "studentJoined": "Student Joined",
   "studentLoginCredentials": "Student Login Credentials",
   "studentProgressOverview": "Student Progress Overview",
-  "studentSInformation": "Student SInformation",
+  "studentSInformation": "Students' information",
   "studentStudent": "Student Student",
   "studentType": "Student Type",
   "studentWillUseStudentIdAnd": "Student Will Use Student Id And",
@@ -2757,6 +2958,127 @@
   "timesWillBeAppliedInThis": "Times Will Be Applied In This",
   "timesheetDetails2": "Timesheet Details2",
   "timesheetReview": "Timesheet Review",
+  "timesheetReviewLastWeek": "Last week",
+  "timesheetReviewEditedOnly": "Edited only",
+  "timesheetReviewNeedsAttention": "Needs attention",
+  "timesheetReviewSelectAllPendingVisible": "Select all pending (visible)",
+  "timesheetReviewPendingCount": "{count} pending",
+  "@timesheetReviewPendingCount": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "timesheetReviewShowingCount": "{count} shown",
+  "@timesheetReviewShowingCount": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "timesheetReviewQueue": "Queue",
+  "timesheetReviewOpenQueue": "Open queue",
+  "timesheetReviewExportTitle": "Export timesheets",
+  "timesheetReviewExportScopeLabel": "Rows to export",
+  "timesheetReviewExportFiltered": "Current filter ({count} rows)",
+  "@timesheetReviewExportFiltered": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "timesheetReviewExportSelected": "Selected only ({count} rows)",
+  "@timesheetReviewExportSelected": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "timesheetReviewExportExcel": "Excel workbook (.xlsx)",
+  "timesheetReviewExportExcelSubtitleWithSummaries": "Detail sheet (your column preset) plus daily, weekly, and monthly summaries.",
+  "timesheetReviewExportExcelSubtitleDetailOnly": "One sheet: detail rows only, using the column preset below.",
+  "timesheetReviewExportIncludeSummarySheets": "Include summary sheets",
+  "timesheetReviewExportIncludeSummarySheetsSubtitle": "Adds daily, weekly, and monthly rollups to the Excel file.",
+  "timesheetReviewExportPresetLabel": "Column preset",
+  "timesheetReviewExportPresetPayroll": "Payroll",
+  "timesheetReviewExportPresetPayrollSubtitle": "IDs, hours, rate, pay, status",
+  "timesheetReviewExportPresetOperations": "Operations",
+  "timesheetReviewExportPresetOperationsSubtitle": "Shift identity and schedule vs actual",
+  "timesheetReviewExportPresetAudit": "Audit",
+  "timesheetReviewExportPresetAuditSubtitle": "Forms, edits, devices, notes, compliance",
+  "timesheetReviewExportPresetFull": "Full",
+  "timesheetReviewExportPresetFullSubtitle": "All export columns",
+  "timesheetReviewExportDetailedCsv": "CSV (.csv)",
+  "timesheetReviewExportDetailedCsvSubtitle": "Single file using the column preset (no summary sheets).",
+  "timesheetReviewExportOnScreenSummary": "Exports the {count} rows currently shown in the table (after filters and search). Seven columns only, matching the grid: teacher, date, student, hours, payment, source, status.",
+  "@timesheetReviewExportOnScreenSummary": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "timesheetReviewExportExcelOneSheet": "One worksheet in the workbook (no extra summary tabs).",
+  "timesheetReviewExportCsvSameLayout": "Same rows and 7 columns, comma-separated.",
+  "timesheetExportSheetDetail": "Detail",
+  "timesheetExportSheetDaily": "Daily summary",
+  "timesheetExportSheetWeekly": "Weekly summary",
+  "timesheetExportSheetMonthly": "Monthly summary",
+  "timesheetExportSummaryHdrTeacher": "Teacher",
+  "timesheetExportSummaryHdrDate": "Date",
+  "timesheetExportSummaryHdrDay": "Day",
+  "timesheetExportSummaryHdrWeekStarting": "Week starting",
+  "timesheetExportSummaryHdrMonth": "Month",
+  "timesheetExportSummaryHdrTotalScheduled": "Total scheduled",
+  "timesheetExportSummaryHdrTotalWorked": "Total worked",
+  "timesheetExportSummaryHdrDifference": "Difference",
+  "timesheetExportSummaryHdrDailyPay": "Daily pay",
+  "timesheetExportSummaryHdrWeeklyPay": "Weekly pay",
+  "timesheetExportSummaryHdrMonthlyPay": "Monthly pay",
+  "timesheetExportColEntryId": "Entry ID",
+  "timesheetExportColTeacherName": "Teacher name",
+  "timesheetExportColDate": "Date",
+  "timesheetExportColDay": "Day",
+  "timesheetExportColWeekStarting": "Week starting",
+  "timesheetExportColMonth": "Month",
+  "timesheetExportColStudentSubject": "Student / subject",
+  "timesheetExportColScheduledStart": "Scheduled start",
+  "timesheetExportColScheduledEnd": "Scheduled end",
+  "timesheetExportColClockIn": "Clock in",
+  "timesheetExportColClockOut": "Clock out",
+  "timesheetExportColScheduledHours": "Scheduled hours",
+  "timesheetExportColWorkedHours": "Worked hours",
+  "timesheetExportColHoursDifference": "Hours difference",
+  "timesheetExportColHourlyRate": "Hourly rate",
+  "timesheetExportColTotalPay": "Total pay",
+  "timesheetExportColStatus": "Status",
+  "timesheetExportColFormCompleted": "Form completed",
+  "timesheetExportColEmployeeNotes": "Employee notes",
+  "timesheetExportColManagerNotes": "Manager notes",
+  "timesheetExportColShiftId": "Shift ID",
+  "timesheetExportColShiftTitle": "Shift title",
+  "timesheetExportColShiftType": "Shift type",
+  "timesheetExportColSource": "Source",
+  "timesheetExportColClockInDevice": "Clock-in device",
+  "timesheetExportColClockOutDevice": "Clock-out device",
+  "timesheetExportColReportedHours": "Reported hours (form)",
+  "timesheetExportColFormNotes": "Form notes",
+  "timesheetExportColFormResponseId": "Form response ID",
+  "timesheetExportColIsEdited": "Edited",
+  "timesheetExportColEditApproved": "Edit approved",
+  "timesheetExportColEditedAt": "Edited at",
+  "timesheetExportColRejectionReason": "Rejection reason",
+  "timesheetExportColClockInAddress": "Clock-in address",
+  "timesheetExportColClockOutAddress": "Clock-out address",
+  "timesheetReviewGridOverflowMenuTooltip": "More actions",
+  "timesheetReviewGridOverflowExport": "Export…",
+  "timesheetReviewGridOverflowSelectAllPending": "Select all pending",
+  "timesheetReviewGridOverflowColumns": "Column visibility",
+  "timesheetReviewGridOverflowColumnsSoon": "Coming soon",
+  "timesheetReviewColumnTooltipHours": "Worked hours from this entry. Hover a row for schedule vs actual and form data.",
+  "timesheetReviewColumnTooltipPayment": "Pay amount for this entry using current hours and rate.",
+  "timesheetReviewSearchHint": "Teacher, student, date, shift…",
+  "timesheetReviewIncompleteEntry": "Missing clock-out or valid hours",
+  "timesheetReviewBulkSelection": "{count} selected",
+  "@timesheetReviewBulkSelection": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
   "timesheetSubmittedForReview": "Timesheet Submitted For Review",
   "timesheetWasEdited": "Timesheet Was Edited",
   "timesheets": "Timesheets",
@@ -2878,9 +3200,13 @@
   "weekCalendar": "Week Calendar",
   "weekly": "Weekly",
   "weeklyCalendar": "Weekly Calendar",
+  "shiftCalendarThreeDayTitle": "3-day schedule",
+  "shiftCalendarViewModeHint": "Grid shows three days at a time; list shows your agenda.",
+  "shiftCalendarViewGrid": "Grid",
+  "shiftCalendarViewList": "List",
   "weeklyRecurrenceSettings": "Weekly Recurrence Settings",
   "welcomeBackFirstname": "Welcome Back Firstname",
-  "welcomeToAlluvialAcademy": "Welcome To Alluvial Academy",
+  "welcomeToAlluvialAcademy": "Welcome To Alluwal Academy",
   "whatNeedsToBeDone": "What Needs To Be Done",
   "whatSTheIssue": "What SThe Issue",
   "whatShouldTheCorrectTimesBe": "What Should The Correct Times Be",
@@ -2910,7 +3236,7 @@
     }
   },
   "youAreNotAssignedToThis": "You Are Not Assigned To This",
-  "youCanAddMultipleStudentsIn": "You Can Add Multiple Students In",
+  "youCanAddMultipleStudentsIn": "Use + and − to include more than one child.",
   "youCanOnlyDeleteTasksYou": "You Can Only Delete Tasks You",
   "youDonTHavePermissionTo": "You Don THave Permission To",
   "youHaveAlreadySubmittedThisForm": "You Have Already Submitted This Form",
@@ -3583,13 +3909,37 @@
   "shiftManagementGrid": "Grid",
   "shiftManagementList": "List",
   "shiftTabAllCount": "All Shifts ({count})",
-  "@shiftTabAllCount": { "placeholders": { "count": {"type": "int"} } },
+  "@shiftTabAllCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "shiftTabTodayCount": "Today ({count})",
-  "@shiftTabTodayCount": { "placeholders": { "count": {"type": "int"} } },
+  "@shiftTabTodayCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "shiftTabUpcomingCount": "Upcoming ({count})",
-  "@shiftTabUpcomingCount": { "placeholders": { "count": {"type": "int"} } },
+  "@shiftTabUpcomingCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "shiftTabActiveCount": "Active ({count})",
-  "@shiftTabActiveCount": { "placeholders": { "count": {"type": "int"} } },
+  "@shiftTabActiveCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "shiftTemplateManagement": "Schedule Templates",
   "shiftTemplateDeactivate": "Deactivate Schedule",
   "shiftTemplateReactivate": "Reactivate Schedule",
@@ -3858,7 +4208,6 @@
   "formTemplateTeacherfeedbackcomplaints": "Teacher Feedback & Complaints",
   "formTemplateWeeklysummary": "Weekly Summary",
   "sidebarAudits": "Audits",
-  "sidebarCms": "CMS",
   "sidebarCommunication": "Communication",
   "sidebarFormbuilder": "Form Builder",
   "sidebarLearning": "Learning",
@@ -4225,7 +4574,6 @@
   "tutorWhiteboardFailed": "Failed to send whiteboard",
   "tutorStartSession": "Start Session",
   "tutorDescription": "Talk to Alluwal, your AI learning buddy. Ask questions about school subjects or explore stories from Islamic history.",
-
   "classJoin": "Join",
   "classMeetingNotReady": "Meeting not ready",
   "classJoinIn": "Join ({time})",
@@ -4286,6 +4634,7 @@
   "teamMeetThePeopleBehindAlluwal": "Meet the People Behind Alluwal",
   "teamHeroSubtitle": "Educators, leaders, and innovators united by a shared mission — to make quality Islamic and academic education accessible to every learner, everywhere.",
   "teamAllTeam": "All Team",
+  "teamLocationTbd": "Location to be announced",
   "teamAllTeamTagline": "The full Alluwal family",
   "teamAllTeamDescription": "Visionaries and educators united by one mission.",
   "teamLeadership": "Leadership",
@@ -4363,16 +4712,12 @@
   "podcastTitle": "Title",
   "podcastDescription": "Description",
   "podcastDuration": "Duration",
-  "assignToStudents": "Assign to Students",
-  "myAssignments": "My Assignments",
   "noPodcastsAssigned": "No podcasts assigned yet",
   "noPodcastsUploaded": "No podcasts uploaded yet",
   "podcastUploaded": "Podcast uploaded successfully",
   "podcastAssigned": "Podcast assigned successfully",
   "confirmDeletePodcast": "Are you sure you want to delete this podcast?",
   "podcastArchived": "Podcast archived",
-  "selectStudents": "Select Students",
-  "selectAll": "Select All",
   "deselectAll": "Deselect All",
   "auditReviewModeTitle": "Audit Review Mode",
   "auditReviewModeButton": "Review Mode",
@@ -4381,17 +4726,20 @@
   "auditOrphanForms": "Orphan forms ({count})",
   "@auditOrphanForms": {
     "placeholders": {
-      "count": { "type": "int" }
+      "count": {
+        "type": "int"
+      }
     }
   },
   "auditRejectedForms": "Rejected forms ({count})",
   "@auditRejectedForms": {
     "placeholders": {
-      "count": { "type": "int" }
+      "count": {
+        "type": "int"
+      }
     }
   },
   "auditFormNoMatchingShift": "No matching shift found",
-
   "auditTabChangeLog": "Change Log",
   "auditManualMetrics": "Manual metrics",
   "auditMeetingsSection": "Meetings",
@@ -4402,7 +4750,9 @@
   "auditEditFieldTitle": "Edit: {fieldName}",
   "@auditEditFieldTitle": {
     "placeholders": {
-      "fieldName": { "type": "String" }
+      "fieldName": {
+        "type": "String"
+      }
     }
   },
   "auditCurrentValue": "Current value",
@@ -4415,21 +4765,31 @@
   "auditChangeLogSummary": "{count} changes",
   "@auditChangeLogSummary": {
     "placeholders": {
-      "count": { "type": "int" }
+      "count": {
+        "type": "int"
+      }
     }
   },
   "auditChangedFieldFrom": "Changed {field} from {oldValue} to {newValue}",
   "@auditChangedFieldFrom": {
     "placeholders": {
-      "field": { "type": "String" },
-      "oldValue": { "type": "String" },
-      "newValue": { "type": "String" }
+      "field": {
+        "type": "String"
+      },
+      "oldValue": {
+        "type": "String"
+      },
+      "newValue": {
+        "type": "String"
+      }
     }
   },
   "auditChangeReason": "Reason: {reason}",
   "@auditChangeReason": {
     "placeholders": {
-      "reason": { "type": "String" }
+      "reason": {
+        "type": "String"
+      }
     }
   },
   "auditFieldTotalClassesMissed": "Classes missed (override)",
@@ -4470,15 +4830,21 @@
   "adminAuditScoreHelpBody": "The overall score blends form compliance ({formPercent}%) and task efficiency ({taskPercent}%). Tier 1 form compliance averages three parts: Daily End of Shift submissions vs working weekdays in the month, bi-weekly coachee performance (2 expected per month), and weekly CEO/progress/finance reports vs about 4–5 weeks in the month. Task efficiency reflects completed vs assigned tasks, reduces the score for overdue work, and adds a small bonus for tasks you created. A low score usually means missing recurring forms or many incomplete or overdue assignments.",
   "@adminAuditScoreHelpBody": {
     "placeholders": {
-      "formPercent": { "type": "String" },
-      "taskPercent": { "type": "String" }
+      "formPercent": {
+        "type": "String"
+      },
+      "taskPercent": {
+        "type": "String"
+      }
     }
   },
   "adminAuditAdminListTitle": "Administrators",
   "adminAuditAdminListCount": "{count, plural, one{1 admin} other{{count} admins}}",
   "@adminAuditAdminListCount": {
     "placeholders": {
-      "count": { "type": "int" }
+      "count": {
+        "type": "int"
+      }
     }
   },
   "adminAuditAdminListHint": "Open the menu to switch administrators. Each row shows overall score, form compliance, and task efficiency; hover for forms and task counts.",
@@ -4491,7 +4857,9 @@
   "adminAuditExportEmpty": "No admin audits to export for this month.",
   "@exportSavedNativeBody": {
     "placeholders": {
-      "path": { "type": "String" }
+      "path": {
+        "type": "String"
+      }
     }
   },
   "exportSavedNativeBody": "Saved: {path}",
@@ -4505,7 +4873,6 @@
   "auditSave": "Save",
   "viewTeacherAudit": "View Audit",
   "viewTeacherSubmissions": "View Submissions",
-
   "auditIncidentsAndPenalties": "Incidents & Penalties",
   "auditNoIncidents": "No incidents or penalties recorded",
   "auditIncidentFactsFinding": "Facts/Findings Report",
@@ -4513,7 +4880,9 @@
   "auditIncidentSubmittedBy": "Submitted by {name}",
   "@auditIncidentSubmittedBy": {
     "placeholders": {
-      "name": { "type": "String" }
+      "name": {
+        "type": "String"
+      }
     }
   },
   "auditIncidentViolationType": "Violation",
@@ -4527,7 +4896,9 @@
   "auditIncidentCount": "{count, plural, =0{No incidents} =1{1 incident} other{{count} incidents}}",
   "@auditIncidentCount": {
     "placeholders": {
-      "count": { "type": "int" }
+      "count": {
+        "type": "int"
+      }
     }
   },
   "auditIncidentLoading": "Loading incidents…",
@@ -4550,9 +4921,15 @@
   "adminAuditTaskStatsHeader": "Assigned: {assigned} · Done: {done} · Overdue flag: {overdue}",
   "@adminAuditTaskStatsHeader": {
     "placeholders": {
-      "assigned": { "type": "int" },
-      "done": { "type": "int" },
-      "overdue": { "type": "int" }
+      "assigned": {
+        "type": "int"
+      },
+      "done": {
+        "type": "int"
+      },
+      "overdue": {
+        "type": "int"
+      }
     }
   },
   "adminAuditScoreNa": "N/A",
@@ -4561,7 +4938,9 @@
   "adminAuditEvalAverage": "Average (entered scores only): {pct}%",
   "@adminAuditEvalAverage": {
     "placeholders": {
-      "pct": { "type": "String" }
+      "pct": {
+        "type": "String"
+      }
     }
   },
   "adminAuditEvalExportDocTitle": "Admin evaluation sheet",
@@ -4580,9 +4959,15 @@
   "adminAuditEvalExportAutoKpi": "Auto KPIs: overall {overall}% · forms {forms}% · tasks {tasks}%",
   "@adminAuditEvalExportAutoKpi": {
     "placeholders": {
-      "overall": { "type": "int" },
-      "forms": { "type": "int" },
-      "tasks": { "type": "int" }
+      "overall": {
+        "type": "int"
+      },
+      "forms": {
+        "type": "int"
+      },
+      "tasks": {
+        "type": "int"
+      }
     }
   },
   "adminAuditEvalExportUnknownEvaluator": "—",
@@ -4592,280 +4977,491 @@
   "adminAuditCeoPaymentAdjustmentsHint": "Optional monthly amounts. Add a short justification when either amount is set.",
   "adminAuditEvalSectionCommentLabel": "Evaluator comment",
   "adminAuditEvalSectionCommentHint": "Optional. Included in PDF/Excel under this section.",
-  "commonAdd": "Add",
-  "tontineSavings": "Savings",
-  "tontineTooltipDescription": "A rotating savings circle where members each contribute a fixed amount every cycle, and one member receives the entire pooled amount. This rotates until every member has received exactly once. No interest, no fees.",
-  "tontineCircles": "Circles",
-  "tontineAdminCircles": "Admin Circles",
-  "tontineHomeSubtitle": "Track your savings circles, invite members, and manage each monthly payout cycle.",
-  "tontineSignInRequired": "Sign in to view your savings circles.",
-  "tontineNoCirclesTitle": "No circles yet",
-  "tontineNoCirclesSubtitle": "Create your first rotating savings circle to start collecting monthly contributions.",
-  "tontineMyCircles": "My circles",
-  "tontinePendingInvites": "Pending invites: {count}",
-  "@tontinePendingInvites": {
+  "sidebarPublicSiteCms": "Pricing & public team",
+  "publicSiteCmsTitle": "Public website — pricing & team",
+  "publicSiteCmsTabPricing": "Pricing",
+  "publicSiteCmsTabTeam": "Team on website",
+  "publicSiteCmsTabSocial": "Social links",
+  "publicSiteCmsTabLanding": "Home hero",
+  "publicSiteCmsLandingIntro": "Customize the landing page hero strip: background color (hex) and optional image URLs (https). Leave URLs empty to use the built-in photos. Prefer dark hero colors so headline text stays readable. On the web, some stock sites block hotlinking or CORS—use Upload to host images reliably on Firebase Storage.",
+  "publicSiteCmsLandingHeroBg": "Hero background color",
+  "publicSiteCmsLandingHeroBgHint": "#RRGGBB (example: #001E4E)",
+  "publicSiteCmsLandingMainImage": "Center hero image",
+  "publicSiteCmsLandingLeftImage": "Left circle image",
+  "publicSiteCmsLandingRightImage": "Right panel image",
+  "publicSiteCmsLandingUpload": "Upload image",
+  "publicSiteCmsSaveLanding": "Save landing hero",
+  "publicSiteCmsLandingSaved": "Landing hero saved. Refresh the public site to see changes.",
+  "publicSiteCmsSocialIntro": "Choose which icons appear in the blue header bar. Each network stays hidden until you turn it on and add a valid https link.",
+  "publicSiteCmsSocialShowIcon": "Show on website",
+  "publicSiteCmsSocialUrl": "Link URL",
+  "publicSiteCmsSocialInstagram": "Instagram",
+  "publicSiteCmsSocialFacebook": "Facebook",
+  "publicSiteCmsSocialTiktok": "TikTok",
+  "publicSiteCmsSaveSocial": "Save social links",
+  "publicSiteCmsSocialSaved": "Social links saved. The public header updates for all visitors.",
+  "publicSiteCmsSavePricing": "Save pricing to website",
+  "publicSiteCmsPricingSaved": "Pricing saved. The landing page and new enrollment quotes will use these values.",
+  "publicSiteCmsSaveThisTrack": "Save this track",
+  "publicSiteCmsPricingSavedThisTrack": "Pricing saved including {name}. All tracks are kept in sync.",
+  "@publicSiteCmsPricingSavedThisTrack": {
     "placeholders": {
-      "count": {
-        "type": "int"
-      }
+      "name": {"type": "String"}
     }
   },
-  "tontineReviewInvite": "Review invite",
-  "tontineCreateCircle": "Create Circle",
-  "tontineCircleDetails": "Circle Dashboard",
-  "tontineCircleNotFound": "Circle not found.",
-  "tontineStatusForming": "Forming",
-  "tontineStatusActive": "Active",
-  "tontineStatusCompleted": "Completed",
-  "tontineStatusCancelled": "Cancelled",
-  "tontineCyclePending": "Pending",
-  "tontineCycleInProgress": "In progress",
-  "tontineCycleCompleted": "Completed",
-  "tontineCurrentCycle": "Current cycle",
-  "tontineDueDate": "Due date",
-  "tontineCurrentRecipient": "Current recipient",
-  "tontineRecipientPending": "Recipient pending",
-  "tontineMonthOf": "Month {month} of {total}",
-  "@tontineMonthOf": {
+  "publicSiteCmsHeroColorPickerTitle": "Hero background color",
+  "publicSiteCmsImageUploadEmptyHint": "No image yet. Paste a URL or tap Upload.",
+  "publicSiteCmsPricingHelp": "Three public tracks: Islamic & AdLam, Tutoring & Literacy, and Group Classes. Amounts here power the home page pricing cards and new enrollment estimates (4 weeks per month for individual tracks; 4.33 for group).",
+  "publicSiteCmsSession30": "30-minute session (USD)",
+  "publicSiteCmsSession60": "1-hour session base (USD)",
+  "publicSiteCmsHourly": "Hourly rate (USD)",
+  "publicSiteCmsTutoringHrUnder4": "Tutoring: $/hr when weekly hours are under 4",
+  "publicSiteCmsTutoringHr4Plus": "Tutoring: $/hr when weekly hours are 4 or more",
+  "publicSiteCmsIslamicHrUnder5": "Islamic 1-on-1: $/hr when weekly hours are under 5",
+  "publicSiteCmsIslamicHr5Plus": "Islamic 1-on-1: $/hr when weekly hours are 5 or more",
+  "publicSiteCmsTrackBaseHourly": "Base hourly rate (USD)",
+  "publicSiteCmsTrackDiscountHourly": "Discount hourly rate (USD)",
+  "publicSiteCmsTrackDiscountThreshold": "Volume discount threshold (weekly hours)",
+  "publicSiteCmsTrackDiscountThresholdHint": "Discounted rate applies when weekly hours are greater than this number (default 4).",
+  "publicSiteCmsBulletsHint": "Feature bullets (optional): each line shows as a checkmarked highlight on the home page pricing card for this track.",
+  "publicSiteCmsBulletsPlaceholder": "One line per bullet, shown with checkmarks on the card",
+  "publicSiteCmsTeamEmpty": "No profiles yet. Add people to show on the public Team page instead of the default list.",
+  "publicSiteCmsTeamImportBundled": "Import profiles from website defaults",
+  "publicSiteCmsTeamImportBundledHint": "Copies the default team list into Firestore with stable IDs. Imported rows start inactive until you link a real user and activate them for the public site.",
+  "publicSiteCmsTeamImportDone": "Imported {imported} profile(s). Skipped {skipped} that already existed.",
+  "@publicSiteCmsTeamImportDone": {
     "placeholders": {
-      "month": {
-        "type": "int"
-      },
-      "total": {
-        "type": "int"
-      }
+      "imported": {"type": "int"},
+      "skipped": {"type": "int"}
     }
   },
-  "tontineConfirmedCount": "Confirmed payments",
-  "tontineCircleCompletedMessage": "This circle has finished every payout cycle.",
-  "tontineWaitingForCycle": "Waiting for the first cycle to be created.",
-  "tontineCircleStillForming": "Circle is still forming",
-  "tontineMembersJoined": "{active} of {total} members joined",
-  "@tontineMembersJoined": {
+  "publicSiteCmsLinkedUserUid": "Linked account (Firebase UID)",
+  "publicSiteCmsLinkedUserUidHint": "Search the directory and pick a user — required for every public profile.",
+  "publicSiteCmsLinkedUserSectionTitle": "Linked user (required)",
+  "publicSiteCmsLinkedUserMissingHint": "No user linked yet. Search and select a staff account.",
+  "publicSiteCmsPickLinkedUserButton": "Search users…",
+  "publicSiteCmsPickLinkedUserTitle": "Link to a user",
+  "publicSiteCmsPickLinkedUserSearchLabel": "Search by email or UID",
+  "publicSiteCmsPickLinkedUserSearchHint": "Type at least 2 characters",
+  "publicSiteCmsPickLinkedUserEmpty": "No matches. Try another email prefix or paste a full Firebase UID.",
+  "publicSiteCmsClearLinkedUser": "Remove link",
+  "publicSiteCmsLinkedUserRequired": "Link this profile to a user before saving.",
+  "publicSiteCmsCityRequired": "City / location is required for the public team page.",
+  "publicSiteCmsDuplicateLinkedUser": "Another team profile already uses this user. Unlink or delete the other profile first.",
+  "publicSiteCmsTeamInactiveBadge": "inactive",
+  "publicSiteCmsTeamImageLoadFailed": "Could not load image (check URL or network).",
+  "publicSiteCmsTeamAddProfile": "Add profile",
+  "publicSiteCmsTeamSaved": "Profile saved",
+  "publicSiteCmsConfirmDelete": "Delete this profile from the website?",
+  "publicSiteCmsName": "Name",
+  "publicSiteCmsNameRequired": "Name is required.",
+  "publicSiteCmsRoleTitle": "Title / role",
+  "publicSiteCmsCategory": "Section",
+  "publicSiteCmsCategoryLeadership": "Leadership",
+  "publicSiteCmsCategoryTeacher": "Teachers",
+  "publicSiteCmsCity": "City",
+  "publicSiteCmsEducation": "Education",
+  "publicSiteCmsBio": "Bio",
+  "publicSiteCmsWhyAlluwal": "Why Alluwal",
+  "publicSiteCmsLanguagesComma": "Languages (comma-separated)",
+  "publicSiteCmsSortOrder": "Sort order (lower first)",
+  "publicSiteCmsImageUrl": "Photo URL (optional)",
+  "publicSiteCmsUploadPhoto": "Upload photo",
+  "publicSiteCmsUploadNoBytes": "Could not read file bytes.",
+  "publicSiteCmsUploadDone": "Upload complete — URL filled in.",
+  "publicSiteCmsDashboardCardTitle": "Public pricing & team",
+  "publicSiteCmsDashboardCardBody": "Change landing prices, bullet lines, and who appears on the Team page.",
+  "publicSiteCmsOpenEditor": "Open editor",
+  "pricingTrackIslamicTitle": "Islamic & AdLam",
+  "pricingTrackTutoringTitle": "Tutoring & Literacy",
+  "pricingTrackGroupTitle": "Group Classes",
+  "pricingTrackIslamicDesc": "1-on-1 Islamic and AdLam classes",
+  "pricingTrackTutoringDesc": "1-on-1 tutoring and literacy support",
+  "pricingTrackGroupDesc": "Weekend group learning sessions",
+  "pricingPerHour": "hr",
+  "pricingDiscountBadge": "Lower rate for over 4 hrs/week",
+  "pricingHoursPerWeek": "hrs/wk",
+  "pricingMonthlyBreakdown": "{hours} hrs × ${rate}/hr × {weeks} weeks ≈ ${monthly}/mo",
+  "@pricingMonthlyBreakdown": {
     "placeholders": {
-      "active": {
-        "type": "int"
-      },
-      "total": {
-        "type": "int"
-      }
+      "hours": {},
+      "rate": {},
+      "weeks": {},
+      "monthly": {}
     }
   },
-  "tontineWaitingForMembers": "Waiting for members",
-  "tontineActivateCircle": "Activate Circle",
-  "tontineExpectedAmount": "Expected amount",
-  "tontineSubmittedAmount": "Submitted amount",
-  "tontineReceiptAttached": "Receipt attached",
-  "tontineRejectionReason": "Rejection reason",
-  "tontineReviewSubmissions": "Review Submissions",
-  "tontineSubmitPayment": "Submit Payment",
-  "tontinePaymentConfirmed": "Payment confirmed",
-  "tontineContributionPending": "Unpaid",
-  "tontineContributionSubmitted": "Submitted",
-  "tontineContributionConfirmed": "Confirmed",
-  "tontineContributionRejected": "Rejected",
-  "tontineContributionMissed": "Missed",
-  "tontineMemberInvited": "Invited",
-  "tontineInviteByEmail": "Email",
-  "tontineInviteByPhone": "Phone",
-  "tontineMissedMoveToBack": "Move to back",
-  "tontineMissedSuspend": "Suspend member",
-  "tontineNoDeadline": "No deadline set",
-  "tontineDueToday": "Due today",
-  "tontineDueInDays": "Due in {days} days",
-  "@tontineDueInDays": {
+  "pricingSelectTrack": "Select a learning track",
+  "pricingSelectHours": "Select hours per week",
+  "enrollmentHoursRequired": "Please select hours per week",
+  "enrollmentTrackRequired": "Please select a pricing track",
+  "enrollmentPhoneRequired": "Please enter your phone number.",
+  "enrollmentPhoneInvalid": "Enter a valid phone number (digits only) for the country shown on the field.",
+  "enrollmentWhatsAppInvalid": "Enter a valid WhatsApp number (digits only), or leave this field empty.",
+  "unifiedProgramsTitle": "Explore our programs",
+  "unifiedProgramsScrollToTop": "Back to top",
+  "unifiedProgramsSubtitle": "Choose a program, preview pricing by hours per week, then continue to enrollment — all in one place.",
+  "unifiedProgramsDeselect": "Clear selection",
+  "unifiedProgramsEnroll": "Continue to enrollment",
+  "unifiedProgramsHoursPerWeek": "Hours per week",
+  "unifiedProgramsWhatsIncluded": "What's included in this program",
+  "unifiedProgramsPriceLine": "{hours} hrs/wk × ${rate}/hr · ≈ ${monthly}/mo",
+  "@unifiedProgramsPriceLine": {
     "placeholders": {
-      "days": {
-        "type": "int"
-      }
+      "hours": {},
+      "rate": {},
+      "monthly": {}
     }
   },
-  "tontineOverdueBy": "Overdue by {duration}",
-  "@tontineOverdueBy": {
-    "placeholders": {
-      "duration": {
-        "type": "String"
-      }
-    }
-  },
-  "tontinePosition": "Position {position}",
-  "@tontinePosition": {
-    "placeholders": {
-      "position": {
-        "type": "int"
-      }
-    }
-  },
-  "tontinePaymentStatusBoard": "Payment status board",
-  "tontinePaymentDetails": "Payment details",
-  "tontineAmount": "Amount",
-  "tontineAmountMatchesExpected": "Amount matches the expected contribution.",
-  "tontineAmountDoesNotMatchExpected": "Amount does not match the expected contribution.",
-  "tontinePaymentDate": "Payment date",
-  "tontineReceipt": "Receipt",
-  "tontineUseCamera": "Use camera",
-  "tontineChooseFromGallery": "Choose from gallery",
-  "tontineSelectedReceipt": "Selected receipt",
-  "tontineReceiptRequired": "A receipt is required before submission.",
-  "tontinePaymentSubmitted": "Payment submitted successfully.",
-  "tontineSubmissionFailed": "Could not submit payment: {error}",
-  "@tontineSubmissionFailed": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
-  "tontineCreateFailed": "Could not create circle: {error}",
-  "@tontineCreateFailed": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
-  "tontineMarkPayoutSent": "Mark Payout Sent",
-  "tontinePayoutMarkedSent": "Payout marked as sent.",
-  "tontineReviewProgress": "Review progress",
-  "tontineConfirmedOf": "{confirmed} of {total} confirmed",
-  "@tontineConfirmedOf": {
-    "placeholders": {
-      "confirmed": {
-        "type": "int"
-      },
-      "total": {
-        "type": "int"
-      }
-    }
-  },
-  "tontineRejectContribution": "Reject",
-  "tontineConfirmContribution": "Confirm",
-  "tontineJoinCircle": "Join Circle",
-  "tontineJoinFailed": "Could not join circle: {error}",
-  "@tontineJoinFailed": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
-  "tontineInvitePreview": "Review this savings circle before you accept the invite.",
-  "tontineCircleHead": "Circle head",
-  "tontineStepBasics": "Basics",
-  "tontineStepRules": "Rules",
-  "tontineStepInvite": "Invite",
-  "tontineStepOrder": "Order",
-  "tontineStepReview": "Review",
-  "tontineCircleName": "Circle name",
-  "tontineCircleNameRequired": "Circle name is required.",
-  "tontineContributionAmount": "Contribution amount",
-  "tontineMonthlyContribution": "Monthly contribution",
-  "tontineMemberCount": "Member count",
-  "tontineStartDate": "Start date",
-  "tontineFrequency": "Contribution frequency",
-  "tontineFrequencyWeekly": "Weekly",
-  "tontineFrequencyBiweekly": "Every 2 weeks",
-  "tontineFrequencyMonthly": "Monthly",
-  "tontineFrequencyQuarterly": "Quarterly",
-  "tontineHintCircleName": "Give your circle a name members will recognize",
-  "tontineHintAmount": "How much each member contributes per cycle",
-  "tontineHintMemberCount": "Total members including you",
-  "tontineHintStartDate": "The date when the first cycle begins",
-  "tontineHintFrequency": "How often members contribute and payouts happen",
-  "tontineHintGracePeriod": "Extra days allowed after the due date before a payment is marked late",
-  "tontineHintMissedPayment": "What happens if a member misses their payment",
-  "tontineHintPaymentInstructions": "Tell members how to send their payment (e.g. Zelle, CashApp, bank transfer)",
-  "tontineGracePeriodDays": "Grace period (days)",
-  "tontineMissedPaymentAction": "Missed payment action",
-  "tontinePaymentInstructions": "Payment instructions",
-  "tontinePaymentInstructionsRequired": "Payment instructions are required.",
-  "tontineInviteExistingUsersOnly": "Invite members by email or phone number. They will receive a notification to join.",
-  "tontineInviteMethod": "Invite method",
-  "tontineInviteEmail": "Email address",
-  "tontineInvitePhone": "Phone number",
-  "tontineEnterInviteLookup": "Enter an email or phone number to invite.",
-  "tontineParticipantsAdded": "Participants added: {current}/{total}",
-  "@tontineParticipantsAdded": {
-    "placeholders": {
-      "current": {
-        "type": "int"
-      },
-      "total": {
-        "type": "int"
-      }
-    }
-  },
-  "tontineNeedAllMembersBeforeOrdering": "Add every member before setting the payout order.",
-  "tontinePayoutOrder": "Payout order",
-  "tontineYou": "You",
-  "tontineUnableToLoadProfile": "Unable to load your profile.",
-  "tontineEnterValidAmount": "Enter a valid amount.",
-  "tontineInvalidGracePeriod": "Enter a valid grace period.",
-  "tontineMinimumMembers": "A circle needs at least 2 members.",
-  "tontineNeedExactMemberCount": "Add the exact member count before continuing.",
-  "tontineMemberCountReached": "You already added the target number of members.",
-  "tontineUserNotFound": "No existing user matched that contact.",
-  "tontineUserAlreadyAdded": "That user is already in the circle.",
-  "tontineSelectedMethodUnavailable": "That user does not have the selected contact method saved.",
-  "tontineNoActiveCycle": "No active cycle yet",
-  "tontinePotAmount": "Pot amount",
-  "tontineCircleActivated": "Circle activated. The first cycle will appear shortly.",
-  "tontineReorderHint": "Drag the handle to change who receives payment first",
-  "tontineAllMembersJoined": "All members have joined!",
-  "tontineCreatedByYou": "Created by you",
-  "tontineCirclesCreated": "My circles",
-  "tontineCirclesJoined": "Circles I joined",
-  "tontineEnrollmentMode": "Enrollment mode",
-  "tontineManualSelection": "Manual selection",
-  "tontineManualSelectionDesc": "Pick specific teachers to add",
-  "tontineOpenEnrollment": "Open enrollment",
-  "tontineOpenEnrollmentDesc": "Eligible teachers can browse and join",
-  "tontineEligibilityRules": "Eligibility rules",
-  "tontineIncomeMultiplier": "Min. income multiplier",
-  "tontineIncomeMultiplierHint": "Teacher's estimated monthly income must be at least this many times the contribution amount",
-  "tontineMinTenure": "Min. tenure (months)",
-  "tontineMinTenureHint": "Teacher must have been employed for at least this many months",
-  "tontineMinShifts": "Min. shifts (last 30 days)",
-  "tontineMinShiftsHint": "Teacher must have taught at least this many shifts in the last 30 days",
-  "tontineMaxMembers": "Max members",
-  "tontineMaxMembersHint": "Leave at 0 for unlimited",
-  "tontineUnlimited": "Unlimited",
-  "tontineAvailableCircles": "Available circles",
-  "tontineJoinCircle": "Join circle",
-  "tontineNotEligible": "Not eligible",
-  "tontineEligible": "Eligible",
-  "tontineCircleFull": "Circle is full",
-  "tontineJoinSuccess": "Successfully joined the circle!",
-  "tontineEstimatedIncome": "Est. monthly income: {amount}",
-  "@tontineEstimatedIncome": {
-    "placeholders": {
-      "amount": {"type": "String"}
-    }
-  },
-  "tontineIncomeRequirement": "Income must be {multiplier}x the contribution",
-  "@tontineIncomeRequirement": {
-    "placeholders": {
-      "multiplier": {"type": "String"}
-    }
-  },
-  "tontineTenureRequirement": "{months}+ months tenure required",
-  "@tontineTenureRequirement": {
-    "placeholders": {
-      "months": {"type": "int"}
-    }
-  },
-  "tontineShiftsRequirement": "{count}+ shifts in last 30 days",
-  "@tontineShiftsRequirement": {
+  "unifiedCatIslamicTitle": "Islamic studies",
+  "unifiedCatLanguagesTitle": "Languages",
+  "unifiedCatEnglishTitle": "English & literacy",
+  "unifiedCatMathTitle": "Mathematics",
+  "unifiedCatProgrammingTitle": "Coding & technology",
+  "unifiedCatAfterSchoolTitle": "After-school tutoring",
+  "unifiedCatIslamicDesc": "Quran, Hadith, Arabic Language, Tawhid, Tafsir, and Fiqh",
+  "unifiedCatLanguagesDesc": "English, French, Adlam, Swahili, Yoruba, and more",
+  "unifiedCatEnglishDesc": "Grammar, Reading, Creative Writing, and Test Prep",
+  "unifiedCatMathDesc": "Elementary through Calculus and Statistics",
+  "unifiedCatProgrammingDesc": "Kids Coding, Web, Mobile, Python, and Game Dev",
+  "unifiedCatAfterSchoolDesc": "Elementary, Middle School, and High School support",
+  "unifiedCatSubjectCount": "{count} subjects",
+  "@unifiedCatSubjectCount": {
     "placeholders": {
       "count": {"type": "int"}
     }
   },
-  "tontineOpenCircleCreated": "Open circle created. Eligible teachers will be notified.",
-  "tontineSpotsLeft": "{count} spots left",
-  "@tontineSpotsLeft": {
+  "unifiedProgIslamQuranTitle": "Quran",
+  "unifiedProgIslamQuranDesc": "Complete Quran learning program including recitation, memorization, and understanding.",
+  "unifiedProgIslamQuranAge": "All ages",
+  "unifiedProgIslamQuranFeat1": "Proper recitation with Tajweed rules",
+  "unifiedProgIslamQuranFeat2": "Memorization techniques for Hifz",
+  "unifiedProgIslamQuranFeat3": "Understanding the meanings",
+  "unifiedProgIslamHadithTitle": "Hadith",
+  "unifiedProgIslamHadithDesc": "Study the sayings and teachings of Prophet Muhammad (PBUH).",
+  "unifiedProgIslamHadithAge": "Ages 10+",
+  "unifiedProgIslamHadithFeat1": "Authentic Hadith collections",
+  "unifiedProgIslamHadithFeat2": "Understanding Hadith sciences",
+  "unifiedProgIslamHadithFeat3": "Practical application in daily life",
+  "unifiedProgIslamArabicTitle": "Arabic language",
+  "unifiedProgIslamArabicDesc": "Learn the language of the Quran from basics to fluency.",
+  "unifiedProgIslamArabicAge": "Ages 7+",
+  "unifiedProgIslamArabicFeat1": "Arabic alphabet and writing",
+  "unifiedProgIslamArabicFeat2": "Grammar (Nahw) and morphology",
+  "unifiedProgIslamArabicFeat3": "Vocabulary building",
+  "unifiedProgIslamTawhidTitle": "Tawhid",
+  "unifiedProgIslamTawhidDesc": "Understanding the oneness of Allah and core Islamic beliefs.",
+  "unifiedProgIslamTawhidAge": "Ages 8+",
+  "unifiedProgIslamTawhidFeat1": "Fundamentals of Islamic faith",
+  "unifiedProgIslamTawhidFeat2": "Understanding Allah's attributes",
+  "unifiedProgIslamTawhidFeat3": "Pillars of faith (Iman)",
+  "unifiedProgIslamTafsirTitle": "Tafsir",
+  "unifiedProgIslamTafsirDesc": "Deep understanding and interpretation of the Holy Quran.",
+  "unifiedProgIslamTafsirAge": "Ages 12+",
+  "unifiedProgIslamTafsirFeat1": "Verse by verse explanation",
+  "unifiedProgIslamTafsirFeat2": "Historical context",
+  "unifiedProgIslamTafsirFeat3": "Practical life applications",
+  "unifiedProgIslamFiqhTitle": "Fiqh",
+  "unifiedProgIslamFiqhDesc": "Understanding Islamic law and practical worship.",
+  "unifiedProgIslamFiqhAge": "Ages 10+",
+  "unifiedProgIslamFiqhFeat1": "Rules of prayer and fasting",
+  "unifiedProgIslamFiqhFeat2": "Halal and Haram guidelines",
+  "unifiedProgIslamFiqhFeat3": "Islamic business ethics",
+  "unifiedProgLangEnglishTitle": "English",
+  "unifiedProgLangEnglishDesc": "Complete support for reading, writing, grammar, vocabulary, and exam prep.",
+  "unifiedProgLangEnglishAge": "Global",
+  "unifiedProgLangEnglishFeat1": "Homework help and comprehension",
+  "unifiedProgLangEnglishFeat2": "Grammar and vocabulary",
+  "unifiedProgLangEnglishFeat3": "Exam preparation",
+  "unifiedProgLangFrenchTitle": "French",
+  "unifiedProgLangFrenchDesc": "Master French language skills including conversation, grammar, and cultural understanding.",
+  "unifiedProgLangFrenchAge": "Global",
+  "unifiedProgLangFrenchFeat1": "Conversation practice",
+  "unifiedProgLangFrenchFeat2": "Grammar and writing",
+  "unifiedProgLangFrenchFeat3": "Cultural context",
+  "unifiedProgLangAdlamTitle": "Adlam",
+  "unifiedProgLangAdlamDesc": "Learn the Adlam script for writing Fulani (Fulfulde/Pular)—a modern alphabet for this West African language.",
+  "unifiedProgLangAdlamAge": "West Africa",
+  "unifiedProgLangAdlamFeat1": "Script and reading fundamentals",
+  "unifiedProgLangAdlamFeat2": "Fulfulde/Pular connection",
+  "unifiedProgLangAdlamFeat3": "Cultural preservation focus",
+  "unifiedProgLangSwahiliTitle": "Swahili",
+  "unifiedProgLangSwahiliDesc": "East African Swahili with authentic instruction.",
+  "unifiedProgLangSwahiliAge": "East Africa",
+  "unifiedProgLangSwahiliFeat1": "Speaking and listening",
+  "unifiedProgLangSwahiliFeat2": "Reading and writing",
+  "unifiedProgLangSwahiliFeat3": "Cultural immersion",
+  "unifiedProgLangYorubaTitle": "Yoruba",
+  "unifiedProgLangYorubaDesc": "West African Yoruba with structured lessons.",
+  "unifiedProgLangYorubaAge": "West Africa",
+  "unifiedProgLangYorubaFeat1": "Pronunciation and tones",
+  "unifiedProgLangYorubaFeat2": "Everyday conversation",
+  "unifiedProgLangYorubaFeat3": "Reading practice",
+  "unifiedProgLangAmharicTitle": "Amharic",
+  "unifiedProgLangAmharicDesc": "Horn of Africa Amharic with clear progression.",
+  "unifiedProgLangAmharicAge": "Horn of Africa",
+  "unifiedProgLangAmharicFeat1": "Ge'ez script introduction",
+  "unifiedProgLangAmharicFeat2": "Conversation skills",
+  "unifiedProgLangAmharicFeat3": "Cultural context",
+  "unifiedProgLangWolofTitle": "Wolof",
+  "unifiedProgLangWolofDesc": "West African Wolof for learners at any level.",
+  "unifiedProgLangWolofAge": "West Africa",
+  "unifiedProgLangWolofFeat1": "Greetings and daily speech",
+  "unifiedProgLangWolofFeat2": "Grammar essentials",
+  "unifiedProgLangWolofFeat3": "Listening practice",
+  "unifiedProgLangHausaTitle": "Hausa",
+  "unifiedProgLangHausaDesc": "Hausa across West and Central Africa.",
+  "unifiedProgLangHausaAge": "West & Central Africa",
+  "unifiedProgLangHausaFeat1": "Core vocabulary",
+  "unifiedProgLangHausaFeat2": "Conversation",
+  "unifiedProgLangHausaFeat3": "Reading support",
+  "unifiedProgLitGrammarTitle": "Grammar & vocabulary",
+  "unifiedProgLitGrammarDesc": "Master English grammar rules, sentence structure, and expand your vocabulary.",
+  "unifiedProgLitGrammarAge": "All levels",
+  "unifiedProgLitGrammarFeat1": "Clear grammar explanations",
+  "unifiedProgLitGrammarFeat2": "Sentence patterns",
+  "unifiedProgLitGrammarFeat3": "Vocabulary expansion",
+  "unifiedProgLitReadingTitle": "Reading comprehension",
+  "unifiedProgLitReadingDesc": "Develop critical reading skills and analyze texts across various genres.",
+  "unifiedProgLitReadingAge": "Elementary to advanced",
+  "unifiedProgLitReadingFeat1": "Close reading strategies",
+  "unifiedProgLitReadingFeat2": "Genre variety",
+  "unifiedProgLitReadingFeat3": "Discussion and reflection",
+  "unifiedProgLitCreativeTitle": "Creative writing",
+  "unifiedProgLitCreativeDesc": "Express yourself through stories, poetry, and creative narratives.",
+  "unifiedProgLitCreativeAge": "Grades 3–12",
+  "unifiedProgLitCreativeFeat1": "Story structure",
+  "unifiedProgLitCreativeFeat2": "Voice and style",
+  "unifiedProgLitCreativeFeat3": "Peer feedback",
+  "unifiedProgLitAcademicTitle": "Academic writing",
+  "unifiedProgLitAcademicDesc": "Master essays, research papers, and formal academic composition.",
+  "unifiedProgLitAcademicAge": "High school & college",
+  "unifiedProgLitAcademicFeat1": "Thesis and argumentation",
+  "unifiedProgLitAcademicFeat2": "Research skills",
+  "unifiedProgLitAcademicFeat3": "Citation basics",
+  "unifiedProgLitLiteratureTitle": "Literature analysis",
+  "unifiedProgLitLiteratureDesc": "Explore classic and contemporary literature with in-depth analysis.",
+  "unifiedProgLitLiteratureAge": "High school",
+  "unifiedProgLitLiteratureFeat1": "Themes and symbolism",
+  "unifiedProgLitLiteratureFeat2": "Textual evidence",
+  "unifiedProgLitLiteratureFeat3": "Discussion skills",
+  "unifiedProgLitTestprepTitle": "Test preparation",
+  "unifiedProgLitTestprepDesc": "Prepare for standardized tests including SAT, ACT, IELTS, and TOEFL.",
+  "unifiedProgLitTestprepAge": "All ages",
+  "unifiedProgLitTestprepFeat1": "Timed practice",
+  "unifiedProgLitTestprepFeat2": "Strategy coaching",
+  "unifiedProgLitTestprepFeat3": "Weak-area focus",
+  "unifiedProgMathElemTitle": "Elementary math",
+  "unifiedProgMathElemDesc": "Building a strong foundation in arithmetic, shapes, and problem-solving.",
+  "unifiedProgMathElemAge": "Grades K–5",
+  "unifiedProgMathElemFeat1": "Number sense",
+  "unifiedProgMathElemFeat2": "Word problems",
+  "unifiedProgMathElemFeat3": "Confidence building",
+  "unifiedProgMathAlgebraTitle": "Pre-algebra & algebra",
+  "unifiedProgMathAlgebraDesc": "Mastering variables, equations, functions, and graphing.",
+  "unifiedProgMathAlgebraAge": "Grades 6–9",
+  "unifiedProgMathAlgebraFeat1": "Equation solving",
+  "unifiedProgMathAlgebraFeat2": "Functions and graphs",
+  "unifiedProgMathAlgebraFeat3": "Real-world modeling",
+  "unifiedProgMathGeometryTitle": "Geometry",
+  "unifiedProgMathGeometryDesc": "Exploring shapes, sizes, relative positions, and properties of space.",
+  "unifiedProgMathGeometryAge": "Grades 8–10",
+  "unifiedProgMathGeometryFeat1": "Proofs and reasoning",
+  "unifiedProgMathGeometryFeat2": "Area and volume",
+  "unifiedProgMathGeometryFeat3": "Spatial thinking",
+  "unifiedProgMathTrigTitle": "Trigonometry",
+  "unifiedProgMathTrigDesc": "Understanding relationships between side lengths and angles of triangles.",
+  "unifiedProgMathTrigAge": "Grades 10–11",
+  "unifiedProgMathTrigFeat1": "Unit circle",
+  "unifiedProgMathTrigFeat2": "Identities",
+  "unifiedProgMathTrigFeat3": "Applications",
+  "unifiedProgMathCalcTitle": "Calculus",
+  "unifiedProgMathCalcDesc": "Limits, derivatives, integrals, and infinite series.",
+  "unifiedProgMathCalcAge": "Grades 11–12+",
+  "unifiedProgMathCalcFeat1": "Conceptual understanding",
+  "unifiedProgMathCalcFeat2": "Problem sets",
+  "unifiedProgMathCalcFeat3": "Exam readiness",
+  "unifiedProgMathStatsTitle": "Statistics",
+  "unifiedProgMathStatsDesc": "Analyzing data, probability, distributions, and inference.",
+  "unifiedProgMathStatsAge": "High school & college",
+  "unifiedProgMathStatsFeat1": "Data literacy",
+  "unifiedProgMathStatsFeat2": "Probability models",
+  "unifiedProgMathStatsFeat3": "Interpretation skills",
+  "unifiedProgCodeKidsTitle": "Coding for kids",
+  "unifiedProgCodeKidsDesc": "Introduction to logic, algorithms, and creativity through Scratch and Python basics.",
+  "unifiedProgCodeKidsAge": "Ages 7–12",
+  "unifiedProgCodeKidsFeat1": "Games and stories",
+  "unifiedProgCodeKidsFeat2": "Logical thinking",
+  "unifiedProgCodeKidsFeat3": "Safe, paced lessons",
+  "unifiedProgCodeWebTitle": "Web development",
+  "unifiedProgCodeWebDesc": "Build responsive websites using HTML, CSS, JavaScript, and modern frameworks.",
+  "unifiedProgCodeWebAge": "Teens & adults",
+  "unifiedProgCodeWebFeat1": "Layout and design",
+  "unifiedProgCodeWebFeat2": "Interactivity",
+  "unifiedProgCodeWebFeat3": "Portfolio projects",
+  "unifiedProgCodeMobileTitle": "Mobile app development",
+  "unifiedProgCodeMobileDesc": "Create iOS and Android apps with Flutter and Dart.",
+  "unifiedProgCodeMobileAge": "Teens & adults",
+  "unifiedProgCodeMobileFeat1": "UI basics",
+  "unifiedProgCodeMobileFeat2": "State and navigation",
+  "unifiedProgCodeMobileFeat3": "Ship a small app",
+  "unifiedProgCodePythonTitle": "Python programming",
+  "unifiedProgCodePythonDesc": "Data science, automation, and backend development with Python.",
+  "unifiedProgCodePythonAge": "All ages",
+  "unifiedProgCodePythonFeat1": "Syntax and structures",
+  "unifiedProgCodePythonFeat2": "Projects and scripts",
+  "unifiedProgCodePythonFeat3": "Career-relevant skills",
+  "unifiedProgCodeGameTitle": "Game development",
+  "unifiedProgCodeGameDesc": "Design and code your own video games using Unity or Godot.",
+  "unifiedProgCodeGameAge": "Teens",
+  "unifiedProgCodeGameFeat1": "Game loops",
+  "unifiedProgCodeGameFeat2": "Assets and levels",
+  "unifiedProgCodeGameFeat3": "Playtesting",
+  "unifiedProgCodeCsTitle": "Intro to computer science",
+  "unifiedProgCodeCsDesc": "Preparation for AP Computer Science and university-level studies.",
+  "unifiedProgCodeCsAge": "High school",
+  "unifiedProgCodeCsFeat1": "Algorithms",
+  "unifiedProgCodeCsFeat2": "Complexity intuition",
+  "unifiedProgCodeCsFeat3": "Exam alignment",
+  "unifiedProgAsElemTitle": "Elementary (K–5)",
+  "unifiedProgAsElemDesc": "Foundational support across subjects with caring tutors.",
+  "unifiedProgAsElemAge": "Grades K–5",
+  "unifiedProgAsElemFeat1": "Homework help",
+  "unifiedProgAsElemFeat2": "Skill gaps",
+  "unifiedProgAsElemFeat3": "Confidence",
+  "unifiedProgAsMiddleTitle": "Middle school (6–8)",
+  "unifiedProgAsMiddleDesc": "Support through middle grades with structured study habits.",
+  "unifiedProgAsMiddleAge": "Grades 6–8",
+  "unifiedProgAsMiddleFeat1": "Study strategies",
+  "unifiedProgAsMiddleFeat2": "Core subjects",
+  "unifiedProgAsMiddleFeat3": "Organization",
+  "unifiedProgAsHighTitle": "High school (9–12)",
+  "unifiedProgAsHighDesc": "Rigorous support for high school courses and exams.",
+  "unifiedProgAsHighAge": "Grades 9–12",
+  "unifiedProgAsHighFeat1": "AP/IB readiness",
+  "unifiedProgAsHighFeat2": "Time management",
+  "unifiedProgAsHighFeat3": "Subject depth",
+
+  "unifiedProgramsBrowse": "Browse Programs",
+  "unifiedProgramsTrust35": "35+ Programs",
+  "unifiedProgramsTrustFlexible": "Flexible Scheduling",
+  "unifiedProgramsTrustExperts": "Expert Tutors",
+  "unifiedProgramsPerHour": "per hour",
+  "heroExplorePrograms": "Explore Our Programs",
+  "landingHeroSubtitle": "Browse the full catalog, set your hours, and learn online with qualified tutors.",
+
+  "inviteParentDialogTitle": "Invite parent",
+  "inviteParentDialogSubtitle": "Create a parent account linked to this student. If the email already belongs to someone, we will simply link it.",
+  "inviteParentEmailLabel": "Parent email",
+  "inviteParentEmailRequired": "Enter the parent email",
+  "inviteParentEmailInvalid": "Enter a valid email",
+  "inviteParentFirstNameLabel": "First name",
+  "inviteParentLastNameLabel": "Last name",
+  "inviteParentPhoneLabel": "Phone (optional)",
+  "inviteParentSendInvite": "Send invite",
+  "inviteParentActionLabel": "Invite Parent",
+  "inviteParentChipLinked": "Parent linked",
+  "inviteParentChipInvited": "Parent invite sent",
+  "inviteParentChipMissing": "No parent account",
+  "inviteParentSuccessLinked": "Existing parent linked to this student.",
+  "inviteParentSuccessInvited": "Invite email sent to the parent.",
+  "inviteParentSuccessInvitedNoEmail": "Parent account created, but the invite email could not be sent.",
+
+  "enrollmentStateChooseProgram": "1. Choose a Program",
+  "enrollmentStateClassPreferences": "2. Class Preferences",
+  "enrollmentStatePricingAndHours": "3. Pricing & Hours",
+  "enrollmentStateStudentPrograms": "Student Programs",
+  "enrollmentStateCustomizePerStudent": "Customize per student",
+  "enrollmentStateSpecificLanguage": "Specific Language",
+  "enrollmentStateGradeLevel": "Grade Level",
+  "enrollmentStateProficiencyLevel": "Proficiency Level",
+  "enrollmentStatePreferredLanguage": "Preferred Language",
+  "enrollmentStateWhichDaysWorkBest": "Which days work best?",
+  "enrollmentStateWhatTimeOfDay": "What time of day?",
+  "enrollmentStateAdvancedSelectTimes": "Advanced: Select specific times",
+  "enrollmentStateAddCustomTime": "Add custom time",
+  "enrollmentStateOptional": "Optional",
+  "enrollmentStateSchedulingNotesHint": "e.g. prefer after 4pm weekdays, avoid Fridays...",
+  "enrollmentStateClassType": "Class Type",
+  "enrollmentStateOneOnOne": "1-on-1",
+  "enrollmentStateGroupClass": "Group",
+  "enrollmentStateBoth": "Both",
+  "enrollmentStateGender": "Gender",
+  "enrollmentStateMale": "Male",
+  "enrollmentStateFemale": "Female",
+  "enrollmentStatePreferredTimeOfDay": "Preferred Time of Day",
+  "enrollmentStatePreferredDays": "Preferred Days",
+
+  "prepareBroadcastTitle": "Prepare & Broadcast",
+  "prepareBroadcastSubtitle": "Review and adjust the schedule before teachers see it",
+  "prepareBroadcastParentStudentNotes": "Parent/Student Notes",
+  "prepareBroadcastScheduleForTeachers": "Schedule for Teachers",
+  "prepareBroadcastTimezoneReference": "Timezone Reference",
+  "prepareBroadcastNotesForTeachers": "Notes for Teachers",
+  "prepareBroadcastTimeSlots": "Time Slots",
+  "prepareBroadcastNoTimeSlots": "No time slots specified. Add at least one so teachers know when.",
+  "prepareBroadcastPickSlotHint": "Pick start and end time to add a slot",
+  "prepareBroadcastPickTime": "Pick time",
+  "prepareBroadcastPickStartTime": "Pick start time",
+  "prepareBroadcastPickEndTime": "Pick end time",
+  "prepareBroadcastRemoveSlot": "Remove",
+  "prepareBroadcastGeneralPreference": "General preference:",
+  "prepareBroadcastTimesAreIn": "The times above are in:",
+  "prepareBroadcastTimezoneHelper": "Student's timezone from the form. Edit if you know it's different.",
+  "prepareBroadcastAdminNotesHint": "Optional notes visible to teachers (e.g. \"Parent prefers afternoon, exact times flexible\")",
+  "prepareBroadcastBroadcasting": "Broadcasting...",
+  "prepareBroadcastBroadcastToTeachers": "Broadcast to Teachers",
+  "prepareBroadcastSelectDayFirst": "Select at least one day before broadcasting.",
+  "prepareBroadcastAddTimeSlotFirst": "Add at least one time slot before broadcasting.",
+  "prepareBroadcastSlotAlreadyExists": "This time slot already exists.",
+  "prepareBroadcastEndBeforeStart": "End time must be after start time.",
+  "prepareBroadcastOverlapError": "This overlaps with \"{slot}\". Pick a non-overlapping time.",
+  "@prepareBroadcastOverlapError": {
     "placeholders": {
-      "count": {"type": "int"}
+      "slot": {
+        "type": "String"
+      }
     }
   },
-  "tontineOpenSpots": "Open spots"
+
+  "adminActionCardsViewAll": "View all",
+  "adminActionCardsPendingTimesheets": "Pending timesheets",
+  "adminActionCardsTimesheetReview": "Timesheet review",
+  "adminActionCardsErrorPendingTimesheets": "Error loading pending timesheets",
+  "adminActionCardsNoPendingTimesheets": "No pending timesheets",
+  "adminActionCardsOverdueTasks": "Overdue tasks",
+  "adminActionCardsOpenTasks": "Open tasks",
+  "adminActionCardsErrorTasks": "Error loading tasks",
+  "adminActionCardsNoOverdueTasks": "No overdue tasks",
+  "adminActionCardsRecentSubmissions": "Recent submissions",
+  "adminActionCardsAllSubmissions": "All submissions",
+  "adminActionCardsErrorSubmissions": "Error loading submissions",
+  "adminActionCardsNoSubmissions": "No submissions yet",
+  "adminActionCardsUpcomingShifts": "Upcoming shifts",
+  "adminActionCardsOpenShifts": "Open shifts",
+  "adminActionCardsErrorShifts": "Error loading upcoming shifts",
+  "adminActionCardsNoUpcomingShifts": "No upcoming shifts",
+  "adminActionCardsApplicantsToReview": "Applicants to review",
+  "adminActionCardsReviewApplications": "Review applications",
+  "adminActionCardsNoStudentApplicants": "No student applicants",
+  "adminActionCardsStudents": "Students",
+  "adminActionCardsViewStudents": "View students",
+  "adminActionCardsNoTeacherApplicants": "No teacher applicants",
+  "adminActionCardsTeachers": "Teachers",
+  "adminActionCardsViewTeachers": "View teachers",
+
+  "landingHeroHeadline": "Learn with online tutoring\nfrom anywhere in the world",
+  "landingHeroSearchHint": "What would you like to learn?",
+
+  "aboutValuesAuthenticity": "Authenticity",
+  "aboutValuesAuthenticityDesc": "Rooted in Quran & Sunnah",
+  "aboutValuesCompassion": "Compassion",
+  "aboutValuesCompassionDesc": "Patience & care for all",
+  "aboutValuesExcellence": "Excellence",
+  "aboutValuesExcellenceDesc": "High standards in education",
+  "aboutValuesCommunity": "Community",
+  "aboutValuesCommunityDesc": "Supportive global network",
+  "aboutValuesKnowledge": "Knowledge",
+  "aboutValuesKnowledgeDesc": "Transformative learning",
+  "aboutValuesAccessibility": "Accessibility",
+  "aboutValuesAccessibilityDesc": "Available worldwide"
 }

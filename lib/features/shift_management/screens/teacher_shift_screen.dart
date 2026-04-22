@@ -147,37 +147,44 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
     _filterShiftsForDate(date);
   }
 
-  Future<void> _handleClockIn(TeachingShift shift) async {
-    final now = DateTime.now();
-    final shiftStart = shift.shiftStart;
-    final programmingWindowStart =
-        shiftStart.subtract(const Duration(minutes: 1));
-
-    // Check if we're in the programming window (before shift start)
-    final isInProgramWindow =
-        now.isAfter(programmingWindowStart) && now.isBefore(shiftStart);
-
-    // Check if shift has started
-    final shiftHasStarted = !now.isBefore(shiftStart);
-
-    AppLogger.debug(
-        '_handleClockIn: isInProgramWindow=$isInProgramWindow, shiftHasStarted=$shiftHasStarted');
-
-    if (isInProgramWindow && !shiftHasStarted) {
-      // Start programmed clock-in
-      _startProgrammedClockIn(shift);
-    } else if (shiftHasStarted) {
-      // Immediate clock-in
-      await _performClockIn(shift);
-    } else {
-      // Too early - shouldn't happen but handle gracefully
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(AppLocalizations.of(context)!.tooEarlyToClockInPlease),
-          backgroundColor: Colors.orange,
+  /// Shows a dialog to program a clock-in
+  void _showProgramClockInDialog(TeachingShift shift) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          "Program Clock-In",
+          style: GoogleFonts.inter(fontWeight: FontWeight.w600),
         ),
-      );
-    }
+        content: Text(
+          "This shift starts in ${shift.shiftStart.difference(DateTime.now()).inMinutes} minutes. Would you like to program an automatic clock-in at the start time?",
+          style: GoogleFonts.inter(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              AppLocalizations.of(context)!.commonCancel,
+              style: GoogleFonts.inter(color: const Color(0xFF64748B)),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _startProgrammedClockIn(shift);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0E72ED),
+              foregroundColor: Colors.white,
+            ),
+            child: Text(
+              "Program",
+              style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   /// Start a programmed clock-in that will auto-trigger at shift start time
@@ -309,6 +316,31 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
         ),
       );
     }
+  }
+
+  /// Handle clock-in (aligned with dashboard: offer program within 60 min of start)
+  Future<void> _handleClockIn(TeachingShift shift) async {
+    final now = DateTime.now();
+    final shiftStart = shift.shiftStart;
+    final diff = shiftStart.difference(now);
+
+    if (diff.inMinutes > 60) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(AppLocalizations.of(context)!.tooEarlyToClockInPlease),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    if (diff.inMinutes > 0 && diff.inMinutes <= 60) {
+      _showProgramClockInDialog(shift);
+      return;
+    }
+
+    await _performClockIn(shift);
   }
 
   /// Perform the actual clock-in
@@ -792,6 +824,7 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
     return TeacherShiftCalendar(
       shifts: _allShifts,
       onSelectShift: (shift) => _showShiftDetails(shift),
+      onClockIn: _handleClockIn,
       initialDisplayDate: _selectedDate,
       initialView: calendarView,
     );

@@ -10,12 +10,14 @@ class SidebarItem {
 
   static final Map<int, IconData> _knownMaterialIconsByCodePoint = {
     Icons.assignment_ind.codePoint: Icons.assignment_ind,
+    Icons.attach_money.codePoint: Icons.attach_money,
     Icons.bug_report.codePoint: Icons.bug_report,
     Icons.build.codePoint: Icons.build,
     Icons.chat.codePoint: Icons.chat,
     Icons.dashboard.codePoint: Icons.dashboard,
     Icons.description.codePoint: Icons.description,
     Icons.groups.codePoint: Icons.groups,
+    Icons.groups_outlined.codePoint: Icons.groups_outlined,
     Icons.list_alt.codePoint: Icons.list_alt,
     Icons.menu_book.codePoint: Icons.menu_book,
     Icons.notifications.codePoint: Icons.notifications,
@@ -51,8 +53,7 @@ class SidebarItem {
 
   factory SidebarItem.fromJson(Map<String, dynamic> json) {
     final rawIconCode = json['iconCode'];
-    final iconCode =
-        rawIconCode is int ? rawIconCode : int.tryParse('$rawIconCode');
+    final iconCode = rawIconCode is int ? rawIconCode : int.tryParse('$rawIconCode');
 
     return SidebarItem(
       id: json['id'],

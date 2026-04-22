@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -29,7 +30,11 @@ class ProfilePictureService {
     }
   }
 
-  /// Upload profile picture to Firebase Storage and update Firestore
+  /// Upload profile picture to Firebase Storage and update Firestore.
+  ///
+  /// Writes to `profile_pictures/{uid}/{timestamp}.jpg` so Storage rules can
+  /// enforce that only the owner can write to their own folder. The previous
+  /// picture (if any) is best-effort deleted after the new URL is persisted.
   static Future<String?> uploadProfilePicture(XFile imageFile) async {
     try {
       final user = FirebaseAuth.instance.currentUser;
@@ -37,22 +42,24 @@ class ProfilePictureService {
         throw Exception('No user logged in');
       }
 
-      // Create a unique file name
-      final String fileName = 'profile_pictures/${user.uid}_${DateTime.now().millisecondsSinceEpoch}.jpg';
-      
-      // Upload to Firebase Storage
+      final userDocRef = _firestore.collection('users').doc(user.uid);
+      final previousDoc = await userDocRef.get();
+      final String? previousUrl =
+          previousDoc.data()?['profile_picture_url'] as String?;
+
+      final String fileName =
+          'profile_pictures/${user.uid}/${DateTime.now().millisecondsSinceEpoch}.jpg';
+
       final Reference ref = _storage.ref().child(fileName);
-      
+
       UploadTask uploadTask;
       if (kIsWeb) {
-        // Web upload
         final bytes = await imageFile.readAsBytes();
         uploadTask = ref.putData(
           bytes,
           SettableMetadata(contentType: 'image/jpeg'),
         );
       } else {
-        // Mobile upload
         final File file = File(imageFile.path);
         uploadTask = ref.putFile(
           file,
@@ -60,19 +67,18 @@ class ProfilePictureService {
         );
       }
 
-      // Wait for upload to complete
       final TaskSnapshot snapshot = await uploadTask;
-      
-      // Get download URL
       final String downloadUrl = await snapshot.ref.getDownloadURL();
 
-      // Update Firestore user document
-      await _firestore.collection('users').doc(user.uid).update({
+      await userDocRef.update({
         'profile_picture_url': downloadUrl,
         'profile_picture_updated_at': FieldValue.serverTimestamp(),
       });
 
-      AppLogger.error('Profile picture uploaded successfully: $downloadUrl');
+      if (previousUrl != null && previousUrl.isNotEmpty) {
+        unawaited(deleteOldProfilePicture(previousUrl));
+      }
+
       return downloadUrl;
     } catch (e) {
       AppLogger.error('Error uploading profile picture: $e');
@@ -80,23 +86,20 @@ class ProfilePictureService {
     }
   }
 
-  /// Delete old profile picture from storage
+  /// Delete a previously uploaded profile picture from Storage.
+  ///
+  /// Resolves the object path from the Firebase download URL (which contains
+  /// a URL-encoded `/o/<path>` segment) rather than trying to guess the path
+  /// from the filename, so nested folders like `profile_pictures/{uid}/…`
+  /// still resolve correctly.
   static Future<void> deleteOldProfilePicture(String oldUrl) async {
     try {
       if (oldUrl.isEmpty) return;
-      
-      // Extract file path from URL
-      final Uri uri = Uri.parse(oldUrl);
-      final String path = uri.pathSegments.last;
-      
-      // Delete from storage
-      final Reference ref = _storage.ref().child('profile_pictures/$path');
+
+      final Reference ref = _storage.refFromURL(oldUrl);
       await ref.delete();
-      
-      AppLogger.error('Old profile picture deleted successfully');
     } catch (e) {
       AppLogger.error('Error deleting old profile picture: $e');
-      // Don't throw - it's okay if old picture deletion fails
     }
   }
 
@@ -140,8 +143,6 @@ class ProfilePictureService {
         'profile_picture_url': FieldValue.delete(),
         'profile_picture_updated_at': FieldValue.serverTimestamp(),
       });
-
-      AppLogger.error('Profile picture removed successfully');
     } catch (e) {
       AppLogger.error('Error removing profile picture: $e');
       rethrow;

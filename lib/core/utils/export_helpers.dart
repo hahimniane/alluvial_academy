@@ -292,6 +292,36 @@ class ExportHelpers {
     }
   }
 
+  /// Multi-sheet Excel export (used by admin timesheet review and similar flows).
+  static void exportExcelMultiSheet(
+    Map<String, List<String>> sheetHeaders,
+    Map<String, List<List<dynamic>>> sheetData,
+    String baseFileName,
+  ) {
+    _exportToExcel(sheetHeaders, sheetData, baseFileName);
+  }
+
+  /// Single CSV file; cell values are stringified.
+  static Future<void> exportCsvDynamic(
+    BuildContext context, {
+    required List<String> headers,
+    required List<List<dynamic>> rows,
+    required String baseFileName,
+  }) async {
+    final stringRows = rows
+        .map(
+          (r) => r.map((e) => e?.toString() ?? '').toList(),
+        )
+        .toList();
+    await _exportToCsv(
+      headers,
+      stringRows,
+      baseFileName,
+      messenger: ScaffoldMessenger.of(context),
+      l10n: AppLocalizations.of(context)!,
+    );
+  }
+
   static void _populateSheet(
     xl.Excel excel,
     String sheetName,

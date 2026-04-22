@@ -177,7 +177,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get loginUnexpectedError => 'An unexpected error occurred.';
 
   @override
-  String get loginAlluvialHub => 'Alluvial Education Hub';
+  String get loginAlluvialHub => 'Alluwal Education Hub';
 
   @override
   String get settingsTitle => 'Settings';
@@ -256,22 +256,48 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get profileHelpParents =>
-      'Help parents and students learn about your expertise';
+      'Keep your in-app profile up to date — admins use it to match you with families.';
+
+  @override
+  String get profilePrivacyNotice =>
+      'This information is private to you and admins. It is not shown on the public website. Admins manage the public Team page separately from the CMS.';
 
   @override
   String get profileFullName => 'Full Name';
 
   @override
+  String get profileFullNameHint => 'Enter your full name';
+
+  @override
   String get profileProfessionalTitle => 'Professional Title';
+
+  @override
+  String get profileProfessionalTitleHint =>
+      'e.g., Quran & Tajweed Specialist, Arabic Teacher';
 
   @override
   String get profileBiography => 'Biography';
 
   @override
+  String get profileBiographyHint =>
+      'A short summary of your background and teaching approach';
+
+  @override
   String get profileYearsExperience => 'Years of Experience';
 
   @override
+  String get profileYearsExperienceHint => 'e.g., 10+ years';
+
+  @override
+  String get profileSpecialtiesHint =>
+      'e.g., Quran Memorization, Tajweed, Arabic Grammar, Islamic Studies';
+
+  @override
   String get profileEducationCerts => 'Education & Certifications';
+
+  @override
+  String get profileEducationCertsHint =>
+      'e.g., PhD in Islamic Theology from Al-Azhar University, Ijazah in Quran';
 
   @override
   String get profileSaving => 'Saving...';
@@ -281,6 +307,25 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get profileSavedSuccess => 'Profile saved successfully!';
+
+  @override
+  String get profilePhotoChangeHint =>
+      'Tap the camera icon to change your photo';
+
+  @override
+  String get profilePhotoUpdated => 'Profile photo updated';
+
+  @override
+  String get profilePhotoUploadFailed => 'Could not update profile photo';
+
+  @override
+  String get profilePhotoFromGallery => 'Choose from gallery';
+
+  @override
+  String get profilePhotoFromCamera => 'Take a photo';
+
+  @override
+  String get profilePhotoRemove => 'Remove photo';
 
   @override
   String profilePercentComplete(int percent) {
@@ -318,6 +363,39 @@ class AppLocalizationsEn extends AppLocalizations {
   String get navHome => 'Home';
 
   @override
+  String get navTestimonials => 'Stories';
+
+  @override
+  String get navEnrollSection => 'Enroll';
+
+  @override
+  String get headerTaglineLine1 => 'Faith-centered learning online.';
+
+  @override
+  String get headerTaglineLine2 => 'Islamic, African & academic paths.';
+
+  @override
+  String get headerInstagramTooltip => 'View on Instagram';
+
+  @override
+  String get headerFacebookTooltip => 'View on Facebook';
+
+  @override
+  String get headerTiktokTooltip => 'View on TikTok';
+
+  @override
+  String get headerSocialOpenError => 'Could not open the link.';
+
+  @override
+  String get navPricing => 'Pricing';
+
+  @override
+  String get navAbout => 'About';
+
+  @override
+  String get navOurTeam => 'Our Team';
+
+  @override
   String get navShifts => 'Shifts';
 
   @override
@@ -340,6 +418,469 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get navTasks => 'Tasks';
+
+  @override
+  String get landingOurPrograms => 'Our Programs';
+
+  @override
+  String get landingExploreMainCourses => 'Explore Our Main Courses';
+
+  @override
+  String get landingProgramsDescription =>
+      'Discover comprehensive learning paths designed for non-Arabic speakers to master the Quran, Islamic Studies, and Arabic language.';
+
+  @override
+  String get landingCourseBlurbIslamic =>
+      'Quran, Arabic, Tawhid, Hadith, Tafsir';
+
+  @override
+  String get landingCourseBlurbAfro =>
+      'Pular, Mandingo, Swahili, Wolof, Yoruba';
+
+  @override
+  String get landingCourseBlurbMath => 'Elementary through advanced calculus';
+
+  @override
+  String get landingCourseBlurbProgramming =>
+      'Web, mobile, and software development';
+
+  @override
+  String get landingCourseBlurbAdultLiteracy =>
+      'Reading and writing in English and French';
+
+  @override
+  String get landingCourseBlurbAfterSchool =>
+      'Math, science, physics, and more';
+
+  @override
+  String get landingLearnMore => 'Learn More';
+
+  @override
+  String get landingPricingPlan => 'Pricing Plan';
+
+  @override
+  String get landingTransparentRates => 'Transparent & Affordable Rates';
+
+  @override
+  String get landingPricingDescription =>
+      'Choose the plan that fits your schedule. All prices are informational - contact us to enroll.';
+
+  @override
+  String get landingPricingTrackIslamic => 'Islamic & AdLam';
+
+  @override
+  String get landingPricingTrackTutoring => 'Tutoring & literacy';
+
+  @override
+  String get landingEnrollNow => 'Enroll Now';
+
+  @override
+  String get landingPricingEnrollMultipleStudents => 'Enroll multiple students';
+
+  @override
+  String get landingCtaTitle => 'Ready to start learning?';
+
+  @override
+  String get landingCtaBody =>
+      'Many families and learners work with us for Islamic studies, languages, tutoring, and more. Explore our programs and get in touch when you are ready to enroll.';
+
+  @override
+  String get landingPaymentPolicy => 'Payment Policy';
+
+  @override
+  String get landingPaymentPolicyText1 =>
+      'Payment must be made at the beginning of each month, not at the end.';
+
+  @override
+  String get landingPaymentPolicyText2 =>
+      'Payment methods: Zelle (646-338-1286), MoneyGram, Bank Transfer, CashApp, or Western Union.';
+
+  @override
+  String get landingContactInfo =>
+      'WhatsApp: (+1) 646-872-8590  |  alluwalacademy@gmail.com';
+
+  @override
+  String get navMegaColIslamicAfro => 'Islamic & AfroLanguages';
+
+  @override
+  String get navMegaColAcademic => 'Academic & tutoring';
+
+  @override
+  String get navMegaColAdults => 'Adults & literacy';
+
+  @override
+  String get navMegaColTeam => 'Teaching & careers';
+
+  @override
+  String get navMegaLinkIslamicStudies => 'Islamic Studies';
+
+  @override
+  String get navMegaLinkAfroLanguages => 'AfroLanguages & AdLam';
+
+  @override
+  String get navMegaLinkMath => 'Math Classes';
+
+  @override
+  String get navMegaLinkProgramming => 'Programming';
+
+  @override
+  String get navMegaLinkAfterSchool => 'After School Tutoring';
+
+  @override
+  String get navMegaLinkAdultLiteracy => 'Adult Literacy';
+
+  @override
+  String get landingPricingContinueWithPlan => 'Continue with this plan';
+
+  @override
+  String get landingPricingChangePlan => 'Change plan';
+
+  @override
+  String get pricingPlanIslamic14Title => 'Islamic & AdLam — 1–4 hrs/week';
+
+  @override
+  String get pricingPlanIslamic14Subtitle => '30 min and 1 hour sessions';
+
+  @override
+  String get pricingPlanIslamicWeekendTitle =>
+      'Islamic & AdLam — Weekend group';
+
+  @override
+  String get pricingPlanIslamicWeekendSubtitle =>
+      'Fri / Sat / Sun, 2 hours per day';
+
+  @override
+  String get pricingPlanTutoring5Title => 'Tutoring & literacy — 5+ hrs/week';
+
+  @override
+  String get pricingPlanTutoring5Subtitle => 'Higher weekly hours';
+
+  @override
+  String get pricingPlanTutoring13Title => 'Tutoring & literacy — 1–3 hrs/week';
+
+  @override
+  String get pricingPlanTutoring13Subtitle => '1 hour sessions';
+
+  @override
+  String get pricingPlanTutoring4Title => 'Tutoring & literacy — 4+ hrs/week';
+
+  @override
+  String get pricingPlanTutoring4Subtitle => '1 hour sessions';
+
+  @override
+  String get pricingRate30min => '30 min session';
+
+  @override
+  String get pricingRate1hour => '1 hour session';
+
+  @override
+  String get pricingRatePerHour => 'Per hour';
+
+  @override
+  String get pricingBandUnder4HrsPerHr => 'Under 4 hrs/week (per hr)';
+
+  @override
+  String get pricingBand4PlusHrsPerHr => '4+ hrs/week (per hr)';
+
+  @override
+  String get pricingBandUnder5HrsPerHr => 'Under 5 hrs/week (per hr)';
+
+  @override
+  String get pricingBand5PlusHrsPerHr => '5+ hrs/week (per hr)';
+
+  @override
+  String get pricingExamplePrefix => 'Example';
+
+  @override
+  String get enrollmentSelectedPlanBanner => 'Selected pricing plan';
+
+  @override
+  String get enrollmentChoosePricingTier => 'Choose your pricing tier';
+
+  @override
+  String get enrollmentPricingTierHint =>
+      'Pick the plan that matches how you want to learn. You can change it before you submit.';
+
+  @override
+  String get enrollmentPricingRequired =>
+      'Please choose a pricing tier to continue.';
+
+  @override
+  String get enrollmentChangePricingTier => 'Change tier';
+
+  @override
+  String get enrollmentPlanProgramMismatch =>
+      'Your program doesn’t match this pricing tier. Change the program or pick another tier.';
+
+  @override
+  String get enrollmentMultiStudentTrackHint =>
+      'Each child can choose a different program. Estimated pricing uses each student’s program.';
+
+  @override
+  String get enrollmentMultiStudentHoursHint =>
+      'The hours and price at the top are for the first child only. For each additional child, use Hours per week under their program card—you’ll see the same monthly estimate there and can adjust again on the Schedule step.';
+
+  @override
+  String get enrollmentFlowContinue => 'Continue';
+
+  @override
+  String get enrollmentFlowSubmit => 'Submit enrollment';
+
+  @override
+  String get enrollmentNavNextStudent => 'Next student';
+
+  @override
+  String get enrollmentStepYouAndContact => 'You & contact';
+
+  @override
+  String get enrollmentStepChildren => 'Children';
+
+  @override
+  String get enrollmentStepClasses => 'Classes';
+
+  @override
+  String get enrollmentStepTimes => 'Times';
+
+  @override
+  String get enrollmentWizardRoleTitle => 'Who\'s enrolling';
+
+  @override
+  String get enrollmentWizardRoleSubtitle =>
+      'Student, parent, or guardian — and how many children if applicable.';
+
+  @override
+  String get enrollmentWizardProgramTitle => 'Program & pricing';
+
+  @override
+  String get enrollmentWizardProgramSubtitle =>
+      'Track, hours per week, subject, level, and class type.';
+
+  @override
+  String get enrollmentWizardStudentsTitle => 'Student details';
+
+  @override
+  String get enrollmentWizardStudentsSubtitle =>
+      'Names, ages, and genders for each learner.';
+
+  @override
+  String get enrollmentWizardScheduleTitle => 'Schedule';
+
+  @override
+  String get enrollmentWizardScheduleSubtitle =>
+      'Preferred days, times, and notes.';
+
+  @override
+  String get enrollmentWizardContactTitle => 'Contact & review';
+
+  @override
+  String get enrollmentWizardContactSubtitle =>
+      'Review your selections, enter contact details, then submit.';
+
+  @override
+  String get enrollmentContactPanelTitle => 'Your contact info';
+
+  @override
+  String get enrollmentContactPanelHint =>
+      'We use this to confirm enrollment and reach you about scheduling.';
+
+  @override
+  String get enrollmentContactParentFullNameLabel => 'Parent / guardian name';
+
+  @override
+  String get enrollmentContactParentFullNameHint =>
+      'As on ID or school records';
+
+  @override
+  String get enrollmentContactEmailFieldLabel => 'Email';
+
+  @override
+  String get enrollmentParentNameRequired =>
+      'Please enter the parent or guardian name.';
+
+  @override
+  String get enrollmentRoleStudentTitle => 'Student';
+
+  @override
+  String get enrollmentRoleStudentSubtitle => 'I\'m signing up for myself.';
+
+  @override
+  String get enrollmentRoleParentTitle => 'Parent';
+
+  @override
+  String get enrollmentRoleParentSubtitle =>
+      'I\'m enrolling one or more children.';
+
+  @override
+  String get enrollmentRoleGuardianTitle => 'Guardian';
+
+  @override
+  String get enrollmentRoleGuardianSubtitle =>
+      'I\'m responsible for a learner\'s enrollment.';
+
+  @override
+  String get accountLinked => 'Account Linked';
+
+  @override
+  String get alreadyHaveChildEnrolled => 'Already have a child enrolled?';
+
+  @override
+  String get welcomeBack => 'Welcome back';
+
+  @override
+  String get selectCountry => 'Select Country';
+
+  @override
+  String get city => 'City';
+
+  @override
+  String get enrollmentSummaryPanelTitle => 'Your selections';
+
+  @override
+  String get enrollmentSummaryTapToExpand => 'Show summary';
+
+  @override
+  String get enrollmentSummaryTapToCollapse => 'Hide summary';
+
+  @override
+  String get enrollmentProgramSameForAllTitle =>
+      'Program for all your children';
+
+  @override
+  String get enrollmentProgramSameForAllSubtitle =>
+      'Everyone uses the same class type, level, and subject. You can change this below if needed.';
+
+  @override
+  String get enrollmentProgramDifferentProgramsLink =>
+      'Use a different program for one or more children';
+
+  @override
+  String get enrollmentProgramSameProgramLink =>
+      'Use the same program for everyone';
+
+  @override
+  String enrollmentProgramWizardProgress(int current, int total) {
+    return 'Student $current of $total';
+  }
+
+  @override
+  String get enrollmentProgramWizardCtaHint =>
+      'Complete the fields for this student, then tap Continue. When all students are done, Continue moves you to the next step.';
+
+  @override
+  String enrollmentSummaryLineDetail(String program, int hours, String price) {
+    return '$program · $hours hrs/wk · $price';
+  }
+
+  @override
+  String enrollmentSummaryAllChildrenTitle(int count) {
+    return 'All $count children';
+  }
+
+  @override
+  String get enrollmentProgramFieldLabel => 'Program';
+
+  @override
+  String enrollmentFooterWeeklyHoursSum(int count, int hours) {
+    return '$count students · $hours total hrs/wk';
+  }
+
+  @override
+  String enrollmentFooterHouseholdTotalMo(String total) {
+    return 'Est. $total/mo total';
+  }
+
+  @override
+  String enrollmentFooterPerChildSameMo(String each) {
+    return '$each/mo per child';
+  }
+
+  @override
+  String enrollmentSummarySameProgramHouseholdDetail(
+      String program, int hours, String each, String total) {
+    return '$program · $hours hrs/wk each · $each per child · $total household/mo';
+  }
+
+  @override
+  String get enrollmentCustomTimePickEndTitle => 'End time';
+
+  @override
+  String get enrollmentCustomTimeInvalidRange =>
+      'End time must be after start time.';
+
+  @override
+  String get enrollmentFooterDetails => 'Details';
+
+  @override
+  String get enrollmentScheduleDetailedSlotsTitle =>
+      'Pick specific time slots (optional)';
+
+  @override
+  String get enrollmentScheduleDefaultSubtitle =>
+      'Choose days and a general time. Open optional slots only if you want exact times now.';
+
+  @override
+  String get enrollmentScheduleSelectTimeOfDayOrSlots =>
+      'Select a time of day, or open “Pick specific time slots” below.';
+
+  @override
+  String enrollmentStudentProgramTrackMissing(int studentNumber) {
+    return 'Student $studentNumber: choose a program category (the three options), then level and class type.';
+  }
+
+  @override
+  String get enrollmentTierRatesLabel => 'Est. rates (USD)';
+
+  @override
+  String get enrollmentDurationSetToWeekend =>
+      'Weekend group pricing uses 2-hour sessions. Session length set to 2 hrs.';
+
+  @override
+  String get enrollmentDurationSetToStandardTier =>
+      'This tier uses 30-minute or 1-hour sessions. Session length was adjusted to match.';
+
+  @override
+  String get enrollmentTutoring4PlusWeeklyMinimum =>
+      'This plan requires at least 4 hours per week in total. Select more preferred days or a longer session length.';
+
+  @override
+  String enrollmentTutoring4PlusWeeklyMinimumStudent(int studentNumber) {
+    return 'Student $studentNumber: at least 4 hours per week are required—add more days or a longer session length.';
+  }
+
+  @override
+  String get enrollmentTutoring4PlusWeeklyHint =>
+      '4+ hrs/week means four or more total hours each week. Your days × session length should reach at least 4 (for example, four 1-hour days or two 2-hour days).';
+
+  @override
+  String get enrollmentScheduleDurationRestricted =>
+      'Only session lengths that match your pricing tier are available below.';
+
+  @override
+  String get enrollmentScheduleSelectDuration =>
+      'Please select a session duration.';
+
+  @override
+  String get enrollmentScheduleDurationNotAllowed =>
+      'Choose a session length that matches your pricing tier.';
+
+  @override
+  String get enrollmentScheduleConfirmTimesHint =>
+      'Exact class times are confirmed with you after we review your request.';
+
+  @override
+  String get enrollmentStudentHoursPerWeek => 'Hours per week for this student';
+
+  @override
+  String get enrollmentSchedulingNotesLabel => 'Scheduling notes (optional)';
+
+  @override
+  String get enrollmentSchedulingNotesHint =>
+      'e.g. prefer after 4pm weekdays, avoid Fridays…';
+
+  @override
+  String enrollmentStudentHoursMissing(int studentNumber) {
+    return 'Student $studentNumber: set hours per week for this student in Schedule preferences.';
+  }
 
   @override
   String get navQuiz => 'Quiz';
@@ -886,50 +1427,6 @@ class AppLocalizationsEn extends AppLocalizations {
       'Only administrators can create group chats';
 
   @override
-  String get chatVideo => 'Video';
-
-  @override
-  String get chatEditMessage => 'Edit';
-
-  @override
-  String get chatMessageEdited => 'Message edited';
-
-  @override
-  String get chatFailedEditMessage => 'Failed to edit message';
-
-  @override
-  String get chatEditYourMessage => 'Edit your message...';
-
-  @override
-  String get chatSave => 'Save';
-
-  @override
-  String get chatSupportInbox => 'Support Inbox';
-
-  @override
-  String get chatDirectMessage => 'Direct Message';
-
-  @override
-  String get chatSendPersonalMessage => 'Send a personal message';
-
-  @override
-  String get chatSupportChat => 'Support Chat';
-
-  @override
-  String chatStartSupportWith(String name) {
-    return 'Start a support conversation with $name';
-  }
-
-  @override
-  String get chatSendingVideo => 'Sending video...';
-
-  @override
-  String get chatVideoSent => 'Video sent!';
-
-  @override
-  String get chatFailedSendVideo => 'Failed to send video';
-
-  @override
   String get roleAdmin => 'Administrator';
 
   @override
@@ -1333,6 +1830,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get timesheetClockOutTime => 'Clock Out Time';
 
   @override
+  String get timesheetClockOutNextDayHint =>
+      'Clock-out moves to the next calendar day when it would be before clock-in on the timesheet date (overnight sessions).';
+
+  @override
   String get timesheetPaymentCalculation => 'Payment Calculation';
 
   @override
@@ -1717,6 +2218,49 @@ class AppLocalizationsEn extends AppLocalizations {
       'Job accepted! Admin will finalize the schedule and contact you.';
 
   @override
+  String get jobBoardNotAvailableHint =>
+      'If you are not available for this student, you do not need to submit a response—you can close this dialog.';
+
+  @override
+  String get jobBoardResponseSubmitted => 'Response submitted to admin.';
+
+  @override
+  String get jobBoardDeclineTeacher => 'Decline';
+
+  @override
+  String get jobBoardTeacherResponseDeclined => 'Declined';
+
+  @override
+  String get jobBoardDeclineTeacherConfirmTitle => 'Decline this response?';
+
+  @override
+  String get jobBoardDeclineTeacherConfirmBody =>
+      'The teacher can submit a new response later. If this posting was closed because they marked fully available, it will reopen for other teachers.';
+
+  @override
+  String get jobBoardHiddenFullAvailabilityBanner =>
+      'Hidden from teachers: a teacher marked fully available. Reopen to show this posting on the job board again (responses are kept).';
+
+  @override
+  String get jobBoardReopenForTeachersButton => 'Reopen for teachers';
+
+  @override
+  String get jobBoardVisibleToTeachersHint =>
+      'Visible on the teacher job board — partial and new responses are allowed until someone marks fully available or you close the posting.';
+
+  @override
+  String get jobBoardReopenedForTeachers =>
+      'Job board reopened. Teachers can see and respond again.';
+
+  @override
+  String get jobBoardClosedOtherReasonHint =>
+      'This posting is not on the teacher job board (closed by an admin or another workflow).';
+
+  @override
+  String get jobBoardAcceptedByTeacherHint =>
+      'A teacher accepted this student from the job board (matched flow).';
+
+  @override
   String get zeroResults => '0 Results';
 
   @override
@@ -1729,12 +2273,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aComputer => 'A Computer';
 
   @override
-  String get aNewVersionOfAlluvialAcademy =>
-      'A New Version Of Alluvial Academy';
+  String get aNewVersionOfAlluvialAcademy => 'A New Version Of Alluwal Academy';
 
   @override
   String get aNewVersionOfAlluvialAcademy2 =>
-      'A New Version Of Alluvial Academy2';
+      'A New Version Of Alluwal Academy2';
 
   @override
   String get aPhone => 'A Phone';
@@ -2384,7 +2927,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get bonusPerExcellence => 'Bonus Per Excellence';
 
   @override
-  String get bookFreeTrialClass => 'Book Free Trial Class';
+  String get bookFreeTrialClass => 'Request enrollment';
 
   @override
   String get breakDuration => 'Break Duration';
@@ -2560,6 +3103,27 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get claimShift => 'Claim Shift';
+
+  @override
+  String get claimShiftErrorAlreadyTeacher =>
+      'You are already assigned to this shift.';
+
+  @override
+  String get claimShiftErrorAuth => 'Please sign in again, then try claiming.';
+
+  @override
+  String get claimShiftErrorGeneric => 'Could not claim this shift. Try again.';
+
+  @override
+  String get claimShiftErrorNotFound => 'This shift could not be found.';
+
+  @override
+  String get claimShiftErrorPermission =>
+      'You do not have permission to claim shifts. Ask an admin.';
+
+  @override
+  String get claimShiftErrorUnavailable =>
+      'This shift is no longer available to claim.';
 
   @override
   String get classCards => 'Class Cards';
@@ -3576,7 +4140,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get failedToAddMembers => 'Failed To Add Members';
 
   @override
-  String get failedToClaimShiftPleaseTry => 'Failed To Claim Shift Please Try';
+  String get failedToClaimShiftPleaseTry =>
+      'Could not claim this shift. Try again.';
 
   @override
   String get failedToCleanupDraftsE => 'Failed To Cleanup Drafts E';
@@ -3774,7 +4339,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get financialSummary => 'Financial Summary';
 
   @override
-  String get findPrograms => 'Find Programs';
+  String get findPrograms => 'Courses';
 
   @override
   String get findShiftsForAStudentMatching =>
@@ -3929,6 +4494,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get auditClassCompletionRate => 'Class completion';
 
   @override
+  String get teacherAuditShiftFromTradeNotice => 'Claimed via shift trade.';
+
+  @override
   String get auditFormComplianceLabel => 'Form compliance';
 
   @override
@@ -4042,6 +4610,22 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get auditStatusPending => 'Pending';
+
+  @override
+  String get teacherHomeStatsCompletedWeek => 'Completed';
+
+  @override
+  String get teacherHomeStatsWeekEarnings => 'Earnings';
+
+  @override
+  String get teacherHomeStatsAbsencesMtd => 'Absences (month)';
+
+  @override
+  String get teacherHomeStatsAssignmentsMtd =>
+      'Assessments & assignments (month)';
+
+  @override
+  String get teacherHomeStatsLateMtd => 'Late clock-ins (month)';
 
   @override
   String get teacherAuditTabSummary => 'Summary';
@@ -4533,115 +5117,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get invoices => 'Invoices';
 
   @override
-  String get sidebarFinance => 'Finance';
-
-  @override
-  String get sidebarCreateInvoice => 'Create Invoice';
-
-  @override
-  String get sidebarAllInvoices => 'All Invoices';
-
-  @override
-  String adminInvoiceBalanceDue(String amount) {
-    return 'Balance due: $amount';
-  }
-
-  @override
-  String get adminInvoiceFilterAll => 'All';
-
-  @override
-  String get adminInvoiceInvalidNumbers => 'Enter valid amounts';
-
-  @override
-  String get adminInvoicesTitle => 'All invoices';
-
-  @override
-  String get adminInvoicesSubtitle =>
-      'View, edit, delete, and download PDFs for parent billing.';
-
-  @override
-  String get adminInvoiceDownloadPdf => 'Download PDF';
-
-  @override
-  String get adminInvoicePrintPdf => 'Print';
-
-  @override
-  String get adminInvoiceEdit => 'Edit';
-
-  @override
-  String get adminInvoiceDelete => 'Delete';
-
-  @override
-  String get adminInvoiceDeleteTitle => 'Delete invoice';
-
-  @override
-  String adminInvoiceDeleteConfirm(String number) {
-    return 'Delete $number? This cannot be undone.';
-  }
-
-  @override
-  String adminInvoiceBillingPeriodChip(String period) {
-    return 'Billing: $period';
-  }
-
-  @override
-  String get adminInvoiceEditBillingPeriodLabel => 'Billing period';
-
-  @override
-  String get adminInvoiceEditBillingPeriodHint =>
-      'yyyy-MM (e.g. 2026-01), optional';
-
-  @override
-  String invoiceDetailPayerStudentLine(String parent, String student) {
-    return 'From $parent | Student: $student';
-  }
-
-  @override
-  String invoiceDetailBillingMonthLine(String month) {
-    return 'Billing period: $month';
-  }
-
-  @override
-  String get invoiceDisplayDocumentTitle => 'Invoice';
-
-  @override
-  String get invoiceDisplayInvoiceNumberLabel => 'Invoice number';
-
-  @override
-  String get invoiceDisplayIssueDateLabel => 'Issue date';
-
-  @override
-  String get invoiceDisplayLineItemsTitle => 'Line items';
-
-  @override
-  String get invoiceDisplaySubtotal => 'Subtotal';
-
-  @override
-  String get invoiceDisplayPaidToward => 'Paid to date';
-
-  @override
-  String get invoiceDisplayAmountDue => 'Amount due';
-
-  @override
-  String get invoiceDisplayContactLabel => 'Phone';
-
-  @override
-  String get invoiceDisplayEmailLabel => 'Email';
-
-  @override
-  String invoiceDisplayReceivedBy(String name) {
-    return 'Received by $name';
-  }
-
-  @override
-  String get invoiceDisplayParentFallback => 'Parent';
-
-  @override
-  String invoiceDisplayItemQuantityLine(int quantity, String unitPrice) {
-    return '$quantity × $unitPrice';
-  }
-
-  @override
   String get isAdminIsadmin => 'Is Admin Isadmin';
 
   @override
@@ -4957,7 +5432,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get logIn => 'Log In';
 
   @override
-  String get logInSignUp => 'Log In Sign Up';
+  String get logInSignUp => 'Log In';
 
   @override
   String get logOutOfYourAccount => 'Log Out Of Your Account';
@@ -5565,6 +6040,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get number => 'Number';
 
   @override
+  String get offerShiftToOtherTeachers => 'Offer this shift to other teachers';
+
+  @override
   String get oftenFewDaysAWeek => 'Often Few Days AWeek';
 
   @override
@@ -5753,12 +6231,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get payInvoice => 'Pay Invoice';
-
-  @override
-  String get continueToSecureCheckout => 'Continue to secure checkout';
-
-  @override
-  String get invoiceAlreadyPaid => 'Already paid';
 
   @override
   String get payNow => 'Pay Now';
@@ -6108,6 +6580,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get quickActions => 'Quick Actions';
+
+  @override
+  String get quickAccessTrading => 'Trading';
 
   @override
   String get quickEdit => 'Quick Edit';
@@ -6563,7 +7038,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get selectAFormToGetStarted => 'Select AForm To Get Started';
 
   @override
-  String get selectAProgramForEachStudent => 'Select AProgram For Each Student';
+  String get selectAProgramForEachStudent =>
+      'Enroll all students in the same program?';
+
+  @override
+  String programWillApplyToAllStudents(int count) {
+    return 'This program will apply to all $count students.';
+  }
 
   @override
   String get selectARoleAndSetThe => 'Select ARole And Set The';
@@ -6971,7 +7452,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get studentProgressOverview => 'Student Progress Overview';
 
   @override
-  String get studentSInformation => 'Student SInformation';
+  String get studentSInformation => 'Students\' information';
 
   @override
   String get studentStudent => 'Student Student';
@@ -7499,6 +7980,306 @@ class AppLocalizationsEn extends AppLocalizations {
   String get timesheetReview => 'Timesheet Review';
 
   @override
+  String get timesheetReviewLastWeek => 'Last week';
+
+  @override
+  String get timesheetReviewEditedOnly => 'Edited only';
+
+  @override
+  String get timesheetReviewNeedsAttention => 'Needs attention';
+
+  @override
+  String get timesheetReviewSelectAllPendingVisible =>
+      'Select all pending (visible)';
+
+  @override
+  String timesheetReviewPendingCount(int count) {
+    return '$count pending';
+  }
+
+  @override
+  String timesheetReviewShowingCount(int count) {
+    return '$count shown';
+  }
+
+  @override
+  String get timesheetReviewQueue => 'Queue';
+
+  @override
+  String get timesheetReviewOpenQueue => 'Open queue';
+
+  @override
+  String get timesheetReviewExportTitle => 'Export timesheets';
+
+  @override
+  String get timesheetReviewExportScopeLabel => 'Rows to export';
+
+  @override
+  String timesheetReviewExportFiltered(int count) {
+    return 'Current filter ($count rows)';
+  }
+
+  @override
+  String timesheetReviewExportSelected(int count) {
+    return 'Selected only ($count rows)';
+  }
+
+  @override
+  String get timesheetReviewExportExcel => 'Excel workbook (.xlsx)';
+
+  @override
+  String get timesheetReviewExportExcelSubtitleWithSummaries =>
+      'Detail sheet (your column preset) plus daily, weekly, and monthly summaries.';
+
+  @override
+  String get timesheetReviewExportExcelSubtitleDetailOnly =>
+      'One sheet: detail rows only, using the column preset below.';
+
+  @override
+  String get timesheetReviewExportIncludeSummarySheets =>
+      'Include summary sheets';
+
+  @override
+  String get timesheetReviewExportIncludeSummarySheetsSubtitle =>
+      'Adds daily, weekly, and monthly rollups to the Excel file.';
+
+  @override
+  String get timesheetReviewExportPresetLabel => 'Column preset';
+
+  @override
+  String get timesheetReviewExportPresetPayroll => 'Payroll';
+
+  @override
+  String get timesheetReviewExportPresetPayrollSubtitle =>
+      'IDs, hours, rate, pay, status';
+
+  @override
+  String get timesheetReviewExportPresetOperations => 'Operations';
+
+  @override
+  String get timesheetReviewExportPresetOperationsSubtitle =>
+      'Shift identity and schedule vs actual';
+
+  @override
+  String get timesheetReviewExportPresetAudit => 'Audit';
+
+  @override
+  String get timesheetReviewExportPresetAuditSubtitle =>
+      'Forms, edits, devices, notes, compliance';
+
+  @override
+  String get timesheetReviewExportPresetFull => 'Full';
+
+  @override
+  String get timesheetReviewExportPresetFullSubtitle => 'All export columns';
+
+  @override
+  String get timesheetReviewExportDetailedCsv => 'CSV (.csv)';
+
+  @override
+  String get timesheetReviewExportDetailedCsvSubtitle =>
+      'Single file using the column preset (no summary sheets).';
+
+  @override
+  String timesheetReviewExportOnScreenSummary(int count) {
+    return 'Exports the $count rows currently shown in the table (after filters and search). Seven columns only, matching the grid: teacher, date, student, hours, payment, source, status.';
+  }
+
+  @override
+  String get timesheetReviewExportExcelOneSheet =>
+      'One worksheet in the workbook (no extra summary tabs).';
+
+  @override
+  String get timesheetReviewExportCsvSameLayout =>
+      'Same rows and 7 columns, comma-separated.';
+
+  @override
+  String get timesheetExportSheetDetail => 'Detail';
+
+  @override
+  String get timesheetExportSheetDaily => 'Daily summary';
+
+  @override
+  String get timesheetExportSheetWeekly => 'Weekly summary';
+
+  @override
+  String get timesheetExportSheetMonthly => 'Monthly summary';
+
+  @override
+  String get timesheetExportSummaryHdrTeacher => 'Teacher';
+
+  @override
+  String get timesheetExportSummaryHdrDate => 'Date';
+
+  @override
+  String get timesheetExportSummaryHdrDay => 'Day';
+
+  @override
+  String get timesheetExportSummaryHdrWeekStarting => 'Week starting';
+
+  @override
+  String get timesheetExportSummaryHdrMonth => 'Month';
+
+  @override
+  String get timesheetExportSummaryHdrTotalScheduled => 'Total scheduled';
+
+  @override
+  String get timesheetExportSummaryHdrTotalWorked => 'Total worked';
+
+  @override
+  String get timesheetExportSummaryHdrDifference => 'Difference';
+
+  @override
+  String get timesheetExportSummaryHdrDailyPay => 'Daily pay';
+
+  @override
+  String get timesheetExportSummaryHdrWeeklyPay => 'Weekly pay';
+
+  @override
+  String get timesheetExportSummaryHdrMonthlyPay => 'Monthly pay';
+
+  @override
+  String get timesheetExportColEntryId => 'Entry ID';
+
+  @override
+  String get timesheetExportColTeacherName => 'Teacher name';
+
+  @override
+  String get timesheetExportColDate => 'Date';
+
+  @override
+  String get timesheetExportColDay => 'Day';
+
+  @override
+  String get timesheetExportColWeekStarting => 'Week starting';
+
+  @override
+  String get timesheetExportColMonth => 'Month';
+
+  @override
+  String get timesheetExportColStudentSubject => 'Student / subject';
+
+  @override
+  String get timesheetExportColScheduledStart => 'Scheduled start';
+
+  @override
+  String get timesheetExportColScheduledEnd => 'Scheduled end';
+
+  @override
+  String get timesheetExportColClockIn => 'Clock in';
+
+  @override
+  String get timesheetExportColClockOut => 'Clock out';
+
+  @override
+  String get timesheetExportColScheduledHours => 'Scheduled hours';
+
+  @override
+  String get timesheetExportColWorkedHours => 'Worked hours';
+
+  @override
+  String get timesheetExportColHoursDifference => 'Hours difference';
+
+  @override
+  String get timesheetExportColHourlyRate => 'Hourly rate';
+
+  @override
+  String get timesheetExportColTotalPay => 'Total pay';
+
+  @override
+  String get timesheetExportColStatus => 'Status';
+
+  @override
+  String get timesheetExportColFormCompleted => 'Form completed';
+
+  @override
+  String get timesheetExportColEmployeeNotes => 'Employee notes';
+
+  @override
+  String get timesheetExportColManagerNotes => 'Manager notes';
+
+  @override
+  String get timesheetExportColShiftId => 'Shift ID';
+
+  @override
+  String get timesheetExportColShiftTitle => 'Shift title';
+
+  @override
+  String get timesheetExportColShiftType => 'Shift type';
+
+  @override
+  String get timesheetExportColSource => 'Source';
+
+  @override
+  String get timesheetExportColClockInDevice => 'Clock-in device';
+
+  @override
+  String get timesheetExportColClockOutDevice => 'Clock-out device';
+
+  @override
+  String get timesheetExportColReportedHours => 'Reported hours (form)';
+
+  @override
+  String get timesheetExportColFormNotes => 'Form notes';
+
+  @override
+  String get timesheetExportColFormResponseId => 'Form response ID';
+
+  @override
+  String get timesheetExportColIsEdited => 'Edited';
+
+  @override
+  String get timesheetExportColEditApproved => 'Edit approved';
+
+  @override
+  String get timesheetExportColEditedAt => 'Edited at';
+
+  @override
+  String get timesheetExportColRejectionReason => 'Rejection reason';
+
+  @override
+  String get timesheetExportColClockInAddress => 'Clock-in address';
+
+  @override
+  String get timesheetExportColClockOutAddress => 'Clock-out address';
+
+  @override
+  String get timesheetReviewGridOverflowMenuTooltip => 'More actions';
+
+  @override
+  String get timesheetReviewGridOverflowExport => 'Export…';
+
+  @override
+  String get timesheetReviewGridOverflowSelectAllPending =>
+      'Select all pending';
+
+  @override
+  String get timesheetReviewGridOverflowColumns => 'Column visibility';
+
+  @override
+  String get timesheetReviewGridOverflowColumnsSoon => 'Coming soon';
+
+  @override
+  String get timesheetReviewColumnTooltipHours =>
+      'Worked hours from this entry. Hover a row for schedule vs actual and form data.';
+
+  @override
+  String get timesheetReviewColumnTooltipPayment =>
+      'Pay amount for this entry using current hours and rate.';
+
+  @override
+  String get timesheetReviewSearchHint => 'Teacher, student, date, shift…';
+
+  @override
+  String get timesheetReviewIncompleteEntry =>
+      'Missing clock-out or valid hours';
+
+  @override
+  String timesheetReviewBulkSelection(int count) {
+    return '$count selected';
+  }
+
+  @override
   String get timesheetSubmittedForReview => 'Timesheet Submitted For Review';
 
   @override
@@ -7860,13 +8641,26 @@ class AppLocalizationsEn extends AppLocalizations {
   String get weeklyCalendar => 'Weekly Calendar';
 
   @override
+  String get shiftCalendarThreeDayTitle => '3-day schedule';
+
+  @override
+  String get shiftCalendarViewModeHint =>
+      'Grid shows three days at a time; list shows your agenda.';
+
+  @override
+  String get shiftCalendarViewGrid => 'Grid';
+
+  @override
+  String get shiftCalendarViewList => 'List';
+
+  @override
   String get weeklyRecurrenceSettings => 'Weekly Recurrence Settings';
 
   @override
   String get welcomeBackFirstname => 'Welcome Back Firstname';
 
   @override
-  String get welcomeToAlluvialAcademy => 'Welcome To Alluvial Academy';
+  String get welcomeToAlluvialAcademy => 'Welcome To Alluwal Academy';
 
   @override
   String get whatNeedsToBeDone => 'What Needs To Be Done';
@@ -7942,7 +8736,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get youAreNotAssignedToThis => 'You Are Not Assigned To This';
 
   @override
-  String get youCanAddMultipleStudentsIn => 'You Can Add Multiple Students In';
+  String get youCanAddMultipleStudentsIn =>
+      'Use + and − to include more than one child.';
 
   @override
   String get youCanOnlyDeleteTasksYou => 'You Can Only Delete Tasks You';
@@ -9564,9 +10359,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get sidebarAudits => 'Audits';
 
   @override
-  String get sidebarCms => 'CMS';
-
-  @override
   String get sidebarCommunication => 'Communication';
 
   @override
@@ -10312,6 +11104,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get teamAllTeam => 'All Team';
 
   @override
+  String get teamLocationTbd => 'Location to be announced';
+
+  @override
   String get teamAllTeamTagline => 'The full Alluwal family';
 
   @override
@@ -10995,545 +11790,1431 @@ class AppLocalizationsEn extends AppLocalizations {
       'Optional. Included in PDF/Excel under this section.';
 
   @override
-  String get commonAdd => 'Add';
+  String get sidebarPublicSiteCms => 'Pricing & public team';
 
   @override
-  String get tontineSavings => 'Savings';
+  String get publicSiteCmsTitle => 'Public website — pricing & team';
 
   @override
-  String get tontineTooltipDescription =>
-      'A rotating savings circle where members each contribute a fixed amount every cycle, and one member receives the entire pooled amount. This rotates until every member has received exactly once. No interest, no fees.';
+  String get publicSiteCmsTabPricing => 'Pricing';
 
   @override
-  String get tontineCircles => 'Circles';
+  String get publicSiteCmsTabTeam => 'Team on website';
 
   @override
-  String get tontineAdminCircles => 'Admin Circles';
+  String get publicSiteCmsTabSocial => 'Social links';
 
   @override
-  String get tontineHomeSubtitle =>
-      'Track your savings circles, invite members, and manage each monthly payout cycle.';
+  String get publicSiteCmsTabLanding => 'Home hero';
 
   @override
-  String get tontineSignInRequired => 'Sign in to view your savings circles.';
+  String get publicSiteCmsLandingIntro =>
+      'Customize the landing page hero strip: background color (hex) and optional image URLs (https). Leave URLs empty to use the built-in photos. Prefer dark hero colors so headline text stays readable. On the web, some stock sites block hotlinking or CORS—use Upload to host images reliably on Firebase Storage.';
 
   @override
-  String get tontineNoCirclesTitle => 'No circles yet';
+  String get publicSiteCmsLandingHeroBg => 'Hero background color';
 
   @override
-  String get tontineNoCirclesSubtitle =>
-      'Create your first rotating savings circle to start collecting monthly contributions.';
+  String get publicSiteCmsLandingHeroBgHint => '#RRGGBB (example: #001E4E)';
 
   @override
-  String get tontineMyCircles => 'My circles';
+  String get publicSiteCmsLandingMainImage => 'Center hero image';
 
   @override
-  String tontinePendingInvites(int count) {
-    return 'Pending invites: $count';
+  String get publicSiteCmsLandingLeftImage => 'Left circle image';
+
+  @override
+  String get publicSiteCmsLandingRightImage => 'Right panel image';
+
+  @override
+  String get publicSiteCmsLandingUpload => 'Upload image';
+
+  @override
+  String get publicSiteCmsSaveLanding => 'Save landing hero';
+
+  @override
+  String get publicSiteCmsLandingSaved =>
+      'Landing hero saved. Refresh the public site to see changes.';
+
+  @override
+  String get publicSiteCmsSocialIntro =>
+      'Choose which icons appear in the blue header bar. Each network stays hidden until you turn it on and add a valid https link.';
+
+  @override
+  String get publicSiteCmsSocialShowIcon => 'Show on website';
+
+  @override
+  String get publicSiteCmsSocialUrl => 'Link URL';
+
+  @override
+  String get publicSiteCmsSocialInstagram => 'Instagram';
+
+  @override
+  String get publicSiteCmsSocialFacebook => 'Facebook';
+
+  @override
+  String get publicSiteCmsSocialTiktok => 'TikTok';
+
+  @override
+  String get publicSiteCmsSaveSocial => 'Save social links';
+
+  @override
+  String get publicSiteCmsSocialSaved =>
+      'Social links saved. The public header updates for all visitors.';
+
+  @override
+  String get publicSiteCmsSavePricing => 'Save pricing to website';
+
+  @override
+  String get publicSiteCmsPricingSaved =>
+      'Pricing saved. The landing page and new enrollment quotes will use these values.';
+
+  @override
+  String get publicSiteCmsSaveThisTrack => 'Save this track';
+
+  @override
+  String publicSiteCmsPricingSavedThisTrack(String name) {
+    return 'Pricing saved including $name. All tracks are kept in sync.';
   }
 
   @override
-  String get tontineReviewInvite => 'Review invite';
+  String get publicSiteCmsHeroColorPickerTitle => 'Hero background color';
 
   @override
-  String get tontineCreateCircle => 'Create Circle';
+  String get publicSiteCmsImageUploadEmptyHint =>
+      'No image yet. Paste a URL or tap Upload.';
 
   @override
-  String get tontineCircleDetails => 'Circle Dashboard';
+  String get publicSiteCmsPricingHelp =>
+      'Three public tracks: Islamic & AdLam, Tutoring & Literacy, and Group Classes. Amounts here power the home page pricing cards and new enrollment estimates (4 weeks per month for individual tracks; 4.33 for group).';
 
   @override
-  String get tontineCircleNotFound => 'Circle not found.';
+  String get publicSiteCmsSession30 => '30-minute session (USD)';
 
   @override
-  String get tontineStatusForming => 'Forming';
+  String get publicSiteCmsSession60 => '1-hour session base (USD)';
 
   @override
-  String get tontineStatusActive => 'Active';
+  String get publicSiteCmsHourly => 'Hourly rate (USD)';
 
   @override
-  String get tontineStatusCompleted => 'Completed';
+  String get publicSiteCmsTutoringHrUnder4 =>
+      'Tutoring: \$/hr when weekly hours are under 4';
 
   @override
-  String get tontineStatusCancelled => 'Cancelled';
+  String get publicSiteCmsTutoringHr4Plus =>
+      'Tutoring: \$/hr when weekly hours are 4 or more';
 
   @override
-  String get tontineCyclePending => 'Pending';
+  String get publicSiteCmsIslamicHrUnder5 =>
+      'Islamic 1-on-1: \$/hr when weekly hours are under 5';
 
   @override
-  String get tontineCycleInProgress => 'In progress';
+  String get publicSiteCmsIslamicHr5Plus =>
+      'Islamic 1-on-1: \$/hr when weekly hours are 5 or more';
 
   @override
-  String get tontineCycleCompleted => 'Completed';
+  String get publicSiteCmsTrackBaseHourly => 'Base hourly rate (USD)';
 
   @override
-  String get tontineCurrentCycle => 'Current cycle';
+  String get publicSiteCmsTrackDiscountHourly => 'Discount hourly rate (USD)';
 
   @override
-  String get tontineDueDate => 'Due date';
+  String get publicSiteCmsTrackDiscountThreshold =>
+      'Volume discount threshold (weekly hours)';
 
   @override
-  String get tontineCurrentRecipient => 'Current recipient';
+  String get publicSiteCmsTrackDiscountThresholdHint =>
+      'Discounted rate applies when weekly hours are greater than this number (default 4).';
 
   @override
-  String get tontineRecipientPending => 'Recipient pending';
+  String get publicSiteCmsBulletsHint =>
+      'Feature bullets (optional): each line shows as a checkmarked highlight on the home page pricing card for this track.';
 
   @override
-  String tontineMonthOf(int month, int total) {
-    return 'Month $month of $total';
+  String get publicSiteCmsBulletsPlaceholder =>
+      'One line per bullet, shown with checkmarks on the card';
+
+  @override
+  String get publicSiteCmsTeamEmpty =>
+      'No profiles yet. Add people to show on the public Team page instead of the default list.';
+
+  @override
+  String get publicSiteCmsTeamImportBundled =>
+      'Import profiles from website defaults';
+
+  @override
+  String get publicSiteCmsTeamImportBundledHint =>
+      'Copies the default team list into Firestore with stable IDs. Imported rows start inactive until you link a real user and activate them for the public site.';
+
+  @override
+  String publicSiteCmsTeamImportDone(int imported, int skipped) {
+    return 'Imported $imported profile(s). Skipped $skipped that already existed.';
   }
 
   @override
-  String get tontineConfirmedCount => 'Confirmed payments';
+  String get publicSiteCmsLinkedUserUid => 'Linked account (Firebase UID)';
 
   @override
-  String get tontineCircleCompletedMessage =>
-      'This circle has finished every payout cycle.';
+  String get publicSiteCmsLinkedUserUidHint =>
+      'Search the directory and pick a user — required for every public profile.';
 
   @override
-  String get tontineWaitingForCycle =>
-      'Waiting for the first cycle to be created.';
+  String get publicSiteCmsLinkedUserSectionTitle => 'Linked user (required)';
 
   @override
-  String get tontineCircleStillForming => 'Circle is still forming';
+  String get publicSiteCmsLinkedUserMissingHint =>
+      'No user linked yet. Search and select a staff account.';
 
   @override
-  String tontineMembersJoined(int active, int total) {
-    return '$active of $total members joined';
+  String get publicSiteCmsPickLinkedUserButton => 'Search users…';
+
+  @override
+  String get publicSiteCmsPickLinkedUserTitle => 'Link to a user';
+
+  @override
+  String get publicSiteCmsPickLinkedUserSearchLabel => 'Search by email or UID';
+
+  @override
+  String get publicSiteCmsPickLinkedUserSearchHint =>
+      'Type at least 2 characters';
+
+  @override
+  String get publicSiteCmsPickLinkedUserEmpty =>
+      'No matches. Try another email prefix or paste a full Firebase UID.';
+
+  @override
+  String get publicSiteCmsClearLinkedUser => 'Remove link';
+
+  @override
+  String get publicSiteCmsLinkedUserRequired =>
+      'Link this profile to a user before saving.';
+
+  @override
+  String get publicSiteCmsCityRequired =>
+      'City / location is required for the public team page.';
+
+  @override
+  String get publicSiteCmsDuplicateLinkedUser =>
+      'Another team profile already uses this user. Unlink or delete the other profile first.';
+
+  @override
+  String get publicSiteCmsTeamInactiveBadge => 'inactive';
+
+  @override
+  String get publicSiteCmsTeamImageLoadFailed =>
+      'Could not load image (check URL or network).';
+
+  @override
+  String get publicSiteCmsTeamAddProfile => 'Add profile';
+
+  @override
+  String get publicSiteCmsTeamSaved => 'Profile saved';
+
+  @override
+  String get publicSiteCmsConfirmDelete =>
+      'Delete this profile from the website?';
+
+  @override
+  String get publicSiteCmsName => 'Name';
+
+  @override
+  String get publicSiteCmsNameRequired => 'Name is required.';
+
+  @override
+  String get publicSiteCmsRoleTitle => 'Title / role';
+
+  @override
+  String get publicSiteCmsCategory => 'Section';
+
+  @override
+  String get publicSiteCmsCategoryLeadership => 'Leadership';
+
+  @override
+  String get publicSiteCmsCategoryTeacher => 'Teachers';
+
+  @override
+  String get publicSiteCmsCity => 'City';
+
+  @override
+  String get publicSiteCmsEducation => 'Education';
+
+  @override
+  String get publicSiteCmsBio => 'Bio';
+
+  @override
+  String get publicSiteCmsWhyAlluwal => 'Why Alluwal';
+
+  @override
+  String get publicSiteCmsLanguagesComma => 'Languages (comma-separated)';
+
+  @override
+  String get publicSiteCmsSortOrder => 'Sort order (lower first)';
+
+  @override
+  String get publicSiteCmsImageUrl => 'Photo URL (optional)';
+
+  @override
+  String get publicSiteCmsUploadPhoto => 'Upload photo';
+
+  @override
+  String get publicSiteCmsUploadNoBytes => 'Could not read file bytes.';
+
+  @override
+  String get publicSiteCmsUploadDone => 'Upload complete — URL filled in.';
+
+  @override
+  String get publicSiteCmsDashboardCardTitle => 'Public pricing & team';
+
+  @override
+  String get publicSiteCmsDashboardCardBody =>
+      'Change landing prices, bullet lines, and who appears on the Team page.';
+
+  @override
+  String get publicSiteCmsOpenEditor => 'Open editor';
+
+  @override
+  String get pricingTrackIslamicTitle => 'Islamic & AdLam';
+
+  @override
+  String get pricingTrackTutoringTitle => 'Tutoring & Literacy';
+
+  @override
+  String get pricingTrackGroupTitle => 'Group Classes';
+
+  @override
+  String get pricingTrackIslamicDesc => '1-on-1 Islamic and AdLam classes';
+
+  @override
+  String get pricingTrackTutoringDesc => '1-on-1 tutoring and literacy support';
+
+  @override
+  String get pricingTrackGroupDesc => 'Weekend group learning sessions';
+
+  @override
+  String get pricingPerHour => 'hr';
+
+  @override
+  String get pricingDiscountBadge => 'Lower rate for over 4 hrs/week';
+
+  @override
+  String get pricingHoursPerWeek => 'hrs/wk';
+
+  @override
+  String pricingMonthlyBreakdown(
+      Object hours, Object rate, Object weeks, Object monthly) {
+    return '$hours hrs × \$$rate/hr × $weeks weeks ≈ \$$monthly/mo';
   }
 
   @override
-  String get tontineWaitingForMembers => 'Waiting for members';
+  String get pricingSelectTrack => 'Select a learning track';
 
   @override
-  String get tontineActivateCircle => 'Activate Circle';
+  String get pricingSelectHours => 'Select hours per week';
 
   @override
-  String get tontineExpectedAmount => 'Expected amount';
+  String get enrollmentHoursRequired => 'Please select hours per week';
 
   @override
-  String get tontineSubmittedAmount => 'Submitted amount';
+  String get enrollmentTrackRequired => 'Please select a pricing track';
 
   @override
-  String get tontineReceiptAttached => 'Receipt attached';
+  String get enrollmentPhoneRequired => 'Please enter your phone number.';
 
   @override
-  String get tontineRejectionReason => 'Rejection reason';
+  String get enrollmentPhoneInvalid =>
+      'Enter a valid phone number (digits only) for the country shown on the field.';
 
   @override
-  String get tontineReviewSubmissions => 'Review Submissions';
+  String get enrollmentWhatsAppInvalid =>
+      'Enter a valid WhatsApp number (digits only), or leave this field empty.';
 
   @override
-  String get tontineSubmitPayment => 'Submit Payment';
+  String get unifiedProgramsTitle => 'Explore our programs';
 
   @override
-  String get tontinePaymentConfirmed => 'Payment confirmed';
+  String get unifiedProgramsScrollToTop => 'Back to top';
 
   @override
-  String get tontineContributionPending => 'Unpaid';
+  String get unifiedProgramsSubtitle =>
+      'Choose a program, preview pricing by hours per week, then continue to enrollment — all in one place.';
 
   @override
-  String get tontineContributionSubmitted => 'Submitted';
+  String get unifiedProgramsDeselect => 'Clear selection';
 
   @override
-  String get tontineContributionConfirmed => 'Confirmed';
+  String get unifiedProgramsEnroll => 'Continue to enrollment';
 
   @override
-  String get tontineContributionRejected => 'Rejected';
+  String get unifiedProgramsHoursPerWeek => 'Hours per week';
 
   @override
-  String get tontineContributionMissed => 'Missed';
+  String get unifiedProgramsWhatsIncluded => 'What\'s included in this program';
 
   @override
-  String get tontineMemberInvited => 'Invited';
-
-  @override
-  String get tontineInviteByEmail => 'Email';
-
-  @override
-  String get tontineInviteByPhone => 'Phone';
-
-  @override
-  String get tontineMissedMoveToBack => 'Move to back';
-
-  @override
-  String get tontineMissedSuspend => 'Suspend member';
-
-  @override
-  String get tontineNoDeadline => 'No deadline set';
-
-  @override
-  String get tontineDueToday => 'Due today';
-
-  @override
-  String tontineDueInDays(int days) {
-    return 'Due in $days days';
+  String unifiedProgramsPriceLine(Object hours, Object rate, Object monthly) {
+    return '$hours hrs/wk × \$$rate/hr · ≈ \$$monthly/mo';
   }
 
   @override
-  String tontineOverdueBy(String duration) {
-    return 'Overdue by $duration';
+  String get unifiedCatIslamicTitle => 'Islamic studies';
+
+  @override
+  String get unifiedCatLanguagesTitle => 'Languages';
+
+  @override
+  String get unifiedCatEnglishTitle => 'English & literacy';
+
+  @override
+  String get unifiedCatMathTitle => 'Mathematics';
+
+  @override
+  String get unifiedCatProgrammingTitle => 'Coding & technology';
+
+  @override
+  String get unifiedCatAfterSchoolTitle => 'After-school tutoring';
+
+  @override
+  String get unifiedCatIslamicDesc =>
+      'Quran, Hadith, Arabic Language, Tawhid, Tafsir, and Fiqh';
+
+  @override
+  String get unifiedCatLanguagesDesc =>
+      'English, French, Adlam, Swahili, Yoruba, and more';
+
+  @override
+  String get unifiedCatEnglishDesc =>
+      'Grammar, Reading, Creative Writing, and Test Prep';
+
+  @override
+  String get unifiedCatMathDesc => 'Elementary through Calculus and Statistics';
+
+  @override
+  String get unifiedCatProgrammingDesc =>
+      'Kids Coding, Web, Mobile, Python, and Game Dev';
+
+  @override
+  String get unifiedCatAfterSchoolDesc =>
+      'Elementary, Middle School, and High School support';
+
+  @override
+  String unifiedCatSubjectCount(int count) {
+    return '$count subjects';
   }
 
   @override
-  String tontinePosition(int position) {
-    return 'Position $position';
+  String get unifiedProgIslamQuranTitle => 'Quran';
+
+  @override
+  String get unifiedProgIslamQuranDesc =>
+      'Complete Quran learning program including recitation, memorization, and understanding.';
+
+  @override
+  String get unifiedProgIslamQuranAge => 'All ages';
+
+  @override
+  String get unifiedProgIslamQuranFeat1 =>
+      'Proper recitation with Tajweed rules';
+
+  @override
+  String get unifiedProgIslamQuranFeat2 => 'Memorization techniques for Hifz';
+
+  @override
+  String get unifiedProgIslamQuranFeat3 => 'Understanding the meanings';
+
+  @override
+  String get unifiedProgIslamHadithTitle => 'Hadith';
+
+  @override
+  String get unifiedProgIslamHadithDesc =>
+      'Study the sayings and teachings of Prophet Muhammad (PBUH).';
+
+  @override
+  String get unifiedProgIslamHadithAge => 'Ages 10+';
+
+  @override
+  String get unifiedProgIslamHadithFeat1 => 'Authentic Hadith collections';
+
+  @override
+  String get unifiedProgIslamHadithFeat2 => 'Understanding Hadith sciences';
+
+  @override
+  String get unifiedProgIslamHadithFeat3 =>
+      'Practical application in daily life';
+
+  @override
+  String get unifiedProgIslamArabicTitle => 'Arabic language';
+
+  @override
+  String get unifiedProgIslamArabicDesc =>
+      'Learn the language of the Quran from basics to fluency.';
+
+  @override
+  String get unifiedProgIslamArabicAge => 'Ages 7+';
+
+  @override
+  String get unifiedProgIslamArabicFeat1 => 'Arabic alphabet and writing';
+
+  @override
+  String get unifiedProgIslamArabicFeat2 => 'Grammar (Nahw) and morphology';
+
+  @override
+  String get unifiedProgIslamArabicFeat3 => 'Vocabulary building';
+
+  @override
+  String get unifiedProgIslamTawhidTitle => 'Tawhid';
+
+  @override
+  String get unifiedProgIslamTawhidDesc =>
+      'Understanding the oneness of Allah and core Islamic beliefs.';
+
+  @override
+  String get unifiedProgIslamTawhidAge => 'Ages 8+';
+
+  @override
+  String get unifiedProgIslamTawhidFeat1 => 'Fundamentals of Islamic faith';
+
+  @override
+  String get unifiedProgIslamTawhidFeat2 => 'Understanding Allah\'s attributes';
+
+  @override
+  String get unifiedProgIslamTawhidFeat3 => 'Pillars of faith (Iman)';
+
+  @override
+  String get unifiedProgIslamTafsirTitle => 'Tafsir';
+
+  @override
+  String get unifiedProgIslamTafsirDesc =>
+      'Deep understanding and interpretation of the Holy Quran.';
+
+  @override
+  String get unifiedProgIslamTafsirAge => 'Ages 12+';
+
+  @override
+  String get unifiedProgIslamTafsirFeat1 => 'Verse by verse explanation';
+
+  @override
+  String get unifiedProgIslamTafsirFeat2 => 'Historical context';
+
+  @override
+  String get unifiedProgIslamTafsirFeat3 => 'Practical life applications';
+
+  @override
+  String get unifiedProgIslamFiqhTitle => 'Fiqh';
+
+  @override
+  String get unifiedProgIslamFiqhDesc =>
+      'Understanding Islamic law and practical worship.';
+
+  @override
+  String get unifiedProgIslamFiqhAge => 'Ages 10+';
+
+  @override
+  String get unifiedProgIslamFiqhFeat1 => 'Rules of prayer and fasting';
+
+  @override
+  String get unifiedProgIslamFiqhFeat2 => 'Halal and Haram guidelines';
+
+  @override
+  String get unifiedProgIslamFiqhFeat3 => 'Islamic business ethics';
+
+  @override
+  String get unifiedProgLangEnglishTitle => 'English';
+
+  @override
+  String get unifiedProgLangEnglishDesc =>
+      'Complete support for reading, writing, grammar, vocabulary, and exam prep.';
+
+  @override
+  String get unifiedProgLangEnglishAge => 'Global';
+
+  @override
+  String get unifiedProgLangEnglishFeat1 => 'Homework help and comprehension';
+
+  @override
+  String get unifiedProgLangEnglishFeat2 => 'Grammar and vocabulary';
+
+  @override
+  String get unifiedProgLangEnglishFeat3 => 'Exam preparation';
+
+  @override
+  String get unifiedProgLangFrenchTitle => 'French';
+
+  @override
+  String get unifiedProgLangFrenchDesc =>
+      'Master French language skills including conversation, grammar, and cultural understanding.';
+
+  @override
+  String get unifiedProgLangFrenchAge => 'Global';
+
+  @override
+  String get unifiedProgLangFrenchFeat1 => 'Conversation practice';
+
+  @override
+  String get unifiedProgLangFrenchFeat2 => 'Grammar and writing';
+
+  @override
+  String get unifiedProgLangFrenchFeat3 => 'Cultural context';
+
+  @override
+  String get unifiedProgLangAdlamTitle => 'Adlam';
+
+  @override
+  String get unifiedProgLangAdlamDesc =>
+      'Learn the Adlam script for writing Fulani (Fulfulde/Pular)—a modern alphabet for this West African language.';
+
+  @override
+  String get unifiedProgLangAdlamAge => 'West Africa';
+
+  @override
+  String get unifiedProgLangAdlamFeat1 => 'Script and reading fundamentals';
+
+  @override
+  String get unifiedProgLangAdlamFeat2 => 'Fulfulde/Pular connection';
+
+  @override
+  String get unifiedProgLangAdlamFeat3 => 'Cultural preservation focus';
+
+  @override
+  String get unifiedProgLangSwahiliTitle => 'Swahili';
+
+  @override
+  String get unifiedProgLangSwahiliDesc =>
+      'East African Swahili with authentic instruction.';
+
+  @override
+  String get unifiedProgLangSwahiliAge => 'East Africa';
+
+  @override
+  String get unifiedProgLangSwahiliFeat1 => 'Speaking and listening';
+
+  @override
+  String get unifiedProgLangSwahiliFeat2 => 'Reading and writing';
+
+  @override
+  String get unifiedProgLangSwahiliFeat3 => 'Cultural immersion';
+
+  @override
+  String get unifiedProgLangYorubaTitle => 'Yoruba';
+
+  @override
+  String get unifiedProgLangYorubaDesc =>
+      'West African Yoruba with structured lessons.';
+
+  @override
+  String get unifiedProgLangYorubaAge => 'West Africa';
+
+  @override
+  String get unifiedProgLangYorubaFeat1 => 'Pronunciation and tones';
+
+  @override
+  String get unifiedProgLangYorubaFeat2 => 'Everyday conversation';
+
+  @override
+  String get unifiedProgLangYorubaFeat3 => 'Reading practice';
+
+  @override
+  String get unifiedProgLangAmharicTitle => 'Amharic';
+
+  @override
+  String get unifiedProgLangAmharicDesc =>
+      'Horn of Africa Amharic with clear progression.';
+
+  @override
+  String get unifiedProgLangAmharicAge => 'Horn of Africa';
+
+  @override
+  String get unifiedProgLangAmharicFeat1 => 'Ge\'ez script introduction';
+
+  @override
+  String get unifiedProgLangAmharicFeat2 => 'Conversation skills';
+
+  @override
+  String get unifiedProgLangAmharicFeat3 => 'Cultural context';
+
+  @override
+  String get unifiedProgLangWolofTitle => 'Wolof';
+
+  @override
+  String get unifiedProgLangWolofDesc =>
+      'West African Wolof for learners at any level.';
+
+  @override
+  String get unifiedProgLangWolofAge => 'West Africa';
+
+  @override
+  String get unifiedProgLangWolofFeat1 => 'Greetings and daily speech';
+
+  @override
+  String get unifiedProgLangWolofFeat2 => 'Grammar essentials';
+
+  @override
+  String get unifiedProgLangWolofFeat3 => 'Listening practice';
+
+  @override
+  String get unifiedProgLangHausaTitle => 'Hausa';
+
+  @override
+  String get unifiedProgLangHausaDesc =>
+      'Hausa across West and Central Africa.';
+
+  @override
+  String get unifiedProgLangHausaAge => 'West & Central Africa';
+
+  @override
+  String get unifiedProgLangHausaFeat1 => 'Core vocabulary';
+
+  @override
+  String get unifiedProgLangHausaFeat2 => 'Conversation';
+
+  @override
+  String get unifiedProgLangHausaFeat3 => 'Reading support';
+
+  @override
+  String get unifiedProgLitGrammarTitle => 'Grammar & vocabulary';
+
+  @override
+  String get unifiedProgLitGrammarDesc =>
+      'Master English grammar rules, sentence structure, and expand your vocabulary.';
+
+  @override
+  String get unifiedProgLitGrammarAge => 'All levels';
+
+  @override
+  String get unifiedProgLitGrammarFeat1 => 'Clear grammar explanations';
+
+  @override
+  String get unifiedProgLitGrammarFeat2 => 'Sentence patterns';
+
+  @override
+  String get unifiedProgLitGrammarFeat3 => 'Vocabulary expansion';
+
+  @override
+  String get unifiedProgLitReadingTitle => 'Reading comprehension';
+
+  @override
+  String get unifiedProgLitReadingDesc =>
+      'Develop critical reading skills and analyze texts across various genres.';
+
+  @override
+  String get unifiedProgLitReadingAge => 'Elementary to advanced';
+
+  @override
+  String get unifiedProgLitReadingFeat1 => 'Close reading strategies';
+
+  @override
+  String get unifiedProgLitReadingFeat2 => 'Genre variety';
+
+  @override
+  String get unifiedProgLitReadingFeat3 => 'Discussion and reflection';
+
+  @override
+  String get unifiedProgLitCreativeTitle => 'Creative writing';
+
+  @override
+  String get unifiedProgLitCreativeDesc =>
+      'Express yourself through stories, poetry, and creative narratives.';
+
+  @override
+  String get unifiedProgLitCreativeAge => 'Grades 3–12';
+
+  @override
+  String get unifiedProgLitCreativeFeat1 => 'Story structure';
+
+  @override
+  String get unifiedProgLitCreativeFeat2 => 'Voice and style';
+
+  @override
+  String get unifiedProgLitCreativeFeat3 => 'Peer feedback';
+
+  @override
+  String get unifiedProgLitAcademicTitle => 'Academic writing';
+
+  @override
+  String get unifiedProgLitAcademicDesc =>
+      'Master essays, research papers, and formal academic composition.';
+
+  @override
+  String get unifiedProgLitAcademicAge => 'High school & college';
+
+  @override
+  String get unifiedProgLitAcademicFeat1 => 'Thesis and argumentation';
+
+  @override
+  String get unifiedProgLitAcademicFeat2 => 'Research skills';
+
+  @override
+  String get unifiedProgLitAcademicFeat3 => 'Citation basics';
+
+  @override
+  String get unifiedProgLitLiteratureTitle => 'Literature analysis';
+
+  @override
+  String get unifiedProgLitLiteratureDesc =>
+      'Explore classic and contemporary literature with in-depth analysis.';
+
+  @override
+  String get unifiedProgLitLiteratureAge => 'High school';
+
+  @override
+  String get unifiedProgLitLiteratureFeat1 => 'Themes and symbolism';
+
+  @override
+  String get unifiedProgLitLiteratureFeat2 => 'Textual evidence';
+
+  @override
+  String get unifiedProgLitLiteratureFeat3 => 'Discussion skills';
+
+  @override
+  String get unifiedProgLitTestprepTitle => 'Test preparation';
+
+  @override
+  String get unifiedProgLitTestprepDesc =>
+      'Prepare for standardized tests including SAT, ACT, IELTS, and TOEFL.';
+
+  @override
+  String get unifiedProgLitTestprepAge => 'All ages';
+
+  @override
+  String get unifiedProgLitTestprepFeat1 => 'Timed practice';
+
+  @override
+  String get unifiedProgLitTestprepFeat2 => 'Strategy coaching';
+
+  @override
+  String get unifiedProgLitTestprepFeat3 => 'Weak-area focus';
+
+  @override
+  String get unifiedProgMathElemTitle => 'Elementary math';
+
+  @override
+  String get unifiedProgMathElemDesc =>
+      'Building a strong foundation in arithmetic, shapes, and problem-solving.';
+
+  @override
+  String get unifiedProgMathElemAge => 'Grades K–5';
+
+  @override
+  String get unifiedProgMathElemFeat1 => 'Number sense';
+
+  @override
+  String get unifiedProgMathElemFeat2 => 'Word problems';
+
+  @override
+  String get unifiedProgMathElemFeat3 => 'Confidence building';
+
+  @override
+  String get unifiedProgMathAlgebraTitle => 'Pre-algebra & algebra';
+
+  @override
+  String get unifiedProgMathAlgebraDesc =>
+      'Mastering variables, equations, functions, and graphing.';
+
+  @override
+  String get unifiedProgMathAlgebraAge => 'Grades 6–9';
+
+  @override
+  String get unifiedProgMathAlgebraFeat1 => 'Equation solving';
+
+  @override
+  String get unifiedProgMathAlgebraFeat2 => 'Functions and graphs';
+
+  @override
+  String get unifiedProgMathAlgebraFeat3 => 'Real-world modeling';
+
+  @override
+  String get unifiedProgMathGeometryTitle => 'Geometry';
+
+  @override
+  String get unifiedProgMathGeometryDesc =>
+      'Exploring shapes, sizes, relative positions, and properties of space.';
+
+  @override
+  String get unifiedProgMathGeometryAge => 'Grades 8–10';
+
+  @override
+  String get unifiedProgMathGeometryFeat1 => 'Proofs and reasoning';
+
+  @override
+  String get unifiedProgMathGeometryFeat2 => 'Area and volume';
+
+  @override
+  String get unifiedProgMathGeometryFeat3 => 'Spatial thinking';
+
+  @override
+  String get unifiedProgMathTrigTitle => 'Trigonometry';
+
+  @override
+  String get unifiedProgMathTrigDesc =>
+      'Understanding relationships between side lengths and angles of triangles.';
+
+  @override
+  String get unifiedProgMathTrigAge => 'Grades 10–11';
+
+  @override
+  String get unifiedProgMathTrigFeat1 => 'Unit circle';
+
+  @override
+  String get unifiedProgMathTrigFeat2 => 'Identities';
+
+  @override
+  String get unifiedProgMathTrigFeat3 => 'Applications';
+
+  @override
+  String get unifiedProgMathCalcTitle => 'Calculus';
+
+  @override
+  String get unifiedProgMathCalcDesc =>
+      'Limits, derivatives, integrals, and infinite series.';
+
+  @override
+  String get unifiedProgMathCalcAge => 'Grades 11–12+';
+
+  @override
+  String get unifiedProgMathCalcFeat1 => 'Conceptual understanding';
+
+  @override
+  String get unifiedProgMathCalcFeat2 => 'Problem sets';
+
+  @override
+  String get unifiedProgMathCalcFeat3 => 'Exam readiness';
+
+  @override
+  String get unifiedProgMathStatsTitle => 'Statistics';
+
+  @override
+  String get unifiedProgMathStatsDesc =>
+      'Analyzing data, probability, distributions, and inference.';
+
+  @override
+  String get unifiedProgMathStatsAge => 'High school & college';
+
+  @override
+  String get unifiedProgMathStatsFeat1 => 'Data literacy';
+
+  @override
+  String get unifiedProgMathStatsFeat2 => 'Probability models';
+
+  @override
+  String get unifiedProgMathStatsFeat3 => 'Interpretation skills';
+
+  @override
+  String get unifiedProgCodeKidsTitle => 'Coding for kids';
+
+  @override
+  String get unifiedProgCodeKidsDesc =>
+      'Introduction to logic, algorithms, and creativity through Scratch and Python basics.';
+
+  @override
+  String get unifiedProgCodeKidsAge => 'Ages 7–12';
+
+  @override
+  String get unifiedProgCodeKidsFeat1 => 'Games and stories';
+
+  @override
+  String get unifiedProgCodeKidsFeat2 => 'Logical thinking';
+
+  @override
+  String get unifiedProgCodeKidsFeat3 => 'Safe, paced lessons';
+
+  @override
+  String get unifiedProgCodeWebTitle => 'Web development';
+
+  @override
+  String get unifiedProgCodeWebDesc =>
+      'Build responsive websites using HTML, CSS, JavaScript, and modern frameworks.';
+
+  @override
+  String get unifiedProgCodeWebAge => 'Teens & adults';
+
+  @override
+  String get unifiedProgCodeWebFeat1 => 'Layout and design';
+
+  @override
+  String get unifiedProgCodeWebFeat2 => 'Interactivity';
+
+  @override
+  String get unifiedProgCodeWebFeat3 => 'Portfolio projects';
+
+  @override
+  String get unifiedProgCodeMobileTitle => 'Mobile app development';
+
+  @override
+  String get unifiedProgCodeMobileDesc =>
+      'Create iOS and Android apps with Flutter and Dart.';
+
+  @override
+  String get unifiedProgCodeMobileAge => 'Teens & adults';
+
+  @override
+  String get unifiedProgCodeMobileFeat1 => 'UI basics';
+
+  @override
+  String get unifiedProgCodeMobileFeat2 => 'State and navigation';
+
+  @override
+  String get unifiedProgCodeMobileFeat3 => 'Ship a small app';
+
+  @override
+  String get unifiedProgCodePythonTitle => 'Python programming';
+
+  @override
+  String get unifiedProgCodePythonDesc =>
+      'Data science, automation, and backend development with Python.';
+
+  @override
+  String get unifiedProgCodePythonAge => 'All ages';
+
+  @override
+  String get unifiedProgCodePythonFeat1 => 'Syntax and structures';
+
+  @override
+  String get unifiedProgCodePythonFeat2 => 'Projects and scripts';
+
+  @override
+  String get unifiedProgCodePythonFeat3 => 'Career-relevant skills';
+
+  @override
+  String get unifiedProgCodeGameTitle => 'Game development';
+
+  @override
+  String get unifiedProgCodeGameDesc =>
+      'Design and code your own video games using Unity or Godot.';
+
+  @override
+  String get unifiedProgCodeGameAge => 'Teens';
+
+  @override
+  String get unifiedProgCodeGameFeat1 => 'Game loops';
+
+  @override
+  String get unifiedProgCodeGameFeat2 => 'Assets and levels';
+
+  @override
+  String get unifiedProgCodeGameFeat3 => 'Playtesting';
+
+  @override
+  String get unifiedProgCodeCsTitle => 'Intro to computer science';
+
+  @override
+  String get unifiedProgCodeCsDesc =>
+      'Preparation for AP Computer Science and university-level studies.';
+
+  @override
+  String get unifiedProgCodeCsAge => 'High school';
+
+  @override
+  String get unifiedProgCodeCsFeat1 => 'Algorithms';
+
+  @override
+  String get unifiedProgCodeCsFeat2 => 'Complexity intuition';
+
+  @override
+  String get unifiedProgCodeCsFeat3 => 'Exam alignment';
+
+  @override
+  String get unifiedProgAsElemTitle => 'Elementary (K–5)';
+
+  @override
+  String get unifiedProgAsElemDesc =>
+      'Foundational support across subjects with caring tutors.';
+
+  @override
+  String get unifiedProgAsElemAge => 'Grades K–5';
+
+  @override
+  String get unifiedProgAsElemFeat1 => 'Homework help';
+
+  @override
+  String get unifiedProgAsElemFeat2 => 'Skill gaps';
+
+  @override
+  String get unifiedProgAsElemFeat3 => 'Confidence';
+
+  @override
+  String get unifiedProgAsMiddleTitle => 'Middle school (6–8)';
+
+  @override
+  String get unifiedProgAsMiddleDesc =>
+      'Support through middle grades with structured study habits.';
+
+  @override
+  String get unifiedProgAsMiddleAge => 'Grades 6–8';
+
+  @override
+  String get unifiedProgAsMiddleFeat1 => 'Study strategies';
+
+  @override
+  String get unifiedProgAsMiddleFeat2 => 'Core subjects';
+
+  @override
+  String get unifiedProgAsMiddleFeat3 => 'Organization';
+
+  @override
+  String get unifiedProgAsHighTitle => 'High school (9–12)';
+
+  @override
+  String get unifiedProgAsHighDesc =>
+      'Rigorous support for high school courses and exams.';
+
+  @override
+  String get unifiedProgAsHighAge => 'Grades 9–12';
+
+  @override
+  String get unifiedProgAsHighFeat1 => 'AP/IB readiness';
+
+  @override
+  String get unifiedProgAsHighFeat2 => 'Time management';
+
+  @override
+  String get unifiedProgAsHighFeat3 => 'Subject depth';
+
+  @override
+  String get unifiedProgramsBrowse => 'Browse Programs';
+
+  @override
+  String get unifiedProgramsTrust35 => '35+ Programs';
+
+  @override
+  String get unifiedProgramsTrustFlexible => 'Flexible Scheduling';
+
+  @override
+  String get unifiedProgramsTrustExperts => 'Expert Tutors';
+
+  @override
+  String get unifiedProgramsPerHour => 'per hour';
+
+  @override
+  String get heroExplorePrograms => 'Explore Our Programs';
+
+  @override
+  String get landingHeroSubtitle =>
+      'Browse the full catalog, set your hours, and learn online with qualified tutors.';
+
+  @override
+  String get inviteParentDialogTitle => 'Invite parent';
+
+  @override
+  String get inviteParentDialogSubtitle =>
+      'Create a parent account linked to this student. If the email already belongs to someone, we will simply link it.';
+
+  @override
+  String get inviteParentEmailLabel => 'Parent email';
+
+  @override
+  String get inviteParentEmailRequired => 'Enter the parent email';
+
+  @override
+  String get inviteParentEmailInvalid => 'Enter a valid email';
+
+  @override
+  String get inviteParentFirstNameLabel => 'First name';
+
+  @override
+  String get inviteParentLastNameLabel => 'Last name';
+
+  @override
+  String get inviteParentPhoneLabel => 'Phone (optional)';
+
+  @override
+  String get inviteParentSendInvite => 'Send invite';
+
+  @override
+  String get inviteParentActionLabel => 'Invite Parent';
+
+  @override
+  String get inviteParentChipLinked => 'Parent linked';
+
+  @override
+  String get inviteParentChipInvited => 'Parent invite sent';
+
+  @override
+  String get inviteParentChipMissing => 'No parent account';
+
+  @override
+  String get inviteParentSuccessLinked =>
+      'Existing parent linked to this student.';
+
+  @override
+  String get inviteParentSuccessInvited => 'Invite email sent to the parent.';
+
+  @override
+  String get inviteParentSuccessInvitedNoEmail =>
+      'Parent account created, but the invite email could not be sent.';
+
+  @override
+  String get enrollmentStateChooseProgram => '1. Choose a Program';
+
+  @override
+  String get enrollmentStateClassPreferences => '2. Class Preferences';
+
+  @override
+  String get enrollmentStatePricingAndHours => '3. Pricing & Hours';
+
+  @override
+  String get enrollmentStateStudentPrograms => 'Student Programs';
+
+  @override
+  String get enrollmentStateCustomizePerStudent => 'Customize per student';
+
+  @override
+  String get enrollmentStateSpecificLanguage => 'Specific Language';
+
+  @override
+  String get enrollmentStateGradeLevel => 'Grade Level';
+
+  @override
+  String get enrollmentStateProficiencyLevel => 'Proficiency Level';
+
+  @override
+  String get enrollmentStatePreferredLanguage => 'Preferred Language';
+
+  @override
+  String get enrollmentStateWhichDaysWorkBest => 'Which days work best?';
+
+  @override
+  String get enrollmentStateWhatTimeOfDay => 'What time of day?';
+
+  @override
+  String get enrollmentStateAdvancedSelectTimes =>
+      'Advanced: Select specific times';
+
+  @override
+  String get enrollmentStateAddCustomTime => 'Add custom time';
+
+  @override
+  String get enrollmentStateOptional => 'Optional';
+
+  @override
+  String get enrollmentStateSchedulingNotesHint =>
+      'e.g. prefer after 4pm weekdays, avoid Fridays...';
+
+  @override
+  String get enrollmentStateClassType => 'Class Type';
+
+  @override
+  String get enrollmentStateOneOnOne => '1-on-1';
+
+  @override
+  String get enrollmentStateGroupClass => 'Group';
+
+  @override
+  String get enrollmentStateBoth => 'Both';
+
+  @override
+  String get enrollmentStateGender => 'Gender';
+
+  @override
+  String get enrollmentStateMale => 'Male';
+
+  @override
+  String get enrollmentStateFemale => 'Female';
+
+  @override
+  String get enrollmentStatePreferredTimeOfDay => 'Preferred Time of Day';
+
+  @override
+  String get enrollmentStatePreferredDays => 'Preferred Days';
+
+  @override
+  String get prepareBroadcastTitle => 'Prepare & Broadcast';
+
+  @override
+  String get prepareBroadcastSubtitle =>
+      'Review and adjust the schedule before teachers see it';
+
+  @override
+  String get prepareBroadcastParentStudentNotes => 'Parent/Student Notes';
+
+  @override
+  String get prepareBroadcastScheduleForTeachers => 'Schedule for Teachers';
+
+  @override
+  String get prepareBroadcastTimezoneReference => 'Timezone Reference';
+
+  @override
+  String get prepareBroadcastNotesForTeachers => 'Notes for Teachers';
+
+  @override
+  String get prepareBroadcastTimeSlots => 'Time Slots';
+
+  @override
+  String get prepareBroadcastNoTimeSlots =>
+      'No time slots specified. Add at least one so teachers know when.';
+
+  @override
+  String get prepareBroadcastPickSlotHint =>
+      'Pick start and end time to add a slot';
+
+  @override
+  String get prepareBroadcastPickTime => 'Pick time';
+
+  @override
+  String get prepareBroadcastPickStartTime => 'Pick start time';
+
+  @override
+  String get prepareBroadcastPickEndTime => 'Pick end time';
+
+  @override
+  String get prepareBroadcastRemoveSlot => 'Remove';
+
+  @override
+  String get prepareBroadcastGeneralPreference => 'General preference:';
+
+  @override
+  String get prepareBroadcastTimesAreIn => 'The times above are in:';
+
+  @override
+  String get prepareBroadcastTimezoneHelper =>
+      'Student\'s timezone from the form. Edit if you know it\'s different.';
+
+  @override
+  String get prepareBroadcastAdminNotesHint =>
+      'Optional notes visible to teachers (e.g. \"Parent prefers afternoon, exact times flexible\")';
+
+  @override
+  String get prepareBroadcastBroadcasting => 'Broadcasting...';
+
+  @override
+  String get prepareBroadcastBroadcastToTeachers => 'Broadcast to Teachers';
+
+  @override
+  String get prepareBroadcastSelectDayFirst =>
+      'Select at least one day before broadcasting.';
+
+  @override
+  String get prepareBroadcastAddTimeSlotFirst =>
+      'Add at least one time slot before broadcasting.';
+
+  @override
+  String get prepareBroadcastSlotAlreadyExists =>
+      'This time slot already exists.';
+
+  @override
+  String get prepareBroadcastEndBeforeStart =>
+      'End time must be after start time.';
+
+  @override
+  String prepareBroadcastOverlapError(String slot) {
+    return 'This overlaps with \"$slot\". Pick a non-overlapping time.';
   }
 
   @override
-  String get tontinePaymentStatusBoard => 'Payment status board';
+  String get adminActionCardsViewAll => 'View all';
 
   @override
-  String get tontinePaymentDetails => 'Payment details';
+  String get adminActionCardsPendingTimesheets => 'Pending timesheets';
 
   @override
-  String get tontineAmount => 'Amount';
+  String get adminActionCardsTimesheetReview => 'Timesheet review';
 
   @override
-  String get tontineAmountMatchesExpected =>
-      'Amount matches the expected contribution.';
+  String get adminActionCardsErrorPendingTimesheets =>
+      'Error loading pending timesheets';
 
   @override
-  String get tontineAmountDoesNotMatchExpected =>
-      'Amount does not match the expected contribution.';
+  String get adminActionCardsNoPendingTimesheets => 'No pending timesheets';
 
   @override
-  String get tontinePaymentDate => 'Payment date';
+  String get adminActionCardsOverdueTasks => 'Overdue tasks';
 
   @override
-  String get tontineReceipt => 'Receipt';
+  String get adminActionCardsOpenTasks => 'Open tasks';
 
   @override
-  String get tontineUseCamera => 'Use camera';
+  String get adminActionCardsErrorTasks => 'Error loading tasks';
 
   @override
-  String get tontineChooseFromGallery => 'Choose from gallery';
+  String get adminActionCardsNoOverdueTasks => 'No overdue tasks';
 
   @override
-  String get tontineSelectedReceipt => 'Selected receipt';
+  String get adminActionCardsRecentSubmissions => 'Recent submissions';
 
   @override
-  String get tontineReceiptRequired =>
-      'A receipt is required before submission.';
+  String get adminActionCardsAllSubmissions => 'All submissions';
 
   @override
-  String get tontinePaymentSubmitted => 'Payment submitted successfully.';
+  String get adminActionCardsErrorSubmissions => 'Error loading submissions';
 
   @override
-  String tontineSubmissionFailed(String error) {
-    return 'Could not submit payment: $error';
-  }
+  String get adminActionCardsNoSubmissions => 'No submissions yet';
 
   @override
-  String tontineCreateFailed(String error) {
-    return 'Could not create circle: $error';
-  }
+  String get adminActionCardsUpcomingShifts => 'Upcoming shifts';
 
   @override
-  String get tontineMarkPayoutSent => 'Mark Payout Sent';
+  String get adminActionCardsOpenShifts => 'Open shifts';
 
   @override
-  String get tontinePayoutMarkedSent => 'Payout marked as sent.';
+  String get adminActionCardsErrorShifts => 'Error loading upcoming shifts';
 
   @override
-  String get tontineReviewProgress => 'Review progress';
+  String get adminActionCardsNoUpcomingShifts => 'No upcoming shifts';
 
   @override
-  String tontineConfirmedOf(int confirmed, int total) {
-    return '$confirmed of $total confirmed';
-  }
+  String get adminActionCardsApplicantsToReview => 'Applicants to review';
 
   @override
-  String get tontineRejectContribution => 'Reject';
+  String get adminActionCardsReviewApplications => 'Review applications';
 
   @override
-  String get tontineConfirmContribution => 'Confirm';
+  String get adminActionCardsNoStudentApplicants => 'No student applicants';
 
   @override
-  String get tontineJoinCircle => 'Join circle';
+  String get adminActionCardsStudents => 'Students';
 
   @override
-  String tontineJoinFailed(String error) {
-    return 'Could not join circle: $error';
-  }
+  String get adminActionCardsViewStudents => 'View students';
 
   @override
-  String get tontineInvitePreview =>
-      'Review this savings circle before you accept the invite.';
+  String get adminActionCardsNoTeacherApplicants => 'No teacher applicants';
 
   @override
-  String get tontineCircleHead => 'Circle head';
+  String get adminActionCardsTeachers => 'Teachers';
 
   @override
-  String get tontineStepBasics => 'Basics';
+  String get adminActionCardsViewTeachers => 'View teachers';
 
   @override
-  String get tontineStepRules => 'Rules';
+  String get landingHeroHeadline =>
+      'Learn with online tutoring\nfrom anywhere in the world';
 
   @override
-  String get tontineStepInvite => 'Invite';
+  String get landingHeroSearchHint => 'What would you like to learn?';
 
   @override
-  String get tontineStepOrder => 'Order';
+  String get aboutValuesAuthenticity => 'Authenticity';
 
   @override
-  String get tontineStepReview => 'Review';
+  String get aboutValuesAuthenticityDesc => 'Rooted in Quran & Sunnah';
 
   @override
-  String get tontineCircleName => 'Circle name';
+  String get aboutValuesCompassion => 'Compassion';
 
   @override
-  String get tontineCircleNameRequired => 'Circle name is required.';
+  String get aboutValuesCompassionDesc => 'Patience & care for all';
 
   @override
-  String get tontineContributionAmount => 'Contribution amount';
+  String get aboutValuesExcellence => 'Excellence';
 
   @override
-  String get tontineMonthlyContribution => 'Monthly contribution';
+  String get aboutValuesExcellenceDesc => 'High standards in education';
 
   @override
-  String get tontineMemberCount => 'Member count';
+  String get aboutValuesCommunity => 'Community';
 
   @override
-  String get tontineStartDate => 'Start date';
+  String get aboutValuesCommunityDesc => 'Supportive global network';
 
   @override
-  String get tontineFrequency => 'Contribution frequency';
+  String get aboutValuesKnowledge => 'Knowledge';
 
   @override
-  String get tontineFrequencyWeekly => 'Weekly';
+  String get aboutValuesKnowledgeDesc => 'Transformative learning';
 
   @override
-  String get tontineFrequencyBiweekly => 'Every 2 weeks';
+  String get aboutValuesAccessibility => 'Accessibility';
 
   @override
-  String get tontineFrequencyMonthly => 'Monthly';
-
-  @override
-  String get tontineFrequencyQuarterly => 'Quarterly';
-
-  @override
-  String get tontineHintCircleName =>
-      'Give your circle a name members will recognize';
-
-  @override
-  String get tontineHintAmount => 'How much each member contributes per cycle';
-
-  @override
-  String get tontineHintMemberCount => 'Total members including you';
-
-  @override
-  String get tontineHintStartDate => 'The date when the first cycle begins';
-
-  @override
-  String get tontineHintFrequency =>
-      'How often members contribute and payouts happen';
-
-  @override
-  String get tontineHintGracePeriod =>
-      'Extra days allowed after the due date before a payment is marked late';
-
-  @override
-  String get tontineHintMissedPayment =>
-      'What happens if a member misses their payment';
-
-  @override
-  String get tontineHintPaymentInstructions =>
-      'Tell members how to send their payment (e.g. Zelle, CashApp, bank transfer)';
-
-  @override
-  String get tontineGracePeriodDays => 'Grace period (days)';
-
-  @override
-  String get tontineMissedPaymentAction => 'Missed payment action';
-
-  @override
-  String get tontinePaymentInstructions => 'Payment instructions';
-
-  @override
-  String get tontinePaymentInstructionsRequired =>
-      'Payment instructions are required.';
-
-  @override
-  String get tontineInviteExistingUsersOnly =>
-      'Invite members by email or phone number. They will receive a notification to join.';
-
-  @override
-  String get tontineInviteMethod => 'Invite method';
-
-  @override
-  String get tontineInviteEmail => 'Email address';
-
-  @override
-  String get tontineInvitePhone => 'Phone number';
-
-  @override
-  String get tontineEnterInviteLookup =>
-      'Enter an email or phone number to invite.';
-
-  @override
-  String tontineParticipantsAdded(int current, int total) {
-    return 'Participants added: $current/$total';
-  }
-
-  @override
-  String get tontineNeedAllMembersBeforeOrdering =>
-      'Add every member before setting the payout order.';
-
-  @override
-  String get tontinePayoutOrder => 'Payout order';
-
-  @override
-  String get tontineYou => 'You';
-
-  @override
-  String get tontineUnableToLoadProfile => 'Unable to load your profile.';
-
-  @override
-  String get tontineEnterValidAmount => 'Enter a valid amount.';
-
-  @override
-  String get tontineInvalidGracePeriod => 'Enter a valid grace period.';
-
-  @override
-  String get tontineMinimumMembers => 'A circle needs at least 2 members.';
-
-  @override
-  String get tontineNeedExactMemberCount =>
-      'Add the exact member count before continuing.';
-
-  @override
-  String get tontineMemberCountReached =>
-      'You already added the target number of members.';
-
-  @override
-  String get tontineUserNotFound => 'No existing user matched that contact.';
-
-  @override
-  String get tontineUserAlreadyAdded => 'That user is already in the circle.';
-
-  @override
-  String get tontineSelectedMethodUnavailable =>
-      'That user does not have the selected contact method saved.';
-
-  @override
-  String get tontineNoActiveCycle => 'No active cycle yet';
-
-  @override
-  String get tontinePotAmount => 'Pot amount';
-
-  @override
-  String get tontineCircleActivated =>
-      'Circle activated. The first cycle will appear shortly.';
-
-  @override
-  String get tontineReorderHint =>
-      'Drag the handle to change who receives payment first';
-
-  @override
-  String get tontineAllMembersJoined => 'All members have joined!';
-
-  @override
-  String get tontineCreatedByYou => 'Created by you';
-
-  @override
-  String get tontineCirclesCreated => 'My circles';
-
-  @override
-  String get tontineCirclesJoined => 'Circles I joined';
-
-  @override
-  String get tontineEnrollmentMode => 'Enrollment mode';
-
-  @override
-  String get tontineManualSelection => 'Manual selection';
-
-  @override
-  String get tontineManualSelectionDesc => 'Pick specific teachers to add';
-
-  @override
-  String get tontineOpenEnrollment => 'Open enrollment';
-
-  @override
-  String get tontineOpenEnrollmentDesc =>
-      'Eligible teachers can browse and join';
-
-  @override
-  String get tontineEligibilityRules => 'Eligibility rules';
-
-  @override
-  String get tontineIncomeMultiplier => 'Min. income multiplier';
-
-  @override
-  String get tontineIncomeMultiplierHint =>
-      'Teacher\'s estimated monthly income must be at least this many times the contribution amount';
-
-  @override
-  String get tontineMinTenure => 'Min. tenure (months)';
-
-  @override
-  String get tontineMinTenureHint =>
-      'Teacher must have been employed for at least this many months';
-
-  @override
-  String get tontineMinShifts => 'Min. shifts (last 30 days)';
-
-  @override
-  String get tontineMinShiftsHint =>
-      'Teacher must have taught at least this many shifts in the last 30 days';
-
-  @override
-  String get tontineMaxMembers => 'Max members';
-
-  @override
-  String get tontineMaxMembersHint => 'Leave at 0 for unlimited';
-
-  @override
-  String get tontineUnlimited => 'Unlimited';
-
-  @override
-  String get tontineAvailableCircles => 'Available circles';
-
-  @override
-  String get tontineNotEligible => 'Not eligible';
-
-  @override
-  String get tontineEligible => 'Eligible';
-
-  @override
-  String get tontineCircleFull => 'Circle is full';
-
-  @override
-  String get tontineJoinSuccess => 'Successfully joined the circle!';
-
-  @override
-  String tontineEstimatedIncome(String amount) {
-    return 'Est. monthly income: $amount';
-  }
-
-  @override
-  String tontineIncomeRequirement(String multiplier) {
-    return 'Income must be ${multiplier}x the contribution';
-  }
-
-  @override
-  String tontineTenureRequirement(int months) {
-    return '$months+ months tenure required';
-  }
-
-  @override
-  String tontineShiftsRequirement(int count) {
-    return '$count+ shifts in last 30 days';
-  }
-
-  @override
-  String get tontineOpenCircleCreated =>
-      'Open circle created. Eligible teachers will be notified.';
-
-  @override
-  String tontineSpotsLeft(int count) {
-    return '$count spots left';
-  }
-
-  @override
-  String get tontineOpenSpots => 'Open spots';
+  String get aboutValuesAccessibilityDesc => 'Available worldwide';
 }

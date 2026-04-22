@@ -2,7 +2,12 @@ const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const {isDeepStrictEqual} = require('util');
 const {onCall, onRequest} = require('firebase-functions/v2/https');
-const {onDocumentCreated, onDocumentUpdated, onDocumentDeleted} = require('firebase-functions/v2/firestore');
+const {
+  onDocumentCreated,
+  onDocumentUpdated,
+  onDocumentDeleted,
+  onDocumentWritten,
+} = require('firebase-functions/v2/firestore');
 const {onSchedule} = require('firebase-functions/v2/scheduler');
 const {DateTime} = require('luxon');
 const {
@@ -27,6 +32,9 @@ const {
   getUserTimezone,
 } = require('../services/notifications/fcm');
 const {sendShiftNotificationEmails, sendShiftUpdateNotificationEmails} = require('../services/email/shift_notifications');
+const {
+  recomputeShiftCompletionForShiftId,
+} = require('../services/shifts/recompute_shift_completion');
 
 const toDate = (timestamp) => (timestamp.toDate ? timestamp.toDate() : new Date(timestamp));
 
@@ -99,7 +107,9 @@ const parseClockIn = (data, defaultDate) => {
   return new Date(defaultDate);
 };
 
-const scheduleShiftLifecycle = onCall(async (request) => {
+// invoker: 'public' so Cloud Run accepts CORS OPTIONS without Authorization;
+// callable auth is still enforced via Firebase ID token on POST.
+const scheduleShiftLifecycle = onCall({cors: true, invoker: 'public'}, async (request) => {
   const data = request.data || {};
   console.log('[DEBUG] scheduleShiftLifecycle invoked with data:', JSON.stringify(data));
 
@@ -451,11 +461,14 @@ const handleShiftEndTask = onRequest(async (req, res) => {
       .where('shift_id', '==', shiftId)
       .get();
 
+    const isRejectedEntry = (d) => String(d.status || '').toLowerCase() === 'rejected';
+    const activeTimesheetDocs = timesheetsSnapshot.docs.filter((doc) => !isRejectedEntry(doc.data()));
+
     let workedMs = 0;
     let autoClockOutPerformed = false;
     
     // If no timesheet entries but shift has clock_in_time, calculate from that
-    if (timesheetsSnapshot.empty && hasClockInOnShift) {
+    if (activeTimesheetDocs.length === 0 && hasClockInOnShift) {
       const clockInTime = shiftData.clock_in_time.toDate();
       const clockOutTime = shiftData.clock_out_time ? shiftData.clock_out_time.toDate() : endDate;
       workedMs = Math.max(0, clockOutTime.getTime() - clockInTime.getTime());
@@ -467,7 +480,7 @@ const handleShiftEndTask = onRequest(async (req, res) => {
 
     // Check for overlap to prevent double counting
     // Sort by clock-in time
-    timesheetsSnapshot.docs.sort((a, b) => {
+    activeTimesheetDocs.sort((a, b) => {
       const timeA = a.data().clock_in_timestamp ? a.data().clock_in_timestamp.toDate().getTime() : 0;
       const timeB = b.data().clock_in_timestamp ? b.data().clock_in_timestamp.toDate().getTime() : 0;
       return timeA - timeB;
@@ -475,7 +488,7 @@ const handleShiftEndTask = onRequest(async (req, res) => {
 
     let lastEndTime = 0;
 
-    for (const doc of timesheetsSnapshot.docs) {
+    for (const doc of activeTimesheetDocs) {
       const data = doc.data();
       const clockIn = parseClockIn(data, startDate);
       let clockOut = data.clock_out_timestamp ? data.clock_out_timestamp.toDate() : null;
@@ -543,15 +556,15 @@ const handleShiftEndTask = onRequest(async (req, res) => {
       1,
       Math.round((endDate.getTime() - startDate.getTime()) / 60000)
     );
-    // No tolerance
-    const toleranceMinutes = 0;
+    // Align with Flutter TeachingShift.deriveCompletionStatus / shift_service quick edit (1 minute)
+    const toleranceMinutes = 1;
 
     let newStatus = 'partiallyCompleted';
     let completionState = 'partial';
     let missedReason = null;
 
-    // Check if teacher never clocked in (no timesheet entries AND no clock_in_time on shift)
-    const neverClockedIn = timesheetsSnapshot.empty && !hasClockInOnShift;
+    // Check if teacher never clocked in (no non-rejected timesheet entries AND no clock_in_time on shift)
+    const neverClockedIn = activeTimesheetDocs.length === 0 && !hasClockInOnShift;
     
     if (neverClockedIn || workedMinutes === 0) {
       newStatus = 'missed';
@@ -615,6 +628,33 @@ const handleShiftEndTask = onRequest(async (req, res) => {
   }
 });
 
+/**
+ * When any timesheet row changes (teacher edit, admin reject/approve), recompute
+ * teaching_shifts.worked_minutes / status / completion_state for ended shifts.
+ */
+const onTimesheetWritten = onDocumentWritten('timesheet_entries/{entryId}', async (event) => {
+  const beforeSnap = event.data.before;
+  const afterSnap = event.data.after;
+  const before = beforeSnap.exists ? beforeSnap.data() : null;
+  const after = afterSnap.exists ? afterSnap.data() : null;
+  const shiftId =
+    (after && (after.shift_id || after.shiftId)) || (before && (before.shift_id || before.shiftId));
+  if (!shiftId) {
+    return;
+  }
+  try {
+    const db = admin.firestore();
+    const result = await recomputeShiftCompletionForShiftId(db, shiftId);
+    if (!result.skipped) {
+      console.log(
+        `onTimesheetWritten: recomputed shift ${shiftId} -> status=${result.status}, worked=${result.workedMinutes}m`,
+      );
+    }
+  } catch (err) {
+    console.error(`onTimesheetWritten: failed for shift ${shiftId}`, err);
+  }
+});
+
 const onShiftCreated = onDocumentCreated('teaching_shifts/{shiftId}', async (event) => {
   try {
     const shiftData = event.data.data();
@@ -668,11 +708,62 @@ const onShiftCreated = onDocumentCreated('teaching_shifts/{shiftId}', async (eve
   }
 });
 
+/**
+ * FCM to all teachers when a shift is published for trade (is_published becomes true).
+ * Excludes the teacher who published the offer.
+ */
+async function notifyTeachersOfPublishedShiftOffer({shiftId, shiftData, publishedByUid}) {
+  const excludeUid = String(publishedByUid || '').trim();
+  const displayName =
+    shiftData.custom_name ||
+    shiftData.auto_generated_name ||
+    shiftData.subject_display_name ||
+    shiftData.subject ||
+    'A class';
+  const snapshot = await db.collection('users').where('user_type', '==', 'teacher').get();
+  const notifyPromises = [];
+  for (const doc of snapshot.docs) {
+    if (!doc.id || doc.id === excludeUid) continue;
+    notifyPromises.push(
+      sendFCMNotificationToTeacher(
+        doc.id,
+        {
+          title: '🔄 Shift available to claim',
+          body: `${displayName} is open for another teacher. Open Available Shifts to view.`,
+        },
+        {
+          type: 'shift',
+          action: 'offered_for_trade',
+          shiftId,
+        },
+      ).catch((err) => {
+        console.error(`notifyTeachersOfPublishedShiftOffer: FCM failed for ${doc.id}`, err);
+      }),
+    );
+  }
+  await Promise.all(notifyPromises);
+  console.log(
+    `✅ notifyTeachersOfPublishedShiftOffer: sent FCM for ${notifyPromises.length} teachers (shift ${shiftId})`,
+  );
+}
+
 const onShiftUpdated = onDocumentUpdated('teaching_shifts/{shiftId}', async (event) => {
   try {
     const beforeData = event.data.before.data();
     const afterData = event.data.after.data();
     const shiftId = event.params.shiftId;
+
+    const publishBefore = !!beforeData.is_published;
+    const publishAfter = !!afterData.is_published;
+    if (!publishBefore && publishAfter) {
+      const publishedBy = afterData.published_by || afterData.teacher_id;
+      await notifyTeachersOfPublishedShiftOffer({
+        shiftId,
+        shiftData: afterData,
+        publishedByUid: publishedBy,
+      });
+      return;
+    }
 
     if (afterData.status === 'cancelled' && beforeData.status !== 'cancelled') {
       console.log('Shift cancelled - skipping onShiftUpdated');
@@ -1980,7 +2071,7 @@ const _rescheduleShiftLifecycleTasks = async ({
  * Teacher Reschedule Shift
  * Allows teachers to reschedule their own shifts with proper audit trail
  */
-const teacherRescheduleShift = onCall(async (request) => {
+const teacherRescheduleShift = onCall({cors: true, invoker: 'public'}, async (request) => {
   const {
     shiftId,
     newStartTime,
@@ -2096,7 +2187,7 @@ const teacherRescheduleShift = onCall(async (request) => {
  * Teacher Reschedule Future Shifts
  * Updates upcoming shifts for the same class series and, when available, updates template time.
  */
-const teacherRescheduleFutureShifts = onCall(async (request) => {
+const teacherRescheduleFutureShifts = onCall({cors: true, invoker: 'public'}, async (request) => {
   const {
     shiftId,
     studentId,
@@ -2584,6 +2675,7 @@ module.exports = {
   scheduleShiftLifecycle,
   handleShiftStartTask,
   handleShiftEndTask,
+  onTimesheetWritten,
   handleShiftNotificationTask,
   onShiftCreated,
   onShiftUpdated,
@@ -2597,4 +2689,107 @@ module.exports = {
   fixTimesheetsPayAndStatus,
   teacherRescheduleShift,
   teacherRescheduleFutureShifts,
+  // CORS + public Cloud Run invoker so browser OPTIONS preflight succeeds; auth
+  // is still required inside the handler (request.auth).
+  claimShift: onCall({cors: true, invoker: 'public'}, async (request) => {
+    try {
+      if (!request.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'Authentication required');
+      }
+
+      const uid = request.auth.uid;
+      const {shiftId} = request.data || {};
+
+      if (!shiftId) {
+        throw new functions.https.HttpsError('invalid-argument', 'shiftId is required');
+      }
+
+      const db = admin.firestore();
+      const shiftRef = db.collection('teaching_shifts').doc(shiftId);
+
+      const result = await db.runTransaction(async (transaction) => {
+        const shiftSnap = await transaction.get(shiftRef);
+        if (!shiftSnap.exists) {
+          throw new functions.https.HttpsError('not-found', 'Shift not found');
+        }
+
+        const shiftData = shiftSnap.data();
+        const published = shiftData.is_published === true;
+        const statusNorm = String(shiftData.status || '').toLowerCase();
+        const isScheduled = statusNorm === 'scheduled';
+        if (!published || !isScheduled) {
+          throw new functions.https.HttpsError('failed-precondition', 'Shift is no longer available for claiming');
+        }
+
+        if (shiftData.teacher_id === uid) {
+          throw new functions.https.HttpsError('already-exists', 'You are already the teacher for this shift');
+        }
+
+        // Get claiming teacher's name
+        const userDoc = await transaction.get(db.collection('users').doc(uid));
+        if (!userDoc.exists) {
+          throw new functions.https.HttpsError('not-found', 'User profile not found');
+        }
+        const userData = userDoc.data();
+        const userName = `${userData.first_name || ''} ${userData.last_name || ''}`.trim() || 'Teacher';
+
+        // Assign shift fully to the claiming teacher; clear trade metadata so only
+        // teacher_id is authoritative for permissions, audits, and metrics.
+        transaction.update(shiftRef, {
+          teacher_id: uid,
+          teacher_name: userName,
+          is_published: false,
+          published_at: null,
+          published_by: null,
+          original_teacher_id: admin.firestore.FieldValue.delete(),
+          original_teacher_name: admin.firestore.FieldValue.delete(),
+          claimed_via_shift_trade: true,
+          shift_trade_claimed_at: admin.firestore.FieldValue.serverTimestamp(),
+          last_modified: admin.firestore.FieldValue.serverTimestamp(),
+        });
+
+        return {success: true, shiftData};
+      });
+
+      // Post-transaction notifications (best-effort; must not fail the claim)
+      try {
+        const shiftData = result && result.shiftData;
+        if (!shiftData) {
+          console.warn('claimShift: missing shiftData after transaction');
+          return {success: true};
+        }
+        const rawIds = shiftData.student_ids;
+        const studentIds = Array.isArray(rawIds) ? rawIds : [];
+        if (studentIds.length > 0) {
+          const notification = {
+            title: '👨‍🏫 New Teacher Assigned',
+            body: `A new teacher has been assigned to your class: ${shiftData.subject_display_name || shiftData.subject || 'Class'}`,
+          };
+
+          for (const studentId of studentIds) {
+            if (typeof studentId !== 'string' || !studentId) {
+              continue;
+            }
+            await sendFCMNotificationToStudent(studentId, notification, {
+              type: 'shift',
+              action: 'teacher_changed',
+              shiftId,
+            });
+          }
+        }
+      } catch (err) {
+        console.error('Error sending claim notification:', err);
+      }
+      return {success: true};
+    } catch (error) {
+      console.error('[claimShift] Error:', error);
+      if (error instanceof functions.https.HttpsError) {
+        throw error;
+      }
+      throw new functions.https.HttpsError(
+        'internal',
+        error && error.message ? String(error.message) : 'claimShift failed',
+      );
+    }
+  }),
 };

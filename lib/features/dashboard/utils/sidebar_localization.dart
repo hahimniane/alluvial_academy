@@ -6,8 +6,6 @@ class SidebarLocalization {
     switch (text) {
       case 'Audits':
         return AppLocalizations.of(context)!.sidebarAudits;
-      case 'CMS':
-        return AppLocalizations.of(context)!.sidebarCms;
       case 'Chat':
         return AppLocalizations.of(context)!.navChat;
       case 'Classes':
@@ -42,6 +40,8 @@ class SidebarLocalization {
         return AppLocalizations.of(context)!.overview;
       case 'People':
         return AppLocalizations.of(context)!.sidebarPeople;
+      case 'Pricing & public team':
+        return AppLocalizations.of(context)!.sidebarPublicSiteCms;
       case 'Progress':
         return AppLocalizations.of(context)!.progress;
       case 'Reports':

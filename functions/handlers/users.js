@@ -1,4 +1,5 @@
 const functions = require('firebase-functions');
+const {onDocumentDeleted} = require('firebase-functions/v2/firestore');
 const admin = require('firebase-admin');
 const {generateRandomPassword} = require('../utils/password');
 const {sendWelcomeEmail} = require('../services/email/senders');
@@ -411,6 +412,69 @@ const _truthy = (value) => {
 };
 const _normalizeRole = (value) => _lower(value).replace(/[\s-]+/g, '_');
 
+const PUBLIC_SITE_CMS_TEAM = 'public_site_cms_team';
+
+/** Decode Firebase Storage download URL and delete the object (best-effort). */
+const _deleteFileByFirebaseDownloadURL = async (url) => {
+  if (!url || typeof url !== 'string') return;
+  try {
+    const m = url.match(/\/o\/([^?]+)/);
+    if (!m) return;
+    const filePath = decodeURIComponent(m[1]);
+    await admin.storage().bucket().file(filePath).delete({ignoreNotFound: true});
+  } catch (e) {
+    console.log('[Storage] Best-effort delete failed:', e.message);
+  }
+};
+
+/**
+ * Collect Firestore refs + image URLs for public team rows linked to any of the given user ids.
+ * Caller adds refs to a write batch, then deletes Storage URLs after commit.
+ */
+const _collectPublicSiteTeamBatchDeletes = async (db, userIds) => {
+  const ids = Array.from(new Set((userIds || []).map((u) => String(u).trim()).filter(Boolean)));
+  const refs = [];
+  const urls = [];
+  for (const uid of ids) {
+    try {
+      const snap = await db.collection(PUBLIC_SITE_CMS_TEAM).where('linkedUserUid', '==', uid).get();
+      for (const doc of snap.docs) {
+        refs.push(doc.ref);
+        const img = doc.data()?.imageUrl;
+        if (img) urls.push(String(img));
+      }
+    } catch (e) {
+      console.log(`[collectPublicSiteTeam] query failed for uid=${uid}:`, e.message);
+    }
+  }
+  return {refs, urls};
+};
+
+/**
+ * Delete public team CMS docs linked to any of the given user ids, then remove Storage images.
+ * Used from the users/{userId} onDelete trigger (safety net if user doc is removed outside deleteUserAccount).
+ */
+const _purgePublicSiteTeamProfilesForUserIds = async (db, userIds) => {
+  const ids = Array.from(new Set((userIds || []).map((u) => String(u).trim()).filter(Boolean)));
+  const imageUrls = [];
+  for (const uid of ids) {
+    try {
+      const snap = await db.collection(PUBLIC_SITE_CMS_TEAM).where('linkedUserUid', '==', uid).get();
+      for (const doc of snap.docs) {
+        const d = doc.data() || {};
+        const img = d.imageUrl ? String(d.imageUrl) : '';
+        if (img) imageUrls.push(img);
+        await doc.ref.delete();
+      }
+    } catch (e) {
+      console.log(`[purgePublicSiteTeam] query/delete failed for uid=${uid}:`, e.message);
+    }
+  }
+  for (const url of imageUrls) {
+    await _deleteFileByFirebaseDownloadURL(url);
+  }
+};
+
 const _deleteShiftRelatedDocuments = async ({
   db,
   shiftId,
@@ -615,31 +679,20 @@ const _cleanupTeachingShiftsForDeletedUser = async ({
   return summary;
 };
 
-const deleteUserAccount = async (data, context) => {
-  console.log('Raw data received - type:', typeof data);
+/**
+ * Verifies the callable caller is an admin (same logic as deleteUserAccount).
+ * @returns {Promise<{callerUid: string, effectiveAdminEmail: string|null}>}
+ */
+const _verifyCallableCallerIsAdmin = async (data, context) => {
   const requestData = (data && data.data) || data || {};
-
-  const {email, adminEmail} = requestData;
+  const {adminEmail} = requestData;
   const authToken = requestData.authToken || requestData.idToken;
-  const deleteClasses =
-    requestData.deleteClasses === true ||
-    requestData.delete_classes === true ||
-    requestData.deleteAssociatedClasses === true;
-
-  console.log('Extracted email:', email);
-  console.log('Extracted adminEmail:', adminEmail);
-  console.log('Delete classes flag:', deleteClasses);
-
-  if (!email) {
-    console.log('No email provided in request');
-    throw new functions.https.HttpsError('invalid-argument', 'Email is required');
-  }
 
   let callerAuth = context && context.auth ? context.auth : null;
   if (!callerAuth && authToken) {
     try {
       const decoded = await admin.auth().verifyIdToken(String(authToken));
-      callerAuth = { uid: decoded.uid, token: decoded };
+      callerAuth = {uid: decoded.uid, token: decoded};
       console.log(`Verified auth token for uid=${decoded.uid}`);
     } catch (e) {
       console.log('Failed to verify auth token:', e.message);
@@ -647,7 +700,6 @@ const deleteUserAccount = async (data, context) => {
   }
 
   if (!callerAuth) {
-    console.log('Unauthenticated request to deleteUserAccount');
     throw new functions.https.HttpsError('unauthenticated', 'Authentication required');
   }
 
@@ -666,127 +718,207 @@ const deleteUserAccount = async (data, context) => {
     _truthy(token.is_super_admin) ||
     _truthy(token.isSuperAdmin);
 
-  // For backward compatibility, accept adminEmail from the client, but never trust it over the auth token.
   const effectiveAdminEmail = tokenEmail || (adminEmail ? String(adminEmail).toLowerCase() : null);
+
+  const usersRef = admin.firestore().collection('users');
+  let callerData = null;
+
+  try {
+    const callerByUid = await usersRef.doc(callerUid).get();
+    if (callerByUid.exists) {
+      callerData = callerByUid.data();
+    }
+  } catch (e) {
+    console.log('Error looking up caller by UID:', e.message);
+  }
+
+  if (!callerData && effectiveAdminEmail) {
+    try {
+      const callerByEmailId = await usersRef.doc(effectiveAdminEmail).get();
+      if (callerByEmailId.exists) {
+        callerData = callerByEmailId.data();
+      }
+    } catch (e) {
+      console.log('Error looking up caller by email doc ID:', e.message);
+    }
+  }
+
+  if (!callerData && effectiveAdminEmail) {
+    const callerQuery = await usersRef.where('e-mail', '==', effectiveAdminEmail).limit(1).get();
+    if (!callerQuery.empty) {
+      callerData = callerQuery.docs[0].data();
+    }
+  }
+
+  if (!callerData) {
+    try {
+      const callerUidQuery = await usersRef.where('uid', '==', callerUid).limit(1).get();
+      if (!callerUidQuery.empty) {
+        callerData = callerUidQuery.docs[0].data();
+      }
+    } catch (e) {
+      console.log('Error looking up caller by uid field:', e.message);
+    }
+  }
+
+  if (!callerData && effectiveAdminEmail) {
+    try {
+      const callerEmailFieldQuery = await usersRef
+        .where('email', '==', effectiveAdminEmail)
+        .limit(1)
+        .get();
+      if (!callerEmailFieldQuery.empty) {
+        callerData = callerEmailFieldQuery.docs[0].data();
+      }
+    } catch (e) {
+      console.log('Error looking up caller by email field:', e.message);
+    }
+  }
+
+  if (!callerData) {
+    console.log(`Caller not found in users collection. uid=${callerUid}, email=${effectiveAdminEmail}`);
+    if (!tokenIsAdmin) {
+      throw new functions.https.HttpsError('permission-denied', 'Caller not found in users collection');
+    }
+    console.log(
+      'Caller user doc missing, but auth token indicates admin; proceeding with token-based authorization.'
+    );
+  }
+
+  if (callerData) {
+    console.log(`Caller data found:`, {
+      uid: callerUid,
+      email: effectiveAdminEmail,
+      user_type: callerData.user_type,
+      role: callerData.role,
+    });
+  }
+
+  const callerUserType = _normalizeRole(
+    callerData ? callerData.user_type || callerData.role || callerData.userType || '' : ''
+  );
+  const isAdminFromFirestore =
+    callerUserType === 'admin' ||
+    callerUserType === 'administrator' ||
+    callerUserType === 'super_admin' ||
+    callerUserType === 'superadmin' ||
+    _truthy(callerData?.is_admin_teacher) ||
+    _truthy(callerData?.is_admin) ||
+    _truthy(callerData?.isAdmin) ||
+    _truthy(callerData?.is_super_admin) ||
+    _truthy(callerData?.isSuperAdmin);
+  const isAdmin = tokenIsAdmin || isAdminFromFirestore;
+
+  console.log(`Admin check result: isAdmin=${isAdmin}, callerUserType="${callerUserType}"`);
+
+  if (!isAdmin) {
+    const safeType = callerData ? callerData.user_type : 'n/a';
+    console.log(
+      `Caller ${effectiveAdminEmail || callerUid} is not an admin. user_type: ${safeType}`
+    );
+    throw new functions.https.HttpsError('permission-denied', 'Only administrators can perform this action');
+  }
+
+  return {callerUid, effectiveAdminEmail};
+};
+
+/** Admin-only directory search for linking public team profiles to real users. */
+const adminSearchDirectoryUsers = async (data, context) => {
+  await _verifyCallableCallerIsAdmin(data, context);
+
+  const requestData = (data && data.data) || data || {};
+  const rawQ = String(requestData.query || '').trim();
+  if (rawQ.length < 2) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'Query must be at least 2 characters'
+    );
+  }
+  const qLower = rawQ.toLowerCase();
+  const limit = Math.min(25, Math.max(1, parseInt(requestData.limit, 10) || 25));
+
+  const db = admin.firestore();
+  const usersRef = db.collection('users');
+  const out = [];
+  const seen = new Set();
+
+  const pushDoc = (doc) => {
+    if (out.length >= limit) return;
+    const d = doc.data() || {};
+    if (d.is_active === false) return;
+    const uidField = d.uid ? String(d.uid) : doc.id;
+    const key = uidField || doc.id;
+    if (seen.has(key)) return;
+    seen.add(key);
+    const email = (d['e-mail'] || d.email || '').toString();
+    const fn = (d.first_name || d['first-name'] || '').toString();
+    const ln = (d.last_name || d['last-name'] || '').toString();
+    const displayName = `${fn} ${ln}`.trim() || email || doc.id;
+    const userType = (d.user_type || d.userType || d.role || '').toString();
+    out.push({
+      uid: uidField || doc.id,
+      docId: doc.id,
+      email,
+      displayName,
+      userType,
+    });
+  };
+
+  if (rawQ.length >= 20) {
+    const byId = await usersRef.doc(rawQ).get();
+    if (byId.exists) pushDoc(byId);
+  }
+
+  const exactEmail = await usersRef.where('e-mail', '==', qLower).limit(limit).get();
+  exactEmail.docs.forEach(pushDoc);
+
+  const prefixSnap = await usersRef
+    .where('e-mail', '>=', qLower)
+    .where('e-mail', '<=', `${qLower}\uf8ff`)
+    .limit(limit)
+    .get();
+  prefixSnap.docs.forEach(pushDoc);
+
+  return {users: out.slice(0, limit)};
+};
+
+const onUserDeletedCleanupPublicTeam = onDocumentDeleted(
+  {document: 'users/{userId}', region: 'us-central1'},
+  async (event) => {
+    const userId = event.params.userId;
+    try {
+      await _purgePublicSiteTeamProfilesForUserIds(admin.firestore(), [userId]);
+    } catch (e) {
+      console.error('[onUserDeletedCleanupPublicTeam]', e);
+    }
+  }
+);
+
+const deleteUserAccount = async (data, context) => {
+  console.log('Raw data received - type:', typeof data);
+  const requestData = (data && data.data) || data || {};
+
+  const {email, adminEmail} = requestData;
+  const deleteClasses =
+    requestData.deleteClasses === true ||
+    requestData.delete_classes === true ||
+    requestData.deleteAssociatedClasses === true;
+
+  console.log('Extracted email:', email);
+  console.log('Extracted adminEmail:', adminEmail);
+  console.log('Delete classes flag:', deleteClasses);
+
+  if (!email) {
+    console.log('No email provided in request');
+    throw new functions.https.HttpsError('invalid-argument', 'Email is required');
+  }
+
+  const {callerUid, effectiveAdminEmail} = await _verifyCallableCallerIsAdmin(data, context);
 
   console.log(`Starting delete process for user: ${email} by caller uid: ${callerUid}`);
 
   try {
     const usersRef = admin.firestore().collection('users');
-    let callerData = null;
-
-    // Prefer UID-based lookup (most reliable).
-    try {
-      const callerByUid = await usersRef.doc(callerUid).get();
-      if (callerByUid.exists) {
-        callerData = callerByUid.data();
-      }
-    } catch (e) {
-      console.log('Error looking up caller by UID:', e.message);
-    }
-
-    // Legacy: some deployments store docs keyed by email.
-    if (!callerData && effectiveAdminEmail) {
-      try {
-        const callerByEmailId = await usersRef.doc(effectiveAdminEmail).get();
-        if (callerByEmailId.exists) {
-          callerData = callerByEmailId.data();
-        }
-      } catch (e) {
-        console.log('Error looking up caller by email doc ID:', e.message);
-      }
-    }
-
-    // Fallback: query by email field.
-    if (!callerData && effectiveAdminEmail) {
-      const callerQuery = await usersRef.where('e-mail', '==', effectiveAdminEmail).limit(1).get();
-      if (!callerQuery.empty) {
-        callerData = callerQuery.docs[0].data();
-      }
-    }
-
-    // Fallback: query by uid field (some schemas use auto IDs but store uid in a field).
-    if (!callerData) {
-      try {
-        const callerUidQuery = await usersRef.where('uid', '==', callerUid).limit(1).get();
-        if (!callerUidQuery.empty) {
-          callerData = callerUidQuery.docs[0].data();
-        }
-      } catch (e) {
-        console.log('Error looking up caller by uid field:', e.message);
-      }
-    }
-
-    // Fallback: some schemas use `email` field instead of `e-mail`.
-    if (!callerData && effectiveAdminEmail) {
-      try {
-        const callerEmailFieldQuery = await usersRef
-          .where('email', '==', effectiveAdminEmail)
-          .limit(1)
-          .get();
-        if (!callerEmailFieldQuery.empty) {
-          callerData = callerEmailFieldQuery.docs[0].data();
-        }
-      } catch (e) {
-        console.log('Error looking up caller by email field:', e.message);
-      }
-    }
-
-    if (!callerData) {
-      console.log(`Caller not found in users collection. uid=${callerUid}, email=${effectiveAdminEmail}`);
-      if (!tokenIsAdmin) {
-        throw new functions.https.HttpsError('permission-denied', 'Caller not found in users collection');
-      }
-      console.log(
-        'Caller user doc missing, but auth token indicates admin; proceeding with token-based authorization.'
-      );
-    }
-    
-    // Log caller data for debugging
-    if (callerData) {
-      console.log(`Caller data found:`, {
-        uid: callerUid,
-        email: effectiveAdminEmail,
-        user_type: callerData.user_type,
-        role: callerData.role,
-        userType: callerData.userType,
-        is_admin_teacher: callerData.is_admin_teacher,
-        is_admin: callerData.is_admin,
-        isAdmin: callerData.isAdmin,
-        is_super_admin: callerData.is_super_admin,
-        isSuperAdmin: callerData.isSuperAdmin,
-      });
-    } else {
-      console.log(`Caller data not found; tokenIsAdmin=${tokenIsAdmin}`, {
-        uid: callerUid,
-        email: effectiveAdminEmail,
-        tokenRole,
-      });
-    }
-    
-    const callerUserType = _normalizeRole(
-      callerData ? callerData.user_type || callerData.role || callerData.userType || '' : ''
-    );
-    const isAdminFromFirestore =
-      callerUserType === 'admin' ||
-      callerUserType === 'administrator' ||
-      callerUserType === 'super_admin' ||
-      callerUserType === 'superadmin' ||
-      _truthy(callerData?.is_admin_teacher) ||
-      _truthy(callerData?.is_admin) ||
-      _truthy(callerData?.isAdmin) ||
-      _truthy(callerData?.is_super_admin) ||
-      _truthy(callerData?.isSuperAdmin);
-    const isAdmin = tokenIsAdmin || isAdminFromFirestore;
-
-    console.log(`Admin check result: isAdmin=${isAdmin}, callerUserType="${callerUserType}"`);
-
-    if (!isAdmin) {
-      console.log(
-        `Caller ${effectiveAdminEmail || callerUid} is not an admin. user_type: ${callerData.user_type}, role: ${callerData.role}, userType: ${callerData.userType}, is_admin_teacher: ${callerData.is_admin_teacher}, is_admin: ${callerData.is_admin}, isAdmin: ${callerData.isAdmin}`
-      );
-      throw new functions.https.HttpsError('permission-denied', 'Only administrators can delete users');
-    }
 
     console.log(`Admin ${effectiveAdminEmail || callerUid} (verified) attempting to delete user: ${email}`);
 
@@ -995,7 +1127,27 @@ const deleteUserAccount = async (data, context) => {
       console.log(`Error handling tasks:`, error.message);
     }
 
+    let publicTeamCleanup = {refs: [], urls: []};
+    try {
+      publicTeamCleanup = await _collectPublicSiteTeamBatchDeletes(
+        admin.firestore(),
+        userIdsToPurge
+      );
+      for (const ref of publicTeamCleanup.refs) {
+        batch.delete(ref);
+      }
+      console.log(
+        `[DeleteUserAccount] Queued ${publicTeamCleanup.refs.length} public_site_cms_team doc(s) for deletion`
+      );
+    } catch (e) {
+      console.log('[DeleteUserAccount] public_site_cms_team batch cleanup failed:', e.message);
+    }
+
     await batch.commit();
+
+    for (const url of publicTeamCleanup.urls) {
+      await _deleteFileByFirebaseDownloadURL(url);
+    }
 
     console.log(`Successfully deleted user and all associated data: ${email}`);
 
@@ -1161,4 +1313,6 @@ module.exports = {
   createUser,
   deleteUserAccount,
   findUserByEmailOrCode,
+  adminSearchDirectoryUsers,
+  onUserDeletedCleanupPublicTeam,
 };

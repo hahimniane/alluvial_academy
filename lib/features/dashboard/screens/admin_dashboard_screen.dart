@@ -27,6 +27,7 @@ import 'teacher_home_screen.dart'; // Unified teacher dashboard
 import '../widgets/date_strip_calendar.dart';
 import '../widgets/timeline_shift_card.dart';
 import '../widgets/admin_cards/admin_action_cards.dart';
+import '../widgets/admin_cards/public_website_tools_card.dart';
 
 class AdminDashboard extends StatefulWidget {
   final int? refreshTrigger;
@@ -173,7 +174,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
             'total_sessions': timesheetSnapshot.docs.length,
           };
         });
-        AppLogger.error('Teacher stats loaded successfully: $teacherStats');
+        AppLogger.debug('Teacher stats loaded: $teacherStats');
       }
     } catch (e) {
       AppLogger.error('Error loading teacher stats: $e');
@@ -390,7 +391,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
             'last_backup': 'today',
           };
         });
-        AppLogger.error('Enhanced stats loaded successfully: $stats');
+        AppLogger.debug('Enhanced stats loaded: $stats');
       }
     } catch (e) {
       AppLogger.error('Error loading comprehensive stats: $e');
@@ -558,8 +559,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
       primary: true,
       child: Column(
         children: [
-          _buildModernHeader(),
-          const SizedBox(height: 24),
+          // The role-coloured welcome header is already rendered by the parent
+          // NestedScrollView (see `_buildWelcomeHeader` in `build`). Keeping a
+          // second "modern header" here produced two stacked banners on the
+          // admin dashboard and diverged from the student/parent layouts.
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 0),
             child: Column(
@@ -599,6 +602,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 ),
                 const SizedBox(height: 24),
                 ApplicantsToReviewCard(
+                  onNavigate: widget.onNavigate,
+                ),
+                const SizedBox(height: 24),
+                PublicWebsiteToolsCard(
                   onNavigate: widget.onNavigate,
                 ),
               ],
@@ -644,6 +651,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
               ),
               const SizedBox(height: 16),
               ApplicantsToReviewCard(
+                onNavigate: widget.onNavigate,
+              ),
+              const SizedBox(height: 16),
+              PublicWebsiteToolsCard(
                 onNavigate: widget.onNavigate,
               ),
               const SizedBox(height: 20),
@@ -1356,67 +1367,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
   Widget _buildDefaultDashboard() {
     return Center(
       child: Text(AppLocalizations.of(context)!.loadingDashboard),
-    );
-  }
-
-  Widget _buildModernHeader() {
-    return Container(
-      padding: const EdgeInsets.all(32),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xff0F172A),
-            Color(0xff1E293B),
-            Color(0xff334155),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.15),
-            blurRadius: 24,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  AppLocalizations.of(context)!.adminDashboard,
-                  style: GoogleFonts.inter(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Welcome back, ${userData?['first_name'] ?? userData?['firstName'] ?? 'Admin'}! Here\'s what\'s happening in your education hub.',
-                  style: GoogleFonts.inter(
-                    fontSize: 16,
-                    color: Colors.white.withOpacity(0.8),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Use the cards below to review and manage what needs attention.',
-                  style: GoogleFonts.inter(
-                    fontSize: 13,
-                    color: Colors.white.withOpacity(0.75),
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -4179,7 +4129,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
       case 'parent':
         return 'Stay connected with your child\'s educational progress.';
       default:
-        return 'Welcome to Alluvial Education Hub.';
+        return 'Welcome to Alluwal Education Hub.';
     }
   }
 

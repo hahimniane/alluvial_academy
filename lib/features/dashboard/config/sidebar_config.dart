@@ -193,11 +193,11 @@ class SidebarConfig {
         title: 'Website',
         items: [
           const SidebarItem(
-            id: 'website_mgmt',
-            label: 'CMS',
-            icon: Icons.web,
-            screenIndex: 2,
-            colorValue: 0xff7C3AED,
+            id: 'public_site_cms',
+            label: 'Pricing & public team',
+            icon: Icons.groups,
+            screenIndex: 28,
+            colorValue: 0xff059669,
           ),
         ],
       ),

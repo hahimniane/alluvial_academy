@@ -51,6 +51,8 @@ class TimesheetEntry {
   final bool isEdited; // Whether this timesheet was edited
   final bool editApproved; // Whether the edit was approved by admin
   final Map<String, dynamic>? originalData; // Original data before edit (for comparison)
+  /// Status before teacher edit (`edit_timesheet_dialog`); used when admin rejects the edit.
+  final String? previousStatus;
   final Timestamp? editedAt; // When the timesheet was edited
   final String? editedBy; // Who edited the timesheet
   
@@ -104,6 +106,7 @@ class TimesheetEntry {
     this.isEdited = false,
     this.editApproved = false,
     this.originalData,
+    this.previousStatus,
     this.editedAt,
     this.editedBy,
     this.formResponseId,

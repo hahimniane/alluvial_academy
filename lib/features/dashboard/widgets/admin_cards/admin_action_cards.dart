@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 /// Small reusable card shell for admin home "actionable" panels.
 class AdminActionCardShell extends StatelessWidget {
@@ -71,7 +72,7 @@ class AdminActionCardShell extends StatelessWidget {
                   onPressed: onViewAll,
                   icon: const Icon(Icons.arrow_forward),
                   label: Text(
-                    viewAllLabel ?? 'View all',
+                    viewAllLabel ?? AppLocalizations.of(context)!.adminActionCardsViewAll,
                     style: GoogleFonts.inter(
                       fontWeight: FontWeight.w600,
                       fontSize: 12,
@@ -151,11 +152,12 @@ class PendingTimesheetsCard extends StatelessWidget {
         .limit(limit)
         .snapshots();
 
+    final l = AppLocalizations.of(context)!;
     return AdminActionCardShell(
-      title: 'Pending timesheets',
+      title: l.adminActionCardsPendingTimesheets,
       icon: Icons.receipt_long,
       accentColor: const Color(0xFF8B5CF6),
-      viewAllLabel: 'Timesheet review',
+      viewAllLabel: l.adminActionCardsTimesheetReview,
       onViewAll: () => onNavigate?.call(screenIndex),
       content: StreamBuilder<QuerySnapshot>(
         stream: stream,
@@ -166,11 +168,11 @@ class PendingTimesheetsCard extends StatelessWidget {
             );
           }
           if (snapshot.hasError) {
-            return _emptyState('Error loading pending timesheets');
+            return _emptyState(AppLocalizations.of(context)!.adminActionCardsErrorPendingTimesheets);
           }
 
           final docs = snapshot.data?.docs ?? [];
-          if (docs.isEmpty) return _emptyState('No pending timesheets');
+          if (docs.isEmpty) return _emptyState(AppLocalizations.of(context)!.adminActionCardsNoPendingTimesheets);
 
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -237,11 +239,12 @@ class OverdueTasksCard extends StatelessWidget {
         .limit(20)
         .snapshots();
 
+    final l = AppLocalizations.of(context)!;
     return AdminActionCardShell(
-      title: 'Overdue tasks',
+      title: l.adminActionCardsOverdueTasks,
       icon: Icons.task_alt,
       accentColor: const Color(0xFF14B8A6),
-      viewAllLabel: 'Open tasks',
+      viewAllLabel: l.adminActionCardsOpenTasks,
       onViewAll: () => onNavigate?.call(screenIndex),
       content: StreamBuilder<QuerySnapshot>(
         stream: stream,
@@ -252,7 +255,7 @@ class OverdueTasksCard extends StatelessWidget {
             );
           }
           if (snapshot.hasError) {
-            return _emptyState('Error loading tasks');
+            return _emptyState(AppLocalizations.of(context)!.adminActionCardsErrorTasks);
           }
 
           final docs = snapshot.data?.docs ?? [];
@@ -262,7 +265,7 @@ class OverdueTasksCard extends StatelessWidget {
             return !status.contains('done');
           }).take(limit).toList();
 
-          if (filtered.isEmpty) return _emptyState('No overdue tasks');
+          if (filtered.isEmpty) return _emptyState(AppLocalizations.of(context)!.adminActionCardsNoOverdueTasks);
 
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -328,11 +331,12 @@ class RecentSubmissionsCard extends StatelessWidget {
         .limit(limit)
         .snapshots();
 
+    final l = AppLocalizations.of(context)!;
     return AdminActionCardShell(
-      title: 'Recent submissions',
+      title: l.adminActionCardsRecentSubmissions,
       icon: Icons.list_alt,
       accentColor: const Color(0xFF0EA5E9),
-      viewAllLabel: 'All submissions',
+      viewAllLabel: l.adminActionCardsAllSubmissions,
       onViewAll: () => onNavigate?.call(screenIndex),
       content: StreamBuilder<QuerySnapshot>(
         stream: stream,
@@ -343,11 +347,11 @@ class RecentSubmissionsCard extends StatelessWidget {
             );
           }
           if (snapshot.hasError) {
-            return _emptyState('Error loading submissions');
+            return _emptyState(AppLocalizations.of(context)!.adminActionCardsErrorSubmissions);
           }
 
           final docs = snapshot.data?.docs ?? [];
-          if (docs.isEmpty) return _emptyState('No submissions yet');
+          if (docs.isEmpty) return _emptyState(AppLocalizations.of(context)!.adminActionCardsNoSubmissions);
 
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -415,11 +419,12 @@ class UpcomingShiftsCard extends StatelessWidget {
         .limit(limit)
         .snapshots();
 
+    final l = AppLocalizations.of(context)!;
     return AdminActionCardShell(
-      title: 'Upcoming shifts',
+      title: l.adminActionCardsUpcomingShifts,
       icon: Icons.schedule,
       accentColor: const Color(0xFFF59E0B),
-      viewAllLabel: 'Open shifts',
+      viewAllLabel: l.adminActionCardsOpenShifts,
       onViewAll: () => onNavigate?.call(screenIndex),
       content: StreamBuilder<QuerySnapshot>(
         stream: stream,
@@ -430,11 +435,11 @@ class UpcomingShiftsCard extends StatelessWidget {
             );
           }
           if (snapshot.hasError) {
-            return _emptyState('Error loading upcoming shifts');
+            return _emptyState(AppLocalizations.of(context)!.adminActionCardsErrorShifts);
           }
 
           final docs = snapshot.data?.docs ?? [];
-          if (docs.isEmpty) return _emptyState('No upcoming shifts');
+          if (docs.isEmpty) return _emptyState(AppLocalizations.of(context)!.adminActionCardsNoUpcomingShifts);
 
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -508,11 +513,12 @@ class ApplicantsToReviewCard extends StatelessWidget {
         .limit(20)
         .snapshots();
 
+    final l = AppLocalizations.of(context)!;
     return AdminActionCardShell(
-      title: 'Applicants to review',
+      title: l.adminActionCardsApplicantsToReview,
       icon: Icons.school,
       accentColor: const Color(0xFFDC2626),
-      viewAllLabel: 'Review applications',
+      viewAllLabel: l.adminActionCardsReviewApplications,
       onViewAll: () {
         // If we don't know which list should be prioritized, go to student applicants.
         onNavigate?.call(16);
@@ -542,7 +548,7 @@ class ApplicantsToReviewCard extends StatelessWidget {
 
               final take = docs.take(limit).toList();
               if (take.isEmpty) {
-                return _emptyState('No student applicants');
+                return _emptyState(AppLocalizations.of(context)!.adminActionCardsNoStudentApplicants);
               }
 
               return Column(
@@ -550,11 +556,11 @@ class ApplicantsToReviewCard extends StatelessWidget {
                 children: [
                   _SectionMiniHeader(
                     icon: Icons.person_outline,
-                    title: 'Students',
+                    title: AppLocalizations.of(context)!.adminActionCardsStudents,
                   ),
                   ...take.map((d) {
                     final data = d.data() as Map<String, dynamic>;
-                    final subject = (data['subject'] ?? '').toString();
+                    final subject = (data['programTitle'] ?? data['subject'] ?? '').toString();
                     final student = (data['student']?['name'] ?? data['studentName'] ?? '').toString();
                     return Padding(
                       padding: const EdgeInsets.symmetric(vertical: 6),
@@ -576,7 +582,7 @@ class ApplicantsToReviewCard extends StatelessWidget {
                     child: TextButton(
                       onPressed: () => onNavigate?.call(16),
                       child: Text(
-                        'View students',
+                        AppLocalizations.of(context)!.adminActionCardsViewStudents,
                         style: GoogleFonts.inter(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
@@ -600,7 +606,7 @@ class ApplicantsToReviewCard extends StatelessWidget {
               final docs = snapshot.data!.docs;
               final take = docs.take(limit).toList();
               if (take.isEmpty) {
-                return _emptyState('No teacher applicants');
+                return _emptyState(AppLocalizations.of(context)!.adminActionCardsNoTeacherApplicants);
               }
 
               return Column(
@@ -608,7 +614,7 @@ class ApplicantsToReviewCard extends StatelessWidget {
                 children: [
                   _SectionMiniHeader(
                     icon: Icons.person,
-                    title: 'Teachers',
+                    title: AppLocalizations.of(context)!.adminActionCardsTeachers,
                   ),
                   ...take.map((d) {
                     final data = d.data() as Map<String, dynamic>;
@@ -636,7 +642,7 @@ class ApplicantsToReviewCard extends StatelessWidget {
                     child: TextButton(
                       onPressed: () => onNavigate?.call(17),
                       child: Text(
-                        'View teachers',
+                        AppLocalizations.of(context)!.adminActionCardsViewTeachers,
                         style: GoogleFonts.inter(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,

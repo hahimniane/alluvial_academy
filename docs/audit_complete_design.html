@@ -1,0 +1,498 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--c-accent:#1a6ef5;--c-accent-bg:rgba(26,110,245,0.07);--c-green:#10b981;--c-green-bg:rgba(16,185,129,0.08);--c-red:#ef4444;--c-red-bg:rgba(239,68,68,0.08);--c-orange:#f59e0b;--c-orange-bg:rgba(245,158,11,0.08)}
+.shell{display:flex;height:640px;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);overflow:hidden;background:var(--color-background-primary);font-family:var(--font-sans)}
+/* LEFT SIDEBAR */
+.sidebar{width:260px;flex-shrink:0;display:flex;flex-direction:column;border-right:0.5px solid var(--color-border-tertiary);background:var(--color-background-secondary)}
+.sidebar-head{padding:12px 14px;border-bottom:0.5px solid var(--color-border-tertiary)}
+.sidebar-title{font-size:13px;font-weight:500;color:var(--color-text-primary);margin-bottom:8px}
+.search-box{display:flex;align-items:center;gap:6px;padding:6px 8px;background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);font-size:12px;color:var(--color-text-secondary)}
+.search-box input{border:none;outline:none;background:transparent;font-size:12px;color:var(--color-text-primary);width:100%;font-family:var(--font-sans)}
+.sidebar-filters{display:flex;gap:4px;padding:8px 14px;border-bottom:0.5px solid var(--color-border-tertiary)}
+.filter-chip{padding:3px 8px;border-radius:20px;font-size:11px;cursor:pointer;border:0.5px solid var(--color-border-tertiary);color:var(--color-text-secondary);background:var(--color-background-primary)}
+.filter-chip.active{background:var(--c-accent-bg);border-color:var(--c-accent);color:var(--c-accent)}
+.teacher-list{overflow-y:auto;flex:1}
+.teacher-item{padding:10px 14px;border-bottom:0.5px solid var(--color-border-tertiary);cursor:pointer;display:flex;align-items:center;gap:10px}
+.teacher-item:hover{background:var(--color-background-primary)}
+.teacher-item.active{background:var(--color-background-primary);border-left:2px solid var(--c-accent)}
+.avatar{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;flex-shrink:0}
+.av-green{background:var(--c-green-bg);color:var(--c-green)}
+.av-blue{background:var(--c-accent-bg);color:var(--c-accent)}
+.av-orange{background:var(--c-orange-bg);color:var(--c-orange)}
+.teacher-info{flex:1;min-width:0}
+.teacher-name{font-size:12px;font-weight:500;color:var(--color-text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.teacher-sub{font-size:10px;color:var(--color-text-secondary);margin-top:1px}
+.score-pill{font-size:11px;font-weight:500;padding:2px 6px;border-radius:20px}
+.sp-green{background:var(--c-green-bg);color:var(--c-green)}
+.sp-blue{background:var(--c-accent-bg);color:var(--c-accent)}
+.sp-orange{background:var(--c-orange-bg);color:var(--c-orange)}
+/* MAIN PANEL */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.main-empty{flex:1;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;color:var(--color-text-secondary)}
+/* TEACHER DETAIL */
+.detail{display:flex;flex-direction:column;height:100%;overflow:hidden}
+.detail-header{padding:12px 16px;border-bottom:0.5px solid var(--color-border-tertiary);display:flex;align-items:center;gap:12px;flex-shrink:0}
+.back-btn{padding:4px 8px;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);font-size:11px;cursor:pointer;color:var(--color-text-secondary);background:var(--color-background-secondary)}
+.detail-tabs{display:flex;gap:0;border-bottom:0.5px solid var(--color-border-tertiary);padding:0 16px;flex-shrink:0}
+.dtab{padding:9px 13px;font-size:12px;cursor:pointer;color:var(--color-text-secondary);border-bottom:2px solid transparent;white-space:nowrap}
+.dtab.active{color:var(--c-accent);border-bottom-color:var(--c-accent)}
+.dtab-content{display:none;flex:1;overflow:hidden;flex-direction:column}
+.dtab-content.active{display:flex}
+/* STATS BAR */
+.stats-bar{display:flex;gap:8px;padding:10px 16px;border-bottom:0.5px solid var(--color-border-tertiary);flex-shrink:0;overflow-x:auto}
+.stat-mini{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:7px 12px;flex-shrink:0}
+.stat-mini-label{font-size:10px;color:var(--color-text-secondary);margin-bottom:2px}
+.stat-mini-val{font-size:16px;font-weight:500;color:var(--color-text-primary)}
+.smv-green{color:var(--c-green)}
+.smv-red{color:var(--c-red)}
+.smv-orange{color:var(--c-orange)}
+/* TABLE */
+.table-scroll{overflow:auto;flex:1}
+table{width:100%;border-collapse:collapse;font-size:12px}
+thead th{padding:7px 10px;text-align:left;font-size:10px;font-weight:500;color:var(--color-text-secondary);background:var(--color-background-secondary);border-bottom:0.5px solid var(--color-border-tertiary);white-space:nowrap;position:sticky;top:0;z-index:1}
+td{padding:6px 10px;border-bottom:0.5px solid var(--color-border-tertiary);vertical-align:middle;white-space:nowrap;font-size:11px}
+tr.row-missed td{background:rgba(239,68,68,0.04)}
+tr.row-form-only td{background:rgba(245,158,11,0.04)}
+tr:hover td{background:var(--color-background-secondary)}
+tr.row-missed:hover td{background:rgba(239,68,68,0.08)}
+.pill{display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:20px;font-size:10px;font-weight:500}
+.p-done{background:var(--c-green-bg);color:var(--c-green)}
+.p-missed{background:var(--c-red-bg);color:var(--c-red)}
+.p-formonly{background:var(--c-orange-bg);color:var(--c-orange)}
+.p-late{background:var(--c-orange-bg);color:var(--c-orange)}
+.p-pending{background:var(--c-orange-bg);color:var(--c-orange)}
+.p-acc{background:var(--c-green-bg);color:var(--c-green)}
+.p-rej{background:var(--c-red-bg);color:var(--c-red)}
+.expand-btn{width:18px;height:18px;border:0.5px solid var(--color-border-tertiary);border-radius:3px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:11px;color:var(--color-text-secondary);background:var(--color-background-secondary)}
+.form-detail-row td{background:var(--color-background-secondary)!important;padding:0}
+.form-detail-inner{padding:10px 16px 10px 36px;display:grid;grid-template-columns:1fr 1fr;gap:6px 16px}
+.fq{font-size:11px;color:var(--color-text-secondary)}
+.fa{font-size:11px;color:var(--color-text-primary);font-weight:500}
+/* FORMS TAB */
+.forms-split{display:flex;gap:0;flex:1;overflow:hidden}
+.forms-list{width:220px;flex-shrink:0;border-right:0.5px solid var(--color-border-tertiary);overflow-y:auto;display:flex;flex-direction:column}
+.forms-section-head{padding:7px 12px;font-size:10px;font-weight:500;color:var(--color-text-secondary);background:var(--color-background-secondary);border-bottom:0.5px solid var(--color-border-tertiary);position:sticky;top:0}
+.form-list-item{padding:8px 12px;border-bottom:0.5px solid var(--color-border-tertiary);cursor:pointer;display:flex;align-items:flex-start;gap:6px}
+.form-list-item:hover{background:var(--color-background-secondary)}
+.form-list-item.active{background:var(--c-accent-bg);border-left:2px solid var(--c-accent)}
+.forms-detail{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px}
+.shift-card{border:0.5px solid var(--color-border-info);border-radius:var(--border-radius-md);background:var(--c-accent-bg);padding:12px}
+.shift-card-title{font-size:10px;font-weight:500;color:var(--c-accent);margin-bottom:8px}
+.shift-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px 12px}
+.shift-kv label{font-size:10px;color:var(--color-text-secondary)}
+.shift-kv span{font-size:12px;color:var(--color-text-primary);font-weight:500;display:block}
+.responses-section{display:flex;flex-direction:column;gap:8px}
+.resp-item{border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);padding:10px 12px}
+.resp-q{font-size:11px;color:var(--color-text-secondary);margin-bottom:3px}
+.resp-a{font-size:12px;color:var(--color-text-primary);font-weight:500}
+/* EVAL TAB */
+.eval-split{display:flex;gap:0;flex:1;overflow:hidden}
+.eval-metrics{width:220px;flex-shrink:0;border-right:0.5px solid var(--color-border-tertiary);overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px}
+.eval-group{display:flex;flex-direction:column;gap:0;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);overflow:hidden}
+.eval-group-head{padding:6px 10px;background:var(--color-background-secondary);font-size:10px;font-weight:500;color:var(--color-text-secondary)}
+.eval-row{padding:6px 10px;border-top:0.5px solid var(--color-border-tertiary);display:flex;justify-content:space-between;align-items:center}
+.eval-key{font-size:11px;color:var(--color-text-secondary)}
+.eval-val{font-size:11px;font-weight:500;color:var(--color-text-primary)}
+.eval-factors{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px}
+.factor-card{border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);padding:10px 12px}
+.fc-head{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:4px}
+.fc-title{font-size:12px;font-weight:500;color:var(--color-text-primary)}
+.fc-live{font-size:10px;padding:2px 6px;border-radius:20px;background:var(--c-accent-bg);color:var(--c-accent)}
+.fc-desc{font-size:10px;color:var(--color-text-secondary);margin-bottom:8px}
+.rating-row{display:flex;gap:3px;margin-bottom:6px}
+.rb{flex:1;padding:5px 2px;border:0.5px solid var(--color-border-tertiary);border-radius:3px;background:var(--color-background-secondary);cursor:pointer;text-align:center;transition:all 0.1s}
+.rb.sel{background:var(--c-accent-bg);border-color:var(--c-accent)}
+.rb-num{font-size:12px;font-weight:500;color:var(--color-text-primary)}
+.rb.sel .rb-num{color:var(--c-accent)}
+.rb-lbl{font-size:9px;color:var(--color-text-secondary)}
+.rb.sel .rb-lbl{color:var(--c-accent)}
+.obs{width:100%;padding:5px 8px;font-size:11px;border:0.5px solid var(--color-border-tertiary);border-radius:3px;background:var(--color-background-secondary);color:var(--color-text-primary);resize:none;font-family:var(--font-sans)}
+.eval-footer{padding:10px 12px;border-top:0.5px solid var(--color-border-tertiary);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.total-score-display{font-size:13px;font-weight:500;color:var(--color-text-primary)}
+.submit-btn{padding:7px 18px;background:var(--c-accent);color:#fff;border:none;border-radius:var(--border-radius-md);font-size:12px;font-weight:500;cursor:pointer}
+</style>
+
+<div class="shell" id="shell">
+
+<!-- LEFT SIDEBAR -->
+<div class="sidebar">
+  <div class="sidebar-head">
+    <div class="sidebar-title">Audit management &nbsp;<span style="font-size:10px;font-weight:400;color:var(--color-text-secondary)">Feb 2026</span></div>
+    <div class="search-box"><span style="font-size:12px">&#9906;</span><input id="search" placeholder="Search teacher..." oninput="filterTeachers(this.value)"/></div>
+  </div>
+  <div class="sidebar-filters">
+    <span class="filter-chip active" onclick="setFilter('all',this)">All</span>
+    <span class="filter-chip" onclick="setFilter('pending',this)">Pending</span>
+    <span class="filter-chip" onclick="setFilter('done',this)">Done</span>
+  </div>
+  <div class="teacher-list" id="teacher-list"></div>
+</div>
+
+<!-- MAIN -->
+<div class="main" id="main">
+  <div class="main-empty" id="empty-state">
+    <div style="font-size:28px;opacity:0.2">&#9776;</div>
+    <div style="font-size:13px">Select a teacher to review their audit</div>
+  </div>
+  <div class="detail" id="detail-view" style="display:none">
+    <div class="detail-header">
+      <button class="back-btn" onclick="closeDetail()">&#8592; Back</button>
+      <div class="avatar av-green" id="det-avatar" style="width:34px;height:34px;font-size:12px">MS</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:500" id="det-name">Mama S Diallo</div>
+        <div style="font-size:11px;color:var(--color-text-secondary)" id="det-email">mamasdiallo26@gmail.com · Feb 2026</div>
+      </div>
+      <span class="score-pill sp-green" id="det-score">97%</span>
+      <span class="pill p-pending" id="det-status">Pending</span>
+      <button style="padding:5px 12px;background:var(--c-accent);color:#fff;border:none;border-radius:var(--border-radius-md);font-size:11px;font-weight:500;cursor:pointer" onclick="showTab('eval')">Evaluate</button>
+    </div>
+
+    <div class="detail-tabs">
+      <div class="dtab active" id="dtab-classes" onclick="showTab('classes')">Class log</div>
+      <div class="dtab" id="dtab-forms" onclick="showTab('forms')">Teaching forms</div>
+      <div class="dtab" id="dtab-extra" onclick="showTab('extra')">Assignments &amp; assessments</div>
+      <div class="dtab" id="dtab-eval" onclick="showTab('eval')">Evaluation</div>
+    </div>
+
+    <!-- CLASSES TAB -->
+    <div class="dtab-content active" id="tab-classes">
+      <div class="stats-bar">
+        <div class="stat-mini"><div class="stat-mini-label">Scheduled</div><div class="stat-mini-val">75</div></div>
+        <div class="stat-mini"><div class="stat-mini-label">Completed</div><div class="stat-mini-val smv-green">72</div></div>
+        <div class="stat-mini"><div class="stat-mini-label">Missed</div><div class="stat-mini-val smv-red">3</div></div>
+        <div class="stat-mini"><div class="stat-mini-label">Hours (TS)</div><div class="stat-mini-val">83.5 h</div></div>
+        <div class="stat-mini"><div class="stat-mini-label">Late clock-ins</div><div class="stat-mini-val smv-orange">3</div></div>
+        <div class="stat-mini"><div class="stat-mini-label">Gross pay</div><div class="stat-mini-val smv-green">$327.40</div></div>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead><tr>
+            <th></th>
+            <th>Date</th>
+            <th>Student(s)</th>
+            <th>Subject</th>
+            <th>Sched.</th>
+            <th>Clock-in</th>
+            <th>Clock-out</th>
+            <th>Worked</th>
+            <th>Billed</th>
+            <th>Rate</th>
+            <th>Pay</th>
+            <th>TS source</th>
+            <th>Form</th>
+            <th>Status</th>
+          </tr></thead>
+          <tbody id="class-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- FORMS TAB -->
+    <div class="dtab-content" id="tab-forms">
+      <div class="stats-bar">
+        <div class="stat-mini"><div class="stat-mini-label">Total daily reports</div><div class="stat-mini-val">76</div></div>
+        <div class="stat-mini"><div class="stat-mini-label">Accepted</div><div class="stat-mini-val smv-green">61</div></div>
+        <div class="stat-mini"><div class="stat-mini-label">Rejected (no shift)</div><div class="stat-mini-val smv-red">15</div></div>
+        <div class="stat-mini"><div class="stat-mini-label">Readiness forms</div><div class="stat-mini-val">72</div></div>
+      </div>
+      <div class="forms-split">
+        <div class="forms-list" id="forms-list"></div>
+        <div class="forms-detail" id="forms-detail">
+          <div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--color-text-secondary);font-size:12px">Select a form to view its content</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- EXTRA FORMS TAB -->
+    <div class="dtab-content" id="tab-extra">
+      <div class="stats-bar">
+        <div class="stat-mini"><div class="stat-mini-label">Assignments</div><div class="stat-mini-val">4</div></div>
+        <div class="stat-mini"><div class="stat-mini-label">Quizzes</div><div class="stat-mini-val">2</div></div>
+        <div class="stat-mini"><div class="stat-mini-label">Student assessments</div><div class="stat-mini-val">6</div></div>
+        <div class="stat-mini"><div class="stat-mini-label">Midterm</div><div class="stat-mini-val smv-red">0</div></div>
+        <div class="stat-mini"><div class="stat-mini-label">Final exam</div><div class="stat-mini-val smv-red">0</div></div>
+      </div>
+      <div class="forms-split">
+        <div class="forms-list" id="extra-list"></div>
+        <div class="forms-detail" id="extra-detail">
+          <div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--color-text-secondary);font-size:12px">Select a form to view its content</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- EVAL TAB -->
+    <div class="dtab-content" id="tab-eval" style="flex-direction:column">
+      <div class="eval-split" style="flex:1;overflow:hidden">
+        <div class="eval-metrics">
+          <div style="font-size:10px;font-weight:500;color:var(--color-text-secondary);padding-bottom:4px">Live audit data</div>
+          <div class="eval-group">
+            <div class="eval-group-head">Teaching</div>
+            <div class="eval-row"><span class="eval-key">Completion</span><span class="eval-val smv-green">72/75 · 96%</span></div>
+            <div class="eval-row"><span class="eval-key">Hours</span><span class="eval-val">83.5 h</span></div>
+            <div class="eval-row"><span class="eval-key">Missed</span><span class="eval-val" style="color:var(--c-red)">3</span></div>
+            <div class="eval-row"><span class="eval-key">Late clock-ins</span><span class="eval-val" style="color:var(--c-orange)">3</span></div>
+          </div>
+          <div class="eval-group">
+            <div class="eval-group-head">Forms</div>
+            <div class="eval-row"><span class="eval-key">Daily reports</span><span class="eval-val smv-green">76/75</span></div>
+            <div class="eval-row"><span class="eval-key">Rejected</span><span class="eval-val" style="color:var(--c-orange)">15 (no shift)</span></div>
+            <div class="eval-row"><span class="eval-key">Readiness</span><span class="eval-val smv-green">72</span></div>
+          </div>
+          <div class="eval-group">
+            <div class="eval-group-head">Academic</div>
+            <div class="eval-row"><span class="eval-key">Assignments</span><span class="eval-val">4</span></div>
+            <div class="eval-row"><span class="eval-key">Quizzes</span><span class="eval-val">2</span></div>
+            <div class="eval-row"><span class="eval-key">Midterm</span><span class="eval-val" style="color:var(--c-red)">No</span></div>
+            <div class="eval-row"><span class="eval-key">Final exam</span><span class="eval-val" style="color:var(--c-red)">No</span></div>
+          </div>
+          <div class="eval-group">
+            <div class="eval-group-head">Meetings &amp; tasks</div>
+            <div class="eval-row"><span class="eval-key">Meetings missed</span><span class="eval-val">0</span></div>
+            <div class="eval-row"><span class="eval-key">Overdue tasks</span><span class="eval-val">0</span></div>
+            <div class="eval-row"><span class="eval-key">Recordings sent</span><span class="eval-val" style="color:var(--c-red)">0</span></div>
+          </div>
+        </div>
+        <div class="eval-factors" id="eval-factors"></div>
+      </div>
+      <div class="eval-footer">
+        <div class="total-score-display">Overall: <span id="total-score">25</span> / 35</div>
+        <button class="submit-btn">Submit evaluation</button>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<script>
+const teachers=[
+  {id:1,name:'Mama S Diallo',email:'mamasdiallo26@gmail.com',dept:'Islamic',score:97,status:'pending',av:'MS',avc:'av-green'},
+  {id:2,name:'Barry Amadou oury',email:'alphaamadouourybarry6@gmail.com',dept:'N/A',score:100,status:'pending',av:'B',avc:'av-blue'},
+  {id:3,name:'Rahmatullaah Balde',email:'ramatoulahibalde78@gmail.com',dept:'Islamic Studies',score:96,status:'pending',av:'R',avc:'av-orange'},
+  {id:4,name:'Arabieu Bah',email:'arabieubah@gmail.com',dept:'Islamic',score:95.7,status:'pending',av:'A',avc:'av-green'},
+  {id:5,name:'Ibrahim Bah',email:'ibrahimbah@gmail.com',dept:'Quran',score:88,status:'done',av:'IB',avc:'av-blue'},
+  {id:6,name:'Fatumata Jalloh',email:'fatumatajalloh@gmail.com',dept:'Arabic',score:79,status:'done',av:'FJ',avc:'av-orange'},
+];
+
+const classes=[
+  {date:'Feb 1',students:'Nafisatou Bah',subject:'Quran Studies',sched:'1.00',cin:'14:00',cout:'15:00',worked:'01:00:00',billed:'1.00',rate:'$3.93',pay:'$3.93',src:'Unlockedpencil',form:true,status:'done',late:false},
+  {date:'Feb 1',students:'Fatoumata Diarraye',subject:'Quran Studies',sched:'1.00',cin:'—',cout:'—',worked:'—',billed:'0',rate:'$3.93',pay:'$0.00',src:'—',form:true,status:'missed',late:false},
+  {date:'Feb 1',students:'Amadou Sam',subject:'Islamic',sched:'1.50',cin:'19:00',cout:'20:28',worked:'01:28:12',billed:'1.46',rate:'$3.97',pay:'$5.80',src:'Unlocked',form:true,status:'done',late:false},
+  {date:'Feb 1',students:'Fatoumata Diarraye',subject:'Quran',sched:'1.00',cin:'21:50',cout:'22:50',worked:'01:00:00',billed:'1.00',rate:'$3.93',pay:'$3.93',src:'Unlocked',form:true,status:'done',late:false},
+  {date:'Feb 2',students:'M. Bertin, K. Bertin',subject:'Quran Studies',sched:'1.00',cin:'00:00',cout:'01:00',worked:'01:00:00',billed:'1.00',rate:'$4.00',pay:'$4.00',src:'Unlocked',form:true,status:'done',late:false},
+  {date:'Feb 3',students:'Salimatou Bah',subject:'Quran Studies',sched:'1.00',cin:'01:30',cout:'02:30',worked:'01:00:00',billed:'1.00',rate:'$3.93',pay:'$3.93',src:'Unlocked',form:true,status:'done',late:false},
+  {date:'Feb 4',students:'Nafisatou Bah',subject:'Quran Studies',sched:'1.00',cin:'09:47',cout:'10:47',worked:'01:00:00',billed:'1.00',rate:'$3.93',pay:'$3.93',src:'Unlocked',form:false,status:'done',late:true},
+  {date:'Feb 5',students:'Salimatou Bah',subject:'Quran Studies',sched:'1.00',cin:'14:02',cout:'15:00',worked:'00:58:48',billed:'0.98',rate:'$3.93',pay:'$3.87',src:'Unlocked',form:false,status:'done',late:false},
+  {date:'Feb 7',students:'Nafisatou Bah',subject:'Quran Studies',sched:'2.00',cin:'10:00',cout:'12:00',worked:'02:00:00',billed:'2.00',rate:'$3.93',pay:'$7.93',src:'Unlocked',form:false,status:'done',late:false},
+  {date:'Feb 19',students:'Fatoumata Diarraye',subject:'Quran Studies',sched:'1.00',cin:'—',cout:'—',worked:'—',billed:'0',rate:'$3.93',pay:'$0.00',src:'—',form:false,status:'missed',late:false},
+  {date:'Feb 21',students:'Salimatou Bah',subject:'Quran Studies',sched:'1.00',cin:'—',cout:'—',worked:'—',billed:'0',rate:'$3.93',pay:'$0.00',src:'—',form:false,status:'missed',late:false},
+  {date:'Feb 28',students:'Fatoumata Diarraye',subject:'Quran Studies',sched:'1.00',cin:'22:00',cout:'23:00',worked:'01:00:00',billed:'1.00',rate:'$3.93',pay:'$3.93',src:'Unlocked',form:true,status:'done',late:false},
+];
+
+const teachingForms=[
+  {id:'f1',type:'Daily class report',date:'Feb 28 · 22:00',student:'Fatoumata Diarraye',status:'acc',shiftLinked:true,
+   shift:{students:'Fatoumata Diarraye',subject:'Quran Studies',schedule:'Sat Feb 28 2026 · 21:00–22:00',duration:'1 hour',teacher:'Mama S Diallo'},
+   responses:[{q:'Did you use the official curriculum?',a:'Yes, Used Official Curriculum'},{q:'What lesson/topic did you teach?',a:'Surah Al-Alaq 8-10'},{q:'How did the session go?',a:'5'},{q:'Actual class duration (hours)',a:'1'},{q:'Additional notes or observations',a:'Not provided'}]},
+  {id:'f2',type:'Readiness form',date:'Feb 28 · 17:28',student:'Fatoumata Diarraye',status:'rej',shiftLinked:false,
+   shift:null,
+   responses:[{q:'Are you ready for the class?',a:'Yes'},{q:'Any preparation notes?',a:'Prepared lesson on Surah Al-Alaq'},{q:'Equipment ready?',a:'Yes'}]},
+  {id:'f3',type:'Daily class report',date:'Feb 28 · 09:00',student:'Nafisatou Bah',status:'acc',shiftLinked:true,
+   shift:{students:'Nafisatou Bah',subject:'Quran Studies',schedule:'Sat Feb 28 2026 · 09:00–10:00',duration:'1 hour',teacher:'Mama S Diallo'},
+   responses:[{q:'Did you use the official curriculum?',a:'Yes, Used Official Curriculum'},{q:'What lesson/topic did you teach?',a:'Surah Al-Fath 18-22'},{q:'How did the session go?',a:'4'},{q:'Actual class duration (hours)',a:'1'},{q:'Additional notes or observations',a:'Student showed good progress'}]},
+  {id:'f4',type:'Readiness form',date:'Feb 15 · 11:09',student:'Mohammed Bertin',status:'rej',shiftLinked:false,
+   shift:null,
+   responses:[{q:'Are you ready for the class?',a:'Yes'},{q:'Any preparation notes?',a:'Practiced Tajweed rules'},{q:'Equipment ready?',a:'Yes'}]},
+  {id:'f5',type:'Daily class report',date:'Feb 8 · 00:59',student:'Salimatou Bah',status:'acc',shiftLinked:true,
+   shift:{students:'Salimatou Bah',subject:'Quran Studies',schedule:'Sat Feb 8 2026 · 00:00–01:00',duration:'1 hour',teacher:'Mama S Diallo'},
+   responses:[{q:'Did you use the official curriculum?',a:'Yes, Used Official Curriculum'},{q:'What lesson/topic did you teach?',a:'Quran Surah Al-zalzala 2-3'},{q:'How did the session go?',a:'5'},{q:'Actual class duration (hours)',a:'1'},{q:'Additional notes or observations',a:'Not provided'}]},
+];
+
+const extraForms=[
+  {id:'e1',type:'Student assessment',date:'Feb 28 · 17:31',student:'Fatoumata Diarraye',subject:'Quran Studies',
+   responses:[{q:'Student name',a:'Fatoumata Diarraye'},{q:'Subject',a:'Quran Studies'},{q:'Assignment given',a:'Surah Al-Alaq 8-10 review'},{q:'Assignment type',a:'Written'},{q:'Due date',a:'Mar 7, 2026'},{q:'Student grade this session',a:'85/100'},{q:'Comments',a:'Student needs to review Tajweed rules'}]},
+  {id:'e2',type:'Student assessment',date:'Feb 15 · 09:00',student:'Amadou Sam',subject:'Islamic',
+   responses:[{q:'Student name',a:'Amadou Sam'},{q:'Subject',a:'Islamic Studies'},{q:'Assignment given',a:'Fiqh basics — 5 questions quiz'},{q:'Assignment type',a:'Oral quiz'},{q:'Due date',a:'Feb 22, 2026'},{q:'Student grade this session',a:'90/100'},{q:'Comments',a:'Excellent understanding of Fiqh'}]},
+  {id:'e3',type:'Student assessment / grade form',date:'Feb 15 · 09:00',student:'Mohammed Bertin',subject:'Quran Studies',
+   responses:[{q:'Student name',a:'Mohammed Bertin'},{q:'Subject',a:'Quran Studies'},{q:'Assignment given',a:'Memorize Surah Al-Baqarah 1-5'},{q:'Assignment type',a:'Memorization'},{q:'Due date',a:'Mar 1, 2026'},{q:'Student grade this session',a:'78/100'},{q:'Comments',a:'Needs more practice on pronunciation'}]},
+  {id:'e4',type:'Student assessment',date:'Feb 8 · 15:04',student:'Nafisatou Bah',subject:'Quran Studies',
+   responses:[{q:'Student name',a:'Nafisatou Bah'},{q:'Subject',a:'Quran Studies'},{q:'Assignment given',a:'Surah Al-Fath oral recitation'},{q:'Assignment type',a:'Oral'},{q:'Due date',a:'Feb 15, 2026'},{q:'Student grade this session',a:'92/100'},{q:'Comments',a:'Great improvement this month'}]},
+];
+
+const factors=[
+  {id:'f1',title:'Class completion',desc:'Completion rate relative to schedule',live:'72/75 · 96%',score:5},
+  {id:'f2',title:'Punctuality',desc:'Late clock-ins this period',live:'3 late arrivals',score:4},
+  {id:'f3',title:'Form compliance',desc:'Daily reports and readiness forms',live:'76 filed / 75 classes',score:5},
+  {id:'f4',title:'Academic activity',desc:'Quizzes & assignments given',live:'4 assign · 2 quizzes',score:3},
+  {id:'f5',title:'Curriculum adherence',desc:'Official curriculum usage',live:'Yes — confirmed',score:5},
+  {id:'f6',title:'Recordings sent',desc:'Post-class weekly recordings',live:'0 sent this month',score:1},
+  {id:'f7',title:'Meeting attendance',desc:'Staff meetings attended',live:'0 scheduled',score:5},
+];
+const ratingLabels=['N/A','Critical','Below','Meets','Good','Excellent'];
+
+let currentFilter='all', currentTeacher=null, currentFormType='forms';
+
+function renderTeachers(list){
+  const tl=document.getElementById('teacher-list');
+  tl.innerHTML='';
+  list.forEach(t=>{
+    const div=document.createElement('div');
+    div.className='teacher-item'+(currentTeacher&&currentTeacher.id===t.id?' active':'');
+    div.innerHTML=`<div class="avatar ${t.avc}">${t.av}</div><div class="teacher-info"><div class="teacher-name">${t.name}</div><div class="teacher-sub">${t.dept} · ${t.score}%</div></div><span class="score-pill ${t.score>=95?'sp-green':t.score>=80?'sp-blue':'sp-orange'}">${t.status==='done'?'&#10003;':'&#9679;'}</span>`;
+    div.onclick=()=>openTeacher(t);
+    tl.appendChild(div);
+  });
+}
+
+function filterTeachers(q){
+  const filtered=teachers.filter(t=>t.name.toLowerCase().includes(q.toLowerCase())&&(currentFilter==='all'||t.status===currentFilter));
+  renderTeachers(filtered);
+}
+
+function setFilter(f,el){
+  currentFilter=f;
+  document.querySelectorAll('.filter-chip').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active');
+  filterTeachers(document.getElementById('search').value);
+}
+
+function openTeacher(t){
+  currentTeacher=t;
+  renderTeachers(teachers.filter(x=>currentFilter==='all'||x.status===currentFilter));
+  document.getElementById('empty-state').style.display='none';
+  document.getElementById('detail-view').style.display='flex';
+  document.getElementById('det-avatar').textContent=t.av;
+  document.getElementById('det-avatar').className='avatar '+t.avc;
+  document.getElementById('det-name').textContent=t.name;
+  document.getElementById('det-email').textContent=t.email+' · Feb 2026';
+  document.getElementById('det-score').textContent=t.score+'%';
+  showTab('classes');
+  buildClassTable();
+  buildFormsList();
+  buildExtraList();
+  buildEvalFactors();
+}
+
+function closeDetail(){
+  currentTeacher=null;
+  document.getElementById('empty-state').style.display='flex';
+  document.getElementById('detail-view').style.display='none';
+  renderTeachers(teachers.filter(x=>currentFilter==='all'||x.status===currentFilter));
+}
+
+function showTab(name){
+  ['classes','forms','extra','eval'].forEach(n=>{
+    document.getElementById('tab-'+n).classList.toggle('active',n===name);
+    document.getElementById('dtab-'+n).classList.toggle('active',n===name);
+  });
+}
+
+function buildClassTable(){
+  const tbody=document.getElementById('class-tbody');
+  tbody.innerHTML='';
+  classes.forEach((r,i)=>{
+    const tr=document.createElement('tr');
+    if(r.status==='missed')tr.className='row-missed';
+    const expandId='exp-'+i;
+    let statusHtml=r.status==='done'
+      ?`<span class="pill p-done">&#10003; Done</span>`
+      :`<span class="pill p-missed">&#10005; Missed</span>`;
+    let lateTag=r.late?` <span class="pill p-late">Late</span>`:'';
+    let formTag=r.form
+      ?`<span style="color:var(--c-green);font-size:11px">&#10003; Filed</span>`
+      :`<span style="color:var(--color-text-secondary);font-size:11px">—</span>`;
+    let srcTag=r.src!=='—'?`<span class="pill p-acc" style="font-size:10px">TS</span>`:`<span style="color:var(--color-text-secondary);font-size:11px">—</span>`;
+    tr.innerHTML=`<td><span class="expand-btn" onclick="toggleRow('${expandId}')">+</span></td><td>${r.date}</td><td style="max-width:120px;overflow:hidden;text-overflow:ellipsis">${r.students}</td><td>${r.subject}</td><td>${r.sched} h</td><td style="font-family:var(--font-mono,monospace)">${r.cin}</td><td style="font-family:var(--font-mono,monospace)">${r.cout}</td><td style="font-family:var(--font-mono,monospace)">${r.worked}${lateTag}</td><td>${r.billed!=='0'?r.billed+' h':'—'}</td><td>${r.rate}</td><td style="font-weight:500;color:${r.pay==='$0.00'?'var(--color-text-secondary)':'var(--c-green)'}">${r.pay}</td><td>${srcTag}</td><td>${formTag}</td><td>${statusHtml}</td>`;
+    tbody.appendChild(tr);
+    const etr=document.createElement('tr');
+    etr.id=expandId;
+    etr.className='form-detail-row';
+    etr.style.display='none';
+    etr.innerHTML=`<td colspan="14"><div class="form-detail-inner"><div><div class="fq">Clock-in source</div><div class="fa">${r.src}</div></div><div><div class="fq">Billed hours rule</div><div class="fa">Min(worked, scheduled)</div></div><div><div class="fq">Pay calculation</div><div class="fa">${r.billed} h × ${r.rate} = ${r.pay}</div></div><div><div class="fq">Form linked</div><div class="fa">${r.form?'Yes — Daily class report':'No form found'}</div></div></div></td>`;
+    tbody.appendChild(etr);
+  });
+}
+
+function toggleRow(id){
+  const r=document.getElementById(id);
+  const btn=r.previousElementSibling.querySelector('.expand-btn');
+  if(r.style.display==='none'){r.style.display='';if(btn)btn.textContent='−';}
+  else{r.style.display='none';if(btn)btn.textContent='+';}
+}
+
+function buildFormsList(){
+  const fl=document.getElementById('forms-list');
+  fl.innerHTML='';
+  const acc=teachingForms.filter(f=>f.status==='acc');
+  const rej=teachingForms.filter(f=>f.status==='rej');
+  const makeItem=(f)=>{
+    const div=document.createElement('div');
+    div.className='form-list-item';
+    div.innerHTML=`<span class="pill ${f.status==='acc'?'p-acc':'p-rej'}" style="flex-shrink:0;font-size:9px">${f.status==='acc'?'Acc':'Rej'}</span><div style="min-width:0"><div style="font-size:11px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${f.type}</div><div style="font-size:10px;color:var(--color-text-secondary)">${f.date}</div><div style="font-size:10px;color:var(--color-text-secondary);overflow:hidden;text-overflow:ellipsis">${f.student}</div></div>`;
+    div.onclick=()=>showFormDetail(f,'forms');
+    fl.appendChild(div);
+  };
+  const h1=document.createElement('div');h1.className='forms-section-head';h1.textContent='Accepted (61 shown: 3 sample)';fl.appendChild(h1);
+  acc.forEach(makeItem);
+  const h2=document.createElement('div');h2.className='forms-section-head';h2.textContent='Rejected — no linked shift (15)';fl.appendChild(h2);
+  rej.forEach(makeItem);
+}
+
+function buildExtraList(){
+  const el=document.getElementById('extra-list');
+  el.innerHTML='';
+  const h=document.createElement('div');h.className='forms-section-head';h.textContent='Assessments & assignments (4 shown)';el.appendChild(h);
+  extraForms.forEach(f=>{
+    const div=document.createElement('div');
+    div.className='form-list-item';
+    div.innerHTML=`<span class="pill p-acc" style="flex-shrink:0;font-size:9px">Form</span><div style="min-width:0"><div style="font-size:11px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${f.type}</div><div style="font-size:10px;color:var(--color-text-secondary)">${f.date}</div><div style="font-size:10px;color:var(--color-text-secondary);overflow:hidden;text-overflow:ellipsis">${f.student}</div></div>`;
+    div.onclick=()=>showFormDetail(f,'extra');
+    el.appendChild(div);
+  });
+}
+
+function showFormDetail(f,tab){
+  const container=document.getElementById(tab==='forms'?'forms-detail':'extra-detail');
+  const listItems=document.querySelectorAll(`#${tab==='forms'?'forms-list':'extra-list'} .form-list-item`);
+  listItems.forEach(i=>i.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+  let html='';
+  if(f.shift){
+    html+=`<div class="shift-card"><div class="shift-card-title">Shift information — autofilled</div><div class="shift-grid"><div class="shift-kv"><label>Student(s)</label><span>${f.shift.students}</span></div><div class="shift-kv"><label>Subject</label><span>${f.shift.subject}</span></div><div class="shift-kv"><label>Schedule</label><span>${f.shift.schedule}</span></div><div class="shift-kv"><label>Duration</label><span>${f.shift.duration}</span></div><div class="shift-kv"><label>Teacher</label><span>${f.shift.teacher}</span></div></div></div>`;
+  } else if(f.status==='rej'){
+    html+=`<div style="padding:10px 12px;background:var(--c-red-bg);border:0.5px solid var(--color-border-danger);border-radius:var(--border-radius-md);font-size:12px;color:var(--color-text-danger)">No matching shift found for this submission time. This form was rejected.</div>`;
+  }
+  html+=`<div style="font-size:11px;font-weight:500;color:var(--color-text-secondary)">Form responses</div><div class="responses-section">`;
+  f.responses.forEach(r=>{
+    html+=`<div class="resp-item"><div class="resp-q">${r.q}</div><div class="resp-a">${r.a}</div></div>`;
+  });
+  html+='</div>';
+  container.innerHTML=html;
+}
+
+function buildEvalFactors(){
+  const container=document.getElementById('eval-factors');
+  container.innerHTML='';
+  factors.forEach(f=>{
+    const div=document.createElement('div');
+    div.className='factor-card';
+    div.innerHTML=`<div class="fc-head"><div class="fc-title">${f.title}</div><span class="fc-live">${f.live}</span></div><div class="fc-desc">${f.desc}</div><div class="rating-row" id="rb-${f.id}"></div><textarea class="obs" rows="1" placeholder="Observations..."></textarea>`;
+    container.appendChild(div);
+    const row=div.querySelector(`#rb-${f.id}`);
+    for(let i=0;i<=5;i++){
+      const btn=document.createElement('div');
+      btn.className='rb'+(i===f.score?' sel':'');
+      btn.innerHTML=`<div class="rb-num">${i}</div><div class="rb-lbl">${ratingLabels[i]}</div>`;
+      btn.onclick=()=>{f.score=i;row.querySelectorAll('.rb').forEach((b,bi)=>b.className='rb'+(bi===i?' sel':''));updateTotal();};
+      row.appendChild(btn);
+    }
+  });
+  updateTotal();
+}
+
+function updateTotal(){
+  const t=factors.reduce((s,f)=>s+f.score,0);
+  document.getElementById('total-score').textContent=t;
+}
+
+renderTeachers(teachers);
+</script>

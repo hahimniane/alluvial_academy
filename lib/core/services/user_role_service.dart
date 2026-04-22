@@ -134,7 +134,7 @@ class UserRoleService {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_activeRoleKey, newRole);
 
-      AppLogger.error('Active role switched to: $newRole');
+      AppLogger.debug('Active role switched to: $newRole');
       return true;
     } catch (e) {
       AppLogger.error('Error switching active role: $e');

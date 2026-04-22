@@ -651,7 +651,7 @@ class _MobileSettingsScreenState extends State<MobileSettingsScreen> {
             ),
             const SizedBox(height: 16),
             Text(
-              '© 2024 Alluvial Education Hub',
+              '© 2024 Alluwal Education Hub',
               style: GoogleFonts.inter(
                 fontSize: 12,
                 color: const Color(0xff9CA3AF),

@@ -399,37 +399,65 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           const SizedBox(height: 20),
-                          // Profile Picture
-                          Container(
-                            width: 88,
-                            height: 88,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(color: Colors.white, width: 3),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.2),
-                                  blurRadius: 16,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
-                            ),
-                            child: CircleAvatar(
-                              radius: 40,
-                              backgroundColor: Colors.white,
-                              backgroundImage: _profilePicUrl != null
-                                  ? NetworkImage(_profilePicUrl!)
-                                  : null,
-                              child: _profilePicUrl == null
-                                  ? Text(
-                                      _getInitials(),
-                                      style: GoogleFonts.inter(
-                                        fontSize: 28,
-                                        fontWeight: FontWeight.w700,
-                                        color: const Color(0xFF0E72ED),
+                          // Profile Picture - tappable for teachers/admins to
+                          // open the unified edit dialog where the photo can
+                          // be replaced alongside the text fields.
+                          GestureDetector(
+                            onTap: _userRole?.toLowerCase() != 'student'
+                                ? _showEditProfileDialog
+                                : null,
+                            child: Stack(
+                              alignment: Alignment.bottomRight,
+                              children: [
+                                Container(
+                                  width: 88,
+                                  height: 88,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                        color: Colors.white, width: 3),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.2),
+                                        blurRadius: 16,
+                                        offset: const Offset(0, 4),
                                       ),
-                                    )
-                                  : null,
+                                    ],
+                                  ),
+                                  child: CircleAvatar(
+                                    radius: 40,
+                                    backgroundColor: Colors.white,
+                                    backgroundImage: _profilePicUrl != null
+                                        ? NetworkImage(_profilePicUrl!)
+                                        : null,
+                                    child: _profilePicUrl == null
+                                        ? Text(
+                                            _getInitials(),
+                                            style: GoogleFonts.inter(
+                                              fontSize: 28,
+                                              fontWeight: FontWeight.w700,
+                                              color: const Color(0xFF0E72ED),
+                                            ),
+                                          )
+                                        : null,
+                                  ),
+                                ),
+                                if (_userRole?.toLowerCase() != 'student')
+                                  Container(
+                                    padding: const EdgeInsets.all(6),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF0E72ED),
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                          color: Colors.white, width: 2),
+                                    ),
+                                    child: const Icon(
+                                      Icons.photo_camera,
+                                      color: Colors.white,
+                                      size: 14,
+                                    ),
+                                  ),
+                              ],
                             ),
                           ),
                           const SizedBox(height: 12),

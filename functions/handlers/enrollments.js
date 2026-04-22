@@ -3,6 +3,41 @@ const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const { createTransporter } = require('../services/email/transporter');
 
+/** Escape text for safe HTML interpolation (names, notes, etc.). */
+const escapeHtml = (value) => String(value ?? '')
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;');
+
+// Resolve the user-friendly program name; falls back to raw subject.
+const resolveProgramName = (enrollmentData) => {
+  return enrollmentData.programTitle || enrollmentData.subject || 'our program';
+};
+
+// Build an HTML pricing block from the stored pricing / pricingSnapshot.
+const buildPricingHtml = (enrollmentData) => {
+  const pricing = enrollmentData.pricing || {};
+  const snap = (enrollmentData.metadata || {}).pricingSnapshot || {};
+  const hourly = snap.hourlyRateUsd ?? pricing.hourlyRate;
+  const monthly = snap.monthlyEstimateUsd ?? pricing.monthlyEstimate;
+  const hours = snap.hoursPerWeek ?? pricing.hoursPerWeek;
+  if (!hourly && !monthly) return '';
+  const rows = [];
+  if (hours) rows.push(`<div class="info-row"><span class="info-label">Hours per week:</span><span class="info-value">${hours}</span></div>`);
+  if (hourly) rows.push(`<div class="info-row"><span class="info-label">Hourly rate:</span><span class="info-value">$${Number(hourly).toFixed(2)} USD</span></div>`);
+  if (monthly) rows.push(`<div class="info-row"><span class="info-label">Est. monthly:</span><span class="info-value">~$${Number(monthly).toFixed(0)} USD</span></div>`);
+  return `
+    <div class="info-box">
+      <h3>💰 Pricing Estimate</h3>
+      ${rows.join('\n')}
+      <p style="font-size:12px;color:#94a3b8;margin:10px 0 0;">Final pricing confirmed upon enrollment approval.</p>
+      <div style="margin-top:15px;padding-top:15px;border-top:1px dashed #cbd5e1;font-size:13px;color:#475569;">
+        <strong>Payment Policy:</strong> Payment is due at the beginning of each month. We accept Zelle, CashApp, and other major payment methods.
+      </div>
+    </div>`;
+};
+
 // Email template for enrollment confirmation to student/parent (single student)
 const sendEnrollmentConfirmationEmail = async (enrollmentData) => {
   const transporter = createTransporter();
@@ -11,6 +46,7 @@ const sendEnrollmentConfirmationEmail = async (enrollmentData) => {
   const student = enrollmentData.student || {};
   const program = enrollmentData.program || {};
   const metadata = enrollmentData.metadata || {};
+  const programName = resolveProgramName(enrollmentData);
 
   // Determine if this is an adult student enrollment
   const isAdultStudent = metadata.isAdult || enrollmentData.isAdult || false;
@@ -63,8 +99,8 @@ const sendEnrollmentConfirmationEmail = async (enrollmentData) => {
           <div class="content">
             <h2>Dear ${recipientName},</h2>
             ${isAdultStudent
-              ? `<p>We're excited to inform you that we've received your enrollment request for Islamic studies at Alluwal Academy!</p>`
-              : `<p>We're excited to inform you that we've received your enrollment request for <strong>${studentName}</strong>!</p>`
+              ? `<p>We're excited to inform you that we've received your enrollment request for <strong>${programName}</strong> at Alluwal Academy!</p>`
+              : `<p>We're excited to inform you that we've received your enrollment request for <strong>${studentName}</strong> in <strong>${programName}</strong>!</p>`
             }
 
             <div class="success-note">
@@ -90,8 +126,8 @@ const sendEnrollmentConfirmationEmail = async (enrollmentData) => {
               </div>
               ` : ''}
               <div class="info-row">
-                <span class="info-label">Subject:</span>
-                <span class="info-value">${enrollmentData.subject || 'Not specified'}</span>
+                <span class="info-label">Program:</span>
+                <span class="info-value">${programName}</span>
               </div>
               <div class="info-row">
                 <span class="info-label">Grade Level:</span>
@@ -133,7 +169,15 @@ const sendEnrollmentConfirmationEmail = async (enrollmentData) => {
                 <span class="info-value">${preferences.timeZone}</span>
               </div>
               ` : ''}
+              ${preferences.schedulingNotes ? `
+              <div class="info-row">
+                <span class="info-label">Scheduling notes:</span>
+                <span class="info-value">${escapeHtml(preferences.schedulingNotes)}</span>
+              </div>
+              ` : ''}
             </div>
+
+            ${buildPricingHtml(enrollmentData)}
             
             <p>If you have any questions or need to update your enrollment information, please don't hesitate to contact us at <a href="mailto:support@alluwaleducationhub.org">support@alluwaleducationhub.org</a>.</p>
             
@@ -182,42 +226,71 @@ const sendMultiStudentEnrollmentEmail = async (allEnrollments) => {
 
   const recipientName = contact.parentName || contact.email?.split('@')[0] || 'Parent';
   const studentCount = allEnrollments.length;
+  const sharedSchedulingNotes = (firstEnrollment.preferences || {}).schedulingNotes;
+  const programListText = [...new Set(allEnrollments.map((e) => resolveProgramName(e)))].join(', ');
 
-  // Build HTML for all students
+  // Build HTML for all students (aligned rows + per-student pricing)
   let studentsHtml = '';
   allEnrollments.forEach((enrollment, index) => {
     const student = enrollment.student || {};
     const program = enrollment.program || {};
     const preferences = enrollment.preferences || {};
-    const subject = enrollment.subject || 'Not specified';
+    const programName = resolveProgramName(enrollment);
     const specificLanguage = enrollment.specificLanguage;
     const gradeLevel = enrollment.gradeLevel || 'Not specified';
+    const studentTitle = escapeHtml(student.name || `Student ${index + 1}`);
 
-    studentsHtml = studentsHtml + `
-      <div style="background-color: #f9fafb; border-left: 4px solid #0386FF; padding: 20px; margin: 20px 0; border-radius: 0 8px 8px 0;">
-        <h3 style="margin-top: 0; color: #111827;">👤 Student ${index + 1}: ${student.name || 'Student'}</h3>
-        <div style="margin: 10px 0;">
-          <strong>Name:</strong> ${student.name || 'Not provided'}<br>
-          ${student.age ? `<strong>Age:</strong> ${student.age}<br>` : ''}
-          ${student.gender ? `<strong>Gender:</strong> ${student.gender}<br>` : ''}
+    studentsHtml += `
+      <div class="student-block">
+        <h3 class="student-block-title">👤 Student ${index + 1}: ${studentTitle}</h3>
+        <div class="info-row">
+          <span class="info-label">Name</span>
+          <span class="info-value">${escapeHtml(student.name || 'Not provided')}</span>
         </div>
-        <div style="margin: 10px 0;">
-          <strong>Program Details:</strong><br>
-          <strong>Subject:</strong> ${subject}${specificLanguage ? ` (${specificLanguage})` : ''}<br>
-          <strong>Level:</strong> ${gradeLevel}<br>
-          ${program.classType ? `<strong>Class Type:</strong> ${program.classType}<br>` : ''}
-          ${program.sessionDuration ? `<strong>Session Duration:</strong> ${program.sessionDuration}<br>` : ''}
+        ${student.age ? `
+        <div class="info-row">
+          <span class="info-label">Age</span>
+          <span class="info-value">${escapeHtml(String(student.age))}</span>
+        </div>` : ''}
+        ${student.gender ? `
+        <div class="info-row">
+          <span class="info-label">Gender</span>
+          <span class="info-value">${escapeHtml(String(student.gender))}</span>
+        </div>` : ''}
+        <div class="info-row">
+          <span class="info-label">Program</span>
+          <span class="info-value">${escapeHtml(programName)}${specificLanguage ? ` (${escapeHtml(specificLanguage)})` : ''}</span>
         </div>
+        <div class="info-row">
+          <span class="info-label">Level</span>
+          <span class="info-value">${escapeHtml(gradeLevel)}</span>
+        </div>
+        ${program.classType ? `
+        <div class="info-row">
+          <span class="info-label">Class type</span>
+          <span class="info-value">${escapeHtml(program.classType)}</span>
+        </div>` : ''}
+        ${program.sessionDuration ? `
+        <div class="info-row">
+          <span class="info-label">Session duration</span>
+          <span class="info-value">${escapeHtml(program.sessionDuration)}</span>
+        </div>` : ''}
         ${preferences.days && preferences.days.length > 0 ? `
-        <div style="margin: 10px 0;">
-          <strong>Preferred Days:</strong> ${preferences.days.join(', ')}<br>
-        </div>
-        ` : ''}
+        <div class="info-row">
+          <span class="info-label">Preferred days</span>
+          <span class="info-value">${escapeHtml(preferences.days.join(', '))}</span>
+        </div>` : ''}
         ${preferences.timeSlots && preferences.timeSlots.length > 0 ? `
-        <div style="margin: 10px 0;">
-          <strong>Preferred Times:</strong> ${preferences.timeSlots.join(', ')}<br>
-        </div>
-        ` : ''}
+        <div class="info-row">
+          <span class="info-label">Preferred times</span>
+          <span class="info-value">${escapeHtml(preferences.timeSlots.join(', '))}</span>
+        </div>` : ''}
+        ${preferences.timeZone ? `
+        <div class="info-row">
+          <span class="info-label">Timezone</span>
+          <span class="info-value">${escapeHtml(preferences.timeZone)}</span>
+        </div>` : ''}
+        ${buildPricingHtml(enrollment)}
       </div>
     `;
   });
@@ -239,11 +312,14 @@ const sendMultiStudentEnrollmentEmail = async (allEnrollments) => {
           .header h1 { margin: 0; font-size: 28px; font-weight: bold; }
           .content { padding: 30px 20px; }
           .info-box { background-color: #f0f9ff; border-left: 4px solid #0386FF; padding: 20px; margin: 20px 0; border-radius: 0 8px 8px 0; }
-          .info-row { display: flex; justify-content: space-between; margin: 10px 0; padding: 5px 0; border-bottom: 1px solid #e5e7eb; }
-          .info-label { font-weight: bold; color: #374151; }
-          .info-value { color: #6b7280; }
+          .info-row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin: 8px 0; padding: 5px 0; border-bottom: 1px solid #e5e7eb; }
+          .info-label { font-weight: bold; color: #374151; flex: 0 0 42%; text-align: left; }
+          .info-value { color: #6b7280; flex: 1; text-align: right; word-break: break-word; }
           .footer { background-color: #f8fafc; padding: 20px; text-align: center; color: #6b7280; font-size: 14px; }
           .success-note { background-color: #ecfdf5; border: 1px solid #10b981; padding: 15px; margin: 15px 0; border-radius: 6px; }
+          .student-block { background-color: #f9fafb; border-left: 4px solid #0386FF; padding: 14px 14px 8px; margin: 12px 0; border-radius: 0 8px 8px 0; }
+          .student-block .info-box { margin: 12px 0 0; }
+          .student-block-title { margin: 0 0 8px; color: #111827; font-size: 16px; }
         </style>
       </head>
       <body>
@@ -255,7 +331,7 @@ const sendMultiStudentEnrollmentEmail = async (allEnrollments) => {
           
           <div class="content">
             <h2>Dear ${recipientName},</h2>
-            <p>We're excited to inform you that we've received your enrollment request for <strong>${studentCount} student${studentCount > 1 ? 's' : ''}</strong>!</p>
+            <p>We're excited to inform you that we've received your enrollment request for <strong>${studentCount} student${studentCount > 1 ? 's' : ''}</strong>${programListText ? `: <strong>${escapeHtml(programListText)}</strong>` : ''}.</p>
 
             <div class="success-note">
               <h3>✅ What Happens Next?</h3>
@@ -297,8 +373,15 @@ const sendMultiStudentEnrollmentEmail = async (allEnrollments) => {
               ` : ''}
             </div>
 
-            <div style="margin: 30px 0;">
-              <h3 style="color: #111827; margin-bottom: 20px;">👥 Student${studentCount > 1 ? 's' : ''} Information</h3>
+            ${sharedSchedulingNotes ? `
+            <div class="info-box" style="margin: 20px 0;">
+              <h3 style="margin-top: 0;">📝 Scheduling notes</h3>
+              <p style="margin: 0; color: #374151;">${escapeHtml(sharedSchedulingNotes)}</p>
+            </div>
+            ` : ''}
+
+            <div style="margin: 24px 0 8px;">
+              <h3 style="color: #111827; margin: 0 0 12px;">👥 Students and pricing</h3>
               ${studentsHtml}
             </div>
             
@@ -346,7 +429,7 @@ const sendAdminEnrollmentNotification = async (enrollmentData, enrollmentId) => 
   const mailOptions = {
     from: 'Alluwal Education Hub <support@alluwaleducationhub.org>',
     to: adminEmail,
-    subject: `🔔 New Enrollment Request - ${student.name || 'New Student'}`,
+    subject: `🔔 New Enrollment Request - ${student.name || 'New Student'} - ${resolveProgramName(enrollmentData)}`,
     html: `
       <!DOCTYPE html>
       <html>
@@ -445,8 +528,8 @@ const sendAdminEnrollmentNotification = async (enrollmentData, enrollmentId) => 
             <div class="info-box">
               <h3>📚 Program Details</h3>
               <div class="info-row">
-                <span class="info-label">Subject:</span>
-                <span class="info-value">${enrollmentData.subject || 'Not specified'}</span>
+                <span class="info-label">Program:</span>
+                <span class="info-value">${resolveProgramName(enrollmentData)}</span>
               </div>
               ${enrollmentData.specificLanguage ? `
               <div class="info-row">
@@ -510,8 +593,16 @@ const sendAdminEnrollmentNotification = async (enrollmentData, enrollmentId) => 
                 <span class="info-value">${preferences.timeZone}</span>
               </div>
               ` : ''}
+              ${preferences.schedulingNotes ? `
+              <div class="info-row">
+                <span class="info-label">Scheduling notes:</span>
+                <span class="info-value">${String(preferences.schedulingNotes).replace(/</g, '&lt;').replace(/>/g, '&gt;')}</span>
+              </div>
+              ` : ''}
             </div>
             
+            ${buildPricingHtml(enrollmentData)}
+
             <div style="text-align: center; margin: 30px 0;">
               <p><strong>Enrollment ID:</strong> ${enrollmentId}</p>
               <p style="font-size: 12px; color: #6b7280;">View this enrollment in the admin dashboard</p>
@@ -787,99 +878,6 @@ const onEnrollmentCreated = onDocumentCreated('enrollments/{enrollmentId}', asyn
   }
 });
 
-// HTTP function for Admin to approve enrollment and create job
-// Using HTTP instead of Callable to bypass Cloud Run IAM issues
-const publishEnrollmentToJobBoardHttp = async (req, res) => {
-  // Enable CORS
-  res.set('Access-Control-Allow-Origin', '*');
-  res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  
-  if (req.method === 'OPTIONS') {
-    res.status(204).send('');
-    return;
-  }
-  
-  if (req.method !== 'POST') {
-    res.status(405).json({ success: false, error: 'Method not allowed' });
-    return;
-  }
-
-  console.log('🚀 publishEnrollmentToJobBoardHttp invoked');
-  console.log('📦 Body:', JSON.stringify(req.body));
-  
-  let enrollmentId;
-  
-  try {
-    // Verify Firebase ID token from Authorization header
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      console.warn('⚠️ Missing or invalid Authorization header');
-      res.status(401).json({ success: false, error: 'Unauthorized: Missing Bearer token' });
-      return;
-    }
-    
-    const idToken = authHeader.split('Bearer ')[1];
-    try {
-      const decodedToken = await admin.auth().verifyIdToken(idToken);
-      console.log('✅ Token verified for user:', decodedToken.uid);
-    } catch (tokenError) {
-      console.error('❌ Token verification failed:', tokenError.message);
-      res.status(401).json({ success: false, error: 'Unauthorized: Invalid token' });
-      return;
-    }
-
-    enrollmentId = req.body.enrollmentId;
-    
-    if (!enrollmentId) {
-      res.status(400).json({ success: false, error: 'enrollmentId is required' });
-      return;
-    }
-    
-    const enrollmentDoc = await admin.firestore().collection('enrollments').doc(enrollmentId).get();
-    if (!enrollmentDoc.exists) {
-      res.status(404).json({ success: false, error: `Enrollment ${enrollmentId} not found` });
-      return;
-    }
-
-    const enrollmentData = enrollmentDoc.data();
-    
-    if (!enrollmentData) {
-      res.status(400).json({ success: false, error: 'Enrollment data is empty' });
-      return;
-    }
-    
-    console.log(`📋 Processing enrollment ${enrollmentId} with data keys:`, Object.keys(enrollmentData));
-    
-    // Check if already broadcasted or matched to prevent duplicates
-    if (enrollmentData.metadata && 
-       (enrollmentData.metadata.status === 'broadcasted' || enrollmentData.metadata.status === 'matched')) {
-      res.status(200).json({ 
-        success: false, 
-        message: `Already ${enrollmentData.metadata.status}`, 
-        jobId: enrollmentData.metadata.jobId 
-      });
-      return;
-    }
-
-    const jobId = await createJobOpportunity(enrollmentData, enrollmentId);
-    
-    console.log(`✅ Successfully created job ${jobId} for enrollment ${enrollmentId}`);
-    res.status(200).json({ success: true, jobId });
-    
-  } catch (error) {
-    console.error(`❌ Error publishing enrollment ${enrollmentId}:`, error);
-    console.error(`❌ Error details:`, {
-      message: error.message,
-      stack: error.stack,
-      enrollmentId: enrollmentId,
-    });
-    
-    const errorMessage = error.message || 'Unknown error occurred';
-    res.status(500).json({ success: false, error: errorMessage });
-  }
-};
-
 // Callable function wrapper (kept for backwards compatibility, but may not work due to IAM)
 const publishEnrollmentToJobBoard = async (request) => {
   console.log('🚀 publishEnrollmentToJobBoard (callable) invoked');
@@ -926,9 +924,229 @@ const publishEnrollmentToJobBoard = async (request) => {
   }
 };
 
+/**
+ * Admin-only callable: invite or link a parent to an enrollment's student.
+ *
+ * Accepts: {
+ *   enrollmentId: string,
+ *   studentUid: string,     // existing student Auth UID (from createStudentAccount)
+ *   email: string,          // parent email
+ *   firstName?: string,
+ *   lastName?: string,
+ *   phone?: string,
+ *   countryCode?: string,
+ * }
+ *
+ * Behavior:
+ *  - If a Firebase Auth user already exists for the email → re-use it.
+ *    If that existing user has a `users/{uid}` doc with user_type='parent',
+ *    adds studentUid to children_ids (idempotent). Otherwise creates/updates
+ *    the users doc as a parent.
+ *  - If no Auth user exists for the email, creates one (random password) and
+ *    the users/* parent doc.
+ *  - Adds parent uid to student users/{studentUid}.guardian_ids.
+ *  - Sends a password-reset link email so the parent can set their password.
+ *  - Stamps the enrollment doc with:
+ *      metadata.parentInviteStatus = 'invited' | 'linked'
+ *      metadata.parentUserId = <parentUid>
+ *      contact.guardianId = <parentUid>
+ *
+ * Only callers whose `users/{auth.uid}` is an admin may invoke.
+ */
+const inviteParentForEnrollment = async (request) => {
+  const auth = request.auth;
+  if (!auth || !auth.uid) {
+    throw new functions.https.HttpsError('unauthenticated', 'Sign-in required');
+  }
+
+  // Admin check: look up caller's users/* doc and verify admin role fields.
+  const callerDoc = await admin.firestore().collection('users').doc(auth.uid).get();
+  if (!callerDoc.exists) {
+    throw new functions.https.HttpsError('permission-denied', 'Caller has no user profile');
+  }
+  const callerData = callerDoc.data() || {};
+  const callerRole = (callerData.role || callerData.user_type || '').toString().toLowerCase();
+  const isAdmin =
+    callerRole === 'admin' ||
+    callerRole === 'super_admin' ||
+    callerData.isAdmin === true ||
+    callerData.is_admin === true ||
+    callerData.isSuperAdmin === true ||
+    callerData.is_super_admin === true;
+  if (!isAdmin) {
+    throw new functions.https.HttpsError('permission-denied', 'Admin role required');
+  }
+
+  const payload = request.data || {};
+  const enrollmentId = String(payload.enrollmentId || '').trim();
+  const studentUid = String(payload.studentUid || '').trim();
+  const rawEmail = String(payload.email || '').trim();
+  const email = rawEmail.toLowerCase();
+  const firstName = String(payload.firstName || '').trim();
+  const lastName = String(payload.lastName || '').trim();
+  const phone = String(payload.phone || '').trim();
+  const countryCode = String(payload.countryCode || '').trim();
+
+  if (!enrollmentId) {
+    throw new functions.https.HttpsError('invalid-argument', 'enrollmentId is required');
+  }
+  if (!studentUid) {
+    throw new functions.https.HttpsError('invalid-argument', 'studentUid is required');
+  }
+  if (!email || !email.includes('@')) {
+    throw new functions.https.HttpsError('invalid-argument', 'A valid parent email is required');
+  }
+
+  const db = admin.firestore();
+  const enrollmentRef = db.collection('enrollments').doc(enrollmentId);
+  const enrollmentSnap = await enrollmentRef.get();
+  if (!enrollmentSnap.exists) {
+    throw new functions.https.HttpsError('not-found', `Enrollment ${enrollmentId} not found`);
+  }
+
+  const studentRef = db.collection('users').doc(studentUid);
+  const studentSnap = await studentRef.get();
+  if (!studentSnap.exists) {
+    throw new functions.https.HttpsError('not-found', `Student ${studentUid} not found`);
+  }
+
+  let parentUid;
+  let parentAlreadyExists = false;
+  let createdAuthUser = false;
+
+  try {
+    const existing = await admin.auth().getUserByEmail(email);
+    parentUid = existing.uid;
+    parentAlreadyExists = true;
+  } catch (e) {
+    if (e.code !== 'auth/user-not-found') {
+      throw new functions.https.HttpsError('internal', e.message || 'Auth lookup failed');
+    }
+    // Create a fresh parent Auth user. Use a random password - the parent will
+    // set their own via the reset email.
+    const tempPassword = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2).toUpperCase() + '!1';
+    const created = await admin.auth().createUser({
+      email,
+      password: tempPassword,
+      displayName: `${firstName} ${lastName}`.trim() || email,
+      emailVerified: false,
+    });
+    parentUid = created.uid;
+    createdAuthUser = true;
+  }
+
+  const parentRef = db.collection('users').doc(parentUid);
+  const parentSnap = await parentRef.get();
+
+  const now = admin.firestore.FieldValue.serverTimestamp();
+  const parentDocUpdate = {
+    'e-mail': email,
+    user_type: 'parent',
+    is_active: true,
+    uid: parentUid,
+    updated_at: now,
+  };
+  if (firstName) parentDocUpdate.first_name = firstName;
+  if (lastName) parentDocUpdate.last_name = lastName;
+  if (phone) parentDocUpdate.phone_number = phone;
+  if (countryCode) parentDocUpdate.country_code = countryCode;
+
+  if (!parentSnap.exists) {
+    parentDocUpdate.date_added = now;
+    parentDocUpdate.password_reset_required = true;
+    parentDocUpdate.children_ids = [studentUid];
+    // Generate a kiosque code for the new parent so they can be linked later.
+    parentDocUpdate.kiosk_code = await generateKiosqueCodeForParent();
+    await parentRef.set(parentDocUpdate, { merge: true });
+  } else {
+    // Merge children_ids idempotently.
+    await parentRef.set(
+      {
+        ...parentDocUpdate,
+        children_ids: admin.firestore.FieldValue.arrayUnion(studentUid),
+      },
+      { merge: true },
+    );
+  }
+
+  // Add parent to the student's guardian_ids (idempotent).
+  await studentRef.set(
+    {
+      guardian_ids: admin.firestore.FieldValue.arrayUnion(parentUid),
+      updated_at: now,
+    },
+    { merge: true },
+  );
+
+  // Stamp enrollment with linking metadata.
+  await enrollmentRef.set(
+    {
+      contact: { guardianId: parentUid },
+      metadata: {
+        parentInviteStatus: parentAlreadyExists ? 'linked' : 'invited',
+        parentUserId: parentUid,
+        parentInvitedAt: now,
+        parentInvitedBy: auth.uid,
+      },
+    },
+    { merge: true },
+  );
+
+  // Fire the password-reset email when we had to create the Auth user, or
+  // when an existing Auth user still has no password set. We rely on client-
+  // library's generatePasswordResetLink, delivered via our transporter.
+  let inviteSent = false;
+  let inviteError = null;
+  if (createdAuthUser) {
+    try {
+      const link = await admin.auth().generatePasswordResetLink(email);
+      const transporter = await createTransporter();
+      const from = `"Alluwal Academy" <no-reply@alluwaleducationhub.org>`;
+      const subject = `Set up your Alluwal Academy parent account`;
+      const html = `
+        <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #0f172a;">
+          <p>As-salamu alaykum ${escapeHtml(firstName || '')},</p>
+          <p>An administrator has linked you as the parent of a newly enrolled student at Alluwal Academy.</p>
+          <p>Please click the link below to set your password and access your parent dashboard:</p>
+          <p><a href="${link}" style="background:#3b82f6;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none;display:inline-block;">Set your password</a></p>
+          <p>If the button does not work, copy this URL into your browser:<br/>
+          <a href="${link}">${link}</a></p>
+          <p>JazakAllah khair.</p>
+        </div>`;
+      await transporter.sendMail({ from, to: email, subject, html });
+      inviteSent = true;
+    } catch (e) {
+      inviteError = e.message || String(e);
+      console.error('inviteParentForEnrollment: failed to send invite email', inviteError);
+    }
+  }
+
+  return {
+    success: true,
+    parentUid,
+    parentAlreadyExists,
+    createdAuthUser,
+    inviteSent,
+    inviteError,
+    status: parentAlreadyExists ? 'linked' : 'invited',
+  };
+};
+
+// Small helper: generate a unique 6-digit kiosque code for new parents
+// (matches the format used elsewhere).
+async function generateKiosqueCodeForParent() {
+  const db = admin.firestore();
+  for (let i = 0; i < 10; i += 1) {
+    const code = String(Math.floor(100000 + Math.random() * 900000));
+    const q = await db.collection('users').where('kiosk_code', '==', code).limit(1).get();
+    if (q.empty) return code;
+  }
+  return String(Date.now()).slice(-6);
+}
+
 module.exports = {
   onEnrollmentCreated,
   publishEnrollmentToJobBoard,
-  publishEnrollmentToJobBoardHttp,
+  inviteParentForEnrollment,
 };
 

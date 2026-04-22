@@ -2,14 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:syncfusion_flutter_calendar/calendar.dart';
 
-import 'package:alluwalacademyadmin/features/shift_management/models/teaching_shift.dart';
-import 'package:alluwalacademyadmin/features/shift_management/enums/shift_enums.dart';
+import '../../../core/models/teaching_shift.dart';
+import '../../../core/enums/shift_enums.dart';
+import '../../../core/services/shift_service.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 /// Calendar view of teacher shifts using Syncfusion SfCalendar
 class TeacherShiftCalendar extends StatefulWidget {
   final List<TeachingShift> shifts;
   final void Function(TeachingShift shift)? onSelectShift;
+  /// Compact clock-in from agenda/grid cells (same predicate as day view / home).
+  final void Function(TeachingShift shift)? onClockIn;
   final DateTime? initialDisplayDate;
   final CalendarView initialView;
 
@@ -17,6 +20,7 @@ class TeacherShiftCalendar extends StatefulWidget {
     super.key,
     required this.shifts,
     this.onSelectShift,
+    this.onClockIn,
     this.initialDisplayDate,
     this.initialView = CalendarView.week,
   });
@@ -29,8 +33,8 @@ class _TeacherShiftCalendarState extends State<TeacherShiftCalendar> {
   late ShiftCalendarDataSource _dataSource;
   final CalendarController _controller = CalendarController();
   
-  // Toggle between Grid (3-day) and List (Schedule) view
-  bool _isScheduleView = false;
+  /// Week tab: list (schedule) by default. Month tab: month grid (not list).
+  late bool _isScheduleView;
   
   // Track if we've already scrolled to next session to prevent re-scrolling
   bool _hasScrolledToNextSession = false;
@@ -41,28 +45,24 @@ class _TeacherShiftCalendarState extends State<TeacherShiftCalendar> {
   @override
   void initState() {
     super.initState();
+    _isScheduleView = widget.initialView != CalendarView.month;
     _dataSource = ShiftCalendarDataSource(widget.shifts);
-    _controller.view = widget.initialView;
-    
-    // INTELLIGENT FOCUS: For week/day views, always scroll to next session
-    // For other views, use the provided date or smart date
-    if (widget.initialView == CalendarView.week || widget.initialView == CalendarView.day) {
-      // Calculate next session time immediately
+    _controller.view =
+        _isScheduleView ? CalendarView.schedule : widget.initialView;
+
+    final isGridWeekOrDay = !_isScheduleView &&
+        (widget.initialView == CalendarView.week ||
+            widget.initialView == CalendarView.day);
+
+    if (isGridWeekOrDay) {
       final nextSessionTime = _getNextSessionTime();
       if (nextSessionTime != null) {
-        // Store it for later restoration
         _lastNextSessionTime = nextSessionTime;
-        
-        // Set displayDate immediately
         _controller.displayDate = nextSessionTime;
-        
-        // Also set it after first frame to ensure it sticks
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
             _controller.displayDate = nextSessionTime;
             _hasScrolledToNextSession = true;
-            
-            // Set it one more time after a short delay to prevent any auto-scroll back
             Future.delayed(const Duration(milliseconds: 100), () {
               if (mounted) {
                 _controller.displayDate = nextSessionTime;
@@ -72,15 +72,29 @@ class _TeacherShiftCalendarState extends State<TeacherShiftCalendar> {
           }
         });
       } else {
-        // Fallback to smart date if no upcoming sessions
-        final targetDate = widget.initialDisplayDate ?? _getSmartInitialDate();
-        _controller.displayDate = targetDate;
+        _controller.displayDate =
+            widget.initialDisplayDate ?? _getSmartInitialDate();
       }
     } else {
-      // For month/schedule views, use normal logic
-      final targetDate = widget.initialDisplayDate ?? _getSmartInitialDate();
-      _controller.displayDate = targetDate;
+      if (widget.initialView == CalendarView.month) {
+        _controller.displayDate =
+            widget.initialDisplayDate ?? _getSmartInitialDate();
+      } else {
+        // Schedule list (week tab): anchor on latest shift; appointments are newest-first
+        _controller.displayDate =
+            widget.initialDisplayDate ?? _anchorDateForLatestShift();
+      }
     }
+  }
+
+  /// Week anchor for schedule list — latest shift start so the most recent class is in-range.
+  DateTime _anchorDateForLatestShift() {
+    if (widget.shifts.isEmpty) return DateTime.now();
+    var latest = widget.shifts.first;
+    for (final s in widget.shifts) {
+      if (s.shiftStart.isAfter(latest.shiftStart)) latest = s;
+    }
+    return latest.shiftStart;
   }
   
   /// Get the exact time of the next upcoming session
@@ -115,49 +129,39 @@ class _TeacherShiftCalendarState extends State<TeacherShiftCalendar> {
   @override
   void didUpdateWidget(covariant TeacherShiftCalendar oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.shifts != widget.shifts) {
-      _dataSource = ShiftCalendarDataSource(widget.shifts);
-      // For week/day views, always scroll to next session when shifts update
-      if (_controller.view == CalendarView.week || _controller.view == CalendarView.day) {
-        // Reset flag to allow re-scrolling when shifts change
+
+    if (oldWidget.initialView != widget.initialView) {
+      setState(() {
+        _dataSource = ShiftCalendarDataSource(widget.shifts);
+        _hasScrolledToNextSession = false;
+        if (widget.initialView == CalendarView.month) {
+          _isScheduleView = false;
+          _controller.view = CalendarView.month;
+          _controller.displayDate =
+              widget.initialDisplayDate ?? _getSmartInitialDate();
+        } else {
+          _isScheduleView = true;
+          _controller.view = CalendarView.schedule;
+          _controller.displayDate =
+              widget.initialDisplayDate ?? _anchorDateForLatestShift();
+        }
+      });
+    } else if (oldWidget.shifts != widget.shifts) {
+      setState(() {
+        _dataSource = ShiftCalendarDataSource(widget.shifts);
+      });
+      if (_controller.view == CalendarView.week ||
+          _controller.view == CalendarView.day) {
         _hasScrolledToNextSession = false;
         WidgetsBinding.instance.addPostFrameCallback((_) {
           _scrollToNextSession();
         });
       }
     }
-    // Update view if initialView changed
-    if (oldWidget.initialView != widget.initialView) {
-      _controller.view = widget.initialView;
-      // Reset scroll flag when view changes
-      _hasScrolledToNextSession = false;
-      // For week/day views, scroll to next session
-      if (widget.initialView == CalendarView.week || widget.initialView == CalendarView.day) {
-        final nextSessionTime = _getNextSessionTime();
-        if (nextSessionTime != null) {
-          _lastNextSessionTime = nextSessionTime;
-          _controller.displayDate = nextSessionTime;
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) {
-              _controller.displayDate = nextSessionTime;
-              _hasScrolledToNextSession = true;
-            }
-          });
-        } else {
-          final targetDate = widget.initialDisplayDate ?? _getSmartInitialDate();
-          _controller.displayDate = targetDate;
-        }
-      } else {
-        // For other views, use normal logic
-        final targetDate = widget.initialDisplayDate ?? _getSmartInitialDate();
-        _controller.displayDate = targetDate;
-      }
-    }
-    
-    // When widget rebuilds (e.g., tab switch), restore to next session if we were there
-    if (_controller.view == CalendarView.week || _controller.view == CalendarView.day) {
+
+    if (_controller.view == CalendarView.week ||
+        _controller.view == CalendarView.day) {
       if (_lastNextSessionTime != null && !_hasScrolledToNextSession) {
-        // Restore to last known next session position
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
             final currentNextSession = _getNextSessionTime();
@@ -166,7 +170,6 @@ class _TeacherShiftCalendarState extends State<TeacherShiftCalendar> {
               _lastNextSessionTime = currentNextSession;
               _hasScrolledToNextSession = true;
             } else if (_lastNextSessionTime != null) {
-              // Use stored position if still valid
               _controller.displayDate = _lastNextSessionTime!;
               _hasScrolledToNextSession = true;
             }
@@ -176,13 +179,37 @@ class _TeacherShiftCalendarState extends State<TeacherShiftCalendar> {
     }
   }
 
+  static const _calendarSurface = Color(0xFFFFFFFF);
+  static const _pageBg = Color(0xFFF1F5F9);
+  static const _border = Color(0xFFE2E8F0);
+  static const _accent = Color(0xFF0386FF);
+
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        _buildHeader(context),
-        Expanded(
-          child: SfCalendar(
+    return ColoredBox(
+      color: _pageBg,
+      child: Column(
+        children: [
+          _buildHeader(context),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: _calendarSurface,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: _border),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.06),
+                      blurRadius: 20,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: SfCalendar(
             controller: _controller,
             // Switch between Schedule (List), Week (Grid), and Month view
             view: _isScheduleView 
@@ -201,6 +228,13 @@ class _TeacherShiftCalendarState extends State<TeacherShiftCalendar> {
             dataSource: _dataSource,
             showDatePickerButton: false, // Hide default date picker - we'll use custom
             showTodayButton: false, // Hide default today button - we have custom one
+            backgroundColor: _calendarSurface,
+            todayHighlightColor: const Color(0xFFE0F2FE),
+            todayTextStyle: GoogleFonts.inter(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: _accent,
+            ),
             // Optimize time slots - reduce empty space by showing only relevant hours
             timeSlotViewSettings: _isScheduleView
                 ? TimeSlotViewSettings(
@@ -208,14 +242,15 @@ class _TeacherShiftCalendarState extends State<TeacherShiftCalendar> {
                     startHour: _getEarliestHour().toDouble(),
                     endHour: _getLatestHour().toDouble(),
                     timeInterval: const Duration(minutes: 60),
-                    timeIntervalHeight: 70,
-                    timeIntervalWidth: 60,
+                    timeIntervalHeight: 76,
+                    timeIntervalWidth: 56,
                     timeFormat: 'h a',
                     dateFormat: 'd',
                     dayFormat: 'EEE',
-                    timeTextStyle: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
+                    timeTextStyle: GoogleFonts.inter(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF64748B),
                     ),
                   )
                 : TimeSlotViewSettings(
@@ -224,47 +259,47 @@ class _TeacherShiftCalendarState extends State<TeacherShiftCalendar> {
                     startHour: _getEarliestHour().toDouble(),
                     endHour: _getLatestHour().toDouble(),
                     timeInterval: const Duration(minutes: 60),
-                    timeIntervalHeight: 70, // Slightly taller for better text spacing
-                    timeIntervalWidth: 60,
+                    timeIntervalHeight: 76,
+                    timeIntervalWidth: 56,
                     timeFormat: 'h a',
                     dateFormat: 'd',
                     dayFormat: 'EEE',
-                    timeTextStyle: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
+                    timeTextStyle: GoogleFonts.inter(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF64748B),
                     ),
                   ),
             // Schedule view settings (List mode)
             scheduleViewSettings: const ScheduleViewSettings(
-              appointmentItemHeight: 70,
+              appointmentItemHeight: 78,
               hideEmptyScheduleWeek: true,
               monthHeaderSettings: MonthHeaderSettings(height: 0),
             ),
-            // Add cell borders and spacing
-            cellBorderColor: const Color(0xffE5E7EB),
-            // Make header more visible
-            headerStyle: const CalendarHeaderStyle(
-              textStyle: TextStyle(
-                fontSize: 16,
+            cellBorderColor: const Color(0xFFF1F5F9),
+            headerStyle: CalendarHeaderStyle(
+              textStyle: GoogleFonts.inter(
+                fontSize: 15,
                 fontWeight: FontWeight.w600,
-                color: Color(0xff111827),
+                color: const Color(0xFF0F172A),
               ),
             ),
-            // Style view header (day names)
-            viewHeaderStyle: const ViewHeaderStyle(
-              dayTextStyle: TextStyle(
-                fontSize: 13,
+            viewHeaderStyle: ViewHeaderStyle(
+              backgroundColor: const Color(0xFFF8FAFC),
+              dayTextStyle: GoogleFonts.inter(
+                fontSize: 11,
                 fontWeight: FontWeight.w600,
-                color: Color(0xff374151),
+                letterSpacing: 0.6,
+                color: const Color(0xFF64748B),
               ),
-              dateTextStyle: TextStyle(
-                fontSize: 16,
+              dateTextStyle: GoogleFonts.inter(
+                fontSize: 17,
                 fontWeight: FontWeight.w700,
-                color: Color(0xff111827),
+                color: const Color(0xFF0F172A),
               ),
             ),
             headerHeight: 0, // Use custom header
-            appointmentBuilder: _isScheduleView ? null : _appointmentBuilder,
+            appointmentBuilder: _appointmentBuilder,
             onTap: (details) {
               final hasApps = details.appointments != null &&
                   details.appointments!.isNotEmpty;
@@ -276,119 +311,231 @@ class _TeacherShiftCalendarState extends State<TeacherShiftCalendar> {
             // Don't set initialDisplayDate here - we use controller.displayDate instead
             // This prevents the calendar from auto-scrolling back to "now"
             // initialDisplayDate: widget.initialDisplayDate ?? _getSmartInitialDate(),
+                  ),
+                ),
+              ),
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
   Widget _buildHeader(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final title = _isScheduleView
+        ? (l10n?.weeklyCalendar ?? 'Agenda')
+        : (l10n?.shiftCalendarThreeDayTitle ?? '3-day schedule');
+
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
-      child: Row(
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _isScheduleView ? (AppLocalizations.of(context)?.weeklyCalendar ?? 'Agenda') : '3-Day Overview',
-                  style: GoogleFonts.inter(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: const Color(0xff111827),
-                  ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: GoogleFonts.inter(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        height: 1.15,
+                        letterSpacing: -0.3,
+                        color: const Color(0xFF0F172A),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      l10n?.shiftCalendarViewModeHint ??
+                          'Grid shows three days at a time; list shows your agenda.',
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        height: 1.35,
+                        color: const Color(0xFF64748B),
+                      ),
+                    ),
+                  ],
                 ),
-                Text(
-                  'Tap icons to switch view',
-                  style: GoogleFonts.inter(
-                    fontSize: 12,
-                    color: Colors.grey.shade600,
+              ),
+              const SizedBox(width: 8),
+              _buildViewModeToggle(context),
+            ],
+          ),
+          const SizedBox(height: 12),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: _calendarSurface,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: _border),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _navIconButton(
+                    context: context,
+                    icon: Icons.chevron_left_rounded,
+                    tooltip: _isScheduleView ? 'Previous day' : 'Previous 3 days',
+                    onPressed: () {
+                      setState(() {
+                        final d = _controller.displayDate ?? DateTime.now();
+                        final step = _isScheduleView ? 1 : 3;
+                        _controller.displayDate = d.subtract(Duration(days: step));
+                      });
+                    },
                   ),
-                ),
-              ],
+                  _navIconButton(
+                    context: context,
+                    icon: Icons.event_available_rounded,
+                    tooltip: l10n?.dashboardToday ?? 'Today / Next session',
+                    filled: true,
+                    onPressed: () {
+                      setState(() {
+                        final nextSessionTime = _getNextSessionTime();
+                        if (nextSessionTime != null) {
+                          _controller.displayDate = nextSessionTime;
+                          _hasScrolledToNextSession = true;
+                        } else {
+                          _controller.displayDate = DateTime.now();
+                          _hasScrolledToNextSession = false;
+                        }
+                      });
+                    },
+                  ),
+                  _navIconButton(
+                    context: context,
+                    icon: Icons.chevron_right_rounded,
+                    tooltip: _isScheduleView ? 'Next day' : 'Next 3 days',
+                    onPressed: () {
+                      setState(() {
+                        final d = _controller.displayDate ?? DateTime.now();
+                        final step = _isScheduleView ? 1 : 3;
+                        _controller.displayDate = d.add(Duration(days: step));
+                      });
+                    },
+                  ),
+                ],
+              ),
             ),
-          ),
-          // Toggle buttons
-          IconButton(
-            onPressed: () {
-              setState(() {
-                _isScheduleView = false;
-                _controller.view = CalendarView.week;
-                // When switching to week view, scroll to next session
-                final nextSessionTime = _getNextSessionTime();
-                if (nextSessionTime != null) {
-                  _lastNextSessionTime = nextSessionTime;
-                  _controller.displayDate = nextSessionTime;
-                  _hasScrolledToNextSession = true;
-                }
-              });
-            },
-            icon: Icon(
-              Icons.view_week,
-              color: !_isScheduleView ? const Color(0xFF0386FF) : Colors.grey.shade400,
-            ),
-            tooltip: 'Grid View (3-Day)',
-          ),
-          IconButton(
-            onPressed: () {
-              setState(() {
-                _isScheduleView = true;
-                _controller.view = CalendarView.schedule;
-                // Schedule view doesn't need time scrolling, but keep position
-              });
-            },
-            icon: Icon(
-              Icons.view_agenda,
-              color: _isScheduleView ? const Color(0xFF0386FF) : Colors.grey.shade400,
-            ),
-            tooltip: 'List View (Agenda)',
-          ),
-          const SizedBox(width: 8),
-          // Previous period: move visible window back (3 days in grid, 1 day in agenda)
-          IconButton(
-            tooltip: _isScheduleView ? 'Previous day' : 'Previous 3 days',
-            onPressed: () {
-              setState(() {
-                final d = _controller.displayDate ?? DateTime.now();
-                final step = _isScheduleView ? 1 : 3;
-                _controller.displayDate = d.subtract(Duration(days: step));
-              });
-            },
-            icon: const Icon(Icons.arrow_back, color: Color(0xff6B7280)),
-          ),
-          const SizedBox(width: 4),
-          // Today / Next session: jump to now or next upcoming shift
-          IconButton(
-            tooltip: AppLocalizations.of(context)?.dashboardToday ?? 'Today / Next session',
-            onPressed: () {
-              setState(() {
-                final nextSessionTime = _getNextSessionTime();
-                if (nextSessionTime != null) {
-                  _controller.displayDate = nextSessionTime;
-                  _hasScrolledToNextSession = true;
-                } else {
-                  _controller.displayDate = DateTime.now();
-                  _hasScrolledToNextSession = false;
-                }
-              });
-            },
-            icon: const Icon(Icons.calendar_today, color: Color(0xff6B7280)),
-          ),
-          const SizedBox(width: 4),
-          // Next period: move visible window forward (3 days in grid, 1 day in agenda)
-          IconButton(
-            tooltip: _isScheduleView ? 'Next day' : 'Next 3 days',
-            onPressed: () {
-              setState(() {
-                final d = _controller.displayDate ?? DateTime.now();
-                final step = _isScheduleView ? 1 : 3;
-                _controller.displayDate = d.add(Duration(days: step));
-              });
-            },
-            icon: const Icon(Icons.arrow_forward, color: Color(0xff6B7280)),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildViewModeToggle(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: _calendarSurface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _border),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(3),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _viewTogglePill(
+              selected: !_isScheduleView,
+              icon: Icons.grid_view_rounded,
+              label: l10n?.shiftCalendarViewGrid ?? 'Grid',
+              onTap: () {
+                setState(() {
+                  _isScheduleView = false;
+                  _controller.view = CalendarView.week;
+                  final nextSessionTime = _getNextSessionTime();
+                  if (nextSessionTime != null) {
+                    _lastNextSessionTime = nextSessionTime;
+                    _controller.displayDate = nextSessionTime;
+                    _hasScrolledToNextSession = true;
+                  }
+                });
+              },
+            ),
+            _viewTogglePill(
+              selected: _isScheduleView,
+              icon: Icons.view_agenda_rounded,
+              label: l10n?.shiftCalendarViewList ?? 'List',
+              onTap: () {
+                setState(() {
+                  _isScheduleView = true;
+                  _controller.view = CalendarView.schedule;
+                  _controller.displayDate =
+                      widget.initialDisplayDate ?? _anchorDateForLatestShift();
+                });
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _viewTogglePill({
+    required bool selected,
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: selected ? _accent.withValues(alpha: 0.12) : Colors.transparent,
+      borderRadius: BorderRadius.circular(9),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(9),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 18, color: selected ? _accent : const Color(0xFF94A3B8)),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: selected ? _accent : const Color(0xFF94A3B8),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _navIconButton({
+    required BuildContext context,
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onPressed,
+    bool filled = false,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: IconButton(
+        visualDensity: VisualDensity.compact,
+        style: IconButton.styleFrom(
+          foregroundColor: filled ? _accent : const Color(0xFF475569),
+          backgroundColor: filled ? _accent.withValues(alpha: 0.1) : Colors.transparent,
+        ),
+        onPressed: onPressed,
+        icon: Icon(icon, size: 26),
       ),
     );
   }
@@ -418,47 +565,104 @@ class _TeacherShiftCalendarState extends State<TeacherShiftCalendar> {
         ? shift.uiStudentNamesAbbreviated 
         : shift.uiStudentNames;
 
-    // INTELLIGENT FIX: Remove fixed height, let it fill the calendar slot
-    // Remove time text - calendar grid already shows time on Y-axis
+    final showTimeChip = !isMonthView && details.bounds.height > 46;
+    final showSubject = !isMonthView &&
+        details.bounds.height > 40 &&
+        shift.effectiveSubjectDisplayName.isNotEmpty;
+
+    final showClockIn = widget.onClockIn != null &&
+        ShiftService.canClockInNow(shift) &&
+        details.bounds.height >= 40;
+
+    final l10n = AppLocalizations.of(context);
+
     return Container(
-      margin: const EdgeInsets.all(1),
+      margin: const EdgeInsets.fromLTRB(2, 1, 2, 1),
       decoration: BoxDecoration(
         color: statusColor,
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.3),
+          color: Colors.white.withValues(alpha: 0.35),
           width: 1,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.12),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-      child: Column(
+      padding: const EdgeInsets.fromLTRB(6, 4, 4, 4),
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
         children: [
-          // Priority 1: Student Name (Bold, readable) - Pre-calculated
-          // For month view, use abbreviated names; for other views, use full names
-          Flexible(
-            child: Text(
-              studentNames,
-              style: GoogleFonts.inter(
-                fontSize: isMonthView ? 11 : 12, // Slightly smaller for month view
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-              ),
-              overflow: TextOverflow.ellipsis,
-              maxLines: isMonthView ? 1 : 2, // Single line for month view
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (showTimeChip)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 2),
+                    child: Text(
+                      _timeRange(shift.shiftStart, shift.shiftEnd),
+                      style: GoogleFonts.inter(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.2,
+                        color: Colors.white.withValues(alpha: 0.92),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                Text(
+                  studentNames,
+                  style: GoogleFonts.inter(
+                    fontSize: isMonthView ? 11 : 12,
+                    fontWeight: FontWeight.w800,
+                    height: 1.2,
+                    color: Colors.white,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: isMonthView ? 1 : 2,
+                ),
+                if (showSubject)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text(
+                      shift.effectiveSubjectDisplayName,
+                      style: GoogleFonts.inter(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.white.withValues(alpha: 0.92),
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
+                  ),
+              ],
             ),
           ),
-          // Priority 2: Subject (Smaller) - Only show if shift is long enough and not month view
-          if (!isMonthView && details.bounds.height > 40 && shift.effectiveSubjectDisplayName.isNotEmpty)
-            Text(
-              shift.effectiveSubjectDisplayName,
-              style: GoogleFonts.inter(
-                fontSize: 10,
-                color: Colors.white.withValues(alpha: 0.9),
+          if (showClockIn)
+            Tooltip(
+              message: l10n?.clockInNow ?? 'Clock in',
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () => widget.onClockIn!(shift),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Padding(
+                    padding: const EdgeInsets.all(2),
+                    child: Icon(
+                      Icons.login_rounded,
+                      size: 18,
+                      color: Colors.white.withValues(alpha: 0.95),
+                    ),
+                  ),
+                ),
               ),
-              overflow: TextOverflow.ellipsis,
-              maxLines: 1,
             ),
         ],
       ),
@@ -559,7 +763,9 @@ class _TeacherShiftCalendarState extends State<TeacherShiftCalendar> {
 /// Calendar data source mapping TeachingShift to appointments
 class ShiftCalendarDataSource extends CalendarDataSource {
   ShiftCalendarDataSource(List<TeachingShift> shifts) {
-    appointments = shifts.map((s) => ShiftAppointment(s)).toList();
+    final sorted = List<TeachingShift>.from(shifts)
+      ..sort((a, b) => b.shiftStart.compareTo(a.shiftStart));
+    appointments = sorted.map((s) => ShiftAppointment(s)).toList();
   }
 
   @override

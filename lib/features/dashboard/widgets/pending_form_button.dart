@@ -9,12 +9,14 @@ class PendingFormButton extends StatefulWidget {
   final String shiftId;
   final VoidCallback onFill;
   final Function(String formId, Map<String, dynamic> responses) onView;
+  final Object? refreshKey; // New key to force refresh from parent
 
   const PendingFormButton({
     super.key,
     required this.shiftId,
     required this.onFill,
     required this.onView,
+    this.refreshKey,
   });
 
   @override
@@ -29,6 +31,14 @@ class _PendingFormButtonState extends State<PendingFormButton> {
   void initState() {
     super.initState();
     _checkFormStatus();
+  }
+
+  @override
+  void didUpdateWidget(PendingFormButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.shiftId != oldWidget.shiftId || widget.refreshKey != oldWidget.refreshKey) {
+      _checkFormStatus();
+    }
   }
 
   Future<void> _checkFormStatus() async {

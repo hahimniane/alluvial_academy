@@ -4,24 +4,27 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:alluwalacademyadmin/features/shift_management/models/teaching_shift.dart';
-import 'package:alluwalacademyadmin/features/shift_management/enums/shift_enums.dart';
-// import 'package:alluwalacademyadmin/features/shift_management/services/shift_service.dart'; // Unused
-import 'package:alluwalacademyadmin/features/time_clock/services/shift_timesheet_service.dart';
-import 'package:alluwalacademyadmin/features/shift_management/services/location_service.dart';
-import 'package:alluwalacademyadmin/features/shift_management/services/shift_form_service.dart';
-import 'package:alluwalacademyadmin/features/forms/services/form_template_service.dart';
+import 'package:firebase_core/firebase_core.dart';
+import '../../../core/models/teaching_shift.dart';
+import '../../../core/enums/shift_enums.dart';
+import 'package:cloud_functions/cloud_functions.dart';
+import '../../../core/services/shift_service.dart';
+import '../../../core/services/shift_timesheet_service.dart';
+import '../../../core/services/teacher_metrics_service.dart';
+import '../../../core/services/location_service.dart';
+import '../../../core/services/shift_form_service.dart';
+import '../../../core/services/form_template_service.dart';
 import '../../../core/services/user_role_service.dart';
 import '../../../core/utils/timezone_utils.dart';
 import '../../../core/utils/app_logger.dart';
-import 'package:alluwalacademyadmin/features/forms/screens/form_screen.dart';
+import '../../../form_screen.dart';
 import '../../time_clock/widgets/edit_timesheet_dialog.dart';
 import 'report_schedule_issue_dialog.dart';
 import 'reschedule_shift_dialog.dart';
 import 'package:flutter/foundation.dart';
 // Zoom imports removed - using LiveKit now
-import 'package:alluwalacademyadmin/features/livekit/services/video_call_service.dart';
-import 'package:alluwalacademyadmin/features/shift_management/services/mobile_classes_access_service.dart';
+import '../../../core/services/video_call_service.dart';
+import '../../../core/services/mobile_classes_access_service.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class ShiftDetailsDialog extends StatefulWidget {
@@ -93,7 +96,10 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
 
   // Stream subscriptions for real-time updates
   StreamSubscription? _timesheetSubscription;
+  StreamSubscription? _timesheetSubscriptionCamel;
   StreamSubscription? _shiftSubscription;
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _formResponseDocSubscription;
+  Timer? _timesheetMergeDebounce;
 
   // Cached shift data (for real-time status updates)
   TeachingShift? _liveShift;
@@ -177,62 +183,137 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
   @override
   void dispose() {
     _elapsedTimer?.cancel();
+    _timesheetMergeDebounce?.cancel();
     _timesheetSubscription?.cancel();
+    _timesheetSubscriptionCamel?.cancel();
     _shiftSubscription?.cancel();
+    _formResponseDocSubscription?.cancel();
     super.dispose();
   }
 
   /// Setup real-time listeners for shift and timesheet changes
   void _setupRealtimeListeners() {
-    // Listen for timesheet entry changes
+    void onTimesheetStreamError(Object e) {
+      debugPrint("❌ Timesheet stream error: $e");
+    }
+
+    void scheduleMergedTimesheetReload() {
+      _timesheetMergeDebounce?.cancel();
+      _timesheetMergeDebounce = Timer(const Duration(milliseconds: 120), () {
+        if (mounted) unawaited(_reloadMergedTimesheetsAndForm());
+      });
+    }
+
     _timesheetSubscription = FirebaseFirestore.instance
         .collection('timesheet_entries')
         .where('shift_id', isEqualTo: widget.shift.id)
         .orderBy('created_at', descending: true)
         .snapshots()
-        .listen((snapshot) {
-      if (!mounted) return;
-      
-      if (snapshot.docs.isNotEmpty) {
-        final entries = snapshot.docs.map((doc) {
-          final data = doc.data();
-          data['id'] = doc.id;
-          return data;
-        }).toList();
-        
-        setState(() {
-          _allTimesheetEntries = entries;
-          _timesheetEntry = entries.first;
-        });
-        
-        // Restart elapsed timer if needed
-        _startElapsedTimerIfActive();
-        
-        debugPrint("🔄 Real-time update: ${entries.length} timesheet entries");
-      }
-    }, onError: (e) {
-      debugPrint("❌ Timesheet stream error: $e");
-    });
+        .listen((_) => scheduleMergedTimesheetReload(), onError: onTimesheetStreamError);
 
-    // Listen for shift status changes
+    _timesheetSubscriptionCamel = FirebaseFirestore.instance
+        .collection('timesheet_entries')
+        .where('shiftId', isEqualTo: widget.shift.id)
+        .orderBy('created_at', descending: true)
+        .snapshots()
+        .listen((_) => scheduleMergedTimesheetReload(), onError: onTimesheetStreamError);
+
     _shiftSubscription = FirebaseFirestore.instance
         .collection('teaching_shifts')
         .doc(widget.shift.id)
         .snapshots()
         .listen((snapshot) {
       if (!mounted || !snapshot.exists) return;
-      
+
       try {
         final updatedShift = TeachingShift.fromFirestore(snapshot);
         setState(() {
           _liveShift = updatedShift;
         });
         debugPrint("🔄 Shift status updated: ${updatedShift.status}");
+        unawaited(_resubscribeFormResponseStream());
       } catch (e) {
         debugPrint("❌ Shift stream parse error: $e");
       }
     }, onError: (e) {
       debugPrint("❌ Shift stream error: $e");
+    });
+
+    unawaited(_reloadMergedTimesheetsAndForm());
+    unawaited(_resubscribeFormResponseStream());
+  }
+
+  /// Merge snake_case and camelCase `timesheet_entries` rows for this shift (same as initial load).
+  Future<void> _reloadMergedTimesheetsAndForm() async {
+    if (!mounted) return;
+    try {
+      final timesheetQueries = await Future.wait([
+        FirebaseFirestore.instance
+            .collection('timesheet_entries')
+            .where('shift_id', isEqualTo: widget.shift.id)
+            .orderBy('created_at', descending: true)
+            .get(),
+        FirebaseFirestore.instance
+            .collection('timesheet_entries')
+            .where('shiftId', isEqualTo: widget.shift.id)
+            .orderBy('created_at', descending: true)
+            .get(),
+      ]);
+
+      final byId = <String, Map<String, dynamic>>{};
+      for (final snap in timesheetQueries) {
+        for (final doc in snap.docs) {
+          final data = Map<String, dynamic>.from(doc.data());
+          data['id'] = doc.id;
+          byId[doc.id] = data;
+        }
+      }
+      final entries = byId.values.toList();
+      entries.sort((a, b) {
+        final ca = a['created_at'];
+        final cb = b['created_at'];
+        if (ca is Timestamp && cb is Timestamp) {
+          return cb.compareTo(ca);
+        }
+        return 0;
+      });
+
+      if (!mounted) return;
+      setState(() {
+        _allTimesheetEntries = entries;
+        _timesheetEntry = entries.isNotEmpty ? entries.first : null;
+      });
+      _startElapsedTimerIfActive();
+      await _resubscribeFormResponseStream();
+    } catch (e) {
+      debugPrint("❌ _reloadMergedTimesheetsAndForm: $e");
+    }
+  }
+
+  /// Follow the canonical form response doc for this shift (updates after Daily Report submit).
+  Future<void> _resubscribeFormResponseStream() async {
+    if (!mounted) return;
+    await _formResponseDocSubscription?.cancel();
+    _formResponseDocSubscription = null;
+
+    final formDocId =
+        await ShiftFormService.loadLatestFormResponseDocumentIdForShift(widget.shift.id);
+    if (!mounted) return;
+
+    if (formDocId == null) {
+      setState(() => _formResponse = null);
+      return;
+    }
+
+    _formResponseDocSubscription = FirebaseFirestore.instance
+        .collection('form_responses')
+        .doc(formDocId)
+        .snapshots()
+        .listen((snap) {
+      if (!mounted) return;
+      setState(() {
+        _formResponse = snap.exists ? snap.data() : null;
+      });
     });
   }
 
@@ -569,6 +650,123 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
     }
   }
 
+  String _messageForClaimShiftError(Object e, AppLocalizations l10n) {
+    if (e is FirebaseFunctionsException) {
+      switch (e.code) {
+        case 'failed-precondition':
+          return l10n.claimShiftErrorUnavailable;
+        case 'already-exists':
+          return l10n.claimShiftErrorAlreadyTeacher;
+        case 'not-found':
+          return l10n.claimShiftErrorNotFound;
+        case 'unauthenticated':
+          return l10n.claimShiftErrorAuth;
+        case 'permission-denied':
+          return l10n.claimShiftErrorPermission;
+        default:
+          final m = e.message;
+          if (m != null && m.trim().isNotEmpty) return m;
+      }
+    }
+    if (e is FirebaseException) {
+      if (e.plugin == 'shift_claim') {
+        switch (e.code) {
+          case 'failed-precondition':
+            return l10n.claimShiftErrorUnavailable;
+          case 'already-exists':
+            return l10n.claimShiftErrorAlreadyTeacher;
+          case 'not-found':
+            return l10n.claimShiftErrorNotFound;
+          case 'unauthenticated':
+            return l10n.claimShiftErrorAuth;
+          default:
+            final m = e.message;
+            if (m != null && m.trim().isNotEmpty) return m;
+        }
+      }
+      if (e.plugin == 'cloud_firestore' && e.code == 'permission-denied') {
+        return l10n.claimShiftErrorPermission;
+      }
+    }
+    return l10n.claimShiftErrorGeneric;
+  }
+
+  Future<void> _handleClaimShiftFromDetails() async {
+    final l10n = AppLocalizations.of(context)!;
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) return;
+
+    // Show confirmation dialog
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            const Icon(Icons.add_task, color: Color(0xff10B981)),
+            const SizedBox(width: 12),
+            Text(
+              l10n.claimShift,
+              style: GoogleFonts.inter(
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+        content: Text(l10n.confirmClaimShiftMessage),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(l10n.commonCancel),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xff10B981),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: Text(l10n.claimShift),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      setState(() => _isLoading = true);
+      try {
+        await ShiftService.claimPublishedShift(widget.shift.id);
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(l10n.shiftClaimedSuccessfullyCheckMyShifts),
+              backgroundColor: const Color(0xff10B981),
+            ),
+          );
+          _loadDetails();
+          widget.onRefresh?.call();
+        }
+      } catch (e) {
+        AppLogger.error('Error claiming shift from details: $e');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(_messageForClaimShiftError(e, l10n)),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 5),
+            ),
+          );
+        }
+      } finally {
+        if (mounted) setState(() => _isLoading = false);
+      }
+    }
+  }
+
   /// Stops the elapsed time timer
   void _stopElapsedTimer() {
     _elapsedTimer?.cancel();
@@ -588,18 +786,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
 
   // Check if clock-in is allowed right now
   bool get _canClockInNow {
-    final now = DateTime.now();
-    final shiftStart = widget.shift.shiftStart;
-    final shiftEnd = widget.shift.shiftEnd;
-
-    // Use live shift status for real-time updates
-    final status = _liveShift?.status ?? widget.shift.status;
-    
-    // Only allow clock-in when it's actually time (at or after shift start, before shift end)
-    // No early clock-in - must be at or after shift start time
-    return (now.isAfter(shiftStart) || now.isAtSameMomentAs(shiftStart)) &&
-        now.isBefore(shiftEnd) &&
-        (status == ShiftStatus.scheduled || status == ShiftStatus.active);
+    return ShiftService.canClockInNow(_liveShift ?? widget.shift);
   }
 
   // Build the video call button for joining meetings
@@ -665,13 +852,22 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
   // Check if this is an upcoming shift (not yet time to clock in)
   bool get _isUpcoming {
     final now = DateTime.now();
-    final status = _liveShift?.status ?? widget.shift.status;
-    
+    final shift = _liveShift ?? widget.shift;
+    final status = shift.status;
+
     // If status is active, it's definitely not upcoming
     if (status == ShiftStatus.active) return false;
-    
-    return widget.shift.shiftStart.isAfter(now) &&
-        status == ShiftStatus.scheduled;
+
+    return shift.shiftStart.isAfter(now) && status == ShiftStatus.scheduled;
+  }
+
+  /// Claim is only for **other** teachers taking a published slot — never the assignee.
+  bool get _shouldOfferClaimShift {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final shift = _liveShift ?? widget.shift;
+    if (uid == null) return false;
+    if (shift.teacherId.isNotEmpty && shift.teacherId == uid) return false;
+    return widget.onClaimShift != null || shift.isPublished;
   }
 
   // Check if shift is currently active (clocked in)
@@ -1525,21 +1721,21 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
                            return SizedBox(
                               width: double.infinity,
                               child: OutlinedButton.icon(
-                                onPressed: isApproved ? null : () => _showEditTimesheetDialog(timesheetId),
+                                onPressed: () => _showEditTimesheetDialog(timesheetId),
                                 icon: Icon(
-                                  isApproved ? Icons.lock : Icons.edit,
+                                  isApproved ? Icons.history : Icons.edit,
                                   size: 16,
                                 ),
                                 label: Text(
-                                  isApproved ? "Approved (Locked)" : "Edit Entry",
+                                  isApproved ? "Request Correction" : "Edit Entry",
                                   style: GoogleFonts.inter(fontSize: 12),
                                 ),
                                 style: OutlinedButton.styleFrom(
                                   padding: const EdgeInsets.symmetric(vertical: 8),
                                   visualDensity: VisualDensity.compact,
-                                  foregroundColor: isApproved ? const Color(0xFF64748B) : null,
+                                  foregroundColor: isApproved ? const Color(0xFFF59E0B) : const Color(0xFF0386FF),
                                   side: BorderSide(
-                                    color: isApproved ? const Color(0xFFE2E8F0) : const Color(0xFF0386FF),
+                                    color: isApproved ? const Color(0xFFF59E0B) : const Color(0xFF0386FF),
                                   ),
                                 ),
                               ),
@@ -1652,59 +1848,31 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
       earnings += paymentAmount;
     }
     
-    // If no payment found in timesheet (legacy data or not clocked out yet),
-    // calculate from hours worked as fallback
-    if (earnings == 0.0 && _allTimesheetEntries.isNotEmpty) {
-      
-      int totalSeconds = 0;
-      
-      // Calculate total time worked across ALL entries (using seconds for precision)
-      // Prefer using the new 'effective_end_timestamp' if available, otherwise use clock_out
-      for (final entry in _allTimesheetEntries) {
-        final clockIn = entry['clock_in_time'] ?? entry['clock_in_timestamp'];
-        // Prefer effective_end_timestamp (capped time) for payment calculation
-        final clockOut = entry['effective_end_timestamp'] ?? entry['clock_out_time'] ?? entry['clock_out_timestamp'];
-        
-        if (clockIn != null && clockOut != null && clockIn is Timestamp && clockOut is Timestamp) {
-          DateTime start = clockIn.toDate();
-          DateTime end = clockOut.toDate();
-
-          // FRONTEND SAFEGUARD: Cap at shift end if the backend field didn't exist yet
-          if (end.isAfter(widget.shift.shiftEnd)) {
-            end = widget.shift.shiftEnd;
-          }
-
-          // Calculate duration, ensuring no negative values
-          final duration = end.difference(start);
-          if (!duration.isNegative) {
-            totalSeconds += duration.inSeconds;
-          }
-        }
-      }
-      
-      // Convert seconds to hours for earnings calculation (precise)
-      final hoursWorked = totalSeconds / 3600.0;
-      earnings = hoursWorked * hourlyRate;
-    }
-    
-    // Format total time for display (if we calculated it)
-    int totalSeconds = 0;
+    // Billable hours (same rules as payroll / TeacherMetricsService / clock-out).
+    final shiftPayrollMap = <String, dynamic>{
+      'shift_start': Timestamp.fromDate(widget.shift.shiftStart),
+      'shift_end': Timestamp.fromDate(widget.shift.shiftEnd),
+    };
+    var totalBillableHours = 0.0;
     for (final entry in _allTimesheetEntries) {
       final clockIn = entry['clock_in_time'] ?? entry['clock_in_timestamp'];
-      final clockOut = entry['effective_end_timestamp'] ?? entry['clock_out_time'] ?? entry['clock_out_timestamp'];
-      
-      if (clockIn != null && clockOut != null && clockIn is Timestamp && clockOut is Timestamp) {
-        DateTime start = clockIn.toDate();
-        DateTime end = clockOut.toDate();
-        if (end.isAfter(widget.shift.shiftEnd)) {
-          end = widget.shift.shiftEnd;
-        }
-        final duration = end.difference(start);
-        if (!duration.isNegative) {
-          totalSeconds += duration.inSeconds;
-        }
+      final clockOut = entry['clock_out_timestamp'] ?? entry['clock_out_time'];
+      if (clockIn is Timestamp && clockOut is Timestamp) {
+        totalBillableHours += TeacherMetricsService.billableHoursForShiftClock(
+          shift: shiftPayrollMap,
+          clockIn: clockIn.toDate(),
+          clockOut: clockOut.toDate(),
+        );
       }
     }
+
+    // If no payment found in timesheet (legacy data or not clocked out yet),
+    // calculate from billable hours × rate (same basis as metrics dashboards).
+    if (earnings == 0.0 && _allTimesheetEntries.isNotEmpty) {
+      earnings = totalBillableHours * hourlyRate;
+    }
+
+    final totalSeconds = (totalBillableHours * 3600.0).round();
     
     // Format total time as HH:MM:SS for display
     final hours = totalSeconds ~/ 3600;
@@ -2781,7 +2949,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
           ],
 
           // Clock In/Out or Claim button
-          if (_canClockInNow && !_isActive) ...[
+          if (_canClockInNow && !_isActive && !(_liveShift ?? widget.shift).isPublished) ...[
             const SizedBox(width: 12),
             Expanded(
               flex: 2,
@@ -2831,7 +2999,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
                     ),
                   ),
                 ),
-          ] else if (_isUpcoming) ...[
+          ] else if (_isUpcoming && !(_liveShift ?? widget.shift).isPublished) ...[
             const SizedBox(width: 12),
             Expanded(
               flex: 2,
@@ -2850,14 +3018,19 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
                     ),
                   ),
                 ),
-          ] else if (widget.onClaimShift != null) ...[
+          ] else if (_shouldOfferClaimShift) ...[
             const SizedBox(width: 12),
             Expanded(
               flex: 2,
               child: ElevatedButton.icon(
                   onPressed: () {
                     Navigator.pop(context);
-                  widget.onClaimShift?.call();
+                    if (widget.onClaimShift != null) {
+                      widget.onClaimShift?.call();
+                    } else {
+                      // Fallback for when dialog is opened from elsewhere but shift is published
+                      _handleClaimShiftFromDetails();
+                    }
                   },
                 icon: const Icon(Icons.add_task),
                   label: Text(

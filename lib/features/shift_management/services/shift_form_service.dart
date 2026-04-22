@@ -133,28 +133,81 @@ class ShiftFormService {
     }
   }
 
-  /// Check if a form response exists for a specific shift
-  static Future<String?> getFormResponseForShift(String shiftId) async {
+  /// Resolves the latest daily / per-session form response document id for this shift
+  /// and the signed-in teacher. Uses `teaching_shifts.form_response_id` when set, then
+  /// queries `shiftId`, `shift_id`, and `linked_shift_id` (same keys as admin submissions UI).
+  static Future<String?> loadLatestFormResponseDocumentIdForShift(String shiftId) async {
     try {
       final user = _auth.currentUser;
       if (user == null) return null;
 
-      // Query form responses linked to this shift
-      final query = await _firestore
-          .collection('form_responses')
-          .where('shiftId', isEqualTo: shiftId)
-          .where('userId', isEqualTo: user.uid)
-          .limit(1)
-          .get();
-
-      if (query.docs.isNotEmpty) {
-        return query.docs.first.id;
+      final shiftDoc = await _firestore.collection('teaching_shifts').doc(shiftId).get();
+      if (shiftDoc.exists) {
+        final sd = shiftDoc.data();
+        final fid = sd?['form_response_id']?.toString();
+        if (fid != null && fid.isNotEmpty) {
+          final fd = await _firestore.collection('form_responses').doc(fid).get();
+          if (fd.exists) return fid;
+        }
       }
-      return null;
+
+      Future<List<QueryDocumentSnapshot<Map<String, dynamic>>>> runQuery(String field) async {
+        try {
+          final q = await _firestore
+              .collection('form_responses')
+              .where(field, isEqualTo: shiftId)
+              .where('userId', isEqualTo: user.uid)
+              .limit(20)
+              .get();
+          return q.docs;
+        } catch (e) {
+          AppLogger.warning('ShiftFormService: form_responses query $field failed: $e');
+          return [];
+        }
+      }
+
+      final all = <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+      all.addAll(await runQuery('shiftId'));
+      all.addAll(await runQuery('shift_id'));
+      all.addAll(await runQuery('linked_shift_id'));
+
+      final byId = <String, QueryDocumentSnapshot<Map<String, dynamic>>>{};
+      for (final d in all) {
+        byId[d.id] = d;
+      }
+      if (byId.isEmpty) return null;
+
+      QueryDocumentSnapshot<Map<String, dynamic>>? best;
+      DateTime? bestTime;
+      for (final d in byId.values) {
+        final data = d.data();
+        final t = _asDateTime(data['submittedAt'] ?? data['submitted_at']);
+        if (t == null) {
+          best ??= d;
+          continue;
+        }
+        if (bestTime == null || t.isAfter(bestTime!)) {
+          best = d;
+          bestTime = t;
+        }
+      }
+      return best?.id;
     } catch (e) {
-      AppLogger.error('ShiftFormService: Error checking form response: $e');
+      AppLogger.error('ShiftFormService: Error resolving form response id: $e');
       return null;
     }
+  }
+
+  static Future<Map<String, dynamic>?> loadLatestFormResponseDataForShift(String shiftId) async {
+    final id = await loadLatestFormResponseDocumentIdForShift(shiftId);
+    if (id == null) return null;
+    final doc = await _firestore.collection('form_responses').doc(id).get();
+    return doc.data();
+  }
+
+  /// Check if a form response exists for a specific shift (document id).
+  static Future<String?> getFormResponseForShift(String shiftId) async {
+    return loadLatestFormResponseDocumentIdForShift(shiftId);
   }
 
   /// Check if a teacher has pending (unfilled) forms for today

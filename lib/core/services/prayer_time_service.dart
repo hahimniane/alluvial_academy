@@ -43,7 +43,7 @@ class PrayerTimeService {
       try {
         location = await LocationService.getCurrentLocation(interactive: false)
             .timeout(const Duration(seconds: 15), onTimeout: () {
-          AppLogger.error('PrayerTimeService: Location request timed out');
+          AppLogger.debug('PrayerTimeService: Location request timed out');
           return null;
         });
       } catch (e) {
@@ -52,7 +52,7 @@ class PrayerTimeService {
       }
 
       if (location == null) {
-        AppLogger.error(
+        AppLogger.debug(
             'PrayerTimeService: Could not get location, using cached or default times');
         return fallbackPrayers ?? _getDefaultPrayerTimes();
       }
@@ -237,7 +237,7 @@ class PrayerTimeService {
       };
 
       await prefs.setString(cacheKey, json.encode(cacheData));
-      AppLogger.error('PrayerTimeService: Cached prayer times for today');
+      AppLogger.debug('PrayerTimeService: Cached prayer times for today');
     } catch (e) {
       AppLogger.error('PrayerTimeService: Error caching prayer times: $e');
     }
@@ -311,7 +311,7 @@ class PrayerTimeService {
       }
       _cachedPrayers = null;
       _cacheTime = null;
-      AppLogger.error('PrayerTimeService: Cache cleared');
+      AppLogger.debug('PrayerTimeService: Cache cleared');
     } catch (e) {
       AppLogger.error('PrayerTimeService: Error clearing cache: $e');
     }
@@ -343,9 +343,9 @@ class PrayerTimeService {
   /// Silent background initialization that doesn't block or show errors
   static Future<void> initializeInBackground() async {
     try {
-      AppLogger.error('PrayerTimeService: Starting background initialization...');
+      AppLogger.debug('PrayerTimeService: Starting background initialization...');
       await getTodayPrayerTimes();
-      AppLogger.error('PrayerTimeService: Background initialization completed');
+      AppLogger.debug('PrayerTimeService: Background initialization completed');
     } catch (e) {
       AppLogger.error('PrayerTimeService: Background initialization failed: $e');
       // Silently fail - this is background initialization

@@ -1,4 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
+
+import 'public_site_cms_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart';
@@ -201,7 +203,7 @@ class AuthService {
       final role = await UserRoleService.getCurrentUserRole();
 
       if (role?.toLowerCase() == 'teacher') {
-        AppLogger.error('AuthService: Initializing services for teacher ${user.uid}');
+        AppLogger.debug('AuthService: Initializing services for teacher ${user.uid}');
 
         // Fetch location in background - completely fire and forget
         _fetchLocationInBackground(user).catchError((e) {
@@ -260,9 +262,9 @@ class AuthService {
   // Pre-load prayer times in background
   Future<void> _preloadPrayerTimesInBackground() async {
     try {
-      AppLogger.error('AuthService: Pre-loading prayer times...');
+      AppLogger.debug('AuthService: Pre-loading prayer times...');
       await PrayerTimeService.initializeInBackground();
-      AppLogger.error('AuthService: Prayer times pre-loaded successfully');
+      AppLogger.debug('AuthService: Prayer times pre-loaded successfully');
     } catch (e) {
       AppLogger.error('AuthService: Error pre-loading prayer times: $e');
     }
@@ -284,7 +286,7 @@ class AuthService {
         },
       });
 
-      AppLogger.error('AuthService: User location updated in Firestore');
+      AppLogger.debug('AuthService: User location updated in Firestore');
     } catch (e) {
       AppLogger.error('AuthService: Error updating user location: $e');
     }
@@ -422,7 +424,7 @@ class AuthService {
         'displayName': displayName,
       });
 
-      AppLogger.error('AuthService: Custom password reset email sent to $email');
+      AppLogger.debug('AuthService: Custom password reset email sent to $email');
     } on FirebaseFunctionsException catch (e) {
       AppLogger.error(
           'AuthService: Password reset function error: ${e.code} - ${e.message}');
@@ -515,6 +517,8 @@ class AuthService {
       
       // Clear persisted route on sign out
       await RoutePersistenceService.clearRoute();
+
+      PublicSiteCmsService.invalidatePublicCmsFirestoreBroadcastCaches();
 
       return await _auth.signOut();
     } catch (e) {

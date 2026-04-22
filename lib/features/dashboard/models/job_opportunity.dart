@@ -6,6 +6,8 @@ class JobOpportunity {
   final String studentName;
   final String studentAge;
   final String subject;
+  /// User-friendly program name; falls back to [subject] when null.
+  final String? subjectDisplayName;
   final String gradeLevel;
   final List<String> days;
   final List<String> timeSlots;
@@ -37,12 +39,19 @@ class JobOpportunity {
   // Teacher's selected time preferences (day -> time slot)
   final Map<String, String>? teacherSelectedTimes;
 
+  /// IANA timezone that the listed days/timeSlots refer to (set by admin at broadcast time).
+  final String? scheduleTimezoneRef;
+
+  /// Admin notes visible to teachers on the job board.
+  final String? adminNotesForTeachers;
+
   JobOpportunity({
     required this.id,
     required this.enrollmentId,
     required this.studentName,
     required this.studentAge,
     required this.subject,
+    this.subjectDisplayName,
     required this.gradeLevel,
     required this.days,
     required this.timeSlots,
@@ -68,6 +77,8 @@ class JobOpportunity {
     this.studentIndex,
     this.totalStudents,
     this.teacherSelectedTimes,
+    this.scheduleTimezoneRef,
+    this.adminNotesForTeachers,
   });
 
   static List<String> _daysToList(dynamic value) {
@@ -94,6 +105,7 @@ class JobOpportunity {
       studentName: data['studentName'] ?? '',
       studentAge: data['studentAge'] ?? '',
       subject: data['subject'] ?? '',
+      subjectDisplayName: data['subject_display_name'] as String?,
       gradeLevel: data['gradeLevel'] ?? '',
       days: _daysToList(data['days']),
       timeSlots: _timeSlotsToList(data['timeSlots']),
@@ -121,6 +133,8 @@ class JobOpportunity {
       teacherSelectedTimes: data['teacherSelectedTimes'] != null 
           ? Map<String, String>.from(data['teacherSelectedTimes']) 
           : null,
+      scheduleTimezoneRef: data['scheduleTimezoneRef'] as String?,
+      adminNotesForTeachers: data['adminNotesForTeachers'] as String?,
     );
   }
 
@@ -130,6 +144,7 @@ class JobOpportunity {
       'studentName': studentName,
       'studentAge': studentAge,
       'subject': subject,
+      if (subjectDisplayName != null) 'subject_display_name': subjectDisplayName,
       'gradeLevel': gradeLevel,
       'days': days,
       'timeSlots': timeSlots,
@@ -154,9 +169,14 @@ class JobOpportunity {
       if (studentIndex != null) 'studentIndex': studentIndex,
       if (totalStudents != null) 'totalStudents': totalStudents,
       if (teacherSelectedTimes != null) 'teacherSelectedTimes': teacherSelectedTimes,
+      if (scheduleTimezoneRef != null) 'scheduleTimezoneRef': scheduleTimezoneRef,
+      if (adminNotesForTeachers != null) 'adminNotesForTeachers': adminNotesForTeachers,
     };
   }
   
+  /// Best display name for the program/subject.
+  String get displaySubject => subjectDisplayName ?? subject;
+
   /// Helper to get formatted duration display (e.g. "1 hr" / "1 hr 30 mins" -> "60 min" / "90 min")
   String get durationDisplay {
     if (sessionDuration == null || sessionDuration!.isEmpty) return '60 min';

@@ -104,7 +104,7 @@ class LocationService {
       _cachedLocation = locationData;
       _cacheTime = DateTime.now();
 
-      AppLogger.error(
+      AppLogger.debug(
           'LocationService: Successfully created LocationData: ${locationData.neighborhood}');
       return locationData;
     } catch (e) {

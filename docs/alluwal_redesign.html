@@ -1,0 +1,1791 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Alluwal Education Hub — Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink:       #0d1117;
+    --ink-2:     #1c2333;
+    --ink-3:     #243044;
+    --gold:      #c9a94b;
+    --gold-lt:   #e8cc7a;
+    --gold-dim:  rgba(201,169,75,.15);
+    --teal:      #1a7a6e;
+    --teal-lt:   #22a090;
+    --teal-dim:  rgba(26,122,110,.15);
+    --rose:      #c0392b;
+    --rose-dim:  rgba(192,57,43,.12);
+    --sky:       #2980b9;
+    --sky-dim:   rgba(41,128,185,.12);
+    --cream:     #f5f0e8;
+    --cream-2:   #ede6d6;
+    --text:      #1c2333;
+    --text-2:    #4a5568;
+    --text-3:    #8897b0;
+    --border:    rgba(201,169,75,.2);
+    --border-2:  rgba(13,17,23,.08);
+    --shadow:    0 4px 24px rgba(13,17,23,.08);
+    --shadow-lg: 0 12px 48px rgba(13,17,23,.14);
+    --r:         12px;
+    --r-sm:      8px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--cream);
+    color: var(--text);
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ─── TOP COMMAND BAR ─── */
+  .command-bar {
+    background: var(--ink);
+    display: flex;
+    align-items: center;
+    gap: 0;
+    height: 52px;
+    padding: 0 20px;
+    border-bottom: 1px solid rgba(255,255,255,.06);
+    position: relative;
+    z-index: 100;
+    flex-shrink: 0;
+  }
+
+  .logo-zone {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 240px;
+    flex-shrink: 0;
+  }
+
+  .logo-icon {
+    width: 32px; height: 32px;
+    background: linear-gradient(135deg, var(--gold) 0%, var(--gold-lt) 100%);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+  }
+
+  .logo-text {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 17px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: .3px;
+    line-height: 1.1;
+  }
+
+  .logo-text span { color: var(--gold); }
+
+  .logo-sub {
+    font-size: 10px;
+    color: var(--text-3);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+  }
+
+  .cmd-metrics {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+  }
+
+  .cmd-pill {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    border-radius: 100px;
+    background: rgba(255,255,255,.05);
+    border: 1px solid rgba(255,255,255,.08);
+    cursor: pointer;
+    transition: all .2s;
+    text-decoration: none;
+  }
+
+  .cmd-pill:hover { background: rgba(255,255,255,.1); border-color: var(--gold); transform: translateY(-1px); }
+
+  .cmd-pill .dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .cmd-pill .label { font-size: 11.5px; color: rgba(255,255,255,.6); font-weight: 500; }
+  .cmd-pill .count { font-size: 13px; font-weight: 700; color: #fff; font-family: 'JetBrains Mono', monospace; }
+
+  .dot-gold  { background: var(--gold); box-shadow: 0 0 6px var(--gold); }
+  .dot-red   { background: #e74c3c; box-shadow: 0 0 6px #e74c3c; }
+  .dot-teal  { background: var(--teal-lt); box-shadow: 0 0 6px var(--teal-lt); }
+  .dot-sky   { background: #5dade2; box-shadow: 0 0 6px #5dade2; }
+  .dot-green { background: #2ecc71; box-shadow: 0 0 6px #2ecc71; }
+
+  .cmd-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 240px;
+    justify-content: flex-end;
+  }
+
+  .role-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    border-radius: 100px;
+    background: rgba(201,169,75,.2);
+    border: 1px solid rgba(201,169,75,.4);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--gold);
+    letter-spacing: .5px;
+    text-transform: uppercase;
+  }
+
+  .avatar {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--teal) 0%, var(--teal-lt) 100%);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 13px; color: #fff;
+    border: 2px solid rgba(201,169,75,.5);
+    cursor: pointer;
+  }
+
+  .notif-btn {
+    width: 32px; height: 32px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 8px;
+    background: rgba(255,255,255,.06);
+    border: 1px solid rgba(255,255,255,.08);
+    cursor: pointer;
+    position: relative;
+    transition: background .2s;
+  }
+
+  .notif-btn:hover { background: rgba(255,255,255,.12); }
+
+  .notif-dot {
+    position: absolute;
+    top: 6px; right: 6px;
+    width: 7px; height: 7px;
+    background: #e74c3c;
+    border-radius: 50%;
+    border: 1px solid var(--ink);
+  }
+
+  /* ─── LAYOUT ─── */
+  .app-body {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* ─── SIDEBAR ─── */
+  .sidebar {
+    width: 240px;
+    background: var(--ink-2);
+    border-right: 1px solid rgba(255,255,255,.05);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    flex-shrink: 0;
+  }
+
+  .sidebar::-webkit-scrollbar { width: 4px; }
+  .sidebar::-webkit-scrollbar-track { background: transparent; }
+  .sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,.1); border-radius: 2px; }
+
+  .nav-section {
+    padding: 16px 12px 4px;
+  }
+
+  .nav-section-label {
+    font-size: 9.5px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: rgba(255,255,255,.25);
+    padding: 0 8px 8px;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 10px;
+    border-radius: var(--r-sm);
+    cursor: pointer;
+    transition: all .18s;
+    text-decoration: none;
+    margin-bottom: 2px;
+    position: relative;
+  }
+
+  .nav-item:hover { background: rgba(255,255,255,.07); }
+
+  .nav-item.active {
+    background: linear-gradient(90deg, rgba(201,169,75,.2) 0%, rgba(201,169,75,.05) 100%);
+    border: 1px solid rgba(201,169,75,.25);
+  }
+
+  .nav-icon {
+    width: 30px; height: 30px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+
+  .nav-label {
+    font-size: 13px;
+    font-weight: 500;
+    color: rgba(255,255,255,.6);
+    flex: 1;
+  }
+
+  .nav-item.active .nav-label { color: var(--gold); }
+  .nav-item:hover .nav-label { color: rgba(255,255,255,.85); }
+
+  .nav-badge {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 100px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .badge-red   { background: rgba(231,76,60,.2);  color: #e74c3c; }
+  .badge-gold  { background: rgba(201,169,75,.2);  color: var(--gold); }
+  .badge-teal  { background: rgba(26,122,110,.25); color: var(--teal-lt); }
+
+  .nav-divider { height: 1px; background: rgba(255,255,255,.05); margin: 8px 12px; }
+
+  /* ─── MAIN CONTENT ─── */
+  .main {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px 28px;
+    background: var(--cream);
+  }
+
+  .main::-webkit-scrollbar { width: 6px; }
+  .main::-webkit-scrollbar-track { background: transparent; }
+  .main::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  /* ─── HERO STRIP ─── */
+  .hero-strip {
+    background: linear-gradient(120deg, var(--ink) 0%, var(--ink-3) 60%, #1e3a5f 100%);
+    border-radius: 16px;
+    padding: 24px 28px;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: relative;
+    overflow: hidden;
+    box-shadow: var(--shadow-lg);
+  }
+
+  .hero-strip::before {
+    content: '';
+    position: absolute;
+    top: -30px; right: 80px;
+    width: 200px; height: 200px;
+    background: radial-gradient(circle, rgba(201,169,75,.15) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .hero-strip::after {
+    content: '';
+    position: absolute;
+    bottom: -20px; right: 240px;
+    width: 120px; height: 120px;
+    background: radial-gradient(circle, rgba(26,122,110,.2) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  /* geometric pattern overlay */
+  .hero-geo {
+    position: absolute;
+    right: 20px; top: 50%;
+    transform: translateY(-50%);
+    width: 120px; height: 120px;
+    opacity: .07;
+    pointer-events: none;
+  }
+
+  .hero-left {}
+
+  .hero-greeting {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 28px;
+    font-weight: 700;
+    color: #fff;
+    line-height: 1.1;
+    margin-bottom: 6px;
+  }
+
+  .hero-sub {
+    font-size: 13px;
+    color: rgba(255,255,255,.5);
+    margin-bottom: 16px;
+  }
+
+  .hero-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .hero-btn {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 9px 18px;
+    border-radius: 100px;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .2s;
+    border: none;
+    text-decoration: none;
+  }
+
+  .hero-btn-primary {
+    background: var(--gold);
+    color: var(--ink);
+  }
+  .hero-btn-primary:hover { background: var(--gold-lt); transform: translateY(-1px); box-shadow: 0 6px 20px rgba(201,169,75,.4); }
+
+  .hero-btn-ghost {
+    background: rgba(255,255,255,.1);
+    color: rgba(255,255,255,.8);
+    border: 1px solid rgba(255,255,255,.15);
+  }
+  .hero-btn-ghost:hover { background: rgba(255,255,255,.18); }
+
+  .hero-right {
+    display: flex;
+    gap: 16px;
+    z-index: 1;
+  }
+
+  .hero-stat {
+    text-align: center;
+    padding: 14px 20px;
+    background: rgba(255,255,255,.07);
+    border: 1px solid rgba(255,255,255,.1);
+    border-radius: 12px;
+    min-width: 90px;
+  }
+
+  .hero-stat-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 28px;
+    font-weight: 700;
+    color: #fff;
+    display: block;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+
+  .hero-stat-label {
+    font-size: 10.5px;
+    color: rgba(255,255,255,.45);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .hero-stat-num.gold  { color: var(--gold); }
+  .hero-stat-num.teal  { color: var(--teal-lt); }
+  .hero-stat-num.red   { color: #e74c3c; }
+
+  /* ─── PRIORITY ROW ─── */
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+
+  .section-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .section-title::before {
+    content: '';
+    display: block;
+    width: 4px; height: 18px;
+    background: var(--gold);
+    border-radius: 2px;
+  }
+
+  .section-link {
+    font-size: 12px;
+    color: var(--teal);
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    padding: 4px 12px;
+    border-radius: 100px;
+    background: var(--teal-dim);
+    transition: background .2s;
+  }
+
+  .section-link:hover { background: rgba(26,122,110,.25); }
+
+  /* ─── PRIORITY CARDS ─── */
+  .priority-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-bottom: 24px;
+  }
+
+  .p-card {
+    background: #fff;
+    border-radius: var(--r);
+    padding: 18px 18px 16px;
+    border: 1px solid var(--border-2);
+    box-shadow: var(--shadow);
+    cursor: pointer;
+    transition: all .22s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .p-card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-lg);
+    border-color: var(--gold);
+  }
+
+  .p-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    border-radius: var(--r) var(--r) 0 0;
+  }
+
+  .p-card.urgent::before  { background: linear-gradient(90deg, #e74c3c, #c0392b); }
+  .p-card.warning::before { background: linear-gradient(90deg, var(--gold), #e8cc7a); }
+  .p-card.info::before    { background: linear-gradient(90deg, var(--teal), var(--teal-lt)); }
+  .p-card.neutral::before { background: linear-gradient(90deg, #5dade2, #85c1e9); }
+
+  .p-card-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+
+  .p-card-icon {
+    width: 40px; height: 40px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+
+  .p-card-icon.ic-red   { background: var(--rose-dim); }
+  .p-card-icon.ic-gold  { background: var(--gold-dim); }
+  .p-card-icon.ic-teal  { background: var(--teal-dim); }
+  .p-card-icon.ic-sky   { background: var(--sky-dim); }
+
+  .p-card-arrow {
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    background: var(--cream-2);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px;
+    color: var(--text-3);
+    transition: all .2s;
+  }
+
+  .p-card:hover .p-card-arrow {
+    background: var(--gold);
+    color: var(--ink);
+    transform: translate(2px, -2px);
+  }
+
+  .p-card-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1;
+    margin-bottom: 2px;
+  }
+
+  .p-card-label {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--text-2);
+    margin-bottom: 4px;
+  }
+
+  .p-card-sub {
+    font-size: 11px;
+    color: var(--text-3);
+  }
+
+  .p-card-tag {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 100px;
+    font-size: 10px;
+    font-weight: 700;
+    margin-top: 8px;
+    letter-spacing: .3px;
+  }
+
+  .tag-red   { background: var(--rose-dim);  color: var(--rose); }
+  .tag-gold  { background: var(--gold-dim);  color: #a07a20; }
+  .tag-teal  { background: var(--teal-dim);  color: var(--teal); }
+  .tag-sky   { background: var(--sky-dim);   color: var(--sky); }
+
+  /* ─── TWO-COLUMN LOWER AREA ─── */
+  .lower-grid {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 20px;
+    margin-bottom: 24px;
+  }
+
+  /* ─── SCHEDULE PANEL ─── */
+  .panel {
+    background: #fff;
+    border-radius: var(--r);
+    border: 1px solid var(--border-2);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+
+  .panel-head {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border-2);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: linear-gradient(90deg, #fafaf8 0%, #fff 100%);
+  }
+
+  .panel-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 17px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .panel-body {
+    padding: 16px 20px;
+  }
+
+  /* Today schedule */
+  .schedule-list { display: flex; flex-direction: column; gap: 10px; }
+
+  .shift-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    background: var(--cream);
+    border: 1px solid var(--border-2);
+    cursor: pointer;
+    transition: all .18s;
+  }
+
+  .shift-row:hover {
+    background: var(--cream-2);
+    border-color: var(--gold);
+  }
+
+  .shift-time {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-3);
+    width: 80px;
+    flex-shrink: 0;
+  }
+
+  .shift-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .shift-dot.active { background: #2ecc71; box-shadow: 0 0 0 3px rgba(46,204,113,.2); }
+  .shift-dot.upcoming { background: var(--gold); }
+  .shift-dot.done { background: var(--text-3); }
+
+  .shift-info { flex: 1; }
+
+  .shift-name {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 2px;
+  }
+
+  .shift-meta { font-size: 11px; color: var(--text-3); }
+
+  .shift-count {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-3);
+    background: var(--cream-2);
+    padding: 3px 8px;
+    border-radius: 100px;
+  }
+
+  /* ─── QUICK ACTIONS ─── */
+  .qa-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    padding: 16px 20px;
+  }
+
+  .qa-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    background: var(--cream);
+    border: 1px solid var(--border-2);
+    cursor: pointer;
+    transition: all .18s;
+    text-decoration: none;
+  }
+
+  .qa-btn:hover {
+    background: var(--ink);
+    border-color: var(--ink);
+  }
+
+  .qa-btn:hover .qa-label { color: #fff; }
+  .qa-btn:hover .qa-icon { background: rgba(255,255,255,.12); }
+
+  .qa-icon {
+    width: 34px; height: 34px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+    flex-shrink: 0;
+    transition: background .18s;
+  }
+
+  .qa-label {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--text-2);
+    transition: color .18s;
+  }
+
+  /* ─── TIMESHEETS TABLE ─── */
+  .table-wrap {
+    overflow-x: auto;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+  }
+
+  thead th {
+    padding: 10px 16px;
+    text-align: left;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--text-3);
+    border-bottom: 1px solid var(--border-2);
+    background: #fafaf8;
+  }
+
+  tbody tr {
+    border-bottom: 1px solid var(--border-2);
+    transition: background .15s;
+    cursor: pointer;
+  }
+
+  tbody tr:hover { background: var(--cream); }
+  tbody tr:last-child { border-bottom: none; }
+
+  tbody td { padding: 10px 16px; color: var(--text-2); }
+
+  .td-name { font-weight: 600; color: var(--text); }
+
+  .status-pill {
+    padding: 3px 10px;
+    border-radius: 100px;
+    font-size: 10.5px;
+    font-weight: 700;
+    display: inline-block;
+  }
+
+  .s-pending  { background: rgba(243,156,18,.12); color: #e67e22; }
+  .s-approved { background: rgba(46,204,113,.12); color: #27ae60; }
+  .s-rejected { background: var(--rose-dim);      color: var(--rose); }
+
+  .amount { font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 600; color: var(--teal); }
+
+  .action-row { display: flex; gap: 4px; }
+
+  .act-btn {
+    width: 28px; height: 28px;
+    border-radius: 7px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all .15s;
+    border: none;
+  }
+
+  .act-approve { background: rgba(46,204,113,.12); color: #27ae60; }
+  .act-approve:hover { background: #27ae60; color: #fff; }
+  .act-reject  { background: var(--rose-dim); color: var(--rose); }
+  .act-reject:hover  { background: var(--rose); color: #fff; }
+  .act-view    { background: var(--cream-2); color: var(--text-3); }
+  .act-view:hover    { background: var(--ink); color: #fff; }
+
+  /* ─── TASK LIST ─── */
+  .task-list { display: flex; flex-direction: column; gap: 6px; padding: 16px 20px; }
+
+  .task-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border-2);
+    cursor: pointer;
+    transition: all .18s;
+    background: #fafaf8;
+  }
+
+  .task-item:hover { background: var(--cream); border-color: var(--gold); }
+
+  .task-check {
+    width: 18px; height: 18px;
+    border-radius: 5px;
+    border: 2px solid var(--border);
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  .task-text { font-size: 12.5px; color: var(--text); font-weight: 500; flex: 1; line-height: 1.4; }
+  .task-due  { font-size: 10.5px; color: var(--text-3); margin-top: 3px; display: flex; align-items: center; gap: 4px; }
+  .task-due.overdue { color: #e74c3c; }
+
+  .task-assignees {
+    display: flex;
+    gap: -4px;
+    flex-shrink: 0;
+  }
+
+  .task-av {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9px; font-weight: 700; color: #fff;
+    margin-left: -6px;
+  }
+
+  .task-av:first-child { margin-left: 0; }
+
+  /* ─── ACTIVITY ─── */
+  .activity-item {
+    display: flex;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border-2);
+  }
+
+  .activity-item:last-child { border-bottom: none; }
+
+  .act-av {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700; color: #fff;
+    flex-shrink: 0;
+  }
+
+  .act-content { flex: 1; }
+  .act-text { font-size: 12px; color: var(--text-2); line-height: 1.4; }
+  .act-text strong { color: var(--text); font-weight: 600; }
+  .act-time { font-size: 10.5px; color: var(--text-3); margin-top: 2px; }
+
+  /* ─── TEACHER SCORES ─── */
+  .score-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border-2);
+  }
+
+  .score-row:last-child { border-bottom: none; }
+
+  .score-av {
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700; color: #fff;
+    flex-shrink: 0;
+  }
+
+  .score-info { flex: 1; }
+
+  .score-name { font-size: 13px; font-weight: 600; color: var(--text); }
+  .score-dept { font-size: 11px; color: var(--text-3); }
+
+  .score-bar-wrap { flex: 1; }
+
+  .score-bar {
+    height: 6px;
+    background: var(--cream-2);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 3px;
+  }
+
+  .score-fill { height: 100%; border-radius: 3px; transition: width .6s cubic-bezier(.4,0,.2,1); }
+
+  .score-num { font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; }
+
+  /* ─── BOTTOM GRID ─── */
+  .bottom-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 20px;
+  }
+
+  /* ─── CHAT PREVIEW ─── */
+  .chat-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 20px;
+    border-bottom: 1px solid var(--border-2);
+    cursor: pointer;
+    transition: background .15s;
+  }
+
+  .chat-item:hover { background: var(--cream); }
+  .chat-item:last-child { border-bottom: none; }
+
+  .chat-av {
+    width: 38px; height: 38px;
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 700; color: #fff;
+    flex-shrink: 0;
+  }
+
+  .chat-info { flex: 1; overflow: hidden; }
+  .chat-name { font-size: 13px; font-weight: 600; color: var(--text); }
+  .chat-msg  { font-size: 11.5px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+
+  .chat-meta { text-align: right; flex-shrink: 0; }
+  .chat-time { font-size: 10.5px; color: var(--text-3); }
+  .chat-unread {
+    display: inline-block;
+    min-width: 18px; height: 18px;
+    background: var(--teal);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    border-radius: 100px;
+    text-align: center;
+    line-height: 18px;
+    padding: 0 5px;
+    margin-top: 4px;
+  }
+
+  /* ─── APPLICANT ITEM ─── */
+  .applicant-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border-2);
+    cursor: pointer;
+    transition: background .15s;
+  }
+
+  .applicant-item:hover { background: var(--cream); }
+  .applicant-item:last-child { border-bottom: none; }
+
+  .appl-av {
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700; color: #fff;
+    flex-shrink: 0;
+  }
+
+  .appl-info { flex: 1; }
+  .appl-name { font-size: 13px; font-weight: 600; color: var(--text); }
+  .appl-prog { font-size: 11px; color: var(--text-3); margin-top: 2px; }
+  .appl-meta { font-size: 11px; color: var(--text-3); margin-top: 4px; display: flex; gap: 8px; flex-wrap: wrap; }
+
+  .appl-actions { display: flex; gap: 6px; }
+
+  .appl-btn {
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: all .18s;
+  }
+
+  .appl-btn-go  { background: var(--teal-dim); color: var(--teal); }
+  .appl-btn-go:hover  { background: var(--teal); color: #fff; }
+  .appl-btn-skip { background: var(--cream-2); color: var(--text-3); }
+  .appl-btn-skip:hover { background: var(--rose-dim); color: var(--rose); }
+
+  /* ─── ANIMATIONS ─── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .hero-strip { animation: fadeUp .5s ease both; }
+  .priority-grid .p-card:nth-child(1) { animation: fadeUp .5s .1s ease both; }
+  .priority-grid .p-card:nth-child(2) { animation: fadeUp .5s .15s ease both; }
+  .priority-grid .p-card:nth-child(3) { animation: fadeUp .5s .2s ease both; }
+  .priority-grid .p-card:nth-child(4) { animation: fadeUp .5s .25s ease both; }
+  .lower-grid > * { animation: fadeUp .5s .3s ease both; }
+  .bottom-grid > * { animation: fadeUp .5s .4s ease both; }
+
+  /* ─── TOOLTIP ─── */
+  [data-tip] { position: relative; }
+  [data-tip]:hover::after {
+    content: attr(data-tip);
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    white-space: nowrap;
+    background: var(--ink);
+    color: #fff;
+    font-size: 11px;
+    padding: 5px 10px;
+    border-radius: 6px;
+    z-index: 999;
+    pointer-events: none;
+  }
+
+  .prod-tag {
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 1.5px;
+    padding: 3px 7px;
+    background: #e74c3c;
+    color: #fff;
+    border-radius: 4px;
+    margin-right: 6px;
+  }
+
+  /* ─── Tabs ─── */
+  .tabs {
+    display: flex;
+    gap: 4px;
+    padding: 0 20px;
+    border-bottom: 1px solid var(--border-2);
+    background: #fafaf8;
+  }
+
+  .tab {
+    padding: 10px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-3);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: all .18s;
+  }
+
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--teal); border-color: var(--teal); }
+
+  /* Healthy badge */
+  .health-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    background: rgba(46,204,113,.12);
+    border-radius: 100px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #27ae60;
+  }
+
+  .health-pulse {
+    width: 7px; height: 7px;
+    background: #2ecc71;
+    border-radius: 50%;
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(46,204,113,.6); }
+    50% { box-shadow: 0 0 0 5px rgba(46,204,113,0); }
+  }
+
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════
+     TOP COMMAND BAR
+═══════════════════════════════════ -->
+<div class="command-bar">
+  <div class="logo-zone">
+    <span class="prod-tag">PROD</span>
+    <div class="logo-icon">🎓</div>
+    <div>
+      <div class="logo-text"><span>Alluwal</span> Hub</div>
+      <div class="logo-sub">Est. 2022</div>
+    </div>
+  </div>
+
+  <div class="cmd-metrics">
+    <a class="cmd-pill" data-tip="Review timesheets">
+      <span class="dot dot-red"></span>
+      <span class="label">Timesheets</span>
+      <span class="count">242</span>
+    </a>
+    <a class="cmd-pill" data-tip="Open tasks">
+      <span class="dot dot-gold"></span>
+      <span class="label">Tasks</span>
+      <span class="count">104</span>
+    </a>
+    <a class="cmd-pill" data-tip="Today's shifts">
+      <span class="dot dot-teal"></span>
+      <span class="label">Today Shifts</span>
+      <span class="count">16</span>
+    </a>
+    <a class="cmd-pill" data-tip="New applicants">
+      <span class="dot dot-sky"></span>
+      <span class="label">Applicants</span>
+      <span class="count">12</span>
+    </a>
+    <a class="cmd-pill" data-tip="System health">
+      <span class="dot dot-green"></span>
+      <span class="label">Health</span>
+      <span class="count">99.8%</span>
+    </a>
+  </div>
+
+  <div class="cmd-right">
+    <div class="health-badge"><div class="health-pulse"></div> Live</div>
+    <div class="notif-btn">🔔<div class="notif-dot"></div></div>
+    <div class="role-badge">⚙ Admin</div>
+    <div class="avatar">TD</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════
+     APP BODY
+═══════════════════════════════════ -->
+<div class="app-body">
+
+  <!-- SIDEBAR -->
+  <nav class="sidebar">
+
+    <div class="nav-section">
+      <div class="nav-section-label">Overview</div>
+      <a class="nav-item active">
+        <div class="nav-icon" style="background:rgba(201,169,75,.15)">📊</div>
+        <span class="nav-label">Dashboard</span>
+      </a>
+    </div>
+
+    <div class="nav-divider"></div>
+
+    <div class="nav-section">
+      <div class="nav-section-label">People</div>
+      <a class="nav-item">
+        <div class="nav-icon" style="background:rgba(41,128,185,.15)">👥</div>
+        <span class="nav-label">Users</span>
+        <span class="nav-badge badge-sky" style="background:rgba(41,128,185,.15);color:#5dade2">256</span>
+      </a>
+      <a class="nav-item">
+        <div class="nav-icon" style="background:rgba(26,122,110,.15)">🎓</div>
+        <span class="nav-label">Student Applicants</span>
+        <span class="nav-badge badge-red">2</span>
+      </a>
+      <a class="nav-item">
+        <div class="nav-icon" style="background:rgba(231,76,60,.12)">👨‍🏫</div>
+        <span class="nav-label">Teacher Applicants</span>
+        <span class="nav-badge badge-gold">10</span>
+      </a>
+    </div>
+
+    <div class="nav-divider"></div>
+
+    <div class="nav-section">
+      <div class="nav-section-label">Operations</div>
+      <a class="nav-item">
+        <div class="nav-icon" style="background:rgba(230,126,34,.15)">🕐</div>
+        <span class="nav-label">Shifts</span>
+        <span class="nav-badge badge-teal">4047</span>
+      </a>
+      <a class="nav-item">
+        <div class="nav-icon" style="background:rgba(142,68,173,.15)">📋</div>
+        <span class="nav-label">Timesheets</span>
+        <span class="nav-badge badge-red">242</span>
+      </a>
+      <a class="nav-item">
+        <div class="nav-icon" style="background:rgba(46,204,113,.15)">✅</div>
+        <span class="nav-label">Tasks</span>
+        <span class="nav-badge badge-gold">104</span>
+      </a>
+      <a class="nav-item">
+        <div class="nav-icon" style="background:rgba(231,76,60,.12)">📈</div>
+        <span class="nav-label">Audits</span>
+      </a>
+    </div>
+
+    <div class="nav-divider"></div>
+
+    <div class="nav-section">
+      <div class="nav-section-label">Communication</div>
+      <a class="nav-item">
+        <div class="nav-icon" style="background:rgba(52,152,219,.15)">💬</div>
+        <span class="nav-label">Chat</span>
+        <span class="nav-badge badge-red">6</span>
+      </a>
+      <a class="nav-item">
+        <div class="nav-icon" style="background:rgba(26,122,110,.15)">🎥</div>
+        <span class="nav-label">Classes</span>
+      </a>
+      <a class="nav-item">
+        <div class="nav-icon" style="background:rgba(41,128,185,.12)">▶</div>
+        <span class="nav-label">Recordings</span>
+      </a>
+      <a class="nav-item">
+        <div class="nav-icon" style="background:rgba(201,169,75,.12)">📡</div>
+        <span class="nav-label">Surah Podcasts</span>
+      </a>
+      <a class="nav-item">
+        <div class="nav-icon" style="background:rgba(231,76,60,.12)">🔔</div>
+        <span class="nav-label">Notifications</span>
+      </a>
+    </div>
+
+    <div class="nav-divider"></div>
+
+    <div class="nav-section">
+      <div class="nav-section-label">Forms</div>
+      <a class="nav-item">
+        <div class="nav-icon" style="background:rgba(142,68,173,.15)">🛠</div>
+        <span class="nav-label">Form Builder</span>
+      </a>
+      <a class="nav-item">
+        <div class="nav-icon" style="background:rgba(26,122,110,.15)">📝</div>
+        <span class="nav-label">All Submissions</span>
+        <span class="nav-badge badge-teal">410</span>
+      </a>
+      <a class="nav-item">
+        <div class="nav-icon" style="background:rgba(201,169,75,.12)">📤</div>
+        <span class="nav-label">Submit Form</span>
+      </a>
+    </div>
+
+    <div class="nav-divider"></div>
+
+    <div class="nav-section">
+      <div class="nav-section-label">System</div>
+      <a class="nav-item">
+        <div class="nav-icon" style="background:rgba(41,128,185,.12)">🌐</div>
+        <span class="nav-label">CMS / Website</span>
+      </a>
+      <a class="nav-item">
+        <div class="nav-icon" style="background:rgba(127,140,141,.15)">⚙</div>
+        <span class="nav-label">Settings</span>
+      </a>
+      <a class="nav-item">
+        <div class="nav-icon" style="background:rgba(127,140,141,.12)">🛡</div>
+        <span class="nav-label">Roles</span>
+      </a>
+      <a class="nav-item">
+        <div class="nav-icon" style="background:rgba(231,76,60,.1)">🐛</div>
+        <span class="nav-label">Debug</span>
+      </a>
+    </div>
+
+    <div style="height:20px"></div>
+
+  </nav>
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <!-- HERO STRIP -->
+    <div class="hero-strip">
+      <svg class="hero-geo" viewBox="0 0 100 100" fill="white" xmlns="http://www.w3.org/2000/svg">
+        <polygon points="50,2 62,38 98,38 69,59 80,95 50,74 20,95 31,59 2,38 38,38" />
+        <circle cx="50" cy="50" r="45" fill="none" stroke="white" stroke-width="1"/>
+        <circle cx="50" cy="50" r="30" fill="none" stroke="white" stroke-width="0.5"/>
+        <line x1="5" y1="50" x2="95" y2="50" stroke="white" stroke-width="0.5"/>
+        <line x1="50" y1="5" x2="50" y2="95" stroke="white" stroke-width="0.5"/>
+      </svg>
+
+      <div class="hero-left">
+        <div class="hero-greeting">Welcome back, Thierno Aliou 👋</div>
+        <div class="hero-sub">Wed, March 25, 2026 · Administrator · Alluwal Education Hub</div>
+        <div class="hero-actions">
+          <a class="hero-btn hero-btn-primary">⚡ Review 242 Timesheets</a>
+          <a class="hero-btn hero-btn-ghost">+ Add User</a>
+          <a class="hero-btn hero-btn-ghost">📤 Send Notification</a>
+        </div>
+      </div>
+
+      <div class="hero-right">
+        <div class="hero-stat">
+          <span class="hero-stat-num gold">256</span>
+          <span class="hero-stat-label">Total Users</span>
+        </div>
+        <div class="hero-stat">
+          <span class="hero-stat-num teal">37</span>
+          <span class="hero-stat-label">Teachers</span>
+        </div>
+        <div class="hero-stat">
+          <span class="hero-stat-num">4047</span>
+          <span class="hero-stat-label">All Shifts</span>
+        </div>
+        <div class="hero-stat">
+          <span class="hero-stat-num" style="color:#2ecc71">99.8%</span>
+          <span class="hero-stat-label">Uptime</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- PRIORITY CARDS -->
+    <div class="section-header">
+      <div class="section-title">Needs Attention Now</div>
+    </div>
+
+    <div class="priority-grid">
+      <div class="p-card urgent">
+        <div class="p-card-top">
+          <div class="p-card-icon ic-red">📋</div>
+          <div class="p-card-arrow">→</div>
+        </div>
+        <div class="p-card-num">242</div>
+        <div class="p-card-label">Pending Timesheets</div>
+        <div class="p-card-sub">25 teachers · $1,142.58 at stake</div>
+        <div class="p-card-tag tag-red">🔴 Urgent Review</div>
+      </div>
+
+      <div class="p-card warning">
+        <div class="p-card-top">
+          <div class="p-card-icon ic-gold">✅</div>
+          <div class="p-card-arrow">→</div>
+        </div>
+        <div class="p-card-num">104</div>
+        <div class="p-card-label">Open Tasks</div>
+        <div class="p-card-sub">428 total · 324 completed</div>
+        <div class="p-card-tag tag-gold">⚡ Action Needed</div>
+      </div>
+
+      <div class="p-card info">
+        <div class="p-card-top">
+          <div class="p-card-icon ic-teal">🎓</div>
+          <div class="p-card-arrow">→</div>
+        </div>
+        <div class="p-card-num">12</div>
+        <div class="p-card-label">New Applicants</div>
+        <div class="p-card-sub">2 students · 10 teachers pending</div>
+        <div class="p-card-tag tag-teal">📥 In Inbox</div>
+      </div>
+
+      <div class="p-card neutral">
+        <div class="p-card-top">
+          <div class="p-card-icon ic-sky">🕐</div>
+          <div class="p-card-arrow">→</div>
+        </div>
+        <div class="p-card-num">16</div>
+        <div class="p-card-label">Today's Shifts</div>
+        <div class="p-card-sub">2212 upcoming this week</div>
+        <div class="p-card-tag tag-sky">📅 Live Today</div>
+      </div>
+    </div>
+
+    <!-- LOWER: SCHEDULE + QUICK ACTIONS -->
+    <div class="lower-grid">
+
+      <!-- TODAY SCHEDULE + TIMESHEET TABLE -->
+      <div>
+        <div class="section-header">
+          <div class="section-title">Today's Shifts</div>
+          <a class="section-link">View full schedule →</a>
+        </div>
+        <div class="panel" style="margin-bottom:20px">
+          <div class="panel-head">
+            <div class="panel-title">📅 Wed Mar 25 · 16 shifts</div>
+            <span class="status-pill s-approved">1 Active</span>
+          </div>
+          <div class="panel-body">
+            <div class="schedule-list">
+              <div class="shift-row">
+                <span class="shift-time">8:00–9:00</span>
+                <span class="shift-dot active"></span>
+                <div class="shift-info">
+                  <div class="shift-name">AL-Hassan Diallo</div>
+                  <div class="shift-meta">Quran Studies</div>
+                </div>
+                <span class="shift-count">🟢 Active</span>
+              </div>
+              <div class="shift-row">
+                <span class="shift-time">10:00–11:00</span>
+                <span class="shift-dot upcoming"></span>
+                <div class="shift-info">
+                  <div class="shift-name">Ibrahim Bah</div>
+                  <div class="shift-meta">English · 1/2</div>
+                </div>
+                <span class="shift-count">2 students</span>
+              </div>
+              <div class="shift-row">
+                <span class="shift-time">11:00–12:00</span>
+                <span class="shift-dot upcoming"></span>
+                <div class="shift-info">
+                  <div class="shift-name">Fatumata Jalloh</div>
+                  <div class="shift-meta">Islamic Studies</div>
+                </div>
+                <span class="shift-count">3 students</span>
+              </div>
+              <div class="shift-row">
+                <span class="shift-time">12:00–14:00</span>
+                <span class="shift-dot upcoming"></span>
+                <div class="shift-info">
+                  <div class="shift-name">Abdoullahi Yaya</div>
+                  <div class="shift-meta">Arabic · 1/6</div>
+                </div>
+                <span class="shift-count">6 students</span>
+              </div>
+              <div class="shift-row">
+                <span class="shift-time">11:30–1:00</span>
+                <span class="shift-dot upcoming"></span>
+                <div class="shift-info">
+                  <div class="shift-name">Hassimiou Niane</div>
+                  <div class="shift-meta">Quran · 1/5</div>
+                </div>
+                <span class="shift-count">5 students</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- PENDING TIMESHEETS -->
+        <div class="section-header">
+          <div class="section-title">Pending Timesheets</div>
+          <a class="section-link">See all 242 →</a>
+        </div>
+        <div class="panel">
+          <div class="tabs">
+            <div class="tab active">Pending (4)</div>
+            <div class="tab">Approved</div>
+            <div class="tab">Rejected</div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Teacher</th>
+                  <th>Student</th>
+                  <th>Date</th>
+                  <th>Hours</th>
+                  <th>Payment</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="td-name">habibu barry</td>
+                  <td>Hadiatu Diallo</td>
+                  <td>Mar 25</td>
+                  <td>00:59:44</td>
+                  <td><span class="amount">$3.98</span></td>
+                  <td><div class="action-row"><button class="act-btn act-approve">✓</button><button class="act-btn act-reject">✕</button><button class="act-btn act-view">👁</button></div></td>
+                </tr>
+                <tr>
+                  <td class="td-name">Mamadou Saidou</td>
+                  <td>Fatumata Diallo.</td>
+                  <td>Mar 25</td>
+                  <td>01:23:31</td>
+                  <td><span class="amount">$5.57</span></td>
+                  <td><div class="action-row"><button class="act-btn act-approve">✓</button><button class="act-btn act-reject">✕</button><button class="act-btn act-view">👁</button></div></td>
+                </tr>
+                <tr>
+                  <td class="td-name">Abdoullahi Yaya</td>
+                  <td>Aissatou Dioum.</td>
+                  <td>Mar 25</td>
+                  <td>00:59:41</td>
+                  <td><span class="amount">$3.98</span></td>
+                  <td><div class="action-row"><button class="act-btn act-approve">✓</button><button class="act-btn act-reject">✕</button><button class="act-btn act-view">👁</button></div></td>
+                </tr>
+                <tr>
+                  <td class="td-name">Ibrahim Bah</td>
+                  <td>Fatoumata Bah.</td>
+                  <td>Mar 25</td>
+                  <td>00:59:25</td>
+                  <td><span class="amount" style="color:#e74c3c">$0.00</span></td>
+                  <td><div class="action-row"><button class="act-btn act-approve">✓</button><button class="act-btn act-reject">✕</button><button class="act-btn act-view">👁</button></div></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT COLUMN: QUICK ACTIONS + TASKS + SCORES -->
+      <div style="display:flex;flex-direction:column;gap:20px">
+
+        <!-- QUICK ACTIONS -->
+        <div>
+          <div class="section-header">
+            <div class="section-title">Quick Actions</div>
+          </div>
+          <div class="panel">
+            <div class="qa-grid">
+              <a class="qa-btn">
+                <div class="qa-icon" style="background:rgba(26,122,110,.15)">➕</div>
+                <span class="qa-label">New User</span>
+              </a>
+              <a class="qa-btn">
+                <div class="qa-icon" style="background:rgba(201,169,75,.15)">📢</div>
+                <span class="qa-label">Notify All</span>
+              </a>
+              <a class="qa-btn">
+                <div class="qa-icon" style="background:rgba(142,68,173,.15)">📝</div>
+                <span class="qa-label">Create Form</span>
+              </a>
+              <a class="qa-btn">
+                <div class="qa-icon" style="background:rgba(41,128,185,.15)">🕐</div>
+                <span class="qa-label">Create Shift</span>
+              </a>
+              <a class="qa-btn">
+                <div class="qa-icon" style="background:rgba(231,76,60,.12)">📈</div>
+                <span class="qa-label">Run Audit</span>
+              </a>
+              <a class="qa-btn">
+                <div class="qa-icon" style="background:rgba(46,204,113,.15)">✅</div>
+                <span class="qa-label">Add Task</span>
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <!-- TASKS -->
+        <div>
+          <div class="section-header">
+            <div class="section-title">Open Tasks</div>
+            <a class="section-link">All 104 →</a>
+          </div>
+          <div class="panel">
+            <div class="task-list">
+              <div class="task-item">
+                <div class="task-check"></div>
+                <div>
+                  <div class="task-text">Check on all your teachers, verify and update their schedules both on the website and Schedule Sheet on the Drive</div>
+                  <div class="task-due overdue">📅 Mar 24, 2:18 PM · Mohammed +2</div>
+                </div>
+              </div>
+              <div class="task-item">
+                <div class="task-check"></div>
+                <div>
+                  <div class="task-text">Resolve Chernor Chat</div>
+                  <div class="task-due">📅 Mar 27, 5:00 AM · Hassimiou Niane</div>
+                </div>
+              </div>
+              <div class="task-item">
+                <div class="task-check"></div>
+                <div>
+                  <div class="task-text">Review and process Teacher Applicants this week</div>
+                  <div class="task-due">📅 Mar 26 · Admin</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TEACHER AUDIT SCORES -->
+        <div>
+          <div class="section-header">
+            <div class="section-title">Teacher Audit Scores</div>
+            <a class="section-link">Full report →</a>
+          </div>
+          <div class="panel">
+            <div class="panel-body" style="padding:12px 16px">
+              <div class="score-row">
+                <div class="score-av" style="background:linear-gradient(135deg,var(--teal),var(--teal-lt))">T</div>
+                <div class="score-info"><div class="score-name">Thierno A. Diallo</div><div class="score-dept">English</div></div>
+                <div class="score-bar-wrap">
+                  <div class="score-bar"><div class="score-fill" style="width:80.8%;background:linear-gradient(90deg,#2ecc71,#27ae60)"></div></div>
+                  <span class="score-num" style="color:#27ae60">80.8</span>
+                </div>
+              </div>
+              <div class="score-row">
+                <div class="score-av" style="background:linear-gradient(135deg,#8e44ad,#9b59b6)">A</div>
+                <div class="score-info"><div class="score-name">AL-Hassan Diallo</div><div class="score-dept">Islamic</div></div>
+                <div class="score-bar-wrap">
+                  <div class="score-bar"><div class="score-fill" style="width:51.4%;background:linear-gradient(90deg,#e67e22,#f39c12)"></div></div>
+                  <span class="score-num" style="color:#e67e22">51.4</span>
+                </div>
+              </div>
+              <div class="score-row">
+                <div class="score-av" style="background:linear-gradient(135deg,#2c3e50,#34495e)">A</div>
+                <div class="score-info"><div class="score-name">Arabieu Bah</div><div class="score-dept">Islamic</div></div>
+                <div class="score-bar-wrap">
+                  <div class="score-bar"><div class="score-fill" style="width:49.9%;background:linear-gradient(90deg,#e74c3c,#c0392b)"></div></div>
+                  <span class="score-num" style="color:#e74c3c">49.9</span>
+                </div>
+              </div>
+              <div class="score-row">
+                <div class="score-av" style="background:linear-gradient(135deg,#1abc9c,#16a085)">Z</div>
+                <div class="score-info"><div class="score-name">Zainab Yahya</div><div class="score-dept">Quran Studies</div></div>
+                <div class="score-bar-wrap">
+                  <div class="score-bar"><div class="score-fill" style="width:49.5%;background:linear-gradient(90deg,#e74c3c,#c0392b)"></div></div>
+                  <span class="score-num" style="color:#e74c3c">49.5</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- BOTTOM: CHAT + APPLICANTS -->
+    <div class="section-header">
+      <div class="section-title">Communication & Applicants</div>
+    </div>
+    <div class="bottom-grid">
+
+      <!-- CHATS -->
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title">💬 Recent Chats</div>
+          <span class="nav-badge badge-red" style="padding:4px 10px">6 unread</span>
+        </div>
+        <div class="chat-item">
+          <div class="chat-av" style="background:linear-gradient(135deg,var(--teal),var(--teal-lt))">E</div>
+          <div class="chat-info">
+            <div class="chat-name">Eboard</div>
+            <div class="chat-msg">The second flyer is correct, kindly interact with our social media…</div>
+          </div>
+          <div class="chat-meta">
+            <div class="chat-time">17/3</div>
+            <div class="chat-unread">5</div>
+          </div>
+        </div>
+        <div class="chat-item">
+          <div class="chat-av" style="background:linear-gradient(135deg,#8e44ad,#9b59b6)">CD</div>
+          <div class="chat-info">
+            <div class="chat-name">Chernor Diallo</div>
+            <div class="chat-msg">Any update on the recent project</div>
+          </div>
+          <div class="chat-meta">
+            <div class="chat-time">10/3</div>
+            <div class="chat-unread">5</div>
+          </div>
+        </div>
+        <div class="chat-item">
+          <div class="chat-av" style="background:linear-gradient(135deg,#2c3e50,#34495e)">TG</div>
+          <div class="chat-info">
+            <div class="chat-name">Teachers Groupchat</div>
+            <div class="chat-msg">Salam teachers,</div>
+          </div>
+          <div class="chat-meta">
+            <div class="chat-time">9/3</div>
+          </div>
+        </div>
+        <div class="chat-item">
+          <div class="chat-av" style="background:linear-gradient(135deg,var(--gold),#e8cc7a)">HN</div>
+          <div class="chat-info">
+            <div class="chat-name">Hassimiou Niane</div>
+            <div class="chat-msg">Admin · last message</div>
+          </div>
+          <div class="chat-meta">
+            <div class="chat-time">9/3</div>
+            <div class="chat-unread">1</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- STUDENT APPLICANTS -->
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title">🎓 Student Applicants</div>
+          <span class="nav-badge badge-red" style="padding:4px 10px">2 inbox</span>
+        </div>
+        <div class="applicant-item">
+          <div class="appl-av" style="background:linear-gradient(135deg,var(--teal),var(--teal-lt))">A</div>
+          <div class="appl-info">
+            <div class="appl-name">Alex Kim</div>
+            <div class="appl-prog">After School Tutoring (Math, Science, Physics…)</div>
+            <div class="appl-meta">
+              <span>📅 Fri, Wed, Thu, Sat, Mon</span>
+              <span>🕐 11AM–12PM</span>
+              <span>🌍 Asia/Dhaka</span>
+            </div>
+          </div>
+          <div class="appl-actions">
+            <button class="appl-btn appl-btn-go">Contact</button>
+            <button class="appl-btn appl-btn-skip">Skip</button>
+          </div>
+        </div>
+        <div class="applicant-item">
+          <div class="appl-av" style="background:linear-gradient(135deg,#8e44ad,#9b59b6)">I</div>
+          <div class="appl-info">
+            <div class="appl-name">Issa Diallo</div>
+            <div class="appl-prog">Islamic Program (Arabic, Quran…)</div>
+            <div class="appl-meta">
+              <span>📅 Sat, Sun</span>
+              <span>🕐 10AM–11AM</span>
+              <span>👤 Parent: Alpha Oumar Diall…</span>
+            </div>
+          </div>
+          <div class="appl-actions">
+            <button class="appl-btn appl-btn-go">Contact</button>
+            <button class="appl-btn appl-btn-skip">Skip</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- TEACHER APPLICANTS -->
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title">👨‍🏫 Teacher Applicants</div>
+          <span class="nav-badge badge-gold" style="padding:4px 10px">10 pending</span>
+        </div>
+        <div class="applicant-item">
+          <div class="appl-av" style="background:linear-gradient(135deg,#27ae60,#2ecc71)">Z</div>
+          <div class="appl-info">
+            <div class="appl-name">Zainab Yahya</div>
+            <div class="appl-prog">islamic_studies · French, Arabic</div>
+            <div class="appl-meta"><span>📍 Cameroon</span><span>📅 Mar 24, 2026</span></div>
+          </div>
+          <div class="appl-actions">
+            <button class="appl-btn appl-btn-go">Review</button>
+          </div>
+        </div>
+        <div class="applicant-item">
+          <div class="appl-av" style="background:linear-gradient(135deg,var(--teal),var(--teal-lt))">O</div>
+          <div class="appl-info">
+            <div class="appl-name">OUSMAN KARIM JALL…</div>
+            <div class="appl-prog">english, islamic_st… · English, Arabic, Pu…</div>
+            <div class="appl-meta"><span>📍 Riyadh, Saudi Arabia</span><span>📅 Mar 21</span></div>
+          </div>
+          <div class="appl-actions">
+            <button class="appl-btn appl-btn-go">Review</button>
+          </div>
+        </div>
+        <div class="applicant-item">
+          <div class="appl-av" style="background:linear-gradient(135deg,#c0392b,#e74c3c)">S</div>
+          <div class="appl-info">
+            <div class="appl-name">Sheikh Ahmad Jalloh</div>
+            <div class="appl-prog">islamic_studies · English</div>
+            <div class="appl-meta"><span>📍 Monrovia, Liberia</span><span>📅 Feb 21</span></div>
+          </div>
+          <div class="appl-actions">
+            <button class="appl-btn appl-btn-go">Review</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div style="height:32px"></div>
+
+  </main>
+</div>
+
+<script>
+  // Tab switching
+  document.querySelectorAll('.tabs').forEach(tabGroup => {
+    tabGroup.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        tabGroup.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+      });
+    });
+  });
+
+  // Nav switching
+  document.querySelectorAll('.nav-item').forEach(item => {
+    item.addEventListener('click', () => {
+      document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+      item.classList.add('active');
+    });
+  });
+
+  // Approve/reject buttons
+  document.querySelectorAll('.act-approve').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const row = btn.closest('tr');
+      row.style.background = 'rgba(46,204,113,.08)';
+      btn.textContent = '✓✓';
+      btn.style.background = '#27ae60';
+      btn.style.color = '#fff';
+    });
+  });
+
+  document.querySelectorAll('.act-reject').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const row = btn.closest('tr');
+      row.style.opacity = '.5';
+    });
+  });
+
+  // Animate score bars on load
+  window.addEventListener('load', () => {
+    document.querySelectorAll('.score-fill').forEach(bar => {
+      const target = bar.style.width;
+      bar.style.width = '0';
+      setTimeout(() => { bar.style.width = target; }, 600);
+    });
+  });
+</script>
+
+</body>
+</html>

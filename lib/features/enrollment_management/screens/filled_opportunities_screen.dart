@@ -1,3 +1,10 @@
+// DEPRECATED: This screen has been replaced by the "Matched" tab in
+// EnrollmentManagementScreen. The matched enrollment cards now query
+// enrollments with metadata.status == 'matched' directly, using
+// MatchedEnrollmentCard from ../widgets/matched_enrollment_card.dart.
+//
+// Kept for reference. Do not import from new code.
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
@@ -12,6 +19,7 @@ import '../../../core/utils/app_logger.dart';
 import '../../shift_management/widgets/create_shift_dialog.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
+@Deprecated('Use MatchedEnrollmentCard in the Matched tab instead')
 class FilledOpportunitiesScreen extends StatefulWidget {
   const FilledOpportunitiesScreen({super.key});
 
@@ -513,24 +521,22 @@ class _FilledJobCardState extends State<_FilledJobCard> {
 
       final enrollmentData = enrollmentDoc.data()!;
       final contact = enrollmentData['contact'] as Map<String, dynamic>? ?? {};
-      
-      // Improved name extraction: prioritize contact fields, then parse studentName
-      String firstName = '';
-      String lastName = '';
-      
-      // First, try to get from contact fields
-      if (contact['firstName'] != null && contact['firstName'].toString().trim().isNotEmpty) {
-        firstName = contact['firstName'].toString().trim();
-      }
-      if (contact['lastName'] != null && contact['lastName'].toString().trim().isNotEmpty) {
-        lastName = contact['lastName'].toString().trim();
-      }
-      
-      // If firstName or lastName is missing, try parsing studentName
+      final studentDoc =
+          enrollmentData['student'] as Map<String, dynamic>? ?? {};
+      final metadata = enrollmentData['metadata'] as Map<String, dynamic>? ?? {};
+
+      // Prefer the firstName/lastName stored on the student subdoc at
+      // submission time; fall back to splitting studentName.
+      String firstName = (studentDoc['firstName'] as String?)?.trim() ?? '';
+      String lastName = (studentDoc['lastName'] as String?)?.trim() ?? '';
+
       if (firstName.isEmpty || lastName.isEmpty) {
-        final fullName = widget.job.studentName.trim();
+        final fullName = (widget.job.studentName.isNotEmpty
+                ? widget.job.studentName
+                : (studentDoc['name']?.toString() ?? ''))
+            .trim();
         if (fullName.isNotEmpty) {
-          final parts = fullName.split(' ').where((p) => p.isNotEmpty).toList();
+          final parts = fullName.split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
           if (parts.isNotEmpty) {
             if (firstName.isEmpty) {
               firstName = parts.first;
@@ -541,8 +547,7 @@ class _FilledJobCardState extends State<_FilledJobCard> {
           }
         }
       }
-      
-      // Final fallbacks to ensure we always have values
+
       if (firstName.isEmpty) {
         firstName = 'Student';
       }
@@ -550,11 +555,19 @@ class _FilledJobCardState extends State<_FilledJobCard> {
         lastName = 'Unknown';
       }
 
+      // Minors must NOT receive the parent's email as their auth email.
+      // Leave it unset so createStudentAccount generates an alias email.
+      final bool isAdult = widget.job.isAdult || (metadata['isAdult'] == true);
+      final String? studentEmail = isAdult
+          ? (contact['email'] as String?)?.trim()
+          : null;
+
       final studentData = {
         'firstName': firstName,
         'lastName': lastName,
-        'isAdultStudent': widget.job.isAdult,
-        'email': contact['email'],
+        'isAdultStudent': isAdult,
+        if (studentEmail != null && studentEmail.isNotEmpty)
+          'email': studentEmail,
         'phoneNumber': contact['phone'],
         'guardianIds': contact['guardianId'] != null ? [contact['guardianId']] : [],
       };
@@ -952,7 +965,7 @@ class _FilledJobCardState extends State<_FilledJobCard> {
                         ),
                       ),
                       Text(
-                        '${widget.job.subject} • ${widget.job.studentAge} yo',
+                        '${widget.job.displaySubject} • ${widget.job.studentAge} yo',
                         style: GoogleFonts.inter(
                           fontSize: 13,
                           color: const Color(0xff64748B),

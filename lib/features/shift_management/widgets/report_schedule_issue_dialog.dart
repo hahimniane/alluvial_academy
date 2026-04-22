@@ -142,13 +142,30 @@ class _ReportScheduleIssueDialogState extends State<ReportScheduleIssueDialog> {
           .collection('schedule_issue_reports')
           .add(reportData);
 
+      // Special handling for 'publish' issue type - update shift directly
+      if (_issueType == 'publish') {
+        await FirebaseFirestore.instance
+            .collection('teaching_shifts')
+            .doc(widget.shift.id)
+            .update({
+          'is_published': true,
+          'published_at': FieldValue.serverTimestamp(),
+          'published_by': user.uid,
+          'original_teacher_id': user.uid,
+          'original_teacher_name': widget.shift.teacherName,
+          'last_modified': FieldValue.serverTimestamp(),
+        });
+      }
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
               _issueType == 'timezone'
                   ? 'Timezone updated! Schedule will refresh.'
-                  : 'Issue reported! Admin will review and fix it.',
+                  : (_issueType == 'publish'
+                      ? 'Shift offered to other teachers!'
+                      : 'Issue reported! Admin will review and fix it.'),
             ),
             backgroundColor: Colors.green,
           ),
@@ -231,6 +248,11 @@ class _ReportScheduleIssueDialogState extends State<ReportScheduleIssueDialog> {
             const SizedBox(height: 8),
             _buildIssueTypeOption(
                 'incorrect_time', 'Shift time is incorrect', Icons.schedule),
+            const SizedBox(height: 8),
+            _buildIssueTypeOption(
+                'publish',
+                AppLocalizations.of(context)!.offerShiftToOtherTeachers,
+                Icons.public),
             const SizedBox(height: 8),
             _buildIssueTypeOption('other', 'Other issue', Icons.info_outline),
 

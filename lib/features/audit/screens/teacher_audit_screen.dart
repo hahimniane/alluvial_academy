@@ -3,10 +3,14 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
-import 'package:alluwalacademyadmin/features/audit/models/teacher_audit_metrics.dart';
-import '../services/audit_metrics_service.dart';
-import '../../../features/settings/services/pilot_flag_service.dart';
+import '../../../core/models/teacher_audit_metrics.dart';
+import '../../../core/services/audit_metrics_service.dart';
+import '../../../core/services/teacher_metrics_service.dart';
+import '../../../core/services/pilot_flag_service.dart';
+import '../../shift_management/screens/available_shifts_screen.dart';
+import '../../../utility_functions/export_helpers.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 
 /// Teacher's personal audit dashboard
 /// Shows their performance metrics, details by class, and improvement areas
@@ -23,6 +27,8 @@ class _TeacherAuditScreenState extends State<TeacherAuditScreen>
 
   String _selectedMonth = '';
   TeacherAuditMetrics? _metrics;
+  TeacherBasicMetrics? _liveMetrics;
+  bool _isLiveMonth = false;
   List<String> _availableMonths = [];
   bool _isLoading = true;
   bool _isPilot = false;
@@ -139,14 +145,32 @@ class _TeacherAuditScreenState extends State<TeacherAuditScreen>
     setState(() => _isLoading = true);
 
     try {
-      // Load metrics
-      _metrics = await AuditMetricsService.getMetrics(
-        oderId: user.uid,
-        yearMonth: _selectedMonth,
-        pilotOnly: _isPilot,
-      );
+      final currentMonth = TeacherMetricsService.getYearMonth(DateTime.now());
+      _isLiveMonth = _selectedMonth == currentMonth;
 
-      // Load detailed data if available in the metrics doc
+      if (_isLiveMonth) {
+        // Load live metrics for current month
+        final now = DateTime.now();
+        final startOfMonth = DateTime(now.year, now.month, 1);
+        final endOfMonth = DateTime(now.year, now.month + 1, 0, 23, 59, 59);
+
+        _liveMetrics = await TeacherMetricsService.aggregate(
+          teacherId: user.uid,
+          start: startOfMonth,
+          end: endOfMonth,
+        );
+        _metrics = null;
+      } else {
+        // Load frozen metrics for past months
+        _metrics = await AuditMetricsService.getMetrics(
+          oderId: user.uid,
+          yearMonth: _selectedMonth,
+          pilotOnly: _isPilot,
+        );
+        _liveMetrics = null;
+      }
+
+      // Load detailed data if available in the metrics doc (only for past months)
       if (_metrics != null) {
         final collection = _isPilot ? 'pilot_audit_metrics' : 'audit_metrics';
         final doc = await FirebaseFirestore.instance
@@ -163,6 +187,10 @@ class _TeacherAuditScreenState extends State<TeacherAuditScreen>
           _detailedForms = List<Map<String, dynamic>>.from(
               data['detailedForms'] ?? []);
         }
+      } else {
+        _detailedShifts = [];
+        _detailedTimesheets = [];
+        _detailedForms = [];
       }
 
       if (mounted) setState(() => _isLoading = false);
@@ -253,7 +281,7 @@ class _TeacherAuditScreenState extends State<TeacherAuditScreen>
           ? const Center(child: CircularProgressIndicator())
           : _errorMessage != null
               ? _buildErrorState()
-              : _metrics == null
+              : (_metrics == null && _liveMetrics == null)
                   ? _buildNoDataState()
                   : TabBarView(
                       controller: _tabController,
@@ -323,6 +351,10 @@ class _TeacherAuditScreenState extends State<TeacherAuditScreen>
   // OVERVIEW TAB
   // ════════════════════════════════════════════════════════════════
   Widget _buildOverviewTab() {
+    if (_isLiveMonth && _liveMetrics != null) {
+      return _buildLiveOverviewTab();
+    }
+
     final m = _metrics!;
     final tierColor = _getTierColor(m.performanceTier);
 
@@ -443,8 +475,337 @@ class _TeacherAuditScreenState extends State<TeacherAuditScreen>
             const SizedBox(height: 12),
             ...m.flags.map((flag) => _buildFlagCard(flag)),
           ],
+
+          const SizedBox(height: 32),
+          
+          // Export Button
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _exportTeachingData,
+              icon: const Icon(Icons.download_for_offline_outlined),
+              label: const Text("Download My Teaching Data (CSV)"),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0E72ED),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                elevation: 0,
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            "Exports your shifts, timesheets, and pay for the current range.",
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              color: const Color(0xFF64748B),
+            ),
+          ),
         ],
       ),
+    );
+  }
+
+  /// Builds the overview tab for the current month using live metrics
+  Widget _buildLiveOverviewTab() {
+    final m = _liveMetrics!;
+    
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Live Status Banner
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFF0E72ED).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFF0E72ED).withOpacity(0.2)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.bolt, color: Color(0xFF0E72ED)),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Live Performance (Current Month)",
+                        style: GoogleFonts.inter(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF1E3A5F),
+                        ),
+                      ),
+                      Text(
+                        "Showing real-time metrics. Month-end audit will freeze these values.",
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: const Color(0xFF1E3A5F).withOpacity(0.8),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Basic Metrics Grid
+          Text(
+            "Monthly Summary",
+            style: GoogleFonts.inter(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 12),
+          GridView.count(
+            crossAxisCount: 2,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            mainAxisSpacing: 12,
+            crossAxisSpacing: 12,
+            childAspectRatio: 1.5,
+            children: [
+              _buildStatCard('Classes', '${m.completedClasses}/${m.scheduledClasses}', Icons.school, const Color(0xff0386FF)),
+              _buildStatCard('Hours', m.hoursWorked.toStringAsFixed(1), Icons.timer, const Color(0xff10B981)),
+              _buildStatCard('Forms', '${m.formsSubmitted}/${m.formsRequired}', Icons.description, const Color(0xff8B5CF6)),
+              _buildStatCard('Late', '${m.lateClockIns}', Icons.access_time, const Color(0xffF59E0B)),
+            ],
+          ),
+          const SizedBox(height: 24),
+
+          // Earnings Section
+          Text(
+            "Earnings (Provisional)",
+            style: GoogleFonts.inter(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                _buildPayRow("Paid", m.payPaid, const Color(0xFF059669)),
+                const Divider(height: 24),
+                _buildPayRow("Approved", m.payApproved, const Color(0xFF0E72ED)),
+                const Divider(height: 24),
+                _buildPayRow("Pending", m.payPending, const Color(0xFFF59E0B)),
+                const Divider(height: 32),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      "Total",
+                      style: GoogleFonts.inter(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: const Color(0xFF1E293B),
+                      ),
+                    ),
+                    Text(
+                      "\$${(m.payPaid + m.payApproved + m.payPending).toStringAsFixed(2)}",
+                      style: GoogleFonts.inter(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        color: const Color(0xFF1E293B),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          
+          if (m.payPending > 0) ...[
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF7ED),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFFED7AA)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.info_outline, color: Color(0xFFD97706), size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      "You have entries awaiting re-approval after edits. Your final total may change.",
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: const Color(0xFF9A3412),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          const SizedBox(height: 32),
+          
+          // Export Button
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _exportTeachingData,
+              icon: const Icon(Icons.download_for_offline_outlined),
+              label: const Text("Download My Teaching Data (CSV)"),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0E72ED),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                elevation: 0,
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            "Exports your shifts, timesheets, and pay for the current range.",
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              color: const Color(0xFF64748B),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Exports the teacher's data for the current selected month
+  Future<void> _exportTeachingData() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      final startOfMonth = DateTime.parse('${_selectedMonth}-01');
+      final endOfMonth = DateTime(startOfMonth.year, startOfMonth.month + 1, 0, 23, 59, 59);
+
+      // Fetch timesheets for the selected month (clock-in time window)
+      final timesheetQuery = await FirebaseFirestore.instance
+          .collection('timesheet_entries')
+          .where('teacher_id', isEqualTo: user.uid)
+          .get();
+
+      final timesheets = timesheetQuery.docs
+          .where((doc) {
+            final data = doc.data();
+            final clockIn = (data['clock_in_time'] ?? data['clock_in_timestamp']) as Timestamp?;
+            if (clockIn == null) return false;
+            final date = clockIn.toDate();
+            return date.isAfter(startOfMonth.subtract(const Duration(seconds: 1))) && 
+                   date.isBefore(endOfMonth.add(const Duration(seconds: 1)));
+          })
+          .map((doc) => doc.data())
+          .toList();
+
+      // Prepare CSV Data
+      final List<String> headers = [
+        'Date',
+        'Shift Name',
+        'Status',
+        'Clock In',
+        'Clock Out',
+        'Duration',
+        'Pay',
+        'Notes'
+      ];
+
+      final List<List<dynamic>> rows = [];
+      
+      for (final ts in timesheets) {
+        final clockIn = (ts['clock_in_time'] ?? ts['clock_in_timestamp'] as Timestamp?)?.toDate();
+        final clockOut = (ts['clock_out_time'] ?? ts['clock_out_timestamp'] as Timestamp?)?.toDate();
+        
+        rows.add([
+          clockIn != null ? DateFormat('yyyy-MM-dd').format(clockIn) : '',
+          ts['shift_title'] ?? 'Teaching Session',
+          ts['status'] ?? 'pending',
+          clockIn != null ? DateFormat('HH:mm:ss').format(clockIn) : '',
+          clockOut != null ? DateFormat('HH:mm:ss').format(clockOut) : '',
+          ts['total_hours'] ?? '',
+          ts['payment_amount'] ?? ts['total_pay'] ?? 0.0,
+          ts['employee_notes'] ?? '',
+        ]);
+      }
+
+      if (mounted) {
+        ExportHelpers.showExportDialog(
+          context,
+          headers,
+          rows,
+          'Alluwal_Teaching_Data_${_selectedMonth}',
+        );
+      }
+    } catch (e) {
+      AppLogger.error('Error exporting data: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Export failed: $e"), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Widget _buildPayRow(String label, double amount, Color color) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Row(
+          children: [
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: const Color(0xFF64748B),
+              ),
+            ),
+          ],
+        ),
+        Text(
+          "\$${amount.toStringAsFixed(2)}",
+          style: GoogleFonts.inter(
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            color: const Color(0xFF1E293B),
+          ),
+        ),
+      ],
     );
   }
 
@@ -653,11 +1014,24 @@ class _TeacherAuditScreenState extends State<TeacherAuditScreen>
           shift['name'] ?? 'Unnamed Class',
           style: GoogleFonts.inter(fontWeight: FontWeight.w600),
         ),
-        subtitle: Text(
-          startDate != null
-              ? DateFormat('EEE, MMM d, h:mm a').format(startDate)
-              : AppLocalizations.of(context)!.commonUnknownDate,
-          style: GoogleFonts.inter(fontSize: 12, color: Colors.grey[600]),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              startDate != null
+                  ? DateFormat('EEE, MMM d, h:mm a').format(startDate)
+                  : AppLocalizations.of(context)!.commonUnknownDate,
+              style: GoogleFonts.inter(fontSize: 12, color: Colors.grey[600]),
+            ),
+            if (shift['fromShiftTrade'] == true) ...[
+              const SizedBox(height: 4),
+              Text(
+                AppLocalizations.of(context)!.teacherAuditShiftFromTradeNotice,
+                style: GoogleFonts.inter(fontSize: 11, color: Colors.grey[500]),
+              ),
+            ],
+          ],
         ),
         trailing: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),

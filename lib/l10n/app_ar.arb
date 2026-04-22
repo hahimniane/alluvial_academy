@@ -1,6 +1,6 @@
 {
   "@@locale": "ar",
-  "appTitle": "أكاديمية ألوال",
+  "appTitle": "أكاديمية Alluwal",
   "commonCancel": "إلغاء",
   "commonSave": "حفظ",
   "commonDelete": "حذف",
@@ -55,7 +55,7 @@
   "loginTooManyAttempts": "محاولات فاشلة كثيرة. انتظر وحاول مرة أخرى.",
   "loginFailed": "فشل تسجيل الدخول. حاول مرة أخرى.",
   "loginUnexpectedError": "حدث خطأ غير متوقع.",
-  "loginAlluvialHub": "مركز ألوال التعليمي",
+  "loginAlluvialHub": "مركز Alluwal التعليمي",
   "settingsTitle": "الإعدادات",
   "settingsViewProfile": "عرض الملف الشخصي",
   "settingsHelpSupport": "المساعدة والدعم",
@@ -81,15 +81,28 @@
   "profileSpecialties": "التخصصات",
   "profileEditProfile": "تعديل الملف الشخصي",
   "profileCompleteProfile": "أكمل ملفك الشخصي",
-  "profileHelpParents": "ساعد الآباء والطلاب على معرفة خبرتك",
+  "profileHelpParents": "حافظ على تحديث ملفك داخل التطبيق — يستخدمه المشرفون لربطك بالعائلات.",
+  "profilePrivacyNotice": "هذه المعلومات خاصة بك وبالمشرفين فقط. لا تظهر على الموقع العام. يدير المشرفون صفحة الفريق العامة بشكل منفصل من خلال لوحة تحرير الموقع.",
   "profileFullName": "الاسم الكامل",
+  "profileFullNameHint": "أدخل اسمك الكامل",
   "profileProfessionalTitle": "اللقب المهني",
+  "profileProfessionalTitleHint": "مثال: متخصص في القرآن والتجويد، معلم عربية",
   "profileBiography": "السيرة الذاتية",
+  "profileBiographyHint": "ملخص قصير عن خلفيتك وأسلوبك في التدريس",
   "profileYearsExperience": "سنوات الخبرة",
+  "profileYearsExperienceHint": "مثال: أكثر من 10 سنوات",
+  "profileSpecialtiesHint": "مثال: حفظ القرآن، التجويد، النحو العربي، الدراسات الإسلامية",
   "profileEducationCerts": "التعليم والشهادات",
+  "profileEducationCertsHint": "مثال: دكتوراه في العلوم الإسلامية من الأزهر، إجازة في القرآن",
   "profileSaving": "جاري الحفظ...",
   "profileSaveProfile": "حفظ الملف الشخصي",
   "profileSavedSuccess": "تم حفظ الملف الشخصي بنجاح!",
+  "profilePhotoChangeHint": "اضغط على أيقونة الكاميرا لتغيير صورتك",
+  "profilePhotoUpdated": "تم تحديث صورة الملف الشخصي",
+  "profilePhotoUploadFailed": "تعذر تحديث صورة الملف الشخصي",
+  "profilePhotoFromGallery": "اختر من المعرض",
+  "profilePhotoFromCamera": "التقط صورة",
+  "profilePhotoRemove": "إزالة الصورة",
   "profilePercentComplete": "الملف الشخصي مكتمل بنسبة {percent}%",
   "appSettingsHeader": "إعدادات التطبيق",
   "supportHeader": "الدعم",
@@ -101,6 +114,17 @@
   "languageFrench": "الفرنسية",
   "languageArabic": "العربية",
   "navHome": "الرئيسية",
+  "navTestimonials": "آراء الطلاب",
+  "navEnrollSection": "التسجيل",
+  "headerTaglineLine1": "تعليم يراعي القيم عبر الإنترنت.",
+  "headerTaglineLine2": "مسارات إسلامية وأفريقية وأكاديمية.",
+  "headerInstagramTooltip": "عرض على إنستغرام",
+  "headerFacebookTooltip": "عرض على فيسبوك",
+  "headerTiktokTooltip": "عرض على تيك توك",
+  "headerSocialOpenError": "تعذر فتح الرابط.",
+  "navPricing": "الاسعار",
+  "navAbout": "من نحن",
+  "navOurTeam": "فريقنا",
   "navShifts": "الحصص",
   "navChat": "المحادثات",
   "navForms": "النماذج",
@@ -109,6 +133,201 @@
   "navNotify": "إشعار",
   "navUsers": "المستخدمين",
   "navTasks": "المهام",
+  "landingOurPrograms": "برامجنا",
+  "landingExploreMainCourses": "استكشف دوراتنا الرئيسية",
+  "landingProgramsDescription": "اكتشف مسارات تعليمية شاملة مصممة لغير الناطقين بالعربية لإتقان القرآن والدراسات الإسلامية واللغة العربية.",
+  "landingCourseBlurbIslamic": "قرآن، عربية، توحيد، حديث، تفسير",
+  "landingCourseBlurbAfro": "بولار، ماندينكو، سواحيلي، وولوف، يوروبا",
+  "landingCourseBlurbMath": "من الابتدائي إلى التفاضل والتكامل المتقدم",
+  "landingCourseBlurbProgramming": "ويب، جوال، وتطوير البرمجيات",
+  "landingCourseBlurbAdultLiteracy": "القراءة والكتابة بالإنجليزية والفرنسية",
+  "landingCourseBlurbAfterSchool": "رياضيات، علوم، فيزياء وأكثر",
+  "landingLearnMore": "اعرف المزيد",
+  "landingPricingPlan": "خطة التسعير",
+  "landingTransparentRates": "أسعار شفافة وبأسعار معقولة",
+  "landingPricingDescription": "اختر الخطة التي تناسب جدولك الزمني. جميع الأسعار للعلم فقط - اتصل بنا للتسجيل.",
+  "landingPricingTrackIslamic": "الإسلامية وأدلام",
+  "landingPricingTrackTutoring": "الدروس والمحو الأمية",
+  "landingEnrollNow": "سجل الآن",
+  "landingPricingEnrollMultipleStudents": "تسجيل عدة طلاب",
+  "landingCtaTitle": "هل أنت مستعد للبدء؟",
+  "landingCtaBody": "تعمل معنا عائلات ومتعلمون كثيرون في الدراسات الإسلامية واللغات والدروس وغيرها. تصفح برامجنا وتواصل معنا عندما ترغب في التسجيل.",
+  "landingPaymentPolicy": "سياسة الدفع",
+  "landingPaymentPolicyText1": "يجب أن يتم الدفع في بداية كل شهر، وليس في نهايته.",
+  "landingPaymentPolicyText2": "طرق الدفع: Zelle (646-338-1286)، MoneyGram، التحويل البنكي، CashApp، أو Western Union.",
+  "landingContactInfo": "واتساب: (+1) 646-872-8590  |  alluwalacademy@gmail.com",
+  "navMegaColIslamicAfro": "الإسلامية واللغات الأفروية",
+  "navMegaColAcademic": "الدعم الأكاديمي والعلوم",
+  "navMegaColAdults": "تعليم الكبار والمحو الأمية",
+  "navMegaColTeam": "التدريس والمسار المهني",
+  "navMegaLinkIslamicStudies": "الدراسات الإسلامية",
+  "navMegaLinkAfroLanguages": "اللغات الأفروية وأدلام",
+  "navMegaLinkMath": "الرياضيات",
+  "navMegaLinkProgramming": "البرمجة",
+  "navMegaLinkAfterSchool": "الدعم بعد المدرسة",
+  "navMegaLinkAdultLiteracy": "محو أمية الكبار",
+  "landingPricingContinueWithPlan": "المتابعة بهذه الباقة",
+  "landingPricingChangePlan": "تغيير الباقة",
+  "pricingPlanIslamic14Title": "إسلامي وأدلام — 1–4 ساعات/أسبوع",
+  "pricingPlanIslamic14Subtitle": "جلسات 30 دقيقة وساعة",
+  "pricingPlanIslamicWeekendTitle": "إسلامي وأدلام — مجموعة نهاية الأسبوع",
+  "pricingPlanIslamicWeekendSubtitle": "جمعة/سبت/أحد، ساعتان يومياً",
+  "pricingPlanTutoring5Title": "دعم ومحو أمية — 5+ ساعات/أسبوع",
+  "pricingPlanTutoring5Subtitle": "ساعات أسبوعية أعلى",
+  "pricingPlanTutoring13Title": "دعم ومحو أمية — 1–3 ساعات/أسبوع",
+  "pricingPlanTutoring13Subtitle": "جلسات ساعة واحدة",
+  "pricingPlanTutoring4Title": "دعم ومحو أمية — 4+ ساعات/أسبوع",
+  "pricingPlanTutoring4Subtitle": "جلسات ساعة واحدة",
+  "pricingRate30min": "جلسة 30 دقيقة",
+  "pricingRate1hour": "جلسة ساعة واحدة",
+  "pricingRatePerHour": "لكل ساعة",
+  "pricingBandUnder4HrsPerHr": "أقل من 4 ساعات/أسبوع (لكل ساعة)",
+  "pricingBand4PlusHrsPerHr": "4 ساعات/أسبوع أو أكثر (لكل ساعة)",
+  "pricingBandUnder5HrsPerHr": "أقل من 5 ساعات/أسبوع (لكل ساعة)",
+  "pricingBand5PlusHrsPerHr": "5 ساعات/أسبوع أو أكثر (لكل ساعة)",
+  "pricingExamplePrefix": "مثال",
+  "enrollmentSelectedPlanBanner": "باقة التسعير المختارة",
+  "enrollmentChoosePricingTier": "اختر باقة التسعير",
+  "enrollmentPricingTierHint": "اختر الخطة التي تناسب طريقة تعلمك. يمكنك تغييرها قبل الإرسال.",
+  "enrollmentPricingRequired": "يرجى اختيار باقة تسعير للمتابعة.",
+  "enrollmentChangePricingTier": "تغيير الباقة",
+  "enrollmentPlanProgramMismatch": "البرنامج لا يطابق باقة التسعير هذه. غيّر البرنامج أو اختر باقة أخرى.",
+  "enrollmentMultiStudentTrackHint": "يمكن لكل طفل اختيار برنامج مختلف. التقدير يعتمد على برنامج كل طالب.",
+  "enrollmentMultiStudentHoursHint": "الساعات والسعر أعلى الصفحة للطفل الأول فقط. لكل طفل إضافي، استخدم «ساعات في الأسبوع» تحت بطاقة برنامجه—سترى نفس التقدير الشهري ويمكنك تعديله لاحقًا في خطوة الجدول.",
+  "enrollmentFlowContinue": "متابعة",
+  "enrollmentFlowSubmit": "إرسال الطلب",
+  "enrollmentNavNextStudent": "الطالب التالي",
+  "enrollmentStepYouAndContact": "أنت وطريقة التواصل",
+  "enrollmentStepChildren": "الأطفال",
+  "enrollmentStepClasses": "الدروس",
+  "enrollmentStepTimes": "الأوقات",
+  "enrollmentWizardRoleTitle": "من يتسجّل",
+  "enrollmentWizardRoleSubtitle": "طالب، ولي أمر، أو وصي — وعدد الأطفال عند الحاجة.",
+  "enrollmentWizardProgramTitle": "البرنامج والتسعير",
+  "enrollmentWizardProgramSubtitle": "المسار، الساعات أسبوعيًا، المادة، المستوى، ونوع الحصة.",
+  "enrollmentWizardStudentsTitle": "بيانات الطلاب",
+  "enrollmentWizardStudentsSubtitle": "الأسماء والأعمار والجنس لكل متعلّم.",
+  "enrollmentWizardScheduleTitle": "الجدول",
+  "enrollmentWizardScheduleSubtitle": "الأيام والأوقات المفضّلة والملاحظات.",
+  "enrollmentWizardContactTitle": "التواصل والمراجعة",
+  "enrollmentWizardContactSubtitle": "راجع اختياراتك، أدخل بيانات التواصل، ثم أرسل الطلب.",
+  "enrollmentContactPanelTitle": "بيانات التواصل",
+  "enrollmentContactPanelHint": "نستخدمها لتأكيد التسجيل والتواصل بشأن الجدول.",
+  "enrollmentContactParentFullNameLabel": "اسم ولي الأمر أو الوصي",
+  "enrollmentContactParentFullNameHint": "كما في الهوية أو ملفات المدرسة",
+  "enrollmentContactEmailFieldLabel": "البريد الإلكتروني",
+  "enrollmentParentNameRequired": "يرجى إدخال اسم ولي الأمر أو الوصي.",
+  "enrollmentRoleStudentTitle": "طالب",
+  "enrollmentRoleStudentSubtitle": "أسجّل لنفسي.",
+  "enrollmentRoleParentTitle": "ولي أمر",
+  "enrollmentRoleParentSubtitle": "أسجّل طفلاً أو أكثر.",
+  "enrollmentRoleGuardianTitle": "وصي",
+  "enrollmentRoleGuardianSubtitle": "أتولّى مسؤولية تسجيل المتعلّم.",
+  "accountLinked": "تم ربط الحساب",
+  "alreadyHaveChildEnrolled": "هل لديك طفل مسجّل بالفعل؟",
+  "welcomeBack": "مرحبًا بعودتك",
+  "selectCountry": "اختر الدولة",
+  "city": "المدينة",
+  "enrollmentSummaryPanelTitle": "اختياراتك",
+  "enrollmentSummaryTapToExpand": "إظهار الملخص",
+  "enrollmentSummaryTapToCollapse": "إخفاء الملخص",
+  "enrollmentProgramSameForAllTitle": "برنامج لجميع أطفالك",
+  "enrollmentProgramSameForAllSubtitle": "نفس المادة والمستوى ونوع الحصة للجميع. يمكنك التغيير أدناه عند الحاجة.",
+  "enrollmentProgramDifferentProgramsLink": "برنامج مختلف لطفل أو أكثر",
+  "enrollmentProgramSameProgramLink": "نفس البرنامج للجميع",
+  "enrollmentProgramWizardProgress": "الطالب {current} من {total}",
+  "@enrollmentProgramWizardProgress": {
+    "placeholders": {
+      "current": {"type": "int"},
+      "total": {"type": "int"}
+    }
+  },
+  "enrollmentProgramWizardCtaHint": "أكمل الحقول لهذا الطالب ثم اضغط متابعة. عند الانتهاء من جميع الطلاب، ستنتقل متابعة إلى الخطوة التالية.",
+  "enrollmentSummaryLineDetail": "{program} · {hours} ساعة/أسبوع · {price}",
+  "@enrollmentSummaryLineDetail": {
+    "placeholders": {
+      "program": {"type": "String"},
+      "hours": {"type": "int"},
+      "price": {"type": "String"}
+    }
+  },
+  "enrollmentSummaryAllChildrenTitle": "جميع الأطفال ({count})",
+  "@enrollmentSummaryAllChildrenTitle": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "enrollmentProgramFieldLabel": "البرنامج",
+  "enrollmentFooterWeeklyHoursSum": "{count} طلاب · {hours} ساعات/أسبوع إجمالاً",
+  "@enrollmentFooterWeeklyHoursSum": {
+    "placeholders": {
+      "count": {"type": "int"},
+      "hours": {"type": "int"}
+    }
+  },
+  "enrollmentFooterHouseholdTotalMo": "تقدير {total}/شهر إجمالي الأسرة",
+  "@enrollmentFooterHouseholdTotalMo": {
+    "placeholders": {
+      "total": {"type": "String"}
+    }
+  },
+  "enrollmentFooterPerChildSameMo": "{each}/شهر لكل طفل",
+  "@enrollmentFooterPerChildSameMo": {
+    "placeholders": {
+      "each": {"type": "String"}
+    }
+  },
+  "enrollmentSummarySameProgramHouseholdDetail": "{program} · {hours} س/أسبوع لكل طفل · {each} لكل طفل · {total} إجمالي الأسرة/شهر",
+  "@enrollmentSummarySameProgramHouseholdDetail": {
+    "placeholders": {
+      "program": {"type": "String"},
+      "hours": {"type": "int"},
+      "each": {"type": "String"},
+      "total": {"type": "String"}
+    }
+  },
+  "enrollmentCustomTimePickEndTitle": "وقت الانتهاء",
+  "enrollmentCustomTimeInvalidRange": "يجب أن يكون وقت الانتهاء بعد وقت البدء.",
+  "enrollmentFooterDetails": "التفاصيل",
+  "enrollmentScheduleDetailedSlotsTitle": "اختيار أوقات محددة (اختياري)",
+  "enrollmentScheduleDefaultSubtitle": "اختر الأيام ووقتًا عامًا. افتح الأوقات المحددة فقط إذا أردت أوقاتًا دقيقة الآن.",
+  "enrollmentScheduleSelectTimeOfDayOrSlots": "اختر وقت اليوم، أو افتح «اختيار أوقات محددة» أدناه.",
+  "enrollmentStudentProgramTrackMissing": "الطالب {studentNumber}: اختر فئة البرنامج (الخيارات الثلاثة) ثم المستوى ونوع الحصة.",
+  "@enrollmentStudentProgramTrackMissing": {
+    "placeholders": {
+      "studentNumber": {
+        "type": "int"
+      }
+    }
+  },
+  "enrollmentTierRatesLabel": "أسعار تقريبية (USD)",
+  "enrollmentDurationSetToWeekend": "باقة نهاية الأسبوع لمستوى مجموعات تستخدم جلسات ساعتين. تم ضبط مدة الجلسة على ساعتين.",
+  "enrollmentDurationSetToStandardTier": "هذه الباقة للجلسات 30 دقيقة أو ساعة. تم تعديل مدة الجلسة لتتوافق مع ذلك.",
+  "enrollmentTutoring4PlusWeeklyMinimum": "تتطلب هذه الباقة 4 ساعات على الأقل إجمالاً أسبوعياً. اختر أياماً أكثر أو مدة جلسة أطول.",
+  "enrollmentTutoring4PlusWeeklyMinimumStudent": "الطالب {studentNumber}: يلزم 4 ساعات على الأقل أسبوعياً—أضف أياماً أو زد مدة الجلسة.",
+  "@enrollmentTutoring4PlusWeeklyMinimumStudent": {
+    "placeholders": {
+      "studentNumber": {
+        "type": "int"
+      }
+    }
+  },
+  "enrollmentTutoring4PlusWeeklyHint": "4+ ساعات/أسبوع تعني أربع ساعات أو أكثر إجمالاً أسبوعياً. عدد الأيام × مدة الجلسة يجب أن يصل إلى 4 على الأقل (مثال: أربعة أيام × ساعة).",
+  "enrollmentScheduleDurationRestricted": "فيما يلي فقط مدات الجلسات المتوافقة مع باقة التسعير التي اخترتها.",
+  "enrollmentScheduleSelectDuration": "يرجى اختيار مدة الجلسة.",
+  "enrollmentScheduleDurationNotAllowed": "اختر مدة جلسة مسموحة لباقة التسعير الخاصة بك.",
+  "enrollmentScheduleConfirmTimesHint": "يُؤكد وقت الحصص معك بعد مراجعة طلبك.",
+  "enrollmentStudentHoursPerWeek": "الساعات أسبوعياً لهذا الطالب",
+  "enrollmentSchedulingNotesLabel": "ملاحظات الجدولة (اختياري)",
+  "enrollmentSchedulingNotesHint": "مثال: تفضيل بعد 4 مساءً في الأسبوع، تجنب الجمعة…",
+  "enrollmentStudentHoursMissing": "الطالب {studentNumber}: عيّن الساعات أسبوعياً في خطوة الجدولة.",
+  "@enrollmentStudentHoursMissing": {
+    "placeholders": {
+      "studentNumber": {
+        "type": "int"
+      }
+    }
+  },
   "navDashboard": "لوحة التحكم",
   "navTimeClock": "تسجيل الوقت",
   "navSchedule": "الجدول",
@@ -284,27 +503,6 @@
   "chatGroupCreatedSuccess": "تم إنشاء المجموعة \"{name}\" بنجاح!",
   "chatGroupCreateFailed": "فشل إنشاء المجموعة. حاول مرة أخرى.",
   "chatGroupAdminsOnly": "المسؤولون فقط يمكنهم إنشاء محادثات جماعية",
-  "chatVideo": "فيديو",
-  "chatEditMessage": "تعديل",
-  "chatMessageEdited": "تم تعديل الرسالة",
-  "chatFailedEditMessage": "فشل تعديل الرسالة",
-  "chatEditYourMessage": "عدّل رسالتك...",
-  "chatSave": "حفظ",
-  "chatSupportInbox": "صندوق الدعم",
-  "chatDirectMessage": "رسالة مباشرة",
-  "chatSendPersonalMessage": "إرسال رسالة شخصية",
-  "chatSupportChat": "محادثة الدعم",
-  "chatStartSupportWith": "بدء محادثة دعم مع {name}",
-  "@chatStartSupportWith": {
-    "placeholders": {
-      "name": {
-        "type": "String"
-      }
-    }
-  },
-  "chatSendingVideo": "جارٍ إرسال الفيديو...",
-  "chatVideoSent": "تم إرسال الفيديو!",
-  "chatFailedSendVideo": "فشل إرسال الفيديو",
   "roleAdmin": "مسؤول",
   "roleTeacher": "معلم",
   "roleStudent": "طالب",
@@ -352,8 +550,12 @@
   "adminSubmissionsSelectionProgress": "{selectedCount} / {total} نماذج",
   "@adminSubmissionsSelectionProgress": {
     "placeholders": {
-      "selectedCount": { "type": "int" },
-      "total": { "type": "int" }
+      "selectedCount": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
     }
   },
   "adminSubmissionsExportFormatLabel": "التنسيق",
@@ -397,6 +599,7 @@
   "timesheetApprovedLocked": "تمت الموافقة على سجل الوقت ولا يمكن تعديله",
   "timesheetClockInTime": "وقت تسجيل الدخول",
   "timesheetClockOutTime": "وقت تسجيل الخروج",
+  "timesheetClockOutNextDayHint": "يُنقل وقت الخروج إلى اليوم التالي إذا كان قبل وقت الدخول في تاريخ السجل (حصص ليلية).",
   "timesheetPaymentCalculation": "حساب الدفع",
   "timesheetProvideReason": "يرجى تقديم سبب للتعديل",
   "timesheetProvideMoreDetails": "يرجى تقديم مزيد من التفاصيل (10 أحرف على الأقل)",
@@ -511,6 +714,18 @@
   "jobAlreadyFilled": "مشغول بالفعل",
   "jobAcceptStudent": "قبول الطالب",
   "jobAcceptedSuccess": "تم قبول الوظيفة! سيقوم المسؤول بإنهاء الجدول والاتصال بك.",
+  "jobBoardNotAvailableHint": "إذا لم تكن متاحًا لهذا الطالب، فلا حاجة لإرسال رد — يمكنك إغلاق هذه النافذة.",
+  "jobBoardResponseSubmitted": "تم إرسال الرد إلى المسؤول.",
+  "jobBoardDeclineTeacher": "رفض",
+  "jobBoardTeacherResponseDeclined": "مرفوض",
+  "jobBoardDeclineTeacherConfirmTitle": "رفض هذا الرد؟",
+  "jobBoardDeclineTeacherConfirmBody": "يمكن للمعلم إرسال رد جديد لاحقًا. إذا كان الإعلان مغلقًا لأنه وضع نفسه كمتاح بالكامل، فسيعاد فتحه للمعلمين الآخرين.",
+  "jobBoardHiddenFullAvailabilityBanner": "مخفي عن المعلمين: سجّل معلّم نفسه متاحًا بالكامل. أعد الفتح لإظهار الإعلان مرة أخرى (الردود تبقى محفوظة).",
+  "jobBoardReopenForTeachersButton": "إعادة فتح للمعلمين",
+  "jobBoardVisibleToTeachersHint": "ظاهر على لوحة الوظائف — يُسمح بالردود الجزئية حتى يعلن أحدهم التوفر الكامل أو تغلق أنت الإعلان.",
+  "jobBoardReopenedForTeachers": "أُعيد فتح اللوحة. يمكن للمعلمين المشاهدة والرد مجددًا.",
+  "jobBoardClosedOtherReasonHint": "هذا الإعلان غير ظاهر للمعلمين (أُغلق من المسؤول أو بإجراء آخر).",
+  "jobBoardAcceptedByTeacherHint": "قبِل معلّم هذا الطالب من لوحة الوظائف.",
   "idDisplaystudentcode": "المعرّف: {studentCode}",
   "studentIdStudentcode": "معرّف الطالب: {studentCode}",
   "taskSubtasksCount": "المهام الفرعية: {count}",
@@ -750,8 +965,8 @@
   "time1000Am": "10:00 AM",
   "time1200Pm": "12:00:00 PM",
   "aComputer": "A Computer",
-  "aNewVersionOfAlluvialAcademy": "A New Version Of Alluvial Academy",
-  "aNewVersionOfAlluvialAcademy2": "A New Version Of Alluvial Academy2",
+  "aNewVersionOfAlluvialAcademy": "A New Version Of Alluwal Academy",
+  "aNewVersionOfAlluvialAcademy2": "A New Version Of Alluwal Academy2",
   "aPhone": "A Phone",
   "aTablet": "A Tablet",
   "abilityToSwitchBetweenAdminAnd": "Ability To Switch Between Admin And",
@@ -911,7 +1126,7 @@
   "assalamuAlaikumFirstname": "Assalamu Alaikum Firstname",
   "assignTo": "Assign To",
   "assignTo2": "Assign To2",
-  "assignToStudents": "Assign To Students",
+  "assignToStudents": "تعيين للطلاب",
   "assignedByAssignedbyname": "Assigned By Assignedbyname",
   "assignedTo": "Assigned To",
   "assignedTo2": "Assigned To2",
@@ -962,7 +1177,7 @@
   "block": "Block",
   "blueTaskStatusUpdateNotification": "Blue Task Status Update Notification",
   "bonusPerExcellence": "Bonus Per Excellence",
-  "bookFreeTrialClass": "Book Free Trial Class",
+  "bookFreeTrialClass": "طلب التسجيل",
   "breakDuration": "Break Duration",
   "briefDescriptionOfTheSubject": "Brief Description Of The Subject",
   "broadcastLiveTeachersCanNowSee": "Broadcast Live Teachers Can Now See",
@@ -1017,6 +1232,12 @@
   "chooseYourPreferredExportFormat": "Choose Your Preferred Export Format",
   "chooseYourProgram": "Choose Your Program",
   "claimShift": "Claim Shift",
+  "claimShiftErrorAlreadyTeacher": "أنت معيّن بالفعل لهذا الموعد.",
+  "claimShiftErrorAuth": "يرجى تسجيل الدخول مرة أخرى ثم المحاولة.",
+  "claimShiftErrorGeneric": "تعذر قبول الموعد. حاول مرة أخرى.",
+  "claimShiftErrorNotFound": "لم يُعثر على الموعد.",
+  "claimShiftErrorPermission": "لا يوجد لديك إذن. راجع المسؤول.",
+  "claimShiftErrorUnavailable": "لم يعد هذا الموعد متاحًا للمطالبة به.",
   "classCards": "Class Cards",
   "classReportNotSubmitted": "Class Report Not Submitted",
   "classReportSubmitted": "Class Report Submitted",
@@ -1412,7 +1633,7 @@
   "finalizeSchedule": "Finalize Schedule",
   "finalizeSchedulesForMatchedStudentsAnd": "Finalize Schedules For Matched Students And",
   "financialSummary": "Financial Summary",
-  "findPrograms": "Find Programs",
+  "findPrograms": "الدورات",
   "findShiftsForAStudentMatching": "Find Shifts For AStudent Matching",
   "firstName": "First Name",
   "firstName2": "First Name2",
@@ -1469,6 +1690,7 @@
   "auditNoLateClockIns": "Aucun",
   "auditNoMissedClasses": "Aucune",
   "auditClassCompletionRate": "Complétion des classes",
+  "teacherAuditShiftFromTradeNotice": "مُسجَّل عبر تبادل الوردية.",
   "auditFormComplianceLabel": "Conformité formulaires",
   "auditNoIssuesDetected": "Aucune issue détectée",
   "auditFormsAccepted": "Acceptés",
@@ -1488,25 +1710,33 @@
   "auditFormsSectionAccepted": "مقبول ({count})",
   "@auditFormsSectionAccepted": {
     "placeholders": {
-      "count": {"type": "int"}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "auditFormsSectionRejectedNoShift": "مرفوض — لا نوبة مرتبطة ({count})",
   "@auditFormsSectionRejectedNoShift": {
     "placeholders": {
-      "count": {"type": "int"}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "auditFormsSectionRejectedNoTimesheet": "مرفوض — لا سجل وقت ({count})",
   "@auditFormsSectionRejectedNoTimesheet": {
     "placeholders": {
-      "count": {"type": "int"}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "auditFormsSectionRejectedDuplicate": "مرفوض — مكرر ({count})",
   "@auditFormsSectionRejectedDuplicate": {
     "placeholders": {
-      "count": {"type": "int"}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "auditTotalLabel": "Total",
@@ -1523,6 +1753,11 @@
   "auditStatusSubmitted": "Soumis",
   "auditStatusDisputed": "Contesté",
   "auditStatusPending": "En attente",
+  "teacherHomeStatsCompletedWeek": "مكتملة",
+  "teacherHomeStatsWeekEarnings": "الأرباح",
+  "teacherHomeStatsAbsencesMtd": "الغياب",
+  "teacherHomeStatsAssignmentsMtd": "التقييمات والواجبات (شهر)",
+  "teacherHomeStatsLateMtd": "تأخر الدخول",
   "teacherAuditTabSummary": "Résumé",
   "teacherAuditTabMyClasses": "Mes classes",
   "teacherAuditTabDispute": "Contester",
@@ -1532,9 +1767,21 @@
   "teacherAuditPointsOfAttention": "Points d'attention",
   "teacherAuditReportUnderReview": "هذا التقرير قيد المراجعة وقد يتغير قبل اعتماده.",
   "teacherAuditScoreAuto": "تلقائي: {score}%",
-  "@teacherAuditScoreAuto": { "placeholders": { "score": {"type": "String"} } },
+  "@teacherAuditScoreAuto": {
+    "placeholders": {
+      "score": {
+        "type": "String"
+      }
+    }
+  },
   "teacherAuditScoreCoach": "المشرف: {score}%",
-  "@teacherAuditScoreCoach": { "placeholders": { "score": {"type": "String"} } },
+  "@teacherAuditScoreCoach": {
+    "placeholders": {
+      "score": {
+        "type": "String"
+      }
+    }
+  },
   "coachEvalSuggestedScore": "مقترح",
   "coachEvalApplySuggestion": "تطبيق",
   "teacherAuditReportNotAvailable": "Rapport non disponible",
@@ -1689,92 +1936,6 @@
   "invoiceDetails": "Invoice Details",
   "invoiceNotFoundForThisPayment": "Invoice Not Found For This Payment",
   "invoices": "Invoices",
-  "sidebarFinance": "المالية",
-  "sidebarCreateInvoice": "إنشاء فاتورة",
-  "sidebarAllInvoices": "جميع الفواتير",
-  "adminInvoiceBalanceDue": "المتبقي: {amount}",
-  "@adminInvoiceBalanceDue": {
-    "placeholders": {
-      "amount": {
-        "type": "String"
-      }
-    }
-  },
-  "adminInvoiceFilterAll": "الكل",
-  "adminInvoiceInvalidNumbers": "أدخل مبالغ صحيحة",
-  "adminInvoicesTitle": "جميع الفواتير",
-  "adminInvoicesSubtitle": "عرض الفواتير وتعديلها وحذفها وتنزيل ملفات PDF.",
-  "adminInvoiceDownloadPdf": "تنزيل PDF",
-  "adminInvoicePrintPdf": "طباعة",
-  "adminInvoiceEdit": "تعديل",
-  "adminInvoiceDelete": "حذف",
-  "adminInvoiceDeleteTitle": "حذف الفاتورة",
-  "adminInvoiceDeleteConfirm": "حذف {number}؟ لا يمكن التراجع.",
-  "@adminInvoiceDeleteConfirm": {
-    "placeholders": {
-      "number": {
-        "type": "String"
-      }
-    }
-  },
-  "adminInvoiceBillingPeriodChip": "الفترة: {period}",
-  "@adminInvoiceBillingPeriodChip": {
-    "placeholders": {
-      "period": {
-        "type": "String"
-      }
-    }
-  },
-  "adminInvoiceEditBillingPeriodLabel": "فترة الفوترة",
-  "adminInvoiceEditBillingPeriodHint": "yyyy-MM (مثال 2026-01)، اختياري",
-  "invoiceDetailPayerStudentLine": "من {parent} | الطالب: {student}",
-  "@invoiceDetailPayerStudentLine": {
-    "placeholders": {
-      "parent": {
-        "type": "String"
-      },
-      "student": {
-        "type": "String"
-      }
-    }
-  },
-  "invoiceDetailBillingMonthLine": "فترة الفوترة: {month}",
-  "@invoiceDetailBillingMonthLine": {
-    "placeholders": {
-      "month": {
-        "type": "String"
-      }
-    }
-  },
-  "invoiceDisplayDocumentTitle": "فاتورة",
-  "invoiceDisplayInvoiceNumberLabel": "رقم الفاتورة",
-  "invoiceDisplayIssueDateLabel": "تاريخ الإصدار",
-  "invoiceDisplayLineItemsTitle": "البنود",
-  "invoiceDisplaySubtotal": "المجموع الفرعي",
-  "invoiceDisplayPaidToward": "المدفوع حتى الآن",
-  "invoiceDisplayAmountDue": "المبلغ المستحق",
-  "invoiceDisplayContactLabel": "الهاتف",
-  "invoiceDisplayEmailLabel": "البريد الإلكتروني",
-  "invoiceDisplayReceivedBy": "استلمها {name}",
-  "@invoiceDisplayReceivedBy": {
-    "placeholders": {
-      "name": {
-        "type": "String"
-      }
-    }
-  },
-  "invoiceDisplayParentFallback": "ولي الأمر",
-  "invoiceDisplayItemQuantityLine": "{quantity} × {unitPrice}",
-  "@invoiceDisplayItemQuantityLine": {
-    "placeholders": {
-      "quantity": {
-        "type": "int"
-      },
-      "unitPrice": {
-        "type": "String"
-      }
-    }
-  },
   "isAdminIsadmin": "Is Admin Isadmin",
   "isParentIsparent": "Is Parent Isparent",
   "isStudentIsstudent": "Is Student Isstudent",
@@ -1875,8 +2036,8 @@
   "locationIsMandatoryForAllTimesheet": "Location Is Mandatory For All Timesheet",
   "locationIsMandatoryPleaseWaitFor": "Location Is Mandatory Please Wait For",
   "locationOptional": "Location Optional",
-  "logIn": "Log In",
-  "logInSignUp": "Log In Sign Up",
+  "logIn": "تسجيل الدخول",
+  "logInSignUp": "تسجيل الدخول",
   "logOutOfYourAccount": "Log Out Of Your Account",
   "loginLogs": "Login Logs",
   "logs": "Logs",
@@ -1926,7 +2087,7 @@
   "moveUp": "Move Up",
   "muteAll": "Mute All",
   "muteEveryone": "Mute Everyone",
-  "myAssignments": "My Assignments",
+  "myAssignments": "تعييناتي",
   "myChildren": "My Children",
   "myClasses": "My Classes",
   "myIslamicClasses": "My Islamic Classes",
@@ -2069,6 +2230,7 @@
   "notifyMeBeforeDueDate": "Notify Me Before Due Date",
   "notifyMeBeforeShift": "Notify Me Before Shift",
   "number": "Number",
+  "offerShiftToOtherTeachers": "إتاحة هذا الموعد للمعلمين الآخرين",
   "oftenFewDaysAWeek": "Often Few Days AWeek",
   "okay": "Okay",
   "oldDraftsCleanedUpSuccessfully": "Old Drafts Cleaned Up Successfully",
@@ -2129,8 +2291,6 @@
   "passwordResetInitiatedForAllUsers": "Password Reset Initiated For All Users",
   "passwordResetSuccessfully": "Password Reset Successfully",
   "payInvoice": "Pay Invoice",
-  "continueToSecureCheckout": "المتابعة إلى الدفع الآمن",
-  "invoiceAlreadyPaid": "مدفوعة مسبقاً",
   "payNow": "Pay Now",
   "paySettings": "Pay Settings",
   "payment": "Payment",
@@ -2239,6 +2399,7 @@
   "qualityIslamicEducationFromAnywhereIn": "Quality Islamic Education From Anywhere In",
   "questionLabel": "Question Label",
   "quickActions": "Quick Actions",
+  "quickAccessTrading": "تبادل المواعيد",
   "quickEdit": "Quick Edit",
   "quickEditOrFullEditorFor": "Quick Edit Or Full Editor For",
   "quickStats": "Quick Stats",
@@ -2386,12 +2547,13 @@
   "select": "Select",
   "selectABackupToRestoreFrom": "Select ABackup To Restore From",
   "selectAFormToGetStarted": "Select AForm To Get Started",
-  "selectAProgramForEachStudent": "Select AProgram For Each Student",
+  "selectAProgramForEachStudent": "هل تريد تسجيل جميع الطلاب في نفس البرنامج؟",
+  "programWillApplyToAllStudents": "سيتم تطبيق هذا البرنامج على جميع الطلاب البالغ عددهم {count}.",
   "selectARoleAndSetThe": "Select ARole And Set The",
   "selectAShift": "Select AShift",
   "selectAShiftToReportAn": "Select AShift To Report An",
   "selectAdjustment": "Select Adjustment",
-  "selectAll": "Select All",
+  "selectAll": "تحديد الكل",
   "selectAll2": "Select All2",
   "selectAssignedBy": "Select Assigned By",
   "selectAssignedTo": "Select Assigned To",
@@ -2413,7 +2575,7 @@
   "selectRole": "Select Role",
   "selectStudent": "Select Student",
   "selectStudent2": "Select Student2",
-  "selectStudents": "Select Students",
+  "selectStudents": "اختر الطلاب",
   "selectSubject": "Select Subject",
   "selectTeacher": "Select Teacher",
   "selectTeachersToGenerateRegenerateAudit": "Select Teachers To Generate Regenerate Audit",
@@ -2541,7 +2703,7 @@
   "studentJoined": "Student Joined",
   "studentLoginCredentials": "Student Login Credentials",
   "studentProgressOverview": "Student Progress Overview",
-  "studentSInformation": "Student SInformation",
+  "studentSInformation": "معلومات الطلاب",
   "studentStudent": "Student Student",
   "studentType": "Student Type",
   "studentWillUseStudentIdAnd": "Student Will Use Student Id And",
@@ -2718,6 +2880,127 @@
   "timesWillBeAppliedInThis": "Times Will Be Applied In This",
   "timesheetDetails2": "Timesheet Details2",
   "timesheetReview": "Timesheet Review",
+  "timesheetReviewLastWeek": "Last week",
+  "timesheetReviewEditedOnly": "Edited only",
+  "timesheetReviewNeedsAttention": "Needs attention",
+  "timesheetReviewSelectAllPendingVisible": "Select all pending (visible)",
+  "timesheetReviewPendingCount": "{count} pending",
+  "@timesheetReviewPendingCount": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "timesheetReviewShowingCount": "{count} shown",
+  "@timesheetReviewShowingCount": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "timesheetReviewQueue": "Queue",
+  "timesheetReviewOpenQueue": "Open queue",
+  "timesheetReviewExportTitle": "Export timesheets",
+  "timesheetReviewExportScopeLabel": "Rows to export",
+  "timesheetReviewExportFiltered": "Current filter ({count} rows)",
+  "@timesheetReviewExportFiltered": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "timesheetReviewExportSelected": "Selected only ({count} rows)",
+  "@timesheetReviewExportSelected": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "timesheetReviewExportExcel": "Excel workbook (.xlsx)",
+  "timesheetReviewExportExcelSubtitleWithSummaries": "ورقة التفاصيل (مجموعة الأعمدة) مع ملخصات يومية وأسبوعية وشهرية.",
+  "timesheetReviewExportExcelSubtitleDetailOnly": "ورقة واحدة: صفوف التفاصيل فقط حسب مجموعة الأعمدة أدناه.",
+  "timesheetReviewExportIncludeSummarySheets": "تضمين أوراق الملخص",
+  "timesheetReviewExportIncludeSummarySheetsSubtitle": "يضيف المجاميع اليومية والأسبوعية والشهرية إلى ملف Excel.",
+  "timesheetReviewExportPresetLabel": "مجموعة الأعمدة",
+  "timesheetReviewExportPresetPayroll": "الرواتب",
+  "timesheetReviewExportPresetPayrollSubtitle": "المعرّفات، الساعات، الأجر، الدفع، الحالة",
+  "timesheetReviewExportPresetOperations": "العمليات",
+  "timesheetReviewExportPresetOperationsSubtitle": "المناوبة والجدولة مقابل الفعلي",
+  "timesheetReviewExportPresetAudit": "التدقيق",
+  "timesheetReviewExportPresetAuditSubtitle": "النماذج، التعديلات، الأجهزة، الملاحظات",
+  "timesheetReviewExportPresetFull": "كامل",
+  "timesheetReviewExportPresetFullSubtitle": "جميع أعمدة التصدير",
+  "timesheetReviewExportDetailedCsv": "CSV (.csv)",
+  "timesheetReviewExportDetailedCsvSubtitle": "ملف واحد حسب مجموعة الأعمدة (بدون أوراق ملخص).",
+  "timesheetReviewExportOnScreenSummary": "يصدّر {count} صفًا كما يظهر في الجدول الآن (بعد التصفية والبحث). سبعة أعمدة فقط كالشبكة: المعلم، التاريخ، الطالب/المادة، الساعات، الدفع، المصدر، الحالة.",
+  "@timesheetReviewExportOnScreenSummary": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "timesheetReviewExportExcelOneSheet": "ورقة عمل واحدة في الملف (بدون أوراق ملخص إضافية).",
+  "timesheetReviewExportCsvSameLayout": "نفس الصفوف و7 أعمدة، مفصولة بفواصل.",
+  "timesheetExportSheetDetail": "التفاصيل",
+  "timesheetExportSheetDaily": "ملخص يومي",
+  "timesheetExportSheetWeekly": "ملخص أسبوعي",
+  "timesheetExportSheetMonthly": "ملخص شهري",
+  "timesheetExportSummaryHdrTeacher": "المعلم",
+  "timesheetExportSummaryHdrDate": "التاريخ",
+  "timesheetExportSummaryHdrDay": "اليوم",
+  "timesheetExportSummaryHdrWeekStarting": "بداية الأسبوع",
+  "timesheetExportSummaryHdrMonth": "الشهر",
+  "timesheetExportSummaryHdrTotalScheduled": "إجمالي المجدول",
+  "timesheetExportSummaryHdrTotalWorked": "إجمالي العمل",
+  "timesheetExportSummaryHdrDifference": "الفرق",
+  "timesheetExportSummaryHdrDailyPay": "أجر اليوم",
+  "timesheetExportSummaryHdrWeeklyPay": "الأجر الأسبوعي",
+  "timesheetExportSummaryHdrMonthlyPay": "الأجر الشهري",
+  "timesheetExportColEntryId": "معرّف السجل",
+  "timesheetExportColTeacherName": "اسم المعلم",
+  "timesheetExportColDate": "التاريخ",
+  "timesheetExportColDay": "اليوم",
+  "timesheetExportColWeekStarting": "بداية الأسبوع",
+  "timesheetExportColMonth": "الشهر",
+  "timesheetExportColStudentSubject": "الطالب / المادة",
+  "timesheetExportColScheduledStart": "بداية مجدولة",
+  "timesheetExportColScheduledEnd": "نهاية مجدولة",
+  "timesheetExportColClockIn": "تسجيل الدخول",
+  "timesheetExportColClockOut": "تسجيل الخروج",
+  "timesheetExportColScheduledHours": "ساعات مجدولة",
+  "timesheetExportColWorkedHours": "ساعات العمل",
+  "timesheetExportColHoursDifference": "فرق الساعات",
+  "timesheetExportColHourlyRate": "الأجر بالساعة",
+  "timesheetExportColTotalPay": "إجمالي الدفع",
+  "timesheetExportColStatus": "الحالة",
+  "timesheetExportColFormCompleted": "النموذج مكتمل",
+  "timesheetExportColEmployeeNotes": "ملاحظات الموظف",
+  "timesheetExportColManagerNotes": "ملاحظات المشرف",
+  "timesheetExportColShiftId": "معرّف المناوبة",
+  "timesheetExportColShiftTitle": "عنوان المناوبة",
+  "timesheetExportColShiftType": "نوع المناوبة",
+  "timesheetExportColSource": "المصدر",
+  "timesheetExportColClockInDevice": "جهاز تسجيل الدخول",
+  "timesheetExportColClockOutDevice": "جهاز تسجيل الخروج",
+  "timesheetExportColReportedHours": "ساعات مُبلّغ عنها (النموذج)",
+  "timesheetExportColFormNotes": "ملاحظات النموذج",
+  "timesheetExportColFormResponseId": "معرّف استجابة النموذج",
+  "timesheetExportColIsEdited": "مُعدّل",
+  "timesheetExportColEditApproved": "التعديل معتمد",
+  "timesheetExportColEditedAt": "تاريخ التعديل",
+  "timesheetExportColRejectionReason": "سبب الرفض",
+  "timesheetExportColClockInAddress": "عنوان تسجيل الدخول",
+  "timesheetExportColClockOutAddress": "عنوان تسجيل الخروج",
+  "timesheetReviewGridOverflowMenuTooltip": "المزيد من الإجراءات",
+  "timesheetReviewGridOverflowExport": "تصدير…",
+  "timesheetReviewGridOverflowSelectAllPending": "تحديد الكل قيد الانتظار",
+  "timesheetReviewGridOverflowColumns": "ظهور الأعمدة",
+  "timesheetReviewGridOverflowColumnsSoon": "قريباً",
+  "timesheetReviewColumnTooltipHours": "Worked hours from this entry. Hover a row for schedule vs actual and form data.",
+  "timesheetReviewColumnTooltipPayment": "Pay amount for this entry using current hours and rate.",
+  "timesheetReviewSearchHint": "Teacher, student, date, shift…",
+  "timesheetReviewIncompleteEntry": "Missing clock-out or valid hours",
+  "timesheetReviewBulkSelection": "{count} selected",
+  "@timesheetReviewBulkSelection": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
   "timesheetSubmittedForReview": "Timesheet Submitted For Review",
   "timesheetWasEdited": "Timesheet Was Edited",
   "timesheets": "Timesheets",
@@ -2839,9 +3122,13 @@
   "weekCalendar": "Week Calendar",
   "weekly": "Weekly",
   "weeklyCalendar": "Weekly Calendar",
+  "shiftCalendarThreeDayTitle": "جدول ثلاثة أيام",
+  "shiftCalendarViewModeHint": "الشبكة تعرض ثلاثة أيام؛ القائمة تعرض جدولك.",
+  "shiftCalendarViewGrid": "شبكة",
+  "shiftCalendarViewList": "قائمة",
   "weeklyRecurrenceSettings": "Weekly Recurrence Settings",
   "welcomeBackFirstname": "Welcome Back Firstname",
-  "welcomeToAlluvialAcademy": "Welcome To Alluvial Academy",
+  "welcomeToAlluvialAcademy": "Welcome To Alluwal Academy",
   "whatNeedsToBeDone": "What Needs To Be Done",
   "whatSTheIssue": "What SThe Issue",
   "whatShouldTheCorrectTimesBe": "What Should The Correct Times Be",
@@ -2871,7 +3158,7 @@
     }
   },
   "youAreNotAssignedToThis": "You Are Not Assigned To This",
-  "youCanAddMultipleStudentsIn": "You Can Add Multiple Students In",
+  "youCanAddMultipleStudentsIn": "يمكنك إضافة عدة طلاب باستخدام + و −.",
   "youCanOnlyDeleteTasksYou": "You Can Only Delete Tasks You",
   "youDonTHavePermissionTo": "You Don THave Permission To",
   "youHaveAlreadySubmittedThisForm": "You Have Already Submitted This Form",
@@ -3826,7 +4113,6 @@
   "formTemplateTeacherfeedbackcomplaints": "Teacher Feedback & Complaints",
   "formTemplateWeeklysummary": "Weekly Summary",
   "sidebarAudits": "Audits",
-  "sidebarCms": "CMS",
   "sidebarCommunication": "Communication",
   "sidebarFormbuilder": "Form Builder",
   "sidebarLearning": "Learning",
@@ -4224,14 +4510,15 @@
   "classesTryAdjustingFilters": "Try adjusting your filters or clearing them.",
   "classesTryClearingFilters": "Try clearing filters or coming back later.",
   "teamOurGlobalTeam": "فريقنا العالمي",
-  "teamMeetThePeopleBehindAlluwal": "تعرف على الأشخاص وراء ألوال",
+  "teamMeetThePeopleBehindAlluwal": "تعرف على الأشخاص وراء Alluwal",
   "teamHeroSubtitle": "مربّون وقادة ومبتكرون يجمعهم هدف واحد: جعل التعليم الإسلامي والأكاديمي الجيد متاحًا لكل متعلم، أينما كان.",
   "teamAllTeam": "الفريق كاملاً",
-  "teamAllTeamTagline": "عائلة ألوال الكبيرة",
+  "teamLocationTbd": "سيتم الإعلان عن الموقع",
+  "teamAllTeamTagline": "عائلة Alluwal الكبيرة",
   "teamAllTeamDescription": "أصحاب رؤية ومربّون متحدون برسالة واحدة.",
   "teamLeadership": "القيادة",
   "teamLeadershipTagline": "الرؤية والتوجيه",
-  "teamLeadershipDescription": "فريق القيادة والتنسيق في ألوال — يضعون السياسة والاستراتيجية والعمليات والثقافة.",
+  "teamLeadershipDescription": "فريق القيادة والتنسيق في Alluwal — يضعون السياسة والاستراتيجية والعمليات والثقافة.",
   "teamTeachers": "المعلمون",
   "teamTeachersTagline": "حاملو المعرفة العالميون",
   "teamTeachersDescription": "علماء ومربّون في أكثر من 10 بلدان — ينقلون التميز الإسلامي والأكاديمي إلى كل متعلم، أينما كان.",
@@ -4248,7 +4535,7 @@
       }
     }
   },
-  "teamWhyAlluwal": "لماذا ألوال",
+  "teamWhyAlluwal": "لماذا Alluwal",
   "teamLanguages": "اللغات",
   "teamContactName": "اتصل بـ {name}",
   "@teamContactName": {
@@ -4267,8 +4554,8 @@
     }
   },
   "teamStaffFallbackSnippet": "نشر المعرفة والنور عبر Alluwal Education Hub.",
-  "teamStaffFallbackBio": "عضو ملتزم في فريق ألوال، يعمل على تقديم تعليم إسلامي وأكاديمي ذي جودة للمتعلمين حول العالم.",
-  "teamStaffFallbackWhyAlluwal": "أؤمن برسالة ألوال في جعل التعليم متاحًا وتمكين كل طالب من النمو روحيًا وأكاديميًا، أينما كان.",
+  "teamStaffFallbackBio": "عضو ملتزم في فريق Alluwal، يعمل على تقديم تعليم إسلامي وأكاديمي ذي جودة للمتعلمين حول العالم.",
+  "teamStaffFallbackWhyAlluwal": "أؤمن برسالة Alluwal في جعل التعليم متاحًا وتمكين كل طالب من النمو روحيًا وأكاديميًا، أينما كان.",
   "teamPartOfTeamBuildsPlatform": "عضو في الفريق الذي يبني منصتنا · رياضيات وعلوم",
   "always24Hours7Days": "Always (24/7)",
   "chatMessagesLabel": "Chat Messages",
@@ -4304,16 +4591,12 @@
   "podcastTitle": "العنوان",
   "podcastDescription": "الوصف",
   "podcastDuration": "المدة",
-  "assignToStudents": "تعيين للطلاب",
-  "myAssignments": "تعييناتي",
   "noPodcastsAssigned": "لم يتم تعيين بودكاست بعد",
   "noPodcastsUploaded": "لم يتم رفع بودكاست بعد",
   "podcastUploaded": "تم رفع البودكاست بنجاح",
   "podcastAssigned": "تم تعيين البودكاست بنجاح",
   "confirmDeletePodcast": "هل تريد حذف هذا البودكاست؟",
   "podcastArchived": "تم أرشفة البودكاست",
-  "selectStudents": "اختر الطلاب",
-  "selectAll": "تحديد الكل",
   "deselectAll": "إلغاء تحديد الكل",
   "auditReviewModeTitle": "وضع مراجعة التدقيق",
   "auditReviewModeButton": "وضع المراجعة",
@@ -4322,17 +4605,20 @@
   "auditOrphanForms": "نماذج بدون جدول ({count})",
   "@auditOrphanForms": {
     "placeholders": {
-      "count": { "type": "int" }
+      "count": {
+        "type": "int"
+      }
     }
   },
   "auditRejectedForms": "نماذج مرفوضة ({count})",
   "@auditRejectedForms": {
     "placeholders": {
-      "count": { "type": "int" }
+      "count": {
+        "type": "int"
+      }
     }
   },
   "auditFormNoMatchingShift": "لم يتم العثور على نوبة مطابقة",
-
   "auditTabChangeLog": "سجل التغييرات",
   "auditManualMetrics": "المقاييس اليدوية",
   "auditMeetingsSection": "الاجتماعات",
@@ -4343,7 +4629,9 @@
   "auditEditFieldTitle": "تعديل: {fieldName}",
   "@auditEditFieldTitle": {
     "placeholders": {
-      "fieldName": { "type": "String" }
+      "fieldName": {
+        "type": "String"
+      }
     }
   },
   "auditCurrentValue": "القيمة الحالية",
@@ -4356,21 +4644,31 @@
   "auditChangeLogSummary": "{count} تغييرات",
   "@auditChangeLogSummary": {
     "placeholders": {
-      "count": { "type": "int" }
+      "count": {
+        "type": "int"
+      }
     }
   },
   "auditChangedFieldFrom": "تم تغيير {field} من {oldValue} إلى {newValue}",
   "@auditChangedFieldFrom": {
     "placeholders": {
-      "field": { "type": "String" },
-      "oldValue": { "type": "String" },
-      "newValue": { "type": "String" }
+      "field": {
+        "type": "String"
+      },
+      "oldValue": {
+        "type": "String"
+      },
+      "newValue": {
+        "type": "String"
+      }
     }
   },
   "auditChangeReason": "السبب: {reason}",
   "@auditChangeReason": {
     "placeholders": {
-      "reason": { "type": "String" }
+      "reason": {
+        "type": "String"
+      }
     }
   },
   "auditFieldTotalClassesMissed": "الحصص الفائتة (تصحيح)",
@@ -4411,15 +4709,21 @@
   "adminAuditScoreHelpBody": "يجمع التقييم العام بين امتثال النماذج ({formPercent}٪) وكفاءة المهام ({taskPercent}٪). يمتثل المستوى 1 لمتوسط ثلاثة أجزاء: تقديمات نهاية الوردية مقابل أيام العمل في الشهر، تقييم المدربين كل أسبوعين (متوقع اثنان شهرياً)، وتقارير المدير الأسبوعية/التقدم/المالية مقابل نحو 4–5 أسابيع في الشهر. تعكس كفاءة المهام المكتملة مقابل المعينة، وتخفض النتيجة عند التأخير، مع مكافأة صغيرة عند إنشاء مهام. غالباً ما يعني التقييم المنخفض نقص النماذج المتكررة أو كثرة المهام غير المكتملة أو المتأخرة.",
   "@adminAuditScoreHelpBody": {
     "placeholders": {
-      "formPercent": { "type": "String" },
-      "taskPercent": { "type": "String" }
+      "formPercent": {
+        "type": "String"
+      },
+      "taskPercent": {
+        "type": "String"
+      }
     }
   },
   "adminAuditAdminListTitle": "المسؤولون",
   "adminAuditAdminListCount": "{count, plural, zero{لا مسؤولين} one{مسؤول واحد} two{مسؤولان} few{{count} مسؤولين} many{{count} مسؤولاً} other{{count} مسؤول}}",
   "@adminAuditAdminListCount": {
     "placeholders": {
-      "count": { "type": "int" }
+      "count": {
+        "type": "int"
+      }
     }
   },
   "adminAuditAdminListHint": "افتح القائمة لتغيير المسؤول. كل صف يعرض النتيجة الإجمالية والامتثال للنماذج وكفاءة المهام؛ مرّر المؤشر لعرض أعداد النماذج والمهام.",
@@ -4432,7 +4736,9 @@
   "adminAuditExportEmpty": "لا توجد عمليات تدقيق للمسؤولين للتصدير لهذا الشهر.",
   "@exportSavedNativeBody": {
     "placeholders": {
-      "path": { "type": "String" }
+      "path": {
+        "type": "String"
+      }
     }
   },
   "exportSavedNativeBody": "تم الحفظ: {path}",
@@ -4446,7 +4752,6 @@
   "auditSave": "حفظ",
   "viewTeacherAudit": "عرض التدقيق",
   "viewTeacherSubmissions": "عرض الإرسالات",
-
   "auditIncidentsAndPenalties": "الحوادث والعقوبات",
   "auditNoIncidents": "لا توجد حوادث أو عقوبات مسجلة",
   "auditIncidentFactsFinding": "تقرير الحقائق والنتائج",
@@ -4454,7 +4759,9 @@
   "auditIncidentSubmittedBy": "مقدم من {name}",
   "@auditIncidentSubmittedBy": {
     "placeholders": {
-      "name": { "type": "String" }
+      "name": {
+        "type": "String"
+      }
     }
   },
   "auditIncidentViolationType": "المخالفة",
@@ -4468,7 +4775,9 @@
   "auditIncidentCount": "{count, plural, =0{لا توجد حوادث} =1{حادثة واحدة} other{{count} حوادث}}",
   "@auditIncidentCount": {
     "placeholders": {
-      "count": { "type": "int" }
+      "count": {
+        "type": "int"
+      }
     }
   },
   "auditIncidentLoading": "جاري تحميل الحوادث…",
@@ -4491,9 +4800,15 @@
   "adminAuditTaskStatsHeader": "معينة: {assigned} · منجزة: {done} · متأخرة: {overdue}",
   "@adminAuditTaskStatsHeader": {
     "placeholders": {
-      "assigned": { "type": "int" },
-      "done": { "type": "int" },
-      "overdue": { "type": "int" }
+      "assigned": {
+        "type": "int"
+      },
+      "done": {
+        "type": "int"
+      },
+      "overdue": {
+        "type": "int"
+      }
     }
   },
   "adminAuditScoreNa": "غير منطبق",
@@ -4502,7 +4817,9 @@
   "adminAuditEvalAverage": "المتوسط (الدرجات المدخلة فقط): {pct}٪",
   "@adminAuditEvalAverage": {
     "placeholders": {
-      "pct": { "type": "String" }
+      "pct": {
+        "type": "String"
+      }
     }
   },
   "adminAuditEvalExportDocTitle": "ورقة تقييم الأدمن",
@@ -4521,9 +4838,15 @@
   "adminAuditEvalExportAutoKpi": "مؤشرات تلقائية: الإجمالي {overall}% · النماذج {forms}% · المهام {tasks}%",
   "@adminAuditEvalExportAutoKpi": {
     "placeholders": {
-      "overall": { "type": "int" },
-      "forms": { "type": "int" },
-      "tasks": { "type": "int" }
+      "overall": {
+        "type": "int"
+      },
+      "forms": {
+        "type": "int"
+      },
+      "tasks": {
+        "type": "int"
+      }
     }
   },
   "adminAuditEvalExportUnknownEvaluator": "—",
@@ -4533,280 +4856,541 @@
   "adminAuditCeoPaymentAdjustmentsHint": "مبالغ شهرية اختيارية. أضف مبررًا قصيرًا عند إدخال أي مبلغ.",
   "adminAuditEvalSectionCommentLabel": "تعليق المقيّم",
   "adminAuditEvalSectionCommentHint": "اختياري. يُدرج في PDF/Excel تحت هذا القسم.",
-  "commonAdd": "إضافة",
-  "tontineSavings": "الادخار",
-  "tontineTooltipDescription": "دائرة ادخار دورية حيث يساهم كل عضو بمبلغ ثابت في كل دورة، ويستلم عضو واحد المبلغ المجمع بالكامل. يدور هذا حتى يستلم كل عضو مرة واحدة بالضبط. بدون فوائد، وبدون رسوم.",
-  "tontineCircles": "الدوائر",
-  "tontineAdminCircles": "دوائر المسؤول",
-  "tontineHomeSubtitle": "تابع دوائر الادخار، وادعُ الأعضاء، وأدر كل دورة شهرية.",
-  "tontineSignInRequired": "سجل الدخول لعرض دوائر الادخار الخاصة بك.",
-  "tontineNoCirclesTitle": "لا توجد دوائر بعد",
-  "tontineNoCirclesSubtitle": "أنشئ أول دائرة ادخار دوارة لبدء جمع المساهمات الشهرية.",
-  "tontineMyCircles": "دوائري",
-  "tontinePendingInvites": "الدعوات المعلقة: {count}",
-  "@tontinePendingInvites": {
+  "sidebarPublicSiteCms": "الأسعار والفريق (الموقع العام)",
+  "publicSiteCmsTitle": "الموقع العام — الأسعار والفريق",
+  "publicSiteCmsTabPricing": "الأسعار",
+  "publicSiteCmsTabTeam": "الفريق على الموقع",
+  "publicSiteCmsTabSocial": "روابط التواصل",
+  "publicSiteCmsTabLanding": "الصفحة الرئيسية — البطل",
+  "publicSiteCmsLandingIntro": "خصص شريط البطل في الصفحة الرئيسية: لون الخلفية (hex) وروابط صور اختيارية (https). اترك الروابط فارغة لاستخدام الصور الافتراضية. يُفضّل خلفية داكنة ليبقى العنوان واضحًا. على الويب قد تمنع بعض المواقع الربط المباشر (CORS) — استخدم الرفع إلى Firebase Storage لاستضافة موثوقة.",
+  "publicSiteCmsLandingHeroBg": "لون خلفية البطل",
+  "publicSiteCmsLandingHeroBgHint": "#RRGGBB (مثال: #001E4E)",
+  "publicSiteCmsLandingMainImage": "صورة البطل الوسطى",
+  "publicSiteCmsLandingLeftImage": "صورة الدائرة اليسرى",
+  "publicSiteCmsLandingRightImage": "صورة اللوحة اليمنى",
+  "publicSiteCmsLandingUpload": "رفع صورة",
+  "publicSiteCmsSaveLanding": "حفظ البطل",
+  "publicSiteCmsLandingSaved": "تم الحفظ. حدّث الموقع العام لرؤية التغييرات.",
+  "publicSiteCmsSocialIntro": "اختر الأيقونات التي تظهر في الشريط الأزرق. يبقى كل شبكة مخفية حتى تفعّلها وتضيف رابط https صالح.",
+  "publicSiteCmsSocialShowIcon": "إظهار على الموقع",
+  "publicSiteCmsSocialUrl": "رابط URL",
+  "publicSiteCmsSocialInstagram": "إنستغرام",
+  "publicSiteCmsSocialFacebook": "فيسبوك",
+  "publicSiteCmsSocialTiktok": "تيك توك",
+  "publicSiteCmsSaveSocial": "حفظ روابط التواصل",
+  "publicSiteCmsSocialSaved": "تم الحفظ. يتحدّث الشريط العلوي لجميع الزوار.",
+  "publicSiteCmsSavePricing": "حفظ الأسعار",
+  "publicSiteCmsPricingSaved": "تم حفظ الأسعار. ستُستخدم في الصفحة الرئيسية وعروض التسجيل الجديدة.",
+  "publicSiteCmsSaveThisTrack": "حفظ هذا المسار",
+  "publicSiteCmsPricingSavedThisTrack": "تم حفظ الأسعار بما في ذلك {name}. تبقى جميع المسارات متزامنة.",
+  "@publicSiteCmsPricingSavedThisTrack": {
     "placeholders": {
-      "count": {
-        "type": "int"
-      }
+      "name": {"type": "String"}
     }
   },
-  "tontineReviewInvite": "عرض الدعوة",
-  "tontineCreateCircle": "إنشاء دائرة",
-  "tontineCircleDetails": "لوحة الدائرة",
-  "tontineCircleNotFound": "تعذر العثور على الدائرة.",
-  "tontineStatusForming": "قيد التكوين",
-  "tontineStatusActive": "نشطة",
-  "tontineStatusCompleted": "مكتملة",
-  "tontineStatusCancelled": "ملغاة",
-  "tontineCyclePending": "قيد الانتظار",
-  "tontineCycleInProgress": "قيد التنفيذ",
-  "tontineCycleCompleted": "مكتمل",
-  "tontineCurrentCycle": "الدورة الحالية",
-  "tontineDueDate": "تاريخ الاستحقاق",
-  "tontineCurrentRecipient": "المستفيد الحالي",
-  "tontineRecipientPending": "المستفيد قيد الانتظار",
-  "tontineMonthOf": "الشهر {month} من {total}",
-  "@tontineMonthOf": {
+  "publicSiteCmsHeroColorPickerTitle": "لون خلفية البطل",
+  "publicSiteCmsImageUploadEmptyHint": "لا صورة بعد. ألصق رابطاً أو اضغط رفع.",
+  "publicSiteCmsPricingHelp": "ثلاثة مسارات عامة: إسلامي وAdLam، التدريس والمحو الأمية، والصفوف الجماعية. هذه المبالغ تغذي بطاقات الأسعار في الصفحة الرئيسية وتقديرات التسجيل (4 أسابيع للمسارين الفرديين؛ 4.33 للجماعي).",
+  "publicSiteCmsSession30": "جلسة 30 دقيقة (USD)",
+  "publicSiteCmsSession60": "أساس جلسة ساعة (USD)",
+  "publicSiteCmsHourly": "سعر الساعة (USD)",
+  "publicSiteCmsTutoringHrUnder4": "تدريس: $/ساعة إذا إجمالي الأسبوع أقل من 4 ساعات",
+  "publicSiteCmsTutoringHr4Plus": "تدريس: $/ساعة إذا 4 ساعات أسبوعياً أو أكثر",
+  "publicSiteCmsIslamicHrUnder5": "فردي إسلامي: $/ساعة إذا أقل من 5 ساعات/أسبوع",
+  "publicSiteCmsIslamicHr5Plus": "فردي إسلامي: $/ساعة إذا 5 ساعات/أسبوع أو أكثر",
+  "publicSiteCmsTrackBaseHourly": "السعر بالساعة الأساسي (دولار)",
+  "publicSiteCmsTrackDiscountHourly": "السعر بالساعة المخفّض (دولار)",
+  "publicSiteCmsTrackDiscountThreshold": "عتبة خصم الحجم (ساعات أسبوعية)",
+  "publicSiteCmsTrackDiscountThresholdHint": "يُطبق السعر المخفّض عندما تتجاوز الساعات الأسبوعية هذا الرقم (الافتراضي 4).",
+  "publicSiteCmsBulletsHint": "نقاط مميزات (اختياري): كل سطر يظهر بعلامة صح على بطاقة الأسعار في الصفحة الرئيسية لهذا المسار.",
+  "publicSiteCmsBulletsPlaceholder": "سطر لكل نقطة، تظهر مع علامة صح",
+  "publicSiteCmsTeamEmpty": "لا توجد ملفات بعد. أضف أشخاصًا لعرضهم في صفحة الفريق بدل القائمة الافتراضية.",
+  "publicSiteCmsTeamImportBundled": "استيراد الملفات الافتراضية من الموقع",
+  "publicSiteCmsTeamImportBundledHint": "ينسخ قائمة الفريق الافتراضية إلى Firestore بمعرّفات ثابتة. الصفوف المستوردة تبدأ غير نشطة حتى تربط مستخدمًا حقيقيًا وتفعّلها للموقع العام.",
+  "publicSiteCmsTeamImportDone": "تم استيراد {imported} ملفًا. تم تخطي {skipped} موجود مسبقًا.",
+  "@publicSiteCmsTeamImportDone": {
     "placeholders": {
-      "month": {
-        "type": "int"
-      },
-      "total": {
-        "type": "int"
-      }
+      "imported": {"type": "int"},
+      "skipped": {"type": "int"}
     }
   },
-  "tontineConfirmedCount": "المدفوعات المؤكدة",
-  "tontineCircleCompletedMessage": "أكملت هذه الدائرة جميع دورات الصرف.",
-  "tontineWaitingForCycle": "بانتظار إنشاء الدورة الأولى.",
-  "tontineCircleStillForming": "الدائرة ما زالت قيد التكوين",
-  "tontineMembersJoined": "انضم {active} من أصل {total} أعضاء",
-  "@tontineMembersJoined": {
+  "publicSiteCmsLinkedUserUid": "حساب مرتبط (معرّف Firebase)",
+  "publicSiteCmsLinkedUserUidHint": "ابحث في الدليل واختر مستخدمًا — مطلوب لكل ملف علني.",
+  "publicSiteCmsLinkedUserSectionTitle": "المستخدم المرتبط (مطلوب)",
+  "publicSiteCmsLinkedUserMissingHint": "لا يوجد مستخدم مرتبط بعد. ابحث واختر حسابًا في النظام.",
+  "publicSiteCmsPickLinkedUserButton": "بحث عن مستخدمين…",
+  "publicSiteCmsPickLinkedUserTitle": "الربط بمستخدم",
+  "publicSiteCmsPickLinkedUserSearchLabel": "البحث بالبريد أو المعرف",
+  "publicSiteCmsPickLinkedUserSearchHint": "أدخل حرفين على الأقل",
+  "publicSiteCmsPickLinkedUserEmpty": "لا توجد نتائج. جرّب بادئة بريد أخرى أو الصق معرّف Firebase كاملًا.",
+  "publicSiteCmsClearLinkedUser": "إزالة الربط",
+  "publicSiteCmsLinkedUserRequired": "اربط هذا الملف بمستخدم قبل الحفظ.",
+  "publicSiteCmsCityRequired": "المدينة / الموقع مطلوبان لصفحة الفريق العامة.",
+  "publicSiteCmsDuplicateLinkedUser": "ملف فريق آخر يستخدم هذا المستخدم بالفعل. أزل الربط أو احذف الملف الآخر أولًا.",
+  "publicSiteCmsTeamInactiveBadge": "غير نشط",
+  "publicSiteCmsTeamImageLoadFailed": "تعذّر تحميل الصورة (تحقق من الرابط أو الشبكة).",
+  "publicSiteCmsTeamAddProfile": "إضافة ملف",
+  "publicSiteCmsTeamSaved": "تم حفظ الملف",
+  "publicSiteCmsConfirmDelete": "حذف هذا الملف من الموقع؟",
+  "publicSiteCmsName": "الاسم",
+  "publicSiteCmsNameRequired": "الاسم مطلوب.",
+  "publicSiteCmsRoleTitle": "المسمى / الدور",
+  "publicSiteCmsCategory": "القسم",
+  "publicSiteCmsCategoryLeadership": "القيادة",
+  "publicSiteCmsCategoryTeacher": "المعلمون",
+  "publicSiteCmsCity": "المدينة",
+  "publicSiteCmsEducation": "التعليم",
+  "publicSiteCmsBio": "نبذة",
+  "publicSiteCmsWhyAlluwal": "لماذا Alluwal",
+  "publicSiteCmsLanguagesComma": "اللغات (مفصولة بفواصل)",
+  "publicSiteCmsSortOrder": "ترتيب العرض (الأصغر أولًا)",
+  "publicSiteCmsImageUrl": "رابط الصورة (اختياري)",
+  "publicSiteCmsUploadPhoto": "رفع صورة",
+  "publicSiteCmsUploadNoBytes": "تعذر قراءة الملف.",
+  "publicSiteCmsUploadDone": "اكتمل الرفع — تم ملء الرابط.",
+  "publicSiteCmsDashboardCardTitle": "الأسعار العامة والفريق",
+  "publicSiteCmsDashboardCardBody": "تعديل أسعار الصفحة الرئيسية والنقاط ومن يظهر في صفحة الفريق.",
+  "publicSiteCmsOpenEditor": "فتح المحرر",
+  "pricingTrackIslamicTitle": "البرنامج الإسلامي و AdLam",
+  "pricingTrackTutoringTitle": "الدعم الدراسي ومحو الأمية",
+  "pricingTrackGroupTitle": "الدروس الجماعية",
+  "pricingTrackIslamicDesc": "حصص فردية للبرنامج الإسلامي و AdLam",
+  "pricingTrackTutoringDesc": "دعم فردي للدراسة ومحو الأمية",
+  "pricingTrackGroupDesc": "جلسات جماعية في عطلة نهاية الأسبوع",
+  "pricingPerHour": "ساعة",
+  "pricingDiscountBadge": "سعر أقل لأكثر من 4 ساعات/أسبوع",
+  "pricingHoursPerWeek": "ساعة/أسبوع",
+  "pricingMonthlyBreakdown": "{hours} ساعة × ${rate}/ساعة × {weeks} أسابيع ≈ ${monthly}/شهر",
+  "@pricingMonthlyBreakdown": {
     "placeholders": {
-      "active": {
-        "type": "int"
-      },
-      "total": {
-        "type": "int"
-      }
+      "hours": {},
+      "rate": {},
+      "weeks": {},
+      "monthly": {}
     }
   },
-  "tontineWaitingForMembers": "بانتظار الأعضاء",
-  "tontineActivateCircle": "تفعيل الدائرة",
-  "tontineExpectedAmount": "المبلغ المتوقع",
-  "tontineSubmittedAmount": "المبلغ المرسل",
-  "tontineReceiptAttached": "الإيصال مرفق",
-  "tontineRejectionReason": "سبب الرفض",
-  "tontineReviewSubmissions": "مراجعة الإرسالات",
-  "tontineSubmitPayment": "إرسال الدفعة",
-  "tontinePaymentConfirmed": "تم تأكيد الدفع",
-  "tontineContributionPending": "غير مدفوع",
-  "tontineContributionSubmitted": "مُرسل",
-  "tontineContributionConfirmed": "مؤكد",
-  "tontineContributionRejected": "مرفوض",
-  "tontineContributionMissed": "فائت",
-  "tontineMemberInvited": "مدعو",
-  "tontineInviteByEmail": "البريد الإلكتروني",
-  "tontineInviteByPhone": "الهاتف",
-  "tontineMissedMoveToBack": "نقل إلى الخلف",
-  "tontineMissedSuspend": "تعليق العضو",
-  "tontineNoDeadline": "لا يوجد موعد نهائي",
-  "tontineDueToday": "مستحق اليوم",
-  "tontineDueInDays": "مستحق خلال {days} يومًا",
-  "@tontineDueInDays": {
+  "pricingSelectTrack": "اختر مسار التعلم",
+  "pricingSelectHours": "اختر عدد الساعات أسبوعيًا",
+  "enrollmentHoursRequired": "يرجى اختيار عدد الساعات أسبوعيًا",
+  "enrollmentTrackRequired": "يرجى اختيار مسار التسعير",
+  "enrollmentPhoneRequired": "يرجى إدخال رقم هاتفك.",
+  "enrollmentPhoneInvalid": "أدخل رقم هاتف صالحًا (أرقام فقط) للبلد المعروض في الحقل.",
+  "enrollmentWhatsAppInvalid": "أدخل رقم واتساب صالحًا (أرقام فقط)، أو اترك الحقل فارغًا.",
+  "unifiedProgramsTitle": "استكشف برامجنا",
+  "unifiedProgramsScrollToTop": "العودة للأعلى",
+  "unifiedProgramsSubtitle": "اختر برنامجًا، واطّلع على التسعير حسب الساعات أسبوعيًا، ثم تابع التسجيل — في مكان واحد.",
+  "unifiedProgramsDeselect": "إلغاء الاختيار",
+  "unifiedProgramsEnroll": "متابعة التسجيل",
+  "unifiedProgramsHoursPerWeek": "ساعات أسبوعيًا",
+  "unifiedProgramsWhatsIncluded": "ما يتضمنه هذا البرنامج",
+  "unifiedProgramsPriceLine": "{hours} س/أسبوع × ${rate}/ساعة · ≈ ${monthly}/شهر",
+  "@unifiedProgramsPriceLine": {
     "placeholders": {
-      "days": {
-        "type": "int"
-      }
+      "hours": {},
+      "rate": {},
+      "monthly": {}
     }
   },
-  "tontineOverdueBy": "متأخر بمقدار {duration}",
-  "@tontineOverdueBy": {
-    "placeholders": {
-      "duration": {
-        "type": "String"
-      }
-    }
-  },
-  "tontinePosition": "الترتيب {position}",
-  "@tontinePosition": {
-    "placeholders": {
-      "position": {
-        "type": "int"
-      }
-    }
-  },
-  "tontinePaymentStatusBoard": "لوحة حالة المدفوعات",
-  "tontinePaymentDetails": "تفاصيل الدفع",
-  "tontineAmount": "المبلغ",
-  "tontineAmountMatchesExpected": "المبلغ يطابق المساهمة المتوقعة.",
-  "tontineAmountDoesNotMatchExpected": "المبلغ لا يطابق المساهمة المتوقعة.",
-  "tontinePaymentDate": "تاريخ الدفع",
-  "tontineReceipt": "الإيصال",
-  "tontineUseCamera": "استخدام الكاميرا",
-  "tontineChooseFromGallery": "الاختيار من المعرض",
-  "tontineSelectedReceipt": "الإيصال المحدد",
-  "tontineReceiptRequired": "إرفاق الإيصال مطلوب قبل الإرسال.",
-  "tontinePaymentSubmitted": "تم إرسال الدفعة بنجاح.",
-  "tontineSubmissionFailed": "تعذر إرسال الدفعة: {error}",
-  "@tontineSubmissionFailed": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
-  "tontineCreateFailed": "تعذر إنشاء الدائرة: {error}",
-  "@tontineCreateFailed": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
-  "tontineMarkPayoutSent": "تحديد أن الصرف تم",
-  "tontinePayoutMarkedSent": "تم تحديد الصرف على أنه مرسل.",
-  "tontineReviewProgress": "تقدم المراجعة",
-  "tontineConfirmedOf": "تم تأكيد {confirmed} من {total}",
-  "@tontineConfirmedOf": {
-    "placeholders": {
-      "confirmed": {
-        "type": "int"
-      },
-      "total": {
-        "type": "int"
-      }
-    }
-  },
-  "tontineRejectContribution": "رفض",
-  "tontineConfirmContribution": "تأكيد",
-  "tontineJoinCircle": "الانضمام إلى الدائرة",
-  "tontineJoinFailed": "تعذر الانضمام إلى الدائرة: {error}",
-  "@tontineJoinFailed": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
-  "tontineInvitePreview": "راجع دائرة الادخار هذه قبل قبول الدعوة.",
-  "tontineCircleHead": "رئيس الدائرة",
-  "tontineStepBasics": "الأساسيات",
-  "tontineStepRules": "القواعد",
-  "tontineStepInvite": "الدعوة",
-  "tontineStepOrder": "الترتيب",
-  "tontineStepReview": "المراجعة",
-  "tontineCircleName": "اسم الدائرة",
-  "tontineCircleNameRequired": "اسم الدائرة مطلوب.",
-  "tontineContributionAmount": "مبلغ المساهمة",
-  "tontineMonthlyContribution": "المساهمة الشهرية",
-  "tontineMemberCount": "عدد الأعضاء",
-  "tontineStartDate": "تاريخ البدء",
-  "tontineFrequency": "تكرار المساهمة",
-  "tontineFrequencyWeekly": "أسبوعي",
-  "tontineFrequencyBiweekly": "كل أسبوعين",
-  "tontineFrequencyMonthly": "شهري",
-  "tontineFrequencyQuarterly": "ربع سنوي",
-  "tontineHintCircleName": "أعطِ دائرتك اسمًا يعرفه الأعضاء",
-  "tontineHintAmount": "المبلغ الذي يساهم به كل عضو في كل دورة",
-  "tontineHintMemberCount": "إجمالي الأعضاء بما فيهم أنت",
-  "tontineHintStartDate": "تاريخ بدء الدورة الأولى",
-  "tontineHintFrequency": "عدد مرات المساهمة والدفعات",
-  "tontineHintGracePeriod": "أيام إضافية مسموح بها بعد تاريخ الاستحقاق قبل اعتبار الدفع متأخرًا",
-  "tontineHintMissedPayment": "ماذا يحدث إذا فوّت عضو دفعته",
-  "tontineHintPaymentInstructions": "أخبر الأعضاء بكيفية إرسال مدفوعاتهم (مثلاً: تحويل بنكي، موبايل موني)",
-  "tontineGracePeriodDays": "فترة السماح (أيام)",
-  "tontineMissedPaymentAction": "إجراء عند تفويت الدفع",
-  "tontinePaymentInstructions": "تعليمات الدفع",
-  "tontinePaymentInstructionsRequired": "تعليمات الدفع مطلوبة.",
-  "tontineInviteExistingUsersOnly": "قم بدعوة الأعضاء عبر البريد الإلكتروني أو رقم الهاتف. سيتلقون إشعارًا للانضمام.",
-  "tontineInviteMethod": "طريقة الدعوة",
-  "tontineInviteEmail": "البريد الإلكتروني",
-  "tontineInvitePhone": "رقم الهاتف",
-  "tontineEnterInviteLookup": "أدخل بريدًا إلكترونيًا أو رقم هاتف لدعوته.",
-  "tontineParticipantsAdded": "تمت إضافة المشاركين: {current}/{total}",
-  "@tontineParticipantsAdded": {
-    "placeholders": {
-      "current": {
-        "type": "int"
-      },
-      "total": {
-        "type": "int"
-      }
-    }
-  },
-  "tontineNeedAllMembersBeforeOrdering": "أضف جميع الأعضاء قبل تحديد ترتيب الصرف.",
-  "tontinePayoutOrder": "ترتيب الصرف",
-  "tontineYou": "أنت",
-  "tontineUnableToLoadProfile": "تعذر تحميل ملفك الشخصي.",
-  "tontineEnterValidAmount": "أدخل مبلغًا صالحًا.",
-  "tontineInvalidGracePeriod": "أدخل فترة سماح صالحة.",
-  "tontineMinimumMembers": "تحتاج الدائرة إلى عضوين على الأقل.",
-  "tontineNeedExactMemberCount": "أضف العدد المطلوب تمامًا من الأعضاء قبل المتابعة.",
-  "tontineMemberCountReached": "لقد أضفت بالفعل العدد المستهدف من الأعضاء.",
-  "tontineUserNotFound": "لم يتم العثور على مستخدم حالي يطابق جهة الاتصال هذه.",
-  "tontineUserAlreadyAdded": "هذا المستخدم موجود بالفعل في الدائرة.",
-  "tontineSelectedMethodUnavailable": "هذا المستخدم لا يملك طريقة الاتصال المحددة محفوظة.",
-  "tontineNoActiveCycle": "لا توجد دورة نشطة حاليًا",
-  "tontinePotAmount": "قيمة الحصيلة",
-  "tontineCircleActivated": "تم تفعيل الدائرة. ستظهر الدورة الأولى قريبًا.",
-  "tontineReorderHint": "اسحب المقبض لتغيير ترتيب من يستلم الدفعة أولاً",
-  "tontineAllMembersJoined": "انضم جميع الأعضاء!",
-  "tontineCreatedByYou": "أنشأته أنت",
-  "tontineCirclesCreated": "دوائري",
-  "tontineCirclesJoined": "دوائر انضممت إليها",
-  "tontineEnrollmentMode": "وضع التسجيل",
-  "tontineManualSelection": "اختيار يدوي",
-  "tontineManualSelectionDesc": "اختر المعلمين للإضافة",
-  "tontineOpenEnrollment": "تسجيل مفتوح",
-  "tontineOpenEnrollmentDesc": "يمكن للمعلمين المؤهلين التصفح والانضمام",
-  "tontineEligibilityRules": "قواعد الأهلية",
-  "tontineIncomeMultiplier": "مضاعف الدخل الأدنى",
-  "tontineIncomeMultiplierHint": "يجب أن يكون الدخل الشهري المقدر للمعلم على الأقل هذا العدد من مرات مبلغ المساهمة",
-  "tontineMinTenure": "الحد الأدنى للخبرة (أشهر)",
-  "tontineMinTenureHint": "يجب أن يكون المعلم قد عمل لمدة هذا العدد من الأشهر على الأقل",
-  "tontineMinShifts": "الحد الأدنى للنوبات (آخر 30 يومًا)",
-  "tontineMinShiftsHint": "يجب أن يكون المعلم قد درّس هذا العدد من النوبات على الأقل في آخر 30 يومًا",
-  "tontineMaxMembers": "الحد الأقصى للأعضاء",
-  "tontineMaxMembersHint": "اتركه 0 لعدد غير محدود",
-  "tontineUnlimited": "غير محدود",
-  "tontineAvailableCircles": "الدوائر المتاحة",
-  "tontineJoinCircle": "انضم للدائرة",
-  "tontineNotEligible": "غير مؤهل",
-  "tontineEligible": "مؤهل",
-  "tontineCircleFull": "الدائرة ممتلئة",
-  "tontineJoinSuccess": "تم الانضمام إلى الدائرة بنجاح!",
-  "tontineEstimatedIncome": "الدخل الشهري المقدر: {amount}",
-  "@tontineEstimatedIncome": {
-    "placeholders": {
-      "amount": {"type": "String"}
-    }
-  },
-  "tontineIncomeRequirement": "يجب أن يكون الدخل {multiplier} ضعف المساهمة",
-  "@tontineIncomeRequirement": {
-    "placeholders": {
-      "multiplier": {"type": "String"}
-    }
-  },
-  "tontineTenureRequirement": "{months}+ أشهر خبرة مطلوبة",
-  "@tontineTenureRequirement": {
-    "placeholders": {
-      "months": {"type": "int"}
-    }
-  },
-  "tontineShiftsRequirement": "{count}+ نوبات في آخر 30 يومًا",
-  "@tontineShiftsRequirement": {
+  "unifiedCatIslamicTitle": "الدراسات الإسلامية",
+  "unifiedCatLanguagesTitle": "اللغات",
+  "unifiedCatEnglishTitle": "الإنجليزية والمحو الأمية",
+  "unifiedCatMathTitle": "الرياضيات",
+  "unifiedCatProgrammingTitle": "البرمجة والتقنية",
+  "unifiedCatAfterSchoolTitle": "الدروس بعد المدرسة",
+  "unifiedCatIslamicDesc": "القرآن، الحديث، اللغة العربية، التوحيد، التفسير والفقه",
+  "unifiedCatLanguagesDesc": "الإنجليزية، الفرنسية، أدلام، السواحلية، اليوروبا والمزيد",
+  "unifiedCatEnglishDesc": "القواعد، القراءة، الكتابة الإبداعية والتحضير للاختبارات",
+  "unifiedCatMathDesc": "من الابتدائي إلى التفاضل والإحصاء",
+  "unifiedCatProgrammingDesc": "البرمجة للأطفال، الويب، الجوال، بايثون وتطوير الألعاب",
+  "unifiedCatAfterSchoolDesc": "الابتدائي، المتوسط والثانوي",
+  "unifiedCatSubjectCount": "{count} مواد",
+  "@unifiedCatSubjectCount": {
     "placeholders": {
       "count": {"type": "int"}
     }
   },
-  "tontineOpenCircleCreated": "تم إنشاء دائرة مفتوحة. سيتم إخطار المعلمين المؤهلين.",
-  "tontineSpotsLeft": "{count} أماكن متبقية",
-  "@tontineSpotsLeft": {
-    "placeholders": {
-      "count": {"type": "int"}
-    }
-  },
-  "tontineOpenSpots": "أماكن مفتوحة"
+  "unifiedProgIslamQuranTitle": "Quran",
+  "unifiedProgIslamQuranDesc": "Complete Quran learning program including recitation, memorization, and understanding.",
+  "unifiedProgIslamQuranAge": "All ages",
+  "unifiedProgIslamQuranFeat1": "Proper recitation with Tajweed rules",
+  "unifiedProgIslamQuranFeat2": "Memorization techniques for Hifz",
+  "unifiedProgIslamQuranFeat3": "Understanding the meanings",
+  "unifiedProgIslamHadithTitle": "Hadith",
+  "unifiedProgIslamHadithDesc": "Study the sayings and teachings of Prophet Muhammad (PBUH).",
+  "unifiedProgIslamHadithAge": "Ages 10+",
+  "unifiedProgIslamHadithFeat1": "Authentic Hadith collections",
+  "unifiedProgIslamHadithFeat2": "Understanding Hadith sciences",
+  "unifiedProgIslamHadithFeat3": "Practical application in daily life",
+  "unifiedProgIslamArabicTitle": "Arabic language",
+  "unifiedProgIslamArabicDesc": "Learn the language of the Quran from basics to fluency.",
+  "unifiedProgIslamArabicAge": "Ages 7+",
+  "unifiedProgIslamArabicFeat1": "Arabic alphabet and writing",
+  "unifiedProgIslamArabicFeat2": "Grammar (Nahw) and morphology",
+  "unifiedProgIslamArabicFeat3": "Vocabulary building",
+  "unifiedProgIslamTawhidTitle": "Tawhid",
+  "unifiedProgIslamTawhidDesc": "Understanding the oneness of Allah and core Islamic beliefs.",
+  "unifiedProgIslamTawhidAge": "Ages 8+",
+  "unifiedProgIslamTawhidFeat1": "Fundamentals of Islamic faith",
+  "unifiedProgIslamTawhidFeat2": "Understanding Allah's attributes",
+  "unifiedProgIslamTawhidFeat3": "Pillars of faith (Iman)",
+  "unifiedProgIslamTafsirTitle": "Tafsir",
+  "unifiedProgIslamTafsirDesc": "Deep understanding and interpretation of the Holy Quran.",
+  "unifiedProgIslamTafsirAge": "Ages 12+",
+  "unifiedProgIslamTafsirFeat1": "Verse by verse explanation",
+  "unifiedProgIslamTafsirFeat2": "Historical context",
+  "unifiedProgIslamTafsirFeat3": "Practical life applications",
+  "unifiedProgIslamFiqhTitle": "Fiqh",
+  "unifiedProgIslamFiqhDesc": "Understanding Islamic law and practical worship.",
+  "unifiedProgIslamFiqhAge": "Ages 10+",
+  "unifiedProgIslamFiqhFeat1": "Rules of prayer and fasting",
+  "unifiedProgIslamFiqhFeat2": "Halal and Haram guidelines",
+  "unifiedProgIslamFiqhFeat3": "Islamic business ethics",
+  "unifiedProgLangEnglishTitle": "English",
+  "unifiedProgLangEnglishDesc": "Complete support for reading, writing, grammar, vocabulary, and exam prep.",
+  "unifiedProgLangEnglishAge": "Global",
+  "unifiedProgLangEnglishFeat1": "Homework help and comprehension",
+  "unifiedProgLangEnglishFeat2": "Grammar and vocabulary",
+  "unifiedProgLangEnglishFeat3": "Exam preparation",
+  "unifiedProgLangFrenchTitle": "French",
+  "unifiedProgLangFrenchDesc": "Master French language skills including conversation, grammar, and cultural understanding.",
+  "unifiedProgLangFrenchAge": "Global",
+  "unifiedProgLangFrenchFeat1": "Conversation practice",
+  "unifiedProgLangFrenchFeat2": "Grammar and writing",
+  "unifiedProgLangFrenchFeat3": "Cultural context",
+  "unifiedProgLangAdlamTitle": "Adlam",
+  "unifiedProgLangAdlamDesc": "Learn the Adlam script for writing Fulani (Fulfulde/Pular)—a modern alphabet for this West African language.",
+  "unifiedProgLangAdlamAge": "West Africa",
+  "unifiedProgLangAdlamFeat1": "Script and reading fundamentals",
+  "unifiedProgLangAdlamFeat2": "Fulfulde/Pular connection",
+  "unifiedProgLangAdlamFeat3": "Cultural preservation focus",
+  "unifiedProgLangSwahiliTitle": "Swahili",
+  "unifiedProgLangSwahiliDesc": "East African Swahili with authentic instruction.",
+  "unifiedProgLangSwahiliAge": "East Africa",
+  "unifiedProgLangSwahiliFeat1": "Speaking and listening",
+  "unifiedProgLangSwahiliFeat2": "Reading and writing",
+  "unifiedProgLangSwahiliFeat3": "Cultural immersion",
+  "unifiedProgLangYorubaTitle": "Yoruba",
+  "unifiedProgLangYorubaDesc": "West African Yoruba with structured lessons.",
+  "unifiedProgLangYorubaAge": "West Africa",
+  "unifiedProgLangYorubaFeat1": "Pronunciation and tones",
+  "unifiedProgLangYorubaFeat2": "Everyday conversation",
+  "unifiedProgLangYorubaFeat3": "Reading practice",
+  "unifiedProgLangAmharicTitle": "Amharic",
+  "unifiedProgLangAmharicDesc": "Horn of Africa Amharic with clear progression.",
+  "unifiedProgLangAmharicAge": "Horn of Africa",
+  "unifiedProgLangAmharicFeat1": "Ge'ez script introduction",
+  "unifiedProgLangAmharicFeat2": "Conversation skills",
+  "unifiedProgLangAmharicFeat3": "Cultural context",
+  "unifiedProgLangWolofTitle": "Wolof",
+  "unifiedProgLangWolofDesc": "West African Wolof for learners at any level.",
+  "unifiedProgLangWolofAge": "West Africa",
+  "unifiedProgLangWolofFeat1": "Greetings and daily speech",
+  "unifiedProgLangWolofFeat2": "Grammar essentials",
+  "unifiedProgLangWolofFeat3": "Listening practice",
+  "unifiedProgLangHausaTitle": "Hausa",
+  "unifiedProgLangHausaDesc": "Hausa across West and Central Africa.",
+  "unifiedProgLangHausaAge": "West & Central Africa",
+  "unifiedProgLangHausaFeat1": "Core vocabulary",
+  "unifiedProgLangHausaFeat2": "Conversation",
+  "unifiedProgLangHausaFeat3": "Reading support",
+  "unifiedProgLitGrammarTitle": "Grammar & vocabulary",
+  "unifiedProgLitGrammarDesc": "Master English grammar rules, sentence structure, and expand your vocabulary.",
+  "unifiedProgLitGrammarAge": "All levels",
+  "unifiedProgLitGrammarFeat1": "Clear grammar explanations",
+  "unifiedProgLitGrammarFeat2": "Sentence patterns",
+  "unifiedProgLitGrammarFeat3": "Vocabulary expansion",
+  "unifiedProgLitReadingTitle": "Reading comprehension",
+  "unifiedProgLitReadingDesc": "Develop critical reading skills and analyze texts across various genres.",
+  "unifiedProgLitReadingAge": "Elementary to advanced",
+  "unifiedProgLitReadingFeat1": "Close reading strategies",
+  "unifiedProgLitReadingFeat2": "Genre variety",
+  "unifiedProgLitReadingFeat3": "Discussion and reflection",
+  "unifiedProgLitCreativeTitle": "Creative writing",
+  "unifiedProgLitCreativeDesc": "Express yourself through stories, poetry, and creative narratives.",
+  "unifiedProgLitCreativeAge": "Grades 3–12",
+  "unifiedProgLitCreativeFeat1": "Story structure",
+  "unifiedProgLitCreativeFeat2": "Voice and style",
+  "unifiedProgLitCreativeFeat3": "Peer feedback",
+  "unifiedProgLitAcademicTitle": "Academic writing",
+  "unifiedProgLitAcademicDesc": "Master essays, research papers, and formal academic composition.",
+  "unifiedProgLitAcademicAge": "High school & college",
+  "unifiedProgLitAcademicFeat1": "Thesis and argumentation",
+  "unifiedProgLitAcademicFeat2": "Research skills",
+  "unifiedProgLitAcademicFeat3": "Citation basics",
+  "unifiedProgLitLiteratureTitle": "Literature analysis",
+  "unifiedProgLitLiteratureDesc": "Explore classic and contemporary literature with in-depth analysis.",
+  "unifiedProgLitLiteratureAge": "High school",
+  "unifiedProgLitLiteratureFeat1": "Themes and symbolism",
+  "unifiedProgLitLiteratureFeat2": "Textual evidence",
+  "unifiedProgLitLiteratureFeat3": "Discussion skills",
+  "unifiedProgLitTestprepTitle": "Test preparation",
+  "unifiedProgLitTestprepDesc": "Prepare for standardized tests including SAT, ACT, IELTS, and TOEFL.",
+  "unifiedProgLitTestprepAge": "All ages",
+  "unifiedProgLitTestprepFeat1": "Timed practice",
+  "unifiedProgLitTestprepFeat2": "Strategy coaching",
+  "unifiedProgLitTestprepFeat3": "Weak-area focus",
+  "unifiedProgMathElemTitle": "Elementary math",
+  "unifiedProgMathElemDesc": "Building a strong foundation in arithmetic, shapes, and problem-solving.",
+  "unifiedProgMathElemAge": "Grades K–5",
+  "unifiedProgMathElemFeat1": "Number sense",
+  "unifiedProgMathElemFeat2": "Word problems",
+  "unifiedProgMathElemFeat3": "Confidence building",
+  "unifiedProgMathAlgebraTitle": "Pre-algebra & algebra",
+  "unifiedProgMathAlgebraDesc": "Mastering variables, equations, functions, and graphing.",
+  "unifiedProgMathAlgebraAge": "Grades 6–9",
+  "unifiedProgMathAlgebraFeat1": "Equation solving",
+  "unifiedProgMathAlgebraFeat2": "Functions and graphs",
+  "unifiedProgMathAlgebraFeat3": "Real-world modeling",
+  "unifiedProgMathGeometryTitle": "Geometry",
+  "unifiedProgMathGeometryDesc": "Exploring shapes, sizes, relative positions, and properties of space.",
+  "unifiedProgMathGeometryAge": "Grades 8–10",
+  "unifiedProgMathGeometryFeat1": "Proofs and reasoning",
+  "unifiedProgMathGeometryFeat2": "Area and volume",
+  "unifiedProgMathGeometryFeat3": "Spatial thinking",
+  "unifiedProgMathTrigTitle": "Trigonometry",
+  "unifiedProgMathTrigDesc": "Understanding relationships between side lengths and angles of triangles.",
+  "unifiedProgMathTrigAge": "Grades 10–11",
+  "unifiedProgMathTrigFeat1": "Unit circle",
+  "unifiedProgMathTrigFeat2": "Identities",
+  "unifiedProgMathTrigFeat3": "Applications",
+  "unifiedProgMathCalcTitle": "Calculus",
+  "unifiedProgMathCalcDesc": "Limits, derivatives, integrals, and infinite series.",
+  "unifiedProgMathCalcAge": "Grades 11–12+",
+  "unifiedProgMathCalcFeat1": "Conceptual understanding",
+  "unifiedProgMathCalcFeat2": "Problem sets",
+  "unifiedProgMathCalcFeat3": "Exam readiness",
+  "unifiedProgMathStatsTitle": "Statistics",
+  "unifiedProgMathStatsDesc": "Analyzing data, probability, distributions, and inference.",
+  "unifiedProgMathStatsAge": "High school & college",
+  "unifiedProgMathStatsFeat1": "Data literacy",
+  "unifiedProgMathStatsFeat2": "Probability models",
+  "unifiedProgMathStatsFeat3": "Interpretation skills",
+  "unifiedProgCodeKidsTitle": "Coding for kids",
+  "unifiedProgCodeKidsDesc": "Introduction to logic, algorithms, and creativity through Scratch and Python basics.",
+  "unifiedProgCodeKidsAge": "Ages 7–12",
+  "unifiedProgCodeKidsFeat1": "Games and stories",
+  "unifiedProgCodeKidsFeat2": "Logical thinking",
+  "unifiedProgCodeKidsFeat3": "Safe, paced lessons",
+  "unifiedProgCodeWebTitle": "Web development",
+  "unifiedProgCodeWebDesc": "Build responsive websites using HTML, CSS, JavaScript, and modern frameworks.",
+  "unifiedProgCodeWebAge": "Teens & adults",
+  "unifiedProgCodeWebFeat1": "Layout and design",
+  "unifiedProgCodeWebFeat2": "Interactivity",
+  "unifiedProgCodeWebFeat3": "Portfolio projects",
+  "unifiedProgCodeMobileTitle": "Mobile app development",
+  "unifiedProgCodeMobileDesc": "Create iOS and Android apps with Flutter and Dart.",
+  "unifiedProgCodeMobileAge": "Teens & adults",
+  "unifiedProgCodeMobileFeat1": "UI basics",
+  "unifiedProgCodeMobileFeat2": "State and navigation",
+  "unifiedProgCodeMobileFeat3": "Ship a small app",
+  "unifiedProgCodePythonTitle": "Python programming",
+  "unifiedProgCodePythonDesc": "Data science, automation, and backend development with Python.",
+  "unifiedProgCodePythonAge": "All ages",
+  "unifiedProgCodePythonFeat1": "Syntax and structures",
+  "unifiedProgCodePythonFeat2": "Projects and scripts",
+  "unifiedProgCodePythonFeat3": "Career-relevant skills",
+  "unifiedProgCodeGameTitle": "Game development",
+  "unifiedProgCodeGameDesc": "Design and code your own video games using Unity or Godot.",
+  "unifiedProgCodeGameAge": "Teens",
+  "unifiedProgCodeGameFeat1": "Game loops",
+  "unifiedProgCodeGameFeat2": "Assets and levels",
+  "unifiedProgCodeGameFeat3": "Playtesting",
+  "unifiedProgCodeCsTitle": "Intro to computer science",
+  "unifiedProgCodeCsDesc": "Preparation for AP Computer Science and university-level studies.",
+  "unifiedProgCodeCsAge": "High school",
+  "unifiedProgCodeCsFeat1": "Algorithms",
+  "unifiedProgCodeCsFeat2": "Complexity intuition",
+  "unifiedProgCodeCsFeat3": "Exam alignment",
+  "unifiedProgAsElemTitle": "Elementary (K–5)",
+  "unifiedProgAsElemDesc": "Foundational support across subjects with caring tutors.",
+  "unifiedProgAsElemAge": "Grades K–5",
+  "unifiedProgAsElemFeat1": "Homework help",
+  "unifiedProgAsElemFeat2": "Skill gaps",
+  "unifiedProgAsElemFeat3": "Confidence",
+  "unifiedProgAsMiddleTitle": "Middle school (6–8)",
+  "unifiedProgAsMiddleDesc": "Support through middle grades with structured study habits.",
+  "unifiedProgAsMiddleAge": "Grades 6–8",
+  "unifiedProgAsMiddleFeat1": "Study strategies",
+  "unifiedProgAsMiddleFeat2": "Core subjects",
+  "unifiedProgAsMiddleFeat3": "Organization",
+  "unifiedProgAsHighTitle": "High school (9–12)",
+  "unifiedProgAsHighDesc": "Rigorous support for high school courses and exams.",
+  "unifiedProgAsHighAge": "Grades 9–12",
+  "unifiedProgAsHighFeat1": "AP/IB readiness",
+  "unifiedProgAsHighFeat2": "Time management",
+  "unifiedProgAsHighFeat3": "Subject depth",
+
+  "unifiedProgramsBrowse": "تصفح البرامج",
+  "unifiedProgramsTrust35": "أكثر من 35 برنامجاً",
+  "unifiedProgramsTrustFlexible": "جداول مرنة",
+  "unifiedProgramsTrustExperts": "معلمون خبراء",
+  "unifiedProgramsPerHour": "في الساعة",
+  "heroExplorePrograms": "استكشف برامجنا",
+  "landingHeroSubtitle": "تصفّح جميع البرامج، حدّد ساعاتك، وتعلّم عبر الإنترنت مع مدرسين مؤهلين.",
+
+  "inviteParentDialogTitle": "دعوة ولي الأمر",
+  "inviteParentDialogSubtitle": "أنشئ حساب ولي أمر مرتبط بهذا الطالب. إذا كان البريد مستخدمًا بالفعل فسيتم ربطه فقط.",
+  "inviteParentEmailLabel": "بريد ولي الأمر الإلكتروني",
+  "inviteParentEmailRequired": "أدخل بريد ولي الأمر",
+  "inviteParentEmailInvalid": "أدخل بريدًا إلكترونيًا صالحًا",
+  "inviteParentFirstNameLabel": "الاسم الأول",
+  "inviteParentLastNameLabel": "اسم العائلة",
+  "inviteParentPhoneLabel": "الهاتف (اختياري)",
+  "inviteParentSendInvite": "إرسال الدعوة",
+  "inviteParentActionLabel": "دعوة ولي الأمر",
+  "inviteParentChipLinked": "تم ربط ولي الأمر",
+  "inviteParentChipInvited": "تم إرسال الدعوة",
+  "inviteParentChipMissing": "لا يوجد حساب لولي الأمر",
+  "inviteParentSuccessLinked": "تم ربط ولي الأمر الحالي بهذا الطالب.",
+  "inviteParentSuccessInvited": "تم إرسال بريد الدعوة إلى ولي الأمر.",
+  "inviteParentSuccessInvitedNoEmail": "تم إنشاء حساب ولي الأمر، لكن تعذّر إرسال بريد الدعوة.",
+
+  "enrollmentStateChooseProgram": "١. اختيار البرنامج",
+  "enrollmentStateClassPreferences": "٢. تفضيلات الفصل",
+  "enrollmentStatePricingAndHours": "٣. الأسعار والساعات",
+  "enrollmentStateStudentPrograms": "برامج الطلاب",
+  "enrollmentStateCustomizePerStudent": "تخصيص لكل طالب",
+  "enrollmentStateSpecificLanguage": "اللغة المحددة",
+  "enrollmentStateGradeLevel": "المستوى الدراسي",
+  "enrollmentStateProficiencyLevel": "مستوى الإتقان",
+  "enrollmentStatePreferredLanguage": "اللغة المفضلة",
+  "enrollmentStateWhichDaysWorkBest": "ما الأيام المناسبة لك؟",
+  "enrollmentStateWhatTimeOfDay": "ما وقت اليوم المناسب؟",
+  "enrollmentStateAdvancedSelectTimes": "متقدم: تحديد أوقات محددة",
+  "enrollmentStateAddCustomTime": "إضافة وقت مخصص",
+  "enrollmentStateOptional": "اختياري",
+  "enrollmentStateSchedulingNotesHint": "مثال: يفضل بعد الساعة 4 مساءً في أيام الأسبوع، تجنب الجمعة...",
+  "enrollmentStateClassType": "نوع الفصل",
+  "enrollmentStateOneOnOne": "فردي",
+  "enrollmentStateGroupClass": "مجموعة",
+  "enrollmentStateBoth": "كلاهما",
+  "enrollmentStateGender": "الجنس",
+  "enrollmentStateMale": "ذكر",
+  "enrollmentStateFemale": "أنثى",
+  "enrollmentStatePreferredTimeOfDay": "وقت اليوم المفضل",
+  "enrollmentStatePreferredDays": "الأيام المفضلة",
+
+  "prepareBroadcastTitle": "إعداد وبث",
+  "prepareBroadcastSubtitle": "راجع وعدّل الجدول قبل أن يراه المعلمون",
+  "prepareBroadcastParentStudentNotes": "ملاحظات الوالدين/الطالب",
+  "prepareBroadcastScheduleForTeachers": "الجدول للمعلمين",
+  "prepareBroadcastTimezoneReference": "مرجع المنطقة الزمنية",
+  "prepareBroadcastNotesForTeachers": "ملاحظات للمعلمين",
+  "prepareBroadcastTimeSlots": "الفترات الزمنية",
+  "prepareBroadcastNoTimeSlots": "لم يتم تحديد فترات زمنية. أضف واحدة على الأقل حتى يعرف المعلمون متى.",
+  "prepareBroadcastPickSlotHint": "حدد وقت البداية والنهاية لإضافة فترة",
+  "prepareBroadcastPickTime": "اختر الوقت",
+  "prepareBroadcastPickStartTime": "اختر وقت البداية",
+  "prepareBroadcastPickEndTime": "اختر وقت النهاية",
+  "prepareBroadcastRemoveSlot": "إزالة",
+  "prepareBroadcastGeneralPreference": "التفضيل العام:",
+  "prepareBroadcastTimesAreIn": "الأوقات أعلاه بتوقيت:",
+  "prepareBroadcastTimezoneHelper": "المنطقة الزمنية للطالب من النموذج. عدّلها إذا علمت أنها مختلفة.",
+  "prepareBroadcastAdminNotesHint": "ملاحظات اختيارية مرئية للمعلمين (مثال: \"يفضل الوالد بعد الظهر، المواعيد مرنة\")",
+  "prepareBroadcastBroadcasting": "جارٍ البث...",
+  "prepareBroadcastBroadcastToTeachers": "البث للمعلمين",
+  "prepareBroadcastSelectDayFirst": "حدد يوماً واحداً على الأقل قبل البث.",
+  "prepareBroadcastAddTimeSlotFirst": "أضف فترة زمنية واحدة على الأقل قبل البث.",
+  "prepareBroadcastSlotAlreadyExists": "هذه الفترة الزمنية موجودة مسبقاً.",
+  "prepareBroadcastEndBeforeStart": "يجب أن يكون وقت النهاية بعد وقت البداية.",
+  "prepareBroadcastOverlapError": "هذا يتداخل مع \"{slot}\". اختر وقتاً غير متداخل.",
+
+  "adminActionCardsViewAll": "عرض الكل",
+  "adminActionCardsPendingTimesheets": "جداول الحضور المعلقة",
+  "adminActionCardsTimesheetReview": "مراجعة جداول الحضور",
+  "adminActionCardsErrorPendingTimesheets": "خطأ في تحميل جداول الحضور",
+  "adminActionCardsNoPendingTimesheets": "لا توجد جداول حضور معلقة",
+  "adminActionCardsOverdueTasks": "المهام المتأخرة",
+  "adminActionCardsOpenTasks": "المهام المفتوحة",
+  "adminActionCardsErrorTasks": "خطأ في تحميل المهام",
+  "adminActionCardsNoOverdueTasks": "لا توجد مهام متأخرة",
+  "adminActionCardsRecentSubmissions": "التقديمات الأخيرة",
+  "adminActionCardsAllSubmissions": "جميع التقديمات",
+  "adminActionCardsErrorSubmissions": "خطأ في تحميل التقديمات",
+  "adminActionCardsNoSubmissions": "لا توجد تقديمات حتى الآن",
+  "adminActionCardsUpcomingShifts": "الحصص القادمة",
+  "adminActionCardsOpenShifts": "الحصص المتاحة",
+  "adminActionCardsErrorShifts": "خطأ في تحميل الحصص القادمة",
+  "adminActionCardsNoUpcomingShifts": "لا توجد حصص قادمة",
+  "adminActionCardsApplicantsToReview": "المتقدمون للمراجعة",
+  "adminActionCardsReviewApplications": "مراجعة الطلبات",
+  "adminActionCardsNoStudentApplicants": "لا يوجد طلاب متقدمون",
+  "adminActionCardsStudents": "الطلاب",
+  "adminActionCardsViewStudents": "عرض الطلاب",
+  "adminActionCardsNoTeacherApplicants": "لا يوجد معلمون متقدمون",
+  "adminActionCardsTeachers": "المعلمون",
+  "adminActionCardsViewTeachers": "عرض المعلمين",
+
+  "landingHeroHeadline": "تعلم من خلال التدريس الإلكتروني\nمن أي مكان في العالم",
+  "landingHeroSearchHint": "ماذا تريد أن تتعلم؟",
+
+  "aboutValuesAuthenticity": "الأصالة",
+  "aboutValuesAuthenticityDesc": "متجذر في القرآن والسنة",
+  "aboutValuesCompassion": "الرحمة",
+  "aboutValuesCompassionDesc": "الصبر والرعاية للجميع",
+  "aboutValuesExcellence": "التميز",
+  "aboutValuesExcellenceDesc": "معايير عالية في التعليم",
+  "aboutValuesCommunity": "المجتمع",
+  "aboutValuesCommunityDesc": "شبكة عالمية داعمة",
+  "aboutValuesKnowledge": "المعرفة",
+  "aboutValuesKnowledgeDesc": "تعلم تحويلي",
+  "aboutValuesAccessibility": "إمكانية الوصول",
+  "aboutValuesAccessibilityDesc": "متاح في جميع أنحاء العالم",
+
+  "adminAllSubmissionsTitle": "جميع التقديمات (المسؤول)",
+  "adminSubmissionsTotal": "الإجمالي",
+  "adminSubmissionsTeachers": "المعلمون",
+  "adminSubmissionsCompleted": "مكتمل",
+  "adminSubmissionsPending": "معلق",
+  "adminSubmissionsSearchPlaceholder": "ابحث بالمعلم أو النموذج...",
+  "adminSubmissionsTeachersAll": "المعلمون (الكل)",
+  "adminSubmissionsFilterTeachers": "المعلمون",
+  "adminSubmissionsFilterMonth": "الشهر",
+  "adminSubmissionsFilterStatus": "الحالة",
+  "adminSubmissionsAllTime": "كل الأوقات",
+  "adminSubmissionsAllStatus": "جميع الحالات",
+  "adminSubmissionsClearFilters": "مسح الكل",
+  "adminSubmissionsViewByForm": "عرض حسب النموذج",
+  "adminSubmissionsViewByTeacher": "عرض حسب المعلم",
+  "adminSubmissionsSelectTeachers": "اختر المعلمين",
+  "adminSubmissionsSelectMonth": "اختر الشهر",
+  "adminSubmissionsFilterByStatus": "تصفية حسب الحالة",
+  "adminSubmissionsSelectAll": "تحديد الكل",
+  "adminSubmissionsClearAll": "مسح الكل",
+  "adminSubmissionsFavoritesOnly": "المفضلة فقط",
+  "adminSubmissionsApply": "تطبيق",
+  "adminSubmissionsNoSubmissions": "لا توجد تقديمات",
+  "adminSubmissionsTryAdjustingFilters": "جرّب تعديل عوامل التصفية",
+  "adminSubmissionsAddToFavorites": "إضافة إلى المفضلة",
+  "adminSubmissionsPriorityForm": "نموذج الأولوية",
+  "adminSubmissionsGroupedByTeacher": "مجمّع حسب المعلم",
+  "adminSubmissionsCount": "{count} تقديم",
+  "adminPreferencesTitle": "تفضيلات المسؤول",
+  "adminPreferencesDefaultViewMode": "وضع العرض الافتراضي",
+  "adminPreferencesByTeacher": "حسب المعلم",
+  "adminPreferencesByForm": "حسب النموذج",
+  "adminPreferencesShowAllMonthsDefault": "عرض جميع الأشهر افتراضياً",
+  "adminPreferencesFavoriteTeachers": "المعلمون المفضلون",
+  "adminPreferencesSaved": "تم حفظ التفضيلات",
+  "adminPreferencesFavoriteCount": "تم تمييز {count} معلم كمفضل",
+  "adminPreferencesUseStarHint": "استخدم أيقونة النجمة على بطاقات المعلم لإضافتهم إلى المفضلة",
+  "adminPreferencesDefaultTeachersHint": "عند تعيين المعلمين المفضلين، يتم عرضهم بشكل افتراضي. امسح عامل تصفية المعلم في الشاشة لرؤية جميع التقديمات.",
+  "shiftFilterHint": "عرض الحصص لـ {name}. استخدم ← → أعلاه لعرض الأسابيع الأخرى، أو بدّل إلى القائمة لتصفح جميع الـ {count} حصة",
+  "shiftThisWeek": "هذا الأسبوع",
+  "shiftSelectDays": "اختر الأيام",
+  "shiftNoTemplatesFound": "لم يتم العثور على قوالب جداول",
+  "shiftTimeLabel": "الوقت",
+  "shiftTimePerDayLabel": "الوقت في اليوم",
+  "shiftScheduleUpdatedSuccess": "تم تحديث الجدول بنجاح",
+  "shiftScheduleUpdateFailed": "فشل تحديث الجدول",
+  "hideFilters": "إخفاء الفلاتر",
+  "showFilters": "إظهار الفلاتر",
+  "shiftTemplateFilterTeacher": "تصفية حسب المعلم",
+  "shiftTemplateCompleteSchedule": "الجدول الكامل",
+  "shiftTemplateSearchPlaceholder": "بحث عن معلم، طالب...",
+  "shiftTemplateViewTemplates": "القوالب",
+  "shiftTemplateViewSchedule": "الجدول الكامل",
+  "shiftTemplateAllTeachers": "جميع المعلمين",
+  "shiftTemplateSelectTeacher": "اختر المعلم",
+  "shiftTemplateStudentSchedule": "جدول الطالب"
 }

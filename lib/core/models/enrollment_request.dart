@@ -1,4 +1,29 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../constants/pricing_plan_ids.dart';
+
+/// Split a full name into (firstName, lastName). Everything before the first
+/// space is treated as the first name; everything after is the last name.
+/// Empty input yields two empty strings. Single-word names have empty lastName.
+/// Used at submission time so the admin-side account creator has explicit
+/// fields to read and does not have to re-split on its own.
+({String firstName, String lastName}) splitFullName(String? raw) {
+  final fullName = (raw ?? '').trim();
+  if (fullName.isEmpty) {
+    return (firstName: '', lastName: '');
+  }
+  final parts = fullName.split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
+  if (parts.isEmpty) return (firstName: '', lastName: '');
+  if (parts.length == 1) return (firstName: parts.first, lastName: '');
+  return (firstName: parts.first, lastName: parts.sublist(1).join(' '));
+}
+
+/// Derive whether a student is an adult from their age string.
+/// Returns true for age >= 18. Non-numeric / empty strings return false.
+bool studentIsAdultFromAge(String? age) {
+  final parsed = int.tryParse((age ?? '').trim());
+  if (parsed == null) return false;
+  return parsed >= 18;
+}
 
 class StudentInfo {
   final String name;
@@ -11,9 +36,12 @@ class StudentInfo {
   final String? level;
   final String? classType;
   final String? sessionDuration;
+  final int? hoursPerWeek;
   final String? timeOfDayPreference;
   final List<String>? preferredDays;
   final List<String>? preferredTimeSlots;
+  /// V2 pricing track for this student ([PricingPlanIds]). Used for multi-student when programs differ.
+  final String? trackId;
 
   StudentInfo({
     required this.name,
@@ -24,9 +52,11 @@ class StudentInfo {
     this.level,
     this.classType,
     this.sessionDuration,
+    this.hoursPerWeek,
     this.timeOfDayPreference,
     this.preferredDays,
     this.preferredTimeSlots,
+    this.trackId,
   });
 
   Map<String, dynamic> toMap() {
@@ -39,9 +69,11 @@ class StudentInfo {
       if (level != null) 'level': level,
       if (classType != null) 'classType': classType,
       if (sessionDuration != null) 'sessionDuration': sessionDuration,
+      if (hoursPerWeek != null) 'hoursPerWeek': hoursPerWeek,
       if (timeOfDayPreference != null) 'timeOfDayPreference': timeOfDayPreference,
       if (preferredDays != null && preferredDays!.isNotEmpty) 'preferredDays': preferredDays,
       if (preferredTimeSlots != null && preferredTimeSlots!.isNotEmpty) 'preferredTimeSlots': preferredTimeSlots,
+      if (trackId != null) 'trackId': trackId,
     };
   }
 
@@ -55,6 +87,7 @@ class StudentInfo {
       level: map['level'],
       classType: map['classType'],
       sessionDuration: map['sessionDuration'],
+      hoursPerWeek: map['hoursPerWeek'] as int?,
       timeOfDayPreference: map['timeOfDayPreference'],
       preferredDays: map['preferredDays'] != null 
           ? List<String>.from(map['preferredDays']) 
@@ -62,6 +95,7 @@ class StudentInfo {
       preferredTimeSlots: map['preferredTimeSlots'] != null 
           ? List<String>.from(map['preferredTimeSlots']) 
           : null,
+      trackId: map['trackId'] as String?,
     );
   }
 }
@@ -103,6 +137,44 @@ class EnrollmentRequest {
   // Multi-student support (new)
   final List<StudentInfo>? students;
 
+  /// User-friendly program name (e.g. "Islamic Studies") from the catalog category.
+  /// Falls back to [subject] for display when null (legacy enrollments).
+  final String? programTitle;
+
+  /// Selected pricing tier from landing (stable id + display label at submit locale).
+  final String? pricingPlanId;
+  final String? pricingPlanLabel;
+  final String? trackId;
+  final int? hoursPerWeek;
+  final String? schedulingNotes;
+
+  /// Days for admin UI: top-level [preferredDays], else first non-empty student list.
+  List<String> get resolvedPreferredDays {
+    if (preferredDays.isNotEmpty) return preferredDays;
+    final list = students;
+    if (list == null) return const [];
+    for (final s in list) {
+      final d = s.preferredDays;
+      if (d != null && d.isNotEmpty) return d;
+    }
+    return const [];
+  }
+
+  /// Time slots for admin UI: top-level [preferredTimeSlots], else first non-empty student list.
+  List<String> get resolvedPreferredTimeSlots {
+    if (preferredTimeSlots.isNotEmpty) return preferredTimeSlots;
+    final list = students;
+    if (list == null) return const [];
+    for (final s in list) {
+      final t = s.preferredTimeSlots;
+      if (t != null && t.isNotEmpty) return t;
+    }
+    return const [];
+  }
+
+  /// Timezone string for chips (empty if unknown).
+  String get resolvedTimeZoneDisplay => timeZone.trim();
+
   EnrollmentRequest({
     this.id,
     required this.subject,
@@ -136,6 +208,12 @@ class EnrollmentRequest {
     this.guardianId,
     this.isAdult = false,
     this.students,
+    this.programTitle,
+    this.pricingPlanId,
+    this.pricingPlanLabel,
+    this.trackId,
+    this.hoursPerWeek,
+    this.schedulingNotes,
   });
 
   factory EnrollmentRequest.fromFirestore(DocumentSnapshot doc) {
@@ -148,6 +226,14 @@ class EnrollmentRequest {
     final metadata = data['metadata'] as Map<String, dynamic>? ?? {};
     final student = data['student'] as Map<String, dynamic>? ?? {};
     final program = data['program'] as Map<String, dynamic>? ?? {};
+    final pricing = data['pricing'] as Map<String, dynamic>? ??
+        metadata['pricing'] as Map<String, dynamic>? ??
+        {};
+    final legacyPlanId = metadata['pricingPlanId'] as String?;
+    final resolvedTrackId =
+        (pricing['trackId'] as String?) ?? metadata['trackId'] as String? ?? legacyToTrack(legacyPlanId);
+    final resolvedHoursPerWeek =
+        pricing['hoursPerWeek'] as int? ?? program['hoursPerWeek'] as int?;
     
     return EnrollmentRequest(
       id: doc.id,
@@ -178,9 +264,15 @@ class EnrollmentRequest {
       knowsZoom: student['knowsZoom'] ?? data['knowsZoom'],
       classType: program['classType'] ?? data['classType'],
       sessionDuration: program['sessionDuration'] ?? data['sessionDuration'],
+      hoursPerWeek: resolvedHoursPerWeek,
       timeOfDayPreference: preferences['timeOfDayPreference'] ?? data['timeOfDayPreference'],
+      schedulingNotes: preferences['schedulingNotes'] as String?,
       guardianId: contact['guardianId'] ?? data['guardianId'],
       isAdult: metadata['isAdult'] ?? false,
+      programTitle: data['programTitle'] as String?,
+      pricingPlanId: legacyPlanId,
+      pricingPlanLabel: metadata['pricingPlanLabel'] as String?,
+      trackId: resolvedTrackId,
       // Handle multi-student format
       students: data['students'] != null
           ? (data['students'] as List).map((e) => StudentInfo.fromMap(e as Map<String, dynamic>)).toList()
@@ -191,6 +283,7 @@ class EnrollmentRequest {
   Map<String, dynamic> toMap() {
     return {
       'subject': subject,
+      if (programTitle != null) 'programTitle': programTitle,
       'specificLanguage': specificLanguage,
       'gradeLevel': gradeLevel,
       'contact': {
@@ -208,25 +301,41 @@ class EnrollmentRequest {
         'timeZone': timeZone,
         if (preferredLanguage != null) 'preferredLanguage': preferredLanguage,
         if (timeOfDayPreference != null) 'timeOfDayPreference': timeOfDayPreference,
+        if (schedulingNotes != null && schedulingNotes!.trim().isNotEmpty)
+          'schedulingNotes': schedulingNotes!.trim(),
       },
-      'student': {
-        if (studentName != null) 'name': studentName,
-        if (studentAge != null) 'age': studentAge,
-        if (gender != null) 'gender': gender,
-        if (knowsZoom != null) 'knowsZoom': knowsZoom,
-      },
+      'student': () {
+        final split = splitFullName(studentName);
+        return {
+          if (studentName != null) 'name': studentName,
+          if (split.firstName.isNotEmpty) 'firstName': split.firstName,
+          if (split.lastName.isNotEmpty) 'lastName': split.lastName,
+          if (studentAge != null) 'age': studentAge,
+          if (gender != null) 'gender': gender,
+          if (knowsZoom != null) 'knowsZoom': knowsZoom,
+        };
+      }(),
       // Multi-student support
       if (students != null && students!.isNotEmpty) 'students': students!.map((s) => s.toMap()).toList(),
       'program': {
         if (role != null) 'role': role,
         if (classType != null) 'classType': classType,
         if (sessionDuration != null) 'sessionDuration': sessionDuration,
+        if (hoursPerWeek != null) 'hoursPerWeek': hoursPerWeek,
       },
+      if (trackId != null || hoursPerWeek != null)
+        'pricing': {
+          if (trackId != null) 'trackId': trackId,
+          if (hoursPerWeek != null) 'hoursPerWeek': hoursPerWeek,
+        },
       'metadata': {
         'submittedAt': Timestamp.fromDate(submittedAt),
         'status': status,
         'source': 'web_landing_page',
         'isAdult': isAdult,
+        if (pricingPlanId != null) 'pricingPlanId': pricingPlanId,
+        if (pricingPlanLabel != null) 'pricingPlanLabel': pricingPlanLabel,
+        if (trackId != null) 'trackId': trackId,
         if (reviewedBy != null) 'reviewedBy': reviewedBy,
         if (reviewedAt != null) 'reviewedAt': Timestamp.fromDate(reviewedAt!),
         if (reviewNotes != null) 'reviewNotes': reviewNotes,
@@ -269,6 +378,12 @@ class EnrollmentRequest {
     String? guardianId,
     bool? isAdult,
     List<StudentInfo>? students,
+    String? programTitle,
+    String? pricingPlanId,
+    String? pricingPlanLabel,
+    String? trackId,
+    int? hoursPerWeek,
+    String? schedulingNotes,
   }) {
     return EnrollmentRequest(
       id: id ?? this.id,
@@ -302,6 +417,12 @@ class EnrollmentRequest {
       guardianId: guardianId ?? this.guardianId,
       isAdult: isAdult ?? this.isAdult,
       students: students ?? this.students,
+      programTitle: programTitle ?? this.programTitle,
+      pricingPlanId: pricingPlanId ?? this.pricingPlanId,
+      pricingPlanLabel: pricingPlanLabel ?? this.pricingPlanLabel,
+      trackId: trackId ?? this.trackId,
+      hoursPerWeek: hoursPerWeek ?? this.hoursPerWeek,
+      schedulingNotes: schedulingNotes ?? this.schedulingNotes,
     );
   }
 }

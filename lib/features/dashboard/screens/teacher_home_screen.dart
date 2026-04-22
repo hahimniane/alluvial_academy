@@ -19,38 +19,37 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../shift_management/widgets/shift_details_dialog.dart';
 import '../../shift_management/screens/teacher_shift_screen.dart';
+import '../../shift_management/screens/available_shifts_screen.dart';
 import '../../settings/screens/mobile_settings_screen.dart';
 import '../../tasks/screens/quick_tasks_screen.dart';
 import '../../tasks/models/task.dart';
 import '../../tasks/services/task_service.dart';
-import 'package:alluwalacademyadmin/features/forms/screens/form_screen.dart';
+import '../../../form_screen.dart';
 import '../../forms/screens/my_submissions_screen.dart';
 import '../../forms/screens/teacher_forms_screen.dart';
 import '../../assignments/screens/teacher_assignments_screen.dart';
 import '../../recordings/screens/class_recordings_screen.dart';
 import '../../surah_podcast/screens/surah_podcast_screen.dart';
 import '../screens/admin_dashboard_screen.dart';
-import '../../audit/models/teacher_audit_full.dart';
-import '../../audit/screens/teacher_audit_detail_screen.dart';
-import 'package:alluwalacademyadmin/features/shift_management/models/teaching_shift.dart';
-import 'package:alluwalacademyadmin/features/shift_management/enums/shift_enums.dart';
-import 'package:alluwalacademyadmin/features/tasks/enums/task_enums.dart';
-import 'package:alluwalacademyadmin/features/shift_management/services/shift_service.dart';
-import 'package:alluwalacademyadmin/features/time_clock/services/shift_timesheet_service.dart';
-import 'package:alluwalacademyadmin/features/shift_management/services/shift_form_service.dart';
-import '../../../features/shift_management/services/shift_repository.dart';
-import 'package:alluwalacademyadmin/features/tasks/services/task_repository.dart';
+import '../../../core/models/teaching_shift.dart';
+import '../../../core/enums/shift_enums.dart';
+import '../../../core/enums/task_enums.dart';
+import '../../../core/services/shift_service.dart';
+import '../../../core/services/shift_timesheet_service.dart';
+import '../../../core/services/shift_form_service.dart';
+import '../../../core/services/shift_repository.dart';
+import '../../../core/services/task_repository.dart';
 import '../../../core/services/user_role_service.dart';
-import 'package:alluwalacademyadmin/features/profile/services/profile_picture_service.dart';
-import 'package:alluwalacademyadmin/features/shift_management/services/location_service.dart';
-import 'package:alluwalacademyadmin/features/forms/services/form_template_service.dart';
-import 'package:alluwalacademyadmin/features/forms/models/form_template.dart';
+import '../../../core/services/profile_picture_service.dart';
+import '../../../core/services/location_service.dart';
+import '../../../core/services/form_template_service.dart';
+import '../../../core/models/form_template.dart';
 import '../../forms/widgets/form_details_modal.dart';
 import '../widgets/pending_form_button.dart';
 import '../widgets/date_strip_calendar.dart';
 import '../widgets/timeline_shift_card.dart';
-import '../services/teacher_dashboard_metrics_service.dart';
-import '../../audit/services/teacher_audit_service.dart';
+import '../../../core/services/teacher_audit_service.dart';
+import '../../../core/services/teacher_metrics_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class TeacherHomeScreen extends StatefulWidget {
@@ -71,13 +70,19 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
   List<TeachingShift> _allShifts = []; // All shifts from stream
   List<TeachingShift> _dailyShifts = []; // Filtered for selected day
   DateTime _selectedDate = DateTime.now(); // Selected date for schedule
-  TeachingShift? _activeShift;
+  TeachingShift? _clockedInShift; // Truly clocked in
+  TeachingShift? _imminentShift; // In clock-in window but not yet clocked in
   List<Task> _recentTasks = [];
 
   // Stats
   double _hoursThisWeek = 0;
   int _classesThisWeek = 0;
   int _totalStudents = 0;
+  /// Month-to-date (same calendar month as [DateTime.now]).
+  int _absencesMonth = 0;
+  int _assignmentsMonthCount = 0;
+  int _lateClockInsMonth = 0;
+  Timer? _statsReloadDebounce;
 
   // Earnings and Approval Stats
   double _earningsThisWeek = 0;
@@ -91,18 +96,22 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
   int _pendingFormsCount = 0;
   List<Map<String, dynamic>> _pendingFormShifts =
       []; // List of shifts needing forms
-  TeacherDashboardMonthSnapshot? _monthlySnapshot;
-  bool _auditDecisionBusy = false;
 
   // Real-time stream subscriptions
   StreamSubscription? _shiftsSubscription;
   StreamSubscription? _timesheetSubscription;
+  StreamSubscription? _assignmentsSubscription;
+  /// Live reload for assessment-tab stats; only [userId]+[yearMonth] — a second
+  /// stream on [submittedBy] can hit permission-denied when any matching doc has
+  /// a different [userId] (rules pick userId first in submissionOwnerFromData).
+  StreamSubscription? _assignmentTabFormResponsesUserSub;
 
   // Programmed clock-in state (for early clock-in countdown)
   String? _programmedShiftId;
   Timer? _programTimer;
   String _timeUntilAutoStart = "";
   Timer? _uiRefreshTimer;
+  int _refreshNonce = 0; // New nonce to trigger child widget refreshes
 
   @override
   void initState() {
@@ -124,9 +133,19 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
   void dispose() {
     _shiftsSubscription?.cancel();
     _timesheetSubscription?.cancel();
+    _assignmentsSubscription?.cancel();
+    _assignmentTabFormResponsesUserSub?.cancel();
     _programTimer?.cancel();
     _uiRefreshTimer?.cancel();
+    _statsReloadDebounce?.cancel();
     super.dispose();
+  }
+
+  void _scheduleStatsReload(String teacherId) {
+    _statsReloadDebounce?.cancel();
+    _statsReloadDebounce = Timer(const Duration(milliseconds: 500), () {
+      if (mounted) _loadStats(teacherId);
+    });
   }
 
   /// Setup real-time listeners for automatic refresh
@@ -141,12 +160,28 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
         setState(() {
           _allShifts = shifts;
           _filterShiftsForDate(_selectedDate);
-          // Update active shift
+          // Update active and imminent shifts
           try {
-            _activeShift = shifts.firstWhere((s) => s.isClockedIn);
+            _clockedInShift = shifts.firstWhere((s) => s.isClockedIn);
           } catch (e) {
-            _activeShift = null;
+            _clockedInShift = null;
           }
+
+          // If not clocked in, check if any shift is in the clock-in window
+          if (_clockedInShift == null) {
+            try {
+              _imminentShift = shifts.firstWhere((s) =>
+                  ShiftService.canClockInNow(s) &&
+                  s.status != ShiftStatus.completed &&
+                  s.status != ShiftStatus.fullyCompleted &&
+                  s.status != ShiftStatus.partiallyCompleted);
+            } catch (e) {
+              _imminentShift = null;
+            }
+          } else {
+            _imminentShift = null;
+          }
+
           // Update upcoming shifts - get ALL future shifts, sorted, then take first for "next session"
           final now = DateTime.now();
           final futureShifts = shifts.where((s) {
@@ -157,8 +192,8 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
           _upcomingShifts =
               futureShifts; // Keep all for potential future use, but display only first
         });
-        unawaited(_loadMonthlySnapshot(shifts: shifts));
         debugPrint('🔄 Home: Shifts updated via stream');
+        _scheduleStatsReload(user.uid);
       },
       onError: (e) {
         debugPrint('❌ Home: Shift stream error: $e');
@@ -178,9 +213,34 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
       // Reload stats when timesheets change
       debugPrint('🔄 Home: Timesheets updated - reloading stats');
       _loadStats(user.uid);
-      unawaited(_loadMonthlySnapshot());
     }, onError: (e) {
       debugPrint('❌ Home: Timesheet stream error: $e');
+    });
+
+    _assignmentsSubscription = FirebaseFirestore.instance
+        .collection('assignments')
+        .where('teacher_id', isEqualTo: user.uid)
+        .snapshots()
+        .listen((_) {
+      if (!mounted) return;
+      _scheduleStatsReload(user.uid);
+    }, onError: (e) {
+      debugPrint('❌ Home: Assignments stream error: $e');
+    });
+
+    // Audit Assignments tab uses form_responses (non-teaching, classified as assignment).
+    final ym =
+        '${DateTime.now().year}-${DateTime.now().month.toString().padLeft(2, '0')}';
+    _assignmentTabFormResponsesUserSub = FirebaseFirestore.instance
+        .collection('form_responses')
+        .where('userId', isEqualTo: user.uid)
+        .where('yearMonth', isEqualTo: ym)
+        .snapshots()
+        .listen((_) {
+      if (!mounted) return;
+      _scheduleStatsReload(user.uid);
+    }, onError: (e) {
+      debugPrint('❌ Home: form_responses (userId+yearMonth) stream error: $e');
     });
   }
 
@@ -295,21 +355,29 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
         // Load pending forms count
         await _loadPendingFormsCount(user.uid);
 
-        final monthlySnapshot =
-            await TeacherDashboardMetricsService.loadCurrentSnapshot(
-          shifts: allShifts,
-        );
-
         if (mounted) {
           setState(() {
-            _activeShift = active;
+            _clockedInShift = active;
+            // If not clocked in, check if any shift is in the clock-in window
+            if (_clockedInShift == null) {
+              try {
+                _imminentShift = allShifts.firstWhere((s) =>
+                    ShiftService.canClockInNow(s) &&
+                    s.status != ShiftStatus.completed &&
+                    s.status != ShiftStatus.fullyCompleted);
+              } catch (e) {
+                _imminentShift = null;
+              }
+            } else {
+              _imminentShift = null;
+            }
+
             // Store ALL shifts (including past) for calendar, but filter in display
             _allShifts = allShifts;
             // Sort and store upcoming shifts (for "next session" display)
             futureShifts.sort((a, b) => a.shiftStart.compareTo(b.shiftStart));
             _upcomingShifts = futureShifts; // All upcoming, sorted by time
             _filterShiftsForDate(_selectedDate); // This filters out past shifts
-            _monthlySnapshot = monthlySnapshot;
             _isLoading = false;
           });
           debugPrint(
@@ -381,355 +449,74 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
       final startOfToday = DateTime(now.year, now.month, now.day, 0, 0, 0);
       final endOfToday = DateTime(now.year, now.month, now.day, 23, 59, 59);
 
-      debugPrint('📊 Loading stats for teacher: $teacherId');
-      debugPrint(
-          '📅 Week range: ${startOfWeekDate.toIso8601String()} to ${endOfWeekDate.toIso8601String()}');
+      debugPrint('📊 Loading stats for teacher: $teacherId via TeacherMetricsService');
 
-      // Fetch this teacher's timesheet entries
-      final timesheetQuery = await FirebaseFirestore.instance
-          .collection('timesheet_entries')
-          .where('teacher_id', isEqualTo: teacherId)
-          .get();
+      // Aggregate metrics for different periods using the canonical service
+      final weekMetrics = await TeacherMetricsService.aggregate(
+        teacherId: teacherId,
+        start: startOfWeekDate,
+        end: endOfWeekDate,
+      );
 
-      double totalHours = 0;
-      int classCount = 0;
-      Set<String> uniqueStudents = {};
+      final monthMetrics = await TeacherMetricsService.aggregate(
+        teacherId: teacherId,
+        start: startOfMonth,
+        end: endOfMonth,
+      );
 
-      // Earnings tracking
-      double weeklyEarnings = 0;
-      double monthlyEarnings = 0;
-      double dailyEarnings = 0;
-      int pendingCount = 0;
-      int approvedThisWeekCount = 0;
+      final todayMetrics = await TeacherMetricsService.aggregate(
+        teacherId: teacherId,
+        start: startOfToday,
+        end: endOfToday,
+      );
 
-      for (var doc in timesheetQuery.docs) {
-        final data = doc.data();
-        // Support both naming conventions
-        final clockIn =
-            (data['clock_in_time'] ?? data['clock_in_timestamp']) as Timestamp?;
-        final clockOut = (data['clock_out_time'] ?? data['clock_out_timestamp'])
-            as Timestamp?;
-        final status = data['status'] as String? ?? 'pending';
-        final hourlyRate =
-            (data['hourly_rate'] as num?)?.toDouble() ?? _defaultHourlyRate;
-
-        if (clockIn == null) continue;
-
-        final clockInDate = clockIn.toDate();
-
-        // Check if this is an edited timesheet
-        final isEdited = data['is_edited'] as bool? ?? false;
-        final editApproved = data['edit_approved'] as bool? ?? false;
-
-        // Calculate hours worked (using seconds for precision)
-        double hoursWorked = 0;
-        if (clockOut != null) {
-          final duration = clockOut.toDate().difference(clockInDate);
-          hoursWorked = duration.inSeconds /
-              3600.0; // Use seconds for accurate sub-minute tracking
-        }
-
-        // IMPORTANT: Verify shift still exists before counting stats
-        final shiftId =
-            data['shift_id'] as String? ?? data['shiftId'] as String?;
-        bool shiftExists = false;
-
-        if (shiftId != null && shiftId.isNotEmpty) {
-          try {
-            final shiftDoc = await FirebaseFirestore.instance
-                .collection('teaching_shifts')
-                .doc(shiftId)
-                .get();
-            shiftExists = shiftDoc.exists;
-          } catch (e) {
-            debugPrint('Error checking shift existence: $e');
-            shiftExists = false;
-          }
-        }
-
-        // Skip this timesheet if shift doesn't exist (orphaned entry)
-        if (!shiftExists) {
-          debugPrint(
-              '⚠️ Skipping orphaned timesheet entry ${doc.id} - shift $shiftId does not exist');
-          continue;
-        }
-
-        // Check timesheet status
-        if (status == 'pending') {
-          pendingCount++;
-        }
-
-        // Check if this week for weekly stats
-        final isThisWeek = clockInDate.isAfter(
-                startOfWeekDate.subtract(const Duration(seconds: 1))) &&
-            clockInDate.isBefore(endOfWeekDate);
-
-        // Check if this month
-        final isThisMonth = clockInDate
-                .isAfter(startOfMonth.subtract(const Duration(seconds: 1))) &&
-            clockInDate.isBefore(endOfMonth);
-
-        // Check if today
-        final isToday = clockInDate
-                .isAfter(startOfToday.subtract(const Duration(seconds: 1))) &&
-            clockInDate.isBefore(endOfToday);
-
-        // Calculate earnings - PREFER payment_amount from timesheet (saved during clock-out)
-        // This ensures consistency with what was actually paid
-        double shiftEarnings = (data['payment_amount'] as num?)?.toDouble() ??
-            (data['total_pay'] as num?)?.toDouble() ??
-            (hoursWorked * hourlyRate); // Fallback to calculation
-
-        // If edited and approved, verify against total_hours if available or recalculate
-        if (isEdited && editApproved) {
-          // The hoursWorked calculated above uses the clock_in/out from the document
-          // Since the document is updated upon edit, hoursWorked should already be correct
-          // However, if there's a total_hours string override or specific earnings override, check here
-          shiftEarnings = (data['payment_amount'] as num?)?.toDouble() ??
-              (data['total_pay'] as num?)?.toDouble() ??
-              (hoursWorked * hourlyRate);
-        }
-
-        if (isThisWeek && clockOut != null) {
-          totalHours += hoursWorked;
-          classCount++;
-
-          // Calculate earnings for approved timesheets
-          if (status == 'approved' || status == 'paid') {
-            weeklyEarnings += shiftEarnings;
-            approvedThisWeekCount++;
-          }
-        }
-
-        if (isThisMonth &&
-            clockOut != null &&
-            (status == 'approved' || status == 'paid')) {
-          monthlyEarnings += shiftEarnings;
-        }
-
-        if (isToday &&
-            clockOut != null &&
-            (status == 'approved' || status == 'paid')) {
-          dailyEarnings += shiftEarnings;
-        }
-
-        // Get unique students from shift
-        if (shiftId != null && isThisWeek && shiftExists) {
-          try {
-            final shiftDoc = await FirebaseFirestore.instance
-                .collection('teaching_shifts')
-                .doc(shiftId)
-                .get();
-
-            if (shiftDoc.exists) {
-              final shiftData = shiftDoc.data();
-              if (shiftData != null) {
-                // Get student IDs or names
-                if (shiftData['student_ids'] is List) {
-                  uniqueStudents.addAll(
-                      (shiftData['student_ids'] as List).cast<String>());
-                } else if (shiftData['student_names'] is List) {
-                  uniqueStudents.addAll(
-                      (shiftData['student_names'] as List).cast<String>());
-                }
-              }
+      int assignmentsMtd = 0;
+      try {
+        final yearMonth =
+            '${now.year}-${now.month.toString().padLeft(2, '0')}';
+        // Audit Assignments tab numeric row: assignments + quizzes + student assessments.
+        final auditTabNumericTotal =
+            await TeacherAuditService.countAuditAssignmentTabAssignmentsForYearMonth(
+          teacherId: teacherId,
+          yearMonth: yearMonth,
+        );
+        if (auditTabNumericTotal > 0) {
+          assignmentsMtd = auditTabNumericTotal;
+        } else {
+          final asgSnap = await FirebaseFirestore.instance
+              .collection('assignments')
+              .where('teacher_id', isEqualTo: teacherId)
+              .get();
+          for (final doc in asgSnap.docs) {
+            final created = doc.data()['created_at'];
+            if (created is Timestamp &&
+                !created.toDate().isBefore(startOfMonth)) {
+              assignmentsMtd++;
             }
-          } catch (e) {
-            debugPrint('Error fetching shift for stats: $e');
           }
         }
+      } catch (e) {
+        debugPrint('Error counting assignments MTD: $e');
       }
-
-      debugPrint(
-          '📊 Stats calculated: Hours: $totalHours, Classes: $classCount, Students: ${uniqueStudents.length}');
-      debugPrint(
-          '💰 Earnings: Weekly: \$${weeklyEarnings.toStringAsFixed(2)}, Monthly: \$${monthlyEarnings.toStringAsFixed(2)}');
-      debugPrint(
-          '📋 Approvals: Pending: $pendingCount, Approved this week: $approvedThisWeekCount');
 
       if (mounted) {
         setState(() {
-          _hoursThisWeek = totalHours;
-          _classesThisWeek = classCount;
-          _earningsThisWeek = weeklyEarnings;
-          _earningsThisMonth = monthlyEarnings;
-          _earningsToday = dailyEarnings;
-          _pendingApprovals = pendingCount;
-          _approvedThisWeek = approvedThisWeekCount;
-          _totalStudents = uniqueStudents.length;
+          _hoursThisWeek = weekMetrics.hoursWorked;
+          _classesThisWeek = weekMetrics.completedClasses;
+          _earningsThisWeek = weekMetrics.payProjected;
+          _earningsThisMonth = monthMetrics.payProjected;
+          _earningsToday = todayMetrics.payProjected;
+          _pendingApprovals = monthMetrics.payPending > 0 ? 1 : 0; // Simplified for UI
+          _approvedThisWeek = weekMetrics.completedClasses; // Simplified
+          _totalStudents = 0; // Will be updated by separate call if needed
+          _absencesMonth = monthMetrics.missedClasses;
+          _lateClockInsMonth = monthMetrics.lateClockIns;
+          _assignmentsMonthCount = assignmentsMtd;
         });
       }
     } catch (e) {
       debugPrint('Error loading stats: $e');
     }
-  }
-
-  Future<void> _loadMonthlySnapshot({List<TeachingShift>? shifts}) async {
-    try {
-      final snapshot = await TeacherDashboardMetricsService.loadCurrentSnapshot(
-        shifts: shifts ?? _allShifts,
-      );
-      if (!mounted) return;
-      setState(() {
-        _monthlySnapshot = snapshot;
-      });
-    } catch (e) {
-      debugPrint('Error loading monthly dashboard snapshot: $e');
-    }
-  }
-
-  Future<void> _openAuditReport(TeacherAuditFull audit) async {
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) =>
-            TeacherAuditDetailScreen(yearMonth: audit.yearMonth),
-      ),
-    );
-    await _loadMonthlySnapshot();
-  }
-
-  Future<void> _approveAudit(TeacherAuditFull audit) async {
-    if (_auditDecisionBusy) return;
-    setState(() => _auditDecisionBusy = true);
-    final ok = await TeacherAuditService.submitTeacherReview(
-      auditId: audit.id,
-      approved: true,
-      notes: 'Approved from teacher dashboard',
-    );
-    if (mounted) {
-      setState(() => _auditDecisionBusy = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            ok
-                ? 'Audit approved. Leaders have been notified.'
-                : 'Could not approve the audit right now.',
-          ),
-          backgroundColor:
-              ok ? const Color(0xFF10B981) : const Color(0xFFEF4444),
-        ),
-      );
-    }
-    if (ok) {
-      await _loadMonthlySnapshot();
-    }
-  }
-
-  Future<void> _showAuditDisputeDialog(TeacherAuditFull audit) async {
-    final reasonController = TextEditingController();
-    final suggestedController = TextEditingController();
-    bool isSubmitting = false;
-
-    await showDialog<void>(
-      context: context,
-      builder: (dialogContext) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-              ),
-              title: Text(
-                'Disapprove Audit',
-                style: GoogleFonts.inter(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 18,
-                ),
-              ),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: reasonController,
-                    maxLines: 4,
-                    decoration: const InputDecoration(
-                      labelText: 'Why are you disputing this result?',
-                      hintText: 'Share what looks incorrect in the evaluation.',
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: suggestedController,
-                    decoration: const InputDecoration(
-                      labelText: 'Correct value (optional)',
-                      hintText:
-                          'Example: 18 hours, 2 absences, 1 late clock-in',
-                    ),
-                  ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: isSubmitting
-                      ? null
-                      : () => Navigator.of(dialogContext).pop(),
-                  child: Text(AppLocalizations.of(context)!.commonCancel),
-                ),
-                FilledButton(
-                  onPressed: isSubmitting
-                      ? null
-                      : () async {
-                          final reason = reasonController.text.trim();
-                          final suggestedValue =
-                              suggestedController.text.trim();
-                          if (reason.isEmpty) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Please enter a reason first.'),
-                                backgroundColor: Color(0xFFEF4444),
-                              ),
-                            );
-                            return;
-                          }
-
-                          setDialogState(() => isSubmitting = true);
-                          final ok =
-                              await TeacherAuditService.submitTeacherReview(
-                            auditId: audit.id,
-                            approved: false,
-                            notes: reason,
-                            suggestedValue:
-                                suggestedValue.isEmpty ? null : suggestedValue,
-                          );
-                          if (!context.mounted) return;
-                          Navigator.of(dialogContext).pop();
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                ok
-                                    ? 'Audit dispute submitted. Leaders have been notified.'
-                                    : 'Could not submit the audit dispute right now.',
-                              ),
-                              backgroundColor: ok
-                                  ? const Color(0xFF10B981)
-                                  : const Color(0xFFEF4444),
-                            ),
-                          );
-                          if (ok) {
-                            await _loadMonthlySnapshot();
-                          }
-                        },
-                  child: isSubmitting
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : Text(AppLocalizations.of(context)!.reject),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-
-    reasonController.dispose();
-    suggestedController.dispose();
   }
 
   Future<void> _launchURL(String url) async {
@@ -811,15 +598,13 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
             const SizedBox(height: 8),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: _buildMtdStatsRow(context),
+            ),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
               child: _buildCompactEarningsCard(),
             ),
-            if (_monthlySnapshot != null) ...[
-              const SizedBox(height: 16),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: _buildMonthlyPerformanceSection(),
-              ),
-            ],
             const SizedBox(height: 16),
             if (_pendingFormsCount > 0) ...[
               Padding(
@@ -828,7 +613,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
               ),
               const SizedBox(height: 16),
             ],
-            if (_activeShift != null) ...[
+            if (_clockedInShift != null) ...[
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: _buildActiveSessionCard(),
@@ -839,6 +624,33 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: _buildUpcomingSection(context),
+            ),
+            const SizedBox(height: 16),
+            // Floating Schedule Button
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const TeacherShiftScreen(),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.calendar_month),
+                label: const Text("View Full Schedule"),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: const Color(0xFF0E72ED),
+                  minimumSize: const Size(double.infinity, 50),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: const BorderSide(color: Color(0xFF0E72ED), width: 1),
+                  ),
+                  elevation: 0,
+                ),
+              ),
             ),
             const SizedBox(height: 24),
             if (_recentTasks.isNotEmpty) ...[
@@ -935,7 +747,8 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               IconButton(
-                icon: const Icon(Icons.podcasts, color: Colors.white, size: 24),
+                icon: const Icon(Icons.podcasts,
+                    color: Colors.white, size: 24),
                 onPressed: () {
                   Navigator.push(
                     context,
@@ -1053,15 +866,47 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
         _buildStatCard(
           icon: Icons.school,
           value: '$_classesThisWeek',
-          label: l10n?.dashboardClasses ?? 'Classes',
+          label: l10n?.teacherHomeStatsCompletedWeek ?? 'Completed',
           color: const Color(0xFF8B5CF6),
         ),
         const SizedBox(width: 12),
         _buildStatCard(
           icon: Icons.attach_money,
           value: '\$${_earningsThisWeek.toStringAsFixed(2)}',
-          label: l10n?.dashboardApproved ?? 'Approved',
+          label: l10n?.teacherHomeStatsWeekEarnings ?? 'Earnings',
           color: const Color(0xFF10B981),
+        ),
+      ],
+    );
+  }
+
+  /// Month-to-date: absences (missed shifts), assessments tab total (audit
+  /// Assignments+Quizzes+Student assessments, else legacy `assignments` docs),
+  /// late clock-ins.
+  /// Uses [TeacherMetricsService] for the first and third so numbers match the teacher audit.
+  Widget _buildMtdStatsRow(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return Row(
+      children: [
+        _buildStatCard(
+          icon: Icons.event_busy,
+          value: '$_absencesMonth',
+          label: l10n?.teacherHomeStatsAbsencesMtd ?? 'Absences',
+          color: const Color(0xFFEF4444),
+        ),
+        const SizedBox(width: 12),
+        _buildStatCard(
+          icon: Icons.assignment_turned_in,
+          value: '$_assignmentsMonthCount',
+          label: l10n?.teacherHomeStatsAssignmentsMtd ?? 'Assignments',
+          color: const Color(0xFF6366F1),
+        ),
+        const SizedBox(width: 12),
+        _buildStatCard(
+          icon: Icons.schedule,
+          value: '$_lateClockInsMonth',
+          label: l10n?.teacherHomeStatsLateMtd ?? 'Late clock-ins',
+          color: const Color(0xFFF59E0B),
         ),
       ],
     );
@@ -1133,434 +978,12 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
     );
   }
 
-  Widget _buildMonthlyPerformanceSection() {
-    final snapshot = _monthlySnapshot;
-    if (snapshot == null) return const SizedBox.shrink();
-
-    final audit = snapshot.latestVisibleAudit;
-    final monthLabel = DateFormat('MMMM yyyy').format(snapshot.monthStart);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Text(
-              'Monthly Performance',
-              style: GoogleFonts.inter(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: const Color(0xFF1E293B),
-              ),
-            ),
-            const Spacer(),
-            Text(
-              monthLabel,
-              style: GoogleFonts.inter(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: const Color(0xFF64748B),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: const Color(0xFFE2E8F0)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.04),
-                blurRadius: 16,
-                offset: const Offset(0, 6),
-              ),
-            ],
-          ),
-          child: Column(
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildMonthlyMetricCard(
-                      icon: Icons.schedule_rounded,
-                      label: 'Hours taught',
-                      value: '${snapshot.hoursTaught.toStringAsFixed(1)} h',
-                      accent: const Color(0xFF0EA5E9),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildMonthlyMetricCard(
-                      icon: Icons.description_outlined,
-                      label: 'Submitted forms',
-                      value: '${snapshot.submittedForms}',
-                      accent: const Color(0xFF10B981),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildMonthlyMetricCard(
-                      icon: Icons.timer_off_outlined,
-                      label: 'Total lateness',
-                      value: '${snapshot.lateClockIns}',
-                      accent: const Color(0xFFF59E0B),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildMonthlyMetricCard(
-                      icon: Icons.event_busy_outlined,
-                      label: 'Total absences',
-                      value: '${snapshot.absences}',
-                      accent: const Color(0xFFEF4444),
-                      helperText: snapshot.excusedAbsences > 0
-                          ? '${snapshot.excusedAbsences} excused'
-                          : null,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              if (audit != null)
-                _buildAuditReviewCard(audit)
-              else
-                _buildNoAuditCard(),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildMonthlyMetricCard({
-    required IconData icon,
-    required String label,
-    required String value,
-    required Color accent,
-    String? helperText,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: accent.withOpacity(0.06),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: accent.withOpacity(0.14)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: accent.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, color: accent, size: 18),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            value,
-            style: GoogleFonts.inter(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              color: const Color(0xFF0F172A),
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: GoogleFonts.inter(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: const Color(0xFF475569),
-            ),
-          ),
-          if (helperText != null) ...[
-            const SizedBox(height: 4),
-            Text(
-              helperText,
-              style: GoogleFonts.inter(
-                fontSize: 11,
-                color: const Color(0xFF64748B),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAuditReviewCard(TeacherAuditFull audit) {
-    final hasTeacherResponse = TeacherAuditService.hasTeacherResponded(audit);
-    final approvedByTeacher = TeacherAuditService.didTeacherApprove(audit);
-    final rejectedByTeacher = TeacherAuditService.didTeacherDisapprove(audit);
-    final responseAt = TeacherAuditService.teacherRespondedAt(audit);
-    final statusColor = rejectedByTeacher
-        ? const Color(0xFFEF4444)
-        : approvedByTeacher
-            ? const Color(0xFF10B981)
-            : const Color(0xFF0386FF);
-    final statusLabel = rejectedByTeacher
-        ? 'Disputed'
-        : approvedByTeacher
-            ? 'Approved by you'
-            : 'Review required';
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            statusColor.withOpacity(0.12),
-            Colors.white,
-          ],
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: statusColor.withOpacity(0.18)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Audit Evaluation Result',
-                      style: GoogleFonts.inter(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: const Color(0xFF0F172A),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      DateFormat('MMMM yyyy')
-                          .format(DateTime.parse('${audit.yearMonth}-01')),
-                      style: GoogleFonts.inter(
-                        fontSize: 12,
-                        color: const Color(0xFF64748B),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: statusColor,
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text(
-                  statusLabel,
-                  style: GoogleFonts.inter(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              Expanded(
-                child: _buildAuditMiniMetric(
-                  label: 'Overall score',
-                  value: '${audit.overallScore.toStringAsFixed(0)}%',
-                ),
-              ),
-              Expanded(
-                child: _buildAuditMiniMetric(
-                  label: 'Tier',
-                  value: audit.performanceTier,
-                ),
-              ),
-              Expanded(
-                child: _buildAuditMiniMetric(
-                  label: 'Audit status',
-                  value: _humanizeAuditStatus(audit.status),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          if (hasTeacherResponse && responseAt != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Text(
-                approvedByTeacher
-                    ? 'You approved this result on ${DateFormat.yMMMd().add_jm().format(responseAt)}.'
-                    : 'You disputed this result on ${DateFormat.yMMMd().add_jm().format(responseAt)}. Leaders have been notified.',
-                style: GoogleFonts.inter(
-                  fontSize: 12,
-                  color: statusColor,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            )
-          else
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Text(
-                'Please approve or dispute this evaluation after reviewing the result.',
-                style: GoogleFonts.inter(
-                  fontSize: 12,
-                  color: const Color(0xFF475569),
-                ),
-              ),
-            ),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () => _openAuditReport(audit),
-                  icon: const Icon(Icons.open_in_new, size: 18),
-                  label: const Text('Open report'),
-                ),
-              ),
-              if (!hasTeacherResponse) ...[
-                const SizedBox(width: 10),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _auditDecisionBusy
-                        ? null
-                        : () => _showAuditDisputeDialog(audit),
-                    icon: const Icon(Icons.flag_outlined, size: 18),
-                    label: Text(AppLocalizations.of(context)!.reject),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFFEF4444),
-                      side: const BorderSide(color: Color(0xFFEF4444)),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: FilledButton.icon(
-                    onPressed:
-                        _auditDecisionBusy ? null : () => _approveAudit(audit),
-                    icon: _auditDecisionBusy
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Icon(Icons.check_circle_outline, size: 18),
-                    label: Text(AppLocalizations.of(context)!.approve),
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAuditMiniMetric({
-    required String label,
-    required String value,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          value,
-          style: GoogleFonts.inter(
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-            color: const Color(0xFF0F172A),
-          ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          label,
-          style: GoogleFonts.inter(
-            fontSize: 11,
-            color: const Color(0xFF64748B),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildNoAuditCard() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Audit Evaluation Result',
-            style: GoogleFonts.inter(
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
-              color: const Color(0xFF0F172A),
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'No teacher audit result is available to review yet.',
-            style: GoogleFonts.inter(
-              fontSize: 12,
-              color: const Color(0xFF64748B),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _humanizeAuditStatus(AuditStatus status) {
-    switch (status) {
-      case AuditStatus.coachSubmitted:
-        return 'Coach submitted';
-      case AuditStatus.ceoApproved:
-        return 'CEO approved';
-      case AuditStatus.completed:
-        return 'Completed';
-      case AuditStatus.disputed:
-        return 'Disputed';
-      case AuditStatus.pending:
-        return 'Pending';
-      case AuditStatus.coachReview:
-        return 'Coach review';
-      case AuditStatus.ceoReview:
-        return 'CEO review';
-      case AuditStatus.founderReview:
-        return 'Founder review';
-    }
-  }
-
   Widget _buildCompactEarningItem(String label, double amount) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          '\$${amount.toStringAsFixed(0)}',
+          '\$${amount.toStringAsFixed(2)}',
           style: GoogleFonts.inter(
             fontSize: 13,
             fontWeight: FontWeight.w700,
@@ -2011,6 +1434,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                                 // Fill Form or View Form button (check if form exists)
                                 PendingFormButton(
                                   shiftId: currentShiftId ?? '',
+                                  refreshKey: _refreshNonce,
                                   onFill: () {
                                     Navigator.pop(context);
                                     _navigateToFormForShift(shift);
@@ -2062,69 +1486,15 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
     debugPrint('   - Type: ${shiftType ?? "unknown"}');
     debugPrint('   - TimesheetId: $timesheetId');
 
-    // FIXED: Use same approach as Quick Access - get ALL templates and filter to latest version
-    // This ensures we get the latest version even if config points to an old template ID
+    // Per-session daily template: narrow query + cache (see FormTemplateService.getActiveDailyTemplate)
     try {
-      // Get all templates (same as Quick Access)
-      final allTemplates =
-          await FormTemplateService.getAllTemplates(forceRefresh: true);
-
-      // Filter to keep only the latest version of each template by name (same logic as Quick Access)
-      final Map<String, FormTemplate> latestTemplatesByName = {};
-      for (var template in allTemplates) {
-        if (!template.isActive) continue;
-
-        // Normalize template name for comparison
-        final normalizedName =
-            template.name.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
-
-        if (!latestTemplatesByName.containsKey(normalizedName)) {
-          latestTemplatesByName[normalizedName] = template;
-        } else {
-          final existing = latestTemplatesByName[normalizedName]!;
-          // Keep the one with higher version, or if same version, keep the one with later updatedAt
-          if (template.version > existing.version) {
-            latestTemplatesByName[normalizedName] = template;
-          } else if (template.version == existing.version) {
-            if (template.updatedAt.isAfter(existing.updatedAt)) {
-              latestTemplatesByName[normalizedName] = template;
-            }
-          }
-        }
-      }
-
-      // Find the daily class report template (same as Quick Access)
-      FormTemplate? template;
-      for (var t in latestTemplatesByName.values) {
-        if (t.frequency == FormFrequency.perSession &&
-            t.name.toLowerCase().contains('daily') &&
-            (t.name.toLowerCase().contains('class') ||
-                t.name.toLowerCase().contains('report'))) {
-          template = t;
-          break;
-        }
-      }
-
-      // If not found, use first perSession template
+      FormTemplate? template =
+          await FormTemplateService.getActiveDailyTemplate(forceRefresh: false);
       if (template == null) {
-        template = latestTemplatesByName.values.firstWhere(
-          (t) => t.frequency == FormFrequency.perSession,
-          orElse: () => latestTemplatesByName.values.first,
-        );
+        template =
+            await FormTemplateService.getActiveDailyTemplate(forceRefresh: true);
       }
-
-      if (template == null) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                  AppLocalizations.of(context)!.errorCouldNotLoadFormTemplate),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-        return;
-      }
+      template ??= FormTemplateService.defaultDailyClassReport;
 
       if (!mounted) return;
 
@@ -2140,6 +1510,9 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
         ),
       ).then((_) {
         // Refresh data after returning from form
+        setState(() {
+          _refreshNonce++;
+        });
         _loadData();
       });
     } catch (e) {
@@ -2156,16 +1529,24 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
   }
 
   Widget _buildActiveSessionCard() {
+    final shift = _clockedInShift ?? _imminentShift;
+    if (shift == null) return const SizedBox.shrink();
+
+    final isClockedIn = _clockedInShift != null;
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF10B981), Color(0xFF059669)],
+        gradient: LinearGradient(
+          colors: isClockedIn
+              ? [const Color(0xFF10B981), const Color(0xFF059669)]
+              : [const Color(0xFF0E72ED), const Color(0xFF0386FF)],
         ),
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF10B981).withOpacity(0.3),
+            color: (isClockedIn ? const Color(0xFF10B981) : const Color(0xFF0E72ED))
+                .withOpacity(0.3),
             blurRadius: 15,
             offset: const Offset(0, 8),
           ),
@@ -2182,13 +1563,15 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                   color: Colors.white.withOpacity(0.2),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(Icons.play_circle_fill,
+                child: Icon(isClockedIn ? Icons.play_circle_fill : Icons.timer,
                     color: Colors.white, size: 20),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  AppLocalizations.of(context)!.dashboardActiveSession,
+                  isClockedIn
+                      ? AppLocalizations.of(context)!.dashboardActiveSession
+                      : "Upcoming Session",
                   style: GoogleFonts.inter(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -2204,7 +1587,9 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  AppLocalizations.of(context)!.dashboardInProgress,
+                  isClockedIn
+                      ? AppLocalizations.of(context)!.dashboardInProgress
+                      : "Ready",
                   style: GoogleFonts.inter(
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
@@ -2216,7 +1601,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
           ),
           const SizedBox(height: 16),
           Text(
-            _activeShift!.displayName,
+            shift.displayName,
             style: GoogleFonts.inter(
               fontSize: 18,
               fontWeight: FontWeight.w700,
@@ -2227,7 +1612,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            '${DateFormat('h:mm a').format(_activeShift!.shiftStart)} - ${DateFormat('h:mm a').format(_activeShift!.shiftEnd)}',
+            '${DateFormat('h:mm a').format(shift.shiftStart)} - ${DateFormat('h:mm a').format(shift.shiftEnd)}',
             style: GoogleFonts.inter(
               fontSize: 14,
               color: Colors.white.withOpacity(0.8),
@@ -2238,7 +1623,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
             children: [
               Expanded(
                 child: OutlinedButton(
-                  onPressed: () => _showShiftDetails(_activeShift!),
+                  onPressed: () => _showShiftDetails(shift),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.white,
                     side: const BorderSide(color: Colors.white, width: 1.5),
@@ -2254,22 +1639,39 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: () => _handleClockOut(_activeShift!),
-                  icon: const Icon(Icons.logout, size: 18),
-                  label: Text(
-                    'Clock Out',
-                    style: GoogleFonts.inter(fontWeight: FontWeight.w600),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: const Color(0xFFEF4444),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                    elevation: 0,
-                  ),
-                ),
+                child: isClockedIn
+                    ? ElevatedButton.icon(
+                        onPressed: () => _handleClockOut(shift),
+                        icon: const Icon(Icons.logout, size: 18),
+                        label: Text(
+                          'Clock Out',
+                          style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: const Color(0xFFEF4444),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                          elevation: 0,
+                        ),
+                      )
+                    : ElevatedButton.icon(
+                        onPressed: () => _handleClockIn(shift),
+                        icon: const Icon(Icons.login, size: 18),
+                        label: Text(
+                          'Clock In',
+                          style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: const Color(0xFF0E72ED),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                          elevation: 0,
+                        ),
+                      ),
               ),
             ],
           ),
@@ -2808,7 +2210,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
       return SizedBox(
         width: double.infinity,
         child: ElevatedButton.icon(
-          onPressed: () => _startProgrammedClockIn(shift),
+          onPressed: () => _handleClockIn(shift),
           icon: const Icon(Icons.schedule, size: 18),
           label: Text(AppLocalizations.of(context)!.clockInProgram,
               style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
@@ -2864,33 +2266,6 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
     }
 
     return const SizedBox.shrink();
-  }
-
-  /// Handle clock-in button press
-  Future<void> _handleClockIn(TeachingShift shift) async {
-    final now = DateTime.now();
-    final shiftStart = shift.shiftStart.toLocal();
-    final programmingWindowStart =
-        shiftStart.subtract(const Duration(minutes: 1));
-
-    final isInProgramWindow =
-        now.isAfter(programmingWindowStart) && now.isBefore(shiftStart);
-    final shiftHasStarted = !now.isBefore(shiftStart);
-
-    // Only allow clock-in if shift has started (not during programming window)
-    if (shiftHasStarted) {
-      await _performClockIn(shift);
-    } else if (isInProgramWindow) {
-      // During programming window, use program function instead
-      _startProgrammedClockIn(shift);
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(AppLocalizations.of(context)!.clockInTooEarly),
-          backgroundColor: Colors.orange,
-        ),
-      );
-    }
   }
 
   /// Handle clock-out button press
@@ -2971,6 +2346,46 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
         SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
       );
     }
+  }
+
+  /// Shows a dialog to program a clock-in
+  void _showProgramClockInDialog(TeachingShift shift) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          "Program Clock-In",
+          style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+        ),
+        content: Text(
+          "This shift starts in ${shift.shiftStart.difference(DateTime.now()).inMinutes} minutes. Would you like to program an automatic clock-in at the start time?",
+          style: GoogleFonts.inter(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              AppLocalizations.of(context)!.commonCancel,
+              style: GoogleFonts.inter(color: const Color(0xFF64748B)),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _startProgrammedClockIn(shift);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0E72ED),
+              foregroundColor: Colors.white,
+            ),
+            child: Text(
+              "Program",
+              style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   /// Start programmed clock-in
@@ -3104,6 +2519,31 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
     }
   }
 
+  /// Handle clock-in (offer program within 60 min of start; otherwise clock in)
+  Future<void> _handleClockIn(TeachingShift shift) async {
+    final now = DateTime.now();
+    final shiftStart = shift.shiftStart;
+    final diff = shiftStart.difference(now);
+
+    if (diff.inMinutes > 60) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(AppLocalizations.of(context)!.clockInTooEarly),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    if (diff.inMinutes > 0 && diff.inMinutes <= 60) {
+      _showProgramClockInDialog(shift);
+      return;
+    }
+
+    await _performClockIn(shift);
+  }
+
   /// Perform the actual clock-in
   Future<void> _performClockIn(TeachingShift shift,
       {bool isAutoStart = false}) async {
@@ -3181,7 +2621,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
             );
 
             // Update active shift
-            _activeShift = updatedShift;
+            _clockedInShift = updatedShift;
 
             // Remove from upcoming shifts (since it's now active)
             _upcomingShifts.removeWhere((s) => s.id == shift.id);
@@ -3288,68 +2728,96 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          l10n?.dashboardQuickAccess ?? 'Quick Access',
-          style: GoogleFonts.inter(
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-            color: const Color(0xFF1E293B),
-          ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0E72ED).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.grid_view_rounded,
+                      color: Color(0xFF0E72ED), size: 20),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  l10n?.dashboardQuickAccess ?? 'Quick Access',
+                  style: GoogleFonts.inter(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF1E293B),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
         const SizedBox(height: 16),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              _buildCompactQuickAccessCard(
-                icon: Icons.article_outlined,
-                label: l10n?.navForms ?? 'Forms',
-                color: const Color(0xFFEC4899),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const TeacherFormsScreen(),
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(width: 12),
-              _buildCompactQuickAccessCard(
-                icon: Icons.assignment_outlined,
-                label: l10n?.dashboardAssignments ?? 'Assignments',
-                color: const Color(0xFF8B5CF6),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const TeacherAssignmentsScreen(),
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(width: 12),
-              _buildCompactQuickAccessCard(
-                icon: Icons.description_outlined,
-                label: l10n?.dashboardMyForms ?? 'My Forms',
-                color: const Color(0xFF10B981),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const MySubmissionsScreen(),
-                    ),
-                  );
-                },
-              ),
-            ],
-          ),
+        GridView.count(
+          crossAxisCount: 4,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          mainAxisSpacing: 12,
+          crossAxisSpacing: 12,
+          children: [
+            _buildQuickAccessItem(
+              icon: Icons.calendar_month,
+              label: l10n?.shiftSchedule ?? 'Schedule',
+              color: const Color(0xFF0E72ED),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const TeacherShiftScreen()),
+                );
+              },
+            ),
+            _buildQuickAccessItem(
+              icon: Icons.add_task,
+              label: l10n?.quickAccessTrading ?? 'Trading',
+              color: const Color(0xFF10B981),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const AvailableShiftsScreen()),
+                );
+              },
+            ),
+            _buildQuickAccessItem(
+              icon: Icons.description,
+              label: l10n?.navForms ?? 'Forms',
+              color: const Color(0xFFF59E0B),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const TeacherFormsScreen()),
+                );
+              },
+            ),
+            _buildQuickAccessItem(
+              icon: Icons.assignment,
+              label: l10n?.dashboardAssignments ?? 'Assignments',
+              color: const Color(0xFF8B5CF6),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const TeacherAssignmentsScreen()),
+                );
+              },
+            ),
+          ],
         ),
       ],
     );
   }
 
-  Widget _buildCompactQuickAccessCard({
+  Widget _buildQuickAccessItem({
     required IconData icon,
     required String label,
     required Color color,
@@ -3358,42 +2826,39 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 120,
-        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(color: const Color(0xFFE2E8F0)),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.03),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
+              blurRadius: 4,
+              offset: const Offset(0, 1),
             ),
           ],
         ),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
+                shape: BoxShape.circle,
               ),
-              child: Icon(icon, color: color, size: 24),
+              child: Icon(icon, color: color, size: 20),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 6),
             Text(
               label,
-              textAlign: TextAlign.center,
               style: GoogleFonts.inter(
-                fontSize: 13,
+                fontSize: 10,
                 fontWeight: FontWeight.w600,
-                color: const Color(0xFF1E293B),
-                height: 1.2,
+                color: const Color(0xFF64748B),
               ),
-              maxLines: 2,
+              textAlign: TextAlign.center,
+              maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
           ],

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:alluwalacademyadmin/features/dashboard/models/job_opportunity.dart';
 import 'package:alluwalacademyadmin/features/shift_management/models/teaching_shift.dart';
@@ -11,6 +12,7 @@ import '../../../features/dashboard/services/job_board_service.dart';
 import 'package:alluwalacademyadmin/features/shift_management/services/shift_service.dart';
 import '../../../core/services/timezone_service.dart';
 import '../../../core/utils/timezone_utils.dart';
+import '../../../core/utils/firebase_error_message.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class TeacherJobBoardScreen extends StatelessWidget {
@@ -61,7 +63,11 @@ class TeacherJobBoardScreen extends StatelessWidget {
 
                 final allJobs = snapshot.data ?? [];
                 final openJobs = allJobs.where((j) => j.status == 'open').toList();
-                final filledJobs = allJobs.where((j) => j.status == 'accepted').toList();
+                final filledJobs = allJobs.where((j) {
+                  if (j.status != 'accepted') return false;
+                  final ref = j.acceptedAt ?? j.createdAt;
+                  return DateTime.now().difference(ref) < const Duration(hours: 24);
+                }).toList();
 
                 if (openJobs.isEmpty && filledJobs.isEmpty) {
                   return Center(
@@ -250,80 +256,31 @@ class _JobCardState extends State<_JobCard> {
     }
   }
 
-  Future<void> _acceptJob() async {
+  Future<void> _submitResponse() async {
     final currentUser = FirebaseAuth.instance.currentUser;
     if (currentUser == null) return;
-    
-    // Use job timezone when teacher TZ not loaded so conflict detection matches "Available Times (…)" 
-    final effectiveTz = (_teacherTimezone != null && _teacherTimezone!.isNotEmpty && _teacherTimezone != 'UTC')
-        ? _teacherTimezone!
-        : (widget.job.timeZone.isNotEmpty ? widget.job.timeZone : 'UTC');
-    // Use a full-height modal sheet so "Choose times" is obvious and visible on mobile
-    final result = await showModalBottomSheet<Map<String, dynamic>>(
+    final result = await showDialog<Map<String, dynamic>>(
       context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.92,
-        maxChildSize: 0.98,
-        minChildSize: 0.5,
-        expand: false,
-        builder: (context, _) => Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.max,
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(top: 12, bottom: 4),
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[300],
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              Expanded(
-                child: _TimeSelectionDialog(
-                  job: widget.job,
-                  teacherTimezone: effectiveTz,
-                  teacherId: currentUser.uid,
-                  inModalSheet: true,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+      builder: (_) => _TeacherAvailabilityResponseDialog(job: widget.job),
     );
-    
-    // User cancelled
     if (result == null) return;
-
-    // Ensure we send the teacher's chosen times (from conflict picker or initial suggestion)
-    final raw = result['selectedTimes'];
-    final Map<String, String>? selectedTimes = (raw != null && raw is Map)
-        ? Map<String, String>.from(raw)
-        : null;
 
     setState(() => _isAccepting = true);
 
     try {
-      // Accept with selected time preferences
-      await JobBoardService().acceptJob(
+      await JobBoardService().submitTeacherResponse(
         widget.job.id,
-        currentUser.uid,
-        selectedTimes: selectedTimes,
+        availabilityStatus: result['availabilityStatus'] as String,
+        comment: result['comment'] as String?,
+        availableAlternatives:
+            (result['availableAlternatives'] as List<dynamic>?)
+                ?.map((e) => e.toString())
+                .toList(),
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(AppLocalizations.of(context)!.jobAcceptedSuccess),
+            content: Text(AppLocalizations.of(context)!.jobBoardResponseSubmitted),
             backgroundColor: Colors.green,
           ),
         );
@@ -331,7 +288,10 @@ class _JobCardState extends State<_JobCard> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppLocalizations.of(context)!.errorE), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text(messageFromFirebaseError(e)),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     } finally {
@@ -388,10 +348,22 @@ class _JobCardState extends State<_JobCard> {
           ),
         );
       }
+    } on FirebaseException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(messageFromFirebaseError(e)),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text(messageFromFirebaseError(e)),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     } finally {
@@ -449,7 +421,7 @@ class _JobCardState extends State<_JobCard> {
                           ),
                         ),
                         child: Text(
-                          widget.job.subject,
+                          widget.job.displaySubject,
                           style: GoogleFonts.inter(
                             color: widget.isFilled 
                               ? Colors.red[900] 
@@ -500,7 +472,7 @@ class _JobCardState extends State<_JobCard> {
             const SizedBox(height: 12),
             // Age, Subject, Grade, Duration, Class Type
             _buildInfoRow(Icons.person, 'Age: ${widget.job.studentAge.isNotEmpty ? widget.job.studentAge : "N/A"}'),
-            _buildInfoRow(Icons.book, 'Subject: ${widget.job.subject}'),
+            _buildInfoRow(Icons.book, 'Program: ${widget.job.displaySubject}'),
             _buildInfoRow(Icons.school, 'Grade: ${widget.job.gradeLevel}'),
             
             // Session Duration with visual badge
@@ -562,20 +534,150 @@ class _JobCardState extends State<_JobCard> {
                     const Icon(Icons.public, size: 16, color: Color(0xff3B82F6)),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: Text(
-                        'Student timezone: ${_getTimezoneAbbr(studentTz)} → Your timezone: ${_getTimezoneAbbr(teacherTz)}',
-                        style: GoogleFonts.inter(
-                          fontSize: 12,
-                          color: const Color(0xff1E40AF),
-                          fontWeight: FontWeight.w500,
-                        ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Student timezone: ${_getTimezoneAbbr(studentTz)} → Your timezone: ${_getTimezoneAbbr(teacherTz)}',
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              color: const Color(0xff1E40AF),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          if (widget.job.scheduleTimezoneRef != null && widget.job.scheduleTimezoneRef!.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Text(
+                                'Times listed in: ${widget.job.scheduleTimezoneRef}',
+                                style: GoogleFonts.inter(
+                                  fontSize: 11,
+                                  color: const Color(0xff3B82F6),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                     ),
                   ],
                 ),
               ),
             ] else ...[
-              _buildInfoRow(Icons.public, 'Timezone: ${_getTimezoneAbbr(studentTz)}'),
+              _buildInfoRow(
+                Icons.public,
+                widget.job.scheduleTimezoneRef != null && widget.job.scheduleTimezoneRef!.isNotEmpty
+                    ? 'Timezone: ${_getTimezoneAbbr(studentTz)} (times in ${widget.job.scheduleTimezoneRef})'
+                    : 'Timezone: ${_getTimezoneAbbr(studentTz)}',
+              ),
+            ],
+
+            // Admin notes for teachers
+            if (widget.job.adminNotesForTeachers != null && widget.job.adminNotesForTeachers!.trim().isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xffFFFBEB),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xffFCD34D)),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.info_outline, size: 16, color: Color(0xffD97706)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Admin Note',
+                            style: GoogleFonts.inter(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xff92400E),
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            widget.job.adminNotesForTeachers!.trim(),
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              color: const Color(0xff78350F),
+                              height: 1.3,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+
+            if (!widget.isFilled && FirebaseAuth.instance.currentUser != null) ...[
+              const SizedBox(height: 8),
+              FutureBuilder<Map<String, dynamic>?>(
+                future: JobBoardService().getTeacherResponse(
+                  widget.job.id,
+                  FirebaseAuth.instance.currentUser!.uid,
+                ),
+                builder: (context, snapshot) {
+                  final response = snapshot.data;
+                  if (response == null) return const SizedBox.shrink();
+                  final status =
+                      (response['availabilityStatus'] ?? '').toString().trim();
+                  if (status.isEmpty) return const SizedBox.shrink();
+                  final comment = (response['comment'] ?? '').toString().trim();
+                  final statusLabel = switch (status) {
+                    'available' => 'Available',
+                    'partial' => 'Partially available',
+                    'unavailable' => 'Not available',
+                    _ => status,
+                  };
+                  final statusColor = switch (status) {
+                    'available' => const Color(0xff166534),
+                    'partial' => const Color(0xff92400E),
+                    'unavailable' => const Color(0xff991B1B),
+                    _ => const Color(0xff1F2937),
+                  };
+                  return Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: statusColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: statusColor.withValues(alpha: 0.35)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Your last response: $statusLabel',
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: statusColor,
+                          ),
+                        ),
+                        if (comment.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Text(
+                              comment,
+                              style: GoogleFonts.inter(
+                                fontSize: 12,
+                                color: const Color(0xff374151),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  );
+                },
+              ),
             ],
             
             const SizedBox(height: 8),
@@ -682,7 +784,7 @@ class _JobCardState extends State<_JobCard> {
                           height: 48,
                           width: double.infinity,
                           child: ElevatedButton(
-                            onPressed: _isAccepting ? null : _acceptJob,
+                            onPressed: _isAccepting ? null : _submitResponse,
                             style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xff10B981),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -694,7 +796,7 @@ class _JobCardState extends State<_JobCard> {
                                   child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                                 )
                               : Text(
-                                  'Choose times & accept',
+                                  'Submit availability',
                                   style: GoogleFonts.inter(
                                     fontWeight: FontWeight.w600,
                                     fontSize: 16,
@@ -704,7 +806,7 @@ class _JobCardState extends State<_JobCard> {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          'Tap to pick your preferred time for each day',
+                          'Tell admin if you are available or partially available.',
                           style: GoogleFonts.inter(
                             fontSize: 12,
                             color: const Color(0xff6B7280),
@@ -823,6 +925,176 @@ class _JobCardState extends State<_JobCard> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _TeacherAvailabilityResponseDialog extends StatefulWidget {
+  final JobOpportunity job;
+
+  const _TeacherAvailabilityResponseDialog({required this.job});
+
+  @override
+  State<_TeacherAvailabilityResponseDialog> createState() =>
+      _TeacherAvailabilityResponseDialogState();
+}
+
+class _TeacherAvailabilityResponseDialogState
+    extends State<_TeacherAvailabilityResponseDialog> {
+  String _status = 'available';
+  final TextEditingController _commentController = TextEditingController();
+  final TextEditingController _alternativesController = TextEditingController();
+
+  @override
+  void dispose() {
+    _commentController.dispose();
+    _alternativesController.dispose();
+    super.dispose();
+  }
+
+  bool get _requiresComment => _status == 'partial';
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(
+        'Reply to broadcast',
+        style: GoogleFonts.inter(fontWeight: FontWeight.w700),
+      ),
+      content: SizedBox(
+        width: 520,
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '${widget.job.studentName} • ${widget.job.displaySubject}',
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  color: const Color(0xff475569),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'How available are you for this request?',
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xff334155),
+                ),
+              ),
+              const SizedBox(height: 6),
+              DropdownButtonFormField<String>(
+                initialValue: _status,
+                items: const [
+                  DropdownMenuItem(
+                      value: 'available', child: Text('Available')),
+                  DropdownMenuItem(
+                      value: 'partial', child: Text('Partially available')),
+                ],
+                onChanged: (value) {
+                  if (value == null) return;
+                  setState(() => _status = value);
+                },
+                decoration: const InputDecoration(
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                AppLocalizations.of(context)!.jobBoardNotAvailableHint,
+                style: GoogleFonts.inter(
+                  fontSize: 11,
+                  color: const Color(0xff64748B),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                _requiresComment
+                    ? 'Comment (required)'
+                    : 'Comment (optional)',
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xff334155),
+                ),
+              ),
+              const SizedBox(height: 6),
+              TextField(
+                controller: _commentController,
+                minLines: 2,
+                maxLines: 4,
+                decoration: InputDecoration(
+                  hintText: _requiresComment
+                      ? 'Example: Not available Tuesday 6 PM due to another class.'
+                      : 'Any note for admin...',
+                  border: const OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Alternative times (optional, one per line)',
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xff334155),
+                ),
+              ),
+              const SizedBox(height: 6),
+              TextField(
+                controller: _alternativesController,
+                minLines: 2,
+                maxLines: 4,
+                decoration: const InputDecoration(
+                  hintText: 'Wed 7:00 PM - 8:00 PM\nThu 5:30 PM - 6:30 PM',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Admin will review responses and confirm the final match.',
+                style: GoogleFonts.inter(
+                  fontSize: 11,
+                  color: const Color(0xff64748B),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            final comment = _commentController.text.trim();
+            if (_requiresComment && comment.isEmpty) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Please add a comment for this response.'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+              return;
+            }
+            final alternatives = _alternativesController.text
+                .split('\n')
+                .map((e) => e.trim())
+                .where((e) => e.isNotEmpty)
+                .toList();
+            Navigator.pop(context, {
+              'availabilityStatus': _status,
+              'comment': comment.isEmpty ? null : comment,
+              'availableAlternatives': alternatives,
+            });
+          },
+          child: const Text('Submit'),
+        ),
+      ],
     );
   }
 }
@@ -1298,7 +1570,7 @@ class _TimeSelectionDialogState extends State<_TimeSelectionDialog> {
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              '${widget.job.studentName} • ${widget.job.subject}',
+                              '${widget.job.studentName} • ${widget.job.displaySubject}',
                               style: GoogleFonts.inter(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,

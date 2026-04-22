@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:image_picker/image_picker.dart';
+import '../../../core/services/profile_picture_service.dart';
 import '../../../core/utils/app_logger.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
@@ -29,11 +31,122 @@ class _TeacherProfileEditDialogState extends State<TeacherProfileEditDialog> {
 
   bool _isLoading = false;
   bool _isSaving = false;
+  bool _isUploadingPhoto = false;
+  String? _profilePictureUrl;
 
   @override
   void initState() {
     super.initState();
     _loadExistingProfile();
+    _loadProfilePicture();
+  }
+
+  Future<void> _loadProfilePicture() async {
+    final url = await ProfilePictureService.getProfilePictureUrl();
+    if (mounted) {
+      setState(() => _profilePictureUrl = url);
+    }
+  }
+
+  /// Picks a new profile picture, uploads it through the owner-scoped
+  /// Storage path and refreshes local state. The service takes care of
+  /// deleting the previous picture once the new URL is persisted.
+  Future<void> _pickAndUploadPhoto({required ImageSource source}) async {
+    if (_isUploadingPhoto) return;
+    final l10n = AppLocalizations.of(context)!;
+    final picked = await ProfilePictureService.pickImage(source: source);
+    if (picked == null) return;
+
+    setState(() => _isUploadingPhoto = true);
+    try {
+      final newUrl = await ProfilePictureService.uploadProfilePicture(picked);
+      if (!mounted) return;
+      setState(() => _profilePictureUrl = newUrl);
+      widget.onProfileUpdated?.call();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(l10n.profilePhotoUpdated),
+          backgroundColor: const Color(0xff10B981),
+        ),
+      );
+    } catch (e) {
+      AppLogger.error('Error uploading profile photo: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(l10n.profilePhotoUploadFailed),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isUploadingPhoto = false);
+      }
+    }
+  }
+
+  Future<void> _showPhotoSourceSheet() async {
+    final l10n = AppLocalizations.of(context)!;
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 8),
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 8),
+              ListTile(
+                leading: const Icon(Icons.photo_library_outlined),
+                title: Text(l10n.profilePhotoFromGallery),
+                onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_camera_outlined),
+                title: Text(l10n.profilePhotoFromCamera),
+                onTap: () => Navigator.pop(ctx, ImageSource.camera),
+              ),
+              if (_profilePictureUrl != null)
+                ListTile(
+                  leading: const Icon(Icons.delete_outline, color: Colors.red),
+                  title: Text(
+                    l10n.profilePhotoRemove,
+                    style: const TextStyle(color: Colors.red),
+                  ),
+                  onTap: () => Navigator.pop(ctx, null),
+                ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+
+    if (!mounted) return;
+
+    if (source != null) {
+      await _pickAndUploadPhoto(source: source);
+    } else if (_profilePictureUrl != null) {
+      try {
+        await ProfilePictureService.removeProfilePicture();
+        if (!mounted) return;
+        setState(() => _profilePictureUrl = null);
+        widget.onProfileUpdated?.call();
+      } catch (e) {
+        AppLogger.error('Error removing profile photo: $e');
+      }
+    }
   }
 
   @override
@@ -204,28 +317,34 @@ class _TeacherProfileEditDialogState extends State<TeacherProfileEditDialog> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 32),
+                      const SizedBox(height: 24),
+
+                      Center(child: _buildAvatarEditor()),
+                      const SizedBox(height: 24),
+
+                      _buildPrivacyNotice(),
+                      const SizedBox(height: 24),
 
                       // Form Fields
                       _buildFormField(
-                        'Full Name',
-                        'Enter your full name as it should appear publicly',
+                        AppLocalizations.of(context)!.profileFullName,
+                        AppLocalizations.of(context)!.profileFullNameHint,
                         _nameController,
                         Icons.person_outline,
                       ),
                       const SizedBox(height: 24),
 
                       _buildFormField(
-                        'Professional Title',
-                        'e.g., Quran & Tajweed Specialist, Arabic Teacher',
+                        AppLocalizations.of(context)!.profileProfessionalTitle,
+                        AppLocalizations.of(context)!.profileProfessionalTitleHint,
                         _titleController,
                         Icons.work_outline,
                       ),
                       const SizedBox(height: 24),
 
                       _buildFormField(
-                        'Biography',
-                        'Tell parents and students about your background and teaching approach',
+                        AppLocalizations.of(context)!.profileBiography,
+                        AppLocalizations.of(context)!.profileBiographyHint,
                         _bioController,
                         Icons.description_outlined,
                         maxLines: 4,
@@ -233,24 +352,24 @@ class _TeacherProfileEditDialogState extends State<TeacherProfileEditDialog> {
                       const SizedBox(height: 24),
 
                       _buildFormField(
-                        'Years of Experience',
-                        'e.g., 10+ years',
+                        AppLocalizations.of(context)!.profileYearsExperience,
+                        AppLocalizations.of(context)!.profileYearsExperienceHint,
                         _experienceController,
                         Icons.timeline_outlined,
                       ),
                       const SizedBox(height: 24),
 
                       _buildFormField(
-                        'Specialties',
-                        'e.g., Quran Memorization, Tajweed, Arabic Grammar, Islamic Studies',
+                        AppLocalizations.of(context)!.profileSpecialties,
+                        AppLocalizations.of(context)!.profileSpecialtiesHint,
                         _specialtiesController,
                         Icons.star_outline,
                       ),
                       const SizedBox(height: 24),
 
                       _buildFormField(
-                        'Education & Certifications',
-                        'e.g., PhD in Islamic Theology from Al-Azhar University, Ijazah in Quran',
+                        AppLocalizations.of(context)!.profileEducationCerts,
+                        AppLocalizations.of(context)!.profileEducationCertsHint,
                         _educationController,
                         Icons.school_outlined,
                         maxLines: 3,
@@ -331,6 +450,128 @@ class _TeacherProfileEditDialogState extends State<TeacherProfileEditDialog> {
                 ),
               ),
       ),
+    );
+  }
+
+  /// Reminds teachers the data on this screen is private to the in-app
+  /// experience and is NOT what shows on the public website. Publishing a
+  /// teacher to the public "Team" page is an admin action on the CMS.
+  Widget _buildPrivacyNotice() {
+    final l10n = AppLocalizations.of(context)!;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xff0E72ED).withOpacity(0.08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: const Color(0xff0E72ED).withOpacity(0.2),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(
+            Icons.lock_outline_rounded,
+            color: Color(0xff0E72ED),
+            size: 18,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              l10n.profilePrivacyNotice,
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                height: 1.45,
+                color: const Color(0xff1E3A5F),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAvatarEditor() {
+    final l10n = AppLocalizations.of(context)!;
+    final initials = _nameController.text
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((p) => p.isNotEmpty)
+        .take(2)
+        .map((p) => p.characters.first.toUpperCase())
+        .join();
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Stack(
+          alignment: Alignment.bottomRight,
+          children: [
+            Container(
+              width: 112,
+              height: 112,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: const Color(0xff10B981), width: 2),
+              ),
+              child: ClipOval(
+                child: _profilePictureUrl != null
+                    ? Image.network(
+                        _profilePictureUrl!,
+                        fit: BoxFit.cover,
+                        width: 108,
+                        height: 108,
+                      )
+                    : Container(
+                        color: const Color(0xff10B981).withOpacity(0.1),
+                        alignment: Alignment.center,
+                        child: Text(
+                          initials.isEmpty ? '?' : initials,
+                          style: GoogleFonts.inter(
+                            fontSize: 36,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xff10B981),
+                          ),
+                        ),
+                      ),
+              ),
+            ),
+            Material(
+              color: const Color(0xff10B981),
+              shape: const CircleBorder(),
+              elevation: 2,
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: _isUploadingPhoto ? null : _showPhotoSourceSheet,
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: _isUploadingPhoto
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(
+                          Icons.photo_camera,
+                          color: Colors.white,
+                          size: 18,
+                        ),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          l10n.profilePhotoChangeHint,
+          style: GoogleFonts.inter(
+            fontSize: 12,
+            color: const Color(0xff6B7280),
+          ),
+        ),
+      ],
     );
   }
 

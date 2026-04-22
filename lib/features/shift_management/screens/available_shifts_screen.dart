@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:alluwalacademyadmin/features/shift_management/models/teaching_shift.dart';
+import 'package:cloud_functions/cloud_functions.dart';
+import '../../../core/models/teaching_shift.dart';
+import '../../../core/services/shift_service.dart';
 import '../widgets/shift_details_dialog.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
@@ -18,6 +21,48 @@ class AvailableShiftsScreen extends StatefulWidget {
 class _AvailableShiftsScreenState extends State<AvailableShiftsScreen> {
   List<TeachingShift> _availableShifts = [];
   bool _isLoading = true;
+
+  String _messageForClaimShiftError(Object e) {
+    final l10n = AppLocalizations.of(context)!;
+    if (e is FirebaseFunctionsException) {
+      switch (e.code) {
+        case 'failed-precondition':
+          return l10n.claimShiftErrorUnavailable;
+        case 'already-exists':
+          return l10n.claimShiftErrorAlreadyTeacher;
+        case 'not-found':
+          return l10n.claimShiftErrorNotFound;
+        case 'unauthenticated':
+          return l10n.claimShiftErrorAuth;
+        case 'permission-denied':
+          return l10n.claimShiftErrorPermission;
+        default:
+          final m = e.message;
+          if (m != null && m.trim().isNotEmpty) return m;
+      }
+    }
+    if (e is FirebaseException) {
+      if (e.plugin == 'shift_claim') {
+        switch (e.code) {
+          case 'failed-precondition':
+            return l10n.claimShiftErrorUnavailable;
+          case 'already-exists':
+            return l10n.claimShiftErrorAlreadyTeacher;
+          case 'not-found':
+            return l10n.claimShiftErrorNotFound;
+          case 'unauthenticated':
+            return l10n.claimShiftErrorAuth;
+          default:
+            final m = e.message;
+            if (m != null && m.trim().isNotEmpty) return m;
+        }
+      }
+      if (e.plugin == 'cloud_firestore' && e.code == 'permission-denied') {
+        return l10n.claimShiftErrorPermission;
+      }
+    }
+    return l10n.claimShiftErrorGeneric;
+  }
 
   @override
   void initState() {
@@ -38,12 +83,12 @@ class _AvailableShiftsScreenState extends State<AvailableShiftsScreen> {
           .where('is_published', isEqualTo: true)
           .where('status', isEqualTo: 'scheduled')
           .orderBy('shift_start')
-          .limit(50)
+          .limit(100)
           .get();
 
       final shifts = querySnapshot.docs
           .map((doc) => TeachingShift.fromFirestore(doc))
-          .where((shift) => !shift.hasExpired && shift.originalTeacherId != currentUser.uid)
+          .where((shift) => !shift.hasExpired && shift.teacherId != currentUser.uid)
           .toList();
 
       if (mounted) {
@@ -167,25 +212,7 @@ class _AvailableShiftsScreenState extends State<AvailableShiftsScreen> {
         final currentUser = FirebaseAuth.instance.currentUser;
         if (currentUser == null) return;
 
-        // Get current user's name from Firestore
-        final userDoc = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(currentUser.uid)
-            .get();
-        final userName =
-            userDoc.data()?['name'] ?? AppLocalizations.of(context)!.commonUnknown;
-
-        // Update shift: change teacher, keep original teacher info, set isPublished to false
-        await FirebaseFirestore.instance
-            .collection('teaching_shifts')
-            .doc(shift.id)
-            .update({
-          'teacher_id': currentUser.uid,
-          'teacher_name': userName,
-          'is_published': false,
-          'last_modified': FieldValue.serverTimestamp(),
-          // Keep original_teacher_id and original_teacher_name unchanged
-        });
+        await ShiftService.claimPublishedShift(shift.id);
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -201,16 +228,31 @@ class _AvailableShiftsScreenState extends State<AvailableShiftsScreen> {
         }
         
         _loadAvailableShifts(); // Refresh list
-      } catch (e) {
-        AppLogger.error('Error claiming shift: $e');
+      } catch (e, st) {
+        if (e is FirebaseFunctionsException) {
+          AppLogger.error(
+            'Error claiming shift: ${e.code} ${e.message}',
+            error: e,
+            stackTrace: st,
+          );
+        } else if (e is FirebaseException) {
+          AppLogger.error(
+            'Error claiming shift: ${e.plugin} ${e.code} ${e.message}',
+            error: e,
+            stackTrace: st,
+          );
+        } else {
+          AppLogger.error('Error claiming shift: $e', error: e, stackTrace: st);
+        }
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                AppLocalizations.of(context)!.failedToClaimShiftPleaseTry,
+                _messageForClaimShiftError(e),
                 style: GoogleFonts.inter(),
               ),
               backgroundColor: const Color(0xffEF4444),
+              duration: const Duration(seconds: 5),
             ),
           );
         }

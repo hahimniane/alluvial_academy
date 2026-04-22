@@ -238,7 +238,25 @@ class _TeacherApplicationScreenState extends State<TeacherApplicationScreen> {
           const SizedBox(height: 16),
           FadeInSlide(delay: 0.15, child: _buildTextField('Last Name', 'Barry', _lastNameController, required: true)),
           const SizedBox(height: 16),
-          FadeInSlide(delay: 0.2, child: _buildTextField('Email', 'Mahmoud.barry@example.com', _emailController, required: true, keyboardType: TextInputType.emailAddress)),
+          FadeInSlide(
+            delay: 0.2,
+            child: _buildTextField(
+              'Email',
+              'Mahmoud.barry@example.com',
+              _emailController,
+              required: true,
+              keyboardType: TextInputType.emailAddress,
+              validator: (v) {
+                if (v == null || v.trim().isEmpty) {
+                  return 'This field is required';
+                }
+                if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(v.trim())) {
+                  return 'Enter a valid email';
+                }
+                return null;
+              },
+            ),
+          ),
           const SizedBox(height: 16),
           FadeInSlide(delay: 0.25, child: _buildTextField('Current Location (Country and City)', 'United States, New York', _locationController, required: true)),
           const SizedBox(height: 16),
@@ -310,7 +328,7 @@ class _TeacherApplicationScreenState extends State<TeacherApplicationScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildSectionTitle('Teaching Program', Icons.book_outlined),
+          _buildSectionTitle('Teaching Programs', Icons.book_outlined),
           SizedBox(height: 8),
           Text(
             AppLocalizations.of(context)!.selectTheProgramSYouAre,
@@ -319,17 +337,17 @@ class _TeacherApplicationScreenState extends State<TeacherApplicationScreen> {
           const SizedBox(height: 24),
           FadeInSlide(
             delay: 0.1,
-            child: _buildProgramChip('English Tutoring Program (Elementary - High School)', 'english', Icons.language, const Color(0xff3B82F6)),
+            child: _buildProgramChip('After School Tutoring (English track)', 'english', Icons.language, const Color(0xff3B82F6)),
           ),
           const SizedBox(height: 12),
           FadeInSlide(
             delay: 0.15,
-            child: _buildProgramChip('Islamic Studies Program (Quran, Hadith, Fiqh, etc.)', 'islamic_studies', Icons.mosque, const Color(0xff10B981)),
+            child: _buildProgramChip('Islamic Program (Quran, Arabic, Hadith, Fiqh)', 'islamic_studies', Icons.mosque, const Color(0xff10B981)),
           ),
           const SizedBox(height: 12),
           FadeInSlide(
             delay: 0.2,
-            child: _buildProgramChip('Adult Literacy Program (Basic English)', 'adult_literacy', Icons.menu_book, const Color(0xffF59E0B)),
+            child: _buildProgramChip('Adult Literacy (English/French reading and writing)', 'adult_literacy', Icons.menu_book, const Color(0xffF59E0B)),
           ),
           const SizedBox(height: 12),
           FadeInSlide(
@@ -353,7 +371,7 @@ class _TeacherApplicationScreenState extends State<TeacherApplicationScreen> {
             FadeInSlide(
               delay: 0.4,
               child: _buildTextField(
-                'If interested in English Program, list subjects you feel comfortable teaching',
+                'If interested in the After School English track, list subjects you can teach',
                 'Reading, Writing, Grammar, Vocabulary...',
                 _englishSubjectsController,
                 maxLines: 3,

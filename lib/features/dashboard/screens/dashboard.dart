@@ -1,60 +1,64 @@
 // ignore_for_file: library_private_types_in_public_api
+import 'features/dashboard/screens/admin_dashboard_screen.dart';
+import 'features/chat/screens/chat_page.dart';
+import 'form_screen.dart';
+import 'features/forms/screens/form_responses_screen.dart';
+import 'features/forms/screens/admin_all_submissions_screen.dart';
+import 'job_scheduling.dart';
+import 'features/time_clock/screens/time_clock_screen.dart';
+import 'features/time_clock/screens/admin_timesheet_review.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
+
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/foundation.dart';
+import 'core/services/user_role_service.dart';
+import 'core/services/public_site_cms_service.dart';
+import 'core/constants/app_constants.dart';
+import 'core/utils/app_logger.dart';
+import 'shared/widgets/role_switcher.dart';
+import 'features/user_management/screens/user_management_screen.dart';
+import 'admin/form_builder.dart';
+import 'admin/forms_list_screen.dart';
+import 'test_role_system.dart';
+import 'firestore_debug_screen.dart';
+import 'features/tasks/screens/quick_tasks_screen.dart';
+import 'features/shift_management/screens/shift_management_screen.dart';
+import 'features/shift_management/screens/teacher_shift_screen.dart';
+import 'package:alluwalacademyadmin/features/website_management/public_site_cms/public_site_cms_screen.dart';
+import 'features/zoom/screens/zoom_screen.dart';
+import 'features/notifications/screens/send_notification_screen.dart';
+import 'features/enrollment_management/screens/enrollment_management_screen.dart';
+import 'features/teacher_applications/screens/teacher_application_management_screen.dart';
+import 'features/settings/screens/admin_settings_screen.dart';
+import 'admin/screens/admin_audit_screen.dart';
+import 'features/audit/screens/teacher_audit_screen.dart';
+import 'features/audit/screens/teacher_audit_detail_screen.dart';
+import 'admin/screens/test_audit_generation.dart';
+import 'features/forms/screens/teacher_forms_screen.dart';
+import 'features/dashboard/screens/teacher_job_board_screen.dart';
+import 'screens/landing_page.dart';
+import 'role_based_dashboard.dart';
+import 'core/services/profile_picture_service.dart';
+import 'features/profile/screens/teacher_profile_screen.dart';
+import 'features/settings/screens/mobile_settings_screen.dart';
+import 'features/student/screens/student_progress_screen.dart';
+import 'features/recordings/screens/class_recordings_screen.dart';
+import 'features/surah_podcast/screens/surah_podcast_screen.dart';
+
+import 'features/dashboard/widgets/custom_sidebar.dart';
+import 'features/dashboard/services/sidebar_service.dart';
+import 'features/dashboard/config/sidebar_config.dart';
+import 'features/dashboard/utils/sidebar_localization.dart';
+import 'features/dashboard/widgets/command_palette.dart';
+import 'package:flutter/services.dart';
+
+import 'core/constants/dashboard_constants.dart';
+import 'core/services/notification_service.dart';
+import 'core/services/teacher_audit_service.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
-import 'package:alluwalacademyadmin/core/services/user_role_service.dart';
-import 'package:alluwalacademyadmin/core/constants/app_constants.dart';
-import 'package:alluwalacademyadmin/features/dashboard/constants/dashboard_constants.dart';
-import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
-import 'package:alluwalacademyadmin/features/profile/services/profile_picture_service.dart';
-import 'package:alluwalacademyadmin/core/services/notification_service.dart';
-import 'package:alluwalacademyadmin/features/audit/services/teacher_audit_service.dart';
-import 'package:alluwalacademyadmin/core/widgets/role_switcher.dart';
-import 'package:alluwalacademyadmin/features/dashboard/screens/admin_dashboard_screen.dart';
-import 'package:alluwalacademyadmin/features/dashboard/screens/teacher_job_board_screen.dart';
-import 'package:alluwalacademyadmin/features/dashboard/widgets/custom_sidebar.dart';
-import 'package:alluwalacademyadmin/features/dashboard/services/sidebar_service.dart';
-import 'package:alluwalacademyadmin/features/dashboard/config/sidebar_config.dart';
-import 'package:alluwalacademyadmin/features/dashboard/utils/sidebar_localization.dart';
-import 'package:alluwalacademyadmin/features/dashboard/widgets/command_palette.dart';
-import 'package:alluwalacademyadmin/features/chat/screens/chat_page.dart';
-import 'package:alluwalacademyadmin/features/forms/screens/form_screen.dart';
-import 'package:alluwalacademyadmin/features/forms/screens/form_responses_screen.dart';
-import 'package:alluwalacademyadmin/features/forms/screens/admin_all_submissions_screen.dart';
-import 'package:alluwalacademyadmin/features/forms/screens/forms_list_screen.dart';
-import 'package:alluwalacademyadmin/features/forms/screens/teacher_forms_screen.dart';
-import 'package:alluwalacademyadmin/features/tasks/screens/quick_tasks_screen.dart';
-import 'package:alluwalacademyadmin/features/shift_management/screens/shift_management_screen.dart';
-import 'package:alluwalacademyadmin/features/shift_management/screens/teacher_shift_screen.dart';
-import 'package:alluwalacademyadmin/features/time_clock/screens/time_clock_screen.dart';
-import 'package:alluwalacademyadmin/features/time_clock/screens/admin_timesheet_review.dart';
-import 'package:alluwalacademyadmin/features/user_management/screens/user_management_screen.dart';
-import 'package:alluwalacademyadmin/features/website_management/screens/website_management_screen.dart';
-import 'package:alluwalacademyadmin/features/zoom/screens/zoom_screen.dart';
-import 'package:alluwalacademyadmin/features/notifications/screens/send_notification_screen.dart';
-import 'package:alluwalacademyadmin/features/enrollment_management/screens/enrollment_management_screen.dart';
-import 'package:alluwalacademyadmin/features/teacher_applications/screens/teacher_application_management_screen.dart';
-import 'package:alluwalacademyadmin/features/settings/screens/admin_settings_screen.dart';
-import 'package:alluwalacademyadmin/features/settings/screens/test_role_system.dart';
-import 'package:alluwalacademyadmin/features/settings/screens/firestore_debug_screen.dart';
-import 'package:alluwalacademyadmin/features/audit/screens/admin_audit_screen.dart';
-import 'package:alluwalacademyadmin/features/audit/screens/teacher_audit_detail_screen.dart';
-import 'package:alluwalacademyadmin/features/audit/screens/test_audit_generation.dart';
-import 'package:alluwalacademyadmin/features/profile/screens/teacher_profile_screen.dart';
-import 'package:alluwalacademyadmin/features/settings/screens/mobile_settings_screen.dart';
-import 'package:alluwalacademyadmin/features/student/screens/student_progress_screen.dart';
-import 'package:alluwalacademyadmin/features/recordings/screens/class_recordings_screen.dart';
-import 'package:alluwalacademyadmin/features/surah_podcast/screens/surah_podcast_screen.dart';
-import 'package:alluwalacademyadmin/features/tontine/screens/admin_circles_screen.dart';
-import 'package:alluwalacademyadmin/features/tontine/screens/tontine_home_screen.dart';
-import 'package:alluwalacademyadmin/features/curriculum/screens/curriculum_books_screen.dart';
-import 'package:alluwalacademyadmin/features/website/screens/landing_page.dart';
-import 'package:alluwalacademyadmin/features/parent/screens/admin_invoice_hub_screen.dart';
 
 /// Main Dashboard widget that serves as the app's primary navigation interface
 class DashboardPage extends StatefulWidget {
@@ -85,7 +89,7 @@ class _DashboardPageState extends State<DashboardPage> {
   // Cache for lazy screen construction.
   // Only screens that were visited are stored here, which avoids building all screens up-front.
   final Map<int, Widget> _lazyScreensCache = <int, Widget>{};
-  static const int _screenCount = 33;
+  static const int _screenCount = 29;
 
   // GlobalKey for accessing Scaffold state
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
@@ -266,7 +270,9 @@ class _DashboardPageState extends State<DashboardPage> {
       case 1:
         return const UserManagementScreen();
       case 2:
-        return const WebsiteManagementScreen();
+        // Legacy CMS screen removed. Redirect to the unified Public Site CMS
+        // so stale navigation state doesn't land on a 404.
+        return const PublicSiteCmsScreen();
       case 3:
         return const ShiftManagementScreen();
       case 4:
@@ -318,13 +324,7 @@ class _DashboardPageState extends State<DashboardPage> {
       case 27:
         return const SurahPodcastScreen();
       case 28:
-        return const TontineHomeScreen();
-      case 29:
-        return const AdminCirclesScreen();
-      case 30:
-        return const CurriculumBooksScreen();
-      case 31:
-        return const AdminInvoiceHubScreen();
+        return const PublicSiteCmsScreen();
       default:
         return const SizedBox.shrink();
     }
@@ -358,12 +358,7 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Set<int> _allowedScreenIndexes(String? role) {
-    final isAdmin = role == 'admin' || role == 'super_admin';
-    final tontineOn = _userData?['tontine_enabled'] as bool? ?? false;
-    var sections = SidebarConfig.getStructureForRole(role);
-    if (!isAdmin && !tontineOn) {
-      sections = sections.where((s) => s.id != 'savings').toList();
-    }
+    final sections = SidebarConfig.getStructureForRole(role);
     return sections
         .expand((section) => section.items)
         .map((item) => item.screenIndex)
@@ -503,6 +498,7 @@ class _DashboardPageState extends State<DashboardPage> {
       await Future.delayed(const Duration(milliseconds: 100));
 
       // Now sign out from Firebase Auth
+      PublicSiteCmsService.invalidatePublicCmsFirestoreBroadcastCaches();
       await FirebaseAuth.instance.signOut();
 
       print('Sign out completed successfully');
@@ -1261,10 +1257,8 @@ class _DashboardPageState extends State<DashboardPage> {
     return Shortcuts(
       shortcuts: <ShortcutActivator, Intent>{
         // Key combos for command palette.
-        const SingleActivator(LogicalKeyboardKey.keyK, control: true):
-            _OpenCommandPaletteIntent(),
-        const SingleActivator(LogicalKeyboardKey.keyK, meta: true):
-            _OpenCommandPaletteIntent(),
+        const SingleActivator(LogicalKeyboardKey.keyK, control: true): _OpenCommandPaletteIntent(),
+        const SingleActivator(LogicalKeyboardKey.keyK, meta: true): _OpenCommandPaletteIntent(),
       },
       child: Actions(
         actions: <Type, Action<Intent>>{
@@ -1331,8 +1325,7 @@ class _DashboardPageState extends State<DashboardPage> {
       if (sectionLabel != null) break;
     }
 
-    if (sectionLabel == null || itemLabel == null)
-      return const SizedBox.shrink();
+    if (sectionLabel == null || itemLabel == null) return const SizedBox.shrink();
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
@@ -1753,12 +1746,6 @@ class _DashboardPageState extends State<DashboardPage> {
 
   /// Builds the side navigation menu
   Widget _buildSideMenu() {
-    final isAdmin = _userRole == 'admin' || _userRole == 'super_admin';
-    final tontineEnabled = _userData?['tontine_enabled'] as bool? ?? false;
-    final hiddenSections = <String>{
-      if (!isAdmin && !tontineEnabled) 'savings',
-    };
-
     return CustomSidebar(
       selectedIndex: _selectedIndex,
       onItemSelected: _onItemTapped,
@@ -1771,7 +1758,6 @@ class _DashboardPageState extends State<DashboardPage> {
       },
       userRole: _userRole,
       badgeScreenIndices: _badgeScreenIndices,
-      hiddenSectionIds: hiddenSections,
     );
   }
 

@@ -3,12 +3,26 @@ import 'package:alluwalacademyadmin/features/time_clock/enums/timesheet_enums.da
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
-import 'package:syncfusion_flutter_datagrid/datagrid.dart';
-import 'package:syncfusion_flutter_core/theme.dart';
+import 'package:provider/provider.dart';
+
+import '../data/timesheet_admin_repository.dart';
 import '../models/timesheet_entry.dart';
+import '../models/timesheet_date_preset.dart';
+import '../controllers/timesheet_review_controller.dart';
+import '../services/timesheet_bulk_actions_service.dart';
+import '../services/timesheet_payment_service.dart';
+import '../utils/timesheet_entry_review_flags.dart';
+import '../view_models/timesheet_review_view_model.dart';
+import '../widgets/timesheet_review_bulk_bar.dart';
+import '../widgets/timesheet_review_data_source.dart';
+import '../widgets/timesheet_review_detail_panel.dart';
+import '../widgets/timesheet_review_export_dialog.dart';
+import '../widgets/timesheet_review_grid.dart';
+import '../widgets/timesheet_review_toolbar.dart';
 
 import 'package:alluwalacademyadmin/core/utils/export_helpers.dart';
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 import 'package:alluwalacademyadmin/core/utils/performance_logger.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
@@ -25,17 +39,6 @@ class AdminTimesheetReview extends StatefulWidget {
 
 /// Utility function to format times in admin system timezone (UTC)
 String _formatAdminTime(DateTime? dateTime, {String format = 'h:mm a'}) {
-  if (dateTime == null) return 'N/A';
-
-  // Convert to admin system timezone (UTC)
-  final adminTime = dateTime.toUtc();
-
-  return DateFormat(format).format(adminTime);
-}
-
-/// Utility function to format dates in admin system timezone
-String _formatAdminDateTime(DateTime? dateTime,
-    {String format = 'MMM d, yyyy h:mm a'}) {
   if (dateTime == null) return 'N/A';
 
   // Convert to admin system timezone (UTC)
@@ -88,18 +91,11 @@ String _formatEditedTime(TimesheetEntry timesheet, String timeType) {
 }
 
 class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
-  List<TimesheetEntry> _allTimesheets = [];
-  List<TimesheetEntry> _filteredTimesheets = [];
-  TimesheetReviewDataSource? _dataSource;
-  String _selectedFilter = 'Pending';
-  bool _isLoading = true;
-  DateTimeRange? _selectedDateRange;
-  final Set<String> _selectedTimesheetIds = {};
-  bool _showBulkActions = false;
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
-  // Advanced filtering
-  String? _selectedTeacherFilter;
-  List<String> _availableTeachers = [];
+  late final TimesheetAdminRepository _repository;
+  late final TimesheetReviewViewModel _vm;
+  final TextEditingController _searchController = TextEditingController();
 
   // Real-time listener
   StreamSubscription<QuerySnapshot>? _timesheetListener;
@@ -107,6 +103,8 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
   String? _initialLoadOpId;
   bool _initialLoadCompleted = false;
 
+  String get _selectedFilter => _vm.filterState.statusFilter;
+  DateTimeRange? get _selectedDateRange => _vm.filterState.dateRange;
   final List<String> _filterOptions = [
     'All',
     'Pending',
@@ -118,18 +116,23 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
   @override
   void initState() {
     super.initState();
+    _repository = TimesheetAdminRepository();
+    _vm = TimesheetReviewViewModel();
     _setupRealtimeListener();
   }
 
   @override
   void dispose() {
+    _vm.dispose();
     _timesheetListener?.cancel();
+    _searchController.dispose();
     super.dispose();
   }
 
   /// Setup real-time listener for timesheet changes
   void _setupRealtimeListener() {
-    setState(() => _isLoading = true);
+    _vm.setLoading(true);
+    setState(() {});
 
     final initialOpId =
         PerformanceLogger.newOperationId('AdminTimesheetReview._initialLoad');
@@ -140,10 +143,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
     // Listen to real-time changes in timesheet_entries collection
     // Removed orderBy to avoid Firestore internal assertion errors
     // We'll sort client-side instead
-    _timesheetListener = FirebaseFirestore.instance
-        .collection('timesheet_entries')
-        .snapshots()
-        .listen((snapshot) async {
+    _timesheetListener = _buildTimesheetQuery().snapshots().listen((snapshot) async {
       final summary = await _processTimesheetSnapshot(snapshot);
 
       if (!_initialLoadCompleted && _initialLoadOpId == initialOpId) {
@@ -161,536 +161,81 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
         });
       }
       if (mounted) {
-        setState(() => _isLoading = false);
+        _vm.setLoading(false);
+        setState(() {});
       }
     });
+  }
+
+  Query<Map<String, dynamic>> _buildTimesheetQuery() {
+    return _repository.timesheetEntriesQuery(_vm.filterState.statusFilter);
+  }
+
+  void _restartRealtimeListener() {
+    _timesheetListener?.cancel();
+    _setupRealtimeListener();
   }
 
   /// Process timesheet snapshot and update UI in real-time
   Future<Map<String, dynamic>> _processTimesheetSnapshot(
       QuerySnapshot snapshot) async {
-    final opId = PerformanceLogger.newOperationId(
-        'AdminTimesheetReview._processTimesheetSnapshot');
-    PerformanceLogger.startTimer(opId, metadata: {
-      'doc_count': snapshot.docs.length,
-    });
-
-    final summary = <String, dynamic>{
-      'doc_count': snapshot.docs.length,
-    };
-
     try {
-      List<TimesheetEntry> timesheets = [];
-
-      // Process all timesheet entries
-      final List<TimesheetEntry> rawEntries = [];
-      int parseErrors = 0;
-
-      final userCache = <String, Map<String, dynamic>?>{};
-      final shiftCache = <String, Map<String, dynamic>?>{};
-      int userFetches = 0;
-      int userCacheHits = 0;
-      int userFetchMs = 0;
-      int shiftFetches = 0;
-      int shiftCacheHits = 0;
-      int shiftFetchMs = 0;
-
-      final parseStopwatch = Stopwatch()..start();
-      for (QueryDocumentSnapshot doc in snapshot.docs) {
-        try {
-          final data = doc.data() as Map<String, dynamic>;
-          TimesheetEntry? entry = await _createTimesheetEntry(
-            doc,
-            data,
-            userCache: userCache,
-            shiftCache: shiftCache,
-            onUserFetch: (ms) {
-              userFetches++;
-              userFetchMs += ms;
-            },
-            onUserCacheHit: () => userCacheHits++,
-            onShiftFetch: (ms) {
-              shiftFetches++;
-              shiftFetchMs += ms;
-            },
-            onShiftCacheHit: () => shiftCacheHits++,
-          );
-          if (entry != null) {
-            rawEntries.add(entry);
-          }
-        } catch (e) {
-          AppLogger.error('Error processing timesheet document ${doc.id}: $e');
-          parseErrors++;
-        }
-      }
-      parseStopwatch.stop();
-
-      PerformanceLogger.checkpoint(opId, 'entries_built', metadata: {
-        'raw_entries': rawEntries.length,
-        'parse_errors': parseErrors,
-        'parse_time_ms': parseStopwatch.elapsedMilliseconds,
-        'user_fetches': userFetches,
-        'user_cache_hits': userCacheHits,
-        'user_fetch_time_ms': userFetchMs,
-        'shift_fetches': shiftFetches,
-        'shift_cache_hits': shiftCacheHits,
-        'shift_fetch_time_ms': shiftFetchMs,
-      });
-
-      // Group by shift_id
-      final Map<String, List<TimesheetEntry>> grouped = {};
-      final List<TimesheetEntry> consolidatedList = [];
-
-      final consolidateStopwatch = Stopwatch()..start();
-      for (var entry in rawEntries) {
-        if (entry.shiftId != null) {
-          if (!grouped.containsKey(entry.shiftId)) {
-            grouped[entry.shiftId!] = [];
-          }
-          grouped[entry.shiftId!]!.add(entry);
-        } else {
-          // No shift ID, treat as standalone
-          consolidatedList.add(entry);
-        }
-      }
-
-      // Process groups
-      grouped.forEach((shiftId, entries) {
-        if (entries.length == 1) {
-          consolidatedList.add(entries.first);
-        } else {
-          // Consolidate multiple entries
-          // Calculate totals
-          double totalHours = 0;
-          double totalPayment = 0;
-
-          for (var e in entries) {
-            totalPayment += (e.paymentAmount ?? 0);
-
-            // Parse duration
-            final parts = e.totalHours.split(':');
-            if (parts.length >= 2) {
-              try {
-                final h = int.parse(parts[0]);
-                final m = int.parse(parts[1]);
-                totalHours += h + (m / 60.0);
-              } catch (_) {}
-            }
-          }
-
-          // Format total hours back to HH:MM
-          final h = totalHours.floor();
-          final m = ((totalHours - h) * 60).round();
-          final formattedTotalHours =
-              '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}';
-
-          // Determine status (if any pending, group is pending)
-          TimesheetStatus groupStatus = TimesheetStatus.approved;
-          if (entries.any((e) => e.status == TimesheetStatus.rejected)) {
-            groupStatus = TimesheetStatus.rejected;
-          }
-          if (entries.any((e) => e.status == TimesheetStatus.draft)) {
-            groupStatus = TimesheetStatus.draft;
-          }
-          if (entries.any((e) => e.status == TimesheetStatus.pending)) {
-            groupStatus = TimesheetStatus.pending;
-          }
-
-          // Sort entries by time
-          entries.sort((a, b) => a.start.compareTo(b.start));
-
-          // Create consolidated entry
-          final first = entries.first;
-          final last = entries.last;
-
-          consolidatedList.add(TimesheetEntry(
-            documentId: 'consolidated_$shiftId',
-            date: first.date,
-            subject: '${first.subject} (${entries.length} sessions)',
-            start: first.start,
-            end: last.end,
-            totalHours: formattedTotalHours,
-            description: 'Consolidated shift with ${entries.length} clock-ins',
-            status: groupStatus,
-            teacherId: first.teacherId,
-            teacherName: first.teacherName,
-            hourlyRate: first.hourlyRate, // Assuming same rate
-            paymentAmount: totalPayment,
-            shiftTitle: first.shiftTitle,
-            isConsolidated: true,
-            childEntries: entries,
-            shiftId: shiftId,
-          ));
-        }
-      });
-      consolidateStopwatch.stop();
-
-      timesheets = consolidatedList;
-
-      // Sort client-side by created_at (most recent first)
-
-      // Sort client-side by created_at (most recent first)
-      final sortStopwatch = Stopwatch()..start();
-      timesheets.sort((a, b) {
-        // Try to sort by date, fallback to document ID if date parsing fails
-        try {
-          return b.date.compareTo(a.date);
-        } catch (e) {
-          return 0;
-        }
-      });
-      sortStopwatch.stop();
-
-      PerformanceLogger.checkpoint(opId, 'consolidated_and_sorted', metadata: {
-        'group_count': grouped.length,
-        'consolidated_count': timesheets.length,
-        'consolidate_time_ms': consolidateStopwatch.elapsedMilliseconds,
-        'sort_time_ms': sortStopwatch.elapsedMilliseconds,
-      });
-
-      final teachers = timesheets.map((e) => e.teacherName).toSet().toList()
-        ..sort();
-      final filtered = _computeFilteredTimesheets(
-        all: timesheets,
-        filter: _selectedFilter,
-        teacherFilter: _selectedTeacherFilter,
-        dateRange: _selectedDateRange,
+      final result = await _repository.processTimesheetSnapshot(snapshot);
+      if (!mounted) return result.summary;
+      _vm.ingestProcessedTimesheets(
+        result.timesheets,
+        result.teachers,
+        clearSelection: false,
       );
-
-      if (mounted) {
-        final stateStopwatch = Stopwatch()..start();
-        final dataSource = TimesheetReviewDataSource(
-          context: context,
-          timesheets: filtered,
-          onApprove: _approveTimesheet,
-          onReject: _rejectTimesheet,
-          onViewDetails: _viewTimesheetDetails,
-          onSelectionChanged: _onTimesheetSelectionChanged,
-          selectedIds: _selectedTimesheetIds,
-        );
-        setState(() {
-          _allTimesheets = timesheets;
-          _availableTeachers = teachers;
-          _selectedTimesheetIds.clear();
-          _showBulkActions = false;
-          _filteredTimesheets = filtered;
-          _dataSource = dataSource;
-          _isLoading = false;
-        });
-        stateStopwatch.stop();
-        PerformanceLogger.checkpoint(opId, 'state_updated', metadata: {
-          'set_state_time_ms': stateStopwatch.elapsedMilliseconds,
-        });
-
-        // Show notification for new pending timesheets if admin was viewing other filters
-        _checkForNewPendingTimesheets(timesheets);
-      }
-
-      summary.addAll({
-        'entries_built': rawEntries.length,
-        'timesheets_final': timesheets.length,
-        'parse_errors': parseErrors,
-        'user_fetch_time_ms': userFetchMs,
-        'shift_fetch_time_ms': shiftFetchMs,
-      });
-      PerformanceLogger.endTimer(opId, metadata: summary);
-      return summary;
+      _vm.setLoading(false);
+      return result.summary;
     } catch (e) {
       AppLogger.error('Error processing timesheet snapshot: $e');
-      summary['error'] = e.toString();
-      PerformanceLogger.endTimer(opId, metadata: summary);
+      final summary = <String, dynamic>{'error': e.toString()};
       if (mounted) {
-        setState(() => _isLoading = false);
+        _vm.setLoading(false);
+        setState(() {});
       }
       return summary;
-    }
-  }
-
-  /// Create timesheet entry with user data
-  Future<TimesheetEntry?> _createTimesheetEntry(
-    QueryDocumentSnapshot doc,
-    Map<String, dynamic> data, {
-    required Map<String, Map<String, dynamic>?> userCache,
-    required Map<String, Map<String, dynamic>?> shiftCache,
-    required ValueChanged<int> onUserFetch,
-    required VoidCallback onUserCacheHit,
-    required ValueChanged<int> onShiftFetch,
-    required VoidCallback onShiftCacheHit,
-  }) async {
-    try {
-      // Get user information for hourly rate - with caching to avoid repeated queries
-      final teacherId = data['teacher_id']?.toString();
-      Map<String, dynamic>? userData;
-
-      if (teacherId != null && teacherId.isNotEmpty) {
-        if (userCache.containsKey(teacherId)) {
-          userData = userCache[teacherId];
-          onUserCacheHit();
-        } else {
-          final sw = Stopwatch()..start();
-          final userDoc = await FirebaseFirestore.instance
-              .collection('users')
-              .doc(teacherId)
-              .get();
-          sw.stop();
-          onUserFetch(sw.elapsedMilliseconds);
-
-          userData = userDoc.data();
-          userCache[teacherId] = userData;
-        }
-      }
-
-      // Get the hourly rate from the timesheet entry first, then fallback to user data
-      final timesheetHourlyRate = (data['hourly_rate'] as num?)?.toDouble();
-      final userHourlyRate = (userData?['hourly_rate'] as num?)?.toDouble();
-      final hourlyRate = timesheetHourlyRate ?? userHourlyRate ?? 4.0;
-      final userName =
-          '${userData?['first_name'] ?? ''} ${userData?['last_name'] ?? ''}'
-              .trim();
-
-      // Parse new export fields
-      final clockInTimestamp = data['clock_in_timestamp'] as Timestamp?;
-      final clockOutTimestamp = data['clock_out_timestamp'] as Timestamp?;
-      final scheduledStart = data['scheduled_start'] as Timestamp?;
-      final scheduledEnd = data['scheduled_end'] as Timestamp?;
-      final scheduledDurationMinutes =
-          data['scheduled_duration_minutes'] as int?;
-
-      // If scheduled times are missing, try to fetch from shift if shift_id exists
-      DateTime? finalScheduledStart = scheduledStart?.toDate();
-      DateTime? finalScheduledEnd = scheduledEnd?.toDate();
-      int? finalScheduledDurationMinutes = scheduledDurationMinutes;
-
-      final shiftId = data['shift_id'] as String?;
-      if ((finalScheduledStart == null ||
-              finalScheduledEnd == null ||
-              finalScheduledDurationMinutes == null) &&
-          shiftId != null) {
-        try {
-          Map<String, dynamic>? shiftData;
-          if (shiftCache.containsKey(shiftId)) {
-            shiftData = shiftCache[shiftId];
-            onShiftCacheHit();
-          } else {
-            final sw = Stopwatch()..start();
-            final shiftDoc = await FirebaseFirestore.instance
-                .collection('teaching_shifts')
-                .doc(shiftId)
-                .get();
-            sw.stop();
-            onShiftFetch(sw.elapsedMilliseconds);
-            shiftData = shiftDoc.data() as Map<String, dynamic>?;
-            shiftCache[shiftId] = shiftData;
-          }
-
-          if (shiftData != null) {
-            if (finalScheduledStart == null &&
-                shiftData['shift_start'] != null) {
-              finalScheduledStart =
-                  (shiftData['shift_start'] as Timestamp).toDate();
-            }
-            if (finalScheduledEnd == null && shiftData['shift_end'] != null) {
-              finalScheduledEnd =
-                  (shiftData['shift_end'] as Timestamp).toDate();
-            }
-            if (finalScheduledDurationMinutes == null) {
-              // Calculate from shift times
-              if (finalScheduledStart != null && finalScheduledEnd != null) {
-                finalScheduledDurationMinutes =
-                    finalScheduledEnd.difference(finalScheduledStart).inMinutes;
-              }
-            }
-          }
-        } catch (e) {
-          AppLogger.debug(
-              'Could not fetch shift data for shift_id $shiftId: $e');
-        }
-      }
-
-      return TimesheetEntry(
-        documentId: doc.id,
-        date: data['date'] ?? '',
-        subject: data['student_name'] ?? '',
-        start: data['start_time'] ?? '',
-        end: data['end_time'] ?? '',
-        totalHours: data['total_hours'] ?? '00:00',
-        description: data['description'] ?? '',
-        status: _parseStatus(data['status'] ?? 'draft'),
-        teacherId: data['teacher_id'] ?? '',
-        teacherName: userName,
-        hourlyRate: hourlyRate,
-        createdAt: data['created_at'] as Timestamp?,
-        submittedAt: data['submitted_at'] as Timestamp?,
-        approvedAt: data['approved_at'] as Timestamp?,
-        rejectedAt: data['rejected_at'] as Timestamp?,
-        rejectionReason: data['rejection_reason'] as String?,
-        paymentAmount: (data['payment_amount'] as num?)?.toDouble() ??
-            (data['total_pay'] as num?)?.toDouble(),
-        source: data['source'] as String? ?? 'manual',
-        // NEW: Export fields
-        shiftTitle: data['shift_title'] as String?,
-        shiftType: data['shift_type'] as String?,
-        clockInPlatform: data['clock_in_platform'] as String?,
-        clockOutPlatform: data['clock_out_platform'] as String?,
-        scheduledStart: finalScheduledStart,
-        scheduledEnd: finalScheduledEnd,
-        scheduledDurationMinutes: finalScheduledDurationMinutes,
-        employeeNotes: data['employee_notes'] as String?,
-        managerNotes: data['manager_notes'] as String?,
-        // Timestamp fields
-        clockInTimestamp: clockInTimestamp,
-        clockOutTimestamp: clockOutTimestamp,
-        // Edit tracking fields
-        isEdited: data['is_edited'] == true ||
-            data['edited_at'] !=
-                null, // Check both is_edited flag and edited_at timestamp
-        editApproved: data['edit_approved'] == true,
-        originalData: data['original_data'] as Map<String, dynamic>?,
-        editedAt: data['edited_at'] as Timestamp?,
-        editedBy: data['edited_by'] as String?,
-        // Readiness form fields
-        formResponseId: data['form_response_id'] as String?,
-        formCompleted:
-            data['form_completed'] == true || data['form_response_id'] != null,
-        reportedHours: (data['reported_hours'] as num?)?.toDouble(),
-        formNotes: data['form_notes'] as String?,
-        shiftId: shiftId,
-      );
-    } catch (e) {
-      AppLogger.error('Error creating timesheet entry for doc ${doc.id}: $e');
-      return null;
-    }
-  }
-
-  /// Check for new pending timesheets and notify admin
-  void _checkForNewPendingTimesheets(List<TimesheetEntry> timesheets) {
-    final newPendingCount =
-        timesheets.where((t) => t.status == TimesheetStatus.pending).length;
-
-    // Only show notification if we're not currently viewing pending timesheets
-    if (_selectedFilter != 'Pending' && newPendingCount > 0) {
-      // Show subtle notification in the app bar or as a badge
-      _showPendingNotification(newPendingCount);
-    }
-  }
-
-  /// Show notification for new pending timesheets
-  void _showPendingNotification(int count) {
-    if (!mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.notification_important, color: Colors.white),
-            const SizedBox(width: 8),
-            Text(AppLocalizations.of(context)!.timesheetPendingReview(count)),
-          ],
-        ),
-        backgroundColor: Colors.orange,
-        action: SnackBarAction(
-          label: AppLocalizations.of(context)!.commonView,
-          textColor: Colors.white,
-          onPressed: () {
-            setState(() {
-              _selectedFilter = 'Pending';
-              _applyFilter(_selectedFilter);
-            });
-          },
-        ),
-        duration: const Duration(seconds: 4),
-      ),
-    );
-  }
-
-  TimesheetStatus _parseStatus(String status) {
-    switch (status.toLowerCase()) {
-      case 'pending':
-        return TimesheetStatus.pending;
-      case 'approved':
-        return TimesheetStatus.approved;
-      case 'rejected':
-        return TimesheetStatus.rejected;
-      default:
-        return TimesheetStatus.draft;
     }
   }
 
   void _applyFilter(String filter) {
-    setState(() {
-      _selectedFilter = filter;
-      _selectedTimesheetIds.clear(); // Clear selections when filter changes
-
-      _filteredTimesheets = _computeFilteredTimesheets(
-        all: _allTimesheets,
-        filter: filter,
-        teacherFilter: _selectedTeacherFilter,
-        dateRange: _selectedDateRange,
-      );
-      _showBulkActions = false;
-
-      _dataSource = TimesheetReviewDataSource(
-        timesheets: _filteredTimesheets,
-        onApprove: _approveTimesheet,
-        onReject: _rejectTimesheet,
-        onViewDetails: _viewTimesheetDetails,
-        onSelectionChanged: _onTimesheetSelectionChanged,
-        selectedIds: _selectedTimesheetIds,
-        context: context,
-      );
-    });
+    final previousStatus = _selectedFilter;
+    _vm.patchFilterState((f) => f.copyWith(statusFilter: filter),
+        clearSelection: true);
+    if (previousStatus != filter) {
+      _restartRealtimeListener();
+    }
   }
 
-  List<TimesheetEntry> _computeFilteredTimesheets({
-    required List<TimesheetEntry> all,
-    required String filter,
-    required String? teacherFilter,
-    required DateTimeRange? dateRange,
-  }) {
-    List<TimesheetEntry> statusFiltered;
-    if (filter == 'All') {
-      statusFiltered = List.from(all);
-    } else {
-      final targetStatus = _parseStatus(filter);
-      statusFiltered =
-          all.where((timesheet) => timesheet.status == targetStatus).toList();
-    }
-
-    if (teacherFilter != null && teacherFilter.isNotEmpty) {
-      statusFiltered = statusFiltered
-          .where((entry) => entry.teacherName == teacherFilter)
-          .toList();
-    }
-
-    if (dateRange != null) {
-      statusFiltered = statusFiltered.where((entry) {
-        final entryDate = _parseEntryDate(entry.date);
-        if (entryDate == null) return false;
-
-        return entryDate
-                .isAfter(dateRange.start.subtract(const Duration(days: 1))) &&
-            entryDate.isBefore(dateRange.end.add(const Duration(days: 1)));
-      }).toList();
-    }
-
-    return statusFiltered;
+  void _updateSearchQuery(String query) {
+    _vm.patchFilterState((f) => f.copyWith(searchQuery: query),
+        clearSelection: false);
   }
 
   void _onTimesheetSelectionChanged(String timesheetId, bool isSelected) {
-    setState(() {
-      if (isSelected) {
-        _selectedTimesheetIds.add(timesheetId);
-      } else {
-        _selectedTimesheetIds.remove(timesheetId);
-      }
-      _showBulkActions = _selectedTimesheetIds.isNotEmpty;
-    });
+    _vm.toggleTimesheetSelection(timesheetId, isSelected);
+  }
+
+  List<TimesheetEntry> _selectedWritableTimesheets() {
+    final selectedRows = _vm.filteredTimesheets
+        .where((entry) => _vm.selectedTimesheetIds.contains(entry.documentId))
+        .toList();
+    return TimesheetBulkActionsService.expandToWritableEntries(selectedRows);
+  }
+
+  double _selectedPaymentTotal() {
+    return _selectedWritableTimesheets()
+        .fold(0.0, (sum, entry) => sum + _calculatePayment(entry));
   }
 
   Future<void> _bulkApproveTimesheets() async {
-    final selectedTimesheets = _filteredTimesheets
-        .where((t) => _selectedTimesheetIds.contains(t.documentId))
+    final selectedRows = _vm.filteredTimesheets
+        .where((t) => _vm.selectedTimesheetIds.contains(t.documentId))
         .toList();
+    final selectedTimesheets =
+        TimesheetBulkActionsService.expandToWritableEntries(selectedRows);
 
     if (selectedTimesheets.isEmpty) return;
 
@@ -708,7 +253,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
     if (!confirmed) return;
 
     try {
-      final batch = FirebaseFirestore.instance.batch();
+      final batch = _repository.newWriteBatch();
       double totalPayment = 0.0;
 
       for (var timesheet in selectedTimesheets) {
@@ -740,9 +285,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
         }
 
         batch.update(
-          FirebaseFirestore.instance
-              .collection('timesheet_entries')
-              .doc(timesheet.documentId!),
+          _repository.timesheetDoc(timesheet.documentId!),
           updateData,
         );
       }
@@ -752,10 +295,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
       _showSuccessSnackBar(
           'Approved ${selectedTimesheets.length} timesheets. Total payment: \$${totalPayment.toStringAsFixed(2)}');
 
-      setState(() {
-        _selectedTimesheetIds.clear();
-        _showBulkActions = false;
-      });
+      _vm.clearSelection();
 
       // Real-time listener will automatically update the UI
     } catch (e) {
@@ -764,9 +304,11 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
   }
 
   Future<void> _bulkRejectTimesheets() async {
-    final selectedTimesheets = _filteredTimesheets
-        .where((t) => _selectedTimesheetIds.contains(t.documentId))
+    final selectedRows = _vm.filteredTimesheets
+        .where((t) => _vm.selectedTimesheetIds.contains(t.documentId))
         .toList();
+    final selectedTimesheets =
+        TimesheetBulkActionsService.expandToWritableEntries(selectedRows);
 
     if (selectedTimesheets.isEmpty) return;
 
@@ -774,31 +316,44 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
     if (reason == null) return;
 
     try {
-      final batch = FirebaseFirestore.instance.batch();
+      var batch = _repository.newWriteBatch();
+      var ops = 0;
 
       for (var timesheet in selectedTimesheets) {
-        batch.update(
-          FirebaseFirestore.instance
-              .collection('timesheet_entries')
-              .doc(timesheet.documentId!),
-          {
+        final ref = _repository.timesheetDoc(timesheet.documentId!);
+        final snap = await ref.get();
+        final data = snap.data();
+        if (data != null &&
+            data['is_edited'] == true &&
+            data['original_data'] != null) {
+          batch.update(
+            ref,
+            TimesheetAdminRepository.buildEditRejectionUpdate(data, reason),
+          );
+        } else {
+          batch.update(ref, {
             'status': 'rejected',
             'rejected_at': FieldValue.serverTimestamp(),
             'rejection_reason': reason,
             'updated_at': FieldValue.serverTimestamp(),
-          },
-        );
+          });
+        }
+        ops++;
+        if (ops >= 400) {
+          await batch.commit();
+          batch = _repository.newWriteBatch();
+          ops = 0;
+        }
       }
 
-      await batch.commit();
+      if (ops > 0) {
+        await batch.commit();
+      }
 
       _showSuccessSnackBar(
           'Rejected ${selectedTimesheets.length} timesheets with feedback');
 
-      setState(() {
-        _selectedTimesheetIds.clear();
-        _showBulkActions = false;
-      });
+      _vm.clearSelection();
 
       // Real-time listener will automatically update the UI
     } catch (e) {
@@ -812,7 +367,12 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
     return await showDialog<bool>(
           context: context,
           barrierDismissible: false,
-          builder: (context) => AlertDialog(
+          builder: (context) {
+            final contentWidth = math.min(
+              MediaQuery.sizeOf(context).width - 48,
+              520.0,
+            );
+            return AlertDialog(
             shape:
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             title: Row(
@@ -839,7 +399,9 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                 ),
               ],
             ),
-            content: Column(
+            content: SizedBox(
+              width: contentWidth,
+              child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -854,26 +416,30 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                     border: Border.all(color: const Color(0xFFE2E8F0)),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: editedTimesheets.length,
-                    itemBuilder: (context, index) {
-                      final ts = editedTimesheets[index];
-                      return ListTile(
-                        dense: true,
-                        leading: const Icon(Icons.edit,
-                            size: 18, color: Color(0xFFF59E0B)),
-                        title: Text(
-                          ts.teacherName,
-                          style: GoogleFonts.inter(
-                              fontSize: 13, fontWeight: FontWeight.w600),
-                        ),
-                        subtitle: Text(
-                          '${ts.date} - ${ts.totalHours}',
-                          style: GoogleFonts.inter(fontSize: 11),
-                        ),
-                      );
-                    },
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: SingleChildScrollView(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          for (final ts in editedTimesheets)
+                            ListTile(
+                              dense: true,
+                              leading: const Icon(Icons.edit,
+                                  size: 18, color: Color(0xFFF59E0B)),
+                              title: Text(
+                                ts.teacherName,
+                                style: GoogleFonts.inter(
+                                    fontSize: 13, fontWeight: FontWeight.w600),
+                              ),
+                              subtitle: Text(
+                                '${ts.date} - ${ts.totalHours}',
+                                style: GoogleFonts.inter(fontSize: 11),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -891,7 +457,8 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          AppLocalizations.of(context)!.byContinuingYouWillApproveBoth,
+                          AppLocalizations.of(context)!
+                              .byContinuingYouWillApproveBoth,
                           style: GoogleFonts.inter(
                             fontSize: 12,
                             color: const Color(0xFF1E3A8A),
@@ -902,6 +469,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                   ),
                 ),
               ],
+            ),
             ),
             actions: [
               TextButton(
@@ -923,7 +491,8 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                 ),
               ),
             ],
-          ),
+          );
+          },
         ) ??
         false;
   }
@@ -934,7 +503,12 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
 
     return await showDialog<bool>(
           context: context,
-          builder: (context) => AlertDialog(
+          builder: (context) {
+            final contentWidth = math.min(
+              MediaQuery.sizeOf(context).width - 48,
+              520.0,
+            );
+            return AlertDialog(
             title: Row(
               children: [
                 Container(
@@ -952,7 +526,9 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                         fontSize: 18, fontWeight: FontWeight.w600)),
               ],
             ),
-            content: Column(
+            content: SizedBox(
+              width: contentWidth,
+              child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -966,23 +542,29 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                     border: Border.all(color: Colors.grey.shade300),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: ListView.builder(
-                    itemCount: timesheets.length,
-                    itemBuilder: (context, index) {
-                      final timesheet = timesheets[index];
-                      return ListTile(
-                        dense: true,
-                        title: Text(timesheet.teacherName,
-                            style: GoogleFonts.inter(fontSize: 12)),
-                        subtitle: Text(
-                            '${timesheet.date} - ${timesheet.totalHours}',
-                            style: GoogleFonts.inter(fontSize: 11)),
-                        trailing: Text(
-                            '\$${_calculatePayment(timesheet).toStringAsFixed(2)}',
-                            style: GoogleFonts.inter(
-                                fontSize: 12, fontWeight: FontWeight.w600)),
-                      );
-                    },
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: SingleChildScrollView(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          for (final timesheet in timesheets)
+                            ListTile(
+                              dense: true,
+                              title: Text(timesheet.teacherName,
+                                  style: GoogleFonts.inter(fontSize: 12)),
+                              subtitle: Text(
+                                  '${timesheet.date} - ${timesheet.totalHours}',
+                                  style: GoogleFonts.inter(fontSize: 11)),
+                              trailing: Text(
+                                  '\$${_calculatePayment(timesheet).toStringAsFixed(2)}',
+                                  style: GoogleFonts.inter(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600)),
+                            ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
                 SizedBox(height: 16),
@@ -1009,6 +591,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                 ),
               ],
             ),
+            ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(context).pop(false),
@@ -1023,7 +606,8 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                 child: Text(AppLocalizations.of(context)!.approveAll),
               ),
             ],
-          ),
+          );
+          },
         ) ??
         false;
   }
@@ -1092,75 +676,13 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
     );
   }
 
-  DateTime? _parseEntryDate(String dateString) {
-    final formats = [
-      'MMM dd, yyyy', // Standard format: Jan 26, 2025
-      'EEE MM/dd/yyyy', // Clock-in format with year: Mon 01/26/2025
-      'EEE MM/dd', // Clock-in format without year: Mon 01/26
-      'MM/dd/yyyy', // Simple format with year: 01/26/2025
-      'MM/dd', // Simple format without year: 01/26
-      'yyyy-MM-dd', // ISO format: 2025-01-26
-    ];
-
-    for (String format in formats) {
-      try {
-        DateTime parsed = DateFormat(format).parse(dateString);
-
-        if (format == 'EEE MM/dd' || format == 'MM/dd') {
-          parsed = DateTime(DateTime.now().year, parsed.month, parsed.day);
-        }
-
-        return parsed;
-      } catch (e) {
-        continue;
-      }
-    }
-
-    AppLogger.error('Could not parse date: $dateString');
-    return null;
-  }
-
   double _calculatePayment(TimesheetEntry timesheet) {
-    try {
-      // For edited-but-unapproved timesheets, always recalculate from hours
-      // because the stored payment_amount may be from before the edit (legacy
-      // entries) or already updated by the edit dialog — either way, deriving
-      // from the current total_hours × hourly_rate is the safest approach.
-      final forceRecalc = timesheet.isEdited && !timesheet.editApproved;
-
-      if (!forceRecalc &&
-          timesheet.paymentAmount != null &&
-          timesheet.paymentAmount! > 0) {
-        return timesheet.paymentAmount!;
-      }
-
-      // Calculate from hours (format: "HH:MM" or "HH:MM:SS")
-      final parts = timesheet.totalHours.split(':');
-      if (parts.length < 2) return 0.0;
-
-      final hours = int.parse(parts[0]);
-      final minutes = int.parse(parts[1]);
-      final seconds = parts.length > 2 ? int.parse(parts[2]) : 0;
-
-      final totalHoursDecimal = hours + (minutes / 60.0) + (seconds / 3600.0);
-
-      return totalHoursDecimal * timesheet.hourlyRate;
-    } catch (e) {
-      AppLogger.error('Error calculating payment: $e');
-      return 0.0;
-    }
+    return TimesheetPaymentService.calculatePayment(timesheet);
   }
 
   /// Check if a timesheet is complete (has both clock-in and clock-out times)
   bool _isTimesheetComplete(TimesheetEntry timesheet) {
-    // Check if both start and end times are present and valid
-    final hasStart = timesheet.start.isNotEmpty && timesheet.start != '--';
-    final hasEnd = timesheet.end.isNotEmpty && timesheet.end != '--';
-    final hasValidHours = timesheet.totalHours.isNotEmpty &&
-        timesheet.totalHours != '00:00' &&
-        timesheet.totalHours != '--';
-
-    return hasStart && hasEnd && hasValidHours;
+    return TimesheetEntryReviewFlags.isTimesheetComplete(timesheet);
   }
 
   Future<void> _approveTimesheet(TimesheetEntry timesheet) async {
@@ -1214,10 +736,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
         // Determine status: approved if complete, otherwise keep as pending
         final newStatus = isComplete ? 'approved' : 'pending';
 
-        await FirebaseFirestore.instance
-            .collection('timesheet_entries')
-            .doc(timesheet.documentId!)
-            .update({
+        await _repository.updateTimesheet(timesheet.documentId!, {
           'status': newStatus,
           'approved_at': isComplete ? FieldValue.serverTimestamp() : null,
           'payment_amount':
@@ -1249,10 +768,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
       if (!confirmed) return;
 
       try {
-        await FirebaseFirestore.instance
-            .collection('timesheet_entries')
-            .doc(timesheet.documentId!)
-            .update({
+        await _repository.updateTimesheet(timesheet.documentId!, {
           'status': 'approved',
           'approved_at': FieldValue.serverTimestamp(),
           'payment_amount': payment,
@@ -1325,17 +841,18 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
       };
 
       // Restore pay fields if the original snapshot captured them
-      if (original.containsKey('payment_amount') && original['payment_amount'] != null) {
+      if (original.containsKey('payment_amount') &&
+          original['payment_amount'] != null) {
         revertData['payment_amount'] = original['payment_amount'];
       }
       if (original.containsKey('total_pay') && original['total_pay'] != null) {
         revertData['total_pay'] = original['total_pay'];
       }
+      if (original.containsKey('effective_end_timestamp')) {
+        revertData['effective_end_timestamp'] = original['effective_end_timestamp'];
+      }
 
-      await FirebaseFirestore.instance
-          .collection('timesheet_entries')
-          .doc(timesheet.documentId!)
-          .update(revertData);
+      await _repository.updateTimesheet(timesheet.documentId!, revertData);
 
       _showSuccessSnackBar('Timesheet reverted to original data');
     } catch (e) {
@@ -1346,17 +863,31 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
   Future<void> _rejectTimesheetWithReason(
       TimesheetEntry timesheet, String reason) async {
     try {
-      await FirebaseFirestore.instance
-          .collection('timesheet_entries')
-          .doc(timesheet.documentId!)
-          .update({
+      final ref = _repository.timesheetDoc(timesheet.documentId!);
+      final snap = await ref.get();
+      final data = snap.data();
+      if (data != null &&
+          data['is_edited'] == true &&
+          data['original_data'] != null) {
+        await ref.update(
+            TimesheetAdminRepository.buildEditRejectionUpdate(data, reason));
+        if (mounted) {
+          _showSuccessSnackBar(
+              'Edit declined — timesheet restored to values before the teacher edit.');
+        }
+        return;
+      }
+
+      await ref.update({
         'status': 'rejected',
         'rejected_at': FieldValue.serverTimestamp(),
         'rejection_reason': reason,
         'updated_at': FieldValue.serverTimestamp(),
       });
 
-      _showSuccessSnackBar('Timesheet rejected with feedback sent to user');
+      if (mounted) {
+        _showSuccessSnackBar('Timesheet rejected with feedback sent to user');
+      }
     } catch (e) {
       _showErrorSnackBar('Error rejecting timesheet: $e');
     }
@@ -1531,13 +1062,13 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                           ),
                         ),
                         // Clock In
-                        _buildComparisonRow('Clock In (UTC)', originalStart,
+                        timesheetAdminComparisonRow('Clock In (UTC)', originalStart,
                             _formatEditedTime(timesheet, 'start')),
                         // Clock Out
-                        _buildComparisonRow('Clock Out (UTC)', originalEnd,
+                        timesheetAdminComparisonRow('Clock Out (UTC)', originalEnd,
                             _formatEditedTime(timesheet, 'end')),
                         // Total Hours
-                        _buildComparisonRow(
+                        timesheetAdminComparisonRow(
                             'Total Hours', originalHours, timesheet.totalHours),
                       ],
                     ),
@@ -1557,7 +1088,8 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            AppLocalizations.of(context)!.byApprovingYouAcceptTheEdited,
+                            AppLocalizations.of(context)!
+                                .byApprovingYouAcceptTheEdited,
                             style: GoogleFonts.inter(
                               fontSize: 12,
                               color: const Color(0xFF1E3A8A),
@@ -1593,68 +1125,6 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
           ),
         ) ??
         false;
-  }
-
-  Widget _buildComparisonRow(String field, String original, String edited) {
-    final isChanged = original != edited;
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: isChanged ? const Color(0xFFFEF2F2) : Colors.white,
-        border: Border(
-          top: BorderSide(color: const Color(0xFFE2E8F0)),
-        ),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              field,
-              style: GoogleFonts.inter(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: const Color(0xFF1E293B),
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              original,
-              style: GoogleFonts.inter(
-                fontSize: 13,
-                color: isChanged
-                    ? const Color(0xFFDC2626)
-                    : const Color(0xFF64748B),
-                decoration: isChanged ? TextDecoration.lineThrough : null,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ),
-          Expanded(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (isChanged) ...[
-                  const Icon(Icons.arrow_forward,
-                      size: 16, color: Color(0xFF10B981)),
-                  const SizedBox(width: 4),
-                ],
-                Text(
-                  edited,
-                  style: GoogleFonts.inter(
-                    fontSize: 13,
-                    fontWeight: isChanged ? FontWeight.w600 : FontWeight.normal,
-                    color: isChanged
-                        ? const Color(0xFF10B981)
-                        : const Color(0xFF64748B),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   /// Show dialog when rejecting an edited timesheet (choose to revert or reject)
@@ -1702,8 +1172,8 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                 AppLocalizations.of(context)!.revertToOriginal,
                 style: GoogleFonts.inter(fontWeight: FontWeight.w600),
               ),
-              subtitle: Text(
-                  AppLocalizations.of(context)!.restoreOriginalTimesAndKeepTimesheet),
+              subtitle: Text(AppLocalizations.of(context)!
+                  .restoreOriginalTimesAndKeepTimesheet),
               onTap: () => Navigator.of(context).pop('revert'),
             ),
             ListTile(
@@ -1712,8 +1182,8 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                 AppLocalizations.of(context)!.rejectTimesheet,
                 style: GoogleFonts.inter(fontWeight: FontWeight.w600),
               ),
-              subtitle:
-                  Text(AppLocalizations.of(context)!.rejectTheEntireTimesheetRequiresReason),
+              subtitle: Text(AppLocalizations.of(context)!
+                  .rejectTheEntireTimesheetRequiresReason),
               onTap: () => Navigator.of(context).pop('reject'),
             ),
           ],
@@ -1798,7 +1268,8 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                   backgroundColor: Colors.green,
                   foregroundColor: Colors.white,
                 ),
-                child: Text(AppLocalizations.of(context)!.approveCalculatePayment),
+                child:
+                    Text(AppLocalizations.of(context)!.approveCalculatePayment),
               ),
             ],
           ),
@@ -1885,7 +1356,9 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                 Row(
                   children: [
                     Expanded(
-                        child: Text(AppLocalizations.of(context)!.shiftDetailsConsolidated,
+                        child: Text(
+                            AppLocalizations.of(context)!
+                                .shiftDetailsConsolidated,
                             style: GoogleFonts.inter(
                                 fontSize: 20, fontWeight: FontWeight.bold))),
                     IconButton(
@@ -1934,319 +1407,16 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
       return;
     }
 
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        child: Container(
-          constraints: const BoxConstraints(maxWidth: 500, maxHeight: 600),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Header (fixed)
-              Container(
-                padding: const EdgeInsets.all(24),
-                decoration: const BoxDecoration(
-                  border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: const Color(0xff0386FF).withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Icon(Icons.schedule,
-                          color: Color(0xff0386FF), size: 20),
-                    ),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: Text(AppLocalizations.of(context)!.timesheetDetailsTitle,
-                          style: GoogleFonts.inter(
-                              fontSize: 18, fontWeight: FontWeight.w600)),
-                    ),
-                    _buildStatusChip(timesheet.status),
-                  ],
-                ),
-              ),
-              // Scrollable content
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildDetailRow('Teacher:', timesheet.teacherName),
-                      _buildDetailRow('Date:', timesheet.date),
-                      _buildDetailRow('Student:', timesheet.subject),
-                      _buildDetailRow('Start Time:', timesheet.start),
-                      _buildDetailRow('End Time:', timesheet.end),
-                      _buildDetailRow('Total Hours:', timesheet.totalHours),
-                      _buildDetailRow('Description:', timesheet.description),
-                      // Show edit warning if edited but not approved
-                      if (timesheet.isEdited && !timesheet.editApproved) ...[
-                        SizedBox(height: 16),
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFEF3C7),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: const Color(0xFFFCD34D)),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.edit,
-                                  color: Color(0xFFD97706), size: 20),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  AppLocalizations.of(context)!.thisTimesheetWasEditedAndRequires,
-                                  style: GoogleFonts.inter(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                    color: const Color(0xFFD97706),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                      if (timesheet.description.isNotEmpty) ...[
-                        const SizedBox(height: 16),
-                        Text(AppLocalizations.of(context)!.description,
-                            style: GoogleFonts.inter(
-                                fontSize: 14, fontWeight: FontWeight.w600)),
-                        const SizedBox(height: 8),
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade100,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(timesheet.description,
-                              style: GoogleFonts.inter(fontSize: 14)),
-                        ),
-                      ],
-                      // Employee Notes (from timesheet edits)
-                      if (timesheet.employeeNotes != null &&
-                          timesheet.employeeNotes!.isNotEmpty) ...[
-                        const SizedBox(height: 16),
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(6),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFFEF3C7),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: const Icon(
-                                Icons.note_outlined,
-                                color: Color(0xFFD97706),
-                                size: 16,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(AppLocalizations.of(context)!.employeeNotes,
-                                style: GoogleFonts.inter(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                    color: Color(0xFFD97706))),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFEF3C7),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: const Color(0xFFFCD34D)),
-                          ),
-                          child: Text(
-                            timesheet.employeeNotes!,
-                            style: GoogleFonts.inter(
-                                fontSize: 14, color: const Color(0xFF92400E)),
-                          ),
-                        ),
-                      ],
-                      // Original Data Comparison (if edited)
-                      if (timesheet.isEdited) ...[
-                        const SizedBox(height: 20),
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(6),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFDBEAFE),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: const Icon(
-                                Icons.history,
-                                color: Color(0xFF1E40AF),
-                                size: 16,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(AppLocalizations.of(context)!.editInformation,
-                                style: GoogleFonts.inter(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                    color: Color(0xFF1E40AF))),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        if (timesheet.originalData != null) ...[
-                          // Show comparison if original data is available
-                          _buildOriginalDataComparison(timesheet),
-                        ] else ...[
-                          // Show message if original data is not available (old edits)
-                          Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFFEF3C7),
-                              borderRadius: BorderRadius.circular(8),
-                              border:
-                                  Border.all(color: const Color(0xFFFCD34D)),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    const Icon(Icons.info_outline,
-                                        color: Color(0xFFD97706), size: 20),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        AppLocalizations.of(context)!.originalDataNotAvailable,
-                                        style: GoogleFonts.inter(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w600,
-                                          color: const Color(0xFFD97706),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  AppLocalizations.of(context)!.thisTimesheetWasEditedButThe,
-                                  style: GoogleFonts.inter(
-                                    fontSize: 12,
-                                    color: const Color(0xFF92400E),
-                                  ),
-                                ),
-                                if (timesheet.editedAt != null) ...[
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    'Edited: ${DateFormat('MMM d, yyyy h:mm a').format(timesheet.editedAt!.toDate())}',
-                                    style: GoogleFonts.inter(
-                                      fontSize: 12,
-                                      color: const Color(0xFF92400E),
-                                      fontStyle: FontStyle.italic,
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ),
-                        ],
-                      ],
-                      // Manager Notes (admin notes)
-                      if (timesheet.managerNotes != null &&
-                          timesheet.managerNotes!.isNotEmpty) ...[
-                        const SizedBox(height: 16),
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(6),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFDBEAFE),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: const Icon(
-                                Icons.admin_panel_settings_outlined,
-                                color: Color(0xFF1E40AF),
-                                size: 16,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(AppLocalizations.of(context)!.managerNotes,
-                                style: GoogleFonts.inter(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                    color: Color(0xFF1E40AF))),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFDBEAFE),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: const Color(0xFF93C5FD)),
-                          ),
-                          child: Text(
-                            timesheet.managerNotes!,
-                            style: GoogleFonts.inter(
-                                fontSize: 14, color: const Color(0xFF1E3A8A)),
-                          ),
-                        ),
-                      ],
-                    ], // Close Column children
-                  ), // Close Column
-                ), // Close SingleChildScrollView
-              ), // Close Expanded
-              // Footer with actions (fixed)
-              Container(
-                padding: const EdgeInsets.all(24),
-                decoration: const BoxDecoration(
-                  border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: Text(AppLocalizations.of(context)!.commonClose),
-                    ),
-                    if (timesheet.status == TimesheetStatus.pending) ...[
-                      const SizedBox(width: 8),
-                      ElevatedButton(
-                        onPressed: () {
-                          Navigator.of(context).pop();
-                          _rejectTimesheet(timesheet);
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.red,
-                          foregroundColor: Colors.white,
-                        ),
-                        child: Text(AppLocalizations.of(context)!.reject),
-                      ),
-                      const SizedBox(width: 8),
-                      ElevatedButton(
-                        onPressed: () {
-                          Navigator.of(context).pop();
-                          _approveTimesheet(timesheet);
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green,
-                          foregroundColor: Colors.white,
-                        ),
-                        child: Text(AppLocalizations.of(context)!.approve),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+    _openDetailDrawer(timesheet);
+  }
+
+  void _openDetailDrawer(TimesheetEntry timesheet) {
+    _vm.setFocusedTimesheetId(timesheet.documentId);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _scaffoldKey.currentState?.openEndDrawer();
+      }
+    });
   }
 
   Widget _buildInfoRow(String label, String value) {
@@ -2263,121 +1433,6 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
           Text(value,
               style:
                   GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildOriginalDataComparison(TimesheetEntry timesheet) {
-    if (timesheet.originalData == null) return const SizedBox.shrink();
-
-    final original = timesheet.originalData!;
-
-    // Parse original times
-    String originalStart = original['start_time'] ?? 'N/A';
-    String originalEnd = original['end_time'] ?? 'N/A';
-    String originalHours = original['total_hours'] ?? 'N/A';
-
-    // Get original timestamps for better formatting
-    if (original['clock_in_timestamp'] != null) {
-      try {
-        final originalClockIn =
-            (original['clock_in_timestamp'] as Timestamp).toDate();
-        originalStart = DateFormat('h:mm a').format(originalClockIn);
-      } catch (e) {
-        // Keep string format if parsing fails
-      }
-    }
-    if (original['clock_out_timestamp'] != null) {
-      try {
-        final originalClockOut =
-            (original['clock_out_timestamp'] as Timestamp).toDate();
-        originalEnd = DateFormat('h:mm a').format(originalClockOut);
-      } catch (e) {
-        // Keep string format if parsing fails
-      }
-    }
-
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        children: [
-          // Header
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: const BoxDecoration(
-              color: Color(0xFFF8FAFC),
-              borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    AppLocalizations.of(context)!.field,
-                    style: GoogleFonts.inter(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFF64748B),
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: Text(
-                    AppLocalizations.of(context)!.original,
-                    style: GoogleFonts.inter(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFF64748B),
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-                Expanded(
-                  child: Text(
-                    AppLocalizations.of(context)!.formCurrentMonth,
-                    style: GoogleFonts.inter(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFF64748B),
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          // Clock In
-          _buildComparisonRow('Clock In', originalStart, timesheet.start),
-          // Clock Out
-          _buildComparisonRow('Clock Out', originalEnd, timesheet.end),
-          // Total Hours
-          _buildComparisonRow(
-              'Total Hours', originalHours, timesheet.totalHours),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDetailRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 120,
-            child: Text(label,
-                style: GoogleFonts.inter(
-                    fontSize: 14, color: Colors.grey.shade600)),
-          ),
-          Expanded(
-            child: Text(value,
-                style: GoogleFonts.inter(
-                    fontSize: 14, fontWeight: FontWeight.w600)),
-          ),
         ],
       ),
     );
@@ -2443,239 +1498,8 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
     );
   }
 
-  void _exportTimesheets() {
-    if (_filteredTimesheets.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppLocalizations.of(context)!.noDataToExport)),
-      );
-      return;
-    }
-
-    AppLogger.debug('Exporting ${_filteredTimesheets.length} timesheets...');
-
-    // Clean, comprehensive headers
-    final detailedHeaders = [
-      "Teacher Name",
-      "Date",
-      "Day",
-      "Week Starting",
-      "Month",
-      "Student / Subject",
-      "Scheduled Start",
-      "Scheduled End",
-      "Clock In",
-      "Clock Out",
-      "Scheduled Hours",
-      "Worked Hours",
-      "Difference",
-      "Hourly Rate",
-      "Total Pay",
-      "Status",
-      "Form Completed",
-      "Employee Notes",
-      "Manager Notes",
-    ];
-
-    List<List<dynamic>> detailedRows = [];
-
-    // Aggregation Maps for summaries
-    final Map<String, Map<String, double>> dailyStats =
-        {}; // Teacher|Date -> {scheduled, worked, pay}
-    final Map<String, Map<String, double>> weeklyStats =
-        {}; // Teacher|Week -> {scheduled, worked, pay}
-    final Map<String, Map<String, double>> monthlyStats =
-        {}; // Teacher|Month -> {scheduled, worked, pay}
-
-    // Helper to update stats
-    void updateStats(Map<String, Map<String, double>> map, String key,
-        double scheduled, double worked, double pay) {
-      if (!map.containsKey(key)) {
-        map[key] = {'scheduled': 0.0, 'worked': 0.0, 'pay': 0.0};
-      }
-      map[key]!['scheduled'] = (map[key]!['scheduled'] ?? 0.0) + scheduled;
-      map[key]!['worked'] = (map[key]!['worked'] ?? 0.0) + worked;
-      map[key]!['pay'] = (map[key]!['pay'] ?? 0.0) + pay;
-    }
-
-    // Sort entries for consistency
-    final sortedEntries = List<TimesheetEntry>.from(_filteredTimesheets);
-    sortedEntries.sort((a, b) {
-      final nameCompare = a.teacherName.compareTo(b.teacherName);
-      if (nameCompare != 0) return nameCompare;
-      return _parseEntryDate(a.date)
-              ?.compareTo(_parseEntryDate(b.date) ?? DateTime.now()) ??
-          0;
-    });
-
-    for (var entry in sortedEntries) {
-      // Parse Date
-      DateTime date = _parseEntryDate(entry.date) ?? DateTime.now();
-      final dateKey = DateFormat('yyyy-MM-dd').format(date);
-
-      // Week and Month Keys
-      final weekStart = date.subtract(Duration(days: date.weekday - 1));
-      final weekKey = DateFormat('yyyy-MM-dd').format(weekStart);
-      final monthStart = DateTime(date.year, date.month, 1);
-      final monthKey = DateFormat('yyyy-MM').format(monthStart);
-
-      // Hours & Pay
-      final workedHours = _parseHoursToDecimal(entry.totalHours);
-      final pay = workedHours * entry.hourlyRate;
-
-      // Scheduled Hours Logic
-      double scheduledHours = 0.0;
-      String scheduledIn = '--';
-      String scheduledOut = '--';
-
-      if (entry.scheduledDurationMinutes != null &&
-          entry.scheduledDurationMinutes! > 0) {
-        scheduledHours = entry.scheduledDurationMinutes! / 60.0;
-      } else if (entry.scheduledStart != null && entry.scheduledEnd != null) {
-        final duration = entry.scheduledEnd!.difference(entry.scheduledStart!);
-        scheduledHours = duration.inMinutes / 60.0;
-      }
-
-      if (entry.scheduledStart != null)
-        scheduledIn = DateFormat('h:mm a').format(entry.scheduledStart!);
-      if (entry.scheduledEnd != null)
-        scheduledOut = DateFormat('h:mm a').format(entry.scheduledEnd!);
-
-      final difference = workedHours - scheduledHours;
-
-      // Add Detailed Row
-      detailedRows.add([
-        entry.teacherName,
-        dateKey,
-        DateFormat('EEEE').format(date),
-        weekKey,
-        DateFormat('MMMM yyyy').format(monthStart),
-        entry.subject,
-        scheduledIn,
-        scheduledOut,
-        entry.start,
-        entry.end,
-        scheduledHours > 0 ? scheduledHours.toStringAsFixed(2) : '--',
-        workedHours.toStringAsFixed(2),
-        scheduledHours > 0 ? difference.toStringAsFixed(2) : '--',
-        entry.hourlyRate.toStringAsFixed(2),
-        pay.toStringAsFixed(2),
-        entry.status.name,
-        entry.formCompleted ? 'Yes' : 'No',
-        entry.employeeNotes ?? '',
-        entry.managerNotes ?? '',
-      ]);
-
-      // Update Aggregates
-      final teacher = entry.teacherName;
-      updateStats(
-          dailyStats, '$teacher|$dateKey', scheduledHours, workedHours, pay);
-      updateStats(
-          weeklyStats, '$teacher|$weekKey', scheduledHours, workedHours, pay);
-      updateStats(
-          monthlyStats, '$teacher|$monthKey', scheduledHours, workedHours, pay);
-    }
-
-    // Build Summary Sheets
-    final dailyHeaders = [
-      "Teacher",
-      "Date",
-      "Day",
-      "Total Scheduled",
-      "Total Worked",
-      "Difference",
-      "Daily Pay"
-    ];
-    List<List<dynamic>> dailyRows = [];
-    dailyStats.forEach((key, stats) {
-      final parts = key.split('|');
-      final teacher = parts[0];
-      final dateStr = parts[1];
-      final date = DateTime.parse(dateStr);
-      dailyRows.add([
-        teacher,
-        dateStr,
-        DateFormat('EEEE').format(date),
-        stats['scheduled']!.toStringAsFixed(2),
-        stats['worked']!.toStringAsFixed(2),
-        (stats['worked']! - stats['scheduled']!).toStringAsFixed(2),
-        stats['pay']!.toStringAsFixed(2),
-      ]);
-    });
-    dailyRows.sort((a, b) {
-      int cmp = a[0].compareTo(b[0]); // Teacher
-      if (cmp != 0) return cmp;
-      return a[1].compareTo(b[1]); // Date
-    });
-
-    final weeklyHeaders = [
-      "Teacher",
-      "Week Starting",
-      "Total Scheduled",
-      "Total Worked",
-      "Difference",
-      "Weekly Pay"
-    ];
-    List<List<dynamic>> weeklyRows = [];
-    weeklyStats.forEach((key, stats) {
-      final parts = key.split('|');
-      final teacher = parts[0];
-      final weekStr = parts[1];
-      weeklyRows.add([
-        teacher,
-        weekStr,
-        stats['scheduled']!.toStringAsFixed(2),
-        stats['worked']!.toStringAsFixed(2),
-        (stats['worked']! - stats['scheduled']!).toStringAsFixed(2),
-        stats['pay']!.toStringAsFixed(2),
-      ]);
-    });
-    weeklyRows.sort((a, b) => a[0].compareTo(b[0]) == 0
-        ? a[1].compareTo(b[1])
-        : a[0].compareTo(b[0]));
-
-    final monthlyHeaders = [
-      "Teacher",
-      "Month",
-      "Total Scheduled",
-      "Total Worked",
-      "Difference",
-      "Monthly Pay"
-    ];
-    List<List<dynamic>> monthlyRows = [];
-    monthlyStats.forEach((key, stats) {
-      final parts = key.split('|');
-      final teacher = parts[0];
-      final monthStr = parts[1]; // yyyy-MM
-      final date = DateTime.parse('$monthStr-01');
-      monthlyRows.add([
-        teacher,
-        DateFormat('MMMM yyyy').format(date),
-        stats['scheduled']!.toStringAsFixed(2),
-        stats['worked']!.toStringAsFixed(2),
-        (stats['worked']! - stats['scheduled']!).toStringAsFixed(2),
-        stats['pay']!.toStringAsFixed(2),
-      ]);
-    });
-    monthlyRows.sort((a, b) => a[0].compareTo(b[0]) == 0
-        ? a[1].compareTo(b[1])
-        : a[0].compareTo(b[0]));
-
-    // Prepare Multi-Sheet Data
-    final sheetsHeaders = {
-      'Detailed Data': detailedHeaders,
-      'Daily Summary': dailyHeaders,
-      'Weekly Summary': weeklyHeaders,
-      'Monthly Summary': monthlyHeaders,
-    };
-
-    final sheetsData = {
-      'Detailed Data': detailedRows,
-      'Daily Summary': dailyRows,
-      'Weekly Summary': weeklyRows,
-      'Monthly Summary': monthlyRows,
-    };
-
-    String fileName = 'timesheet_export';
+  String _exportFileBaseName() {
+    var fileName = 'timesheet_export';
     if (_selectedDateRange != null) {
       fileName +=
           '_${DateFormat('yyyy-MM-dd').format(_selectedDateRange!.start)}_to_${DateFormat('yyyy-MM-dd').format(_selectedDateRange!.end)}';
@@ -2683,16 +1507,97 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
       fileName += '_${_selectedFilter.toLowerCase()}';
     }
     fileName += '_${DateTime.now().toString().split(' ')[0]}';
+    return fileName;
+  }
 
-    ExportHelpers.showExportDialog(
-      context,
-      sheetsHeaders,
-      sheetsData,
-      fileName,
+  void _openExportDialog() {
+    if (_vm.filteredTimesheets.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppLocalizations.of(context)!.noDataToExport)),
+      );
+      return;
+    }
+    AppLogger.debug(
+        'Export dialog: visible rows=${_vm.filteredTimesheets.length}');
+    showTimesheetReviewExportDialog(
+      context: context,
+      visibleEntries: _vm.filteredTimesheets,
+      parseEntryDate: TimesheetReviewController.parseEntryDate,
+      baseFileName: _exportFileBaseName(),
     );
   }
 
-  // Removed _exportConnectTeamStyle - consolidated into _exportTimesheets
+  List<String> _visiblePendingRowIds() {
+    return _vm.filteredTimesheets
+        .where((e) =>
+            e.status == TimesheetStatus.pending &&
+            e.documentId != null &&
+            e.documentId!.isNotEmpty)
+        .map((e) => e.documentId!)
+        .toList();
+  }
+
+  bool? _headerPendingTriState() {
+    final ids = _visiblePendingRowIds();
+    if (ids.isEmpty) return false;
+    final n = ids.where(_vm.selectedTimesheetIds.contains).length;
+    if (n == 0) return false;
+    if (n == ids.length) return true;
+    return null;
+  }
+
+  void _toggleSelectAllPendingTri(bool? v) {
+    final ids = _visiblePendingRowIds();
+    _vm.applyPendingTriState(ids, v);
+  }
+
+  void _selectAllPendingVisible() {
+    final ids = _visiblePendingRowIds();
+    if (ids.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(AppLocalizations.of(context)!.noTimesheetsFound),
+        ),
+      );
+      return;
+    }
+    _vm.selectAllVisiblePending(ids);
+  }
+
+  String _dateRangeSummary() {
+    final r = _selectedDateRange;
+    if (r == null) return '';
+    return '${DateFormat('MMM dd').format(r.start)} – ${DateFormat('MMM dd, yyyy').format(r.end)}';
+  }
+
+  void _applyDatePreset(TimesheetDatePreset preset) {
+    _vm.patchFilterState(
+      (f) => f.copyWith(
+        dateRange: TimesheetReviewController.presetDateRange(preset),
+      ),
+      clearSelection: false,
+    );
+    _applyFilter(_selectedFilter);
+  }
+
+  void _clearDateRangeFilter() {
+    _vm.patchFilterState(
+      (f) => f.copyWith(clearDateRange: true),
+      clearSelection: false,
+    );
+    _applyFilter(_selectedFilter);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(AppLocalizations.of(context)!.dateFilterCleared),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  // Removed _exportConnectTeamStyle - legacy export path retained below for reference.
 
   // ignore: unused_element
   void _old_exportConnectTeamStyle() {
@@ -2769,7 +1674,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
     }
 
     // Process each timesheet entry
-    for (var entry in _filteredTimesheets) {
+    for (var entry in _vm.filteredTimesheets) {
       final names = _splitName(entry.teacherName);
       final firstName = names[0];
       final lastName = names[1];
@@ -2778,7 +1683,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
       DateTime? startDate;
       DateTime? endDate;
       try {
-        startDate = _parseEntryDate(entry.date);
+        startDate = TimesheetReviewController.parseEntryDate(entry.date);
         endDate = startDate; // Same day for start/end
       } catch (e) {
         startDate = DateTime.now();
@@ -2905,13 +1810,12 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
 
     // Fill in daily and weekly totals
     for (int i = 0; i < rows.length; i++) {
-      final entry = _filteredTimesheets[i];
-      final names = _splitName(entry.teacherName);
+      final entry = _vm.filteredTimesheets[i];
       final employeeKey = entry.teacherName;
 
       DateTime? entryDate;
       try {
-        entryDate = _parseEntryDate(entry.date);
+        entryDate = TimesheetReviewController.parseEntryDate(entry.date);
       } catch (e) {
         entryDate = DateTime.now();
       }
@@ -3039,34 +1943,6 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
     );
   }
 
-  // Re-adding helper method for hour parsing as it is needed for duration calculation
-  double _parseHoursToDecimal(String timeString) {
-    try {
-      if (timeString.isEmpty || timeString.trim().isEmpty) return 0.0;
-
-      final sanitized = timeString
-          .trim()
-          .toLowerCase()
-          .replaceAll(RegExp(r'(hours|hour|hrs|hr)'), '')
-          .trim();
-      if (sanitized.isEmpty) return 0.0;
-
-      if (!sanitized.contains(':')) {
-        return double.tryParse(sanitized) ?? 0.0;
-      }
-
-      final parts = sanitized.split(':');
-      if (parts.length != 2) return 0.0;
-
-      final hours = int.tryParse(parts[0].trim()) ?? 0;
-      final minutes = int.tryParse(parts[1].trim()) ?? 0;
-
-      return hours + (minutes / 60.0);
-    } catch (e) {
-      return 0.0;
-    }
-  }
-
   Future<void> _selectDateRange(BuildContext context) async {
     final now = DateTime.now();
     final currentMonthStart = DateTime(now.year, now.month, 1);
@@ -3154,9 +2030,10 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
     );
 
     if (result != null) {
-      setState(() {
-        _selectedDateRange = result;
-      });
+      _vm.patchFilterState(
+        (f) => f.copyWith(dateRange: result),
+        clearSelection: false,
+      );
 
       // Apply the filter with the new date range
       _applyFilter(_selectedFilter);
@@ -3171,7 +2048,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Showing ${_filteredTimesheets.length} timesheets from ${DateFormat('MMM dd').format(result.start)} - ${DateFormat('MMM dd, yyyy').format(result.end)}',
+                    'Showing ${_vm.filteredTimesheets.length} timesheets from ${DateFormat('MMM dd').format(result.start)} - ${DateFormat('MMM dd, yyyy').format(result.end)}',
                     style: const TextStyle(fontWeight: FontWeight.w600),
                   ),
                 ),
@@ -3188,878 +2065,166 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
     }
   }
 
-  Widget _buildDateRangeSelector() {
-    final now = DateTime.now();
-    final isCurrentMonth = _selectedDateRange == null ||
-        (_selectedDateRange!.start.year == now.year &&
-            _selectedDateRange!.start.month == now.month);
-
-    return Material(
-      elevation: 2,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        decoration: BoxDecoration(
-          border: Border.all(
-            color: _selectedDateRange != null
-                ? const Color(0xff0386FF)
-                : Colors.grey.shade300,
-            width: _selectedDateRange != null ? 2 : 1,
-          ),
-          borderRadius: BorderRadius.circular(12),
-          color: _selectedDateRange != null
-              ? const Color(0xff0386FF).withOpacity(0.05)
-              : Colors.white,
-        ),
-        child: Column(
-          children: [
-            InkWell(
-              onTap: () => _selectDateRange(context),
-              borderRadius: BorderRadius.circular(12),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: const Color(0xff0386FF).withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Icon(
-                        Icons.calendar_today,
-                        size: 16,
-                        color: Color(0xff0386FF),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _selectedDateRange != null
-                                ? '${DateFormat('MMM dd').format(_selectedDateRange!.start)} - ${DateFormat('MMM dd, yyyy').format(_selectedDateRange!.end)}'
-                                : 'Tap to select date range',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                              color: _selectedDateRange != null
-                                  ? Colors.black87
-                                  : Colors.grey.shade600,
-                            ),
-                          ),
-                          Text(
-                            _selectedDateRange != null
-                                ? '${_selectedDateRange!.duration.inDays + 1} days selected'
-                                : 'Currently showing: ${isCurrentMonth ? "This month" : "All time"}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: _selectedDateRange != null
-                                  ? const Color(0xff0386FF)
-                                  : Colors.grey.shade600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Icon(
-                      Icons.edit_calendar,
-                      size: 18,
-                      color: Color(0xff0386FF),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            if (_selectedDateRange != null)
-              Container(
-                padding: const EdgeInsets.only(left: 16, right: 16, bottom: 12),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () {
-                          setState(() {
-                            _selectedDateRange = null;
-                          });
-                          _applyFilter(_selectedFilter);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(AppLocalizations.of(context)!.dateFilterCleared),
-                              backgroundColor: Colors.green,
-                              behavior: SnackBarBehavior.floating,
-                            ),
-                          );
-                        },
-                        icon: const Icon(Icons.clear, size: 16),
-                        label: Text(AppLocalizations.of(context)!.clearFilter),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.grey.shade700,
-                          side: BorderSide(color: Colors.grey.shade400),
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: () => _selectDateRange(context),
-                        icon: const Icon(Icons.tune, size: 16),
-                        label: Text(AppLocalizations.of(context)!.change),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xff0386FF),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey[50],
-      body: Column(
-        children: [
-          // Header Section
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black12,
-                  blurRadius: 4,
-                  offset: Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xff0386FF).withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(
-                        Icons.admin_panel_settings,
-                        color: Color(0xff0386FF),
-                        size: 24,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          AppLocalizations.of(context)!.timesheetReview,
-                          style: GoogleFonts.inter(
-                            fontSize: 24,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.black87,
-                          ),
-                        ),
-                        Text(
-                          AppLocalizations.of(context)!.reviewAndApproveEmployeeTimesheets,
-                          style: GoogleFonts.inter(
-                            fontSize: 14,
-                            color: Colors.grey.shade600,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const Spacer(),
-                    // Export Button
-                    ElevatedButton.icon(
-                      onPressed: _exportTimesheets,
-                      icon: const Icon(Icons.file_download, size: 18),
-                      label: Text(AppLocalizations.of(context)!.commonExport),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _filteredTimesheets.isNotEmpty
-                            ? const Color(0xff10B981)
-                            : Colors.grey,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: const Color(0xff0386FF).withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        '${_filteredTimesheets.length} timesheets',
-                        style: GoogleFonts.inter(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: const Color(0xff0386FF),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                // Bulk Actions Bar
-                if (_showBulkActions) ...[
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: const Color(0xff0386FF).withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                          color: const Color(0xff0386FF).withOpacity(0.3)),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.check_box, color: Color(0xff0386FF)),
-                        const SizedBox(width: 8),
-                        Text(
-                          '${_selectedTimesheetIds.length} selected',
-                          style: GoogleFonts.inter(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: const Color(0xff0386FF),
-                          ),
-                        ),
-                        const Spacer(),
-                        ElevatedButton.icon(
-                          onPressed: _bulkApproveTimesheets,
-                          icon: const Icon(Icons.check_circle, size: 16),
-                          label: Text(AppLocalizations.of(context)!.approveAll),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 8),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        ElevatedButton.icon(
-                          onPressed: _bulkRejectTimesheets,
-                          icon: const Icon(Icons.cancel, size: 16),
-                          label: Text(AppLocalizations.of(context)!.rejectAll),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.red,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 8),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        OutlinedButton.icon(
-                          onPressed: () {
-                            setState(() {
-                              _selectedTimesheetIds.clear();
-                              _showBulkActions = false;
-                            });
-                          },
-                          icon: const Icon(Icons.clear, size: 16),
-                          label: Text(AppLocalizations.of(context)!.commonClear),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.grey.shade700,
-                            side: BorderSide(color: Colors.grey.shade400),
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 8),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 20),
-                // Filter Chips
-                Row(
-                  children: [
-                    Icon(Icons.filter_list,
-                        size: 18, color: Colors.grey.shade600),
-                    const SizedBox(width: 8),
-                    Text(
-                      AppLocalizations.of(context)!.filterByStatus,
-                      style: GoogleFonts.inter(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.grey.shade700,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Wrap(
-                        spacing: 8,
-                        children: _filterOptions.map((filter) {
-                          final isSelected = _selectedFilter == filter;
-                          return FilterChip(
-                            label: Text(
-                              filter,
-                              style: TextStyle(
-                                color: isSelected
-                                    ? Colors.white
-                                    : const Color(0xff0386FF),
-                                fontWeight: FontWeight.w600,
-                                fontSize: 12,
-                              ),
-                            ),
-                            selected: isSelected,
-                            onSelected: (selected) => _applyFilter(filter),
-                            backgroundColor: Colors.white,
-                            selectedColor: const Color(0xff0386FF),
-                            checkmarkColor: Colors.white,
-                            side: BorderSide(
-                              color: isSelected
-                                  ? const Color(0xff0386FF)
-                                  : Colors.grey.shade300,
-                              width: 1.5,
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: 16),
-                // Teacher Filter
-                Row(
-                  children: [
-                    Icon(Icons.person_outline,
-                        size: 18, color: Colors.grey.shade600),
-                    const SizedBox(width: 8),
-                    Text(
-                      AppLocalizations.of(context)!.filterByTeacher,
-                      style: GoogleFonts.inter(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.grey.shade700,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: DropdownButtonFormField<String>(
-                        value: _selectedTeacherFilter,
-                        decoration: InputDecoration(
-                          contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 8),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide(color: Colors.grey.shade300),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide(color: Colors.grey.shade300),
-                          ),
-                          filled: true,
-                          fillColor: Colors.white,
-                        ),
-                        hint: Text(
-                          AppLocalizations.of(context)!.allTeachers,
-                          style: GoogleFonts.inter(fontSize: 13),
-                        ),
-                        items: [
-                          DropdownMenuItem<String>(
-                            value: null,
-                            child: Text(AppLocalizations.of(context)!.allTeachers,
-                                style: GoogleFonts.inter(fontSize: 13)),
-                          ),
-                          ..._availableTeachers
-                              .map((teacher) => DropdownMenuItem<String>(
-                                    value: teacher,
-                                    child: Text(teacher,
-                                        style: GoogleFonts.inter(fontSize: 13)),
-                                  )),
-                        ],
-                        onChanged: (value) {
-                          setState(() {
-                            _selectedTeacherFilter = value;
-                          });
-                          _applyFilter(_selectedFilter);
-                        },
-                      ),
-                    ),
-                    if (_selectedTeacherFilter != null) ...[
-                      const SizedBox(width: 8),
-                      IconButton(
-                        icon: const Icon(Icons.clear, size: 18),
-                        color: Colors.grey.shade600,
-                        onPressed: () {
-                          setState(() {
-                            _selectedTeacherFilter = null;
-                          });
-                          _applyFilter(_selectedFilter);
-                        },
-                        tooltip: AppLocalizations.of(context)!.clearTeacherFilter,
-                      ),
-                    ],
-                  ],
-                ),
-                SizedBox(height: 20),
-                // Date Range Picker
-                _buildDateRangeSelector(),
-              ],
-            ),
-          ),
-          // Data Table Section
-          Expanded(
-            child: _isLoading
-                ? Center(child: CircularProgressIndicator())
-                : _filteredTimesheets.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.schedule_outlined,
-                              size: 64,
-                              color: Colors.grey.shade400,
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              AppLocalizations.of(context)!.noTimesheetsFound,
-                              style: GoogleFonts.inter(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.grey.shade600,
-                              ),
-                            ),
-                            Text(
-                              AppLocalizations.of(context)!.tryChangingTheFilterOrCheck,
-                              style: GoogleFonts.inter(
-                                fontSize: 14,
-                                color: Colors.grey.shade500,
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
-                    : Container(
-                        margin: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.05),
-                              blurRadius: 10,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: SfDataGridTheme(
-                          data: SfDataGridThemeData(
-                            headerColor: Colors.grey.shade50,
-                            gridLineColor: Colors.grey.shade200,
-                            gridLineStrokeWidth: 1,
-                          ),
-                          child: SfDataGrid(
-                            source: _dataSource!,
-                            allowSorting: true,
-                            allowFiltering: false,
-                            gridLinesVisibility: GridLinesVisibility.both,
-                            headerGridLinesVisibility: GridLinesVisibility.both,
-                            columnWidthMode: ColumnWidthMode.fill,
-                            columns: [
-                              GridColumn(
-                                columnName: 'select',
-                                width: 60,
-                                label: Container(
-                                  padding: const EdgeInsets.all(8.0),
-                                  alignment: Alignment.center,
-                                  child: Icon(
-                                    Icons.check_box_outline_blank,
-                                    size: 18,
-                                    color: Colors.grey.shade600,
-                                  ),
-                                ),
-                              ),
-                              GridColumn(
-                                columnName: 'teacher',
-                                label: Container(
-                                  padding: const EdgeInsets.all(8.0),
-                                  alignment: Alignment.centerLeft,
-                                  child: Text(AppLocalizations.of(context)!.roleTeacher,
-                                      style: GoogleFonts.inter(
-                                          fontWeight: FontWeight.w600)),
-                                ),
-                              ),
-                              GridColumn(
-                                columnName: 'date',
-                                label: Container(
-                                  padding: const EdgeInsets.all(8.0),
-                                  alignment: Alignment.centerLeft,
-                                  child: Text(AppLocalizations.of(context)!.timesheetDate,
-                                      style: GoogleFonts.inter(
-                                          fontWeight: FontWeight.w600)),
-                                ),
-                              ),
-                              GridColumn(
-                                columnName: 'student',
-                                label: Container(
-                                  padding: const EdgeInsets.all(8.0),
-                                  alignment: Alignment.centerLeft,
-                                  child: Text(AppLocalizations.of(context)!.roleStudent,
-                                      style: GoogleFonts.inter(
-                                          fontWeight: FontWeight.w600)),
-                                ),
-                              ),
-                              GridColumn(
-                                columnName: 'hours',
-                                label: Container(
-                                  padding: const EdgeInsets.all(8.0),
-                                  alignment: Alignment.center,
-                                  child: Text(AppLocalizations.of(context)!.hours,
-                                      style: GoogleFonts.inter(
-                                          fontWeight: FontWeight.w600)),
-                                ),
-                              ),
-                              GridColumn(
-                                columnName: 'payment',
-                                label: Container(
-                                  padding: const EdgeInsets.all(8.0),
-                                  alignment: Alignment.center,
-                                  child: Text(AppLocalizations.of(context)!.payment,
-                                      style: GoogleFonts.inter(
-                                          fontWeight: FontWeight.w600)),
-                                ),
-                              ),
-                              GridColumn(
-                                columnName: 'source',
-                                width: 120, // Fixed width to prevent overflow
-                                label: Container(
-                                  padding: const EdgeInsets.all(8.0),
-                                  alignment: Alignment.center,
-                                  child: Text(AppLocalizations.of(context)!.source,
-                                      style: GoogleFonts.inter(
-                                          fontWeight: FontWeight.w600)),
-                                ),
-                              ),
-                              GridColumn(
-                                columnName: 'status',
-                                label: Container(
-                                  padding: const EdgeInsets.all(8.0),
-                                  alignment: Alignment.center,
-                                  child: Text(AppLocalizations.of(context)!.userStatus,
-                                      style: GoogleFonts.inter(
-                                          fontWeight: FontWeight.w600)),
-                                ),
-                              ),
-                              GridColumn(
-                                columnName: 'actions',
-                                width: 140, // Fixed width to prevent overflow
-                                label: Container(
-                                  padding: const EdgeInsets.all(8.0),
-                                  alignment: Alignment.center,
-                                  child: Text(AppLocalizations.of(context)!.timesheetActions,
-                                      style: GoogleFonts.inter(
-                                          fontWeight: FontWeight.w600)),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-          ),
-        ],
-      ),
-    );
-  }
-}
+    return ChangeNotifierProvider.value(
+      value: _vm,
+      child: Consumer<TimesheetReviewViewModel>(
+        builder: (context, vm, _) {
+          final wide = MediaQuery.sizeOf(context).width >= 1200;
+          final sw = MediaQuery.sizeOf(context).width;
+          final focused = vm.getFocusedTimesheet();
 
-class TimesheetReviewDataSource extends DataGridSource {
-  List<TimesheetEntry> timesheets;
-  final Function(TimesheetEntry) onApprove;
-  final Function(TimesheetEntry) onReject;
-  final Function(TimesheetEntry) onViewDetails;
-  final Function(String, bool) onSelectionChanged;
-  final Set<String> selectedIds;
-
-  final BuildContext context;
-
-  TimesheetReviewDataSource({
-    required this.timesheets,
-    required this.onApprove,
-    required this.onReject,
-    required this.onViewDetails,
-    required this.onSelectionChanged,
-    required this.selectedIds,
-    required this.context,
-  });
-
-  @override
-  List<DataGridRow> get rows => timesheets.map<DataGridRow>((timesheet) {
-        return DataGridRow(cells: [
-          DataGridCell<TimesheetEntry>(columnName: 'select', value: timesheet),
-          DataGridCell<String>(
-              columnName: 'teacher', value: timesheet.teacherName),
-          DataGridCell<String>(columnName: 'date', value: timesheet.date),
-          DataGridCell<String>(columnName: 'student', value: timesheet.subject),
-          DataGridCell<String>(
-              columnName: 'hours', value: timesheet.totalHours),
-          DataGridCell<double>(
-              columnName: 'payment', value: _calculatePayment(timesheet)),
-          DataGridCell<String>(
-              columnName: 'source', value: timesheet.source ?? 'manual'),
-          DataGridCell<TimesheetStatus>(
-              columnName: 'status', value: timesheet.status),
-          DataGridCell<TimesheetEntry>(columnName: 'actions', value: timesheet),
-        ]);
-      }).toList();
-
-  double _calculatePayment(TimesheetEntry timesheet) {
-    try {
-      final forceRecalc = timesheet.isEdited && !timesheet.editApproved;
-
-      if (!forceRecalc &&
-          timesheet.paymentAmount != null &&
-          timesheet.paymentAmount! > 0) {
-        return timesheet.paymentAmount!;
-      }
-
-      final parts = timesheet.totalHours.split(':');
-      if (parts.length < 2) return 0.0;
-
-      final hours = int.parse(parts[0]);
-      final minutes = int.parse(parts[1]);
-      final seconds = parts.length > 2 ? int.parse(parts[2]) : 0;
-
-      final totalHoursDecimal = hours + (minutes / 60.0) + (seconds / 3600.0);
-
-      return totalHoursDecimal * timesheet.hourlyRate;
-    } catch (e) {
-      return 0.0;
-    }
-  }
-
-  @override
-  DataGridRowAdapter buildRow(DataGridRow row) {
-    // Get timesheet entry for color coding
-    final timesheet = row
-        .getCells()
-        .firstWhere(
-          (cell) => cell.columnName == 'select',
-          orElse: () => row.getCells().first,
-        )
-        .value as TimesheetEntry?;
-
-    // Determine row background color based on status
-    Color rowColor = Colors.white;
-    if (timesheet != null) {
-      switch (timesheet.status) {
-        case TimesheetStatus.approved:
-          rowColor = const Color(0xFFF0FDF4); // Light green
-          break;
-        case TimesheetStatus.rejected:
-          rowColor = const Color(0xFFFEF2F2); // Light red
-          break;
-        case TimesheetStatus.pending:
-          rowColor = const Color(0xFFFFF7ED); // Light orange
-          break;
-        case TimesheetStatus.draft:
-          rowColor = const Color(0xFFF9FAFB); // Light grey
-          break;
-      }
-    }
-
-    return DataGridRowAdapter(
-      color: rowColor,
-      cells: row.getCells().map<Widget>((dataGridCell) {
-        if (dataGridCell.columnName == 'select') {
-          final timesheet = dataGridCell.value as TimesheetEntry;
-          final isSelected = selectedIds.contains(timesheet.documentId);
-
-          return Container(
-            alignment: Alignment.center,
-            padding: const EdgeInsets.all(8.0),
-            child: Checkbox(
-              value: isSelected,
-              onChanged: (value) {
-                onSelectionChanged(timesheet.documentId!, value ?? false);
-              },
-              activeColor: const Color(0xff0386FF),
-            ),
+          final dataSource = TimesheetReviewDataSource(
+            timesheets: vm.filteredTimesheets,
+            onApprove: _approveTimesheet,
+            onReject: _rejectTimesheet,
+            onViewDetails: _viewTimesheetDetails,
+            onSelectionChanged: _onTimesheetSelectionChanged,
+            selectedIds: vm.selectedTimesheetIds,
+            context: context,
+            enableRichTooltips: timesheetReviewEnableHoverTooltips(),
+            compact: true,
           );
-        } else if (dataGridCell.columnName == 'teacher') {
-          return Container(
-            alignment: Alignment.centerLeft,
-            padding: const EdgeInsets.all(8.0),
-            child: Text(
-              dataGridCell.value.toString(),
-              style: GoogleFonts.inter(fontWeight: FontWeight.w500),
-            ),
-          );
-        } else if (dataGridCell.columnName == 'payment') {
-          return Container(
-            alignment: Alignment.center,
-            padding: const EdgeInsets.all(8.0),
-            child: Text(
-              '\$${dataGridCell.value.toStringAsFixed(2)}',
-              style: GoogleFonts.inter(
-                fontWeight: FontWeight.w600,
-                color: Colors.green.shade700,
-              ),
-            ),
-          );
-        } else if (dataGridCell.columnName == 'source') {
-          final source = dataGridCell.value as String;
-          final isClockIn = source == 'clock_in';
 
-          return Container(
-            alignment: Alignment.center,
-            padding: const EdgeInsets.all(8.0),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-              decoration: BoxDecoration(
-                color: isClockIn
-                    ? const Color(0xff10B981).withOpacity(0.1)
-                    : const Color(0xff0386FF).withOpacity(0.1),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
+          final Widget gridBody;
+          if (vm.isLoading) {
+            gridBody = const Center(child: CircularProgressIndicator());
+          } else if (vm.filteredTimesheets.isEmpty) {
+            gridBody = Center(
+              child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
-                    isClockIn ? Icons.access_time : Icons.edit,
-                    size: 12,
-                    color: isClockIn
-                        ? const Color(0xff10B981)
-                        : const Color(0xff0386FF),
+                    Icons.schedule_outlined,
+                    size: 64,
+                    color: Colors.grey.shade400,
                   ),
-                  const SizedBox(width: 4),
-                  Flexible(
-                    child: Text(
-                      isClockIn ? 'Clock In' : 'Unclocked',
-                      style: GoogleFonts.inter(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: isClockIn
-                            ? const Color(0xff10B981)
-                            : const Color(0xff0386FF),
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                      maxLines: 1,
+                  const SizedBox(height: 16),
+                  Text(
+                    AppLocalizations.of(context)!.noTimesheetsFound,
+                    style: GoogleFonts.inter(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                  Text(
+                    AppLocalizations.of(context)!.tryChangingTheFilterOrCheck,
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      color: Colors.grey.shade500,
                     ),
                   ),
                 ],
               ),
-            ),
-          );
-        } else if (dataGridCell.columnName == 'status') {
-          final status = dataGridCell.value as TimesheetStatus;
-          Color color;
-          String text;
-
-          switch (status) {
-            case TimesheetStatus.approved:
-              color = Colors.green;
-              text = 'Approved';
-              break;
-            case TimesheetStatus.rejected:
-              color = Colors.red;
-              text = 'Rejected';
-              break;
-            case TimesheetStatus.pending:
-              color = Colors.orange;
-              text = 'Pending';
-              break;
-            case TimesheetStatus.draft:
-              color = Colors.grey;
-              text = 'Draft';
-              break;
+            );
+          } else {
+            gridBody = TimesheetReviewGrid(
+              dataSource: dataSource,
+              selectAllPendingTriState: _headerPendingTriState(),
+              onSelectAllPendingChanged: _toggleSelectAllPendingTri,
+              selectAllPendingEnabled: _visiblePendingRowIds().isNotEmpty,
+              enableHeaderTooltips: timesheetReviewEnableHoverTooltips(),
+              rowHeight: 44,
+              margin: EdgeInsets.fromLTRB(wide ? 8 : 12, 4, wide ? 16 : 12, 12),
+              onCardExport: _openExportDialog,
+              onCardSelectAllPending: () => _toggleSelectAllPendingTri(true),
+              onDataCellTap: _openDetailDrawer,
+            );
           }
 
-          return Container(
-            alignment: Alignment.center,
-            padding: const EdgeInsets.all(8.0),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                text,
-                style: GoogleFonts.inter(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: color,
-                ),
-              ),
-            ),
-          );
-        } else if (dataGridCell.columnName == 'actions') {
-          final timesheet = dataGridCell.value as TimesheetEntry;
+          final showBulk = vm.showBulkActions &&
+              !vm.isLoading &&
+              vm.filteredTimesheets.isNotEmpty;
 
-          return Container(
-            alignment: Alignment.center,
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              mainAxisSize: MainAxisSize.min,
+          return Scaffold(
+            key: _scaffoldKey,
+            backgroundColor: Colors.grey[50],
+            endDrawer: Drawer(
+              width: sw >= 500 ? 440 : sw * 0.92,
+              child: focused == null
+                  ? const SizedBox.shrink()
+                  : TimesheetReviewDetailDrawer(
+                      timesheet: focused,
+                      onClose: () => Navigator.of(context).pop(),
+                      onApprove: () {
+                        Navigator.of(context).pop();
+                        _approveTimesheet(focused);
+                      },
+                      onReject: () {
+                        Navigator.of(context).pop();
+                        _rejectTimesheet(focused);
+                      },
+                    ),
+            ),
+            body: Column(
               children: [
-                IconButton(
-                  onPressed: () => onViewDetails(timesheet),
-                  icon: const Icon(Icons.visibility, size: 18),
-                  tooltip: AppLocalizations.of(context)!.shiftViewDetails,
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(
-                    minWidth: 32,
-                    minHeight: 32,
+                Material(
+                  color: Colors.white,
+                  elevation: 0.5,
+                  child: TimesheetReviewToolbar(
+                    searchController: _searchController,
+                    onSearchChanged: _updateSearchQuery,
+                    statusOptions: _filterOptions,
+                    onStatusChanged: _applyFilter,
+                    onExport: _openExportDialog,
+                    onSelectAllPendingVisible: _selectAllPendingVisible,
+                    onPresetThisWeek: () =>
+                        _applyDatePreset(TimesheetDatePreset.thisWeek),
+                    onPresetLastWeek: () =>
+                        _applyDatePreset(TimesheetDatePreset.lastWeek),
+                    onPresetThisMonth: () =>
+                        _applyDatePreset(TimesheetDatePreset.thisMonth),
+                    onClearDateRange: _clearDateRangeFilter,
+                    onPickDateRange: () => _selectDateRange(context),
+                    hasDateRange: _selectedDateRange != null,
+                    dateRangeSummary: _dateRangeSummary(),
+                    onTeacherChanged: (value) {
+                      _vm.patchFilterState(
+                        (f) => f.copyWith(teacherFilter: value),
+                        clearSelection: false,
+                      );
+                    },
+                    onEditedOnlyChanged: (v) {
+                      _vm.patchFilterState(
+                        (f) => f.copyWith(editedOnly: v),
+                        clearSelection: false,
+                      );
+                    },
+                    onNeedsAttentionChanged: (v) {
+                      _vm.patchFilterState(
+                        (f) => f.copyWith(needsAttention: v),
+                        clearSelection: false,
+                      );
+                    },
                   ),
                 ),
-                if (timesheet.status == TimesheetStatus.pending) ...[
-                  IconButton(
-                    onPressed: () => onApprove(timesheet),
-                    icon: const Icon(Icons.check_circle,
-                        color: Colors.green, size: 18),
-                    tooltip: AppLocalizations.of(context)!.approve,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(
-                      minWidth: 32,
-                      minHeight: 32,
-                    ),
+                Expanded(
+                  child: Stack(
+                    fit: StackFit.expand,
+                    clipBehavior: Clip.none,
+                    children: [
+                      Positioned.fill(child: gridBody),
+                      if (showBulk)
+                        TimesheetReviewBulkBar(
+                          selectedCount: _selectedWritableTimesheets().length,
+                          summarySecondaryLine:
+                              'Total pay: \$${_selectedPaymentTotal().toStringAsFixed(2)}'
+                              '${_selectedDateRange != null ? ' • ${DateFormat('MMM dd').format(_selectedDateRange!.start)}-${DateFormat('MMM dd').format(_selectedDateRange!.end)}' : ''}',
+                          onApprove: _bulkApproveTimesheets,
+                          onReject: _bulkRejectTimesheets,
+                          onClear: () => _vm.clearSelection(),
+                        ),
+                    ],
                   ),
-                  IconButton(
-                    onPressed: () => onReject(timesheet),
-                    icon: const Icon(Icons.cancel, color: Colors.red, size: 18),
-                    tooltip: AppLocalizations.of(context)!.reject,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(
-                      minWidth: 32,
-                      minHeight: 32,
-                    ),
-                  ),
-                ],
+                ),
               ],
             ),
           );
-        } else {
-          return Container(
-            alignment: dataGridCell.columnName == 'hours'
-                ? Alignment.center
-                : Alignment.centerLeft,
-            padding: const EdgeInsets.all(8.0),
-            child: Text(
-              dataGridCell.value.toString(),
-              style: GoogleFonts.inter(),
-            ),
-          );
-        }
-      }).toList(),
+        },
+      ),
     );
   }
 }
+

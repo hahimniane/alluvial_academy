@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:alluwalacademyadmin/features/audit/models/teacher_audit_full.dart';
+import '../models/teacher_audit_full.dart';
+import 'teacher_metrics_service.dart';
 
 class AuditClassLogRow {
   final String shiftId;
@@ -148,6 +149,8 @@ class AuditClassLogRowBuilder {
     final timesheetBySuffix = <String, Map<String, dynamic>>{};
     for (final ts in audit.detailedTimesheets) {
       final tsMap = ts;
+      final st = (tsMap['status'] as String?)?.toLowerCase();
+      if (st == 'rejected') continue;
       final sid = tsMap['shift_id'] as String? ?? tsMap['shiftId'] as String?;
       if (sid == null || sid.isEmpty) continue;
       timesheetByShiftId[sid] = tsMap;
@@ -176,9 +179,14 @@ class AuditClassLogRowBuilder {
               ? shiftFormsBySuffix[shiftId.substring(shiftId.length - 8)]
               : null);
       final hasForm = formData != null;
-      final formHours = hasForm
-          ? ((formData['durationHours'] as num?)?.toDouble() ?? 0.0)
+      final rawFormHours = hasForm
+          ? ((formData['durationHours'] as num?)?.toDouble() ??
+              (formData['reportedHours'] as num?)?.toDouble() ??
+              0.0)
           : 0.0;
+      final formHours = hasForm && scheduledHours > 0 && rawFormHours > 0
+          ? (rawFormHours > scheduledHours ? scheduledHours : rawFormHours)
+          : rawFormHours;
 
       final timesheetEntry = timesheetByShiftId[shiftId] ??
           (shiftId.length >= 8
@@ -191,12 +199,25 @@ class AuditClassLogRowBuilder {
         final clockInRaw = timesheetEntry['clock_in_timestamp'] ??
             timesheetEntry['clock_in_time'] ??
             timesheetEntry['clockIn'];
+        // Raw clock-out for billable math (do not use effective_end here — caps are applied once).
         final clockOutRaw = timesheetEntry['clock_out_timestamp'] ??
-            timesheetEntry['effective_end_timestamp'] ??
             timesheetEntry['clock_out_time'] ??
             timesheetEntry['clockOut'];
+        final shiftMapForBillable = <String, dynamic>{
+          'shift_start': shiftData['start'],
+          'shift_end': shiftData['end'],
+        };
 
-        if (clockInRaw is Timestamp && clockOutRaw is Timestamp) {
+        if (clockInRaw is Timestamp &&
+            clockOutRaw is Timestamp &&
+            shiftMapForBillable['shift_start'] is Timestamp &&
+            shiftMapForBillable['shift_end'] is Timestamp) {
+          workedHours = TeacherMetricsService.billableHoursForShiftClock(
+            shift: shiftMapForBillable,
+            clockIn: clockInRaw.toDate(),
+            clockOut: clockOutRaw.toDate(),
+          );
+        } else if (clockInRaw is Timestamp && clockOutRaw is Timestamp) {
           var start = clockInRaw.toDate();
           var end = clockOutRaw.toDate();
           if (shiftEnd != null && end.isAfter(shiftEnd)) end = shiftEnd;
