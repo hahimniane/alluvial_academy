@@ -261,5 +261,6 @@ only in individual agents' heads are not rules. Rules live here.
 - `.github/copilot-instructions.md` — symlinked to this file; Copilot.
 - `.windsurfrules` — symlinked to this file; Windsurf.
 - `CONVENTIONS.md` — symlinked to this file; Aider.
+- `docs/HOW_WE_WORK.md` — friendly developer guide with real examples.
 - `docs/ci-setup.md` — CI and branch-protection setup.
 - `docs/tech-debt.md` — known pre-existing issues; what CI does *not* enforce.
