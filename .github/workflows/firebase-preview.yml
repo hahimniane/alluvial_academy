@@ -52,8 +52,10 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Build web (release)
-        run: flutter build web --release
+      - name: Build web (release, pointing at alluwal-dev Firebase)
+        # --dart-define=FIREBASE_ENV=dev flips lib/main.dart's _firebaseEnv
+        # constant so the built app talks to the dev Firebase project, not prod.
+        run: flutter build web --release --dart-define=FIREBASE_ENV=dev
 
       - name: Deploy preview to Firebase Hosting
         uses: FirebaseExtended/action-hosting-deploy@v0

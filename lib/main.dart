@@ -46,11 +46,12 @@ import 'features/livekit/screens/guest_join_screen.dart';
 // If you ever need to run it manually, trigger ShiftWageMigration.runMigration()
 // from a separate maintenance script instead of during app startup.
 
-// const String _firebaseEnv =
-//     String.fromEnvironment('FIREBASE_ENV', defaultValue: '');
-
+// Default to 'prod' so existing local/Hostinger builds keep pointing at the
+// production project unchanged. CI preview builds override this via
+// `--dart-define=FIREBASE_ENV=dev` so PR previews run against alluwal-dev and
+// cannot accidentally mutate production data.
 const String _firebaseEnv =
-    'prod'; // change to 'dev' to switch projects and prod to run the production project
+    String.fromEnvironment('FIREBASE_ENV', defaultValue: 'prod');
 
 bool get _useProdFirebase {
   final env = _firebaseEnv.trim().toLowerCase();
