@@ -9,14 +9,19 @@
  */
 
 // firebase-functions v2 wrappers are replaced with identity functions so handlers are directly invokable.
-jest.mock('firebase-functions/v2/https', () => ({
-  onCall: (fn) => fn,
-  onRequest: (fn) => fn,
-}));
+// Each wrapper supports both (fn) and (opts, fn) signatures.
+jest.mock('firebase-functions/v2/https', () => {
+  const unwrap = (...args) => (typeof args[0] === 'function' ? args[0] : args[1]);
+  return {
+    onCall: (...args) => unwrap(...args),
+    onRequest: (...args) => unwrap(...args),
+  };
+});
 jest.mock('firebase-functions/v2/firestore', () => ({
   onDocumentCreated: (_path, fn) => fn,
   onDocumentUpdated: (_path, fn) => fn,
   onDocumentDeleted: (_path, fn) => fn,
+  onDocumentWritten: (_path, fn) => fn,
 }));
 jest.mock('firebase-functions/v2/scheduler', () => ({
   onSchedule: (_schedule, fn) => fn,
