@@ -143,6 +143,68 @@ If local passes and CI fails, read the CI logs — don't retry blindly.
 
 ---
 
+## 4.5 Working with AI coding assistants
+
+This project is built partly by humans and partly by AI agents (Claude
+Code, Cursor, Copilot, Windsurf, Aider…). Different contributors use
+different tools and may switch. Here's how we keep them aligned:
+
+### Single source of truth: `AGENTS.md`
+
+All rules an AI needs live in `AGENTS.md` at the repo root. The following
+files are **symlinks** to it so every tool loads the same content:
+
+- `CLAUDE.md` → Claude Code reads this automatically
+- `.cursorrules` → Cursor
+- `.github/copilot-instructions.md` → GitHub Copilot
+- `.windsurfrules` → Windsurf
+- `CONVENTIONS.md` → Aider
+
+**Never edit the symlinks.** Edit `AGENTS.md` — every tool picks up the
+change automatically.
+
+> **Windows users:** if symlinks don't resolve on clone, run
+> `git config --global core.symlinks true` and re-clone. On macOS and
+> Linux they just work.
+
+### What every agent must do before writing code
+
+1. Read `AGENTS.md` in full (any agent worth using will auto-load it).
+2. Read the immediate area of the codebase it's modifying.
+3. Check `docs/tech-debt.md` so it doesn't try to "fix" known tech debt.
+4. Before proposing files, grep the repo to confirm the path exists.
+
+### The coordination protocol (humans)
+
+Most agent conflicts are actually **human** conflicts — two people didn't
+know they were editing adjacent code. Fix that at the human layer:
+
+1. **Announce non-trivial work.** Before spending more than ~1 hour on
+   anything, open a GitHub issue or post in the team chat: *"Starting work
+   on shift bulk-edit — touches `lib/features/shift_management/` and
+   `functions/handlers/shifts.js`."*
+2. **Short-lived branches (2–3 days max).** Covered in §1 already — the
+   single biggest anti-conflict measure.
+3. **Small PRs.** If your agent proposes a PR that touches 30 files across
+   5 unrelated concerns, reject it and split it up. A good agent will
+   accept that feedback; a bad one is a warning sign.
+4. **Read `CODEOWNERS` reviews seriously.** If the owner asks for a
+   restructure, do it before merging — don't merge around them.
+
+### What CI enforces so agents can't drift
+
+- **`Architecture check (AGENTS.md)`** — fails any PR that adds a file
+  violating the directory rules in `AGENTS.md` §2 (new files in `lib/`
+  root, forbidden dirs, cross-feature imports, etc.). Catches the most
+  common "agent puts code in the wrong place" mistake.
+- **`flutter analyze`** and **tests** — catch the "code compiles but
+  doesn't work" mistakes.
+
+If an agent's output keeps tripping these checks, give it firmer context
+(paste the relevant AGENTS.md section) or switch tools for that task.
+
+---
+
 ## 5. Architecture rules (enforced)
 
 These are duplicated from `CLAUDE.md` — read that file for the full version.
