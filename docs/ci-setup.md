@@ -38,6 +38,7 @@ gh api \
   -H "Accept: application/vnd.github+json" \
   /repos/hahimniane/alluvial_academy/branches/main/protection \
   -f "required_status_checks[strict]=true" \
+  -f "required_status_checks[contexts][]=Architecture check (AGENTS.md)" \
   -f "required_status_checks[contexts][]=Flutter (analyze / test / build web)" \
   -f "required_status_checks[contexts][]=Firebase Functions (lint / test)" \
   -f "enforce_admins=false" \

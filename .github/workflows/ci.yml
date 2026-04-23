@@ -11,6 +11,20 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  architecture:
+    name: Architecture check (AGENTS.md)
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Need enough history to diff against base branch
+          fetch-depth: 0
+
+      - name: Enforce directory rules on new files
+        run: bash scripts/ci/check_architecture.sh
+
   flutter:
     name: Flutter (analyze / test / build web)
     runs-on: ubuntu-latest
