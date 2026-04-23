@@ -1,0 +1,57 @@
+name: Firebase Hosting Preview
+
+# Builds the Flutter web app and deploys it to a temporary Firebase Hosting
+# preview channel for every PR. Posts a comment on the PR with the preview URL.
+# Previews auto-expire in 7 days to keep the channel list clean.
+#
+# Notes:
+# - Deploys to the `alluwal-dev` project (not prod).
+# - Not a required check. A failed preview does not block PR merging.
+# - Skipped on fork PRs (they cannot access repo secrets by design).
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'lib/**'
+      - 'web/**'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+      - 'firebase.json'
+      - '.firebaserc'
+      - '.github/workflows/firebase-preview.yml'
+
+concurrency:
+  group: preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  preview:
+    name: Deploy PR preview to alluwal-dev
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    # Only run for PRs opened from branches in this repo; forks cannot access secrets.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build web (release)
+        run: flutter build web --release
+
+      - name: Deploy preview to Firebase Hosting
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_ALLUWAL_DEV }}
+          projectId: alluwal-dev
+          expires: 7d
