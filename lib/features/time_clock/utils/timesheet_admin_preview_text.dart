@@ -1,6 +1,6 @@
 import 'package:intl/intl.dart';
 
-import '../../../core/enums/timesheet_enums.dart';
+import '../enums/timesheet_enums.dart';
 import '../../../l10n/app_localizations.dart';
 import '../models/timesheet_entry.dart';
 import 'timesheet_entry_review_flags.dart';

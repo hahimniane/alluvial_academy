@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 
-import '../../../core/enums/timesheet_enums.dart';
+import '../enums/timesheet_enums.dart';
 import '../controllers/timesheet_review_controller.dart';
 import '../models/timesheet_entry.dart';
 import '../models/timesheet_filter_state.dart';

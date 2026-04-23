@@ -3,7 +3,7 @@ import 'package:alluwalacademyadmin/core/utils/performance_logger.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
-import '../../../core/enums/timesheet_enums.dart';
+import '../enums/timesheet_enums.dart';
 import '../controllers/timesheet_review_controller.dart';
 import '../models/timesheet_entry.dart';
 

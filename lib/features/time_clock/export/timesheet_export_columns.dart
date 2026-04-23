@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 
-import '../../../core/enums/timesheet_enums.dart';
+import '../enums/timesheet_enums.dart';
 import '../../../l10n/app_localizations.dart';
 import '../models/timesheet_entry.dart';
 import '../services/timesheet_payment_service.dart';

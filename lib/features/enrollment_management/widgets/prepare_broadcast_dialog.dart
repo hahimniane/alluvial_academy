@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/models/enrollment_request.dart';
-import '../../../core/services/job_board_service.dart';
+import '../../dashboard/services/job_board_service.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 /// Data collected from the broadcast preparation dialog.

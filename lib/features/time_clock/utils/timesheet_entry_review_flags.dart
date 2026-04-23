@@ -1,5 +1,5 @@
 import '../models/timesheet_entry.dart';
-import '../../../core/enums/timesheet_enums.dart';
+import '../enums/timesheet_enums.dart';
 
 /// Pure helpers for admin review filters and tooltips.
 class TimesheetEntryReviewFlags {

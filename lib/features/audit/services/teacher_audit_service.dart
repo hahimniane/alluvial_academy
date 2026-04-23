@@ -3,11 +3,11 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:async';
-import '../../features/chat/services/chat_service.dart';
-import '../audit/audit_assignment_metrics.dart';
+import '../../chat/services/chat_service.dart';
+import '../../../core/audit/audit_assignment_metrics.dart';
 import '../models/teacher_audit_full.dart';
-import '../utils/app_logger.dart';
-import 'teacher_metrics_service.dart';
+import '../../../core/utils/app_logger.dart';
+import '../../../core/services/teacher_metrics_service.dart';
 
 /// Optimized service for computing and managing teacher audit metrics
 class TeacherAuditService {
@@ -3458,6 +3458,18 @@ class TeacherAuditService {
     } catch (e) {
       // Non-fatal: log but don't block the audit operation
       AppLogger.error('Error creating audit notification: $e');
+    }
+  }
+
+  /// Statuses that are visible on teacher-facing audit surfaces.
+  static bool isTeacherVisibleStatus(AuditStatus status) {
+    switch (status) {
+      case AuditStatus.coachSubmitted:
+      case AuditStatus.ceoApproved:
+      case AuditStatus.completed:
+        return true;
+      default:
+        return false;
     }
   }
 

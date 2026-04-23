@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
-import '../../../core/enums/timesheet_enums.dart';
+import '../enums/timesheet_enums.dart';
 import '../../../l10n/app_localizations.dart';
 import '../models/timesheet_entry.dart';
 

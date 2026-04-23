@@ -3,12 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../../../core/models/teacher_audit_full.dart';
-import '../../../core/services/teacher_audit_service.dart';
+import '../models/teacher_audit_full.dart';
+import '../services/teacher_audit_service.dart';
 import '../../chat/models/chat_user.dart';
 import '../../chat/screens/chat_screen.dart';
 import '../../chat/screens/chat_page.dart';
-import '../../../core/services/form_labels_cache_service.dart';
+import '../../forms/services/form_labels_cache_service.dart';
 import '../../forms/widgets/form_details_modal.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 

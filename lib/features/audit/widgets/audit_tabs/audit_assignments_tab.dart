@@ -7,7 +7,7 @@ import 'package:alluwalacademyadmin/features/audit/models/teacher_audit_full.dar
 import '../../../../l10n/app_localizations.dart';
 import '../../../forms/widgets/form_details_modal.dart' show FormSubmissionDetailsView;
 import '../audit_shared_widgets.dart';
-import '../../../core/audit/audit_assignment_metrics.dart';
+import '../../../../core/audit/audit_assignment_metrics.dart';
 import 'audit_form_title_resolver.dart';
 
 class AuditAssignmentsTab extends StatefulWidget {

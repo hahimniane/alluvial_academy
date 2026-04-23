@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'enrollment/enrollment_coordinator.dart';
+import '../../../screens/enrollment/enrollment_coordinator.dart';
 
 /// Thin wrapper so call sites keep importing [ProgramSelectionPage].
 class ProgramSelectionPage extends StatelessWidget {

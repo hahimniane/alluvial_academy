@@ -12,7 +12,7 @@ import '../constants/pricing_plan_ids.dart';
 import '../models/employee_model.dart';
 import '../models/public_site_cms_models.dart';
 import '../utils/app_logger.dart';
-import 'shift_service.dart';
+import '../../features/shift_management/services/shift_service.dart';
 
 /// Thrown when [saveTeamMember] validation fails (caller maps to localized UI).
 class PublicSiteCmsValidationException implements Exception {

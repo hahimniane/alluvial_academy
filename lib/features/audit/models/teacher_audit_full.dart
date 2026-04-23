@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_firestore/cloud_firestore.dart' hide Type;
 
 /// Single audit factor (one of 16 mandatory factors from Excel model)
 class AuditFactor {

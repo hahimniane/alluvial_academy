@@ -7,7 +7,7 @@ import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import '../../../core/models/enrollment_request.dart';
 import '../../../core/models/employee_model.dart';
-import '../../../core/services/job_board_service.dart';
+import '../../dashboard/services/job_board_service.dart';
 import '../../../core/utils/app_logger.dart';
 import '../../shift_management/widgets/create_shift_dialog.dart';
 import 'enrollment_card.dart';

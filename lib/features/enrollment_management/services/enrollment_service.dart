@@ -1,8 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
-import '../models/enrollment_request.dart';
-import 'pricing_quote_service.dart';
-import 'public_site_cms_service.dart';
+import '../../../core/models/enrollment_request.dart';
+import '../../../core/services/pricing_quote_service.dart';
+import '../../../core/services/public_site_cms_service.dart';
 
 class EnrollmentService {
   final CollectionReference _collection = 
@@ -229,4 +229,3 @@ class EnrollmentService {
     }
   }
 }
-

@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/teacher_audit_full.dart';
-import 'teacher_metrics_service.dart';
+import '../../../core/services/teacher_metrics_service.dart';
 
 class AuditClassLogRow {
   final String shiftId;

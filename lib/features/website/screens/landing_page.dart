@@ -5,18 +5,18 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
-import '../widgets/modern_header.dart';
-import '../shared/widgets/fade_in_slide.dart';
+import '../../../core/widgets/modern_header.dart';
+import '../../../core/widgets/fade_in_slide.dart';
 import 'program_selection_page.dart';
 import 'teacher_application_screen.dart';
 import 'team_page.dart';
-import '../core/constants/pricing_plan_ids.dart'
+import '../../../core/constants/pricing_plan_ids.dart'
     show PricingPlanIds;
-import '../core/models/program_catalog.dart';
-import '../core/models/public_site_cms_models.dart';
-import '../core/services/pricing_quote_service.dart';
-import '../core/services/public_site_cms_service.dart';
-import 'unified_programs_page.dart';
+import '../../../core/models/program_catalog.dart';
+import '../../../core/models/public_site_cms_models.dart';
+import '../../../core/services/pricing_quote_service.dart';
+import '../../../core/services/public_site_cms_service.dart';
+import '../../../screens/unified_programs_page.dart';
 import 'about_page.dart';
 
 /// Lets [ModernHeader] scroll the landing page when it is already visible.

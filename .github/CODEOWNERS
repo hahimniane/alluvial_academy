@@ -1,0 +1,19 @@
+# CODEOWNERS
+# Auto-assigns reviewers when a PR touches the matched paths.
+# Docs: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-security/customizing-your-repository/about-code-owners
+#
+# Syntax: <path pattern>  <@user-or-team>
+# Later matches override earlier ones.
+
+# Default owner for everything in the repo
+*                                   @hahimniane
+
+# Critical areas — always require owner review
+/.github/                           @hahimniane
+/firebase.json                      @hahimniane
+/firestore.rules                    @hahimniane
+/storage.rules                      @hahimniane
+/functions/                         @hahimniane
+/lib/core/                          @hahimniane
+CLAUDE.md                           @hahimniane
+CONTRIBUTING.md                     @hahimniane

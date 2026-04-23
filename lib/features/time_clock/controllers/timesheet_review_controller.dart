@@ -6,7 +6,7 @@ import '../models/timesheet_entry.dart';
 import '../models/timesheet_filter_state.dart';
 import '../models/timesheet_date_preset.dart';
 import '../utils/timesheet_entry_review_flags.dart';
-import '../../../core/enums/timesheet_enums.dart';
+import '../enums/timesheet_enums.dart';
 
 typedef TimesheetDateParser = DateTime? Function(String rawDate);
 

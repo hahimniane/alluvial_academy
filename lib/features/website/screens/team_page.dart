@@ -5,10 +5,10 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
-import '../core/models/public_site_cms_models.dart';
-import '../core/services/public_site_cms_service.dart';
-import '../widgets/modern_header.dart';
-import '../shared/widgets/fade_in_slide.dart';
+import '../../../core/models/public_site_cms_models.dart';
+import '../../../core/services/public_site_cms_service.dart';
+import '../../../core/widgets/modern_header.dart';
+import '../../../core/widgets/fade_in_slide.dart';
 import 'teacher_application_screen.dart';
 import 'contact_page.dart';
 

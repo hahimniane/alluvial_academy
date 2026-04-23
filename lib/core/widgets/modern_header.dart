@@ -5,16 +5,16 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../screens/landing_page.dart';
-import '../screens/program_selection_page.dart';
-import '../screens/unified_programs_page.dart';
-import '../screens/teacher_application_screen.dart';
-import '../screens/contact_page.dart';
-import '../screens/team_page.dart';
-import '../core/models/program_catalog.dart';
-import '../core/models/public_site_cms_models.dart';
-import '../core/services/public_site_cms_service.dart';
-import '../main.dart';
+import '../../features/website/screens/contact_page.dart';
+import '../../features/website/screens/landing_page.dart';
+import '../../features/website/screens/program_selection_page.dart';
+import '../../features/website/screens/team_page.dart';
+import '../../features/website/screens/teacher_application_screen.dart';
+import '../../main.dart';
+import '../../screens/unified_programs_page.dart';
+import '../models/program_catalog.dart';
+import '../models/public_site_cms_models.dart';
+import '../services/public_site_cms_service.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class ModernHeader extends StatefulWidget {

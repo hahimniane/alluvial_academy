@@ -6,7 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'dart:convert';
 import '../../../core/models/enrollment_request.dart';
-import '../../../core/services/job_board_service.dart';
+import '../../dashboard/services/job_board_service.dart';
 import 'prepare_broadcast_dialog.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 import 'package:alluwalacademyadmin/core/utils/firebase_error_message.dart';

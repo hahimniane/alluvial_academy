@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
-import '../../../core/services/profile_picture_service.dart';
+import '../services/profile_picture_service.dart';
 import '../../../core/utils/app_logger.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
@@ -771,4 +771,3 @@ class _TeacherProfileEditDialogState extends State<TeacherProfileEditDialog> {
     }
   }
 }
-

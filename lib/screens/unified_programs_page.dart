@@ -8,9 +8,9 @@ import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 import '../core/models/program_catalog.dart';
 import '../core/services/pricing_quote_service.dart';
 import '../core/services/public_site_cms_service.dart';
-import '../shared/widgets/fade_in_slide.dart';
-import '../widgets/modern_header.dart';
-import 'program_selection_page.dart';
+import '../core/widgets/fade_in_slide.dart';
+import '../core/widgets/modern_header.dart';
+import '../features/website/screens/program_selection_page.dart';
 
 /// Fade transition into the catalog (used from landing + header).
 class UnifiedProgramsPageRoutes {

@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:syncfusion_flutter_calendar/calendar.dart';
 
-import '../../../core/models/teaching_shift.dart';
-import '../../../core/enums/shift_enums.dart';
-import '../../../core/services/shift_service.dart';
+import '../models/teaching_shift.dart';
+import '../enums/shift_enums.dart';
+import '../services/shift_service.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 /// Calendar view of teacher shifts using Syncfusion SfCalendar
