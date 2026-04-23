@@ -21,6 +21,13 @@ on:
       - '.firebaserc'
       - '.github/workflows/firebase-preview.yml'
 
+# Override the repo-wide read-only default so the Firebase action can
+# create a check-run and comment the preview URL on the PR.
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+
 concurrency:
   group: preview-${{ github.event.pull_request.number }}
   cancel-in-progress: true
