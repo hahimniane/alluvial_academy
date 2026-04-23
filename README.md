@@ -2,6 +2,9 @@
 
 An online Islamic education platform where teachers give live classes to students, and admins manage everything — scheduling, attendance, forms, payments, and more. Built with Flutter (frontend) and Firebase (backend). Runs on web, Android, and iOS.
 
+> **👋 New developer? Start here:** [`docs/HOW_WE_WORK.md`](docs/HOW_WE_WORK.md) — friendly, example-heavy guide to our workflow.
+> **AI agent reading this?** Your rules live in [`AGENTS.md`](AGENTS.md).
+
 ## What This App Does
 
 There are **4 types of users**, each with their own dashboard:
