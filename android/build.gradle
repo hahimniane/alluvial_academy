@@ -1,9 +1,11 @@
-// Register before any project is evaluated so afterEvaluate is valid for all subprojects
+// Force all Flutter plugins to compile against the same Android SDK as the
+// app, so plugins that reference newer platform symbols (e.g. Android 15
+// VANILLA_ICE_CREAM in connectivity_plus 7.x) resolve correctly.
 gradle.beforeProject { proj ->
     proj.afterEvaluate {
         if (proj.hasProperty('android') && proj.name != 'app') {
             proj.android {
-                compileSdkVersion 34
+                compileSdkVersion 36
             }
         }
     }
