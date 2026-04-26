@@ -70,11 +70,11 @@ class AdminEmployeeDataSource extends DataGridSource {
           final employee = dataGridCell.value as Employee;
           return Container(
             alignment: Alignment.center,
-            padding: const EdgeInsets.all(8.0),
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
             child: Wrap(
               alignment: WrapAlignment.center,
-              spacing: 4.0,
-              runSpacing: 4.0,
+              spacing: 3.0,
+              runSpacing: 3.0,
               children: [
                 // Edit button - always available for active users
                 if (employee.isActive)
@@ -168,19 +168,19 @@ class AdminEmployeeDataSource extends DataGridSource {
 
           return Container(
             alignment: Alignment.center,
-            padding: const EdgeInsets.all(8.0),
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
               decoration: BoxDecoration(
                 color: isAdminTeacher
                     ? Colors.orange.withOpacity(0.1)
                     : Colors.blue.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
                 value,
                 style: GoogleFonts.inter(
-                  fontSize: 12,
+                  fontSize: 11,
                   fontWeight: FontWeight.w600,
                   color: isAdminTeacher
                       ? Colors.orange.shade700
@@ -192,11 +192,11 @@ class AdminEmployeeDataSource extends DataGridSource {
         } else {
           return Container(
             alignment: Alignment.center,
-            padding: const EdgeInsets.all(8.0),
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
             child: Text(
               dataGridCell.value.toString(),
               style: GoogleFonts.inter(
-                fontSize: 13,
+                fontSize: 12,
                 color: const Color(0xff374151),
               ),
             ),
@@ -224,7 +224,7 @@ class AdminEmployeeDataSource extends DataGridSource {
           onTap: onTap,
           borderRadius: BorderRadius.circular(8),
           child: Container(
-            padding: const EdgeInsets.all(10),
+            padding: const EdgeInsets.all(7),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
@@ -236,7 +236,7 @@ class AdminEmployeeDataSource extends DataGridSource {
             ),
             child: Icon(
               icon,
-              size: isDestructive ? 20 : 18,
+              size: isDestructive ? 18 : 16,
               color: isDestructive ? Colors.red.shade600 : color,
             ),
           ),

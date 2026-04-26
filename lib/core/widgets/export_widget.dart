@@ -17,13 +17,20 @@ class ExportWidget extends StatelessWidget {
       onPressed: onExport, // Handle export button press
       style: ElevatedButton.styleFrom(
         backgroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        minimumSize: const Size(0, 34),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         side: const BorderSide(color: Colors.blue),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
         ),
       ),
       child: Text(AppLocalizations.of(context)!.commonExport,
-          style: openSansHebrewTextStyle.copyWith(color: Colors.blue)),
+          style: openSansHebrewTextStyle.copyWith(
+            color: Colors.blue,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          )),
     );
   }
 }

@@ -510,6 +510,8 @@ class _UserManagementScreenState extends State<UserManagementScreen>
   int numberOfAdmins = 0;
   Timer? _debounceTimer;
 
+  static const double _kAdminsGridMinContentWidth = 920;
+
   void getFirebaseData() async {
     FirebaseFirestore firestore = FirebaseFirestore.instance;
     Future<QuerySnapshot<Map<String, dynamic>>> data =
@@ -2150,97 +2152,89 @@ class _UserManagementScreenState extends State<UserManagementScreen>
     setState(() {});
   }
 
+  Widget _denseHeaderLabel(String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+      alignment: Alignment.center,
+      child: Text(
+        text,
+        textAlign: TextAlign.center,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: GoogleFonts.inter(
+          fontWeight: FontWeight.w600,
+          fontSize: 12,
+          color: const Color(0xff3f4648),
+        ),
+      ),
+    );
+  }
+
+  Widget _boundedHorizontalScrollGrid({
+    required double minContentWidth,
+    required Widget child,
+  }) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth > minContentWidth
+            ? constraints.maxWidth
+            : minContentWidth;
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          primary: false,
+          child: SizedBox(
+            width: width,
+            height: constraints.maxHeight,
+            child: child,
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildAdminGrid() {
-    return SfDataGrid(
+    return _boundedHorizontalScrollGrid(
+      minContentWidth: _kAdminsGridMinContentWidth,
+      child: SfDataGrid(
       source: _adminDataSource!,
-      columnWidthMode: ColumnWidthMode.fill,
+      rowHeight: 48,
+      headerRowHeight: 42,
+      gridLinesVisibility: GridLinesVisibility.horizontal,
+      headerGridLinesVisibility: GridLinesVisibility.horizontal,
+      columnWidthMode: ColumnWidthMode.none,
       columns: <GridColumn>[
         GridColumn(
           columnName: 'FirstName',
-          label: Container(
-            padding: const EdgeInsets.all(8.0),
-            alignment: Alignment.center,
-            child: Text(
-              AppLocalizations.of(context)!.userFirstName,
-              style: GoogleFonts.inter(
-                fontWeight: FontWeight.w600,
-                color: const Color(0xff3f4648),
-              ),
-            ),
-          ),
+          width: 110,
+          label: _denseHeaderLabel(AppLocalizations.of(context)!.userFirstName),
         ),
         GridColumn(
           columnName: 'LastName',
-          label: Container(
-            padding: const EdgeInsets.all(8.0),
-            alignment: Alignment.center,
-            child: Text(
-              AppLocalizations.of(context)!.userLastName,
-              style: GoogleFonts.inter(
-                fontWeight: FontWeight.w600,
-                color: const Color(0xff3f4648),
-              ),
-            ),
-          ),
+          width: 110,
+          label: _denseHeaderLabel(AppLocalizations.of(context)!.userLastName),
         ),
         GridColumn(
           columnName: 'Email',
-          label: Container(
-            padding: const EdgeInsets.all(8.0),
-            alignment: Alignment.center,
-            child: Text(
-              AppLocalizations.of(context)!.profileEmail,
-              style: GoogleFonts.inter(
-                fontWeight: FontWeight.w600,
-                color: const Color(0xff3f4648),
-              ),
-            ),
-          ),
+          width: 200,
+          label: _denseHeaderLabel(AppLocalizations.of(context)!.profileEmail),
         ),
         GridColumn(
           columnName: 'UserType',
-          label: Container(
-            padding: const EdgeInsets.all(8.0),
-            alignment: Alignment.center,
-            child: Text(
-              AppLocalizations.of(context)!.roleType,
-              style: GoogleFonts.inter(
-                fontWeight: FontWeight.w600,
-                color: const Color(0xff3f4648),
-              ),
-            ),
-          ),
+          width: 110,
+          label: _denseHeaderLabel(AppLocalizations.of(context)!.roleType),
         ),
         GridColumn(
           columnName: 'AdminType',
-          label: Container(
-            padding: const EdgeInsets.all(8.0),
-            alignment: Alignment.center,
-            child: Text(
-              AppLocalizations.of(context)!.adminType,
-              style: GoogleFonts.inter(
-                fontWeight: FontWeight.w600,
-                color: const Color(0xff3f4648),
-              ),
-            ),
-          ),
+          width: 140,
+          label: _denseHeaderLabel(AppLocalizations.of(context)!.adminType),
         ),
         GridColumn(
           columnName: 'Actions',
-          width: 220,
-          label: Container(
-            padding: const EdgeInsets.all(8.0),
-            alignment: Alignment.center,
-            child: Text(
-              AppLocalizations.of(context)!.timesheetActions,
-              style: GoogleFonts.inter(
-                fontWeight: FontWeight.w600,
-                color: const Color(0xff3f4648),
-              ),
-            ),
-          ),
+          width: 250,
+          label: _denseHeaderLabel(AppLocalizations.of(context)!.timesheetActions),
         ),
       ],
+      ),
     );
   }
 
@@ -2357,35 +2351,29 @@ class _UserManagementScreenState extends State<UserManagementScreen>
       color: const Color(0xffF1F1F1),
       child: Column(
         children: [
-          Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(10),
-              ),
-              padding: const EdgeInsets.symmetric(
-                horizontal: 15,
-                vertical: 5,
-              ),
-              child: Card(
-                elevation: 3,
-                color: Colors.white,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.start,
-                  children: [
-                    Padding(
-                      padding: EdgeInsets.all(8.0),
-                      child: Icon(
-                        Icons.person,
-                        color: Colors.blue,
-                      ),
-                    ),
-                    Text(
-                      AppLocalizations.of(context)!.userManagementTitle,
-                      style: openSansHebrewTextStyle.copyWith(fontSize: 24),
-                    ),
-                  ],
+          Container(
+            margin: const EdgeInsets.fromLTRB(8, 4, 8, 2),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.person,
+                  color: Colors.blue,
+                  size: 18,
                 ),
-              ),
+                const SizedBox(width: 6),
+                Text(
+                  AppLocalizations.of(context)!.userManagementTitle,
+                  style: openSansHebrewTextStyle.copyWith(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
             ),
           ),
           HeaderWidget(
@@ -2404,12 +2392,12 @@ class _UserManagementScreenState extends State<UserManagementScreen>
           Expanded(
             flex: 11,
             child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+              margin: const EdgeInsets.fromLTRB(8, 4, 8, 6),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Card(
-                elevation: 4,
+                elevation: 2,
                 color: Colors.white,
                 child: _isLoading
                     ? Center(
@@ -2419,18 +2407,27 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                         children: [
                           Container(
                             decoration: BoxDecoration(
-                              color: Colors.grey[200],
-                              borderRadius: BorderRadius.circular(12),
+                              color: const Color(0xffF8FAFC),
+                              borderRadius: BorderRadius.circular(10),
                             ),
                             child: TabBar(
-                              labelStyle: const TextStyle(color: Colors.orange),
+                              labelStyle: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                              ),
                               indicatorSize: TabBarIndicatorSize.tab,
                               controller: _tabController,
-                              labelColor: Colors.blue,
-                              unselectedLabelColor: Colors.black54,
+                              labelColor: const Color(0xff0386FF),
+                              unselectedLabelColor: const Color(0xff4B5563),
+                              dividerColor: Colors.transparent,
+                              labelPadding:
+                                  const EdgeInsets.symmetric(vertical: 2),
                               indicator: BoxDecoration(
                                 color: Colors.white,
-                                borderRadius: BorderRadius.circular(4.0),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: const Color(0xffDBEAFE),
+                                ),
                               ),
                               tabs: [
                                 Tab(
@@ -2448,203 +2445,116 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                               children: [
                                 // Users Tab
                                 Container(
-                                  padding: const EdgeInsets.all(16),
+                                  padding: const EdgeInsets.fromLTRB(
+                                      6, 4, 6, 6),
                                   child: _employeeDataSource == null
                                       ? const Center(
                                           child: CircularProgressIndicator())
                                       : SfDataGrid(
                                           source: _employeeDataSource!,
-                                          columnWidthMode: ColumnWidthMode.fill,
+                                          rowHeight: 48,
+                                          headerRowHeight: 42,
+                                          gridLinesVisibility:
+                                              GridLinesVisibility.horizontal,
+                                          headerGridLinesVisibility:
+                                              GridLinesVisibility.horizontal,
+                                          columnWidthMode:
+                                              ColumnWidthMode.lastColumnFill,
                                           columns: <GridColumn>[
                                             GridColumn(
                                               columnName: 'FirstName',
-                                              label: Container(
-                                                padding:
-                                                    const EdgeInsets.all(8.0),
-                                                alignment: Alignment.center,
-                                                child: Text(
-                                                  AppLocalizations.of(context)!
-                                                      .userFirstName,
-                                                  style: GoogleFonts.inter(
-                                                    color:
-                                                        const Color(0xff3f4648),
-                                                    fontWeight: FontWeight.w600,
-                                                  ),
-                                                ),
+                                              width: 72,
+                                              label: _denseHeaderLabel(
+                                                AppLocalizations.of(context)!
+                                                    .userFirstName,
                                               ),
                                             ),
                                             GridColumn(
                                               columnName: 'LastName',
-                                              label: Container(
-                                                padding:
-                                                    const EdgeInsets.all(8.0),
-                                                alignment: Alignment.center,
-                                                child: Text(
-                                                  AppLocalizations.of(context)!
-                                                      .userLastName,
-                                                  style: openSansHebrewTextStyle
-                                                      .copyWith(
-                                                    color:
-                                                        const Color(0xff3f4648),
-                                                    fontWeight: FontWeight.w500,
-                                                  ),
-                                                ),
+                                              width: 72,
+                                              label: _denseHeaderLabel(
+                                                AppLocalizations.of(context)!
+                                                    .userLastName,
                                               ),
                                             ),
                                             GridColumn(
                                               columnName: 'Email',
-                                              label: Container(
-                                                padding:
-                                                    const EdgeInsets.all(8.0),
-                                                alignment: Alignment.center,
-                                                child: Text(
-                                                  AppLocalizations.of(context)!
-                                                      .profileEmail,
-                                                  style: openSansHebrewTextStyle
-                                                      .copyWith(
-                                                    color:
-                                                        const Color(0xff3f4648),
-                                                    fontWeight: FontWeight.w500,
-                                                  ),
-                                                ),
+                                              width: 128,
+                                              label: _denseHeaderLabel(
+                                                AppLocalizations.of(context)!
+                                                    .profileEmail,
                                               ),
                                             ),
                                             GridColumn(
                                               columnName: 'CountryCode',
-                                              label: Container(
-                                                padding:
-                                                    const EdgeInsets.all(8.0),
-                                                alignment: Alignment.center,
-                                                child: Text(
-                                                  AppLocalizations.of(context)!
-                                                      .userCountryCode,
-                                                  style: TextStyle(
-                                                      fontWeight:
-                                                          FontWeight.bold),
-                                                ),
+                                              width: 56,
+                                              label: _denseHeaderLabel(
+                                                AppLocalizations.of(context)!
+                                                    .userCountryCode,
                                               ),
                                             ),
                                             GridColumn(
                                               columnName: 'MobilePhone',
-                                              label: Container(
-                                                padding:
-                                                    const EdgeInsets.all(8.0),
-                                                alignment: Alignment.center,
-                                                child: Text(
-                                                  AppLocalizations.of(context)!
-                                                      .mobilePhone,
-                                                  style: TextStyle(
-                                                      fontWeight:
-                                                          FontWeight.bold),
-                                                ),
+                                              width: 88,
+                                              label: _denseHeaderLabel(
+                                                AppLocalizations.of(context)!
+                                                    .mobilePhone,
                                               ),
                                             ),
                                             GridColumn(
                                               columnName: 'UserType',
-                                              label: Container(
-                                                padding:
-                                                    const EdgeInsets.all(8.0),
-                                                alignment: Alignment.center,
-                                                child: Text(
-                                                  AppLocalizations.of(context)!
-                                                      .userUserType,
-                                                  style: TextStyle(
-                                                      fontWeight:
-                                                          FontWeight.bold),
-                                                ),
+                                              width: 68,
+                                              label: _denseHeaderLabel(
+                                                AppLocalizations.of(context)!
+                                                    .userUserType,
                                               ),
                                             ),
                                             GridColumn(
                                               columnName: 'Title',
-                                              label: Container(
-                                                padding:
-                                                    const EdgeInsets.all(8.0),
-                                                alignment: Alignment.center,
-                                                child: Text(
-                                                  AppLocalizations.of(context)!
-                                                      .profileTitle,
-                                                  style: TextStyle(
-                                                      fontWeight:
-                                                          FontWeight.bold),
-                                                ),
+                                              width: 60,
+                                              label: _denseHeaderLabel(
+                                                AppLocalizations.of(context)!
+                                                    .profileTitle,
                                               ),
                                             ),
                                             GridColumn(
-                                              columnName: 'EmploymentStartDate',
-                                              label: Container(
-                                                padding:
-                                                    const EdgeInsets.all(8.0),
-                                                alignment: Alignment.center,
-                                                child: Text(
-                                                  AppLocalizations.of(context)!
-                                                      .startDate,
-                                                  style: TextStyle(
-                                                      fontWeight:
-                                                          FontWeight.bold),
-                                                ),
+                                              columnName:
+                                                  'EmploymentStartDate',
+                                              width: 82,
+                                              label: _denseHeaderLabel(
+                                                AppLocalizations.of(context)!
+                                                    .startDate,
                                               ),
                                             ),
                                             GridColumn(
                                               columnName: 'KioskCode',
-                                              label: Container(
-                                                padding:
-                                                    const EdgeInsets.all(8.0),
-                                                alignment: Alignment.center,
-                                                child: Text(
-                                                  AppLocalizations.of(context)!
-                                                      .userKioskCode,
-                                                  style: TextStyle(
-                                                      fontWeight:
-                                                          FontWeight.bold),
-                                                ),
+                                              width: 60,
+                                              label: _denseHeaderLabel(
+                                                AppLocalizations.of(context)!
+                                                    .userKioskCode,
                                               ),
                                             ),
                                             GridColumn(
                                               columnName: 'DateAdded',
-                                              label: Container(
-                                                padding:
-                                                    const EdgeInsets.all(8.0),
-                                                alignment: Alignment.center,
-                                                child: Text(
-                                                  AppLocalizations.of(context)!
-                                                      .dateAdded,
-                                                  style: TextStyle(
-                                                      fontWeight:
-                                                          FontWeight.bold),
-                                                ),
+                                              width: 64,
+                                              label: _denseHeaderLabel(
+                                                AppLocalizations.of(context)!
+                                                    .dateAdded,
                                               ),
                                             ),
                                             GridColumn(
                                               columnName: 'LastLogin',
-                                              label: Container(
-                                                padding:
-                                                    const EdgeInsets.all(8.0),
-                                                alignment: Alignment.center,
-                                                child: Text(
-                                                  AppLocalizations.of(context)!
-                                                      .lastLogin,
-                                                  style: TextStyle(
-                                                      fontWeight:
-                                                          FontWeight.bold),
-                                                ),
+                                              width: 60,
+                                              label: _denseHeaderLabel(
+                                                AppLocalizations.of(context)!
+                                                    .lastLogin,
                                               ),
                                             ),
                                             GridColumn(
                                               columnName: 'Actions',
-                                              width: 220,
-                                              label: Container(
-                                                padding:
-                                                    const EdgeInsets.all(8.0),
-                                                alignment: Alignment.center,
-                                                child: Text(
-                                                  AppLocalizations.of(context)!
-                                                      .timesheetActions,
-                                                  style: GoogleFonts.inter(
-                                                    fontWeight: FontWeight.w600,
-                                                    color:
-                                                        const Color(0xff3f4648),
-                                                  ),
-                                                ),
+                                              label: _denseHeaderLabel(
+                                                AppLocalizations.of(context)!
+                                                    .timesheetActions,
                                               ),
                                             ),
                                           ],
@@ -2652,18 +2562,19 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                 ),
                                 // Admins Tab
                                 Container(
-                                  padding: const EdgeInsets.all(16),
+                                  padding: const EdgeInsets.fromLTRB(
+                                      10, 8, 10, 10),
                                   child: Column(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
                                       // Header with role management info
                                       Container(
-                                        padding: const EdgeInsets.all(16),
+                                        padding: const EdgeInsets.all(12),
                                         decoration: BoxDecoration(
-                                          color: Colors.blue.withOpacity(0.1),
+                                          color: Colors.blue.withOpacity(0.08),
                                           borderRadius:
-                                              BorderRadius.circular(12),
+                                              BorderRadius.circular(10),
                                         ),
                                         child: Row(
                                           children: [
@@ -2703,7 +2614,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                           ],
                                         ),
                                       ),
-                                      const SizedBox(height: 16),
+                                      const SizedBox(height: 10),
 
                                       // Admin users grid
                                       Expanded(
