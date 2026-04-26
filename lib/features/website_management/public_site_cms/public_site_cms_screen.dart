@@ -427,7 +427,7 @@ class _PublicSiteCmsScaffoldContentState extends State<_PublicSiteCmsScaffoldCon
           context.read<TeamCmsState>().clearEditing();
         }
       },
-      endDrawer: team.editing == null
+      endDrawer: !team.isTeamDrawerOpen
           ? null
           : Drawer(
               width: math.min(520, w * 0.9),

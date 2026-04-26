@@ -4970,6 +4970,7 @@
   "enrollmentTrackRequired": "Veuillez choisir une filière tarifaire",
   "enrollmentPhoneRequired": "Veuillez saisir votre numéro de téléphone.",
   "enrollmentPhoneInvalid": "Saisissez un numéro valide (chiffres uniquement) pour le pays affiché sur le champ.",
+  "phoneInternationalSubscriberInvalid": "Utilisez 4 à 15 chiffres après l'indicatif (chiffres uniquement).",
   "enrollmentWhatsAppInvalid": "Saisissez un numéro WhatsApp valide (chiffres uniquement), ou laissez ce champ vide.",
   "unifiedProgramsTitle": "Découvrez nos programmes",
   "unifiedProgramsScrollToTop": "Retour en haut",

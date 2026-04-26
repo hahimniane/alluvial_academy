@@ -22,12 +22,8 @@ class UserEmployeeDataSource extends DataGridSource {
         DataGridCell<String>(columnName: 'FirstName', value: e.firstName),
         DataGridCell<String>(columnName: 'LastName', value: e.lastName),
         DataGridCell<String>(columnName: 'Email', value: e.email),
-        DataGridCell<String>(columnName: 'CountryCode', value: e.countryCode),
         DataGridCell<String>(columnName: 'MobilePhone', value: e.mobilePhone),
         DataGridCell<String>(columnName: 'UserType', value: e.userType),
-        DataGridCell<String>(columnName: 'Title', value: e.title),
-        DataGridCell<String>(
-            columnName: 'EmploymentStartDate', value: e.employmentStartDate),
         DataGridCell<String>(columnName: 'KioskCode', value: e.kioskCode),
         DataGridCell<String>(columnName: 'DateAdded', value: e.dateAdded),
         DataGridCell<String>(columnName: 'LastLogin', value: e.lastLogin),
@@ -57,12 +53,8 @@ class UserEmployeeDataSource extends DataGridSource {
         DataGridCell<String>(columnName: 'FirstName', value: e.firstName),
         DataGridCell<String>(columnName: 'LastName', value: e.lastName),
         DataGridCell<String>(columnName: 'Email', value: e.email),
-        DataGridCell<String>(columnName: 'CountryCode', value: e.countryCode),
         DataGridCell<String>(columnName: 'MobilePhone', value: e.mobilePhone),
         DataGridCell<String>(columnName: 'UserType', value: e.userType),
-        DataGridCell<String>(columnName: 'Title', value: e.title),
-        DataGridCell<String>(
-            columnName: 'EmploymentStartDate', value: e.employmentStartDate),
         DataGridCell<String>(columnName: 'KioskCode', value: e.kioskCode),
         DataGridCell<String>(columnName: 'DateAdded', value: e.dateAdded),
         DataGridCell<String>(columnName: 'LastLogin', value: e.lastLogin),
@@ -83,8 +75,8 @@ class UserEmployeeDataSource extends DataGridSource {
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
             child: Wrap(
               alignment: WrapAlignment.center,
-              spacing: 3.0,
-              runSpacing: 3.0,
+              spacing: 2.0,
+              runSpacing: 2.0,
               children: [
                 // View Credentials button - only for students
                 if (employee.userType.toLowerCase() == 'student' && onViewCredentials != null)
@@ -297,14 +289,14 @@ class UserEmployeeDataSource extends DataGridSource {
         color: isDestructive
             ? Colors.red.withOpacity(0.05)
             : color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(6),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(6),
           child: Container(
-            padding: const EdgeInsets.all(7),
+            padding: const EdgeInsets.all(5),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(6),
               border: Border.all(
                 color: isDestructive
                     ? Colors.red.withOpacity(0.4)
@@ -314,7 +306,7 @@ class UserEmployeeDataSource extends DataGridSource {
             ),
             child: Icon(
               icon,
-              size: isDestructive ? 18 : 16,
+              size: isDestructive ? 17 : 15,
               color: isDestructive ? Colors.red.shade600 : color,
             ),
           ),

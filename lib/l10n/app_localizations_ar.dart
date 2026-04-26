@@ -12097,6 +12097,10 @@ class AppLocalizationsAr extends AppLocalizations {
       'أدخل رقم هاتف صالحًا (أرقام فقط) للبلد المعروض في الحقل.';
 
   @override
+  String get phoneInternationalSubscriberInvalid =>
+      'استخدم من 4 إلى 15 رقمًا بعد رمز الدولة (أرقام فقط).';
+
+  @override
   String get enrollmentWhatsAppInvalid =>
       'أدخل رقم واتساب صالحًا (أرقام فقط)، أو اترك الحقل فارغًا.';
 

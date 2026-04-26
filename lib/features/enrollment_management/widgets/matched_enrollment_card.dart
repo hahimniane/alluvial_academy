@@ -10,6 +10,7 @@ import '../../../core/models/employee_model.dart';
 import '../../dashboard/services/job_board_service.dart';
 import '../../../core/utils/app_logger.dart';
 import '../../shift_management/widgets/create_shift_dialog.dart';
+import 'enrollment_applicant_details.dart';
 import 'enrollment_card.dart';
 import 'invite_parent_dialog.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
@@ -191,6 +192,7 @@ class _MatchedEnrollmentCardState extends State<MatchedEnrollmentCard> {
               children: [
                 // Student info
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Container(
                       padding: const EdgeInsets.all(10),
@@ -226,6 +228,7 @@ class _MatchedEnrollmentCardState extends State<MatchedEnrollmentCard> {
                         ],
                       ),
                     ),
+                    EnrollmentApplicantActionButtons(enrollment: e),
                   ],
                 ),
 

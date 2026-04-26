@@ -12126,6 +12126,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Enter a valid phone number (digits only) for the country shown on the field.';
 
   @override
+  String get phoneInternationalSubscriberInvalid =>
+      'Use 4–15 digits after the country code (digits only).';
+
+  @override
   String get enrollmentWhatsAppInvalid =>
       'Enter a valid WhatsApp number (digits only), or leave this field empty.';
 

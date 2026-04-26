@@ -153,13 +153,6 @@ class SidebarConfig {
             colorValue: 0xffF97316,
           ),
           const SidebarItem(
-            id: 'responses',
-            label: 'Responses',
-            icon: Icons.list_alt,
-            screenIndex: 9,
-            colorValue: 0xff6366F1,
-          ),
-          const SidebarItem(
             id: 'all_submissions',
             label: 'All Submissions',
             icon: Icons.assignment_ind,

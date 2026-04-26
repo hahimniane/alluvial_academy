@@ -22203,6 +22203,12 @@ abstract class AppLocalizations {
   /// **'Enter a valid phone number (digits only) for the country shown on the field.'**
   String get enrollmentPhoneInvalid;
 
+  /// No description provided for @phoneInternationalSubscriberInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'Use 4–15 digits after the country code (digits only).'**
+  String get phoneInternationalSubscriberInvalid;
+
   /// No description provided for @enrollmentWhatsAppInvalid.
   ///
   /// In en, this message translates to:

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl_phone_field/intl_phone_field.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:alluwalacademyadmin/core/utils/phone_national_input_validation.dart';
 import 'package:alluwalacademyadmin/core/widgets/modern_header.dart';
 import 'package:alluwalacademyadmin/features/website/models/leadership_application.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
@@ -226,6 +227,15 @@ class _LeadershipApplicationScreenState extends State<LeadershipApplicationScree
                       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                     ),
                     initialCountryCode: _countryCode,
+                    disableLengthCheck: true,
+                    autovalidateMode: AutovalidateMode.onUserInteraction,
+                    validator: (p) =>
+                        PhoneNationalInputValidation.validateRequiredNational(
+                      p,
+                      AppLocalizations.of(context)!.enrollmentPhoneRequired,
+                      AppLocalizations.of(context)!
+                          .phoneInternationalSubscriberInvalid,
+                    ),
                     onChanged: (phone) {
                       setState(() {
                         _phoneNumber = phone.completeNumber;

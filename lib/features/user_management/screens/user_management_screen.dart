@@ -2246,11 +2246,8 @@ class _UserManagementScreenState extends State<UserManagementScreen>
       "First Name",
       "Last Name",
       "Email",
-      "Country Code",
       "Mobile Phone",
       "User Type",
-      "Title",
-      "Employment Start Date",
       "Kiosk Code",
       "Date Added",
       "Last Login"
@@ -2261,11 +2258,8 @@ class _UserManagementScreenState extends State<UserManagementScreen>
               e.firstName,
               e.lastName,
               e.email,
-              e.countryCode,
               e.mobilePhone,
               e.userType,
-              e.title,
-              e.employmentStartDate,
               e.kioskCode,
               e.dateAdded,
               e.lastLogin,
@@ -2479,23 +2473,15 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                             ),
                                             GridColumn(
                                               columnName: 'Email',
-                                              width: 128,
+                                              width: 140,
                                               label: _denseHeaderLabel(
                                                 AppLocalizations.of(context)!
                                                     .profileEmail,
                                               ),
                                             ),
                                             GridColumn(
-                                              columnName: 'CountryCode',
-                                              width: 56,
-                                              label: _denseHeaderLabel(
-                                                AppLocalizations.of(context)!
-                                                    .userCountryCode,
-                                              ),
-                                            ),
-                                            GridColumn(
                                               columnName: 'MobilePhone',
-                                              width: 88,
+                                              width: 100,
                                               label: _denseHeaderLabel(
                                                 AppLocalizations.of(context)!
                                                     .mobilePhone,
@@ -2503,27 +2489,10 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                             ),
                                             GridColumn(
                                               columnName: 'UserType',
-                                              width: 68,
+                                              width: 72,
                                               label: _denseHeaderLabel(
                                                 AppLocalizations.of(context)!
                                                     .userUserType,
-                                              ),
-                                            ),
-                                            GridColumn(
-                                              columnName: 'Title',
-                                              width: 60,
-                                              label: _denseHeaderLabel(
-                                                AppLocalizations.of(context)!
-                                                    .profileTitle,
-                                              ),
-                                            ),
-                                            GridColumn(
-                                              columnName:
-                                                  'EmploymentStartDate',
-                                              width: 82,
-                                              label: _denseHeaderLabel(
-                                                AppLocalizations.of(context)!
-                                                    .startDate,
                                               ),
                                             ),
                                             GridColumn(
@@ -2552,6 +2521,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                             ),
                                             GridColumn(
                                               columnName: 'Actions',
+                                              minimumWidth: 300,
                                               label: _denseHeaderLabel(
                                                 AppLocalizations.of(context)!
                                                     .timesheetActions,
