@@ -1493,46 +1493,64 @@ class TeacherAuditService {
         .get();
   }
 
-  /// Collects [shift_id] values from timesheets that have a full clock-in/out pair.
-  static Set<String> _timesheetShiftIdsWithClockPairSet(
-    QuerySnapshot timesheetsSnapshot,
-  ) {
-    final out = <String>{};
-    for (final ts in timesheetsSnapshot.docs) {
-      final raw = ts.data();
-      if (raw == null || raw is! Map<String, dynamic>) continue;
-      final d = raw;
-      if (!_timesheetDocHasClockPair(d)) continue;
-      final sid = (d['shift_id']?.toString() ?? '').trim();
-      if (sid.isEmpty) continue;
-      out.add(sid);
-      if (sid.length >= 8) {
-        out.add(sid.substring(sid.length - 8));
-      }
-    }
-    return out;
+  static bool _timesheetDocIsRejected(Map<String, dynamic> d) {
+    return (d['status'] ?? '').toString().toLowerCase() == 'rejected';
   }
 
-  /// Whether any entry in [tsShiftIds] refers to [shiftDocId] (exact or last-8 suffix).
-  static bool _timesheetShiftIdSetLinksToShift(
-    Set<String> tsShiftIds,
+  /// Whether [timesheetShiftKey] refers to teaching shift document [shiftDocId]
+  /// (exact match or legacy last-8 / suffix rules used elsewhere in this service).
+  static bool _timesheetShiftKeyLinksToTeachingShift(
+    String timesheetShiftKey,
     String shiftDocId,
   ) {
-    if (tsShiftIds.contains(shiftDocId)) return true;
+    final t = timesheetShiftKey.trim();
+    if (t.isEmpty) return false;
+    if (t == shiftDocId) return true;
     if (shiftDocId.length >= 8) {
       final suf = shiftDocId.substring(shiftDocId.length - 8);
-      if (tsShiftIds.contains(suf)) return true;
+      if (t == suf) return true;
     }
-    for (final t in tsShiftIds) {
-      if (t.isEmpty) continue;
-      if (shiftDocId == t) return true;
-      if (t.length >= 8 && shiftDocId.endsWith(t.substring(t.length - 8))) {
-        return true;
+    if (t.length >= 8 && shiftDocId.endsWith(t.substring(t.length - 8))) {
+      return true;
+    }
+    if (shiftDocId.length >= 8 &&
+        t.endsWith(shiftDocId.substring(shiftDocId.length - 8))) {
+      return true;
+    }
+    return false;
+  }
+
+  /// True when a [missed] shift has a non-rejected timesheet row with a real
+  /// clock-in/out pair for that shift (same teacher when both ids are present).
+  ///
+  /// Rejected rows must not trigger [missed]→[partiallyCompleted] repair; they
+  /// caused `partiallyCompleted` with `worked_minutes` left at 0 in production.
+  static bool _missedShiftHasNonRejectedTimesheetClockContradiction(
+    QueryDocumentSnapshot shiftDoc,
+    QuerySnapshot timesheetsSnapshot,
+  ) {
+    final shiftRaw = shiftDoc.data();
+    if (shiftRaw is! Map<String, dynamic>) return false;
+    final shiftTeacherId = (shiftRaw['teacher_id'] ?? '').toString().trim();
+    final shiftDocId = shiftDoc.id;
+
+    for (final ts in timesheetsSnapshot.docs) {
+      final raw = ts.data();
+      if (raw is! Map<String, dynamic>) continue;
+      final d = raw;
+      if (_timesheetDocIsRejected(d)) continue;
+      if (!_timesheetDocHasClockPair(d)) continue;
+
+      final tsTeacher = (d['teacher_id'] ?? '').toString().trim();
+      if (shiftTeacherId.isNotEmpty &&
+          tsTeacher.isNotEmpty &&
+          tsTeacher != shiftTeacherId) {
+        continue;
       }
-      if (shiftDocId.length >= 8 &&
-          t.endsWith(shiftDocId.substring(shiftDocId.length - 8))) {
-        return true;
-      }
+
+      final sid = (d['shift_id'] ?? d['shiftId'] ?? '').toString().trim();
+      if (!_timesheetShiftKeyLinksToTeachingShift(sid, shiftDocId)) continue;
+      return true;
     }
     return false;
   }
@@ -1545,9 +1563,6 @@ class TeacherAuditService {
     DateTime startDate,
     DateTime endDate,
   ) async {
-    final tsShiftIds = _timesheetShiftIdsWithClockPairSet(timesheetsSnapshot);
-    if (tsShiftIds.isEmpty) return 0;
-
     final toFix = <DocumentReference>[];
     for (final shift in shiftsSnapshot.docs) {
       final raw = shift.data();
@@ -1560,7 +1575,12 @@ class TeacherAuditService {
       if (!_isDateInRange(start, startDate, endDate)) continue;
       final status = (dataMap['status'] ?? 'scheduled').toString();
       if (status != 'missed') continue;
-      if (!_timesheetShiftIdSetLinksToShift(tsShiftIds, shift.id)) continue;
+      if (!_missedShiftHasNonRejectedTimesheetClockContradiction(
+            shift,
+            timesheetsSnapshot,
+          )) {
+        continue;
+      }
       toFix.add(shift.reference);
     }
     if (toFix.isEmpty) return 0;

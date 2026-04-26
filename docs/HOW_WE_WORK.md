@@ -15,11 +15,11 @@ conflicts, features breaking other features, and no safety net. So we
 made three changes:
 
 1. **The repo is now public** (on GitHub Free, which is why branch
-   protection works).
-2. **`main` is locked.** You can't push to it directly anymore — every
-   change goes through a **Pull Request (PR)**.
+  protection works).
+2. `**main` is locked.** You can't push to it directly anymore — every
+  change goes through a **Pull Request (PR)**.
 3. **GitHub Actions runs automated checks** on every PR. If a check
-   fails, you can't merge until it's green.
+  fails, you can't merge until it's green.
 
 Net effect: the robot catches broken code before it reaches `main`, and
 two developers can work in parallel without stepping on each other.
@@ -131,15 +131,18 @@ sanity.
 
 Pick a prefix based on what you're doing:
 
-| Prefix        | For                                          | Example                          |
-| ------------- | -------------------------------------------- | -------------------------------- |
-| `feature/*`   | New feature or enhancement                   | `feature/shift-notes-field`      |
-| `fix/*`       | Regular bug fix                              | `fix/timesheet-timezone`         |
-| `hotfix/*`    | Urgent production bug                        | `hotfix/login-redirect-loop`     |
-| `chore/*`     | Tooling / deps / refactor (no user change)   | `chore/bump-firebase-sdk`        |
-| `docs/*`      | Documentation only                           | `docs/contributing-guide`        |
+
+| Prefix      | For                                        | Example                      |
+| ----------- | ------------------------------------------ | ---------------------------- |
+| `feature/`* | New feature or enhancement                 | `feature/shift-notes-field`  |
+| `fix/*`     | Regular bug fix                            | `fix/timesheet-timezone`     |
+| `hotfix/*`  | Urgent production bug                      | `hotfix/login-redirect-loop` |
+| `chore/*`   | Tooling / deps / refactor (no user change) | `chore/bump-firebase-sdk`    |
+| `docs/*`    | Documentation only                         | `docs/contributing-guide`    |
+
 
 **Keep branch names:**
+
 - lowercase, dash-separated
 - short — readable at a glance
 - one purpose per branch — don't combine a bug fix with a feature
@@ -153,11 +156,13 @@ are the #1 cause of ugly merge conflicts.
 
 Every PR runs **three automated checks**:
 
-| Check                           | What it does                                             |
-| ------------------------------- | -------------------------------------------------------- |
-| **Architecture check (AGENTS.md)** | Fails if you put files in the wrong directories       |
+
+| Check                                    | What it does                                                |
+| ---------------------------------------- | ----------------------------------------------------------- |
+| **Architecture check (AGENTS.md)**       | Fails if you put files in the wrong directories             |
 | **Flutter (analyze / test / build web)** | Runs `flutter analyze`, `flutter test`, `flutter build web` |
-| **Firebase Functions (lint / test)** | Runs `npm test` in `functions/`                      |
+| **Firebase Functions (lint / test)**     | Runs `npm test` in `functions/`                             |
+
 
 All three must be green before you can merge.
 
@@ -180,9 +185,9 @@ cd ..
 ### What to do when CI fails
 
 1. **Read the log.** Click the red ❌ on the PR page → click "Details".
-   The actual error is usually in the last 30 lines.
+  The actual error is usually in the last 30 lines.
 2. **Fix the cause, not the symptom.** Don't disable a test to make it
-   pass. Don't delete an analyzer rule. Fix the code.
+  pass. Don't delete an analyzer rule. Fix the code.
 3. **Push again.** CI re-runs automatically on every push to your branch.
 
 ---
@@ -221,6 +226,7 @@ gh pr create
 
 When you run `gh pr create` it opens your editor with a **PR template**
 pre-filled. Fill it out honestly:
+
 - *Summary*: what and why
 - *Test plan*: how you verified it works (list the steps)
 - *Screenshots*: required for any UI change
@@ -340,13 +346,13 @@ and `CONVENTIONS.md` so every tool finds it).
 ### When your AI proposes something weird
 
 - Proposes a new file in `lib/` root? **Reject.** Rules say only
-  `main.dart` goes there.
+`main.dart` goes there.
 - Proposes a file in `lib/admin/` or `lib/widgets/`? **Reject.** Those
-  directories are forbidden. Feature code goes in `lib/features/<feature>/`.
+directories are forbidden. Feature code goes in `lib/features/<feature>/`.
 - Proposes 30-file PRs? **Reject.** Split into multiple PRs. One PR = one
-  concern.
+concern.
 - Proposes changing state management from Provider to something else?
-  **Reject.** It's a hard rule in AGENTS.md.
+**Reject.** It's a hard rule in AGENTS.md.
 
 The **Architecture check** CI job catches most of these automatically,
 but stopping bad proposals before they turn into code saves everyone
@@ -356,6 +362,7 @@ time.
 
 AI agents hallucinate file paths, function names, and "helpful"
 refactors. Before accepting its output:
+
 - `grep` for the names it used — do they exist?
 - Run `flutter analyze` — does the code actually compile?
 - Run the tests — does it actually work?
@@ -367,12 +374,14 @@ refactors. Before accepting its output:
 ### Cause A — The Architecture check failed
 
 **Example error:**
+
 ```
 ❌ lib/payment_service.dart — new .dart files must live under
    lib/features/<feature>/ or lib/core/, not lib/ root
 ```
 
 **Fix:** move the file to the correct location:
+
 ```bash
 git mv lib/payment_service.dart lib/features/parent/services/payment_service.dart
 # update imports in anything referencing it
@@ -465,18 +474,20 @@ alluvial_academy/
 
 ## 14. What NOT to do anymore (and why)
 
-| Don't do this                                | Why                                              |
-| -------------------------------------------- | ------------------------------------------------ |
-| `git push origin main`                       | Blocked by branch protection. Use a PR.          |
-| `git push --force` to `main`                 | Blocked. Would erase history.                    |
-| Merge your own PR without a review           | Blocked — at least one other person must approve.|
-| Skip CI failures with `--no-verify`          | Bypasses local hooks, CI still fails.            |
-| Put a new file in `lib/` root                | Architecture check rejects the PR.               |
-| Put feature code in `lib/core/`              | Against the rules — `core/` is for shared-by-3+. |
-| Create `lib/admin/` or `lib/screens/` files  | Forbidden dirs.                                  |
-| Commit `.env`, API keys, service account JSON | GitGuardian flags it. Rotate if leaked.         |
-| Push a 30-file, 5-concern PR                 | Reviewers will reject. Split it up.              |
-| Let a branch live for 2+ weeks               | Guaranteed merge conflicts. Keep PRs small.      |
+
+| Don't do this                                 | Why                                               |
+| --------------------------------------------- | ------------------------------------------------- |
+| `git push origin main`                        | Blocked by branch protection. Use a PR.           |
+| `git push --force` to `main`                  | Blocked. Would erase history.                     |
+| Merge your own PR without a review            | Blocked — at least one other person must approve. |
+| Skip CI failures with `--no-verify`           | Bypasses local hooks, CI still fails.             |
+| Put a new file in `lib/` root                 | Architecture check rejects the PR.                |
+| Put feature code in `lib/core/`               | Against the rules — `core/` is for shared-by-3+.  |
+| Create `lib/admin/` or `lib/screens/` files   | Forbidden dirs.                                   |
+| Commit `.env`, API keys, service account JSON | GitGuardian flags it. Rotate if leaked.           |
+| Push a 30-file, 5-concern PR                  | Reviewers will reject. Split it up.               |
+| Let a branch live for 2+ weeks                | Guaranteed merge conflicts. Keep PRs small.       |
+
 
 ---
 
@@ -522,6 +533,5 @@ git checkout main && git pull origin main
 - **docs/tech-debt.md** — what CI does *not* enforce (pre-existing debt).
 - **CODEOWNERS** — who gets pinged on PRs touching which paths.
 - **A team member** — when the docs don't answer the question, ask. And
-  then update this doc so the next person doesn't have to ask.
-
+then update this doc so the next person doesn't have to ask.
 

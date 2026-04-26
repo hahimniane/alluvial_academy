@@ -34,6 +34,7 @@ const {
 const {sendShiftNotificationEmails, sendShiftUpdateNotificationEmails} = require('../services/email/shift_notifications');
 const {
   recomputeShiftCompletionForShiftId,
+  mergeTimesheetsForShift,
 } = require('../services/shifts/recompute_shift_completion');
 
 const toDate = (timestamp) => (timestamp.toDate ? timestamp.toDate() : new Date(timestamp));
@@ -1582,20 +1583,19 @@ const fixTimesheetsPayAndStatus = onSchedule('every 30 minutes', async () => {
       
       // If shift end time has passed, check if it should be completed
       if (shiftEnd < now) {
-        // Get timesheet entries for this shift
-        const timesheetsSnapshot = await db.collection('timesheet_entries')
-          .where('shift_id', '==', shiftId)
-          .get();
-        
+        const timesheetDocs = await mergeTimesheetsForShift(db, shiftId);
+
         let totalWorkedMinutes = 0;
         let hasClockIn = shiftData.clock_in_time != null;
-        
-        // Calculate worked minutes from timesheet entries
-        for (const timesheetDoc of timesheetsSnapshot.docs) {
+
+        for (const timesheetDoc of timesheetDocs) {
           const timesheetData = timesheetDoc.data();
+          if (String(timesheetData.status || '').toLowerCase() === 'rejected') {
+            continue;
+          }
           const clockIn = timesheetData.clock_in_timestamp;
           const clockOut = timesheetData.clock_out_timestamp;
-          
+
           if (clockIn) {
             hasClockIn = true;
             const endTime = clockOut?.toDate() || shiftEnd;

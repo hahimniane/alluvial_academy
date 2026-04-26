@@ -2,19 +2,21 @@
 
 An online Islamic education platform where teachers give live classes to students, and admins manage everything — scheduling, attendance, forms, payments, and more. Built with Flutter (frontend) and Firebase (backend). Runs on web, Android, and iOS.
 
-> **👋 New developer? Start here:** [`docs/HOW_WE_WORK.md`](docs/HOW_WE_WORK.md) — friendly, example-heavy guide to our workflow.
-> **AI agent reading this?** Your rules live in [`AGENTS.md`](AGENTS.md).
+> **👋 New developer? Start here:** `[docs/HOW_WE_WORK.md](docs/HOW_WE_WORK.md)` — friendly, example-heavy guide to our workflow.
+> **AI agent reading this?** Your rules live in `[AGENTS.md](AGENTS.md)`.
 
 ## What This App Does
 
 There are **4 types of users**, each with their own dashboard:
 
-| Role | What they do |
-|------|-------------|
-| **Admin** | Creates teacher schedules (shifts), manages users, reviews timesheets, builds forms, runs audits, handles enrollment |
-| **Teacher** | Joins live video classes, clocks in/out, fills out forms, views their schedule, sees their audit reports |
-| **Student** | Joins live classes, views their schedule, takes quizzes, listens to Surah podcasts, uses the AI tutor |
-| **Parent** | Views their child's schedule and progress, sees invoices and payments |
+
+| Role        | What they do                                                                                                         |
+| ----------- | -------------------------------------------------------------------------------------------------------------------- |
+| **Admin**   | Creates teacher schedules (shifts), manages users, reviews timesheets, builds forms, runs audits, handles enrollment |
+| **Teacher** | Joins live video classes, clocks in/out, fills out forms, views their schedule, sees their audit reports             |
+| **Student** | Joins live classes, views their schedule, takes quizzes, listens to Surah podcasts, uses the AI tutor                |
+| **Parent**  | Views their child's schedule and progress, sees invoices and payments                                                |
+
 
 A single user can have **multiple roles** (e.g., a teacher who is also an admin). The app detects this and shows a role switcher in the sidebar.
 
@@ -38,6 +40,7 @@ A single user can have **multiple roles** (e.g., a teacher who is also an admin)
 The app is a single Flutter codebase that runs on web, Android, and iOS. The code lives in `lib/`.
 
 **Navigation works like this:**
+
 1. User logs in → `main.dart` loads the app
 2. `role_based_dashboard.dart` checks the user's role and picks the right dashboard
 3. The main dashboard (`dashboard.dart`) has a sidebar with menu items and a `_screens` list (indexed 0–26) that maps sidebar items to screen widgets
@@ -143,26 +146,30 @@ features/<feature>/
 ```
 
 **Example — if you need to fix a bug in shift creation:**
+
 1. The UI is in `features/shift_management/screens/` and `features/shift_management/widgets/`
 2. The Firestore logic is in `features/shift_management/services/shift_service.dart`
 3. The data model is in `features/shift_management/models/teaching_shift.dart`
 
 **Example — if you need to add a field to invoices:**
+
 1. The model is in `features/parent/models/invoice.dart`
 2. The service is in `features/parent/services/invoice_service.dart`
 3. The UI is in `features/parent/screens/`
 
 ### What Goes Where
 
-| I need to... | Put it in... |
-|---|---|
-| Add a new feature | `lib/features/<new_feature>/` with screens/, widgets/, services/ |
-| Add a new screen | `lib/features/<feature>/screens/` |
-| Add a new service | `lib/features/<feature>/services/` (NOT in core/) |
-| Add a shared utility | `lib/core/utils/` (only if used by 3+ features) |
-| Add a Cloud Function | `functions/handlers/` + export in `functions/index.js` |
-| Add a translation | `lib/l10n/app_en.arb` (and app_fr.arb, app_ar.arb) |
-| Write a debug script | `functions/scripts/dev/` |
+
+| I need to...         | Put it in...                                                     |
+| -------------------- | ---------------------------------------------------------------- |
+| Add a new feature    | `lib/features/<new_feature>/` with screens/, widgets/, services/ |
+| Add a new screen     | `lib/features/<feature>/screens/`                                |
+| Add a new service    | `lib/features/<feature>/services/` (NOT in core/)                |
+| Add a shared utility | `lib/core/utils/` (only if used by 3+ features)                  |
+| Add a Cloud Function | `functions/handlers/` + export in `functions/index.js`           |
+| Add a translation    | `lib/l10n/app_en.arb` (and app_fr.arb, app_ar.arb)               |
+| Write a debug script | `functions/scripts/dev/`                                         |
+
 
 ### Rules
 
@@ -221,19 +228,21 @@ cd functions && npm test
 
 ## Tech Stack
 
-| Layer | Technology |
-|-------|-----------|
-| Frontend | Flutter (Dart) |
-| State Management | Provider (ChangeNotifier) |
-| Database | Cloud Firestore |
-| Auth | Firebase Authentication |
-| Backend Logic | Firebase Cloud Functions (Node.js) |
-| File Storage | Firebase Storage |
-| Push Notifications | Firebase Cloud Messaging |
-| Video Calls | LiveKit (self-hosted) |
-| Scheduled Tasks | Google Cloud Tasks |
-| Languages | English, French, Arabic |
-| Platforms | Web, Android, iOS |
+
+| Layer              | Technology                         |
+| ------------------ | ---------------------------------- |
+| Frontend           | Flutter (Dart)                     |
+| State Management   | Provider (ChangeNotifier)          |
+| Database           | Cloud Firestore                    |
+| Auth               | Firebase Authentication            |
+| Backend Logic      | Firebase Cloud Functions (Node.js) |
+| File Storage       | Firebase Storage                   |
+| Push Notifications | Firebase Cloud Messaging           |
+| Video Calls        | LiveKit (self-hosted)              |
+| Scheduled Tasks    | Google Cloud Tasks                 |
+| Languages          | English, French, Arabic            |
+| Platforms          | Web, Android, iOS                  |
+
 
 ## Firebase Project
 
@@ -241,3 +250,4 @@ cd functions && npm test
 - **Region:** `us-central1`
 - **Cloud Tasks queue:** `shift-lifecycle-queue` in `northamerica-northeast1`
 - **LiveKit server:** `live.alluwaleducationhub.org` (Hostinger VPS)
+
