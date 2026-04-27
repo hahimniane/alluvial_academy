@@ -1287,19 +1287,7 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
   /// Digits-only national number must fit the selected country's rules.
   /// [raw] may include spaces or punctuation from [IntlPhoneField]; those are stripped.
   bool _nationalDigitsValidForIso(String isoCode, String raw) {
-    final digits = raw.replaceAll(RegExp(r'\D'), '');
-    if (digits.isEmpty) return false;
-    intl_phone_countries.Country? match;
-    for (final c in intl_phone_countries.countries) {
-      if (c.code == isoCode) {
-        match = c;
-        break;
-      }
-    }
-    if (match == null) {
-      return digits.length >= 6 && digits.length <= 15;
-    }
-    return digits.length >= match.minLength && digits.length <= match.maxLength;
+    return PhoneNationalInputValidation.isValidNationalForIso(isoCode, raw);
   }
 
   bool _validatePhoneFields(AppLocalizations l) {
@@ -4358,7 +4346,14 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
                   IntlPhoneField(
                     controller: _whatsAppNumberController,
                     key: ValueKey('wa_panel_$_initialCountryCode'),
+                    disableLengthCheck: true,
                     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    autovalidateMode: AutovalidateMode.onUserInteraction,
+                    validator: (p) => PhoneNationalInputValidation
+                        .validateOptionalNational(
+                      p,
+                      l.phoneInternationalSubscriberInvalid,
+                    ),
                     onCountryChanged: (country) {
                       setState(() {
                         _whatsAppIntlCountryCode = country.code;
@@ -4384,7 +4379,15 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
                   IntlPhoneField(
                     controller: _phoneController,
                     key: ValueKey('phone_panel_$_initialCountryCode'),
+                    disableLengthCheck: true,
                     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    autovalidateMode: AutovalidateMode.onUserInteraction,
+                    validator: (p) =>
+                        PhoneNationalInputValidation.validateRequiredNational(
+                      p,
+                      l.enrollmentPhoneRequired,
+                      l.phoneInternationalSubscriberInvalid,
+                    ),
                     onCountryChanged: (country) {
                       setState(() => _phoneIntlCountryCode = country.code);
                     },

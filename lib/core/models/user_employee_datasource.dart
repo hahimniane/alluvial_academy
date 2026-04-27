@@ -22,12 +22,8 @@ class UserEmployeeDataSource extends DataGridSource {
         DataGridCell<String>(columnName: 'FirstName', value: e.firstName),
         DataGridCell<String>(columnName: 'LastName', value: e.lastName),
         DataGridCell<String>(columnName: 'Email', value: e.email),
-        DataGridCell<String>(columnName: 'CountryCode', value: e.countryCode),
         DataGridCell<String>(columnName: 'MobilePhone', value: e.mobilePhone),
         DataGridCell<String>(columnName: 'UserType', value: e.userType),
-        DataGridCell<String>(columnName: 'Title', value: e.title),
-        DataGridCell<String>(
-            columnName: 'EmploymentStartDate', value: e.employmentStartDate),
         DataGridCell<String>(columnName: 'KioskCode', value: e.kioskCode),
         DataGridCell<String>(columnName: 'DateAdded', value: e.dateAdded),
         DataGridCell<String>(columnName: 'LastLogin', value: e.lastLogin),
@@ -57,12 +53,8 @@ class UserEmployeeDataSource extends DataGridSource {
         DataGridCell<String>(columnName: 'FirstName', value: e.firstName),
         DataGridCell<String>(columnName: 'LastName', value: e.lastName),
         DataGridCell<String>(columnName: 'Email', value: e.email),
-        DataGridCell<String>(columnName: 'CountryCode', value: e.countryCode),
         DataGridCell<String>(columnName: 'MobilePhone', value: e.mobilePhone),
         DataGridCell<String>(columnName: 'UserType', value: e.userType),
-        DataGridCell<String>(columnName: 'Title', value: e.title),
-        DataGridCell<String>(
-            columnName: 'EmploymentStartDate', value: e.employmentStartDate),
         DataGridCell<String>(columnName: 'KioskCode', value: e.kioskCode),
         DataGridCell<String>(columnName: 'DateAdded', value: e.dateAdded),
         DataGridCell<String>(columnName: 'LastLogin', value: e.lastLogin),
@@ -80,11 +72,11 @@ class UserEmployeeDataSource extends DataGridSource {
           final employee = dataGridCell.value as Employee;
           return Container(
             alignment: Alignment.center,
-            padding: const EdgeInsets.all(8.0),
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
             child: Wrap(
               alignment: WrapAlignment.center,
-              spacing: 4.0,
-              runSpacing: 4.0,
+              spacing: 2.0,
+              runSpacing: 2.0,
               children: [
                 // View Credentials button - only for students
                 if (employee.userType.toLowerCase() == 'student' && onViewCredentials != null)
@@ -209,17 +201,17 @@ class UserEmployeeDataSource extends DataGridSource {
 
           return Container(
             alignment: Alignment.center,
-            padding: const EdgeInsets.all(8.0),
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
               decoration: BoxDecoration(
                 color: bgColor,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
                 value,
                 style: GoogleFonts.inter(
-                  fontSize: 12,
+                  fontSize: 11,
                   fontWeight: FontWeight.w600,
                   color: textColor,
                 ),
@@ -235,7 +227,7 @@ class UserEmployeeDataSource extends DataGridSource {
 
           return Container(
             alignment: Alignment.center,
-            padding: const EdgeInsets.all(8.0),
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -264,7 +256,7 @@ class UserEmployeeDataSource extends DataGridSource {
                     child: Text(
                       dataGridCell.value.toString(),
                       style: GoogleFonts.inter(
-                        fontSize: 13,
+                        fontSize: 12,
                         color: isArchived
                             ? const Color(0xff9CA3AF)
                             : const Color(0xff374151),
@@ -297,14 +289,14 @@ class UserEmployeeDataSource extends DataGridSource {
         color: isDestructive
             ? Colors.red.withOpacity(0.05)
             : color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(6),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(6),
           child: Container(
-            padding: const EdgeInsets.all(10),
+            padding: const EdgeInsets.all(5),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(6),
               border: Border.all(
                 color: isDestructive
                     ? Colors.red.withOpacity(0.4)
@@ -314,7 +306,7 @@ class UserEmployeeDataSource extends DataGridSource {
             ),
             child: Icon(
               icon,
-              size: isDestructive ? 20 : 18,
+              size: isDestructive ? 17 : 15,
               color: isDestructive ? Colors.red.shade600 : color,
             ),
           ),

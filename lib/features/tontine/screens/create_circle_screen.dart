@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl_phone_field/intl_phone_field.dart';
 
+import 'package:alluwalacademyadmin/core/utils/phone_national_input_validation.dart';
 import 'package:alluwalacademyadmin/features/tontine/config/tontine_ui.dart';
 import 'package:alluwalacademyadmin/features/tontine/models/circle.dart';
 import 'package:alluwalacademyadmin/features/tontine/models/circle_invite.dart';
@@ -697,6 +698,13 @@ class _CreateCircleScreenState extends State<CreateCircleScreen> {
                     )
                   : IntlPhoneField(
                       initialCountryCode: 'US',
+                      disableLengthCheck: true,
+                      autovalidateMode: AutovalidateMode.onUserInteraction,
+                      validator: (p) =>
+                          PhoneNationalInputValidation.validateOptionalNational(
+                        p,
+                        l10n.phoneInternationalSubscriberInvalid,
+                      ),
                       onChanged: (phone) {
                         _inviteQueryController.text = phone.completeNumber;
                       },
@@ -1099,6 +1107,12 @@ class _CreateCircleScreenState extends State<CreateCircleScreen> {
     if (query.isEmpty) {
       _showMessage(l10n.tontineEnterInviteLookup);
       return;
+    }
+    if (_inviteMethod == CircleInviteMethod.phone) {
+      if (!PhoneNationalInputValidation.isValidInternationalString(query)) {
+        _showMessage(l10n.enrollmentPhoneInvalid);
+        return;
+      }
     }
     if (_participants.length >= _targetMemberCount) {
       _showMessage(l10n.tontineMemberCountReached);

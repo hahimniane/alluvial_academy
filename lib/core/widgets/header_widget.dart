@@ -1,7 +1,6 @@
 import 'package:alluwalacademyadmin/core/widgets/export_widget.dart';
 import 'package:flutter/material.dart';
 import '../../features/user_management/screens/add_user_screen.dart';
-import '../../core/constants/app_constants.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class HeaderWidget extends StatelessWidget {
@@ -25,9 +24,8 @@ class HeaderWidget extends StatelessWidget {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 30),
-        child: Wrap(
-          spacing: 18,
+        padding: const EdgeInsets.fromLTRB(8, 4, 8, 2),
+        child: Row(
           children: [
             // Filter Button
             PopupMenuTheme(
@@ -141,18 +139,25 @@ class HeaderWidget extends StatelessWidget {
                 ],
                 child: Container(
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     border: Border.all(color: Colors.blue),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.filter_list, color: Colors.blue, size: 18),
-                      SizedBox(width: 8),
-                      Text(AppLocalizations.of(context)!.filter, style: TextStyle(color: Colors.blue)),
+                      const Icon(Icons.filter_list, color: Colors.blue, size: 17),
+                      const SizedBox(width: 6),
+                      Text(
+                        AppLocalizations.of(context)!.filter,
+                        style: const TextStyle(
+                          color: Colors.blue,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -160,20 +165,29 @@ class HeaderWidget extends StatelessWidget {
             ),
             // Search Field
             SizedBox(
-              width: 200,
-              height: 35,
+              width: 220,
+              height: 34,
               child: TextField(
                 maxLines: 1,
                 decoration: InputDecoration(
                   hintText: AppLocalizations.of(context)!.commonSearch,
                   prefixIcon: const Icon(Icons.search),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(10),
                     borderSide: const BorderSide(color: Colors.grey),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: Color(0xffE2E8F0)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: Color(0xff0386FF)),
                   ),
                   filled: true,
                   fillColor: Colors.white,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 8.0),
+                  contentPadding:
+                      const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
                 ),
                 onChanged: (value) {
                   onSearchChanged(value); // Call the search callback
@@ -181,7 +195,9 @@ class HeaderWidget extends StatelessWidget {
               ),
             ),
             // Export Button
+            const SizedBox(width: 8),
             ExportWidget(onExport: onExport),
+            const SizedBox(width: 8),
             // Never Logged In Button
             ElevatedButton(
               onPressed: onShowNeverLoggedIn ??
@@ -190,15 +206,21 @@ class HeaderWidget extends StatelessWidget {
                   },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.orange,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(10),
                 ),
               ),
-              child: Row(children: [
-                  Icon(Icons.login, color: Colors.white),
-                  SizedBox(width: 5),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  const Icon(Icons.login, color: Colors.white, size: 16),
+                  const SizedBox(width: 4),
                   Text(AppLocalizations.of(context)!.usersDidnTLogInYet,
-                      style: TextStyle(color: Colors.white)),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      )),
                 ],
               ),
             ),
@@ -208,15 +230,22 @@ class HeaderWidget extends StatelessWidget {
                 onPressed: onSelectParent,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xff9333EA),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                 ),
-                child: Row(children: [
-                    Icon(Icons.family_restroom, color: Colors.white),
-                    SizedBox(width: 5),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    const Icon(Icons.family_restroom,
+                        color: Colors.white, size: 16),
+                    const SizedBox(width: 4),
                     Text(AppLocalizations.of(context)!.filterByParent,
-                        style: TextStyle(color: Colors.white)),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        )),
                   ],
                 ),
               ),
@@ -227,11 +256,17 @@ class HeaderWidget extends StatelessWidget {
               },
               icon: const Icon(Icons.add, color: Colors.white),
               label: Text(AppLocalizations.of(context)!.addUsers,
-                  style: TextStyle(color: Colors.white)),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  )),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.blue,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(10),
                 ),
               ),
             ),

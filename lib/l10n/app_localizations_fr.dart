@@ -12380,6 +12380,10 @@ class AppLocalizationsFr extends AppLocalizations {
       'Saisissez un numéro valide (chiffres uniquement) pour le pays affiché sur le champ.';
 
   @override
+  String get phoneInternationalSubscriberInvalid =>
+      'Utilisez 4 à 15 chiffres après l\'indicatif (chiffres uniquement).';
+
+  @override
   String get enrollmentWhatsAppInvalid =>
       'Saisissez un numéro WhatsApp valide (chiffres uniquement), ou laissez ce champ vide.';
 

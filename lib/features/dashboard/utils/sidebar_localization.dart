@@ -46,8 +46,6 @@ class SidebarLocalization {
         return AppLocalizations.of(context)!.progress;
       case 'Reports':
         return AppLocalizations.of(context)!.sidebarReports;
-      case 'Responses':
-        return AppLocalizations.of(context)!.responses;
       case 'Savings':
         return AppLocalizations.of(context)!.tontineSavings;
       case 'Roles (Test)':

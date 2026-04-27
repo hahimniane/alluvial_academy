@@ -4975,6 +4975,7 @@
   "enrollmentTrackRequired": "يرجى اختيار مسار التسعير",
   "enrollmentPhoneRequired": "يرجى إدخال رقم هاتفك.",
   "enrollmentPhoneInvalid": "أدخل رقم هاتف صالحًا (أرقام فقط) للبلد المعروض في الحقل.",
+  "phoneInternationalSubscriberInvalid": "استخدم من 4 إلى 15 رقمًا بعد رمز الدولة (أرقام فقط).",
   "enrollmentWhatsAppInvalid": "أدخل رقم واتساب صالحًا (أرقام فقط)، أو اترك الحقل فارغًا.",
   "unifiedProgramsTitle": "استكشف برامجنا",
   "unifiedProgramsScrollToTop": "العودة للأعلى",

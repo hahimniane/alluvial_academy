@@ -5096,6 +5096,7 @@
   "enrollmentTrackRequired": "Please select a pricing track",
   "enrollmentPhoneRequired": "Please enter your phone number.",
   "enrollmentPhoneInvalid": "Enter a valid phone number (digits only) for the country shown on the field.",
+  "phoneInternationalSubscriberInvalid": "Use 4–15 digits after the country code (digits only).",
   "enrollmentWhatsAppInvalid": "Enter a valid WhatsApp number (digits only), or leave this field empty.",
   "unifiedProgramsTitle": "Explore our programs",
   "unifiedProgramsScrollToTop": "Back to top",

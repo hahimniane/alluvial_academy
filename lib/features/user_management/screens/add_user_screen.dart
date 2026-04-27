@@ -1,8 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl_phone_field/intl_phone_field.dart';
+import 'package:alluwalacademyadmin/core/utils/phone_national_input_validation.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'dart:math' as math;
@@ -214,6 +214,35 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
               backgroundColor: const Color(0xffF56565),
               content: Text(
                 errorMessage,
+                style: GoogleFonts.openSans(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          );
+          return;
+        }
+
+        final phoneDigits = PhoneNationalInputValidation.digitsOnly(
+            rowState.phoneController.text);
+        if (phoneDigits.isNotEmpty &&
+            !PhoneNationalInputValidation.isValidNationalForIso(
+                rowState.countryIsoCode, rowState.phoneController.text)) {
+          allValid = false;
+          setState(() {
+            _isLoading = false;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              backgroundColor: const Color(0xffF56565),
+              content: Text(
+                AppLocalizations.of(context)!
+                    .phoneInternationalSubscriberInvalid,
                 style: GoogleFonts.openSans(
                   color: Colors.white,
                   fontWeight: FontWeight.w600,
@@ -577,9 +606,11 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
         ),
       );
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -602,6 +633,7 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
           .where('is_active', isEqualTo: true)
           .get();
 
+      if (!mounted) return;
       setState(() {
         _allGuardians = querySnapshot.docs.map((doc) {
           final data = doc.data();
@@ -692,24 +724,26 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
                 ),
               ),
             ),
-            padding: const EdgeInsets.all(32),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Container(
-                      padding: const EdgeInsets.all(12),
+                      padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
                         color: const Color(0xff0386FF).withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(10),
                       ),
                       child: const Icon(
                         Icons.person_add,
                         color: Color(0xff0386FF),
-                        size: 24,
+                        size: 22,
                       ),
                     ),
-                    const SizedBox(width: 16),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -717,16 +751,17 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
                           Text(
                             AppLocalizations.of(context)!.userAddNewUsers,
                             style: GoogleFonts.openSans(
-                              fontSize: 28,
+                              fontSize: 22,
                               fontWeight: FontWeight.bold,
                               color: const Color(0xff0B3858),
                             ),
                           ),
-                          const SizedBox(height: 4),
+                          const SizedBox(height: 2),
                           Text(
                             AppLocalizations.of(context)!.userCreateAccounts,
                             style: GoogleFonts.openSans(
-                              fontSize: 16,
+                              fontSize: 13,
+                              height: 1.35,
                               color: const Color(0xff718096),
                             ),
                           ),
@@ -735,11 +770,30 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
                     ),
                     TextButton.icon(
                       onPressed: () {
-                        // Handle "Learn more"
+                        showDialog<void>(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            title: Text(
+                              AppLocalizations.of(context)!.learnMore,
+                              style: GoogleFonts.openSans(fontWeight: FontWeight.w700),
+                            ),
+                            content: Text(
+                              AppLocalizations.of(context)!
+                                  .usersWillReceiveLoginCredentialsVia,
+                              style: GoogleFonts.openSans(height: 1.4),
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx),
+                                child: Text(AppLocalizations.of(context)!.commonClose),
+                              ),
+                            ],
+                          ),
+                        );
                       },
                       icon: const Icon(
                         Icons.help_outline,
-                        size: 20,
+                        size: 18,
                         color: Color(0xff0386FF),
                       ),
                       label: Text(
@@ -747,34 +801,37 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
                         style: GoogleFonts.openSans(
                           color: const Color(0xff0386FF),
                           fontWeight: FontWeight.w600,
+                          fontSize: 13,
                         ),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 10),
                 Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   decoration: BoxDecoration(
-                    color: const Color(0xff0386FF).withOpacity(0.05),
+                    color: const Color(0xff0386FF).withOpacity(0.06),
                     border: Border.all(
-                      color: const Color(0xff0386FF).withOpacity(0.2),
+                      color: const Color(0xff0386FF).withOpacity(0.18),
                     ),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Icon(
                         Icons.info_outline,
                         color: Color(0xff0386FF),
-                        size: 20,
+                        size: 18,
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 10),
                       Expanded(
                         child: Text(
                           AppLocalizations.of(context)!.usersWillReceiveLoginCredentialsVia,
                           style: GoogleFonts.openSans(
-                            fontSize: 14,
+                            fontSize: 13,
+                            height: 1.35,
                             color: const Color(0xff0B3858),
                             fontWeight: FontWeight.w500,
                           ),
@@ -790,176 +847,44 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
           // Content Section
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.all(32),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
               child: Container(
                 width: double.infinity,
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(12),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withOpacity(0.05),
                       spreadRadius: 0,
-                      blurRadius: 20,
-                      offset: const Offset(0, 4),
+                      blurRadius: 12,
+                      offset: const Offset(0, 2),
                     ),
                   ],
                 ),
                 child: Column(
                   children: [
-                    // Table Header
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 32, vertical: 20),
-                      decoration: const BoxDecoration(
-                        color: Color(0xffF7FAFC),
-                        borderRadius: BorderRadius.only(
-                          topLeft: Radius.circular(16),
-                          topRight: Radius.circular(16),
-                        ),
-                        border: Border(
-                          bottom: BorderSide(
-                            color: Color(0xffE2E8F0),
-                            width: 1,
-                          ),
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            flex: 2,
-                            child: Text(
-                              AppLocalizations.of(context)!.firstName,
-                              style: GoogleFonts.openSans(
-                                fontWeight: FontWeight.bold,
-                                color: const Color(0xff0B3858),
-                                fontSize: 14,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            flex: 2,
-                            child: Text(
-                              AppLocalizations.of(context)!.lastName,
-                              style: GoogleFonts.openSans(
-                                fontWeight: FontWeight.bold,
-                                color: const Color(0xff0B3858),
-                                fontSize: 14,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            flex: 2,
-                            child: Text(
-                              AppLocalizations.of(context)!.userTypeLabel,
-                              style: GoogleFonts.openSans(
-                                fontWeight: FontWeight.bold,
-                                color: const Color(0xff0B3858),
-                                fontSize: 14,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            flex: 2,
-                            child: Text(
-                              AppLocalizations.of(context)!.kioskCode,
-                              style: GoogleFonts.openSans(
-                                fontWeight: FontWeight.bold,
-                                color: const Color(0xff0B3858),
-                                fontSize: 14,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            flex: 3,
-                            child: Text(
-                              AppLocalizations.of(context)!.mobilePhone,
-                              style: GoogleFonts.openSans(
-                                fontWeight: FontWeight.bold,
-                                color: const Color(0xff0B3858),
-                                fontSize: 14,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            flex: 3,
-                            child: Text(
-                              AppLocalizations.of(context)!.emailAddress,
-                              style: GoogleFonts.openSans(
-                                fontWeight: FontWeight.bold,
-                                color: const Color(0xff0B3858),
-                                fontSize: 14,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 50),
-                        ],
-                      ),
-                    ),
-
-                    // User Input Rows
                     Expanded(
                       child: ListView.builder(
-                        padding: const EdgeInsets.all(0),
+                        padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
                         itemCount: userRows.length,
                         itemBuilder: (context, index) {
                           final rowIndex = userRows[index];
-                          // Only create a new UserInputRow if it doesn't exist
-                          if (!userRowsWidgets.containsKey(rowIndex)) {
-                            userRowsWidgets[rowIndex] = UserInputRow(
-                              key: rowKeys[rowIndex],
-                              index: rowIndex,
-                              onDelete: () => _removeUserRow(rowIndex),
-                            );
-                          }
-                          return Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 32, vertical: 8),
-                            decoration: BoxDecoration(
-                              border: Border(
-                                bottom: BorderSide(
-                                  color:
-                                      const Color(0xffE2E8F0).withOpacity(0.5),
-                                  width: 1,
-                                ),
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                Expanded(child: userRowsWidgets[rowIndex]!),
-                                SizedBox(
-                                  width: 50,
-                                  child: IconButton(
-                                    onPressed: userRows.length > 1
-                                        ? () => _removeUserRow(rowIndex)
-                                        : null,
-                                    icon: Icon(
-                                      Icons.delete_outline,
-                                      color: userRows.length > 1
-                                          ? const Color(0xffF56565)
-                                          : const Color(0xffCBD5E0),
-                                      size: 20,
-                                    ),
-                                    tooltip: userRows.length > 1
-                                        ? 'Remove user'
-                                        : 'Cannot remove last user',
-                                  ),
-                                ),
-                              ],
-                            ),
+                          userRowsWidgets[rowIndex] = UserInputRow(
+                            key: rowKeys[rowIndex],
+                            index: rowIndex,
+                            onDelete: () => _removeUserRow(rowIndex),
+                            canRemove: userRows.length > 1,
+                          );
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: userRowsWidgets[rowIndex]!,
                           );
                         },
                       ),
                     ),
-
-                    // Add User Button
-                    Container(
-                      padding: const EdgeInsets.all(32),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
                       child: Align(
                         alignment: Alignment.centerLeft,
                         child: TextButton.icon(
@@ -967,21 +892,21 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
                           icon: const Icon(
                             Icons.add,
                             color: Color(0xff0386FF),
-                            size: 20,
+                            size: 18,
                           ),
                           label: Text(
                             AppLocalizations.of(context)!.addAnotherUser,
                             style: GoogleFonts.openSans(
                               color: const Color(0xff0386FF),
                               fontWeight: FontWeight.w600,
-                              fontSize: 16,
+                              fontSize: 14,
                             ),
                           ),
                           style: TextButton.styleFrom(
                             backgroundColor:
-                                const Color(0xff0386FF).withOpacity(0.05),
+                                const Color(0xff0386FF).withOpacity(0.06),
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 20, vertical: 12),
+                                horizontal: 14, vertical: 8),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(8),
                             ),
@@ -997,7 +922,7 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
 
           // Footer Buttons
           Container(
-            padding: const EdgeInsets.all(32),
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
             decoration: const BoxDecoration(
               color: Colors.white,
               border: Border(
@@ -1083,11 +1008,13 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
 class UserInputRow extends StatefulWidget {
   final int index;
   final VoidCallback onDelete;
+  final bool canRemove;
 
   const UserInputRow({
     super.key,
     required this.index,
     required this.onDelete,
+    this.canRemove = true,
   });
 
   void clearFields() {
@@ -1107,6 +1034,7 @@ class _UserInputRowState extends State<UserInputRow> {
   final TextEditingController hourlyRateController =
       TextEditingController(text: '15.00');
   String countryCode = "1";
+  String countryIsoCode = "US";
   String selectedUserType = "Admin"; // Default to Admin
 
   final List<String> userTypes = ["Admin", "Teacher", "Student", "Parent"];
@@ -1115,6 +1043,22 @@ class _UserInputRowState extends State<UserInputRow> {
   bool isAdultStudent = false;
   String? selectedGuardianId;
   List<Map<String, dynamic>> availableGuardians = [];
+
+  TextInputFormatter _phoneMaxLengthByCountryFormatter() {
+    return TextInputFormatter.withFunction((oldValue, newValue) {
+      final maxDigits =
+          PhoneNationalInputValidation.maxNationalLengthForIso(countryIsoCode);
+      if (maxDigits == null) {
+        return newValue;
+      }
+
+      final digitCount = PhoneNationalInputValidation.digitsOnly(newValue.text).length;
+      if (digitCount > maxDigits) {
+        return oldValue;
+      }
+      return newValue;
+    });
+  }
 
   @override
   void initState() {
@@ -1239,6 +1183,7 @@ class _UserInputRowState extends State<UserInputRow> {
     kioskCodeController.clear();
     hourlyRateController.text = '4.00';
     countryCode = "1";
+    countryIsoCode = "US";
     selectedUserType = "Admin";
     isAdultStudent = false;
     selectedGuardianId = null;
@@ -1246,10 +1191,49 @@ class _UserInputRowState extends State<UserInputRow> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 16.0),
-      child: Row(
-        children: [
+    final l = AppLocalizations.of(context)!;
+    final showHourly =
+        selectedUserType == 'Teacher' || selectedUserType == 'Admin';
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        decoration: BoxDecoration(
+          color: const Color(0xffF8FAFC),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: const Color(0xffE2E8F0)),
+        ),
+        padding: const EdgeInsets.all(10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Text(
+                  '#${widget.index + 1}',
+                  style: GoogleFonts.openSans(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xff64748B),
+                  ),
+                ),
+                const Spacer(),
+                if (widget.canRemove)
+                  IconButton(
+                    visualDensity: VisualDensity.compact,
+                    tooltip: l.userDeleteUser,
+                    onPressed: widget.onDelete,
+                    icon: const Icon(
+                      Icons.delete_outline,
+                      color: Color(0xffF56565),
+                      size: 20,
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
           // First Name
           Expanded(
             flex: 2,
@@ -1260,11 +1244,12 @@ class _UserInputRowState extends State<UserInputRow> {
                 _generateKioskCode();
               },
               decoration: InputDecoration(
-                hintText: AppLocalizations.of(context)!.firstName,
+                hintText: l.firstName,
                 hintStyle: GoogleFonts.openSans(
                   color: const Color(0xffA0AEC0),
-                  fontSize: 14,
+                  fontSize: 13,
                 ),
+                isDense: true,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                   borderSide: const BorderSide(
@@ -1288,15 +1273,15 @@ class _UserInputRowState extends State<UserInputRow> {
                 fillColor: const Color(0xffF7FAFC),
                 hoverColor: Colors.transparent,
                 contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               ),
               style: GoogleFonts.openSans(
-                fontSize: 14,
+                fontSize: 13,
                 color: const Color(0xff2D3748),
               ),
             ),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 8),
 
           // Last Name
           Expanded(
@@ -1308,11 +1293,12 @@ class _UserInputRowState extends State<UserInputRow> {
                 _generateKioskCode();
               },
               decoration: InputDecoration(
-                hintText: AppLocalizations.of(context)!.lastName,
+                hintText: l.lastName,
                 hintStyle: GoogleFonts.openSans(
                   color: const Color(0xffA0AEC0),
-                  fontSize: 14,
+                  fontSize: 13,
                 ),
+                isDense: true,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                   borderSide: const BorderSide(
@@ -1336,15 +1322,15 @@ class _UserInputRowState extends State<UserInputRow> {
                 fillColor: const Color(0xffF7FAFC),
                 hoverColor: Colors.transparent,
                 contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               ),
               style: GoogleFonts.openSans(
-                fontSize: 14,
+                fontSize: 13,
                 color: const Color(0xff2D3748),
               ),
             ),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 8),
 
           // User Type Dropdown
           Expanded(
@@ -1352,11 +1338,12 @@ class _UserInputRowState extends State<UserInputRow> {
             child: DropdownButtonFormField<String>(
               initialValue: selectedUserType,
               decoration: InputDecoration(
-                hintText: AppLocalizations.of(context)!.userUserType,
+                hintText: l.userUserType,
                 hintStyle: GoogleFonts.openSans(
                   color: const Color(0xffA0AEC0),
-                  fontSize: 14,
+                  fontSize: 13,
                 ),
+                isDense: true,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                   borderSide: const BorderSide(
@@ -1379,10 +1366,10 @@ class _UserInputRowState extends State<UserInputRow> {
                 filled: true,
                 fillColor: const Color(0xffF7FAFC),
                 contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               ),
               style: GoogleFonts.openSans(
-                fontSize: 14,
+                fontSize: 13,
                 color: const Color(0xff2D3748),
               ),
               icon: const Icon(
@@ -1430,8 +1417,12 @@ class _UserInputRowState extends State<UserInputRow> {
               },
             ),
           ),
-          const SizedBox(width: 16),
-
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
           // Kiosk Code
           Expanded(
             flex: 2,
@@ -1439,11 +1430,12 @@ class _UserInputRowState extends State<UserInputRow> {
               controller: kioskCodeController,
               onChanged: (value) => setState(() {}),
               decoration: InputDecoration(
-                hintText: AppLocalizations.of(context)!.autoGenerated,
+                hintText: l.autoGenerated,
                 hintStyle: GoogleFonts.openSans(
                   color: const Color(0xffA0AEC0),
-                  fontSize: 14,
+                  fontSize: 13,
                 ),
+                isDense: true,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                   borderSide: const BorderSide(
@@ -1467,7 +1459,7 @@ class _UserInputRowState extends State<UserInputRow> {
                 fillColor: const Color(0xffF7FAFC),
                 hoverColor: Colors.transparent,
                 contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 suffixIcon: IconButton(
                   icon: const Icon(
                     Icons.refresh,
@@ -1475,18 +1467,71 @@ class _UserInputRowState extends State<UserInputRow> {
                     size: 18,
                   ),
                   onPressed: _generateKioskCode,
-                  tooltip: AppLocalizations.of(context)!.regenerateCode,
+                  tooltip: l.regenerateCode,
                 ),
               ),
               style: GoogleFonts.openSans(
-                fontSize: 14,
+                fontSize: 13,
                 color: const Color(0xff2D3748),
                 fontWeight: FontWeight.w600,
               ),
-              readOnly: true, // Make kiosk code non-editable
+              readOnly: true,
             ),
           ),
-          const SizedBox(width: 16),
+          if (showHourly) ...[
+            const SizedBox(width: 8),
+            Expanded(
+              flex: 2,
+              child: TextFormField(
+                controller: hourlyRateController,
+                onChanged: (value) => setState(() {}),
+                decoration: InputDecoration(
+                  hintText: l.shiftHourlyRate,
+                  hintStyle: GoogleFonts.openSans(
+                    color: const Color(0xffA0AEC0),
+                    fontSize: 13,
+                  ),
+                  isDense: true,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(
+                      color: Color(0xffE2E8F0),
+                    ),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(
+                      color: Color(0xffE2E8F0),
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(
+                      color: Color(0xff0386FF),
+                      width: 2,
+                    ),
+                  ),
+                  filled: true,
+                  fillColor: const Color(0xffF7FAFC),
+                  hoverColor: Colors.transparent,
+                  contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 10),
+                  prefixIcon: const Icon(
+                    Icons.attach_money,
+                    color: Color(0xffA0AEC0),
+                    size: 18,
+                  ),
+                ),
+                style: GoogleFonts.openSans(
+                  fontSize: 13,
+                  color: const Color(0xff2D3748),
+                ),
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+              ),
+            ),
+          ],
+          const SizedBox(width: 8),
 
           // Phone Number
           Expanded(
@@ -1494,17 +1539,44 @@ class _UserInputRowState extends State<UserInputRow> {
             child: IntlPhoneField(
               controller: phoneController,
               initialCountryCode: 'US',
+              disableLengthCheck: true,
+              inputFormatters: <TextInputFormatter>[
+                FilteringTextInputFormatter.allow(RegExp(r'[0-9\s\-\(\)]')),
+                _phoneMaxLengthByCountryFormatter(),
+              ],
+              autovalidateMode: AutovalidateMode.onUserInteraction,
+              validator: (p) =>
+                  PhoneNationalInputValidation.validateOptionalNational(
+                p,
+                l.phoneInternationalSubscriberInvalid,
+              ),
               onChanged: (phone) {
                 setState(() {
                   countryCode = phone.countryCode;
+                  countryIsoCode = phone.countryISOCode;
+                  final maxDigits =
+                      PhoneNationalInputValidation.maxNationalLengthForIso(
+                          countryIsoCode);
+                  if (maxDigits != null) {
+                    final digits = PhoneNationalInputValidation.digitsOnly(
+                      phoneController.text,
+                    );
+                    if (digits.length > maxDigits) {
+                      phoneController.text = digits.substring(0, maxDigits);
+                      phoneController.selection = TextSelection.fromPosition(
+                        TextPosition(offset: phoneController.text.length),
+                      );
+                    }
+                  }
                 });
               },
               decoration: InputDecoration(
-                hintText: AppLocalizations.of(context)!.phoneNumberOptional,
+                hintText: l.phoneNumberOptional,
                 hintStyle: GoogleFonts.openSans(
                   color: const Color(0xffA0AEC0),
-                  fontSize: 14,
+                  fontSize: 13,
                 ),
+                isDense: true,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                   borderSide: const BorderSide(
@@ -1528,30 +1600,31 @@ class _UserInputRowState extends State<UserInputRow> {
                 fillColor: const Color(0xffF7FAFC),
                 hoverColor: Colors.transparent,
                 contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               ),
               style: GoogleFonts.openSans(
-                fontSize: 14,
+                fontSize: 13,
                 color: const Color(0xff2D3748),
               ),
             ),
           ),
-          const SizedBox(width: 16),
+                ],
+              ),
+              const SizedBox(height: 8),
 
           // Email
-          Expanded(
-            flex: 3,
-            child: TextFormField(
+          TextFormField(
               controller: emailController,
               onChanged: (value) => setState(() {}),
               decoration: InputDecoration(
                 hintText: selectedUserType == 'Student' && !isAdultStudent
                     ? 'Email (Optional for minors)'
-                    : 'Email address',
+                    : l.emailAddress,
                 hintStyle: GoogleFonts.openSans(
                   color: const Color(0xffA0AEC0),
-                  fontSize: 14,
+                  fontSize: 13,
                 ),
+                isDense: true,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                   borderSide: const BorderSide(
@@ -1575,28 +1648,25 @@ class _UserInputRowState extends State<UserInputRow> {
                 fillColor: const Color(0xffF7FAFC),
                 hoverColor: Colors.transparent,
                 contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 prefixIcon: const Icon(
                   Icons.email_outlined,
                   color: Color(0xffA0AEC0),
-                  size: 20,
+                  size: 18,
                 ),
               ),
               style: GoogleFonts.openSans(
-                fontSize: 14,
+                fontSize: 13,
                 color: const Color(0xff2D3748),
               ),
               keyboardType: TextInputType.emailAddress,
             ),
-          ),
-          const SizedBox(width: 16),
+          const SizedBox(height: 8),
 
           // Student-specific fields
           if (selectedUserType == 'Student') ...[
             // Adult/Minor Toggle
-            Expanded(
-              flex: 2,
-              child: Container(
+            Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: const Color(0xffF7FAFC),
@@ -1684,15 +1754,12 @@ class _UserInputRowState extends State<UserInputRow> {
                     ),
                   ],
                 ),
-              ),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(height: 8),
 
             // Guardian Selection (only for minors)
             if (!isAdultStudent)
-              Expanded(
-                flex: 3,
-                child: availableGuardians.isEmpty
+              (availableGuardians.isEmpty
                     ? Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
@@ -1786,63 +1853,10 @@ class _UserInputRowState extends State<UserInputRow> {
                             ],
                           ),
                         ),
-                      ),
-              ),
-            const SizedBox(width: 16),
+                      )),
+            ],
           ],
-
-          // Hourly Rate (only for Teachers and Admins)
-          if (selectedUserType == 'Teacher' || selectedUserType == 'Admin')
-            Expanded(
-              flex: 2,
-              child: TextFormField(
-                controller: hourlyRateController,
-                onChanged: (value) => setState(() {}),
-                decoration: InputDecoration(
-                  hintText: AppLocalizations.of(context)!.shiftHourlyRate,
-                  hintStyle: GoogleFonts.openSans(
-                    color: const Color(0xffA0AEC0),
-                    fontSize: 14,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(
-                      color: Color(0xffE2E8F0),
-                    ),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(
-                      color: Color(0xffE2E8F0),
-                    ),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(
-                      color: Color(0xff0386FF),
-                      width: 2,
-                    ),
-                  ),
-                  filled: true,
-                  fillColor: const Color(0xffF7FAFC),
-                  hoverColor: Colors.transparent,
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  prefixIcon: const Icon(
-                    Icons.attach_money,
-                    color: Color(0xffA0AEC0),
-                    size: 20,
-                  ),
-                ),
-                style: GoogleFonts.openSans(
-                  fontSize: 14,
-                  color: const Color(0xff2D3748),
-                ),
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-              ),
-            ),
-        ],
+        ),
       ),
     );
   }
