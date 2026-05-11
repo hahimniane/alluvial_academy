@@ -4,10 +4,14 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
 import 'package:alluwalacademyadmin/features/shift_management/models/teaching_shift.dart';
-import 'package:alluwalacademyadmin/features/audit/services/admin_submissions_export_service.dart';
+import 'package:alluwalacademyadmin/features/audit/services/admin_submissions_export_service.dart'
+    show AdminSubmissionsExportService, AdminSubmissionsExportStatus;
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 import '../widgets/form_details_modal.dart';
+
+/// Submissions without a Firestore `formId` are grouped under this key for export.
+const String kAdminSubmissionsExportNoFormIdBucket = '(No Form ID)';
 
 const Color _kPrimary = Color(0xff0386FF);
 const Color _kText = Color(0xff1E293B);
@@ -15,11 +19,17 @@ const Color _kMuted = Color(0xff64748B);
 const Color _kBorder = Color(0xffE2E8F0);
 
 class _ExportProgress {
-  final String teacherLabel;
-  final int index;
-  final int total;
+  final String phaseTitle;
+  final String formDetail;
+  final int formIndex;
+  final int formTotal;
 
-  const _ExportProgress(this.teacherLabel, this.index, this.total);
+  const _ExportProgress({
+    required this.phaseTitle,
+    this.formDetail = '',
+    this.formIndex = -1,
+    this.formTotal = 0,
+  });
 }
 
 /// Split view: pick submissions, preview Q/A, export PDF/Excel (grouped per teacher).
@@ -96,6 +106,22 @@ class _AdminSubmissionsReviewScreenState
   String _teacherName(String uid) =>
       (widget.teachersData[uid]?['name'] ?? uid).toString();
 
+  String _exportPhaseTitle(
+    AppLocalizations l10n,
+    AdminSubmissionsExportStatus status,
+  ) {
+    switch (status) {
+      case AdminSubmissionsExportStatus.loadingFieldLabels:
+        return l10n.adminSubmissionsExportPhaseLoadingLabels;
+      case AdminSubmissionsExportStatus.loadingDocumentFonts:
+        return l10n.adminSubmissionsExportPhaseLoadingFonts;
+      case AdminSubmissionsExportStatus.buildingFile:
+        return l10n.adminSubmissionsExportPhaseBuildingFile;
+      case AdminSubmissionsExportStatus.startingDownload:
+        return l10n.adminSubmissionsExportPhaseStartingDownload;
+    }
+  }
+
   String _submissionTitle(QueryDocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>?;
     final formId = data?['formId'] as String?;
@@ -138,45 +164,43 @@ class _AdminSubmissionsReviewScreenState
     return n > 0 && n < docs.length;
   }
 
-  Map<String, List<QueryDocumentSnapshot>> _selectedByTeacher() {
+  Map<String, List<QueryDocumentSnapshot>> _selectedByForm() {
     final out = <String, List<QueryDocumentSnapshot>>{};
     for (final doc in widget.submissions) {
       if (!_selectedDocIds.contains(doc.id)) continue;
       final data = doc.data() as Map<String, dynamic>?;
-      final uid = data?['userId'] as String?;
-      if (uid == null) continue;
-      out.putIfAbsent(uid, () => []).add(doc);
+      var formId = (data?['formId'] as String?)?.trim();
+      if (formId == null || formId.isEmpty) {
+        formId = kAdminSubmissionsExportNoFormIdBucket;
+      }
+      out.putIfAbsent(formId, () => []).add(doc);
+    }
+    for (final list in out.values) {
+      list.sort((a, b) {
+        final ta = (a.data() as Map<String, dynamic>?)?['submittedAt'];
+        final tb = (b.data() as Map<String, dynamic>?)?['submittedAt'];
+        final da = ta is Timestamp ? ta.millisecondsSinceEpoch : 0;
+        final db = tb is Timestamp ? tb.millisecondsSinceEpoch : 0;
+        return db.compareTo(da);
+      });
     }
     return out;
   }
 
   Future<void> _runExport(String format) async {
     final l10n = AppLocalizations.of(context)!;
-    final grouped = _selectedByTeacher();
-    if (grouped.isEmpty) {
+    final groupedByForm = _selectedByForm();
+    if (groupedByForm.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.adminSubmissionsNoTeacherSelected)),
+        SnackBar(content: Text(l10n.adminSubmissionsNoSubmissions)),
       );
       return;
     }
 
-    final shiftIds = <String>{};
-    for (final doc in widget.submissions) {
-      if (!_selectedDocIds.contains(doc.id)) continue;
-      final data = doc.data() as Map<String, dynamic>?;
-      final sid = _resolveShiftId(data);
-      if (sid.isNotEmpty) shiftIds.add(sid);
-    }
-
-    final shiftMap = await widget.getShiftSummaries(shiftIds);
-    if (!mounted) return;
-    final teacherNames = <String, String>{
-      for (final id in grouped.keys) id: _teacherName(id),
-    };
-    final locale = Localizations.localeOf(context).toLanguageTag();
-
     final progress = ValueNotifier<_ExportProgress>(
-      _ExportProgress('', -1, grouped.length),
+      _ExportProgress(
+        phaseTitle: l10n.adminSubmissionsExportPhaseLoadingShifts,
+      ),
     );
 
     if (!mounted) return;
@@ -204,21 +228,28 @@ class _AdminSubmissionsReviewScreenState
                       style: GoogleFonts.inter(fontSize: 12, color: _kMuted),
                     ),
                     const SizedBox(height: 12),
-                    if (p.total > 0)
-                      LinearProgressIndicator(
-                        value: p.index < 0 || p.total <= 0
-                            ? null
-                            : (p.index + 1) / p.total,
-                      ),
-                    const SizedBox(height: 8),
-                    Text(
-                      p.index < 0
-                          ? '…'
-                          : '${p.index + 1} / ${p.total} — ${p.teacherLabel}',
-                      style: GoogleFonts.inter(fontSize: 11, color: _kMuted),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+                    LinearProgressIndicator(
+                      value: p.formIndex >= 0 && p.formTotal > 0
+                          ? (p.formIndex + 1) / p.formTotal
+                          : null,
                     ),
+                    const SizedBox(height: 12),
+                    Text(
+                      p.phaseTitle,
+                      style: GoogleFonts.inter(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: _kText),
+                    ),
+                    if (p.formDetail.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        p.formDetail,
+                        style: GoogleFonts.inter(fontSize: 11, color: _kMuted),
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -228,20 +259,53 @@ class _AdminSubmissionsReviewScreenState
       },
     );
 
+    await Future<void>.delayed(Duration.zero);
+    if (!mounted) return;
+
+    final shiftIds = <String>{};
+    for (final doc in widget.submissions) {
+      if (!_selectedDocIds.contains(doc.id)) continue;
+      final data = doc.data() as Map<String, dynamic>?;
+      final sid = _resolveShiftId(data);
+      if (sid.isNotEmpty) shiftIds.add(sid);
+    }
+
+    final shiftMap = await widget.getShiftSummaries(shiftIds);
+    if (!mounted) return;
+    final teacherNames = <String, String>{};
+    for (final doc in widget.submissions) {
+      if (!_selectedDocIds.contains(doc.id)) continue;
+      final data = doc.data() as Map<String, dynamic>?;
+      final uid = data?['userId'] as String?;
+      if (uid == null) continue;
+      teacherNames[uid] = _teacherName(uid);
+    }
+    final locale = Localizations.localeOf(context).toLanguageTag();
+
     final nav = Navigator.of(context, rootNavigator: true);
     try {
       await AdminSubmissionsExportService.exportSelectedSubmissions(
-        submissionsByTeacher: grouped,
+        submissionsByForm: groupedByForm,
         teacherNames: teacherNames,
         formTitles: Map<String, String>.from(widget.formTitles),
         shiftMap: shiftMap,
         format: format,
         locale: locale,
-        onTeacherProgress: (teacherId, index, total) {
+        onFormProgress: (formId, index, total) {
           progress.value = _ExportProgress(
-            teacherNames[teacherId] ?? teacherId,
-            index,
-            total,
+            phaseTitle: l10n.adminSubmissionsExportPhaseWritingSheet,
+            formDetail: l10n.adminSubmissionsExportFormSheetProgress(
+              index + 1,
+              total,
+              widget.formTitles[formId] ?? formId,
+            ),
+            formIndex: index,
+            formTotal: total,
+          );
+        },
+        onStatus: (status) {
+          progress.value = _ExportProgress(
+            phaseTitle: _exportPhaseTitle(l10n, status),
           );
         },
       );
@@ -476,8 +540,7 @@ class _AdminSubmissionsReviewScreenState
                 context,
                 formId: doc.id,
                 shiftId: _resolveShiftId(data),
-                responses:
-                    (data?['responses'] as Map<String, dynamic>?) ?? {},
+                responses: (data?['responses'] as Map<String, dynamic>?) ?? {},
               );
             },
           );

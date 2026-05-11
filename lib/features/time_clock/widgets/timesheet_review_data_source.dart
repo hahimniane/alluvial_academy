@@ -18,11 +18,15 @@ class TimesheetReviewDataSource extends DataGridSource {
     required this.onSelectionChanged,
     required this.selectedIds,
     required this.context,
+    required this.auditMonthHoursDisplay,
     this.enableRichTooltips = false,
     this.compact = true,
   });
 
   List<TimesheetEntry> timesheets;
+
+  /// Frozen `teacher_audits.totalWorkedHours` for the visible teacher + month (same on every row).
+  final String auditMonthHoursDisplay;
   final void Function(TimesheetEntry) onApprove;
   final void Function(TimesheetEntry) onReject;
   final void Function(TimesheetEntry) onViewDetails;
@@ -49,6 +53,8 @@ class TimesheetReviewDataSource extends DataGridSource {
           DataGridCell<String>(columnName: 'student', value: timesheet.subject),
           DataGridCell<String>(
               columnName: 'hours', value: timesheet.totalHours),
+          DataGridCell<String>(
+              columnName: 'audit_month', value: auditMonthHoursDisplay),
           DataGridCell<double>(
               columnName: 'payment', value: _calculatePayment(timesheet)),
           DataGridCell<String>(
@@ -141,6 +147,25 @@ class TimesheetReviewDataSource extends DataGridSource {
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
+            ),
+          );
+          return _tips ? _tip(w, ts) : w;
+        }
+        if (dataGridCell.columnName == 'audit_month') {
+          final ts = row
+              .getCells()
+              .firstWhere((c) => c.columnName == 'select')
+              .value as TimesheetEntry;
+          final w = Container(
+            alignment: Alignment.center,
+            padding: _pad,
+            child: Text(
+              dataGridCell.value.toString(),
+              style: GoogleFonts.inter(
+                fontSize: compact ? 12 : 13,
+                fontWeight: FontWeight.w500,
+                color: const Color(0xff334155),
+              ),
             ),
           );
           return _tips ? _tip(w, ts) : w;

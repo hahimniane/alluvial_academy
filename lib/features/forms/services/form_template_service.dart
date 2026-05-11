@@ -1008,13 +1008,16 @@ class FormTemplateService {
   // ============================================================
 
   /// Get all form templates
-  /// [forceRefresh] - If true, forces reload from server, bypassing cache
+  /// [forceRefresh] - If true, forces reload from server, bypassing cache.
+  /// When false, uses [Source.serverAndCache] so a cold/empty cache (e.g. a
+  /// fresh web page load with IndexedDB persistence disabled) still falls
+  /// through to the server instead of silently returning an empty list.
   static Future<List<FormTemplate>> getAllTemplates(
       {bool forceRefresh = false}) async {
     try {
       final getOptions = forceRefresh
           ? const GetOptions(source: Source.server)
-          : const GetOptions(source: Source.cache);
+          : const GetOptions(source: Source.serverAndCache);
 
       // Try to order by updatedAt first (most recently updated), fallback to createdAt
       try {
@@ -1083,14 +1086,17 @@ class FormTemplateService {
   }
 
   /// Get active templates by frequency
-  /// [forceRefresh] - If true, forces reload from server, bypassing cache
+  /// [forceRefresh] - If true, forces reload from server, bypassing cache.
+  /// When false, uses [Source.serverAndCache] so a cold/empty cache (e.g. a
+  /// fresh web page load with IndexedDB persistence disabled) still falls
+  /// through to the server instead of silently returning an empty list.
   static Future<List<FormTemplate>> getTemplatesByFrequency(
       FormFrequency frequency,
       {bool forceRefresh = false}) async {
     try {
       final getOptions = forceRefresh
           ? const GetOptions(source: Source.server)
-          : const GetOptions(source: Source.cache);
+          : const GetOptions(source: Source.serverAndCache);
 
       final snapshot = await _firestore
           .collection(_templatesCollection)
@@ -1598,7 +1604,13 @@ class FormTemplateService {
     }
   }
 
-  /// Set the active template for a frequency type
+  /// Set the active template for a frequency type.
+  ///
+  /// Updates [settings/form_config] **and** guarantees template rows stay consistent:
+  /// among all templates with the **same normalized name** and **same frequency**,
+  /// exactly **one** has `isActive: true` (the chosen [templateId]); every other match
+  /// is set to `isActive: false`. Old versions therefore cannot remain active alongside
+  /// the selected one (assuming admins use this API rather than toggling Firestore by hand).
   static Future<void> setActiveTemplate(
       FormFrequency frequency, String templateId) async {
     try {
@@ -1610,19 +1622,78 @@ class FormTemplateService {
           null, // On-demand forms don't have active template config
       };
 
-      // On-demand forms don't need active template configuration
       if (fieldName == null) {
         AppLogger.info(
             'FormTemplateService: On-demand forms do not require active template configuration');
         return;
       }
 
-      await _firestore.collection(_configCollection).doc(_configDoc).set(
-        {fieldName: templateId, 'lastUpdated': FieldValue.serverTimestamp()},
+      const server = GetOptions(source: Source.server);
+      final targetSnap = await _firestore
+          .collection(_templatesCollection)
+          .doc(templateId)
+          .get(server);
+
+      if (!targetSnap.exists) {
+        throw StateError(
+          'FormTemplateService: template $templateId not found',
+        );
+      }
+
+      final target = FormTemplate.fromFirestore(targetSnap);
+      if (target.frequency != frequency) {
+        throw StateError(
+          'FormTemplateService: template $templateId has frequency '
+          '${target.frequency.name}, expected ${frequency.name}',
+        );
+      }
+
+      final normalizedName = _normalizeTemplateName(target.name);
+      final freqStr = frequency.name;
+
+      final allSnap =
+          await _firestore.collection(_templatesCollection).get(server);
+
+      final batch = _firestore.batch();
+
+      for (final doc in allSnap.docs) {
+        final data = doc.data();
+        final docFreq = data['frequency'] as String?;
+        if (docFreq != freqStr) continue;
+
+        final docName = _normalizeTemplateName(
+          (data['name'] as String?) ?? '',
+        );
+        if (docName != normalizedName) continue;
+
+        if (doc.id == templateId) {
+          batch.update(doc.reference, {
+            'isActive': true,
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+        } else if (data['isActive'] == true) {
+          batch.update(doc.reference, {
+            'isActive': false,
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+        }
+      }
+
+      batch.set(
+        _firestore.collection(_configCollection).doc(_configDoc),
+        {
+          fieldName: templateId,
+          'lastUpdated': FieldValue.serverTimestamp(),
+        },
         SetOptions(merge: true),
       );
 
-      AppLogger.info('FormTemplateService: Set $fieldName to $templateId');
+      await batch.commit();
+
+      AppLogger.info(
+        'FormTemplateService: Set $fieldName=$templateId; exclusive active for '
+        '"$normalizedName" ($freqStr)',
+      );
     } catch (e) {
       AppLogger.error('FormTemplateService: Error setting active template: $e');
       rethrow;

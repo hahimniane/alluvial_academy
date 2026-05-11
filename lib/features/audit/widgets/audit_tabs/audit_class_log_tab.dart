@@ -37,18 +37,54 @@ class _AuditClassLogTabState extends State<AuditClassLogTab> {
   static const double _tableHorizontalPadding = 24;
 
   static const List<_ColumnSpec> _allColumns = [
-    _ColumnSpec(key: 'date', label: 'Date', width: 100, group: _ColumnGroup.operations),
-    _ColumnSpec(key: 'students', label: 'Students', width: 160, group: _ColumnGroup.operations),
-    _ColumnSpec(key: 'subject', label: 'Subject', width: 130, group: _ColumnGroup.operations),
-    _ColumnSpec(key: 'scheduled', label: 'Sched.', width: 70, group: _ColumnGroup.timeAndPay),
-    _ColumnSpec(key: 'clockIn', label: 'Clock-in', width: 80, group: _ColumnGroup.timeAndPay),
-    _ColumnSpec(key: 'clockOut', label: 'Clock-out', width: 80, group: _ColumnGroup.timeAndPay),
-    _ColumnSpec(key: 'worked', label: 'Worked', width: 80, group: _ColumnGroup.timeAndPay),
-    _ColumnSpec(key: 'billed', label: 'Billed', width: 80, group: _ColumnGroup.timeAndPay),
-    _ColumnSpec(key: 'rate', label: 'Rate', width: 70, group: _ColumnGroup.timeAndPay),
-    _ColumnSpec(key: 'pay', label: 'Pay', width: 80, group: _ColumnGroup.timeAndPay),
-    _ColumnSpec(key: 'form', label: 'Form', width: 80, group: _ColumnGroup.operations),
-    _ColumnSpec(key: 'status', label: 'Status', width: 95, group: _ColumnGroup.operations),
+    _ColumnSpec(
+        key: 'date', label: 'Date', width: 100, group: _ColumnGroup.operations),
+    _ColumnSpec(
+        key: 'students',
+        label: 'Students',
+        width: 160,
+        group: _ColumnGroup.operations),
+    _ColumnSpec(
+        key: 'subject',
+        label: 'Subject',
+        width: 130,
+        group: _ColumnGroup.operations),
+    _ColumnSpec(
+        key: 'scheduled',
+        label: 'Sched.',
+        width: 70,
+        group: _ColumnGroup.timeAndPay),
+    _ColumnSpec(
+        key: 'clockIn',
+        label: 'Clock-in',
+        width: 80,
+        group: _ColumnGroup.timeAndPay),
+    _ColumnSpec(
+        key: 'clockOut',
+        label: 'Clock-out',
+        width: 80,
+        group: _ColumnGroup.timeAndPay),
+    _ColumnSpec(
+        key: 'worked',
+        label: 'Worked',
+        width: 80,
+        group: _ColumnGroup.timeAndPay),
+    _ColumnSpec(
+        key: 'billed',
+        label: 'Billed',
+        width: 80,
+        group: _ColumnGroup.timeAndPay),
+    _ColumnSpec(
+        key: 'rate', label: 'Rate', width: 70, group: _ColumnGroup.timeAndPay),
+    _ColumnSpec(
+        key: 'pay', label: 'Pay', width: 80, group: _ColumnGroup.timeAndPay),
+    _ColumnSpec(
+        key: 'form', label: 'Form', width: 80, group: _ColumnGroup.operations),
+    _ColumnSpec(
+        key: 'status',
+        label: 'Status',
+        width: 95,
+        group: _ColumnGroup.operations),
   ];
 
   @override
@@ -68,7 +104,8 @@ class _AuditClassLogTabState extends State<AuditClassLogTab> {
   void _onHorizontalScroll() {
     if (!_horizontalController.hasClients) return;
     final atStart = _horizontalController.offset <= 2;
-    final atEnd = _horizontalController.offset >= _horizontalController.position.maxScrollExtent - 2;
+    final atEnd = _horizontalController.offset >=
+        _horizontalController.position.maxScrollExtent - 2;
     if (_showScrollHint == atStart && _showRightFade != !atEnd) {
       return;
     }
@@ -80,29 +117,29 @@ class _AuditClassLogTabState extends State<AuditClassLogTab> {
 
   @override
   Widget build(BuildContext context) {
-    final rows = AuditClassLogRowBuilder.buildRows(widget.audit);
-    final totals = AuditClassLogRowBuilder.computeTotalsFromRows(rows);
+    final loc = AppLocalizations.of(context)!;
+    final audit = widget.audit;
+    final rows = AuditClassLogRowBuilder.buildRows(audit);
     assert(() {
-      final warnings = AuditClassLogRowBuilder.consistencyWarnings(widget.audit);
+      final warnings = AuditClassLogRowBuilder.consistencyWarnings(audit);
       for (final w in warnings) {
-        AppLogger.warning('Audit consistency warning (${widget.audit.id}): $w');
+        AppLogger.warning('Audit consistency warning (${audit.id}): $w');
       }
       return true;
     }());
-    if (rows.isEmpty) {
+    if (audit.detailedShifts.isEmpty) {
       return AuditEmptyState(
         icon: Icons.table_rows_outlined,
-        message: AppLocalizations.of(context)!.noClassesFound,
+        message: loc.noClassesFound,
       );
     }
 
-    final completed = rows.where((r) {
-      final s = r.statusRaw.toLowerCase();
-      return s.contains('completed') || s.contains('fully') || s.contains('partially');
-    }).length;
-    final missed = rows.where((r) => r.statusRaw.toLowerCase().contains('missed')).length;
-    final worked = totals.totalWorkedFromTs;
-    final totalPay = totals.grossBySource;
+    final scheduled = audit.totalClassesScheduled;
+    final completed = audit.totalClassesCompleted;
+    final missed = audit.totalClassesMissed;
+    final worked = audit.totalWorkedHours;
+    final totalPay = audit.paymentSummary?.totalGrossPayment ??
+        AuditClassLogRowBuilder.computeTotals(audit).grossBySource;
 
     final visibleColumns = _visibleColumns();
     final tableWidth = _tableHorizontalPadding +
@@ -111,7 +148,7 @@ class _AuditClassLogTabState extends State<AuditClassLogTab> {
 
     return Column(
       children: [
-        _buildStats(completed, missed, worked, totalPay, rows.length),
+        _buildStats(loc, completed, missed, worked, totalPay, scheduled),
         Container(
           color: const Color(0xFFF8FAFC),
           padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
@@ -120,11 +157,13 @@ class _AuditClassLogTabState extends State<AuditClassLogTab> {
               if (_showScrollHint)
                 Container(
                   margin: const EdgeInsets.only(right: 8),
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: const Color(0xFFEFF6FF),
                     borderRadius: BorderRadius.circular(999),
-                    border: Border.all(color: const Color(0xFFBFDBFE), width: 0.5),
+                    border:
+                        Border.all(color: const Color(0xFFBFDBFE), width: 0.5),
                   ),
                   child: Text(
                     'Scroll right for more columns',
@@ -159,11 +198,13 @@ class _AuditClassLogTabState extends State<AuditClassLogTab> {
                       children: [
                         Container(
                           color: const Color(0xFFF1F5F9),
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 8),
                           child: Row(
                             children: [
                               SizedBox(width: 30),
-                              ...visibleColumns.map((c) => _HeaderCell(c.label, c.width)),
+                              ...visibleColumns
+                                  .map((c) => _HeaderCell(c.label, c.width)),
                             ],
                           ),
                         ),
@@ -171,7 +212,8 @@ class _AuditClassLogTabState extends State<AuditClassLogTab> {
                         Expanded(
                           child: ListView.builder(
                             itemCount: rows.length,
-                            itemBuilder: (context, index) => _buildRow(rows[index], visibleColumns),
+                            itemBuilder: (context, index) =>
+                                _buildRow(rows[index], visibleColumns),
                           ),
                         ),
                       ],
@@ -228,7 +270,10 @@ class _AuditClassLogTabState extends State<AuditClassLogTab> {
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
           color: selected ? const Color(0xFFEFF6FF) : Colors.white,
-          border: Border.all(color: selected ? const Color(0xFFBFDBFE) : const Color(0xffE2E8F0), width: 0.5),
+          border: Border.all(
+              color:
+                  selected ? const Color(0xFFBFDBFE) : const Color(0xffE2E8F0),
+              width: 0.5),
           borderRadius: BorderRadius.circular(999),
         ),
         child: Text(
@@ -243,7 +288,14 @@ class _AuditClassLogTabState extends State<AuditClassLogTab> {
     );
   }
 
-  Widget _buildStats(int completed, int missed, double worked, double totalPay, int total) {
+  Widget _buildStats(
+    AppLocalizations loc,
+    int completed,
+    int missed,
+    double worked,
+    double totalPay,
+    int scheduled,
+  ) {
     Widget stat(String label, String value, Color color) {
       return Container(
         margin: const EdgeInsets.only(right: 8),
@@ -256,10 +308,13 @@ class _AuditClassLogTabState extends State<AuditClassLogTab> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(label, style: GoogleFonts.inter(fontSize: 10, color: const Color(0xff64748B))),
+            Text(label,
+                style: GoogleFonts.inter(
+                    fontSize: 10, color: const Color(0xff64748B))),
             Text(
               value,
-              style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w600, color: color),
+              style: GoogleFonts.inter(
+                  fontSize: 16, fontWeight: FontWeight.w600, color: color),
             ),
           ],
         ),
@@ -273,11 +328,13 @@ class _AuditClassLogTabState extends State<AuditClassLogTab> {
         scrollDirection: Axis.horizontal,
         child: Row(
           children: [
-            stat('Scheduled', '$total', const Color(0xff1E293B)),
+            stat('Scheduled', '$scheduled', const Color(0xff1E293B)),
             stat('Completed', '$completed', const Color(0xFF10B981)),
             stat('Missed', '$missed', const Color(0xFFEF4444)),
-            stat('Hours (TS)', worked.toStringAsFixed(2), const Color(0xff0F766E)),
-            stat('Gross pay', '\$${totalPay.toStringAsFixed(2)}', const Color(0xFF10B981)),
+            stat(loc.auditHoursTaught, '${worked.toStringAsFixed(2)}h',
+                const Color(0xff0F766E)),
+            stat('Gross pay', '\$${totalPay.toStringAsFixed(2)}',
+                const Color(0xFF10B981)),
           ],
         ),
       ),
@@ -289,13 +346,17 @@ class _AuditClassLogTabState extends State<AuditClassLogTab> {
     final s = row.statusRaw.toLowerCase();
     final isMissed = s.contains('missed');
     final bg = isMissed ? const Color(0xFFFFF1F2) : Colors.white;
-    final statusColor = isMissed ? const Color(0xFFDC2626) : const Color(0xFF16A34A);
-    final dateStr = row.shiftStart != null ? DateFormat('MMM d, yyyy').format(row.shiftStart!) : '—';
+    final statusColor =
+        isMissed ? const Color(0xFFDC2626) : const Color(0xFF16A34A);
+    final dateStr = row.shiftStart != null
+        ? DateFormat('MMM d, yyyy').format(row.shiftStart!)
+        : '—';
 
     return Column(
       children: [
         InkWell(
-          onTap: () => setState(() => _expandedShiftId = isExpanded ? null : row.shiftId),
+          onTap: () => setState(
+              () => _expandedShiftId = isExpanded ? null : row.shiftId),
           child: Container(
             color: bg,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -312,12 +373,15 @@ class _AuditClassLogTabState extends State<AuditClassLogTab> {
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Center(
-                        child: Text(isExpanded ? '-' : '+', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+                        child: Text(isExpanded ? '-' : '+',
+                            style:
+                                GoogleFonts.inter(fontWeight: FontWeight.w600)),
                       ),
                     ),
                   ),
                 ),
-                ...columns.map((c) => _columnCell(c, row, dateStr, statusColor, isMissed)),
+                ...columns.map(
+                    (c) => _columnCell(c, row, dateStr, statusColor, isMissed)),
               ],
             ),
           ),
@@ -337,7 +401,8 @@ class _AuditClassLogTabState extends State<AuditClassLogTab> {
                     '${row.billedHours.toStringAsFixed(2)} h × \$${row.hourlyRate.toStringAsFixed(2)} = \$${row.theoreticalPay.toStringAsFixed(2)}',
                   )
                 else
-                  _kv('Theoretical (billed × rate)', '— (no hourly rate on shift)'),
+                  _kv('Theoretical (billed × rate)',
+                      '— (no hourly rate on shift)'),
                 _kv(
                   'Recorded base pay (${row.paymentSource})',
                   '\$${row.baseAmount.toStringAsFixed(2)}',
@@ -362,7 +427,10 @@ class _AuditClassLogTabState extends State<AuditClassLogTab> {
       width: width,
       child: Text(
         text,
-        style: GoogleFonts.inter(fontSize: 11, color: color ?? const Color(0xff1E293B), fontWeight: FontWeight.w500),
+        style: GoogleFonts.inter(
+            fontSize: 11,
+            color: color ?? const Color(0xff1E293B),
+            fontWeight: FontWeight.w500),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
@@ -380,15 +448,18 @@ class _AuditClassLogTabState extends State<AuditClassLogTab> {
       case 'date':
         return _cell(dateStr, column.width);
       case 'students':
-        return _cell(_studentsForShift(widget.audit, row.shiftId), column.width);
+        return _cell(
+            _studentsForShift(widget.audit, row.shiftId), column.width);
       case 'subject':
         return _cell(row.subject, column.width);
       case 'scheduled':
         return _cell('${row.scheduledHours.toStringAsFixed(2)}h', column.width);
       case 'clockIn':
-        return _cell(_clockFromTimesheet(widget.audit, row.shiftId, true), column.width);
+        return _cell(
+            _clockFromTimesheet(widget.audit, row.shiftId, true), column.width);
       case 'clockOut':
-        return _cell(_clockFromTimesheet(widget.audit, row.shiftId, false), column.width);
+        return _cell(_clockFromTimesheet(widget.audit, row.shiftId, false),
+            column.width);
       case 'worked':
         return _cell(_hoursToHms(row.workedHours), column.width);
       case 'billed':
@@ -410,7 +481,8 @@ class _AuditClassLogTabState extends State<AuditClassLogTab> {
         return _cell(
           row.hasForm ? '✓ Filed' : '—',
           column.width,
-          color: row.hasForm ? const Color(0xFF10B981) : const Color(0xff94A3B8),
+          color:
+              row.hasForm ? const Color(0xFF10B981) : const Color(0xff94A3B8),
         );
       case 'status':
         return SizedBox(
@@ -443,8 +515,12 @@ class _AuditClassLogTabState extends State<AuditClassLogTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(key, style: GoogleFonts.inter(fontSize: 11, color: const Color(0xff64748B))),
-          Text(value, style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700)),
+          Text(key,
+              style: GoogleFonts.inter(
+                  fontSize: 11, color: const Color(0xff64748B))),
+          Text(value,
+              style:
+                  GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700)),
         ],
       ),
     );
@@ -471,13 +547,18 @@ class _AuditClassLogTabState extends State<AuditClassLogTab> {
     return title.isNotEmpty ? title : '—';
   }
 
-  String _clockFromTimesheet(TeacherAuditFull audit, String shiftId, bool inTime) {
-    final ts = audit.detailedTimesheets.cast<Map<String, dynamic>?>().firstWhere(
-          (t) => ((t?['shift_id'] as String?) == shiftId || (t?['shiftId'] as String?) == shiftId),
-          orElse: () => null,
-        );
+  String _clockFromTimesheet(
+      TeacherAuditFull audit, String shiftId, bool inTime) {
+    final ts =
+        audit.detailedTimesheets.cast<Map<String, dynamic>?>().firstWhere(
+              (t) => ((t?['shift_id'] as String?) == shiftId ||
+                  (t?['shiftId'] as String?) == shiftId),
+              orElse: () => null,
+            );
     if (ts == null) return '—';
-    final raw = inTime ? (ts['clock_in_timestamp'] ?? ts['clockIn'] ?? ts['clock_in_time']) : (ts['clock_out_timestamp'] ?? ts['clockOut'] ?? ts['clock_out_time']);
+    final raw = inTime
+        ? (ts['clock_in_timestamp'] ?? ts['clockIn'] ?? ts['clock_in_time'])
+        : (ts['clock_out_timestamp'] ?? ts['clockOut'] ?? ts['clock_out_time']);
     if (raw is Timestamp) return DateFormat('HH:mm:ss').format(raw.toDate());
     if (raw is DateTime) return DateFormat('HH:mm:ss').format(raw);
     if (raw is String) return raw;
@@ -496,7 +577,10 @@ class _HeaderCell extends StatelessWidget {
       width: width,
       child: Text(
         text,
-        style: GoogleFonts.inter(fontSize: 10, color: const Color(0xff475569), fontWeight: FontWeight.w700),
+        style: GoogleFonts.inter(
+            fontSize: 10,
+            color: const Color(0xff475569),
+            fontWeight: FontWeight.w700),
       ),
     );
   }

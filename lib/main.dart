@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'core/services/auth_service.dart';
 import 'core/services/error_reporting_service.dart';
+import 'core/services/web_app_stability_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
@@ -24,6 +25,7 @@ import 'features/dashboard/screens/role_based_dashboard.dart';
 import 'firebase_options.dart' as prod_firebase;
 import 'firebase_options_dev.dart' as dev_firebase;
 import 'core/constants/app_constants.dart';
+import 'core/services/public_site_cms_service.dart';
 import 'features/website/screens/landing_page.dart';
 import 'core/utils/timezone_utils.dart';
 import 'core/utils/auth_debug_logger.dart';
@@ -37,6 +39,7 @@ import 'core/theme/app_theme.dart';
 import 'core/services/version_service.dart';
 import 'core/widgets/version_check_wrapper.dart';
 import 'core/utils/app_logger.dart';
+import 'core/widgets/web_app_stability_banner.dart';
 import 'package:alluwalacademyadmin/features/livekit/services/join_link_service.dart';
 import 'package:alluwalacademyadmin/features/shift_management/services/shift_service.dart';
 import 'package:alluwalacademyadmin/features/livekit/services/video_call_service.dart';
@@ -50,7 +53,7 @@ import 'features/livekit/screens/guest_join_screen.dart';
 //     String.fromEnvironment('FIREBASE_ENV', defaultValue: '');
 
 const String _firebaseEnv =
-    'prod'; // change to 'dev' to switch projects and prod to run the production project
+    'prod'; // use 'dev' only when testing against alluwal-dev (separate Auth/users)
 
 bool get _useProdFirebase {
   final env = _firebaseEnv.trim().toLowerCase();
@@ -113,6 +116,14 @@ void _saveFCMTokenIfLoggedIn() {
       AppLogger.error('❌ Stack trace: ${StackTrace.current}');
     }
   });
+}
+
+Widget _wrapWithDebugDevicePreview(Widget app) {
+  if (!kDebugMode) return app;
+  return DevicePreview(
+    enabled: true,
+    builder: (_) => app,
+  );
 }
 
 Future<void> main() async {
@@ -206,8 +217,22 @@ Future<void> main() async {
   if (kIsWeb) {
     FirebaseFirestore.instance.settings = const Settings(
       persistenceEnabled: false,
-      webExperimentalAutoDetectLongPolling: true,
+      // Work around intermittent Firestore WebChannel crashes on some networks
+      // (`INTERNAL ASSERTION FAILED: Unexpected state`).
+      webExperimentalForceLongPolling: true,
+      webExperimentalAutoDetectLongPolling: false,
     );
+
+    // Global recovery for the "page spins forever, must clear browsing data
+    // to fix" symptom: unregisters stale service workers, evicts Cache Storage
+    // entries from prior deploys, and runs a Firestore WebChannel watchdog.
+    // Awaited so the SW/cache cleanup completes before runApp; the watchdog
+    // itself runs in the background.
+    try {
+      await WebAppStabilityService.instance.initialize();
+    } catch (e) {
+      AppLogger.error('WebAppStabilityService init failed: $e');
+    }
   }
 
   // Initialize Firebase Cloud Messaging background handler
@@ -217,8 +242,10 @@ Future<void> main() async {
 
   // Initialize Stripe for in-app payments (mobile only)
   if (_isNativeMobilePlatform) {
-    Stripe.publishableKey =
-        const String.fromEnvironment('STRIPE_PUBLISHABLE_KEY', defaultValue: 'pk_test_51TMEFtJP4KlJutBkLGQpHmVbFtOY1a3tJJpJFD4s4ZLxfDPMmdvfpfSadyKRMiqKel8nmBIudqRBQ8FevL5LTCKR00ytCmjIIj');
+    Stripe.publishableKey = const String.fromEnvironment(
+        'STRIPE_PUBLISHABLE_KEY',
+        defaultValue:
+            'pk_test_51TMEFtJP4KlJutBkLGQpHmVbFtOY1a3tJJpJFD4s4ZLxfDPMmdvfpfSadyKRMiqKel8nmBIudqRBQ8FevL5LTCKR00ytCmjIIj');
   }
 
   // Initialize timezone database
@@ -247,6 +274,12 @@ Future<void> main() async {
   // Shift wage migration intentionally disabled.
   if (kDebugMode) {
     AppLogger.debug('Shift wage migration is disabled on startup.');
+  }
+
+  try {
+    await PublicSiteCmsService.warmStartupDocsFromDiskCache();
+  } catch (e, st) {
+    AppLogger.debug('warmStartupDocsFromDiskCache: $e\n$st');
   }
 
   // Handle Flutter framework errors gracefully (like trackpad gesture assertions)
@@ -329,10 +362,7 @@ Future<void> main() async {
                 ChangeNotifierProvider(create: (_) => ThemeService()),
                 ChangeNotifierProvider(create: (_) => LanguageService()),
               ],
-              child: DevicePreview(
-                enabled: kDebugMode, // Only enabled in debug mode
-                builder: (context) => const MyApp(),
-              ),
+              child: _wrapWithDebugDevicePreview(const MyApp()),
             ),
           ),
         );
@@ -344,10 +374,7 @@ Future<void> main() async {
               ChangeNotifierProvider(create: (_) => ThemeService()),
               ChangeNotifierProvider(create: (_) => LanguageService()),
             ],
-            child: DevicePreview(
-              enabled: kDebugMode,
-              builder: (context) => const MyApp(),
-            ),
+            child: _wrapWithDebugDevicePreview(const MyApp()),
           ),
         );
       }
@@ -360,10 +387,7 @@ Future<void> main() async {
             ChangeNotifierProvider(create: (_) => ThemeService()),
             ChangeNotifierProvider(create: (_) => LanguageService()),
           ],
-          child: DevicePreview(
-            enabled: kDebugMode,
-            builder: (context) => const MyApp(),
-          ),
+          child: _wrapWithDebugDevicePreview(const MyApp()),
         ),
       );
     }
@@ -375,10 +399,7 @@ Future<void> main() async {
           ChangeNotifierProvider(create: (_) => LanguageService()),
         ],
         child: VersionCheckWrapper(
-          child: DevicePreview(
-            enabled: kDebugMode, // Only enabled in debug mode
-            builder: (context) => const MyApp(),
-          ),
+          child: _wrapWithDebugDevicePreview(const MyApp()),
         ),
       ),
     );
@@ -463,7 +484,11 @@ class MyApp extends StatelessWidget {
             // before newly navigated-to widgets are laid out, triggering a
             // NEEDS-LAYOUT assertion in _compareScreenOrder. Individual screens
             // that need selectable text use SelectableText directly instead.
-            final appContent = built;
+            //
+            // [WebAppStabilityBanner] is no-op on non-web; on web it surfaces a
+            // floating "page is stuck" banner with Recover / Reload actions
+            // when a screen reports being stuck.
+            final appContent = WebAppStabilityBanner(child: built);
 
             if (kReleaseMode) return appContent;
 
@@ -722,6 +747,53 @@ class _FirebaseInitializerState extends State<FirebaseInitializer> {
   }
 }
 
+/// Pauses the web Firestore stability probe while auth is unknown or signed out.
+class _WebWatchdogAuthBinding extends StatefulWidget {
+  const _WebWatchdogAuthBinding({
+    super.key,
+    required this.snapshot,
+    required this.child,
+  });
+
+  final AsyncSnapshot<User?> snapshot;
+  final Widget child;
+
+  @override
+  State<_WebWatchdogAuthBinding> createState() =>
+      _WebWatchdogAuthBindingState();
+}
+
+class _WebWatchdogAuthBindingState extends State<_WebWatchdogAuthBinding> {
+  @override
+  void initState() {
+    super.initState();
+    _sync(widget.snapshot);
+  }
+
+  @override
+  void didUpdateWidget(covariant _WebWatchdogAuthBinding oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final a = oldWidget.snapshot;
+    final b = widget.snapshot;
+    if (a.connectionState != b.connectionState ||
+        a.hasData != b.hasData ||
+        a.data?.uid != b.data?.uid) {
+      _sync(b);
+    }
+  }
+
+  void _sync(AsyncSnapshot<User?> s) {
+    if (!kIsWeb) return;
+    final paused = s.connectionState == ConnectionState.waiting ||
+        !s.hasData ||
+        s.data == null;
+    WebAppStabilityService.instance.setWatchdogPaused(paused);
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
+}
+
 class AuthenticationWrapper extends StatefulWidget {
   const AuthenticationWrapper({super.key});
 
@@ -798,6 +870,81 @@ class _AuthenticationWrapperState extends State<AuthenticationWrapper> {
     return _isMobileLayout(context);
   }
 
+  Widget _authSnapshotBody(
+      BuildContext context, AsyncSnapshot<User?> snapshot) {
+    if (snapshot.hasError) {
+      AppLogger.error('Auth state error: ${snapshot.error}');
+      return _isMobile(context)
+          ? const MobileLoginScreen()
+          : const EmployeeHubApp();
+    }
+    if (snapshot.connectionState == ConnectionState.waiting) {
+      return Scaffold(
+        backgroundColor: const Color(0xffF8FAFC),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 120,
+                height: 120,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.08),
+                      blurRadius: 24,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: Image.asset(
+                    'assets/Alluwal_Education_Hub_Logo.png',
+                    width: 120,
+                    height: 120,
+                    fit: BoxFit.contain,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              const CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Color(0xff0386FF)),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                AppLocalizations.of(context)!.commonLoading,
+                style: GoogleFonts.inter(
+                  fontSize: 16,
+                  color: const Color(0xff6B7280),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (snapshot.hasData && snapshot.data != null) {
+      final user = snapshot.data!;
+      ErrorReportingService.setUser(user.uid, email: user.email);
+      ErrorReportingService.addBreadcrumb('user_authenticated');
+      if (!kIsWeb) {
+        FirebaseCrashlytics.instance.setUserIdentifier(user.uid);
+      }
+
+      _triggerJoinLinkHandling();
+      return const RoleBasedDashboard();
+    }
+
+    ErrorReportingService.clearUser();
+    return _isMobile(context)
+        ? const MobileLoginScreen()
+        : const EmployeeHubApp();
+  }
+
   @override
   void dispose() {
     ConnectivityService.stopMonitoring();
@@ -858,121 +1005,10 @@ class _AuthenticationWrapperState extends State<AuthenticationWrapper> {
 
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
-      builder: (context, snapshot) {
-        // Handle errors gracefully during auth state changes
-        if (snapshot.hasError) {
-          AppLogger.error('Auth state error: ${snapshot.error}');
-          return _isMobile(context)
-              ? const MobileLoginScreen()
-              : const EmployeeHubApp();
-        }
-        // Handle connection states properly
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return Scaffold(
-            backgroundColor: const Color(0xffF8FAFC),
-            body: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    width: 120,
-                    height: 120,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.08),
-                          blurRadius: 24,
-                          offset: const Offset(0, 8),
-                        ),
-                      ],
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(16),
-                      child: Image.asset(
-                        'assets/Alluwal_Education_Hub_Logo.png',
-                        width: 120,
-                        height: 120,
-                        fit: BoxFit.contain,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  const CircularProgressIndicator(
-                    valueColor:
-                        AlwaysStoppedAnimation<Color>(Color(0xff0386FF)),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    AppLocalizations.of(context)!.commonLoading,
-                    style: GoogleFonts.inter(
-                      fontSize: 16,
-                      color: const Color(0xff6B7280),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        }
-
-        // Handle errors
-        if (snapshot.hasError) {
-          return Scaffold(
-            backgroundColor: const Color(0xffF8FAFC),
-            body: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(
-                    Icons.error_outline,
-                    color: Colors.red,
-                    size: 64,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    AppLocalizations.of(context)!.authenticationError,
-                    style: GoogleFonts.inter(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xff111827),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    AppLocalizations.of(context)!.pleaseRefreshThePage,
-                    style: GoogleFonts.inter(
-                      fontSize: 14,
-                      color: const Color(0xff6B7280),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        }
-
-        // If the snapshot has user data, then they're already signed in
-        if (snapshot.hasData && snapshot.data != null) {
-          // Set user context for error reporting so all errors are traceable
-          final user = snapshot.data!;
-          ErrorReportingService.setUser(user.uid, email: user.email);
-          ErrorReportingService.addBreadcrumb('user_authenticated');
-          if (!kIsWeb) {
-            FirebaseCrashlytics.instance.setUserIdentifier(user.uid);
-          }
-
-          _triggerJoinLinkHandling();
-          return const RoleBasedDashboard();
-        }
-
-        // Not signed in — clear user context
-        ErrorReportingService.clearUser();
-        return _isMobile(context)
-            ? const MobileLoginScreen()
-            : const EmployeeHubApp();
-      },
+      builder: (context, snapshot) => _WebWatchdogAuthBinding(
+        snapshot: snapshot,
+        child: _authSnapshotBody(context, snapshot),
+      ),
     );
   }
 }

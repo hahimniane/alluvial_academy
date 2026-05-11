@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -7,6 +8,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show rootBundle;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../constants/pricing_plan_ids.dart';
 import '../models/employee_model.dart';
@@ -66,13 +68,12 @@ abstract final class PublicSiteCmsService {
   static bool get _needsGuestMarketingRead =>
       FirebaseAuth.instance.currentUser == null;
 
-  static Future<Map<String, dynamic>?> _guestMarketingBundleFromCallable() async {
+  static Future<Map<String, dynamic>?>
+      _guestMarketingBundleFromCallable() async {
     final now = DateTime.now();
     final cached = _guestBundle;
     final at = _guestBundleFetchedAt;
-    if (cached != null &&
-        at != null &&
-        now.difference(at) < _guestBundleTtl) {
+    if (cached != null && at != null && now.difference(at) < _guestBundleTtl) {
       return cached;
     }
     try {
@@ -119,9 +120,7 @@ abstract final class PublicSiteCmsService {
       list.add(PublicSiteTeamMember.fromDoc(id, m));
     }
     list.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
-    return list
-        .where(teamMemberVisibleOnPublicSite)
-        .toList(growable: false);
+    return list.where(teamMemberVisibleOnPublicSite).toList(growable: false);
   }
 
   static const String pricingCollection = 'public_site_cms_pricing';
@@ -138,16 +137,20 @@ abstract final class PublicSiteCmsService {
       final bundle = await _guestMarketingBundleFromCallable();
       final raw = bundle?['pricing'];
       if (raw is Map) {
-        return PublicSiteCmsPricingDoc.fromFirestore(
+        final doc = PublicSiteCmsPricingDoc.fromFirestore(
           Map<String, dynamic>.from(raw as Map),
         );
+        unawaited(_writePricingDocCache(doc));
+        return doc;
       }
       // Callable not deployed yet, or failed — try Firestore if rules allow guest read.
       try {
         final snap =
             await _db.collection(pricingCollection).doc(pricingDocId).get();
         if (snap.exists && snap.data() != null) {
-          return PublicSiteCmsPricingDoc.fromFirestore(snap.data()!);
+          final doc = PublicSiteCmsPricingDoc.fromFirestore(snap.data()!);
+          unawaited(_writePricingDocCache(doc));
+          return doc;
         }
       } catch (_) {}
       return const PublicSiteCmsPricingDoc();
@@ -158,7 +161,9 @@ abstract final class PublicSiteCmsService {
       if (!snap.exists || snap.data() == null) {
         return const PublicSiteCmsPricingDoc();
       }
-      return PublicSiteCmsPricingDoc.fromFirestore(snap.data()!);
+      final doc = PublicSiteCmsPricingDoc.fromFirestore(snap.data()!);
+      unawaited(_writePricingDocCache(doc));
+      return doc;
     } catch (e, st) {
       AppLogger.debug('PublicSiteCmsService.getPricingDoc: $e\n$st');
       return const PublicSiteCmsPricingDoc();
@@ -182,15 +187,19 @@ abstract final class PublicSiteCmsService {
       final bundle = await _guestMarketingBundleFromCallable();
       final raw = bundle?['social'];
       if (raw is Map) {
-        return PublicSiteSocialDoc.fromFirestore(
+        final doc = PublicSiteSocialDoc.fromFirestore(
           Map<String, dynamic>.from(raw as Map),
         );
+        unawaited(_writeSocialDocCache(doc));
+        return doc;
       }
       try {
         final snap =
             await _db.collection(socialCollection).doc(socialDocId).get();
         if (snap.exists && snap.data() != null) {
-          return PublicSiteSocialDoc.fromFirestore(snap.data()!);
+          final doc = PublicSiteSocialDoc.fromFirestore(snap.data()!);
+          unawaited(_writeSocialDocCache(doc));
+          return doc;
         }
       } catch (_) {}
       return const PublicSiteSocialDoc();
@@ -201,7 +210,9 @@ abstract final class PublicSiteCmsService {
       if (!snap.exists || snap.data() == null) {
         return const PublicSiteSocialDoc();
       }
-      return PublicSiteSocialDoc.fromFirestore(snap.data()!);
+      final doc = PublicSiteSocialDoc.fromFirestore(snap.data()!);
+      unawaited(_writeSocialDocCache(doc));
+      return doc;
     } catch (e, st) {
       AppLogger.debug('PublicSiteCmsService.getSocialDoc: $e\n$st');
       return const PublicSiteSocialDoc();
@@ -228,15 +239,208 @@ abstract final class PublicSiteCmsService {
     _guestBundleFetchedAt = null;
   }
 
+  // ---------------------------------------------------------------------------
+  // SharedPreferences warm cache (landing / pricing / social)
+  //
+  // Web cold start has no Firestore IndexedDB persistence (intentionally
+  // disabled in [main.dart]) so every page reload re-fetches the public CMS
+  // over the network — and for guest users that means an HTTPS callable that
+  // can take 5–15 s on cold-start. Until it returns the UI shows hardcoded
+  // const-default doc values (navy hero, empty social icons, no plan
+  // overrides). To keep returning visitors from seeing that flash we mirror
+  // the last successful fetch into [SharedPreferences] and let callers hydrate
+  // synchronously on next launch.
+  // ---------------------------------------------------------------------------
+
+  static const String _kCacheKeyLanding = 'public_site_cms_landing_v1';
+  static const String _kCacheKeyPricing = 'public_site_cms_pricing_v1';
+  static const String _kCacheKeySocial = 'public_site_cms_social_v1';
+
+  /// Filled from [SharedPreferences] in [warmStartupDocsFromDiskCache] before
+  /// [runApp] so the first [LandingPage] frame can paint the last-known public
+  /// hero/pricing without waiting for an async microtask (avoids the default
+  /// navy/teal flash on warm reload for returning visitors).
+  static PublicSiteLandingDoc? _startupLandingFromDisk;
+  static PublicSiteCmsPricingDoc? _startupPricingFromDisk;
+
+  static PublicSiteLandingDoc landingDocForFirstPaint() {
+    return _startupLandingFromDisk ?? const PublicSiteLandingDoc();
+  }
+
+  static PublicSiteCmsPricingDoc pricingDocForFirstPaint() {
+    return _startupPricingFromDisk ?? const PublicSiteCmsPricingDoc();
+  }
+
+  static Future<void> warmStartupDocsFromDiskCache() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _startupLandingFromDisk = tryReadLandingDocFromCache(prefs);
+      _startupPricingFromDisk = tryReadPricingDocFromCache(prefs);
+    } catch (e, st) {
+      AppLogger.debug(
+        'PublicSiteCmsService.warmStartupDocsFromDiskCache: $e\n$st',
+      );
+      _startupLandingFromDisk = null;
+      _startupPricingFromDisk = null;
+    }
+  }
+
+  static Future<void> _writeLandingDocCache(PublicSiteLandingDoc doc) async {
+    _startupLandingFromDisk = doc;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final payload = jsonEncode(<String, dynamic>{
+        'heroBackgroundColorHex': doc.heroBackgroundColorHex,
+        'heroMainImageUrl': doc.heroMainImageUrl,
+        'heroLeftImageUrl': doc.heroLeftImageUrl,
+        'heroRightImageUrl': doc.heroRightImageUrl,
+        if (doc.updatedAt != null)
+          'updatedAt': doc.updatedAt!.toIso8601String(),
+      });
+      await prefs.setString(_kCacheKeyLanding, payload);
+    } catch (e, st) {
+      AppLogger.debug('PublicSiteCmsService._writeLandingDocCache: $e\n$st');
+    }
+  }
+
+  /// Synchronous read from a [SharedPreferences] instance the caller already
+  /// has. Returns null on miss or decode failure. Safe to call before any
+  /// network request.
+  static PublicSiteLandingDoc? tryReadLandingDocFromCache(
+    SharedPreferences prefs,
+  ) {
+    try {
+      final raw = prefs.getString(_kCacheKeyLanding);
+      if (raw == null || raw.isEmpty) return null;
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) return null;
+      final m = Map<String, dynamic>.from(decoded);
+      DateTime? updatedAt;
+      final ts = m['updatedAt'];
+      if (ts is String) updatedAt = DateTime.tryParse(ts);
+      final hex = (m['heroBackgroundColorHex'] ??
+              PublicSiteLandingDoc.defaultHeroBackgroundHex)
+          .toString()
+          .trim();
+      return PublicSiteLandingDoc(
+        heroBackgroundColorHex:
+            hex.isEmpty ? PublicSiteLandingDoc.defaultHeroBackgroundHex : hex,
+        heroMainImageUrl: (m['heroMainImageUrl'] ?? '').toString(),
+        heroLeftImageUrl: (m['heroLeftImageUrl'] ?? '').toString(),
+        heroRightImageUrl: (m['heroRightImageUrl'] ?? '').toString(),
+        updatedAt: updatedAt,
+      );
+    } catch (e, st) {
+      AppLogger.debug(
+        'PublicSiteCmsService.tryReadLandingDocFromCache: $e\n$st',
+      );
+      return null;
+    }
+  }
+
+  static Future<void> _writePricingDocCache(
+    PublicSiteCmsPricingDoc doc,
+  ) async {
+    _startupPricingFromDisk = doc;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final plansJson = doc.plans.map(
+        (k, v) => MapEntry(k, v.toMap()),
+      );
+      final payload = jsonEncode(<String, dynamic>{
+        'plans': plansJson,
+        if (doc.updatedAt != null)
+          'updatedAt': doc.updatedAt!.toIso8601String(),
+      });
+      await prefs.setString(_kCacheKeyPricing, payload);
+    } catch (e, st) {
+      AppLogger.debug('PublicSiteCmsService._writePricingDocCache: $e\n$st');
+    }
+  }
+
+  static PublicSiteCmsPricingDoc? tryReadPricingDocFromCache(
+    SharedPreferences prefs,
+  ) {
+    try {
+      final raw = prefs.getString(_kCacheKeyPricing);
+      if (raw == null || raw.isEmpty) return null;
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) return null;
+      final m = Map<String, dynamic>.from(decoded);
+      final plansRaw = m['plans'];
+      final plans = <String, PublicSitePlanPricing>{};
+      if (plansRaw is Map) {
+        plansRaw.forEach((key, value) {
+          if (key is! String) return;
+          if (value is Map) {
+            plans[key] = PublicSitePlanPricing.fromMap(
+              Map<String, dynamic>.from(
+                value.map((k, v) => MapEntry(k.toString(), v)),
+              ),
+            );
+          }
+        });
+      }
+      DateTime? updatedAt;
+      final ts = m['updatedAt'];
+      if (ts is String) updatedAt = DateTime.tryParse(ts);
+      return PublicSiteCmsPricingDoc(plans: plans, updatedAt: updatedAt);
+    } catch (e, st) {
+      AppLogger.debug(
+        'PublicSiteCmsService.tryReadPricingDocFromCache: $e\n$st',
+      );
+      return null;
+    }
+  }
+
+  static Future<void> _writeSocialDocCache(PublicSiteSocialDoc doc) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final payload = jsonEncode(<String, dynamic>{
+        'instagram': doc.instagram.toMap(),
+        'facebook': doc.facebook.toMap(),
+        'tiktok': doc.tiktok.toMap(),
+        if (doc.updatedAt != null)
+          'updatedAt': doc.updatedAt!.toIso8601String(),
+      });
+      await prefs.setString(_kCacheKeySocial, payload);
+    } catch (e, st) {
+      AppLogger.debug('PublicSiteCmsService._writeSocialDocCache: $e\n$st');
+    }
+  }
+
+  static PublicSiteSocialDoc? tryReadSocialDocFromCache(
+    SharedPreferences prefs,
+  ) {
+    try {
+      final raw = prefs.getString(_kCacheKeySocial);
+      if (raw == null || raw.isEmpty) return null;
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) return null;
+      final m = Map<String, dynamic>.from(decoded);
+      DateTime? updatedAt;
+      final ts = m['updatedAt'];
+      if (ts is String) updatedAt = DateTime.tryParse(ts);
+      return PublicSiteSocialDoc(
+        instagram: PublicSiteSocialNetwork.fromMap(m['instagram']),
+        facebook: PublicSiteSocialNetwork.fromMap(m['facebook']),
+        tiktok: PublicSiteSocialNetwork.fromMap(m['tiktok']),
+        updatedAt: updatedAt,
+      );
+    } catch (e, st) {
+      AppLogger.debug(
+        'PublicSiteCmsService.tryReadSocialDocFromCache: $e\n$st',
+      );
+      return null;
+    }
+  }
+
   static Stream<PublicSiteSocialDoc> socialDocStream() {
     if (_needsGuestMarketingRead) {
       return Stream.fromFuture(getSocialDoc());
     }
-    return _socialDocBroadcast ??= _db
-        .collection(socialCollection)
-        .doc(socialDocId)
-        .snapshots()
-        .map(
+    return _socialDocBroadcast ??=
+        _db.collection(socialCollection).doc(socialDocId).snapshots().map(
       (snap) {
         if (!snap.exists || snap.data() == null) {
           return const PublicSiteSocialDoc();
@@ -263,15 +467,19 @@ abstract final class PublicSiteCmsService {
       final bundle = await _guestMarketingBundleFromCallable();
       final raw = bundle?['landing'];
       if (raw is Map) {
-        return PublicSiteLandingDoc.fromFirestore(
+        final doc = PublicSiteLandingDoc.fromFirestore(
           Map<String, dynamic>.from(raw as Map),
         );
+        unawaited(_writeLandingDocCache(doc));
+        return doc;
       }
       try {
         final snap =
             await _db.collection(landingCollection).doc(landingDocId).get();
         if (snap.exists && snap.data() != null) {
-          return PublicSiteLandingDoc.fromFirestore(snap.data()!);
+          final doc = PublicSiteLandingDoc.fromFirestore(snap.data()!);
+          unawaited(_writeLandingDocCache(doc));
+          return doc;
         }
       } catch (_) {}
       return const PublicSiteLandingDoc();
@@ -282,7 +490,9 @@ abstract final class PublicSiteCmsService {
       if (!snap.exists || snap.data() == null) {
         return const PublicSiteLandingDoc();
       }
-      return PublicSiteLandingDoc.fromFirestore(snap.data()!);
+      final doc = PublicSiteLandingDoc.fromFirestore(snap.data()!);
+      unawaited(_writeLandingDocCache(doc));
+      return doc;
     } catch (e, st) {
       AppLogger.debug('PublicSiteCmsService.getLandingDoc: $e\n$st');
       return const PublicSiteLandingDoc();
@@ -295,11 +505,8 @@ abstract final class PublicSiteCmsService {
     if (_needsGuestMarketingRead) {
       return Stream.fromFuture(getLandingDoc());
     }
-    return _landingDocBroadcast ??= _db
-        .collection(landingCollection)
-        .doc(landingDocId)
-        .snapshots()
-        .map(
+    return _landingDocBroadcast ??=
+        _db.collection(landingCollection).doc(landingDocId).snapshots().map(
       (snap) {
         if (!snap.exists || snap.data() == null) {
           return const PublicSiteLandingDoc();
@@ -387,7 +594,8 @@ abstract final class PublicSiteCmsService {
   }
 
   /// For enrollment quote math (numeric overrides only).
-  static Future<Map<String, Map<String, dynamic>>> getPlanOverridesForQuotes() async {
+  static Future<Map<String, Map<String, dynamic>>>
+      getPlanOverridesForQuotes() async {
     final doc = await getPricingDoc();
     return doc.planOverridesForQuotes();
   }
@@ -395,7 +603,8 @@ abstract final class PublicSiteCmsService {
   static Stream<List<PublicSiteTeamMember>>? _teamMembersBroadcast;
 
   static Stream<List<PublicSiteTeamMember>> teamMembersStream() {
-    return _teamMembersBroadcast ??= _db.collection(teamCollection).snapshots().map((snap) {
+    return _teamMembersBroadcast ??=
+        _db.collection(teamCollection).snapshots().map((snap) {
       final list = snap.docs
           .map((d) => PublicSiteTeamMember.fromDoc(d.id, d.data()))
           .where(teamMemberVisibleOnPublicSite)
@@ -500,7 +709,8 @@ abstract final class PublicSiteCmsService {
   /// Admin directory search: Firestore `users` by UID / email (same fields as the
   /// legacy callable) plus in-memory match over shift-assignment pools (teachers +
   /// leaders), matching [ShiftService.getAvailableTeachers] / [getAvailableLeaders].
-  static Future<List<PublicSiteDirectoryUser>> searchDirectoryUsers(String query) async {
+  static Future<List<PublicSiteDirectoryUser>> searchDirectoryUsers(
+      String query) async {
     if (FirebaseAuth.instance.currentUser == null) {
       throw StateError('Must be signed in');
     }
@@ -520,7 +730,8 @@ abstract final class PublicSiteCmsService {
       out.add(row);
     }
 
-    PublicSiteDirectoryUser? rowFromUserDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
+    PublicSiteDirectoryUser? rowFromUserDoc(
+        DocumentSnapshot<Map<String, dynamic>> doc) {
       if (!doc.exists) return null;
       final d = doc.data()!;
       if (d['is_active'] == false) return null;
@@ -533,7 +744,8 @@ abstract final class PublicSiteCmsService {
       final displayName = '${fn.trim()} ${ln.trim()}'.trim().isNotEmpty
           ? '${fn.trim()} ${ln.trim()}'.trim()
           : (email.isNotEmpty ? email : uidField);
-      final userType = (d['user_type'] ?? d['userType'] ?? d['role'] ?? '').toString();
+      final userType =
+          (d['user_type'] ?? d['userType'] ?? d['role'] ?? '').toString();
       return PublicSiteDirectoryUser(
         uid: uidField,
         docId: doc.id,
@@ -554,7 +766,8 @@ abstract final class PublicSiteCmsService {
         final row = rowFromUserDoc(snap);
         if (row != null) add(row);
       } catch (e, st) {
-        AppLogger.debug('PublicSiteCmsService.searchDirectoryUsers uid doc: $e\n$st');
+        AppLogger.debug(
+            'PublicSiteCmsService.searchDirectoryUsers uid doc: $e\n$st');
       }
     }
 
@@ -569,7 +782,8 @@ abstract final class PublicSiteCmsService {
         if (row != null) add(row);
       }
     } catch (e, st) {
-      AppLogger.debug('PublicSiteCmsService.searchDirectoryUsers exact email: $e\n$st');
+      AppLogger.debug(
+          'PublicSiteCmsService.searchDirectoryUsers exact email: $e\n$st');
     }
 
     try {
@@ -584,7 +798,8 @@ abstract final class PublicSiteCmsService {
         if (row != null) add(row);
       }
     } catch (e, st) {
-      AppLogger.debug('PublicSiteCmsService.searchDirectoryUsers email prefix: $e\n$st');
+      AppLogger.debug(
+          'PublicSiteCmsService.searchDirectoryUsers email prefix: $e\n$st');
     }
 
     if (out.length < maxResults) {
@@ -602,8 +817,9 @@ abstract final class PublicSiteCmsService {
         for (final e in byId.values) {
           if (!e.isActive) continue;
           final name = '${e.firstName} ${e.lastName}'.trim();
-          final display =
-              name.isNotEmpty ? name : (e.email.isNotEmpty ? e.email : e.documentId);
+          final display = name.isNotEmpty
+              ? name
+              : (e.email.isNotEmpty ? e.email : e.documentId);
           final row = PublicSiteDirectoryUser(
             uid: e.documentId,
             docId: e.documentId,
@@ -615,7 +831,8 @@ abstract final class PublicSiteCmsService {
           add(row);
         }
       } catch (e, st) {
-        AppLogger.debug('PublicSiteCmsService.searchDirectoryUsers shift pools: $e\n$st');
+        AppLogger.debug(
+            'PublicSiteCmsService.searchDirectoryUsers shift pools: $e\n$st');
       }
     }
 
@@ -630,7 +847,8 @@ abstract final class PublicSiteCmsService {
   ///
   /// When [skipIfDocExists] is true, existing documents are left unchanged (counts
   /// as skipped). Safe to run multiple times.
-  static Future<({int imported, int skipped})> importBundledStaffJsonToFirestore({
+  static Future<({int imported, int skipped})>
+      importBundledStaffJsonToFirestore({
     bool skipIfDocExists = true,
   }) async {
     final user = FirebaseAuth.instance.currentUser;
@@ -727,7 +945,8 @@ abstract final class PublicSiteCmsService {
   ///
   /// When [force] is true (e.g. before each upload), always re-call the function so new `is_admin_teacher`
   /// or role changes are not blocked by the throttle window.
-  static Future<void> syncAdminClaimForPublicSiteStorage({bool force = false}) async {
+  static Future<void> syncAdminClaimForPublicSiteStorage(
+      {bool force = false}) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
     final now = DateTime.now();
@@ -748,7 +967,8 @@ abstract final class PublicSiteCmsService {
         'PublicSiteCmsService.syncAdminClaimForPublicSiteStorage: ${e.code} ${e.message}\n$st',
       );
     } catch (e, st) {
-      AppLogger.debug('PublicSiteCmsService.syncAdminClaimForPublicSiteStorage: $e\n$st');
+      AppLogger.debug(
+          'PublicSiteCmsService.syncAdminClaimForPublicSiteStorage: $e\n$st');
     }
   }
 

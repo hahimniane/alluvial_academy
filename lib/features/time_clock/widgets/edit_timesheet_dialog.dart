@@ -3,7 +3,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:alluwalacademyadmin/features/time_clock/enums/timesheet_enums.dart';
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 import 'package:alluwalacademyadmin/core/services/teacher_metrics_service.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
@@ -33,12 +32,12 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
   DateTime? _shiftStartTime;
   String? _adminTimezone;
   String? _teacherTimezone;
-  
+
   // Time controllers
   late TextEditingController _clockInTimeController;
   late TextEditingController _clockOutTimeController;
   late TextEditingController _notesController;
-  
+
   // Date for the timesheet
   DateTime? _timesheetDate;
   DateTime? _clockInDateTime;
@@ -47,12 +46,12 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
   @override
   void initState() {
     super.initState();
-    
+
     // Check if timesheet is approved - if so, show confirmation before editing
     final status = widget.timesheetData['status'] as String?;
     final editApproved = widget.timesheetData['edit_approved'] as bool?;
     final isApproved = status == 'approved' || editApproved == true;
-    
+
     if (isApproved) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
@@ -60,7 +59,7 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
         }
       });
     }
-    
+
     _initializeTimes();
     _notesController = TextEditingController(
       text: widget.timesheetData['employee_notes'] ?? '',
@@ -124,18 +123,19 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
           }
         }
       }
-      
+
       // If date parsing failed, use today
       _timesheetDate ??= DateTime.now();
 
       // Get clock-in time
       Timestamp? clockInTimestamp;
       if (widget.timesheetData['clock_in_timestamp'] != null) {
-        clockInTimestamp = widget.timesheetData['clock_in_timestamp'] as Timestamp;
+        clockInTimestamp =
+            widget.timesheetData['clock_in_timestamp'] as Timestamp;
       } else if (widget.timesheetData['clock_in_time'] != null) {
         clockInTimestamp = widget.timesheetData['clock_in_time'] as Timestamp;
       }
-      
+
       if (clockInTimestamp != null) {
         _clockInDateTime = clockInTimestamp.toDate();
       } else {
@@ -174,11 +174,12 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
       // Get clock-out time
       Timestamp? clockOutTimestamp;
       if (widget.timesheetData['clock_out_timestamp'] != null) {
-        clockOutTimestamp = widget.timesheetData['clock_out_timestamp'] as Timestamp;
+        clockOutTimestamp =
+            widget.timesheetData['clock_out_timestamp'] as Timestamp;
       } else if (widget.timesheetData['clock_out_time'] != null) {
         clockOutTimestamp = widget.timesheetData['clock_out_time'] as Timestamp;
       }
-      
+
       if (clockOutTimestamp != null) {
         _clockOutDateTime = clockOutTimestamp.toDate();
       } else {
@@ -221,7 +222,8 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
       _clockInDateTime = DateTime.now().copyWith(hour: 9, minute: 0);
       _clockOutDateTime = DateTime.now().copyWith(hour: 10, minute: 0);
       _clockInTimeController = TextEditingController(text: '9:00 AM');
-      _clockOutTimeController = TextEditingController(text: AppLocalizations.of(context)!.time1000Am);
+      _clockOutTimeController =
+          TextEditingController(text: AppLocalizations.of(context)!.time1000Am);
     }
   }
 
@@ -247,10 +249,12 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
           picked.hour,
           picked.minute,
         );
-        _clockInTimeController.text = DateFormat('h:mm a').format(_clockInDateTime!);
+        _clockInTimeController.text =
+            DateFormat('h:mm a').format(_clockInDateTime!);
         if (_clockOutDateTime != null) {
           _clockOutDateTime = _ensureClockOutAfterClockIn(_clockOutDateTime!);
-          _clockOutTimeController.text = DateFormat('h:mm a').format(_clockOutDateTime!);
+          _clockOutTimeController.text =
+              DateFormat('h:mm a').format(_clockOutDateTime!);
         }
       });
     }
@@ -266,7 +270,8 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
       }
 
       // Get the shift ID from the timesheet data
-      final shiftId = widget.timesheetData['shift_id'] ?? widget.timesheetData['shiftId'];
+      final shiftId =
+          widget.timesheetData['shift_id'] ?? widget.timesheetData['shiftId'];
       if (shiftId == null) {
         setState(() => _isCheckingShifts = false);
         return;
@@ -308,8 +313,11 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
         final followingShiftsQuery = await FirebaseFirestore.instance
             .collection('teaching_shifts')
             .where('teacher_id', isEqualTo: user.uid)
-            .where('shift_start', isGreaterThanOrEqualTo: Timestamp.fromDate(_shiftEndTime!))
-            .where('shift_start', isLessThanOrEqualTo: Timestamp.fromDate(_shiftEndTime!.add(const Duration(minutes: 15))))
+            .where('shift_start',
+                isGreaterThanOrEqualTo: Timestamp.fromDate(_shiftEndTime!))
+            .where('shift_start',
+                isLessThanOrEqualTo: Timestamp.fromDate(
+                    _shiftEndTime!.add(const Duration(minutes: 15))))
             .limit(1)
             .get();
 
@@ -347,7 +355,8 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
       return false;
     }
     final resolved = _ensureClockOutAfterClockIn(_clockOutDateTime!);
-    final ts = DateTime(_timesheetDate!.year, _timesheetDate!.month, _timesheetDate!.day);
+    final ts = DateTime(
+        _timesheetDate!.year, _timesheetDate!.month, _timesheetDate!.day);
     final od = DateTime(resolved.year, resolved.month, resolved.day);
     return od.isAfter(ts);
   }
@@ -379,12 +388,85 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
     return d.inSeconds / 3600.0;
   }
 
+  DateTime? _dateFromTimesheetValue(dynamic value) {
+    if (value is Timestamp) return value.toDate();
+    if (value is DateTime) return value;
+    if (value is String) return DateTime.tryParse(value);
+    return null;
+  }
+
+  int _clippedSeconds(DateTime? start, DateTime? end) {
+    if (start == null ||
+        end == null ||
+        _shiftStartTime == null ||
+        _shiftEndTime == null) {
+      return 0;
+    }
+    var clippedStart = start;
+    var clippedEnd = end;
+    for (var i = 0; i < 3 && !clippedEnd.isAfter(clippedStart); i++) {
+      clippedEnd = clippedEnd.add(const Duration(days: 1));
+    }
+    if (clippedStart.isBefore(_shiftStartTime!))
+      clippedStart = _shiftStartTime!;
+    if (clippedEnd.isAfter(_shiftEndTime!)) clippedEnd = _shiftEndTime!;
+    if (!clippedEnd.isAfter(clippedStart)) return 0;
+    return clippedEnd.difference(clippedStart).inSeconds;
+  }
+
+  Future<bool> _validateShiftTotalAfterEdit() async {
+    final shiftId =
+        widget.timesheetData['shift_id'] ?? widget.timesheetData['shiftId'];
+    if (shiftId == null || _shiftStartTime == null || _shiftEndTime == null) {
+      return true;
+    }
+
+    final scheduledSeconds =
+        _shiftEndTime!.difference(_shiftStartTime!).inSeconds;
+    if (scheduledSeconds <= 0) return true;
+
+    var totalSeconds = _clippedSeconds(_clockInDateTime, _clockOutDateTime);
+    final siblings = await FirebaseFirestore.instance
+        .collection('timesheet_entries')
+        .where('shift_id', isEqualTo: shiftId)
+        .get();
+
+    for (final doc in siblings.docs) {
+      if (doc.id == widget.timesheetId) continue;
+      final data = doc.data();
+      if ((data['status'] as String?)?.toLowerCase() == 'rejected') continue;
+      final clockIn = _dateFromTimesheetValue(
+        data['clock_in_timestamp'] ?? data['clock_in_time'] ?? data['clockIn'],
+      );
+      final clockOut = _dateFromTimesheetValue(
+        data['clock_out_timestamp'] ??
+            data['clock_out_time'] ??
+            data['clockOut'],
+      );
+      totalSeconds += _clippedSeconds(clockIn, clockOut);
+    }
+
+    if (totalSeconds <= scheduledSeconds + 1) return true;
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            AppLocalizations.of(context)!.timesheetEditTotalExceedsShift,
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+    return false;
+  }
+
   Future<void> _selectClockOutTime() async {
     // Prevent editing if there's a following shift
     if (_hasFollowingShift) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(AppLocalizations.of(context)!.cannotEditClockOutTimeYou),
+          content:
+              Text(AppLocalizations.of(context)!.cannotEditClockOutTimeYou),
           backgroundColor: Colors.orange,
           duration: const Duration(seconds: 4),
         ),
@@ -406,7 +488,8 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
       );
 
       // Enforce maximum clock-out time at shift end
-      if (_shiftEndTime != null && newClockOutDateTime.isAfter(_shiftEndTime!)) {
+      if (_shiftEndTime != null &&
+          newClockOutDateTime.isAfter(_shiftEndTime!)) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(AppLocalizations.of(context)!.timeClockClockOutExceed(
@@ -421,7 +504,8 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
 
       setState(() {
         _clockOutDateTime = newClockOutDateTime;
-        _clockOutTimeController.text = DateFormat('h:mm a').format(_clockOutDateTime!);
+        _clockOutTimeController.text =
+            DateFormat('h:mm a').format(_clockOutDateTime!);
       });
     }
   }
@@ -433,7 +517,8 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
     if (resolvedClockOut != _clockOutDateTime) {
       setState(() {
         _clockOutDateTime = resolvedClockOut;
-        _clockOutTimeController.text = DateFormat('h:mm a').format(resolvedClockOut);
+        _clockOutTimeController.text =
+            DateFormat('h:mm a').format(resolvedClockOut);
       });
     }
 
@@ -449,10 +534,13 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
       return;
     }
 
+    if (!await _validateShiftTotalAfterEdit()) return;
+
     setState(() => _isSaving = true);
 
     try {
-      final hourlyRate = (widget.timesheetData['hourly_rate'] as num?)?.toDouble() ?? 0.0;
+      final hourlyRate =
+          (widget.timesheetData['hourly_rate'] as num?)?.toDouble() ?? 0.0;
 
       final billableDuration = _billableDurationForEdit();
       final hoursWorked = _billableHoursForEdit();
@@ -460,14 +548,15 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
       final hours = billableDuration.inHours;
       final minutes = billableDuration.inMinutes % 60;
       final seconds = billableDuration.inSeconds % 60;
-      final totalHoursStr = '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+      final totalHoursStr =
+          '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
 
       final recalculatedPay = hoursWorked * hourlyRate;
 
-      final effectiveEnd = _shiftEndTime != null &&
-              _clockOutDateTime!.isAfter(_shiftEndTime!)
-          ? _shiftEndTime!
-          : _clockOutDateTime!;
+      final effectiveEnd =
+          _shiftEndTime != null && _clockOutDateTime!.isAfter(_shiftEndTime!)
+              ? _shiftEndTime!
+              : _clockOutDateTime!;
 
       // Format times for display
       final startTimeStr = DateFormat('h:mm a').format(_clockInDateTime!);
@@ -475,14 +564,17 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
 
       // Store original data before editing (for admin review)
       final originalData = <String, dynamic>{
-        'clock_in_timestamp': widget.timesheetData['clock_in_timestamp'] ?? widget.timesheetData['clock_in_time'],
-        'clock_out_timestamp': widget.timesheetData['clock_out_timestamp'] ?? widget.timesheetData['clock_out_time'],
+        'clock_in_timestamp': widget.timesheetData['clock_in_timestamp'] ??
+            widget.timesheetData['clock_in_time'],
+        'clock_out_timestamp': widget.timesheetData['clock_out_timestamp'] ??
+            widget.timesheetData['clock_out_time'],
         'start_time': widget.timesheetData['start_time'] ?? '',
         'end_time': widget.timesheetData['end_time'] ?? '',
         'total_hours': widget.timesheetData['total_hours'] ?? '00:00',
         'payment_amount': widget.timesheetData['payment_amount'],
         'total_pay': widget.timesheetData['total_pay'],
-        'effective_end_timestamp': widget.timesheetData['effective_end_timestamp'],
+        'effective_end_timestamp':
+            widget.timesheetData['effective_end_timestamp'],
       };
 
       // Update timesheet entry (includes recalculated pay)
@@ -502,13 +594,15 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
         'is_edited': true, // Mark as edited
         'edit_approved': false, // Edit not yet approved
         'original_data': originalData, // Store original data for comparison
-        
+
         // Audit fields for post-approval corrections
-        'approval_voided_at': widget.timesheetData['status'] == 'approved' || widget.timesheetData['edit_approved'] == true 
-            ? FieldValue.serverTimestamp() 
+        'approval_voided_at': widget.timesheetData['status'] == 'approved' ||
+                widget.timesheetData['edit_approved'] == true
+            ? FieldValue.serverTimestamp()
             : null,
         'previous_status': widget.timesheetData['status'],
-        'previous_payment_amount': widget.timesheetData['payment_amount'] ?? widget.timesheetData['total_pay'],
+        'previous_payment_amount': widget.timesheetData['payment_amount'] ??
+            widget.timesheetData['total_pay'],
       };
 
       await FirebaseFirestore.instance
@@ -521,7 +615,8 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(AppLocalizations.of(context)!.timesheetUpdatedSuccess),
+            content:
+                Text(AppLocalizations.of(context)!.timesheetUpdatedSuccess),
             backgroundColor: Colors.green,
           ),
         );
@@ -533,7 +628,8 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(AppLocalizations.of(context)!.errorUpdatingTimesheetE),
+            content:
+                Text(AppLocalizations.of(context)!.errorUpdatingTimesheetE),
             backgroundColor: Colors.red,
           ),
         );
@@ -601,13 +697,15 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
     }
     final hours = previewBillable.inHours;
     final minutes = previewBillable.inMinutes % 60;
-    final totalHoursStr = '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}';
+    final totalHoursStr =
+        '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}';
 
     final calculatedPayment = hoursWorked * hourlyRate.toDouble();
 
     // Get original payment for comparison
     final originalPayment = widget.timesheetData['payment_amount'] as num? ??
-                           widget.timesheetData['total_pay'] as num? ?? 0.0;
+        widget.timesheetData['total_pay'] as num? ??
+        0.0;
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -654,7 +752,7 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
                   ],
                 ),
                 const SizedBox(height: 24),
-                
+
                 // Info banner
                 Container(
                   padding: const EdgeInsets.all(12),
@@ -665,7 +763,8 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.info_outline, color: Color(0xFFD97706), size: 20),
+                      const Icon(Icons.info_outline,
+                          color: Color(0xFFD97706), size: 20),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
@@ -680,7 +779,7 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                
+
                 // Warning banner for following shift restriction
                 if (_hasFollowingShift)
                   Container(
@@ -692,11 +791,13 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.warning_amber, color: Color(0xFFEF4444), size: 20),
+                        const Icon(Icons.warning_amber,
+                            color: Color(0xFFEF4444), size: 20),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            AppLocalizations.of(context)!.clockOutTimeCannotBeEdited,
+                            AppLocalizations.of(context)!
+                                .clockOutTimeCannotBeEdited,
                             style: GoogleFonts.inter(
                               fontSize: 13,
                               color: const Color(0xFFEF4444),
@@ -708,7 +809,7 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
                     ),
                   ),
                 if (_hasFollowingShift) const SizedBox(height: 16),
-                
+
                 // Max time warning
                 if (_shiftEndTime != null && !_hasFollowingShift)
                   Container(
@@ -720,7 +821,8 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.access_time, color: Color(0xFF0386FF), size: 20),
+                        const Icon(Icons.access_time,
+                            color: Color(0xFF0386FF), size: 20),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
@@ -737,8 +839,9 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
                       ],
                     ),
                   ),
-                if (_shiftEndTime != null && !_hasFollowingShift) const SizedBox(height: 16),
-                
+                if (_shiftEndTime != null && !_hasFollowingShift)
+                  const SizedBox(height: 16),
+
                 // Timezone info
                 if (_adminTimezone != null || _teacherTimezone != null)
                   Container(
@@ -754,15 +857,17 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
                       children: [
                         if (_teacherTimezone != null)
                           _timezoneRow("Your Timezone", _teacherTimezone!),
-                        if (_adminTimezone != null && _adminTimezone != _teacherTimezone)
+                        if (_adminTimezone != null &&
+                            _adminTimezone != _teacherTimezone)
                           Padding(
                             padding: const EdgeInsets.only(top: 4),
-                            child: _timezoneRow("Shift Timezone (Admin)", _adminTimezone!),
+                            child: _timezoneRow(
+                                "Shift Timezone (Admin)", _adminTimezone!),
                           ),
                       ],
                     ),
                   ),
-                
+
                 const SizedBox(height: 8),
 
                 // Live Duration Readout
@@ -775,7 +880,8 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.timer_outlined, color: Color(0xFF0284C7), size: 20),
+                      const Icon(Icons.timer_outlined,
+                          color: Color(0xFF0284C7), size: 20),
                       const SizedBox(width: 12),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -790,9 +896,11 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
                           ),
                           Text(
                             () {
-                              if (_clockInDateTime == null || _clockOutDateTime == null) return "--:--:--";
+                              if (_clockInDateTime == null ||
+                                  _clockOutDateTime == null) return "--:--:--";
                               final duration = _billableDurationForEdit();
-                              if (duration.isNegative) return "Invalid (End before Start)";
+                              if (duration.isNegative)
+                                return "Invalid (End before Start)";
                               final hours = duration.inHours;
                               final minutes = duration.inMinutes % 60;
                               final seconds = duration.inSeconds % 60;
@@ -830,11 +938,13 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.calendar_today, size: 20, color: Color(0xFF64748B)),
+                      const Icon(Icons.calendar_today,
+                          size: 20, color: Color(0xFF64748B)),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
-                          DateFormat('EEEE, MMMM d, yyyy').format(_timesheetDate!),
+                          DateFormat('EEEE, MMMM d, yyyy')
+                              .format(_timesheetDate!),
                           style: GoogleFonts.inter(
                             fontSize: 16,
                             color: const Color(0xFF1E293B),
@@ -882,7 +992,8 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.access_time, size: 20, color: Color(0xFF0386FF)),
+                        const Icon(Icons.access_time,
+                            size: 20, color: Color(0xFF0386FF)),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Text(
@@ -893,7 +1004,8 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
                             ),
                           ),
                         ),
-                        const Icon(Icons.arrow_drop_down, color: Color(0xFF64748B)),
+                        const Icon(Icons.arrow_drop_down,
+                            color: Color(0xFF64748B)),
                       ],
                     ),
                   ),
@@ -934,7 +1046,8 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.access_time, size: 20, color: Color(0xFF10B981)),
+                        const Icon(Icons.access_time,
+                            size: 20, color: Color(0xFF10B981)),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Text(
@@ -945,7 +1058,8 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
                             ),
                           ),
                         ),
-                        const Icon(Icons.arrow_drop_down, color: Color(0xFF64748B)),
+                        const Icon(Icons.arrow_drop_down,
+                            color: Color(0xFF64748B)),
                       ],
                     ),
                   ),
@@ -1009,7 +1123,8 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.timer, size: 20, color: Color(0xFF10B981)),
+                      const Icon(Icons.timer,
+                          size: 20, color: Color(0xFF10B981)),
                       const SizedBox(width: 12),
                       Text(
                         '$totalHoursStr (${hours}h ${minutes}m)',
@@ -1042,10 +1157,9 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
                         : const Color(0xFFF0FDF4), // Green if same
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: calculatedPayment != originalPayment.toDouble()
-                          ? const Color(0xFFFCD34D)
-                          : const Color(0xFFBBF7D0)
-                    ),
+                        color: calculatedPayment != originalPayment.toDouble()
+                            ? const Color(0xFFFCD34D)
+                            : const Color(0xFFBBF7D0)),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1055,9 +1169,10 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
                           Icon(
                             Icons.attach_money,
                             size: 20,
-                            color: calculatedPayment != originalPayment.toDouble()
-                                ? const Color(0xFFD97706)
-                                : const Color(0xFF10B981),
+                            color:
+                                calculatedPayment != originalPayment.toDouble()
+                                    ? const Color(0xFFD97706)
+                                    : const Color(0xFF10B981),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
@@ -1069,12 +1184,14 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
                                   style: GoogleFonts.inter(
                                     fontSize: 18,
                                     fontWeight: FontWeight.w700,
-                                    color: calculatedPayment != originalPayment.toDouble()
+                                    color: calculatedPayment !=
+                                            originalPayment.toDouble()
                                         ? const Color(0xFFD97706)
                                         : const Color(0xFF15803D),
                                   ),
                                 ),
-                                if (calculatedPayment != originalPayment.toDouble())
+                                if (calculatedPayment !=
+                                    originalPayment.toDouble())
                                   Text(
                                     'Original: \$${originalPayment.toStringAsFixed(2)}',
                                     style: GoogleFonts.inter(
@@ -1129,7 +1246,8 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
                     return null;
                   },
                   decoration: InputDecoration(
-                    hintText: AppLocalizations.of(context)!.explainWhyYouAreEditingThis,
+                    hintText: AppLocalizations.of(context)!
+                        .explainWhyYouAreEditingThis,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -1145,7 +1263,8 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     TextButton(
-                      onPressed: _isSaving ? null : () => Navigator.of(context).pop(),
+                      onPressed:
+                          _isSaving ? null : () => Navigator.of(context).pop(),
                       child: Text(
                         AppLocalizations.of(context)!.commonCancel,
                         style: GoogleFonts.inter(
@@ -1159,7 +1278,8 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF0386FF),
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 24, vertical: 12),
                       ),
                       child: _isSaving
                           ? const SizedBox(
@@ -1167,11 +1287,13 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
                               height: 20,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                valueColor:
+                                    AlwaysStoppedAnimation<Color>(Colors.white),
                               ),
                             )
                           : Text(
-                              AppLocalizations.of(context)!.timesheetSaveChanges,
+                              AppLocalizations.of(context)!
+                                  .timesheetSaveChanges,
                               style: GoogleFonts.inter(
                                 fontWeight: FontWeight.w600,
                               ),

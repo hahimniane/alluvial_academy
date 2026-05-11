@@ -78,6 +78,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
   double _hoursThisWeek = 0;
   int _classesThisWeek = 0;
   int _totalStudents = 0;
+
   /// Month-to-date (same calendar month as [DateTime.now]).
   int _absencesMonth = 0;
   int _assignmentsMonthCount = 0;
@@ -101,6 +102,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
   StreamSubscription? _shiftsSubscription;
   StreamSubscription? _timesheetSubscription;
   StreamSubscription? _assignmentsSubscription;
+
   /// Live reload for assessment-tab stats; only [userId]+[yearMonth] — a second
   /// stream on [submittedBy] can hit permission-denied when any matching doc has
   /// a different [userId] (rules pick userId first in submissionOwnerFromData).
@@ -144,7 +146,8 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
   void _scheduleStatsReload(String teacherId) {
     _statsReloadDebounce?.cancel();
     _statsReloadDebounce = Timer(const Duration(milliseconds: 500), () {
-      if (mounted) _loadStats(teacherId);
+      if (!mounted) return;
+      _loadStats(teacherId);
     });
   }
 
@@ -198,24 +201,27 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
       onError: (e) {
         debugPrint('❌ Home: Shift stream error: $e');
       },
+      cancelOnError: false,
     );
 
-    // Listen for timesheet changes (clock-in/out, status changes)
+    // Listen for timesheet changes (clock-in/out, status changes).
+    // Same filter shape as [TeacherMetricsService.aggregate] (equality on teacher_id only).
+    // Do not add orderBy here: compound queries can fail Security Rules evaluation or require
+    // composite indexes; this listener only triggers stats reload, not sorted UI data.
     _timesheetSubscription = FirebaseFirestore.instance
         .collection('timesheet_entries')
         .where('teacher_id', isEqualTo: user.uid)
-        .orderBy('created_at', descending: true)
-        .limit(10) // Only listen to recent entries
         .snapshots()
         .listen((snapshot) {
       if (!mounted) return;
 
       // Reload stats when timesheets change
+      // Coalesce with shift/assignments/form_responses reloads to avoid overlapping runs.
       debugPrint('🔄 Home: Timesheets updated - reloading stats');
-      _loadStats(user.uid);
+      _scheduleStatsReload(user.uid);
     }, onError: (e) {
       debugPrint('❌ Home: Timesheet stream error: $e');
-    });
+    }, cancelOnError: false);
 
     _assignmentsSubscription = FirebaseFirestore.instance
         .collection('assignments')
@@ -226,7 +232,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
       _scheduleStatsReload(user.uid);
     }, onError: (e) {
       debugPrint('❌ Home: Assignments stream error: $e');
-    });
+    }, cancelOnError: false);
 
     // Audit Assignments tab uses form_responses (non-teaching, classified as assignment).
     final ym =
@@ -241,7 +247,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
       _scheduleStatsReload(user.uid);
     }, onError: (e) {
       debugPrint('❌ Home: form_responses (userId+yearMonth) stream error: $e');
-    });
+    }, cancelOnError: false);
   }
 
   /// Filter shifts for the selected date - EXCLUDE PAST SHIFTS
@@ -433,7 +439,14 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
     }
   }
 
-  Future<void> _loadStats(String teacherId) async {
+  /// Loads dashboard stats; never completes with an error (avoids unhandled async on web).
+  Future<void> _loadStats(String teacherId) {
+    return _loadStatsBody(teacherId).catchError((Object e, _) {
+      debugPrint('Error loading stats: $e');
+    });
+  }
+
+  Future<void> _loadStatsBody(String teacherId) async {
     try {
       final now = DateTime.now();
       final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
@@ -449,7 +462,8 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
       final startOfToday = DateTime(now.year, now.month, now.day, 0, 0, 0);
       final endOfToday = DateTime(now.year, now.month, now.day, 23, 59, 59);
 
-      debugPrint('📊 Loading stats for teacher: $teacherId via TeacherMetricsService');
+      debugPrint(
+          '📊 Loading stats for teacher: $teacherId via TeacherMetricsService');
 
       // Aggregate metrics for different periods using the canonical service
       final weekMetrics = await TeacherMetricsService.aggregate(
@@ -472,11 +486,10 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
 
       int assignmentsMtd = 0;
       try {
-        final yearMonth =
-            '${now.year}-${now.month.toString().padLeft(2, '0')}';
+        final yearMonth = '${now.year}-${now.month.toString().padLeft(2, '0')}';
         // Audit Assignments tab numeric row: assignments + quizzes + student assessments.
-        final auditTabNumericTotal =
-            await TeacherAuditService.countAuditAssignmentTabAssignmentsForYearMonth(
+        final auditTabNumericTotal = await TeacherAuditService
+            .countAuditAssignmentTabAssignmentsForYearMonth(
           teacherId: teacherId,
           yearMonth: yearMonth,
         );
@@ -500,19 +513,24 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
       }
 
       if (mounted) {
-        setState(() {
-          _hoursThisWeek = weekMetrics.hoursWorked;
-          _classesThisWeek = weekMetrics.completedClasses;
-          _earningsThisWeek = weekMetrics.payProjected;
-          _earningsThisMonth = monthMetrics.payProjected;
-          _earningsToday = todayMetrics.payProjected;
-          _pendingApprovals = monthMetrics.payPending > 0 ? 1 : 0; // Simplified for UI
-          _approvedThisWeek = weekMetrics.completedClasses; // Simplified
-          _totalStudents = 0; // Will be updated by separate call if needed
-          _absencesMonth = monthMetrics.missedClasses;
-          _lateClockInsMonth = monthMetrics.lateClockIns;
-          _assignmentsMonthCount = assignmentsMtd;
-        });
+        try {
+          setState(() {
+            _hoursThisWeek = weekMetrics.hoursWorked;
+            _classesThisWeek = weekMetrics.completedClasses;
+            _earningsThisWeek = weekMetrics.payProjected;
+            _earningsThisMonth = monthMetrics.payProjected;
+            _earningsToday = todayMetrics.payProjected;
+            _pendingApprovals =
+                monthMetrics.payPending > 0 ? 1 : 0; // Simplified for UI
+            _approvedThisWeek = weekMetrics.completedClasses; // Simplified
+            _totalStudents = 0; // Will be updated by separate call if needed
+            _absencesMonth = monthMetrics.missedClasses;
+            _lateClockInsMonth = monthMetrics.lateClockIns;
+            _assignmentsMonthCount = assignmentsMtd;
+          });
+        } catch (e) {
+          debugPrint('Error applying stats state: $e');
+        }
       }
     } catch (e) {
       debugPrint('Error loading stats: $e');
@@ -747,8 +765,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               IconButton(
-                icon: const Icon(Icons.podcasts,
-                    color: Colors.white, size: 24),
+                icon: const Icon(Icons.podcasts, color: Colors.white, size: 24),
                 onPressed: () {
                   Navigator.push(
                     context,
@@ -1491,8 +1508,8 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
       FormTemplate? template =
           await FormTemplateService.getActiveDailyTemplate(forceRefresh: false);
       if (template == null) {
-        template =
-            await FormTemplateService.getActiveDailyTemplate(forceRefresh: true);
+        template = await FormTemplateService.getActiveDailyTemplate(
+            forceRefresh: true);
       }
       template ??= FormTemplateService.defaultDailyClassReport;
 
@@ -1545,7 +1562,9 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: (isClockedIn ? const Color(0xFF10B981) : const Color(0xFF0E72ED))
+            color: (isClockedIn
+                    ? const Color(0xFF10B981)
+                    : const Color(0xFF0E72ED))
                 .withOpacity(0.3),
             blurRadius: 15,
             offset: const Offset(0, 8),
@@ -2796,6 +2815,19 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                   context,
                   MaterialPageRoute(
                       builder: (context) => const TeacherFormsScreen()),
+                );
+              },
+            ),
+            _buildQuickAccessItem(
+              icon: Icons.history_rounded,
+              label: l10n?.formMySubmissions ?? 'My submissions',
+              color: const Color(0xFF64748B),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const MySubmissionsScreen(),
+                  ),
                 );
               },
             ),

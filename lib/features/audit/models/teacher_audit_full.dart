@@ -367,6 +367,21 @@ class TeacherAuditFull {
         'periodEnd': periodEnd != null ? Timestamp.fromDate(periodEnd!) : null,
       };
 
+  /// Teacher Firebase uid as stored on [teacher_audits] — written as [userId]
+  /// and/or [oderId] depending on code path or legacy data.
+  static String teacherUidFromStoredAudit(
+    Map<String, dynamic> data,
+    String docId,
+  ) {
+    final u = data['userId']?.toString().trim();
+    if (u != null && u.isNotEmpty) return u;
+    final o = data['oderId']?.toString().trim();
+    if (o != null && o.isNotEmpty) return o;
+    final i = docId.lastIndexOf('_');
+    if (i > 0) return docId.substring(0, i);
+    return '';
+  }
+
   factory TeacherAuditFull.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
     return TeacherAuditFull.fromMap(data, doc.id);
@@ -375,7 +390,7 @@ class TeacherAuditFull {
   factory TeacherAuditFull.fromMap(Map<String, dynamic> data, String docId) {
     return TeacherAuditFull(
       id: docId,
-      oderId: data['userId'] ?? '',
+      oderId: teacherUidFromStoredAudit(data, docId),
       teacherEmail: data['teacherEmail'] ?? '',
       teacherName: data['teacherName'] ?? '',
       yearMonth: data['yearMonth'] ?? '',
@@ -485,6 +500,22 @@ class TeacherAuditFull {
       periodEnd: (data['periodEnd'] as Timestamp?)?.toDate(),
     );
   }
+
+  /// Daily form tied to a [missed] teaching shift: admin must set
+  /// [makeupApprovalStatus] to approved or rejected before coach evaluation submit.
+  static bool formNeedsMakeupAdminDecision(Map<String, dynamic> form) {
+    final kind = form['acceptanceKind']?.toString();
+    if (kind != 'missed_shift_linked' && kind != 'no_timesheet_makeup') {
+      return false;
+    }
+    final raw = form['makeupApprovalStatus'];
+    final m = raw == null ? '' : raw.toString().trim().toLowerCase();
+    return m != 'rejected' && m != 'approved';
+  }
+
+  int get pendingMakeupAdminDecisionsCount =>
+      detailedForms.where(formNeedsMakeupAdminDecision).length +
+      detailedFormsNoSchedule.where(formNeedsMakeupAdminDecision).length;
 
   /// Get the 16 mandatory audit factors (matches Excel structure)
   static List<AuditFactor> getDefaultAuditFactors() {
@@ -1079,6 +1110,26 @@ class SubjectPayment {
     required this.netAmount,
   });
 
+  SubjectPayment copyWith({
+    String? subjectName,
+    double? hoursTaught,
+    double? hourlyRate,
+    double? grossAmount,
+    double? penalties,
+    double? bonuses,
+    double? netAmount,
+  }) {
+    return SubjectPayment(
+      subjectName: subjectName ?? this.subjectName,
+      hoursTaught: hoursTaught ?? this.hoursTaught,
+      hourlyRate: hourlyRate ?? this.hourlyRate,
+      grossAmount: grossAmount ?? this.grossAmount,
+      penalties: penalties ?? this.penalties,
+      bonuses: bonuses ?? this.bonuses,
+      netAmount: netAmount ?? this.netAmount,
+    );
+  }
+
   Map<String, dynamic> toMap() => {
         'subjectName': subjectName,
         'hoursTaught': hoursTaught,
@@ -1112,6 +1163,15 @@ enum AuditStatus {
   founderReview, // Unused — reserved for future workflow
   completed, // Fully approved
   disputed, // Teacher disputed something
+}
+
+/// Parses [AuditStatus.name] from Firestore; returns null if unknown.
+AuditStatus? auditStatusFromName(String? name) {
+  if (name == null || name.isEmpty) return null;
+  for (final v in AuditStatus.values) {
+    if (v.name == name) return v;
+  }
+  return null;
 }
 
 /// Review chain tracking who reviewed and when
@@ -1213,6 +1273,9 @@ class TeacherDispute {
   final String adminResponse;
   final DateTime? resolvedAt;
 
+  /// Top-level [AuditStatus.name] before the teacher opened this dispute (restore on resolve).
+  final String? auditStatusBeforeDispute;
+
   const TeacherDispute({
     required this.teacherId,
     required this.disputedAt,
@@ -1222,6 +1285,7 @@ class TeacherDispute {
     required this.status,
     required this.adminResponse,
     this.resolvedAt,
+    this.auditStatusBeforeDispute,
   });
 
   Map<String, dynamic> toMap() => {
@@ -1234,6 +1298,8 @@ class TeacherDispute {
         'adminResponse': adminResponse,
         'resolvedAt':
             resolvedAt != null ? Timestamp.fromDate(resolvedAt!) : null,
+        if (auditStatusBeforeDispute != null)
+          'auditStatusBeforeDispute': auditStatusBeforeDispute,
       };
 
   factory TeacherDispute.fromMap(Map<String, dynamic> map) {
@@ -1246,6 +1312,7 @@ class TeacherDispute {
       status: map['status'] ?? 'pending',
       adminResponse: map['adminResponse'] ?? '',
       resolvedAt: (map['resolvedAt'] as Timestamp?)?.toDate(),
+      auditStatusBeforeDispute: map['auditStatusBeforeDispute'] as String?,
     );
   }
 }

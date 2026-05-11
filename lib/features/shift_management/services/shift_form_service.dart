@@ -40,14 +40,15 @@ class ShiftFormService {
         return template.id;
       }
     } catch (e) {
-      AppLogger.error('ShiftFormService: Error getting active daily template: $e');
+      AppLogger.error(
+          'ShiftFormService: Error getting active daily template: $e');
     }
 
     AppLogger.warning(
         'ShiftFormService: No active daily template found, falling back to legacy form ID');
     return await FormConfigService.getReadinessFormId();
   }
-  
+
   /// Synchronous getter for backward compatibility - uses cached value or fallback
   /// WARNING: This may return stale data. Prefer getReadinessFormId() when possible.
   @Deprecated('Use getReadinessFormId() instead for fresh config values')
@@ -75,16 +76,17 @@ class ShiftFormService {
           'ShiftFormService: No active daily template available for readiness');
       return null;
     } catch (e) {
-      AppLogger.error('ShiftFormService: Error getting readiness form template: $e');
+      AppLogger.error(
+          'ShiftFormService: Error getting readiness form template: $e');
       return null;
     }
   }
-  
+
   /// Convert new FormTemplate format to old form format for UI compatibility
   static Map<String, dynamic> _convertTemplateToFormFormat(dynamic template) {
     // template is a FormTemplate object
     final fields = <Map<String, dynamic>>[];
-    
+
     for (final field in template.fields) {
       fields.add({
         'id': field.id,
@@ -97,7 +99,7 @@ class ShiftFormService {
         'validation': field.validation,
       });
     }
-    
+
     return {
       'id': template.id,
       'name': template.name,
@@ -108,7 +110,7 @@ class ShiftFormService {
       'isPilotTemplate': true, // Flag to identify new template system
     };
   }
-  
+
   /// Map new field types to old field types for UI compatibility
   static String _mapFieldType(String newType) {
     switch (newType) {
@@ -136,40 +138,55 @@ class ShiftFormService {
   /// Resolves the latest daily / per-session form response document id for this shift
   /// and the signed-in teacher. Uses `teaching_shifts.form_response_id` when set, then
   /// queries `shiftId`, `shift_id`, and `linked_shift_id` (same keys as admin submissions UI).
-  static Future<String?> loadLatestFormResponseDocumentIdForShift(String shiftId) async {
+  static Future<String?> loadLatestFormResponseDocumentIdForShift(
+      String shiftId) async {
     try {
       final user = _auth.currentUser;
       if (user == null) return null;
 
-      final shiftDoc = await _firestore.collection('teaching_shifts').doc(shiftId).get();
+      final shiftDoc =
+          await _firestore.collection('teaching_shifts').doc(shiftId).get();
       if (shiftDoc.exists) {
         final sd = shiftDoc.data();
         final fid = sd?['form_response_id']?.toString();
         if (fid != null && fid.isNotEmpty) {
-          final fd = await _firestore.collection('form_responses').doc(fid).get();
+          final fd =
+              await _firestore.collection('form_responses').doc(fid).get();
           if (fd.exists) return fid;
         }
       }
 
-      Future<List<QueryDocumentSnapshot<Map<String, dynamic>>>> runQuery(String field) async {
-        try {
-          final q = await _firestore
-              .collection('form_responses')
-              .where(field, isEqualTo: shiftId)
-              .where('userId', isEqualTo: user.uid)
-              .limit(20)
-              .get();
-          return q.docs;
-        } catch (e) {
-          AppLogger.warning('ShiftFormService: form_responses query $field failed: $e');
-          return [];
+      final all = <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+      Future<void> collectForShiftField(String shiftField) async {
+        const uidFields = [
+          'userId',
+          'submittedBy',
+          'submitted_by',
+          'teacher_id',
+          'teacherId',
+        ];
+        for (final uidField in uidFields) {
+          try {
+            final q = await _firestore
+                .collection('form_responses')
+                .where(shiftField, isEqualTo: shiftId)
+                .where(uidField, isEqualTo: user.uid)
+                .limit(20)
+                .get();
+            for (final d in q.docs) {
+              all.add(d);
+            }
+          } catch (e) {
+            AppLogger.warning(
+              'ShiftFormService: form_responses $shiftField+$uidField failed: $e',
+            );
+          }
         }
       }
 
-      final all = <QueryDocumentSnapshot<Map<String, dynamic>>>[];
-      all.addAll(await runQuery('shiftId'));
-      all.addAll(await runQuery('shift_id'));
-      all.addAll(await runQuery('linked_shift_id'));
+      await collectForShiftField('shiftId');
+      await collectForShiftField('shift_id');
+      await collectForShiftField('linked_shift_id');
 
       final byId = <String, QueryDocumentSnapshot<Map<String, dynamic>>>{};
       for (final d in all) {
@@ -198,7 +215,8 @@ class ShiftFormService {
     }
   }
 
-  static Future<Map<String, dynamic>?> loadLatestFormResponseDataForShift(String shiftId) async {
+  static Future<Map<String, dynamic>?> loadLatestFormResponseDataForShift(
+      String shiftId) async {
     final id = await loadLatestFormResponseDocumentIdForShift(shiftId);
     if (id == null) return null;
     final doc = await _firestore.collection('form_responses').doc(id).get();
@@ -228,49 +246,57 @@ class ShiftFormService {
           .collection('timesheet_entries')
           .where('teacher_id', isEqualTo: user.uid)
           .where('clock_out_time', isNotEqualTo: null)
-          .where('created_at', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
+          .where('created_at',
+              isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
           .where('created_at', isLessThan: Timestamp.fromDate(endOfDay))
           .get();
 
       // Track processed shiftIds to prevent duplicates
       final processedShiftIds = <String>{};
-      
+
       for (final doc in timesheetQuery.docs) {
         final data = doc.data();
         final formCompleted = data['form_completed'] ?? false;
-        
+
         if (!formCompleted) {
           final shiftId = data['shift_id'] ?? data['shiftId'];
           if (shiftId == null || processedShiftIds.contains(shiftId)) {
             continue; // Skip if no shiftId or already processed
           }
           processedShiftIds.add(shiftId);
-          
+
           // Convert Timestamp to DateTime to avoid type cast errors
-          final clockInTime = _asDateTime(data['clock_in_time'] ?? data['clock_in_timestamp']);
-          final clockOutTime = _asDateTime(data['clock_out_time'] ?? data['clock_out_timestamp']);
-          
+          final clockInTime =
+              _asDateTime(data['clock_in_time'] ?? data['clock_in_timestamp']);
+          final clockOutTime = _asDateTime(
+              data['clock_out_time'] ?? data['clock_out_timestamp']);
+
           // Fetch shift data to get student names and subject
           List<String> studentNames = [];
           String? subject;
           try {
             if (shiftId != null) {
-              final shiftDoc = await _firestore.collection('teaching_shifts').doc(shiftId).get();
+              final shiftDoc = await _firestore
+                  .collection('teaching_shifts')
+                  .doc(shiftId)
+                  .get();
               if (shiftDoc.exists) {
                 final shiftData = shiftDoc.data() ?? {};
                 studentNames = (shiftData['student_names'] as List<dynamic>?)
-                    ?.map((e) => e.toString())
-                    .where((e) => e.isNotEmpty)
-                    .toList() ?? [];
-                subject = shiftData['auto_generated_name'] ?? 
-                         shiftData['custom_name'] ?? 
-                         shiftData['subject_display_name'] as String?;
+                        ?.map((e) => e.toString())
+                        .where((e) => e.isNotEmpty)
+                        .toList() ??
+                    [];
+                subject = shiftData['auto_generated_name'] ??
+                    shiftData['custom_name'] ??
+                    shiftData['subject_display_name'] as String?;
               }
             }
           } catch (e) {
-            AppLogger.error('ShiftFormService: Error fetching shift data for $shiftId: $e');
+            AppLogger.error(
+                'ShiftFormService: Error fetching shift data for $shiftId: $e');
           }
-          
+
           pendingForms.add({
             'timesheetId': doc.id,
             'shiftId': shiftId,
@@ -287,18 +313,19 @@ class ShiftFormService {
       // 2. Get missed shifts (no timesheet entries) that need forms
       // Look for shifts marked as "missed" in the last 7 days that don't have form responses
       final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
-      
+
       final missedShiftsQuery = await _firestore
           .collection('teaching_shifts')
           .where('teacher_id', isEqualTo: user.uid)
           .where('status', isEqualTo: 'missed')
-          .where('shift_end', isGreaterThanOrEqualTo: Timestamp.fromDate(sevenDaysAgo))
+          .where('shift_end',
+              isGreaterThanOrEqualTo: Timestamp.fromDate(sevenDaysAgo))
           .get();
 
       for (final shiftDoc in missedShiftsQuery.docs) {
         final shiftData = shiftDoc.data();
         final shiftId = shiftDoc.id;
-        
+
         // Check if form already exists for this shift
         final formResponseId = await getFormResponseForShift(shiftId);
         if (formResponseId != null) {
@@ -312,7 +339,7 @@ class ShiftFormService {
             .where('teacher_id', isEqualTo: user.uid)
             .limit(1)
             .get();
-        
+
         if (timesheetCheck.docs.isNotEmpty) {
           continue; // Has timesheet, already handled above
         }
@@ -322,38 +349,42 @@ class ShiftFormService {
           continue;
         }
         processedShiftIds.add(shiftId);
-        
+
         // This is a missed shift without timesheet - needs form
         final shiftStart = _asDateTime(shiftData['shift_start']);
         final shiftEnd = _asDateTime(shiftData['shift_end']);
-        
+
         // Get student names from shift data
         final studentNames = (shiftData['student_names'] as List<dynamic>?)
-            ?.map((e) => e.toString())
-            .where((e) => e.isNotEmpty)
-            .toList() ?? [];
-        final subject = shiftData['auto_generated_name'] ?? 
-                       shiftData['custom_name'] ?? 
-                       shiftData['subject_display_name'] as String?;
-        
+                ?.map((e) => e.toString())
+                .where((e) => e.isNotEmpty)
+                .toList() ??
+            [];
+        final subject = shiftData['auto_generated_name'] ??
+            shiftData['custom_name'] ??
+            shiftData['subject_display_name'] as String?;
+
         pendingForms.add({
           'shiftId': shiftId,
-          'shiftTitle': shiftData['auto_generated_name'] ?? 
-                       shiftData['custom_name'] ?? 
-                       'Unknown Shift',
+          'shiftTitle': shiftData['auto_generated_name'] ??
+              shiftData['custom_name'] ??
+              'Unknown Shift',
           'shiftStart': shiftStart,
           'shiftEnd': shiftEnd,
           'studentNames': studentNames,
           'subject': subject,
-          'missedReason': shiftData['missed_reason'] ?? 'Teacher did not clock in',
+          'missedReason':
+              shiftData['missed_reason'] ?? 'Teacher did not clock in',
           'type': 'missed', // No timesheet entry
         });
       }
 
       // Sort by shift end time (most recent first)
       pendingForms.sort((a, b) {
-        final aTime = _asDateTime(a['shiftEnd']) ?? _asDateTime(a['clockOutTime']);
-        final bTime = _asDateTime(b['shiftEnd']) ?? _asDateTime(b['clockOutTime']);
+        final aTime =
+            _asDateTime(a['shiftEnd']) ?? _asDateTime(a['clockOutTime']);
+        final bTime =
+            _asDateTime(b['shiftEnd']) ?? _asDateTime(b['clockOutTime']);
         if (aTime == null && bTime == null) return 0;
         if (aTime == null) return 1;
         if (bTime == null) return -1;
@@ -383,7 +414,8 @@ class ShiftFormService {
         'form_completed_at': FieldValue.serverTimestamp(),
       });
 
-      AppLogger.debug('ShiftFormService: Linked form $formResponseId to timesheet $timesheetId');
+      AppLogger.debug(
+          'ShiftFormService: Linked form $formResponseId to timesheet $timesheetId');
       return true;
     } catch (e) {
       AppLogger.error('ShiftFormService: Error linking form to timesheet: $e');
@@ -408,7 +440,8 @@ class ShiftFormService {
         'form_notes': formNotes,
       });
 
-      AppLogger.debug('ShiftFormService: Linked form $formResponseId to shift $shiftId');
+      AppLogger.debug(
+          'ShiftFormService: Linked form $formResponseId to shift $shiftId');
       return true;
     } catch (e) {
       AppLogger.error('ShiftFormService: Error linking form to shift: $e');
@@ -429,7 +462,7 @@ class ShiftFormService {
 
       // Get form ID from config
       final formId = await getReadinessFormId();
-      
+
       // Get user details
       final userDoc = await _firestore.collection('users').doc(user.uid).get();
       final userData = userDoc.data() ?? {};
@@ -454,7 +487,8 @@ class ShiftFormService {
         'status': 'completed',
       };
 
-      final docRef = await _firestore.collection('form_responses').add(formResponseData);
+      final docRef =
+          await _firestore.collection('form_responses').add(formResponseData);
 
       // Update timesheet entry with form link
       await linkFormToTimesheet(
@@ -463,7 +497,8 @@ class ShiftFormService {
         reportedHours: reportedHours,
       );
 
-      AppLogger.debug('ShiftFormService: Submitted readiness form ${docRef.id}');
+      AppLogger.debug(
+          'ShiftFormService: Submitted readiness form ${docRef.id}');
       return docRef.id;
     } catch (e) {
       AppLogger.error('ShiftFormService: Error submitting readiness form: $e');
@@ -472,9 +507,13 @@ class ShiftFormService {
   }
 
   /// Get form completion statistics for export
-  static Future<Map<String, dynamic>> getFormDataForTimesheet(String timesheetId) async {
+  static Future<Map<String, dynamic>> getFormDataForTimesheet(
+      String timesheetId) async {
     try {
-      final timesheetDoc = await _firestore.collection('timesheet_entries').doc(timesheetId).get();
+      final timesheetDoc = await _firestore
+          .collection('timesheet_entries')
+          .doc(timesheetId)
+          .get();
       if (!timesheetDoc.exists) return {};
 
       final data = timesheetDoc.data()!;
@@ -488,7 +527,10 @@ class ShiftFormService {
         };
       }
 
-      final formResponseDoc = await _firestore.collection('form_responses').doc(formResponseId).get();
+      final formResponseDoc = await _firestore
+          .collection('form_responses')
+          .doc(formResponseId)
+          .get();
       if (!formResponseDoc.exists) {
         return {
           'formCompleted': true,
@@ -507,7 +549,8 @@ class ShiftFormService {
         'formResponses': responses,
       };
     } catch (e) {
-      AppLogger.error('ShiftFormService: Error getting form data for timesheet: $e');
+      AppLogger.error(
+          'ShiftFormService: Error getting form data for timesheet: $e');
       return {};
     }
   }
@@ -534,8 +577,10 @@ class ShiftFormService {
       final query = await _firestore
           .collection('form_responses')
           .where('userId', isEqualTo: teacherId)
-          .where('submittedAt', isGreaterThanOrEqualTo: Timestamp.fromDate(startDate))
-          .where('submittedAt', isLessThanOrEqualTo: Timestamp.fromDate(endDate))
+          .where('submittedAt',
+              isGreaterThanOrEqualTo: Timestamp.fromDate(startDate))
+          .where('submittedAt',
+              isLessThanOrEqualTo: Timestamp.fromDate(endDate))
           .get();
 
       final result = <String, Map<String, dynamic>>{};
@@ -553,7 +598,8 @@ class ShiftFormService {
       }
       return result;
     } catch (e) {
-      AppLogger.error('ShiftFormService: Error getting form responses for export: $e');
+      AppLogger.error(
+          'ShiftFormService: Error getting form responses for export: $e');
       return {};
     }
   }

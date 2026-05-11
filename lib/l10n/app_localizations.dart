@@ -2837,6 +2837,18 @@ abstract class AppLocalizations {
   /// **'No form submissions yet'**
   String get formNoSubmissionsYet;
 
+  /// No description provided for @mySubmissionsMonthScopeHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Only submissions dated in the selected month are shown. Use View all to see other months.'**
+  String get mySubmissionsMonthScopeHint;
+
+  /// No description provided for @mySubmissionsNoFormIdGroupTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Submissions without form ID'**
+  String get mySubmissionsNoFormIdGroupTitle;
+
   /// No description provided for @adminAllSubmissionsTitle.
   ///
   /// In en, this message translates to:
@@ -3032,8 +3044,51 @@ abstract class AppLocalizations {
   /// No description provided for @adminSubmissionsExportProgressSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Preparing your file. Progress per person:'**
+  /// **'Please keep this window open. Large exports may take a moment.'**
   String get adminSubmissionsExportProgressSubtitle;
+
+  /// No description provided for @adminSubmissionsExportPhaseLoadingShifts.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading linked shifts…'**
+  String get adminSubmissionsExportPhaseLoadingShifts;
+
+  /// No description provided for @adminSubmissionsExportPhaseLoadingLabels.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading form field labels…'**
+  String get adminSubmissionsExportPhaseLoadingLabels;
+
+  /// No description provided for @adminSubmissionsExportPhaseLoadingFonts.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading PDF fonts…'**
+  String get adminSubmissionsExportPhaseLoadingFonts;
+
+  /// No description provided for @adminSubmissionsExportPhaseWritingSheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Writing sheets…'**
+  String get adminSubmissionsExportPhaseWritingSheet;
+
+  /// No description provided for @adminSubmissionsExportPhaseBuildingFile.
+  ///
+  /// In en, this message translates to:
+  /// **'Building file…'**
+  String get adminSubmissionsExportPhaseBuildingFile;
+
+  /// No description provided for @adminSubmissionsExportPhaseStartingDownload.
+  ///
+  /// In en, this message translates to:
+  /// **'Starting download…'**
+  String get adminSubmissionsExportPhaseStartingDownload;
+
+  /// No description provided for @adminSubmissionsExportFormSheetProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'{current} / {total} — {formName}'**
+  String adminSubmissionsExportFormSheetProgress(
+      int current, int total, String formName);
 
   /// No description provided for @adminSubmissionsSelectToViewDetails.
   ///
@@ -3448,6 +3503,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Timesheet updated successfully. Awaiting admin approval.'**
   String get timesheetUpdatedSuccess;
+
+  /// No description provided for @timesheetEditTotalExceedsShift.
+  ///
+  /// In en, this message translates to:
+  /// **'This edit would make total clocked time for the shift exceed the scheduled duration.'**
+  String get timesheetEditTotalExceedsShift;
 
   /// No description provided for @timesheetDetails.
   ///
@@ -8465,6 +8526,12 @@ abstract class AppLocalizations {
   /// **'Hours taught'**
   String get auditHoursTaught;
 
+  /// No description provided for @auditClassLogTablePayFilterEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No rows match the payable-activity filter. The summary above reflects the full audit month.'**
+  String get auditClassLogTablePayFilterEmpty;
+
   /// No description provided for @auditCompletionRateLabel.
   ///
   /// In en, this message translates to:
@@ -8476,6 +8543,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Late clock-ins'**
   String get auditLateClockInsLabel;
+
+  /// No description provided for @auditClockSegmentCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one{1 segment} other{{count} segments}}'**
+  String auditClockSegmentCount(int count);
+
+  /// No description provided for @auditClockSegmentsHeader.
+  ///
+  /// In en, this message translates to:
+  /// **'Clock segments'**
+  String get auditClockSegmentsHeader;
+
+  /// No description provided for @auditClockSessionPay.
+  ///
+  /// In en, this message translates to:
+  /// **'Session pay'**
+  String get auditClockSessionPay;
 
   /// No description provided for @auditClassesMissedLabel.
   ///
@@ -8572,6 +8657,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Rejected (no timesheet)'**
   String get auditFormStatusRejectedNoTimesheet;
+
+  /// No description provided for @auditFormStatusRejectedMakeupRejected.
+  ///
+  /// In en, this message translates to:
+  /// **'Rejected (makeup declined)'**
+  String get auditFormStatusRejectedMakeupRejected;
 
   /// No description provided for @auditFormsTabStatTotalTeaching.
   ///
@@ -8963,6 +9054,60 @@ abstract class AppLocalizations {
   /// **'Field'**
   String get teacherAuditDisputeFieldLabel;
 
+  /// No description provided for @teacherAuditDisputeOptionClassesCount.
+  ///
+  /// In en, this message translates to:
+  /// **'Number of classes'**
+  String get teacherAuditDisputeOptionClassesCount;
+
+  /// No description provided for @teacherAuditDisputeOptionHoursTaught.
+  ///
+  /// In en, this message translates to:
+  /// **'Hours taught'**
+  String get teacherAuditDisputeOptionHoursTaught;
+
+  /// No description provided for @teacherAuditDisputeOptionPunctualityRate.
+  ///
+  /// In en, this message translates to:
+  /// **'Punctuality rate'**
+  String get teacherAuditDisputeOptionPunctualityRate;
+
+  /// No description provided for @teacherAuditDisputeOptionFormsCount.
+  ///
+  /// In en, this message translates to:
+  /// **'Number of forms'**
+  String get teacherAuditDisputeOptionFormsCount;
+
+  /// No description provided for @teacherAuditDisputeOptionPaymentAmount.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment amount'**
+  String get teacherAuditDisputeOptionPaymentAmount;
+
+  /// No description provided for @teacherAuditDisputeOptionOverallScore.
+  ///
+  /// In en, this message translates to:
+  /// **'Overall score'**
+  String get teacherAuditDisputeOptionOverallScore;
+
+  /// No description provided for @teacherAuditDisputeOptionOther.
+  ///
+  /// In en, this message translates to:
+  /// **'Other'**
+  String get teacherAuditDisputeOptionOther;
+
+  /// No description provided for @teacherAuditDisputeReasonEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'This field is required'**
+  String get teacherAuditDisputeReasonEmpty;
+
+  /// No description provided for @teacherAuditDisputeReasonTooShort.
+  ///
+  /// In en, this message translates to:
+  /// **'Please add more detail (at least {min} characters).'**
+  String teacherAuditDisputeReasonTooShort(int min);
+
   /// No description provided for @auditPaymentCalculation.
   ///
   /// In en, this message translates to:
@@ -9124,6 +9269,168 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Open chat with teacher'**
   String get auditDiscussionAdminButton;
+
+  /// No description provided for @auditDiscussionUnreadBadgeTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one{1 unread message from teacher} other{{count} unread messages from teacher}}'**
+  String auditDiscussionUnreadBadgeTooltip(int count);
+
+  /// No description provided for @auditShareWithTeacherTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Share with teacher (copy)'**
+  String get auditShareWithTeacherTooltip;
+
+  /// No description provided for @auditShareWithTeacherCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Audit summary copied to clipboard'**
+  String get auditShareWithTeacherCopied;
+
+  /// No description provided for @auditMessageTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Monthly audit update'**
+  String get auditMessageTitle;
+
+  /// No description provided for @auditMessageTeacher.
+  ///
+  /// In en, this message translates to:
+  /// **'Teacher'**
+  String get auditMessageTeacher;
+
+  /// No description provided for @auditMessageReadyInMyReport.
+  ///
+  /// In en, this message translates to:
+  /// **'Your audit is ready to review in My Report.'**
+  String get auditMessageReadyInMyReport;
+
+  /// No description provided for @auditMessagePassedCeoReview.
+  ///
+  /// In en, this message translates to:
+  /// **'Your audit passed CEO review.'**
+  String get auditMessagePassedCeoReview;
+
+  /// No description provided for @auditMessageFinalized.
+  ///
+  /// In en, this message translates to:
+  /// **'Your audit is finalized. View it in My Report.'**
+  String get auditMessageFinalized;
+
+  /// No description provided for @auditMessagePaymentSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment summary'**
+  String get auditMessagePaymentSummary;
+
+  /// No description provided for @auditMessageHoursSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Hours'**
+  String get auditMessageHoursSection;
+
+  /// No description provided for @auditMessageWorkedHours.
+  ///
+  /// In en, this message translates to:
+  /// **'Worked hours (timesheets)'**
+  String get auditMessageWorkedHours;
+
+  /// No description provided for @auditMessageFormHours.
+  ///
+  /// In en, this message translates to:
+  /// **'Form hours'**
+  String get auditMessageFormHours;
+
+  /// No description provided for @auditMessageTotalHours.
+  ///
+  /// In en, this message translates to:
+  /// **'Total hours'**
+  String get auditMessageTotalHours;
+
+  /// No description provided for @auditMessageHourlyRateBreakdown.
+  ///
+  /// In en, this message translates to:
+  /// **'Hourly rate breakdown'**
+  String get auditMessageHourlyRateBreakdown;
+
+  /// No description provided for @auditMessageNotAvailable.
+  ///
+  /// In en, this message translates to:
+  /// **'N/A'**
+  String get auditMessageNotAvailable;
+
+  /// No description provided for @auditMessageGrossAmount.
+  ///
+  /// In en, this message translates to:
+  /// **'Gross amount'**
+  String get auditMessageGrossAmount;
+
+  /// No description provided for @auditMessagePayFromTimesheets.
+  ///
+  /// In en, this message translates to:
+  /// **'Pay from timesheets'**
+  String get auditMessagePayFromTimesheets;
+
+  /// No description provided for @auditMessagePayFromForms.
+  ///
+  /// In en, this message translates to:
+  /// **'Pay from forms'**
+  String get auditMessagePayFromForms;
+
+  /// No description provided for @auditMessageAdjustments.
+  ///
+  /// In en, this message translates to:
+  /// **'Adjustments'**
+  String get auditMessageAdjustments;
+
+  /// No description provided for @auditMessageAutoPenalties.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto penalties'**
+  String get auditMessageAutoPenalties;
+
+  /// No description provided for @auditMessageAutoBonuses.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto bonuses'**
+  String get auditMessageAutoBonuses;
+
+  /// No description provided for @auditMessageAdminAdjustment.
+  ///
+  /// In en, this message translates to:
+  /// **'Admin adjustment'**
+  String get auditMessageAdminAdjustment;
+
+  /// No description provided for @auditMessageCoachLines.
+  ///
+  /// In en, this message translates to:
+  /// **'Coach lines'**
+  String get auditMessageCoachLines;
+
+  /// No description provided for @auditMessageTotalAdjustmentsImpact.
+  ///
+  /// In en, this message translates to:
+  /// **'Total adjustments impact'**
+  String get auditMessageTotalAdjustmentsImpact;
+
+  /// No description provided for @auditMessageAdvanceDeduction.
+  ///
+  /// In en, this message translates to:
+  /// **'Advance payment deduction'**
+  String get auditMessageAdvanceDeduction;
+
+  /// No description provided for @auditMessageFinalAmount.
+  ///
+  /// In en, this message translates to:
+  /// **'Final amount'**
+  String get auditMessageFinalAmount;
+
+  /// No description provided for @auditMessageReviewReply.
+  ///
+  /// In en, this message translates to:
+  /// **'Please review and reply here if you need clarifications or corrections.'**
+  String get auditMessageReviewReply;
 
   /// No description provided for @teacherAuditPayslipCoachLines.
   ///
@@ -11858,7 +12165,7 @@ abstract class AppLocalizations {
   /// No description provided for @pendingapprovals.
   ///
   /// In en, this message translates to:
-  /// **'Pendingapprovals'**
+  /// **'Timesheet pay pending'**
   String get pendingapprovals;
 
   /// No description provided for @performance.
@@ -15593,6 +15900,12 @@ abstract class AppLocalizations {
   /// **'Worked hours from this entry. Hover a row for schedule vs actual and form data.'**
   String get timesheetReviewColumnTooltipHours;
 
+  /// No description provided for @timesheetReviewColumnAuditMonthHours.
+  ///
+  /// In en, this message translates to:
+  /// **'Audit hours (month)'**
+  String get timesheetReviewColumnAuditMonthHours;
+
   /// No description provided for @timesheetReviewColumnTooltipPayment.
   ///
   /// In en, this message translates to:
@@ -17177,6 +17490,90 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{hours} hours • \${amount}'**
   String timesheetEntrySummary(Object hours, Object amount);
+
+  /// No description provided for @webStuckBannerTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Page seems stuck'**
+  String get webStuckBannerTitle;
+
+  /// No description provided for @webStuckBannerMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Firestore stopped responding. Try recovering the connection, or reload the page.'**
+  String get webStuckBannerMessage;
+
+  /// No description provided for @webStuckBannerRecover.
+  ///
+  /// In en, this message translates to:
+  /// **'Recover'**
+  String get webStuckBannerRecover;
+
+  /// No description provided for @webStuckBannerReload.
+  ///
+  /// In en, this message translates to:
+  /// **'Reload'**
+  String get webStuckBannerReload;
+
+  /// No description provided for @webStuckBannerDismiss.
+  ///
+  /// In en, this message translates to:
+  /// **'Dismiss'**
+  String get webStuckBannerDismiss;
+
+  /// No description provided for @timesheetReviewStuckLoadingTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Still loading…'**
+  String get timesheetReviewStuckLoadingTitle;
+
+  /// No description provided for @timesheetReviewStuckLoadingMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Firestore is taking longer than expected. The connection sometimes hangs after a long-lived browser tab. Retry usually fixes it without clearing browsing data.'**
+  String get timesheetReviewStuckLoadingMessage;
+
+  /// No description provided for @timesheetConsolidatedFirstClockInLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'First clock-in'**
+  String get timesheetConsolidatedFirstClockInLabel;
+
+  /// No description provided for @timesheetConsolidatedLastClockOutLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Last clock-out'**
+  String get timesheetConsolidatedLastClockOutLabel;
+
+  /// No description provided for @timesheetConsolidatedBillableTotal.
+  ///
+  /// In en, this message translates to:
+  /// **'Billable total'**
+  String get timesheetConsolidatedBillableTotal;
+
+  /// No description provided for @timesheetConsolidatedSumSessions.
+  ///
+  /// In en, this message translates to:
+  /// **'Sum of session durations'**
+  String get timesheetConsolidatedSumSessions;
+
+  /// No description provided for @timesheetConsolidatedHoursExplanation.
+  ///
+  /// In en, this message translates to:
+  /// **'Billable time follows overlap rules: overlapping clock-in pairs count as one paid segment. First and last times show the span across all sessions, which can be longer than billable minutes.'**
+  String get timesheetConsolidatedHoursExplanation;
+
+  /// No description provided for @timesheetConsolidatedSessionsHeader.
+  ///
+  /// In en, this message translates to:
+  /// **'Sessions'**
+  String get timesheetConsolidatedSessionsHeader;
+
+  /// No description provided for @timesheetTapSessionForDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap a row to open that session alone.'**
+  String get timesheetTapSessionForDetails;
 
   /// No description provided for @formSubmissionsTitle.
   ///
@@ -21602,6 +21999,108 @@ abstract class AppLocalizations {
   /// **'Optional. Included in PDF/Excel under this section.'**
   String get adminAuditEvalSectionCommentHint;
 
+  /// No description provided for @adminAuditTeacherPayslipAckShort.
+  ///
+  /// In en, this message translates to:
+  /// **'Payslip read confirmation'**
+  String get adminAuditTeacherPayslipAckShort;
+
+  /// No description provided for @adminAuditTeacherPayslipAcknowledgedOn.
+  ///
+  /// In en, this message translates to:
+  /// **'Acknowledged {date}'**
+  String adminAuditTeacherPayslipAcknowledgedOn(String date);
+
+  /// No description provided for @adminAuditTeacherPayslipNotAcknowledged.
+  ///
+  /// In en, this message translates to:
+  /// **'Not confirmed yet'**
+  String get adminAuditTeacherPayslipNotAcknowledged;
+
+  /// No description provided for @adminAuditTeacherDisputeSummaryTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Teacher dispute'**
+  String get adminAuditTeacherDisputeSummaryTitle;
+
+  /// No description provided for @adminAuditResolveTeacherDisputeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Resolve teacher dispute'**
+  String get adminAuditResolveTeacherDisputeTitle;
+
+  /// No description provided for @adminAuditViewTeacherDispute.
+  ///
+  /// In en, this message translates to:
+  /// **'View dispute'**
+  String get adminAuditViewTeacherDispute;
+
+  /// No description provided for @adminAuditResolveTeacherDisputeButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Resolve dispute'**
+  String get adminAuditResolveTeacherDisputeButton;
+
+  /// No description provided for @adminAuditResolveTeacherDisputeSubmit.
+  ///
+  /// In en, this message translates to:
+  /// **'Submit resolution'**
+  String get adminAuditResolveTeacherDisputeSubmit;
+
+  /// No description provided for @adminAuditResolveTeacherDisputeAccept.
+  ///
+  /// In en, this message translates to:
+  /// **'Accept'**
+  String get adminAuditResolveTeacherDisputeAccept;
+
+  /// No description provided for @adminAuditResolveTeacherDisputeReject.
+  ///
+  /// In en, this message translates to:
+  /// **'Reject'**
+  String get adminAuditResolveTeacherDisputeReject;
+
+  /// No description provided for @adminAuditResolveTeacherDisputeResponseLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Response to teacher'**
+  String get adminAuditResolveTeacherDisputeResponseLabel;
+
+  /// No description provided for @adminAuditResolveTeacherDisputeResponseHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Explain your decision. The teacher will see this message.'**
+  String get adminAuditResolveTeacherDisputeResponseHint;
+
+  /// No description provided for @adminAuditResolveTeacherDisputeRequireReAck.
+  ///
+  /// In en, this message translates to:
+  /// **'Require the teacher to confirm they read the payslip again'**
+  String get adminAuditResolveTeacherDisputeRequireReAck;
+
+  /// No description provided for @adminAuditResolveTeacherDisputeNotifyTeacher.
+  ///
+  /// In en, this message translates to:
+  /// **'Notify the teacher (in-app)'**
+  String get adminAuditResolveTeacherDisputeNotifyTeacher;
+
+  /// No description provided for @adminAuditResolveTeacherDisputeSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Dispute resolution saved.'**
+  String get adminAuditResolveTeacherDisputeSuccess;
+
+  /// No description provided for @adminAuditResolveTeacherDisputeFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not save resolution. Check permissions and try again.'**
+  String get adminAuditResolveTeacherDisputeFailed;
+
+  /// No description provided for @adminAuditTeacherDisputeSuggestedValue.
+  ///
+  /// In en, this message translates to:
+  /// **'Suggested correction'**
+  String get adminAuditTeacherDisputeSuggestedValue;
+
   /// No description provided for @sidebarPublicSiteCms.
   ///
   /// In en, this message translates to:
@@ -21653,7 +22152,7 @@ abstract class AppLocalizations {
   /// No description provided for @publicSiteCmsLandingHeroBgHint.
   ///
   /// In en, this message translates to:
-  /// **'#RRGGBB (example: #001E4E)'**
+  /// **'#RRGGBB (example: #00484E)'**
   String get publicSiteCmsLandingHeroBgHint;
 
   /// No description provided for @publicSiteCmsLandingMainImage.
@@ -25490,6 +25989,168 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Review this invitation and circle details before you join.'**
   String get tontineInvitePreview;
+
+  /// No description provided for @makeupAttestationTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Makeup class details'**
+  String get makeupAttestationTitle;
+
+  /// No description provided for @makeupAttestationSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No clocked timesheet—add online makeup details for review.'**
+  String get makeupAttestationSubtitle;
+
+  /// No description provided for @makeupFieldOccurredAt.
+  ///
+  /// In en, this message translates to:
+  /// **'Date'**
+  String get makeupFieldOccurredAt;
+
+  /// No description provided for @makeupFieldStartTime.
+  ///
+  /// In en, this message translates to:
+  /// **'Start time'**
+  String get makeupFieldStartTime;
+
+  /// No description provided for @makeupFieldEndTime.
+  ///
+  /// In en, this message translates to:
+  /// **'End time'**
+  String get makeupFieldEndTime;
+
+  /// No description provided for @makeupFieldDeliveryMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Platform'**
+  String get makeupFieldDeliveryMode;
+
+  /// No description provided for @makeupFieldZoomHost.
+  ///
+  /// In en, this message translates to:
+  /// **'Host'**
+  String get makeupFieldZoomHost;
+
+  /// No description provided for @makeupFieldOtherDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'Describe (required for Other)'**
+  String get makeupFieldOtherDetail;
+
+  /// No description provided for @makeupFieldStudentsPresent.
+  ///
+  /// In en, this message translates to:
+  /// **'Student(s) present'**
+  String get makeupFieldStudentsPresent;
+
+  /// No description provided for @makeupFieldNotesOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'Notes (optional)'**
+  String get makeupFieldNotesOptional;
+
+  /// No description provided for @makeupDeliveryZoom.
+  ///
+  /// In en, this message translates to:
+  /// **'Zoom'**
+  String get makeupDeliveryZoom;
+
+  /// No description provided for @makeupDeliveryLivekit.
+  ///
+  /// In en, this message translates to:
+  /// **'LiveKit'**
+  String get makeupDeliveryLivekit;
+
+  /// No description provided for @makeupDeliveryOther.
+  ///
+  /// In en, this message translates to:
+  /// **'Other'**
+  String get makeupDeliveryOther;
+
+  /// No description provided for @makeupSubmitContinue.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get makeupSubmitContinue;
+
+  /// No description provided for @auditMakeupStatusPending.
+  ///
+  /// In en, this message translates to:
+  /// **'Makeup pending review'**
+  String get auditMakeupStatusPending;
+
+  /// No description provided for @auditMakeupStatusApproved.
+  ///
+  /// In en, this message translates to:
+  /// **'Makeup approved'**
+  String get auditMakeupStatusApproved;
+
+  /// No description provided for @auditMakeupStatusRejected.
+  ///
+  /// In en, this message translates to:
+  /// **'Makeup rejected'**
+  String get auditMakeupStatusRejected;
+
+  /// No description provided for @auditMakeupRejectTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Reject makeup'**
+  String get auditMakeupRejectTitle;
+
+  /// No description provided for @auditMakeupRejectHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Reason shown in audit history'**
+  String get auditMakeupRejectHint;
+
+  /// No description provided for @auditMakeupApproveConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark this makeup as approved?'**
+  String get auditMakeupApproveConfirm;
+
+  /// No description provided for @auditMakeupRejectSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Makeup rejected; pay updated'**
+  String get auditMakeupRejectSuccess;
+
+  /// No description provided for @auditMakeupApproveSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Makeup approved'**
+  String get auditMakeupApproveSuccess;
+
+  /// No description provided for @auditMakeupApproveButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Approve makeup'**
+  String get auditMakeupApproveButton;
+
+  /// No description provided for @auditMakeupPendingAdminBanner.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} missed-class report(s) still need Approve or Reject below before you can submit the coach evaluation.'**
+  String auditMakeupPendingAdminBanner(int count);
+
+  /// No description provided for @auditMakeupBlockedSubmitCoach.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} missed-class report(s) must be approved or rejected on the Teaching forms tab first.'**
+  String auditMakeupBlockedSubmitCoach(int count);
+
+  /// No description provided for @auditMakeupEvaluationFooterHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Coach evaluation submit stays disabled until every missed-class makeup is approved or rejected (Teaching forms tab).'**
+  String get auditMakeupEvaluationFooterHint;
+
+  /// No description provided for @auditMakeupOpenTeachingFormsTab.
+  ///
+  /// In en, this message translates to:
+  /// **'Open Teaching forms'**
+  String get auditMakeupOpenTeachingFormsTab;
 }
 
 class _AppLocalizationsDelegate

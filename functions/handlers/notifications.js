@@ -349,7 +349,7 @@ const sendAuditNotification = async (data, context) => {
   }
 
   const requestData = data.data || data;
-  const {teacherId, auditId, yearMonth, status} = requestData;
+  const {teacherId, auditId, yearMonth, status, bodyText} = requestData;
 
   if (!teacherId || !auditId || !yearMonth) {
     throw new functions.https.HttpsError(
@@ -422,7 +422,10 @@ const sendAuditNotification = async (data, context) => {
   }
 
   const title = 'Monthly audit update';
-  const body = `Your audit for ${yearMonth} is ready to review.`;
+  const body =
+    typeof bodyText === 'string' && bodyText.trim()
+      ? bodyText.trim()
+      : `Your audit for ${yearMonth} is ready to review.`;
 
   const messageData = {
     type: 'audit_notification',

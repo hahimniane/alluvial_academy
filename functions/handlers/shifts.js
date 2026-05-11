@@ -36,6 +36,7 @@ const {
   recomputeShiftCompletionForShiftId,
   mergeTimesheetsForShift,
 } = require('../services/shifts/recompute_shift_completion');
+const { computeSession, getScheduledHours } = require('../utils/shiftSessionAggregator');
 
 const toDate = (timestamp) => (timestamp.toDate ? timestamp.toDate() : new Date(timestamp));
 
@@ -550,40 +551,17 @@ const handleShiftEndTask = onRequest(async (req, res) => {
       }
     }
 
-    // Calculate worked minutes (round up to ensure any work counts)
-    const workedMinutes = Math.ceil(workedMs / 60000);
-
-    const scheduledMinutes = Math.max(
-      1,
-      Math.round((endDate.getTime() - startDate.getTime()) / 60000)
-    );
-    // Align with Flutter TeachingShift.deriveCompletionStatus / shift_service quick edit (1 minute)
-    const toleranceMinutes = 1;
-
-    let newStatus = 'partiallyCompleted';
-    let completionState = 'partial';
-    let missedReason = null;
-
-    // Check if teacher never clocked in (no non-rejected timesheet entries AND no clock_in_time on shift)
-    const neverClockedIn = activeTimesheetDocs.length === 0 && !hasClockInOnShift;
+    // Now use the unified aggregator to compute final shift completion state
+    const result = await recomputeShiftCompletionForShiftId(admin.firestore(), shiftId);
     
-    if (neverClockedIn || workedMinutes === 0) {
-      newStatus = 'missed';
-      completionState = 'none';
-      missedReason = 'Teacher did not clock in before shift ended';
-    } else if (workedMinutes + toleranceMinutes >= scheduledMinutes) {
-      newStatus = 'fullyCompleted';
-      completionState = 'full';
-    }
+    let newStatus = result.skipped ? 'partiallyCompleted' : result.status;
+    let workedMinutes = result.skipped ? 0 : result.workedMinutes;
+    let scheduledMinutes = result.skipped ? 0 : result.scheduledMinutes;
 
-    const updatePayload = {
-      worked_minutes: workedMinutes,
-      completion_state: completionState,
-      auto_clock_out: autoClockOutPerformed,
-      last_modified: admin.firestore.FieldValue.serverTimestamp(),
-    };
+    const updatePayload = {};
 
     if (autoClockOutPerformed) {
+      updatePayload.auto_clock_out = true;
       updatePayload.auto_clock_out_reason = 'System auto clock-out at shift end';
       // Also update the shift's clock_out_time if it was auto-clocked out
       if (!shiftData.clock_out_time) {
@@ -593,19 +571,9 @@ const handleShiftEndTask = onRequest(async (req, res) => {
       updatePayload.auto_clock_out_reason = admin.firestore.FieldValue.delete();
     }
 
-    if (missedReason) {
-      updatePayload.missed_reason = missedReason;
-      updatePayload.missed_at = admin.firestore.FieldValue.serverTimestamp();
-    } else {
-      updatePayload.missed_reason = admin.firestore.FieldValue.delete();
-      updatePayload.missed_at = admin.firestore.FieldValue.delete();
+    if (Object.keys(updatePayload).length > 0) {
+      await shiftRef.update(updatePayload);
     }
-
-    if (shiftData.status !== 'cancelled') {
-      updatePayload.status = newStatus;
-    }
-
-    await shiftRef.update(updatePayload);
 
     // Send notification if shift was missed
     if (newStatus === 'missed' && !shiftData.missed_notification_sent) {
@@ -653,6 +621,34 @@ const onTimesheetWritten = onDocumentWritten('timesheet_entries/{entryId}', asyn
     }
   } catch (err) {
     console.error(`onTimesheetWritten: failed for shift ${shiftId}`, err);
+  }
+});
+
+/**
+ * When a form response is created or updated (makeup approval, attestation, rejection),
+ * recompute the linked shift so teaching_shifts matches form-only economics.
+ */
+const onFormResponseWritten = onDocumentWritten('form_responses/{formId}', async (event) => {
+  const afterSnap = event.data.after;
+  const beforeSnap = event.data.before;
+  const after = afterSnap.exists ? afterSnap.data() : null;
+  const before = beforeSnap.exists ? beforeSnap.data() : null;
+  const shiftId =
+    (after && (after.shiftId || after.shift_id)) ||
+    (before && (before.shiftId || before.shift_id));
+  if (!shiftId || String(shiftId).trim() === '') {
+    return;
+  }
+  try {
+    const db = admin.firestore();
+    const result = await recomputeShiftCompletionForShiftId(db, String(shiftId).trim());
+    if (!result.skipped) {
+      console.log(
+        `onFormResponseWritten: recomputed shift ${shiftId} -> status=${result.status}, worked=${result.workedMinutes}m`,
+      );
+    }
+  } catch (err) {
+    console.error(`onFormResponseWritten: failed for shift ${shiftId}`, err);
   }
 });
 
@@ -1339,12 +1335,12 @@ const fixActiveShiftsStatus = onSchedule('every 30 minutes', async () => {
         .get();
 
       if (timesheetQuery.empty) {
-        // No timesheet entries - shift was missed
-        console.log(`   ❌ No timesheet entries found - marking as MISSED`);
-        await shiftDoc.ref.update({
-          status: 'missed',
-          updated_at: admin.firestore.FieldValue.serverTimestamp(),
-        });
+        // No timesheet entries: still route through canonical recompute so
+        // form-only completions are preserved instead of being marked missed.
+        const recomputeResult = await recomputeShiftCompletionForShiftId(db, shiftId);
+        console.log(
+          `   ✅ Recomputed no-timesheet shift -> status=${recomputeResult.status || recomputeResult.reason}`,
+        );
         fixedShifts++;
         continue;
       }
@@ -1417,37 +1413,13 @@ const fixActiveShiftsStatus = onSchedule('every 30 minutes', async () => {
         }
       }
 
-      // 4. Determine shift status based on worked time
-      const scheduledDurationMs = shiftEnd.getTime() - shiftStart.getTime();
-      const scheduledMinutes = Math.floor(scheduledDurationMs / 60000);
-      const workedPercentage = scheduledMinutes > 0 
-        ? (totalWorkedMinutes / scheduledMinutes) * 100 
-        : 0;
+      // 4. Determine shift status based on worked time using the unified aggregator
+      const result = await recomputeShiftCompletionForShiftId(db, shiftId);
 
-      let newStatus;
-      if (totalWorkedMinutes === 0) {
-        newStatus = 'missed';
-        console.log(`   📊 Status: MISSED (no time worked)`);
-      } else if (workedPercentage >= 90) {
-        newStatus = 'fullyCompleted';
-        console.log(`   📊 Status: FULLY COMPLETED (${workedPercentage.toFixed(1)}% worked)`);
-      } else if (workedPercentage >= 50) {
-        newStatus = 'partiallyCompleted';
-        console.log(`   📊 Status: PARTIALLY COMPLETED (${workedPercentage.toFixed(1)}% worked)`);
-      } else {
-        newStatus = 'partiallyCompleted';
-        console.log(`   📊 Status: PARTIALLY COMPLETED (${workedPercentage.toFixed(1)}% worked)`);
+      if (!result.skipped) {
+        fixedShifts++;
+        console.log(`   ✅ Updated shift ${shiftId} to status: ${result.status} (worked: ${result.workedMinutes} min)`);
       }
-
-      // 5. Update shift status
-      await shiftDoc.ref.update({
-        status: newStatus,
-        total_worked_minutes: totalWorkedMinutes,
-        updated_at: admin.firestore.FieldValue.serverTimestamp(),
-      });
-
-      fixedShifts++;
-      console.log(`   ✅ Updated shift ${shiftId} to status: ${newStatus}`);
     }
 
     // 6. Also check for any timesheet entries without clock-out that are past their shift end
@@ -1565,9 +1537,7 @@ const fixTimesheetsPayAndStatus = onSchedule('every 30 minutes', async () => {
     stats.shiftsChecked = shiftsSnapshot.docs.length;
     console.log(`   Found ${stats.shiftsChecked} active/scheduled shifts to check\n`);
 
-    let shiftBatch = db.batch();
     let shiftBatchCount = 0;
-    const shiftBatchSize = 500;
 
     for (const shiftDoc of shiftsSnapshot.docs) {
       const shiftData = shiftDoc.data();
@@ -1583,77 +1553,13 @@ const fixTimesheetsPayAndStatus = onSchedule('every 30 minutes', async () => {
       
       // If shift end time has passed, check if it should be completed
       if (shiftEnd < now) {
-        const timesheetDocs = await mergeTimesheetsForShift(db, shiftId);
-
-        let totalWorkedMinutes = 0;
-        let hasClockIn = shiftData.clock_in_time != null;
-
-        for (const timesheetDoc of timesheetDocs) {
-          const timesheetData = timesheetDoc.data();
-          if (String(timesheetData.status || '').toLowerCase() === 'rejected') {
-            continue;
-          }
-          const clockIn = timesheetData.clock_in_timestamp;
-          const clockOut = timesheetData.clock_out_timestamp;
-
-          if (clockIn) {
-            hasClockIn = true;
-            const endTime = clockOut?.toDate() || shiftEnd;
-            const worked = Math.floor((endTime - clockIn.toDate()) / 1000 / 60);
-            if (worked > 0) {
-              totalWorkedMinutes += worked;
-            }
-          }
+        const result = await recomputeShiftCompletionForShiftId(db, shiftId);
+        
+        if (!result.skipped) {
+          stats.shiftsFixed++;
+          console.log(`   ✓ Shift ${shiftId}: updated to ${result.status} (worked: ${result.workedMinutes} min)`);
         }
-        
-        // Determine new status
-        const scheduledMinutes = Math.floor((shiftEnd - shiftStart) / 1000 / 60);
-        const toleranceMinutes = 1;
-        
-        let newStatus;
-        let completionState;
-        
-        if (!hasClockIn || totalWorkedMinutes === 0) {
-          newStatus = 'missed';
-          completionState = 'none';
-        } else if (totalWorkedMinutes + toleranceMinutes >= scheduledMinutes) {
-          newStatus = 'fullyCompleted';
-          completionState = 'full';
-        } else {
-          newStatus = 'partiallyCompleted';
-          completionState = 'partial';
-        }
-        
-        const updateData = {
-          status: newStatus,
-          completion_state: completionState,
-          worked_minutes: totalWorkedMinutes,
-          last_modified: admin.firestore.FieldValue.serverTimestamp()
-        };
-        
-        // If shift was active but should be completed, ensure clock_out_time is set
-        if (shiftData.status === 'active' && !shiftData.clock_out_time) {
-          updateData.clock_out_time = admin.firestore.Timestamp.fromDate(shiftEnd);
-        }
-        
-        shiftBatch.update(shiftDoc.ref, updateData);
-        shiftBatchCount++;
-        
-        if (shiftBatchCount >= shiftBatchSize) {
-          await shiftBatch.commit();
-          console.log(`   Committed batch of ${shiftBatchCount} shift updates...`);
-          shiftBatch = db.batch();
-          shiftBatchCount = 0;
-        }
-        
-        stats.shiftsFixed++;
-        console.log(`   ✓ Shift ${shiftId}: ${shiftData.status} → ${newStatus} (worked: ${totalWorkedMinutes} min)`);
       }
-    }
-
-    if (shiftBatchCount > 0) {
-      await shiftBatch.commit();
-      console.log(`   Committed final batch of ${shiftBatchCount} shift updates...`);
     }
 
     console.log(`\n✅ Fixed ${stats.shiftsFixed} shifts\n`);
@@ -2676,6 +2582,7 @@ module.exports = {
   handleShiftStartTask,
   handleShiftEndTask,
   onTimesheetWritten,
+  onFormResponseWritten,
   handleShiftNotificationTask,
   onShiftCreated,
   onShiftUpdated,

@@ -30,6 +30,7 @@ class TimesheetReviewGrid extends StatelessWidget {
   final EdgeInsetsGeometry margin;
   final VoidCallback? onCardExport;
   final VoidCallback? onCardSelectAllPending;
+
   /// Opens row detail (e.g. end drawer). Not fired for checkbox/actions columns.
   final void Function(TimesheetEntry entry)? onDataCellTap;
 
@@ -113,7 +114,8 @@ class TimesheetReviewGrid extends StatelessWidget {
                         ),
                       ),
                     ],
-                    icon: const Icon(Icons.more_horiz, color: Color(0xff6B7280)),
+                    icon:
+                        const Icon(Icons.more_horiz, color: Color(0xff6B7280)),
                   ),
                 ],
               ),
@@ -183,6 +185,13 @@ class TimesheetReviewGrid extends StatelessWidget {
                         : null,
                     context,
                   ),
+                ),
+                GridColumn(
+                  columnName: 'audit_month',
+                  width: 108,
+                  minimumWidth: 96,
+                  label:
+                      _hdr(l10n.timesheetReviewColumnAuditMonthHours, context),
                 ),
                 GridColumn(
                   columnName: 'payment',

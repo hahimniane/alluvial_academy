@@ -543,6 +543,8 @@
   "formViewAll": "Voir tout",
   "formSearchByName": "Rechercher par nom de formulaire ou statut",
   "formNoSubmissionsYet": "Aucune soumission de formulaire",
+  "mySubmissionsMonthScopeHint": "Seules les soumissions datées du mois sélectionné sont affichées. Utilisez Voir tout pour les autres mois.",
+  "mySubmissionsNoFormIdGroupTitle": "Soumissions sans identifiant de formulaire",
   "adminAllSubmissionsTitle": "Toutes les soumissions (Admin)",
   "adminSubmissionsTotal": "Total",
   "adminSubmissionsTeachers": "Enseignants",
@@ -585,7 +587,27 @@
   "adminSubmissionsExportFormatLabel": "Format",
   "adminSubmissionsExportExcelLabel": "Excel",
   "adminSubmissionsExportPdfLabel": "PDF",
-  "adminSubmissionsExportProgressSubtitle": "Préparation du fichier. Progression par personne :",
+  "adminSubmissionsExportProgressSubtitle": "Veuillez garder cette fenêtre ouverte. Les exports volumineux peuvent prendre un moment.",
+  "adminSubmissionsExportPhaseLoadingShifts": "Chargement des shifts liés…",
+  "adminSubmissionsExportPhaseLoadingLabels": "Chargement des libellés des champs…",
+  "adminSubmissionsExportPhaseLoadingFonts": "Chargement des polices PDF…",
+  "adminSubmissionsExportPhaseWritingSheet": "Écriture des feuilles…",
+  "adminSubmissionsExportPhaseBuildingFile": "Génération du fichier…",
+  "adminSubmissionsExportPhaseStartingDownload": "Démarrage du téléchargement…",
+  "adminSubmissionsExportFormSheetProgress": "{current} / {total} — {formName}",
+  "@adminSubmissionsExportFormSheetProgress": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      },
+      "formName": {
+        "type": "String"
+      }
+    }
+  },
   "adminSubmissionsSelectToViewDetails": "Sélectionnez une soumission pour voir les détails",
   "adminSubmissionsTryAdjustingFilters": "Essayez d'ajuster les filtres",
   "adminSubmissionsAddToFavorites": "Ajouter aux favoris",
@@ -679,6 +701,7 @@
   "timesheetProvideMoreDetails": "Veuillez fournir plus de détails (au moins 10 caractères)",
   "timesheetSaveChanges": "Enregistrer les modifications",
   "timesheetUpdatedSuccess": "Feuille de temps mise à jour. En attente d'approbation.",
+  "timesheetEditTotalExceedsShift": "Cette modification ferait dépasser la durée prévue du cours par le temps pointé total.",
   "timesheetDetails": "Détails de l'entrée",
   "timesheetLocationLoading": "Chargement de la position...",
   "timesheetLocationUnavailable": "Position non disponible",
@@ -1515,8 +1538,19 @@
   "auditIssuesAlerts": "Issues & alertes",
   "auditClassesCompleted": "Classes réalisées",
   "auditHoursTaught": "Heures enseignées",
+  "auditClassLogTablePayFilterEmpty": "Aucune ligne ne correspond au filtre d'activité payante. Le résumé ci-dessus reflète le mois d'audit complet.",
   "auditCompletionRateLabel": "Taux de complétion",
   "auditLateClockInsLabel": "Retards de pointage",
+  "auditClockSegmentCount": "{count, plural, one{1 segment} other{{count} segments}}",
+  "@auditClockSegmentCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "auditClockSegmentsHeader": "Segments de pointage",
+  "auditClockSessionPay": "Rémunération (session)",
   "auditClassesMissedLabel": "Classes manquées",
   "auditNoLateClockIns": "Aucun",
   "auditNoMissedClasses": "Aucune",
@@ -1533,6 +1567,7 @@
   "auditFormStatusRejectedDuplicate": "Rejeté (doublon)",
   "auditFormStatusRejectedNoShift": "Rejeté (sans shift)",
   "auditFormStatusRejectedNoTimesheet": "Rejeté (sans feuille de temps)",
+  "auditFormStatusRejectedMakeupRejected": "Rejeté (rattrapage refusé)",
   "auditFormsTabStatTotalTeaching": "Total formulaires d'enseignement",
   "auditFormsTabStatRejectedNoShift": "Rejetés (sans shift)",
   "auditFormsTabStatRejectedNoTimesheet": "Rejetés (sans feuille de temps)",
@@ -1640,6 +1675,22 @@
   "teacherAuditBonuses": "Bonus",
   "teacherAuditAdminAdjustment": "Ajustement admin",
   "teacherAuditDisputeFieldLabel": "Champ",
+  "teacherAuditDisputeOptionClassesCount": "Nombre de classes",
+  "teacherAuditDisputeOptionHoursTaught": "Heures enseignées",
+  "teacherAuditDisputeOptionPunctualityRate": "Taux de ponctualité",
+  "teacherAuditDisputeOptionFormsCount": "Nombre de formulaires",
+  "teacherAuditDisputeOptionPaymentAmount": "Montant du paiement",
+  "teacherAuditDisputeOptionOverallScore": "Score global",
+  "teacherAuditDisputeOptionOther": "Autre",
+  "teacherAuditDisputeReasonEmpty": "Ce champ est obligatoire",
+  "teacherAuditDisputeReasonTooShort": "Précisez davantage (au moins {min} caractères).",
+  "@teacherAuditDisputeReasonTooShort": {
+    "placeholders": {
+      "min": {
+        "type": "int"
+      }
+    }
+  },
   "auditPaymentCalculation": "Calcul",
   "auditHoursWorked": "Heures travaillées",
   "auditTotalAdjustments": "Ajustements totaux",
@@ -1674,6 +1725,38 @@
   },
   "auditOpenDiscussion": "Ouvrir la discussion",
   "auditDiscussionAdminButton": "Chat avec l'enseignant",
+  "auditDiscussionUnreadBadgeTooltip": "{count, plural, one{1 message non lu de l'enseignant} other{{count} messages non lus de l'enseignant}}",
+  "@auditDiscussionUnreadBadgeTooltip": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "auditShareWithTeacherTooltip": "Partager avec l'enseignant (copier)",
+  "auditShareWithTeacherCopied": "Résumé d'audit copié dans le presse-papiers",
+  "auditMessageTitle": "Mise à jour de l'audit mensuel",
+  "auditMessageTeacher": "Enseignant",
+  "auditMessageReadyInMyReport": "Votre audit est prêt à être consulté dans Mon rapport.",
+  "auditMessagePassedCeoReview": "Votre audit a passé la revue CEO.",
+  "auditMessageFinalized": "Votre audit est finalisé. Consultez-le dans Mon rapport.",
+  "auditMessagePaymentSummary": "Résumé du paiement",
+  "auditMessageHoursSection": "Heures",
+  "auditMessageWorkedHours": "Heures travaillées (feuilles de temps)",
+  "auditMessageFormHours": "Heures des formulaires",
+  "auditMessageTotalHours": "Heures totales",
+  "auditMessageHourlyRateBreakdown": "Détail du taux horaire",
+  "auditMessageNotAvailable": "N/A",
+  "auditMessageGrossAmount": "Montant brut",
+  "auditMessagePayFromTimesheets": "Paiement depuis les feuilles de temps",
+  "auditMessagePayFromForms": "Paiement depuis les formulaires",
+  "auditMessageAdjustments": "Ajustements",
+  "auditMessageAutoPenalties": "Pénalités automatiques",
+  "auditMessageAutoBonuses": "Bonus automatiques",
+  "auditMessageAdminAdjustment": "Ajustement admin",
+  "auditMessageCoachLines": "Lignes coach",
+  "auditMessageTotalAdjustmentsImpact": "Impact total des ajustements",
+  "auditMessageAdvanceDeduction": "Déduction d'avance",
+  "auditMessageFinalAmount": "Montant final",
+  "auditMessageReviewReply": "Veuillez vérifier et répondre ici si vous avez besoin de clarifications ou de corrections.",
   "teacherAuditPayslipCoachLines": "Ajustements d'évaluation",
   "teacherAuditPayslipAdvances": "Avances (déduites)",
   "teacherAuditClassesSection": "Cours du mois",
@@ -2129,7 +2212,7 @@
   "penaltyPerMissedClass": "Peine par classe manquante",
   "penaltyPerMissing": "Pénalité par manque",
   "penaltyPerShift": "Peine par poste",
-  "pendingapprovals": "Approbations en attente",
+  "pendingapprovals": "Paie en attente (pointage)",
   "performance": "Rendement",
   "performanceEvaluation": "Évaluation du rendement",
   "performanceSummaryCopied": "Résumé du rendement Copié",
@@ -2777,6 +2860,7 @@
   "timesheetReviewGridOverflowColumns": "Visibilité des colonnes",
   "timesheetReviewGridOverflowColumnsSoon": "Bientôt disponible",
   "timesheetReviewColumnTooltipHours": "Heures travaillées. Survolez une ligne pour horaire prévu vs réel et formulaire.",
+  "timesheetReviewColumnAuditMonthHours": "Heures audit (mois)",
   "timesheetReviewColumnTooltipPayment": "Montant calculé à partir des heures et du taux.",
   "timesheetReviewSearchHint": "Enseignant, élève, date, poste…",
   "timesheetReviewIncompleteEntry": "Pointage sortant ou heures valides manquants",
@@ -3638,7 +3722,21 @@
       "amount": {}
     }
   },
-  "formSubmissionsTitle": "Présentations • {title}",
+  "webStuckBannerTitle": "La page semble bloquée",
+  "webStuckBannerMessage": "Firestore ne répond plus. Essayez de rétablir la connexion ou rechargez la page.",
+  "webStuckBannerRecover": "Rétablir",
+  "webStuckBannerReload": "Recharger",
+  "webStuckBannerDismiss": "Ignorer",
+  "timesheetReviewStuckLoadingTitle": "Chargement en cours…",
+  "timesheetReviewStuckLoadingMessage": "Firestore prend plus de temps que prévu. La connexion peut rester bloquée après un onglet ouvert depuis longtemps. Réessayer suffit en général, sans avoir à vider le cache.",
+  "timesheetConsolidatedFirstClockInLabel": "Premier pointage",
+  "timesheetConsolidatedLastClockOutLabel": "Dernier pointage de sortie",
+  "timesheetConsolidatedBillableTotal": "Total facturable",
+  "timesheetConsolidatedSumSessions": "Somme des durées des sessions",
+  "timesheetConsolidatedHoursExplanation": "Le temps facturable suit les règles de chevauchement : les paires de pointages qui se chevauchent comptent comme un seul segment payé. Les heures de premier et dernier pointage couvrent toute la plage et peuvent être plus longues que les minutes facturables.",
+  "timesheetConsolidatedSessionsHeader": "Sessions",
+  "timesheetTapSessionForDetails": "Appuyez sur une ligne pour ouvrir cette session seule.",
+  "formSubmissionsTitle": "Soumissions • {title}",
   "@formSubmissionsTitle": {
     "placeholders": {
       "title": {}
@@ -4851,6 +4949,28 @@
   "adminAuditCeoPaymentAdjustmentsHint": "Montants mensuels optionnels. Ajoutez une courte justification si un montant est renseigné.",
   "adminAuditEvalSectionCommentLabel": "Commentaire de l'évaluateur",
   "adminAuditEvalSectionCommentHint": "Facultatif. Repris dans le PDF/Excel sous cette section.",
+  "adminAuditTeacherPayslipAckShort": "Confirmation de lecture de la fiche de paie",
+  "adminAuditTeacherPayslipAcknowledgedOn": "Confirmé le {date}",
+  "@adminAuditTeacherPayslipAcknowledgedOn": {
+    "placeholders": {
+      "date": {"type": "String"}
+    }
+  },
+  "adminAuditTeacherPayslipNotAcknowledged": "Pas encore confirmé",
+  "adminAuditTeacherDisputeSummaryTitle": "Contestations de l’enseignant",
+  "adminAuditResolveTeacherDisputeTitle": "Traiter la contestation",
+  "adminAuditViewTeacherDispute": "Voir la contestation",
+  "adminAuditResolveTeacherDisputeButton": "Traiter la contestation",
+  "adminAuditResolveTeacherDisputeSubmit": "Enregistrer la réponse",
+  "adminAuditResolveTeacherDisputeAccept": "Accepter",
+  "adminAuditResolveTeacherDisputeReject": "Refuser",
+  "adminAuditResolveTeacherDisputeResponseLabel": "Réponse à l’enseignant",
+  "adminAuditResolveTeacherDisputeResponseHint": "Expliquez votre décision. L’enseignant verra ce message.",
+  "adminAuditResolveTeacherDisputeRequireReAck": "Demander à l’enseignant de confirmer à nouveau la lecture de la fiche de paie",
+  "adminAuditResolveTeacherDisputeNotifyTeacher": "Notifier l’enseignant (dans l’application)",
+  "adminAuditResolveTeacherDisputeSuccess": "Réponse à la contestation enregistrée.",
+  "adminAuditResolveTeacherDisputeFailed": "Impossible d’enregistrer. Vérifiez les droits et réessayez.",
+  "adminAuditTeacherDisputeSuggestedValue": "Correction suggérée",
   "sidebarPublicSiteCms": "Tarifs & équipe (site public)",
   "publicSiteCmsTitle": "Site public — tarifs & équipe",
   "publicSiteCmsTabPricing": "Tarifs",
@@ -4859,7 +4979,7 @@
   "publicSiteCmsTabLanding": "Accueil — héros",
   "publicSiteCmsLandingIntro": "Personnalisez la bande héros de l’accueil : couleur (hex) et URL d’images (https). Laissez les URL vides pour les photos intégrées. Préférez un fond assez foncé pour garder le texte lisible. Sur le web, certains sites bloquent l’affichage distant (CORS) — téléversez vers Firebase Storage pour un hébergement fiable.",
   "publicSiteCmsLandingHeroBg": "Couleur de fond du héros",
-  "publicSiteCmsLandingHeroBgHint": "#RRGGBB (ex. : #001E4E)",
+  "publicSiteCmsLandingHeroBgHint": "#RRGGBB (ex. : #00484E)",
   "publicSiteCmsLandingMainImage": "Image centrale du héros",
   "publicSiteCmsLandingLeftImage": "Image du cercle gauche",
   "publicSiteCmsLandingRightImage": "Image du panneau droit",
@@ -5331,5 +5451,46 @@
   "aboutValuesKnowledge": "Savoir",
   "aboutValuesKnowledgeDesc": "Apprentissage transformateur",
   "aboutValuesAccessibility": "Accessibilité",
-  "aboutValuesAccessibilityDesc": "Disponible partout dans le monde"
+  "aboutValuesAccessibilityDesc": "Disponible partout dans le monde",
+  "makeupAttestationTitle": "Détails du cours de rattrapage",
+  "makeupAttestationSubtitle": "Pas de pointage—indiquez le rattrapage en ligne pour validation.",
+  "makeupFieldOccurredAt": "Date",
+  "makeupFieldStartTime": "Heure de début",
+  "makeupFieldEndTime": "Heure de fin",
+  "makeupFieldDeliveryMode": "Plateforme",
+  "makeupFieldZoomHost": "Hôte",
+  "makeupFieldOtherDetail": "Précisez (obligatoire si Autre)",
+  "makeupFieldStudentsPresent": "Élève(s) présent(s)",
+  "makeupFieldNotesOptional": "Remarques (facultatif)",
+  "makeupDeliveryZoom": "Zoom",
+  "makeupDeliveryLivekit": "LiveKit",
+  "makeupDeliveryOther": "Autre",
+  "makeupSubmitContinue": "Continuer",
+  "auditMakeupStatusPending": "Rattrapage en attente",
+  "auditMakeupStatusApproved": "Rattrapage approuvé",
+  "auditMakeupStatusRejected": "Rattrapage refusé",
+  "auditMakeupRejectTitle": "Refuser le rattrapage",
+  "auditMakeupRejectHint": "Motif conservé dans l'historique",
+  "auditMakeupApproveConfirm": "Approuver ce rattrapage ?",
+  "auditMakeupRejectSuccess": "Rattrapage refusé ; rémunération mise à jour",
+  "auditMakeupApproveSuccess": "Rattrapage approuvé",
+  "auditMakeupApproveButton": "Approuver le rattrapage",
+  "auditMakeupPendingAdminBanner": "{count} rapport(s) de cours manqué(s) nécessitent encore Approuver ou Refuser ci-dessous avant l’envoi de l’évaluation coach.",
+  "@auditMakeupPendingAdminBanner": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "auditMakeupBlockedSubmitCoach": "{count} rapport(s) de rattrapage doivent être approuvés ou refusés dans l’onglet Formulaires d’abord.",
+  "@auditMakeupBlockedSubmitCoach": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "auditMakeupEvaluationFooterHint": "L’envoi de l’évaluation coach reste bloqué tant qu’un rattrapage n’est pas approuvé ou refusé (onglet Formulaires).",
+  "auditMakeupOpenTeachingFormsTab": "Ouvrir Formulaires"
 }

@@ -33,7 +33,8 @@ Widget timesheetAdminDetailRow(String label, String value) {
 }
 
 /// Original vs edited comparison row (used by edit dialogs and detail drawer).
-Widget timesheetAdminComparisonRow(String field, String original, String edited) {
+Widget timesheetAdminComparisonRow(
+    String field, String original, String edited) {
   final isChanged = original != edited;
   return Container(
     padding: const EdgeInsets.all(12),
@@ -60,9 +61,8 @@ Widget timesheetAdminComparisonRow(String field, String original, String edited)
             original,
             style: GoogleFonts.inter(
               fontSize: 13,
-              color: isChanged
-                  ? const Color(0xFFDC2626)
-                  : const Color(0xFF64748B),
+              color:
+                  isChanged ? const Color(0xFFDC2626) : const Color(0xFF64748B),
               decoration: isChanged ? TextDecoration.lineThrough : null,
             ),
             textAlign: TextAlign.center,
@@ -73,7 +73,8 @@ Widget timesheetAdminComparisonRow(String field, String original, String edited)
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               if (isChanged) ...[
-                const Icon(Icons.arrow_forward, size: 16, color: Color(0xFF10B981)),
+                const Icon(Icons.arrow_forward,
+                    size: 16, color: Color(0xFF10B981)),
                 const SizedBox(width: 4),
               ],
               Text(
@@ -229,12 +230,14 @@ class TimesheetReviewDetailDrawer extends StatelessWidget {
     required this.onClose,
     required this.onApprove,
     required this.onReject,
+    this.onSessionTap,
   });
 
   final TimesheetEntry timesheet;
   final VoidCallback onClose;
   final VoidCallback onApprove;
   final VoidCallback onReject;
+  final Function(String timesheetId)? onSessionTap;
 
   @override
   Widget build(BuildContext context) {
@@ -277,10 +280,71 @@ class TimesheetReviewDetailDrawer extends StatelessWidget {
                   timesheetAdminDetailRow('Teacher:', timesheet.teacherName),
                   timesheetAdminDetailRow('Date:', timesheet.date),
                   timesheetAdminDetailRow('Student:', timesheet.subject),
-                  timesheetAdminDetailRow('Start Time:', timesheet.start),
-                  timesheetAdminDetailRow('End Time:', timesheet.end),
-                  timesheetAdminDetailRow('Total Hours:', timesheet.totalHours),
-                  timesheetAdminDetailRow('Description:', timesheet.description),
+                  if (timesheet.isConsolidated &&
+                      (timesheet.childEntries?.isNotEmpty ?? false)) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      l10n.timesheetConsolidatedSessionsHeader,
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    ...timesheet.childEntries!.map(
+                      (c) => Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: InkWell(
+                          onTap: () {
+                            if (c.documentId != null &&
+                                c.documentId!.isNotEmpty) {
+                              onSessionTap?.call(c.documentId!);
+                            }
+                          },
+                          borderRadius: BorderRadius.circular(8),
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.grey.shade300),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '${c.start} → ${c.end} · ${c.totalHours}',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                if (c.documentId != null &&
+                                    c.documentId!.isNotEmpty)
+                                  Text(
+                                    c.documentId!,
+                                    style: GoogleFonts.inter(
+                                      fontSize: 11,
+                                      color: Colors.grey.shade600,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ] else ...[
+                    timesheetAdminDetailRow('Start Time:', timesheet.start),
+                    timesheetAdminDetailRow('End Time:', timesheet.end),
+                    timesheetAdminDetailRow(
+                        'Total Hours:', timesheet.totalHours),
+                  ],
+                  if (!timesheet.isConsolidated) ...[
+                    timesheetAdminDetailRow(
+                        'Description:', timesheet.description),
+                  ],
                   if (timesheet.isEdited && !timesheet.editApproved) ...[
                     const SizedBox(height: 16),
                     Container(
@@ -309,7 +373,8 @@ class TimesheetReviewDetailDrawer extends StatelessWidget {
                       ),
                     ),
                   ],
-                  if (timesheet.description.isNotEmpty) ...[
+                  if (!timesheet.isConsolidated &&
+                      timesheet.description.isNotEmpty) ...[
                     const SizedBox(height: 16),
                     Text(
                       l10n.description,
@@ -330,7 +395,8 @@ class TimesheetReviewDetailDrawer extends StatelessWidget {
                       ),
                     ),
                   ],
-                  if (timesheet.employeeNotes != null &&
+                  if (!timesheet.isConsolidated &&
+                      timesheet.employeeNotes != null &&
                       timesheet.employeeNotes!.isNotEmpty) ...[
                     const SizedBox(height: 16),
                     Row(
@@ -457,7 +523,8 @@ class TimesheetReviewDetailDrawer extends StatelessWidget {
                         ),
                       ),
                   ],
-                  if (timesheet.managerNotes != null &&
+                  if (!timesheet.isConsolidated &&
+                      timesheet.managerNotes != null &&
                       timesheet.managerNotes!.isNotEmpty) ...[
                     const SizedBox(height: 16),
                     Row(

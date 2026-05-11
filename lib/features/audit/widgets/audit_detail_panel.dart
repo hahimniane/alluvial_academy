@@ -1,12 +1,14 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
 import 'package:alluwalacademyadmin/features/audit/models/teacher_audit_full.dart';
+import 'package:alluwalacademyadmin/features/audit/services/audit_message_composer.dart';
 import '../services/audit_class_log_row_builder.dart';
 import '../services/teacher_audit_service.dart';
-import '../../../core/utils/app_logger.dart';
+import '../../chat/services/chat_service.dart';
 import '../../chat/models/chat_user.dart';
 import '../../chat/screens/chat_screen.dart';
 import '../../../l10n/app_localizations.dart';
@@ -21,31 +23,73 @@ class AuditDetailFullPanel extends StatefulWidget {
   final bool enableEditing;
   final ValueChanged<TeacherAuditFull>? onAuditChanged;
 
+  /// Admin-only: open resolve/view dispute UI; return updated audit after resolve.
+  final Future<TeacherAuditFull?> Function(TeacherAuditFull audit,
+      {required bool readOnly})? onTeacherDisputePressed;
+
   const AuditDetailFullPanel({
     super.key,
     required this.audit,
     this.enableEditing = false,
     this.onAuditChanged,
+    this.onTeacherDisputePressed,
   });
+
+  static String disputeFieldDisplayLabel(
+      AppLocalizations l10n, String fieldId) {
+    switch (fieldId) {
+      case 'classes_count':
+        return l10n.teacherAuditDisputeOptionClassesCount;
+      case 'hours_taught':
+        return l10n.teacherAuditDisputeOptionHoursTaught;
+      case 'punctuality_rate':
+        return l10n.teacherAuditDisputeOptionPunctualityRate;
+      case 'forms_count':
+        return l10n.teacherAuditDisputeOptionFormsCount;
+      case 'payment_amount':
+        return l10n.teacherAuditDisputeOptionPaymentAmount;
+      case 'overall_score':
+        return l10n.teacherAuditDisputeOptionOverallScore;
+      case 'other':
+        return l10n.teacherAuditDisputeOptionOther;
+      default:
+        return fieldId;
+    }
+  }
 
   static String fieldLabel(BuildContext context, String field) {
     final l10n = AppLocalizations.of(context)!;
     switch (field) {
-      case 'totalClassesMissed': return l10n.auditFieldTotalClassesMissed;
-      case 'totalClassesCancelled': return l10n.auditFieldTotalClassesCancelled;
-      case 'staffMeetingsScheduled': return l10n.auditFieldStaffMeetingsScheduled;
-      case 'staffMeetingsMissed': return l10n.auditFieldStaffMeetingsMissed;
-      case 'meetingLateArrivals': return l10n.auditFieldMeetingLateArrivals;
-      case 'quizzesGiven': return l10n.auditFieldQuizzesGiven;
-      case 'assignmentsGiven': return l10n.auditFieldAssignmentsGiven;
-      case 'overdueTasks': return l10n.auditFieldOverdueTasks;
-      case 'weeklyRecordingsSent': return l10n.auditFieldWeeklyRecordingsSent;
-      case 'classRemindersSet': return l10n.auditFieldClassRemindersSet;
-      case 'internetDropOffs': return l10n.auditFieldInternetDropOffs;
-      case 'midtermCompleted': return l10n.auditFieldMidtermCompleted;
-      case 'finalExamCompleted': return l10n.auditFieldFinalExamCompleted;
-      case 'semesterProjectStatus': return l10n.auditFieldSemesterProjectStatus;
-      default: return field;
+      case 'totalClassesMissed':
+        return l10n.auditFieldTotalClassesMissed;
+      case 'totalClassesCancelled':
+        return l10n.auditFieldTotalClassesCancelled;
+      case 'staffMeetingsScheduled':
+        return l10n.auditFieldStaffMeetingsScheduled;
+      case 'staffMeetingsMissed':
+        return l10n.auditFieldStaffMeetingsMissed;
+      case 'meetingLateArrivals':
+        return l10n.auditFieldMeetingLateArrivals;
+      case 'quizzesGiven':
+        return l10n.auditFieldQuizzesGiven;
+      case 'assignmentsGiven':
+        return l10n.auditFieldAssignmentsGiven;
+      case 'overdueTasks':
+        return l10n.auditFieldOverdueTasks;
+      case 'weeklyRecordingsSent':
+        return l10n.auditFieldWeeklyRecordingsSent;
+      case 'classRemindersSet':
+        return l10n.auditFieldClassRemindersSet;
+      case 'internetDropOffs':
+        return l10n.auditFieldInternetDropOffs;
+      case 'midtermCompleted':
+        return l10n.auditFieldMidtermCompleted;
+      case 'finalExamCompleted':
+        return l10n.auditFieldFinalExamCompleted;
+      case 'semesterProjectStatus':
+        return l10n.auditFieldSemesterProjectStatus;
+      default:
+        return field;
     }
   }
 
@@ -53,91 +97,26 @@ class AuditDetailFullPanel extends StatefulWidget {
   State<AuditDetailFullPanel> createState() => _AuditDetailFullPanelState();
 }
 
-class _AuditDetailFullPanelState extends State<AuditDetailFullPanel> with SingleTickerProviderStateMixin {
+class _AuditDetailFullPanelState extends State<AuditDetailFullPanel>
+    with SingleTickerProviderStateMixin {
   late TabController _tab;
   late TeacherAuditFull _currentAudit;
+  String? _makeupAutoOpenedForAuditId;
+
+  void _maybeAutoOpenTeachingFormsTab() {
+    if (!mounted) return;
+    if (_makeupAutoOpenedForAuditId == _currentAudit.id) return;
+    if (_currentAudit.pendingMakeupAdminDecisionsCount == 0) return;
+    _makeupAutoOpenedForAuditId = _currentAudit.id;
+    _tab.animateTo(1);
+  }
 
   String _buildAuditDiscussionDraft(TeacherAuditFull audit) {
-    final l = AppLocalizations.of(context)!;
-    final ps = audit.paymentSummary;
-    final rows = AuditClassLogRowBuilder.buildRows(audit);
-    assert(() {
-      final warnings = AuditClassLogRowBuilder.consistencyWarnings(audit);
-      for (final w in warnings) {
-        AppLogger.warning('Audit chat-summary consistency warning (${audit.id}): $w');
-      }
-      return true;
-    }());
-    final totals = AuditClassLogRowBuilder.computeTotalsFromRows(rows);
-    final tsHours = totals.totalWorkedFromTs;
-    final formHours = totals.totalFormHours;
-    final totalHours = tsHours + formHours;
-
-    final payFromTimesheet = totals.payFromTs;
-    final payFromForms = totals.payFromForm;
-    final grossBySource = totals.grossBySource;
-
-    String rateBreakdown;
-    final rateBuckets = totals.rateHoursByRate;
-    if (rateBuckets.isEmpty) {
-      rateBreakdown = 'N/A';
-    } else if (rateBuckets.length == 1) {
-      final rate = rateBuckets.keys.first;
-      rateBreakdown =
-          '${totalHours.toStringAsFixed(2)}h × \$${rate.toStringAsFixed(2)}/hr';
-    } else {
-      final parts = rateBuckets.entries
-          .map((e) => '${e.value.toStringAsFixed(2)}h × \$${e.key.toStringAsFixed(2)}/hr')
-          .toList();
-      rateBreakdown = parts.join(' + ');
-    }
-
-    final coachDelta = ps == null
-        ? 0.0
-        : ps.coachAdjustmentLines.fold<double>(
-            0.0,
-            (acc, e) => acc + (e.type == 'bonus' ? e.amount : -e.amount),
-          );
-
-    final lines = <String>[
-      '${l.auditDiscussionAdminButton} - ${audit.yearMonth}',
-      '',
-      'Teacher: ${audit.teacherName}',
-      '',
-      'Payment summary:',
-      '1) Hours:',
-      '- Worked hours (TS): ${tsHours.toStringAsFixed(2)}h',
-      '- Form hours (payment source = Form Duration): ${formHours.toStringAsFixed(2)}h',
-      '- Total hours: ${totalHours.toStringAsFixed(2)}h',
-      '2) Hourly rate breakdown:',
-      '- $rateBreakdown',
-      if (ps != null) ...[
-        '3) Gross amount: \$${grossBySource.toStringAsFixed(2)}',
-        '- Pay from timesheet: \$${payFromTimesheet.toStringAsFixed(2)}',
-        '- Pay from forms: \$${payFromForms.toStringAsFixed(2)}',
-        '4) Adjustments:',
-        '- Auto penalties: -\$${ps.totalPenalties.toStringAsFixed(2)}',
-        '- Auto bonuses: +\$${ps.totalBonuses.toStringAsFixed(2)}',
-        '- Admin adjustment: ${ps.adminAdjustment >= 0 ? '+' : '-'}\$${ps.adminAdjustment.abs().toStringAsFixed(2)}',
-        if (ps.coachAdjustmentLines.isNotEmpty) ...[
-          '- Coach lines:',
-          ...ps.coachAdjustmentLines.map((e) =>
-              '  • ${e.type == 'bonus' ? '+' : '-'}\$${e.amount.toStringAsFixed(2)} (${e.reason})'),
-        ],
-        '- Total adjustments impact: ${((ps.totalBonuses - ps.totalPenalties + ps.adminAdjustment + coachDelta) >= 0) ? '+' : '-'}\$${(ps.totalBonuses - ps.totalPenalties + ps.adminAdjustment + coachDelta).abs().toStringAsFixed(2)}',
-        '5) Advance payment deduction: -\$${ps.totalAdvanceDeduction.toStringAsFixed(2)}',
-        '6) Final amount: \$${(grossBySource - ps.totalPenalties + ps.totalBonuses + ps.adminAdjustment + coachDelta - ps.totalAdvanceDeduction).toStringAsFixed(2)}',
-        '',
-      ] else ...[
-        '3) Gross amount: N/A',
-        '4) Adjustments: N/A',
-        '5) Advance payment deduction: N/A',
-        '6) Final amount: N/A',
-        '',
-      ],
-      'Please review and reply here if you need clarifications or corrections.',
-    ];
-    return lines.join('\n');
+    return AuditMessageComposer.compose(
+      audit: audit,
+      l10n: AppLocalizations.of(context)!,
+      channel: AuditMessageChannel.chatDraft,
+    );
   }
 
   @override
@@ -145,14 +124,19 @@ class _AuditDetailFullPanelState extends State<AuditDetailFullPanel> with Single
     super.initState();
     _currentAudit = widget.audit;
     _tab = TabController(length: 4, vsync: this);
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => _maybeAutoOpenTeachingFormsTab());
   }
 
   @override
   void didUpdateWidget(covariant AuditDetailFullPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
+    _currentAudit = widget.audit;
     if (oldWidget.audit.id != widget.audit.id) {
-      _currentAudit = widget.audit;
+      _makeupAutoOpenedForAuditId = null;
     }
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => _maybeAutoOpenTeachingFormsTab());
   }
 
   @override
@@ -212,13 +196,20 @@ class _AuditDetailFullPanelState extends State<AuditDetailFullPanel> with Single
           child: Column(
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Color(0xffE2E8F0)))),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: const BoxDecoration(
+                    border:
+                        Border(bottom: BorderSide(color: Color(0xffE2E8F0)))),
                 child: Row(
                   children: [
-                    Text(title, style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w700)),
+                    Text(title,
+                        style: GoogleFonts.inter(
+                            fontSize: 15, fontWeight: FontWeight.w700)),
                     const Spacer(),
-                    IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
+                    IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.close)),
                   ],
                 ),
               ),
@@ -233,6 +224,15 @@ class _AuditDetailFullPanelState extends State<AuditDetailFullPanel> with Single
   @override
   Widget build(BuildContext context) {
     final audit = _currentAudit;
+    final l10n = AppLocalizations.of(context)!;
+    final ack = audit.teacherAcknowledgedAt;
+    final dispute = audit.reviewChain?.teacherDispute;
+    final localeTag = Localizations.localeOf(context).toLanguageTag();
+    final ackText = ack != null
+        ? l10n.adminAuditTeacherPayslipAcknowledgedOn(
+            DateFormat.yMMMd(localeTag).add_jm().format(ack),
+          )
+        : l10n.adminAuditTeacherPayslipNotAcknowledged;
 
     return Column(
       children: [
@@ -245,8 +245,12 @@ class _AuditDetailFullPanelState extends State<AuditDetailFullPanel> with Single
                 radius: 17,
                 backgroundColor: const Color(0xffE2E8F0),
                 child: Text(
-                  audit.teacherName.isNotEmpty ? audit.teacherName[0].toUpperCase() : '?',
-                  style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: const Color(0xff334155)),
+                  audit.teacherName.isNotEmpty
+                      ? audit.teacherName[0].toUpperCase()
+                      : '?',
+                  style: GoogleFonts.inter(
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xff334155)),
                 ),
               ),
               const SizedBox(width: 10),
@@ -256,31 +260,43 @@ class _AuditDetailFullPanelState extends State<AuditDetailFullPanel> with Single
                   children: [
                     Text(
                       audit.teacherName,
-                      style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, color: const Color(0xff1E293B)),
+                      style: GoogleFonts.inter(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xff1E293B)),
                     ),
                     Text(
                       '${audit.teacherEmail} · ${audit.yearMonth}',
-                      style: GoogleFonts.inter(fontSize: 11, color: const Color(0xff64748B)),
+                      style: GoogleFonts.inter(
+                          fontSize: 11, color: const Color(0xff64748B)),
                     ),
                   ],
                 ),
               ),
-              AuditDetailPill(label: '${audit.overallScore.toStringAsFixed(0)}%', color: const Color(0xff1a6ef5)),
+              AuditDetailPill(
+                  label: '${audit.overallScore.toStringAsFixed(0)}%',
+                  color: const Color(0xff1a6ef5)),
               const SizedBox(width: 6),
-              AuditDetailPill(label: _statusLabel(audit.status), color: _statusColor(audit.status)),
+              AuditDetailPill(
+                  label: _statusLabel(audit.status),
+                  color: _statusColor(audit.status)),
               const SizedBox(width: 8),
               ElevatedButton(
                 onPressed: () => _tab.animateTo(3),
-                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xff1a6ef5), foregroundColor: Colors.white),
-                child: Text(AppLocalizations.of(context)!.performanceEvaluation),
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xff1a6ef5),
+                    foregroundColor: Colors.white),
+                child:
+                    Text(AppLocalizations.of(context)!.performanceEvaluation),
               ),
               const SizedBox(width: 4),
-              IconButton(
-                tooltip: AppLocalizations.of(context)!.auditDiscussionAdminButton,
-                onPressed: () async {
+              _AuditDiscussionChatIcon(
+                audit: audit,
+                onOpenChat: () async {
                   final l10n = AppLocalizations.of(context)!;
                   final chatId =
-                      await TeacherAuditService.ensureAuditDiscussionChatId(audit.id);
+                      await TeacherAuditService.ensureAuditDiscussionChatId(
+                          audit.id);
                   if (!context.mounted) return;
                   if (chatId == null) {
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -315,24 +331,257 @@ class _AuditDetailFullPanelState extends State<AuditDetailFullPanel> with Single
                     ),
                   );
                 },
-                icon: const Icon(Icons.chat_bubble_outline, size: 22),
+              ),
+              const SizedBox(width: 4),
+              IconButton(
+                tooltip:
+                    AppLocalizations.of(context)!.auditShareWithTeacherTooltip,
+                onPressed: () async {
+                  final l10n = AppLocalizations.of(context)!;
+                  final text = AuditMessageComposer.compose(
+                    audit: audit,
+                    l10n: l10n,
+                    channel: AuditMessageChannel.shareLink,
+                  );
+                  await Clipboard.setData(ClipboardData(text: text));
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(l10n.auditShareWithTeacherCopied)),
+                  );
+                },
+                icon: const Icon(Icons.share_outlined, size: 22),
               ),
               const SizedBox(width: 4),
               PopupMenuButton<String>(
                 onSelected: _openQuickDialog,
                 itemBuilder: (context) => [
-                  PopupMenuItem(value: 'overview', child: Text(AppLocalizations.of(context)!.auditTabOverview)),
-                  PopupMenuItem(value: 'payment', child: Text(AppLocalizations.of(context)!.auditPaymentSummary)),
-                  PopupMenuItem(value: 'changelog', child: Text(AppLocalizations.of(context)!.auditTabChangeLog)),
+                  PopupMenuItem(
+                      value: 'overview',
+                      child:
+                          Text(AppLocalizations.of(context)!.auditTabOverview)),
+                  PopupMenuItem(
+                      value: 'payment',
+                      child: Text(
+                          AppLocalizations.of(context)!.auditPaymentSummary)),
+                  PopupMenuItem(
+                      value: 'changelog',
+                      child: Text(
+                          AppLocalizations.of(context)!.auditTabChangeLog)),
                 ],
               ),
             ],
           ),
         ),
+        Material(
+          color: const Color(0xFFF8FAFC),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.fact_check_outlined,
+                        size: 18, color: Colors.grey.shade700),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            l10n.adminAuditTeacherPayslipAckShort,
+                            style: GoogleFonts.inter(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xff64748B),
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            ackText,
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xff1E293B),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                if (dispute != null) ...[
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xffE2E8F0)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                l10n.adminAuditTeacherDisputeSummaryTitle,
+                                style: GoogleFonts.inter(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w800,
+                                  color: const Color(0xff64748B),
+                                ),
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: dispute.status == 'pending'
+                                    ? const Color(0xFFFFF7ED)
+                                    : (dispute.status == 'accepted'
+                                        ? const Color(0xFFECFDF5)
+                                        : const Color(0xFFFEF2F2)),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                dispute.status.toUpperCase(),
+                                style: GoogleFonts.inter(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                  color: dispute.status == 'pending'
+                                      ? const Color(0xFFC2410C)
+                                      : (dispute.status == 'accepted'
+                                          ? const Color(0xFF047857)
+                                          : const Color(0xFFB91C1C)),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          '${l10n.teacherAuditDisputeFieldLabel}: ${AuditDetailFullPanel.disputeFieldDisplayLabel(l10n, dispute.field)}',
+                          style: GoogleFonts.inter(
+                              fontSize: 12, color: const Color(0xff334155)),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          dispute.reason,
+                          style: GoogleFonts.inter(
+                              fontSize: 12,
+                              height: 1.35,
+                              color: const Color(0xff475569)),
+                        ),
+                        if (dispute.suggestedValue != null &&
+                            '${dispute.suggestedValue}'.trim().isNotEmpty) ...[
+                          const SizedBox(height: 6),
+                          Text(
+                            l10n.adminAuditTeacherDisputeSuggestedValue,
+                            style: GoogleFonts.inter(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xff64748B),
+                            ),
+                          ),
+                          Text(
+                            '${dispute.suggestedValue}',
+                            style: GoogleFonts.inter(fontSize: 12),
+                          ),
+                        ],
+                        if (widget.enableEditing &&
+                            widget.onTeacherDisputePressed != null) ...[
+                          const SizedBox(height: 8),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: dispute.status == 'pending'
+                                ? TextButton.icon(
+                                    onPressed: () async {
+                                      final u =
+                                          await widget.onTeacherDisputePressed!(
+                                        _currentAudit,
+                                        readOnly: false,
+                                      );
+                                      if (u != null && mounted) {
+                                        setState(() => _currentAudit = u);
+                                        widget.onAuditChanged?.call(u);
+                                      }
+                                    },
+                                    icon: const Icon(Icons.gavel_outlined,
+                                        size: 18),
+                                    label: Text(l10n
+                                        .adminAuditResolveTeacherDisputeButton),
+                                  )
+                                : TextButton.icon(
+                                    onPressed: () async {
+                                      final u =
+                                          await widget.onTeacherDisputePressed!(
+                                        _currentAudit,
+                                        readOnly: true,
+                                      );
+                                      if (u != null && mounted) {
+                                        setState(() => _currentAudit = u);
+                                        widget.onAuditChanged?.call(u);
+                                      }
+                                    },
+                                    icon: const Icon(Icons.visibility_outlined,
+                                        size: 18),
+                                    label:
+                                        Text(l10n.adminAuditViewTeacherDispute),
+                                  ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+        if (_currentAudit.pendingMakeupAdminDecisionsCount > 0)
+          Material(
+            color: const Color(0xFFFFF7ED),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.warning_amber_rounded,
+                      color: Color(0xFFD97706), size: 22),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      AppLocalizations.of(context)!
+                          .auditMakeupPendingAdminBanner(
+                        _currentAudit.pendingMakeupAdminDecisionsCount,
+                      ),
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        height: 1.35,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xff9A3412),
+                      ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () => _tab.animateTo(1),
+                    child: Text(
+                      AppLocalizations.of(context)!
+                          .auditMakeupOpenTeachingFormsTab,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         Container(
           decoration: const BoxDecoration(
             color: Colors.white,
-            border: Border(bottom: BorderSide(color: Color(0xffE2E8F0), width: 1)),
+            border:
+                Border(bottom: BorderSide(color: Color(0xffE2E8F0), width: 1)),
           ),
           child: TabBar(
             controller: _tab,
@@ -341,7 +590,8 @@ class _AuditDetailFullPanelState extends State<AuditDetailFullPanel> with Single
             unselectedLabelColor: const Color(0xff64748B),
             indicatorColor: const Color(0xff0078D4),
             indicatorWeight: 2,
-            labelStyle: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600),
+            labelStyle:
+                GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600),
             unselectedLabelStyle: GoogleFonts.inter(fontSize: 13),
             tabs: const [
               Tab(text: 'Class log'),
@@ -359,6 +609,7 @@ class _AuditDetailFullPanelState extends State<AuditDetailFullPanel> with Single
               AuditClassLogTab(audit: audit),
               AuditFormsTab(
                 audit: audit,
+                autoSelectPendingMakeupOnce: true,
                 onAuditChanged: (updated) {
                   setState(() => _currentAudit = updated);
                   widget.onAuditChanged?.call(updated);
@@ -380,6 +631,83 @@ class _AuditDetailFullPanelState extends State<AuditDetailFullPanel> with Single
   }
 }
 
+class _AuditDiscussionChatIcon extends StatelessWidget {
+  final TeacherAuditFull audit;
+  final Future<void> Function() onOpenChat;
+
+  const _AuditDiscussionChatIcon({
+    required this.audit,
+    required this.onOpenChat,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final chatService = ChatService();
+    final stored = audit.discussionChatId?.trim();
+    final cid = (stored != null && stored.isNotEmpty)
+        ? stored
+        : chatService.individualChatIdWith(audit.oderId);
+    if (cid == null) {
+      return IconButton(
+        tooltip: l10n.auditDiscussionAdminButton,
+        onPressed: () => onOpenChat(),
+        icon: const Icon(Icons.chat_bubble_outline, size: 22),
+      );
+    }
+    return StreamBuilder<int>(
+      stream: chatService.watchUnreadIncomingMessageCount(cid),
+      builder: (context, snap) {
+        final count = snap.data ?? 0;
+        final tooltip = count > 0
+            ? l10n.auditDiscussionUnreadBadgeTooltip(count)
+            : l10n.auditDiscussionAdminButton;
+        return Semantics(
+          label: tooltip,
+          button: true,
+          child: Stack(
+            clipBehavior: Clip.none,
+            alignment: Alignment.center,
+            children: [
+              IconButton(
+                tooltip: tooltip,
+                onPressed: () => onOpenChat(),
+                icon: const Icon(Icons.chat_bubble_outline, size: 22),
+              ),
+              if (count > 0)
+                Positioned(
+                  right: 4,
+                  top: 6,
+                  child: IgnorePointer(
+                    child: Container(
+                      constraints:
+                          const BoxConstraints(minWidth: 18, minHeight: 18),
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFDC2626),
+                        borderRadius: BorderRadius.circular(9),
+                        border: Border.all(color: Colors.white, width: 1.5),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        count > 99 ? '99+' : count.toString(),
+                        style: GoogleFonts.inter(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
 class _OverviewDialogContent extends StatelessWidget {
   final TeacherAuditFull audit;
   const _OverviewDialogContent({required this.audit});
@@ -389,7 +717,8 @@ class _OverviewDialogContent extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        AuditSectionTitle(title: AppLocalizations.of(context)!.auditKeyIndicators),
+        AuditSectionTitle(
+            title: AppLocalizations.of(context)!.auditKeyIndicators),
         const SizedBox(height: 10),
         GridView.count(
           crossAxisCount: 3,
@@ -399,9 +728,23 @@ class _OverviewDialogContent extends StatelessWidget {
           crossAxisSpacing: 10,
           childAspectRatio: 1.7,
           children: [
-            AuditKpiCard(icon: Icons.school_outlined, color: const Color(0xFF3B82F6), label: AppLocalizations.of(context)!.auditClassesCompleted, value: '${audit.totalClassesCompleted}/${audit.totalClassesScheduled}'),
-            AuditKpiCard(icon: Icons.timer_outlined, color: const Color(0xFF10B981), label: AppLocalizations.of(context)!.auditHoursTaught, value: '${audit.totalWorkedHours.toStringAsFixed(2)}h'),
-            AuditKpiCard(icon: Icons.description_outlined, color: const Color(0xFF8B5CF6), label: AppLocalizations.of(context)!.auditTabForms, value: '${audit.readinessFormsSubmitted}/${audit.readinessFormsRequired}'),
+            AuditKpiCard(
+                icon: Icons.school_outlined,
+                color: const Color(0xFF3B82F6),
+                label: AppLocalizations.of(context)!.auditClassesCompleted,
+                value:
+                    '${audit.totalClassesCompleted}/${audit.totalClassesScheduled}'),
+            AuditKpiCard(
+                icon: Icons.timer_outlined,
+                color: const Color(0xFF10B981),
+                label: AppLocalizations.of(context)!.auditHoursTaught,
+                value: '${audit.totalWorkedHours.toStringAsFixed(2)}h'),
+            AuditKpiCard(
+                icon: Icons.description_outlined,
+                color: const Color(0xFF8B5CF6),
+                label: AppLocalizations.of(context)!.auditTabForms,
+                value:
+                    '${audit.readinessFormsSubmitted}/${audit.readinessFormsRequired}'),
           ],
         ),
       ],
@@ -417,13 +760,19 @@ class _PaymentDialogContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final ps = audit.paymentSummary;
     if (ps == null) {
-      return const AuditEmptyState(icon: Icons.payments_outlined, message: 'No payment data');
+      return const AuditEmptyState(
+          icon: Icons.payments_outlined, message: 'No payment data');
     }
     final totals = AuditClassLogRowBuilder.computeTotals(audit);
     final gross = totals.grossBySource;
     final coachDelta = ps.coachAdjustmentLines.fold<double>(
-      0.0, (acc, e) => acc + (e.type == 'bonus' ? e.amount : -e.amount));
-    final net = gross - ps.totalPenalties + ps.totalBonuses + ps.adminAdjustment + coachDelta - ps.totalAdvanceDeduction;
+        0.0, (acc, e) => acc + (e.type == 'bonus' ? e.amount : -e.amount));
+    final net = gross -
+        ps.totalPenalties +
+        ps.totalBonuses +
+        ps.adminAdjustment +
+        coachDelta -
+        ps.totalAdvanceDeduction;
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -547,8 +896,12 @@ class _ChangeLogDialogContent extends StatelessWidget {
       itemBuilder: (context, index) {
         final e = entries[index];
         final isCoachLines = _isCoachLinesField(e);
-        final oldLines = isCoachLines ? _parseCoachLineSignatures(e.oldValue) : const <String>[];
-        final newLines = isCoachLines ? _parseCoachLineSignatures(e.newValue) : const <String>[];
+        final oldLines = isCoachLines
+            ? _parseCoachLineSignatures(e.oldValue)
+            : const <String>[];
+        final newLines = isCoachLines
+            ? _parseCoachLineSignatures(e.newValue)
+            : const <String>[];
         final removed = isCoachLines
             ? oldLines.where((line) => !newLines.contains(line)).toList()
             : const <String>[];
@@ -559,9 +912,12 @@ class _ChangeLogDialogContent extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(e.adminName, style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+            Text(e.adminName,
+                style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
             const SizedBox(height: 4),
-            Text(_friendlyFieldLabel(context, e), style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600)),
+            Text(_friendlyFieldLabel(context, e),
+                style: GoogleFonts.inter(
+                    fontSize: 12, fontWeight: FontWeight.w600)),
             const SizedBox(height: 4),
             if (!isCoachLines)
               Text(
@@ -576,25 +932,29 @@ class _ChangeLogDialogContent extends StatelessWidget {
             if (isCoachLines && removed.isNotEmpty)
               ...removed.map((line) => Text(
                     'Removed: $line',
-                    style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFFB91C1C)),
+                    style: GoogleFonts.inter(
+                        fontSize: 12, color: const Color(0xFFB91C1C)),
                   )),
             if (isCoachLines && added.isNotEmpty)
               ...added.map((line) => Text(
                     'Added: $line',
-                    style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF166534)),
+                    style: GoogleFonts.inter(
+                        fontSize: 12, color: const Color(0xFF166534)),
                   )),
             if (e.reason.trim().isNotEmpty) ...[
               const SizedBox(height: 3),
               Text(
                 'Reason: ${e.reason}',
-                style: GoogleFonts.inter(fontSize: 11, color: const Color(0xff64748B)),
+                style: GoogleFonts.inter(
+                    fontSize: 11, color: const Color(0xff64748B)),
               ),
             ],
-            Text(DateFormat('MMM d, yyyy HH:mm').format(e.changedAt), style: GoogleFonts.inter(fontSize: 11, color: const Color(0xff94A3B8))),
+            Text(DateFormat('MMM d, yyyy HH:mm').format(e.changedAt),
+                style: GoogleFonts.inter(
+                    fontSize: 11, color: const Color(0xff94A3B8))),
           ],
         );
       },
     );
   }
 }
-

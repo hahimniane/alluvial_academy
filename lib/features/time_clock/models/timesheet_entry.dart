@@ -34,7 +34,8 @@ class TimesheetEntry {
 
   // Export fields (for ConnectTeam-style export)
   final String? shiftTitle; // Cached shift display name
-  final String? shiftType; // Formatted type string (e.g., "Stu - John - Teacher (1hr)")
+  final String?
+      shiftType; // Formatted type string (e.g., "Stu - John - Teacher (1hr)")
   final String? clockInPlatform; // Device used for clock-in
   final String? clockOutPlatform; // Device used for clock-out
   final DateTime? scheduledStart; // Original scheduled start time
@@ -42,30 +43,32 @@ class TimesheetEntry {
   final int? scheduledDurationMinutes; // Scheduled duration in minutes
   final String? employeeNotes; // Notes from teacher
   final String? managerNotes; // Notes from admin
-  
+
   // Timestamp fields for precise time tracking
   final Timestamp? clockInTimestamp; // Actual clock-in timestamp
   final Timestamp? clockOutTimestamp; // Actual clock-out timestamp
-  
+
   // Edit tracking fields
   final bool isEdited; // Whether this timesheet was edited
   final bool editApproved; // Whether the edit was approved by admin
-  final Map<String, dynamic>? originalData; // Original data before edit (for comparison)
+  final Map<String, dynamic>?
+      originalData; // Original data before edit (for comparison)
   /// Status before teacher edit (`edit_timesheet_dialog`); used when admin rejects the edit.
   final String? previousStatus;
   final Timestamp? editedAt; // When the timesheet was edited
   final String? editedBy; // Who edited the timesheet
-  
+
   // Readiness Form linkage
   final String? formResponseId; // ID of the linked form response
   final bool formCompleted; // Whether the post-class form was filled
   final double? reportedHours; // Hours reported in the form (for comparison)
   final String? formNotes; // Any notes from the form
   final String? shiftId; // Link to the shift
-  
+
   // Consolidated View Support
   final bool isConsolidated;
   final List<TimesheetEntry>? childEntries;
+  final Map<String, dynamic>? rawDocumentData;
 
   const TimesheetEntry({
     this.documentId,
@@ -116,5 +119,6 @@ class TimesheetEntry {
     this.shiftId,
     this.isConsolidated = false,
     this.childEntries,
+    this.rawDocumentData,
   });
 }

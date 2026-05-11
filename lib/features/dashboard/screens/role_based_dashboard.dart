@@ -10,6 +10,7 @@ import 'package:alluwalacademyadmin/core/services/user_role_service.dart';
 import 'package:alluwalacademyadmin/features/dashboard/screens/dashboard.dart';
 import 'package:alluwalacademyadmin/features/parent/screens/parent_dashboard_layout.dart';
 import 'package:alluwalacademyadmin/features/dashboard/screens/mobile_dashboard_screen.dart';
+import 'package:alluwalacademyadmin/core/services/web_app_stability_service.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
@@ -119,6 +120,7 @@ class _RoleBasedDashboardState extends State<RoleBasedDashboard>
       );
     } catch (e) {
       AppLogger.error('Presence update failed: $e');
+      WebAppStabilityService.instance.noteFirestoreError(e);
     }
   }
 
@@ -216,6 +218,7 @@ class _RoleBasedDashboardState extends State<RoleBasedDashboard>
     } catch (e) {
       if (!_userRoleResolved) {
         AppLogger.error('User document polling error: $e');
+        WebAppStabilityService.instance.noteFirestoreError(e);
       }
     } finally {
       _isPollingUserDocument = false;
@@ -593,7 +596,6 @@ class _RoleBasedDashboardState extends State<RoleBasedDashboard>
     );
   }
 }
-
 
 // ⚠️ DEPRECATED - Teachers now use DashboardPage directly (with navigation)
 // This class can be DELETED after verification

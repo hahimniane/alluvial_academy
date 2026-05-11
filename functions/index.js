@@ -68,6 +68,8 @@ exports.onShiftCreated = shiftHandlers.onShiftCreated;
 exports.onShiftUpdated = shiftHandlers.onShiftUpdated;
 exports.onShiftCancelled = shiftHandlers.onShiftCancelled;
 exports.onShiftDeleted = shiftHandlers.onShiftDeleted;
+exports.onTimesheetWritten = shiftHandlers.onTimesheetWritten;
+exports.onFormResponseWritten = shiftHandlers.onFormResponseWritten;
 exports.sendScheduledShiftReminders = shiftHandlers.sendScheduledShiftReminders;
 exports.scheduleUpcomingShiftLifecycleTasks =
   shiftHandlers.scheduleUpcomingShiftLifecycleTasks;
