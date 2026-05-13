@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 import '../../../core/widgets/modern_header.dart';
 import '../../../core/widgets/fade_in_slide.dart';
@@ -234,6 +235,7 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
                     _buildPricingSection(key: _pricingSectionKey),
                     _buildAboutUsSection(key: _aboutSectionKey),
                     _buildEnrollSection(key: _ctaSectionKey),
+                    _buildDownloadAppSection(),
                     _buildFooterPlaceholder(),
                   ],
                 ),
@@ -1872,6 +1874,79 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
     );
   }
 
+  // Releases page on GitHub; swap to an alluwaleducationhub.org/downloads URL
+  // once installers are mirrored on Hostinger.
+  static const String _desktopReleasesUrl =
+      'https://github.com/hahimniane/alluvial_academy/releases/latest';
+
+  Widget _buildDownloadAppSection() {
+    final loc = AppLocalizations.of(context)!;
+    final isMobile = MediaQuery.of(context).size.width < 720;
+
+    final winBtn = _DesktopDownloadButton(
+      icon: Icons.desktop_windows_outlined,
+      label: loc.landingDownloadAppWindows,
+      url: _desktopReleasesUrl,
+    );
+    final macBtn = _DesktopDownloadButton(
+      icon: Icons.laptop_mac_outlined,
+      label: loc.landingDownloadAppMac,
+      url: _desktopReleasesUrl,
+    );
+
+    return Container(
+      width: double.infinity,
+      color: Colors.white,
+      padding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 24 : 48,
+        vertical: isMobile ? 56 : 88,
+      ),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 720),
+          child: Column(
+            children: [
+              Text(
+                loc.landingDownloadAppHeadline,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(
+                  fontSize: isMobile ? 24 : 30,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xff111827),
+                  height: 1.2,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                loc.landingDownloadAppSubtitle,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(
+                  fontSize: isMobile ? 14 : 16,
+                  color: const Color(0xff4B5563),
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 28),
+              if (isMobile) ...[
+                SizedBox(width: double.infinity, child: winBtn),
+                const SizedBox(height: 12),
+                SizedBox(width: double.infinity, child: macBtn),
+              ] else
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    winBtn,
+                    const SizedBox(width: 16),
+                    macBtn,
+                  ],
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildFooterPlaceholder() {
     return Container(
       width: double.infinity,
@@ -1910,6 +1985,43 @@ class _HoverScaleCardState extends State<_HoverScaleCard> {
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeOutCubic,
         child: widget.child,
+      ),
+    );
+  }
+}
+
+class _DesktopDownloadButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String url;
+
+  const _DesktopDownloadButton({
+    required this.icon,
+    required this.label,
+    required this.url,
+  });
+
+  Future<void> _open() async {
+    final uri = Uri.parse(url);
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ElevatedButton.icon(
+      onPressed: _open,
+      icon: Icon(icon, size: 20),
+      label: Text(
+        label,
+        style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 15),
+      ),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: const Color(0xff111827),
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
       ),
     );
   }

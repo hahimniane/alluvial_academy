@@ -1,0 +1,62 @@
+{
+  "name": "alluwal-academy-desktop",
+  "version": "0.1.0",
+  "description": "Alluwal Education Hub desktop app",
+  "main": "main.js",
+  "author": "Alluwal Education Hub",
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder",
+    "build:win": "electron-builder --win",
+    "build:mac": "electron-builder --mac",
+    "build:linux": "electron-builder --linux"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "org.alluwaleducationhub.desktop",
+    "productName": "Alluwal Education Hub",
+    "asar": true,
+    "files": [
+      "main.js",
+      "preload.js",
+      "package.json"
+    ],
+    "directories": {
+      "output": "dist",
+      "buildResources": "resources"
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "resources/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Alluwal Education Hub"
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "icon": "resources/icon.icns",
+      "category": "public.app-category.education"
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "icon": "resources/icon.png",
+      "category": "Education"
+    }
+  }
+}
