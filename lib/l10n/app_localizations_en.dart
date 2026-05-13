@@ -13906,4 +13906,103 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get tontineInvitePreview =>
       'Review this invitation and circle details before you join.';
+
+  @override
+  String get reportIssueTooltip => 'Report an issue';
+
+  @override
+  String get reportIssueDialogTitle => 'Report an issue';
+
+  @override
+  String get reportIssueCategoryPrompt => 'What\'s happening?';
+
+  @override
+  String get reportIssueCategoryHint => 'Select all that apply';
+
+  @override
+  String get reportIssueNoteLabel => 'Notes (optional)';
+
+  @override
+  String get reportIssueNoteHint => 'Anything else that helps us debug';
+
+  @override
+  String get reportIssueSubmit => 'Submit';
+
+  @override
+  String get reportIssueSubmitting => 'Sending diagnostics...';
+
+  @override
+  String get reportIssueThankYou => 'Thanks — diagnostics sent to support';
+
+  @override
+  String get reportIssueFailed =>
+      'Could not send diagnostics. Please try again.';
+
+  @override
+  String get reportIssueNotInCall =>
+      'You need to be connected to the call to report an issue.';
+
+  @override
+  String reportIssuePeerBannerMessage(String name, String categories) {
+    return '$name reported: $categories. Are you experiencing this too?';
+  }
+
+  @override
+  String reportIssuePeerPromptMessage(String name) {
+    return 'Confirming the same issue $name reported.';
+  }
+
+  @override
+  String get reportIssuePeerConfirm => 'Yes, same here';
+
+  @override
+  String get reportIssuePeerDismiss => 'I\'m fine';
+
+  @override
+  String get reportIssueCategoryAudioCantHearOthers => 'I can\'t hear others';
+
+  @override
+  String get reportIssueCategoryAudioOthersCantHearMe =>
+      'Others can\'t hear me';
+
+  @override
+  String get reportIssueCategoryAudioChoppyOrEcho =>
+      'Audio is choppy or echoing';
+
+  @override
+  String get reportIssueCategoryVideoCantSeeOthers => 'I can\'t see others';
+
+  @override
+  String get reportIssueCategoryVideoOthersCantSeeMe => 'Others can\'t see me';
+
+  @override
+  String get reportIssueCategoryVideoFrozenOrLaggy =>
+      'Video is frozen or laggy';
+
+  @override
+  String get reportIssueCategoryGotDisconnected => 'I got disconnected';
+
+  @override
+  String get reportIssueCategoryScreenShareIssue =>
+      'Screen share isn\'t working';
+
+  @override
+  String get reportIssueCategoryWhiteboardOrChatIssue =>
+      'Whiteboard or chat issue';
+
+  @override
+  String get reportIssueCategoryOther => 'Other';
+
+  @override
+  String get landingDownloadAppHeadline => 'Get the desktop app';
+
+  @override
+  String get landingDownloadAppSubtitle =>
+      'Skip the browser. Install Alluwal Education Hub on your computer for faster sign-in, fewer browser issues, and a dedicated window for classes.';
+
+  @override
+  String get landingDownloadAppWindows => 'Download for Windows';
+
+  @override
+  String get landingDownloadAppMac => 'Download for Mac';
 }

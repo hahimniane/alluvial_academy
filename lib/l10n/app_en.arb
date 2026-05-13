@@ -5687,5 +5687,46 @@
   "dashboardTitle": "TEACHER AUDIT REPORT",
   "dashboardSubtitle": "teachers · 1 month · Auto-generated report",
   "teacherPerformanceOverview": "TEACHER PERFORMANCE OVERVIEW",
-  "tontineInvitePreview": "Review this invitation and circle details before you join."
+  "tontineInvitePreview": "Review this invitation and circle details before you join.",
+  "reportIssueTooltip": "Report an issue",
+  "reportIssueDialogTitle": "Report an issue",
+  "reportIssueCategoryPrompt": "What's happening?",
+  "reportIssueCategoryHint": "Select all that apply",
+  "reportIssueNoteLabel": "Notes (optional)",
+  "reportIssueNoteHint": "Anything else that helps us debug",
+  "reportIssueSubmit": "Submit",
+  "reportIssueSubmitting": "Sending diagnostics...",
+  "reportIssueThankYou": "Thanks — diagnostics sent to support",
+  "reportIssueFailed": "Could not send diagnostics. Please try again.",
+  "reportIssueNotInCall": "You need to be connected to the call to report an issue.",
+  "reportIssuePeerBannerMessage": "{name} reported: {categories}. Are you experiencing this too?",
+  "@reportIssuePeerBannerMessage": {
+    "placeholders": {
+      "name": { "type": "String" },
+      "categories": { "type": "String" }
+    }
+  },
+  "reportIssuePeerPromptMessage": "Confirming the same issue {name} reported.",
+  "@reportIssuePeerPromptMessage": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "reportIssuePeerConfirm": "Yes, same here",
+  "reportIssuePeerDismiss": "I'm fine",
+  "reportIssueCategoryAudioCantHearOthers": "I can't hear others",
+  "reportIssueCategoryAudioOthersCantHearMe": "Others can't hear me",
+  "reportIssueCategoryAudioChoppyOrEcho": "Audio is choppy or echoing",
+  "reportIssueCategoryVideoCantSeeOthers": "I can't see others",
+  "reportIssueCategoryVideoOthersCantSeeMe": "Others can't see me",
+  "reportIssueCategoryVideoFrozenOrLaggy": "Video is frozen or laggy",
+  "reportIssueCategoryGotDisconnected": "I got disconnected",
+  "reportIssueCategoryScreenShareIssue": "Screen share isn't working",
+  "reportIssueCategoryWhiteboardOrChatIssue": "Whiteboard or chat issue",
+  "reportIssueCategoryOther": "Other",
+
+  "landingDownloadAppHeadline": "Get the desktop app",
+  "landingDownloadAppSubtitle": "Skip the browser. Install Alluwal Education Hub on your computer for faster sign-in, fewer browser issues, and a dedicated window for classes.",
+  "landingDownloadAppWindows": "Download for Windows",
+  "landingDownloadAppMac": "Download for Mac"
 }

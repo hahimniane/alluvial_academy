@@ -5331,5 +5331,46 @@
   "aboutValuesKnowledge": "Savoir",
   "aboutValuesKnowledgeDesc": "Apprentissage transformateur",
   "aboutValuesAccessibility": "Accessibilité",
-  "aboutValuesAccessibilityDesc": "Disponible partout dans le monde"
+  "aboutValuesAccessibilityDesc": "Disponible partout dans le monde",
+  "reportIssueTooltip": "Signaler un problème",
+  "reportIssueDialogTitle": "Signaler un problème",
+  "reportIssueCategoryPrompt": "Que se passe-t-il ?",
+  "reportIssueCategoryHint": "Sélectionnez tout ce qui s'applique",
+  "reportIssueNoteLabel": "Notes (facultatif)",
+  "reportIssueNoteHint": "Tout détail utile pour le débogage",
+  "reportIssueSubmit": "Envoyer",
+  "reportIssueSubmitting": "Envoi du diagnostic...",
+  "reportIssueThankYou": "Merci — diagnostic envoyé au support",
+  "reportIssueFailed": "Impossible d'envoyer le diagnostic. Veuillez réessayer.",
+  "reportIssueNotInCall": "Vous devez être connecté à l'appel pour signaler un problème.",
+  "reportIssuePeerBannerMessage": "{name} a signalé : {categories}. Rencontrez-vous aussi ces problèmes ?",
+  "@reportIssuePeerBannerMessage": {
+    "placeholders": {
+      "name": { "type": "String" },
+      "categories": { "type": "String" }
+    }
+  },
+  "reportIssuePeerPromptMessage": "Confirmation du même problème signalé par {name}.",
+  "@reportIssuePeerPromptMessage": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "reportIssuePeerConfirm": "Oui, pareil pour moi",
+  "reportIssuePeerDismiss": "Tout va bien",
+  "reportIssueCategoryAudioCantHearOthers": "Je n'entends pas les autres",
+  "reportIssueCategoryAudioOthersCantHearMe": "Les autres ne m'entendent pas",
+  "reportIssueCategoryAudioChoppyOrEcho": "Audio saccadé ou avec écho",
+  "reportIssueCategoryVideoCantSeeOthers": "Je ne vois pas les autres",
+  "reportIssueCategoryVideoOthersCantSeeMe": "Les autres ne me voient pas",
+  "reportIssueCategoryVideoFrozenOrLaggy": "Vidéo figée ou saccadée",
+  "reportIssueCategoryGotDisconnected": "J'ai été déconnecté",
+  "reportIssueCategoryScreenShareIssue": "Le partage d'écran ne fonctionne pas",
+  "reportIssueCategoryWhiteboardOrChatIssue": "Problème de tableau blanc ou de chat",
+  "reportIssueCategoryOther": "Autre",
+
+  "landingDownloadAppHeadline": "Téléchargez l'application de bureau",
+  "landingDownloadAppSubtitle": "Évitez le navigateur. Installez Alluwal Education Hub sur votre ordinateur pour une connexion plus rapide, moins de problèmes de navigateur, et une fenêtre dédiée aux cours.",
+  "landingDownloadAppWindows": "Télécharger pour Windows",
+  "landingDownloadAppMac": "Télécharger pour Mac"
 }

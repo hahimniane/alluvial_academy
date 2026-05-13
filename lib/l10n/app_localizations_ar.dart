@@ -13876,4 +13876,98 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get tontineInvitePreview =>
       'Review this invitation and circle details before you join.';
+
+  @override
+  String get reportIssueTooltip => 'الإبلاغ عن مشكلة';
+
+  @override
+  String get reportIssueDialogTitle => 'الإبلاغ عن مشكلة';
+
+  @override
+  String get reportIssueCategoryPrompt => 'ما الذي يحدث؟';
+
+  @override
+  String get reportIssueCategoryHint => 'اختر كل ما ينطبق';
+
+  @override
+  String get reportIssueNoteLabel => 'ملاحظات (اختياري)';
+
+  @override
+  String get reportIssueNoteHint => 'أي تفاصيل تساعدنا على تشخيص المشكلة';
+
+  @override
+  String get reportIssueSubmit => 'إرسال';
+
+  @override
+  String get reportIssueSubmitting => 'جاري إرسال التشخيص...';
+
+  @override
+  String get reportIssueThankYou => 'شكراً — تم إرسال التشخيص إلى الدعم';
+
+  @override
+  String get reportIssueFailed => 'تعذر إرسال التشخيص. يرجى المحاولة مرة أخرى.';
+
+  @override
+  String get reportIssueNotInCall =>
+      'يجب أن تكون متصلاً بالمكالمة للإبلاغ عن مشكلة.';
+
+  @override
+  String reportIssuePeerBannerMessage(String name, String categories) {
+    return 'أبلغ $name عن: $categories. هل تواجه نفس المشاكل؟';
+  }
+
+  @override
+  String reportIssuePeerPromptMessage(String name) {
+    return 'تأكيد نفس المشكلة التي أبلغ عنها $name.';
+  }
+
+  @override
+  String get reportIssuePeerConfirm => 'نعم، أواجه نفس المشكلة';
+
+  @override
+  String get reportIssuePeerDismiss => 'أنا بخير';
+
+  @override
+  String get reportIssueCategoryAudioCantHearOthers => 'لا أسمع الآخرين';
+
+  @override
+  String get reportIssueCategoryAudioOthersCantHearMe => 'الآخرون لا يسمعونني';
+
+  @override
+  String get reportIssueCategoryAudioChoppyOrEcho => 'الصوت متقطع أو فيه صدى';
+
+  @override
+  String get reportIssueCategoryVideoCantSeeOthers => 'لا أرى الآخرين';
+
+  @override
+  String get reportIssueCategoryVideoOthersCantSeeMe => 'الآخرون لا يرونني';
+
+  @override
+  String get reportIssueCategoryVideoFrozenOrLaggy => 'الفيديو متجمد أو متقطع';
+
+  @override
+  String get reportIssueCategoryGotDisconnected => 'انقطع الاتصال';
+
+  @override
+  String get reportIssueCategoryScreenShareIssue => 'مشاركة الشاشة لا تعمل';
+
+  @override
+  String get reportIssueCategoryWhiteboardOrChatIssue =>
+      'مشكلة في السبورة أو الدردشة';
+
+  @override
+  String get reportIssueCategoryOther => 'أخرى';
+
+  @override
+  String get landingDownloadAppHeadline => 'احصل على تطبيق سطح المكتب';
+
+  @override
+  String get landingDownloadAppSubtitle =>
+      'تخطَّ المتصفح. ثبّت تطبيق Alluwal Education Hub على جهازك لتسجيل دخول أسرع، ومشاكل أقل مع المتصفح، ونافذة مخصصة للحصص.';
+
+  @override
+  String get landingDownloadAppWindows => 'تنزيل لنظام Windows';
+
+  @override
+  String get landingDownloadAppMac => 'تنزيل لنظام Mac';
 }

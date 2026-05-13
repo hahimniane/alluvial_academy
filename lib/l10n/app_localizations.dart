@@ -25490,6 +25490,180 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Review this invitation and circle details before you join.'**
   String get tontineInvitePreview;
+
+  /// No description provided for @reportIssueTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Report an issue'**
+  String get reportIssueTooltip;
+
+  /// No description provided for @reportIssueDialogTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Report an issue'**
+  String get reportIssueDialogTitle;
+
+  /// No description provided for @reportIssueCategoryPrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'What\'s happening?'**
+  String get reportIssueCategoryPrompt;
+
+  /// No description provided for @reportIssueCategoryHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Select all that apply'**
+  String get reportIssueCategoryHint;
+
+  /// No description provided for @reportIssueNoteLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Notes (optional)'**
+  String get reportIssueNoteLabel;
+
+  /// No description provided for @reportIssueNoteHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Anything else that helps us debug'**
+  String get reportIssueNoteHint;
+
+  /// No description provided for @reportIssueSubmit.
+  ///
+  /// In en, this message translates to:
+  /// **'Submit'**
+  String get reportIssueSubmit;
+
+  /// No description provided for @reportIssueSubmitting.
+  ///
+  /// In en, this message translates to:
+  /// **'Sending diagnostics...'**
+  String get reportIssueSubmitting;
+
+  /// No description provided for @reportIssueThankYou.
+  ///
+  /// In en, this message translates to:
+  /// **'Thanks — diagnostics sent to support'**
+  String get reportIssueThankYou;
+
+  /// No description provided for @reportIssueFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not send diagnostics. Please try again.'**
+  String get reportIssueFailed;
+
+  /// No description provided for @reportIssueNotInCall.
+  ///
+  /// In en, this message translates to:
+  /// **'You need to be connected to the call to report an issue.'**
+  String get reportIssueNotInCall;
+
+  /// No description provided for @reportIssuePeerBannerMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} reported: {categories}. Are you experiencing this too?'**
+  String reportIssuePeerBannerMessage(String name, String categories);
+
+  /// No description provided for @reportIssuePeerPromptMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirming the same issue {name} reported.'**
+  String reportIssuePeerPromptMessage(String name);
+
+  /// No description provided for @reportIssuePeerConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Yes, same here'**
+  String get reportIssuePeerConfirm;
+
+  /// No description provided for @reportIssuePeerDismiss.
+  ///
+  /// In en, this message translates to:
+  /// **'I\'m fine'**
+  String get reportIssuePeerDismiss;
+
+  /// No description provided for @reportIssueCategoryAudioCantHearOthers.
+  ///
+  /// In en, this message translates to:
+  /// **'I can\'t hear others'**
+  String get reportIssueCategoryAudioCantHearOthers;
+
+  /// No description provided for @reportIssueCategoryAudioOthersCantHearMe.
+  ///
+  /// In en, this message translates to:
+  /// **'Others can\'t hear me'**
+  String get reportIssueCategoryAudioOthersCantHearMe;
+
+  /// No description provided for @reportIssueCategoryAudioChoppyOrEcho.
+  ///
+  /// In en, this message translates to:
+  /// **'Audio is choppy or echoing'**
+  String get reportIssueCategoryAudioChoppyOrEcho;
+
+  /// No description provided for @reportIssueCategoryVideoCantSeeOthers.
+  ///
+  /// In en, this message translates to:
+  /// **'I can\'t see others'**
+  String get reportIssueCategoryVideoCantSeeOthers;
+
+  /// No description provided for @reportIssueCategoryVideoOthersCantSeeMe.
+  ///
+  /// In en, this message translates to:
+  /// **'Others can\'t see me'**
+  String get reportIssueCategoryVideoOthersCantSeeMe;
+
+  /// No description provided for @reportIssueCategoryVideoFrozenOrLaggy.
+  ///
+  /// In en, this message translates to:
+  /// **'Video is frozen or laggy'**
+  String get reportIssueCategoryVideoFrozenOrLaggy;
+
+  /// No description provided for @reportIssueCategoryGotDisconnected.
+  ///
+  /// In en, this message translates to:
+  /// **'I got disconnected'**
+  String get reportIssueCategoryGotDisconnected;
+
+  /// No description provided for @reportIssueCategoryScreenShareIssue.
+  ///
+  /// In en, this message translates to:
+  /// **'Screen share isn\'t working'**
+  String get reportIssueCategoryScreenShareIssue;
+
+  /// No description provided for @reportIssueCategoryWhiteboardOrChatIssue.
+  ///
+  /// In en, this message translates to:
+  /// **'Whiteboard or chat issue'**
+  String get reportIssueCategoryWhiteboardOrChatIssue;
+
+  /// No description provided for @reportIssueCategoryOther.
+  ///
+  /// In en, this message translates to:
+  /// **'Other'**
+  String get reportIssueCategoryOther;
+
+  /// No description provided for @landingDownloadAppHeadline.
+  ///
+  /// In en, this message translates to:
+  /// **'Get the desktop app'**
+  String get landingDownloadAppHeadline;
+
+  /// No description provided for @landingDownloadAppSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Skip the browser. Install Alluwal Education Hub on your computer for faster sign-in, fewer browser issues, and a dedicated window for classes.'**
+  String get landingDownloadAppSubtitle;
+
+  /// No description provided for @landingDownloadAppWindows.
+  ///
+  /// In en, this message translates to:
+  /// **'Download for Windows'**
+  String get landingDownloadAppWindows;
+
+  /// No description provided for @landingDownloadAppMac.
+  ///
+  /// In en, this message translates to:
+  /// **'Download for Mac'**
+  String get landingDownloadAppMac;
 }
 
 class _AppLocalizationsDelegate

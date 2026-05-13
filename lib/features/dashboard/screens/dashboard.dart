@@ -47,6 +47,10 @@ import '../../settings/screens/mobile_settings_screen.dart';
 import '../../student/screens/student_progress_screen.dart';
 import '../../recordings/screens/class_recordings_screen.dart';
 import '../../surah_podcast/screens/surah_podcast_screen.dart';
+import '../../curriculum/screens/curriculum_books_screen.dart';
+import '../../tontine/screens/tontine_home_screen.dart';
+import '../../tontine/screens/admin_circles_screen.dart';
+import '../../parent/screens/admin_invoice_hub_screen.dart';
 
 import '../widgets/custom_sidebar.dart';
 import '../services/sidebar_service.dart';
@@ -89,7 +93,7 @@ class _DashboardPageState extends State<DashboardPage> {
   // Cache for lazy screen construction.
   // Only screens that were visited are stored here, which avoids building all screens up-front.
   final Map<int, Widget> _lazyScreensCache = <int, Widget>{};
-  static const int _screenCount = 29;
+  static const int _screenCount = 33;
 
   // GlobalKey for accessing Scaffold state
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
@@ -325,6 +329,14 @@ class _DashboardPageState extends State<DashboardPage> {
         return const SurahPodcastScreen();
       case 28:
         return const PublicSiteCmsScreen();
+      case 29:
+        return const AdminCirclesScreen();
+      case 30:
+        return const CurriculumBooksScreen();
+      case 31:
+        return const AdminInvoiceHubScreen();
+      case 32:
+        return const TontineHomeScreen();
       default:
         return const SizedBox.shrink();
     }

@@ -347,6 +347,7 @@ exports.getLiveKitJoinToken = livekitHandlers.getLiveKitJoinToken;
 exports.ensureLiveKitShiftRecording = livekitHandlers.ensureLiveKitShiftRecording;
 exports.checkLiveKitAvailability = livekitHandlers.checkLiveKitAvailability;
 exports.getLiveKitRoomPresence = livekitHandlers.getLiveKitRoomPresence;
+exports.getLiveKitRoomStats = livekitHandlers.getLiveKitRoomStats;
 exports.muteLiveKitParticipant = livekitHandlers.muteLiveKitParticipant;
 exports.muteAllLiveKitParticipants = livekitHandlers.muteAllLiveKitParticipants;
 exports.kickLiveKitParticipant = livekitHandlers.kickLiveKitParticipant;

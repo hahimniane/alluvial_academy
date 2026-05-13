@@ -16,7 +16,9 @@ import 'package:http/http.dart' as http;
 
 import 'package:alluwalacademyadmin/features/quran/widgets/quran_reader.dart';
 import 'package:alluwalacademyadmin/features/livekit/widgets/call_whiteboard.dart';
+import 'package:alluwalacademyadmin/features/livekit/widgets/report_issue_dialog.dart';
 import 'package:alluwalacademyadmin/features/shift_management/models/teaching_shift.dart';
+import 'package:alluwalacademyadmin/features/livekit/services/call_diagnostics_service.dart';
 import 'package:alluwalacademyadmin/features/livekit/services/livekit_session_service.dart';
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 import 'package:alluwalacademyadmin/core/utils/environment_utils.dart';
@@ -924,6 +926,8 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen>
     with WidgetsBindingObserver {
   static const String _hostControlTopic = 'alluwal_host_control';
   static const String _whiteboardTopic = 'alluwal_whiteboard';
+  static const String _diagnosticsTopic =
+      CallDiagnosticsService.diagnosticsTopic;
   static const Duration _pointerSendThrottle = Duration(milliseconds: 50);
   static const Duration _pointerHideDelay = Duration(milliseconds: 1200);
   static const int _maxReconnectAttempts = 2;
@@ -2229,6 +2233,12 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen>
       return;
     }
 
+    // Diagnostics broadcasts are seen by every other participant.
+    if (event.topic == _diagnosticsTopic) {
+      _handleDiagnosticsBroadcast(event);
+      return;
+    }
+
     // Host control messages are only for students
     if (widget.isTeacher) return;
     if (event.topic != _hostControlTopic) return;
@@ -2380,6 +2390,130 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen>
       );
     } catch (e) {
       _showSnack('Failed to update mic lock: $e', backgroundColor: Colors.red);
+    }
+  }
+
+  // --- Diagnostics / report-issue methods ---
+
+  Future<void> _openReportIssueDialog({
+    Set<String>? prefilledCategories,
+    String? respondingToReportId,
+    String? promptMessage,
+  }) async {
+    if (!mounted) return;
+    final room = _room;
+    if (room == null) {
+      _showSnack(AppLocalizations.of(context)!.reportIssueNotInCall,
+          backgroundColor: Colors.orange.shade700);
+      return;
+    }
+
+    final result = await showReportIssueDialog(
+      context: context,
+      prefilledCategories: prefilledCategories,
+      promptMessage: promptMessage,
+    );
+    if (result == null || !mounted) return;
+
+    final l10n = AppLocalizations.of(context)!;
+    _showSnack(l10n.reportIssueSubmitting);
+
+    final reportId = await CallDiagnosticsService.submitReport(
+      room: room,
+      shiftId: widget.shiftId,
+      roomName: widget.roomName,
+      reporterName: widget.displayName,
+      reporterRole: _resolvedSessionRole(),
+      isTeacher: widget.isTeacher,
+      categories: result.categories,
+      note: result.note,
+      respondingToReportId: respondingToReportId,
+    );
+
+    if (!mounted) return;
+
+    if (reportId == null) {
+      _showSnack(l10n.reportIssueFailed,
+          backgroundColor: Colors.red.shade600);
+      return;
+    }
+
+    final localIdentity = _localParticipant?.identity ?? '';
+    await CallDiagnosticsService.broadcastReport(
+      room: room,
+      broadcast: CallIssueBroadcast(
+        reportId: reportId,
+        categories: result.categories,
+        reporterIdentity: localIdentity,
+        reporterName: widget.displayName,
+      ),
+    );
+
+    if (!mounted) return;
+    _showSnack(l10n.reportIssueThankYou,
+        backgroundColor: Colors.green.shade600);
+  }
+
+  void _handleDiagnosticsBroadcast(DataReceivedEvent event) {
+    if (!mounted) return;
+    try {
+      final text = utf8.decode(event.data, allowMalformed: true);
+      final decoded = jsonDecode(text);
+      if (decoded is! Map) return;
+      final broadcast = CallIssueBroadcast.tryParse(decoded);
+      if (broadcast == null) return;
+      // Don't echo our own report back to ourselves.
+      if (broadcast.reporterIdentity == _localParticipant?.identity) return;
+
+      final messenger = ScaffoldMessenger.of(context);
+      final l10n = AppLocalizations.of(context)!;
+      final categoriesJoined =
+          reportIssueCategoriesJoined(context, broadcast.categories);
+
+      messenger.clearMaterialBanners();
+      messenger.showMaterialBanner(
+        MaterialBanner(
+          backgroundColor: Colors.amber.shade100,
+          leading:
+              Icon(Icons.warning_amber_rounded, color: Colors.amber.shade900),
+          content: Text(
+            l10n.reportIssuePeerBannerMessage(
+              broadcast.reporterName,
+              categoriesJoined,
+            ),
+            style: TextStyle(color: Colors.amber.shade900),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                messenger.hideCurrentMaterialBanner();
+              },
+              child: Text(l10n.reportIssuePeerDismiss),
+            ),
+            FilledButton(
+              onPressed: () {
+                messenger.hideCurrentMaterialBanner();
+                _openReportIssueDialog(
+                  prefilledCategories: broadcast.categories.toSet(),
+                  respondingToReportId: broadcast.reportId,
+                  promptMessage: l10n.reportIssuePeerPromptMessage(
+                    broadcast.reporterName,
+                  ),
+                );
+              },
+              child: Text(l10n.reportIssuePeerConfirm),
+            ),
+          ],
+        ),
+      );
+
+      // Auto-dismiss after 30s so the banner doesn't linger forever.
+      Future.delayed(const Duration(seconds: 30), () {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).hideCurrentMaterialBanner();
+      });
+    } catch (e) {
+      AppLogger.error('LiveKit: Failed to handle diagnostics broadcast: $e');
     }
   }
 
@@ -2918,6 +3052,13 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen>
                   onPressed: _leaveCall,
                 ),
                 actions: [
+                  IconButton(
+                    tooltip: AppLocalizations.of(context)!.reportIssueTooltip,
+                    onPressed:
+                        _room == null ? null : () => _openReportIssueDialog(),
+                    icon: const Icon(Icons.bug_report_outlined,
+                        color: Colors.white),
+                  ),
                   IconButton(
                     tooltip: AppLocalizations.of(context)!.participants,
                     onPressed: _room == null ? null : _showParticipantsDialog,

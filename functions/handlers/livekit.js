@@ -3212,11 +3212,118 @@ const cleanupExpiredClassRecordings = onSchedule({
   };
 });
 
+/**
+ * Best-effort: parse the caller's IP from x-forwarded-for and look up
+ * geo via ipapi.co. Centralizing this server-side lets us cache or swap
+ * to a paid provider later without a client deploy. Always returns at
+ * least `{ip}`; geo fields fall back to null on rate-limit/timeout.
+ */
+const _resolveCallerNetwork = async (rawRequest) => {
+  const headers = rawRequest?.headers || {};
+  const fwd = headers['x-forwarded-for'];
+  let ip = null;
+  if (typeof fwd === 'string' && fwd.length > 0) {
+    ip = fwd.split(',')[0].trim();
+  } else if (rawRequest?.ip) {
+    ip = rawRequest.ip;
+  }
+
+  const result = { ip };
+  if (!ip) return result;
+
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 2500);
+    const res = await fetch(`https://ipapi.co/${encodeURIComponent(ip)}/json/`, {
+      signal: ctrl.signal,
+      headers: { 'User-Agent': 'AlluwalAcademy-Diagnostics/1.0' },
+    });
+    clearTimeout(timer);
+    if (res.ok) {
+      const j = await res.json();
+      result.country = j.country_name || null;
+      result.countryCode = j.country_code || null;
+      result.region = j.region || null;
+      result.city = j.city || null;
+      result.isp = j.org || j.asn || null;
+    } else {
+      result.geoError = `status ${res.status}`;
+    }
+  } catch (err) {
+    result.geoError = err?.message || String(err);
+  }
+  return result;
+};
+
+/**
+ * Returns aggregate LiveKit server load: number of active rooms and the
+ * total participants/publishers across them, plus the caller's IP/country
+ * so the in-call diagnostics report can record a reliable network fingerprint
+ * without depending on the browser reaching a third-party endpoint.
+ *
+ * Auth required; returns counts only (no room names or participant identities).
+ */
+const getLiveKitRoomStats = onCall({
+  secrets: ['LIVEKIT_URL', 'LIVEKIT_API_KEY', 'LIVEKIT_API_SECRET'],
+}, async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) {
+    throw new HttpsError('unauthenticated', 'Authentication required');
+  }
+
+  if (!isLiveKitConfigured()) {
+    throw new HttpsError('unavailable', 'LiveKit video is not configured');
+  }
+
+  const livekitConfig = getLiveKitConfig();
+  const host = normalizeLiveKitHostForServerApi(livekitConfig.url);
+  const roomService = new RoomServiceClient(
+    host,
+    livekitConfig.apiKey,
+    livekitConfig.apiSecret,
+  );
+
+  // Run the LiveKit list and the caller geo lookup in parallel since they
+  // are independent and we already have a budget for one round-trip.
+  const [roomsResult, caller] = await Promise.all([
+    roomService.listRooms().then((rooms) => ({ ok: true, rooms }))
+      .catch((err) => ({ ok: false, err })),
+    _resolveCallerNetwork(request.rawRequest),
+  ]);
+
+  if (!roomsResult.ok) {
+    throw new HttpsError(
+      'internal',
+      `Failed to list LiveKit rooms: ${roomsResult.err?.message || roomsResult.err}`,
+    );
+  }
+
+  let totalParticipants = 0;
+  let totalPublishers = 0;
+  let recordingRooms = 0;
+  for (const room of roomsResult.rooms) {
+    totalParticipants += Number(room.numParticipants ?? 0);
+    totalPublishers += Number(room.numPublishers ?? 0);
+    if (room.activeRecording) recordingRooms += 1;
+  }
+
+  return {
+    success: true,
+    activeRooms: roomsResult.rooms.length,
+    totalParticipants,
+    totalPublishers,
+    recordingRooms,
+    caller,
+    generatedAtIso: new Date().toISOString(),
+  };
+});
+
 module.exports = {
   getLiveKitJoinToken,
   ensureLiveKitShiftRecording,
   checkLiveKitAvailability,
   getLiveKitRoomPresence,
+  getLiveKitRoomStats,
   muteLiveKitParticipant,
   muteAllLiveKitParticipants,
   kickLiveKitParticipant,

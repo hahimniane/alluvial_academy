@@ -5393,5 +5393,46 @@
   "shiftTemplateViewSchedule": "الجدول الكامل",
   "shiftTemplateAllTeachers": "جميع المعلمين",
   "shiftTemplateSelectTeacher": "اختر المعلم",
-  "shiftTemplateStudentSchedule": "جدول الطالب"
+  "shiftTemplateStudentSchedule": "جدول الطالب",
+  "reportIssueTooltip": "الإبلاغ عن مشكلة",
+  "reportIssueDialogTitle": "الإبلاغ عن مشكلة",
+  "reportIssueCategoryPrompt": "ما الذي يحدث؟",
+  "reportIssueCategoryHint": "اختر كل ما ينطبق",
+  "reportIssueNoteLabel": "ملاحظات (اختياري)",
+  "reportIssueNoteHint": "أي تفاصيل تساعدنا على تشخيص المشكلة",
+  "reportIssueSubmit": "إرسال",
+  "reportIssueSubmitting": "جاري إرسال التشخيص...",
+  "reportIssueThankYou": "شكراً — تم إرسال التشخيص إلى الدعم",
+  "reportIssueFailed": "تعذر إرسال التشخيص. يرجى المحاولة مرة أخرى.",
+  "reportIssueNotInCall": "يجب أن تكون متصلاً بالمكالمة للإبلاغ عن مشكلة.",
+  "reportIssuePeerBannerMessage": "أبلغ {name} عن: {categories}. هل تواجه نفس المشاكل؟",
+  "@reportIssuePeerBannerMessage": {
+    "placeholders": {
+      "name": { "type": "String" },
+      "categories": { "type": "String" }
+    }
+  },
+  "reportIssuePeerPromptMessage": "تأكيد نفس المشكلة التي أبلغ عنها {name}.",
+  "@reportIssuePeerPromptMessage": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "reportIssuePeerConfirm": "نعم، أواجه نفس المشكلة",
+  "reportIssuePeerDismiss": "أنا بخير",
+  "reportIssueCategoryAudioCantHearOthers": "لا أسمع الآخرين",
+  "reportIssueCategoryAudioOthersCantHearMe": "الآخرون لا يسمعونني",
+  "reportIssueCategoryAudioChoppyOrEcho": "الصوت متقطع أو فيه صدى",
+  "reportIssueCategoryVideoCantSeeOthers": "لا أرى الآخرين",
+  "reportIssueCategoryVideoOthersCantSeeMe": "الآخرون لا يرونني",
+  "reportIssueCategoryVideoFrozenOrLaggy": "الفيديو متجمد أو متقطع",
+  "reportIssueCategoryGotDisconnected": "انقطع الاتصال",
+  "reportIssueCategoryScreenShareIssue": "مشاركة الشاشة لا تعمل",
+  "reportIssueCategoryWhiteboardOrChatIssue": "مشكلة في السبورة أو الدردشة",
+  "reportIssueCategoryOther": "أخرى",
+
+  "landingDownloadAppHeadline": "احصل على تطبيق سطح المكتب",
+  "landingDownloadAppSubtitle": "تخطَّ المتصفح. ثبّت تطبيق Alluwal Education Hub على جهازك لتسجيل دخول أسرع، ومشاكل أقل مع المتصفح، ونافذة مخصصة للحصص.",
+  "landingDownloadAppWindows": "تنزيل لنظام Windows",
+  "landingDownloadAppMac": "تنزيل لنظام Mac"
 }

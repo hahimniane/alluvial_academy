@@ -14170,4 +14170,106 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get tontineInvitePreview =>
       'Review this invitation and circle details before you join.';
+
+  @override
+  String get reportIssueTooltip => 'Signaler un problème';
+
+  @override
+  String get reportIssueDialogTitle => 'Signaler un problème';
+
+  @override
+  String get reportIssueCategoryPrompt => 'Que se passe-t-il ?';
+
+  @override
+  String get reportIssueCategoryHint => 'Sélectionnez tout ce qui s\'applique';
+
+  @override
+  String get reportIssueNoteLabel => 'Notes (facultatif)';
+
+  @override
+  String get reportIssueNoteHint => 'Tout détail utile pour le débogage';
+
+  @override
+  String get reportIssueSubmit => 'Envoyer';
+
+  @override
+  String get reportIssueSubmitting => 'Envoi du diagnostic...';
+
+  @override
+  String get reportIssueThankYou => 'Merci — diagnostic envoyé au support';
+
+  @override
+  String get reportIssueFailed =>
+      'Impossible d\'envoyer le diagnostic. Veuillez réessayer.';
+
+  @override
+  String get reportIssueNotInCall =>
+      'Vous devez être connecté à l\'appel pour signaler un problème.';
+
+  @override
+  String reportIssuePeerBannerMessage(String name, String categories) {
+    return '$name a signalé : $categories. Rencontrez-vous aussi ces problèmes ?';
+  }
+
+  @override
+  String reportIssuePeerPromptMessage(String name) {
+    return 'Confirmation du même problème signalé par $name.';
+  }
+
+  @override
+  String get reportIssuePeerConfirm => 'Oui, pareil pour moi';
+
+  @override
+  String get reportIssuePeerDismiss => 'Tout va bien';
+
+  @override
+  String get reportIssueCategoryAudioCantHearOthers =>
+      'Je n\'entends pas les autres';
+
+  @override
+  String get reportIssueCategoryAudioOthersCantHearMe =>
+      'Les autres ne m\'entendent pas';
+
+  @override
+  String get reportIssueCategoryAudioChoppyOrEcho =>
+      'Audio saccadé ou avec écho';
+
+  @override
+  String get reportIssueCategoryVideoCantSeeOthers =>
+      'Je ne vois pas les autres';
+
+  @override
+  String get reportIssueCategoryVideoOthersCantSeeMe =>
+      'Les autres ne me voient pas';
+
+  @override
+  String get reportIssueCategoryVideoFrozenOrLaggy => 'Vidéo figée ou saccadée';
+
+  @override
+  String get reportIssueCategoryGotDisconnected => 'J\'ai été déconnecté';
+
+  @override
+  String get reportIssueCategoryScreenShareIssue =>
+      'Le partage d\'écran ne fonctionne pas';
+
+  @override
+  String get reportIssueCategoryWhiteboardOrChatIssue =>
+      'Problème de tableau blanc ou de chat';
+
+  @override
+  String get reportIssueCategoryOther => 'Autre';
+
+  @override
+  String get landingDownloadAppHeadline =>
+      'Téléchargez l\'application de bureau';
+
+  @override
+  String get landingDownloadAppSubtitle =>
+      'Évitez le navigateur. Installez Alluwal Education Hub sur votre ordinateur pour une connexion plus rapide, moins de problèmes de navigateur, et une fenêtre dédiée aux cours.';
+
+  @override
+  String get landingDownloadAppWindows => 'Télécharger pour Windows';
+
+  @override
+  String get landingDownloadAppMac => 'Télécharger pour Mac';
 }
