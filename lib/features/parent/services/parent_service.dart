@@ -5,9 +5,9 @@ import 'package:cloud_functions/cloud_functions.dart';
 
 import 'package:alluwalacademyadmin/features/parent/models/invoice.dart';
 import 'package:alluwalacademyadmin/features/parent/models/payment.dart';
-import 'package:alluwalacademyadmin/features/shift_management/models/teaching_shift.dart';
-import 'package:alluwalacademyadmin/features/shift_management/services/shift_service.dart';
-import 'package:alluwalacademyadmin/features/shift_management/enums/shift_enums.dart';
+import '../../shift_management/models/teaching_shift.dart';
+import '../../shift_management/services/shift_service.dart';
+import '../../shift_management/enums/shift_enums.dart';
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 
 class ParentService {

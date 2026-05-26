@@ -27,7 +27,7 @@ import '../../settings/screens/firestore_debug_screen.dart';
 import '../../tasks/screens/quick_tasks_screen.dart';
 import '../../shift_management/screens/shift_management_screen.dart';
 import '../../shift_management/screens/teacher_shift_screen.dart';
-import 'package:alluwalacademyadmin/features/website_management/public_site_cms/public_site_cms_screen.dart';
+import '../../website_management/public_site_cms/public_site_cms_screen.dart';
 import '../../zoom/screens/zoom_screen.dart';
 import '../../notifications/screens/send_notification_screen.dart';
 import '../../enrollment_management/screens/enrollment_management_screen.dart';

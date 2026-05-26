@@ -10,9 +10,9 @@ import 'dart:typed_data';
 import 'package:image/image.dart' as img;
 import 'package:intl/intl.dart';
 import 'package:alluwalacademyadmin/core/services/user_role_service.dart';
-import 'package:alluwalacademyadmin/features/shift_management/services/shift_form_service.dart';
-import 'package:alluwalacademyadmin/features/shift_management/services/shift_service.dart';
-import 'package:alluwalacademyadmin/features/shift_management/enums/shift_enums.dart';
+import '../../shift_management/services/shift_form_service.dart';
+import '../../shift_management/services/shift_service.dart';
+import '../../shift_management/enums/shift_enums.dart';
 import 'package:alluwalacademyadmin/features/forms/widgets/form_details_modal.dart';
 import 'package:alluwalacademyadmin/features/forms/utils/form_localization.dart';
 

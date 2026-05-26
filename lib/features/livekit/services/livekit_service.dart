@@ -14,9 +14,9 @@ import 'package:livekit_client/livekit_client.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:http/http.dart' as http;
 
-import 'package:alluwalacademyadmin/features/quran/widgets/quran_reader.dart';
+import '../../quran/widgets/quran_reader.dart';
 import 'package:alluwalacademyadmin/features/livekit/widgets/call_whiteboard.dart';
-import 'package:alluwalacademyadmin/features/shift_management/models/teaching_shift.dart';
+import '../../shift_management/models/teaching_shift.dart';
 import 'package:alluwalacademyadmin/features/livekit/services/livekit_session_service.dart';
 import 'package:alluwalacademyadmin/core/services/error_reporting_service.dart';
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
