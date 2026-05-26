@@ -154,7 +154,7 @@ const createPaymentIntentForSheet = async ({
     amount: unitAmount,
     currency: cur,
     customer: customerId,
-    automatic_payment_methods: {enabled: true},
+    payment_method_types: ['card'],
     metadata: {
       payment_id: paymentId,
       invoice_id: invoiceId,

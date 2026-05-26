@@ -4,6 +4,38 @@ const admin = require('firebase-admin');
 
 const BATCH_SIZE = 400;
 
+const _normalizeStatus = (raw) => (raw || '').toString().trim().toLowerCase();
+
+const _toNumber = (...values) => {
+  for (const value of values) {
+    const number = Number(value);
+    if (Number.isFinite(number)) return number;
+  }
+  return 0;
+};
+
+const _toDate = (value) => {
+  if (!value) return null;
+  if (value.toDate) return value.toDate();
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const _getEffectiveAccessCutoffDate = (invoice) => {
+  const explicitCutoff = _toDate(invoice.access_cutoff_date || invoice.accessCutoffDate);
+  if (explicitCutoff) return explicitCutoff;
+
+  const dueDate = _toDate(invoice.due_date || invoice.dueDate);
+  if (!dueDate) return null;
+
+  return new Date(dueDate.getTime() + 24 * 60 * 60 * 1000);
+};
+
+const _collectString = (target, value) => {
+  const normalized = (value || '').toString().trim();
+  if (normalized) target.add(normalized);
+};
+
 /**
  * Recomputes access_suspended for all students linked to a parent.
  *
@@ -25,23 +57,22 @@ const _recomputeStudentAccess = async (db, parentId) => {
 
   const now = new Date();
   let shouldSuspend = false;
+  const invoiceStudentIds = new Set();
 
   for (const doc of invoicesSnap.docs) {
     const invoice = doc.data();
-    const status = (invoice.status || '').toString().trim();
+    _collectString(invoiceStudentIds, invoice.student_id || invoice.studentId);
+
+    const status = _normalizeStatus(invoice.status);
 
     if (status === 'paid' || status === 'cancelled') continue;
 
-    const totalAmount = Number(invoice.total_amount) || 0;
-    const paidAmount = Number(invoice.paid_amount) || 0;
+    const totalAmount = _toNumber(invoice.total_amount, invoice.totalAmount);
+    const paidAmount = _toNumber(invoice.paid_amount, invoice.paidAmount);
     if (totalAmount > 0 && paidAmount >= totalAmount) continue;
 
-    const cutoffTimestamp = invoice.access_cutoff_date;
-    if (!cutoffTimestamp) continue;
-
-    const cutoffDate = cutoffTimestamp.toDate
-      ? cutoffTimestamp.toDate()
-      : new Date(cutoffTimestamp);
+    const cutoffDate = _getEffectiveAccessCutoffDate(invoice);
+    if (!cutoffDate) continue;
 
     if (cutoffDate <= now) {
       shouldSuspend = true;
@@ -57,17 +88,21 @@ const _recomputeStudentAccess = async (db, parentId) => {
   const [byGuardian, parentDoc] = await Promise.all([
     db
       .collection('users')
-      .where('user_type', '==', 'student')
       .where('guardian_ids', 'array-contains', parentId)
       .get(),
     db.collection('users').doc(parentId).get(),
   ]);
 
   byGuardian.docs.forEach((d) => studentIds.add(d.id));
+  invoiceStudentIds.forEach((id) => studentIds.add(id));
 
   if (parentDoc.exists) {
-    const childrenIds = parentDoc.data().children_ids || [];
-    childrenIds.forEach((id) => studentIds.add(id));
+    const parentData = parentDoc.data() || {};
+    const childrenIds = [
+      ...(Array.isArray(parentData.children_ids) ? parentData.children_ids : []),
+      ...(Array.isArray(parentData.childrenIds) ? parentData.childrenIds : []),
+    ];
+    childrenIds.forEach((id) => _collectString(studentIds, id));
   }
 
   if (studentIds.size === 0) return;
@@ -79,10 +114,10 @@ const _recomputeStudentAccess = async (db, parentId) => {
     const chunk = studentIdsArr.slice(i, i + BATCH_SIZE);
     for (const studentId of chunk) {
       const studentRef = db.collection('users').doc(studentId);
-      batch.update(studentRef, {
+      batch.set(studentRef, {
         access_suspended: shouldSuspend,
         access_suspension_updated_at: admin.firestore.FieldValue.serverTimestamp(),
-      });
+      }, {merge: true});
     }
     await batch.commit();
   }
@@ -165,14 +200,39 @@ const checkAccessCutoffs = onSchedule('every 60 minutes', async () => {
 
   for (const doc of cutoffSnap.docs) {
     const invoice = doc.data();
-    const status = (invoice.status || '').toString().trim();
+    const status = _normalizeStatus(invoice.status);
     if (status === 'paid' || status === 'cancelled') continue;
 
-    const totalAmount = Number(invoice.total_amount) || 0;
-    const paidAmount = Number(invoice.paid_amount) || 0;
+    const totalAmount = _toNumber(invoice.total_amount, invoice.totalAmount);
+    const paidAmount = _toNumber(invoice.paid_amount, invoice.paidAmount);
     if (totalAmount > 0 && paidAmount >= totalAmount) continue;
 
     const parentId = (invoice.parent_id || '').toString().trim();
+    if (parentId) parentIds.add(parentId);
+  }
+
+  // 1b. Older invoices may not have access_cutoff_date. Match the client model:
+  // effective cutoff is due_date + 1 day.
+  const dueCutoff = admin.firestore.Timestamp.fromDate(
+    new Date(Date.now() - 24 * 60 * 60 * 1000)
+  );
+  const dueSnap = await db
+    .collection('invoices')
+    .where('due_date', '<=', dueCutoff)
+    .get();
+
+  for (const doc of dueSnap.docs) {
+    const invoice = doc.data();
+    if (invoice.access_cutoff_date || invoice.accessCutoffDate) continue;
+
+    const status = _normalizeStatus(invoice.status);
+    if (status === 'paid' || status === 'cancelled') continue;
+
+    const totalAmount = _toNumber(invoice.total_amount, invoice.totalAmount);
+    const paidAmount = _toNumber(invoice.paid_amount, invoice.paidAmount);
+    if (totalAmount > 0 && paidAmount >= totalAmount) continue;
+
+    const parentId = (invoice.parent_id || invoice.parentId || '').toString().trim();
     if (parentId) parentIds.add(parentId);
   }
 
@@ -185,8 +245,11 @@ const checkAccessCutoffs = onSchedule('every 60 minutes', async () => {
 
   for (const doc of suspendedSnap.docs) {
     const data = doc.data();
-    const guardianIds = data.guardian_ids || [];
-    guardianIds.forEach((id) => parentIds.add(id));
+    const guardianIds = [
+      ...(Array.isArray(data.guardian_ids) ? data.guardian_ids : []),
+      ...(Array.isArray(data.guardianIds) ? data.guardianIds : []),
+    ];
+    guardianIds.forEach((id) => _collectString(parentIds, id));
 
     // Also check via parent doc's children_ids if we know the parent ID.
     // (guardian_ids on the student doc is the source of truth here.)
@@ -201,4 +264,9 @@ const checkAccessCutoffs = onSchedule('every 60 minutes', async () => {
   }
 });
 
-module.exports = { onInvoiceWrite, checkAccessCutoffs };
+module.exports = {
+  onInvoiceWrite,
+  checkAccessCutoffs,
+  _recomputeStudentAccess,
+  _getEffectiveAccessCutoffDate,
+};

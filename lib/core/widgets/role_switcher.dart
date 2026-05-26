@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -33,6 +34,14 @@ class _RoleSwitcherState extends State<RoleSwitcher> {
   bool _isPollingUserData = false;
 
   static const Duration _userPollInterval = Duration(seconds: 30);
+
+  static bool _looksLikeFirestoreWebInternalError(Object error) {
+    if (!kIsWeb) return false;
+    final text = error.toString();
+    return text.contains('FIRESTORE') &&
+        text.contains('INTERNAL ASSERTION FAILED') &&
+        text.contains('Unexpected state');
+  }
 
   @override
   void initState() {
@@ -92,8 +101,10 @@ class _RoleSwitcherState extends State<RoleSwitcher> {
     final uid = user.uid;
 
     try {
-      final uidDoc =
-          await FirebaseFirestore.instance.collection('users').doc(uid).get();
+      final uidDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .get(const GetOptions(source: Source.server));
       if (!mounted) return;
 
       if (uidDoc.exists) {
@@ -107,13 +118,19 @@ class _RoleSwitcherState extends State<RoleSwitcher> {
           .collection('users')
           .where('e-mail', isEqualTo: email)
           .limit(1)
-          .get();
+          .get(const GetOptions(source: Source.server));
       if (!mounted) return;
 
       if (querySnapshot.docs.isNotEmpty) {
         _handleUserData(querySnapshot.docs.first.data());
       }
     } catch (e) {
+      if (_looksLikeFirestoreWebInternalError(e)) {
+        AppLogger.debug(
+          'RoleSwitcher: ignored transient Firestore web internal state error while polling user changes',
+        );
+        return;
+      }
       AppLogger.error('RoleSwitcher: error polling user changes: $e');
       WebAppStabilityService.instance.noteFirestoreError(e);
     } finally {

@@ -1,10 +1,12 @@
 import 'dart:async';
 
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'package:alluwalacademyadmin/features/parent/models/invoice.dart';
 import 'package:alluwalacademyadmin/features/parent/models/payment.dart';
@@ -62,10 +64,14 @@ class _PaymentScreenState extends State<PaymentScreen> {
     });
 
     try {
+      if (kIsWeb) {
+        await _payWithStripeCheckout();
+        return;
+      }
+
       final callable =
           FirebaseFunctions.instance.httpsCallable('createPaymentIntent');
-      final result =
-          await callable.call({'invoiceId': widget.invoiceId});
+      final result = await callable.call({'invoiceId': widget.invoiceId});
       final data =
           (result.data as Map?)?.cast<String, dynamic>() ?? <String, dynamic>{};
 
@@ -77,12 +83,19 @@ class _PaymentScreenState extends State<PaymentScreen> {
       final ephemeralKey = (data['ephemeralKey'] ?? '').toString();
       final customerId = (data['customer'] ?? '').toString();
       final paymentId = (data['paymentId'] ?? '').toString();
+      final publishableKey = (data['publishableKey'] ?? '').toString();
 
-      if (clientSecret.isEmpty || ephemeralKey.isEmpty || customerId.isEmpty) {
+      if (clientSecret.isEmpty ||
+          ephemeralKey.isEmpty ||
+          customerId.isEmpty ||
+          publishableKey.isEmpty) {
         throw Exception('Invalid payment response from server');
       }
 
       setState(() => _paymentId = paymentId);
+
+      Stripe.publishableKey = publishableKey;
+      await Stripe.instance.applySettings();
 
       await Stripe.instance.initPaymentSheet(
         paymentSheetParameters: SetupPaymentSheetParameters(
@@ -133,6 +146,35 @@ class _PaymentScreenState extends State<PaymentScreen> {
     }
   }
 
+  Future<void> _payWithStripeCheckout() async {
+    final callable =
+        FirebaseFunctions.instance.httpsCallable('createPaymentSession');
+    final result = await callable.call({'invoiceId': widget.invoiceId});
+    final data =
+        (result.data as Map?)?.cast<String, dynamic>() ?? <String, dynamic>{};
+
+    if (data['success'] != true) {
+      throw Exception(data['error'] ?? 'Failed to create checkout session');
+    }
+
+    final paymentId = (data['paymentId'] ?? '').toString();
+    final checkoutUrl = (data['checkoutUrl'] ?? '').toString();
+    final uri = Uri.tryParse(checkoutUrl);
+    if (paymentId.isEmpty ||
+        uri == null ||
+        !uri.hasScheme ||
+        uri.host.isEmpty) {
+      throw Exception('Invalid checkout response from server');
+    }
+
+    setState(() => _paymentId = paymentId);
+
+    final launched = await launchUrl(uri, webOnlyWindowName: '_self');
+    if (!launched) {
+      throw Exception('Could not open Stripe checkout');
+    }
+  }
+
   Future<void> _refreshPaymentStatus({bool silent = false}) async {
     final paymentId = _paymentId;
     if (paymentId == null || paymentId.isEmpty) return;
@@ -169,8 +211,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
             return const Center(child: CircularProgressIndicator());
           }
           if (snapshot.hasError) {
-            return _centreMessage(
-                'Failed to load invoice: ${snapshot.error}');
+            return _centreMessage('Failed to load invoice: ${snapshot.error}');
           }
           final invoice = snapshot.data;
           if (invoice == null) {
@@ -270,10 +311,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
                       ),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: const Color(0xFF374151),
-                        side:
-                            const BorderSide(color: Color(0xFFE5E7EB)),
-                        padding:
-                            const EdgeInsets.symmetric(vertical: 12),
+                        side: const BorderSide(color: Color(0xFFE5E7EB)),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12)),
                       ),
@@ -322,9 +361,7 @@ class _InvoiceSummaryCard extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isPaid
-              ? const Color(0xFFBBF7D0)
-              : const Color(0xFFE5E7EB),
+          color: isPaid ? const Color(0xFFBBF7D0) : const Color(0xFFE5E7EB),
         ),
         boxShadow: [
           BoxShadow(
@@ -357,9 +394,7 @@ class _InvoiceSummaryCard extends StatelessWidget {
           _row(
             'Paid',
             money.format(invoice.paidAmount),
-            valueColor: invoice.paidAmount > 0
-                ? const Color(0xFF059669)
-                : null,
+            valueColor: invoice.paidAmount > 0 ? const Color(0xFF059669) : null,
           ),
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 12),
@@ -443,8 +478,7 @@ class _StatusBadge extends StatelessWidget {
 }
 
 class _PaymentStatusCard extends StatelessWidget {
-  const _PaymentStatusCard(
-      {required this.payment, required this.currency});
+  const _PaymentStatusCard({required this.payment, required this.currency});
   final Payment payment;
   final String currency;
 
@@ -470,14 +504,11 @@ class _PaymentStatusCard extends StatelessWidget {
       duration: const Duration(milliseconds: 300),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isCompleted
-            ? const Color(0xFFF0FDF4)
-            : Colors.white,
+        color: isCompleted ? const Color(0xFFF0FDF4) : Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isCompleted
-              ? const Color(0xFFBBF7D0)
-              : const Color(0xFFE5E7EB),
+          color:
+              isCompleted ? const Color(0xFFBBF7D0) : const Color(0xFFE5E7EB),
         ),
       ),
       child: Column(
@@ -488,8 +519,8 @@ class _PaymentStatusCard extends StatelessWidget {
               Container(
                 width: 10,
                 height: 10,
-                decoration: BoxDecoration(
-                    color: _dotColor, shape: BoxShape.circle),
+                decoration:
+                    BoxDecoration(color: _dotColor, shape: BoxShape.circle),
               ),
               const SizedBox(width: 8),
               Text(
@@ -533,8 +564,7 @@ class _PaymentStatusCard extends StatelessWidget {
             style: GoogleFonts.inter(
                 fontSize: 13,
                 color: const Color(0xFF111827),
-                fontWeight:
-                    strong ? FontWeight.w900 : FontWeight.w700)),
+                fontWeight: strong ? FontWeight.w900 : FontWeight.w700)),
       ],
     );
   }
