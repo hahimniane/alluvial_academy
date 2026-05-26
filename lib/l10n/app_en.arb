@@ -655,6 +655,8 @@
   "formViewAll": "View All",
   "formSearchByName": "Search by form name or status",
   "formNoSubmissionsYet": "No form submissions yet",
+  "mySubmissionsMonthScopeHint": "Only submissions dated in the selected month are shown. Use View all to see other months.",
+  "mySubmissionsNoFormIdGroupTitle": "Submissions without form ID",
   "adminAllSubmissionsTitle": "All Submissions (Admin)",
   "adminSubmissionsTotal": "Total",
   "adminSubmissionsTeachers": "Teachers",
@@ -697,7 +699,27 @@
   "adminSubmissionsExportFormatLabel": "Format",
   "adminSubmissionsExportExcelLabel": "Excel",
   "adminSubmissionsExportPdfLabel": "PDF",
-  "adminSubmissionsExportProgressSubtitle": "Preparing your file. Progress per person:",
+  "adminSubmissionsExportProgressSubtitle": "Please keep this window open. Large exports may take a moment.",
+  "adminSubmissionsExportPhaseLoadingShifts": "Loading linked shifts…",
+  "adminSubmissionsExportPhaseLoadingLabels": "Loading form field labels…",
+  "adminSubmissionsExportPhaseLoadingFonts": "Loading PDF fonts…",
+  "adminSubmissionsExportPhaseWritingSheet": "Writing sheets…",
+  "adminSubmissionsExportPhaseBuildingFile": "Building file…",
+  "adminSubmissionsExportPhaseStartingDownload": "Starting download…",
+  "adminSubmissionsExportFormSheetProgress": "{current} / {total} — {formName}",
+  "@adminSubmissionsExportFormSheetProgress": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      },
+      "formName": {
+        "type": "String"
+      }
+    }
+  },
   "adminSubmissionsSelectToViewDetails": "Select a submission to view details",
   "adminSubmissionsTryAdjustingFilters": "Try adjusting your filters",
   "adminSubmissionsAddToFavorites": "Add to favorites",
@@ -798,6 +820,7 @@
   "timesheetProvideMoreDetails": "Please provide more details (at least 10 characters)",
   "timesheetSaveChanges": "Save Changes",
   "timesheetUpdatedSuccess": "Timesheet updated successfully. Awaiting admin approval.",
+  "timesheetEditTotalExceedsShift": "This edit would make total clocked time for the shift exceed the scheduled duration.",
   "timesheetDetails": "Timesheet Entry Details",
   "timesheetLocationLoading": "Loading location...",
   "timesheetLocationUnavailable": "Location unavailable",
@@ -1722,8 +1745,19 @@
   "auditIssuesAlerts": "Issues & alerts",
   "auditClassesCompleted": "Classes completed",
   "auditHoursTaught": "Hours taught",
+  "auditClassLogTablePayFilterEmpty": "No rows match the payable-activity filter. The summary above reflects the full audit month.",
   "auditCompletionRateLabel": "Completion rate",
   "auditLateClockInsLabel": "Late clock-ins",
+  "auditClockSegmentCount": "{count, plural, one{1 segment} other{{count} segments}}",
+  "@auditClockSegmentCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "auditClockSegmentsHeader": "Clock segments",
+  "auditClockSessionPay": "Session pay",
   "auditClassesMissedLabel": "Classes missed",
   "auditNoLateClockIns": "None",
   "auditNoMissedClasses": "None",
@@ -1750,6 +1784,7 @@
   "auditFormStatusRejectedDuplicate": "Rejected (duplicate)",
   "auditFormStatusRejectedNoShift": "Rejected (no shift)",
   "auditFormStatusRejectedNoTimesheet": "Rejected (no timesheet)",
+  "auditFormStatusRejectedMakeupRejected": "Rejected (makeup declined)",
   "auditFormsTabStatTotalTeaching": "Total teaching forms",
   "auditFormsTabStatRejectedNoShift": "Rejected (no shift)",
   "auditFormsTabStatRejectedNoTimesheet": "Rejected (no timesheet)",
@@ -1871,6 +1906,22 @@
   "teacherAuditBonuses": "Bonuses",
   "teacherAuditAdminAdjustment": "Admin adjustment",
   "teacherAuditDisputeFieldLabel": "Field",
+  "teacherAuditDisputeOptionClassesCount": "Number of classes",
+  "teacherAuditDisputeOptionHoursTaught": "Hours taught",
+  "teacherAuditDisputeOptionPunctualityRate": "Punctuality rate",
+  "teacherAuditDisputeOptionFormsCount": "Number of forms",
+  "teacherAuditDisputeOptionPaymentAmount": "Payment amount",
+  "teacherAuditDisputeOptionOverallScore": "Overall score",
+  "teacherAuditDisputeOptionOther": "Other",
+  "teacherAuditDisputeReasonEmpty": "This field is required",
+  "teacherAuditDisputeReasonTooShort": "Please add more detail (at least {min} characters).",
+  "@teacherAuditDisputeReasonTooShort": {
+    "placeholders": {
+      "min": {
+        "type": "int"
+      }
+    }
+  },
   "auditPaymentCalculation": "Calculation",
   "auditHoursWorked": "Hours worked",
   "auditTotalAdjustments": "Total adjustments",
@@ -1905,6 +1956,38 @@
   },
   "auditOpenDiscussion": "Open discussion",
   "auditDiscussionAdminButton": "Open chat with teacher",
+  "auditDiscussionUnreadBadgeTooltip": "{count, plural, one{1 unread message from teacher} other{{count} unread messages from teacher}}",
+  "@auditDiscussionUnreadBadgeTooltip": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "auditShareWithTeacherTooltip": "Share with teacher (copy)",
+  "auditShareWithTeacherCopied": "Audit summary copied to clipboard",
+  "auditMessageTitle": "Monthly audit update",
+  "auditMessageTeacher": "Teacher",
+  "auditMessageReadyInMyReport": "Your audit is ready to review in My Report.",
+  "auditMessagePassedCeoReview": "Your audit passed CEO review.",
+  "auditMessageFinalized": "Your audit is finalized. View it in My Report.",
+  "auditMessagePaymentSummary": "Payment summary",
+  "auditMessageHoursSection": "Hours",
+  "auditMessageWorkedHours": "Worked hours (timesheets)",
+  "auditMessageFormHours": "Form hours",
+  "auditMessageTotalHours": "Total hours",
+  "auditMessageHourlyRateBreakdown": "Hourly rate breakdown",
+  "auditMessageNotAvailable": "N/A",
+  "auditMessageGrossAmount": "Gross amount",
+  "auditMessagePayFromTimesheets": "Pay from timesheets",
+  "auditMessagePayFromForms": "Pay from forms",
+  "auditMessageAdjustments": "Adjustments",
+  "auditMessageAutoPenalties": "Auto penalties",
+  "auditMessageAutoBonuses": "Auto bonuses",
+  "auditMessageAdminAdjustment": "Admin adjustment",
+  "auditMessageCoachLines": "Coach lines",
+  "auditMessageTotalAdjustmentsImpact": "Total adjustments impact",
+  "auditMessageAdvanceDeduction": "Advance payment deduction",
+  "auditMessageFinalAmount": "Final amount",
+  "auditMessageReviewReply": "Please review and reply here if you need clarifications or corrections.",
   "teacherAuditPayslipCoachLines": "Evaluation adjustments",
   "teacherAuditPayslipAdvances": "Advance payments (deducted)",
   "teacherAuditClassesSection": "Classes this month",
@@ -2365,7 +2448,7 @@
   "penaltyPerMissedClass": "Penalty Per Missed Class",
   "penaltyPerMissing": "Penalty Per Missing",
   "penaltyPerShift": "Penalty Per Shift",
-  "pendingapprovals": "Pendingapprovals",
+  "pendingapprovals": "Timesheet pay pending",
   "performance": "Performance",
   "performanceEvaluation": "Performance Evaluation",
   "performanceSummaryCopied": "Performance Summary Copied",
@@ -3070,6 +3153,7 @@
   "timesheetReviewGridOverflowColumns": "Column visibility",
   "timesheetReviewGridOverflowColumnsSoon": "Coming soon",
   "timesheetReviewColumnTooltipHours": "Worked hours from this entry. Hover a row for schedule vs actual and form data.",
+  "timesheetReviewColumnAuditMonthHours": "Audit hours (month)",
   "timesheetReviewColumnTooltipPayment": "Pay amount for this entry using current hours and rate.",
   "timesheetReviewSearchHint": "Teacher, student, date, shift…",
   "timesheetReviewIncompleteEntry": "Missing clock-out or valid hours",
@@ -3748,6 +3832,20 @@
       "amount": {}
     }
   },
+  "webStuckBannerTitle": "Page seems stuck",
+  "webStuckBannerMessage": "Firestore stopped responding. Try recovering the connection, or reload the page.",
+  "webStuckBannerRecover": "Recover",
+  "webStuckBannerReload": "Reload",
+  "webStuckBannerDismiss": "Dismiss",
+  "timesheetReviewStuckLoadingTitle": "Still loading…",
+  "timesheetReviewStuckLoadingMessage": "Firestore is taking longer than expected. The connection sometimes hangs after a long-lived browser tab. Retry usually fixes it without clearing browsing data.",
+  "timesheetConsolidatedFirstClockInLabel": "First clock-in",
+  "timesheetConsolidatedLastClockOutLabel": "Last clock-out",
+  "timesheetConsolidatedBillableTotal": "Billable total",
+  "timesheetConsolidatedSumSessions": "Sum of session durations",
+  "timesheetConsolidatedHoursExplanation": "Billable time follows overlap rules: overlapping clock-in pairs count as one paid segment. First and last times show the span across all sessions, which can be longer than billable minutes.",
+  "timesheetConsolidatedSessionsHeader": "Sessions",
+  "timesheetTapSessionForDetails": "Tap a row to open that session alone.",
   "formSubmissionsTitle": "Submissions • {title}",
   "@formSubmissionsTitle": {
     "placeholders": {
@@ -4977,6 +5075,28 @@
   "adminAuditCeoPaymentAdjustmentsHint": "Optional monthly amounts. Add a short justification when either amount is set.",
   "adminAuditEvalSectionCommentLabel": "Evaluator comment",
   "adminAuditEvalSectionCommentHint": "Optional. Included in PDF/Excel under this section.",
+  "adminAuditTeacherPayslipAckShort": "Payslip read confirmation",
+  "adminAuditTeacherPayslipAcknowledgedOn": "Acknowledged {date}",
+  "@adminAuditTeacherPayslipAcknowledgedOn": {
+    "placeholders": {
+      "date": {"type": "String"}
+    }
+  },
+  "adminAuditTeacherPayslipNotAcknowledged": "Not confirmed yet",
+  "adminAuditTeacherDisputeSummaryTitle": "Teacher dispute",
+  "adminAuditResolveTeacherDisputeTitle": "Resolve teacher dispute",
+  "adminAuditViewTeacherDispute": "View dispute",
+  "adminAuditResolveTeacherDisputeButton": "Resolve dispute",
+  "adminAuditResolveTeacherDisputeSubmit": "Submit resolution",
+  "adminAuditResolveTeacherDisputeAccept": "Accept",
+  "adminAuditResolveTeacherDisputeReject": "Reject",
+  "adminAuditResolveTeacherDisputeResponseLabel": "Response to teacher",
+  "adminAuditResolveTeacherDisputeResponseHint": "Explain your decision. The teacher will see this message.",
+  "adminAuditResolveTeacherDisputeRequireReAck": "Require the teacher to confirm they read the payslip again",
+  "adminAuditResolveTeacherDisputeNotifyTeacher": "Notify the teacher (in-app)",
+  "adminAuditResolveTeacherDisputeSuccess": "Dispute resolution saved.",
+  "adminAuditResolveTeacherDisputeFailed": "Could not save resolution. Check permissions and try again.",
+  "adminAuditTeacherDisputeSuggestedValue": "Suggested correction",
   "sidebarPublicSiteCms": "Pricing & public team",
   "publicSiteCmsTitle": "Public website — pricing & team",
   "publicSiteCmsTabPricing": "Pricing",
@@ -4985,7 +5105,7 @@
   "publicSiteCmsTabLanding": "Home hero",
   "publicSiteCmsLandingIntro": "Customize the landing page hero strip: background color (hex) and optional image URLs (https). Leave URLs empty to use the built-in photos. Prefer dark hero colors so headline text stays readable. On the web, some stock sites block hotlinking or CORS—use Upload to host images reliably on Firebase Storage.",
   "publicSiteCmsLandingHeroBg": "Hero background color",
-  "publicSiteCmsLandingHeroBgHint": "#RRGGBB (example: #001E4E)",
+  "publicSiteCmsLandingHeroBgHint": "#RRGGBB (example: #00484E)",
   "publicSiteCmsLandingMainImage": "Center hero image",
   "publicSiteCmsLandingLeftImage": "Left circle image",
   "publicSiteCmsLandingRightImage": "Right panel image",
@@ -5687,5 +5807,46 @@
   "dashboardTitle": "TEACHER AUDIT REPORT",
   "dashboardSubtitle": "teachers · 1 month · Auto-generated report",
   "teacherPerformanceOverview": "TEACHER PERFORMANCE OVERVIEW",
-  "tontineInvitePreview": "Review this invitation and circle details before you join."
+  "tontineInvitePreview": "Review this invitation and circle details before you join.",
+  "makeupAttestationTitle": "Makeup class details",
+  "makeupAttestationSubtitle": "No clocked timesheet—add online makeup details for review.",
+  "makeupFieldOccurredAt": "Date",
+  "makeupFieldStartTime": "Start time",
+  "makeupFieldEndTime": "End time",
+  "makeupFieldDeliveryMode": "Platform",
+  "makeupFieldZoomHost": "Host",
+  "makeupFieldOtherDetail": "Describe (required for Other)",
+  "makeupFieldStudentsPresent": "Student(s) present",
+  "makeupFieldNotesOptional": "Notes (optional)",
+  "makeupDeliveryZoom": "Zoom",
+  "makeupDeliveryLivekit": "LiveKit",
+  "makeupDeliveryOther": "Other",
+  "makeupSubmitContinue": "Continue",
+  "auditMakeupStatusPending": "Makeup pending review",
+  "auditMakeupStatusApproved": "Makeup approved",
+  "auditMakeupStatusRejected": "Makeup rejected",
+  "auditMakeupRejectTitle": "Reject makeup",
+  "auditMakeupRejectHint": "Reason shown in audit history",
+  "auditMakeupApproveConfirm": "Mark this makeup as approved?",
+  "auditMakeupRejectSuccess": "Makeup rejected; pay updated",
+  "auditMakeupApproveSuccess": "Makeup approved",
+  "auditMakeupApproveButton": "Approve makeup",
+  "auditMakeupPendingAdminBanner": "{count} missed-class report(s) still need Approve or Reject below before you can submit the coach evaluation.",
+  "@auditMakeupPendingAdminBanner": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "auditMakeupBlockedSubmitCoach": "{count} missed-class report(s) must be approved or rejected on the Teaching forms tab first.",
+  "@auditMakeupBlockedSubmitCoach": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "auditMakeupEvaluationFooterHint": "Coach evaluation submit stays disabled until every missed-class makeup is approved or rejected (Teaching forms tab).",
+  "auditMakeupOpenTeachingFormsTab": "Open Teaching forms"
 }

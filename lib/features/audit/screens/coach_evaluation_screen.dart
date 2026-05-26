@@ -50,7 +50,9 @@ class _CoachEvaluationScreenState extends State<CoachEvaluationScreen> {
     // Initialize factors from audit or use defaults
     _factors = widget.audit.auditFactors.isEmpty
         ? TeacherAuditFull.getDefaultAuditFactors()
-        : widget.audit.auditFactors.map((f) => AuditFactor.fromMap(f.toMap())).toList();
+        : widget.audit.auditFactors
+            .map((f) => AuditFactor.fromMap(f.toMap()))
+            .toList();
     _coachLines = List<PaymentAdjustmentLine>.from(
         widget.audit.paymentSummary?.coachAdjustmentLines ?? const []);
     _advanceDraft = List<AdvancePayment>.from(
@@ -58,9 +60,12 @@ class _CoachEvaluationScreenState extends State<CoachEvaluationScreen> {
 
     // Initialize controllers for text fields
     for (var factor in _factors) {
-      _outcomeControllers[factor.id] = TextEditingController(text: factor.outcome);
-      _paycutControllers[factor.id] = TextEditingController(text: factor.paycutRecommendation);
-      _actionPlanControllers[factor.id] = TextEditingController(text: factor.coachActionPlan);
+      _outcomeControllers[factor.id] =
+          TextEditingController(text: factor.outcome);
+      _paycutControllers[factor.id] =
+          TextEditingController(text: factor.paycutRecommendation);
+      _actionPlanControllers[factor.id] =
+          TextEditingController(text: factor.coachActionPlan);
     }
 
     // Load form-based suggested scores (only if factors haven't been edited yet)
@@ -100,6 +105,23 @@ class _CoachEvaluationScreenState extends State<CoachEvaluationScreen> {
   }
 
   Future<void> _submitEvaluation() async {
+    final loc = AppLocalizations.of(context)!;
+    final fresh = await TeacherAuditService.getAudit(
+      oderId: widget.audit.oderId,
+      yearMonth: widget.audit.yearMonth,
+      preferServerFresh: true,
+    );
+    if (!mounted) return;
+    final pending = fresh?.pendingMakeupAdminDecisionsCount ?? 0;
+    if (pending > 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(loc.auditMakeupBlockedSubmitCoach(pending)),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
     setState(() => _isSubmitting = true);
     try {
       // Sync text controllers back to factors
@@ -107,7 +129,8 @@ class _CoachEvaluationScreenState extends State<CoachEvaluationScreen> {
         final factor = _factors[i];
         _factors[i] = factor.copyWith(
           outcome: _outcomeControllers[factor.id]?.text.trim() ?? '',
-          paycutRecommendation: _paycutControllers[factor.id]?.text.trim() ?? '',
+          paycutRecommendation:
+              _paycutControllers[factor.id]?.text.trim() ?? '',
           coachActionPlan: _actionPlanControllers[factor.id]?.text.trim() ?? '',
         );
       }
@@ -126,12 +149,13 @@ class _CoachEvaluationScreenState extends State<CoachEvaluationScreen> {
         // Show success snackbar FIRST (before onSaved which reloads data)
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(AppLocalizations.of(context)!.auditSubmittedSuccessfully),
+            content:
+                Text(AppLocalizations.of(context)!.auditSubmittedSuccessfully),
             backgroundColor: Colors.green,
             duration: Duration(seconds: 2),
           ),
         );
-        
+
         // Call onSaved which handles navigation and data refresh
         // NOTE: onSaved callback already calls Navigator.pop, so we don't call it here
         widget.onSaved();
@@ -155,8 +179,7 @@ class _CoachEvaluationScreenState extends State<CoachEvaluationScreen> {
     final applicable = _factors.where((f) => !f.isNotApplicable).toList();
     final totalScore = applicable.fold(0, (sum, f) => sum + f.rating);
     final maxScore = applicable.isEmpty ? 1 : applicable.length * 5;
-    final percentageScore =
-        maxScore > 0 ? (totalScore / maxScore) * 100 : 0.0;
+    final percentageScore = maxScore > 0 ? (totalScore / maxScore) * 100 : 0.0;
 
     // Handle empty factors case - show loading or error state
     if (_factors.isEmpty) {
@@ -166,7 +189,8 @@ class _CoachEvaluationScreenState extends State<CoachEvaluationScreen> {
           width: 550,
           decoration: const BoxDecoration(
             color: Win11Colors.bg,
-            border: Border(left: BorderSide(color: Win11Colors.border, width: 1)),
+            border:
+                Border(left: BorderSide(color: Win11Colors.border, width: 1)),
           ),
           child: Column(
             children: [
@@ -178,7 +202,8 @@ class _CoachEvaluationScreenState extends State<CoachEvaluationScreen> {
                     children: [
                       CircularProgressIndicator(),
                       SizedBox(height: 16),
-                      Text(AppLocalizations.of(context)!.loadingEvaluationFactors),
+                      Text(AppLocalizations.of(context)!
+                          .loadingEvaluationFactors),
                     ],
                   ),
                 ),
@@ -196,38 +221,40 @@ class _CoachEvaluationScreenState extends State<CoachEvaluationScreen> {
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 640),
           child: Container(
-          width: 550,
-          decoration: const BoxDecoration(
-            color: Win11Colors.bg,
-            border: Border(left: BorderSide(color: Win11Colors.border, width: 1)),
-          ),
-          child: Column(
-            children: [
-              _buildPanelHeader(totalScore, maxScore, percentageScore),
-              Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.all(24),
-                  children: [
-                    _buildPaymentAdjustmentsCard(),
-                    _buildAdvanceCard(),
-                    ...List.generate(
-                      _factors.length,
-                      (index) => _buildFactorCard(_factors[index], index),
-                    ),
-                  ],
+            width: 550,
+            decoration: const BoxDecoration(
+              color: Win11Colors.bg,
+              border:
+                  Border(left: BorderSide(color: Win11Colors.border, width: 1)),
+            ),
+            child: Column(
+              children: [
+                _buildPanelHeader(totalScore, maxScore, percentageScore),
+                Expanded(
+                  child: ListView(
+                    padding: const EdgeInsets.all(24),
+                    children: [
+                      _buildPaymentAdjustmentsCard(),
+                      _buildAdvanceCard(),
+                      ...List.generate(
+                        _factors.length,
+                        (index) => _buildFactorCard(_factors[index], index),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              _buildStickyFooter(),
-            ],
+                _buildStickyFooter(),
+              ],
+            ),
           ),
-        ),
         ),
       ),
     );
   }
 
   /// Panel Header with teacher info and score
-  Widget _buildPanelHeader(int totalScore, int maxScore, double percentageScore) {
+  Widget _buildPanelHeader(
+      int totalScore, int maxScore, double percentageScore) {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: const BoxDecoration(
@@ -327,8 +354,7 @@ class _CoachEvaluationScreenState extends State<CoachEvaluationScreen> {
   }
 
   Widget _buildFactorCard(AuditFactor factor, int index) {
-    final needsAttention =
-        !factor.isNotApplicable && factor.rating < 5;
+    final needsAttention = !factor.isNotApplicable && factor.rating < 5;
     final outcomeController = _outcomeControllers[factor.id];
     final paycutController = _paycutControllers[factor.id];
     final actionPlanController = _actionPlanControllers[factor.id];
@@ -340,7 +366,9 @@ class _CoachEvaluationScreenState extends State<CoachEvaluationScreen> {
         color: Win11Colors.card,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: needsAttention ? Colors.orange.withOpacity(0.5) : Win11Colors.border,
+          color: needsAttention
+              ? Colors.orange.withOpacity(0.5)
+              : Win11Colors.border,
           width: 1,
         ),
         boxShadow: [
@@ -602,7 +630,8 @@ class _CoachEvaluationScreenState extends State<CoachEvaluationScreen> {
                 Text(
                   _ratingLabels[score],
                   style: GoogleFonts.inter(
-                    color: isSelected ? Colors.white70 : Win11Colors.textSecondary,
+                    color:
+                        isSelected ? Colors.white70 : Win11Colors.textSecondary,
                     fontSize: 9,
                   ),
                 ),
@@ -685,16 +714,21 @@ class _CoachEvaluationScreenState extends State<CoachEvaluationScreen> {
             children: [
               DropdownButtonFormField<String>(
                 value: type,
-                decoration: InputDecoration(labelText: loc.auditPaymentLineTypeLabel),
+                decoration:
+                    InputDecoration(labelText: loc.auditPaymentLineTypeLabel),
                 items: [
-                  DropdownMenuItem(value: 'penalty', child: Text(loc.auditPaymentLinePenalty)),
-                  DropdownMenuItem(value: 'bonus', child: Text(loc.auditPaymentLineBonus)),
+                  DropdownMenuItem(
+                      value: 'penalty',
+                      child: Text(loc.auditPaymentLinePenalty)),
+                  DropdownMenuItem(
+                      value: 'bonus', child: Text(loc.auditPaymentLineBonus)),
                 ],
                 onChanged: (v) => setD(() => type = v ?? 'penalty'),
               ),
               TextField(
                 controller: amountCtrl,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
                 decoration: InputDecoration(labelText: loc.auditAmountLabel),
               ),
               TextField(
@@ -755,15 +789,16 @@ class _CoachEvaluationScreenState extends State<CoachEvaluationScreen> {
           const SizedBox(height: 8),
           Text(
             loc.auditAdvanceSectionSubtitle,
-            style: GoogleFonts.inter(fontSize: 11, color: Win11Colors.textSecondary),
+            style: GoogleFonts.inter(
+                fontSize: 11, color: Win11Colors.textSecondary),
           ),
           const SizedBox(height: 12),
           TextButton.icon(
             onPressed: _isSubmitting
                 ? null
                 : () async {
-                    final list =
-                        await TeacherAuditService.fetchAdvancePaymentSubmissions(
+                    final list = await TeacherAuditService
+                        .fetchAdvancePaymentSubmissions(
                       userId: widget.audit.oderId,
                       yearMonth: widget.audit.yearMonth,
                     );
@@ -812,7 +847,10 @@ class _CoachEvaluationScreenState extends State<CoachEvaluationScreen> {
           ),
           const SizedBox(width: 16),
           ElevatedButton(
-            onPressed: _isSubmitting ? null : _submitEvaluation,
+            onPressed: (_isSubmitting ||
+                    widget.audit.pendingMakeupAdminDecisionsCount > 0)
+                ? null
+                : _submitEvaluation,
             style: ElevatedButton.styleFrom(
               backgroundColor: Win11Colors.accent,
               foregroundColor: Colors.white,
@@ -894,7 +932,8 @@ class _CoachEvaluationScreenState extends State<CoachEvaluationScreen> {
           borderRadius: BorderRadius.circular(6),
           borderSide: BorderSide(color: Win11Colors.accent, width: 1.5),
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       ),
     );
   }

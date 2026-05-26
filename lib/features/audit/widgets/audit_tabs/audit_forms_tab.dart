@@ -6,18 +6,21 @@ import 'package:intl/intl.dart';
 import 'package:alluwalacademyadmin/features/audit/models/teacher_audit_full.dart';
 import '../../services/teacher_audit_service.dart';
 import '../../../../l10n/app_localizations.dart';
-import '../../../forms/widgets/form_details_modal.dart' show FormSubmissionDetailsView;
+import '../../../forms/widgets/form_details_modal.dart'
+    show FormSubmissionDetailsView;
 import '../audit_shared_widgets.dart';
 import 'audit_form_title_resolver.dart';
 
 class AuditFormsTab extends StatefulWidget {
   final TeacherAuditFull audit;
   final ValueChanged<TeacherAuditFull>? onAuditChanged;
+  final bool autoSelectPendingMakeupOnce;
 
   const AuditFormsTab({
     super.key,
     required this.audit,
     this.onAuditChanged,
+    this.autoSelectPendingMakeupOnce = false,
   });
 
   @override
@@ -29,11 +32,35 @@ class _AuditFormsTabState extends State<AuditFormsTab> {
   Map<String, String> _formTitles = const {};
   final Set<String> _selectedOverrideIds = {};
   bool _bulkBusy = false;
+  bool _makeupBusy = false;
+  String? _autoSelectedMakeupForAuditId;
+
+  Map<String, dynamic>? _firstPendingMakeupForm(TeacherAuditFull audit) {
+    for (final f in audit.detailedForms) {
+      if (TeacherAuditFull.formNeedsMakeupAdminDecision(f)) return f;
+    }
+    for (final f in audit.detailedFormsNoSchedule) {
+      if (TeacherAuditFull.formNeedsMakeupAdminDecision(f)) return f;
+    }
+    return null;
+  }
+
+  void _maybeAutoSelectPendingMakeupForm() {
+    if (!widget.autoSelectPendingMakeupOnce) return;
+    if (_autoSelectedMakeupForAuditId == widget.audit.id) return;
+    final first = _firstPendingMakeupForm(widget.audit);
+    if (first == null) return;
+    _autoSelectedMakeupForAuditId = widget.audit.id;
+    if (!mounted) return;
+    setState(() => _selected = first);
+  }
 
   @override
   void initState() {
     super.initState();
     _loadFormTitles();
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => _maybeAutoSelectPendingMakeupForm());
   }
 
   @override
@@ -43,8 +70,11 @@ class _AuditFormsTabState extends State<AuditFormsTab> {
       _selected = null;
       _formTitles = const {};
       _selectedOverrideIds.clear();
+      _autoSelectedMakeupForAuditId = null;
       _loadFormTitles();
     }
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => _maybeAutoSelectPendingMakeupForm());
   }
 
   Future<void> _loadFormTitles() async {
@@ -65,6 +95,8 @@ class _AuditFormsTabState extends State<AuditFormsTab> {
     switch (reason) {
       case 'no_timesheet':
         return loc.auditFormStatusRejectedNoTimesheet;
+      case 'makeup_rejected':
+        return loc.auditFormStatusRejectedMakeupRejected;
       case 'duplicate':
         return loc.auditFormStatusRejectedDuplicate;
       default:
@@ -73,8 +105,18 @@ class _AuditFormsTabState extends State<AuditFormsTab> {
   }
 
   String _acceptedBadgeLabel(AppLocalizations loc, Map<String, dynamic> form) {
-    if (form['acceptanceKind'] == 'missed_shift_linked') {
-      return loc.auditFormStatusAcceptedMissedShift;
+    final makeup =
+        (form['makeupApprovalStatus'] as String? ?? '').trim().toLowerCase();
+    if (form['acceptanceKind'] == 'timesheet_linked' && makeup == 'approved') {
+      return loc.auditMakeupStatusApproved;
+    }
+    if (form['acceptanceKind'] == 'missed_shift_linked' ||
+        form['acceptanceKind'] == 'no_timesheet_makeup') {
+      final m =
+          (form['makeupApprovalStatus'] as String? ?? '').trim().toLowerCase();
+      if (m == 'rejected') return loc.auditMakeupStatusRejected;
+      if (m == 'approved') return loc.auditMakeupStatusApproved;
+      return loc.auditMakeupStatusPending;
     }
     return loc.auditFormStatusAccepted;
   }
@@ -118,6 +160,7 @@ class _AuditFormsTabState extends State<AuditFormsTab> {
       final refreshed = await TeacherAuditService.getAudit(
         oderId: widget.audit.oderId,
         yearMonth: widget.audit.yearMonth,
+        preferServerFresh: true,
       );
       if (refreshed != null) widget.onAuditChanged?.call(refreshed);
       if (mounted) {
@@ -183,20 +226,123 @@ class _AuditFormsTabState extends State<AuditFormsTab> {
     );
   }
 
+  bool _missedMakeupNeedsDecision(Map<String, dynamic> form) =>
+      TeacherAuditFull.formNeedsMakeupAdminDecision(form);
+
+  Future<void> _approveMakeup(AppLocalizations loc, String formId) async {
+    final go = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(loc.auditMakeupApproveConfirm),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(loc.commonCancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(loc.commonOk),
+          ),
+        ],
+      ),
+    );
+    if (go != true || !mounted) return;
+    setState(() => _makeupBusy = true);
+    final ok = await TeacherAuditService.approveMakeupClassForms(
+      auditId: widget.audit.id,
+      formResponseIds: [formId],
+    );
+    if (!mounted) return;
+    setState(() => _makeupBusy = false);
+    if (ok) {
+      final refreshed = await TeacherAuditService.getAudit(
+        oderId: widget.audit.oderId,
+        yearMonth: widget.audit.yearMonth,
+        preferServerFresh: true,
+      );
+      if (refreshed != null) widget.onAuditChanged?.call(refreshed);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(loc.auditMakeupApproveSuccess)),
+        );
+      }
+    }
+  }
+
+  Future<void> _rejectMakeup(AppLocalizations loc, String formId) async {
+    final reasonCtrl = TextEditingController();
+    final go = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(loc.auditMakeupRejectTitle),
+        content: TextField(
+          controller: reasonCtrl,
+          decoration: InputDecoration(hintText: loc.auditMakeupRejectHint),
+          maxLines: 3,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(loc.commonCancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(loc.commonOk),
+          ),
+        ],
+      ),
+    );
+    if (go != true || !mounted) return;
+    setState(() => _makeupBusy = true);
+    final ok = await TeacherAuditService.rejectMakeupClassForms(
+      auditId: widget.audit.id,
+      formResponseIds: [formId],
+      reason: reasonCtrl.text.trim(),
+    );
+    if (!mounted) return;
+    setState(() => _makeupBusy = false);
+    if (ok) {
+      final refreshed = await TeacherAuditService.getAudit(
+        oderId: widget.audit.oderId,
+        yearMonth: widget.audit.yearMonth,
+        preferServerFresh: true,
+      );
+      if (refreshed != null) widget.onAuditChanged?.call(refreshed);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(loc.auditMakeupRejectSuccess)),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
-    final accepted = widget.audit.detailedForms;
+    final acceptedRaw = widget.audit.detailedForms;
+    final accepted = List<Map<String, dynamic>>.from(acceptedRaw)
+      ..sort((a, b) {
+        final pa = TeacherAuditFull.formNeedsMakeupAdminDecision(a) ? 0 : 1;
+        final pb = TeacherAuditFull.formNeedsMakeupAdminDecision(b) ? 0 : 1;
+        return pa.compareTo(pb);
+      });
+    final pendingMakeup = widget.audit.pendingMakeupAdminDecisionsCount;
 
     final noSchedule = widget.audit.detailedFormsNoSchedule;
     final rejectedNoShift = noSchedule
         .where((e) => _rejectionReason(e) == 'no_shift')
         .map((e) => {...e, '_rejected': true})
         .toList();
-    final rejectedNoTimesheet = noSchedule
-        .where((e) => _rejectionReason(e) == 'no_timesheet')
-        .map((e) => {...e, '_rejected': true})
-        .toList();
+    final rejectedNoTimesheet = List<Map<String, dynamic>>.from(
+      noSchedule.where((e) {
+        final r = _rejectionReason(e);
+        return r == 'no_timesheet' || r == 'makeup_rejected';
+      }).map((e) => {...e, '_rejected': true}),
+    )..sort((a, b) {
+        final pa = TeacherAuditFull.formNeedsMakeupAdminDecision(a) ? 0 : 1;
+        final pb = TeacherAuditFull.formNeedsMakeupAdminDecision(b) ? 0 : 1;
+        return pa.compareTo(pb);
+      });
 
     final rejectedDuplicate = widget.audit.detailedFormsRejected
         .map((e) => {...e, '_rejected': true, 'rejectionReason': 'duplicate'})
@@ -218,6 +364,32 @@ class _AuditFormsTabState extends State<AuditFormsTab> {
 
     return Column(
       children: [
+        if (pendingMakeup > 0)
+          Material(
+            color: const Color(0xFFFFF7ED),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.warning_amber_rounded,
+                      color: Color(0xFFD97706), size: 22),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      loc.auditMakeupPendingAdminBanner(pendingMakeup),
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        height: 1.35,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xff9A3412),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         _stats(
           loc,
           accepted.length,
@@ -295,11 +467,15 @@ class _AuditFormsTabState extends State<AuditFormsTab> {
       child: Wrap(
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          box(loc.auditFormsTabStatTotalTeaching, '$total', const Color(0xff1E293B)),
+          box(loc.auditFormsTabStatTotalTeaching, '$total',
+              const Color(0xff1E293B)),
           box(loc.auditFormsAccepted, '$accepted', const Color(0xFF10B981)),
-          box(loc.auditFormsTabStatRejectedNoShift, '$noShift', const Color(0xFFEF4444)),
-          box(loc.auditFormsTabStatRejectedNoTimesheet, '$noTimesheet', const Color(0xFFEA580C)),
-          box(loc.auditFormsTabStatRejectedDuplicate, '$duplicate', const Color(0xFFDC2626)),
+          box(loc.auditFormsTabStatRejectedNoShift, '$noShift',
+              const Color(0xFFEF4444)),
+          box(loc.auditFormsTabStatRejectedNoTimesheet, '$noTimesheet',
+              const Color(0xFFEA580C)),
+          box(loc.auditFormsTabStatRejectedDuplicate, '$duplicate',
+              const Color(0xFFDC2626)),
           box(
             loc.auditFormsTabStatReadiness,
             '${widget.audit.readinessFormsSubmitted}',
@@ -308,6 +484,32 @@ class _AuditFormsTabState extends State<AuditFormsTab> {
         ],
       ),
     );
+  }
+
+  Color _badgeColorForAcceptedForm(
+    Map<String, dynamic> form,
+    Color defaultGreen,
+  ) {
+    if (TeacherAuditFull.formNeedsMakeupAdminDecision(form)) {
+      return const Color(0xFFD97706);
+    }
+    final makeup =
+        (form['makeupApprovalStatus'] as String? ?? '').trim().toLowerCase();
+    if (form['acceptanceKind'] == 'timesheet_linked' && makeup == 'approved') {
+      return const Color(0xFF047857);
+    }
+    if (form['acceptanceKind'] == 'missed_shift_linked' ||
+        form['acceptanceKind'] == 'no_timesheet_makeup') {
+      return const Color(0xFF047857);
+    }
+    return defaultGreen;
+  }
+
+  Color _badgeColorForRejectedForm(Map<String, dynamic> form, Color fallback) {
+    if (TeacherAuditFull.formNeedsMakeupAdminDecision(form)) {
+      return const Color(0xFFD97706);
+    }
+    return fallback;
   }
 
   Widget _leftList(
@@ -356,9 +558,15 @@ class _AuditFormsTabState extends State<AuditFormsTab> {
             final badgeText = isAccepted
                 ? (acceptedLabel ?? (_) => loc.auditFormStatusAccepted)(form)
                 : rejectLabel!(form);
-            final showMissedHint =
-                isAccepted && form['acceptanceKind'] == 'missed_shift_linked';
+            final showMissedHint = (isAccepted &&
+                    (form['acceptanceKind'] == 'missed_shift_linked' ||
+                        form['acceptanceKind'] == 'no_timesheet_makeup')) ||
+                (!isAccepted &&
+                    TeacherAuditFull.formNeedsMakeupAdminDecision(form));
             final fid = (form['id'] as String? ?? '').trim();
+            final badgeColor = isAccepted
+                ? _badgeColorForAcceptedForm(form, color)
+                : _badgeColorForRejectedForm(form, color);
             return InkWell(
               onTap: () => setState(() => _selected = form),
               child: Container(
@@ -366,7 +574,9 @@ class _AuditFormsTabState extends State<AuditFormsTab> {
                   color: selected ? const Color(0xFFEFF6FF) : Colors.white,
                   border: Border(
                     left: BorderSide(
-                      color: selected ? const Color(0xff1a6ef5) : Colors.transparent,
+                      color: selected
+                          ? const Color(0xff1a6ef5)
+                          : Colors.transparent,
                       width: 3,
                     ),
                   ),
@@ -395,16 +605,17 @@ class _AuditFormsTabState extends State<AuditFormsTab> {
                           Row(
                             children: [
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
-                                  color: color.withValues(alpha: 0.12),
+                                  color: badgeColor.withValues(alpha: 0.12),
                                   borderRadius: BorderRadius.circular(999),
                                 ),
                                 child: Text(
                                   badgeText,
                                   style: GoogleFonts.inter(
                                     fontSize: 9,
-                                    color: color,
+                                    color: badgeColor,
                                     fontWeight: FontWeight.w700,
                                   ),
                                 ),
@@ -414,13 +625,15 @@ class _AuditFormsTabState extends State<AuditFormsTab> {
                           const SizedBox(height: 4),
                           Text(
                             type,
-                            style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600),
+                            style: GoogleFonts.inter(
+                                fontSize: 11, fontWeight: FontWeight.w600),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
                           Text(
                             date,
-                            style: GoogleFonts.inter(fontSize: 10, color: const Color(0xff64748B)),
+                            style: GoogleFonts.inter(
+                                fontSize: 10, color: const Color(0xff64748B)),
                           ),
                           if (showMissedHint) ...[
                             const SizedBox(height: 4),
@@ -468,7 +681,12 @@ class _AuditFormsTabState extends State<AuditFormsTab> {
           rejectedNoTimesheet,
           const Color(0xFFEA580C),
           isAccepted: false,
-          rejectLabel: (f) => _rejectBadgeLabel(loc, _rejectionReason(f)),
+          rejectLabel: (f) {
+            if (TeacherAuditFull.formNeedsMakeupAdminDecision(f)) {
+              return _acceptedBadgeLabel(loc, f);
+            }
+            return _rejectBadgeLabel(loc, _rejectionReason(f));
+          },
           enableBulkSelect: true,
         ),
         section(
@@ -487,7 +705,8 @@ class _AuditFormsTabState extends State<AuditFormsTab> {
       return Center(
         child: Text(
           AppLocalizations.of(context)!.auditSelectFormToView,
-          style: GoogleFonts.inter(fontSize: 12, color: const Color(0xff94A3B8)),
+          style:
+              GoogleFonts.inter(fontSize: 12, color: const Color(0xff94A3B8)),
         ),
       );
     }
@@ -496,9 +715,41 @@ class _AuditFormsTabState extends State<AuditFormsTab> {
     final formId = (form['id'] as String? ?? '').trim();
     final responses = (form['responses'] as Map<String, dynamic>?) ?? {};
 
+    final showMakeupActions =
+        _missedMakeupNeedsDecision(form) && formId.isNotEmpty;
+
     return ListView(
       padding: const EdgeInsets.all(12),
       children: [
+        if (showMakeupActions) ...[
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              ElevatedButton(
+                onPressed: _makeupBusy
+                    ? null
+                    : () => _approveMakeup(
+                          AppLocalizations.of(context)!,
+                          formId,
+                        ),
+                child: Text(
+                    AppLocalizations.of(context)!.auditMakeupApproveButton),
+              ),
+              OutlinedButton(
+                onPressed: _makeupBusy
+                    ? null
+                    : () => _rejectMakeup(
+                          AppLocalizations.of(context)!,
+                          formId,
+                        ),
+                child:
+                    Text(AppLocalizations.of(context)!.auditMakeupRejectTitle),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+        ],
         if (formId.isEmpty)
           Container(
             margin: const EdgeInsets.only(bottom: 8),
@@ -510,7 +761,8 @@ class _AuditFormsTabState extends State<AuditFormsTab> {
             ),
             child: Text(
               AppLocalizations.of(context)!.auditFormNoMatchingShift,
-              style: GoogleFonts.inter(fontSize: 12, color: const Color(0xff991B1B)),
+              style: GoogleFonts.inter(
+                  fontSize: 12, color: const Color(0xff991B1B)),
             ),
           )
         else

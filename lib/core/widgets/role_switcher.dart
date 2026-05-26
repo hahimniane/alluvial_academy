@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../core/services/user_role_service.dart';
+import '../../core/services/web_app_stability_service.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
@@ -131,6 +132,7 @@ class _RoleSwitcherState extends State<RoleSwitcher> {
         return;
       }
       AppLogger.error('RoleSwitcher: error polling user changes: $e');
+      WebAppStabilityService.instance.noteFirestoreError(e);
     } finally {
       _isPollingUserData = false;
     }

@@ -131,4 +131,25 @@ describe('recompute_shift_completion', () => {
     expect(newStatus).toBe('missed');
     expect(completionState).toBe('none');
   });
+
+  test('aggregate exposes pay bucket minutes and payable mirrors worked', () => {
+    const timesheetDocs = [
+      doc({
+        status: 'approved',
+        hourly_rate: 60,
+        clock_in_timestamp: ts(new Date('2026-04-13T23:00:00.000Z')),
+        clock_out_timestamp: ts(new Date('2026-04-13T23:30:00.000Z')),
+      }),
+    ];
+    const agg = aggregateWorkedAndClockPresence({
+      shiftStart,
+      shiftEnd,
+      timesheetDocs,
+      shiftData: {hourly_rate: 60},
+    });
+    expect(agg.payableMinutes).toBe(agg.workedMinutes);
+    expect(typeof agg.payPaidMinutes).toBe('number');
+    expect(typeof agg.payApprovedMinutes).toBe('number');
+    expect(typeof agg.payPendingMinutes).toBe('number');
+  });
 });

@@ -4,39 +4,52 @@
  * Exported for unit tests and the timesheet_entries Firestore trigger.
  */
 
-const toDate = (timestamp) => {
-  if (timestamp == null) return null;
-  return timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-};
+const {
+  computeSession,
+  getScheduledHours,
+  isRejected,
+  toDate,
+  toDouble,
+  workedMinutesCeil,
+} = require('../../utils/shiftSessionAggregator');
 
-const parseClockIn = (data, defaultDate) => {
-  if (data.clock_in_timestamp) {
-    return data.clock_in_timestamp.toDate();
+/**
+ * Pay buckets from computeSession are dollars; convert to whole minutes at shift hourly_rate.
+ * When rate is unknown, split [payable] worked minutes across buckets by dollar share (floors + remainder).
+ * payable_minutes matches worked_minutes (ceil of worked hours) — single billing clock for the shift.
+ */
+function derivePayBucketMinutes(result, shift, workedMinutes) {
+  const rate = toDouble(shift.hourly_rate, 0) || toDouble(shift.hourlyRate, 0);
+  let payPaidMinutes = 0;
+  let payApprovedMinutes = 0;
+  let payPendingMinutes = 0;
+
+  if (rate > 0) {
+    payPaidMinutes = Math.ceil((toDouble(result.payPaid, 0) / rate) * 60);
+    payApprovedMinutes = Math.ceil((toDouble(result.payApproved, 0) / rate) * 60);
+    payPendingMinutes = Math.ceil((toDouble(result.payPending, 0) / rate) * 60);
+    return {payPaidMinutes, payApprovedMinutes, payPendingMinutes};
   }
-  const timeString = data.start_time;
-  if (typeof timeString === 'string') {
-    const match = timeString.trim().match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
-    if (match) {
-      let hour = parseInt(match[1], 10);
-      const minute = parseInt(match[2], 10);
-      const meridiem = match[3].toUpperCase();
-      if (meridiem === 'PM' && hour < 12) hour += 12;
-      if (meridiem === 'AM' && hour === 12) hour = 0;
-      const parsed = new Date(defaultDate);
-      parsed.setHours(hour, minute, 0, 0);
-      return parsed;
-    }
+
+  const sumPay =
+    toDouble(result.payPaid, 0) +
+    toDouble(result.payApproved, 0) +
+    toDouble(result.payPending, 0);
+  if (sumPay <= 0 || workedMinutes <= 0) {
+    return {payPaidMinutes: 0, payApprovedMinutes: 0, payPendingMinutes: 0};
   }
-  return new Date(defaultDate);
-};
 
-const clockInSortKey = (data) => {
-  if (data.clock_in_timestamp) return data.clock_in_timestamp.toDate().getTime();
-  if (data.clock_in_time) return toDate(data.clock_in_time).getTime();
-  return 0;
-};
+  payPaidMinutes = Math.floor(
+    (workedMinutes * toDouble(result.payPaid, 0)) / sumPay,
+  );
+  payApprovedMinutes = Math.floor(
+    (workedMinutes * toDouble(result.payApproved, 0)) / sumPay,
+  );
+  payPendingMinutes =
+    workedMinutes - payPaidMinutes - payApprovedMinutes;
 
-const isRejected = (data) => String(data.status || '').toLowerCase() === 'rejected';
+  return {payPaidMinutes, payApprovedMinutes, payPendingMinutes};
+}
 
 /**
  * @param {object} opts
@@ -46,68 +59,60 @@ const isRejected = (data) => String(data.status || '').toLowerCase() === 'reject
  * @param {object} opts.shiftData raw shift document
  * @returns {{ workedMs: number, workedMinutes: number, scheduledMinutes: number, neverClockedIn: boolean }}
  */
-function aggregateWorkedAndClockPresence({shiftStart, shiftEnd, timesheetDocs, shiftData}) {
-  const startDate = shiftStart;
-  const endDate = shiftEnd;
+function timesheetHasValidClockPair(ts) {
+  if (isRejected(ts)) return false;
+  const ci = toDate(ts.clock_in_time ?? ts.clock_in_timestamp);
+  const co = toDate(ts.clock_out_time ?? ts.clock_out_timestamp);
+  return Boolean(ci && co && co > ci);
+}
+
+function aggregateWorkedAndClockPresence({shiftStart, shiftEnd, timesheetDocs, shiftData, formDocs = []}) {
+  const shift = {...shiftData};
+  if (shiftStart != null) shift.shift_start = shiftStart;
+  if (shiftEnd != null) shift.shift_end = shiftEnd;
+
+  let timesheets = timesheetDocs.map((d) => d.data());
+  const hasDocPunch = timesheets.some(timesheetHasValidClockPair);
+  if (
+    !hasDocPunch &&
+    shiftData.clock_in_time != null &&
+    shiftData.clock_out_time != null
+  ) {
+    timesheets = [
+      ...timesheets,
+      {
+        clock_in_timestamp: shiftData.clock_in_time,
+        clock_out_timestamp: shiftData.clock_out_time,
+        status: shiftData.status || 'approved',
+      },
+    ];
+  }
+
+  const forms = formDocs.map((d) => d.data());
+
+  const result = computeSession(shift, timesheets, forms);
+  const scheduledHours = getScheduledHours(shift);
+
+  const workedMinutes = workedMinutesCeil(result);
+  const scheduledMinutes = Math.max(1, Math.round(scheduledHours * 60));
+
   const hasClockInOnShift = shiftData.clock_in_time != null;
+  const neverClockedIn =
+    !hasDocPunch && !hasClockInOnShift && !result.hasForm;
 
-  const nonRejected = timesheetDocs.filter((doc) => !isRejected(doc.data()));
+  const {payPaidMinutes, payApprovedMinutes, payPendingMinutes} =
+    derivePayBucketMinutes(result, shift, workedMinutes);
 
-  let workedMs = 0;
-
-  if (nonRejected.length === 0 && hasClockInOnShift) {
-    const clockInTime = toDate(shiftData.clock_in_time);
-    const clockOutTime = shiftData.clock_out_time
-      ? toDate(shiftData.clock_out_time)
-      : endDate;
-    if (clockInTime) {
-      workedMs = Math.max(0, clockOutTime.getTime() - clockInTime.getTime());
-    }
-  }
-
-  const sorted = [...nonRejected].sort(
-    (a, b) => clockInSortKey(a.data()) - clockInSortKey(b.data()),
-  );
-
-  let lastEndTime = 0;
-  for (const doc of sorted) {
-    const data = doc.data();
-    const clockIn = parseClockIn(data, startDate);
-    let clockOut = data.clock_out_timestamp
-      ? data.clock_out_timestamp.toDate()
-      : data.clock_out_time
-        ? toDate(data.clock_out_time)
-        : null;
-    if (!clockOut) {
-      clockOut = endDate;
-    }
-
-    const startTimeMs = clockIn.getTime();
-    const endTimeMs = clockOut.getTime();
-    const effectiveStartTimeMs = Math.max(startTimeMs, startDate.getTime());
-    const effectiveEndTimeMs = Math.min(endTimeMs, endDate.getTime());
-    const effectiveStartTime = Math.max(effectiveStartTimeMs, lastEndTime);
-
-    if (effectiveEndTimeMs > effectiveStartTime) {
-      const durationMs = Math.max(0, effectiveEndTimeMs - effectiveStartTime);
-      workedMs += durationMs;
-      lastEndTime = effectiveEndTimeMs;
-    }
-  }
-
-  const workedMinutes = Math.ceil(workedMs / 60000);
-  const scheduledMinutes = Math.max(
-    1,
-    Math.round((endDate.getTime() - startDate.getTime()) / 60000),
-  );
-
-  const hasNonRejectedClockIn = nonRejected.some((doc) => {
-    const d = doc.data();
-    return !!(d.clock_in_timestamp || d.clock_in_time);
-  });
-  const neverClockedIn = !hasNonRejectedClockIn && !hasClockInOnShift;
-
-  return {workedMs, workedMinutes, scheduledMinutes, neverClockedIn};
+  return {
+    workedMs: result.workedHours * 3600000,
+    workedMinutes,
+    scheduledMinutes,
+    neverClockedIn,
+    payPaidMinutes,
+    payApprovedMinutes,
+    payPendingMinutes,
+    payableMinutes: workedMinutes,
+  };
 }
 
 /**
@@ -185,12 +190,25 @@ async function recomputeShiftCompletionForShiftId(db, shiftId) {
   }
 
   const timesheetDocs = await mergeTimesheetsForShift(db, shiftId);
-  const {workedMinutes, scheduledMinutes, neverClockedIn} = aggregateWorkedAndClockPresence({
+  const formDocsSnap = await db.collection('form_responses').where('shiftId', '==', shiftId).get();
+  const formDocs = formDocsSnap.docs;
+
+  const agg = aggregateWorkedAndClockPresence({
     shiftStart,
     shiftEnd,
     timesheetDocs,
     shiftData,
+    formDocs,
   });
+  const {
+    workedMinutes,
+    scheduledMinutes,
+    neverClockedIn,
+    payPaidMinutes,
+    payApprovedMinutes,
+    payPendingMinutes,
+    payableMinutes,
+  } = agg;
 
   const {newStatus, completionState, missedReason} = deriveCompletionStatusFromAggregate({
     workedMinutes,
@@ -204,6 +222,14 @@ async function recomputeShiftCompletionForShiftId(db, shiftId) {
     completion_state: completionState,
     last_modified: admin.firestore.FieldValue.serverTimestamp(),
   };
+
+  const writePayBuckets = process.env.WRITE_SHIFT_PAY_BUCKET_MINUTES !== '0';
+  if (writePayBuckets) {
+    updatePayload.pay_paid_minutes = payPaidMinutes;
+    updatePayload.pay_approved_minutes = payApprovedMinutes;
+    updatePayload.pay_pending_minutes = payPendingMinutes;
+    updatePayload.payable_minutes = payableMinutes;
+  }
 
   if (missedReason) {
     updatePayload.missed_reason = missedReason;
@@ -230,7 +256,6 @@ async function recomputeShiftCompletionForShiftId(db, shiftId) {
 }
 
 module.exports = {
-  parseClockIn,
   aggregateWorkedAndClockPresence,
   deriveCompletionStatusFromAggregate,
   mergeTimesheetsForShift,

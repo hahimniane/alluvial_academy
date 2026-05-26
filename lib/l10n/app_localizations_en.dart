@@ -1517,6 +1517,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get formNoSubmissionsYet => 'No form submissions yet';
 
   @override
+  String get mySubmissionsMonthScopeHint =>
+      'Only submissions dated in the selected month are shown. Use View all to see other months.';
+
+  @override
+  String get mySubmissionsNoFormIdGroupTitle => 'Submissions without form ID';
+
+  @override
   String get adminAllSubmissionsTitle => 'All Submissions (Admin)';
 
   @override
@@ -1617,7 +1624,34 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get adminSubmissionsExportProgressSubtitle =>
-      'Preparing your file. Progress per person:';
+      'Please keep this window open. Large exports may take a moment.';
+
+  @override
+  String get adminSubmissionsExportPhaseLoadingShifts =>
+      'Loading linked shifts…';
+
+  @override
+  String get adminSubmissionsExportPhaseLoadingLabels =>
+      'Loading form field labels…';
+
+  @override
+  String get adminSubmissionsExportPhaseLoadingFonts => 'Loading PDF fonts…';
+
+  @override
+  String get adminSubmissionsExportPhaseWritingSheet => 'Writing sheets…';
+
+  @override
+  String get adminSubmissionsExportPhaseBuildingFile => 'Building file…';
+
+  @override
+  String get adminSubmissionsExportPhaseStartingDownload =>
+      'Starting download…';
+
+  @override
+  String adminSubmissionsExportFormSheetProgress(
+      int current, int total, String formName) {
+    return '$current / $total — $formName';
+  }
 
   @override
   String get adminSubmissionsSelectToViewDetails =>
@@ -1850,6 +1884,10 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get timesheetUpdatedSuccess =>
       'Timesheet updated successfully. Awaiting admin approval.';
+
+  @override
+  String get timesheetEditTotalExceedsShift =>
+      'This edit would make total clocked time for the shift exceed the scheduled duration.';
 
   @override
   String get timesheetDetails => 'Timesheet Entry Details';
@@ -4476,10 +4514,31 @@ class AppLocalizationsEn extends AppLocalizations {
   String get auditHoursTaught => 'Hours taught';
 
   @override
+  String get auditClassLogTablePayFilterEmpty =>
+      'No rows match the payable-activity filter. The summary above reflects the full audit month.';
+
+  @override
   String get auditCompletionRateLabel => 'Completion rate';
 
   @override
   String get auditLateClockInsLabel => 'Late clock-ins';
+
+  @override
+  String auditClockSegmentCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count segments',
+      one: '1 segment',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get auditClockSegmentsHeader => 'Clock segments';
+
+  @override
+  String get auditClockSessionPay => 'Session pay';
 
   @override
   String get auditClassesMissedLabel => 'Classes missed';
@@ -4532,6 +4591,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get auditFormStatusRejectedNoTimesheet => 'Rejected (no timesheet)';
+
+  @override
+  String get auditFormStatusRejectedMakeupRejected =>
+      'Rejected (makeup declined)';
 
   @override
   String get auditFormsTabStatTotalTeaching => 'Total teaching forms';
@@ -4750,6 +4813,35 @@ class AppLocalizationsEn extends AppLocalizations {
   String get teacherAuditDisputeFieldLabel => 'Field';
 
   @override
+  String get teacherAuditDisputeOptionClassesCount => 'Number of classes';
+
+  @override
+  String get teacherAuditDisputeOptionHoursTaught => 'Hours taught';
+
+  @override
+  String get teacherAuditDisputeOptionPunctualityRate => 'Punctuality rate';
+
+  @override
+  String get teacherAuditDisputeOptionFormsCount => 'Number of forms';
+
+  @override
+  String get teacherAuditDisputeOptionPaymentAmount => 'Payment amount';
+
+  @override
+  String get teacherAuditDisputeOptionOverallScore => 'Overall score';
+
+  @override
+  String get teacherAuditDisputeOptionOther => 'Other';
+
+  @override
+  String get teacherAuditDisputeReasonEmpty => 'This field is required';
+
+  @override
+  String teacherAuditDisputeReasonTooShort(int min) {
+    return 'Please add more detail (at least $min characters).';
+  }
+
+  @override
   String get auditPaymentCalculation => 'Calculation';
 
   @override
@@ -4834,6 +4926,98 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get auditDiscussionAdminButton => 'Open chat with teacher';
+
+  @override
+  String auditDiscussionUnreadBadgeTooltip(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count unread messages from teacher',
+      one: '1 unread message from teacher',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get auditShareWithTeacherTooltip => 'Share with teacher (copy)';
+
+  @override
+  String get auditShareWithTeacherCopied => 'Audit summary copied to clipboard';
+
+  @override
+  String get auditMessageTitle => 'Monthly audit update';
+
+  @override
+  String get auditMessageTeacher => 'Teacher';
+
+  @override
+  String get auditMessageReadyInMyReport =>
+      'Your audit is ready to review in My Report.';
+
+  @override
+  String get auditMessagePassedCeoReview => 'Your audit passed CEO review.';
+
+  @override
+  String get auditMessageFinalized =>
+      'Your audit is finalized. View it in My Report.';
+
+  @override
+  String get auditMessagePaymentSummary => 'Payment summary';
+
+  @override
+  String get auditMessageHoursSection => 'Hours';
+
+  @override
+  String get auditMessageWorkedHours => 'Worked hours (timesheets)';
+
+  @override
+  String get auditMessageFormHours => 'Form hours';
+
+  @override
+  String get auditMessageTotalHours => 'Total hours';
+
+  @override
+  String get auditMessageHourlyRateBreakdown => 'Hourly rate breakdown';
+
+  @override
+  String get auditMessageNotAvailable => 'N/A';
+
+  @override
+  String get auditMessageGrossAmount => 'Gross amount';
+
+  @override
+  String get auditMessagePayFromTimesheets => 'Pay from timesheets';
+
+  @override
+  String get auditMessagePayFromForms => 'Pay from forms';
+
+  @override
+  String get auditMessageAdjustments => 'Adjustments';
+
+  @override
+  String get auditMessageAutoPenalties => 'Auto penalties';
+
+  @override
+  String get auditMessageAutoBonuses => 'Auto bonuses';
+
+  @override
+  String get auditMessageAdminAdjustment => 'Admin adjustment';
+
+  @override
+  String get auditMessageCoachLines => 'Coach lines';
+
+  @override
+  String get auditMessageTotalAdjustmentsImpact => 'Total adjustments impact';
+
+  @override
+  String get auditMessageAdvanceDeduction => 'Advance payment deduction';
+
+  @override
+  String get auditMessageFinalAmount => 'Final amount';
+
+  @override
+  String get auditMessageReviewReply =>
+      'Please review and reply here if you need clarifications or corrections.';
 
   @override
   String get teacherAuditPayslipCoachLines => 'Evaluation adjustments';
@@ -6267,7 +6451,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get penaltyPerShift => 'Penalty Per Shift';
 
   @override
-  String get pendingapprovals => 'Pendingapprovals';
+  String get pendingapprovals => 'Timesheet pay pending';
 
   @override
   String get performance => 'Performance';
@@ -8264,6 +8448,9 @@ class AppLocalizationsEn extends AppLocalizations {
       'Worked hours from this entry. Hover a row for schedule vs actual and form data.';
 
   @override
+  String get timesheetReviewColumnAuditMonthHours => 'Audit hours (month)';
+
+  @override
   String get timesheetReviewColumnTooltipPayment =>
       'Pay amount for this entry using current hours and rate.';
 
@@ -9269,6 +9456,52 @@ class AppLocalizationsEn extends AppLocalizations {
   String timesheetEntrySummary(Object hours, Object amount) {
     return '$hours hours • \$$amount';
   }
+
+  @override
+  String get webStuckBannerTitle => 'Page seems stuck';
+
+  @override
+  String get webStuckBannerMessage =>
+      'Firestore stopped responding. Try recovering the connection, or reload the page.';
+
+  @override
+  String get webStuckBannerRecover => 'Recover';
+
+  @override
+  String get webStuckBannerReload => 'Reload';
+
+  @override
+  String get webStuckBannerDismiss => 'Dismiss';
+
+  @override
+  String get timesheetReviewStuckLoadingTitle => 'Still loading…';
+
+  @override
+  String get timesheetReviewStuckLoadingMessage =>
+      'Firestore is taking longer than expected. The connection sometimes hangs after a long-lived browser tab. Retry usually fixes it without clearing browsing data.';
+
+  @override
+  String get timesheetConsolidatedFirstClockInLabel => 'First clock-in';
+
+  @override
+  String get timesheetConsolidatedLastClockOutLabel => 'Last clock-out';
+
+  @override
+  String get timesheetConsolidatedBillableTotal => 'Billable total';
+
+  @override
+  String get timesheetConsolidatedSumSessions => 'Sum of session durations';
+
+  @override
+  String get timesheetConsolidatedHoursExplanation =>
+      'Billable time follows overlap rules: overlapping clock-in pairs count as one paid segment. First and last times show the span across all sessions, which can be longer than billable minutes.';
+
+  @override
+  String get timesheetConsolidatedSessionsHeader => 'Sessions';
+
+  @override
+  String get timesheetTapSessionForDetails =>
+      'Tap a row to open that session alone.';
 
   @override
   String formSubmissionsTitle(Object title) {
@@ -11790,6 +12023,65 @@ class AppLocalizationsEn extends AppLocalizations {
       'Optional. Included in PDF/Excel under this section.';
 
   @override
+  String get adminAuditTeacherPayslipAckShort => 'Payslip read confirmation';
+
+  @override
+  String adminAuditTeacherPayslipAcknowledgedOn(String date) {
+    return 'Acknowledged $date';
+  }
+
+  @override
+  String get adminAuditTeacherPayslipNotAcknowledged => 'Not confirmed yet';
+
+  @override
+  String get adminAuditTeacherDisputeSummaryTitle => 'Teacher dispute';
+
+  @override
+  String get adminAuditResolveTeacherDisputeTitle => 'Resolve teacher dispute';
+
+  @override
+  String get adminAuditViewTeacherDispute => 'View dispute';
+
+  @override
+  String get adminAuditResolveTeacherDisputeButton => 'Resolve dispute';
+
+  @override
+  String get adminAuditResolveTeacherDisputeSubmit => 'Submit resolution';
+
+  @override
+  String get adminAuditResolveTeacherDisputeAccept => 'Accept';
+
+  @override
+  String get adminAuditResolveTeacherDisputeReject => 'Reject';
+
+  @override
+  String get adminAuditResolveTeacherDisputeResponseLabel =>
+      'Response to teacher';
+
+  @override
+  String get adminAuditResolveTeacherDisputeResponseHint =>
+      'Explain your decision. The teacher will see this message.';
+
+  @override
+  String get adminAuditResolveTeacherDisputeRequireReAck =>
+      'Require the teacher to confirm they read the payslip again';
+
+  @override
+  String get adminAuditResolveTeacherDisputeNotifyTeacher =>
+      'Notify the teacher (in-app)';
+
+  @override
+  String get adminAuditResolveTeacherDisputeSuccess =>
+      'Dispute resolution saved.';
+
+  @override
+  String get adminAuditResolveTeacherDisputeFailed =>
+      'Could not save resolution. Check permissions and try again.';
+
+  @override
+  String get adminAuditTeacherDisputeSuggestedValue => 'Suggested correction';
+
+  @override
   String get sidebarPublicSiteCms => 'Pricing & public team';
 
   @override
@@ -11815,7 +12107,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get publicSiteCmsLandingHeroBg => 'Hero background color';
 
   @override
-  String get publicSiteCmsLandingHeroBgHint => '#RRGGBB (example: #001E4E)';
+  String get publicSiteCmsLandingHeroBgHint => '#RRGGBB (example: #00484E)';
 
   @override
   String get publicSiteCmsLandingMainImage => 'Center hero image';
@@ -13906,4 +14198,91 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get tontineInvitePreview =>
       'Review this invitation and circle details before you join.';
+
+  @override
+  String get makeupAttestationTitle => 'Makeup class details';
+
+  @override
+  String get makeupAttestationSubtitle =>
+      'No clocked timesheet—add online makeup details for review.';
+
+  @override
+  String get makeupFieldOccurredAt => 'Date';
+
+  @override
+  String get makeupFieldStartTime => 'Start time';
+
+  @override
+  String get makeupFieldEndTime => 'End time';
+
+  @override
+  String get makeupFieldDeliveryMode => 'Platform';
+
+  @override
+  String get makeupFieldZoomHost => 'Host';
+
+  @override
+  String get makeupFieldOtherDetail => 'Describe (required for Other)';
+
+  @override
+  String get makeupFieldStudentsPresent => 'Student(s) present';
+
+  @override
+  String get makeupFieldNotesOptional => 'Notes (optional)';
+
+  @override
+  String get makeupDeliveryZoom => 'Zoom';
+
+  @override
+  String get makeupDeliveryLivekit => 'LiveKit';
+
+  @override
+  String get makeupDeliveryOther => 'Other';
+
+  @override
+  String get makeupSubmitContinue => 'Continue';
+
+  @override
+  String get auditMakeupStatusPending => 'Makeup pending review';
+
+  @override
+  String get auditMakeupStatusApproved => 'Makeup approved';
+
+  @override
+  String get auditMakeupStatusRejected => 'Makeup rejected';
+
+  @override
+  String get auditMakeupRejectTitle => 'Reject makeup';
+
+  @override
+  String get auditMakeupRejectHint => 'Reason shown in audit history';
+
+  @override
+  String get auditMakeupApproveConfirm => 'Mark this makeup as approved?';
+
+  @override
+  String get auditMakeupRejectSuccess => 'Makeup rejected; pay updated';
+
+  @override
+  String get auditMakeupApproveSuccess => 'Makeup approved';
+
+  @override
+  String get auditMakeupApproveButton => 'Approve makeup';
+
+  @override
+  String auditMakeupPendingAdminBanner(int count) {
+    return '$count missed-class report(s) still need Approve or Reject below before you can submit the coach evaluation.';
+  }
+
+  @override
+  String auditMakeupBlockedSubmitCoach(int count) {
+    return '$count missed-class report(s) must be approved or rejected on the Teaching forms tab first.';
+  }
+
+  @override
+  String get auditMakeupEvaluationFooterHint =>
+      'Coach evaluation submit stays disabled until every missed-class makeup is approved or rejected (Teaching forms tab).';
+
+  @override
+  String get auditMakeupOpenTeachingFormsTab => 'Open Teaching forms';
 }

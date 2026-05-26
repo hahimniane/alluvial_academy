@@ -98,14 +98,16 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
   StreamSubscription? _timesheetSubscription;
   StreamSubscription? _timesheetSubscriptionCamel;
   StreamSubscription? _shiftSubscription;
-  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _formResponseDocSubscription;
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>?
+      _formResponseDocSubscription;
   Timer? _timesheetMergeDebounce;
 
   // Cached shift data (for real-time status updates)
   TeachingShift? _liveShift;
 
   // Mobile class access permission (for teachers on native mobile)
-  bool _canJoinFromMobile = true; // Default true, will be set false if teacher is blocked
+  bool _canJoinFromMobile =
+      true; // Default true, will be set false if teacher is blocked
 
   @override
   void initState() {
@@ -159,8 +161,10 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
     // Primary admins can always join
     try {
       final userData = await UserRoleService.getCurrentUserData();
-      final primaryRole = (userData?['user_type'] as String?)?.trim().toLowerCase();
-      final isPrimaryAdmin = primaryRole == 'admin' || primaryRole == 'super_admin';
+      final primaryRole =
+          (userData?['user_type'] as String?)?.trim().toLowerCase();
+      final isPrimaryAdmin =
+          primaryRole == 'admin' || primaryRole == 'super_admin';
       if (isPrimaryAdmin) return;
     } catch (_) {}
 
@@ -209,14 +213,16 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
         .where('shift_id', isEqualTo: widget.shift.id)
         .orderBy('created_at', descending: true)
         .snapshots()
-        .listen((_) => scheduleMergedTimesheetReload(), onError: onTimesheetStreamError);
+        .listen((_) => scheduleMergedTimesheetReload(),
+            onError: onTimesheetStreamError);
 
     _timesheetSubscriptionCamel = FirebaseFirestore.instance
         .collection('timesheet_entries')
         .where('shiftId', isEqualTo: widget.shift.id)
         .orderBy('created_at', descending: true)
         .snapshots()
-        .listen((_) => scheduleMergedTimesheetReload(), onError: onTimesheetStreamError);
+        .listen((_) => scheduleMergedTimesheetReload(),
+            onError: onTimesheetStreamError);
 
     _shiftSubscription = FirebaseFirestore.instance
         .collection('teaching_shifts')
@@ -297,7 +303,8 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
     _formResponseDocSubscription = null;
 
     final formDocId =
-        await ShiftFormService.loadLatestFormResponseDocumentIdForShift(widget.shift.id);
+        await ShiftFormService.loadLatestFormResponseDocumentIdForShift(
+            widget.shift.id);
     if (!mounted) return;
 
     if (formDocId == null) {
@@ -321,7 +328,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
     setState(() => _isLoading = true);
     try {
       debugPrint("🔍 Loading details for shift: ${widget.shift.id}");
-      
+
       // OPTIMIZATION: Try both field names in parallel instead of sequentially
       final timesheetQueries = await Future.wait([
         FirebaseFirestore.instance
@@ -335,7 +342,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
             .orderBy('created_at', descending: true)
             .get(),
       ]);
-      
+
       // Use the first non-empty result
       QuerySnapshot? timesheetQuery;
       if (timesheetQueries[0].docs.isNotEmpty) {
@@ -344,7 +351,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
         debugPrint("⚠️ Found timesheet using shiftId (camelCase)");
         timesheetQuery = timesheetQueries[1];
       }
-      
+
       if (timesheetQuery != null && timesheetQuery.docs.isNotEmpty) {
         _allTimesheetEntries = timesheetQuery.docs.map((doc) {
           final data = doc.data() as Map<String, dynamic>;
@@ -355,17 +362,17 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
         // Set the most recent one as _timesheetEntry for backward compatibility / status check
         if (mounted) {
           setState(() {
-             _timesheetEntry = _allTimesheetEntries.first;
+            _timesheetEntry = _allTimesheetEntries.first;
           });
         }
-        
+
         debugPrint("✅ Found ${_allTimesheetEntries.length} timesheet entries");
 
         // 2. Find Form Response (link to the most recent timesheet or shift)
         // Check timesheet first, then check shift directly (for missed shifts)
         final formId = _timesheetEntry!['form_response_id'];
         Map<String, dynamic>? formResponse;
-        
+
         if (formId != null) {
           final formDoc = await FirebaseFirestore.instance
               .collection('form_responses')
@@ -381,7 +388,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
               .where('timesheetId', isEqualTo: _timesheetEntry!['id'])
               .limit(1)
               .get();
-          
+
           if (formQuery.docs.isEmpty) {
             formQuery = await FirebaseFirestore.instance
                 .collection('form_responses')
@@ -389,7 +396,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
                 .limit(1)
                 .get();
           }
-          
+
           // Also try by shiftId (camelCase) as fallback
           if (formQuery.docs.isEmpty) {
             formQuery = await FirebaseFirestore.instance
@@ -398,7 +405,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
                 .limit(1)
                 .get();
           }
-          
+
           // Also try by shift_id (snake_case) as fallback
           if (formQuery.docs.isEmpty) {
             formQuery = await FirebaseFirestore.instance
@@ -413,23 +420,23 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
             debugPrint("✅ Found form response via fallback query");
           }
         }
-        
+
         if (mounted) {
-            setState(() {
+          setState(() {
             _formResponse = formResponse;
-            });
-          }
-        
+          });
+        }
+
         // Start timer if there's an active clock-in (no clock-out)
         _startElapsedTimerIfActive();
-        }
+      }
 
       // 3. Load modification history if shift was modified by teacher
       final shiftDoc = await FirebaseFirestore.instance
           .collection('teaching_shifts')
           .doc(widget.shift.id)
           .get();
-      
+
       if (shiftDoc.exists) {
         final shiftData = shiftDoc.data();
         if (shiftData?['teacher_modified'] == true) {
@@ -440,13 +447,15 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
               .orderBy('modified_at', descending: true)
               .limit(1)
               .get();
-          
+
           if (modQuery.docs.isNotEmpty) {
             final modData = modQuery.docs.first.data();
             if (mounted) {
               setState(() {
                 _modificationHistory = modData;
-                _displayTimezone = modData['timezone_used'] ?? widget.shift.teacherTimezone ?? 'UTC';
+                _displayTimezone = modData['timezone_used'] ??
+                    widget.shift.teacherTimezone ??
+                    'UTC';
               });
             }
           } else {
@@ -458,69 +467,76 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
                   'original_end_time': shiftData?['original_end_time'],
                   'new_start_time': Timestamp.fromDate(widget.shift.shiftStart),
                   'new_end_time': Timestamp.fromDate(widget.shift.shiftEnd),
-                  'teacher_modification_reason': shiftData?['teacher_modification_reason'],
+                  'teacher_modification_reason':
+                      shiftData?['teacher_modification_reason'],
                   'teacher_modified_at': shiftData?['teacher_modified_at'],
-                  'timezone_used': shiftData?['timezone_used'] ?? widget.shift.teacherTimezone ?? 'UTC',
+                  'timezone_used': shiftData?['timezone_used'] ??
+                      widget.shift.teacherTimezone ??
+                      'UTC',
                 };
-                _displayTimezone = shiftData?['timezone_used'] ?? widget.shift.teacherTimezone ?? 'UTC';
+                _displayTimezone = shiftData?['timezone_used'] ??
+                    widget.shift.teacherTimezone ??
+                    'UTC';
               });
             }
           }
         }
       } else {
-          // No timesheet entries - check if shift has form linked directly (missed shift case)
-          debugPrint("⚠️ No timesheet entries found - checking for shift-linked form");
-          
-          // Check if shift has form_response_id directly
-          final shiftDoc = await FirebaseFirestore.instance
-              .collection('teaching_shifts')
-              .doc(widget.shift.id)
-              .get();
-          
-          if (shiftDoc.exists) {
-            final shiftData = shiftDoc.data();
-            final shiftFormId = shiftData?['form_response_id'];
-            
-            if (shiftFormId != null) {
-              final formDoc = await FirebaseFirestore.instance
-                  .collection('form_responses')
-                  .doc(shiftFormId)
-                  .get();
-              if (formDoc.exists) {
-                if (mounted) {
-                  setState(() {
-                    _formResponse = formDoc.data();
-                  });
-                }
-              }
-            } else {
-              // Try querying by shiftId (camelCase)
-              var formQuery = await FirebaseFirestore.instance
-                  .collection('form_responses')
-                  .where('shiftId', isEqualTo: widget.shift.id)
-                  .limit(1)
-                  .get();
-              
-              // Also try shift_id (snake_case) if camelCase not found
-              if (formQuery.docs.isEmpty) {
-                formQuery = await FirebaseFirestore.instance
-                    .collection('form_responses')
-                    .where('shift_id', isEqualTo: widget.shift.id)
-                    .limit(1)
-                    .get();
-              }
-              
-              if (formQuery.docs.isNotEmpty) {
-                if (mounted) {
-                  setState(() {
-                    _formResponse = formQuery.docs.first.data();
-                  });
-                }
-                debugPrint("✅ Found form response for shift via direct query");
+        // No timesheet entries - check if shift has form linked directly (missed shift case)
+        debugPrint(
+            "⚠️ No timesheet entries found - checking for shift-linked form");
+
+        // Check if shift has form_response_id directly
+        final shiftDoc = await FirebaseFirestore.instance
+            .collection('teaching_shifts')
+            .doc(widget.shift.id)
+            .get();
+
+        if (shiftDoc.exists) {
+          final shiftData = shiftDoc.data();
+          final shiftFormId = shiftData?['form_response_id'];
+
+          if (shiftFormId != null) {
+            final formDoc = await FirebaseFirestore.instance
+                .collection('form_responses')
+                .doc(shiftFormId)
+                .get();
+            if (formDoc.exists) {
+              if (mounted) {
+                setState(() {
+                  _formResponse = formDoc.data();
+                });
               }
             }
+          } else {
+            // Try querying by shiftId (camelCase)
+            var formQuery = await FirebaseFirestore.instance
+                .collection('form_responses')
+                .where('shiftId', isEqualTo: widget.shift.id)
+                .limit(1)
+                .get();
+
+            // Also try shift_id (snake_case) if camelCase not found
+            if (formQuery.docs.isEmpty) {
+              formQuery = await FirebaseFirestore.instance
+                  .collection('form_responses')
+                  .where('shift_id', isEqualTo: widget.shift.id)
+                  .limit(1)
+                  .get();
+            }
+
+            if (formQuery.docs.isNotEmpty) {
+              if (mounted) {
+                setState(() {
+                  _formResponse = formQuery.docs.first.data();
+                });
+              }
+              debugPrint("✅ Found form response for shift via direct query");
+            }
           }
-        debugPrint("❌ No timesheet found for shift: ${widget.shift.id} after all attempts");
+        }
+        debugPrint(
+            "❌ No timesheet found for shift: ${widget.shift.id} after all attempts");
       }
 
       // 3. Load modification history if shift was modified by teacher
@@ -528,7 +544,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
           .collection('teaching_shifts')
           .doc(widget.shift.id)
           .get();
-      
+
       if (shiftDocForMod.exists) {
         final shiftData = shiftDocForMod.data();
         if (shiftData?['teacher_modified'] == true) {
@@ -539,13 +555,15 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
               .orderBy('modified_at', descending: true)
               .limit(1)
               .get();
-          
+
           if (modQuery.docs.isNotEmpty) {
             final modData = modQuery.docs.first.data();
             if (mounted) {
               setState(() {
                 _modificationHistory = modData;
-                _displayTimezone = modData['timezone_used'] ?? widget.shift.teacherTimezone ?? 'UTC';
+                _displayTimezone = modData['timezone_used'] ??
+                    widget.shift.teacherTimezone ??
+                    'UTC';
               });
             }
           } else {
@@ -557,11 +575,16 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
                   'original_end_time': shiftData?['original_end_time'],
                   'new_start_time': Timestamp.fromDate(widget.shift.shiftStart),
                   'new_end_time': Timestamp.fromDate(widget.shift.shiftEnd),
-                  'teacher_modification_reason': shiftData?['teacher_modification_reason'],
+                  'teacher_modification_reason':
+                      shiftData?['teacher_modification_reason'],
                   'teacher_modified_at': shiftData?['teacher_modified_at'],
-                  'timezone_used': shiftData?['timezone_used'] ?? widget.shift.teacherTimezone ?? 'UTC',
+                  'timezone_used': shiftData?['timezone_used'] ??
+                      widget.shift.teacherTimezone ??
+                      'UTC',
                 };
-                _displayTimezone = shiftData?['timezone_used'] ?? widget.shift.teacherTimezone ?? 'UTC';
+                _displayTimezone = shiftData?['timezone_used'] ??
+                    widget.shift.teacherTimezone ??
+                    'UTC';
               });
             }
           }
@@ -580,7 +603,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
     for (final entry in _allTimesheetEntries) {
       final clockIn = entry['clock_in_time'] ?? entry['clock_in_timestamp'];
       final clockOut = entry['clock_out_time'] ?? entry['clock_out_timestamp'];
-      
+
       if (clockIn != null && (clockOut == null || clockOut == '')) {
         // Found an active entry - start the timer
         if (clockIn is Timestamp) {
@@ -588,7 +611,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
         } else if (clockIn is DateTime) {
           _clockInTime = clockIn;
         }
-        
+
         if (_clockInTime != null) {
           _startElapsedTimer();
         }
@@ -619,7 +642,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
         _handleAutoClockOut();
       }
     });
-    
+
     // Update immediately
     if (_clockInTime != null) {
       final elapsed = DateTime.now().difference(_clockInTime!);
@@ -632,17 +655,18 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
   Future<void> _handleAutoClockOut() async {
     // Prevent multiple calls
     if (_isClockingOut) return;
-    
+
     _elapsedTimer?.cancel();
     debugPrint("🕒 Auto clocking out: Time exceeded shift end");
-    
+
     // Call standard clock out
     await _handleClockOut();
-    
+
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(AppLocalizations.of(context)!.autoClockedOutShiftTimeEnded),
+          content:
+              Text(AppLocalizations.of(context)!.autoClockedOutShiftTimeEnded),
           backgroundColor: Colors.orange,
           duration: Duration(seconds: 3),
         ),
@@ -794,26 +818,26 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
     final shift = _liveShift ?? widget.shift;
     final canJoin = VideoCallService.canJoinClass(shift);
     final timeUntil = VideoCallService.getTimeUntilCanJoin(shift);
-    
+
     return Expanded(
       child: ElevatedButton.icon(
-        onPressed: canJoin 
-            ? () => _handleJoinVideoCall()
-            : null,
+        onPressed: canJoin ? () => _handleJoinVideoCall() : null,
         icon: const Icon(Icons.videocam, size: 20),
         label: Text(
-          canJoin 
-              ? "Join Class" 
-              : timeUntil != null 
+          canJoin
+              ? "Join Class"
+              : timeUntil != null
                   ? "Join (${_formatTimeUntil(timeUntil)})"
                   : "Class Ended",
           style: GoogleFonts.inter(fontWeight: FontWeight.w600),
         ),
         style: ElevatedButton.styleFrom(
-          backgroundColor: canJoin ? const Color(0xFF0E72ED) : const Color(0xFF94A3B8),
+          backgroundColor:
+              canJoin ? const Color(0xFF0E72ED) : const Color(0xFF94A3B8),
           foregroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(vertical: 14),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
       ),
     );
@@ -834,11 +858,12 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
 
   Future<void> _handleJoinVideoCall() async {
     final shift = _liveShift ?? widget.shift;
-    
+
     if (!VideoCallService.hasVideoCall(shift)) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(AppLocalizations.of(context)!.noVideoCallIsConfiguredFor),
+          content:
+              Text(AppLocalizations.of(context)!.noVideoCallIsConfiguredFor),
           backgroundColor: Colors.orange,
         ),
       );
@@ -876,12 +901,12 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
     for (final entry in _allTimesheetEntries) {
       final clockIn = entry['clock_in_time'] ?? entry['clock_in_timestamp'];
       final clockOut = entry['clock_out_time'] ?? entry['clock_out_timestamp'];
-      
+
       if (clockIn != null && (clockOut == null || clockOut == '')) {
         return true;
       }
     }
-    
+
     // STRICT CHECK: Only return true if we found an active timesheet entry.
     // ShiftStatus.active just means the class time has started, not that the teacher clocked in.
     return false;
@@ -890,7 +915,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
   // Check if shift is completed
   bool get _isCompleted {
     final status = _liveShift?.status ?? widget.shift.status;
-    
+
     // STRICT: Only show completed if the cloud function has determined it
     // The cloud function (handleShiftEndTask) sets the status based on worked vs scheduled time
     // We trust the backend's calculation with 0 tolerance
@@ -902,7 +927,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
   bool get _isMissed {
     final now = DateTime.now();
     final status = _liveShift?.status ?? widget.shift.status;
-    
+
     return (status == ShiftStatus.missed) ||
         (widget.shift.shiftEnd.isBefore(now) &&
             status == ShiftStatus.scheduled &&
@@ -942,7 +967,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
         // Start the elapsed timer
         _clockInTime = DateTime.now();
         _startElapsedTimer();
-        
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -958,7 +983,8 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                result['message'] ?? AppLocalizations.of(context)!.timeClockClockInFailed,
+                result['message'] ??
+                    AppLocalizations.of(context)!.timeClockClockInFailed,
               ),
               backgroundColor: Colors.red,
             ),
@@ -968,7 +994,9 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppLocalizations.of(context)!.errorE), backgroundColor: Colors.red),
+          SnackBar(
+              content: Text(AppLocalizations.of(context)!.errorE),
+              backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -986,7 +1014,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
       // Get location
       final location = await LocationService.getCurrentLocation();
       if (location == null) {
-      if (mounted) {
+        if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(AppLocalizations.of(context)!.clockInLocationError),
@@ -1008,15 +1036,17 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
       if (result['success'] == true) {
         // Stop the elapsed timer
         _stopElapsedTimer();
-        
+
         if (mounted) {
           Navigator.pop(context); // Close the shift details dialog
 
           // Extract timesheetId from the result
           // The service returns 'timesheetEntry' with 'documentId' inside
-          final timesheetEntry = result['timesheetEntry'] as Map<String, dynamic>?;
-          final timesheetId = timesheetEntry?['documentId'] ?? _timesheetEntry?['id'];
-          
+          final timesheetEntry =
+              result['timesheetEntry'] as Map<String, dynamic>?;
+          final timesheetId =
+              timesheetEntry?['documentId'] ?? _timesheetEntry?['id'];
+
           debugPrint('🕐 Clock-out successful. TimesheetId: $timesheetId');
 
           // RELOAD details to fetch all timesheets including the new one
@@ -1052,7 +1082,8 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                result['message'] ?? AppLocalizations.of(context)!.timeClockClockOutFailed,
+                result['message'] ??
+                    AppLocalizations.of(context)!.timeClockClockOutFailed,
               ),
               backgroundColor: Colors.red,
             ),
@@ -1062,21 +1093,29 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppLocalizations.of(context)!.errorE), backgroundColor: Colors.red),
+          SnackBar(
+              content: Text(AppLocalizations.of(context)!.errorE),
+              backgroundColor: Colors.red),
         );
       }
     } finally {
       if (mounted) setState(() => _isClockingOut = false);
-      }
     }
+  }
 
   void _showEditTimesheetDialog(String timesheetId) {
-    if (_timesheetEntry == null) return;
-    
+    // Find the specific timesheet entry by ID instead of using the first one
+    final entryToEdit = _allTimesheetEntries.firstWhere(
+      (e) => e['id'] == timesheetId,
+      orElse: () => _timesheetEntry ?? {},
+    );
+
+    if (entryToEdit.isEmpty) return;
+
     // Check if timesheet has been approved - if so, prevent editing
-    final status = _timesheetEntry!['status'] as String?;
-    final editApproved = _timesheetEntry!['edit_approved'] as bool?;
-    
+    final status = entryToEdit['status'] as String?;
+    final editApproved = entryToEdit['edit_approved'] as bool?;
+
     // Prevent editing if:
     // 1. Status is 'approved' OR
     // 2. edit_approved is true (admin has approved an edit)
@@ -1108,12 +1147,12 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
       );
       return;
     }
-    
+
     showDialog(
       context: context,
       builder: (context) => EditTimesheetDialog(
         timesheetId: timesheetId,
-        timesheetData: Map<String, dynamic>.from(_timesheetEntry!),
+        timesheetData: Map<String, dynamic>.from(entryToEdit),
         onUpdated: () {
           // Reload timesheet data after edit
           _loadDetails();
@@ -1126,21 +1165,23 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
   /// Shows a dialog to reassign this shift to a different teacher
   void _showReassignTeacherDialog() async {
     final l10n = AppLocalizations.of(context)!;
-    
+
     // Load available teachers
     final teachersSnapshot = await FirebaseFirestore.instance
         .collection('users')
         .where('user_type', isEqualTo: 'teacher')
         .where('is_active', isEqualTo: true)
         .get();
-    
+
     final teachers = teachersSnapshot.docs
-        .where((doc) => doc.id != widget.shift.teacherId) // Exclude current teacher
+        .where((doc) =>
+            doc.id != widget.shift.teacherId) // Exclude current teacher
         .map((doc) {
           final data = doc.data();
           return {
             'id': doc.id,
-            'name': '${data['first_name'] ?? ''} ${data['last_name'] ?? ''}'.trim(),
+            'name':
+                '${data['first_name'] ?? ''} ${data['last_name'] ?? ''}'.trim(),
             'email': data['e-mail'] ?? '',
             'timezone': data['timezone'] ?? 'UTC',
           };
@@ -1165,17 +1206,19 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
               final name = (t['name'] as String).toLowerCase();
               final email = (t['email'] as String).toLowerCase();
               return name.contains(searchQuery.toLowerCase()) ||
-                     email.contains(searchQuery.toLowerCase());
+                  email.contains(searchQuery.toLowerCase());
             }).toList();
 
             return AlertDialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16)),
               title: Row(
                 children: [
                   const Icon(Icons.swap_horiz, color: Color(0xFF8B5CF6)),
                   const SizedBox(width: 8),
                   Text(l10n.shiftReassignTitle,
-                      style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w600)),
+                      style: GoogleFonts.inter(
+                          fontSize: 18, fontWeight: FontWeight.w600)),
                 ],
               ),
               content: SizedBox(
@@ -1193,12 +1236,15 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.person, size: 16, color: Color(0xFFF59E0B)),
+                          const Icon(Icons.person,
+                              size: 16, color: Color(0xFFF59E0B)),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              l10n.shiftOriginalTeacher(widget.shift.teacherName ?? ''),
-                              style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF92400E)),
+                              l10n.shiftOriginalTeacher(
+                                  widget.shift.teacherName ?? ''),
+                              style: GoogleFonts.inter(
+                                  fontSize: 13, color: const Color(0xFF92400E)),
                             ),
                           ),
                         ],
@@ -1210,55 +1256,74 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
                       decoration: InputDecoration(
                         hintText: l10n.shiftSearchTeacher,
                         prefixIcon: const Icon(Icons.search, size: 20),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8)),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 10),
                         isDense: true,
                       ),
-                      onChanged: (value) => setDialogState(() => searchQuery = value),
+                      onChanged: (value) =>
+                          setDialogState(() => searchQuery = value),
                     ),
                     const SizedBox(height: 8),
                     // Teacher list
                     Expanded(
                       child: filtered.isEmpty
-                          ? Center(child: Text(l10n.shiftNoTeachersFound,
-                              style: GoogleFonts.inter(color: const Color(0xFF9CA3AF))))
+                          ? Center(
+                              child: Text(l10n.shiftNoTeachersFound,
+                                  style: GoogleFonts.inter(
+                                      color: const Color(0xFF9CA3AF))))
                           : ListView.builder(
                               itemCount: filtered.length,
                               itemBuilder: (context, index) {
                                 final teacher = filtered[index];
-                                final isSelected = selectedTeacherId == teacher['id'];
+                                final isSelected =
+                                    selectedTeacherId == teacher['id'];
                                 return ListTile(
                                   dense: true,
                                   selected: isSelected,
-                                  selectedTileColor: const Color(0xFF8B5CF6).withOpacity(0.1),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                  selectedTileColor:
+                                      const Color(0xFF8B5CF6).withOpacity(0.1),
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8)),
                                   leading: CircleAvatar(
                                     radius: 16,
-                                    backgroundColor: isSelected 
-                                        ? const Color(0xFF8B5CF6) 
-                                        : const Color(0xFF0386FF).withOpacity(0.1),
+                                    backgroundColor: isSelected
+                                        ? const Color(0xFF8B5CF6)
+                                        : const Color(0xFF0386FF)
+                                            .withOpacity(0.1),
                                     child: Text(
-                                      (teacher['name'] as String).isNotEmpty 
-                                          ? (teacher['name'] as String)[0].toUpperCase() 
+                                      (teacher['name'] as String).isNotEmpty
+                                          ? (teacher['name'] as String)[0]
+                                              .toUpperCase()
                                           : '?',
                                       style: GoogleFonts.inter(
                                         fontSize: 12,
                                         fontWeight: FontWeight.w600,
-                                        color: isSelected ? Colors.white : const Color(0xFF0386FF),
+                                        color: isSelected
+                                            ? Colors.white
+                                            : const Color(0xFF0386FF),
                                       ),
                                     ),
                                   ),
                                   title: Text(teacher['name'] as String,
-                                      style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w500)),
+                                      style: GoogleFonts.inter(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w500)),
                                   subtitle: Text(teacher['email'] as String,
-                                      style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF9CA3AF))),
+                                      style: GoogleFonts.inter(
+                                          fontSize: 11,
+                                          color: const Color(0xFF9CA3AF))),
                                   trailing: isSelected
-                                      ? const Icon(Icons.check_circle, color: Color(0xFF8B5CF6), size: 20)
+                                      ? const Icon(Icons.check_circle,
+                                          color: Color(0xFF8B5CF6), size: 20)
                                       : null,
                                   onTap: () {
                                     setDialogState(() {
-                                      selectedTeacherId = teacher['id'] as String;
-                                      selectedTeacherName = teacher['name'] as String;
+                                      selectedTeacherId =
+                                          teacher['id'] as String;
+                                      selectedTeacherName =
+                                          teacher['name'] as String;
                                     });
                                   },
                                 );
@@ -1278,12 +1343,14 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
                       ? null
                       : () async {
                           Navigator.pop(dialogContext);
-                          await _performReassignment(selectedTeacherId!, selectedTeacherName!);
+                          await _performReassignment(
+                              selectedTeacherId!, selectedTeacherName!);
                         },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF8B5CF6),
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8)),
                   ),
                   child: Text(l10n.shiftReassignTitle),
                 ),
@@ -1295,7 +1362,8 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
     );
   }
 
-  Future<void> _performReassignment(String newTeacherId, String newTeacherName) async {
+  Future<void> _performReassignment(
+      String newTeacherId, String newTeacherName) async {
     final l10n = AppLocalizations.of(context)!;
     try {
       // Update the shift document directly in Firestore
@@ -1352,9 +1420,9 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
                   ? const Center(child: CircularProgressIndicator())
                   : SingleChildScrollView(
                       padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
                           _buildStatusBanner(),
                           const SizedBox(height: 20),
                           _buildShiftInfoSection(),
@@ -1368,9 +1436,9 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
                           _buildModificationHistorySection(),
                           const SizedBox(height: 20),
                           _buildFormSection(),
-                  ],
-                ),
-              ),
+                        ],
+                      ),
+                    ),
             ),
             _buildFooterActions(),
           ],
@@ -1395,7 +1463,8 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
               color: const Color(0xFF0386FF).withOpacity(0.1),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(Icons.event_note, color: Color(0xFF0386FF), size: 24),
+            child: const Icon(Icons.event_note,
+                color: Color(0xFF0386FF), size: 24),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -1425,21 +1494,25 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
           // Admin: Reassign shift to another teacher
           if (_isAdmin && widget.shift.shiftStart.isAfter(DateTime.now()))
             IconButton(
-              icon: const Icon(Icons.swap_horiz, color: Color(0xFF8B5CF6), size: 20),
+              icon: const Icon(Icons.swap_horiz,
+                  color: Color(0xFF8B5CF6), size: 20),
               tooltip: AppLocalizations.of(context)!.shiftReassignTeacher,
               onPressed: _showReassignTeacherDialog,
             ),
           // Reschedule & Report Issue buttons (for teachers)
-          if (FirebaseAuth.instance.currentUser?.uid == widget.shift.teacherId) ...[
+          if (FirebaseAuth.instance.currentUser?.uid ==
+              widget.shift.teacherId) ...[
             // Only show reschedule if shift hasn't started yet
             if (widget.shift.shiftStart.isAfter(DateTime.now()))
               IconButton(
-                icon: const Icon(Icons.schedule, color: Color(0xFF0386FF), size: 20),
+                icon: const Icon(Icons.schedule,
+                    color: Color(0xFF0386FF), size: 20),
                 tooltip: AppLocalizations.of(context)!.shiftReschedule,
                 onPressed: () async {
                   final result = await showDialog<bool>(
                     context: context,
-                    builder: (context) => RescheduleShiftDialog(shift: widget.shift),
+                    builder: (context) =>
+                        RescheduleShiftDialog(shift: widget.shift),
                   );
                   if (result == true) {
                     _loadDetails();
@@ -1448,12 +1521,14 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
                 },
               ),
             IconButton(
-              icon: const Icon(Icons.report_problem, color: Color(0xFFF59E0B), size: 20),
+              icon: const Icon(Icons.report_problem,
+                  color: Color(0xFFF59E0B), size: 20),
               tooltip: AppLocalizations.of(context)!.shiftReportIssue,
               onPressed: () async {
                 final result = await showDialog<bool>(
                   context: context,
-                  builder: (context) => ReportScheduleIssueDialog(shift: widget.shift),
+                  builder: (context) =>
+                      ReportScheduleIssueDialog(shift: widget.shift),
                 );
                 if (result == true) {
                   // Refresh if timezone was updated
@@ -1489,7 +1564,8 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
       label = l10n.shiftStatusFullyCompleted;
       icon = Icons.check_circle;
       subtitle = l10n.shiftStatusAllScheduledTimeWorked;
-    } else if ((_liveShift?.status ?? widget.shift.status) == ShiftStatus.partiallyCompleted) {
+    } else if ((_liveShift?.status ?? widget.shift.status) ==
+        ShiftStatus.partiallyCompleted) {
       color = const Color(0xFFF59E0B);
       label = l10n.shiftStatusPartiallyCompleted;
       icon = Icons.timelapse;
@@ -1527,11 +1603,11 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
 
     return Container(
       padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
+      decoration: BoxDecoration(
         color: color.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: color.withOpacity(0.3)),
-                  ),
+      ),
       child: Row(
         children: [
           Icon(icon, color: color, size: 28),
@@ -1542,20 +1618,20 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
               children: [
                 Text(
                   label,
-                    style: GoogleFonts.inter(
+                  style: GoogleFonts.inter(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
                     color: color,
                   ),
-                    ),
+                ),
                 if (subtitle.isNotEmpty)
                   Text(
                     subtitle,
                     style: GoogleFonts.inter(
                       fontSize: 13,
                       color: color.withOpacity(0.8),
+                    ),
                   ),
-                ),
               ],
             ),
           ),
@@ -1572,8 +1648,10 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
       title: AppLocalizations.of(context)!.scheduleInformation,
       icon: Icons.calendar_today_outlined,
       children: [
-        _detailRow("Date", DateFormat('EEEE, MMMM d, yyyy').format(widget.shift.shiftStart)),
-        _detailRow("Time", "${DateFormat('h:mm a').format(widget.shift.shiftStart)} - ${DateFormat('h:mm a').format(widget.shift.shiftEnd)}"),
+        _detailRow("Date",
+            DateFormat('EEEE, MMMM d, yyyy').format(widget.shift.shiftStart)),
+        _detailRow("Time",
+            "${DateFormat('h:mm a').format(widget.shift.shiftStart)} - ${DateFormat('h:mm a').format(widget.shift.shiftEnd)}"),
         _detailRow(
           "Duration",
           AppLocalizations.of(context)!
@@ -1583,8 +1661,8 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
         if (widget.shift.hourlyRate > 0)
           _detailRow(
             "Hourly Rate",
-            AppLocalizations.of(context)!
-                .shiftHourlyRateValue(widget.shift.hourlyRate.toStringAsFixed(2)),
+            AppLocalizations.of(context)!.shiftHourlyRateValue(
+                widget.shift.hourlyRate.toStringAsFixed(2)),
           ),
         if (widget.shift.notes != null && widget.shift.notes!.isNotEmpty)
           _detailRow("Notes", widget.shift.notes!),
@@ -1620,7 +1698,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
                 );
               }).toList(),
             ),
-        ),
+          ),
       ],
     );
   }
@@ -1628,29 +1706,33 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
   Widget _buildTimesheetSection() {
     // 1. If we have timesheet entries, show them
     if (_allTimesheetEntries.isNotEmpty) {
-      
       // Calculate total worked seconds across all entries (for precision)
       // Use effective_end_timestamp (capped) or cap clock_out_time to shift end for consistency
       int totalSeconds = 0;
       for (final entry in _allTimesheetEntries) {
         final clockIn = entry['clock_in_time'] ?? entry['clock_in_timestamp'];
         // Prefer effective_end_timestamp (capped time) for consistency with payment calculation
-        final clockOut = entry['effective_end_timestamp'] ?? entry['clock_out_time'] ?? entry['clock_out_timestamp'];
-        
-        if (clockIn != null && clockIn is Timestamp && clockOut != null && clockOut is Timestamp) {
+        final clockOut = entry['effective_end_timestamp'] ??
+            entry['clock_out_time'] ??
+            entry['clock_out_timestamp'];
+
+        if (clockIn != null &&
+            clockIn is Timestamp &&
+            clockOut != null &&
+            clockOut is Timestamp) {
           DateTime start = clockIn.toDate();
           DateTime end = clockOut.toDate();
-          
+
           // Cap at shift end time to match payment calculation
           if (end.isAfter(widget.shift.shiftEnd)) {
             end = widget.shift.shiftEnd;
           }
-          
+
           // Cap start time at shift start (shouldn't happen, but safety check)
           if (start.isBefore(widget.shift.shiftStart)) {
             start = widget.shift.shiftStart;
           }
-          
+
           final duration = end.difference(start);
           if (!duration.isNegative) {
             totalSeconds += duration.inSeconds;
@@ -1661,119 +1743,141 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-           _buildSection(
+          _buildSection(
             title: AppLocalizations.of(context)!
                 .shiftTimesheetRecords(_allTimesheetEntries.length),
             icon: Icons.access_time,
             children: [
               if (totalSeconds > 0)
-                 _detailRow("Total Worked", _formatDuration(Duration(seconds: totalSeconds))),
+                _detailRow("Total Worked",
+                    _formatDuration(Duration(seconds: totalSeconds))),
               const Divider(),
               ..._allTimesheetEntries.map((entry) {
-                 final clockIn = entry['clock_in_time'] ?? entry['clock_in_timestamp'];
-                 final clockOut = entry['clock_out_time'] ?? entry['clock_out_timestamp'];
-                 DateTime? start;
-                 DateTime? end;
-                 
-                 if (clockIn != null && clockIn is Timestamp) start = clockIn.toDate();
-                 // Use effective_end_timestamp (capped) for display consistency
-                 final effectiveEnd = entry['effective_end_timestamp'] ?? clockOut;
-                 if (effectiveEnd != null && effectiveEnd is Timestamp) {
-                   end = effectiveEnd.toDate();
-                   // Cap at shift end for display
-                   if (end.isAfter(widget.shift.shiftEnd)) {
-                     end = widget.shift.shiftEnd;
-                   }
-                 }
-                 
-                 final isEntryCompleted = end != null;
-                 final timesheetId = entry['id'] as String?;
+                final clockIn =
+                    entry['clock_in_time'] ?? entry['clock_in_timestamp'];
+                final clockOut =
+                    entry['clock_out_time'] ?? entry['clock_out_timestamp'];
+                DateTime? start;
+                DateTime? end;
 
-                 return Column(
-                   crossAxisAlignment: CrossAxisAlignment.start,
-                   children: [
-                     _detailRow(
-                       "Clock In",
-                       start != null
-                           ? DateFormat('h:mm a').format(start)
-                           : AppLocalizations.of(context)!.commonUnknown,
-                     ),
-                     _detailRow(
-                       "Clock Out",
-                       end != null
-                           ? DateFormat('h:mm a').format(end)
-                           : AppLocalizations.of(context)!.shiftActiveNow,
-                     ),
-                     if (end != null && start != null) ...[
-                       // Cap start time at shift start for display
-                       _detailRow("Duration", _formatDuration(end.difference(start.isBefore(widget.shift.shiftStart) ? widget.shift.shiftStart : start))),
-                     ],
-                     
-                     if (isEntryCompleted && timesheetId != null) ...[
-                       Padding(
-                         padding: const EdgeInsets.only(top: 8.0),
-                         child: () {
-                           // Check if this entry is approved
-                           final entryStatus = entry['status'] as String?;
-                           final editApproved = entry['edit_approved'] as bool?;
-                           final isApproved = entryStatus == 'approved' || editApproved == true;
-                           
-                           return SizedBox(
-                              width: double.infinity,
-                              child: OutlinedButton.icon(
-                                onPressed: () => _showEditTimesheetDialog(timesheetId),
-                                icon: Icon(
-                                  isApproved ? Icons.history : Icons.edit,
-                                  size: 16,
-                                ),
-                                label: Text(
-                                  isApproved ? "Request Correction" : "Edit Entry",
-                                  style: GoogleFonts.inter(fontSize: 12),
-                                ),
-                                style: OutlinedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(vertical: 8),
-                                  visualDensity: VisualDensity.compact,
-                                  foregroundColor: isApproved ? const Color(0xFFF59E0B) : const Color(0xFF0386FF),
-                                  side: BorderSide(
-                                    color: isApproved ? const Color(0xFFF59E0B) : const Color(0xFF0386FF),
-                                  ),
+                if (clockIn != null && clockIn is Timestamp)
+                  start = clockIn.toDate();
+                // Use effective_end_timestamp (capped) for display consistency
+                final effectiveEnd =
+                    entry['effective_end_timestamp'] ?? clockOut;
+                if (effectiveEnd != null && effectiveEnd is Timestamp) {
+                  end = effectiveEnd.toDate();
+                  // Cap at shift end for display
+                  if (end.isAfter(widget.shift.shiftEnd)) {
+                    end = widget.shift.shiftEnd;
+                  }
+                }
+
+                final isEntryCompleted = end != null;
+                final timesheetId = entry['id'] as String?;
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _detailRow(
+                      "Clock In",
+                      start != null
+                          ? DateFormat('h:mm a').format(start)
+                          : AppLocalizations.of(context)!.commonUnknown,
+                    ),
+                    _detailRow(
+                      "Clock Out",
+                      end != null
+                          ? DateFormat('h:mm a').format(end)
+                          : AppLocalizations.of(context)!.shiftActiveNow,
+                    ),
+                    if (end != null && start != null) ...[
+                      // Cap start time at shift start for display
+                      _detailRow(
+                          "Duration",
+                          _formatDuration(end.difference(
+                              start.isBefore(widget.shift.shiftStart)
+                                  ? widget.shift.shiftStart
+                                  : start))),
+                    ],
+                    if (isEntryCompleted && timesheetId != null) ...[
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8.0),
+                        child: () {
+                          // Check if this entry is approved
+                          final entryStatus = entry['status'] as String?;
+                          final editApproved = entry['edit_approved'] as bool?;
+                          final isApproved =
+                              entryStatus == 'approved' || editApproved == true;
+
+                          return SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton.icon(
+                              onPressed: () =>
+                                  _showEditTimesheetDialog(timesheetId),
+                              icon: Icon(
+                                isApproved ? Icons.history : Icons.edit,
+                                size: 16,
+                              ),
+                              label: Text(
+                                isApproved
+                                    ? "Request Correction"
+                                    : "Edit Entry",
+                                style: GoogleFonts.inter(fontSize: 12),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 8),
+                                visualDensity: VisualDensity.compact,
+                                foregroundColor: isApproved
+                                    ? const Color(0xFFF59E0B)
+                                    : const Color(0xFF0386FF),
+                                side: BorderSide(
+                                  color: isApproved
+                                      ? const Color(0xFFF59E0B)
+                                      : const Color(0xFF0386FF),
                                 ),
                               ),
-                           );
-                         }(),
-                       ),
-                       // Show approval badge if approved
-                       if ((entry['status'] as String?) == 'approved' || (entry['edit_approved'] as bool?) == true)
-                         Padding(
-                           padding: const EdgeInsets.only(top: 8.0),
-                           child: Container(
-                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                             decoration: BoxDecoration(
-                               color: const Color(0xFFDCFCE7),
-                               borderRadius: BorderRadius.circular(6),
-                               border: Border.all(color: const Color(0xFF86EFAC)),
-                             ),
-                             child: Row(
-                               mainAxisSize: MainAxisSize.min,
-                               children: [
-                                 const Icon(Icons.verified, size: 14, color: Color(0xFF059669)),
-                                 const SizedBox(width: 6),
-                                 Text(
-                                   AppLocalizations.of(context)!.adminApproved,
-                                   style: GoogleFonts.inter(
-                                     fontSize: 11,
-                                     fontWeight: FontWeight.w600,
-                                     color: const Color(0xFF059669),
-                                   ),
-                                 ),
-                               ],
-                             ),
-                           ),
-                         ),
-                     ],
-                     const Divider(),
-                   ],
-                 );
+                            ),
+                          );
+                        }(),
+                      ),
+                      // Show approval badge if approved
+                      if ((entry['status'] as String?) == 'approved' ||
+                          (entry['edit_approved'] as bool?) == true)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8.0),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFDCFCE7),
+                              borderRadius: BorderRadius.circular(6),
+                              border:
+                                  Border.all(color: const Color(0xFF86EFAC)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.verified,
+                                    size: 14, color: Color(0xFF059669)),
+                                const SizedBox(width: 6),
+                                Text(
+                                  AppLocalizations.of(context)!.adminApproved,
+                                  style: GoogleFonts.inter(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: const Color(0xFF059669),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                    ],
+                    const Divider(),
+                  ],
+                );
               }).toList(),
             ],
           ),
@@ -1787,34 +1891,34 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
     final isPast = widget.shift.shiftEnd.isBefore(now);
     // Check if shift is marked as completed/missed or is past due
     final shouldHaveTimesheet = _isCompleted || _isMissed || isPast;
-    
+
     // Only show warning if it should have a timesheet but doesn't (and isn't active)
     if (shouldHaveTimesheet && !_isActive && !_canClockInNow && !_isUpcoming) {
       return Container(
         padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
+        decoration: BoxDecoration(
           color: const Color(0xFFFEE2E2),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: const Color(0xFFFCA5A5)),
-          ),
+        ),
         child: Row(
           children: [
             const Icon(Icons.error_outline, color: Color(0xFFDC2626), size: 24),
             const SizedBox(width: 12),
             Expanded(
-          child: Text(
+              child: Text(
                 AppLocalizations.of(context)!.noTimesheetRecordFoundForThis,
-            style: GoogleFonts.inter(
+                style: GoogleFonts.inter(
                   fontWeight: FontWeight.w500,
                   color: const Color(0xFFDC2626),
+                ),
+              ),
             ),
-          ),
-        ),
-      ],
+          ],
         ),
       );
     }
-    
+
     return const SizedBox.shrink();
   }
 
@@ -1823,23 +1927,23 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
     final l10n = AppLocalizations.of(context)!;
     // Only show if there are timesheet entries
     if (_allTimesheetEntries.isEmpty) return const SizedBox.shrink();
-    
+
     // Use the first entry for status tracking (all entries share the same approval status)
     final status = (_timesheetEntry?['status'] as String?) ?? 'pending';
     // final approvedBy = _timesheetEntry?['approved_by'] as String?; // Not currently used
     final approvedAt = _timesheetEntry?['approved_at'] as Timestamp?;
     final isEdited = _timesheetEntry?['is_edited'] as bool? ?? false;
     final editApproved = _timesheetEntry?['edit_approved'] as bool? ?? false;
-    
+
     // Get hourly rate for display and calculation
-    final hourlyRate = (widget.shift.hourlyRate > 0) 
-        ? widget.shift.hourlyRate 
+    final hourlyRate = (widget.shift.hourlyRate > 0)
+        ? widget.shift.hourlyRate
         : (_timesheetEntry?['hourly_rate'] as num?)?.toDouble() ?? 15.0;
-    
+
     // Use actual payment from timesheet if available (saved during clock-out)
     // This ensures consistency between phone and website
     double earnings = 0.0;
-    
+
     // Sum up payment_amount from all timesheet entries
     for (final entry in _allTimesheetEntries) {
       final paymentAmount = (entry['payment_amount'] as num?)?.toDouble() ??
@@ -1847,7 +1951,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
           0.0;
       earnings += paymentAmount;
     }
-    
+
     // Billable hours (same rules as payroll / TeacherMetricsService / clock-out).
     final shiftPayrollMap = <String, dynamic>{
       'shift_start': Timestamp.fromDate(widget.shift.shiftStart),
@@ -1873,19 +1977,20 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
     }
 
     final totalSeconds = (totalBillableHours * 3600.0).round();
-    
+
     // Format total time as HH:MM:SS for display
     final hours = totalSeconds ~/ 3600;
     final minutes = (totalSeconds % 3600) ~/ 60;
     final seconds = totalSeconds % 60;
-    final formattedTime = '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
-    
+    final formattedTime =
+        '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+
     // Determine status display
     Color statusColor;
     IconData statusIcon;
     String statusText;
     String statusSubtitle = '';
-    
+
     switch (status.toLowerCase()) {
       case 'approved':
         statusColor = const Color(0xFF10B981);
@@ -1915,7 +2020,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
         statusText = l10n.shiftStatusPendingApproval;
         statusSubtitle = l10n.shiftStatusAwaitingAdminReview;
     }
-    
+
     // Check for edit status
     if (isEdited && !editApproved) {
       statusColor = const Color(0xFF8B5CF6);
@@ -1923,7 +2028,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
       statusText = l10n.shiftStatusEditPending;
       statusSubtitle = l10n.shiftStatusEditAwaitingApproval;
     }
-    
+
     return _buildSection(
       title: AppLocalizations.of(context)!.approvalEarnings,
       icon: Icons.verified,
@@ -1934,7 +2039,8 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
           children: [
             Text(
               _useTeacherTimeZone ? l10n.shiftTime : l10n.localTime,
-              style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF64748B)),
+              style: GoogleFonts.inter(
+                  fontSize: 12, color: const Color(0xFF64748B)),
             ),
             Switch(
               value: !_useTeacherTimeZone,
@@ -1986,9 +2092,9 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
             ],
           ),
         ),
-        
+
         const SizedBox(height: 16),
-        
+
         // Earnings card
         Container(
           padding: const EdgeInsets.all(16),
@@ -2034,17 +2140,17 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: (status == 'approved' || status == 'paid') 
+                      color: (status == 'approved' || status == 'paid')
                           ? const Color(0xFF10B981).withOpacity(0.2)
                           : const Color(0xFFF59E0B).withOpacity(0.2),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(
-                      (status == 'approved' || status == 'paid') 
-                          ? Icons.check_circle 
+                      (status == 'approved' || status == 'paid')
+                          ? Icons.check_circle
                           : Icons.schedule,
-                      color: (status == 'approved' || status == 'paid') 
-                          ? const Color(0xFF10B981) 
+                      color: (status == 'approved' || status == 'paid')
+                          ? const Color(0xFF10B981)
                           : const Color(0xFFF59E0B),
                       size: 28,
                     ),
@@ -2064,7 +2170,8 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
                   ),
                   _buildEarningDetail(
                     label: AppLocalizations.of(context)!.shiftDetailsRate,
-                    value: l10n.shiftHourlyRateValue(hourlyRate.toStringAsFixed(2)),
+                    value: l10n
+                        .shiftHourlyRateValue(hourlyRate.toStringAsFixed(2)),
                     icon: Icons.attach_money,
                   ),
                   _buildEarningDetail(
@@ -2072,8 +2179,8 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
                     value: status == 'approved' || status == 'paid'
                         ? l10n.shiftStatusConfirmed
                         : l10n.shiftStatusPending,
-                    icon: (status == 'approved' || status == 'paid') 
-                        ? Icons.verified 
+                    icon: (status == 'approved' || status == 'paid')
+                        ? Icons.verified
                         : Icons.pending,
                   ),
                 ],
@@ -2081,10 +2188,10 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
             ],
           ),
         ),
-        
+
         // Manager notes if available
-        if (_timesheetEntry != null && 
-            _timesheetEntry!['manager_notes'] != null && 
+        if (_timesheetEntry != null &&
+            _timesheetEntry!['manager_notes'] != null &&
             (_timesheetEntry!['manager_notes'] as String).isNotEmpty) ...[
           const SizedBox(height: 12),
           Container(
@@ -2129,7 +2236,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
       ],
     );
   }
-  
+
   Widget _buildEarningDetail({
     required String label,
     required String value,
@@ -2164,23 +2271,35 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
       return const SizedBox.shrink();
     }
 
-    final originalStart = _modificationHistory!['original_start_time'] as Timestamp?;
-    final originalEnd = _modificationHistory!['original_end_time'] as Timestamp?;
+    final originalStart =
+        _modificationHistory!['original_start_time'] as Timestamp?;
+    final originalEnd =
+        _modificationHistory!['original_end_time'] as Timestamp?;
     final newStart = _modificationHistory!['new_start_time'] as Timestamp?;
     final newEnd = _modificationHistory!['new_end_time'] as Timestamp?;
-    final reason = _modificationHistory!['teacher_modification_reason'] as String?;
-    final modifiedAt = _modificationHistory!['teacher_modified_at'] as Timestamp?;
-    final timezoneUsed = _modificationHistory!['timezone_used'] as String? ?? _displayTimezone;
+    final reason =
+        _modificationHistory!['teacher_modification_reason'] as String?;
+    final modifiedAt =
+        _modificationHistory!['teacher_modified_at'] as Timestamp?;
+    final timezoneUsed =
+        _modificationHistory!['timezone_used'] as String? ?? _displayTimezone;
 
-    if (originalStart == null || originalEnd == null || newStart == null || newEnd == null) {
+    if (originalStart == null ||
+        originalEnd == null ||
+        newStart == null ||
+        newEnd == null) {
       return const SizedBox.shrink();
     }
 
     // Convert times to display timezone
-    final originalStartLocal = TimezoneUtils.convertToTimezone(originalStart.toDate(), _displayTimezone);
-    final originalEndLocal = TimezoneUtils.convertToTimezone(originalEnd.toDate(), _displayTimezone);
-    final newStartLocal = TimezoneUtils.convertToTimezone(newStart.toDate(), _displayTimezone);
-    final newEndLocal = TimezoneUtils.convertToTimezone(newEnd.toDate(), _displayTimezone);
+    final originalStartLocal = TimezoneUtils.convertToTimezone(
+        originalStart.toDate(), _displayTimezone);
+    final originalEndLocal =
+        TimezoneUtils.convertToTimezone(originalEnd.toDate(), _displayTimezone);
+    final newStartLocal =
+        TimezoneUtils.convertToTimezone(newStart.toDate(), _displayTimezone);
+    final newEndLocal =
+        TimezoneUtils.convertToTimezone(newEnd.toDate(), _displayTimezone);
 
     return _buildSection(
       title: AppLocalizations.of(context)!.modificationHistory,
@@ -2276,7 +2395,8 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
         const SizedBox(height: 12),
         // Arrow
         Center(
-          child: Icon(Icons.arrow_downward, size: 20, color: Colors.blue.shade700),
+          child:
+              Icon(Icons.arrow_downward, size: 20, color: Colors.blue.shade700),
         ),
         const SizedBox(height: 12),
         // New times
@@ -2395,41 +2515,44 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
     final isReportSubmitted = _formResponse != null;
     final currentUser = FirebaseAuth.instance.currentUser;
     // Check if current user is the teacher assigned to this shift
-    final isTeacher = currentUser != null && currentUser.uid == widget.shift.teacherId;
-    
+    final isTeacher =
+        currentUser != null && currentUser.uid == widget.shift.teacherId;
+
     bool hasTimesheet = false;
     if (_timesheetEntry != null) {
-      final clockOut = _timesheetEntry!['clock_out_time'] ?? _timesheetEntry!['clock_out_timestamp'];
+      final clockOut = _timesheetEntry!['clock_out_time'] ??
+          _timesheetEntry!['clock_out_timestamp'];
       hasTimesheet = clockOut != null;
     }
 
     if (isReportSubmitted) {
       // Show submitted form info
-    return Container(
+      return Container(
         padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
+        decoration: BoxDecoration(
           color: const Color(0xFFF0FDF4),
-        borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(color: const Color(0xFFBBF7D0)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             Row(
               children: [
-                const Icon(Icons.assignment_turned_in, color: Color(0xFF15803D), size: 24),
+                const Icon(Icons.assignment_turned_in,
+                    color: Color(0xFF15803D), size: 24),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                Text(
+                      Text(
                         AppLocalizations.of(context)!.classReportSubmitted,
-                  style: GoogleFonts.inter(
-                    fontWeight: FontWeight.w600,
+                        style: GoogleFonts.inter(
+                          fontWeight: FontWeight.w600,
                           color: const Color(0xFF15803D),
-                  ),
-                ),
+                        ),
+                      ),
                       if (_formResponse!['reportedHours'] != null)
                         Text(
                           "Hours Logged: ${_formResponse!['reportedHours']} hrs",
@@ -2439,24 +2562,27 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
                           ),
                         ),
                     ],
+                  ),
+                ),
+              ],
             ),
-          ),
-        ],
-      ),
             // Show form responses if available
             if (_formResponse!['responses'] != null) ...[
               const SizedBox(height: 12),
               const Divider(),
               const SizedBox(height: 8),
-              ...(_formResponse!['responses'] as Map<String, dynamic>).entries.map((entry) {
+              ...(_formResponse!['responses'] as Map<String, dynamic>)
+                  .entries
+                  .map((entry) {
                 if (entry.value == null || entry.value.toString().isEmpty) {
                   return const SizedBox.shrink();
                 }
-    return Padding(
+                return Padding(
                   padding: const EdgeInsets.only(bottom: 4),
-            child: Text(
+                  child: Text(
                     "${_formatFieldName(entry.key)}: ${entry.value}",
-                    style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF4B5563)),
+                    style: GoogleFonts.inter(
+                        fontSize: 12, color: const Color(0xFF4B5563)),
                   ),
                 );
               }).toList(),
@@ -2467,90 +2593,94 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
     } else if (hasTimesheet) {
       // Shift done but no report - show button to fill the ACTUAL form from database
       return Container(
-            padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: const Color(0xFFFEF3C7),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: const Color(0xFFFCD34D)),
-              ),
+        ),
         child: Column(
           children: [
             Row(
               children: [
-                const Icon(Icons.warning_amber_rounded, color: Color(0xFFD97706), size: 24),
+                const Icon(Icons.warning_amber_rounded,
+                    color: Color(0xFFD97706), size: 24),
                 const SizedBox(width: 12),
-          Expanded(
-            child: Text(
+                Expanded(
+                  child: Text(
                     AppLocalizations.of(context)!.classReportNotSubmitted,
-              style: GoogleFonts.inter(
+                    style: GoogleFonts.inter(
                       fontWeight: FontWeight.w600,
                       color: const Color(0xFFD97706),
-              ),
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ),
-        ],
-      ),
             const SizedBox(height: 12),
             if (isTeacher)
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () async {
-                  final timesheetId = _timesheetEntry!['id'];
-                  final shiftId = widget.shift.id;
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () async {
+                    final timesheetId = _timesheetEntry!['id'];
+                    final shiftId = widget.shift.id;
 
-                  // Use new template system (Daily Class Report from form_templates)
-                  final template = await FormTemplateService.getActiveDailyTemplate();
-                  if (template == null) {
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(AppLocalizations.of(context)!.formNotFoundPleaseContactAdmin),
-                          backgroundColor: Colors.red,
-                        ),
-                      );
+                    // Use new template system (Daily Class Report from form_templates)
+                    final template =
+                        await FormTemplateService.getActiveDailyTemplate();
+                    if (template == null) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(AppLocalizations.of(context)!
+                                .formNotFoundPleaseContactAdmin),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
+                      return;
                     }
-                    return;
-                  }
 
-                  if (mounted) {
-                    Navigator.pop(context); // Close the dialog first
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => FormScreen(
-                          template: template,
-                          timesheetId: timesheetId,
-                          shiftId: shiftId,
+                    if (mounted) {
+                      Navigator.pop(context); // Close the dialog first
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => FormScreen(
+                            template: template,
+                            timesheetId: timesheetId,
+                            shiftId: shiftId,
+                          ),
                         ),
-                      ),
-                    ).then((_) {
-                      widget.onRefresh?.call();
-                    });
-                  }
-                },
-                icon: const Icon(Icons.assignment),
-                label: Text(AppLocalizations.of(context)!.fillClassReportNow),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFD97706),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ).then((_) {
+                        widget.onRefresh?.call();
+                      });
+                    }
+                  },
+                  icon: const Icon(Icons.assignment),
+                  label: Text(AppLocalizations.of(context)!.fillClassReportNow),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFD97706),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8)),
+                  ),
                 ),
-            ),
-          ),
-        ],
+              ),
+          ],
         ),
       );
     } else {
       // Missed shift case - no timesheet entry, but can still fill form
       final shiftStatus = _liveShift?.status ?? widget.shift.status;
       final isMissed = shiftStatus == ShiftStatus.missed;
-      
+
       if (isMissed) {
         // Check if form already submitted for this missed shift
         final hasForm = _formResponse != null;
-        
+
         if (hasForm) {
           // Form already submitted for missed shift
           return Container(
@@ -2565,14 +2695,16 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.assignment_turned_in, color: Color(0xFF15803D), size: 24),
+                    const Icon(Icons.assignment_turned_in,
+                        color: Color(0xFF15803D), size: 24),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            AppLocalizations.of(context)!.classReportSubmittedMissedShift,
+                            AppLocalizations.of(context)!
+                                .classReportSubmittedMissedShift,
                             style: GoogleFonts.inter(
                               fontWeight: FontWeight.w600,
                               color: const Color(0xFF15803D),
@@ -2596,7 +2728,9 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
                   const SizedBox(height: 12),
                   const Divider(),
                   const SizedBox(height: 8),
-                  ...(_formResponse!['responses'] as Map<String, dynamic>).entries.map((entry) {
+                  ...(_formResponse!['responses'] as Map<String, dynamic>)
+                      .entries
+                      .map((entry) {
                     if (entry.value == null || entry.value.toString().isEmpty) {
                       return const SizedBox.shrink();
                     }
@@ -2604,7 +2738,8 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
                       padding: const EdgeInsets.only(bottom: 4),
                       child: Text(
                         "${_formatFieldName(entry.key)}: ${entry.value}",
-                        style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF4B5563)),
+                        style: GoogleFonts.inter(
+                            fontSize: 12, color: const Color(0xFF4B5563)),
                       ),
                     );
                   }).toList(),
@@ -2625,14 +2760,16 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.warning_amber_rounded, color: Color(0xFFD97706), size: 24),
+                    const Icon(Icons.warning_amber_rounded,
+                        color: Color(0xFFD97706), size: 24),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            AppLocalizations.of(context)!.missedShiftClassReportRequired,
+                            AppLocalizations.of(context)!
+                                .missedShiftClassReportRequired,
                             style: GoogleFonts.inter(
                               fontWeight: FontWeight.w600,
                               color: const Color(0xFFD97706),
@@ -2640,7 +2777,8 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            AppLocalizations.of(context)!.thisShiftWasMissedPleaseFill,
+                            AppLocalizations.of(context)!
+                                .thisShiftWasMissedPleaseFill,
                             style: GoogleFonts.inter(
                               fontSize: 13,
                               color: const Color(0xFF92400E),
@@ -2653,52 +2791,57 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
                 ),
                 const SizedBox(height: 12),
                 if (isTeacher)
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: () async {
-                      final shiftId = widget.shift.id;
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () async {
+                        final shiftId = widget.shift.id;
 
-                      // Use new template system (Daily Class Report from form_templates)
-                      final template = await FormTemplateService.getActiveDailyTemplate();
-                      if (template == null) {
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(AppLocalizations.of(context)!.formNotFoundPleaseContactAdmin),
-                              backgroundColor: Colors.red,
-                            ),
-                          );
+                        // Use new template system (Daily Class Report from form_templates)
+                        final template =
+                            await FormTemplateService.getActiveDailyTemplate();
+                        if (template == null) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(AppLocalizations.of(context)!
+                                    .formNotFoundPleaseContactAdmin),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                          return;
                         }
-                        return;
-                      }
 
-                      if (mounted) {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => FormScreen(
-                              template: template,
-                              timesheetId: null, // No timesheet for missed shift
-                              shiftId: shiftId,
+                        if (mounted) {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => FormScreen(
+                                template: template,
+                                timesheetId:
+                                    null, // No timesheet for missed shift
+                                shiftId: shiftId,
+                              ),
                             ),
-                          ),
-                        ).then((_) {
-                          _loadDetails();
-                          widget.onRefresh?.call();
-                        });
-                      }
-                    },
-                    icon: const Icon(Icons.assignment),
-                    label: Text(AppLocalizations.of(context)!.fillClassReportNow),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFD97706),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ).then((_) {
+                            _loadDetails();
+                            widget.onRefresh?.call();
+                          });
+                        }
+                      },
+                      icon: const Icon(Icons.assignment),
+                      label: Text(
+                          AppLocalizations.of(context)!.fillClassReportNow),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFD97706),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8)),
+                      ),
                     ),
                   ),
-                ),
               ],
             ),
           );
@@ -2719,9 +2862,11 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
     return fieldName
         .replaceAll('_', ' ')
         .split(' ')
-        .map((word) => word.isNotEmpty ? '${word[0].toUpperCase()}${word.substring(1)}' : '')
+        .map((word) => word.isNotEmpty
+            ? '${word[0].toUpperCase()}${word.substring(1)}'
+            : '')
         .join(' ');
-    }
+  }
 
   Widget _buildIssueReports() {
     return Column(
@@ -2736,7 +2881,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
             final type = report['issue_type'] ?? 'General Issue';
             final desc = report['description'] ?? 'No description';
             final status = report['status'] ?? 'open';
-            
+
             return Container(
               margin: const EdgeInsets.only(bottom: 8),
               padding: const EdgeInsets.all(12),
@@ -2760,9 +2905,11 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
                         ),
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: status == 'resolved' ? Colors.green : Colors.red,
+                          color:
+                              status == 'resolved' ? Colors.green : Colors.red,
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
@@ -2779,12 +2926,14 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
                   const SizedBox(height: 4),
                   Text(
                     desc,
-                    style: GoogleFonts.inter(fontSize: 13, color: Colors.black87),
+                    style:
+                        GoogleFonts.inter(fontSize: 13, color: Colors.black87),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     'Reported: ${DateFormat('MMM d, h:mm a').format(reportedAt)}',
-                    style: GoogleFonts.inter(fontSize: 11, color: Colors.grey[600]),
+                    style: GoogleFonts.inter(
+                        fontSize: 11, color: Colors.grey[600]),
                   ),
                 ],
               ),
@@ -2804,34 +2953,34 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
-              children: [
+          children: [
             Icon(icon, size: 16, color: const Color(0xFF64748B)),
-                const SizedBox(width: 8),
-          Text(
-                  title,
-            style: GoogleFonts.inter(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
+            const SizedBox(width: 8),
+            Text(
+              title,
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
                 color: const Color(0xFF64748B),
+              ),
             ),
-          ),
-              ],
-            ),
+          ],
+        ),
         const SizedBox(height: 12),
         Container(
           width: double.infinity,
-            padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: const Color(0xFFF8FAFC),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: const Color(0xFFE2E8F0)),
           ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: children,
-            ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: children,
           ),
-        ],
+        ),
+      ],
     );
   }
 
@@ -2892,7 +3041,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
             width: 100,
             child: Text(
               _localizeDetailLabel(label, l10n),
-            style: GoogleFonts.inter(
+              style: GoogleFonts.inter(
                 fontSize: 13,
                 color: const Color(0xFF64748B),
               ),
@@ -2901,7 +3050,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
           Expanded(
             child: Text(
               value,
-          style: GoogleFonts.inter(
+              style: GoogleFonts.inter(
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
                 color: const Color(0xFF1E293B),
@@ -2909,9 +3058,9 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
             ),
           ),
         ],
-        ),
-      );
-    }
+      ),
+    );
+  }
 
   Widget _buildFooterActions() {
     return Container(
@@ -2929,27 +3078,32 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
               onPressed: () => Navigator.pop(context),
               style: OutlinedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
                 side: const BorderSide(color: Color(0xFFE2E8F0)),
               ),
               child: Text(
                 AppLocalizations.of(context)!.commonClose,
-            style: GoogleFonts.inter(
-              fontWeight: FontWeight.w600,
+                style: GoogleFonts.inter(
+                  fontWeight: FontWeight.w600,
                   color: const Color(0xFF64748B),
-            ),
-          ),
+                ),
+              ),
             ),
           ),
 
           // Video call button (LiveKit - available if user has permission)
-          if (_canJoinFromMobile && (_liveShift?.hasVideoCall == true || widget.shift.hasVideoCall)) ...[
+          if (_canJoinFromMobile &&
+              (_liveShift?.hasVideoCall == true ||
+                  widget.shift.hasVideoCall)) ...[
             const SizedBox(width: 8),
             _buildVideoCallButton(),
           ],
 
           // Clock In/Out or Claim button
-          if (_canClockInNow && !_isActive && !(_liveShift ?? widget.shift).isPublished) ...[
+          if (_canClockInNow &&
+              !_isActive &&
+              !(_liveShift ?? widget.shift).isPublished) ...[
             const SizedBox(width: 12),
             Expanded(
               flex: 2,
@@ -2959,23 +3113,25 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
                     ? const SizedBox(
                         width: 18,
                         height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white),
                       )
                     : const Icon(Icons.login),
-                  label: Text(
+                label: Text(
                   _isClockingIn ? "Clocking In..." : "Clock In",
-                    style: GoogleFonts.inter(fontWeight: FontWeight.w600),
-                  ),
-                  style: ElevatedButton.styleFrom(
+                  style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+                ),
+                style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF10B981),
-                    foregroundColor: Colors.white,
+                  foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    ),
-                    ),
-                  ),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+            ),
           ] else if (_isActive) ...[
-                const SizedBox(width: 12),
+            const SizedBox(width: 12),
             Expanded(
               flex: 2,
               child: ElevatedButton.icon(
@@ -2984,68 +3140,73 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
                     ? const SizedBox(
                         width: 18,
                         height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white),
                       )
                     : const Icon(Icons.logout),
-                  label: Text(
+                label: Text(
                   _isClockingOut ? "Clocking Out..." : "Clock Out",
-                    style: GoogleFonts.inter(fontWeight: FontWeight.w600),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFEF4444),
-                    foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    ),
-                  ),
+                  style: GoogleFonts.inter(fontWeight: FontWeight.w600),
                 ),
-          ] else if (_isUpcoming && !(_liveShift ?? widget.shift).isPublished) ...[
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFEF4444),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+            ),
+          ] else if (_isUpcoming &&
+              !(_liveShift ?? widget.shift).isPublished) ...[
             const SizedBox(width: 12),
             Expanded(
               flex: 2,
               child: ElevatedButton.icon(
                 onPressed: null, // Disabled
                 icon: const Icon(Icons.schedule),
-                  label: Text(
+                label: Text(
                   AppLocalizations.of(context)!.clockInNotYet,
-                    style: GoogleFonts.inter(fontWeight: FontWeight.w600),
-                  ),
+                  style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+                ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF94A3B8),
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    ),
-                  ),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
                 ),
+              ),
+            ),
           ] else if (_shouldOfferClaimShift) ...[
             const SizedBox(width: 12),
             Expanded(
               flex: 2,
               child: ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    if (widget.onClaimShift != null) {
-                      widget.onClaimShift?.call();
-                    } else {
-                      // Fallback for when dialog is opened from elsewhere but shift is published
-                      _handleClaimShiftFromDetails();
-                    }
-                  },
+                onPressed: () {
+                  Navigator.pop(context);
+                  if (widget.onClaimShift != null) {
+                    widget.onClaimShift?.call();
+                  } else {
+                    // Fallback for when dialog is opened from elsewhere but shift is published
+                    _handleClaimShiftFromDetails();
+                  }
+                },
                 icon: const Icon(Icons.add_task),
-                  label: Text(
+                label: Text(
                   AppLocalizations.of(context)!.claimShift,
-                    style: GoogleFonts.inter(fontWeight: FontWeight.w600),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF10B981),
-                    foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    ),
-                  ),
+                  style: GoogleFonts.inter(fontWeight: FontWeight.w600),
                 ),
-            ],
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF10B981),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );

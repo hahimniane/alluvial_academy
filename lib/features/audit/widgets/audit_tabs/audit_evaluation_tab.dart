@@ -14,7 +14,8 @@ class AuditEvaluationTab extends StatefulWidget {
   final TeacherAuditFull audit;
   final ValueChanged<TeacherAuditFull>? onAuditChanged;
 
-  const AuditEvaluationTab({super.key, required this.audit, this.onAuditChanged});
+  const AuditEvaluationTab(
+      {super.key, required this.audit, this.onAuditChanged});
 
   @override
   State<AuditEvaluationTab> createState() => _AuditEvaluationTabState();
@@ -72,23 +73,42 @@ class _AuditEvaluationTabState extends State<AuditEvaluationTab> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final rows = AuditClassLogRowBuilder.buildRows(widget.audit);
-    final completed = rows.where((r) {
-      final s = r.statusRaw.toLowerCase();
-      return s.contains('completed') || s.contains('fully') || s.contains('partially');
-    }).length;
-    final missed = rows.where((r) => r.statusRaw.toLowerCase().contains('missed')).length;
-    final worked = rows.fold<double>(0, (t, r) => t + r.workedHours);
     final applicable = _factors.where((f) => !f.isNotApplicable).toList();
     final totalScore = applicable.fold<int>(0, (t, f) => t + f.rating);
     final maxScore = applicable.isEmpty ? 1 : applicable.length * 5;
 
     return Column(
       children: [
+        if (widget.audit.pendingMakeupAdminDecisionsCount > 0)
+          Material(
+            color: const Color(0xFFFFF7ED),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.warning_amber_rounded,
+                      color: Color(0xFFD97706), size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      l10n.auditMakeupEvaluationFooterHint,
+                      style: GoogleFonts.inter(
+                        fontSize: 11,
+                        height: 1.35,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xff9A3412),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         Expanded(
           child: Row(
             children: [
-              SizedBox(width: 240, child: _leftPanel(completed, missed, worked)),
+              SizedBox(width: 240, child: _leftPanel()),
               const VerticalDivider(width: 1, color: _border),
               Expanded(
                 child: ListView(
@@ -107,7 +127,8 @@ class _AuditEvaluationTabState extends State<AuditEvaluationTab> {
                         ),
                       ),
                     ),
-                    ...List.generate(_factors.length, (i) => _factorCard(_factors[i], i)),
+                    ...List.generate(
+                        _factors.length, (i) => _factorCard(_factors[i], i)),
                   ],
                 ),
               ),
@@ -124,11 +145,15 @@ class _AuditEvaluationTabState extends State<AuditEvaluationTab> {
             children: [
               Text(
                 'Overall: $totalScore / $maxScore',
-                style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600),
+                style: GoogleFonts.inter(
+                    fontSize: 13, fontWeight: FontWeight.w600),
               ),
               const Spacer(),
               ElevatedButton(
-                onPressed: _isSubmitting ? null : _submit,
+                onPressed: (_isSubmitting ||
+                        widget.audit.pendingMakeupAdminDecisionsCount > 0)
+                    ? null
+                    : _submit,
                 child: _isSubmitting
                     ? const SizedBox(
                         width: 14,
@@ -148,12 +173,18 @@ class _AuditEvaluationTabState extends State<AuditEvaluationTab> {
     final ps = widget.audit.paymentSummary;
     var previewNet = 0.0;
     if (ps != null) {
-      final gross = AuditClassLogRowBuilder.computeTotals(widget.audit).grossBySource;
+      final gross =
+          AuditClassLogRowBuilder.computeTotals(widget.audit).grossBySource;
       final coachDelta = _coachLines.fold<double>(
-        0.0, (acc, e) => acc + (e.type == 'bonus' ? e.amount : -e.amount));
-      final advanceDeduction = _advanceDraft.fold<double>(
-        0.0, (acc, a) => acc + a.amount.abs());
-      previewNet = gross - ps.totalPenalties + ps.totalBonuses + ps.adminAdjustment + coachDelta - advanceDeduction;
+          0.0, (acc, e) => acc + (e.type == 'bonus' ? e.amount : -e.amount));
+      final advanceDeduction =
+          _advanceDraft.fold<double>(0.0, (acc, a) => acc + a.amount.abs());
+      previewNet = gross -
+          ps.totalPenalties +
+          ps.totalBonuses +
+          ps.adminAdjustment +
+          coachDelta -
+          advanceDeduction;
     }
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -192,7 +223,9 @@ class _AuditEvaluationTabState extends State<AuditEvaluationTab> {
               ),
               trailing: IconButton(
                 icon: const Icon(Icons.delete_outline, size: 20),
-                onPressed: _isSubmitting ? null : () => setState(() => _coachLines.remove(l)),
+                onPressed: _isSubmitting
+                    ? null
+                    : () => setState(() => _coachLines.remove(l)),
               ),
             ),
           ),
@@ -232,7 +265,8 @@ class _AuditEvaluationTabState extends State<AuditEvaluationTab> {
             onPressed: _isSubmitting
                 ? null
                 : () async {
-                    final list = await TeacherAuditService.fetchAdvancePaymentSubmissions(
+                    final list = await TeacherAuditService
+                        .fetchAdvancePaymentSubmissions(
                       userId: widget.audit.oderId,
                       yearMonth: widget.audit.yearMonth,
                     );
@@ -275,16 +309,21 @@ class _AuditEvaluationTabState extends State<AuditEvaluationTab> {
             children: [
               DropdownButtonFormField<String>(
                 value: type,
-                decoration: InputDecoration(labelText: l10n.auditPaymentLineTypeLabel),
+                decoration:
+                    InputDecoration(labelText: l10n.auditPaymentLineTypeLabel),
                 items: [
-                  DropdownMenuItem(value: 'penalty', child: Text(l10n.auditPaymentLinePenalty)),
-                  DropdownMenuItem(value: 'bonus', child: Text(l10n.auditPaymentLineBonus)),
+                  DropdownMenuItem(
+                      value: 'penalty',
+                      child: Text(l10n.auditPaymentLinePenalty)),
+                  DropdownMenuItem(
+                      value: 'bonus', child: Text(l10n.auditPaymentLineBonus)),
                 ],
                 onChanged: (v) => setD(() => type = v ?? 'penalty'),
               ),
               TextField(
                 controller: amountCtrl,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
                 decoration: InputDecoration(labelText: l10n.auditAmountLabel),
               ),
               TextField(
@@ -327,24 +366,31 @@ class _AuditEvaluationTabState extends State<AuditEvaluationTab> {
     });
   }
 
-  Widget _leftPanel(int completed, int missed, double worked) {
-    final hasTaskData = widget.audit.totalTasksAssigned > 0 ||
-        widget.audit.overdueTasks > 0 ||
-        widget.audit.acknowledgedTasks > 0;
-    final assignMetrics =
-        AuditAssignmentMetrics.fromDetailedForms(widget.audit.detailedFormsNonTeaching);
+  Widget _leftPanel() {
+    final audit = widget.audit;
+    final completed = audit.totalClassesCompleted;
+    final missed = audit.totalClassesMissed;
+    final worked = audit.totalWorkedHours;
+    final hasTaskData = audit.totalTasksAssigned > 0 ||
+        audit.overdueTasks > 0 ||
+        audit.acknowledgedTasks > 0;
+    final assignMetrics = AuditAssignmentMetrics.fromDetailedForms(
+        audit.detailedFormsNonTeaching);
     final metrics = <(String, String)>[
-      ('Completion', '$completed/${widget.audit.totalClassesScheduled}'),
+      ('Completion', '$completed/${audit.totalClassesScheduled}'),
       ('Hours', '${worked.toStringAsFixed(2)} h'),
       ('Missed', '$missed'),
-      ('Late clock-ins', '${widget.audit.lateClockIns}'),
-      ('Daily reports', '${widget.audit.readinessFormsSubmitted}/${widget.audit.readinessFormsRequired}'),
+      ('Late clock-ins', '${audit.lateClockIns}'),
+      (
+        'Daily reports',
+        '${audit.readinessFormsSubmitted}/${audit.readinessFormsRequired}'
+      ),
       ('Assignments', '${assignMetrics.assignments}'),
       ('Quizzes', '${assignMetrics.quizzes}'),
       ('Student assessments', '${assignMetrics.studentAssessments}'),
       ('Midterm', assignMetrics.hasMidtermEvidence ? 'Yes' : 'No'),
       ('Final exam', assignMetrics.hasFinalExamEvidence ? 'Yes' : 'No'),
-      if (hasTaskData) ('Overdue tasks', '${widget.audit.overdueTasks}'),
+      if (hasTaskData) ('Overdue tasks', '${audit.overdueTasks}'),
     ];
 
     return Container(
@@ -380,7 +426,8 @@ class _AuditEvaluationTabState extends State<AuditEvaluationTab> {
                   ),
                   Text(
                     m.$2,
-                    style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700),
+                    style: GoogleFonts.inter(
+                        fontSize: 11, fontWeight: FontWeight.w700),
                   ),
                 ],
               ),
@@ -439,13 +486,15 @@ class _AuditEvaluationTabState extends State<AuditEvaluationTab> {
                   children: [
                     Text(
                       factor.title,
-                      style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700),
+                      style: GoogleFonts.inter(
+                          fontSize: 12, fontWeight: FontWeight.w700),
                     ),
                     if (factor.description.isNotEmpty) ...[
                       const SizedBox(height: 2),
                       Text(
                         factor.description,
-                        style: GoogleFonts.inter(fontSize: 10, color: _slate, height: 1.25),
+                        style: GoogleFonts.inter(
+                            fontSize: 10, color: _slate, height: 1.25),
                       ),
                     ],
                   ],
@@ -474,15 +523,19 @@ class _AuditEvaluationTabState extends State<AuditEvaluationTab> {
                 onTap: factor.isNotApplicable
                     ? null
                     : () => setState(
-                          () => _factors[index] = factor.copyWith(rating: score),
+                          () =>
+                              _factors[index] = factor.copyWith(rating: score),
                         ),
                 child: Container(
                   width: 70,
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
                   decoration: BoxDecoration(
                     color: factor.isNotApplicable
                         ? const Color(0xFFF8FAFC).withOpacity(0.5)
-                        : (selected ? const Color(0xff1a6ef5) : const Color(0xFFF8FAFC)),
+                        : (selected
+                            ? const Color(0xff1a6ef5)
+                            : const Color(0xFFF8FAFC)),
                     borderRadius: BorderRadius.circular(6),
                     border: Border.all(
                       color: selected ? const Color(0xff1a6ef5) : _border,
@@ -495,7 +548,8 @@ class _AuditEvaluationTabState extends State<AuditEvaluationTab> {
                         style: GoogleFonts.inter(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
-                          color: selected ? Colors.white : const Color(0xff1E293B),
+                          color:
+                              selected ? Colors.white : const Color(0xff1E293B),
                         ),
                       ),
                       Text(
@@ -528,9 +582,27 @@ class _AuditEvaluationTabState extends State<AuditEvaluationTab> {
   }
 
   Future<void> _submit() async {
+    final l10n = AppLocalizations.of(context)!;
+    final fresh = await TeacherAuditService.getAudit(
+      oderId: widget.audit.oderId,
+      yearMonth: widget.audit.yearMonth,
+      preferServerFresh: true,
+    );
+    if (!mounted) return;
+    final pending = fresh?.pendingMakeupAdminDecisionsCount ?? 0;
+    if (pending > 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(l10n.auditMakeupBlockedSubmitCoach(pending)),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
     setState(() => _isSubmitting = true);
     final updatedFactors = _factors
-        .map((f) => f.copyWith(outcome: _outcomeControllers[f.id]?.text.trim() ?? f.outcome))
+        .map((f) => f.copyWith(
+            outcome: _outcomeControllers[f.id]?.text.trim() ?? f.outcome))
         .toList();
     final ok = await TeacherAuditService.updateAuditFactors(
       auditId: widget.audit.id,
@@ -550,6 +622,7 @@ class _AuditEvaluationTabState extends State<AuditEvaluationTab> {
       final refreshed = await TeacherAuditService.getAudit(
         oderId: widget.audit.oderId,
         yearMonth: widget.audit.yearMonth,
+        preferServerFresh: true,
       );
       if (refreshed != null) widget.onAuditChanged?.call(refreshed);
       if (!mounted) return;
@@ -564,13 +637,17 @@ class _AuditEvaluationTabState extends State<AuditEvaluationTab> {
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Evaluation submitted successfully'), backgroundColor: Colors.green),
+          const SnackBar(
+              content: Text('Evaluation submitted successfully'),
+              backgroundColor: Colors.green),
         );
       }
       return;
     }
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Failed to submit evaluation'), backgroundColor: Colors.red),
+      const SnackBar(
+          content: Text('Failed to submit evaluation'),
+          backgroundColor: Colors.red),
     );
   }
 }

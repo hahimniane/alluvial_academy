@@ -28,7 +28,8 @@ class TeacherAuditDetailScreen extends StatefulWidget {
   const TeacherAuditDetailScreen({super.key, this.yearMonth});
 
   @override
-  State<TeacherAuditDetailScreen> createState() => _TeacherAuditDetailScreenState();
+  State<TeacherAuditDetailScreen> createState() =>
+      _TeacherAuditDetailScreenState();
 }
 
 class _TeacherAuditDetailScreenState extends State<TeacherAuditDetailScreen> {
@@ -51,7 +52,8 @@ class _TeacherAuditDetailScreenState extends State<TeacherAuditDetailScreen> {
   Future<void> _loadAvailableMonths() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
-    final months = await TeacherAuditService.getAvailableYearMonthsForTeacher(user.uid);
+    final months =
+        await TeacherAuditService.getAvailableYearMonthsForTeacher(user.uid);
     if (mounted) {
       setState(() => _availableMonths = months);
     }
@@ -69,15 +71,27 @@ class _TeacherAuditDetailScreenState extends State<TeacherAuditDetailScreen> {
       yearMonth: _selectedYearMonth,
     );
 
-    // Teachers see audits from coachSubmitted onward (not just completed)
+    // Teachers see their audit as soon as auto metrics are computed (pending
+    // onward). The "under review and may change" banner already warns them
+    // that values can be revised by coach/CEO. Excluding `pending` previously
+    // meant simple teachers saw "no data" until coach validation.
     const viewableStatuses = {
+      AuditStatus.pending,
+      AuditStatus.coachReview,
       AuditStatus.coachSubmitted,
+      AuditStatus.ceoReview,
       AuditStatus.ceoApproved,
+      AuditStatus.founderReview,
       AuditStatus.completed,
+      AuditStatus.disputed,
     };
+    // Doc id is always `{teacherUid}_{yearMonth}` for getMyAudit; prefer that over
+    // body fields — legacy rows can have wrong userId/oderId while the doc id is correct.
+    final docBelongsToUser =
+        audit != null && audit.id.startsWith('${user.uid}_');
     if (audit == null ||
         !viewableStatuses.contains(audit.status) ||
-        audit.oderId != user.uid) {
+        !docBelongsToUser) {
       setState(() {
         _audit = null;
         _isLoading = false;
@@ -85,17 +99,23 @@ class _TeacherAuditDetailScreenState extends State<TeacherAuditDetailScreen> {
       return;
     }
 
-    // Check for unread audit notifications and mark as read
-    final count =
-        await TeacherAuditService.getUnreadAuditNotificationCount(user.uid);
-    if (count > 0) {
-      await TeacherAuditService.markAuditNotificationsRead(user.uid);
+    var unreadCount = 0;
+    try {
+      unreadCount =
+          await TeacherAuditService.getUnreadAuditNotificationCount(user.uid);
+      if (unreadCount > 0) {
+        await TeacherAuditService.markAuditNotificationsRead(user.uid);
+      }
+    } catch (e) {
+      // Non-fatal: rules or network; still show the audit (was blocking all simple teachers).
+      debugPrint('TeacherAuditDetailScreen: audit notifications skipped: $e');
     }
 
+    if (!mounted) return;
     setState(() {
       _audit = audit;
       _isLoading = false;
-      _unreadNotifications = count;
+      _unreadNotifications = unreadCount;
     });
   }
 
@@ -104,7 +124,8 @@ class _TeacherAuditDetailScreenState extends State<TeacherAuditDetailScreen> {
     final months = _availableMonths.isNotEmpty
         ? _availableMonths
         : List.generate(12, (i) {
-            final date = DateTime(DateTime.now().year, DateTime.now().month - i);
+            final date =
+                DateTime(DateTime.now().year, DateTime.now().month - i);
             return DateFormat('yyyy-MM').format(date);
           });
 
@@ -120,8 +141,7 @@ class _TeacherAuditDetailScreenState extends State<TeacherAuditDetailScreen> {
             child: Text(
               DateFormat('MMMM yyyy').format(date),
               style: TextStyle(
-                fontWeight:
-                    isSelected ? FontWeight.bold : FontWeight.normal,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                 color: isSelected ? _blue : null,
               ),
             ),
@@ -147,7 +167,9 @@ class _TeacherAuditDetailScreenState extends State<TeacherAuditDetailScreen> {
         title: Text(
           AppLocalizations.of(context)!.myMonthlyReport,
           style: GoogleFonts.inter(
-              fontWeight: FontWeight.w600, fontSize: 16, color: const Color(0xff1E293B)),
+              fontWeight: FontWeight.w600,
+              fontSize: 16,
+              color: const Color(0xff1E293B)),
         ),
         actions: [
           TextButton.icon(
@@ -181,8 +203,7 @@ class _TeacherAuditDetailScreenState extends State<TeacherAuditDetailScreen> {
                         decoration: BoxDecoration(
                           color: _blue.withOpacity(0.08),
                           borderRadius: BorderRadius.circular(10),
-                          border:
-                              Border.all(color: _blue.withOpacity(0.2)),
+                          border: Border.all(color: _blue.withOpacity(0.2)),
                         ),
                         child: Row(
                           children: [
@@ -202,8 +223,7 @@ class _TeacherAuditDetailScreenState extends State<TeacherAuditDetailScreen> {
                               onTap: () =>
                                   setState(() => _unreadNotifications = 0),
                               child: Icon(Icons.close,
-                                  size: 18,
-                                  color: _blue.withOpacity(0.5)),
+                                  size: 18, color: _blue.withOpacity(0.5)),
                             ),
                           ],
                         ),
@@ -236,10 +256,10 @@ class _TeacherAuditDetailScreenState extends State<TeacherAuditDetailScreen> {
                             ),
                             const SizedBox(height: 16),
                             _DisputeTab(
-              audit: _audit!,
-              onSubmit: _loadAudit,
-              embedded: true,
-            ),
+                              audit: _audit!,
+                              onSubmit: _loadAudit,
+                              embedded: true,
+                            ),
                           ],
                         ),
                       ),
@@ -365,8 +385,10 @@ class _TeacherAuditDetailScreenState extends State<TeacherAuditDetailScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              AppLocalizations.of(context)!.teacherAuditReportNotFinalizedMessage(
-                DateFormat('MMMM yyyy').format(DateTime.parse('$_selectedYearMonth-01')),
+              AppLocalizations.of(context)!
+                  .teacherAuditReportNotFinalizedMessage(
+                DateFormat('MMMM yyyy')
+                    .format(DateTime.parse('$_selectedYearMonth-01')),
               ),
               style: GoogleFonts.inter(fontSize: 14, color: _slate),
               textAlign: TextAlign.center,
@@ -420,413 +442,414 @@ class _SummaryTab extends StatelessWidget {
     final hasIssues = audit.issues.isNotEmpty;
 
     final body = <Widget>[
-        // ── Review-in-progress banner ──────────────────────────────────────
-        if (audit.status != AuditStatus.completed)
-          Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-              color: _orange.withOpacity(0.08),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: _orange.withOpacity(0.3)),
-            ),
-            child: Row(
+      // ── Review-in-progress banner ──────────────────────────────────────
+      if (audit.status != AuditStatus.completed)
+        Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: _orange.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: _orange.withOpacity(0.3)),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.info_outline, size: 18, color: _orange),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  AppLocalizations.of(context)!.teacherAuditReportUnderReview,
+                  style: GoogleFonts.inter(
+                      fontSize: 13, color: _orange.withOpacity(0.9)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      // ── Hero : Score + Salaire ─────────────────────────────────────────
+      Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: _border),
+        ),
+        child: Row(
+          children: [
+            Stack(
+              alignment: Alignment.center,
               children: [
-                Icon(Icons.info_outline, size: 18, color: _orange),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    AppLocalizations.of(context)!.teacherAuditReportUnderReview,
-                    style: GoogleFonts.inter(fontSize: 13, color: _orange.withOpacity(0.9)),
+                SizedBox(
+                  width: 80,
+                  height: 80,
+                  child: CircularProgressIndicator(
+                    value: audit.overallScore / 100,
+                    strokeWidth: 7,
+                    strokeCap: StrokeCap.round,
+                    backgroundColor: _tierColor.withOpacity(0.12),
+                    valueColor: AlwaysStoppedAnimation<Color>(_tierColor),
+                  ),
+                ),
+                Text(
+                  '${audit.overallScore.toStringAsFixed(0)}%',
+                  style: GoogleFonts.inter(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: _tierColor,
                   ),
                 ),
               ],
             ),
-          ),
-        // ── Hero : Score + Salaire ─────────────────────────────────────────
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: _border),
-          ),
-          child: Row(
-            children: [
-              Stack(
-                alignment: Alignment.center,
+            const SizedBox(width: 20),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  SizedBox(
-                    width: 80,
-                    height: 80,
-                    child: CircularProgressIndicator(
-                      value: audit.overallScore / 100,
-                      strokeWidth: 7,
-                      strokeCap: StrokeCap.round,
-                      backgroundColor: _tierColor.withOpacity(0.12),
-                      valueColor: AlwaysStoppedAnimation<Color>(_tierColor),
-                    ),
-                  ),
                   Text(
-                    '${audit.overallScore.toStringAsFixed(0)}%',
+                    _tierLabel,
                     style: GoogleFonts.inter(
                       fontSize: 18,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w700,
                       color: _tierColor,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    DateFormat('MMMM yyyy')
+                        .format(DateTime.parse('${audit.yearMonth}-01')),
+                    style: GoogleFonts.inter(fontSize: 13, color: _slate),
+                  ),
+                  if (audit.coachScore > 0) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      '${AppLocalizations.of(context)!.teacherAuditScoreAuto(audit.automaticScore.toStringAsFixed(0))}  •  ${AppLocalizations.of(context)!.teacherAuditScoreCoach(audit.coachScore.toStringAsFixed(0))}',
+                      style: GoogleFonts.inter(fontSize: 11, color: _slate),
+                    ),
+                  ],
+                  const SizedBox(height: 10),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: _green.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: _green.withOpacity(0.3)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.payments_outlined,
+                            size: 16, color: _green),
+                        const SizedBox(width: 6),
+                        Text(
+                          '\$${netPay.toStringAsFixed(2)} net',
+                          style: GoogleFonts.inter(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: _green,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ),
-              const SizedBox(width: 20),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _tierLabel,
-                      style: GoogleFonts.inter(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: _tierColor,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      DateFormat('MMMM yyyy')
-                          .format(DateTime.parse('${audit.yearMonth}-01')),
-                      style: GoogleFonts.inter(
-                          fontSize: 13, color: _slate),
-                    ),
-                    if (audit.coachScore > 0) ...[
-                      const SizedBox(height: 6),
-                      Text(
-                        '${AppLocalizations.of(context)!.teacherAuditScoreAuto(audit.automaticScore.toStringAsFixed(0))}  •  ${AppLocalizations.of(context)!.teacherAuditScoreCoach(audit.coachScore.toStringAsFixed(0))}',
-                        style: GoogleFonts.inter(fontSize: 11, color: _slate),
-                      ),
-                    ],
-                    const SizedBox(height: 10),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: _green.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                            color: _green.withOpacity(0.3)),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.payments_outlined,
-                              size: 16, color: _green),
-                          const SizedBox(width: 6),
-                          Text(
-                            '\$${netPay.toStringAsFixed(2)} net',
-                            style: GoogleFonts.inter(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                              color: _green,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        const SizedBox(height: 12),
-
-        // ── 4 chiffres clés ────────────────────────────────────────────────
-        GridView.count(
-          crossAxisCount: 2,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          mainAxisSpacing: 10,
-          crossAxisSpacing: 10,
-          childAspectRatio: 2.1,
-          children: [
-            _KpiTile(
-              icon: Icons.school_outlined,
-              color: _blue,
-              label: AppLocalizations.of(context)!.teacherAuditClassesLabel,
-              value:
-                  '${audit.totalClassesCompleted} / ${audit.totalClassesScheduled}',
-              sub: 'Taux ${audit.completionRate.clamp(0, 100).toStringAsFixed(0)}%',
-            ),
-            _KpiTile(
-              icon: Icons.timer_outlined,
-              color: const Color(0xFF8B5CF6),
-              label: AppLocalizations.of(context)!.teacherAuditHoursLabel,
-              value:
-                  '${audit.totalHoursTaught.toStringAsFixed(1)} h',
-              sub: '${audit.hoursTaughtBySubject.length} matière(s)',
-            ),
-            _KpiTile(
-              icon: Icons.description_outlined,
-              color: audit.readinessFormsSubmitted >=
-                      audit.readinessFormsRequired
-                  ? _green
-                  : _orange,
-              label: AppLocalizations.of(context)!.teacherAuditFormsLabel,
-              value:
-                  '${audit.readinessFormsSubmitted} / ${audit.readinessFormsRequired}',
-              sub: 'Conformité ${audit.formComplianceRate.clamp(0, 100).toStringAsFixed(0)}%',
-            ),
-            _KpiTile(
-              icon: Icons.access_time_outlined,
-              color:
-                  audit.lateClockIns == 0 ? _green : _orange,
-              label: AppLocalizations.of(context)!.teacherAuditPunctualityLabel,
-              value: '${audit.punctualityRate.clamp(0, 100).toStringAsFixed(0)}%',
-              sub: audit.lateClockIns == 0
-                  ? '✓ Aucun retard'
-                  : '${audit.lateClockIns} retard(s)',
             ),
           ],
         ),
+      ),
 
-        const SizedBox(height: 12),
+      const SizedBox(height: 12),
 
-        // ── Barres de progression ──────────────────────────────────────────
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: _border),
+      // ── 4 chiffres clés ────────────────────────────────────────────────
+      GridView.count(
+        crossAxisCount: 2,
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        mainAxisSpacing: 10,
+        crossAxisSpacing: 10,
+        childAspectRatio: 2.1,
+        children: [
+          _KpiTile(
+            icon: Icons.school_outlined,
+            color: _blue,
+            label: AppLocalizations.of(context)!.teacherAuditClassesLabel,
+            value:
+                '${audit.totalClassesCompleted} / ${audit.totalClassesScheduled}',
+            sub:
+                'Taux ${audit.completionRate.clamp(0, 100).toStringAsFixed(0)}%',
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(AppLocalizations.of(context)!.teacherAuditPerformanceSection,
-                  style: GoogleFonts.inter(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: _slate,
-                      letterSpacing: 0.5)),
-              const SizedBox(height: 12),
-              _RateBar(
-                label: AppLocalizations.of(context)!.auditCompletionRateLabel,
-                rate: audit.completionRate,
-                good: 80,
-                warn: 60,
-              ),
-              const SizedBox(height: 10),
-              _RateBar(
-                label: AppLocalizations.of(context)!.teacherAuditPunctualityLabel,
-                rate: audit.punctualityRate,
-                good: 85,
-                warn: 70,
-              ),
-              const SizedBox(height: 10),
-              _RateBar(
-                label: AppLocalizations.of(context)!.teacherAuditFormsLabel,
-                rate: audit.formComplianceRate,
-                good: 90,
-                warn: 70,
-              ),
-            ],
+          _KpiTile(
+            icon: Icons.timer_outlined,
+            color: const Color(0xFF8B5CF6),
+            label: AppLocalizations.of(context)!.teacherAuditHoursLabel,
+            // Use totalWorkedHours (billable, capped to scheduled) — same source as
+            // the admin audit "Hours taught" KPI so teacher and admin agree.
+            // totalHoursTaught is legacy scheduled-hours and disagrees on partials/leaves.
+            value: '${audit.totalWorkedHours.toStringAsFixed(1)} h',
+            sub: '${audit.hoursTaughtBySubject.length} matière(s)',
           ),
-        ),
-
-        // ── Récap paiement détaillé ────────────────────────────────────────
-        const SizedBox(height: 12),
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: _border),
+          _KpiTile(
+            icon: Icons.description_outlined,
+            color: audit.readinessFormsSubmitted >= audit.readinessFormsRequired
+                ? _green
+                : _orange,
+            label: AppLocalizations.of(context)!.teacherAuditFormsLabel,
+            value:
+                '${audit.readinessFormsSubmitted} / ${audit.readinessFormsRequired}',
+            sub:
+                'Conformité ${audit.formComplianceRate.clamp(0, 100).toStringAsFixed(0)}%',
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(AppLocalizations.of(context)!.teacherAuditPaymentSection,
-                  style: GoogleFonts.inter(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: _slate,
-                      letterSpacing: 0.5)),
-              const SizedBox(height: 12),
-              _PayRow(label: AppLocalizations.of(context)!.teacherAuditGross, value: '\$${grossPay.toStringAsFixed(2)}'),
-              if (ps != null && ps.totalPenalties > 0)
-                _PayRow(
-                  label: AppLocalizations.of(context)!.teacherAuditPenalties,
-                  value: '-\$${ps.totalPenalties.toStringAsFixed(2)}',
-                  color: _red,
-                ),
-              if (ps != null && ps.totalBonuses > 0)
-                _PayRow(
-                  label: AppLocalizations.of(context)!.teacherAuditBonuses,
-                  value: '+\$${ps.totalBonuses.toStringAsFixed(2)}',
-                  color: _green,
-                ),
-              if (ps != null && ps.adminAdjustment != 0) ...[
-                _PayRow(
-                  label: AppLocalizations.of(context)!.teacherAuditAdminAdjustment,
-                  value:
-                      '${ps.adminAdjustment >= 0 ? '+' : ''}\$${ps.adminAdjustment.toStringAsFixed(2)}',
-                  color: ps.adminAdjustment >= 0 ? _green : _red,
-                ),
-              ],
-              if (ps != null && ps.coachAdjustmentLines.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Text(
-                  AppLocalizations.of(context)!.teacherAuditPayslipCoachLines,
-                  style: GoogleFonts.inter(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: _slate,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                for (final l in ps.coachAdjustmentLines)
-                  _PayRow(
-                    label: '${l.type} · ${l.reason}',
-                    value: l.type == 'bonus'
-                        ? '+\$${l.amount.toStringAsFixed(2)}'
-                        : '-\$${l.amount.toStringAsFixed(2)}',
-                    color: l.type == 'bonus' ? _green : _red,
-                  ),
-              ],
-              if (ps != null && ps.advancePayments.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Text(
-                  AppLocalizations.of(context)!.teacherAuditPayslipAdvances,
-                  style: GoogleFonts.inter(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: _slate,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                for (final a in ps.advancePayments)
-                  _PayRow(
-                    label: a.formResponseId,
-                    value: '-\$${a.amount.abs().toStringAsFixed(2)}',
-                    color: _orange,
-                  ),
-              ],
-              const Divider(height: 16, color: _border),
-              _PayRow(
-                label: AppLocalizations.of(context)!.teacherAuditNetToReceive,
-                value: '\$${netPay.toStringAsFixed(2)}',
-                isBold: true,
-                color: _green,
-                fontSize: 16,
-              ),
-              if (ps != null && ps.paymentsBySubject.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                ...ps.paymentsBySubject.values.map((sp) =>
-                    _SubjectPayRow(payment: sp)),
-              ],
-            ],
-          ),
-        ),
-
-        // ── Issues ────────────────────────────────────────────────────────
-        if (hasIssues) ...[
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: _red.withOpacity(0.3)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.warning_amber_rounded,
-                        size: 16, color: _red),
-                    const SizedBox(width: 6),
-                    Text(AppLocalizations.of(context)!.teacherAuditPointsOfAttention,
-                        style: GoogleFonts.inter(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: _slate,
-                          letterSpacing: 0.5,
-                        )),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                ...audit.issues.map((issue) {
-                  final sev = issue.severity;
-                  final col = sev == 'high'
-                      ? _red
-                      : sev == 'medium'
-                          ? _orange
-                          : Colors.yellow.shade700;
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: col.withOpacity(0.06),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                          color: col.withOpacity(0.25)),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          sev == 'high'
-                              ? Icons.error_outline
-                              : Icons.warning_amber_outlined,
-                          size: 16,
-                          color: col,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment:
-                                CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                issue.type
-                                    .replaceAll('_', ' ')
-                                    .toUpperCase(),
-                                style: GoogleFonts.inter(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                  color: col,
-                                ),
-                              ),
-                              if (issue.description.isNotEmpty)
-                                Text(
-                                  issue.description,
-                                  style: GoogleFonts.inter(
-                                      fontSize: 12,
-                                      color: const Color(
-                                          0xff374151)),
-                                ),
-                            ],
-                          ),
-                        ),
-                        if (issue.penaltyAmount != null &&
-                            issue.penaltyAmount! > 0)
-                          Text(
-                            '-\$${issue.penaltyAmount!.toStringAsFixed(2)}',
-                            style: GoogleFonts.inter(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: _red,
-                            ),
-                          ),
-                      ],
-                    ),
-                  );
-                }),
-              ],
-            ),
+          _KpiTile(
+            icon: Icons.access_time_outlined,
+            color: audit.lateClockIns == 0 ? _green : _orange,
+            label: AppLocalizations.of(context)!.teacherAuditPunctualityLabel,
+            value: '${audit.punctualityRate.clamp(0, 100).toStringAsFixed(0)}%',
+            sub: audit.lateClockIns == 0
+                ? '✓ Aucun retard'
+                : '${audit.lateClockIns} retard(s)',
           ),
         ],
-        const SizedBox(height: 24),
+      ),
+
+      const SizedBox(height: 12),
+
+      // ── Barres de progression ──────────────────────────────────────────
+      Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: _border),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(AppLocalizations.of(context)!.teacherAuditPerformanceSection,
+                style: GoogleFonts.inter(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: _slate,
+                    letterSpacing: 0.5)),
+            const SizedBox(height: 12),
+            _RateBar(
+              label: AppLocalizations.of(context)!.auditCompletionRateLabel,
+              rate: audit.completionRate,
+              good: 80,
+              warn: 60,
+            ),
+            const SizedBox(height: 10),
+            _RateBar(
+              label: AppLocalizations.of(context)!.teacherAuditPunctualityLabel,
+              rate: audit.punctualityRate,
+              good: 85,
+              warn: 70,
+            ),
+            const SizedBox(height: 10),
+            _RateBar(
+              label: AppLocalizations.of(context)!.teacherAuditFormsLabel,
+              rate: audit.formComplianceRate,
+              good: 90,
+              warn: 70,
+            ),
+          ],
+        ),
+      ),
+
+      // ── Récap paiement détaillé ────────────────────────────────────────
+      const SizedBox(height: 12),
+      Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: _border),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(AppLocalizations.of(context)!.teacherAuditPaymentSection,
+                style: GoogleFonts.inter(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: _slate,
+                    letterSpacing: 0.5)),
+            const SizedBox(height: 12),
+            _PayRow(
+                label: AppLocalizations.of(context)!.teacherAuditGross,
+                value: '\$${grossPay.toStringAsFixed(2)}'),
+            if (ps != null && ps.totalPenalties > 0)
+              _PayRow(
+                label: AppLocalizations.of(context)!.teacherAuditPenalties,
+                value: '-\$${ps.totalPenalties.toStringAsFixed(2)}',
+                color: _red,
+              ),
+            if (ps != null && ps.totalBonuses > 0)
+              _PayRow(
+                label: AppLocalizations.of(context)!.teacherAuditBonuses,
+                value: '+\$${ps.totalBonuses.toStringAsFixed(2)}',
+                color: _green,
+              ),
+            if (ps != null && ps.adminAdjustment != 0) ...[
+              _PayRow(
+                label:
+                    AppLocalizations.of(context)!.teacherAuditAdminAdjustment,
+                value:
+                    '${ps.adminAdjustment >= 0 ? '+' : ''}\$${ps.adminAdjustment.toStringAsFixed(2)}',
+                color: ps.adminAdjustment >= 0 ? _green : _red,
+              ),
+            ],
+            if (ps != null && ps.coachAdjustmentLines.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                AppLocalizations.of(context)!.teacherAuditPayslipCoachLines,
+                style: GoogleFonts.inter(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: _slate,
+                ),
+              ),
+              const SizedBox(height: 6),
+              for (final l in ps.coachAdjustmentLines)
+                _PayRow(
+                  label: '${l.type} · ${l.reason}',
+                  value: l.type == 'bonus'
+                      ? '+\$${l.amount.toStringAsFixed(2)}'
+                      : '-\$${l.amount.toStringAsFixed(2)}',
+                  color: l.type == 'bonus' ? _green : _red,
+                ),
+            ],
+            if (ps != null && ps.advancePayments.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                AppLocalizations.of(context)!.teacherAuditPayslipAdvances,
+                style: GoogleFonts.inter(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: _slate,
+                ),
+              ),
+              const SizedBox(height: 6),
+              for (final a in ps.advancePayments)
+                _PayRow(
+                  label: a.formResponseId,
+                  value: '-\$${a.amount.abs().toStringAsFixed(2)}',
+                  color: _orange,
+                ),
+            ],
+            const Divider(height: 16, color: _border),
+            _PayRow(
+              label: AppLocalizations.of(context)!.teacherAuditNetToReceive,
+              value: '\$${netPay.toStringAsFixed(2)}',
+              isBold: true,
+              color: _green,
+              fontSize: 16,
+            ),
+            if (ps != null && ps.paymentsBySubject.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              ...ps.paymentsBySubject.values
+                  .map((sp) => _SubjectPayRow(payment: sp)),
+            ],
+          ],
+        ),
+      ),
+
+      // ── Issues ────────────────────────────────────────────────────────
+      if (hasIssues) ...[
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: _red.withOpacity(0.3)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.warning_amber_rounded,
+                      size: 16, color: _red),
+                  const SizedBox(width: 6),
+                  Text(
+                      AppLocalizations.of(context)!
+                          .teacherAuditPointsOfAttention,
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: _slate,
+                        letterSpacing: 0.5,
+                      )),
+                ],
+              ),
+              const SizedBox(height: 10),
+              ...audit.issues.map((issue) {
+                final sev = issue.severity;
+                final col = sev == 'high'
+                    ? _red
+                    : sev == 'medium'
+                        ? _orange
+                        : Colors.yellow.shade700;
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: col.withOpacity(0.06),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: col.withOpacity(0.25)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        sev == 'high'
+                            ? Icons.error_outline
+                            : Icons.warning_amber_outlined,
+                        size: 16,
+                        color: col,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              issue.type.replaceAll('_', ' ').toUpperCase(),
+                              style: GoogleFonts.inter(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: col,
+                              ),
+                            ),
+                            if (issue.description.isNotEmpty)
+                              Text(
+                                issue.description,
+                                style: GoogleFonts.inter(
+                                    fontSize: 12,
+                                    color: const Color(0xff374151)),
+                              ),
+                          ],
+                        ),
+                      ),
+                      if (issue.penaltyAmount != null &&
+                          issue.penaltyAmount! > 0)
+                        Text(
+                          '-\$${issue.penaltyAmount!.toStringAsFixed(2)}',
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: _red,
+                          ),
+                        ),
+                    ],
+                  ),
+                );
+              }),
+            ],
+          ),
+        ),
+      ],
+      const SizedBox(height: 24),
     ];
     if (shrinkWrap) {
       return Padding(
@@ -929,7 +952,8 @@ class _ClassesTabState extends State<_ClassesTab> {
           children: [
             const Icon(Icons.calendar_today_outlined, size: 48, color: _slate),
             const SizedBox(height: 12),
-            Text(l10n.noClassesFound, style: GoogleFonts.inter(color: _slate, fontSize: 14)),
+            Text(l10n.noClassesFound,
+                style: GoogleFonts.inter(color: _slate, fontSize: 14)),
           ],
         ),
       );
@@ -943,9 +967,12 @@ class _ClassesTabState extends State<_ClassesTab> {
 
     final done = sorted.where((s) {
       final st = s['status'] as String?;
-      return st == 'completed' || st == 'fullyCompleted' || st == 'partiallyCompleted';
+      return st == 'completed' ||
+          st == 'fullyCompleted' ||
+          st == 'partiallyCompleted';
     }).length;
-    final missed = sorted.where((s) => (s['status'] as String?) == 'missed').length;
+    final missed =
+        sorted.where((s) => (s['status'] as String?) == 'missed').length;
 
     final orphanForms = widget.audit.detailedFormsNoSchedule;
     final rejectedForms = widget.audit.detailedFormsRejected;
@@ -957,13 +984,28 @@ class _ClassesTabState extends State<_ClassesTab> {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           child: Row(
             children: [
-              _MiniStat(label: 'Total', value: '${sorted.length}', icon: Icons.event_note_outlined),
+              _MiniStat(
+                  label: 'Total',
+                  value: '${sorted.length}',
+                  icon: Icons.event_note_outlined),
               const SizedBox(width: 20),
-              _MiniStat(label: 'Réalisées', value: '$done', icon: Icons.check_circle_outline, color: _green),
+              _MiniStat(
+                  label: 'Réalisées',
+                  value: '$done',
+                  icon: Icons.check_circle_outline,
+                  color: _green),
               const SizedBox(width: 20),
-              _MiniStat(label: 'Manquées', value: '$missed', icon: Icons.cancel_outlined, color: missed > 0 ? _red : _slate),
+              _MiniStat(
+                  label: 'Manquées',
+                  value: '$missed',
+                  icon: Icons.cancel_outlined,
+                  color: missed > 0 ? _red : _slate),
               const SizedBox(width: 20),
-              _MiniStat(label: 'Forms', value: '${widget.audit.readinessFormsSubmitted}', icon: Icons.description_outlined, color: _blue),
+              _MiniStat(
+                  label: 'Forms',
+                  value: '${widget.audit.readinessFormsSubmitted}',
+                  icon: Icons.description_outlined,
+                  color: _blue),
             ],
           ),
         ),
@@ -1020,39 +1062,71 @@ class _ClassesTabState extends State<_ClassesTab> {
     final hasForm = _hasFormForShift(shiftId);
     final isExpanded = _expandedShiftId == shiftId;
 
-    final isDone = status == 'completed' || status == 'fullyCompleted' || status == 'partiallyCompleted';
+    final isDone = status == 'completed' ||
+        status == 'fullyCompleted' ||
+        status == 'partiallyCompleted';
     final isMissed = status == 'missed';
-    final statusColor = isDone ? _green : isMissed ? _red : _orange;
-    final statusBg = isDone ? const Color(0xFFDCFCE7) : isMissed ? const Color(0xFFFEE2E2) : const Color(0xFFFEF3C7);
+    final statusColor = isDone
+        ? _green
+        : isMissed
+            ? _red
+            : _orange;
+    final statusBg = isDone
+        ? const Color(0xFFDCFCE7)
+        : isMissed
+            ? const Color(0xFFFEE2E2)
+            : const Color(0xFFFEF3C7);
 
     return Column(
       children: [
         ListTile(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-          onTap: hasForm ? () {
-            setState(() {
-              _expandedShiftId = isExpanded ? null : shiftId;
-            });
-          } : null,
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          onTap: hasForm
+              ? () {
+                  setState(() {
+                    _expandedShiftId = isExpanded ? null : shiftId;
+                  });
+                }
+              : null,
           leading: Container(
-            width: 40, height: 40,
-            decoration: BoxDecoration(color: statusBg, borderRadius: BorderRadius.circular(10)),
-            child: Icon(isDone ? Icons.check : isMissed ? Icons.close : Icons.schedule, size: 20, color: statusColor),
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+                color: statusBg, borderRadius: BorderRadius.circular(10)),
+            child: Icon(
+                isDone
+                    ? Icons.check
+                    : isMissed
+                        ? Icons.close
+                        : Icons.schedule,
+                size: 20,
+                color: statusColor),
           ),
-          title: Text(title, style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w500, color: const Color(0xff1E293B)), maxLines: 1, overflow: TextOverflow.ellipsis),
+          title: Text(title,
+              style: GoogleFonts.inter(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: const Color(0xff1E293B)),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis),
           subtitle: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                startAt != null ? DateFormat('EEE d MMM · HH:mm').format(startAt) : '—',
+                startAt != null
+                    ? DateFormat('EEE d MMM · HH:mm').format(startAt)
+                    : '—',
                 style: GoogleFonts.inter(fontSize: 11, color: _slate),
               ),
               if (shift['fromShiftTrade'] == true) ...[
                 const SizedBox(height: 2),
                 Text(
-                  AppLocalizations.of(context)!.teacherAuditShiftFromTradeNotice,
-                  style: GoogleFonts.inter(fontSize: 11, color: Color(0xFF94A3B8)),
+                  AppLocalizations.of(context)!
+                      .teacherAuditShiftFromTradeNotice,
+                  style:
+                      GoogleFonts.inter(fontSize: 11, color: Color(0xFF94A3B8)),
                 ),
               ],
             ],
@@ -1065,23 +1139,33 @@ class _ClassesTabState extends State<_ClassesTab> {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                     decoration: BoxDecoration(
-                      color: hasForm ? const Color(0xFFDCFCE7) : const Color(0xFFFEF3C7),
+                      color: hasForm
+                          ? const Color(0xFFDCFCE7)
+                          : const Color(0xFFFEF3C7),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Text(
                       hasForm ? '✓ Form' : 'Form ?',
-                      style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w600, color: hasForm ? const Color(0xFF16A34A) : const Color(0xFFB45309)),
+                      style: GoogleFonts.inter(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: hasForm
+                              ? const Color(0xFF16A34A)
+                              : const Color(0xFFB45309)),
                     ),
                   ),
                   const SizedBox(height: 3),
-                  Text(duration > 0 ? '${duration.toStringAsFixed(1)}h' : '', style: GoogleFonts.inter(fontSize: 10, color: _slate)),
+                  Text(duration > 0 ? '${duration.toStringAsFixed(1)}h' : '',
+                      style: GoogleFonts.inter(fontSize: 10, color: _slate)),
                 ],
               ),
               if (hasForm) ...[
                 const SizedBox(width: 4),
-                Icon(isExpanded ? Icons.expand_less : Icons.expand_more, size: 18, color: _slate),
+                Icon(isExpanded ? Icons.expand_less : Icons.expand_more,
+                    size: 18, color: _slate),
               ],
             ],
           ),
@@ -1118,48 +1202,67 @@ class _ClassesTabState extends State<_ClassesTab> {
     );
   }
 
-  Widget _buildOrphanFormsSection(BuildContext context, List<Map<String, dynamic>> forms) {
+  Widget _buildOrphanFormsSection(
+      BuildContext context, List<Map<String, dynamic>> forms) {
     final l10n = AppLocalizations.of(context)!;
     return ExpansionTile(
       tilePadding: const EdgeInsets.symmetric(horizontal: 16),
       leading: const Icon(Icons.link_off_outlined, size: 20, color: _orange),
       title: Text(
         l10n.auditOrphanForms(forms.length),
-        style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: const Color(0xFFB45309)),
+        style: GoogleFonts.inter(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: const Color(0xFFB45309)),
       ),
       children: forms.map((f) {
         final submittedAt = (f['submittedAt'] as Timestamp?)?.toDate();
-        final dateStr = submittedAt != null ? DateFormat('MMM d, HH:mm').format(submittedAt) : '—';
+        final dateStr = submittedAt != null
+            ? DateFormat('MMM d, HH:mm').format(submittedAt)
+            : '—';
         return ListTile(
           dense: true,
           contentPadding: const EdgeInsets.symmetric(horizontal: 24),
-          leading: const Icon(Icons.description_outlined, size: 16, color: _orange),
-          title: Text(dateStr, style: GoogleFonts.inter(fontSize: 12, color: const Color(0xff475569))),
-          subtitle: Text(l10n.auditFormNoMatchingShift, style: GoogleFonts.inter(fontSize: 11, color: _slate)),
+          leading:
+              const Icon(Icons.description_outlined, size: 16, color: _orange),
+          title: Text(dateStr,
+              style: GoogleFonts.inter(
+                  fontSize: 12, color: const Color(0xff475569))),
+          subtitle: Text(l10n.auditFormNoMatchingShift,
+              style: GoogleFonts.inter(fontSize: 11, color: _slate)),
         );
       }).toList(),
     );
   }
 
-  Widget _buildRejectedFormsSection(BuildContext context, List<Map<String, dynamic>> forms) {
+  Widget _buildRejectedFormsSection(
+      BuildContext context, List<Map<String, dynamic>> forms) {
     final l10n = AppLocalizations.of(context)!;
     return ExpansionTile(
       tilePadding: const EdgeInsets.symmetric(horizontal: 16),
       leading: const Icon(Icons.copy_outlined, size: 20, color: _red),
       title: Text(
         l10n.auditRejectedForms(forms.length),
-        style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: const Color(0xFFDC2626)),
+        style: GoogleFonts.inter(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: const Color(0xFFDC2626)),
       ),
       children: forms.map((f) {
         final submittedAt = (f['submittedAt'] as Timestamp?)?.toDate();
-        final dateStr = submittedAt != null ? DateFormat('MMM d, HH:mm').format(submittedAt) : '—';
+        final dateStr = submittedAt != null
+            ? DateFormat('MMM d, HH:mm').format(submittedAt)
+            : '—';
         final reason = (f['rejectionReason'] as String?) ?? 'duplicate';
         return ListTile(
           dense: true,
           contentPadding: const EdgeInsets.symmetric(horizontal: 24),
           leading: const Icon(Icons.copy_outlined, size: 16, color: _red),
-          title: Text(dateStr, style: GoogleFonts.inter(fontSize: 12, color: const Color(0xff475569))),
-          subtitle: Text(reason, style: GoogleFonts.inter(fontSize: 11, color: _slate)),
+          title: Text(dateStr,
+              style: GoogleFonts.inter(
+                  fontSize: 12, color: const Color(0xff475569))),
+          subtitle: Text(reason,
+              style: GoogleFonts.inter(fontSize: 11, color: _slate)),
         );
       }).toList(),
     );
@@ -1191,15 +1294,43 @@ class _DisputeTabState extends State<_DisputeTab> {
   String? _selectedField;
   bool _isSubmitting = false;
 
-  static const _disputeFields = [
-    {'id': 'classes_count', 'label': 'Nombre de classes'},
-    {'id': 'hours_taught', 'label': 'Heures enseignées'},
-    {'id': 'punctuality_rate', 'label': 'Taux de ponctualité'},
-    {'id': 'forms_count', 'label': 'Nombre de formulaires'},
-    {'id': 'payment_amount', 'label': 'Montant du paiement'},
-    {'id': 'overall_score', 'label': 'Score global'},
-    {'id': 'other', 'label': 'Autre'},
-  ];
+  static List<Map<String, String>> _disputeFieldOptions(
+          AppLocalizations l10n) =>
+      [
+        {
+          'id': 'classes_count',
+          'label': l10n.teacherAuditDisputeOptionClassesCount
+        },
+        {
+          'id': 'hours_taught',
+          'label': l10n.teacherAuditDisputeOptionHoursTaught
+        },
+        {
+          'id': 'punctuality_rate',
+          'label': l10n.teacherAuditDisputeOptionPunctualityRate
+        },
+        {
+          'id': 'forms_count',
+          'label': l10n.teacherAuditDisputeOptionFormsCount
+        },
+        {
+          'id': 'payment_amount',
+          'label': l10n.teacherAuditDisputeOptionPaymentAmount
+        },
+        {
+          'id': 'overall_score',
+          'label': l10n.teacherAuditDisputeOptionOverallScore
+        },
+        {'id': 'other', 'label': l10n.teacherAuditDisputeOptionOther},
+      ];
+
+  static String _localizedDisputeFieldLabel(
+      AppLocalizations l10n, String fieldId) {
+    for (final row in _disputeFieldOptions(l10n)) {
+      if (row['id'] == fieldId) return row['label'] ?? fieldId;
+    }
+    return fieldId;
+  }
 
   @override
   void dispose() {
@@ -1221,7 +1352,8 @@ class _DisputeTabState extends State<_DisputeTab> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(AppLocalizations.of(context)!.teacherAuditContestationSent),
+            content: Text(
+                AppLocalizations.of(context)!.teacherAuditContestationSent),
             backgroundColor: _green,
           ),
         );
@@ -1231,7 +1363,8 @@ class _DisputeTabState extends State<_DisputeTab> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(AppLocalizations.of(context)!.teacherAuditContestationError(e.toString())),
+            content: Text(AppLocalizations.of(context)!
+                .teacherAuditContestationError(e.toString())),
             backgroundColor: _red,
           ),
         );
@@ -1249,253 +1382,213 @@ class _DisputeTabState extends State<_DisputeTab> {
 
   @override
   Widget build(BuildContext context) {
-    final existingDispute =
-        widget.audit.reviewChain?.teacherDispute;
+    final l10n = AppLocalizations.of(context)!;
+    final existingDispute = widget.audit.reviewChain?.teacherDispute;
 
     final column = Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: _blue.withOpacity(0.06),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: _blue.withOpacity(0.2)),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.info_outline, size: 18, color: _blue),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  l10n.teacherAuditDisputeInfoMessage,
+                  style: GoogleFonts.inter(fontSize: 13, color: _blue),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        if (existingDispute != null) ...[
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: _blue.withOpacity(0.06),
+              color:
+                  _disputeStatusColor(existingDispute.status).withOpacity(0.07),
               borderRadius: BorderRadius.circular(10),
-              border:
-                  Border.all(color: _blue.withOpacity(0.2)),
+              border: Border.all(
+                  color: _disputeStatusColor(existingDispute.status)),
             ),
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.info_outline,
-                    size: 18, color: _blue),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    AppLocalizations.of(context)!.teacherAuditDisputeInfoMessage,
-                    style: GoogleFonts.inter(
-                        fontSize: 13, color: _blue),
+                Row(
+                  children: [
+                    Icon(
+                      existingDispute.status == 'accepted'
+                          ? Icons.check_circle
+                          : existingDispute.status == 'rejected'
+                              ? Icons.cancel
+                              : Icons.pending,
+                      color: _disputeStatusColor(existingDispute.status),
+                      size: 18,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(l10n.teacherAuditExistingDispute,
+                        style: GoogleFonts.inter(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                            color:
+                                _disputeStatusColor(existingDispute.status))),
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: _disputeStatusColor(existingDispute.status),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        existingDispute.status.toUpperCase(),
+                        style: GoogleFonts.inter(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                _DisputeInfoRow(
+                    label: l10n.teacherAuditDisputeFieldLabel,
+                    value: _localizedDisputeFieldLabel(
+                        l10n, existingDispute.field)),
+                _DisputeInfoRow(
+                    label: l10n.teacherAuditReasonLabel,
+                    value: existingDispute.reason),
+                if (existingDispute.adminResponse.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Text(l10n.teacherAuditAdminResponse,
+                      style: GoogleFonts.inter(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: _slate)),
+                  Text(existingDispute.adminResponse,
+                      style: GoogleFonts.inter(fontSize: 13)),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
+        if (existingDispute == null ||
+            existingDispute.status == 'rejected') ...[
+          Text(l10n.teacherAuditNewDispute,
+              style: GoogleFonts.inter(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xff1E293B),
+              )),
+          const SizedBox(height: 12),
+          Form(
+            key: _formKey,
+            child: Column(
+              children: [
+                DropdownButtonFormField<String>(
+                  value: _selectedField,
+                  style: GoogleFonts.inter(
+                      fontSize: 13, color: const Color(0xff1E293B)),
+                  decoration: InputDecoration(
+                    labelText: l10n.teacherAuditFieldToDispute,
+                    labelStyle: GoogleFonts.inter(fontSize: 13),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8)),
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 12),
+                  ),
+                  items: _disputeFieldOptions(l10n)
+                      .map((f) => DropdownMenuItem(
+                            value: f['id'],
+                            child: Text(f['label']!,
+                                style: GoogleFonts.inter(fontSize: 13)),
+                          ))
+                      .toList(),
+                  onChanged: (v) => setState(() => _selectedField = v),
+                  validator: (v) =>
+                      v == null ? l10n.teacherAuditSelectField : null,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _reasonCtrl,
+                  maxLines: 4,
+                  style: GoogleFonts.inter(fontSize: 13),
+                  decoration: InputDecoration(
+                    labelText: l10n.teacherAuditReasonLabel,
+                    hintText: l10n.teacherAuditDetailReason,
+                    hintStyle: GoogleFonts.inter(fontSize: 12, color: _slate),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8)),
+                    contentPadding: const EdgeInsets.all(12),
+                  ),
+                  validator: (v) {
+                    if (v == null || v.trim().isEmpty) {
+                      return l10n.teacherAuditDisputeReasonEmpty;
+                    }
+                    if (v.trim().length < 20) {
+                      return l10n.teacherAuditDisputeReasonTooShort(20);
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _suggCtrl,
+                  style: GoogleFonts.inter(fontSize: 13),
+                  decoration: InputDecoration(
+                    labelText: l10n.teacherAuditSuggestedValue,
+                    hintText: l10n.teacherAuditExampleValue,
+                    hintStyle: GoogleFonts.inter(fontSize: 12, color: _slate),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8)),
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 12),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: _isSubmitting ? null : _submit,
+                    icon: _isSubmitting
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: Colors.white),
+                          )
+                        : const Icon(Icons.send_outlined, size: 18),
+                    label: Text(
+                      _isSubmitting
+                          ? l10n.teacherAuditSending
+                          : l10n.teacherAuditSendDispute,
+                      style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _blue,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8)),
+                      elevation: 0,
+                    ),
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 16),
-
-          if (existingDispute != null) ...[
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: _disputeStatusColor(
-                        existingDispute.status)
-                    .withOpacity(0.07),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                    color: _disputeStatusColor(
-                        existingDispute.status)),
-              ),
-              child: Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(
-                        existingDispute.status == 'accepted'
-                            ? Icons.check_circle
-                            : existingDispute.status ==
-                                    'rejected'
-                                ? Icons.cancel
-                                : Icons.pending,
-                        color: _disputeStatusColor(
-                            existingDispute.status),
-                        size: 18,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(AppLocalizations.of(context)!.teacherAuditExistingDispute,
-                          style: GoogleFonts.inter(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 13,
-                              color: _disputeStatusColor(
-                                  existingDispute.status))),
-                      const Spacer(),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: _disputeStatusColor(
-                              existingDispute.status),
-                          borderRadius:
-                              BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          existingDispute.status.toUpperCase(),
-                          style: GoogleFonts.inter(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  _DisputeInfoRow(
-                      label: AppLocalizations.of(context)!.teacherAuditDisputeFieldLabel,
-                      value: existingDispute.field),
-                  _DisputeInfoRow(
-                      label: AppLocalizations.of(context)!.teacherAuditReasonLabel,
-                      value: existingDispute.reason),
-                  if (existingDispute
-                      .adminResponse.isNotEmpty) ...[
-                    const SizedBox(height: 6),
-                    Text(AppLocalizations.of(context)!.teacherAuditAdminResponse,
-                        style: GoogleFonts.inter(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: _slate)),
-                    Text(existingDispute.adminResponse,
-                        style: GoogleFonts.inter(
-                            fontSize: 13)),
-                  ],
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-          ],
-
-          if (existingDispute == null ||
-              existingDispute.status == 'rejected') ...[
-            Text(AppLocalizations.of(context)!.teacherAuditNewDispute,
-                style: GoogleFonts.inter(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xff1E293B),
-                )),
-            const SizedBox(height: 12),
-            Form(
-              key: _formKey,
-              child: Column(
-                children: [
-                  DropdownButtonFormField<String>(
-                    value: _selectedField,
-                    style: GoogleFonts.inter(
-                        fontSize: 13,
-                        color:
-                            const Color(0xff1E293B)),
-                    decoration: InputDecoration(
-                      labelText: AppLocalizations.of(context)!.teacherAuditFieldToDispute,
-                      labelStyle: GoogleFonts.inter(
-                          fontSize: 13),
-                      border:
-                          OutlineInputBorder(
-                              borderRadius:
-                                  BorderRadius.circular(
-                                      8)),
-                      contentPadding:
-                          const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 12),
-                    ),
-                    items: _disputeFields
-                        .map((f) => DropdownMenuItem(
-                              value: f['id'],
-                              child: Text(f['label']!,
-                                  style:
-                                      GoogleFonts.inter(
-                                          fontSize: 13)),
-                            ))
-                        .toList(),
-                    onChanged: (v) =>
-                        setState(() => _selectedField = v),
-                    validator: (v) => v == null
-                        ? AppLocalizations.of(context)!.teacherAuditSelectField
-                        : null,
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _reasonCtrl,
-                    maxLines: 4,
-                    style: GoogleFonts.inter(fontSize: 13),
-                    decoration: InputDecoration(
-                      labelText: AppLocalizations.of(context)!.teacherAuditReasonLabel,
-                      hintText:
-                          AppLocalizations.of(context)!.teacherAuditDetailReason,
-                      hintStyle: GoogleFonts.inter(
-                          fontSize: 12, color: _slate),
-                      border: OutlineInputBorder(
-                          borderRadius:
-                              BorderRadius.circular(8)),
-                      contentPadding: const EdgeInsets.all(12),
-                    ),
-                    validator: (v) {
-                      if (v == null || v.trim().isEmpty) {
-                        return 'Champ requis';
-                      }
-                      if (v.trim().length < 20) {
-                        return 'Détaillez davantage (20 car. min)';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _suggCtrl,
-                    style: GoogleFonts.inter(fontSize: 13),
-                    decoration: InputDecoration(
-                      labelText:
-                          AppLocalizations.of(context)!.teacherAuditSuggestedValue,
-                      hintText: AppLocalizations.of(context)!.teacherAuditExampleValue,
-                      hintStyle: GoogleFonts.inter(
-                          fontSize: 12, color: _slate),
-                      border: OutlineInputBorder(
-                          borderRadius:
-                              BorderRadius.circular(8)),
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 12),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: _isSubmitting
-                          ? null
-                          : _submit,
-                      icon: _isSubmitting
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child:
-                                  CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Colors.white),
-                            )
-                          : const Icon(Icons.send_outlined,
-                              size: 18),
-                      label: Text(
-                        _isSubmitting
-                            ? AppLocalizations.of(context)!.teacherAuditSending
-                            : AppLocalizations.of(context)!.teacherAuditSendDispute,
-                        style: GoogleFonts.inter(
-                            fontWeight: FontWeight.w600),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _blue,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                            vertical: 14),
-                        shape: RoundedRectangleBorder(
-                            borderRadius:
-                                BorderRadius.circular(8)),
-                        elevation: 0,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
         ],
+      ],
     );
     if (widget.embedded) {
       return Padding(
@@ -1532,8 +1625,7 @@ class _KpiTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-          horizontal: 14, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -1557,8 +1649,7 @@ class _KpiTile extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(label,
-                    style: GoogleFonts.inter(
-                        fontSize: 10, color: _slate)),
+                    style: GoogleFonts.inter(fontSize: 10, color: _slate)),
                 Text(value,
                     style: GoogleFonts.inter(
                       fontSize: 16,
@@ -1566,8 +1657,7 @@ class _KpiTile extends StatelessWidget {
                       color: const Color(0xff1E293B),
                     )),
                 Text(sub,
-                    style: GoogleFonts.inter(
-                        fontSize: 10, color: _slate),
+                    style: GoogleFonts.inter(fontSize: 10, color: _slate),
                     overflow: TextOverflow.ellipsis),
               ],
             ),
@@ -1606,9 +1696,7 @@ class _RateBar extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(label,
-                style: GoogleFonts.inter(
-                    fontSize: 12, color: _slate)),
+            Text(label, style: GoogleFonts.inter(fontSize: 12, color: _slate)),
             Text('${clamped.toStringAsFixed(0)}%',
                 style: GoogleFonts.inter(
                   fontSize: 12,
@@ -1657,23 +1745,14 @@ class _PayRow extends StatelessWidget {
           Text(label,
               style: GoogleFonts.inter(
                 fontSize: fontSize,
-                fontWeight: isBold
-                    ? FontWeight.w700
-                    : FontWeight.normal,
-                color: isBold
-                    ? const Color(0xff1E293B)
-                    : _slate,
+                fontWeight: isBold ? FontWeight.w700 : FontWeight.normal,
+                color: isBold ? const Color(0xff1E293B) : _slate,
               )),
           Text(value,
               style: GoogleFonts.inter(
                 fontSize: fontSize,
-                fontWeight: isBold
-                    ? FontWeight.w700
-                    : FontWeight.w600,
-                color: color ??
-                    (isBold
-                        ? const Color(0xff1E293B)
-                        : _slate),
+                fontWeight: isBold ? FontWeight.w700 : FontWeight.w600,
+                color: color ?? (isBold ? const Color(0xff1E293B) : _slate),
               )),
         ],
       ),
@@ -1693,19 +1772,15 @@ class _SubjectPayRow extends StatelessWidget {
         children: [
           Expanded(
             child: Text(payment.subjectName,
-                style: GoogleFonts.inter(
-                    fontSize: 12, color: _slate),
+                style: GoogleFonts.inter(fontSize: 12, color: _slate),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis),
           ),
           Text('${payment.hoursTaught.toStringAsFixed(1)}h',
-              style: GoogleFonts.inter(
-                  fontSize: 11, color: _slate)),
+              style: GoogleFonts.inter(fontSize: 11, color: _slate)),
           const SizedBox(width: 8),
-          Text(
-              '@ \$${payment.hourlyRate.toStringAsFixed(0)}/h',
-              style: GoogleFonts.inter(
-                  fontSize: 11, color: _slate)),
+          Text('@ \$${payment.hourlyRate.toStringAsFixed(0)}/h',
+              style: GoogleFonts.inter(fontSize: 11, color: _slate)),
           const SizedBox(width: 8),
           Text(
             '= \$${payment.netAmount.toStringAsFixed(2)}',
@@ -1749,9 +1824,7 @@ class _MiniStat extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                   color: color ?? const Color(0xff1E293B),
                 )),
-            Text(label,
-                style: GoogleFonts.inter(
-                    fontSize: 10, color: _slate)),
+            Text(label, style: GoogleFonts.inter(fontSize: 10, color: _slate)),
           ],
         ),
       ],
@@ -1762,8 +1835,7 @@ class _MiniStat extends StatelessWidget {
 class _DisputeInfoRow extends StatelessWidget {
   final String label;
   final String value;
-  const _DisputeInfoRow(
-      {required this.label, required this.value});
+  const _DisputeInfoRow({required this.label, required this.value});
 
   @override
   Widget build(BuildContext context) {
@@ -1776,14 +1848,9 @@ class _DisputeInfoRow extends StatelessWidget {
             width: 54,
             child: Text('$label :',
                 style: GoogleFonts.inter(
-                    fontSize: 12,
-                    color: _slate,
-                    fontWeight: FontWeight.w600)),
+                    fontSize: 12, color: _slate, fontWeight: FontWeight.w600)),
           ),
-          Expanded(
-              child: Text(value,
-                  style:
-                      GoogleFonts.inter(fontSize: 12))),
+          Expanded(child: Text(value, style: GoogleFonts.inter(fontSize: 12))),
         ],
       ),
     );

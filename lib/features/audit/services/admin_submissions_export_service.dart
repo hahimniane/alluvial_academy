@@ -2,73 +2,96 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:excel/excel.dart' as xl;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:intl/intl.dart';
+import 'package:meta/meta.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import 'dart:typed_data';
 
-import 'package:alluwalacademyadmin/features/forms/services/form_labels_cache_service.dart';
-import 'package:alluwalacademyadmin/features/shift_management/models/teaching_shift.dart';
+import '../../forms/screens/admin_submissions_review_screen.dart'
+    show kAdminSubmissionsExportNoFormIdBucket;
+import '../../forms/services/form_labels_cache_service.dart';
+import '../../shift_management/models/teaching_shift.dart';
 import '../../../core/utils/save_export_file.dart';
 
-import 'dart:html' if (dart.library.io) 'package:alluwalacademyadmin/core/utils/html_stub.dart' as html;
+import 'dart:html'
+    if (dart.library.io) 'package:alluwalacademyadmin/core/utils/html_stub.dart'
+    as html;
+
+enum AdminSubmissionsExportStatus {
+  loadingFieldLabels,
+  loadingDocumentFonts,
+  buildingFile,
+  startingDownload,
+}
 
 /// Export service for Admin → All submissions (review mode).
-/// Generates a single file (PDF or Excel) containing the selected submissions,
-/// grouped per teacher. Progress is emitted per teacher.
+/// Export loads form/template definitions once per sheet so column headers match
+/// the legacy Responses UI (human-readable labels).
 class AdminSubmissionsExportService {
   AdminSubmissionsExportService._();
 
   /// Prevents duplicate downloads if export is triggered twice in quick succession.
   static bool _exportInProgress = false;
 
-  static String _pdfTeacherAnchor(int teacherIndex) => 'teacher_section_$teacherIndex';
+  static String _pdfTeacherAnchor(int teacherIndex) =>
+      'form_section_$teacherIndex';
 
-  /// [submissionsByTeacher] contains ONLY the selected documents per teacher.
+  /// [submissionsByForm] maps formId → selected submission docs for that form.
   static Future<void> exportSelectedSubmissions({
-    required Map<String, List<QueryDocumentSnapshot>> submissionsByTeacher,
+    required Map<String, List<QueryDocumentSnapshot>> submissionsByForm,
     required Map<String, String> teacherNames,
     required Map<String, String> formTitles,
     required Map<String, TeachingShift> shiftMap,
     required String format, // 'pdf' | 'excel'
     required String locale,
-    required void Function(String teacherId, int index, int total) onTeacherProgress,
+    required void Function(String formId, int index, int total) onFormProgress,
+    void Function(AdminSubmissionsExportStatus status)? onStatus,
   }) async {
-    if (submissionsByTeacher.isEmpty) return;
+    if (submissionsByForm.isEmpty) return;
     if (_exportInProgress) return;
     _exportInProgress = true;
 
-    final teacherIds = submissionsByTeacher.keys.toList()
+    final formIds = submissionsByForm.keys.toList()
       ..sort((a, b) {
-        final na = teacherNames[a] ?? '';
-        final nb = teacherNames[b] ?? '';
-        return na.compareTo(nb);
+        final ta = (formTitles[a] ?? a).toLowerCase();
+        final tb = (formTitles[b] ?? b).toLowerCase();
+        return ta.compareTo(tb);
       });
 
     final exportBaseName =
         'admin_submissions_export_${DateFormat('yyyy-MM-dd_HH-mm-ss').format(DateTime.now())}';
 
+    onStatus?.call(AdminSubmissionsExportStatus.loadingFieldLabels);
+    await Future<void>.delayed(Duration.zero);
+    final fieldLabelsByFormId =
+        await _resolveFieldLabelsByFormId(submissionsByForm);
+
     try {
       if (format == 'pdf') {
         await _exportToPdf(
-          submissionsByTeacher: submissionsByTeacher,
-          teacherIds: teacherIds,
+          submissionsByForm: submissionsByForm,
+          formIds: formIds,
           teacherNames: teacherNames,
           formTitles: formTitles,
           shiftMap: shiftMap,
           locale: locale,
           exportBaseName: exportBaseName,
-          onTeacherProgress: onTeacherProgress,
+          fieldLabelsByFormId: fieldLabelsByFormId,
+          onFormProgress: onFormProgress,
+          onStatus: onStatus,
         );
       } else {
         await _exportToExcel(
-          submissionsByTeacher: submissionsByTeacher,
-          teacherIds: teacherIds,
+          submissionsByForm: submissionsByForm,
+          formIds: formIds,
           teacherNames: teacherNames,
           formTitles: formTitles,
           shiftMap: shiftMap,
-          locale: locale,
           exportBaseName: exportBaseName,
-          onTeacherProgress: onTeacherProgress,
+          fieldLabelsByFormId: fieldLabelsByFormId,
+          onFormProgress: onFormProgress,
+          onStatus: onStatus,
         );
       }
     } finally {
@@ -77,25 +100,18 @@ class AdminSubmissionsExportService {
   }
 
   static Future<void> _exportToExcel({
-    required Map<String, List<QueryDocumentSnapshot>> submissionsByTeacher,
-    required List<String> teacherIds,
+    required Map<String, List<QueryDocumentSnapshot>> submissionsByForm,
+    required List<String> formIds,
     required Map<String, String> teacherNames,
     required Map<String, String> formTitles,
     required Map<String, TeachingShift> shiftMap,
-    required String locale,
     required String exportBaseName,
-    required void Function(String teacherId, int index, int total) onTeacherProgress,
+    required Map<String, Map<String, String>> fieldLabelsByFormId,
+    required void Function(String formId, int index, int total) onFormProgress,
+    void Function(AdminSubmissionsExportStatus status)? onStatus,
   }) async {
     final excel = xl.Excel.createExcel();
     final existingSheetNames = <String>{};
-    final lc = locale.toLowerCase();
-    final isFr = lc.startsWith('fr');
-    final isAr = lc.startsWith('ar');
-    final questionHeader = isFr ? 'Question' : isAr ? 'السؤال' : 'Question';
-    final answerHeader = isFr ? 'Réponse' : isAr ? 'الإجابة' : 'Answer';
-    final formMetaLabel = isFr ? 'Formulaire' : isAr ? 'النموذج' : 'Form';
-    final submittedMetaLabel = isFr ? 'Soumis le' : isAr ? 'تاريخ الإرسال' : 'Submitted';
-    final shiftMetaLabel = isFr ? 'Shift' : isAr ? 'الوردية' : 'Shift';
 
     final headerStyle = xl.CellStyle(
       bold: true,
@@ -104,163 +120,241 @@ class AdminSubmissionsExportService {
       verticalAlign: xl.VerticalAlign.Center,
       textWrapping: xl.TextWrapping.WrapText,
     );
-    final metaBlockStyle = xl.CellStyle(
-      bold: true,
-      backgroundColorHex: xl.ExcelColor.grey100,
-      horizontalAlign: xl.HorizontalAlign.Left,
-      verticalAlign: xl.VerticalAlign.Top,
-      textWrapping: xl.TextWrapping.WrapText,
-    );
-    final qaCellStyle = xl.CellStyle(
+    final dataCellStyle = xl.CellStyle(
       textWrapping: xl.TextWrapping.WrapText,
       verticalAlign: xl.VerticalAlign.Top,
       horizontalAlign: xl.HorizontalAlign.Left,
     );
 
-    var isFirstTeacherSheet = true;
+    var isFirstSheet = true;
+    var wroteAnySheet = false;
 
-    for (var i = 0; i < teacherIds.length; i++) {
-      final teacherId = teacherIds[i];
-      final teacherName = teacherNames[teacherId] ?? teacherId;
+    for (var i = 0; i < formIds.length; i++) {
+      final formId = formIds[i];
+      final docs = submissionsByForm[formId] ?? const [];
+      if (docs.isEmpty) continue;
+
+      wroteAnySheet = true;
+      onFormProgress(formId, i, formIds.length);
+      await Future<void>.delayed(Duration.zero);
+      final formTitle = formTitles[formId] ?? formId;
       final sheetName = _sanitizeExcelSheetName(
-        teacherName,
+        formTitle,
         existing: existingSheetNames.toList(),
       );
       existingSheetNames.add(sheetName);
       final sheet = excel[sheetName];
 
-      if (isFirstTeacherSheet) {
-        isFirstTeacherSheet = false;
+      if (isFirstSheet) {
+        isFirstSheet = false;
         if (excel.tables.containsKey('Sheet1') && excel.tables.length > 1) {
           excel.delete('Sheet1');
         }
       }
 
-      final docs = submissionsByTeacher[teacherId] ?? const [];
-      final includeShiftColumn = _sheetHasAnyShiftId(docs);
-
-      final h0 = sheet.cell(xl.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 0));
-      h0.value = xl.TextCellValue(questionHeader);
-      h0.cellStyle = headerStyle;
-      final h1 = sheet.cell(xl.CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: 0));
-      h1.value = xl.TextCellValue(answerHeader);
-      h1.cellStyle = headerStyle;
-
-      sheet.setColumnWidth(0, 56);
-      sheet.setColumnWidth(1, 56);
-
-      var dataRow0 = 1;
-
+      final allFieldKeys = <String>{};
       for (final doc in docs) {
         final data = (doc.data() as Map<String, dynamic>?) ?? {};
-        final formTitle = _normalizeText(_resolveFormTitle(data, formTitles));
-        final submittedAt = _resolveSubmittedAt(data);
-        final shiftText = _shiftDisplayText(data, shiftMap);
+        final responses = Map<String, dynamic>.from(
+            data['responses'] ?? data['answers'] ?? {});
 
-        final metaLines = <String>[
-          '$formMetaLabel: $formTitle',
-          '$submittedMetaLabel: $submittedAt',
-          if (includeShiftColumn) '$shiftMetaLabel: ${shiftText.isEmpty ? '-' : shiftText}',
-        ];
-        final metaText = metaLines.join('\n');
-
-        final metaStart = xl.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: dataRow0);
-        final metaEnd = xl.CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: dataRow0);
-        sheet.merge(metaStart, metaEnd, customValue: xl.TextCellValue(metaText));
-        sheet.cell(metaStart).cellStyle = metaBlockStyle;
-        dataRow0++;
-
-        final responses =
-            Map<String, dynamic>.from(data['responses'] ?? data['answers'] ?? {});
-
-        final labelMap = await FormLabelsCacheService().getLabelsForFormResponse(doc.id);
-
-        final fieldEntries = responses.entries
-            .where((e) => !e.key.toString().startsWith('_'))
-            .toList()
-          ..sort((a, b) => a.key.toString().compareTo(b.key.toString()));
-
-        if (fieldEntries.isEmpty) {
-          _writeExcelQaRow(sheet, dataRow0, '-', '-', qaCellStyle);
-          dataRow0++;
-        } else {
-          for (final e in fieldEntries) {
-            final rawLabel = labelMap[e.key.toString()] ?? e.key.toString();
-            final question = _labelForLocale(rawLabel, isFr, isAr);
-            final answer = _normalizeText(_formatValue(e.value));
-            _writeExcelQaRow(sheet, dataRow0, question, answer, qaCellStyle);
-            dataRow0++;
+        for (final key in responses.keys) {
+          if (!key.toString().startsWith('_')) {
+            allFieldKeys.add(key.toString());
           }
         }
-
-        dataRow0++;
       }
 
-      onTeacherProgress(teacherId, i, teacherIds.length);
+      final sortedFieldKeys = allFieldKeys.toList()..sort();
+
+      final labels = fieldLabelsByFormId[formId] ?? const {};
+
+      final headers = <String>[
+        'Teacher Name',
+        'Email',
+        'Submitted At',
+        'Shift',
+        ...sortedFieldKeys.map((k) => _excelSafeCellText(labels[k] ?? k)),
+        'Status',
+        'Admin Notes',
+        '#',
+        'Document ID',
+      ];
+
+      for (var col = 0; col < headers.length; col++) {
+        final cell = sheet
+            .cell(xl.CellIndex.indexByColumnRow(columnIndex: col, rowIndex: 0));
+        cell.value = xl.TextCellValue(_excelSafeCellText(headers[col]));
+        cell.cellStyle = headerStyle;
+        if (col == 0) {
+          sheet.setColumnWidth(col, 22);
+        } else if (col == 1) {
+          sheet.setColumnWidth(col, 30);
+        } else if (col == 2) {
+          sheet.setColumnWidth(col, 18);
+        } else if (col == 3) {
+          sheet.setColumnWidth(col, 32);
+        } else if (col < headers.length - 4) {
+          sheet.setColumnWidth(col, 28);
+        } else if (col == headers.length - 4) {
+          sheet.setColumnWidth(col, 14);
+        } else if (col == headers.length - 3) {
+          sheet.setColumnWidth(col, 36);
+        } else if (col == headers.length - 2) {
+          sheet.setColumnWidth(col, 10);
+        } else {
+          sheet.setColumnWidth(col, 28);
+        }
+      }
+
+      // 3. Write Data Rows
+      var dataRow = 1;
+      for (var docIndex = 0; docIndex < docs.length; docIndex++) {
+        final doc = docs[docIndex];
+        final data = (doc.data() as Map<String, dynamic>?) ?? {};
+
+        final teacherId = (data['userId'] ?? '').toString();
+        final teacherName = teacherNames[teacherId] ?? teacherId;
+        final teacherEmail = (data['userEmail'] ?? '').toString();
+        final submittedAt = _resolveSubmittedAt(data);
+        final shiftText = _shiftDisplayText(data, shiftMap);
+        final status =
+            (data['reviewStatus'] ?? data['status'] ?? 'seen').toString();
+        final adminNote = (data['adminNote'] ?? '').toString();
+
+        final responses = Map<String, dynamic>.from(
+            data['responses'] ?? data['answers'] ?? {});
+
+        final rowData = <String>[
+          _excelSafeCellText(teacherName),
+          _excelSafeCellText(teacherEmail),
+          _excelSafeCellText(submittedAt),
+          _excelSafeCellText(shiftText.isEmpty ? '-' : shiftText),
+          ...sortedFieldKeys.map((key) {
+            if (!responses.containsKey(key)) return _excelSafeCellText('-');
+            return _excelSafeCellText(_formatValue(responses[key]));
+          }),
+          _excelSafeCellText(status.toUpperCase()),
+          _excelSafeCellText(adminNote),
+          _excelSafeCellText('${docIndex + 1}'),
+          _excelSafeCellText(doc.id),
+        ];
+
+        for (var col = 0; col < rowData.length; col++) {
+          final cell = sheet.cell(xl.CellIndex.indexByColumnRow(
+              columnIndex: col, rowIndex: dataRow));
+          cell.value = xl.TextCellValue(rowData[col]);
+          cell.cellStyle = dataCellStyle;
+        }
+
+        dataRow++;
+      }
     }
+
+    if (!wroteAnySheet) return;
 
     // Use encode(), not save(): on web, save() also triggers a browser download
     // as "FlutterExcel.xlsx" via the package helper — we name the file ourselves below.
+    onStatus?.call(AdminSubmissionsExportStatus.buildingFile);
+    await Future<void>.delayed(Duration.zero);
     final bytes = excel.encode();
     if (bytes == null || bytes.isEmpty) return;
 
+    onStatus?.call(AdminSubmissionsExportStatus.startingDownload);
+    await Future<void>.delayed(Duration.zero);
     if (kIsWeb) {
-      _downloadWebBytes(bytes, '$exportBaseName.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      _downloadWebBytes(bytes, '$exportBaseName.xlsx',
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     } else {
       await saveExportBytes(bytes, '$exportBaseName.xlsx');
     }
   }
 
-  static void _writeExcelQaRow(
-    xl.Sheet sheet,
-    int rowIndex0Based,
-    String question,
-    String answer,
-    xl.CellStyle cellStyle,
-  ) {
-    final q = sheet.cell(xl.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: rowIndex0Based));
-    q.value = xl.TextCellValue(question);
-    q.cellStyle = cellStyle;
-    final a = sheet.cell(xl.CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: rowIndex0Based));
-    a.value = xl.TextCellValue(answer);
-    a.cellStyle = cellStyle;
-  }
+  static Future<Map<String, Map<String, String>>> _resolveFieldLabelsByFormId(
+    Map<String, List<QueryDocumentSnapshot>> submissionsByForm,
+  ) async {
+    final svc = FormLabelsCacheService();
+    final entries = submissionsByForm.entries
+        .where((e) =>
+            e.key.isNotEmpty && e.key != kAdminSubmissionsExportNoFormIdBucket)
+        .toList();
 
-  /// True if any submission on this sheet references a shift (omit shift line entirely when false).
-  static bool _sheetHasAnyShiftId(List<QueryDocumentSnapshot> docs) {
-    for (final doc in docs) {
-      final data = (doc.data() as Map<String, dynamic>?) ?? {};
-      final shiftId = (data['shiftId'] ?? data['shift_id'] ?? '').toString().trim();
-      if (shiftId.isNotEmpty) return true;
+    Future<MapEntry<String, Map<String, String>>?> resolveOne(
+      String formKey,
+      List<QueryDocumentSnapshot> docs,
+    ) async {
+      final templateIds = <String>{};
+      for (final doc in docs) {
+        final d = doc.data() as Map<String, dynamic>?;
+        final tid = d?['templateId']?.toString().trim();
+        if (tid != null && tid.isNotEmpty) templateIds.add(tid);
+      }
+      var merged = <String, String>{};
+      final templateMaps = await Future.wait(
+        templateIds.map((tid) => svc.getLabelsForTemplate(tid)),
+      );
+      for (final m in templateMaps) {
+        if (m.isNotEmpty) merged = {...merged, ...m};
+      }
+      final tMain = await svc.getLabelsForTemplate(formKey);
+      final fMain = await svc.getLabelsForForm(formKey);
+      merged = {...merged, ...tMain, ...fMain};
+      if (merged.isEmpty) return null;
+      return MapEntry(formKey, merged);
     }
-    return false;
+
+    final pairs = await Future.wait(
+      entries.map((e) => resolveOne(e.key, e.value)),
+    );
+    final out = <String, Map<String, String>>{};
+    for (final p in pairs) {
+      if (p != null) out[p.key] = p.value;
+    }
+    return out;
   }
 
   static String _shiftDisplayText(
     Map<String, dynamic> data,
     Map<String, TeachingShift> shiftMap,
   ) {
-    final shiftId = (data['shiftId'] ?? data['shift_id'] ?? '').toString().trim();
+    final shiftId = _resolveShiftIdForExport(data);
     if (shiftId.isEmpty) return '';
     final shiftSummary = shiftMap[shiftId];
     if (shiftSummary == null) return shiftId;
     return _normalizeText(_formatShiftSummary(shiftSummary));
   }
 
+  /// Same shift-key resolution as [AdminSubmissionsReviewScreen._resolveShiftId].
+  static String _resolveShiftIdForExport(Map<String, dynamic> data) {
+    final raw = data['shiftId'] ??
+        data['shift_id'] ??
+        data['linkedShiftId'] ??
+        data['linked_shift_id'];
+    final sid = raw?.toString().trim() ?? '';
+    if (sid.isEmpty) return '';
+    if (sid.toLowerCase() == 'n/a') return '';
+    if (sid == 'N/A') return '';
+    return sid;
+  }
+
   static Future<void> _exportToPdf({
-    required Map<String, List<QueryDocumentSnapshot>> submissionsByTeacher,
-    required List<String> teacherIds,
+    required Map<String, List<QueryDocumentSnapshot>> submissionsByForm,
+    required List<String> formIds,
     required Map<String, String> teacherNames,
     required Map<String, String> formTitles,
     required Map<String, TeachingShift> shiftMap,
     required String locale,
     required String exportBaseName,
-    required void Function(String teacherId, int index, int total) onTeacherProgress,
+    required Map<String, Map<String, String>> fieldLabelsByFormId,
+    required void Function(String formId, int index, int total) onFormProgress,
+    void Function(AdminSubmissionsExportStatus status)? onStatus,
   }) async {
     final pdf = pw.Document();
     final lcPdf = locale.toLowerCase();
     final isFr = lcPdf.startsWith('fr');
     final isAr = lcPdf.startsWith('ar');
+    onStatus?.call(AdminSubmissionsExportStatus.loadingDocumentFonts);
+    await Future<void>.delayed(Duration.zero);
     final baseFont = await PdfGoogleFonts.notoSansRegular();
     final boldFont = await PdfGoogleFonts.notoSansBold();
     final theme = pw.ThemeData.withFont(
@@ -278,9 +372,13 @@ class AdminSubmissionsExportService {
     final submissionsLabel = isFr ? 'soumission(s)' : 'submission(s)';
     final submittedLabel = isFr ? 'Soumis' : 'Submitted';
     final shiftLabel = isFr ? 'Shift' : 'Shift';
-    final teacherLabel = isFr ? 'Enseignant' : 'Teacher';
     final questionLabel = isFr ? 'Question' : 'Question';
     final answerLabel = isFr ? 'Reponse' : 'Answer';
+    final formMetaLabel = isFr
+        ? 'Formulaire'
+        : isAr
+            ? 'النموذج'
+            : 'Form';
 
     pdf.addPage(
       pw.MultiPage(
@@ -319,12 +417,12 @@ class AdminSubmissionsExportService {
             style: pw.TextStyle(fontSize: 15, fontWeight: pw.FontWeight.bold),
           ),
           pw.SizedBox(height: 8),
-          ...teacherIds.asMap().entries.map((entry) {
+          ...formIds.asMap().entries.map((entry) {
             final index = entry.key;
             final idx = index + 1;
-            final teacherId = entry.value;
-            final name = _normalizeText(teacherNames[teacherId] ?? teacherId);
-            final count = submissionsByTeacher[teacherId]?.length ?? 0;
+            final formId = entry.value;
+            final title = _normalizeText(formTitles[formId] ?? formId);
+            final count = submissionsByForm[formId]?.length ?? 0;
             final anchor = _pdfTeacherAnchor(index);
             return pw.Padding(
               padding: const pw.EdgeInsets.only(bottom: 6),
@@ -339,7 +437,7 @@ class AdminSubmissionsExportService {
                     ),
                     pw.Expanded(
                       child: pw.Text(
-                        '$name — $count $submissionsLabel',
+                        '$title — $count $submissionsLabel',
                         style: pw.TextStyle(
                           fontSize: 11,
                           color: PdfColor.fromHex('#1D4ED8'),
@@ -357,15 +455,22 @@ class AdminSubmissionsExportService {
       ),
     );
 
-    for (var i = 0; i < teacherIds.length; i++) {
-      final teacherId = teacherIds[i];
-      final teacherName = _normalizeText(teacherNames[teacherId] ?? teacherId);
-      final docs = submissionsByTeacher[teacherId] ?? const [];
-      final teacherPosition = '${i + 1}/${teacherIds.length}';
+    for (var i = 0; i < formIds.length; i++) {
+      final formId = formIds[i];
+      final formTitle = _normalizeText(formTitles[formId] ?? formId);
+      final docs = submissionsByForm[formId] ?? const [];
+      if (docs.isEmpty) continue;
+
+      onFormProgress(formId, i, formIds.length);
+      await Future<void>.delayed(Duration.zero);
+
+      final labels = fieldLabelsByFormId[formId] ?? const {};
+
+      final formPosition = '${i + 1}/${formIds.length}';
       final widgets = <pw.Widget>[
         pw.Outline(
           name: _pdfTeacherAnchor(i),
-          title: teacherName,
+          title: formTitle,
           level: 0,
           color: PdfColor.fromHex('#1D4ED8'),
           child: pw.Container(
@@ -380,11 +485,12 @@ class AdminSubmissionsExportService {
               children: [
                 pw.Expanded(
                   child: pw.Text(
-                    '$teacherLabel: $teacherName',
-                    style: pw.TextStyle(fontSize: 15, fontWeight: pw.FontWeight.bold),
+                    '$formMetaLabel: $formTitle',
+                    style: pw.TextStyle(
+                        fontSize: 15, fontWeight: pw.FontWeight.bold),
                   ),
                 ),
-                pw.Text(teacherPosition, style: const pw.TextStyle(fontSize: 10)),
+                pw.Text(formPosition, style: const pw.TextStyle(fontSize: 10)),
               ],
             ),
           ),
@@ -394,24 +500,25 @@ class AdminSubmissionsExportService {
 
       for (final doc in docs) {
         final data = (doc.data() as Map<String, dynamic>?) ?? {};
-        final formTitle = _normalizeText(_resolveFormTitle(data, formTitles));
+        final teacherId = (data['userId'] ?? '').toString();
+        final teacherName =
+            _normalizeText(teacherNames[teacherId] ?? teacherId);
         final submittedAt = _resolveSubmittedAt(data);
-        final shiftId = (data['shiftId'] ?? data['shift_id'] ?? '').toString();
+        final shiftId = _resolveShiftIdForExport(data);
         final shiftSummary = shiftMap[shiftId];
         final shiftText = shiftSummary == null
             ? shiftId
             : _normalizeText(_formatShiftSummary(shiftSummary));
 
-        final responses =
-            Map<String, dynamic>.from(data['responses'] ?? data['answers'] ?? {});
-
-        final labelMap = await FormLabelsCacheService().getLabelsForFormResponse(doc.id);
+        final responses = Map<String, dynamic>.from(
+            data['responses'] ?? data['answers'] ?? {});
 
         final qaRows = <pw.Widget>[];
         responses.forEach((fieldId, value) {
           if (fieldId.toString().startsWith('_')) return;
-          final rawLabel = labelMap[fieldId.toString()] ?? fieldId.toString();
-          final label = _labelForLocale(rawLabel, isFr, isAr);
+          final humanLabel = _normalizeText(
+            labels[fieldId.toString()] ?? fieldId.toString(),
+          );
           final answer = _normalizeText(_formatValue(value));
           qaRows.add(
             pw.Container(
@@ -426,7 +533,7 @@ class AdminSubmissionsExportService {
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
                   pw.Text(
-                    '$questionLabel: $label',
+                    '$questionLabel: $humanLabel',
                     style: pw.TextStyle(
                       fontSize: 10,
                       fontWeight: pw.FontWeight.bold,
@@ -450,15 +557,17 @@ class AdminSubmissionsExportService {
             padding: const pw.EdgeInsets.all(12),
             decoration: pw.BoxDecoration(
               color: PdfColor.fromHex('#F9FAFB'),
-              border: pw.Border.all(color: PdfColor.fromHex('#D1D5DB'), width: 0.8),
+              border:
+                  pw.Border.all(color: PdfColor.fromHex('#D1D5DB'), width: 0.8),
               borderRadius: pw.BorderRadius.circular(8),
             ),
             child: pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
                 pw.Text(
-                  formTitle,
-                  style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold),
+                  teacherName,
+                  style: pw.TextStyle(
+                      fontSize: 12, fontWeight: pw.FontWeight.bold),
                 ),
                 pw.SizedBox(height: 4),
                 pw.Text(
@@ -485,41 +594,27 @@ class AdminSubmissionsExportService {
           footer: (context) => pw.Align(
             alignment: pw.Alignment.centerRight,
             child: pw.Text(
-              '$teacherName - ${context.pageNumber}',
+              '$formTitle - ${context.pageNumber}',
               style: const pw.TextStyle(fontSize: 9),
             ),
           ),
           build: (context) => widgets,
         ),
       );
-      onTeacherProgress(teacherId, i, teacherIds.length);
     }
 
+    onStatus?.call(AdminSubmissionsExportStatus.buildingFile);
+    await Future<void>.delayed(Duration.zero);
     final bytes = await pdf.save();
     if (bytes.isEmpty) return;
 
+    onStatus?.call(AdminSubmissionsExportStatus.startingDownload);
+    await Future<void>.delayed(Duration.zero);
     if (kIsWeb) {
       _downloadWebBytes(bytes, '$exportBaseName.pdf', 'application/pdf');
     } else {
       await saveExportBytes(bytes, '$exportBaseName.pdf');
     }
-  }
-
-  static String _resolveFormTitle(
-    Map<String, dynamic> submissionData,
-    Map<String, String> formTitles,
-  ) {
-    final formId = submissionData['formId'] as String?;
-    if (formId != null && formTitles.containsKey(formId)) {
-      return formTitles[formId]!;
-    }
-    final inline = submissionData['formName'] ?? submissionData['formTitle'] ?? submissionData['title'];
-    if (inline != null && inline.toString().isNotEmpty) return inline.toString();
-    final formType = (submissionData['formType'] ?? '').toString().toLowerCase();
-    if (formType == 'daily') return 'Daily Class Report';
-    if (formType == 'weekly') return 'Weekly Report';
-    if (formType == 'monthly') return 'Monthly Report';
-    return 'Form';
   }
 
   static String _resolveSubmittedAt(Map<String, dynamic> submissionData) {
@@ -536,10 +631,18 @@ class AdminSubmissionsExportService {
 
   static String _formatValue(dynamic value) {
     if (value == null) return '-';
-    if (value is Timestamp) return DateFormat('yyyy-MM-dd').format(value.toDate());
+    if (value is Timestamp)
+      return DateFormat('yyyy-MM-dd').format(value.toDate());
     if (value is DateTime) return DateFormat('yyyy-MM-dd').format(value);
     if (value is bool) return value ? 'Yes' : 'No';
-    if (value is List) return value.map((e) => e.toString()).join(', ');
+    if (value is Map) {
+      final parts = <String>[];
+      for (final e in value.entries) {
+        parts.add('${e.key}: ${_formatValue(e.value)}');
+      }
+      return parts.join(' | ');
+    }
+    if (value is List) return value.map(_formatValue).join(', ');
     return value.toString();
   }
 
@@ -559,17 +662,30 @@ class AdminSubmissionsExportService {
         .trim();
   }
 
-  /// Picks one side of "English / Français" style labels for readability in exports.
-  static String _labelForLocale(String label, bool preferFrench, bool preferArabic) {
-    final parts = label.split(RegExp(r'\s*/\s*'));
-    if (parts.length >= 2) {
-      final first = parts.first.trim();
-      final last = parts.last.trim();
-      if (preferFrench) return _normalizeText(last);
-      if (preferArabic) return _normalizeText(first);
-      return _normalizeText(first);
+  /// Strips characters that break OOXML / Excel's XML parser so the file opens without repair.
+  static String _excelSafeCellText(String raw) {
+    final base = _normalizeText(raw);
+    if (base.isEmpty) return '';
+    final buf = StringBuffer();
+    for (final r in base.runes) {
+      if (r == 0x9 || r == 0xA || r == 0xD) {
+        buf.writeCharCode(r);
+      } else if (r >= 0x20 && r <= 0xD7FF) {
+        buf.writeCharCode(r);
+      } else if (r >= 0xE000 && r <= 0xFFFD) {
+        buf.writeCharCode(r);
+      } else if (r >= 0x10000 && r <= 0x10FFFF) {
+        buf.write(String.fromCharCode(r));
+      } else {
+        buf.write(' ');
+      }
     }
-    return _normalizeText(label);
+    var out = buf.toString();
+    const maxLen = 32000;
+    if (out.length > maxLen) {
+      out = '${out.substring(0, maxLen)}…';
+    }
+    return out;
   }
 
   static String _sanitizeExcelSheetName(
@@ -579,21 +695,26 @@ class AdminSubmissionsExportService {
     var name = rawName.trim();
     if (name.isEmpty) name = 'Sheet';
     // Excel forbidden chars: : \ / ? * [ ]
-    name = name.replaceAll(RegExp(r'[:\\\\/?*\\[\\]]'), '_');
+    name = name.replaceAll(RegExp(r'[:\\/?*\[\]]'), '_');
     if (name.length > 31) name = name.substring(0, 31);
 
+    final existingLower = existing.map((e) => e.toLowerCase()).toSet();
     var candidate = name;
     var counter = 1;
-    while (existing.contains(candidate)) {
+    while (existingLower.contains(candidate.toLowerCase())) {
       final suffix = '_$counter';
-      candidate = name.length + suffix.length > 31 ? name.substring(0, (31 - suffix.length)) + suffix : name + suffix;
+      candidate = name.length + suffix.length > 31
+          ? name.substring(0, (31 - suffix.length).clamp(0, 31)) + suffix
+          : name + suffix;
       counter++;
     }
     return candidate;
   }
 
-  static void _downloadWebBytes(List<int> bytes, String fileName, String mimeType) {
-    final b = html.Blob([bytes], mimeType);
+  static void _downloadWebBytes(
+      List<int> bytes, String fileName, String mimeType) {
+    final typed = bytes is Uint8List ? bytes : Uint8List.fromList(bytes);
+    final b = html.Blob([typed], mimeType);
     final url = html.Url.createObjectUrlFromBlob(b);
     final anchor = html.AnchorElement()
       ..href = url
@@ -607,5 +728,17 @@ class AdminSubmissionsExportService {
       html.Url.revokeObjectUrl(url);
     });
   }
-}
 
+  @visibleForTesting
+  static String debugSanitizeExcelSheetName(
+          String rawName, List<String> existing) =>
+      _sanitizeExcelSheetName(rawName, existing: existing);
+
+  @visibleForTesting
+  static String debugFormatSubmissionValue(dynamic value) =>
+      _formatValue(value);
+
+  @visibleForTesting
+  static String debugResolveShiftIdForExport(Map<String, dynamic> data) =>
+      _resolveShiftIdForExport(data);
+}

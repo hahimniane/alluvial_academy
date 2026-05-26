@@ -481,7 +481,8 @@ class ChatService {
       // Repair docs created by older code with corrupted participants.
       final data = chatDoc.data()!;
       final participants = List<String>.from(data['participants'] ?? []);
-      if (!participants.contains(adminSupportId) || data['chat_type'] != 'admin_support') {
+      if (!participants.contains(adminSupportId) ||
+          data['chat_type'] != 'admin_support') {
         await chatDocRef.update({
           'participants': [currentUserId, adminSupportId],
           'chat_type': 'admin_support',
@@ -820,7 +821,8 @@ class ChatService {
       final needsRepair = !participants.contains(adminSupportId) ||
           data['chat_type'] != 'admin_support';
       if (needsRepair) {
-        AppLogger.error('[SupportChat] Repairing corrupted doc: $chatId old participants=$participants');
+        AppLogger.error(
+            '[SupportChat] Repairing corrupted doc: $chatId old participants=$participants');
         await chatDocRef.update({
           'participants': [userId, adminSupportId],
           'chat_type': 'admin_support',
@@ -1343,6 +1345,35 @@ class ChatService {
       }
     }
     return count;
+  }
+
+  /// Sorted `chats/{id}` document id for a 1:1 between the signed-in user and [otherUserId].
+  /// Does not create the chat document.
+  String? individualChatIdWith(String otherUserId) {
+    if (currentUserId == null || otherUserId.isEmpty) return null;
+    return _generateChatId(currentUserId!, otherUserId);
+  }
+
+  /// Same logic as [_getUnreadCount] but updates live (e.g. audit discussion badge for admins).
+  Stream<int> watchUnreadIncomingMessageCount(String chatId) {
+    if (currentUserId == null) return Stream.value(0);
+    return _firestore
+        .collection('chats')
+        .doc(chatId)
+        .collection('messages')
+        .where('is_read', isEqualTo: false)
+        .snapshots()
+        .map((snap) {
+      var count = 0;
+      for (final doc in snap.docs) {
+        final data = doc.data();
+        if (data['sender_id'] != currentUserId &&
+            !_isMessageHiddenForCurrentUser(data)) {
+          count++;
+        }
+      }
+      return count;
+    });
   }
 
   Future<void> _touchChatVisibility(String chatId) async {

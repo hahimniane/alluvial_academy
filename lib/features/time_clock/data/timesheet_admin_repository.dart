@@ -1,11 +1,13 @@
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 import 'package:alluwalacademyadmin/core/utils/performance_logger.dart';
+import 'package:alluwalacademyadmin/core/utils/shift_session_aggregator.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../enums/timesheet_enums.dart';
 import '../controllers/timesheet_review_controller.dart';
 import '../models/timesheet_entry.dart';
+import '../utils/timesheet_hh_mm.dart';
 
 /// Firestore reads and snapshot processing for admin timesheet review.
 class TimesheetAdminRepository {
@@ -108,52 +110,76 @@ class TimesheetAdminRepository {
       }
 
       grouped.forEach((shiftId, entries) {
-        if (entries.length == 1) {
-          consolidatedList.add(entries.first);
+        final byDocId = <String, TimesheetEntry>{};
+        final noDocId = <TimesheetEntry>[];
+        for (final e in entries) {
+          final id = e.documentId ?? '';
+          if (id.isEmpty) {
+            noDocId.add(e);
+          } else {
+            byDocId[id] = e;
+          }
+        }
+        final mergedEntries = [...byDocId.values, ...noDocId];
+        if (mergedEntries.length == 1) {
+          consolidatedList.add(mergedEntries.first);
         } else {
-          double totalHours = 0;
-          double totalPayment = 0;
-
-          for (final e in entries) {
-            totalPayment += (e.paymentAmount ?? 0);
-            final parts = e.totalHours.split(':');
-            if (parts.length >= 2) {
-              try {
-                final h = int.parse(parts[0]);
-                final m = int.parse(parts[1]);
-                totalHours += h + (m / 60.0);
-              } catch (_) {}
+          // Find the shift data from the cache
+          Map<String, dynamic>? shiftData;
+          for (final entry in mergedEntries) {
+            if (shiftCache.containsKey(entry.shiftId)) {
+              shiftData = shiftCache[entry.shiftId];
+              if (shiftData != null) break;
             }
           }
 
-          final h = totalHours.floor();
-          final m = ((totalHours - h) * 60).round();
+          double totalHours = 0;
+          double totalPayment = 0;
+
+          if (shiftData != null) {
+            // Convert TimesheetEntry back to map for the aggregator
+            final rawTimesheets =
+                mergedEntries.map((e) => e.rawDocumentData ?? {}).toList();
+            final result = ShiftSessionAggregator.computeSession(
+                shiftData, rawTimesheets, []);
+            totalHours = result.workedHours;
+            totalPayment = result.realPay;
+          } else {
+            for (final e in mergedEntries) {
+              totalPayment += (e.paymentAmount ?? 0);
+              totalHours +=
+                  timesheetParseDurationToSeconds(e.totalHours) / 3600.0;
+            }
+          }
+
+          final billableSeconds = (totalHours * 3600).round();
           final formattedTotalHours =
-              '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}';
+              timesheetFormatSecondsAsHhMmSs(billableSeconds);
 
           TimesheetStatus groupStatus = TimesheetStatus.approved;
-          if (entries.any((e) => e.status == TimesheetStatus.rejected)) {
+          if (mergedEntries.any((e) => e.status == TimesheetStatus.rejected)) {
             groupStatus = TimesheetStatus.rejected;
           }
-          if (entries.any((e) => e.status == TimesheetStatus.draft)) {
+          if (mergedEntries.any((e) => e.status == TimesheetStatus.draft)) {
             groupStatus = TimesheetStatus.draft;
           }
-          if (entries.any((e) => e.status == TimesheetStatus.pending)) {
+          if (mergedEntries.any((e) => e.status == TimesheetStatus.pending)) {
             groupStatus = TimesheetStatus.pending;
           }
 
-          entries.sort((a, b) => a.start.compareTo(b.start));
-          final first = entries.first;
-          final last = entries.last;
+          mergedEntries.sort((a, b) => a.start.compareTo(b.start));
+          final first = mergedEntries.first;
+          final last = mergedEntries.last;
 
           consolidatedList.add(TimesheetEntry(
             documentId: 'consolidated_$shiftId',
             date: first.date,
-            subject: '${first.subject} (${entries.length} sessions)',
+            subject: '${first.subject} (${mergedEntries.length} sessions)',
             start: first.start,
             end: last.end,
             totalHours: formattedTotalHours,
-            description: 'Consolidated shift with ${entries.length} clock-ins',
+            description:
+                'Consolidated shift with ${mergedEntries.length} clock-ins',
             status: groupStatus,
             teacherId: first.teacherId,
             teacherName: first.teacherName,
@@ -161,7 +187,7 @@ class TimesheetAdminRepository {
             paymentAmount: totalPayment,
             shiftTitle: first.shiftTitle,
             isConsolidated: true,
-            childEntries: entries,
+            childEntries: mergedEntries,
             shiftId: shiftId,
           ));
         }
@@ -232,8 +258,7 @@ class TimesheetAdminRepository {
           onUserCacheHit();
         } else {
           final sw = Stopwatch()..start();
-          final userDoc =
-              await _db.collection('users').doc(teacherId).get();
+          final userDoc = await _db.collection('users').doc(teacherId).get();
           sw.stop();
           onUserFetch(sw.elapsedMilliseconds);
 
@@ -260,24 +285,29 @@ class TimesheetAdminRepository {
       DateTime? finalScheduledEnd = scheduledEnd?.toDate();
       int? finalScheduledDurationMinutes = scheduledDurationMinutes;
 
-      final shiftId = data['shift_id'] as String?;
+      final rawShiftKey = data['shift_id'] ?? data['shiftId'];
+      final shiftId = rawShiftKey?.toString().trim();
+      final normalizedShiftId =
+          (shiftId != null && shiftId.isNotEmpty) ? shiftId : null;
       if ((finalScheduledStart == null ||
               finalScheduledEnd == null ||
               finalScheduledDurationMinutes == null) &&
-          shiftId != null) {
+          normalizedShiftId != null) {
         try {
           Map<String, dynamic>? shiftData;
-          if (shiftCache.containsKey(shiftId)) {
-            shiftData = shiftCache[shiftId];
+          if (shiftCache.containsKey(normalizedShiftId)) {
+            shiftData = shiftCache[normalizedShiftId];
             onShiftCacheHit();
           } else {
             final sw = Stopwatch()..start();
-            final shiftDoc =
-                await _db.collection('teaching_shifts').doc(shiftId).get();
+            final shiftDoc = await _db
+                .collection('teaching_shifts')
+                .doc(normalizedShiftId)
+                .get();
             sw.stop();
             onShiftFetch(sw.elapsedMilliseconds);
             shiftData = shiftDoc.data();
-            shiftCache[shiftId] = shiftData;
+            shiftCache[normalizedShiftId] = shiftData;
           }
 
           if (shiftData != null) {
@@ -299,7 +329,7 @@ class TimesheetAdminRepository {
           }
         } catch (e) {
           AppLogger.debug(
-              'Could not fetch shift data for shift_id $shiftId: $e');
+              'Could not fetch shift data for shift_id $normalizedShiftId: $e');
         }
       }
 
@@ -346,7 +376,8 @@ class TimesheetAdminRepository {
             data['form_completed'] == true || data['form_response_id'] != null,
         reportedHours: (data['reported_hours'] as num?)?.toDouble(),
         formNotes: data['form_notes'] as String?,
-        shiftId: shiftId,
+        shiftId: normalizedShiftId,
+        rawDocumentData: data,
       );
     } catch (e) {
       AppLogger.error('Error creating timesheet entry for doc ${doc.id}: $e');

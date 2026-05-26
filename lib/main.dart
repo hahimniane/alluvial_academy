@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'core/services/auth_service.dart';
 import 'core/services/error_reporting_service.dart';
+import 'core/services/web_app_stability_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
@@ -24,6 +25,7 @@ import 'features/dashboard/screens/role_based_dashboard.dart';
 import 'firebase_options.dart' as prod_firebase;
 import 'firebase_options_dev.dart' as dev_firebase;
 import 'core/constants/app_constants.dart';
+import 'core/services/public_site_cms_service.dart';
 import 'features/website/screens/landing_page.dart';
 import 'core/utils/timezone_utils.dart';
 import 'core/utils/auth_debug_logger.dart';
@@ -37,6 +39,7 @@ import 'core/theme/app_theme.dart';
 import 'core/services/version_service.dart';
 import 'core/widgets/version_check_wrapper.dart';
 import 'core/utils/app_logger.dart';
+import 'core/widgets/web_app_stability_banner.dart';
 import 'package:alluwalacademyadmin/features/livekit/services/join_link_service.dart';
 import 'package:alluwalacademyadmin/features/shift_management/services/shift_service.dart';
 import 'package:alluwalacademyadmin/features/livekit/services/video_call_service.dart';
@@ -50,7 +53,7 @@ import 'features/livekit/screens/guest_join_screen.dart';
 //     String.fromEnvironment('FIREBASE_ENV', defaultValue: '');
 
 const String _firebaseEnv =
-    'prod'; // change to 'dev' to switch projects and prod to run the production project
+    'prod'; // use 'dev' only when testing against alluwal-dev (separate Auth/users)
 
 bool get _useProdFirebase {
   final env = _firebaseEnv.trim().toLowerCase();
@@ -101,10 +104,12 @@ void _saveFCMTokenIfLoggedIn() {
 
       if (currentUser != null) {
         AppLogger.info('✅ User is logged in, attempting to save FCM token...');
-        await NotificationService()
-            .saveTokenToFirestore(userId: currentUser.uid);
+        await NotificationService().saveTokenToFirestore(
+          userId: currentUser.uid,
+        );
         AppLogger.info(
-            '✅ FCM token save completed for user: ${currentUser.uid}');
+          '✅ FCM token save completed for user: ${currentUser.uid}',
+        );
       } else {
         AppLogger.warning('❌ No user logged in - FCM token will not be saved');
       }
@@ -113,6 +118,11 @@ void _saveFCMTokenIfLoggedIn() {
       AppLogger.error('❌ Stack trace: ${StackTrace.current}');
     }
   });
+}
+
+Widget _wrapWithDebugDevicePreview(Widget app) {
+  if (!kDebugMode) return app;
+  return DevicePreview(enabled: true, builder: (_) => app);
 }
 
 Future<void> main() async {
@@ -206,8 +216,22 @@ Future<void> main() async {
   if (kIsWeb) {
     FirebaseFirestore.instance.settings = const Settings(
       persistenceEnabled: false,
-      webExperimentalAutoDetectLongPolling: true,
+      // Work around intermittent Firestore WebChannel crashes on some networks
+      // (`INTERNAL ASSERTION FAILED: Unexpected state`).
+      webExperimentalForceLongPolling: true,
+      webExperimentalAutoDetectLongPolling: false,
     );
+
+    // Global recovery for the "page spins forever, must clear browsing data
+    // to fix" symptom: unregisters stale service workers, evicts Cache Storage
+    // entries from prior deploys, and runs a Firestore WebChannel watchdog.
+    // Awaited so the SW/cache cleanup completes before runApp; the watchdog
+    // itself runs in the background.
+    try {
+      await WebAppStabilityService.instance.initialize();
+    } catch (e) {
+      AppLogger.error('WebAppStabilityService init failed: $e');
+    }
   }
 
   // Initialize Firebase Cloud Messaging background handler
@@ -217,8 +241,9 @@ Future<void> main() async {
 
   // Initialize Stripe for in-app payments (mobile only)
   if (_isNativeMobilePlatform) {
-    final stripePublishableKey =
-        const String.fromEnvironment('STRIPE_PUBLISHABLE_KEY');
+    final stripePublishableKey = const String.fromEnvironment(
+      'STRIPE_PUBLISHABLE_KEY',
+    );
     if (stripePublishableKey.isNotEmpty) {
       Stripe.publishableKey = stripePublishableKey;
       await Stripe.instance.applySettings();
@@ -253,16 +278,23 @@ Future<void> main() async {
     AppLogger.debug('Shift wage migration is disabled on startup.');
   }
 
+  try {
+    await PublicSiteCmsService.warmStartupDocsFromDiskCache();
+  } catch (e, st) {
+    AppLogger.debug('warmStartupDocsFromDiskCache: $e\n$st');
+  }
+
   // Handle Flutter framework errors gracefully (like trackpad gesture assertions)
   FlutterError.onError = (FlutterErrorDetails details) {
     // Filter out known framework issues
     if (details.exception.toString().contains('PointerDeviceKind.trackpad') ||
-        details.exception
-            .toString()
-            .contains('!identical(kind, PointerDeviceKind.trackpad)')) {
+        details.exception.toString().contains(
+          '!identical(kind, PointerDeviceKind.trackpad)',
+        )) {
       if (kDebugMode) {
         AppLogger.debug(
-            'Ignoring trackpad gesture assertion: ${details.exception}');
+          'Ignoring trackpad gesture assertion: ${details.exception}',
+        );
       }
       return;
     }
@@ -305,8 +337,12 @@ Future<void> main() async {
 
   // Catch async errors not handled by Flutter framework
   PlatformDispatcher.instance.onError = (error, stack) {
-    ErrorReportingService.reportError(error, stack,
-        context: 'platform_async', fatal: true);
+    ErrorReportingService.reportError(
+      error,
+      stack,
+      context: 'platform_async',
+      fatal: true,
+    );
     if (!kIsWeb) {
       FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
     }
@@ -315,8 +351,9 @@ Future<void> main() async {
 
   // Initialize Crashlytics on native platforms
   if (!kIsWeb) {
-    await FirebaseCrashlytics.instance
-        .setCrashlyticsCollectionEnabled(kReleaseMode);
+    await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(
+      kReleaseMode,
+    );
   }
 
   // Use runWidget for web multiview compatibility
@@ -333,10 +370,7 @@ Future<void> main() async {
                 ChangeNotifierProvider(create: (_) => ThemeService()),
                 ChangeNotifierProvider(create: (_) => LanguageService()),
               ],
-              child: DevicePreview(
-                enabled: kDebugMode, // Only enabled in debug mode
-                builder: (context) => const MyApp(),
-              ),
+              child: _wrapWithDebugDevicePreview(const MyApp()),
             ),
           ),
         );
@@ -348,10 +382,7 @@ Future<void> main() async {
               ChangeNotifierProvider(create: (_) => ThemeService()),
               ChangeNotifierProvider(create: (_) => LanguageService()),
             ],
-            child: DevicePreview(
-              enabled: kDebugMode,
-              builder: (context) => const MyApp(),
-            ),
+            child: _wrapWithDebugDevicePreview(const MyApp()),
           ),
         );
       }
@@ -364,10 +395,7 @@ Future<void> main() async {
             ChangeNotifierProvider(create: (_) => ThemeService()),
             ChangeNotifierProvider(create: (_) => LanguageService()),
           ],
-          child: DevicePreview(
-            enabled: kDebugMode,
-            builder: (context) => const MyApp(),
-          ),
+          child: _wrapWithDebugDevicePreview(const MyApp()),
         ),
       );
     }
@@ -380,15 +408,9 @@ Future<void> main() async {
         ],
         child: kReleaseMode
             ? VersionCheckWrapper(
-                child: DevicePreview(
-                  enabled: kDebugMode, // Only enabled in debug mode
-                  builder: (context) => const MyApp(),
-                ),
+                child: _wrapWithDebugDevicePreview(const MyApp()),
               )
-            : DevicePreview(
-                enabled: kDebugMode, // Only enabled in debug mode
-                builder: (context) => const MyApp(),
-              ),
+            : _wrapWithDebugDevicePreview(const MyApp()),
       ),
     );
   }
@@ -404,7 +426,8 @@ class MyApp extends StatelessWidget {
     // NATIVE MOBILE (iOS/Android) - Always go to AuthenticationWrapper
     if (!kIsWeb) {
       AppLogger.debug(
-          '=== Native platform detected (${Platform.operatingSystem}) - going to AuthenticationWrapper ===');
+        '=== Native platform detected (${Platform.operatingSystem}) - going to AuthenticationWrapper ===',
+      );
       return const AuthenticationWrapper();
     }
 
@@ -416,7 +439,8 @@ class MyApp extends StatelessWidget {
 
     if (JoinLinkService.hasPendingJoin) {
       AppLogger.debug(
-          '=== Join link detected: routing to AuthenticationWrapper ===');
+        '=== Join link detected: routing to AuthenticationWrapper ===',
+      );
       return const AuthenticationWrapper();
     }
 
@@ -425,7 +449,8 @@ class MyApp extends StatelessWidget {
     final platformLabel = defaultTargetPlatform.toString();
     final isMobileLayout = _isMobileLayout(context);
     AppLogger.debug(
-        '=== Web platform check: $platformLabel, isMobile=$isMobileLayout ===');
+      '=== Web platform check: $platformLabel, isMobile=$isMobileLayout ===',
+    );
     AppLogger.debug('=== Returning LandingPage for web (mobile/desktop) ===');
     return const LandingPage();
   }
@@ -437,10 +462,12 @@ class MyApp extends StatelessWidget {
       builder: (context, themeService, languageService, child) {
         final previewLocale = DevicePreview.locale(context);
         // Ensure we always have a valid supported locale
-        final appLocale = languageService.locale ??
+        final appLocale =
+            languageService.locale ??
             (previewLocale != null &&
                     LanguageService.supportedLocales.any(
-                        (l) => l.languageCode == previewLocale.languageCode)
+                      (l) => l.languageCode == previewLocale.languageCode,
+                    )
                 ? previewLocale
                 : const Locale('en'));
         return MaterialApp(
@@ -472,7 +499,11 @@ class MyApp extends StatelessWidget {
             // before newly navigated-to widgets are laid out, triggering a
             // NEEDS-LAYOUT assertion in _compareScreenOrder. Individual screens
             // that need selectable text use SelectableText directly instead.
-            final appContent = built;
+            //
+            // [WebAppStabilityBanner] is no-op on non-web; on web it surfaces a
+            // floating "page is stuck" banner with Recover / Reload actions
+            // when a screen reports being stuck.
+            final appContent = WebAppStabilityBanner(child: built);
 
             if (kReleaseMode) return appContent;
 
@@ -557,13 +588,13 @@ class MyApp extends StatelessWidget {
 class AppScrollBehavior extends MaterialScrollBehavior {
   @override
   Set<PointerDeviceKind> get dragDevices => {
-        // Enable drag scrolling for all common input devices on web/mobile
-        PointerDeviceKind.touch,
-        PointerDeviceKind.mouse,
-        PointerDeviceKind.trackpad,
-        PointerDeviceKind.stylus,
-        PointerDeviceKind.unknown,
-      };
+    // Enable drag scrolling for all common input devices on web/mobile
+    PointerDeviceKind.touch,
+    PointerDeviceKind.mouse,
+    PointerDeviceKind.trackpad,
+    PointerDeviceKind.stylus,
+    PointerDeviceKind.unknown,
+  };
 }
 
 class FirebaseInitializer extends StatefulWidget {
@@ -590,9 +621,7 @@ class _FirebaseInitializerState extends State<FirebaseInitializer> {
         await Future.delayed(const Duration(milliseconds: 100));
       }
 
-      await Firebase.initializeApp(
-        options: _firebaseOptions,
-      );
+      await Firebase.initializeApp(options: _firebaseOptions);
 
       // Additional delay for web Firebase services to fully initialize
       if (kIsWeb) {
@@ -623,11 +652,7 @@ class _FirebaseInitializerState extends State<FirebaseInitializer> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(
-                Icons.error_outline,
-                color: Colors.red,
-                size: 64,
-              ),
+              const Icon(Icons.error_outline, color: Colors.red, size: 64),
               const SizedBox(height: 16),
               Text(
                 AppLocalizations.of(context)!.failedToInitializeFirebase,
@@ -639,8 +664,9 @@ class _FirebaseInitializerState extends State<FirebaseInitializer> {
               ),
               const SizedBox(height: 8),
               Text(
-                AppLocalizations.of(context)!
-                    .pleaseCheckYourInternetConnectionAnd,
+                AppLocalizations.of(
+                  context,
+                )!.pleaseCheckYourInternetConnectionAnd,
                 style: GoogleFonts.inter(
                   fontSize: 14,
                   color: const Color(0xff6B7280),
@@ -731,6 +757,54 @@ class _FirebaseInitializerState extends State<FirebaseInitializer> {
   }
 }
 
+/// Pauses the web Firestore stability probe while auth is unknown or signed out.
+class _WebWatchdogAuthBinding extends StatefulWidget {
+  const _WebWatchdogAuthBinding({
+    super.key,
+    required this.snapshot,
+    required this.child,
+  });
+
+  final AsyncSnapshot<User?> snapshot;
+  final Widget child;
+
+  @override
+  State<_WebWatchdogAuthBinding> createState() =>
+      _WebWatchdogAuthBindingState();
+}
+
+class _WebWatchdogAuthBindingState extends State<_WebWatchdogAuthBinding> {
+  @override
+  void initState() {
+    super.initState();
+    _sync(widget.snapshot);
+  }
+
+  @override
+  void didUpdateWidget(covariant _WebWatchdogAuthBinding oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final a = oldWidget.snapshot;
+    final b = widget.snapshot;
+    if (a.connectionState != b.connectionState ||
+        a.hasData != b.hasData ||
+        a.data?.uid != b.data?.uid) {
+      _sync(b);
+    }
+  }
+
+  void _sync(AsyncSnapshot<User?> s) {
+    if (!kIsWeb) return;
+    final paused =
+        s.connectionState == ConnectionState.waiting ||
+        !s.hasData ||
+        s.data == null;
+    WebAppStabilityService.instance.setWatchdogPaused(paused);
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
+}
+
 class AuthenticationWrapper extends StatefulWidget {
   const AuthenticationWrapper({super.key});
 
@@ -780,8 +854,9 @@ class _AuthenticationWrapperState extends State<AuthenticationWrapper> {
       if (shift == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content:
-                Text(AppLocalizations.of(context)!.thisClassLinkIsNoLonger),
+            content: Text(
+              AppLocalizations.of(context)!.thisClassLinkIsNoLonger,
+            ),
             backgroundColor: Colors.red,
           ),
         );
@@ -805,6 +880,83 @@ class _AuthenticationWrapperState extends State<AuthenticationWrapper> {
   // Helper to check if we should use the mobile UI
   bool _isMobile(BuildContext context) {
     return _isMobileLayout(context);
+  }
+
+  Widget _authSnapshotBody(
+    BuildContext context,
+    AsyncSnapshot<User?> snapshot,
+  ) {
+    if (snapshot.hasError) {
+      AppLogger.error('Auth state error: ${snapshot.error}');
+      return _isMobile(context)
+          ? const MobileLoginScreen()
+          : const EmployeeHubApp();
+    }
+    if (snapshot.connectionState == ConnectionState.waiting) {
+      return Scaffold(
+        backgroundColor: const Color(0xffF8FAFC),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 120,
+                height: 120,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.08),
+                      blurRadius: 24,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: Image.asset(
+                    'assets/Alluwal_Education_Hub_Logo.png',
+                    width: 120,
+                    height: 120,
+                    fit: BoxFit.contain,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              const CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Color(0xff0386FF)),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                AppLocalizations.of(context)!.commonLoading,
+                style: GoogleFonts.inter(
+                  fontSize: 16,
+                  color: const Color(0xff6B7280),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (snapshot.hasData && snapshot.data != null) {
+      final user = snapshot.data!;
+      ErrorReportingService.setUser(user.uid, email: user.email);
+      ErrorReportingService.addBreadcrumb('user_authenticated');
+      if (!kIsWeb) {
+        FirebaseCrashlytics.instance.setUserIdentifier(user.uid);
+      }
+
+      _triggerJoinLinkHandling();
+      return const RoleBasedDashboard();
+    }
+
+    ErrorReportingService.clearUser();
+    return _isMobile(context)
+        ? const MobileLoginScreen()
+        : const EmployeeHubApp();
   }
 
   @override
@@ -867,121 +1019,10 @@ class _AuthenticationWrapperState extends State<AuthenticationWrapper> {
 
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
-      builder: (context, snapshot) {
-        // Handle errors gracefully during auth state changes
-        if (snapshot.hasError) {
-          AppLogger.error('Auth state error: ${snapshot.error}');
-          return _isMobile(context)
-              ? const MobileLoginScreen()
-              : const EmployeeHubApp();
-        }
-        // Handle connection states properly
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return Scaffold(
-            backgroundColor: const Color(0xffF8FAFC),
-            body: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    width: 120,
-                    height: 120,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.08),
-                          blurRadius: 24,
-                          offset: const Offset(0, 8),
-                        ),
-                      ],
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(16),
-                      child: Image.asset(
-                        'assets/Alluwal_Education_Hub_Logo.png',
-                        width: 120,
-                        height: 120,
-                        fit: BoxFit.contain,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  const CircularProgressIndicator(
-                    valueColor:
-                        AlwaysStoppedAnimation<Color>(Color(0xff0386FF)),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    AppLocalizations.of(context)!.commonLoading,
-                    style: GoogleFonts.inter(
-                      fontSize: 16,
-                      color: const Color(0xff6B7280),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        }
-
-        // Handle errors
-        if (snapshot.hasError) {
-          return Scaffold(
-            backgroundColor: const Color(0xffF8FAFC),
-            body: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(
-                    Icons.error_outline,
-                    color: Colors.red,
-                    size: 64,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    AppLocalizations.of(context)!.authenticationError,
-                    style: GoogleFonts.inter(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xff111827),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    AppLocalizations.of(context)!.pleaseRefreshThePage,
-                    style: GoogleFonts.inter(
-                      fontSize: 14,
-                      color: const Color(0xff6B7280),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        }
-
-        // If the snapshot has user data, then they're already signed in
-        if (snapshot.hasData && snapshot.data != null) {
-          // Set user context for error reporting so all errors are traceable
-          final user = snapshot.data!;
-          ErrorReportingService.setUser(user.uid, email: user.email);
-          ErrorReportingService.addBreadcrumb('user_authenticated');
-          if (!kIsWeb) {
-            FirebaseCrashlytics.instance.setUserIdentifier(user.uid);
-          }
-
-          _triggerJoinLinkHandling();
-          return const RoleBasedDashboard();
-        }
-
-        // Not signed in — clear user context
-        ErrorReportingService.clearUser();
-        return _isMobile(context)
-            ? const MobileLoginScreen()
-            : const EmployeeHubApp();
-      },
+      builder: (context, snapshot) => _WebWatchdogAuthBinding(
+        snapshot: snapshot,
+        child: _authSnapshotBody(context, snapshot),
+      ),
     );
   }
 }
@@ -1017,10 +1058,7 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
             fontSize: 18,
           ),
         ),
-        content: Text(
-          message,
-          style: openSansHebrewTextStyle,
-        ),
+        content: Text(message, style: openSansHebrewTextStyle),
         actions: <Widget>[
           TextButton(
             child: Text(
@@ -1052,10 +1090,7 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
             color: const Color(0xff059669),
           ),
         ),
-        content: Text(
-          message,
-          style: openSansHebrewTextStyle,
-        ),
+        content: Text(message, style: openSansHebrewTextStyle),
         actions: <Widget>[
           TextButton(
             child: Text(
@@ -1124,7 +1159,8 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
               'Network connection failed. Please check your internet connection and try again.';
           break;
         default:
-          errorMessage = e.message ??
+          errorMessage =
+              e.message ??
               'Unable to send password reset email. Please try again later.';
       }
       if (mounted) {
@@ -1133,7 +1169,8 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
     } catch (e) {
       if (mounted) {
         _showErrorDialog(
-            'An unexpected error occurred. Please try again later.');
+          'An unexpected error occurred. Please try again later.',
+        );
       }
     }
   }
@@ -1193,7 +1230,8 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
               'Network connection failed. Please check your internet connection and try again.';
           break;
         case 'unknown-error':
-          errorMessage = e.message ??
+          errorMessage =
+              e.message ??
               'An unexpected error occurred. Please try again later.';
           break;
         default:
@@ -1206,7 +1244,8 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
     } catch (e) {
       if (mounted) {
         _showErrorDialog(
-            'An unexpected error occurred. Please try again later.');
+          'An unexpected error occurred. Please try again later.',
+        );
       }
     }
   }
@@ -1266,363 +1305,363 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
       body: Container(
         width: double.infinity,
         height: double.infinity,
-        decoration: const BoxDecoration(
-          color: Color(0xffF8FAFC),
-        ),
+        decoration: const BoxDecoration(color: Color(0xffF8FAFC)),
         child: Center(
-            child: SingleChildScrollView(
-          child: Container(
-            constraints: const BoxConstraints(maxWidth: 450),
-            margin: const EdgeInsets.all(24),
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.08),
-                  blurRadius: 24,
-                  offset: const Offset(0, 8),
-                ),
-              ],
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Logo and Title
-                Column(
-                  children: [
-                    Container(
-                      width: 170,
-                      height: 170,
-                      decoration: BoxDecoration(
-                        color: const Color(0xffF8FAFC),
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.08),
-                            blurRadius: 20,
-                            offset: const Offset(0, 6),
+          child: SingleChildScrollView(
+            child: Container(
+              constraints: const BoxConstraints(maxWidth: 450),
+              margin: const EdgeInsets.all(24),
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.08),
+                    blurRadius: 24,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Logo and Title
+                  Column(
+                    children: [
+                      Container(
+                        width: 170,
+                        height: 170,
+                        decoration: BoxDecoration(
+                          color: const Color(0xffF8FAFC),
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.08),
+                              blurRadius: 20,
+                              offset: const Offset(0, 6),
+                            ),
+                          ],
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(20),
+                          child: Container(
+                            color: const Color(0xffF8FAFC),
+                            child: Image.asset(
+                              'assets/Alluwal_Education_Hub_Logo.png',
+                              width: 170,
+                              height: 170,
+                              fit: BoxFit.contain,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Text(
+                        AppLocalizations.of(context)!.loginWelcomeBack,
+                        style: GoogleFonts.inter(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xff111827),
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        AppLocalizations.of(context)!.pleaseSignInToYourAccount,
+                        style: GoogleFonts.inter(
+                          fontSize: 15,
+                          color: const Color(0xff6B7280),
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Login Mode Toggle
+                  Row(
+                    children: [
+                      Switch(
+                        value: _useStudentIdLogin,
+                        onChanged: (val) {
+                          setState(() {
+                            _useStudentIdLogin = val;
+                            emailAddressController.clear();
+                          });
+                        },
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        AppLocalizations.of(context)!.useStudentId,
+                        style: GoogleFonts.inter(
+                          fontSize: 14,
+                          color: const Color(0xff374151),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Email or Student ID Field
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _useStudentIdLogin ? 'Student ID' : 'Email',
+                        style: GoogleFonts.inter(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: const Color(0xff374151),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: emailAddressController,
+                        keyboardType: TextInputType.text,
+                        onFieldSubmitted: (_) => _handleSignIn(),
+                        style: GoogleFonts.inter(
+                          fontSize: 16,
+                          color: const Color(0xff111827),
+                        ),
+                        decoration: InputDecoration(
+                          hintText: _useStudentIdLogin
+                              ? 'Enter your Student ID (e.g., A7Q4-MZ2N)'
+                              : 'Enter your email address',
+                          hintStyle: GoogleFonts.inter(
+                            color: const Color(0xff9CA3AF),
+                            fontSize: 16,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(
+                              color: Color(0xffD1D5DB),
+                              width: 1,
+                            ),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(
+                              color: Color(0xffD1D5DB),
+                              width: 1,
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(
+                              color: Color(0xff0386FF),
+                              width: 2,
+                            ),
+                          ),
+                          filled: true,
+                          fillColor: const Color(0xffF9FAFB),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 12,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Password Field
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        AppLocalizations.of(context)!.loginPassword,
+                        style: GoogleFonts.inter(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: const Color(0xff374151),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: passwordController,
+                        obscureText: _obscurePassword,
+                        onFieldSubmitted: (_) => _handleSignIn(),
+                        style: GoogleFonts.inter(
+                          fontSize: 16,
+                          color: const Color(0xff111827),
+                        ),
+                        decoration: InputDecoration(
+                          hintText: AppLocalizations.of(
+                            context,
+                          )!.loginEnterPassword,
+                          hintStyle: GoogleFonts.inter(
+                            color: const Color(0xff9CA3AF),
+                            fontSize: 16,
+                          ),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscurePassword
+                                  ? Icons.visibility_off
+                                  : Icons.visibility,
+                              color: const Color(0xff6B7280),
+                            ),
+                            onPressed: () {
+                              setState(() {
+                                _obscurePassword = !_obscurePassword;
+                              });
+                            },
+                            tooltip: _obscurePassword
+                                ? 'Show password'
+                                : 'Hide password',
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(
+                              color: Color(0xffD1D5DB),
+                              width: 1,
+                            ),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(
+                              color: Color(0xffD1D5DB),
+                              width: 1,
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(
+                              color: Color(0xff0386FF),
+                              width: 2,
+                            ),
+                          ),
+                          filled: true,
+                          fillColor: const Color(0xffF9FAFB),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 12,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Forgot Password
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: _handleForgotPassword,
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                      ),
+                      child: Text(
+                        AppLocalizations.of(context)!.forgotPassword,
+                        style: GoogleFonts.inter(
+                          color: const Color(0xff0386FF),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Sign In Button
+                  SizedBox(
+                    height: 44,
+                    child: ElevatedButton(
+                      onPressed: _handleSignIn,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xff0386FF),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: Text(
+                        AppLocalizations.of(context)!.loginSignIn,
+                        style: GoogleFonts.inter(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Divider
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          height: 1,
+                          color: const Color(0xffE5E7EB),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Text(
+                          AppLocalizations.of(context)!.or,
+                          style: GoogleFonts.inter(
+                            color: const Color(0xff6B7280),
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: Container(
+                          height: 1,
+                          color: const Color(0xffE5E7EB),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Google Sign In Button
+                  SizedBox(
+                    height: 44,
+                    child: OutlinedButton(
+                      onPressed: _handleGoogleSignIn,
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(
+                          color: Color(0xffD1D5DB),
+                          width: 1,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          // Google "G" logo using custom colors
+                          SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CustomPaint(painter: _GoogleLogoPainter()),
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            AppLocalizations.of(context)!.continueWithGoogle,
+                            style: GoogleFonts.inter(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                              color: const Color(0xff374151),
+                            ),
                           ),
                         ],
                       ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(20),
-                        child: Container(
-                          color: const Color(0xffF8FAFC),
-                          child: Image.asset(
-                            'assets/Alluwal_Education_Hub_Logo.png',
-                            width: 170,
-                            height: 170,
-                            fit: BoxFit.contain,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    Text(
-                      AppLocalizations.of(context)!.loginWelcomeBack,
-                      style: GoogleFonts.inter(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                        color: const Color(0xff111827),
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      AppLocalizations.of(context)!.pleaseSignInToYourAccount,
-                      style: GoogleFonts.inter(
-                        fontSize: 15,
-                        color: const Color(0xff6B7280),
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-
-                // Login Mode Toggle
-                Row(
-                  children: [
-                    Switch(
-                      value: _useStudentIdLogin,
-                      onChanged: (val) {
-                        setState(() {
-                          _useStudentIdLogin = val;
-                          emailAddressController.clear();
-                        });
-                      },
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      AppLocalizations.of(context)!.useStudentId,
-                      style: GoogleFonts.inter(
-                        fontSize: 14,
-                        color: const Color(0xff374151),
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 14),
-
-                // Email or Student ID Field
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _useStudentIdLogin ? 'Student ID' : 'Email',
-                      style: GoogleFonts.inter(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        color: const Color(0xff374151),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    TextFormField(
-                      controller: emailAddressController,
-                      keyboardType: TextInputType.text,
-                      onFieldSubmitted: (_) => _handleSignIn(),
-                      style: GoogleFonts.inter(
-                        fontSize: 16,
-                        color: const Color(0xff111827),
-                      ),
-                      decoration: InputDecoration(
-                        hintText: _useStudentIdLogin
-                            ? 'Enter your Student ID (e.g., A7Q4-MZ2N)'
-                            : 'Enter your email address',
-                        hintStyle: GoogleFonts.inter(
-                          color: const Color(0xff9CA3AF),
-                          fontSize: 16,
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(
-                            color: Color(0xffD1D5DB),
-                            width: 1,
-                          ),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(
-                            color: Color(0xffD1D5DB),
-                            width: 1,
-                          ),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(
-                            color: Color(0xff0386FF),
-                            width: 2,
-                          ),
-                        ),
-                        filled: true,
-                        fillColor: const Color(0xffF9FAFB),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 12,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-
-                // Password Field
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      AppLocalizations.of(context)!.loginPassword,
-                      style: GoogleFonts.inter(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        color: const Color(0xff374151),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    TextFormField(
-                      controller: passwordController,
-                      obscureText: _obscurePassword,
-                      onFieldSubmitted: (_) => _handleSignIn(),
-                      style: GoogleFonts.inter(
-                        fontSize: 16,
-                        color: const Color(0xff111827),
-                      ),
-                      decoration: InputDecoration(
-                        hintText:
-                            AppLocalizations.of(context)!.loginEnterPassword,
-                        hintStyle: GoogleFonts.inter(
-                          color: const Color(0xff9CA3AF),
-                          fontSize: 16,
-                        ),
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            _obscurePassword
-                                ? Icons.visibility_off
-                                : Icons.visibility,
-                            color: const Color(0xff6B7280),
-                          ),
-                          onPressed: () {
-                            setState(() {
-                              _obscurePassword = !_obscurePassword;
-                            });
-                          },
-                          tooltip: _obscurePassword
-                              ? 'Show password'
-                              : 'Hide password',
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(
-                            color: Color(0xffD1D5DB),
-                            width: 1,
-                          ),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(
-                            color: Color(0xffD1D5DB),
-                            width: 1,
-                          ),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(
-                            color: Color(0xff0386FF),
-                            width: 2,
-                          ),
-                        ),
-                        filled: true,
-                        fillColor: const Color(0xffF9FAFB),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 12,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-
-                // Forgot Password
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton(
-                    onPressed: _handleForgotPassword,
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
-                    ),
-                    child: Text(
-                      AppLocalizations.of(context)!.forgotPassword,
-                      style: GoogleFonts.inter(
-                        color: const Color(0xff0386FF),
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 16),
-
-                // Sign In Button
-                SizedBox(
-                  height: 44,
-                  child: ElevatedButton(
-                    onPressed: _handleSignIn,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xff0386FF),
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: Text(
-                      AppLocalizations.of(context)!.loginSignIn,
-                      style: GoogleFonts.inter(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                // Divider
-                Row(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        height: 1,
-                        color: const Color(0xffE5E7EB),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Text(
-                        AppLocalizations.of(context)!.or,
-                        style: GoogleFonts.inter(
-                          color: const Color(0xff6B7280),
-                          fontSize: 14,
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      child: Container(
-                        height: 1,
-                        color: const Color(0xffE5E7EB),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-
-                // Google Sign In Button
-                SizedBox(
-                  height: 44,
-                  child: OutlinedButton(
-                    onPressed: _handleGoogleSignIn,
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(
-                        color: Color(0xffD1D5DB),
-                        width: 1,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        // Google "G" logo using custom colors
-                        SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CustomPaint(
-                            painter: _GoogleLogoPainter(),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          AppLocalizations.of(context)!.continueWithGoogle,
-                          style: GoogleFonts.inter(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                            color: const Color(0xff374151),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
-        )),
+        ),
       ),
     );
   }
@@ -1682,12 +1721,7 @@ class _GoogleLogoPainter extends CustomPainter {
       ..style = PaintingStyle.fill;
 
     canvas.drawRect(
-      Rect.fromLTWH(
-        width * 0.5,
-        height * 0.42,
-        width * 0.41,
-        height * 0.16,
-      ),
+      Rect.fromLTWH(width * 0.5, height * 0.42, width * 0.41, height * 0.16),
       barPaint,
     );
   }

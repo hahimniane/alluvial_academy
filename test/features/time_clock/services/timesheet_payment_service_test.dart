@@ -30,7 +30,8 @@ void main() {
       expect(TimesheetPaymentService.calculatePayment(entry), 99);
     });
 
-    test('calculatePayment recalculates for edited unapproved rows', () {
+    test('calculatePayment trusts stored amount for edited-pending rows (R3)',
+        () {
       final entry = TimesheetEntry(
         documentId: 'doc-2',
         date: 'Apr 10, 2026',
@@ -47,7 +48,7 @@ void main() {
         isEdited: true,
         editApproved: false,
       );
-      expect(TimesheetPaymentService.calculatePayment(entry), 24);
+      expect(TimesheetPaymentService.calculatePayment(entry), 999);
     });
   });
 }

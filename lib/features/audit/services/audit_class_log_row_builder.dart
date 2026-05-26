@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/teacher_audit_full.dart';
-import '../../../core/services/teacher_metrics_service.dart';
+import '../../../core/utils/shift_session_aggregator.dart';
 
 class AuditClassLogRow {
   final String shiftId;
@@ -17,6 +17,7 @@ class AuditClassLogRow {
   final double manualAdjustment;
   final double finalPayment;
   final double hourlyRate;
+
   /// [billedHours] × [hourlyRate] when rate > 0; for display vs recorded [baseAmount].
   final double theoreticalPay;
   final String lessonCovered;
@@ -68,7 +69,8 @@ class AuditClassLogRowBuilder {
     return computeTotalsFromRows(buildRows(audit));
   }
 
-  static AuditActivityTotals computeTotalsFromRows(List<AuditClassLogRow> rows) {
+  static AuditActivityTotals computeTotalsFromRows(
+      List<AuditClassLogRow> rows) {
     var totalWorkedFromTs = 0.0;
     var totalFormHours = 0.0;
     var payFromTs = 0.0;
@@ -134,28 +136,27 @@ class AuditClassLogRowBuilder {
     final rows = <AuditClassLogRow>[];
     final adjustments = audit.paymentSummary?.shiftPaymentAdjustments ?? {};
 
-    final shiftForms = <String, Map<String, dynamic>>{};
-    final shiftFormsBySuffix = <String, Map<String, dynamic>>{};
-    for (final form in audit.detailedForms) {
-      final sid = form['shiftId'] as String?;
-      if (sid == null || sid.isEmpty) continue;
-      shiftForms[sid] = form;
-      if (sid.length >= 8) {
-        shiftFormsBySuffix[sid.substring(sid.length - 8)] = form;
+    // Group timesheets by shift ID
+    final timesheetsByShift = <String, List<Map<String, dynamic>>>{};
+    for (final ts in audit.detailedTimesheets) {
+      final sid = ts['shift_id'] ?? ts['shiftId'];
+      if (sid != null) {
+        for (final key
+            in ShiftSessionAggregator.getShiftIdIndexKeys(sid.toString())) {
+          timesheetsByShift.putIfAbsent(key, () => []).add(ts);
+        }
       }
     }
 
-    final timesheetByShiftId = <String, Map<String, dynamic>>{};
-    final timesheetBySuffix = <String, Map<String, dynamic>>{};
-    for (final ts in audit.detailedTimesheets) {
-      final tsMap = ts;
-      final st = (tsMap['status'] as String?)?.toLowerCase();
-      if (st == 'rejected') continue;
-      final sid = tsMap['shift_id'] as String? ?? tsMap['shiftId'] as String?;
-      if (sid == null || sid.isEmpty) continue;
-      timesheetByShiftId[sid] = tsMap;
-      if (sid.length >= 8) {
-        timesheetBySuffix[sid.substring(sid.length - 8)] = tsMap;
+    // Group forms by shift ID
+    final formsByShift = <String, List<Map<String, dynamic>>>{};
+    for (final form in audit.detailedForms) {
+      final sid = form['shiftId'];
+      if (sid != null) {
+        for (final key
+            in ShiftSessionAggregator.getShiftIdIndexKeys(sid.toString())) {
+          formsByShift.putIfAbsent(key, () => []).add(form);
+        }
       }
     }
 
@@ -163,140 +164,104 @@ class AuditClassLogRowBuilder {
       final shiftId = shiftData['id'] as String? ?? '';
       if (shiftId.isEmpty) continue;
 
-      final shiftStart = (shiftData['start'] as Timestamp?)?.toDate();
-      final shiftEnd = (shiftData['end'] as Timestamp?)?.toDate();
+      final shiftStart = (shiftData['start'] as Timestamp?)?.toDate() ??
+          (shiftData['shift_start'] as Timestamp?)?.toDate();
       final status = shiftData['status'] as String? ?? 'unknown';
       final subject = (shiftData['subject_display_name'] as String?) ??
           (shiftData['subject'] as String?) ??
           'N/A';
 
-      final scheduledMinutes = (shiftData['duration_minutes'] as num?)?.toDouble() ?? 0;
-      final durationHours = (shiftData['duration'] as num?)?.toDouble() ?? 0;
-      final scheduledHours = scheduledMinutes > 0 ? scheduledMinutes / 60.0 : durationHours;
+      final shiftTimesheets = timesheetsByShift[shiftId] ?? [];
+      final shiftForms = formsByShift[shiftId] ?? [];
 
-      final formData = shiftForms[shiftId] ??
-          (shiftId.length >= 8
-              ? shiftFormsBySuffix[shiftId.substring(shiftId.length - 8)]
-              : null);
-      final hasForm = formData != null;
-      final rawFormHours = hasForm
-          ? ((formData['durationHours'] as num?)?.toDouble() ??
-              (formData['reportedHours'] as num?)?.toDouble() ??
-              0.0)
-          : 0.0;
-      final formHours = hasForm && scheduledHours > 0 && rawFormHours > 0
-          ? (rawFormHours > scheduledHours ? scheduledHours : rawFormHours)
-          : rawFormHours;
+      final result = ShiftSessionAggregator.computeSession(
+          shiftData, shiftTimesheets, shiftForms);
 
-      final timesheetEntry = timesheetByShiftId[shiftId] ??
-          (shiftId.length >= 8
-              ? timesheetBySuffix[shiftId.substring(shiftId.length - 8)]
-              : null) ??
-          <String, dynamic>{};
+      final scheduledHours =
+          ShiftSessionAggregator.getScheduledHours(shiftData);
+      final hasForm = result.hasForm;
 
-      var workedHours = 0.0;
-      if (timesheetEntry.isNotEmpty) {
-        final clockInRaw = timesheetEntry['clock_in_timestamp'] ??
-            timesheetEntry['clock_in_time'] ??
-            timesheetEntry['clockIn'];
-        // Raw clock-out for billable math (do not use effective_end here — caps are applied once).
-        final clockOutRaw = timesheetEntry['clock_out_timestamp'] ??
-            timesheetEntry['clock_out_time'] ??
-            timesheetEntry['clockOut'];
-        final shiftMapForBillable = <String, dynamic>{
-          'shift_start': shiftData['start'],
-          'shift_end': shiftData['end'],
-        };
-
-        if (clockInRaw is Timestamp &&
-            clockOutRaw is Timestamp &&
-            shiftMapForBillable['shift_start'] is Timestamp &&
-            shiftMapForBillable['shift_end'] is Timestamp) {
-          workedHours = TeacherMetricsService.billableHoursForShiftClock(
-            shift: shiftMapForBillable,
-            clockIn: clockInRaw.toDate(),
-            clockOut: clockOutRaw.toDate(),
-          );
-        } else if (clockInRaw is Timestamp && clockOutRaw is Timestamp) {
-          var start = clockInRaw.toDate();
-          var end = clockOutRaw.toDate();
-          if (shiftEnd != null && end.isAfter(shiftEnd)) end = shiftEnd;
-          if (shiftStart != null && start.isBefore(shiftStart)) start = shiftStart;
-          final dur = end.difference(start);
-          if (!dur.isNegative) workedHours = dur.inSeconds / 3600.0;
-        }
-
-        if (workedHours <= 0) {
-          final mins = (timesheetEntry['worked_minutes'] as num?)?.toDouble() ??
-              (timesheetEntry['workedMinutes'] as num?)?.toDouble();
-          if (mins != null && mins > 0) workedHours = mins / 60.0;
-        }
-      }
-
-      final statusLower = status.toLowerCase();
-      if (workedHours <= 0 &&
-          (statusLower.contains('completed') ||
-              statusLower.contains('fully') ||
-              statusLower.contains('partially'))) {
-        workedHours = scheduledHours;
-      }
-
-      final billedHours = workedHours > 0
-          ? (workedHours > scheduledHours ? scheduledHours : workedHours)
-          : 0.0;
-
-      var paymentSource = 'None';
-      var baseAmount = 0.0;
-      if (timesheetEntry.isNotEmpty) {
-        final paymentAmount = (timesheetEntry['payment_amount'] as num?)?.toDouble() ?? 0;
-        final totalPay = (timesheetEntry['total_pay'] as num?)?.toDouble() ?? 0;
-        if (paymentAmount > 0 || totalPay > 0) {
-          paymentSource = 'Timesheet';
-          baseAmount = paymentAmount > 0 ? paymentAmount : totalPay;
-        }
-      }
-
-      final hourlyRate = (shiftData['hourly_rate'] as num?)?.toDouble() ??
-          (shiftData['hourlyRate'] as num?)?.toDouble() ??
-          0.0;
-      final theoreticalPay =
-          hourlyRate > 0 ? billedHours * hourlyRate : 0.0;
-      if (baseAmount == 0 && hasForm && formHours > 0 && hourlyRate > 0) {
+      // Determine payment source
+      String paymentSource = 'None';
+      if (result.hasPunchedTimesheets) {
+        paymentSource = 'Timesheet';
+      } else if (hasForm) {
         paymentSource = 'Form Duration';
-        baseAmount = formHours * hourlyRate;
-      }
-      if (!hasForm && baseAmount == 0) {
-        paymentSource = 'Orphan (No Form)';
       }
 
-      final adjustment = adjustments[shiftId] ?? 0.0;
-      final finalPayment = baseAmount + adjustment;
-      final lesson = hasForm ? (formData['lessonCovered'] as String? ?? '') : '';
-      final quality = hasForm ? (formData['sessionQuality'] as String? ?? '') : '';
+      final baseAmount = result.realPay;
+      final manualAdjustment = adjustments[shiftId] ?? 0.0;
+      final finalPayment = baseAmount + manualAdjustment;
 
-      rows.add(
-        AuditClassLogRow(
-          shiftId: shiftId,
-          shiftStart: shiftStart,
-          subject: subject,
-          statusRaw: status,
-          scheduledHours: scheduledHours,
-          workedHours: workedHours,
-          billedHours: billedHours,
-          hasForm: hasForm,
-          formHours: formHours,
-          paymentSource: paymentSource,
-          baseAmount: baseAmount,
-          manualAdjustment: adjustment,
-          finalPayment: finalPayment,
-          hourlyRate: hourlyRate,
-          theoreticalPay: theoreticalPay,
-          lessonCovered: lesson,
-          sessionQuality: quality,
-        ),
-      );
+      double hourlyRate = (shiftData['hourly_rate'] as num?)?.toDouble() ?? 0.0;
+      if (hourlyRate <= 0)
+        hourlyRate = (shiftData['hourlyRate'] as num?)?.toDouble() ?? 0.0;
+
+      final theoreticalPay = result.workedHours * hourlyRate;
+
+      // Get form details for display
+      String lessonCovered = '';
+      String sessionQuality = '';
+      if (shiftForms.isNotEmpty) {
+        final form = shiftForms.first;
+        final responses = form['responses'];
+        if (responses is Map) {
+          lessonCovered =
+              (responses['lessonCovered'] ?? responses['topic'] ?? '')
+                  .toString();
+          sessionQuality =
+              (responses['sessionQuality'] ?? responses['rating'] ?? '')
+                  .toString();
+        }
+      }
+
+      rows.add(AuditClassLogRow(
+        shiftId: shiftId,
+        shiftStart: shiftStart,
+        subject: subject,
+        statusRaw: status,
+        scheduledHours: scheduledHours,
+        workedHours: result.hasPunchedTimesheets ? result.workedHours : 0.0,
+        billedHours: result.workedHours,
+        hasForm: hasForm,
+        formHours:
+            !result.hasPunchedTimesheets && hasForm ? result.workedHours : 0.0,
+        paymentSource: paymentSource,
+        baseAmount: baseAmount,
+        manualAdjustment: manualAdjustment,
+        finalPayment: finalPayment,
+        hourlyRate: hourlyRate,
+        theoreticalPay: theoreticalPay,
+        lessonCovered: lessonCovered,
+        sessionQuality: sessionQuality,
+      ));
     }
 
-    return rows;
+    final visible = rows
+        .where((r) => !_shouldHideClassLogRowWithNoPaidActivity(r))
+        .toList();
+    visible.sort((a, b) {
+      if (a.shiftStart == null && b.shiftStart == null) return 0;
+      if (a.shiftStart == null) return 1;
+      if (b.shiftStart == null) return -1;
+      return a.shiftStart!.compareTo(b.shiftStart!);
+    });
+
+    return visible;
+  }
+
+  /// Hides “scheduled only” rows (no timesheet/form pay) so the class log matches
+  /// payable activity. Missed/cancelled rows stay visible for follow-up.
+  static bool _shouldHideClassLogRowWithNoPaidActivity(AuditClassLogRow row) {
+    const eps = 1e-6;
+    final s = row.statusRaw.toLowerCase();
+    if (s.contains('miss')) return false;
+    if (s.contains('cancel')) return false;
+    if (row.finalPayment.abs() > eps) return false;
+    if (row.workedHours > eps) return false;
+    if (row.formHours > eps) return false;
+    if (row.hasForm) return false;
+    if (row.baseAmount.abs() > eps) return false;
+    return true;
   }
 }

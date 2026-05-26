@@ -1500,6 +1500,13 @@ class AppLocalizationsAr extends AppLocalizations {
   String get formNoSubmissionsYet => 'لا توجد نماذج مرسلة بعد';
 
   @override
+  String get mySubmissionsMonthScopeHint =>
+      'تُعرض فقط التسليمات المؤرخة في الشهر المحدد. استخدم عرض الكل لرؤية أشهر أخرى.';
+
+  @override
+  String get mySubmissionsNoFormIdGroupTitle => 'تسليمات بدون معرّف نموذج';
+
+  @override
   String get adminAllSubmissionsTitle => 'جميع التقديمات (المسؤول)';
 
   @override
@@ -1599,7 +1606,33 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get adminSubmissionsExportProgressSubtitle =>
-      'جاري تجهيز الملف. التقدم لكل شخص:';
+      'يرجى إبقاء هذه النافذة مفتوحة. قد تستغرق التصديرات الكبيرة لحظات.';
+
+  @override
+  String get adminSubmissionsExportPhaseLoadingShifts =>
+      'جاري تحميل الورديات المرتبطة…';
+
+  @override
+  String get adminSubmissionsExportPhaseLoadingLabels =>
+      'جاري تحميل تسميات حقول النموذج…';
+
+  @override
+  String get adminSubmissionsExportPhaseLoadingFonts => 'جاري تحميل خطوط PDF…';
+
+  @override
+  String get adminSubmissionsExportPhaseWritingSheet => 'جاري كتابة الأوراق…';
+
+  @override
+  String get adminSubmissionsExportPhaseBuildingFile => 'جاري إنشاء الملف…';
+
+  @override
+  String get adminSubmissionsExportPhaseStartingDownload => 'جاري بدء التنزيل…';
+
+  @override
+  String adminSubmissionsExportFormSheetProgress(
+      int current, int total, String formName) {
+    return '$current / $total — $formName';
+  }
 
   @override
   String get adminSubmissionsSelectToViewDetails =>
@@ -1729,7 +1762,7 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String timesheetTotalHours(Object hours) {
-    return 'إجمالي الساعات';
+    return 'إجمالي الساعات: $hours';
   }
 
   @override
@@ -1826,6 +1859,10 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get timesheetUpdatedSuccess =>
       'تم تحديث سجل الوقت. في انتظار موافقة المسؤول.';
+
+  @override
+  String get timesheetEditTotalExceedsShift =>
+      'سيجعل هذا التعديل إجمالي وقت التسجيل لهذه الحصة يتجاوز مدتها المجدولة.';
 
   @override
   String get timesheetDetails => 'تفاصيل الإدخال';
@@ -4445,10 +4482,31 @@ class AppLocalizationsAr extends AppLocalizations {
   String get auditHoursTaught => 'Heures enseignées';
 
   @override
+  String get auditClassLogTablePayFilterEmpty =>
+      'لا توجد صفوف تطابق مرشح النشاط القابل للدفع. الملخص أعلاه يعكس شهر التدقيق كاملاً.';
+
+  @override
   String get auditCompletionRateLabel => 'Taux de complétion';
 
   @override
   String get auditLateClockInsLabel => 'Retards de pointage';
+
+  @override
+  String auditClockSegmentCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count مقاطع',
+      one: 'مقطع واحد',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get auditClockSegmentsHeader => 'مقاطع تسجيل الوقت';
+
+  @override
+  String get auditClockSessionPay => 'أجر الجلسة';
 
   @override
   String get auditClassesMissedLabel => 'Classes manquées';
@@ -4501,6 +4559,9 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get auditFormStatusRejectedNoTimesheet => 'مرفوض (بدون سجل وقت)';
+
+  @override
+  String get auditFormStatusRejectedMakeupRejected => 'مرفوض (رفض تعويض الحصة)';
 
   @override
   String get auditFormsTabStatTotalTeaching => 'إجمالي نماذج التدريس';
@@ -4715,7 +4776,37 @@ class AppLocalizationsAr extends AppLocalizations {
   String get teacherAuditAdminAdjustment => 'Ajustement admin';
 
   @override
-  String get teacherAuditDisputeFieldLabel => 'Champ';
+  String get teacherAuditDisputeFieldLabel => 'الحقل';
+
+  @override
+  String get teacherAuditDisputeOptionClassesCount => 'عدد الحصص';
+
+  @override
+  String get teacherAuditDisputeOptionHoursTaught => 'ساعات التدريس';
+
+  @override
+  String get teacherAuditDisputeOptionPunctualityRate =>
+      'معدل الالتزام بالمواعيد';
+
+  @override
+  String get teacherAuditDisputeOptionFormsCount => 'عدد النماذج';
+
+  @override
+  String get teacherAuditDisputeOptionPaymentAmount => 'مبلغ الدفع';
+
+  @override
+  String get teacherAuditDisputeOptionOverallScore => 'الدرجة الإجمالية';
+
+  @override
+  String get teacherAuditDisputeOptionOther => 'أخرى';
+
+  @override
+  String get teacherAuditDisputeReasonEmpty => 'هذا الحقل مطلوب';
+
+  @override
+  String teacherAuditDisputeReasonTooShort(int min) {
+    return 'يرجى إضافة المزيد من التفاصيل (على الأقل $min حرفًا).';
+  }
 
   @override
   String get auditPaymentCalculation => 'Calcul';
@@ -4804,6 +4895,97 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get auditDiscussionAdminButton => 'Chat avec l\'enseignant';
+
+  @override
+  String auditDiscussionUnreadBadgeTooltip(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count رسائل غير مقروءة من المعلّم',
+      one: 'رسالة واحدة غير مقروءة من المعلّم',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get auditShareWithTeacherTooltip => 'مشاركة مع المعلم (نسخ)';
+
+  @override
+  String get auditShareWithTeacherCopied => 'تم نسخ ملخص التدقيق إلى الحافظة';
+
+  @override
+  String get auditMessageTitle => 'تحديث التدقيق الشهري';
+
+  @override
+  String get auditMessageTeacher => 'المعلم';
+
+  @override
+  String get auditMessageReadyInMyReport => 'تدقيقك جاهز للمراجعة في تقريري.';
+
+  @override
+  String get auditMessagePassedCeoReview =>
+      'اجتاز تدقيقك مراجعة المدير التنفيذي.';
+
+  @override
+  String get auditMessageFinalized => 'تم إنهاء تدقيقك. يمكنك عرضه في تقريري.';
+
+  @override
+  String get auditMessagePaymentSummary => 'ملخص الدفع';
+
+  @override
+  String get auditMessageHoursSection => 'الساعات';
+
+  @override
+  String get auditMessageWorkedHours => 'ساعات العمل (سجلات الوقت)';
+
+  @override
+  String get auditMessageFormHours => 'ساعات النماذج';
+
+  @override
+  String get auditMessageTotalHours => 'إجمالي الساعات';
+
+  @override
+  String get auditMessageHourlyRateBreakdown => 'تفصيل الأجر بالساعة';
+
+  @override
+  String get auditMessageNotAvailable => 'غير متاح';
+
+  @override
+  String get auditMessageGrossAmount => 'المبلغ الإجمالي';
+
+  @override
+  String get auditMessagePayFromTimesheets => 'الدفع من سجلات الوقت';
+
+  @override
+  String get auditMessagePayFromForms => 'الدفع من النماذج';
+
+  @override
+  String get auditMessageAdjustments => 'التعديلات';
+
+  @override
+  String get auditMessageAutoPenalties => 'الخصومات التلقائية';
+
+  @override
+  String get auditMessageAutoBonuses => 'المكافآت التلقائية';
+
+  @override
+  String get auditMessageAdminAdjustment => 'تعديل الإدارة';
+
+  @override
+  String get auditMessageCoachLines => 'بنود المدرب';
+
+  @override
+  String get auditMessageTotalAdjustmentsImpact => 'إجمالي أثر التعديلات';
+
+  @override
+  String get auditMessageAdvanceDeduction => 'خصم السلفة';
+
+  @override
+  String get auditMessageFinalAmount => 'المبلغ النهائي';
+
+  @override
+  String get auditMessageReviewReply =>
+      'يرجى المراجعة والرد هنا إذا كنت بحاجة إلى توضيحات أو تصحيحات.';
 
   @override
   String get teacherAuditPayslipCoachLines => 'Ajustements d\'évaluation';
@@ -6237,7 +6419,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get penaltyPerShift => 'Penalty Per Shift';
 
   @override
-  String get pendingapprovals => 'Pendingapprovals';
+  String get pendingapprovals => 'أجر قيد الانتظار (سجل الوقت)';
 
   @override
   String get performance => 'Performance';
@@ -8233,6 +8415,9 @@ class AppLocalizationsAr extends AppLocalizations {
       'Worked hours from this entry. Hover a row for schedule vs actual and form data.';
 
   @override
+  String get timesheetReviewColumnAuditMonthHours => 'ساعات التدقيق (الشهر)';
+
+  @override
   String get timesheetReviewColumnTooltipPayment =>
       'Pay amount for this entry using current hours and rate.';
 
@@ -9238,6 +9423,52 @@ class AppLocalizationsAr extends AppLocalizations {
   String timesheetEntrySummary(Object hours, Object amount) {
     return '$hours hours • \$$amount';
   }
+
+  @override
+  String get webStuckBannerTitle => 'يبدو أن الصفحة متوقفة';
+
+  @override
+  String get webStuckBannerMessage =>
+      'توقف فايرستور عن الاستجابة. حاول استعادة الاتصال أو أعد تحميل الصفحة.';
+
+  @override
+  String get webStuckBannerRecover => 'استعادة';
+
+  @override
+  String get webStuckBannerReload => 'إعادة التحميل';
+
+  @override
+  String get webStuckBannerDismiss => 'تجاهل';
+
+  @override
+  String get timesheetReviewStuckLoadingTitle => 'ما زال التحميل جاريًا…';
+
+  @override
+  String get timesheetReviewStuckLoadingMessage =>
+      'يستغرق فايرستور وقتًا أطول من المعتاد. أحيانًا تتعطل الاتصالات في علامة تبويب متروكة منذ فترة طويلة. عادةً ما تحلّ إعادة المحاولة المشكلة دون الحاجة لمسح بيانات التصفح.';
+
+  @override
+  String get timesheetConsolidatedFirstClockInLabel => 'أول تسجيل دخول';
+
+  @override
+  String get timesheetConsolidatedLastClockOutLabel => 'آخر تسجيل خروج';
+
+  @override
+  String get timesheetConsolidatedBillableTotal => 'إجمالي القابل للدفع';
+
+  @override
+  String get timesheetConsolidatedSumSessions => 'مجموع مدد الجلسات';
+
+  @override
+  String get timesheetConsolidatedHoursExplanation =>
+      'الوقت القابل للدفع يتبع قواعد التداخل: أزواج تسجيل الدخول/الخروج المتداخلة تُحسب كجلسة مدفوعة واحدة. وقت أول وآخر تسجيل يعرض المدى عبر كل الجلسات وقد يكون أطول من الدقائق المدفوعة.';
+
+  @override
+  String get timesheetConsolidatedSessionsHeader => 'الجلسات';
+
+  @override
+  String get timesheetTapSessionForDetails =>
+      'اضغط على صف لفتح تلك الجلسة وحدها.';
 
   @override
   String formSubmissionsTitle(Object title) {
@@ -11761,6 +11992,63 @@ class AppLocalizationsAr extends AppLocalizations {
       'اختياري. يُدرج في PDF/Excel تحت هذا القسم.';
 
   @override
+  String get adminAuditTeacherPayslipAckShort => 'تأكيد قراءة كشف الراتب';
+
+  @override
+  String adminAuditTeacherPayslipAcknowledgedOn(String date) {
+    return 'تم التأكيد في $date';
+  }
+
+  @override
+  String get adminAuditTeacherPayslipNotAcknowledged => 'لم يُؤكَّد بعد';
+
+  @override
+  String get adminAuditTeacherDisputeSummaryTitle => 'اعتراض المعلّم';
+
+  @override
+  String get adminAuditResolveTeacherDisputeTitle => 'معالجة اعتراض المعلّم';
+
+  @override
+  String get adminAuditViewTeacherDispute => 'عرض الاعتراض';
+
+  @override
+  String get adminAuditResolveTeacherDisputeButton => 'معالجة الاعتراض';
+
+  @override
+  String get adminAuditResolveTeacherDisputeSubmit => 'حفظ الرد';
+
+  @override
+  String get adminAuditResolveTeacherDisputeAccept => 'قبول';
+
+  @override
+  String get adminAuditResolveTeacherDisputeReject => 'رفض';
+
+  @override
+  String get adminAuditResolveTeacherDisputeResponseLabel => 'رد للمعلّم';
+
+  @override
+  String get adminAuditResolveTeacherDisputeResponseHint =>
+      'اشرح قرارك. سيرى المعلّم هذه الرسالة.';
+
+  @override
+  String get adminAuditResolveTeacherDisputeRequireReAck =>
+      'طلب تأكيد قراءة كشف الراتب من جديد';
+
+  @override
+  String get adminAuditResolveTeacherDisputeNotifyTeacher =>
+      'إشعار المعلّم (داخل التطبيق)';
+
+  @override
+  String get adminAuditResolveTeacherDisputeSuccess => 'تم حفظ حل الاعتراض.';
+
+  @override
+  String get adminAuditResolveTeacherDisputeFailed =>
+      'تعذّر الحفظ. تحقّق من الصلاحيات وحاول مجددًا.';
+
+  @override
+  String get adminAuditTeacherDisputeSuggestedValue => 'التصحيح المقترح';
+
+  @override
   String get sidebarPublicSiteCms => 'الأسعار والفريق (الموقع العام)';
 
   @override
@@ -11786,7 +12074,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get publicSiteCmsLandingHeroBg => 'لون خلفية البطل';
 
   @override
-  String get publicSiteCmsLandingHeroBgHint => '#RRGGBB (مثال: #001E4E)';
+  String get publicSiteCmsLandingHeroBgHint => '#RRGGBB (مثال: #00484E)';
 
   @override
   String get publicSiteCmsLandingMainImage => 'صورة البطل الوسطى';
@@ -13876,4 +14164,91 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get tontineInvitePreview =>
       'Review this invitation and circle details before you join.';
+
+  @override
+  String get makeupAttestationTitle => 'تفاصيل الحصة التعويضية';
+
+  @override
+  String get makeupAttestationSubtitle =>
+      'لا بصمة—أدخل تفاصيل الحصة عبر الإنترنت للمراجعة.';
+
+  @override
+  String get makeupFieldOccurredAt => 'التاريخ';
+
+  @override
+  String get makeupFieldStartTime => 'وقت البدء';
+
+  @override
+  String get makeupFieldEndTime => 'وقت الانتهاء';
+
+  @override
+  String get makeupFieldDeliveryMode => 'المنصة';
+
+  @override
+  String get makeupFieldZoomHost => 'المضيف';
+
+  @override
+  String get makeupFieldOtherDetail => 'وصف (مطلوب عند «أخرى»)';
+
+  @override
+  String get makeupFieldStudentsPresent => 'الطلاب الحاضرون';
+
+  @override
+  String get makeupFieldNotesOptional => 'ملاحظات (اختياري)';
+
+  @override
+  String get makeupDeliveryZoom => 'Zoom';
+
+  @override
+  String get makeupDeliveryLivekit => 'LiveKit';
+
+  @override
+  String get makeupDeliveryOther => 'أخرى';
+
+  @override
+  String get makeupSubmitContinue => 'متابعة';
+
+  @override
+  String get auditMakeupStatusPending => 'تعويض قيد المراجعة';
+
+  @override
+  String get auditMakeupStatusApproved => 'تمت الموافقة على التعويض';
+
+  @override
+  String get auditMakeupStatusRejected => 'تم رفض التعويض';
+
+  @override
+  String get auditMakeupRejectTitle => 'رفض التعويض';
+
+  @override
+  String get auditMakeupRejectHint => 'السبب يُحفظ في السجل';
+
+  @override
+  String get auditMakeupApproveConfirm => 'الموافقة على هذا التعويض؟';
+
+  @override
+  String get auditMakeupRejectSuccess => 'تم الرفض وتحديث الأجر';
+
+  @override
+  String get auditMakeupApproveSuccess => 'تمت الموافقة على التعويض';
+
+  @override
+  String get auditMakeupApproveButton => 'الموافقة على التعويض';
+
+  @override
+  String auditMakeupPendingAdminBanner(int count) {
+    return 'ما يزال لديك $count تقرير(ات) لتصحيح يحتاج الموافقة أو الرفض أدناه قبل إرسال تقييم الموجّه.';
+  }
+
+  @override
+  String auditMakeupBlockedSubmitCoach(int count) {
+    return 'يجب الموافقة على $count تقرير(ات) تعويض أو رفضها من تعليمة «نماذج التدريس» أولاً.';
+  }
+
+  @override
+  String get auditMakeupEvaluationFooterHint =>
+      'لا يمكن إرسال تقييم الموجّه حتى تُوافق أو ترفض كل تقارير التعويض لتعويض الحصة (تبويب نماذج التدريس).';
+
+  @override
+  String get auditMakeupOpenTeachingFormsTab => 'فتح نماذج التدريس';
 }

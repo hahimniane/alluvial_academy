@@ -531,6 +531,8 @@
   "formViewAll": "عرض الكل",
   "formSearchByName": "البحث باسم النموذج أو الحالة",
   "formNoSubmissionsYet": "لا توجد نماذج مرسلة بعد",
+  "mySubmissionsMonthScopeHint": "تُعرض فقط التسليمات المؤرخة في الشهر المحدد. استخدم عرض الكل لرؤية أشهر أخرى.",
+  "mySubmissionsNoFormIdGroupTitle": "تسليمات بدون معرّف نموذج",
   "formNoResults": "لم يتم العثور على نتائج",
   "formSubmittedFormsAppear": "ستظهر نماذجك المرسلة هنا",
   "formTryAdjustingSearch": "حاول تعديل بحثك",
@@ -561,7 +563,27 @@
   "adminSubmissionsExportFormatLabel": "التنسيق",
   "adminSubmissionsExportExcelLabel": "Excel",
   "adminSubmissionsExportPdfLabel": "PDF",
-  "adminSubmissionsExportProgressSubtitle": "جاري تجهيز الملف. التقدم لكل شخص:",
+  "adminSubmissionsExportProgressSubtitle": "يرجى إبقاء هذه النافذة مفتوحة. قد تستغرق التصديرات الكبيرة لحظات.",
+  "adminSubmissionsExportPhaseLoadingShifts": "جاري تحميل الورديات المرتبطة…",
+  "adminSubmissionsExportPhaseLoadingLabels": "جاري تحميل تسميات حقول النموذج…",
+  "adminSubmissionsExportPhaseLoadingFonts": "جاري تحميل خطوط PDF…",
+  "adminSubmissionsExportPhaseWritingSheet": "جاري كتابة الأوراق…",
+  "adminSubmissionsExportPhaseBuildingFile": "جاري إنشاء الملف…",
+  "adminSubmissionsExportPhaseStartingDownload": "جاري بدء التنزيل…",
+  "adminSubmissionsExportFormSheetProgress": "{current} / {total} — {formName}",
+  "@adminSubmissionsExportFormSheetProgress": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      },
+      "formName": {
+        "type": "String"
+      }
+    }
+  },
   "adminSubmissionsSelectToViewDetails": "اختر تسليماً لعرض التفاصيل",
   "formDefaultTitle": "نموذج",
   "formResponses": "ردود",
@@ -574,7 +596,12 @@
   "timesheetDate": "التاريخ",
   "timesheetStart": "البداية",
   "timesheetEnd": "النهاية",
-  "timesheetTotalHours": "إجمالي الساعات",
+  "timesheetTotalHours": "إجمالي الساعات: {hours}",
+  "@timesheetTotalHours": {
+    "placeholders": {
+      "hours": {}
+    }
+  },
   "timesheetClockInLocation": "موقع تسجيل الدخول",
   "timesheetClockOutLocation": "موقع تسجيل الخروج",
   "timesheetStatus": "الحالة",
@@ -605,6 +632,7 @@
   "timesheetProvideMoreDetails": "يرجى تقديم مزيد من التفاصيل (10 أحرف على الأقل)",
   "timesheetSaveChanges": "حفظ التغييرات",
   "timesheetUpdatedSuccess": "تم تحديث سجل الوقت. في انتظار موافقة المسؤول.",
+  "timesheetEditTotalExceedsShift": "سيجعل هذا التعديل إجمالي وقت التسجيل لهذه الحصة يتجاوز مدتها المجدولة.",
   "timesheetDetails": "تفاصيل الإدخال",
   "timesheetLocationLoading": "جاري تحميل الموقع...",
   "timesheetLocationUnavailable": "الموقع غير متاح",
@@ -1684,8 +1712,19 @@
   "auditIssuesAlerts": "Issues & alertes",
   "auditClassesCompleted": "Classes réalisées",
   "auditHoursTaught": "Heures enseignées",
+  "auditClassLogTablePayFilterEmpty": "لا توجد صفوف تطابق مرشح النشاط القابل للدفع. الملخص أعلاه يعكس شهر التدقيق كاملاً.",
   "auditCompletionRateLabel": "Taux de complétion",
   "auditLateClockInsLabel": "Retards de pointage",
+  "auditClockSegmentCount": "{count, plural, one{مقطع واحد} other{{count} مقاطع}}",
+  "@auditClockSegmentCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "auditClockSegmentsHeader": "مقاطع تسجيل الوقت",
+  "auditClockSessionPay": "أجر الجلسة",
   "auditClassesMissedLabel": "Classes manquées",
   "auditNoLateClockIns": "Aucun",
   "auditNoMissedClasses": "Aucune",
@@ -1702,6 +1741,7 @@
   "auditFormStatusRejectedDuplicate": "Rejeté (doublon)",
   "auditFormStatusRejectedNoShift": "مرفوض (بدون نوبة)",
   "auditFormStatusRejectedNoTimesheet": "مرفوض (بدون سجل وقت)",
+  "auditFormStatusRejectedMakeupRejected": "مرفوض (رفض تعويض الحصة)",
   "auditFormsTabStatTotalTeaching": "إجمالي نماذج التدريس",
   "auditFormsTabStatRejectedNoShift": "مرفوض (بدون نوبة)",
   "auditFormsTabStatRejectedNoTimesheet": "مرفوض (بدون سجل وقت)",
@@ -1808,7 +1848,23 @@
   "teacherAuditPenalties": "Pénalités",
   "teacherAuditBonuses": "Bonus",
   "teacherAuditAdminAdjustment": "Ajustement admin",
-  "teacherAuditDisputeFieldLabel": "Champ",
+  "teacherAuditDisputeFieldLabel": "الحقل",
+  "teacherAuditDisputeOptionClassesCount": "عدد الحصص",
+  "teacherAuditDisputeOptionHoursTaught": "ساعات التدريس",
+  "teacherAuditDisputeOptionPunctualityRate": "معدل الالتزام بالمواعيد",
+  "teacherAuditDisputeOptionFormsCount": "عدد النماذج",
+  "teacherAuditDisputeOptionPaymentAmount": "مبلغ الدفع",
+  "teacherAuditDisputeOptionOverallScore": "الدرجة الإجمالية",
+  "teacherAuditDisputeOptionOther": "أخرى",
+  "teacherAuditDisputeReasonEmpty": "هذا الحقل مطلوب",
+  "teacherAuditDisputeReasonTooShort": "يرجى إضافة المزيد من التفاصيل (على الأقل {min} حرفًا).",
+  "@teacherAuditDisputeReasonTooShort": {
+    "placeholders": {
+      "min": {
+        "type": "int"
+      }
+    }
+  },
   "auditPaymentCalculation": "Calcul",
   "auditHoursWorked": "Heures travaillées",
   "auditTotalAdjustments": "Ajustements totaux",
@@ -1843,6 +1899,38 @@
   },
   "auditOpenDiscussion": "Ouvrir la discussion",
   "auditDiscussionAdminButton": "Chat avec l'enseignant",
+  "auditDiscussionUnreadBadgeTooltip": "{count, plural, one{رسالة واحدة غير مقروءة من المعلّم} other{{count} رسائل غير مقروءة من المعلّم}}",
+  "@auditDiscussionUnreadBadgeTooltip": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "auditShareWithTeacherTooltip": "مشاركة مع المعلم (نسخ)",
+  "auditShareWithTeacherCopied": "تم نسخ ملخص التدقيق إلى الحافظة",
+  "auditMessageTitle": "تحديث التدقيق الشهري",
+  "auditMessageTeacher": "المعلم",
+  "auditMessageReadyInMyReport": "تدقيقك جاهز للمراجعة في تقريري.",
+  "auditMessagePassedCeoReview": "اجتاز تدقيقك مراجعة المدير التنفيذي.",
+  "auditMessageFinalized": "تم إنهاء تدقيقك. يمكنك عرضه في تقريري.",
+  "auditMessagePaymentSummary": "ملخص الدفع",
+  "auditMessageHoursSection": "الساعات",
+  "auditMessageWorkedHours": "ساعات العمل (سجلات الوقت)",
+  "auditMessageFormHours": "ساعات النماذج",
+  "auditMessageTotalHours": "إجمالي الساعات",
+  "auditMessageHourlyRateBreakdown": "تفصيل الأجر بالساعة",
+  "auditMessageNotAvailable": "غير متاح",
+  "auditMessageGrossAmount": "المبلغ الإجمالي",
+  "auditMessagePayFromTimesheets": "الدفع من سجلات الوقت",
+  "auditMessagePayFromForms": "الدفع من النماذج",
+  "auditMessageAdjustments": "التعديلات",
+  "auditMessageAutoPenalties": "الخصومات التلقائية",
+  "auditMessageAutoBonuses": "المكافآت التلقائية",
+  "auditMessageAdminAdjustment": "تعديل الإدارة",
+  "auditMessageCoachLines": "بنود المدرب",
+  "auditMessageTotalAdjustmentsImpact": "إجمالي أثر التعديلات",
+  "auditMessageAdvanceDeduction": "خصم السلفة",
+  "auditMessageFinalAmount": "المبلغ النهائي",
+  "auditMessageReviewReply": "يرجى المراجعة والرد هنا إذا كنت بحاجة إلى توضيحات أو تصحيحات.",
   "teacherAuditPayslipCoachLines": "Ajustements d'évaluation",
   "teacherAuditPayslipAdvances": "Avances (déduites)",
   "teacherAuditClassesSection": "Cours du mois",
@@ -2302,7 +2390,7 @@
   "penaltyPerMissedClass": "Penalty Per Missed Class",
   "penaltyPerMissing": "Penalty Per Missing",
   "penaltyPerShift": "Penalty Per Shift",
-  "pendingapprovals": "Pendingapprovals",
+  "pendingapprovals": "أجر قيد الانتظار (سجل الوقت)",
   "performance": "Performance",
   "performanceEvaluation": "Performance Evaluation",
   "performanceSummaryCopied": "Performance Summary Copied",
@@ -2992,6 +3080,7 @@
   "timesheetReviewGridOverflowColumns": "ظهور الأعمدة",
   "timesheetReviewGridOverflowColumnsSoon": "قريباً",
   "timesheetReviewColumnTooltipHours": "Worked hours from this entry. Hover a row for schedule vs actual and form data.",
+  "timesheetReviewColumnAuditMonthHours": "ساعات التدقيق (الشهر)",
   "timesheetReviewColumnTooltipPayment": "Pay amount for this entry using current hours and rate.",
   "timesheetReviewSearchHint": "Teacher, student, date, shift…",
   "timesheetReviewIncompleteEntry": "Missing clock-out or valid hours",
@@ -3645,11 +3734,6 @@
       "count": {}
     }
   },
-  "@timesheetTotalHours": {
-    "placeholders": {
-      "hours": {}
-    }
-  },
   "timesheetTotalPayment": "Total Payment: ${amount}",
   "@timesheetTotalPayment": {
     "placeholders": {
@@ -3670,6 +3754,20 @@
       "amount": {}
     }
   },
+  "webStuckBannerTitle": "يبدو أن الصفحة متوقفة",
+  "webStuckBannerMessage": "توقف فايرستور عن الاستجابة. حاول استعادة الاتصال أو أعد تحميل الصفحة.",
+  "webStuckBannerRecover": "استعادة",
+  "webStuckBannerReload": "إعادة التحميل",
+  "webStuckBannerDismiss": "تجاهل",
+  "timesheetReviewStuckLoadingTitle": "ما زال التحميل جاريًا…",
+  "timesheetReviewStuckLoadingMessage": "يستغرق فايرستور وقتًا أطول من المعتاد. أحيانًا تتعطل الاتصالات في علامة تبويب متروكة منذ فترة طويلة. عادةً ما تحلّ إعادة المحاولة المشكلة دون الحاجة لمسح بيانات التصفح.",
+  "timesheetConsolidatedFirstClockInLabel": "أول تسجيل دخول",
+  "timesheetConsolidatedLastClockOutLabel": "آخر تسجيل خروج",
+  "timesheetConsolidatedBillableTotal": "إجمالي القابل للدفع",
+  "timesheetConsolidatedSumSessions": "مجموع مدد الجلسات",
+  "timesheetConsolidatedHoursExplanation": "الوقت القابل للدفع يتبع قواعد التداخل: أزواج تسجيل الدخول/الخروج المتداخلة تُحسب كجلسة مدفوعة واحدة. وقت أول وآخر تسجيل يعرض المدى عبر كل الجلسات وقد يكون أطول من الدقائق المدفوعة.",
+  "timesheetConsolidatedSessionsHeader": "الجلسات",
+  "timesheetTapSessionForDetails": "اضغط على صف لفتح تلك الجلسة وحدها.",
   "formSubmissionsTitle": "Submissions • {title}",
   "@formSubmissionsTitle": {
     "placeholders": {
@@ -4856,6 +4954,28 @@
   "adminAuditCeoPaymentAdjustmentsHint": "مبالغ شهرية اختيارية. أضف مبررًا قصيرًا عند إدخال أي مبلغ.",
   "adminAuditEvalSectionCommentLabel": "تعليق المقيّم",
   "adminAuditEvalSectionCommentHint": "اختياري. يُدرج في PDF/Excel تحت هذا القسم.",
+  "adminAuditTeacherPayslipAckShort": "تأكيد قراءة كشف الراتب",
+  "adminAuditTeacherPayslipAcknowledgedOn": "تم التأكيد في {date}",
+  "@adminAuditTeacherPayslipAcknowledgedOn": {
+    "placeholders": {
+      "date": {"type": "String"}
+    }
+  },
+  "adminAuditTeacherPayslipNotAcknowledged": "لم يُؤكَّد بعد",
+  "adminAuditTeacherDisputeSummaryTitle": "اعتراض المعلّم",
+  "adminAuditResolveTeacherDisputeTitle": "معالجة اعتراض المعلّم",
+  "adminAuditViewTeacherDispute": "عرض الاعتراض",
+  "adminAuditResolveTeacherDisputeButton": "معالجة الاعتراض",
+  "adminAuditResolveTeacherDisputeSubmit": "حفظ الرد",
+  "adminAuditResolveTeacherDisputeAccept": "قبول",
+  "adminAuditResolveTeacherDisputeReject": "رفض",
+  "adminAuditResolveTeacherDisputeResponseLabel": "رد للمعلّم",
+  "adminAuditResolveTeacherDisputeResponseHint": "اشرح قرارك. سيرى المعلّم هذه الرسالة.",
+  "adminAuditResolveTeacherDisputeRequireReAck": "طلب تأكيد قراءة كشف الراتب من جديد",
+  "adminAuditResolveTeacherDisputeNotifyTeacher": "إشعار المعلّم (داخل التطبيق)",
+  "adminAuditResolveTeacherDisputeSuccess": "تم حفظ حل الاعتراض.",
+  "adminAuditResolveTeacherDisputeFailed": "تعذّر الحفظ. تحقّق من الصلاحيات وحاول مجددًا.",
+  "adminAuditTeacherDisputeSuggestedValue": "التصحيح المقترح",
   "sidebarPublicSiteCms": "الأسعار والفريق (الموقع العام)",
   "publicSiteCmsTitle": "الموقع العام — الأسعار والفريق",
   "publicSiteCmsTabPricing": "الأسعار",
@@ -4864,7 +4984,7 @@
   "publicSiteCmsTabLanding": "الصفحة الرئيسية — البطل",
   "publicSiteCmsLandingIntro": "خصص شريط البطل في الصفحة الرئيسية: لون الخلفية (hex) وروابط صور اختيارية (https). اترك الروابط فارغة لاستخدام الصور الافتراضية. يُفضّل خلفية داكنة ليبقى العنوان واضحًا. على الويب قد تمنع بعض المواقع الربط المباشر (CORS) — استخدم الرفع إلى Firebase Storage لاستضافة موثوقة.",
   "publicSiteCmsLandingHeroBg": "لون خلفية البطل",
-  "publicSiteCmsLandingHeroBgHint": "#RRGGBB (مثال: #001E4E)",
+  "publicSiteCmsLandingHeroBgHint": "#RRGGBB (مثال: #00484E)",
   "publicSiteCmsLandingMainImage": "صورة البطل الوسطى",
   "publicSiteCmsLandingLeftImage": "صورة الدائرة اليسرى",
   "publicSiteCmsLandingRightImage": "صورة اللوحة اليمنى",
@@ -5393,5 +5513,46 @@
   "shiftTemplateViewSchedule": "الجدول الكامل",
   "shiftTemplateAllTeachers": "جميع المعلمين",
   "shiftTemplateSelectTeacher": "اختر المعلم",
-  "shiftTemplateStudentSchedule": "جدول الطالب"
+  "shiftTemplateStudentSchedule": "جدول الطالب",
+  "makeupAttestationTitle": "تفاصيل الحصة التعويضية",
+  "makeupAttestationSubtitle": "لا بصمة—أدخل تفاصيل الحصة عبر الإنترنت للمراجعة.",
+  "makeupFieldOccurredAt": "التاريخ",
+  "makeupFieldStartTime": "وقت البدء",
+  "makeupFieldEndTime": "وقت الانتهاء",
+  "makeupFieldDeliveryMode": "المنصة",
+  "makeupFieldZoomHost": "المضيف",
+  "makeupFieldStudentsPresent": "الطلاب الحاضرون",
+  "makeupFieldOtherDetail": "وصف (مطلوب عند «أخرى»)",
+  "makeupFieldNotesOptional": "ملاحظات (اختياري)",
+  "makeupDeliveryZoom": "Zoom",
+  "makeupDeliveryLivekit": "LiveKit",
+  "makeupDeliveryOther": "أخرى",
+  "makeupSubmitContinue": "متابعة",
+  "auditMakeupStatusPending": "تعويض قيد المراجعة",
+  "auditMakeupStatusApproved": "تمت الموافقة على التعويض",
+  "auditMakeupStatusRejected": "تم رفض التعويض",
+  "auditMakeupRejectTitle": "رفض التعويض",
+  "auditMakeupRejectHint": "السبب يُحفظ في السجل",
+  "auditMakeupApproveConfirm": "الموافقة على هذا التعويض؟",
+  "auditMakeupRejectSuccess": "تم الرفض وتحديث الأجر",
+  "auditMakeupApproveSuccess": "تمت الموافقة على التعويض",
+  "auditMakeupApproveButton": "الموافقة على التعويض",
+  "auditMakeupPendingAdminBanner": "ما يزال لديك {count} تقرير(ات) لتصحيح يحتاج الموافقة أو الرفض أدناه قبل إرسال تقييم الموجّه.",
+  "@auditMakeupPendingAdminBanner": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "auditMakeupBlockedSubmitCoach": "يجب الموافقة على {count} تقرير(ات) تعويض أو رفضها من تعليمة «نماذج التدريس» أولاً.",
+  "@auditMakeupBlockedSubmitCoach": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "auditMakeupEvaluationFooterHint": "لا يمكن إرسال تقييم الموجّه حتى تُوافق أو ترفض كل تقارير التعويض لتعويض الحصة (تبويب نماذج التدريس).",
+  "auditMakeupOpenTeachingFormsTab": "فتح نماذج التدريس"
 }

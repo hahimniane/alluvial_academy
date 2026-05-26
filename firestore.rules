@@ -127,16 +127,6 @@ service cloud.firestore {
 
     
 
-    // Helper to normalize teacherId values stored with different field names
-
-    function teacherIdFromData(data) {
-
-      return data.teacherId != null ? data.teacherId : data.teacher_id;
-
-    }
-
-
-
     // Helper to check if the current user has the 'parent' user_type or secondary role
     // (looks up the requesting user's own document — safe for list query evaluation)
     function isParentUser() {
@@ -165,6 +155,12 @@ service cloud.firestore {
         || request.resource.data.diff(resource.data).changedKeys().hasOnly(['is_online']);
     }
 
+    // AuthService / location: allow teachers to refresh geo without touching role fields
+    function isLastKnownLocationOnlyUpdate() {
+      return request.resource.data.diff(resource.data).changedKeys()
+        .hasOnly(['last_known_location']);
+    }
+
     
 
     // Helper to resolve the owner of a form submission across legacy field names
@@ -175,10 +171,22 @@ service cloud.firestore {
 
              data.submittedBy != null ? data.submittedBy :
 
+             data.submitted_by != null ? data.submitted_by :
+
              data.teacherId != null ? data.teacherId :
 
              data.teacher_id;
 
+    }
+
+    // Explicit ownership checks for form_responses reads (query planner can tie
+    // where('userId' / 'teacher_id' / ...) to these equalities).
+    function formResponseOwnedBySignedInUser() {
+      return resource.data.userId == request.auth.uid ||
+             resource.data.submittedBy == request.auth.uid ||
+             resource.data.submitted_by == request.auth.uid ||
+             resource.data.teacherId == request.auth.uid ||
+             resource.data.teacher_id == request.auth.uid;
     }
 
     
@@ -278,6 +286,10 @@ service cloud.firestore {
 
         isUserDocOwnerAfterWrite(userId) && isPresenceOnlyUpdate()
 
+      ) || (
+
+        isUserDocOwnerAfterWrite(userId) && isLastKnownLocationOnlyUpdate()
+
       );
 
 
@@ -302,9 +314,7 @@ service cloud.firestore {
 
     match /form_responses/{responseId} {
 
-      allow read: if isSignedIn() && 
-
-                     (isOwner(submissionOwnerFromData(resource.data)) || isAdmin());
+      allow read: if isSignedIn() && (formResponseOwnedBySignedInUser() || isAdmin());
 
       allow create: if isSignedIn() && 
 
@@ -439,18 +449,16 @@ service cloud.firestore {
     
 
     // Timesheet entries - teachers can read/write their own, admins can read/write all
+    // Use direct field checks on resource.data so queries like
+    // where('teacher_id' == request.auth.uid) pass security rule evaluation.
 
 	    match /timesheet_entries/{entryId} {
 
-      // Allow get for specific document
-
-      allow get: if isSignedIn() && 
-
-                    (isAdmin() || teacherIdFromData(resource.data) == request.auth.uid);
-
-      // Allow list/query for teachers to see their own entries
-
-      allow list: if isSignedIn();
+      allow read: if isSignedIn() && (
+        isAdmin() ||
+        resource.data.teacher_id == request.auth.uid ||
+        resource.data.teacherId == request.auth.uid
+      );
 
       // Allow create if teacher is creating their own entry
 
@@ -751,6 +759,52 @@ service cloud.firestore {
                      (resource.data.userId == request.auth.uid || isAdmin());
       allow write: if isAdmin();
     }
+
+    // Published hourly rates (non-secret — used on teacher dashboards / pay previews)
+    // Force deploy comment
+    match /subject_hourly_rates/{rateId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // Monthly teacher audits — admins manage; teachers read their own and limited self-updates
+    match /teacher_audits/{auditId} {
+      function ownsThisTeacherAudit() {
+        return isSignedIn() && resource != null && (
+          resource.data.userId == request.auth.uid ||
+          resource.data.oderId == request.auth.uid
+        );
+      }
+      allow read: if isAdmin() || ownsThisTeacherAudit();
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() || (
+        ownsThisTeacherAudit() && (
+          request.resource.data.diff(resource.data).changedKeys()
+            .hasOnly(['teacherAcknowledgedAt', 'lastUpdated']) ||
+          (
+            request.resource.data.diff(resource.data).changedKeys()
+              .hasOnly(['reviewChain', 'status', 'lastUpdated']) &&
+            request.resource.data.status == 'disputed'
+          )
+        )
+      );
+    }
+
+    // In-app audit notifications (sidebar badge, "report updated" banner).
+    // v2: explicit teacher read/update — do not rely on admin catch-all.
+    match /audit_notifications/{notificationId} {
+      allow read: if isSignedIn() && (
+        isAdmin() ||
+        resource.data.teacherId == request.auth.uid
+      );
+      allow create: if isSignedIn() && isAdmin();
+      allow update: if isSignedIn() && (
+        isAdmin() ||
+        resource.data.teacherId == request.auth.uid
+      );
+      allow delete: if isAdmin();
+    }
+
     // Debug logs - users can read/write their own debug logs
     match /debug_logs/{userId} {
       allow read, write: if isSignedIn() && request.auth.uid == userId;

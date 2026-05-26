@@ -5,26 +5,37 @@ class PublicSitePlanPricing {
   final double? session30Usd;
   final double? session60Usd;
   final double? hourlyUsd;
+
   /// Tutoring: $/hr when total weekly hours are under 4 (default 11.99).
   final double? tutoringHrUnder4Usd;
+
   /// Tutoring: $/hr when weekly hours are 4+ (default 9.99).
   final double? tutoringHr4PlusUsd;
+
   /// Islamic 1-on-1: $/hr when weekly hours are under 5 (default 8.50).
   final double? islamicHrUnder5Usd;
+
   /// Islamic 1-on-1: $/hr when weekly hours are 5+ (default 6.99).
   final double? islamicHr5PlusUsd;
+
   /// V2 Islamic track base hourly price.
   final double? islamicBaseUsd;
+
   /// V2 Islamic track discounted hourly price (4+ hrs/week).
   final double? islamicDiscountUsd;
+
   /// Weekly hours at or below this use base rate; discount applies when hours > threshold (default 4).
   final int? islamicDiscountThreshold;
+
   /// V2 Tutoring track base hourly price.
   final double? tutoringBaseUsd;
+
   /// V2 Tutoring track discounted hourly price (4+ hrs/week).
   final double? tutoringDiscountUsd;
+
   /// Weekly hours at or below this use base rate; discount when hours > threshold (default 4).
   final int? tutoringDiscountThreshold;
+
   /// V2 Group track hourly price.
   final double? groupHourlyUsd;
   final List<String> bullets;
@@ -67,16 +78,21 @@ class PublicSitePlanPricing {
         if (session30Usd != null) 'session30Usd': session30Usd,
         if (session60Usd != null) 'session60Usd': session60Usd,
         if (hourlyUsd != null) 'hourlyUsd': hourlyUsd,
-        if (tutoringHrUnder4Usd != null) 'tutoringHrUnder4Usd': tutoringHrUnder4Usd,
-        if (tutoringHr4PlusUsd != null) 'tutoringHr4PlusUsd': tutoringHr4PlusUsd,
-        if (islamicHrUnder5Usd != null) 'islamicHrUnder5Usd': islamicHrUnder5Usd,
+        if (tutoringHrUnder4Usd != null)
+          'tutoringHrUnder4Usd': tutoringHrUnder4Usd,
+        if (tutoringHr4PlusUsd != null)
+          'tutoringHr4PlusUsd': tutoringHr4PlusUsd,
+        if (islamicHrUnder5Usd != null)
+          'islamicHrUnder5Usd': islamicHrUnder5Usd,
         if (islamicHr5PlusUsd != null) 'islamicHr5PlusUsd': islamicHr5PlusUsd,
         if (islamicBaseUsd != null) 'islamicBaseUsd': islamicBaseUsd,
-        if (islamicDiscountUsd != null) 'islamicDiscountUsd': islamicDiscountUsd,
+        if (islamicDiscountUsd != null)
+          'islamicDiscountUsd': islamicDiscountUsd,
         if (islamicDiscountThreshold != null)
           'islamicDiscountThreshold': islamicDiscountThreshold,
         if (tutoringBaseUsd != null) 'tutoringBaseUsd': tutoringBaseUsd,
-        if (tutoringDiscountUsd != null) 'tutoringDiscountUsd': tutoringDiscountUsd,
+        if (tutoringDiscountUsd != null)
+          'tutoringDiscountUsd': tutoringDiscountUsd,
         if (tutoringDiscountThreshold != null)
           'tutoringDiscountThreshold': tutoringDiscountThreshold,
         if (groupHourlyUsd != null) 'groupHourlyUsd': groupHourlyUsd,
@@ -90,7 +106,8 @@ class PublicSitePlanPricing {
     List<String> bullets = const [];
     final raw = map['bullets'];
     if (raw is List) {
-      bullets = raw.map((e) => e.toString()).where((s) => s.isNotEmpty).toList();
+      bullets =
+          raw.map((e) => e.toString()).where((s) => s.isNotEmpty).toList();
     }
     return PublicSitePlanPricing(
       session30Usd: _readDouble(map['session30Usd']),
@@ -100,13 +117,18 @@ class PublicSitePlanPricing {
       tutoringHr4PlusUsd: _readDouble(map['tutoringHr4PlusUsd']),
       islamicHrUnder5Usd: _readDouble(map['islamicHrUnder5Usd']),
       islamicHr5PlusUsd: _readDouble(map['islamicHr5PlusUsd']),
-      islamicBaseUsd: _readDouble(map['islamicBaseUsd']) ?? _readDouble(map['islamicHrUnder5Usd']),
-      islamicDiscountUsd: _readDouble(map['islamicDiscountUsd']) ?? _readDouble(map['islamicHr5PlusUsd']),
+      islamicBaseUsd: _readDouble(map['islamicBaseUsd']) ??
+          _readDouble(map['islamicHrUnder5Usd']),
+      islamicDiscountUsd: _readDouble(map['islamicDiscountUsd']) ??
+          _readDouble(map['islamicHr5PlusUsd']),
       islamicDiscountThreshold: _readInt(map['islamicDiscountThreshold']),
-      tutoringBaseUsd: _readDouble(map['tutoringBaseUsd']) ?? _readDouble(map['tutoringHrUnder4Usd']),
-      tutoringDiscountUsd: _readDouble(map['tutoringDiscountUsd']) ?? _readDouble(map['tutoringHr4PlusUsd']),
+      tutoringBaseUsd: _readDouble(map['tutoringBaseUsd']) ??
+          _readDouble(map['tutoringHrUnder4Usd']),
+      tutoringDiscountUsd: _readDouble(map['tutoringDiscountUsd']) ??
+          _readDouble(map['tutoringHr4PlusUsd']),
       tutoringDiscountThreshold: _readInt(map['tutoringDiscountThreshold']),
-      groupHourlyUsd: _readDouble(map['groupHourlyUsd']) ?? _readDouble(map['hourlyUsd']),
+      groupHourlyUsd:
+          _readDouble(map['groupHourlyUsd']) ?? _readDouble(map['hourlyUsd']),
       bullets: bullets,
     );
   }
@@ -215,9 +237,11 @@ class PublicSiteTeamMember {
   final List<String> languages;
   final String whyAlluwal;
   final String? imageUrl;
+
   /// Bundled asset path (e.g. `assets/images/staff/…`) when the row was imported
   /// from [assets/data/staff.json]; used as avatar fallback when [imageUrl] is empty.
   final String? photoAsset;
+
   /// Optional Firebase Auth UID of a teacher/leader linked to this public profile.
   final String? linkedUserUid;
   final String category;
@@ -273,9 +297,8 @@ class PublicSiteTeamMember {
       city: (data['city'] ?? '').toString(),
       education: (data['education'] ?? '').toString(),
       bio: (data['bio'] ?? '').toString(),
-      languages: langs is List
-          ? langs.map((e) => e.toString()).toList()
-          : const [],
+      languages:
+          langs is List ? langs.map((e) => e.toString()).toList() : const [],
       whyAlluwal: (data['whyAlluwal'] ?? '').toString(),
       imageUrl: data['imageUrl']?.toString(),
       photoAsset: (pa != null && pa.isNotEmpty) ? pa : null,
@@ -362,7 +385,7 @@ class PublicSiteSocialDoc {
 
 /// Public landing hero (home page) — Firestore [PublicSiteCmsService.landingCollection] / main.
 class PublicSiteLandingDoc {
-  static const String defaultHeroBackgroundHex = '#001E4E';
+  static const String defaultHeroBackgroundHex = '#00484E';
 
   /// `#RRGGBB` or `RRGGBB` (leading # optional).
   final String heroBackgroundColorHex;
@@ -382,7 +405,7 @@ class PublicSiteLandingDoc {
   /// Parses [heroBackgroundColorHex] to `0xAARRGGBB`; [fallbackArgb] if invalid.
   static int parseHeroBackgroundArgb(
     String? raw, {
-    int fallbackArgb = 0xFF001E4E,
+    int fallbackArgb = 0xFF00484E,
   }) {
     var s = (raw ?? '').trim();
     if (s.isEmpty) return fallbackArgb;
@@ -427,8 +450,7 @@ class PublicSiteLandingDoc {
         .toString()
         .trim();
     return PublicSiteLandingDoc(
-      heroBackgroundColorHex:
-          hex.isEmpty ? defaultHeroBackgroundHex : hex,
+      heroBackgroundColorHex: hex.isEmpty ? defaultHeroBackgroundHex : hex,
       heroMainImageUrl: (data['heroMainImageUrl'] ?? '').toString(),
       heroLeftImageUrl: (data['heroLeftImageUrl'] ?? '').toString(),
       heroRightImageUrl: (data['heroRightImageUrl'] ?? '').toString(),

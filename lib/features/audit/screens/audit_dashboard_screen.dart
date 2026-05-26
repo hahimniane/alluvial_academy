@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -11,7 +12,8 @@ import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 import 'package:alluwalacademyadmin/features/audit/models/teacher_audit_metrics.dart';
 import '../services/audit_metrics_service.dart';
-import 'dart:html' if (dart.library.io) 'package:alluwalacademyadmin/core/utils/html_stub.dart'
+import 'dart:html'
+    if (dart.library.io) 'package:alluwalacademyadmin/core/utils/html_stub.dart'
     as html;
 
 /// Admin dashboard for viewing teacher audit metrics
@@ -46,7 +48,8 @@ class _AuditDashboardScreenState extends State<AuditDashboardScreen> {
     setState(() => _isLoading = true);
 
     // Get available months
-    _availableMonths = await AuditMetricsService.getAvailableMonths(pilotOnly: _pilotOnly);
+    _availableMonths =
+        await AuditMetricsService.getAvailableMonths(pilotOnly: _pilotOnly);
 
     // Default to current month if available, otherwise first available
     final currentMonth = DateFormat('yyyy-MM').format(DateTime.now());
@@ -59,7 +62,8 @@ class _AuditDashboardScreenState extends State<AuditDashboardScreen> {
     }
 
     // Get teachers
-    _teachers = await AuditMetricsService.getTeachersWithMetrics(pilotOnly: _pilotOnly);
+    _teachers =
+        await AuditMetricsService.getTeachersWithMetrics(pilotOnly: _pilotOnly);
 
     await _loadMetrics();
   }
@@ -106,7 +110,9 @@ class _AuditDashboardScreenState extends State<AuditDashboardScreen> {
       setState(() => _isLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppLocalizations.of(context)!.errorLoadingMetricsE)),
+          SnackBar(
+              content:
+                  Text(AppLocalizations.of(context)!.errorLoadingMetricsE)),
         );
       }
     }
@@ -216,11 +222,15 @@ class _AuditDashboardScreenState extends State<AuditDashboardScreen> {
           // Month picker
           Expanded(
             child: DropdownButtonFormField<String>(
-              value: _availableMonths.contains(_selectedMonth) ? _selectedMonth : null,
+              value: _availableMonths.contains(_selectedMonth)
+                  ? _selectedMonth
+                  : null,
               decoration: InputDecoration(
                 labelText: AppLocalizations.of(context)!.dashboardMonth,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               ),
               items: _availableMonths.map((m) {
                 final date = DateTime.parse('$m-01');
@@ -244,11 +254,15 @@ class _AuditDashboardScreenState extends State<AuditDashboardScreen> {
               value: _selectedTeacherId,
               decoration: InputDecoration(
                 labelText: AppLocalizations.of(context)!.roleTeacher,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               ),
               items: [
-                DropdownMenuItem(value: null, child: Text(AppLocalizations.of(context)!.allTeachers)),
+                DropdownMenuItem(
+                    value: null,
+                    child: Text(AppLocalizations.of(context)!.allTeachers)),
                 ..._teachers.map((t) => DropdownMenuItem(
                       value: t['userId'],
                       child: Text(t['name'] ?? t['email'] ?? 'Unknown'),
@@ -267,11 +281,15 @@ class _AuditDashboardScreenState extends State<AuditDashboardScreen> {
               value: _selectedTier,
               decoration: InputDecoration(
                 labelText: AppLocalizations.of(context)!.performanceTier,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               ),
               items: [
-                DropdownMenuItem(value: null, child: Text(AppLocalizations.of(context)!.allTiers)),
+                DropdownMenuItem(
+                    value: null,
+                    child: Text(AppLocalizations.of(context)!.allTiers)),
                 ...PerformanceTier.values.map((t) => DropdownMenuItem(
                       value: t,
                       child: Row(
@@ -368,7 +386,8 @@ class _AuditDashboardScreenState extends State<AuditDashboardScreen> {
     );
   }
 
-  Widget _buildSummaryCard(String title, String value, IconData icon, Color color) {
+  Widget _buildSummaryCard(
+      String title, String value, IconData icon, Color color) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -452,7 +471,8 @@ class _AuditDashboardScreenState extends State<AuditDashboardScreen> {
                   metrics.teacherName.isNotEmpty
                       ? metrics.teacherName[0].toUpperCase()
                       : '?',
-                  style: TextStyle(color: tierColor, fontWeight: FontWeight.bold),
+                  style:
+                      TextStyle(color: tierColor, fontWeight: FontWeight.bold),
                 ),
               ),
               const SizedBox(width: 12),
@@ -479,7 +499,8 @@ class _AuditDashboardScreenState extends State<AuditDashboardScreen> {
               ),
               // Overall score badge
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 decoration: BoxDecoration(
                   color: tierColor.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(20),
@@ -514,11 +535,14 @@ class _AuditDashboardScreenState extends State<AuditDashboardScreen> {
               const SizedBox(width: 12),
               _buildMetricChip('📝 Forms', metrics.formComplianceRate, '%'),
               const SizedBox(width: 12),
-              _buildMetricChip('📚 Scheduled', metrics.scheduledClasses.toDouble(), ''),
+              _buildMetricChip(
+                  '📚 Scheduled', metrics.scheduledClasses.toDouble(), ''),
               const SizedBox(width: 12),
-              _buildMetricChip('✅ Completed', metrics.completedClasses.toDouble(), ''),
+              _buildMetricChip(
+                  '✅ Completed', metrics.completedClasses.toDouble(), ''),
               const SizedBox(width: 12),
-              _buildMetricChip('❌ Missed', metrics.missedClasses.toDouble(), ''),
+              _buildMetricChip(
+                  '❌ Missed', metrics.missedClasses.toDouble(), ''),
             ],
           ),
           // Flags
@@ -528,7 +552,8 @@ class _AuditDashboardScreenState extends State<AuditDashboardScreen> {
             const SizedBox(height: 8),
             Text(
               '🚩 Flags (${metrics.flags.length})',
-              style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 14),
+              style:
+                  GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 14),
             ),
             const SizedBox(height: 8),
             Wrap(
@@ -536,7 +561,8 @@ class _AuditDashboardScreenState extends State<AuditDashboardScreen> {
               runSpacing: 8,
               children: metrics.flags.take(5).map((flag) {
                 return Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
                     color: const Color(0xffFEF2F2),
                     borderRadius: BorderRadius.circular(6),
@@ -650,21 +676,26 @@ class _AuditDashboardScreenState extends State<AuditDashboardScreen> {
     );
 
     try {
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser == null) throw Exception('Not logged in');
+
       final pilotDoc = await FirebaseFirestore.instance
           .collection('users')
-          .doc('Thz8PIVUGpS5cjlIYBJAemjoQxw1')
+          .doc(currentUser.uid)
           .get();
 
       if (!mounted) return;
       if (!pilotDoc.exists) {
-        throw Exception('Pilot user not found');
+        throw Exception('User profile not found');
       }
 
       final userData = pilotDoc.data()!;
       final metrics = await AuditMetricsService.computeAndSaveMetrics(
-        oderId: 'Thz8PIVUGpS5cjlIYBJAemjoQxw1',
-        teacherEmail: userData['email'] ?? '',
-        teacherName: '${userData['first_name'] ?? ''} ${userData['last_name'] ?? ''}'.trim(),
+        oderId: currentUser.uid,
+        teacherEmail: userData['email'] ?? currentUser.email ?? '',
+        teacherName:
+            '${userData['first_name'] ?? ''} ${userData['last_name'] ?? ''}'
+                .trim(),
         yearMonth: _selectedMonth,
         pilotOnly: true,
       );
@@ -674,7 +705,8 @@ class _AuditDashboardScreenState extends State<AuditDashboardScreen> {
         messenger.showSnackBar(
           SnackBar(
             content: Text(
-              l10n.auditMetricsComputed(metrics.overallScore.toStringAsFixed(1)),
+              l10n.auditMetricsComputed(
+                  metrics.overallScore.toStringAsFixed(1)),
             ),
           ),
         );
@@ -728,7 +760,8 @@ class _AuditDashboardScreenState extends State<AuditDashboardScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(AppLocalizations.of(context)!.csvExportedSuccessfully),
+            content:
+                Text(AppLocalizations.of(context)!.csvExportedSuccessfully),
           ),
         );
       }
@@ -843,8 +876,8 @@ class _AuditDashboardScreenState extends State<AuditDashboardScreen> {
     html.window.open(url, '_blank');
 
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(AppLocalizations.of(context)!.reportOpenedInNewTabUse)),
+      SnackBar(
+          content: Text(AppLocalizations.of(context)!.reportOpenedInNewTabUse)),
     );
   }
 }
-

@@ -33,10 +33,8 @@ class TimesheetPaymentService {
 
   static double calculatePayment(TimesheetEntry timesheet) {
     try {
-      final forceRecalc = timesheet.isEdited && !timesheet.editApproved;
-      if (!forceRecalc &&
-          timesheet.paymentAmount != null &&
-          timesheet.paymentAmount! > 0) {
+      // Rule R3: Trust the stored payment_amount, even for edited-pending rows
+      if (timesheet.paymentAmount != null && timesheet.paymentAmount! > 0) {
         return timesheet.paymentAmount!;
       }
 

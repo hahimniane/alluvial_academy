@@ -5,9 +5,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
-import 'package:alluwalacademyadmin/features/shift_management/models/teaching_shift.dart';
+import '../../shift_management/models/teaching_shift.dart';
 import 'package:alluwalacademyadmin/features/forms/services/form_labels_cache_service.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
+import '../utils/form_response_owner_queries.dart';
 import '../utils/form_submission_view_mode.dart';
 import '../widgets/form_details_modal.dart';
 
@@ -73,28 +74,28 @@ class _MySubmissionsScreenState extends State<MySubmissionsScreen> {
         return;
       }
 
-      // Query all form submissions by current user
-      final snapshot = await FirebaseFirestore.instance
-          .collection('form_responses')
-          .where('userId', isEqualTo: user.uid)
-          .orderBy('submittedAt', descending: true)
-          .get();
+      final mergedDocs = await queryFormResponsesForOwner(
+        FirebaseFirestore.instance,
+        user.uid,
+      );
 
       if (!mounted) return;
 
-      // Collect available months and group submissions
       final monthsSet = <String>{};
       final grouped = <String, List<QueryDocumentSnapshot>>{};
       final titles = <String, String>{};
+      final l10n = AppLocalizations.of(context)!;
 
-      for (var doc in snapshot.docs) {
+      for (final doc in mergedDocs) {
         final data = doc.data();
-        final formId = data['formId'] as String?;
+        final rawFormId = data['formId'];
+        final trimmedFormId = rawFormId?.toString().trim();
+        final groupKey = (trimmedFormId != null && trimmedFormId.isNotEmpty)
+            ? trimmedFormId
+            : kMySubmissionsNoFormIdGroupKey;
 
-        // Extract yearMonth from doc (or derive from submittedAt)
         String? yearMonth = data['yearMonth'] as String?;
-        if (yearMonth == null) {
-          // Derive from submittedAt for backward compatibility
+        if (yearMonth == null || yearMonth.isEmpty) {
           final submittedAt = (data['submittedAt'] as Timestamp?)?.toDate();
           if (submittedAt != null) {
             yearMonth =
@@ -102,31 +103,33 @@ class _MySubmissionsScreenState extends State<MySubmissionsScreen> {
           }
         }
 
-        if (yearMonth != null) {
+        if (yearMonth != null && yearMonth.isNotEmpty) {
           monthsSet.add(yearMonth);
         }
 
-        // Filter by selected month (unless showing all)
-        if (!_showAllMonths && yearMonth != _selectedYearMonth) {
-          continue;
+        if (!_showAllMonths) {
+          if (yearMonth == null || yearMonth.isEmpty) {
+            continue;
+          }
+          if (yearMonth != _selectedYearMonth) {
+            continue;
+          }
         }
 
-        if (formId != null) {
-          if (!grouped.containsKey(formId)) {
-            grouped[formId] = [];
-            // Fetch form title
-            final title = await _getFormTitle(data, formId);
-            titles[formId] = title;
-          }
-          grouped[formId]!.add(doc);
+        grouped.putIfAbsent(groupKey, () => []);
+        if (!titles.containsKey(groupKey)) {
+          titles[groupKey] = groupKey == kMySubmissionsNoFormIdGroupKey
+              ? l10n.mySubmissionsNoFormIdGroupTitle
+              : await _getFormTitle(context, data, groupKey);
         }
+        grouped[groupKey]!.add(doc);
       }
 
       // Sort months in descending order (most recent first)
       final sortedMonths = monthsSet.toList()..sort((a, b) => b.compareTo(a));
 
       setState(() {
-        _mySubmissions = snapshot.docs;
+        _mySubmissions = mergedDocs;
         _groupedSubmissions = grouped;
         _formTitles = titles;
         _availableMonths = sortedMonths;
@@ -134,7 +137,7 @@ class _MySubmissionsScreenState extends State<MySubmissionsScreen> {
       });
 
       AppLogger.debug(
-          'MySubmissions: Loaded ${_mySubmissions.length} total submissions');
+          'MySubmissions: Loaded ${_mySubmissions.length} total submissions (merged owner queries)');
       AppLogger.debug(
           'MySubmissions: Showing ${grouped.values.fold(0, (sum, list) => sum + list.length)} for $_selectedYearMonth');
       AppLogger.debug('MySubmissions: Available months: $sortedMonths');
@@ -326,7 +329,13 @@ class _MySubmissionsScreenState extends State<MySubmissionsScreen> {
   }
 
   Future<String> _getFormTitle(
-      Map<String, dynamic> data, String? formId) async {
+    BuildContext context,
+    Map<String, dynamic> data,
+    String formId,
+  ) async {
+    if (formId == kMySubmissionsNoFormIdGroupKey) {
+      return AppLocalizations.of(context)!.mySubmissionsNoFormIdGroupTitle;
+    }
     // Try to get title from the stored data first
     final storedTitle =
         data['formTitle'] ?? data['form_title'] ?? data['title'];
@@ -340,7 +349,7 @@ class _MySubmissionsScreenState extends State<MySubmissionsScreen> {
     final templateId = (data['templateId'] as String?)?.trim();
     final idToTry = templateId ?? formId;
 
-    if (idToTry != null && idToTry.isNotEmpty) {
+    if (idToTry.isNotEmpty) {
       try {
         // Prefer form_templates (new system) for known template ids
         final templateDoc = await FirebaseFirestore.instance
@@ -402,7 +411,7 @@ class _MySubmissionsScreenState extends State<MySubmissionsScreen> {
               icon: const Icon(Icons.calendar_month, size: 18),
               label: Text(
                 _showAllMonths
-                    ? 'All Time'
+                    ? AppLocalizations.of(context)!.formAllTime
                     : _getMonthDisplayName(_selectedYearMonth),
                 style: GoogleFonts.inter(
                   fontSize: 13,
@@ -454,9 +463,18 @@ class _MySubmissionsScreenState extends State<MySubmissionsScreen> {
                           ),
                         ),
                         Text(
-                          '$currentMonthCount ${currentMonthCount == 1 ? 'submission' : 'submissions'} this month',
+                          '$currentMonthCount ${currentMonthCount == 1 ? AppLocalizations.of(context)!.formSubmission : AppLocalizations.of(context)!.formSubmissions} ${AppLocalizations.of(context)!.formThisMonth}',
                           style: GoogleFonts.inter(
                             fontSize: 12,
+                            color: const Color(0xff64748B),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          AppLocalizations.of(context)!
+                              .mySubmissionsMonthScopeHint,
+                          style: GoogleFonts.inter(
+                            fontSize: 11,
                             color: const Color(0xff64748B),
                           ),
                         ),
@@ -743,163 +761,6 @@ class _MySubmissionsScreenState extends State<MySubmissionsScreen> {
         formTitle: formTitle,
         submissions: submissions,
         onViewDetails: _viewSubmissionDetails,
-      ),
-    );
-  }
-
-  Widget _buildSubmissionCard(String submissionId, Map<String, dynamic> data) {
-    final submittedAt = (data['submittedAt'] as Timestamp?)?.toDate();
-    final status = (data['status'] ?? 'completed').toString();
-    final responses = data['responses'] as Map<String, dynamic>?;
-    final formId = data['formId'] as String?;
-
-    return FutureBuilder<String>(
-      future: _getFormTitle(data, formId),
-      builder: (context, snapshot) {
-        final formTitle = snapshot.data ?? 'Loading...';
-
-        return Card(
-          margin: const EdgeInsets.only(bottom: 12),
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: const BorderSide(color: Color(0xffE2E8F0)),
-          ),
-          child: InkWell(
-            onTap: () => _viewSubmissionDetails(submissionId, formTitle, data),
-            borderRadius: BorderRadius.circular(12),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: const Color(0xff0386FF).withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Icon(
-                          Icons.description,
-                          size: 20,
-                          color: Color(0xff0386FF),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              formTitle,
-                              style: GoogleFonts.inter(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: const Color(0xff1E293B),
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              submittedAt != null
-                                  ? 'Submitted ${DateFormat('MMM d, yyyy • h:mm a').format(submittedAt)}'
-                                  : 'Date unknown',
-                              style: GoogleFonts.inter(
-                                fontSize: 13,
-                                color: const Color(0xff64748B),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      _statusBadge(status),
-                    ],
-                  ),
-                  if (responses != null && responses.isNotEmpty) ...[
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xffF8FAFC),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.question_answer,
-                            size: 16,
-                            color: Color(0xff64748B),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            '${responses.length} responses',
-                            style: GoogleFonts.inter(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                              color: const Color(0xff475569),
-                            ),
-                          ),
-                          const Spacer(),
-                          Text(
-                            AppLocalizations.of(context)!.formTapToView,
-                            style: GoogleFonts.inter(
-                              fontSize: 12,
-                              color: const Color(0xff0386FF),
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          const Icon(
-                            Icons.arrow_forward_ios,
-                            size: 12,
-                            color: Color(0xff0386FF),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _statusBadge(String status) {
-    final isCompleted = status.toLowerCase() == 'completed';
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: isCompleted ? const Color(0xffDCFCE7) : const Color(0xffFEF3C7),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            isCompleted ? Icons.check_circle : Icons.pending,
-            size: 14,
-            color:
-                isCompleted ? const Color(0xff16A34A) : const Color(0xffF59E0B),
-          ),
-          const SizedBox(width: 4),
-          Text(
-            status,
-            style: GoogleFonts.inter(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: isCompleted
-                  ? const Color(0xff16A34A)
-                  : const Color(0xffF59E0B),
-            ),
-          ),
-        ],
       ),
     );
   }

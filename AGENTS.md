@@ -169,13 +169,17 @@ squash-merge.**
 - **Never** run `flutter build web --release` on its own. Always bump the
 cache-busting version first:
   ```bash
-  ./increment_version.sh && flutter build web --release
+  ./increment_version.sh && flutter build web --release --pwa-strategy=none
   ```
   The script updates `?v=X` query strings in `web/index.html` for
   `flutter_bootstrap.js` and `manifest.json`. Without it, users won't see
   new deploys until they hard-refresh.
+  `--pwa-strategy=none` is critical: it disables Flutter's auto-generated
+  service worker, which otherwise aggressively caches `main.dart.js` and
+  asset bundles in the browser. Without it, a deploy can leave returning
+  users on the previous bundle until they manually clear browsing data.
 - Deployment workflow to Hostinger:
-  1. `./increment_version.sh && flutter build web --release`
+  1. `./increment_version.sh && flutter build web --release --pwa-strategy=none`
   2. Upload `build/web/` contents to Hostinger
   3. Ensure `web/.htaccess` is uploaded to the Hostinger root for proper
     cache headers
