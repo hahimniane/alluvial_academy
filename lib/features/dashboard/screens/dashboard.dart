@@ -27,7 +27,7 @@ import '../../settings/screens/firestore_debug_screen.dart';
 import '../../tasks/screens/quick_tasks_screen.dart';
 import '../../shift_management/screens/shift_management_screen.dart';
 import '../../shift_management/screens/teacher_shift_screen.dart';
-import 'package:alluwalacademyadmin/features/website_management/public_site_cms/public_site_cms_screen.dart';
+import '../../website_management/public_site_cms/public_site_cms_screen.dart';
 import '../../zoom/screens/zoom_screen.dart';
 import '../../notifications/screens/send_notification_screen.dart';
 import '../../enrollment_management/screens/enrollment_management_screen.dart';
@@ -47,6 +47,8 @@ import '../../settings/screens/mobile_settings_screen.dart';
 import '../../student/screens/student_progress_screen.dart';
 import '../../recordings/screens/class_recordings_screen.dart';
 import '../../surah_podcast/screens/surah_podcast_screen.dart';
+import '../../curriculum/screens/curriculum_books_screen.dart';
+import '../../parent/screens/admin_invoice_hub_screen.dart';
 
 import '../widgets/custom_sidebar.dart';
 import '../services/sidebar_service.dart';
@@ -89,7 +91,7 @@ class _DashboardPageState extends State<DashboardPage> {
   // Cache for lazy screen construction.
   // Only screens that were visited are stored here, which avoids building all screens up-front.
   final Map<int, Widget> _lazyScreensCache = <int, Widget>{};
-  static const int _screenCount = 29;
+  static const int _screenCount = 32;
 
   // GlobalKey for accessing Scaffold state
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
@@ -325,6 +327,10 @@ class _DashboardPageState extends State<DashboardPage> {
         return const SurahPodcastScreen();
       case 28:
         return const PublicSiteCmsScreen();
+      case 30:
+        return const CurriculumBooksScreen();
+      case 31:
+        return const AdminInvoiceHubScreen();
       default:
         return const SizedBox.shrink();
     }
@@ -1257,8 +1263,10 @@ class _DashboardPageState extends State<DashboardPage> {
     return Shortcuts(
       shortcuts: <ShortcutActivator, Intent>{
         // Key combos for command palette.
-        const SingleActivator(LogicalKeyboardKey.keyK, control: true): _OpenCommandPaletteIntent(),
-        const SingleActivator(LogicalKeyboardKey.keyK, meta: true): _OpenCommandPaletteIntent(),
+        const SingleActivator(LogicalKeyboardKey.keyK, control: true):
+            _OpenCommandPaletteIntent(),
+        const SingleActivator(LogicalKeyboardKey.keyK, meta: true):
+            _OpenCommandPaletteIntent(),
       },
       child: Actions(
         actions: <Type, Action<Intent>>{
@@ -1325,7 +1333,8 @@ class _DashboardPageState extends State<DashboardPage> {
       if (sectionLabel != null) break;
     }
 
-    if (sectionLabel == null || itemLabel == null) return const SizedBox.shrink();
+    if (sectionLabel == null || itemLabel == null)
+      return const SizedBox.shrink();
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),

@@ -88,6 +88,7 @@ exports.fixTimesheetsPayAndStatus = shiftHandlers.fixTimesheetsPayAndStatus;
 
 // Parent billing (invoices & payments)
 exports.createInvoice = onCall(paymentHandlers.createInvoice);
+exports.onInvoiceCreated = paymentHandlers.onInvoiceCreated;
 
 // Invoice access control (student suspension)
 exports.onInvoiceWrite = invoiceAccessHandlers.onInvoiceWrite;
@@ -127,6 +128,7 @@ exports.getUserTimezone = timezoneHandlers.getUserTimezone;
 
 // No-show reporting
 exports.reportNoShow = noShowHandlers.reportNoShow;
+exports.reportClassTechnicalIssue = noShowHandlers.reportClassTechnicalIssue;
 exports.generateWeeklyStudentAttendanceReports =
   attendanceHandlers.generateWeeklyStudentAttendanceReports;
 exports.generateMonthlyStudentAttendanceReports =

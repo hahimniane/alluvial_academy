@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
@@ -59,12 +58,21 @@ abstract final class PublicSiteCmsService {
   static Map<String, dynamic>? _guestBundle;
   static DateTime? _guestBundleFetchedAt;
   static const Duration _guestBundleTtl = Duration(seconds: 45);
+  static const Duration _webPollingInterval = Duration(seconds: 30);
 
   /// Throttle [syncAdminClaimForPublicSiteStorage] (ID token refresh).
   static DateTime? _lastStorageClaimSync;
 
   static bool get _needsGuestMarketingRead =>
       FirebaseAuth.instance.currentUser == null;
+
+  static Stream<T> _webPollingStream<T>(Future<T> Function() load) async* {
+    yield await load();
+    while (true) {
+      await Future<void>.delayed(_webPollingInterval);
+      yield await load();
+    }
+  }
 
   static Future<Map<String, dynamic>?> _guestMarketingBundleFromCallable() async {
     final now = DateTime.now();
@@ -81,7 +89,7 @@ abstract final class PublicSiteCmsService {
           .call();
       final data = result.data;
       if (data is! Map) return null;
-      final map = Map<String, dynamic>.from(data as Map);
+      final map = Map<String, dynamic>.from(data);
       _guestBundle = map;
       _guestBundleFetchedAt = now;
       return map;
@@ -139,7 +147,7 @@ abstract final class PublicSiteCmsService {
       final raw = bundle?['pricing'];
       if (raw is Map) {
         return PublicSiteCmsPricingDoc.fromFirestore(
-          Map<String, dynamic>.from(raw as Map),
+          Map<String, dynamic>.from(raw),
         );
       }
       // Callable not deployed yet, or failed — try Firestore if rules allow guest read.
@@ -183,7 +191,7 @@ abstract final class PublicSiteCmsService {
       final raw = bundle?['social'];
       if (raw is Map) {
         return PublicSiteSocialDoc.fromFirestore(
-          Map<String, dynamic>.from(raw as Map),
+          Map<String, dynamic>.from(raw),
         );
       }
       try {
@@ -224,13 +232,14 @@ abstract final class PublicSiteCmsService {
     _socialDocBroadcast = null;
     _landingDocBroadcast = null;
     _teamMembersBroadcast = null;
+    _teamMembersAdminCmsBroadcast = null;
     _guestBundle = null;
     _guestBundleFetchedAt = null;
   }
 
   static Stream<PublicSiteSocialDoc> socialDocStream() {
-    if (_needsGuestMarketingRead) {
-      return Stream.fromFuture(getSocialDoc());
+    if (kIsWeb) {
+      return _webPollingStream(getSocialDoc);
     }
     return _socialDocBroadcast ??= _db
         .collection(socialCollection)
@@ -264,7 +273,7 @@ abstract final class PublicSiteCmsService {
       final raw = bundle?['landing'];
       if (raw is Map) {
         return PublicSiteLandingDoc.fromFirestore(
-          Map<String, dynamic>.from(raw as Map),
+          Map<String, dynamic>.from(raw),
         );
       }
       try {
@@ -292,8 +301,8 @@ abstract final class PublicSiteCmsService {
   static Stream<PublicSiteLandingDoc>? _landingDocBroadcast;
 
   static Stream<PublicSiteLandingDoc> landingDocStream() {
-    if (_needsGuestMarketingRead) {
-      return Stream.fromFuture(getLandingDoc());
+    if (kIsWeb) {
+      return _webPollingStream(getLandingDoc);
     }
     return _landingDocBroadcast ??= _db
         .collection(landingCollection)
@@ -393,8 +402,12 @@ abstract final class PublicSiteCmsService {
   }
 
   static Stream<List<PublicSiteTeamMember>>? _teamMembersBroadcast;
+  static Stream<List<PublicSiteTeamMember>>? _teamMembersAdminCmsBroadcast;
 
   static Stream<List<PublicSiteTeamMember>> teamMembersStream() {
+    if (kIsWeb) {
+      return _webPollingStream(loadTeamMembersForPublic);
+    }
     return _teamMembersBroadcast ??= _db.collection(teamCollection).snapshots().map((snap) {
       final list = snap.docs
           .map((d) => PublicSiteTeamMember.fromDoc(d.id, d.data()))
@@ -407,13 +420,31 @@ abstract final class PublicSiteCmsService {
 
   /// All team documents for the admin CMS (includes inactive / unlinked drafts).
   static Stream<List<PublicSiteTeamMember>> teamMembersAdminCmsStream() {
-    return _db.collection(teamCollection).snapshots().map((snap) {
+    if (kIsWeb) {
+      return _webPollingStream(loadTeamMembersForAdminCms);
+    }
+    return _teamMembersAdminCmsBroadcast ??=
+        _db.collection(teamCollection).snapshots().map((snap) {
       final list = snap.docs
           .map((d) => PublicSiteTeamMember.fromDoc(d.id, d.data()))
           .toList()
         ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
       return list;
-    });
+    }).asBroadcastStream();
+  }
+
+  static Future<List<PublicSiteTeamMember>> loadTeamMembersForAdminCms() async {
+    try {
+      final snap = await _db.collection(teamCollection).get();
+      return snap.docs
+          .map((d) => PublicSiteTeamMember.fromDoc(d.id, d.data()))
+          .toList()
+        ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+    } catch (e, st) {
+      AppLogger.debug(
+          'PublicSiteCmsService.loadTeamMembersForAdminCms: $e\n$st');
+      return const [];
+    }
   }
 
   static Future<List<PublicSiteTeamMember>> loadTeamMembersForPublic() async {

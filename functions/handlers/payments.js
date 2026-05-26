@@ -1,10 +1,16 @@
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const {onSchedule} = require('firebase-functions/v2/scheduler');
+const {onDocumentCreated} = require('firebase-functions/v2/firestore');
 
 const {createPayoneerClient} = require('../services/payoneer/client');
 const stripeCheckout = require('../services/stripe/checkout');
 const {generateInvoiceFromShifts} = require('../utils/invoice_generator');
+const {generateInvoicePdfBuffer} = require('../utils/invoice_pdf');
+const {
+  sendInvoiceCreatedEmail,
+  sendPaymentConfirmationEmail,
+} = require('../services/email/senders');
 
 const _isAdminRole = (data) => {
   if (!data) return false;
@@ -38,6 +44,358 @@ const _chunk = (arr, size) => {
     out.push(arr.slice(i, i + size));
   }
   return out;
+};
+
+const _toDate = (value) => {
+  if (!value) return null;
+  if (value instanceof Date) return value;
+  if (typeof value.toDate === 'function') return value.toDate();
+  const parsed = new Date(value);
+  return isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const _displayNameForUser = (data) =>
+  [data?.first_name, data?.last_name].filter(Boolean).join(' ').trim() ||
+  [data?.firstName, data?.lastName].filter(Boolean).join(' ').trim() ||
+  data?.display_name ||
+  data?.displayName ||
+  data?.name ||
+  'Parent / Guardian';
+
+const _displayNameById = async (db, userId) => {
+  const id = (userId || '').toString().trim();
+  if (!id) return null;
+  const snap = await db.collection('users').doc(id).get();
+  if (!snap.exists) return null;
+  const data = snap.data() || {};
+  const name = _displayNameForUser(data);
+  return name === 'Parent / Guardian' ? null : name;
+};
+
+const _formatMoney = (amount, currency) => {
+  try {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: (currency || 'USD').toString().toUpperCase(),
+    }).format(amount);
+  } catch (error) {
+    return `${currency || 'USD'} ${amount.toFixed(2)}`;
+  }
+};
+
+const _formatDueDate = (value) => {
+  const dueDate = _toDate(value);
+  if (!dueDate) return '';
+  return dueDate.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
+};
+
+const _appUrl = () =>
+  (process.env.APP_URL || process.env.PUBLIC_APP_URL || 'https://alluwaleducationhub.org').trim();
+
+const _invoicePdfAttachment = ({
+  invoiceNumber,
+  invoice,
+  parentName,
+  studentName,
+}) => {
+  const filename = `${invoiceNumber || 'invoice'}.pdf`.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const content = generateInvoicePdfBuffer({
+    ...invoice,
+    id: invoice?.id,
+    invoiceNumber,
+    parentName,
+    studentName,
+  });
+
+  return {
+    filename,
+    content,
+    contentType: 'application/pdf',
+  };
+};
+
+const _paymentMethodLabel = (value) => {
+  const method = (value || '').toString().trim().toLowerCase();
+  if (method === 'stripe') return 'Card / Stripe';
+  if (method === 'payoneer') return 'Payoneer';
+  if (!method) return '';
+  return method.charAt(0).toUpperCase() + method.slice(1);
+};
+
+const _notifyPaymentCompleted = async (db, paymentId, paymentInfo) => {
+  const parentId = (paymentInfo.parentId || '').toString().trim();
+  const studentId = (paymentInfo.studentId || '').toString().trim();
+  const recipientIds = [...new Set([parentId, studentId].filter(Boolean))];
+
+  if (recipientIds.length === 0) {
+    console.warn(`[payments] Payment ${paymentId} has no parent or student id; skipping confirmation email.`);
+    return {success: false, reason: 'missing_recipient_id'};
+  }
+
+  let payerId = null;
+  let userSnap = null;
+  for (const candidateId of recipientIds) {
+    const candidateSnap = await db.collection('users').doc(candidateId).get();
+    if (candidateSnap.exists) {
+      payerId = candidateId;
+      userSnap = candidateSnap;
+      break;
+    }
+  }
+
+  if (!payerId || !userSnap) {
+    console.warn(
+      `[payments] Payment ${paymentId} recipient not found; checked ${recipientIds.join(', ')}.`
+    );
+    return {success: false, reason: 'recipient_not_found'};
+  }
+
+  const userData = userSnap.data() || {};
+  const email = (userData['e-mail'] || userData.email || '').toString().trim();
+  if (!email) {
+    return {success: false, reason: 'recipient_has_no_email', payerId};
+  }
+
+  await sendPaymentConfirmationEmail({
+    email,
+    displayName: _displayNameForUser(userData),
+    invoiceNumber: paymentInfo.invoiceNumber,
+    amountPaid: _formatMoney(paymentInfo.amount, paymentInfo.currency),
+    paymentDate: _formatDueDate(new Date()),
+    paymentMethod: _paymentMethodLabel(paymentInfo.paymentMethod),
+    appUrl: _appUrl(),
+  });
+
+  try {
+    await db.collection('notification_history').add({
+      sentBy: 'system',
+      sentAt: admin.firestore.FieldValue.serverTimestamp(),
+      recipientType: 'individual',
+      recipientIds: [payerId],
+      title: 'Payment received',
+      body: `Payment received for ${paymentInfo.invoiceNumber}. Amount: ${_formatMoney(paymentInfo.amount, paymentInfo.currency)}.`,
+      additionalData: {
+        type: 'payment_completed',
+        paymentId,
+        invoiceId: paymentInfo.invoiceId,
+        invoiceNumber: paymentInfo.invoiceNumber,
+      },
+      emailRequested: true,
+      results: {
+        totalRecipients: 1,
+        fcmSuccess: 0,
+        fcmFailed: 0,
+        emailsSent: 1,
+        emailsFailed: 0,
+      },
+    });
+  } catch (error) {
+    console.error(`[payments] Failed to save payment confirmation history for ${paymentId}:`, error);
+  }
+
+  return {success: true, payerId, emailSent: true};
+};
+
+const _tokensForUser = (userData) => {
+  const tokenSet = new Set();
+  const fcmTokens = Array.isArray(userData?.fcmTokens) ? userData.fcmTokens : [];
+  for (const tokenData of fcmTokens) {
+    if (tokenData?.token) tokenSet.add(tokenData.token);
+  }
+  if (userData?.fcmToken) tokenSet.add(userData.fcmToken);
+  return [...tokenSet];
+};
+
+const _sendInvoicePushNotification = async ({userId, userData, invoiceId, invoiceNumber, amountDue}) => {
+  const tokens = _tokensForUser(userData);
+  if (tokens.length === 0) {
+    return {sent: false, reason: 'no_fcm_tokens'};
+  }
+
+  const title = 'New invoice available';
+  const body = `${invoiceNumber} is ready. Amount due: ${amountDue}.`;
+  const response = await admin.messaging().sendEachForMulticast({
+    tokens,
+    notification: {title, body},
+    data: {
+      type: 'invoice_created',
+      invoiceId: String(invoiceId),
+      invoiceNumber: String(invoiceNumber),
+      click_action: 'FLUTTER_NOTIFICATION_CLICK',
+    },
+    android: {
+      priority: 'high',
+      notification: {
+        channelId: 'high_importance_channel',
+        sound: 'default',
+      },
+    },
+    apns: {
+      payload: {
+        aps: {
+          sound: 'default',
+          badge: 1,
+        },
+      },
+    },
+  });
+
+  const tokensToRemove = [];
+  response.responses.forEach((result, index) => {
+    const code = result.error?.code;
+    if (
+      !result.success &&
+      (code === 'messaging/invalid-registration-token' ||
+        code === 'messaging/registration-token-not-registered')
+    ) {
+      tokensToRemove.push(tokens[index]);
+    }
+  });
+
+  if (tokensToRemove.length > 0) {
+    const currentTokens = Array.isArray(userData.fcmTokens) ? userData.fcmTokens : [];
+    const update = {
+      fcmTokens: currentTokens.filter(
+        (entry) => entry?.token && !tokensToRemove.includes(entry.token)
+      ),
+    };
+    if (userData.fcmToken && tokensToRemove.includes(userData.fcmToken)) {
+      update.fcmToken = admin.firestore.FieldValue.delete();
+    }
+    await admin.firestore().collection('users').doc(userId).set(update, {merge: true});
+  }
+
+  return {
+    sent: response.successCount > 0,
+    successCount: response.successCount,
+    failureCount: response.failureCount,
+  };
+};
+
+const _notifyInvoiceRecipient = async (db, invoiceId, invoice) => {
+  const parentId = (invoice?.parent_id || invoice?.parentId || invoice?.payer_id || invoice?.payerId || '')
+    .toString()
+    .trim();
+  const studentId = (invoice?.student_id || invoice?.studentId || '').toString().trim();
+  const recipientIds = [...new Set([parentId, studentId].filter(Boolean))];
+
+  if (recipientIds.length === 0) {
+    console.warn(`[payments] Invoice ${invoiceId} has no parent or student id; skipping notification.`);
+    return {success: false, reason: 'missing_payer_id'};
+  }
+
+  let payerId = null;
+  let userSnap = null;
+  for (const candidateId of recipientIds) {
+    const candidateSnap = await db.collection('users').doc(candidateId).get();
+    if (candidateSnap.exists) {
+      payerId = candidateId;
+      userSnap = candidateSnap;
+      break;
+    }
+  }
+
+  if (!payerId || !userSnap) {
+    console.warn(
+      `[payments] Invoice ${invoiceId} payer not found; checked ${recipientIds.join(', ')}.`
+    );
+    return {success: false, reason: 'payer_not_found'};
+  }
+
+  const userData = userSnap.data() || {};
+  const email = (userData['e-mail'] || userData.email || '').toString().trim();
+  const displayName = _displayNameForUser(userData);
+  const parentName = parentId ? await _displayNameById(db, parentId) : null;
+  const studentName = studentId ? await _displayNameById(db, studentId) : null;
+  const invoiceNumber = (invoice.invoice_number || invoice.invoiceNumber || invoiceId).toString();
+  const totalAmount = _toNumber(invoice.total_amount ?? invoice.totalAmount);
+  const paidAmount = _toNumber(invoice.paid_amount ?? invoice.paidAmount);
+  const currency = (invoice.currency || 'USD').toString();
+  const amountDue = _formatMoney(Math.max(0, totalAmount - paidAmount), currency);
+  const dueDate = _formatDueDate(invoice.due_date || invoice.dueDate);
+  const accessCutoffDate = _formatDueDate(invoice.access_cutoff_date || invoice.accessCutoffDate);
+
+  const result = {
+    success: true,
+    payerId,
+    emailSent: false,
+    pushSent: false,
+    errors: [],
+  };
+
+  if (email) {
+    try {
+      const attachment = _invoicePdfAttachment({
+        invoiceNumber,
+        invoice,
+        parentName: parentName || (parentId ? displayName : null),
+        studentName: studentName || studentId,
+      });
+      await sendInvoiceCreatedEmail({
+        email,
+        displayName,
+        invoiceNumber,
+        amountDue,
+        dueDate,
+        accessCutoffDate,
+        appUrl: _appUrl(),
+        attachments: [attachment],
+      });
+      result.emailSent = true;
+    } catch (error) {
+      console.error(`[payments] Failed to send invoice email for ${invoiceId}:`, error);
+      result.errors.push(`email: ${error.message}`);
+    }
+  } else {
+    result.errors.push('email: payer has no email');
+  }
+
+  try {
+    const pushResult = await _sendInvoicePushNotification({
+      userId: payerId,
+      userData,
+      invoiceId,
+      invoiceNumber,
+      amountDue,
+    });
+    result.pushSent = pushResult.sent === true;
+    result.push = pushResult;
+  } catch (error) {
+    console.error(`[payments] Failed to send invoice app notification for ${invoiceId}:`, error);
+    result.errors.push(`push: ${error.message}`);
+  }
+
+  try {
+    await db.collection('notification_history').add({
+      sentBy: 'system',
+      sentAt: admin.firestore.FieldValue.serverTimestamp(),
+      recipientType: 'individual',
+      recipientIds: [payerId],
+      title: 'New invoice available',
+      body: `${invoiceNumber} is ready. Amount due: ${amountDue}.`,
+      additionalData: {
+        type: 'invoice_created',
+        invoiceId,
+        invoiceNumber,
+      },
+      emailRequested: true,
+      results: {
+        totalRecipients: 1,
+        fcmSuccess: result.pushSent ? 1 : 0,
+        fcmFailed: result.pushSent ? 0 : 1,
+        emailsSent: result.emailSent ? 1 : 0,
+        emailsFailed: result.emailSent ? 0 : 1,
+      },
+    });
+  } catch (error) {
+    console.error(`[payments] Failed to save invoice notification history for ${invoiceId}:`, error);
+  }
+
+  return result;
 };
 
 const _nextInvoiceNumber = async (tx, year) => {
@@ -196,6 +554,13 @@ const createInvoice = async (request) => {
   return {success: true, ...result};
 };
 
+const onInvoiceCreated = onDocumentCreated('invoices/{invoiceId}', async (event) => {
+  const invoice = event.data?.data();
+  if (!invoice) return;
+
+  await _notifyInvoiceRecipient(admin.firestore(), event.params.invoiceId, invoice);
+});
+
 const getParentInvoices = async (request) => {
   if (!request.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Authentication required');
@@ -284,7 +649,22 @@ const applyPaymentStatusInTransaction = async (tx, db, paymentRef, {status, extr
       {merge: true}
     );
 
-    return {updated: true, invoiceStatus, newPaid};
+    return {
+      updated: true,
+      invoiceStatus,
+      newPaid,
+      paymentCompleted: true,
+      paymentId: paymentRef.id,
+      paymentInfo: {
+        invoiceId,
+        invoiceNumber: (invoice.invoice_number || invoice.invoiceNumber || invoiceId).toString(),
+        parentId: (payment.parent_id || invoice.parent_id || invoice.parentId || '').toString(),
+        studentId: (invoice.student_id || invoice.studentId || '').toString(),
+        amount,
+        currency: (invoice.currency || 'USD').toString(),
+        paymentMethod: (payment.payment_method || payment.paymentMethod || '').toString(),
+      },
+    };
   }
 
   if (normalized === 'failed') {
@@ -312,6 +692,30 @@ const applyPaymentStatusInTransaction = async (tx, db, paymentRef, {status, extr
   );
 
   return {updated: true};
+};
+
+const _sendPaymentCompletedEmailIfNeeded = async (db, result) => {
+  if (!result?.paymentCompleted || !result.paymentId || !result.paymentInfo) {
+    return result;
+  }
+
+  try {
+    const confirmation = await _notifyPaymentCompleted(
+      db,
+      result.paymentId,
+      result.paymentInfo
+    );
+    return {...result, paymentConfirmation: confirmation};
+  } catch (error) {
+    console.error(`[payments] Failed to send payment confirmation for ${result.paymentId}:`, error);
+    return {
+      ...result,
+      paymentConfirmation: {
+        success: false,
+        reason: error.message || String(error),
+      },
+    };
+  }
 };
 
 const getPaymentHistory = async (request) => {
@@ -650,7 +1054,8 @@ const handlePayoneerWebhook = async (req, res) => {
       });
     });
 
-    res.status(200).json({success: true, ...result});
+    const resultWithEmail = await _sendPaymentCompletedEmailIfNeeded(db, result);
+    res.status(200).json({success: true, ...resultWithEmail});
   } catch (err) {
     console.error('handlePayoneerWebhook error:', err);
     res.status(500).json({error: err.message || String(err)});
@@ -740,7 +1145,8 @@ const handleStripeWebhook = async (req, res) => {
           },
         });
       });
-      res.json({received: true, ...result});
+      const resultWithEmail = await _sendPaymentCompletedEmailIfNeeded(db, result);
+      res.json({received: true, ...resultWithEmail});
       return;
     }
 
@@ -762,7 +1168,8 @@ const handleStripeWebhook = async (req, res) => {
           },
         });
       });
-      res.json({received: true, ...result});
+      const resultWithEmail = await _sendPaymentCompletedEmailIfNeeded(db, result);
+      res.json({received: true, ...resultWithEmail});
       return;
     }
 
@@ -807,6 +1214,7 @@ const generateInvoicesForPeriod = onSchedule(
 
 module.exports = {
   createInvoice,
+  onInvoiceCreated,
   getParentInvoices,
   createPaymentSession,
   createPaymentIntent,
@@ -814,4 +1222,6 @@ module.exports = {
   handleStripeWebhook,
   getPaymentHistory,
   generateInvoicesForPeriod,
+  _notifyInvoiceRecipient,
+  _notifyPaymentCompleted,
 };

@@ -603,6 +603,35 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
+    // Schedule issue reports - teachers submit from class/schedule screens,
+    // admins review and resolve.
+    match /schedule_issue_reports/{reportId} {
+      allow read: if isAdmin() ||
+        (isSignedIn() && teacherIdFromData(resource.data) == request.auth.uid);
+      allow create: if isSignedIn() &&
+        teacherIdFromData(request.resource.data) == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    // Class issue reports - created by authenticated class participants,
+    // reviewed only by admins.
+    match /class_issue_reports/{reportId} {
+      allow read: if isAdmin() ||
+        (isSignedIn() && resource.data.reportedBy == request.auth.uid);
+      allow create: if isSignedIn() &&
+        request.resource.data.reportedBy == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    // LiveKit audio diagnostics contain troubleshooting payloads, so keep
+    // review access admin-only while allowing the reporter to create them.
+    match /livekit_audio_reports/{reportId} {
+      allow read: if isAdmin();
+      allow create: if isSignedIn() &&
+        request.resource.data.reportedBy == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
     
 
     // Landing page content - public read, admin write

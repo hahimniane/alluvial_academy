@@ -10,13 +10,14 @@ import 'dart:typed_data';
 import 'package:image/image.dart' as img;
 import 'package:intl/intl.dart';
 import 'package:alluwalacademyadmin/core/services/user_role_service.dart';
-import 'package:alluwalacademyadmin/features/shift_management/services/shift_form_service.dart';
-import 'package:alluwalacademyadmin/features/shift_management/services/shift_service.dart';
-import 'package:alluwalacademyadmin/features/shift_management/enums/shift_enums.dart';
+import '../../shift_management/services/shift_form_service.dart';
+import '../../shift_management/services/shift_service.dart';
+import '../../shift_management/enums/shift_enums.dart';
 import 'package:alluwalacademyadmin/features/forms/widgets/form_details_modal.dart';
 import 'package:alluwalacademyadmin/features/forms/utils/form_localization.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+import 'package:alluwalacademyadmin/core/services/error_reporting_service.dart';
 import 'package:alluwalacademyadmin/features/forms/models/form_template.dart';
 import 'package:alluwalacademyadmin/features/forms/services/form_template_service.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
@@ -185,7 +186,8 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
 
       if (formDoc.exists && mounted) {
         final formData = formDoc.data()!;
-        final status = (formData['status'] ?? 'active').toString().toLowerCase();
+        final status =
+            (formData['status'] ?? 'active').toString().toLowerCase();
         if (status != 'active') {
           AppLogger.warning(
               'FormScreen: Blocked auto-select old form $formId because status=$status');
@@ -3291,7 +3293,9 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
           'FormScreen: Unable to resolve readiness form ID during selection: $e');
     }
 
-    if (readinessFormId != null && formId == readinessFormId && widget.shiftId == null) {
+    if (readinessFormId != null &&
+        formId == readinessFormId &&
+        widget.shiftId == null) {
       if (mounted) {
         final selectedShift = await _showShiftSelectionDialog();
         if (selectedShift != null) {
@@ -4094,18 +4098,21 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
       } else {
         maxWidth = decoded.width; // keep original dimensions
         quality = 80;
-        AppLogger.debug('Image size is acceptable, re-encoding at quality $quality');
+        AppLogger.debug(
+            'Image size is acceptable, re-encoding at quality $quality');
       }
 
       // Resize if wider than max
       var processed = decoded;
       if (decoded.width > maxWidth) {
         processed = img.copyResize(decoded, width: maxWidth);
-        AppLogger.debug('Resized from ${decoded.width}x${decoded.height} to ${processed.width}x${processed.height}');
+        AppLogger.debug(
+            'Resized from ${decoded.width}x${decoded.height} to ${processed.width}x${processed.height}');
       }
 
       // Encode as JPEG
-      final compressed = Uint8List.fromList(img.encodeJpg(processed, quality: quality));
+      final compressed =
+          Uint8List.fromList(img.encodeJpg(processed, quality: quality));
       AppLogger.debug(
           'Compressed: ${(imageBytes.length / 1024).toStringAsFixed(0)}KB -> ${(compressed.length / 1024).toStringAsFixed(0)}KB');
       return compressed;
@@ -4482,7 +4489,8 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
 
       // Get form type for audit system (daily, weekly, monthly, onDemand)
       final frequency = selectedFormData?['frequency'] as String?;
-      String formType = 'daily'; // Default — most legacy forms are daily/shift forms
+      String formType =
+          'daily'; // Default — most legacy forms are daily/shift forms
       if (frequency != null) {
         switch (frequency) {
           case 'perSession':
@@ -4503,7 +4511,8 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
       final Map<String, dynamic> submissionData = {
         'formId': selectedFormId,
         'formName': formName, // Store form name for easier identification
-        'formTitle': formName, // Denormalized for fast admin reads (admin screen looks for formTitle/form_title/title)
+        'formTitle':
+            formName, // Denormalized for fast admin reads (admin screen looks for formTitle/form_title/title)
         'formType': formType, // Store form type for audit system
         if (isTemplate && templateId != null)
           'templateId': templateId, // Store template ID for new system
@@ -4523,6 +4532,9 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
         'status': 'completed',
         'lastUpdated': FieldValue.serverTimestamp(),
         'yearMonth': yearMonth, // For monthly grouping and audits
+        'reportingContext': ErrorReportingService.reportingContext(
+          shiftId: widget.shiftId,
+        ),
       };
 
       // Add linkage IDs if present
@@ -4616,7 +4628,8 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
             );
           }
         } catch (e) {
-          AppLogger.warning('FormScreen: Could not look up timesheet for shift ${widget.shiftId}: $e');
+          AppLogger.warning(
+              'FormScreen: Could not look up timesheet for shift ${widget.shiftId}: $e');
         }
         // Also link directly to shift (covers missed shift case and keeps shift doc updated)
         await ShiftFormService.linkFormToShift(

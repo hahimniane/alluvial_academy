@@ -139,6 +139,19 @@ const isUserAdmin = async (uid) => {
   }
 };
 
+const isStudentAccessSuspended = async (uid) => {
+  if (!uid) return false;
+  try {
+    const userDoc = await admin.firestore().collection('users').doc(uid).get();
+    if (!userDoc.exists) return false;
+    const data = userDoc.data() || {};
+    return data.access_suspended === true || data.accessSuspended === true;
+  } catch (err) {
+    console.error('[LiveKit] Failed to check student access suspension:', err);
+    throw new HttpsError('internal', 'Unable to verify class access');
+  }
+};
+
 /**
  * Helper: Convert ws/wss LiveKit URL to http/https for server APIs.
  *
@@ -1940,6 +1953,14 @@ const getLiveKitJoinToken = onCall({
     throw new HttpsError('failed-precondition', 'This class is locked by the teacher.');
   }
 
+  if (userRole === 'student' && await isStudentAccessSuspended(uid)) {
+    console.log('[LiveKit] Blocked suspended student. uid:', uid, 'shiftId:', shiftId);
+    throw new HttpsError(
+      'permission-denied',
+      'Class access is suspended because of an outstanding unpaid invoice.'
+    );
+  }
+
   // Parse shift times for time window check
   const shiftStart = shiftData.shift_start?.toDate
     ? shiftData.shift_start.toDate()
@@ -3225,4 +3246,7 @@ module.exports = {
   listClassRecordings,
   getClassRecordingPlaybackUrl,
   cleanupExpiredClassRecordings,
+  __test__: {
+    isStudentAccessSuspended,
+  },
 };
