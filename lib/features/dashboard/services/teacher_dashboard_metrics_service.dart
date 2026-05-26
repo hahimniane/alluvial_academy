@@ -1,10 +1,10 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 
-import 'package:alluwalacademyadmin/features/audit/models/teacher_audit_full.dart';
-import 'package:alluwalacademyadmin/features/audit/services/teacher_audit_service.dart';
+import '../../audit/models/teacher_audit_full.dart';
+import '../../audit/services/teacher_audit_service.dart';
 import 'package:alluwalacademyadmin/core/services/teacher_metrics_service.dart';
-import 'package:alluwalacademyadmin/features/shift_management/models/teaching_shift.dart';
+import '../../shift_management/models/teaching_shift.dart';
 
 class TeacherDashboardMonthSnapshot {
   final String yearMonth;

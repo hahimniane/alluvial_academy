@@ -8,10 +8,10 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'dart:typed_data';
 
-import 'package:alluwalacademyadmin/features/forms/screens/admin_submissions_review_screen.dart'
+import '../../forms/screens/admin_submissions_review_screen.dart'
     show kAdminSubmissionsExportNoFormIdBucket;
-import 'package:alluwalacademyadmin/features/forms/services/form_labels_cache_service.dart';
-import 'package:alluwalacademyadmin/features/shift_management/models/teaching_shift.dart';
+import '../../forms/services/form_labels_cache_service.dart';
+import '../../shift_management/models/teaching_shift.dart';
 import '../../../core/utils/save_export_file.dart';
 
 import 'dart:html'

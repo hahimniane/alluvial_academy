@@ -8,7 +8,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:alluwalacademyadmin/core/services/user_role_service.dart';
 import 'package:alluwalacademyadmin/features/dashboard/screens/dashboard.dart';
-import 'package:alluwalacademyadmin/features/parent/screens/parent_dashboard_layout.dart';
+import '../../parent/screens/parent_dashboard_layout.dart';
 import 'package:alluwalacademyadmin/features/dashboard/screens/mobile_dashboard_screen.dart';
 import 'package:alluwalacademyadmin/core/services/web_app_stability_service.dart';
 

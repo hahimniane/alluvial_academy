@@ -4,7 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:universal_html/html.dart' as html;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:alluwalacademyadmin/features/audit/models/teacher_audit_full.dart';
-import 'package:alluwalacademyadmin/features/time_clock/utils/timesheet_hh_mm.dart';
+import '../../time_clock/utils/timesheet_hh_mm.dart';
 import '../../../core/utils/save_export_file.dart';
 import 'audit_class_log_row_builder.dart';
 

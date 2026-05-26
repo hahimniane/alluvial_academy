@@ -1,9 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
-import 'package:alluwalacademyadmin/features/forms/services/form_config_service.dart';
-import 'package:alluwalacademyadmin/features/settings/services/pilot_flag_service.dart';
-import 'package:alluwalacademyadmin/features/forms/services/form_template_service.dart';
+import '../../forms/services/form_config_service.dart';
+import '../../settings/services/pilot_flag_service.dart';
+import '../../forms/services/form_template_service.dart';
 
 /// Service to manage the link between shifts/timesheets and readiness forms
 class ShiftFormService {

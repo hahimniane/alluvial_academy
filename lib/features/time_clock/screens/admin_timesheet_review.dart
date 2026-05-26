@@ -28,7 +28,7 @@ import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 import 'package:alluwalacademyadmin/core/utils/performance_logger.dart';
 import 'package:alluwalacademyadmin/core/services/web_app_stability_screen_ids.dart';
 import 'package:alluwalacademyadmin/core/services/web_app_stability_service.dart';
-import 'package:alluwalacademyadmin/features/audit/services/teacher_audit_service.dart';
+import '../../audit/services/teacher_audit_service.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 // Admin system timezone - all times displayed in this timezone for consistency
