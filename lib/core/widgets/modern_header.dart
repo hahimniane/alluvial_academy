@@ -285,7 +285,7 @@ class _ModernHeaderState extends State<ModernHeader> {
               builder: (context, snapshot) {
                 final doc = snapshot.data ?? const PublicSiteSocialDoc();
                 final children = <Widget>[];
-                void addIcon(Uri? uri, IconData brandIcon, String tooltip) {
+                void addIcon(Uri? uri, FaIconData brandIcon, String tooltip) {
                   if (uri == null) return;
                   children.add(
                     IconButton(

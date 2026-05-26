@@ -1,5 +1,144 @@
 const {createTransporter} = require('./transporter');
 
+const _escapeHtml = (value) =>
+  String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
+const sendInvoiceCreatedEmail = async ({
+  email,
+  displayName = 'Parent / Guardian',
+  invoiceNumber = 'your invoice',
+  amountDue = '',
+  dueDate = '',
+  accessCutoffDate = '',
+  appUrl = 'https://alluwaleducationhub.org',
+  attachments = [],
+}) => {
+  const transporter = createTransporter();
+  const safeName = _escapeHtml(displayName);
+  const safeInvoiceNumber = _escapeHtml(invoiceNumber);
+  const safeAmountDue = _escapeHtml(amountDue);
+  const safeDueDate = _escapeHtml(dueDate);
+  const safeAccessCutoffDate = _escapeHtml(accessCutoffDate);
+  const safeAppUrl = _escapeHtml(appUrl);
+
+  const mailOptions = {
+    from: 'Alluwal Education Hub <support@alluwaleducationhub.org>',
+    to: email,
+    subject: `New invoice from Alluwal Academy${invoiceNumber ? `: ${invoiceNumber}` : ''}`,
+    html: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8" />
+        <title>New Invoice</title>
+      </head>
+      <body style="font-family: Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 0; color: #0f172a;">
+        <div style="max-width: 600px; margin: 0 auto; background: #ffffff;">
+          <div style="background: #0386FF; color: white; padding: 28px 24px; text-align: center;">
+            <h1 style="margin: 0; font-size: 26px;">New Invoice</h1>
+            <p style="margin: 8px 0 0;">Alluwal Academy</p>
+          </div>
+          <div style="padding: 28px 24px;">
+            <p>Assalamu Alaikum ${safeName},</p>
+            <p>A new invoice has been created for your account.</p>
+            <div style="background: #f0f9ff; border-left: 4px solid #0386FF; padding: 18px; margin: 22px 0;">
+              <p style="margin: 0 0 8px;"><strong>Invoice:</strong> ${safeInvoiceNumber}</p>
+              ${safeAmountDue ? `<p style="margin: 0 0 8px;"><strong>Amount due:</strong> ${safeAmountDue}</p>` : ''}
+              ${safeDueDate ? `<p style="margin: 0 0 8px;"><strong>Due date:</strong> ${safeDueDate}</p>` : ''}
+              ${safeAccessCutoffDate ? `<p style="margin: 0;"><strong>Access cutoff date:</strong> ${safeAccessCutoffDate}</p>` : ''}
+            </div>
+            ${safeAccessCutoffDate ? `
+            <div style="background: #fff7ed; border: 1px solid #fed7aa; padding: 16px; margin: 22px 0; border-radius: 8px;">
+              <p style="margin: 0; color: #9a3412;"><strong>Important:</strong> Please pay this invoice before ${safeAccessCutoffDate}. If it remains unpaid after that date, student platform access may be temporarily suspended until payment is completed.</p>
+            </div>
+            ` : ''}
+            <h2 style="font-size: 18px; margin: 24px 0 12px;">How to pay</h2>
+            <p><strong>Through the mobile app:</strong> Open the Alluwal app, sign in, go to <strong>Invoices</strong>, select ${safeInvoiceNumber}, then tap <strong>Pay Invoice</strong> or <strong>Continue to Secure Checkout</strong>. The app uses Stripe's secure Payment Sheet.</p>
+            <p><strong>Through the website:</strong> Go to <a href="${safeAppUrl}" style="color: #0386FF;">${safeAppUrl}</a>, sign in, open your parent dashboard, choose <strong>Invoices</strong>, select ${safeInvoiceNumber}, then continue to secure checkout. On the website, the app opens Stripe Checkout in your browser.</p>
+            <p>A PDF copy of the invoice is attached to this email for your records. You can also download the invoice PDF from the invoice detail screen in the app or website.</p>
+            <p>If you have any questions, contact us at <a href="mailto:support@alluwaleducationhub.org" style="color: #0386FF;">support@alluwaleducationhub.org</a>.</p>
+            <p>Best regards,<br>Alluwal Academy Team</p>
+          </div>
+          <div style="background: #f8fafc; padding: 18px 24px; text-align: center; color: #64748b; font-size: 13px;">
+            <p style="margin: 0;">This is an automated billing notification.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `,
+    attachments,
+  };
+
+  await transporter.sendMail(mailOptions);
+  return true;
+};
+
+const sendPaymentConfirmationEmail = async ({
+  email,
+  displayName = 'Parent / Guardian',
+  invoiceNumber = 'your invoice',
+  amountPaid = '',
+  paymentDate = '',
+  paymentMethod = '',
+  appUrl = 'https://alluwaleducationhub.org',
+}) => {
+  const transporter = createTransporter();
+  const safeName = _escapeHtml(displayName);
+  const safeInvoiceNumber = _escapeHtml(invoiceNumber);
+  const safeAmountPaid = _escapeHtml(amountPaid);
+  const safePaymentDate = _escapeHtml(paymentDate);
+  const safePaymentMethod = _escapeHtml(paymentMethod);
+  const safeAppUrl = _escapeHtml(appUrl);
+
+  const mailOptions = {
+    from: 'Alluwal Education Hub <support@alluwaleducationhub.org>',
+    to: email,
+    subject: `Payment received${invoiceNumber ? `: ${invoiceNumber}` : ''}`,
+    html: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8" />
+        <title>Payment Received</title>
+      </head>
+      <body style="font-family: Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 0; color: #0f172a;">
+        <div style="max-width: 600px; margin: 0 auto; background: #ffffff;">
+          <div style="background: #059669; color: white; padding: 28px 24px; text-align: center;">
+            <h1 style="margin: 0; font-size: 26px;">Payment Received</h1>
+            <p style="margin: 8px 0 0;">Alluwal Academy</p>
+          </div>
+          <div style="padding: 28px 24px;">
+            <p>Assalamu Alaikum ${safeName},</p>
+            <p>Thank you. Your payment has been received successfully.</p>
+            <div style="background: #ecfdf5; border-left: 4px solid #059669; padding: 18px; margin: 22px 0;">
+              <p style="margin: 0 0 8px;"><strong>Invoice:</strong> ${safeInvoiceNumber}</p>
+              ${safeAmountPaid ? `<p style="margin: 0 0 8px;"><strong>Amount paid:</strong> ${safeAmountPaid}</p>` : ''}
+              ${safePaymentDate ? `<p style="margin: 0 0 8px;"><strong>Payment date:</strong> ${safePaymentDate}</p>` : ''}
+              ${safePaymentMethod ? `<p style="margin: 0;"><strong>Payment method:</strong> ${safePaymentMethod}</p>` : ''}
+            </div>
+            <p>We appreciate you being with us and trusting Alluwal Academy with your family&apos;s learning journey.</p>
+            <p>You can review this payment any time in your parent dashboard under <strong>Payments</strong> at <a href="${safeAppUrl}" style="color: #0386FF;">${safeAppUrl}</a>.</p>
+            <p>If you have any questions, contact us at <a href="mailto:support@alluwaleducationhub.org" style="color: #0386FF;">support@alluwaleducationhub.org</a>.</p>
+            <p>Best regards,<br>Alluwal Academy Team</p>
+          </div>
+          <div style="background: #f8fafc; padding: 18px 24px; text-align: center; color: #64748b; font-size: 13px;">
+            <p style="margin: 0;">This is an automated payment confirmation.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `,
+  };
+
+  await transporter.sendMail(mailOptions);
+  return true;
+};
+
 const sendPasswordResetEmail = async (email, resetLink, displayName = '') => {
   const transporter = createTransporter();
 
@@ -589,6 +728,8 @@ const sendCircleInviteEmail = async (email, circleName, isExistingUser = false, 
 };
 
 module.exports = {
+  sendInvoiceCreatedEmail,
+  sendPaymentConfirmationEmail,
   sendPasswordResetEmail,
   sendWelcomeEmail,
   sendStudentNotificationEmail,
@@ -597,4 +738,3 @@ module.exports = {
   sendDailyShiftGenerationReport,
   sendCircleInviteEmail,
 };
-

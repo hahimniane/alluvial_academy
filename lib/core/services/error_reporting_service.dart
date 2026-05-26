@@ -57,7 +57,8 @@ class ErrorReportingService {
   /// Add a breadcrumb — a short string describing a user action.
   /// Recent breadcrumbs are attached to error reports for context.
   static void addBreadcrumb(String crumb) {
-    final timestamped = '${DateTime.now().toIso8601String().substring(11, 19)} $crumb';
+    final timestamped =
+        '${DateTime.now().toIso8601String().substring(11, 19)} $crumb';
     _breadcrumbs.add(timestamped);
     if (_breadcrumbs.length > _maxBreadcrumbs) {
       _breadcrumbs.removeAt(0);
@@ -149,6 +150,21 @@ class ErrorReportingService {
 
   /// Get the current session ID (useful for support: "what's your session ID?")
   static String get sessionId => _sessionId;
+
+  /// Lightweight context that can be attached to user-submitted reports.
+  static Map<String, dynamic> reportingContext({
+    String? shiftId,
+    String? roomName,
+  }) {
+    return {
+      'appSessionId': _sessionId,
+      'platform': _platformLabel(),
+      'clientTimestamp': DateTime.now().toIso8601String(),
+      if (shiftId != null && shiftId.trim().isNotEmpty) 'shiftId': shiftId,
+      if (roomName != null && roomName.trim().isNotEmpty) 'roomName': roomName,
+      'recentBreadcrumbs': List<String>.from(_breadcrumbs),
+    };
+  }
 
   static String _platformLabel() {
     if (kIsWeb) return 'web';

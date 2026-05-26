@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 
 import 'package:alluwalacademyadmin/features/parent/models/invoice.dart';
+import 'package:alluwalacademyadmin/features/parent/models/payment.dart';
 import 'package:alluwalacademyadmin/features/shift_management/models/teaching_shift.dart';
 import 'package:alluwalacademyadmin/features/shift_management/services/shift_service.dart';
 import 'package:alluwalacademyadmin/features/shift_management/enums/shift_enums.dart';
@@ -98,47 +101,60 @@ class ParentService {
   }
 
   /// Real-time stream of financial totals — updates the moment any invoice
-  /// for this parent changes in Firestore (e.g. after a payment webhook fires).
+  /// or payment for this parent changes in Firestore.
   static Stream<Map<String, double>> watchFinancialSummary(String parentId) {
-    return _firestore
+    final controller = StreamController<Map<String, double>>();
+    QuerySnapshot<Object?>? invoiceSnapshot;
+    QuerySnapshot<Object?>? paymentSnapshot;
+
+    void emitSummary() {
+      final invoices = invoiceSnapshot;
+      final payments = paymentSnapshot;
+      if (invoices == null || payments == null || controller.isClosed) {
+        return;
+      }
+
+      controller.add(_computeFinancialSummary(
+        invoiceDocs: invoices.docs,
+        paymentDocs: payments.docs,
+      ));
+    }
+
+    final invoiceSub = _firestore
         .collection('invoices')
         .where('parent_id', isEqualTo: parentId)
         .orderBy('issued_date', descending: true)
         .limit(200)
         .snapshots()
-        .map((snapshot) {
-      double outstanding = 0;
-      double overdue = 0;
-      double paid = 0;
-      final now = DateTime.now();
-
-      for (final doc in snapshot.docs) {
-        try {
-          final invoice = Invoice.fromFirestore(doc);
-          paid += invoice.paidAmount;
-
-          final remaining = invoice.remainingBalance;
-          final cancelled = invoice.status == InvoiceStatus.cancelled;
-          if (cancelled || invoice.isFullyPaid) continue;
-
-          outstanding += remaining;
-          if (invoice.dueDate.isBefore(now)) {
-            overdue += remaining;
-          }
-        } catch (e) {
-          AppLogger.error(
-              'ParentService: watchFinancialSummary parse error for ${doc.id}: $e');
-        }
-      }
-
-      return {
-        'outstanding': outstanding,
-        'overdue': overdue,
-        'paid': paid,
-      };
-    }).handleError((e) {
-      AppLogger.error('ParentService: watchFinancialSummary stream error: $e');
+        .listen((snapshot) {
+      invoiceSnapshot = snapshot;
+      emitSummary();
+    }, onError: (e) {
+      AppLogger.error(
+          'ParentService: watchFinancialSummary invoice stream error: $e');
+      if (!controller.isClosed) controller.addError(e);
     });
+
+    final paymentSub = _firestore
+        .collection('payments')
+        .where('parent_id', isEqualTo: parentId)
+        .limit(500)
+        .snapshots()
+        .listen((snapshot) {
+      paymentSnapshot = snapshot;
+      emitSummary();
+    }, onError: (e) {
+      AppLogger.error(
+          'ParentService: watchFinancialSummary payment stream error: $e');
+      if (!controller.isClosed) controller.addError(e);
+    });
+
+    controller.onCancel = () async {
+      await invoiceSub.cancel();
+      await paymentSub.cancel();
+    };
+
+    return controller.stream;
   }
 
   static Future<Map<String, double>> getFinancialSummary(
@@ -152,30 +168,16 @@ class ParentService {
           .limit(200)
           .get();
 
-      double outstanding = 0;
-      double overdue = 0;
-      double paid = 0;
-      final now = DateTime.now();
+      final paymentsSnapshot = await _firestore
+          .collection('payments')
+          .where('parent_id', isEqualTo: parentId)
+          .limit(500)
+          .get();
 
-      for (final doc in snapshot.docs) {
-        final invoice = Invoice.fromFirestore(doc);
-        paid += invoice.paidAmount;
-
-        final remaining = invoice.remainingBalance;
-        final cancelled = invoice.status == InvoiceStatus.cancelled;
-        if (cancelled || invoice.isFullyPaid) continue;
-
-        outstanding += remaining;
-        if (invoice.dueDate.isBefore(now)) {
-          overdue += remaining;
-        }
-      }
-
-      return {
-        'outstanding': outstanding,
-        'overdue': overdue,
-        'paid': paid,
-      };
+      return _computeFinancialSummary(
+        invoiceDocs: snapshot.docs,
+        paymentDocs: paymentsSnapshot.docs,
+      );
     } catch (e) {
       AppLogger.error('ParentService: Error computing financial summary: $e');
       return {
@@ -184,6 +186,76 @@ class ParentService {
         'paid': 0,
       };
     }
+  }
+
+  static Map<String, double> _computeFinancialSummary({
+    required List<QueryDocumentSnapshot<Object?>> invoiceDocs,
+    required List<QueryDocumentSnapshot<Object?>> paymentDocs,
+  }) {
+    final completedPaidByInvoice = <String, double>{};
+    double completedPaidWithoutInvoice = 0;
+
+    for (final doc in paymentDocs) {
+      try {
+        final payment = Payment.fromFirestore(doc);
+        if (payment.status != PaymentStatus.completed) continue;
+
+        final invoiceId = payment.invoiceId.trim();
+        if (invoiceId.isEmpty) {
+          completedPaidWithoutInvoice += payment.amount;
+          continue;
+        }
+
+        completedPaidByInvoice[invoiceId] =
+            (completedPaidByInvoice[invoiceId] ?? 0) + payment.amount;
+      } catch (e) {
+        AppLogger.error(
+            'ParentService: financial summary payment parse error for ${doc.id}: $e');
+      }
+    }
+
+    double outstanding = 0;
+    double overdue = 0;
+    double paid = completedPaidWithoutInvoice;
+    final matchedInvoiceIds = <String>{};
+    final now = DateTime.now();
+
+    for (final doc in invoiceDocs) {
+      try {
+        final invoice = Invoice.fromFirestore(doc);
+        final completedPaid = completedPaidByInvoice[invoice.id] ?? 0;
+        final effectivePaid = completedPaid > invoice.paidAmount
+            ? completedPaid
+            : invoice.paidAmount;
+
+        paid += effectivePaid;
+        matchedInvoiceIds.add(invoice.id);
+
+        final remaining = invoice.totalAmount - effectivePaid;
+        final cancelled = invoice.status == InvoiceStatus.cancelled;
+        if (cancelled || remaining <= 0) continue;
+
+        outstanding += remaining;
+        if (invoice.dueDate.isBefore(now)) {
+          overdue += remaining;
+        }
+      } catch (e) {
+        AppLogger.error(
+            'ParentService: financial summary invoice parse error for ${doc.id}: $e');
+      }
+    }
+
+    for (final entry in completedPaidByInvoice.entries) {
+      if (!matchedInvoiceIds.contains(entry.key)) {
+        paid += entry.value;
+      }
+    }
+
+    return {
+      'outstanding': outstanding,
+      'overdue': overdue,
+      'paid': paid,
+    };
   }
 
   /// Get upcoming shifts for a student (next 7 days)

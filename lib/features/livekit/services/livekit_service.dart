@@ -18,6 +18,7 @@ import 'package:alluwalacademyadmin/features/quran/widgets/quran_reader.dart';
 import 'package:alluwalacademyadmin/features/livekit/widgets/call_whiteboard.dart';
 import 'package:alluwalacademyadmin/features/shift_management/models/teaching_shift.dart';
 import 'package:alluwalacademyadmin/features/livekit/services/livekit_session_service.dart';
+import 'package:alluwalacademyadmin/core/services/error_reporting_service.dart';
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 import 'package:alluwalacademyadmin/core/utils/environment_utils.dart';
 import 'package:alluwalacademyadmin/core/utils/picture_in_picture.dart'
@@ -160,6 +161,59 @@ class LiveKitRoomPresenceResult {
     );
   }
 }
+
+class _ClassIssueOption {
+  final String code;
+  final String category;
+  final String label;
+
+  const _ClassIssueOption(this.code, this.category, this.label);
+}
+
+const List<_ClassIssueOption> _classIssueOptions = [
+  _ClassIssueOption('mutual_audio_issue', 'Audio', "We can't hear each other"),
+  _ClassIssueOption('cannot_hear_other', 'Audio', "I can't hear them"),
+  _ClassIssueOption('other_cannot_hear_me', 'Audio', "They can't hear me"),
+  _ClassIssueOption('audio_cuts_out', 'Audio', 'Audio cuts out'),
+  _ClassIssueOption('echo_feedback_noise', 'Audio', 'Echo, feedback, or noise'),
+  _ClassIssueOption('mic_permission_or_device', 'Audio',
+      'Microphone permission or device problem'),
+  _ClassIssueOption('camera_not_working', 'Video', 'My camera is not working'),
+  _ClassIssueOption('cannot_see_other', 'Video', "I can't see them"),
+  _ClassIssueOption('other_cannot_see_me', 'Video', "They can't see me"),
+  _ClassIssueOption('frozen_video', 'Video', 'Video is frozen'),
+  _ClassIssueOption('video_quality_lag', 'Video', 'Video is laggy or blurry'),
+  _ClassIssueOption('screen_share_not_working', 'Screen share',
+      'Screen share will not start'),
+  _ClassIssueOption('cannot_see_screen_share', 'Screen share',
+      "I can't see the screen share"),
+  _ClassIssueOption('screen_share_quality', 'Screen share',
+      'Screen share is blurry or delayed'),
+  _ClassIssueOption(
+      'whiteboard_not_loading', 'Whiteboard', 'Whiteboard is not loading'),
+  _ClassIssueOption(
+      'whiteboard_drawing_not_working', 'Whiteboard', 'Drawing is not working'),
+  _ClassIssueOption(
+      'whiteboard_not_syncing', 'Whiteboard', 'Whiteboard is not syncing'),
+  _ClassIssueOption('cannot_join_class', 'Join / room', "Can't join the class"),
+  _ClassIssueOption(
+      'participant_missing', 'Join / room', 'Someone is missing from the room'),
+  _ClassIssueOption('wrong_room_or_duplicate_tab', 'Join / room',
+      'Wrong room, duplicate tab, or kicked out'),
+  _ClassIssueOption('disconnected_or_reconnecting', 'Connection',
+      'Disconnected or reconnecting'),
+  _ClassIssueOption('class_lagging', 'Connection', 'Everything is lagging'),
+  _ClassIssueOption('controls_not_working', 'Controls',
+      'Buttons or controls are not working'),
+  _ClassIssueOption(
+      'mute_lock_problem', 'Controls', 'Muted or locked unexpectedly'),
+  _ClassIssueOption('recording_problem', 'Recording', 'Recording problem'),
+  _ClassIssueOption(
+      'chat_or_messages_problem', 'Chat', 'Chat or messages problem'),
+  _ClassIssueOption('materials_or_links_problem', 'Materials',
+      'Class materials or links problem'),
+  _ClassIssueOption('other_technical_issue', 'Other', 'Other technical issue'),
+];
 
 class _ScreenShareCaptureOptionsWithCursor extends ScreenShareCaptureOptions {
   final String? cursor;
@@ -958,6 +1012,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen>
   bool _micEnabled = true;
   bool _cameraEnabled = true;
   bool _screenShareEnabled = false;
+  bool _submittingClassIssueReport = false;
   bool _roomLocked = false;
   bool _studentMicrophonesLocked = false;
   bool _micLockedByHost = false;
@@ -1007,6 +1062,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen>
 
   // Audio playback state (for recovery after reconnection)
   bool _audioPlaybackAllowed = true;
+  final List<Map<String, dynamic>> _recentLiveKitAudioEvents = [];
 
   // Whiteboard state (web only)
   bool _whiteboardEnabled = false;
@@ -1037,6 +1093,24 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen>
     AppLogger.breadcrumb(
       'livekit_app_lifecycle state=$state shift=${widget.shiftId} room=${widget.roomName}',
     );
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_restoreAudioAfterResume());
+    }
+  }
+
+  Future<void> _restoreAudioAfterResume() async {
+    await _ensureAudioPlayback();
+
+    final local = _localParticipant;
+    if (local == null || !_micEnabled) return;
+
+    try {
+      await local.setMicrophoneEnabled(true);
+      _syncLocalMediaState();
+    } catch (e) {
+      AppLogger.warning(
+          'LiveKit: Failed to restore microphone after resume: $e');
+    }
   }
 
   String _diagnosticSnapshot({
@@ -1071,6 +1145,563 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen>
       if (webRuntime.isNotEmpty) 'web=$webRuntime',
       if (extra != null && extra.isNotEmpty) 'extra=$extra',
     ].join(' ');
+  }
+
+  dynamic _readPublicationField(dynamic pub, dynamic Function(dynamic) read) {
+    try {
+      return read(pub);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Map<String, dynamic> _audioPublicationDiagnostic(dynamic pub) {
+    final source = _readPublicationField(pub, (p) => p.source);
+    final track = _readPublicationField(pub, (p) => p.track);
+
+    return {
+      'sid': _readPublicationField(pub, (p) => p.sid),
+      'name': _readPublicationField(pub, (p) => p.name),
+      'muted': _readPublicationField(pub, (p) => p.muted),
+      'subscribed': _readPublicationField(pub, (p) => p.subscribed),
+      'subscriptionAllowed':
+          _readPublicationField(pub, (p) => p.subscriptionAllowed),
+      'source': _readPublicationField(source, (s) => s.name),
+      'hasTrack': track != null,
+      'trackMuted': _readPublicationField(track, (t) => t.muted),
+    };
+  }
+
+  bool _audioPublicationLooksAudible(dynamic pub) {
+    final track = _readPublicationField(pub, (p) => p.track);
+    return _readPublicationField(pub, (p) => p.muted) != true &&
+        _readPublicationField(pub, (p) => p.subscribed) != false &&
+        track != null &&
+        _readPublicationField(track, (t) => t.muted) != true;
+  }
+
+  Map<String, dynamic>? _audioSourceStatsDiagnostic(dynamic stats) {
+    if (stats == null) return null;
+    return {
+      'audioLevel': _readPublicationField(stats, (s) => s.audioLevel),
+      'totalAudioEnergy':
+          _readPublicationField(stats, (s) => s.totalAudioEnergy),
+      'totalSamplesDuration':
+          _readPublicationField(stats, (s) => s.totalSamplesDuration),
+      'echoReturnLoss': _readPublicationField(stats, (s) => s.echoReturnLoss),
+      'echoReturnLossEnhancement':
+          _readPublicationField(stats, (s) => s.echoReturnLossEnhancement),
+      'trackIdentifier': _readPublicationField(stats, (s) => s.trackIdentifier),
+      'remoteSource': _readPublicationField(stats, (s) => s.remoteSource),
+    };
+  }
+
+  Map<String, dynamic> _audioSenderStatsDiagnostic(dynamic stats) {
+    return {
+      'direction': 'outbound',
+      'streamId': _readPublicationField(stats, (s) => s.streamId),
+      'timestamp': _readPublicationField(stats, (s) => s.timestamp),
+      'packetsSent': _readPublicationField(stats, (s) => s.packetsSent),
+      'bytesSent': _readPublicationField(stats, (s) => s.bytesSent),
+      'packetsLost': _readPublicationField(stats, (s) => s.packetsLost),
+      'roundTripTime': _readPublicationField(stats, (s) => s.roundTripTime),
+      'jitter': _readPublicationField(stats, (s) => s.jitter),
+      'mimeType': _readPublicationField(stats, (s) => s.mimeType),
+      'payloadType': _readPublicationField(stats, (s) => s.payloadType),
+      'channels': _readPublicationField(stats, (s) => s.channels),
+      'clockRate': _readPublicationField(stats, (s) => s.clockRate),
+      'audioSourceStats': _audioSourceStatsDiagnostic(
+        _readPublicationField(stats, (s) => s.audioSourceStats),
+      ),
+    };
+  }
+
+  Map<String, dynamic> _audioReceiverStatsDiagnostic(dynamic stats) {
+    return {
+      'direction': 'inbound',
+      'streamId': _readPublicationField(stats, (s) => s.streamId),
+      'timestamp': _readPublicationField(stats, (s) => s.timestamp),
+      'packetsReceived': _readPublicationField(stats, (s) => s.packetsReceived),
+      'bytesReceived': _readPublicationField(stats, (s) => s.bytesReceived),
+      'packetsLost': _readPublicationField(stats, (s) => s.packetsLost),
+      'jitter': _readPublicationField(stats, (s) => s.jitter),
+      'jitterBufferDelay':
+          _readPublicationField(stats, (s) => s.jitterBufferDelay),
+      'concealedSamples':
+          _readPublicationField(stats, (s) => s.concealedSamples),
+      'concealmentEvents':
+          _readPublicationField(stats, (s) => s.concealmentEvents),
+      'silentConcealedSamples':
+          _readPublicationField(stats, (s) => s.silentConcealedSamples),
+      'silentConcealmentEvents':
+          _readPublicationField(stats, (s) => s.silentConcealmentEvents),
+      'totalAudioEnergy':
+          _readPublicationField(stats, (s) => s.totalAudioEnergy),
+      'totalSamplesDuration':
+          _readPublicationField(stats, (s) => s.totalSamplesDuration),
+      'mimeType': _readPublicationField(stats, (s) => s.mimeType),
+      'payloadType': _readPublicationField(stats, (s) => s.payloadType),
+      'channels': _readPublicationField(stats, (s) => s.channels),
+      'clockRate': _readPublicationField(stats, (s) => s.clockRate),
+      'audioSourceStats': _audioSourceStatsDiagnostic(
+        _readPublicationField(stats, (s) => s.audioSourceStats),
+      ),
+    };
+  }
+
+  Future<Map<String, dynamic>?> _audioTrackStatsDiagnostic(
+      dynamic track) async {
+    if (track == null) return null;
+    try {
+      if (track is LocalAudioTrack) {
+        final stats = await track
+            .getSenderStats()
+            .timeout(const Duration(milliseconds: 1800));
+        if (stats == null) return {'direction': 'outbound', 'available': false};
+        return _audioSenderStatsDiagnostic(stats);
+      }
+      if (track is RemoteAudioTrack) {
+        final stats = await track
+            .getReceiverStats()
+            .timeout(const Duration(milliseconds: 1800));
+        if (stats == null) return {'direction': 'inbound', 'available': false};
+        return _audioReceiverStatsDiagnostic(stats);
+      }
+    } catch (e) {
+      return {
+        'available': false,
+        'error': e.toString(),
+      };
+    }
+    return {'available': false, 'trackType': track.runtimeType.toString()};
+  }
+
+  Future<Map<String, dynamic>> _audioPublicationDiagnosticWithStats(
+    dynamic pub,
+  ) async {
+    final diagnostic = _audioPublicationDiagnostic(pub);
+    diagnostic['webRtcStats'] = await _audioTrackStatsDiagnostic(
+      _readPublicationField(pub, (p) => p.track),
+    );
+    return diagnostic;
+  }
+
+  Map<String, dynamic> _videoPublicationDiagnostic(dynamic pub) {
+    final source = _readPublicationField(pub, (p) => p.source);
+    final track = _readPublicationField(pub, (p) => p.track);
+    final name = _readPublicationField(pub, (p) => p.name)?.toString() ?? '';
+    final isScreenShare =
+        _readPublicationField(pub, (p) => p.isScreenShare) == true ||
+            source == TrackSource.screenShareVideo ||
+            name.toLowerCase().contains('screen');
+
+    return {
+      'sid': _readPublicationField(pub, (p) => p.sid),
+      'name': name,
+      'muted': _readPublicationField(pub, (p) => p.muted),
+      'subscribed': _readPublicationField(pub, (p) => p.subscribed),
+      'subscriptionAllowed':
+          _readPublicationField(pub, (p) => p.subscriptionAllowed),
+      'source': _readPublicationField(source, (s) => s.name),
+      'isScreenShare': isScreenShare,
+      'hasTrack': track != null,
+      'trackMuted': _readPublicationField(track, (t) => t.muted),
+      'trackType': track?.runtimeType.toString(),
+    };
+  }
+
+  Future<Map<String, dynamic>> _participantDiagnostic(
+    Participant participant,
+  ) async {
+    final audioPublications = participant.audioTrackPublications.toList();
+    final videoPublications = participant.videoTrackPublications.toList();
+    final audioDiagnostics = await Future.wait(
+      audioPublications.map(_audioPublicationDiagnosticWithStats),
+    );
+    final videoDiagnostics =
+        videoPublications.map(_videoPublicationDiagnostic).toList();
+    return {
+      'identity': participant.identity,
+      'name': participant.name,
+      'metadata': participant.metadata,
+      'isLocal': participant is LocalParticipant,
+      'isSpeaking': participant.isSpeaking,
+      'connectionQuality': participant.connectionQuality.name,
+      'audioPublicationCount': audioPublications.length,
+      'hasAudibleAudioPublication':
+          audioPublications.any(_audioPublicationLooksAudible),
+      'hasPublishedAudio': audioPublications.any((pub) => pub.muted != true),
+      'audioPublications': audioDiagnostics,
+      'videoPublicationCount': videoPublications.length,
+      'hasCameraPublication': videoDiagnostics.any(
+        (pub) => pub['isScreenShare'] != true,
+      ),
+      'hasActiveCameraPublication': videoDiagnostics.any(
+        (pub) =>
+            pub['isScreenShare'] != true &&
+            pub['muted'] != true &&
+            pub['hasTrack'] == true,
+      ),
+      'hasScreenSharePublication': videoDiagnostics.any(
+        (pub) => pub['isScreenShare'] == true,
+      ),
+      'hasActiveScreenSharePublication': videoDiagnostics.any(
+        (pub) =>
+            pub['isScreenShare'] == true &&
+            pub['muted'] != true &&
+            pub['hasTrack'] == true,
+      ),
+      'videoPublications': videoDiagnostics,
+    };
+  }
+
+  void _recordLiveKitAudioEvent(
+    String event, {
+    Participant? participant,
+    dynamic publication,
+    dynamic track,
+    Map<String, dynamic>? extra,
+  }) {
+    final source = _readPublicationField(publication, (p) => p.source);
+    final isAudio = publication == null ||
+        source == TrackSource.microphone ||
+        _readPublicationField(source, (s) => s.name) == 'microphone';
+    if (!isAudio) return;
+
+    _recentLiveKitAudioEvents.add({
+      'timestamp': DateTime.now().toIso8601String(),
+      'event': event,
+      if (participant != null) 'participantIdentity': participant.identity,
+      if (participant != null) 'participantName': participant.name,
+      if (participant != null)
+        'connectionQuality': participant.connectionQuality.name,
+      if (publication != null)
+        'publication': _audioPublicationDiagnostic(publication),
+      if (track != null) 'trackMuted': track.muted,
+      if (extra != null) ...extra,
+    });
+
+    if (_recentLiveKitAudioEvents.length > 40) {
+      _recentLiveKitAudioEvents.removeRange(
+        0,
+        _recentLiveKitAudioEvents.length - 40,
+      );
+    }
+  }
+
+  List<String> _buildAudioIssueFindings(Room? room) {
+    final findings = <String>[];
+    final local = room?.localParticipant;
+    final remoteParticipants = _nonSystemRemoteParticipants(room);
+
+    if (room == null) {
+      findings.add('room_not_initialized');
+      return findings;
+    }
+
+    if (!room.canPlaybackAudio || !_audioPlaybackAllowed) {
+      findings.add('audio_playback_blocked_or_not_started');
+    }
+
+    if (_reconnecting || _connecting) {
+      findings.add('room_connecting_or_reconnecting');
+    }
+
+    if (_micLockedByHost) {
+      findings.add('local_microphone_locked_by_host');
+    }
+
+    if (local == null) {
+      findings.add('local_participant_missing');
+    } else {
+      final localAudio = local.audioTrackPublications.toList();
+      if (_micEnabled && localAudio.isEmpty) {
+        findings.add('local_mic_enabled_in_ui_but_no_audio_publication');
+      } else if (_micEnabled &&
+          !localAudio.any(_audioPublicationLooksAudible)) {
+        findings.add('local_mic_enabled_but_audio_track_not_active');
+      } else if (!_micEnabled) {
+        findings.add('local_mic_disabled_in_ui');
+      }
+
+      if (local.connectionQuality == ConnectionQuality.poor ||
+          local.connectionQuality == ConnectionQuality.lost) {
+        findings
+            .add('local_connection_quality_${local.connectionQuality.name}');
+      }
+    }
+
+    if (remoteParticipants.isEmpty) {
+      findings.add('no_remote_participants_visible');
+    }
+
+    final remoteWithNoAudio = <String>[];
+    final remoteMuted = <String>[];
+    final remoteNotSubscribed = <String>[];
+    final remoteNoTrack = <String>[];
+    final remotePoorQuality = <String>[];
+
+    for (final participant in remoteParticipants) {
+      final audioPublications = participant.audioTrackPublications.toList();
+      if (audioPublications.isEmpty) {
+        remoteWithNoAudio.add(participant.identity);
+      }
+      if (participant.connectionQuality == ConnectionQuality.poor ||
+          participant.connectionQuality == ConnectionQuality.lost) {
+        remotePoorQuality.add(
+            '${participant.identity}:${participant.connectionQuality.name}');
+      }
+      for (final pub in audioPublications) {
+        if (pub.muted == true) remoteMuted.add(participant.identity);
+        if (pub.subscribed == false) {
+          remoteNotSubscribed.add(participant.identity);
+        }
+        if (pub.track == null) remoteNoTrack.add(participant.identity);
+      }
+    }
+
+    if (remoteWithNoAudio.isNotEmpty) {
+      findings.add(
+          'remote_participants_without_audio=${remoteWithNoAudio.join(',')}');
+    }
+    if (remoteMuted.isNotEmpty) {
+      findings.add('remote_audio_muted=${remoteMuted.toSet().join(',')}');
+    }
+    if (remoteNotSubscribed.isNotEmpty) {
+      findings.add(
+          'remote_audio_not_subscribed=${remoteNotSubscribed.toSet().join(',')}');
+    }
+    if (remoteNoTrack.isNotEmpty) {
+      findings.add(
+          'remote_audio_publication_has_no_track=${remoteNoTrack.toSet().join(',')}');
+    }
+    if (remotePoorQuality.isNotEmpty) {
+      findings.add(
+          'remote_connection_quality_issue=${remotePoorQuality.join(',')}');
+    }
+
+    return findings;
+  }
+
+  List<String> _buildWebRtcStatsFindings(
+    Map<String, dynamic>? localParticipant,
+    List<Map<String, dynamic>> remoteParticipants,
+  ) {
+    final findings = <String>[];
+
+    final localAudio = (localParticipant?['audioPublications'] as List?)
+            ?.whereType<Map>()
+            .toList() ??
+        const <Map>[];
+    for (final pub in localAudio) {
+      final stats = pub['webRtcStats'];
+      if (stats is! Map || stats['direction'] != 'outbound') continue;
+      final bytesSent = (stats['bytesSent'] as num?) ?? 0;
+      final packetsSent = (stats['packetsSent'] as num?) ?? 0;
+      final source = stats['audioSourceStats'];
+      final audioEnergy = source is Map
+          ? (source['totalAudioEnergy'] as num?)
+          : (stats['totalAudioEnergy'] as num?);
+      if (bytesSent <= 0 || packetsSent <= 0) {
+        findings.add('local_outbound_audio_no_packets_or_bytes');
+      }
+      if (audioEnergy != null && audioEnergy <= 0) {
+        findings.add('local_microphone_audio_energy_zero');
+      }
+    }
+
+    for (final participant in remoteParticipants) {
+      final identity = participant['identity']?.toString() ?? 'unknown';
+      final audio = (participant['audioPublications'] as List?)
+              ?.whereType<Map>()
+              .toList() ??
+          const <Map>[];
+      for (final pub in audio) {
+        final stats = pub['webRtcStats'];
+        if (stats is! Map || stats['direction'] != 'inbound') continue;
+        final bytesReceived = (stats['bytesReceived'] as num?) ?? 0;
+        final packetsReceived = (stats['packetsReceived'] as num?) ?? 0;
+        final packetsLost = (stats['packetsLost'] as num?) ?? 0;
+        final concealedSamples = (stats['concealedSamples'] as num?) ?? 0;
+        if (bytesReceived <= 0 || packetsReceived <= 0) {
+          findings.add('remote_inbound_audio_no_packets_or_bytes=$identity');
+        }
+        if (packetsLost > 0) {
+          findings
+              .add('remote_inbound_audio_packets_lost=$identity:$packetsLost');
+        }
+        if (concealedSamples > 0) {
+          findings.add(
+              'remote_inbound_audio_concealment=$identity:$concealedSamples');
+        }
+      }
+    }
+
+    return findings;
+  }
+
+  List<String> _buildClassIssueFindings(
+    Room? room,
+    Map<String, dynamic>? localParticipant,
+    List<Map<String, dynamic>> remoteParticipants,
+  ) {
+    final findings = <String>[];
+
+    if (room == null) {
+      findings.add('room_not_initialized');
+      return findings;
+    }
+
+    if (_roomLocked) findings.add('room_locked');
+    if (_studentMicrophonesLocked) findings.add('student_microphones_locked');
+    if (_manualDisconnect) findings.add('manual_disconnect_in_progress');
+    if (_connecting || _reconnecting) {
+      findings.add('room_connecting_or_reconnecting');
+    }
+
+    if (_cameraEnabled &&
+        localParticipant != null &&
+        localParticipant['hasActiveCameraPublication'] != true) {
+      findings.add('local_camera_enabled_but_no_active_video_track');
+    }
+
+    if (_screenShareEnabled &&
+        localParticipant != null &&
+        localParticipant['hasActiveScreenSharePublication'] != true) {
+      findings.add('local_screen_share_enabled_but_no_active_track');
+    }
+
+    if (_whiteboardEnabled && _whiteboardStateSaving) {
+      findings.add('whiteboard_state_save_in_progress');
+    }
+
+    if (_whiteboardEnabled && !widget.isTeacher && !_studentDrawingEnabled) {
+      findings.add('student_whiteboard_drawing_disabled');
+    }
+
+    final remoteNoCamera = <String>[];
+    final remoteVideoNoTrack = <String>[];
+    final remoteScreenShareNoTrack = <String>[];
+
+    for (final participant in remoteParticipants) {
+      final identity = participant['identity']?.toString() ?? 'unknown';
+      final videoPublications = (participant['videoPublications'] as List?)
+              ?.whereType<Map>()
+              .toList() ??
+          const <Map>[];
+
+      final hasActiveCamera = videoPublications.any(
+        (pub) =>
+            pub['isScreenShare'] != true &&
+            pub['muted'] != true &&
+            pub['hasTrack'] == true,
+      );
+      if (!hasActiveCamera) remoteNoCamera.add(identity);
+
+      for (final pub in videoPublications) {
+        if (pub['muted'] == true) continue;
+        if (pub['hasTrack'] == true) continue;
+        if (pub['isScreenShare'] == true) {
+          remoteScreenShareNoTrack.add(identity);
+        } else {
+          remoteVideoNoTrack.add(identity);
+        }
+      }
+    }
+
+    if (remoteNoCamera.isNotEmpty) {
+      findings.add(
+          'remote_participants_without_active_camera=${remoteNoCamera.toSet().join(',')}');
+    }
+    if (remoteVideoNoTrack.isNotEmpty) {
+      findings.add(
+          'remote_video_publication_missing_track=${remoteVideoNoTrack.toSet().join(',')}');
+    }
+    if (remoteScreenShareNoTrack.isNotEmpty) {
+      findings.add(
+          'remote_screen_share_publication_missing_track=${remoteScreenShareNoTrack.toSet().join(',')}');
+    }
+
+    return findings;
+  }
+
+  Future<Map<String, dynamic>> _buildClassReportDiagnostics({
+    String? issueType,
+    String? note,
+    String? trigger,
+  }) async {
+    final room = _room;
+    final local = room?.localParticipant;
+    final remoteParticipants = _nonSystemRemoteParticipants(room);
+    final localParticipantDiagnostic =
+        local == null ? null : await _participantDiagnostic(local);
+    final remoteParticipantDiagnostics = await Future.wait(
+      remoteParticipants.map(_participantDiagnostic),
+    );
+    final reportingContext = ErrorReportingService.reportingContext(
+      shiftId: widget.shiftId,
+      roomName: widget.roomName,
+    );
+
+    return {
+      'schemaVersion': 1,
+      'issueType': issueType,
+      if ((note ?? '').trim().isNotEmpty) 'note': note!.trim(),
+      'trigger': trigger,
+      'shiftId': widget.shiftId,
+      'shiftName': widget.shiftName,
+      'roomName': widget.roomName,
+      'reporterName': widget.displayName,
+      'reporterRole': _resolvedSessionRole(),
+      'isTeacher': widget.isTeacher,
+      'audioOnly': widget.isAudioOnlyMode,
+      'appSessionId': reportingContext['appSessionId'],
+      'platform': reportingContext['platform'],
+      'clientTimestamp': reportingContext['clientTimestamp'],
+      'webRuntime': kIsWeb ? web_runtime.buildRuntimeDiagnostic() : null,
+      'canPlaybackAudio': room?.canPlaybackAudio,
+      'audioPlaybackAllowedState': _audioPlaybackAllowed,
+      'micEnabledInUi': _micEnabled,
+      'cameraEnabledInUi': _cameraEnabled,
+      'connecting': _connecting,
+      'reconnecting': _reconnecting,
+      'reconnectAttempts': _reconnectAttempts,
+      'manualDisconnect': _manualDisconnect,
+      'roomLocked': _roomLocked,
+      'studentMicrophonesLocked': _studentMicrophonesLocked,
+      'micLockedByHost': _micLockedByHost,
+      'screenShareEnabledInUi': _screenShareEnabled,
+      'screenShareFit': _screenShareFit.name,
+      'screenShareUiVisible': _screenShareUiVisible,
+      'screenShareFullscreen': _isScreenShareFullscreen,
+      'whiteboardEnabled': _whiteboardEnabled,
+      'studentDrawingEnabled': _studentDrawingEnabled,
+      'whiteboardStateSaving': _whiteboardStateSaving,
+      'showParticipantsOverlay': _showParticipantsOverlay,
+      'connectedForSeconds': _connectedAt == null
+          ? null
+          : DateTime.now().difference(_connectedAt!).inSeconds,
+      'localParticipant': localParticipantDiagnostic,
+      'remoteParticipantCount': remoteParticipants.length,
+      'remoteParticipants': remoteParticipantDiagnostics,
+      'clientAudioFindings': [
+        ..._buildAudioIssueFindings(room),
+        ..._buildWebRtcStatsFindings(
+          localParticipantDiagnostic,
+          remoteParticipantDiagnostics,
+        ),
+      ],
+      'clientClassFindings': _buildClassIssueFindings(
+        room,
+        localParticipantDiagnostic,
+        remoteParticipantDiagnostics,
+      ),
+      'recentLiveKitAudioEvents':
+          List<Map<String, dynamic>>.from(_recentLiveKitAudioEvents),
+      'diagnosticSnapshot':
+          _diagnosticSnapshot(trigger: trigger, extra: issueType),
+      'recentBreadcrumbs': reportingContext['recentBreadcrumbs'],
+    };
   }
 
   void _logLiveKitDiagnostic(
@@ -1159,8 +1790,9 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen>
   }
 
   void _checkStudentPresence() {
-    if (!mounted || _studentNoShowDialogShown || _studentNoShowReportSent)
+    if (!mounted || _studentNoShowDialogShown || _studentNoShowReportSent) {
       return;
+    }
 
     if (!_areStudentsInRoom()) {
       _showStudentNoShowDialog();
@@ -1382,8 +2014,14 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen>
         'roomName': widget.roomName,
         'reportedBy': FirebaseAuth.instance.currentUser?.uid,
         'reporterName': widget.displayName,
+        'reporterRole': _resolvedSessionRole(),
         'isTeacherNoShow': isTeacherNoShow,
         'timestamp': DateTime.now().toIso8601String(),
+        'appSessionId': ErrorReportingService.sessionId,
+        'diagnostics': await _buildClassReportDiagnostics(
+          issueType: isTeacherNoShow ? 'teacher_no_show' : 'student_no_show',
+          trigger: 'no_show_report',
+        ),
       });
 
       if (mounted) {
@@ -1410,6 +2048,292 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen>
             behavior: SnackBarBehavior.floating,
           ),
         );
+      }
+    }
+  }
+
+  Future<void> _showClassIssueReportDialog() async {
+    if (_submittingClassIssueReport) return;
+
+    final selectedIssues = <String>{_classIssueOptions.first.code};
+    final noteController = TextEditingController();
+
+    final shouldSubmit = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          final categories =
+              _classIssueOptions.map((option) => option.category).toSet();
+          return AlertDialog(
+            title: const Text('Report class issue'),
+            content: SizedBox(
+              width: 520,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Select all that apply',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 8),
+                    for (final category in categories) ...[
+                      Padding(
+                        padding: const EdgeInsets.only(top: 10, bottom: 6),
+                        child: Text(
+                          category,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          for (final option in _classIssueOptions.where(
+                            (option) => option.category == category,
+                          ))
+                            FilterChip(
+                              label: Text(option.label),
+                              selected: selectedIssues.contains(option.code),
+                              onSelected: (selected) {
+                                setDialogState(() {
+                                  if (selected) {
+                                    selectedIssues.add(option.code);
+                                  } else if (selectedIssues.length > 1) {
+                                    selectedIssues.remove(option.code);
+                                  }
+                                });
+                              },
+                            ),
+                        ],
+                      ),
+                    ],
+                    const SizedBox(height: 12),
+                    InputDecorator(
+                      decoration: const InputDecoration(
+                        labelText: 'Selected',
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.all(12),
+                      ),
+                      child: Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: [
+                          for (final code in selectedIssues)
+                            Chip(
+                              label: Text(
+                                _classIssueOptions
+                                    .firstWhere((option) => option.code == code)
+                                    .label,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: noteController,
+                      maxLines: 3,
+                      decoration: const InputDecoration(
+                        labelText: 'What happened?',
+                        hintText: 'Optional',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton.icon(
+                onPressed: selectedIssues.isEmpty
+                    ? null
+                    : () => Navigator.of(dialogContext).pop(true),
+                icon: const Icon(Icons.send),
+                label: Text(
+                  selectedIssues.length <= 1
+                      ? 'Send report'
+                      : 'Send ${selectedIssues.length} issues',
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    if (shouldSubmit != true) {
+      noteController.dispose();
+      return;
+    }
+
+    final note = noteController.text;
+    noteController.dispose();
+    await _sendClassIssueReport(
+      issueTypes: selectedIssues.toList(growable: false),
+      note: note,
+      trigger: 'user_report_dialog',
+    );
+  }
+
+  Future<void> _showQuickClassIssueSheet() async {
+    if (_submittingClassIssueReport) return;
+
+    final quickOptions = [
+      _classIssueOptions.firstWhere((o) => o.code == 'cannot_hear_other'),
+      _classIssueOptions.firstWhere((o) => o.code == 'other_cannot_hear_me'),
+      _classIssueOptions.firstWhere((o) => o.code == 'camera_not_working'),
+      _classIssueOptions.firstWhere((o) => o.code == 'cannot_see_other'),
+      _classIssueOptions
+          .firstWhere((o) => o.code == 'screen_share_not_working'),
+      _classIssueOptions.firstWhere((o) => o.code == 'whiteboard_not_syncing'),
+      _classIssueOptions
+          .firstWhere((o) => o.code == 'disconnected_or_reconnecting'),
+      _classIssueOptions.firstWhere((o) => o.code == 'other_technical_issue'),
+    ];
+
+    final selectedIssues = <String>{};
+
+    final selected = await showModalBottomSheet<List<String>>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, setSheetState) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  'Report issue',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final option in quickOptions)
+                      FilterChip(
+                        label: Text(option.label),
+                        selected: selectedIssues.contains(option.code),
+                        onSelected: (selected) {
+                          setSheetState(() {
+                            if (selected) {
+                              selectedIssues.add(option.code);
+                            } else {
+                              selectedIssues.remove(option.code);
+                            }
+                          });
+                        },
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                FilledButton.icon(
+                  onPressed: selectedIssues.isEmpty
+                      ? null
+                      : () => Navigator.pop(
+                            sheetContext,
+                            selectedIssues.toList(growable: false),
+                          ),
+                  icon: const Icon(Icons.send),
+                  label: Text(
+                    selectedIssues.length <= 1
+                        ? 'Send report'
+                        : 'Send ${selectedIssues.length} issues',
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: () {
+                    Navigator.pop(sheetContext);
+                    _showClassIssueReportDialog();
+                  },
+                  icon: const Icon(Icons.list_alt),
+                  label: const Text('More options'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    if (selected == null || selected.isEmpty) return;
+    await _sendClassIssueReport(
+      issueTypes: selected,
+      trigger: 'quick_report_sheet',
+    );
+  }
+
+  Future<void> _sendClassIssueReport({
+    required List<String> issueTypes,
+    String? note,
+    String? trigger,
+  }) async {
+    if (_submittingClassIssueReport || issueTypes.isEmpty) return;
+
+    final primaryIssueType = issueTypes.first;
+
+    setState(() => _submittingClassIssueReport = true);
+    try {
+      final diagnostics = await _buildClassReportDiagnostics(
+        issueType: primaryIssueType,
+        note: note,
+        trigger: trigger,
+      );
+      final callable =
+          FirebaseFunctions.instance.httpsCallable('reportClassTechnicalIssue');
+      await callable.call<Map<String, dynamic>>({
+        'shiftId': widget.shiftId,
+        'shiftName': widget.shiftName,
+        'roomName': widget.roomName,
+        'reportedBy': FirebaseAuth.instance.currentUser?.uid,
+        'reporterName': widget.displayName,
+        'reporterRole': _resolvedSessionRole(),
+        'issueType': primaryIssueType,
+        'issueTypes': issueTypes,
+        'note': note?.trim(),
+        'timestamp': DateTime.now().toIso8601String(),
+        'appSessionId': ErrorReportingService.sessionId,
+        'diagnostics': diagnostics,
+      });
+
+      AppLogger.diagnostic(
+        'LiveKit class issue report submitted ${_diagnosticSnapshot(trigger: trigger, extra: issueTypes.join(','))}',
+        context: 'livekit_class_issue_report',
+      );
+      if (mounted) {
+        _showSnack(
+          issueTypes.length <= 1 ? 'Issue report sent' : 'Issue reports sent',
+          backgroundColor: Colors.green.shade600,
+        );
+      }
+    } catch (e) {
+      AppLogger.error(
+        'Failed to send class issue report: $e',
+        error: e,
+        stackTrace: StackTrace.current,
+        context: 'livekit_class_issue_report_failed',
+      );
+      if (mounted) {
+        _showSnack(
+          'Failed to send report. Please try again.',
+          backgroundColor: Colors.red.shade600,
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _submittingClassIssueReport = false);
       }
     }
   }
@@ -1689,6 +2613,22 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen>
       }
     } catch (e) {
       AppLogger.error('LiveKit: Error ensuring audio playback: $e');
+      if (mounted) {
+        setState(
+            () => _audioPlaybackAllowed = _room?.canPlaybackAudio ?? false);
+      }
+    }
+  }
+
+  Future<void> _handleEnableAudioPressed() async {
+    await _ensureAudioPlayback();
+
+    if (!mounted) return;
+    if (_room?.canPlaybackAudio == true) {
+      _showSnack(
+        'Audio enabled',
+        backgroundColor: Colors.green,
+      );
     }
   }
 
@@ -1952,6 +2892,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen>
       }
 
       _syncLocalMediaState();
+      await _ensureAudioPlayback();
       AppLogger.info('LiveKit: Connected to room ${widget.roomName}');
 
       // Load persisted whiteboard state so teacher/student see current board on rejoin
@@ -1982,7 +2923,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen>
 
   void _setupRoomListeners(EventsListener<RoomEvent> listener) {
     listener
-      ..on<RoomConnectedEvent>((event) {
+      ..on<RoomConnectedEvent>((event) async {
         _connectedAt = DateTime.now();
         AppLogger.breadcrumb(
           'livekit_room_connected shift=${widget.shiftId} room=${widget.roomName}',
@@ -1994,10 +2935,16 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen>
           return;
         }
 
-        _sessionService.recordParticipantJoin(
+        final diagnostics = await _buildClassReportDiagnostics(
+          trigger: 'room_connected',
+        );
+        await _sessionService.recordParticipantJoin(
           shiftId: widget.shiftId,
           userId: currentUserId,
           role: _resolvedSessionRole(),
+          roomName: widget.roomName,
+          appSessionId: ErrorReportingService.sessionId,
+          diagnostics: diagnostics,
         );
 
         _triggerShiftRecordingEnsure('room_connected');
@@ -2050,10 +2997,15 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen>
 
         final currentUserId = FirebaseAuth.instance.currentUser?.uid;
         if (currentUserId != null) {
-          _sessionService.recordParticipantLeave(
+          await _sessionService.recordParticipantLeave(
             shiftId: widget.shiftId,
             userId: currentUserId,
             disconnectReason: event.reason?.toString(),
+            roomName: widget.roomName,
+            appSessionId: ErrorReportingService.sessionId,
+            diagnostics: await _buildClassReportDiagnostics(
+              trigger: 'room_disconnected',
+            ),
           );
         }
 
@@ -2071,6 +3023,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen>
         AppLogger.info(
             'LiveKit: Participant connected: ${event.participant.identity}');
         setState(() {});
+        await _ensureAudioPlayback();
         _triggerShiftRecordingEnsure('participant_connected');
 
         // Cancel no-show timers when relevant participant joins
@@ -2122,38 +3075,92 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen>
       })
       ..on<DataReceivedEvent>(_handleDataReceived)
       ..on<TrackMutedEvent>((event) {
+        _recordLiveKitAudioEvent(
+          'track_muted',
+          participant: event.participant,
+          publication: event.publication,
+        );
         _syncLocalMediaState();
         if (mounted) setState(() {});
       })
       ..on<TrackUnmutedEvent>((event) {
+        _recordLiveKitAudioEvent(
+          'track_unmuted',
+          participant: event.participant,
+          publication: event.publication,
+        );
         _syncLocalMediaState();
         if (mounted) setState(() {});
       })
       ..on<TrackPublishedEvent>((event) {
+        _recordLiveKitAudioEvent(
+          'track_published',
+          participant: event.participant,
+          publication: event.publication,
+        );
         _triggerShiftRecordingEnsure('remote_track_published');
         _syncLocalMediaState();
         setState(() {});
       })
       ..on<TrackUnpublishedEvent>((event) {
+        _recordLiveKitAudioEvent(
+          'track_unpublished',
+          participant: event.participant,
+          publication: event.publication,
+        );
         _syncLocalMediaState();
         setState(() {});
       })
       ..on<TrackSubscribedEvent>((event) {
+        _recordLiveKitAudioEvent(
+          'track_subscribed',
+          participant: event.participant,
+          publication: event.publication,
+          track: event.track,
+        );
+        _ensureAudioPlayback();
         setState(() {});
       })
       ..on<TrackUnsubscribedEvent>((event) {
+        _recordLiveKitAudioEvent(
+          'track_unsubscribed',
+          participant: event.participant,
+          publication: event.publication,
+          track: event.track,
+        );
         setState(() {});
       })
       ..on<LocalTrackPublishedEvent>((event) {
+        _recordLiveKitAudioEvent(
+          'local_track_published',
+          participant: _localParticipant,
+          publication: event.publication,
+        );
         _triggerShiftRecordingEnsure('local_track_published');
         _syncLocalMediaState();
         setState(() {});
       })
       ..on<LocalTrackUnpublishedEvent>((event) {
+        _recordLiveKitAudioEvent(
+          'local_track_unpublished',
+          participant: _localParticipant,
+          publication: event.publication,
+        );
         _syncLocalMediaState();
         setState(() {});
       })
       ..on<AudioPlaybackStatusChanged>((event) {
+        _recentLiveKitAudioEvents.add({
+          'timestamp': DateTime.now().toIso8601String(),
+          'event': 'audio_playback_status_changed',
+          'isPlaying': event.isPlaying,
+        });
+        if (_recentLiveKitAudioEvents.length > 40) {
+          _recentLiveKitAudioEvents.removeRange(
+            0,
+            _recentLiveKitAudioEvents.length - 40,
+          );
+        }
         // Handle audio playback status changes (e.g., after tab switch, device change)
         AppLogger.info(
             'LiveKit: Audio playback status changed - canPlayback: ${event.isPlaying}');
@@ -2166,6 +3173,12 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen>
         }
       })
       ..on<TrackStreamStateUpdatedEvent>((event) {
+        _recordLiveKitAudioEvent(
+          'track_stream_state_updated',
+          participant: event.participant,
+          publication: event.publication,
+          extra: {'streamState': event.streamState.name},
+        );
         // Handle track stream state changes (e.g., track paused/active)
         AppLogger.debug(
           'LiveKit: Track stream state updated - ${event.participant.identity}: ${event.publication.sid} -> ${event.streamState}',
@@ -2824,6 +3837,11 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen>
           shiftId: widget.shiftId,
           userId: currentUserId,
           disconnectReason: trigger,
+          roomName: widget.roomName,
+          appSessionId: ErrorReportingService.sessionId,
+          diagnostics: await _buildClassReportDiagnostics(
+            trigger: trigger,
+          ),
         );
       }
 
@@ -2846,6 +3864,65 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen>
     } catch (e) {
       AppLogger.error('LiveKit: Error disconnecting: $e');
     }
+  }
+
+  Widget _buildAudioPlaybackBanner() {
+    if (_audioPlaybackAllowed || _room == null) {
+      return const SizedBox.shrink();
+    }
+
+    return Positioned(
+      top: 12,
+      left: 16,
+      right: 16,
+      child: SafeArea(
+        bottom: false,
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.orange.shade700,
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: const [
+                BoxShadow(
+                  color: Colors.black26,
+                  blurRadius: 12,
+                  offset: Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.volume_off, color: Colors.white),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Text(
+                    'Audio is paused on this device.',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                TextButton(
+                  onPressed: _handleEnableAudioPressed,
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    backgroundColor: Colors.white24,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                  ),
+                  child: const Text('Enable audio'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   void _disposePictureInPictureResources() {
@@ -2950,6 +4027,25 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen>
                       ],
                     ),
                   ),
+                  IconButton(
+                    tooltip: 'Report issue',
+                    onPressed: _room == null || _submittingClassIssueReport
+                        ? null
+                        : _showQuickClassIssueSheet,
+                    icon: _submittingClassIssueReport
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(
+                            Icons.report_problem_outlined,
+                            color: Colors.white,
+                          ),
+                  ),
                   if (activeScreenShare != null)
                     IconButton(
                       tooltip: _screenShareFit == VideoViewFit.contain
@@ -3052,6 +4148,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen>
           children: [
             _buildBody(activeScreenShare),
             _buildPictureInPictureRenderer(),
+            if (!_isScreenShareFullscreen) _buildAudioPlaybackBanner(),
             // TODO(recording): Re-enable when VPS is upgraded to KVM 8
             // if (!_isScreenShareFullscreen) _buildRecordingNoticeBanner(),
           ],

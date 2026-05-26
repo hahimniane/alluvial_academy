@@ -135,6 +135,9 @@ class LiveKitSessionService {
     required String shiftId,
     required String userId,
     required String role,
+    String? roomName,
+    String? appSessionId,
+    Map<String, dynamic>? diagnostics,
   }) async {
     if (shiftId.trim().isEmpty || userId.trim().isEmpty) return;
     final shiftWindow = await _loadShiftAttendanceWindow(shiftId);
@@ -187,6 +190,10 @@ class LiveKitSessionService {
             'disconnect_reason': null,
             'last_event': 'join',
             'platform': kIsWeb ? 'web' : defaultTargetPlatform.name,
+            if ((roomName ?? '').trim().isNotEmpty) 'room_name': roomName,
+            if ((appSessionId ?? '').trim().isNotEmpty)
+              'app_session_id': appSessionId,
+            if (diagnostics != null) 'last_client_diagnostics': diagnostics,
             'created_at': FieldValue.serverTimestamp(),
             'updated_at': FieldValue.serverTimestamp(),
             'first_joined_at': nowTimestamp,
@@ -220,6 +227,10 @@ class LiveKitSessionService {
           'joined_at': nowTimestamp,
           'last_event': 'join',
           'platform': kIsWeb ? 'web' : defaultTargetPlatform.name,
+          if ((roomName ?? '').trim().isNotEmpty) 'room_name': roomName,
+          if ((appSessionId ?? '').trim().isNotEmpty)
+            'app_session_id': appSessionId,
+          if (diagnostics != null) 'last_client_diagnostics': diagnostics,
           'updated_at': FieldValue.serverTimestamp(),
           'presence_windows': windows,
           'open_presence_since': nowTimestamp,
@@ -256,6 +267,9 @@ class LiveKitSessionService {
     required String shiftId,
     required String userId,
     String? disconnectReason,
+    String? roomName,
+    String? appSessionId,
+    Map<String, dynamic>? diagnostics,
   }) async {
     if (shiftId.trim().isEmpty || userId.trim().isEmpty) return;
     final shiftWindow = await _loadShiftAttendanceWindow(shiftId);
@@ -300,6 +314,10 @@ class LiveKitSessionService {
           'disconnect_reason': disconnectReason,
           'last_event': 'leave',
           'platform': kIsWeb ? 'web' : defaultTargetPlatform.name,
+          if ((roomName ?? '').trim().isNotEmpty) 'room_name': roomName,
+          if ((appSessionId ?? '').trim().isNotEmpty)
+            'app_session_id': appSessionId,
+          if (diagnostics != null) 'last_client_diagnostics': diagnostics,
           'updated_at': FieldValue.serverTimestamp(),
           'open_presence_since': null,
           'presence_windows': windows,

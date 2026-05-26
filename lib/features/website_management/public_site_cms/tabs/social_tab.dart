@@ -111,7 +111,7 @@ class _PublicSiteSocialTabState extends State<PublicSiteSocialTab> {
 
   Widget _networkCard({
     required String title,
-    required IconData faIcon,
+    required FaIconData faIcon,
     required bool enabled,
     required ValueChanged<bool> onEnabled,
     required TextEditingController urlCtrl,

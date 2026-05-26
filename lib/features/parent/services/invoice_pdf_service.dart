@@ -234,6 +234,10 @@ class InvoicePdfService {
           _buildInfoRow('Payment Date', dateFormat.format(invoice.issuedDate)),
           pw.SizedBox(height: 12),
           _buildInfoRow('Due Date', dateFormat.format(invoice.dueDate)),
+          if (invoice.accessCutoffDate != null) ...[
+            pw.SizedBox(height: 12),
+            _buildInfoRow('Access cutoff', dateFormat.format(invoice.accessCutoffDate!)),
+          ],
           if (invoice.displayBillingPeriod != null) ...[
             pw.SizedBox(height: 12),
             _buildInfoRow('Billing period', invoice.displayBillingPeriod!),
@@ -470,4 +474,3 @@ class InvoicePdfService {
     );
   }
 }
-

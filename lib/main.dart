@@ -217,8 +217,12 @@ Future<void> main() async {
 
   // Initialize Stripe for in-app payments (mobile only)
   if (_isNativeMobilePlatform) {
-    Stripe.publishableKey =
-        const String.fromEnvironment('STRIPE_PUBLISHABLE_KEY', defaultValue: 'pk_test_51TMEFtJP4KlJutBkLGQpHmVbFtOY1a3tJJpJFD4s4ZLxfDPMmdvfpfSadyKRMiqKel8nmBIudqRBQ8FevL5LTCKR00ytCmjIIj');
+    final stripePublishableKey =
+        const String.fromEnvironment('STRIPE_PUBLISHABLE_KEY');
+    if (stripePublishableKey.isNotEmpty) {
+      Stripe.publishableKey = stripePublishableKey;
+      await Stripe.instance.applySettings();
+    }
   }
 
   // Initialize timezone database
@@ -240,7 +244,7 @@ Future<void> main() async {
   }
 
   // Initialize Version Service and Remote Config (for force update)
-  if (!kIsWeb) {
+  if (!kIsWeb && kReleaseMode) {
     await VersionService.initialize();
   }
 
@@ -374,12 +378,17 @@ Future<void> main() async {
           ChangeNotifierProvider(create: (_) => ThemeService()),
           ChangeNotifierProvider(create: (_) => LanguageService()),
         ],
-        child: VersionCheckWrapper(
-          child: DevicePreview(
-            enabled: kDebugMode, // Only enabled in debug mode
-            builder: (context) => const MyApp(),
-          ),
-        ),
+        child: kReleaseMode
+            ? VersionCheckWrapper(
+                child: DevicePreview(
+                  enabled: kDebugMode, // Only enabled in debug mode
+                  builder: (context) => const MyApp(),
+                ),
+              )
+            : DevicePreview(
+                enabled: kDebugMode, // Only enabled in debug mode
+                builder: (context) => const MyApp(),
+              ),
       ),
     );
   }
