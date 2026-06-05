@@ -50,6 +50,10 @@ class TeachingShift {
       completionState; // human-readable completion summary (e.g. partial/full)
   final int? workedMinutes; // Total minutes worked across timesheets
 
+  // Whether an admin has allowed recording for this class. Teachers only get a
+  // recording-capable RealtimeKit preset when this is true.
+  final bool realtimeKitRecordingEnabled;
+
   // Shift publishing fields (for teacher shift sharing)
   final bool isPublished; // Whether the shift is published for other teachers
   final String? publishedBy; // User ID of the teacher who published it
@@ -86,16 +90,16 @@ class TeachingShift {
   final List<String> preAssignedParticipants;
   final bool hasRoutingRisk;
 
-  // Video Provider Fields - all shifts now use LiveKit
-  @Deprecated('All shifts use LiveKit. This field is kept for backward compatibility.')
-  final VideoProvider videoProvider; // Now always defaults to livekit
+  // Video Provider Fields - teaching classes now use RealtimeKit by default.
+  final VideoProvider videoProvider;
   final String? livekitRoomName; // e.g., "shift_<shiftId>"
   final DateTime? livekitLastTokenIssuedAt;
 
   // PERFORMANCE OPTIMIZATION: Pre-calculated UI fields (calculated once during parsing)
   // These avoid recalculating on every build() call (60fps)
   late final String uiStudentNames; // Formatted student names for display
-  late final String uiStudentNamesAbbreviated; // First name + last initial (for monthly view)
+  late final String
+      uiStudentNamesAbbreviated; // First name + last initial (for monthly view)
   late final Color uiStatusColor; // Status color for calendar cards
 
   TeachingShift({
@@ -136,6 +140,7 @@ class TeachingShift {
     this.autoClockOutReason,
     this.completionState,
     this.workedMinutes,
+    this.realtimeKitRecordingEnabled = false,
     this.isPublished = false,
     this.publishedBy,
     this.publishedAt,
@@ -154,7 +159,7 @@ class TeachingShift {
     this.routingRiskParticipants = const [],
     this.preAssignedParticipants = const [],
     this.hasRoutingRisk = false,
-    this.videoProvider = VideoProvider.livekit,
+    this.videoProvider = VideoProvider.realtimekit,
     this.livekitRoomName,
     this.livekitLastTokenIssuedAt,
   }) {
@@ -162,9 +167,10 @@ class TeachingShift {
     // This avoids recalculating on every build() call (60fps)
     uiStudentNames = _generateStudentNamesString(studentNames);
     uiStudentNamesAbbreviated = _generateAbbreviatedNamesString(studentNames);
-    uiStatusColor = _generateStatusColor(status, clockInTime, shiftStart, shiftEnd);
+    uiStatusColor =
+        _generateStatusColor(status, clockInTime, shiftStart, shiftEnd);
   }
-  
+
   /// Generate formatted student names string (calculated once)
   String _generateStudentNamesString(List<String> names) {
     if (names.isEmpty) return 'No students';
@@ -172,11 +178,11 @@ class TeachingShift {
     if (names.length <= 3) return names.join(', ');
     return '${names.take(2).join(', ')} +${names.length - 2}';
   }
-  
+
   /// Generate abbreviated names (first name + last initial) for monthly view
   String _generateAbbreviatedNamesString(List<String> names) {
     if (names.isEmpty) return 'No students';
-    
+
     final abbreviated = names.map((fullName) {
       final parts = fullName.trim().split(' ');
       if (parts.isEmpty) return fullName;
@@ -186,16 +192,17 @@ class TeachingShift {
       final lastInitial = parts.last[0].toUpperCase();
       return '$firstName $lastInitial.';
     }).toList();
-    
+
     if (abbreviated.length == 1) return abbreviated[0];
     if (abbreviated.length <= 3) return abbreviated.join(', ');
     return '${abbreviated.take(2).join(', ')} +${abbreviated.length - 2}';
   }
-  
+
   /// Generate status color (calculated once)
   /// Note: This is calculated at construction time, so it's static based on initial state
   /// For real-time updates (e.g., clock-in during shift), the UI should check isClockedIn property
-  Color _generateStatusColor(ShiftStatus status, DateTime? clockInTime, DateTime shiftStart, DateTime shiftEnd) {
+  Color _generateStatusColor(ShiftStatus status, DateTime? clockInTime,
+      DateTime shiftStart, DateTime shiftEnd) {
     // Standard status colors (calculated once at construction)
     // Real-time status (like active clock-in) should be checked via isClockedIn property
     switch (status) {
@@ -222,20 +229,21 @@ class TeachingShift {
       (zoomMeetingId != null && zoomMeetingId!.isNotEmpty) ||
       (hubMeetingId != null && hubMeetingId!.isNotEmpty);
 
-  // Check if shift uses LiveKit as video provider (always true now)
-  bool get usesLiveKit => true;
+  bool get usesRealtimeKit => videoProvider == VideoProvider.realtimekit;
+
+  // Legacy helper kept for older callers.
+  bool get usesLiveKit => videoProvider == VideoProvider.livekit;
 
   // Legacy - Zoom support removed
   @Deprecated('Zoom support has been removed. All shifts use LiveKit.')
   bool get usesZoom => false;
 
   // Check if video call is available - only true for teaching shifts.
-  // Leader Duty, meeting, and training shifts are admin/internal and have no LiveKit class.
+  // Leader Duty, meeting, and training shifts are admin/internal and have no video class.
   bool get hasVideoCall => category == ShiftCategory.teaching;
 
-  // Get the effective room name for LiveKit (generates default if not set)
-  String get effectiveLivekitRoomName =>
-      livekitRoomName ?? 'shift_$id';
+  // Get the effective room name for legacy LiveKit rooms (generates default if not set)
+  String get effectiveLivekitRoomName => livekitRoomName ?? 'shift_$id';
 
   // Get the display name (custom name takes priority over auto-generated)
   String get displayName {
@@ -327,9 +335,10 @@ class TeachingShift {
     final nowUtc = DateTime.now().toUtc();
     final shiftStartUtc = shiftStart.toUtc();
     final shiftEndUtc = shiftEnd.toUtc();
-    
+
     // Allow clock-in 1 minute before shift start
-    final clockInWindowStartUtc = shiftStartUtc.subtract(const Duration(minutes: 1));
+    final clockInWindowStartUtc =
+        shiftStartUtc.subtract(const Duration(minutes: 1));
 
     final isOnOrAfterWindowStart = !nowUtc.isBefore(clockInWindowStartUtc);
     final isOnOrBeforeEnd = !nowUtc.isAfter(shiftEndUtc);
@@ -517,6 +526,7 @@ class TeachingShift {
       'completion_state': completionState,
       'worked_minutes': workedMinutes,
       'is_published': isPublished,
+      'realtimekit_recording_enabled': realtimeKitRecordingEnabled,
       'published_by': publishedBy,
       'published_at':
           publishedAt != null ? Timestamp.fromDate(publishedAt!) : null,
@@ -567,11 +577,12 @@ class TeachingShift {
       return value.toString();
     }
 
-    final zoomMeetingId = parseString(data['zoom_meeting_id'] ?? data['zoomMeetingId']);
-    final zoomEncryptedJoinUrl =
-        parseString(data['zoom_encrypted_join_url'] ?? data['zoomEncryptedJoinUrl']);
-    final hubMeetingId =
-        parseString(data['hubMeetingId'] ?? data['hub_meeting_id'] ?? data['hubMeetingID']);
+    final zoomMeetingId =
+        parseString(data['zoom_meeting_id'] ?? data['zoomMeetingId']);
+    final zoomEncryptedJoinUrl = parseString(
+        data['zoom_encrypted_join_url'] ?? data['zoomEncryptedJoinUrl']);
+    final hubMeetingId = parseString(
+        data['hubMeetingId'] ?? data['hub_meeting_id'] ?? data['hubMeetingID']);
 
     final breakoutRoomName =
         parseString(data['breakoutRoomName'] ?? data['breakout_room_name']);
@@ -581,7 +592,8 @@ class TeachingShift {
         parseString(data['zoomRoutingMode'] ?? data['zoom_routing_mode']);
 
     VideoProvider parseVideoProvider() {
-      final rawProvider = parseString(data['video_provider'] ?? data['videoProvider']);
+      final rawProvider =
+          parseString(data['video_provider'] ?? data['videoProvider']);
       if (rawProvider != null && rawProvider.trim().isNotEmpty) {
         final normalized = rawProvider.trim().toLowerCase();
         // Preserve 'zoom' for non-teaching shifts (Leader Duty, meeting, training).
@@ -589,11 +601,11 @@ class TeachingShift {
         // Firestore, which would allow the backend to accept LiveKit join requests
         // for shifts that should not have a video class.
         // ignore: deprecated_member_use
+        if (normalized == 'realtimekit') return VideoProvider.realtimekit;
         if (normalized == 'zoom') return VideoProvider.zoom;
         if (normalized == 'livekit') return VideoProvider.livekit;
       }
-      // Default to LiveKit for teaching shifts (rooms are created on-demand).
-      return VideoProvider.livekit;
+      return VideoProvider.realtimekit;
     }
 
     final videoProvider = parseVideoProvider();
@@ -661,6 +673,8 @@ class TeachingShift {
       completionState: data['completion_state'],
       workedMinutes: data['worked_minutes'],
       isPublished: data['is_published'] ?? false,
+      realtimeKitRecordingEnabled:
+          data['realtimekit_recording_enabled'] == true,
       publishedBy: data['published_by'],
       publishedAt: data['published_at'] != null
           ? (data['published_at'] as Timestamp).toDate()
@@ -697,7 +711,7 @@ class TeachingShift {
           : null,
     ).._initializeUICache(); // Initialize pre-calculated UI fields
   }
-  
+
   /// Initialize pre-calculated UI cache after construction
   void _initializeUICache() {
     // These are already set in constructor, but ensure they're initialized
@@ -743,6 +757,7 @@ class TeachingShift {
     String? autoClockOutReason,
     String? completionState,
     int? workedMinutes,
+    bool? realtimeKitRecordingEnabled,
     bool? isPublished,
     String? publishedBy,
     DateTime? publishedAt,
@@ -804,6 +819,8 @@ class TeachingShift {
       autoClockOutReason: autoClockOutReason ?? this.autoClockOutReason,
       completionState: completionState ?? this.completionState,
       workedMinutes: workedMinutes ?? this.workedMinutes,
+      realtimeKitRecordingEnabled:
+          realtimeKitRecordingEnabled ?? this.realtimeKitRecordingEnabled,
       isPublished: isPublished ?? this.isPublished,
       publishedBy: publishedBy ?? this.publishedBy,
       publishedAt: publishedAt ?? this.publishedAt,

@@ -2,10 +2,10 @@
  * Public read of marketing CMS docs (Admin SDK — bypasses client Firestore rules).
  * Used when the web app has no signed-in user but Firestore rules still require auth.
  */
-const functions = require('firebase-functions');
+const { onCall } = require('firebase-functions/v2/https');
 const admin = require('firebase-admin');
 
-exports.getPublicSiteMarketingBundle = functions.https.onCall(async (_data, _context) => {
+exports.getPublicSiteMarketingBundle = onCall({ cors: true, invoker: 'public', region: 'us-central1' }, async () => {
   // Auth may be null — callable still returns public marketing docs only.
   const db = admin.firestore();
   const [pricingSnap, socialSnap, landingSnap, teamSnap] = await Promise.all([

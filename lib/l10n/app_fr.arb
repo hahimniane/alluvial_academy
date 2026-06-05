@@ -3353,6 +3353,19 @@
       "details": {}
     }
   },
+  "classVideoConnectFailed": "Impossible de se connecter à la classe",
+  "classVideoMobileTeacherNotEnabled": "Les classes sur l'application mobile ne sont pas activées pour votre compte. Veuillez contacter un administrateur.",
+  "classVideoEnded": "Cette classe est terminée",
+  "classVideoOpensInMinutes": "{count, plural, =1{La classe ouvre dans 1 minute} other{La classe ouvre dans {count} minutes}}",
+  "@classVideoOpensInMinutes": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "classVideoJoinUnavailable": "Impossible de rejoindre cette classe pour le moment.",
+  "classVideoInvalidGuestLink": "Lien de classe invalide ou expiré.",
   "formsListFormStatus": "Formulaire {statut}",
   "@formsListFormStatus": {
     "placeholders": {
@@ -5492,5 +5505,15 @@
     }
   },
   "auditMakeupEvaluationFooterHint": "L’envoi de l’évaluation coach reste bloqué tant qu’un rattrapage n’est pas approuvé ou refusé (onglet Formulaires).",
-  "auditMakeupOpenTeachingFormsTab": "Ouvrir Formulaires"
+  "auditMakeupOpenTeachingFormsTab": "Ouvrir Formulaires",
+  "realtimeKitProviderSubtitle": "Utilisé pour les cours planifiés",
+  "legacyProviderSubtitle": "Ancien fournisseur pour les cours existants",
+  "classRecordingPermissionTitle": "Enregistrement du cours",
+  "classRecordingPermissionTeacherAllowed": "L’enseignant peut enregistrer ce cours",
+  "classRecordingPermissionTeacherBlocked": "L’enregistrement est désactivé pour ce cours",
+  "classRecordingPermissionAdminHelp": "Seuls les administrateurs peuvent autoriser l’enregistrement pour un cours précis.",
+  "classRecordingPermissionTeacherHelp": "Un administrateur contrôle si l’enregistrement est disponible pour ce cours.",
+  "classRecordingPermissionEnabled": "Enregistrement activé pour ce cours.",
+  "classRecordingPermissionDisabled": "Enregistrement désactivé pour ce cours.",
+  "classRecordingPermissionUpdateFailed": "Impossible de modifier l’autorisation d’enregistrement."
 }

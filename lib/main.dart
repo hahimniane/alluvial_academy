@@ -40,9 +40,9 @@ import 'core/services/version_service.dart';
 import 'core/widgets/version_check_wrapper.dart';
 import 'core/utils/app_logger.dart';
 import 'core/widgets/web_app_stability_banner.dart';
-import 'package:alluwalacademyadmin/features/livekit/services/join_link_service.dart';
+import 'package:alluwalacademyadmin/core/services/join_link_service.dart';
 import 'package:alluwalacademyadmin/features/shift_management/services/shift_service.dart';
-import 'package:alluwalacademyadmin/features/livekit/services/video_call_service.dart';
+import 'package:alluwalacademyadmin/core/services/class_video_service.dart';
 import 'features/livekit/screens/guest_join_screen.dart';
 
 // NOTE: The legacy shift wage migration has been permanently disabled.

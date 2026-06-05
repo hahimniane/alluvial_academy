@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:google_fonts/google_fonts.dart';
 
-import 'package:alluwalacademyadmin/features/livekit/services/join_link_service.dart';
-import 'package:alluwalacademyadmin/features/livekit/services/livekit_service.dart';
+import 'package:alluwalacademyadmin/core/services/class_video_service.dart';
+import 'package:alluwalacademyadmin/core/services/join_link_service.dart';
+import 'package:alluwalacademyadmin/core/widgets/realtimekit_meeting_screen.dart';
 import '../../website/screens/landing_page.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
@@ -26,11 +29,20 @@ class _GuestJoinScreenState extends State<GuestJoinScreen> {
   }
 
   Future<void> _startJoin() async {
+    final l10n = AppLocalizations.of(context)!;
     final shiftId = _shiftId;
     if (shiftId == null || shiftId.isEmpty) {
       setState(() {
         _joining = false;
-        _error = 'Invalid or expired class link.';
+        _error = l10n.classVideoInvalidGuestLink;
+      });
+      return;
+    }
+
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      setState(() {
+        _joining = false;
+        _error = l10n.classVideoJoinUnavailable;
       });
       return;
     }
@@ -40,32 +52,29 @@ class _GuestJoinScreenState extends State<GuestJoinScreen> {
       _error = null;
     });
 
-    final joinResult = await LiveKitService.getGuestJoinToken(shiftId);
+    final joinResult = await ClassVideoService.getGuestJoinToken(
+      shiftId,
+      fallbackError: l10n.classVideoConnectFailed,
+      unexpectedResponseError: l10n.classVideoJoinUnavailable,
+    );
     if (!mounted) return;
 
-    if (!joinResult.success ||
-        joinResult.token == null ||
-        joinResult.livekitUrl == null ||
-        joinResult.roomName == null) {
+    if (!joinResult.success || joinResult.authToken == null) {
       setState(() {
         _joining = false;
-        _error = joinResult.error ?? 'Unable to join this class right now.';
+        _error = joinResult.error?.trim().isNotEmpty == true
+            ? joinResult.error
+            : l10n.classVideoJoinUnavailable;
       });
       return;
     }
 
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
-        builder: (_) => LiveKitCallScreen(
-          livekitUrl: joinResult.livekitUrl!,
-          token: joinResult.token!,
-          roomName: joinResult.roomName!,
+        builder: (_) => RealtimeKitMeetingScreen(
+          authToken: joinResult.authToken!,
           displayName: joinResult.displayName ?? 'Guest',
-          isTeacher: false,
-          userRole: joinResult.userRole,
-          shiftId: shiftId,
           shiftName: joinResult.shiftName ?? 'Class',
-          initialRoomLocked: joinResult.roomLocked,
         ),
       ),
     );
@@ -96,7 +105,8 @@ class _GuestJoinScreenState extends State<GuestJoinScreen> {
                 if (_joining) ...[
                   const CircularProgressIndicator(),
                   SizedBox(height: 20),
-                  Text(AppLocalizations.of(context)!.joiningClass, style: titleStyle),
+                  Text(AppLocalizations.of(context)!.joiningClass,
+                      style: titleStyle),
                   const SizedBox(height: 8),
                   Text(
                     AppLocalizations.of(context)!.pleaseWaitWhileWeConnectYou,
@@ -110,10 +120,12 @@ class _GuestJoinScreenState extends State<GuestJoinScreen> {
                     color: Colors.red.shade400,
                   ),
                   const SizedBox(height: 12),
-                  Text(AppLocalizations.of(context)!.unableToJoin, style: titleStyle),
+                  Text(AppLocalizations.of(context)!.unableToJoin,
+                      style: titleStyle),
                   const SizedBox(height: 8),
                   Text(
-                    _error ?? 'Something went wrong.',
+                    _error ??
+                        AppLocalizations.of(context)!.errorSomethingWentWrong,
                     style: bodyStyle,
                     textAlign: TextAlign.center,
                   ),

@@ -2006,12 +2006,42 @@ const getLiveKitJoinToken = onCall({
 
   // Generate LiveKit token
   const livekitConfig = getLiveKitConfig();
-  
+
   // Debug: Log config (without exposing secret)
   console.log('[LiveKit] Using config - URL:', livekitConfig.url);
   console.log('[LiveKit] Using config - API Key:', livekitConfig.apiKey);
   console.log('[LiveKit] Using config - API Secret length:', livekitConfig.apiSecret?.length || 0);
-  
+
+  // Ensure the room exists with durable timeouts BEFORE anyone joins.
+  // Auto-created rooms inherit the server's short empty-timeout default, so a
+  // brief empty moment during the join scramble (both sides connecting within
+  // seconds, or a momentary drop) tears the room down — and the next join
+  // spawns a *new* session. That split lands the teacher and student in two
+  // different room instances of the same name, so neither sees the other.
+  // createRoom is idempotent (returns the existing room if present), so it is
+  // safe to call on every join.
+  try {
+    const host = normalizeLiveKitHostForServerApi(livekitConfig.url);
+    const roomService = new RoomServiceClient(
+      host,
+      livekitConfig.apiKey,
+      livekitConfig.apiSecret,
+    );
+    await roomService.createRoom({
+      name: roomName,
+      emptyTimeout: 900, // keep the room alive 15 min while no one is connected
+      departureTimeout: 120, // don't close the moment one side briefly drops
+      maxParticipants: 20,
+    });
+  } catch (roomErr) {
+    // Non-fatal: if creation races or the room already exists, auto-create on
+    // join still works. Never block a join because of this.
+    console.warn(
+      '[LiveKit] Pre-join createRoom non-fatal error:',
+      roomErr?.message || roomErr,
+    );
+  }
+
   const token = await generateTokenForRole(
     roomName,
     userRole,

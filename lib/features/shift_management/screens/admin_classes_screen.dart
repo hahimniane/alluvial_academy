@@ -5,8 +5,7 @@ import 'package:intl/intl.dart';
 
 import 'package:alluwalacademyadmin/features/shift_management/models/teaching_shift.dart';
 import 'package:alluwalacademyadmin/features/shift_management/services/shift_service.dart';
-import 'package:alluwalacademyadmin/features/livekit/services/video_call_service.dart';
-import 'package:alluwalacademyadmin/features/livekit/services/livekit_service.dart';
+import 'package:alluwalacademyadmin/core/services/class_video_service.dart';
 import 'package:alluwalacademyadmin/features/shift_management/enums/shift_enums.dart';
 import '../../recordings/screens/class_recordings_screen.dart';
 import '../../../core/utils/app_logger.dart';
@@ -33,7 +32,7 @@ class _AdminClassesScreenState extends State<AdminClassesScreen>
   late TabController _tabController;
 
   // Cache for room presence data (shiftId -> presence result)
-  final Map<String, LiveKitRoomPresenceResult> _presenceCache = {};
+  final Map<String, ClassRoomPresenceResult> _presenceCache = {};
 
   @override
   void initState() {
@@ -69,9 +68,9 @@ class _AdminClassesScreenState extends State<AdminClassesScreen>
   }
 
   /// Fetch presence for a specific shift
-  Future<LiveKitRoomPresenceResult?> _fetchPresence(String shiftId) async {
+  Future<ClassRoomPresenceResult?> _fetchPresence(String shiftId) async {
     try {
-      final result = await LiveKitService.getRoomPresence(shiftId);
+      final result = await ClassVideoService.getRoomPresence(shiftId);
       if (mounted) {
         setState(() {
           _presenceCache[shiftId] = result;
@@ -760,7 +759,7 @@ class _AdminClassesScreenState extends State<AdminClassesScreen>
 /// Bottom sheet showing detailed class information
 class _ClassDetailsSheet extends StatelessWidget {
   final TeachingShift shift;
-  final LiveKitRoomPresenceResult? presence;
+  final ClassRoomPresenceResult? presence;
   final VoidCallback onJoin;
 
   const _ClassDetailsSheet({

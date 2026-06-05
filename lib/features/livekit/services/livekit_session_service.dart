@@ -263,6 +263,65 @@ class LiveKitSessionService {
     }
   }
 
+  /// Records a recoverable (reconnecting) disconnect without closing the
+  /// participant's presence window. These drops are otherwise invisible:
+  /// the reconnect path never reaches [recordParticipantLeave], so the
+  /// disconnect reason — the field that distinguishes a client/network drop
+  /// from a server-initiated one — was previously thrown away.
+  Future<void> recordTransientDisconnect({
+    required String shiftId,
+    required String userId,
+    String? disconnectReason,
+    String? roomName,
+    int? reconnectAttempt,
+  }) async {
+    if (shiftId.trim().isEmpty || userId.trim().isEmpty) return;
+    final nowTimestamp = Timestamp.fromDate(DateTime.now().toUtc());
+    final docRef = _firestore
+        .collection(_collectionName)
+        .doc(_docId(shiftId: shiftId, userId: userId));
+
+    final event = <String, dynamic>{
+      'at': nowTimestamp,
+      'reason': disconnectReason ?? 'unknown',
+      'platform': kIsWeb ? 'web' : defaultTargetPlatform.name,
+      if (reconnectAttempt != null) 'reconnect_attempt': reconnectAttempt,
+    };
+
+    try {
+      await _firestore.runTransaction((tx) async {
+        final snap = await tx.get(docRef);
+        final existing = snap.data() ?? <String, dynamic>{};
+        final events = (existing['disconnect_events'] is List)
+            ? List<dynamic>.from(existing['disconnect_events'] as List)
+            : <dynamic>[];
+        events.add(event);
+        // Cap to the most recent 50 to keep the doc bounded.
+        final capped = events.length > 50
+            ? events.sublist(events.length - 50)
+            : events;
+
+        tx.set(
+          docRef,
+          <String, dynamic>{
+            'shift_id': shiftId,
+            'user_id': userId,
+            'transient_disconnect_count': FieldValue.increment(1),
+            'last_transient_disconnect_reason': disconnectReason ?? 'unknown',
+            'last_transient_disconnect_at': nowTimestamp,
+            'disconnect_events': capped,
+            if ((roomName ?? '').trim().isNotEmpty) 'room_name': roomName,
+            'updated_at': FieldValue.serverTimestamp(),
+          },
+          SetOptions(merge: true),
+        );
+      });
+    } catch (e) {
+      AppLogger.warning(
+          'LiveKitSessionService: Failed to record transient disconnect (shift=$shiftId, user=$userId): $e');
+    }
+  }
+
   Future<void> recordParticipantLeave({
     required String shiftId,
     required String userId,

@@ -23,7 +23,7 @@ import 'report_schedule_issue_dialog.dart';
 import 'reschedule_shift_dialog.dart';
 import 'package:flutter/foundation.dart';
 // Zoom imports removed - using LiveKit now
-import '../../livekit/services/video_call_service.dart';
+import '../../../core/services/class_video_service.dart';
 import '../services/mobile_classes_access_service.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
@@ -55,6 +55,9 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
   Map<String, dynamic>? _modificationHistory;
   String _displayTimezone = 'UTC'; // For admin viewing modifications
   bool _isAdmin = false;
+  bool?
+      _recordingEnabledLocal; // Optimistic value for the admin recording toggle
+  bool _recordingToggleBusy = false;
 
   // Timer for live elapsed time display
   Timer? _elapsedTimer;
@@ -113,6 +116,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
   void initState() {
     super.initState();
     _liveShift = widget.shift;
+    _recordingEnabledLocal = widget.shift.realtimeKitRecordingEnabled;
     _checkAdminStatus();
     _checkMobileClassAccess();
     _loadDetails();
@@ -235,6 +239,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
         final updatedShift = TeachingShift.fromFirestore(snapshot);
         setState(() {
           _liveShift = updatedShift;
+          _recordingEnabledLocal = updatedShift.realtimeKitRecordingEnabled;
         });
         debugPrint("🔄 Shift status updated: ${updatedShift.status}");
         unawaited(_resubscribeFormResponseStream());
@@ -874,6 +879,102 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
     await VideoCallService.joinClass(context, shift, isTeacher: true);
   }
 
+  Future<void> _handleRecordingToggle(bool enabled) async {
+    final l10n = AppLocalizations.of(context)!;
+    final shift = _liveShift ?? widget.shift;
+
+    setState(() {
+      _recordingToggleBusy = true;
+      _recordingEnabledLocal = enabled;
+    });
+
+    try {
+      await ClassVideoService.setRecordingEnabled(
+        shiftId: shift.id,
+        enabled: enabled,
+      );
+      if (!mounted) return;
+      setState(() {
+        _liveShift = shift.copyWith(realtimeKitRecordingEnabled: enabled);
+        _recordingEnabledLocal = enabled;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            enabled
+                ? l10n.classRecordingPermissionEnabled
+                : l10n.classRecordingPermissionDisabled,
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (e) {
+      AppLogger.error('ShiftDetailsDialog: recording toggle failed: $e');
+      if (!mounted) return;
+      setState(() {
+        _recordingEnabledLocal = shift.realtimeKitRecordingEnabled;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(l10n.classRecordingPermissionUpdateFailed),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _recordingToggleBusy = false);
+      }
+    }
+  }
+
+  Widget _buildRecordingPermissionSection() {
+    final l10n = AppLocalizations.of(context)!;
+    final shift = _liveShift ?? widget.shift;
+    if (!shift.hasVideoCall) return const SizedBox.shrink();
+
+    final enabled = _recordingEnabledLocal ?? shift.realtimeKitRecordingEnabled;
+
+    return _buildSection(
+      title: l10n.classRecordingPermissionTitle,
+      icon: Icons.fiber_manual_record_outlined,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                enabled
+                    ? l10n.classRecordingPermissionTeacherAllowed
+                    : l10n.classRecordingPermissionTeacherBlocked,
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  color: const Color(0xFF334155),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            if (_isAdmin)
+              Switch(
+                value: enabled,
+                activeThumbColor: const Color(0xFF0386FF),
+                onChanged: _recordingToggleBusy ? null : _handleRecordingToggle,
+              ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Text(
+          _isAdmin
+              ? l10n.classRecordingPermissionAdminHelp
+              : l10n.classRecordingPermissionTeacherHelp,
+          style: GoogleFonts.inter(
+            fontSize: 12,
+            color: const Color(0xFF64748B),
+          ),
+        ),
+      ],
+    );
+  }
+
   // Check if this is an upcoming shift (not yet time to clock in)
   bool get _isUpcoming {
     final now = DateTime.now();
@@ -1428,6 +1529,8 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
                           _buildShiftInfoSection(),
                           const SizedBox(height: 20),
                           _buildParticipantsSection(),
+                          const SizedBox(height: 20),
+                          _buildRecordingPermissionSection(),
                           const SizedBox(height: 20),
                           _buildTimesheetSection(),
                           const SizedBox(height: 20),

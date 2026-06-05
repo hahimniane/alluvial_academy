@@ -9358,6 +9358,35 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
+  String get classVideoConnectFailed =>
+      'Impossible de se connecter à la classe';
+
+  @override
+  String get classVideoMobileTeacherNotEnabled =>
+      'Les classes sur l\'application mobile ne sont pas activées pour votre compte. Veuillez contacter un administrateur.';
+
+  @override
+  String get classVideoEnded => 'Cette classe est terminée';
+
+  @override
+  String classVideoOpensInMinutes(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'La classe ouvre dans $count minutes',
+      one: 'La classe ouvre dans 1 minute',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get classVideoJoinUnavailable =>
+      'Impossible de rejoindre cette classe pour le moment.';
+
+  @override
+  String get classVideoInvalidGuestLink => 'Lien de classe invalide ou expiré.';
+
+  @override
   String formsListFormStatus(Object status, Object statut) {
     return 'Formulaire $statut';
   }
@@ -14563,4 +14592,42 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get auditMakeupOpenTeachingFormsTab => 'Ouvrir Formulaires';
+
+  @override
+  String get realtimeKitProviderSubtitle => 'Utilisé pour les cours planifiés';
+
+  @override
+  String get legacyProviderSubtitle =>
+      'Ancien fournisseur pour les cours existants';
+
+  @override
+  String get classRecordingPermissionTitle => 'Enregistrement du cours';
+
+  @override
+  String get classRecordingPermissionTeacherAllowed =>
+      'L’enseignant peut enregistrer ce cours';
+
+  @override
+  String get classRecordingPermissionTeacherBlocked =>
+      'L’enregistrement est désactivé pour ce cours';
+
+  @override
+  String get classRecordingPermissionAdminHelp =>
+      'Seuls les administrateurs peuvent autoriser l’enregistrement pour un cours précis.';
+
+  @override
+  String get classRecordingPermissionTeacherHelp =>
+      'Un administrateur contrôle si l’enregistrement est disponible pour ce cours.';
+
+  @override
+  String get classRecordingPermissionEnabled =>
+      'Enregistrement activé pour ce cours.';
+
+  @override
+  String get classRecordingPermissionDisabled =>
+      'Enregistrement désactivé pour ce cours.';
+
+  @override
+  String get classRecordingPermissionUpdateFailed =>
+      'Impossible de modifier l’autorisation d’enregistrement.';
 }

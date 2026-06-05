@@ -13,8 +13,10 @@ const notificationHandlers = require('./handlers/notifications');
 const enrollmentHandlers = require('./handlers/enrollments');
 const jobHandlers = require('./handlers/jobs');
 const formHandlers = require('./handlers/forms');
-// Zoom handlers removed - all video calls now use LiveKit
+// Legacy Zoom handlers removed. Classroom video calls now use RealtimeKit;
+// LiveKit exports remain for rollback/history and non-class surfaces.
 const livekitHandlers = require('./handlers/livekit');
+const realtimekitHandlers = require('./handlers/realtimekit');
 const testLivekitHandlers = require('./handlers/test_livekit');
 const migrationLivekitHandlers = require('./handlers/migration_livekit');
 const passwordHandlers = require('./handlers/password');
@@ -27,6 +29,7 @@ const aiTutorHandlers = require('./handlers/ai_tutor');
 const attendanceHandlers = require('./handlers/attendance');
 const circleHandlers = require('./handlers/circles');
 const githubReportingHandlers = require('./handlers/github_reporting');
+const publicSitePublicReadHandlers = require('./handlers/public_site_public_read');
 // Temporarily commented out to allow deployment
 // const { fixDecemberForms } = require('./fix_december_forms');
 const newImplementation = require('./new_implementation');
@@ -136,6 +139,8 @@ exports.generateWeeklyStudentAttendanceReports =
 exports.generateMonthlyStudentAttendanceReports =
   attendanceHandlers.generateMonthlyStudentAttendanceReports;
 exports.getStudentAttendanceReport = attendanceHandlers.getStudentAttendanceReport;
+exports.getPublicSiteMarketingBundle =
+  publicSitePublicReadHandlers.getPublicSiteMarketingBundle;
 
 // Chat notifications and permissions
 exports.onChatMessageCreated = chatHandlers.onChatMessageCreated;
@@ -338,15 +343,15 @@ const checkKiosqueCodesHttp = functions.https.onRequest(async (req, res) => {
 
 exports.checkKiosqueCodesHttp = checkKiosqueCodesHttp;
 
-// Zoom Hub/Breakout test functions removed - all video calls now use LiveKit
+// Zoom Hub/Breakout test functions removed.
 
 // Kiosque code migration function
 const migrateKiosqueCodesHandlers = require('./handlers/migrate_kiosque_codes');
 exports.migrateKiosqueCodes = functions.https.onCall(migrateKiosqueCodesHandlers.migrateKiosqueCodes);
 
-// Zoom check, breakout, and hybrid test functions removed - all video calls now use LiveKit
+// Zoom check, breakout, and hybrid test functions removed.
 
-// LiveKit Video Functions
+// Legacy LiveKit Video Functions
 exports.getLiveKitJoinToken = livekitHandlers.getLiveKitJoinToken;
 exports.ensureLiveKitShiftRecording = livekitHandlers.ensureLiveKitShiftRecording;
 exports.checkLiveKitAvailability = livekitHandlers.checkLiveKitAvailability;
@@ -359,6 +364,15 @@ exports.getLiveKitGuestJoin = livekitHandlers.getLiveKitGuestJoin;
 exports.listClassRecordings = livekitHandlers.listClassRecordings;
 exports.getClassRecordingPlaybackUrl = livekitHandlers.getClassRecordingPlaybackUrl;
 exports.cleanupExpiredClassRecordings = livekitHandlers.cleanupExpiredClassRecordings;
+
+// Cloudflare RealtimeKit Classroom Video Functions
+exports.getRealtimeKitJoinToken = realtimekitHandlers.getRealtimeKitJoinToken;
+exports.getRealtimeKitRoomPresence = realtimekitHandlers.getRealtimeKitRoomPresence;
+exports.kickRealtimeKitParticipant = realtimekitHandlers.kickRealtimeKitParticipant;
+exports.setRealtimeKitRoomLock = realtimekitHandlers.setRealtimeKitRoomLock;
+exports.setRealtimeKitRecordingEnabled =
+  realtimekitHandlers.setRealtimeKitRecordingEnabled;
+exports.getRealtimeKitGuestJoin = realtimekitHandlers.getRealtimeKitGuestJoin;
 
 // LiveKit Test Function (for development/testing)
 exports.testLiveKit = testLivekitHandlers.testLiveKit;

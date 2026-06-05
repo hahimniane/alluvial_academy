@@ -3463,6 +3463,19 @@
       "details": {}
     }
   },
+  "classVideoConnectFailed": "Failed to connect to class",
+  "classVideoMobileTeacherNotEnabled": "Mobile app classes are not enabled for your account. Please contact an administrator.",
+  "classVideoEnded": "This class has ended",
+  "classVideoOpensInMinutes": "{count, plural, =1{Class opens in 1 minute} other{Class opens in {count} minutes}}",
+  "@classVideoOpensInMinutes": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "classVideoJoinUnavailable": "Unable to join this class right now.",
+  "classVideoInvalidGuestLink": "Invalid or expired class link.",
   "formsListFormStatus": "Form {status}",
   "@formsListFormStatus": {
     "placeholders": {
@@ -5848,5 +5861,15 @@
     }
   },
   "auditMakeupEvaluationFooterHint": "Coach evaluation submit stays disabled until every missed-class makeup is approved or rejected (Teaching forms tab).",
-  "auditMakeupOpenTeachingFormsTab": "Open Teaching forms"
+  "auditMakeupOpenTeachingFormsTab": "Open Teaching forms",
+  "realtimeKitProviderSubtitle": "Used for scheduled classes",
+  "legacyProviderSubtitle": "Legacy provider for existing classes",
+  "classRecordingPermissionTitle": "Class recording",
+  "classRecordingPermissionTeacherAllowed": "Teacher can record this class",
+  "classRecordingPermissionTeacherBlocked": "Recording is disabled for this class",
+  "classRecordingPermissionAdminHelp": "Only admins can allow recording for a specific class.",
+  "classRecordingPermissionTeacherHelp": "An administrator controls whether recording is available for this class.",
+  "classRecordingPermissionEnabled": "Recording enabled for this class.",
+  "classRecordingPermissionDisabled": "Recording disabled for this class.",
+  "classRecordingPermissionUpdateFailed": "Unable to update recording permission."
 }
