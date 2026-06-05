@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:syncfusion_flutter_calendar/calendar.dart';
@@ -11,11 +12,12 @@ import 'package:intl/intl.dart';
 import 'package:alluwalacademyadmin/features/shift_management/models/teaching_shift.dart';
 import 'package:alluwalacademyadmin/features/shift_management/enums/shift_enums.dart';
 import '../../../core/models/employee_model.dart';
+import '../../../core/services/class_video_service.dart';
 import 'package:alluwalacademyadmin/features/shift_management/models/subject.dart';
 import 'package:alluwalacademyadmin/features/shift_management/services/shift_service.dart';
-import 'package:alluwalacademyadmin/features/time_clock/services/shift_timesheet_service.dart';
 import 'package:alluwalacademyadmin/features/shift_management/services/subject_service.dart';
 import '../../../core/services/user_role_service.dart';
+import '../../../core/services/web_app_stability_service.dart';
 import '../../../core/utils/performance_logger.dart';
 import '../../../core/utils/timezone_utils.dart';
 import '../widgets/create_shift_dialog.dart';
@@ -24,6 +26,7 @@ import '../widgets/compact_shift_header.dart';
 import '../widgets/weekly_schedule_grid.dart';
 import '../widgets/quick_edit_shift_popup.dart';
 import '../widgets/bulk_edit_shift_dialog.dart';
+import '../widgets/bulk_recording_permission_dialog.dart';
 import '../widgets/shift_edit_options_dialog.dart';
 import '../widgets/shift_filter_panel.dart';
 import '../../settings/pay_settings_dialog.dart';
@@ -109,6 +112,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
   bool _isPaymentLoadInProgress = false;
   List<String>? _pendingPaymentShiftIds;
   int? _inFlightPaymentsHash;
+  static const Duration _webShiftLoadTimeout = Duration(seconds: 25);
 
   @override
   void initState() {
@@ -262,7 +266,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
 
         try {
           final paymentMap =
-              await ShiftTimesheetService.getActualPaymentsForShifts(shiftIds);
+              await ShiftService.getActualPaymentsForShifts(shiftIds);
 
           // Keep only non-zero actual payments so UI can fall back to scheduled
           // payments using: shiftPayments[shift.id] ?? shift.totalPayment
@@ -304,6 +308,45 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
     setState(() => _isLoading = true);
 
     try {
+      if (kIsWeb) {
+        await _shiftsSubscription?.cancel();
+        _shiftsSubscription = null;
+
+        final shifts = _isAdmin
+            ? await ShiftService.fetchAllShifts().timeout(_webShiftLoadTimeout)
+            : await ShiftService.fetchTeacherShifts(_currentUserId!)
+                .timeout(_webShiftLoadTimeout);
+
+        PerformanceLogger.checkpoint(opId, 'shifts_fetched', metadata: {
+          'mode': 'one_shot_web',
+          'shift_count': shifts.length,
+        });
+
+        if (mounted) {
+          final stateStopwatch = Stopwatch()..start();
+          setState(() {
+            _allShifts = shifts;
+            _categorizeShifts();
+            _isLoading = false;
+          });
+          stateStopwatch.stop();
+          PerformanceLogger.checkpoint(opId, 'state_updated', metadata: {
+            'set_state_time_ms': stateStopwatch.elapsedMilliseconds,
+            'all_shifts': _allShifts.length,
+          });
+          WebAppStabilityService.instance.pokeFirestoreActivity();
+          _loadShiftStatistics();
+        }
+
+        _requestPaymentsLoad(shifts, emissionOpId: opId);
+        PerformanceLogger.endTimer(opId, metadata: {
+          'shift_count': shifts.length,
+          'payments': 'deferred',
+          'mode': 'one_shot_web',
+        });
+        return;
+      }
+
       Stream<List<TeachingShift>> shiftsStream;
 
       if (_isAdmin) {
@@ -399,6 +442,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
         }
       }, onError: (Object e) {
         AppLogger.error('Error in shift stream: $e');
+        WebAppStabilityService.instance.noteFirestoreError(e);
         if (mounted) {
           setState(() => _isLoading = false);
         }
@@ -412,6 +456,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
       });
     } catch (e) {
       AppLogger.error('Error loading shift data: $e');
+      WebAppStabilityService.instance.noteFirestoreError(e);
       PerformanceLogger.endTimer(opId, metadata: {
         'error': e.toString(),
       });
@@ -1331,6 +1376,8 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
           _showTeacherSearchDialog();
         } else if (value == 'duplicate_week') {
           _showDuplicateWeekDialog();
+        } else if (value == 'recording_access') {
+          _showBulkRecordingPermissionDialog();
         }
       },
       onAddSelected: (value) {
@@ -1443,6 +1490,8 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                               );
                             } else if (value == 'dst_adjustment') {
                               _showDSTAdjustmentDialog();
+                            } else if (value == 'recording_access') {
+                              _showBulkRecordingPermissionDialog();
                             }
                           },
                           itemBuilder: (context) => [
@@ -1491,6 +1540,18 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                                   SizedBox(width: 8),
                                   Text(AppLocalizations.of(context)!
                                       .dstTimeAdjustment),
+                                ],
+                              ),
+                            ),
+                            PopupMenuItem(
+                              value: 'recording_access',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.video_library_outlined,
+                                      size: 20, color: Color(0xff0E72ED)),
+                                  SizedBox(width: 8),
+                                  Text(AppLocalizations.of(context)!
+                                      .bulkClassRecordingMenu),
                                 ],
                               ),
                             ),
@@ -2904,6 +2965,69 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
     }
 
     await _openBulkEditDialog(selected);
+  }
+
+  Future<void> _showBulkRecordingPermissionDialog() async {
+    final l10n = AppLocalizations.of(context)!;
+    final result = await showDialog<BulkRecordingPermissionResult>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => BulkRecordingPermissionDialog(
+        allShifts: _allShifts,
+        selectedShiftIds: _selectedShiftIds,
+        teachers: _availableTeachers,
+        students: _availableStudents,
+      ),
+    );
+
+    if (result == null || result.shifts.isEmpty) return;
+
+    final shiftIds = result.shifts.map((shift) => shift.id).toList();
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(l10n.bulkClassRecordingUpdating(shiftIds.length)),
+        backgroundColor: const Color(0xFFF59E0B),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+
+    try {
+      final updatedCount = await ClassVideoService.bulkSetRecordingEnabled(
+        shiftIds: shiftIds,
+        enabled: result.enabled,
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _selectedShiftIds.clear();
+        _isSelectionMode = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            result.enabled
+                ? l10n.bulkClassRecordingEnabledSuccess(updatedCount)
+                : l10n.bulkClassRecordingDisabledSuccess(updatedCount),
+          ),
+          backgroundColor: const Color(0xFF10B981),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      _loadShiftStatistics();
+      _loadShiftData();
+    } catch (e) {
+      AppLogger.error('ShiftManagement: bulk recording update failed: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(l10n.bulkClassRecordingUpdateFailed),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   List<TeachingShift> _getCurrentShifts() {

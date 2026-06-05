@@ -14350,4 +14350,134 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get classRecordingPermissionUpdateFailed =>
       'Unable to update recording permission.';
+
+  @override
+  String get bulkClassRecordingMenu => 'Recording Access';
+
+  @override
+  String get bulkClassRecordingTitle => 'Bulk recording access';
+
+  @override
+  String get bulkClassRecordingSubtitle =>
+      'Allow or block recording across a focused set of teaching classes.';
+
+  @override
+  String get bulkClassRecordingAccess => 'Access change';
+
+  @override
+  String get bulkClassRecordingEnable => 'Enable';
+
+  @override
+  String get bulkClassRecordingDisable => 'Disable';
+
+  @override
+  String get bulkClassRecordingScope => 'Scope';
+
+  @override
+  String get bulkClassRecordingScopeAllTeachers => 'All teachers';
+
+  @override
+  String get bulkClassRecordingScopeTeacher => 'Teacher';
+
+  @override
+  String get bulkClassRecordingScopeStudent => 'Student';
+
+  @override
+  String get bulkClassRecordingScopeSelected => 'Selected';
+
+  @override
+  String get bulkClassRecordingChooseTeacher => 'Choose teacher';
+
+  @override
+  String get bulkClassRecordingSearchTeacher => 'Search teachers';
+
+  @override
+  String get bulkClassRecordingChooseStudent => 'Choose student';
+
+  @override
+  String get bulkClassRecordingSearchStudent => 'Search students';
+
+  @override
+  String get bulkClassRecordingTimeWindow => 'Class window';
+
+  @override
+  String get bulkClassRecordingTimeActiveUpcoming => 'Active and upcoming';
+
+  @override
+  String get bulkClassRecordingTimeUpcoming => 'Upcoming only';
+
+  @override
+  String get bulkClassRecordingTimeActive => 'Active now';
+
+  @override
+  String get bulkClassRecordingTimePast => 'Past classes';
+
+  @override
+  String get bulkClassRecordingTimeAll => 'All dates';
+
+  @override
+  String get bulkClassRecordingPreview => 'Preview';
+
+  @override
+  String get bulkClassRecordingMatched => 'matched';
+
+  @override
+  String get bulkClassRecordingWillChange => 'will change';
+
+  @override
+  String get bulkClassRecordingAlreadyEnabled => 'enabled';
+
+  @override
+  String get bulkClassRecordingAlreadyDisabled => 'disabled';
+
+  @override
+  String bulkClassRecordingEnableSummary(int count) {
+    return 'Recording will be enabled for $count class(es).';
+  }
+
+  @override
+  String bulkClassRecordingDisableSummary(int count) {
+    return 'Recording will be disabled for $count class(es).';
+  }
+
+  @override
+  String get bulkClassRecordingSampleClasses => 'Sample classes';
+
+  @override
+  String bulkClassRecordingMoreClasses(int count) {
+    return '+$count more class(es)';
+  }
+
+  @override
+  String get bulkClassRecordingNoMatches =>
+      'No teaching classes match this scope.';
+
+  @override
+  String get bulkClassRecordingFooterNote =>
+      'Teachers receive the recording-capable room preset the next time they join a matching class.';
+
+  @override
+  String get bulkClassRecordingApplyEnable => 'Enable recording';
+
+  @override
+  String get bulkClassRecordingApplyDisable => 'Disable recording';
+
+  @override
+  String bulkClassRecordingUpdating(int count) {
+    return 'Updating recording access for $count class(es)...';
+  }
+
+  @override
+  String bulkClassRecordingEnabledSuccess(int count) {
+    return 'Recording enabled for $count class(es).';
+  }
+
+  @override
+  String bulkClassRecordingDisabledSuccess(int count) {
+    return 'Recording disabled for $count class(es).';
+  }
+
+  @override
+  String get bulkClassRecordingUpdateFailed =>
+      'Unable to update recording access.';
 }

@@ -261,7 +261,7 @@ class CallWhiteboard extends StatefulWidget {
   final Stream<Map<String, dynamic>>? projectStream;
   final VoidCallback? onClose;
 
-  /// If true, students can also draw on the whiteboard (controlled by teacher)
+  /// If true, students can also draw on the whiteboard.
   final bool studentDrawingEnabled;
 
   /// Callback when teacher toggles student drawing permission
@@ -279,8 +279,7 @@ class CallWhiteboard extends StatefulWidget {
     this.onSendProject,
     this.projectStream,
     this.onClose,
-    this.studentDrawingEnabled =
-        false, // Disabled by default, teacher must enable
+    this.studentDrawingEnabled = true,
     this.onStudentDrawingToggle,
     this.initialStrokes,
     this.whiteboardKey,

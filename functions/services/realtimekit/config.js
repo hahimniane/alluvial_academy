@@ -21,12 +21,31 @@ const getRealtimeKitConfig = () => {
   const teacherRecorderPreset =
     process.env.REALTIMEKIT_TEACHER_RECORDER_PRESET?.trim() || 'teacher_recorder';
 
+  const hostPresetNames = new Set([
+    teacherPreset,
+    adminPreset,
+    teacherRecorderPreset,
+  ]);
+  const attendeePresets = {
+    REALTIMEKIT_STUDENT_PRESET: studentPreset,
+    REALTIMEKIT_PARENT_PRESET: parentPreset,
+    REALTIMEKIT_GUEST_PRESET: guestPreset,
+  };
+  const hostLikeAttendees = Object.entries(attendeePresets)
+    .filter(([, presetName]) => hostPresetNames.has(presetName))
+    .map(([key]) => key);
+
   const missing = [];
   if (!accountId) missing.push('CLOUDFLARE_ACCOUNT_ID');
   if (!appId) missing.push('REALTIMEKIT_APP_ID');
   if (!apiToken) missing.push('CLOUDFLARE_REALTIME_API_TOKEN');
   if (missing.length > 0) {
     throw new Error(`RealtimeKit not configured. Missing: ${missing.join(', ')}`);
+  }
+  if (hostLikeAttendees.length > 0) {
+    throw new Error(
+      `RealtimeKit attendee presets must not reuse host/recorder presets: ${hostLikeAttendees.join(', ')}`,
+    );
   }
 
   cachedConfig = {

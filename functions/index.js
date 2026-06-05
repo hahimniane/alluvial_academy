@@ -372,6 +372,8 @@ exports.kickRealtimeKitParticipant = realtimekitHandlers.kickRealtimeKitParticip
 exports.setRealtimeKitRoomLock = realtimekitHandlers.setRealtimeKitRoomLock;
 exports.setRealtimeKitRecordingEnabled =
   realtimekitHandlers.setRealtimeKitRecordingEnabled;
+exports.bulkSetRealtimeKitRecordingEnabled =
+  realtimekitHandlers.bulkSetRealtimeKitRecordingEnabled;
 exports.getRealtimeKitGuestJoin = realtimekitHandlers.getRealtimeKitGuestJoin;
 
 // LiveKit Test Function (for development/testing)

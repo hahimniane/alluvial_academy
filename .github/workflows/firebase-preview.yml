@@ -8,6 +8,7 @@ name: Firebase Hosting Preview
 # - Deploys to the `alluwal-dev` project (not prod).
 # - Not a required check. A failed preview does not block PR merging.
 # - Skipped on fork PRs (they cannot access repo secrets by design).
+# - Temporarily disabled while the `alluwal-dev` project is inactive.
 
 on:
   pull_request:
@@ -21,6 +22,11 @@ on:
       - '.firebaserc'
       - '.github/workflows/firebase-preview.yml'
 
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+
 concurrency:
   group: preview-${{ github.event.pull_request.number }}
   cancel-in-progress: true
@@ -30,8 +36,8 @@ jobs:
     name: Deploy PR preview to alluwal-dev
     runs-on: ubuntu-latest
     timeout-minutes: 25
-    # Only run for PRs opened from branches in this repo; forks cannot access secrets.
-    if: github.event.pull_request.head.repo.full_name == github.repository
+    # Disabled until the alluwal-dev Firebase project is active again.
+    if: false
     steps:
       - name: Checkout
         uses: actions/checkout@v4

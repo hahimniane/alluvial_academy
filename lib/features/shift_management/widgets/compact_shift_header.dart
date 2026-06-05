@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
-import 'dart:math' as math;
-import 'package:alluwalacademyadmin/features/shift_management/enums/shift_enums.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 /// Compact header for shift management screen (ConnectTeam-inspired)
@@ -133,7 +131,8 @@ class CompactShiftHeader extends StatelessWidget {
                 );
                 if (date != null) {
                   // Find Monday of that week
-                  final monday = date.subtract(Duration(days: date.weekday - 1));
+                  final monday =
+                      date.subtract(Duration(days: date.weekday - 1));
                   onWeekChanged(monday);
                 }
               },
@@ -170,13 +169,23 @@ class CompactShiftHeader extends StatelessWidget {
         ),
       ),
       itemBuilder: (context) => [
-        PopupMenuItem(value: 'grid', child: Text(AppLocalizations.of(context)!.gridView)),
-        PopupMenuItem(value: 'week', child: Text(AppLocalizations.of(context)!.weekCalendar)),
-        PopupMenuItem(value: 'list', child: Text(AppLocalizations.of(context)!.listView)),
+        PopupMenuItem(
+            value: 'grid', child: Text(AppLocalizations.of(context)!.gridView)),
+        PopupMenuItem(
+            value: 'week',
+            child: Text(AppLocalizations.of(context)!.weekCalendar)),
+        PopupMenuItem(
+            value: 'list', child: Text(AppLocalizations.of(context)!.listView)),
         const PopupMenuDivider(),
-        PopupMenuItem(value: 'teachers', child: Text(AppLocalizations.of(context)!.teachersOnly)),
-        PopupMenuItem(value: 'leaders', child: Text(AppLocalizations.of(context)!.leadersOnly)),
-        PopupMenuItem(value: 'all', child: Text(AppLocalizations.of(context)!.allSchedules)),
+        PopupMenuItem(
+            value: 'teachers',
+            child: Text(AppLocalizations.of(context)!.teachersOnly)),
+        PopupMenuItem(
+            value: 'leaders',
+            child: Text(AppLocalizations.of(context)!.leadersOnly)),
+        PopupMenuItem(
+            value: 'all',
+            child: Text(AppLocalizations.of(context)!.allSchedules)),
       ],
     );
   }
@@ -187,7 +196,7 @@ class CompactShiftHeader extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: const Color(0xff0386FF).withOpacity(0.1),
+          color: const Color(0xff0386FF).withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Row(
@@ -202,7 +211,8 @@ class CompactShiftHeader extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 4),
-            const Icon(Icons.arrow_drop_down, size: 20, color: Color(0xff0386FF)),
+            const Icon(Icons.arrow_drop_down,
+                size: 20, color: Color(0xff0386FF)),
           ],
         ),
       ),
@@ -213,7 +223,13 @@ class CompactShiftHeader extends StatelessWidget {
         const PopupMenuDivider(),
         _menuItem(Icons.copy_all, 'Duplicate Week', 'duplicate_week'),
         _menuItem(Icons.checklist, 'Bulk Select', 'select'),
-        _menuItem(Icons.person_remove, 'Delete Teacher Shifts', 'delete_teacher'),
+        _menuItem(
+          Icons.video_library_outlined,
+          AppLocalizations.of(context)!.bulkClassRecordingMenu,
+          'recording_access',
+        ),
+        _menuItem(
+            Icons.person_remove, 'Delete Teacher Shifts', 'delete_teacher'),
       ],
       // Ensure menu is scrollable if it gets too long
       constraints: const BoxConstraints(maxHeight: 400),
@@ -256,4 +272,3 @@ class CompactShiftHeader extends StatelessWidget {
     );
   }
 }
-

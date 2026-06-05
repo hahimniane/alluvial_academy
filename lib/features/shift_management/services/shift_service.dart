@@ -49,6 +49,89 @@ class ShiftService {
   static final FirebaseFunctions _functionsUsCentral1 =
       FirebaseFunctions.instanceFor(region: 'us-central1');
 
+  /// Batch get actual payment amounts for shifts from their timesheet entries.
+  static Future<Map<String, double>> getActualPaymentsForShifts(
+      List<String> shiftIds) async {
+    if (shiftIds.isEmpty) return {};
+
+    final opId = PerformanceLogger.newOperationId(
+        'ShiftService.getActualPaymentsForShifts');
+    PerformanceLogger.startTimer(opId, metadata: {
+      'shift_count': shiftIds.length,
+    });
+
+    try {
+      final paymentMap = <String, double>{
+        for (final shiftId in shiftIds) shiftId: 0.0,
+      };
+
+      final totalBatches = (shiftIds.length / 10).ceil();
+      int totalEntriesFound = 0;
+      int totalDocsProcessed = 0;
+      int totalQueryMs = 0;
+      int totalCalcMs = 0;
+
+      for (int i = 0; i < shiftIds.length; i += 10) {
+        final batch = shiftIds.skip(i).take(10).toList();
+        final batchIndex = (i ~/ 10) + 1;
+
+        final queryStopwatch = Stopwatch()..start();
+        final snapshot = await _firestore
+            .collection('timesheet_entries')
+            .where('shift_id', whereIn: batch)
+            .get();
+        queryStopwatch.stop();
+        totalQueryMs += queryStopwatch.elapsedMilliseconds;
+        totalEntriesFound += snapshot.docs.length;
+
+        final calcStopwatch = Stopwatch()..start();
+        for (final doc in snapshot.docs) {
+          final data = doc.data();
+          final shiftId = data['shift_id'] as String?;
+          if (shiftId == null || !paymentMap.containsKey(shiftId)) continue;
+
+          final payment = (data['payment_amount'] as num?)?.toDouble() ??
+              (data['total_pay'] as num?)?.toDouble() ??
+              0.0;
+          paymentMap[shiftId] = (paymentMap[shiftId] ?? 0.0) + payment;
+          totalDocsProcessed++;
+        }
+        calcStopwatch.stop();
+        totalCalcMs += calcStopwatch.elapsedMilliseconds;
+
+        PerformanceLogger.checkpoint(opId, 'batch_$batchIndex', metadata: {
+          'batch_index': batchIndex,
+          'total_batches': totalBatches,
+          'batch_size': batch.length,
+          'query_time_ms': queryStopwatch.elapsedMilliseconds,
+          'entries_found': snapshot.docs.length,
+          'calc_time_ms': calcStopwatch.elapsedMilliseconds,
+        });
+      }
+
+      final nonZeroPayments = paymentMap.values.where((v) => v != 0.0).length;
+      PerformanceLogger.endTimer(opId, metadata: {
+        'shift_count': shiftIds.length,
+        'payment_map_size': paymentMap.length,
+        'non_zero_payments': nonZeroPayments,
+        'batches': totalBatches,
+        'total_entries_found': totalEntriesFound,
+        'total_docs_processed': totalDocsProcessed,
+        'total_query_time_ms': totalQueryMs,
+        'total_calc_time_ms': totalCalcMs,
+      });
+
+      return paymentMap;
+    } catch (e) {
+      AppLogger.error('Error batch getting payments for shifts: $e');
+      PerformanceLogger.endTimer(opId, metadata: {
+        'error': e.toString(),
+        'shift_count': shiftIds.length,
+      });
+      return {for (final id in shiftIds) id: 0.0};
+    }
+  }
+
   /// Claims a published shift for the signed-in teacher.
   ///
   /// **Native:** uses the `claimShift` HTTPS callable (same logic as server).
@@ -2148,6 +2231,28 @@ class ShiftService {
     });
   }
 
+  static Future<List<TeachingShift>> fetchTeacherShifts(
+    String teacherId, {
+    DateTime? start,
+    DateTime? end,
+  }) async {
+    Query query = _shiftsCollection.where('teacher_id', isEqualTo: teacherId);
+    if (start != null) {
+      query = query.where('shift_start',
+          isGreaterThanOrEqualTo: Timestamp.fromDate(start));
+    }
+    if (end != null) {
+      query = query.where('shift_start', isLessThan: Timestamp.fromDate(end));
+    }
+
+    final snapshot = await query.get(const GetOptions(source: Source.server));
+    return _parseFetchedShiftSnapshot(
+      snapshot,
+      operationName: 'ShiftService.fetchTeacherShifts',
+      metadata: {'teacher_id': teacherId},
+    );
+  }
+
   /// Get all shifts (admin view)
   static Stream<List<TeachingShift>> getAllShifts({
     DateTime? start,
@@ -2219,6 +2324,88 @@ class ShiftService {
       AppLogger.error('Firestore stream error in getAllShifts: $error');
       AppLogger.error('Stack trace: $stackTrace');
     });
+  }
+
+  static Future<List<TeachingShift>> fetchAllShifts({
+    DateTime? start,
+    DateTime? end,
+  }) async {
+    Query query = _shiftsCollection;
+    if (start != null) {
+      query = query.where('shift_start',
+          isGreaterThanOrEqualTo: Timestamp.fromDate(start));
+    }
+    if (end != null) {
+      query = query.where('shift_start', isLessThan: Timestamp.fromDate(end));
+    }
+
+    final snapshot = await query.get(const GetOptions(source: Source.server));
+    return _parseFetchedShiftSnapshot(
+      snapshot,
+      operationName: 'ShiftService.fetchAllShifts',
+    );
+  }
+
+  static List<TeachingShift> _parseFetchedShiftSnapshot(
+    QuerySnapshot snapshot, {
+    required String operationName,
+    Map<String, Object?> metadata = const {},
+  }) {
+    final opId = PerformanceLogger.newOperationId(operationName);
+    PerformanceLogger.startTimer(opId, metadata: {
+      ...metadata,
+      'doc_count': snapshot.docs.length,
+    });
+
+    try {
+      PerformanceLogger.checkpoint(opId, 'parsing_start');
+      final shifts = <TeachingShift>[];
+      var parseErrors = 0;
+      final parseStopwatch = Stopwatch()..start();
+
+      for (final doc in snapshot.docs) {
+        try {
+          shifts.add(TeachingShift.fromFirestore(doc));
+        } catch (e) {
+          AppLogger.error('Error parsing shift document ${doc.id}: $e');
+          parseErrors++;
+        }
+      }
+
+      parseStopwatch.stop();
+      final parseMs = parseStopwatch.elapsedMilliseconds;
+      final avgParseMs =
+          snapshot.docs.isEmpty ? 0.0 : parseMs / snapshot.docs.length;
+      PerformanceLogger.checkpoint(opId, 'parsing_complete', metadata: {
+        'shift_count': shifts.length,
+        'parse_errors': parseErrors,
+        'parse_time_ms': parseMs,
+        'avg_parse_ms_per_doc': avgParseMs.toStringAsFixed(3),
+      });
+
+      final sortStopwatch = Stopwatch()..start();
+      shifts.sort((a, b) => a.shiftStart.compareTo(b.shiftStart));
+      sortStopwatch.stop();
+      PerformanceLogger.checkpoint(opId, 'sorting_complete', metadata: {
+        'sort_time_ms': sortStopwatch.elapsedMilliseconds,
+      });
+
+      PerformanceLogger.endTimer(opId, metadata: {
+        ...metadata,
+        'total_shifts': shifts.length,
+        'doc_count': snapshot.docs.length,
+        'parse_errors': parseErrors,
+      });
+      return shifts;
+    } catch (e) {
+      AppLogger.error('Error processing shift snapshot: $e');
+      PerformanceLogger.endTimer(opId, metadata: {
+        ...metadata,
+        'error': e.toString(),
+        'doc_count': snapshot.docs.length,
+      });
+      return <TeachingShift>[];
+    }
   }
 
   /// Get shifts for a specific student (where student is assigned to the class)

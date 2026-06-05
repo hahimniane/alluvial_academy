@@ -14630,4 +14630,134 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get classRecordingPermissionUpdateFailed =>
       'Impossible de modifier l’autorisation d’enregistrement.';
+
+  @override
+  String get bulkClassRecordingMenu => 'Accès aux enregistrements';
+
+  @override
+  String get bulkClassRecordingTitle => 'Accès groupé aux enregistrements';
+
+  @override
+  String get bulkClassRecordingSubtitle =>
+      'Autoriser ou bloquer l’enregistrement pour un ensemble ciblé de cours.';
+
+  @override
+  String get bulkClassRecordingAccess => 'Modification d’accès';
+
+  @override
+  String get bulkClassRecordingEnable => 'Activer';
+
+  @override
+  String get bulkClassRecordingDisable => 'Désactiver';
+
+  @override
+  String get bulkClassRecordingScope => 'Portée';
+
+  @override
+  String get bulkClassRecordingScopeAllTeachers => 'Tous les enseignants';
+
+  @override
+  String get bulkClassRecordingScopeTeacher => 'Enseignant';
+
+  @override
+  String get bulkClassRecordingScopeStudent => 'Étudiant';
+
+  @override
+  String get bulkClassRecordingScopeSelected => 'Sélectionnés';
+
+  @override
+  String get bulkClassRecordingChooseTeacher => 'Choisir un enseignant';
+
+  @override
+  String get bulkClassRecordingSearchTeacher => 'Rechercher des enseignants';
+
+  @override
+  String get bulkClassRecordingChooseStudent => 'Choisir un étudiant';
+
+  @override
+  String get bulkClassRecordingSearchStudent => 'Rechercher des étudiants';
+
+  @override
+  String get bulkClassRecordingTimeWindow => 'Fenêtre de cours';
+
+  @override
+  String get bulkClassRecordingTimeActiveUpcoming => 'Actifs et à venir';
+
+  @override
+  String get bulkClassRecordingTimeUpcoming => 'À venir seulement';
+
+  @override
+  String get bulkClassRecordingTimeActive => 'Actifs maintenant';
+
+  @override
+  String get bulkClassRecordingTimePast => 'Cours passés';
+
+  @override
+  String get bulkClassRecordingTimeAll => 'Toutes les dates';
+
+  @override
+  String get bulkClassRecordingPreview => 'Aperçu';
+
+  @override
+  String get bulkClassRecordingMatched => 'trouvés';
+
+  @override
+  String get bulkClassRecordingWillChange => 'à modifier';
+
+  @override
+  String get bulkClassRecordingAlreadyEnabled => 'activés';
+
+  @override
+  String get bulkClassRecordingAlreadyDisabled => 'désactivés';
+
+  @override
+  String bulkClassRecordingEnableSummary(int count) {
+    return 'L’enregistrement sera activé pour $count cours.';
+  }
+
+  @override
+  String bulkClassRecordingDisableSummary(int count) {
+    return 'L’enregistrement sera désactivé pour $count cours.';
+  }
+
+  @override
+  String get bulkClassRecordingSampleClasses => 'Exemples de cours';
+
+  @override
+  String bulkClassRecordingMoreClasses(int count) {
+    return '+$count cours';
+  }
+
+  @override
+  String get bulkClassRecordingNoMatches =>
+      'Aucun cours ne correspond à cette portée.';
+
+  @override
+  String get bulkClassRecordingFooterNote =>
+      'Les enseignants reçoivent le préréglage d’enregistrement lors de leur prochaine connexion à un cours correspondant.';
+
+  @override
+  String get bulkClassRecordingApplyEnable => 'Activer l’enregistrement';
+
+  @override
+  String get bulkClassRecordingApplyDisable => 'Désactiver l’enregistrement';
+
+  @override
+  String bulkClassRecordingUpdating(int count) {
+    return 'Mise à jour de l’accès aux enregistrements pour $count cours...';
+  }
+
+  @override
+  String bulkClassRecordingEnabledSuccess(int count) {
+    return 'Enregistrement activé pour $count cours.';
+  }
+
+  @override
+  String bulkClassRecordingDisabledSuccess(int count) {
+    return 'Enregistrement désactivé pour $count cours.';
+  }
+
+  @override
+  String get bulkClassRecordingUpdateFailed =>
+      'Impossible de modifier l’accès aux enregistrements.';
 }
