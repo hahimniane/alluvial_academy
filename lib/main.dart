@@ -44,6 +44,8 @@ import 'package:alluwalacademyadmin/core/services/join_link_service.dart';
 import 'package:alluwalacademyadmin/features/shift_management/services/shift_service.dart';
 import 'package:alluwalacademyadmin/core/services/class_video_service.dart';
 import 'features/livekit/screens/guest_join_screen.dart';
+import 'features/parent/screens/invoice_detail_screen.dart';
+import 'features/parent/services/invoice_link_service.dart';
 
 // NOTE: The legacy shift wage migration has been permanently disabled.
 // If you ever need to run it manually, trigger ShiftWageMigration.runMigration()
@@ -138,6 +140,7 @@ Future<void> main() async {
 
   if (kIsWeb) {
     JoinLinkService.initFromUri(Uri.base);
+    InvoiceLinkService.initFromUri(Uri.base);
   }
 
   AppLogger.info('Firebase env: ${_useProdFirebase ? 'prod' : 'dev'}');
@@ -289,8 +292,8 @@ Future<void> main() async {
     // Filter out known framework issues
     if (details.exception.toString().contains('PointerDeviceKind.trackpad') ||
         details.exception.toString().contains(
-          '!identical(kind, PointerDeviceKind.trackpad)',
-        )) {
+              '!identical(kind, PointerDeviceKind.trackpad)',
+            )) {
       if (kDebugMode) {
         AppLogger.debug(
           'Ignoring trackpad gesture assertion: ${details.exception}',
@@ -462,8 +465,7 @@ class MyApp extends StatelessWidget {
       builder: (context, themeService, languageService, child) {
         final previewLocale = DevicePreview.locale(context);
         // Ensure we always have a valid supported locale
-        final appLocale =
-            languageService.locale ??
+        final appLocale = languageService.locale ??
             (previewLocale != null &&
                     LanguageService.supportedLocales.any(
                       (l) => l.languageCode == previewLocale.languageCode,
@@ -588,13 +590,13 @@ class MyApp extends StatelessWidget {
 class AppScrollBehavior extends MaterialScrollBehavior {
   @override
   Set<PointerDeviceKind> get dragDevices => {
-    // Enable drag scrolling for all common input devices on web/mobile
-    PointerDeviceKind.touch,
-    PointerDeviceKind.mouse,
-    PointerDeviceKind.trackpad,
-    PointerDeviceKind.stylus,
-    PointerDeviceKind.unknown,
-  };
+        // Enable drag scrolling for all common input devices on web/mobile
+        PointerDeviceKind.touch,
+        PointerDeviceKind.mouse,
+        PointerDeviceKind.trackpad,
+        PointerDeviceKind.stylus,
+        PointerDeviceKind.unknown,
+      };
 }
 
 class FirebaseInitializer extends StatefulWidget {
@@ -666,7 +668,8 @@ class _FirebaseInitializerState extends State<FirebaseInitializer> {
               Text(
                 AppLocalizations.of(
                   context,
-                )!.pleaseCheckYourInternetConnectionAnd,
+                )!
+                    .pleaseCheckYourInternetConnectionAnd,
                 style: GoogleFonts.inter(
                   fontSize: 14,
                   color: const Color(0xff6B7280),
@@ -794,8 +797,7 @@ class _WebWatchdogAuthBindingState extends State<_WebWatchdogAuthBinding> {
 
   void _sync(AsyncSnapshot<User?> s) {
     if (!kIsWeb) return;
-    final paused =
-        s.connectionState == ConnectionState.waiting ||
+    final paused = s.connectionState == ConnectionState.waiting ||
         !s.hasData ||
         s.data == null;
     WebAppStabilityService.instance.setWatchdogPaused(paused);
@@ -815,7 +817,9 @@ class AuthenticationWrapper extends StatefulWidget {
 class _AuthenticationWrapperState extends State<AuthenticationWrapper> {
   bool _isCheckingConnection = true;
   bool _handledJoinLink = false;
+  bool _handledInvoiceLink = false;
   bool _joiningFromLink = false;
+  bool _openingInvoiceLink = false;
 
   @override
   void initState() {
@@ -840,6 +844,32 @@ class _AuthenticationWrapperState extends State<AuthenticationWrapper> {
     if (_handledJoinLink) return;
     _handledJoinLink = true;
     WidgetsBinding.instance.addPostFrameCallback((_) => _maybeJoinFromLink());
+  }
+
+  void _triggerInvoiceLinkHandling() {
+    if (_handledInvoiceLink) return;
+    _handledInvoiceLink = true;
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => _maybeOpenInvoiceLink());
+  }
+
+  Future<void> _maybeOpenInvoiceLink() async {
+    if (!mounted || _openingInvoiceLink) return;
+    final invoiceId = InvoiceLinkService.consumePendingInvoiceId();
+    if (invoiceId == null) return;
+
+    _openingInvoiceLink = true;
+    try {
+      await Future.delayed(const Duration(milliseconds: 350));
+      if (!mounted) return;
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => InvoiceDetailScreen(invoiceId: invoiceId),
+        ),
+      );
+    } finally {
+      _openingInvoiceLink = false;
+    }
   }
 
   Future<void> _maybeJoinFromLink() async {
@@ -950,6 +980,7 @@ class _AuthenticationWrapperState extends State<AuthenticationWrapper> {
       }
 
       _triggerJoinLinkHandling();
+      _triggerInvoiceLinkHandling();
       return const RoleBasedDashboard();
     }
 
@@ -1159,8 +1190,7 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
               'Network connection failed. Please check your internet connection and try again.';
           break;
         default:
-          errorMessage =
-              e.message ??
+          errorMessage = e.message ??
               'Unable to send password reset email. Please try again later.';
       }
       if (mounted) {
@@ -1230,8 +1260,7 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
               'Network connection failed. Please check your internet connection and try again.';
           break;
         case 'unknown-error':
-          errorMessage =
-              e.message ??
+          errorMessage = e.message ??
               'An unexpected error occurred. Please try again later.';
           break;
         default:
@@ -1491,7 +1520,8 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
                         decoration: InputDecoration(
                           hintText: AppLocalizations.of(
                             context,
-                          )!.loginEnterPassword,
+                          )!
+                              .loginEnterPassword,
                           hintStyle: GoogleFonts.inter(
                             color: const Color(0xff9CA3AF),
                             fontSize: 16,

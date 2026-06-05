@@ -24898,6 +24898,372 @@ abstract class AppLocalizations {
   /// **'Billing period'**
   String get adminInvoiceEditBillingPeriodLabel;
 
+  /// No description provided for @adminInvoicePaymentLinkCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Invoice payment link copied'**
+  String get adminInvoicePaymentLinkCopied;
+
+  /// No description provided for @adminInvoiceCopyLink.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy link'**
+  String get adminInvoiceCopyLink;
+
+  /// No description provided for @adminInvoiceReportingTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Invoice reporting'**
+  String get adminInvoiceReportingTitle;
+
+  /// No description provided for @adminInvoiceExportExcel.
+  ///
+  /// In en, this message translates to:
+  /// **'Export Excel'**
+  String get adminInvoiceExportExcel;
+
+  /// No description provided for @adminInvoiceMetricIssued.
+  ///
+  /// In en, this message translates to:
+  /// **'Issued'**
+  String get adminInvoiceMetricIssued;
+
+  /// No description provided for @adminInvoiceMetricReceived.
+  ///
+  /// In en, this message translates to:
+  /// **'Received'**
+  String get adminInvoiceMetricReceived;
+
+  /// No description provided for @adminInvoiceMetricOutstanding.
+  ///
+  /// In en, this message translates to:
+  /// **'Outstanding'**
+  String get adminInvoiceMetricOutstanding;
+
+  /// No description provided for @adminInvoiceSearchHintDetailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Invoice number, ID, or month'**
+  String get adminInvoiceSearchHintDetailed;
+
+  /// No description provided for @adminInvoiceSearchHintUnified.
+  ///
+  /// In en, this message translates to:
+  /// **'Search invoice, parent, student, ID, or month'**
+  String get adminInvoiceSearchHintUnified;
+
+  /// No description provided for @adminInvoiceParentSearchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Parent name or ID'**
+  String get adminInvoiceParentSearchHint;
+
+  /// No description provided for @adminInvoicePaymentFilterSuccessful.
+  ///
+  /// In en, this message translates to:
+  /// **'Successful'**
+  String get adminInvoicePaymentFilterSuccessful;
+
+  /// No description provided for @adminInvoicePaymentFilterPending.
+  ///
+  /// In en, this message translates to:
+  /// **'Pending'**
+  String get adminInvoicePaymentFilterPending;
+
+  /// No description provided for @adminInvoicePaymentFilterOverdue.
+  ///
+  /// In en, this message translates to:
+  /// **'Overdue'**
+  String get adminInvoicePaymentFilterOverdue;
+
+  /// No description provided for @adminInvoicePaymentFilterFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed'**
+  String get adminInvoicePaymentFilterFailed;
+
+  /// No description provided for @adminInvoiceSortNewest.
+  ///
+  /// In en, this message translates to:
+  /// **'Newest'**
+  String get adminInvoiceSortNewest;
+
+  /// No description provided for @adminInvoiceSortOldest.
+  ///
+  /// In en, this message translates to:
+  /// **'Oldest'**
+  String get adminInvoiceSortOldest;
+
+  /// No description provided for @adminInvoiceSortDueSoon.
+  ///
+  /// In en, this message translates to:
+  /// **'Due soon'**
+  String get adminInvoiceSortDueSoon;
+
+  /// No description provided for @adminInvoiceSortParent.
+  ///
+  /// In en, this message translates to:
+  /// **'Parent'**
+  String get adminInvoiceSortParent;
+
+  /// No description provided for @adminInvoiceSortBalance.
+  ///
+  /// In en, this message translates to:
+  /// **'Balance'**
+  String get adminInvoiceSortBalance;
+
+  /// No description provided for @adminInvoiceDueDateFilter.
+  ///
+  /// In en, this message translates to:
+  /// **'Due date'**
+  String get adminInvoiceDueDateFilter;
+
+  /// No description provided for @adminInvoiceClearFiltersShort.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear'**
+  String get adminInvoiceClearFiltersShort;
+
+  /// No description provided for @adminInvoiceExportInvoicesSheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Invoices'**
+  String get adminInvoiceExportInvoicesSheet;
+
+  /// No description provided for @adminInvoiceExportTransactionsSheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Transactions'**
+  String get adminInvoiceExportTransactionsSheet;
+
+  /// No description provided for @adminInvoiceExportInvoiceNumber.
+  ///
+  /// In en, this message translates to:
+  /// **'Invoice Number'**
+  String get adminInvoiceExportInvoiceNumber;
+
+  /// No description provided for @adminInvoiceExportParentName.
+  ///
+  /// In en, this message translates to:
+  /// **'Parent'**
+  String get adminInvoiceExportParentName;
+
+  /// No description provided for @adminInvoiceExportStudentName.
+  ///
+  /// In en, this message translates to:
+  /// **'Student'**
+  String get adminInvoiceExportStudentName;
+
+  /// No description provided for @adminInvoiceExportInvoiceStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Status'**
+  String get adminInvoiceExportInvoiceStatus;
+
+  /// No description provided for @adminInvoiceExportTotalAmount.
+  ///
+  /// In en, this message translates to:
+  /// **'Total Amount'**
+  String get adminInvoiceExportTotalAmount;
+
+  /// No description provided for @adminInvoiceExportPaidAmount.
+  ///
+  /// In en, this message translates to:
+  /// **'Paid Amount'**
+  String get adminInvoiceExportPaidAmount;
+
+  /// No description provided for @adminInvoiceExportOutstandingBalance.
+  ///
+  /// In en, this message translates to:
+  /// **'Outstanding Balance'**
+  String get adminInvoiceExportOutstandingBalance;
+
+  /// No description provided for @adminInvoiceExportCurrency.
+  ///
+  /// In en, this message translates to:
+  /// **'Currency'**
+  String get adminInvoiceExportCurrency;
+
+  /// No description provided for @adminInvoiceExportIssuedDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Issued Date'**
+  String get adminInvoiceExportIssuedDate;
+
+  /// No description provided for @adminInvoiceExportDueDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Due Date'**
+  String get adminInvoiceExportDueDate;
+
+  /// No description provided for @adminInvoiceExportBillingPeriod.
+  ///
+  /// In en, this message translates to:
+  /// **'Billing Period'**
+  String get adminInvoiceExportBillingPeriod;
+
+  /// No description provided for @adminInvoiceExportRecurringEnabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Recurring Enabled'**
+  String get adminInvoiceExportRecurringEnabled;
+
+  /// No description provided for @adminInvoiceExportPaymentLink.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment Link'**
+  String get adminInvoiceExportPaymentLink;
+
+  /// No description provided for @adminInvoiceExportAmount.
+  ///
+  /// In en, this message translates to:
+  /// **'Amount'**
+  String get adminInvoiceExportAmount;
+
+  /// No description provided for @adminInvoiceExportPaymentStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment Status'**
+  String get adminInvoiceExportPaymentStatus;
+
+  /// No description provided for @adminInvoiceExportPaymentMethod.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment Method'**
+  String get adminInvoiceExportPaymentMethod;
+
+  /// No description provided for @adminInvoiceExportCreatedAt.
+  ///
+  /// In en, this message translates to:
+  /// **'Created At'**
+  String get adminInvoiceExportCreatedAt;
+
+  /// No description provided for @adminInvoiceExportCompletedAt.
+  ///
+  /// In en, this message translates to:
+  /// **'Completed At'**
+  String get adminInvoiceExportCompletedAt;
+
+  /// No description provided for @adminCreateInvoiceSearchHintPhone.
+  ///
+  /// In en, this message translates to:
+  /// **'Search by name, email, or phone...'**
+  String get adminCreateInvoiceSearchHintPhone;
+
+  /// No description provided for @adminCreateInvoiceSelectBillingMonth.
+  ///
+  /// In en, this message translates to:
+  /// **'Select at least one billing month'**
+  String get adminCreateInvoiceSelectBillingMonth;
+
+  /// No description provided for @adminCreateInvoiceMissingPositiveAmount.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter an amount for at least one student'**
+  String get adminCreateInvoiceMissingPositiveAmount;
+
+  /// No description provided for @adminCreateInvoiceOneCreated.
+  ///
+  /// In en, this message translates to:
+  /// **'Invoice {invoiceNumber} created successfully'**
+  String adminCreateInvoiceOneCreated(Object invoiceNumber);
+
+  /// No description provided for @adminCreateInvoiceManyCreated.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} invoices created successfully: {invoiceNumbers}'**
+  String adminCreateInvoiceManyCreated(int count, Object invoiceNumbers);
+
+  /// No description provided for @adminCreateInvoiceRecurringCreated.
+  ///
+  /// In en, this message translates to:
+  /// **'Recurring invoice schedule created. Next invoice will be sent for {month}.'**
+  String adminCreateInvoiceRecurringCreated(Object month);
+
+  /// No description provided for @adminCreateInvoiceBillingMonths.
+  ///
+  /// In en, this message translates to:
+  /// **'Billing months'**
+  String get adminCreateInvoiceBillingMonths;
+
+  /// No description provided for @adminCreateInvoiceMonthsSelected.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} months selected'**
+  String adminCreateInvoiceMonthsSelected(int count);
+
+  /// No description provided for @adminCreateInvoiceBillingModeOneTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'One invoice now'**
+  String get adminCreateInvoiceBillingModeOneTitle;
+
+  /// No description provided for @adminCreateInvoiceBillingModeOneDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Combine every selected month into one invoice and send one email.'**
+  String get adminCreateInvoiceBillingModeOneDescription;
+
+  /// No description provided for @adminCreateInvoiceBillingModeSeparateTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Separate invoices now'**
+  String get adminCreateInvoiceBillingModeSeparateTitle;
+
+  /// No description provided for @adminCreateInvoiceBillingModeSeparateDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Create one invoice per selected month and email each invoice today.'**
+  String get adminCreateInvoiceBillingModeSeparateDescription;
+
+  /// No description provided for @adminCreateInvoiceBillingModeRecurringTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Recurring schedule'**
+  String get adminCreateInvoiceBillingModeRecurringTitle;
+
+  /// No description provided for @adminCreateInvoiceBillingModeRecurringDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Send each selected month automatically when that month arrives.'**
+  String get adminCreateInvoiceBillingModeRecurringDescription;
+
+  /// No description provided for @adminCreateInvoiceRepeatTiming.
+  ///
+  /// In en, this message translates to:
+  /// **'Repeat timing'**
+  String get adminCreateInvoiceRepeatTiming;
+
+  /// No description provided for @adminCreateInvoiceRecurringDay.
+  ///
+  /// In en, this message translates to:
+  /// **'Day {day}'**
+  String adminCreateInvoiceRecurringDay(int day);
+
+  /// No description provided for @adminCreateInvoiceRecurringSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'This will create {count} invoices, one month at a time.'**
+  String adminCreateInvoiceRecurringSummary(int count);
+
+  /// No description provided for @adminCreateInvoiceCreateOneInvoice.
+  ///
+  /// In en, this message translates to:
+  /// **'Create one invoice'**
+  String get adminCreateInvoiceCreateOneInvoice;
+
+  /// No description provided for @adminCreateInvoiceCreateSeparateInvoices.
+  ///
+  /// In en, this message translates to:
+  /// **'Create separate invoices'**
+  String get adminCreateInvoiceCreateSeparateInvoices;
+
+  /// No description provided for @adminCreateInvoiceCreateRecurringSchedule.
+  ///
+  /// In en, this message translates to:
+  /// **'Create recurring schedule'**
+  String get adminCreateInvoiceCreateRecurringSchedule;
+
   /// No description provided for @invoiceAlreadyPaid.
   ///
   /// In en, this message translates to:

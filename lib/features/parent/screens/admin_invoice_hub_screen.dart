@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'package:alluwalacademyadmin/features/parent/screens/admin_create_invoice_screen.dart';
 import 'package:alluwalacademyadmin/features/parent/screens/admin_invoices_screen.dart';
+import 'package:alluwalacademyadmin/features/parent/screens/admin_suspended_students_screen.dart';
 
 /// Unified invoice hub: Create + All Invoices in a single tabbed view.
 class AdminInvoiceHubScreen extends StatefulWidget {
@@ -23,9 +24,9 @@ class _AdminInvoiceHubScreenState extends State<AdminInvoiceHubScreen>
   void initState() {
     super.initState();
     _tabController = TabController(
-      length: 2,
+      length: 3,
       vsync: this,
-      initialIndex: widget.initialTab.clamp(0, 1),
+      initialIndex: widget.initialTab.clamp(0, 2),
     );
   }
 
@@ -67,6 +68,10 @@ class _AdminInvoiceHubScreenState extends State<AdminInvoiceHubScreen>
                 icon: Icon(Icons.folder_special_outlined, size: 20),
                 text: 'All Invoices',
               ),
+              Tab(
+                icon: Icon(Icons.no_meeting_room_outlined, size: 20),
+                text: 'Cutoffs',
+              ),
             ],
           ),
         ),
@@ -76,6 +81,7 @@ class _AdminInvoiceHubScreenState extends State<AdminInvoiceHubScreen>
             children: const [
               AdminCreateInvoiceScreen(),
               AdminInvoicesScreen(),
+              AdminSuspendedStudentsScreen(),
             ],
           ),
         ),

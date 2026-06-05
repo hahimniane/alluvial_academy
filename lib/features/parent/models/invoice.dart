@@ -29,7 +29,8 @@ class InvoiceItem {
       quantity: _toInt(data['quantity']) ?? 1,
       unitPrice: _toDouble(data['unit_price'] ?? data['unitPrice']) ?? 0.0,
       total: _toDouble(data['total']) ?? 0.0,
-      shiftIds: List<String>.from(data['shift_ids'] ?? data['shiftIds'] ?? const []),
+      shiftIds:
+          List<String>.from(data['shift_ids'] ?? data['shiftIds'] ?? const []),
     );
   }
 
@@ -70,13 +71,18 @@ class Invoice {
   final DateTime dueDate;
   final List<InvoiceItem> items;
   final List<String> shiftIds;
+
   /// Billing period label, usually `yyyy-MM` (e.g. from admin create flow).
   final String? period;
   final DateTime? createdAt;
   final DateTime? updatedAt;
+
   /// Date at which access is suspended if the invoice is still unpaid.
   /// Null means no cutoff is set (access is never suspended for this invoice).
   final DateTime? accessCutoffDate;
+  final String? paymentLink;
+  final String? reusablePaymentLink;
+  final bool recurringEnabled;
 
   const Invoice({
     required this.id,
@@ -95,6 +101,9 @@ class Invoice {
     this.createdAt,
     this.updatedAt,
     this.accessCutoffDate,
+    this.paymentLink,
+    this.reusablePaymentLink,
+    this.recurringEnabled = false,
   });
 
   factory Invoice.fromFirestore(DocumentSnapshot doc) {
@@ -104,28 +113,42 @@ class Invoice {
 
   factory Invoice.fromMap(Map<String, dynamic> data, {String? id}) {
     final periodRaw =
-        (data['period'] ?? data['billing_period'] ?? data['billingPeriod'])?.toString().trim() ?? '';
+        (data['period'] ?? data['billing_period'] ?? data['billingPeriod'])
+                ?.toString()
+                .trim() ??
+            '';
     return Invoice(
       id: id ?? (data['id'] ?? '').toString(),
-      invoiceNumber: (data['invoice_number'] ?? data['invoiceNumber'] ?? '').toString(),
+      invoiceNumber:
+          (data['invoice_number'] ?? data['invoiceNumber'] ?? '').toString(),
       parentId: (data['parent_id'] ?? data['parentId'] ?? '').toString(),
       studentId: (data['student_id'] ?? data['studentId'] ?? '').toString(),
       status: _parseStatus(data['status']),
-      totalAmount: _toDouble(data['total_amount'] ?? data['totalAmount']) ?? 0.0,
+      totalAmount:
+          _toDouble(data['total_amount'] ?? data['totalAmount']) ?? 0.0,
       paidAmount: _toDouble(data['paid_amount'] ?? data['paidAmount']) ?? 0.0,
       currency: (data['currency'] ?? 'USD').toString(),
-      issuedDate: _parseDateTime(data['issued_date'] ?? data['issuedDate']) ?? DateTime.now(),
+      issuedDate: _parseDateTime(data['issued_date'] ?? data['issuedDate']) ??
+          DateTime.now(),
       dueDate: _parseDateTime(data['due_date'] ?? data['dueDate']) ??
           DateTime.now().add(const Duration(days: 30)),
       items: ((data['items'] as List<dynamic>?) ?? const [])
           .whereType<Map>()
           .map((e) => InvoiceItem.fromMap(Map<String, dynamic>.from(e)))
           .toList(),
-      shiftIds: List<String>.from(data['shift_ids'] ?? data['shiftIds'] ?? const []),
+      shiftIds:
+          List<String>.from(data['shift_ids'] ?? data['shiftIds'] ?? const []),
       period: periodRaw.isEmpty ? null : periodRaw,
       createdAt: _parseDateTime(data['created_at'] ?? data['createdAt']),
       updatedAt: _parseDateTime(data['updated_at'] ?? data['updatedAt']),
-      accessCutoffDate: _parseDateTime(data['access_cutoff_date'] ?? data['accessCutoffDate']),
+      accessCutoffDate: _parseDateTime(
+          data['access_cutoff_date'] ?? data['accessCutoffDate']),
+      paymentLink: (data['payment_link'] ?? data['paymentLink'])?.toString(),
+      reusablePaymentLink:
+          (data['reusable_payment_link'] ?? data['reusablePaymentLink'])
+              ?.toString(),
+      recurringEnabled:
+          data['recurring_enabled'] == true || data['recurringEnabled'] == true,
     );
   }
 
@@ -148,6 +171,11 @@ class Invoice {
       if (updatedAt != null) 'updated_at': Timestamp.fromDate(updatedAt!),
       if (accessCutoffDate != null)
         'access_cutoff_date': Timestamp.fromDate(accessCutoffDate!),
+      if (paymentLink != null && paymentLink!.isNotEmpty)
+        'payment_link': paymentLink,
+      if (reusablePaymentLink != null && reusablePaymentLink!.isNotEmpty)
+        'reusable_payment_link': reusablePaymentLink,
+      'recurring_enabled': recurringEnabled,
     };
   }
 
@@ -164,7 +192,9 @@ class Invoice {
   }
 
   bool get isOverdue =>
-      !isFullyPaid && DateTime.now().isAfter(dueDate) && status != InvoiceStatus.cancelled;
+      !isFullyPaid &&
+      DateTime.now().isAfter(dueDate) &&
+      status != InvoiceStatus.cancelled;
 
   /// `period` is usually `yyyy-MM`. Returns a readable month, or the raw string, or null.
   String? get displayBillingPeriod {
@@ -204,4 +234,3 @@ class Invoice {
     return double.tryParse(value.toString());
   }
 }
-

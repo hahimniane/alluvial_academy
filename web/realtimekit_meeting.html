@@ -29,7 +29,20 @@
       const authToken = params.get('token');
       if (!authToken) return;
       const meeting = await RealtimeKitClient.init({ authToken });
-      document.getElementById('meeting').meeting = meeting;
+      window.__alluwalRealtimeKitMeeting = meeting;
+      const meetingElement = document.getElementById('meeting');
+      meetingElement.meeting = meeting;
+
+      if (typeof meeting.join === 'function') {
+        await meeting.join();
+      }
+
+      window.addEventListener('pagehide', () => {
+        const activeMeeting = window.__alluwalRealtimeKitMeeting;
+        if (activeMeeting && typeof activeMeeting.leave === 'function') {
+          activeMeeting.leave();
+        }
+      });
     })();
   </script>
 </body>

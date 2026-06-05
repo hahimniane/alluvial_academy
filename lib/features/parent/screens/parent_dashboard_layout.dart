@@ -5,7 +5,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/services/user_role_service.dart';
-import 'package:alluwalacademyadmin/features/forms/screens/form_screen.dart';
+import 'package:alluwalacademyadmin/features/chat/screens/chat_page.dart';
+import 'package:alluwalacademyadmin/features/forms/screens/teacher_forms_screen.dart';
 import '../../website/screens/landing_page.dart';
 import '../../dashboard/widgets/custom_sidebar.dart';
 import 'parent_dashboard_screen.dart';
@@ -35,7 +36,7 @@ class _ParentDashboardLayoutState extends State<ParentDashboardLayout> {
   int _selectedIndex = 0;
   String? _userRole;
   static const int _screenCount =
-      10; // Dashboard, Invoices, Payments, Forms, Profile, Settings, Classes, Recordings, Circles, Curriculum Books
+      11; // Dashboard, Invoices, Payments, Forms, Profile, Settings, Classes, Recordings, Circles, Curriculum Books, Chat
 
   @override
   void initState() {
@@ -92,7 +93,7 @@ class _ParentDashboardLayoutState extends State<ParentDashboardLayout> {
       case 2:
         return PaymentHistoryScreen(parentId: parentId ?? '');
       case 3:
-        return const FormScreen();
+        return const TeacherFormsScreen();
       case 4:
         return const ParentProfileScreen();
       case 5:
@@ -106,6 +107,8 @@ class _ParentDashboardLayoutState extends State<ParentDashboardLayout> {
         return const TontineHomeScreen();
       case 9:
         return const CurriculumBooksScreen();
+      case 10:
+        return const ChatPage();
       default:
         return const _AccessDeniedScreen();
     }

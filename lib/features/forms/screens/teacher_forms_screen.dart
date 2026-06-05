@@ -107,6 +107,105 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
     }
   }
 
+  String? get _normalizedUserRole =>
+      _userRole == null ? null : _normalizeRoleName(_userRole!);
+
+  bool get _isParentUser => _normalizedUserRole == 'parent';
+
+  bool get _usesTeacherDefaults {
+    final role = _normalizedUserRole;
+    return role == null ||
+        role == 'teacher' ||
+        role == 'admin' ||
+        role == 'coach';
+  }
+
+  void _addDefaultTemplate(FormCategory category, FormTemplate template) {
+    final categoryTemplates =
+        _templatesByCategory.putIfAbsent(category, () => []);
+    if (categoryTemplates.any((existing) => existing.id == template.id)) {
+      return;
+    }
+    categoryTemplates.add(template.copyWith(category: category));
+  }
+
+  void _addRoleDefaultTemplates({
+    int studentAssessmentTemplatesFound = 0,
+  }) {
+    if (_isParentUser) {
+      _addDefaultTemplate(
+        FormCategory.feedback,
+        FormTemplateService.defaultParentFeedback,
+      );
+      _addDefaultTemplate(
+        FormCategory.administrative,
+        FormTemplateService.defaultParentExcuseRequest,
+      );
+      return;
+    }
+
+    if (!_usesTeacherDefaults) return;
+
+    if (!_templatesByCategory.containsKey(FormCategory.teaching) ||
+        _templatesByCategory[FormCategory.teaching]!.isEmpty) {
+      _templatesByCategory[FormCategory.teaching] = [
+        FormTemplateService.defaultDailyClassReport,
+        FormTemplateService.defaultWeeklySummary,
+        FormTemplateService.defaultMonthlyReview,
+      ];
+    }
+
+    if (!_templatesByCategory.containsKey(FormCategory.feedback) ||
+        _templatesByCategory[FormCategory.feedback]!.isEmpty) {
+      _templatesByCategory[FormCategory.feedback] = [
+        FormTemplateService.defaultTeacherFeedback,
+        FormTemplateService.defaultLeadershipFeedback,
+      ];
+    }
+
+    if (!_templatesByCategory.containsKey(FormCategory.studentAssessment) ||
+        _templatesByCategory[FormCategory.studentAssessment]!.isEmpty) {
+      if (studentAssessmentTemplatesFound == 0) {
+        _templatesByCategory[FormCategory.studentAssessment] = [
+          FormTemplateService.defaultStudentAssessment,
+        ];
+      } else {
+        AppLogger.warning(
+          'TeacherFormsScreen: Student assessment templates exist in backend '
+          '($studentAssessmentTemplatesFound found) but none are visible '
+          'for role=$_userRole. Check allowedRoles/category values.',
+        );
+      }
+    }
+
+    if (!_templatesByCategory.containsKey(FormCategory.administrative) ||
+        _templatesByCategory[FormCategory.administrative]!.isEmpty) {
+      _templatesByCategory[FormCategory.administrative] = [
+        FormTemplateService.defaultLeaveRequest,
+        FormTemplateService.defaultIncidentReport,
+      ];
+    }
+
+    final role = _normalizedUserRole;
+    if (role == 'admin' || role == 'coach') {
+      _addDefaultTemplate(
+        FormCategory.feedback,
+        FormTemplateService.defaultAdminSelfAssessment,
+      );
+      _addDefaultTemplate(
+        FormCategory.studentAssessment,
+        FormTemplateService.defaultParentFeedback,
+      );
+    }
+
+    if (role == 'admin') {
+      _addDefaultTemplate(
+        FormCategory.feedback,
+        FormTemplateService.defaultCoachPerformanceReview,
+      );
+    }
+  }
+
   bool _matchesSearch(FormTemplate template, FormCategory category) {
     final query = _normalizeSearch(_searchQuery);
     if (query.isEmpty) return true;
@@ -175,7 +274,6 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
       // Organize templates by category
       _templatesByCategory = {};
       int studentAssessmentTemplatesFound = 0;
-      int studentAssessmentTemplatesVisible = 0;
 
       for (var template in latestTemplatesByName.values) {
         if (template.category == FormCategory.studentAssessment) {
@@ -251,117 +349,17 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
         // Use displayCategory (may be mapped from "other" to "teaching")
         _templatesByCategory.putIfAbsent(displayCategory, () => []);
         _templatesByCategory[displayCategory]!.add(template);
-        if (template.category == FormCategory.studentAssessment) {
-          studentAssessmentTemplatesVisible++;
-        }
       }
 
-      // Add default templates if none found for teaching category
-      if (!_templatesByCategory.containsKey(FormCategory.teaching) ||
-          _templatesByCategory[FormCategory.teaching]!.isEmpty) {
-        _templatesByCategory[FormCategory.teaching] = [
-          FormTemplateService.defaultDailyClassReport,
-          FormTemplateService.defaultWeeklySummary,
-          FormTemplateService.defaultMonthlyReview,
-        ];
-      }
-
-      // Add default feedback templates if none found
-      if (!_templatesByCategory.containsKey(FormCategory.feedback) ||
-          _templatesByCategory[FormCategory.feedback]!.isEmpty) {
-        _templatesByCategory[FormCategory.feedback] = [
-          FormTemplateService.defaultTeacherFeedback,
-          FormTemplateService.defaultLeadershipFeedback,
-        ];
-      }
-
-      // Add default student assessment only when no active one exists in backend.
-      // If backend templates exist but are filtered out, avoid masking with fallback.
-      if (!_templatesByCategory.containsKey(FormCategory.studentAssessment) ||
-          _templatesByCategory[FormCategory.studentAssessment]!.isEmpty) {
-        if (studentAssessmentTemplatesFound == 0) {
-          _templatesByCategory[FormCategory.studentAssessment] = [
-            FormTemplateService.defaultStudentAssessment,
-          ];
-        } else {
-          AppLogger.warning(
-            'TeacherFormsScreen: Student assessment templates exist in backend '
-            '($studentAssessmentTemplatesFound found) but none are visible '
-            'for role=$_userRole. Check allowedRoles/category values.',
-          );
-        }
-      }
-
-      // Add default administrative templates
-      if (!_templatesByCategory.containsKey(FormCategory.administrative) ||
-          _templatesByCategory[FormCategory.administrative]!.isEmpty) {
-        _templatesByCategory[FormCategory.administrative] = [
-          FormTemplateService.defaultLeaveRequest,
-          FormTemplateService.defaultIncidentReport,
-        ];
-      }
-
-      // For admins/coaches, add additional forms
-      if (_userRole?.toLowerCase() == 'admin' ||
-          _userRole?.toLowerCase() == 'coach') {
-        // Add admin self-assessment
-        _templatesByCategory[FormCategory.feedback]!.add(
-          FormTemplateService.defaultAdminSelfAssessment,
-        );
-
-        // Add parent feedback form for admins
-        _templatesByCategory.putIfAbsent(
-            FormCategory.studentAssessment, () => []);
-        _templatesByCategory[FormCategory.studentAssessment]!.add(
-          FormTemplateService.defaultParentFeedback,
-        );
-      }
-
-      // Admin-only: Coach Performance Review
-      if (_userRole?.toLowerCase() == 'admin') {
-        _templatesByCategory[FormCategory.feedback]!.add(
-          FormTemplateService.defaultCoachPerformanceReview,
-        );
-      }
+      _addRoleDefaultTemplates(
+        studentAssessmentTemplatesFound: studentAssessmentTemplatesFound,
+      );
 
       if (mounted) setState(() => _isLoading = false);
     } catch (e) {
       debugPrint('Error loading templates: $e');
-      // On error, use defaults for all categories
-      _templatesByCategory = {
-        FormCategory.teaching: [
-          FormTemplateService.defaultDailyClassReport,
-          FormTemplateService.defaultWeeklySummary,
-          FormTemplateService.defaultMonthlyReview,
-        ],
-        FormCategory.feedback: [
-          FormTemplateService.defaultTeacherFeedback,
-          FormTemplateService.defaultLeadershipFeedback,
-        ],
-        FormCategory.studentAssessment: [
-          FormTemplateService.defaultStudentAssessment,
-        ],
-        FormCategory.administrative: [
-          FormTemplateService.defaultLeaveRequest,
-          FormTemplateService.defaultIncidentReport,
-        ],
-      };
-
-      // Add role-specific forms on error too
-      if (_userRole?.toLowerCase() == 'admin' ||
-          _userRole?.toLowerCase() == 'coach') {
-        _templatesByCategory[FormCategory.feedback]!.add(
-          FormTemplateService.defaultAdminSelfAssessment,
-        );
-        _templatesByCategory[FormCategory.studentAssessment]!.add(
-          FormTemplateService.defaultParentFeedback,
-        );
-      }
-      if (_userRole?.toLowerCase() == 'admin') {
-        _templatesByCategory[FormCategory.feedback]!.add(
-          FormTemplateService.defaultCoachPerformanceReview,
-        );
-      }
+      _templatesByCategory = {};
+      _addRoleDefaultTemplates();
 
       if (mounted) setState(() => _isLoading = false);
     }

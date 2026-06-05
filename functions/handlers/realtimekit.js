@@ -8,6 +8,8 @@ const REALTIMEKIT_REQUIRED_SECRETS = [
   'REALTIMEKIT_APP_ID',
   'CLOUDFLARE_REALTIME_API_TOKEN',
 ];
+const PRESENCE_STALE_MS = 75 * 1000;
+const REALTIMEKIT_PRESENCE_COLLECTION = 'realtimekit_presence';
 
 const _normalizeUidList = (rawList) => {
   if (!Array.isArray(rawList)) return [];
@@ -325,6 +327,79 @@ const syncTeacherRecordingPreset = async ({ meetingId, teacherId, recordingEnabl
   return true;
 };
 
+const _activeSessionParticipantsFromResponse = (response) => {
+  const rawParticipants = response?.data?.participants;
+  if (!Array.isArray(rawParticipants)) return [];
+  return rawParticipants.filter((participant) => !participant.left_at);
+};
+
+const _participantName = (participant) =>
+  participant.display_name ||
+  participant.name ||
+  participant.custom_participant_id ||
+  participant.user_id ||
+  'Participant';
+
+const _safePresenceId = (value) =>
+  String(value || '')
+    .trim()
+    .replace(/[^A-Za-z0-9_.-]/g, '_')
+    .slice(0, 180);
+
+const _presenceDocId = ({ shiftId, uid, participantId }) => {
+  const participantPart = _safePresenceId(participantId) || _safePresenceId(uid);
+  return `${_safePresenceId(shiftId)}_${participantPart}`;
+};
+
+const _mergePresenceParticipants = (providerParticipants, clientParticipants) => {
+  const byIdentity = new Map();
+  for (const participant of [...providerParticipants, ...clientParticipants]) {
+    const identity = String(participant.identity || '').trim();
+    if (!identity) continue;
+    const existing = byIdentity.get(identity);
+    if (!existing) {
+      byIdentity.set(identity, participant);
+      continue;
+    }
+    const existingJoinedAt = Date.parse(existing.joinedAtIso || '') || 0;
+    const nextJoinedAt = Date.parse(participant.joinedAtIso || '') || 0;
+    byIdentity.set(identity, {
+      ...existing,
+      ...participant,
+      joinedAtIso: existingJoinedAt && nextJoinedAt
+        ? new Date(Math.min(existingJoinedAt, nextJoinedAt)).toISOString()
+        : participant.joinedAtIso || existing.joinedAtIso || null,
+    });
+  }
+  return Array.from(byIdentity.values());
+};
+
+const _getFreshClientPresenceParticipants = async (shiftId, now = new Date()) => {
+  const staleCutoff = new Date(now.getTime() - PRESENCE_STALE_MS);
+  const snapshot = await admin.firestore()
+    .collection(REALTIMEKIT_PRESENCE_COLLECTION)
+    .where('shift_id', '==', shiftId)
+    .get();
+
+  return snapshot.docs
+    .map((doc) => ({ id: doc.id, data: doc.data() || {} }))
+    .filter(({ data }) => data.active === true)
+    .filter(({ data }) => {
+      const lastSeenAt = _toDate(data.last_seen_at);
+      return lastSeenAt && lastSeenAt >= staleCutoff;
+    })
+    .map(({ id, data }) => {
+      const joinedAt = _toDate(data.joined_at);
+      return {
+        identity: data.user_id || data.participant_id || id,
+        name: data.display_name || data.user_id || 'Participant',
+        role: data.user_role || null,
+        joinedAtIso: joinedAt ? joinedAt.toISOString() : null,
+        isPublisher: true,
+      };
+    });
+};
+
 const buildJoinResponse = async ({ shiftId, uid, token, displayName, role, guest = false }) => {
   if (!isRealtimeKitConfigured()) {
     throw new HttpsError('unavailable', 'RealtimeKit video is not configured');
@@ -439,6 +514,59 @@ const getRealtimeKitGuestJoin = onRequest({
   }
 });
 
+/**
+ * Collects the live roster for a class room by merging RealtimeKit's active-session
+ * participants with fresh client presence heartbeats. Shared by the room-presence
+ * callable and the server-side attendance monitor so both see the same "who's in the
+ * room" data. Returns `{ participants, participantCount, sessionId }`.
+ */
+const collectRoomPresence = async ({ shiftId, meetingId }) => {
+  let activeSession = null;
+  let providerParticipants = [];
+  if (meetingId) {
+    try {
+      const activeSessionResponse = await realtimeKit.getActiveSession(meetingId);
+      activeSession = activeSessionResponse?.data || null;
+      const activeSessionId = activeSession?.id;
+      if (activeSessionId) {
+        const participantsResponse = await realtimeKit.listSessionParticipants(
+          activeSessionId,
+          {
+            per_page: 100,
+            sort_by: 'joinedAt',
+            sort_order: 'DESC',
+          },
+        );
+        providerParticipants = _activeSessionParticipantsFromResponse(participantsResponse)
+          .map((participant) => ({
+            identity: participant.custom_participant_id || participant.user_id || participant.id || '',
+            name: _participantName(participant),
+            role: participant.preset_name || null,
+            joinedAtIso: participant.joined_at || participant.created_at || null,
+            isPublisher: true,
+          }));
+      }
+    } catch (err) {
+      if (err?.status !== 404) {
+        console.warn('[RealtimeKit] Active session presence lookup failed:', err.message);
+      }
+    }
+  }
+
+  const clientParticipants =
+    await _getFreshClientPresenceParticipants(shiftId).catch((err) => {
+      console.warn('[RealtimeKit] Client presence lookup failed:', err.message);
+      return [];
+    });
+  const participants =
+    _mergePresenceParticipants(providerParticipants, clientParticipants);
+  return {
+    participants,
+    participantCount: participants.length,
+    sessionId: activeSession?.id || null,
+  };
+};
+
 const getRealtimeKitRoomPresence = onCall({
   secrets: REALTIMEKIT_REQUIRED_SECRETS,
 }, async (request) => {
@@ -465,24 +593,90 @@ const getRealtimeKitRoomPresence = onCall({
     };
   }
 
-  const response = await realtimeKit.listMeetingParticipants(meetingId);
-  const participants = Array.isArray(response?.data) ? response.data : [];
+  const { participants, participantCount, sessionId } =
+    await collectRoomPresence({ shiftId, meetingId });
   return {
     success: true,
     roomName: meetingId,
     meetingId,
-    participantCount: participants.length,
-    participants: participants.map((participant) => ({
-      identity: participant.custom_participant_id || participant.id || '',
-      name: participant.name || participant.custom_participant_id || 'Participant',
-      role: participant.preset_name || null,
-      joinedAtIso: participant.created_at || null,
-      isPublisher: true,
-    })),
+    sessionId,
+    participantCount,
+    participants,
     inJoinWindow: true,
     generatedAtIso: new Date().toISOString(),
     shiftName: _deriveShiftDisplayName(shiftData),
   };
+});
+
+const updateRealtimeKitPresence = onCall(async (request) => {
+  const uid = request.auth?.uid;
+  const {
+    shiftId,
+    event,
+    meetingId,
+    participantId,
+    displayName,
+    userRole,
+  } = request.data || {};
+  if (!uid) throw new HttpsError('unauthenticated', 'Authentication required');
+  if (!shiftId || typeof shiftId !== 'string') {
+    throw new HttpsError('invalid-argument', 'Missing or invalid shiftId');
+  }
+  if (!['join', 'heartbeat', 'leave'].includes(event)) {
+    throw new HttpsError('invalid-argument', 'Missing or invalid presence event');
+  }
+
+  const { teacherId, studentIds, meetingId: storedMeetingId } =
+    await getRealtimeKitShiftOrThrow(shiftId);
+  const role = await getAccessForUser({
+    uid,
+    token: request.auth?.token,
+    teacherId,
+    studentIds,
+  });
+  const now = admin.firestore.Timestamp.now();
+  const presenceRef = admin.firestore()
+    .collection(REALTIMEKIT_PRESENCE_COLLECTION)
+    .doc(_presenceDocId({ shiftId, uid, participantId }));
+
+  if (event === 'leave') {
+    await presenceRef.set({
+      shift_id: shiftId,
+      user_id: uid,
+      participant_id: participantId || null,
+      active: false,
+      left_at: now,
+      last_seen_at: now,
+      last_event: 'leave',
+      updated_at: admin.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+    return { success: true, active: false };
+  }
+
+  const existing = await presenceRef.get();
+  const existingData = existing.data() || {};
+  const resolvedDisplayName =
+    String(displayName || '').trim() || await getUserDisplayName(uid);
+  await presenceRef.set({
+    shift_id: shiftId,
+    user_id: uid,
+    participant_id: participantId || null,
+    meeting_id: meetingId || storedMeetingId || null,
+    display_name: resolvedDisplayName,
+    user_role: userRole || role,
+    active: true,
+    joined_at: existingData.active === true && existingData.joined_at
+      ? existingData.joined_at
+      : now,
+    left_at: null,
+    last_seen_at: now,
+    last_event: event,
+    updated_at: admin.firestore.FieldValue.serverTimestamp(),
+    ...(!existing.exists
+      ? { created_at: admin.firestore.FieldValue.serverTimestamp() }
+      : {}),
+  }, { merge: true });
+  return { success: true, active: true };
 });
 
 const setRealtimeKitRoomLock = onCall(async (request) => {
@@ -615,8 +809,14 @@ module.exports = {
   getRealtimeKitJoinToken,
   getRealtimeKitGuestJoin,
   getRealtimeKitRoomPresence,
+  updateRealtimeKitPresence,
   kickRealtimeKitParticipant,
   setRealtimeKitRoomLock,
   setRealtimeKitRecordingEnabled,
   bulkSetRealtimeKitRecordingEnabled,
+  // Shared with the class attendance monitor (server-side watchdog).
+  collectRoomPresence,
+  getRealtimeKitShiftOrThrow,
+  _deriveShiftDisplayName,
+  REALTIMEKIT_REQUIRED_SECRETS,
 };

@@ -43,6 +43,14 @@ class _RoleSwitcherState extends State<RoleSwitcher> {
         text.contains('Unexpected state');
   }
 
+  static bool _canUseCachedFirestoreResult(Object error) {
+    final text = error.toString().toLowerCase();
+    return text.contains('cloud_firestore/unavailable') ||
+        text.contains('failed to get document from server') ||
+        text.contains('failed to get documents from server') ||
+        text.contains('does exist in the local cache');
+  }
+
   @override
   void initState() {
     super.initState();
@@ -101,10 +109,9 @@ class _RoleSwitcherState extends State<RoleSwitcher> {
     final uid = user.uid;
 
     try {
-      final uidDoc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .get(const GetOptions(source: Source.server));
+      final userDocRef =
+          FirebaseFirestore.instance.collection('users').doc(uid);
+      final uidDoc = await _getUserDocWithCacheFallback(userDocRef);
       if (!mounted) return;
 
       if (uidDoc.exists) {
@@ -114,11 +121,11 @@ class _RoleSwitcherState extends State<RoleSwitcher> {
 
       if (email == null) return;
 
-      final querySnapshot = await FirebaseFirestore.instance
+      final userQuery = FirebaseFirestore.instance
           .collection('users')
           .where('e-mail', isEqualTo: email)
-          .limit(1)
-          .get(const GetOptions(source: Source.server));
+          .limit(1);
+      final querySnapshot = await _getUserQueryWithCacheFallback(userQuery);
       if (!mounted) return;
 
       if (querySnapshot.docs.isNotEmpty) {
@@ -135,6 +142,38 @@ class _RoleSwitcherState extends State<RoleSwitcher> {
       WebAppStabilityService.instance.noteFirestoreError(e);
     } finally {
       _isPollingUserData = false;
+    }
+  }
+
+  Future<DocumentSnapshot<Map<String, dynamic>>> _getUserDocWithCacheFallback(
+    DocumentReference<Map<String, dynamic>> ref,
+  ) async {
+    try {
+      return await ref.get(const GetOptions(source: Source.serverAndCache));
+    } catch (e) {
+      if (_canUseCachedFirestoreResult(e)) {
+        AppLogger.debug(
+          'RoleSwitcher: server user poll unavailable; using cached user document',
+        );
+        return ref.get(const GetOptions(source: Source.cache));
+      }
+      rethrow;
+    }
+  }
+
+  Future<QuerySnapshot<Map<String, dynamic>>> _getUserQueryWithCacheFallback(
+    Query<Map<String, dynamic>> query,
+  ) async {
+    try {
+      return await query.get(const GetOptions(source: Source.serverAndCache));
+    } catch (e) {
+      if (_canUseCachedFirestoreResult(e)) {
+        AppLogger.debug(
+          'RoleSwitcher: server user query unavailable; using cached user query',
+        );
+        return query.get(const GetOptions(source: Source.cache));
+      }
+      rethrow;
     }
   }
 

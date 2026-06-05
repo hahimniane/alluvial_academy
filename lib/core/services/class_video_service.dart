@@ -60,6 +60,37 @@ class ClassVideoJoinResult {
   }
 }
 
+class ClassVideoPresenceService {
+  static final FirebaseFunctions _functions =
+      FirebaseFunctions.instanceFor(region: 'us-central1');
+
+  static Future<void> markPresence({
+    required String shiftId,
+    required String event,
+    String? meetingId,
+    String? participantId,
+    String? displayName,
+    String? userRole,
+  }) async {
+    if (shiftId.trim().isEmpty) return;
+    try {
+      final callable = _functions.httpsCallable('updateRealtimeKitPresence');
+      await callable.call({
+        'shiftId': shiftId,
+        'event': event,
+        if ((meetingId ?? '').trim().isNotEmpty) 'meetingId': meetingId,
+        if ((participantId ?? '').trim().isNotEmpty)
+          'participantId': participantId,
+        if ((displayName ?? '').trim().isNotEmpty) 'displayName': displayName,
+        if ((userRole ?? '').trim().isNotEmpty) 'userRole': userRole,
+      });
+    } catch (e) {
+      AppLogger.warning(
+          'ClassVideoPresenceService: failed to mark $event for $shiftId: $e');
+    }
+  }
+}
+
 class ClassRoomParticipantPresence {
   final String identity;
   final String name;
@@ -441,6 +472,10 @@ class ClassVideoService {
             authToken: joinResult.authToken!,
             displayName: joinResult.displayName ?? 'Participant',
             shiftName: joinResult.shiftName ?? 'Class',
+            shiftId: shift.id,
+            meetingId: joinResult.meetingId,
+            participantId: joinResult.participantId,
+            userRole: joinResult.userRole,
           ),
         ),
       );
@@ -499,6 +534,10 @@ class ClassVideoService {
           authToken: joinResult.authToken!,
           displayName: joinResult.displayName ?? 'Guest',
           shiftName: joinResult.shiftName ?? 'Class',
+          shiftId: shiftId,
+          meetingId: joinResult.meetingId,
+          participantId: joinResult.participantId,
+          userRole: joinResult.userRole,
         ),
       ),
     );

@@ -6,6 +6,13 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
+
+enum _InvoiceBillingMode {
+  combinedNow,
+  separateNow,
+  recurring,
+}
 
 /// Admin screen to create invoices for parents (with children) or adult students.
 class AdminCreateInvoiceScreen extends StatefulWidget {
@@ -39,8 +46,10 @@ class _AdminCreateInvoiceScreenState extends State<AdminCreateInvoiceScreen> {
   final Map<String, TextEditingController> _amountControllers = {};
   final Map<String, TextEditingController> _descriptionControllers = {};
 
-  // Billing month
-  late DateTime _selectedMonth;
+  // Billing months
+  final Set<DateTime> _selectedMonths = {};
+  _InvoiceBillingMode _billingMode = _InvoiceBillingMode.combinedNow;
+  int _recurringSendDay = 1;
 
   // Due date (default: 7 days from now)
   late DateTime _dueDate;
@@ -61,9 +70,10 @@ class _AdminCreateInvoiceScreenState extends State<AdminCreateInvoiceScreen> {
     super.initState();
     // Default to current month
     final now = DateTime.now();
-    _selectedMonth = DateTime(now.year, now.month);
+    _selectedMonths.add(DateTime(now.year, now.month));
     // Default due date: 7 days from today
-    _dueDate = DateTime(now.year, now.month, now.day).add(const Duration(days: 7));
+    _dueDate =
+        DateTime(now.year, now.month, now.day).add(const Duration(days: 7));
     // Default access cutoff: 1 day after due date
     _accessCutoffDate = _dueDate.add(const Duration(days: 1));
     _loadAllUsers();
@@ -104,10 +114,15 @@ class _AdminCreateInvoiceScreenState extends State<AdminCreateInvoiceScreen> {
         return;
       }
       _filteredUsers = _allUsers.where((user) {
-        final name =
-            '${user['first_name']} ${user['last_name']}'.toLowerCase();
+        final name = '${user['first_name']} ${user['last_name']}'.toLowerCase();
         final email = (user['email'] ?? '').toString().toLowerCase();
-        return name.contains(query) || email.contains(query);
+        final phone = (user['phone'] ?? '').toString().toLowerCase();
+        final compactPhone = phone.replaceAll(RegExp(r'\D'), '');
+        final compactQuery = query.replaceAll(RegExp(r'\D'), '');
+        return name.contains(query) ||
+            email.contains(query) ||
+            phone.contains(query) ||
+            (compactQuery.isNotEmpty && compactPhone.contains(compactQuery));
       }).toList();
     });
   }
@@ -133,6 +148,7 @@ class _AdminCreateInvoiceScreenState extends State<AdminCreateInvoiceScreen> {
           'first_name': (data['first_name'] ?? '').toString(),
           'last_name': (data['last_name'] ?? '').toString(),
           'email': (data['e-mail'] ?? '').toString(),
+          'phone': _phoneFromUserData(data),
           'user_type': (data['user_type'] ?? '').toString(),
           'children_ids': List<String>.from(data['children_ids'] ?? []),
           'is_adult_student': data['is_adult_student'] == true,
@@ -197,7 +213,7 @@ class _AdminCreateInvoiceScreenState extends State<AdminCreateInvoiceScreen> {
               'first_name': (data['first_name'] ?? '').toString(),
               'last_name': (data['last_name'] ?? '').toString(),
             });
-            _amountControllers[doc.id] = TextEditingController();
+            _amountControllers[doc.id] = TextEditingController(text: '0.00');
             _descriptionControllers[doc.id] =
                 TextEditingController(text: 'Tuition');
           }
@@ -213,7 +229,7 @@ class _AdminCreateInvoiceScreenState extends State<AdminCreateInvoiceScreen> {
       }
     } else {
       // Adult student paying for themselves
-      _amountControllers[user['id']] = TextEditingController();
+      _amountControllers[user['id']] = TextEditingController(text: '0.00');
       _descriptionControllers[user['id']] =
           TextEditingController(text: 'Tuition');
       if (mounted) {
@@ -249,7 +265,11 @@ class _AdminCreateInvoiceScreenState extends State<AdminCreateInvoiceScreen> {
     });
   }
 
-  Future<void> _createInvoice() async {
+  List<Map<String, dynamic>>? _buildInvoiceItems({
+    DateTime? month,
+    bool includeMonthInDescription = false,
+    required String missingPositiveAmountMessage,
+  }) {
     final items = <Map<String, dynamic>>[];
     for (final child in _children) {
       final childId = child['id'] as String;
@@ -263,13 +283,18 @@ class _AdminCreateInvoiceScreenState extends State<AdminCreateInvoiceScreen> {
       if (amount == null || amount <= 0) {
         setState(() => _error =
             'Invalid amount for ${child['first_name']} ${child['last_name']}');
-        return;
+        return null;
       }
 
-      final childName =
-          '${child['first_name']} ${child['last_name']}'.trim();
+      final childName = '${child['first_name']} ${child['last_name']}'.trim();
+      final monthLabel = month == null ? '' : DateFormat.yMMMM().format(month);
+      final itemDescription = [
+        description,
+        childName,
+        if (includeMonthInDescription && monthLabel.isNotEmpty) monthLabel,
+      ].join(' - ');
       items.add({
-        'description': '$description - $childName',
+        'description': itemDescription,
         'quantity': 1,
         'unit_price': amount,
         'total': amount,
@@ -277,9 +302,35 @@ class _AdminCreateInvoiceScreenState extends State<AdminCreateInvoiceScreen> {
     }
 
     if (items.isEmpty) {
-      setState(() => _error = 'Enter an amount for at least one student');
+      setState(() => _error = missingPositiveAmountMessage);
+      return null;
+    }
+    return items;
+  }
+
+  int get _dueDaysForRecurring {
+    final today = DateTime.now();
+    final todayNorm = DateTime(today.year, today.month, today.day);
+    return _dueDate.difference(todayNorm).inDays.clamp(0, 365);
+  }
+
+  int get _accessCutoffDaysAfterDue {
+    return _accessCutoffDate.difference(_dueDate).inDays.clamp(0, 365);
+  }
+
+  Future<void> _createInvoice() async {
+    final l10n = AppLocalizations.of(context)!;
+    if (_selectedMonths.isEmpty) {
+      setState(() => _error = l10n.adminCreateInvoiceSelectBillingMonth);
       return;
     }
+
+    final sortedMonths = _selectedMonths.toList()
+      ..sort((a, b) => a.compareTo(b));
+    final firstChildId = _children.first['id'] as String;
+    final parentId = _selectedUserId!;
+    final billToId =
+        _selectedUser!['user_type'] == 'parent' ? parentId : firstChildId;
 
     setState(() {
       _isCreating = true;
@@ -288,33 +339,104 @@ class _AdminCreateInvoiceScreenState extends State<AdminCreateInvoiceScreen> {
     });
 
     try {
-      final firstChildId = _children.first['id'] as String;
-      final parentId = _selectedUserId!;
-
-      final period = DateFormat('yyyy-MM').format(_selectedMonth);
-
       final callable =
           FirebaseFunctions.instance.httpsCallable('createInvoice');
-      final result = await callable.call({
-        'parentId': _selectedUser!['user_type'] == 'parent'
-            ? parentId
-            : firstChildId,
-        'studentId': firstChildId,
-        'currency': 'USD',
-        'items': items,
-        'period': period,
-        'dueDate': _dueDate.toIso8601String(),
-        'accessCutoffDate': _accessCutoffDate.toIso8601String(),
-      });
+      final invoiceNumbers = <String>[];
 
-      final data =
-          (result.data as Map?)?.cast<String, dynamic>() ?? {};
-      final invoiceNumber = data['invoiceNumber'] ?? 'Unknown';
+      if (_billingMode == _InvoiceBillingMode.recurring) {
+        final items = _buildInvoiceItems(
+          missingPositiveAmountMessage:
+              l10n.adminCreateInvoiceMissingPositiveAmount,
+        );
+        if (items == null) return;
+        await callable.call({
+          'billingMode': 'recurring',
+          'parentId': billToId,
+          'studentId': firstChildId,
+          'currency': 'USD',
+          'items': items,
+          'period': DateFormat('yyyy-MM').format(sortedMonths.first),
+          'periods': sortedMonths
+              .map((month) => DateFormat('yyyy-MM').format(month))
+              .toList(),
+          'recurringSendDay': _recurringSendDay,
+          'repeatIntervalMonths': 1,
+          'repeatCount': sortedMonths.length,
+          'dueDays': _dueDaysForRecurring,
+          'accessCutoffDaysAfterDue': _accessCutoffDaysAfterDue,
+        });
+        setState(() {
+          _successMessage = l10n.adminCreateInvoiceRecurringCreated(
+            DateFormat.yMMMM().format(sortedMonths.first),
+          );
+          for (final c in _amountControllers.values) {
+            c.text = '0.00';
+          }
+        });
+        return;
+      }
+
+      if (_billingMode == _InvoiceBillingMode.combinedNow) {
+        final items = <Map<String, dynamic>>[];
+        for (final month in sortedMonths) {
+          final monthItems = _buildInvoiceItems(
+            month: month,
+            includeMonthInDescription: sortedMonths.length > 1,
+            missingPositiveAmountMessage:
+                l10n.adminCreateInvoiceMissingPositiveAmount,
+          );
+          if (monthItems == null) return;
+          items.addAll(monthItems);
+        }
+        final period = sortedMonths.length == 1
+            ? DateFormat('yyyy-MM').format(sortedMonths.first)
+            : '${DateFormat('yyyy-MM').format(sortedMonths.first)} to ${DateFormat('yyyy-MM').format(sortedMonths.last)}';
+        final result = await callable.call({
+          'parentId': billToId,
+          'studentId': firstChildId,
+          'currency': 'USD',
+          'items': items,
+          'period': period,
+          'dueDate': _dueDate.toIso8601String(),
+          'accessCutoffDate': _accessCutoffDate.toIso8601String(),
+          'recurring': false,
+        });
+        final data = (result.data as Map?)?.cast<String, dynamic>() ?? {};
+        invoiceNumbers.add((data['invoiceNumber'] ?? 'Unknown').toString());
+      } else {
+        for (final month in sortedMonths) {
+          final items = _buildInvoiceItems(
+            month: month,
+            missingPositiveAmountMessage:
+                l10n.adminCreateInvoiceMissingPositiveAmount,
+          );
+          if (items == null) return;
+          final period = DateFormat('yyyy-MM').format(month);
+          final result = await callable.call({
+            'parentId': billToId,
+            'studentId': firstChildId,
+            'currency': 'USD',
+            'items': items,
+            'period': period,
+            'dueDate': _dueDate.toIso8601String(),
+            'accessCutoffDate': _accessCutoffDate.toIso8601String(),
+            'recurring': false,
+          });
+
+          final data = (result.data as Map?)?.cast<String, dynamic>() ?? {};
+          invoiceNumbers.add((data['invoiceNumber'] ?? 'Unknown').toString());
+        }
+      }
 
       setState(() {
-        _successMessage = 'Invoice $invoiceNumber created successfully';
+        _successMessage = invoiceNumbers.length == 1
+            ? l10n.adminCreateInvoiceOneCreated(invoiceNumbers.first)
+            : l10n.adminCreateInvoiceManyCreated(
+                invoiceNumbers.length,
+                invoiceNumbers.join(', '),
+              );
         for (final c in _amountControllers.values) {
-          c.clear();
+          c.text = '0.00';
         }
       });
     } on FirebaseFunctionsException catch (e) {
@@ -393,8 +515,7 @@ class _AdminCreateInvoiceScreenState extends State<AdminCreateInvoiceScreen> {
                               ],
                             ),
                             const SizedBox(height: 24),
-                            const Divider(
-                                height: 1, color: Color(0xFFE2E8F0)),
+                            const Divider(height: 1, color: Color(0xFFE2E8F0)),
                           ],
                         ),
                       ),
@@ -403,8 +524,7 @@ class _AdminCreateInvoiceScreenState extends State<AdminCreateInvoiceScreen> {
                     // Selected user or search
                     SliverToBoxAdapter(
                       child: Padding(
-                        padding:
-                            const EdgeInsets.fromLTRB(24, 20, 24, 0),
+                        padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
                         child: _selectedUser != null
                             ? _buildSelectedUserCard()
                             : _buildSearchSection(),
@@ -415,9 +535,8 @@ class _AdminCreateInvoiceScreenState extends State<AdminCreateInvoiceScreen> {
                     if (_selectedUser != null)
                       SliverToBoxAdapter(
                         child: Padding(
-                          padding:
-                              const EdgeInsets.fromLTRB(24, 20, 24, 0),
-                          child: _buildMonthSelector(),
+                          padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+                          child: _buildBillingPlanSection(),
                         ),
                       ),
 
@@ -425,8 +544,7 @@ class _AdminCreateInvoiceScreenState extends State<AdminCreateInvoiceScreen> {
                     if (_selectedUser != null)
                       SliverToBoxAdapter(
                         child: Padding(
-                          padding:
-                              const EdgeInsets.fromLTRB(24, 20, 24, 0),
+                          padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
                           child: _buildDueDatePicker(),
                         ),
                       ),
@@ -435,8 +553,7 @@ class _AdminCreateInvoiceScreenState extends State<AdminCreateInvoiceScreen> {
                     if (_selectedUser != null)
                       SliverToBoxAdapter(
                         child: Padding(
-                          padding:
-                              const EdgeInsets.fromLTRB(24, 20, 24, 0),
+                          padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
                           child: _buildAccessCutoffPicker(),
                         ),
                       ),
@@ -445,8 +562,7 @@ class _AdminCreateInvoiceScreenState extends State<AdminCreateInvoiceScreen> {
                     if (_selectedUser != null && !_isLoadingChildren)
                       SliverToBoxAdapter(
                         child: Padding(
-                          padding:
-                              const EdgeInsets.fromLTRB(24, 20, 24, 0),
+                          padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
                           child: _buildAmountSection(),
                         ),
                       ),
@@ -455,8 +571,7 @@ class _AdminCreateInvoiceScreenState extends State<AdminCreateInvoiceScreen> {
                       const SliverToBoxAdapter(
                         child: Padding(
                           padding: EdgeInsets.all(40),
-                          child:
-                              Center(child: CircularProgressIndicator()),
+                          child: Center(child: CircularProgressIndicator()),
                         ),
                       ),
 
@@ -464,8 +579,7 @@ class _AdminCreateInvoiceScreenState extends State<AdminCreateInvoiceScreen> {
                     if (_selectedUser != null && !_isLoadingChildren)
                       SliverToBoxAdapter(
                         child: Padding(
-                          padding:
-                              const EdgeInsets.fromLTRB(24, 16, 24, 32),
+                          padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
                           child: Column(
                             children: [
                               if (_error != null) ...[
@@ -497,8 +611,7 @@ class _AdminCreateInvoiceScreenState extends State<AdminCreateInvoiceScreen> {
                       ),
 
                     // Bottom padding
-                    const SliverToBoxAdapter(
-                        child: SizedBox(height: 40)),
+                    const SliverToBoxAdapter(child: SizedBox(height: 40)),
                   ],
                 ),
               ),
@@ -508,7 +621,26 @@ class _AdminCreateInvoiceScreenState extends State<AdminCreateInvoiceScreen> {
 
   // ──────────────── Search Section ────────────────
 
+  String _phoneFromUserData(Map<String, dynamic> data) {
+    const keys = [
+      'phone',
+      'phone_number',
+      'phoneNumber',
+      'mobile',
+      'mobile_phone',
+      'whatsapp',
+      'whatsapp_number',
+      'guardian_phone',
+    ];
+    for (final key in keys) {
+      final value = data[key]?.toString().trim() ?? '';
+      if (value.isNotEmpty) return value;
+    }
+    return '';
+  }
+
   Widget _buildSearchSection() {
+    final l10n = AppLocalizations.of(context)!;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -539,14 +671,14 @@ class _AdminCreateInvoiceScreenState extends State<AdminCreateInvoiceScreen> {
             focusNode: _searchFocusNode,
             style: GoogleFonts.inter(fontSize: 14),
             decoration: InputDecoration(
-              hintText: 'Search by name or email...',
+              hintText: l10n.adminCreateInvoiceSearchHintPhone,
               hintStyle: GoogleFonts.inter(
                   color: const Color(0xFF94A3B8), fontSize: 14),
-              prefixIcon: const Icon(Icons.search,
-                  color: Color(0xFF94A3B8), size: 20),
+              prefixIcon:
+                  const Icon(Icons.search, color: Color(0xFF94A3B8), size: 20),
               border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16, vertical: 14),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             ),
           ),
         ),
@@ -603,17 +735,25 @@ class _AdminCreateInvoiceScreenState extends State<AdminCreateInvoiceScreen> {
               const Divider(height: 1, color: Color(0xFFF1F5F9)),
           itemBuilder: (context, index) {
             final user = _filteredUsers[index];
-            final name =
-                '${user['first_name']} ${user['last_name']}'.trim();
+            final name = '${user['first_name']} ${user['last_name']}'.trim();
             final isParent = user['user_type'] == 'parent';
-            final childCount =
-                (user['children_ids'] as List).length;
+            final childCount = (user['children_ids'] as List).length;
+            final email = (user['email'] ?? '').toString();
+            final phone = (user['phone'] ?? '').toString();
+            final details = [
+              if (isParent)
+                '$childCount ${childCount == 1 ? 'child' : 'children'}'
+              else
+                'Adult Student',
+              if (email.isNotEmpty) email,
+              if (phone.isNotEmpty) phone,
+            ].join('  •  ');
 
             return InkWell(
               onTap: () => _selectUser(user),
               child: Padding(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 16, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 child: Row(
                   children: [
                     Container(
@@ -635,9 +775,7 @@ class _AdminCreateInvoiceScreenState extends State<AdminCreateInvoiceScreen> {
                       ),
                       child: Center(
                         child: Text(
-                          name.isNotEmpty
-                              ? name[0].toUpperCase()
-                              : '?',
+                          name.isNotEmpty ? name[0].toUpperCase() : '?',
                           style: GoogleFonts.inter(
                             color: Colors.white,
                             fontWeight: FontWeight.w800,
@@ -649,8 +787,7 @@ class _AdminCreateInvoiceScreenState extends State<AdminCreateInvoiceScreen> {
                     const SizedBox(width: 14),
                     Expanded(
                       child: Column(
-                        crossAxisAlignment:
-                            CrossAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             name,
@@ -662,9 +799,7 @@ class _AdminCreateInvoiceScreenState extends State<AdminCreateInvoiceScreen> {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            isParent
-                                ? '$childCount ${childCount == 1 ? 'child' : 'children'}'
-                                : 'Adult Student',
+                            details,
                             style: GoogleFonts.inter(
                               fontSize: 12,
                               color: const Color(0xFF64748B),
@@ -696,6 +831,12 @@ class _AdminCreateInvoiceScreenState extends State<AdminCreateInvoiceScreen> {
     final name = '${user['first_name']} ${user['last_name']}'.trim();
     final isParent = user['user_type'] == 'parent';
     final email = (user['email'] ?? '').toString();
+    final phone = (user['phone'] ?? '').toString();
+    final details = [
+      isParent ? 'Parent' : 'Adult Student',
+      if (email.isNotEmpty) email,
+      if (phone.isNotEmpty) phone,
+    ].join('  •  ');
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -751,7 +892,7 @@ class _AdminCreateInvoiceScreenState extends State<AdminCreateInvoiceScreen> {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '${isParent ? 'Parent' : 'Adult Student'}${email.isNotEmpty ? '  •  $email' : ''}',
+                  details,
                   style: GoogleFonts.inter(
                     fontSize: 12,
                     color: Colors.white.withValues(alpha: 0.7),
@@ -770,8 +911,7 @@ class _AdminCreateInvoiceScreenState extends State<AdminCreateInvoiceScreen> {
                 color: Colors.white.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Icon(Icons.close,
-                  color: Colors.white70, size: 18),
+              child: const Icon(Icons.close, color: Colors.white70, size: 18),
             ),
           ),
         ],
@@ -792,8 +932,7 @@ class _AdminCreateInvoiceScreenState extends State<AdminCreateInvoiceScreen> {
         ),
         child: Row(
           children: [
-            const Icon(Icons.info_outline,
-                color: Color(0xFF94A3B8), size: 20),
+            const Icon(Icons.info_outline, color: Color(0xFF94A3B8), size: 20),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
@@ -828,8 +967,7 @@ class _AdminCreateInvoiceScreenState extends State<AdminCreateInvoiceScreen> {
 
   Widget _buildChildAmountCard(Map<String, dynamic> child) {
     final childId = child['id'] as String;
-    final childName =
-        '${child['first_name']} ${child['last_name']}'.trim();
+    final childName = '${child['first_name']} ${child['last_name']}'.trim();
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -863,9 +1001,7 @@ class _AdminCreateInvoiceScreenState extends State<AdminCreateInvoiceScreen> {
                 ),
                 child: Center(
                   child: Text(
-                    childName.isNotEmpty
-                        ? childName[0].toUpperCase()
-                        : '?',
+                    childName.isNotEmpty ? childName[0].toUpperCase() : '?',
                     style: GoogleFonts.inter(
                       color: Colors.white,
                       fontWeight: FontWeight.w800,
@@ -901,21 +1037,19 @@ class _AdminCreateInvoiceScreenState extends State<AdminCreateInvoiceScreen> {
               fillColor: const Color(0xFFF8FAFC),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide:
-                    const BorderSide(color: Color(0xFFE2E8F0)),
+                borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide:
-                    const BorderSide(color: Color(0xFFE2E8F0)),
+                borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(
-                    color: Color(0xFF0386FF), width: 1.5),
+                borderSide:
+                    const BorderSide(color: Color(0xFF0386FF), width: 1.5),
               ),
-              contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 14, vertical: 12),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             ),
           ),
           const SizedBox(height: 10),
@@ -923,14 +1057,11 @@ class _AdminCreateInvoiceScreenState extends State<AdminCreateInvoiceScreen> {
           // Amount field
           TextField(
             controller: _amountControllers[childId],
-            keyboardType:
-                const TextInputType.numberWithOptions(decimal: true),
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
             inputFormatters: [
-              FilteringTextInputFormatter.allow(
-                  RegExp(r'^\d*\.?\d{0,2}')),
+              FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
             ],
-            style: GoogleFonts.inter(
-                fontSize: 16, fontWeight: FontWeight.w700),
+            style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w700),
             decoration: InputDecoration(
               labelText: 'Amount (USD)',
               labelStyle: GoogleFonts.inter(
@@ -945,21 +1076,19 @@ class _AdminCreateInvoiceScreenState extends State<AdminCreateInvoiceScreen> {
               fillColor: const Color(0xFFF8FAFC),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide:
-                    const BorderSide(color: Color(0xFFE2E8F0)),
+                borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide:
-                    const BorderSide(color: Color(0xFFE2E8F0)),
+                borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(
-                    color: Color(0xFF0386FF), width: 1.5),
+                borderSide:
+                    const BorderSide(color: Color(0xFF0386FF), width: 1.5),
               ),
-              contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 14, vertical: 14),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
             ),
           ),
         ],
@@ -974,20 +1103,40 @@ class _AdminCreateInvoiceScreenState extends State<AdminCreateInvoiceScreen> {
   DateTime get _minDueDate {
     final today = DateTime.now();
     final todayNorm = DateTime(today.year, today.month, today.day);
-    final billingStart = DateTime(_selectedMonth.year, _selectedMonth.month, 1);
+    final months = _selectedMonths.toList()..sort((a, b) => a.compareTo(b));
+    final selected =
+        months.isEmpty ? DateTime(today.year, today.month) : months.first;
+    final billingStart = DateTime(selected.year, selected.month, 1);
     return billingStart.isAfter(todayNorm) ? billingStart : todayNorm;
   }
 
-  /// Sets the billing month and clamps _dueDate if it would fall before the new minimum.
-  void _setMonth(DateTime month) {
+  /// Toggles a billing month and clamps _dueDate if it would fall before the new minimum.
+  void _toggleMonth(DateTime month) {
+    final normalized = DateTime(month.year, month.month);
+    final wasSelected = _selectedMonths.contains(normalized);
+    if (wasSelected && _selectedMonths.length == 1) return;
+
     final newMin = () {
       final today = DateTime.now();
       final todayNorm = DateTime(today.year, today.month, today.day);
-      final billingStart = DateTime(month.year, month.month, 1);
+      final nextMonths = Set<DateTime>.from(_selectedMonths);
+      if (wasSelected) {
+        nextMonths.remove(normalized);
+      } else {
+        nextMonths.add(normalized);
+      }
+      final sorted = nextMonths.toList()..sort((a, b) => a.compareTo(b));
+      final selected = sorted.isEmpty ? normalized : sorted.first;
+      final billingStart = DateTime(selected.year, selected.month, 1);
       return billingStart.isAfter(todayNorm) ? billingStart : todayNorm;
     }();
+
     setState(() {
-      _selectedMonth = month;
+      if (wasSelected) {
+        _selectedMonths.remove(normalized);
+      } else {
+        _selectedMonths.add(normalized);
+      }
       if (_dueDate.isBefore(newMin)) {
         // Auto-clamp: clear any active preset so nothing looks selected
         _dueDate = newMin.add(const Duration(days: 7));
@@ -1001,86 +1150,384 @@ class _AdminCreateInvoiceScreenState extends State<AdminCreateInvoiceScreen> {
 
   // ──────────────── Month Selector ────────────────
 
-  Widget _buildMonthSelector() {
-    final monthLabel = DateFormat.yMMMM().format(_selectedMonth);
+  Widget _buildBillingPlanSection() {
+    final l10n = AppLocalizations.of(context)!;
+    final selectedMonths = _selectedMonths.toList()
+      ..sort((a, b) => a.compareTo(b));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Billing month',
+          'Billing plan',
           style: GoogleFonts.inter(
             fontSize: 14,
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w800,
             color: const Color(0xFF334155),
           ),
         ),
         const SizedBox(height: 10),
         Container(
+          padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(16),
             border: Border.all(color: const Color(0xFFE2E8F0)),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.03),
-                blurRadius: 6,
+                blurRadius: 8,
                 offset: const Offset(0, 2),
               ),
             ],
           ),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              IconButton(
-                icon: const Icon(Icons.chevron_left,
-                    color: Color(0xFF64748B)),
-                onPressed: () {
-                  _setMonth(DateTime(
-                      _selectedMonth.year, _selectedMonth.month - 1));
-                },
+              _buildMonthSelector(compact: true),
+              const SizedBox(height: 14),
+              const Divider(height: 1, color: Color(0xFFE2E8F0)),
+              const SizedBox(height: 14),
+              _billingModeOption(
+                mode: _InvoiceBillingMode.combinedNow,
+                icon: Icons.all_inbox_rounded,
+                title: l10n.adminCreateInvoiceBillingModeOneTitle,
+                description: l10n.adminCreateInvoiceBillingModeOneDescription,
               ),
-              Expanded(
-                child: InkWell(
-                  onTap: () async {
-                    final picked = await showDatePicker(
-                      context: context,
-                      initialDate: _selectedMonth,
-                      firstDate: DateTime(2024),
-                      lastDate: DateTime.now().add(const Duration(days: 365)),
-                      initialEntryMode: DatePickerEntryMode.calendarOnly,
-                    );
-                    if (picked != null) {
-                      _setMonth(DateTime(picked.year, picked.month));
-                    }
-                  },
-                  child: Padding(
-                    padding:
-                        const EdgeInsets.symmetric(vertical: 14),
-                    child: Center(
-                      child: Text(
-                        monthLabel,
-                        style: GoogleFonts.inter(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          color: const Color(0xFF0F172A),
-                        ),
-                      ),
+              const SizedBox(height: 8),
+              _billingModeOption(
+                mode: _InvoiceBillingMode.separateNow,
+                icon: Icons.splitscreen_rounded,
+                title: l10n.adminCreateInvoiceBillingModeSeparateTitle,
+                description:
+                    l10n.adminCreateInvoiceBillingModeSeparateDescription,
+              ),
+              const SizedBox(height: 8),
+              _billingModeOption(
+                mode: _InvoiceBillingMode.recurring,
+                icon: Icons.event_repeat_rounded,
+                title: l10n.adminCreateInvoiceBillingModeRecurringTitle,
+                description:
+                    l10n.adminCreateInvoiceBillingModeRecurringDescription,
+              ),
+              if (_billingMode == _InvoiceBillingMode.recurring) ...[
+                const SizedBox(height: 12),
+                _recurringControls(selectedMonths),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _billingModeOption({
+    required _InvoiceBillingMode mode,
+    required IconData icon,
+    required String title,
+    required String description,
+  }) {
+    final selected = _billingMode == mode;
+    return InkWell(
+      onTap: () => setState(() => _billingMode = mode),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: selected ? const Color(0xFFEFF6FF) : const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: selected ? const Color(0xFF0386FF) : const Color(0xFFE2E8F0),
+            width: selected ? 1.5 : 1,
+          ),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: selected
+                    ? const Color(0xFF0386FF)
+                    : const Color(0xFFE2E8F0),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                icon,
+                color: selected ? Colors.white : const Color(0xFF64748B),
+                size: 19,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: GoogleFonts.inter(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w900,
+                      color: const Color(0xFF0F172A),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    description,
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      height: 1.35,
+                      color: const Color(0xFF64748B),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              width: 22,
+              height: 22,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: selected ? const Color(0xFF0386FF) : Colors.white,
+                border: Border.all(
+                  color: selected
+                      ? const Color(0xFF0386FF)
+                      : const Color(0xFFCBD5E1),
+                  width: 2,
+                ),
+              ),
+              child: selected
+                  ? const Icon(Icons.check, color: Colors.white, size: 14)
+                  : null,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _recurringControls(List<DateTime> selectedMonths) {
+    final l10n = AppLocalizations.of(context)!;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            l10n.adminCreateInvoiceRepeatTiming,
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              fontWeight: FontWeight.w900,
+              color: const Color(0xFF334155),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [1, 5, 10, 15].map((day) {
+              final selected = _recurringSendDay == day;
+              return InkWell(
+                onTap: () => setState(() => _recurringSendDay = day),
+                borderRadius: BorderRadius.circular(999),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: selected ? const Color(0xFF0386FF) : Colors.white,
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(
+                      color: selected
+                          ? const Color(0xFF0386FF)
+                          : const Color(0xFFE2E8F0),
+                    ),
+                  ),
+                  child: Text(
+                    l10n.adminCreateInvoiceRecurringDay(day),
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: selected ? Colors.white : const Color(0xFF334155),
                     ),
                   ),
                 ),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            l10n.adminCreateInvoiceRecurringSummary(selectedMonths.length),
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: const Color(0xFF64748B),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMonthSelector({bool compact = false}) {
+    final l10n = AppLocalizations.of(context)!;
+    final selectedMonths = _selectedMonths.toList()
+      ..sort((a, b) => a.compareTo(b));
+    final anchor = selectedMonths.isEmpty
+        ? DateTime(DateTime.now().year, DateTime.now().month)
+        : selectedMonths.first;
+    final monthOptions = List<DateTime>.generate(
+      12,
+      (index) => DateTime(anchor.year, anchor.month + index),
+    );
+    final selectedLabel = selectedMonths
+        .map((month) => DateFormat('MMM yyyy').format(month))
+        .join(', ');
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (!compact) ...[
+          Text(
+            l10n.adminCreateInvoiceBillingMonths,
+            style: GoogleFonts.inter(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: const Color(0xFF334155),
+            ),
+          ),
+          const SizedBox(height: 10),
+        ],
+        Container(
+          padding: compact ? EdgeInsets.zero : const EdgeInsets.all(14),
+          decoration: compact
+              ? null
+              : BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.03),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      selectedMonths.length == 1
+                          ? DateFormat.yMMMM().format(selectedMonths.first)
+                          : l10n.adminCreateInvoiceMonthsSelected(
+                              selectedMonths.length,
+                            ),
+                      style: GoogleFonts.inter(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: const Color(0xFF0F172A),
+                      ),
+                    ),
+                  ),
+                  _monthNavButton(
+                    icon: Icons.chevron_left_rounded,
+                    onTap: () => _toggleMonth(
+                      DateTime(anchor.year, anchor.month - 1),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  _monthNavButton(
+                    icon: Icons.chevron_right_rounded,
+                    onTap: () => _toggleMonth(
+                      DateTime(
+                        anchor.year,
+                        anchor.month + selectedMonths.length,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              IconButton(
-                icon: const Icon(Icons.chevron_right,
-                    color: Color(0xFF64748B)),
-                onPressed: () {
-                  _setMonth(DateTime(
-                      _selectedMonth.year, _selectedMonth.month + 1));
-                },
+              const SizedBox(height: 8),
+              Text(
+                selectedLabel,
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF64748B),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: monthOptions.map((month) {
+                  final selected = _selectedMonths.contains(month);
+                  return InkWell(
+                    onTap: () => _toggleMonth(month),
+                    borderRadius: BorderRadius.circular(999),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: selected
+                            ? const Color(0xFF0386FF)
+                            : const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(
+                          color: selected
+                              ? const Color(0xFF0386FF)
+                              : const Color(0xFFE2E8F0),
+                        ),
+                      ),
+                      child: Text(
+                        DateFormat.MMM().format(month),
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          color:
+                              selected ? Colors.white : const Color(0xFF334155),
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
               ),
             ],
           ),
         ),
       ],
+    );
+  }
+
+  Widget _monthNavButton({
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        width: 34,
+        height: 34,
+        decoration: BoxDecoration(
+          color: const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+        ),
+        child: Icon(icon, size: 19, color: const Color(0xFF64748B)),
+      ),
     );
   }
 
@@ -1215,8 +1662,7 @@ class _AdminCreateInvoiceScreenState extends State<AdminCreateInvoiceScreen> {
     final raw = DateTime.now().add(Duration(days: days));
     final rawNorm = DateTime(raw.year, raw.month, raw.day);
     // Never allow a preset that falls before the billing month start or today.
-    final targetNorm =
-        rawNorm.isBefore(_minDueDate) ? _minDueDate : rawNorm;
+    final targetNorm = rawNorm.isBefore(_minDueDate) ? _minDueDate : rawNorm;
     // Selected only when this specific preset was the last one tapped.
     final isSelected = _activePresetDays == days;
 
@@ -1232,14 +1678,11 @@ class _AdminCreateInvoiceScreenState extends State<AdminCreateInvoiceScreen> {
         duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: isSelected
-              ? const Color(0xFF0386FF)
-              : const Color(0xFFF1F5F9),
+          color: isSelected ? const Color(0xFF0386FF) : const Color(0xFFF1F5F9),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isSelected
-                ? const Color(0xFF0386FF)
-                : const Color(0xFFE2E8F0),
+            color:
+                isSelected ? const Color(0xFF0386FF) : const Color(0xFFE2E8F0),
           ),
         ),
         child: Text(
@@ -1274,8 +1717,7 @@ class _AdminCreateInvoiceScreenState extends State<AdminCreateInvoiceScreen> {
             ),
             const SizedBox(width: 8),
             Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
                 color: const Color(0xFFF0F9FF),
                 borderRadius: BorderRadius.circular(20),
@@ -1312,8 +1754,7 @@ class _AdminCreateInvoiceScreenState extends State<AdminCreateInvoiceScreen> {
                   ? minDate
                   : _accessCutoffDate,
               firstDate: _dueDate,
-              lastDate:
-                  DateTime.now().add(const Duration(days: 365 * 2)),
+              lastDate: DateTime.now().add(const Duration(days: 365 * 2)),
             );
             if (picked != null) {
               setState(() {
@@ -1358,8 +1799,7 @@ class _AdminCreateInvoiceScreenState extends State<AdminCreateInvoiceScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        DateFormat('EEEE, MMMM d, y')
-                            .format(_accessCutoffDate),
+                        DateFormat('EEEE, MMMM d, y').format(_accessCutoffDate),
                         style: GoogleFonts.inter(
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
@@ -1394,8 +1834,7 @@ class _AdminCreateInvoiceScreenState extends State<AdminCreateInvoiceScreen> {
             alignment: Alignment.centerRight,
             child: GestureDetector(
               onTap: () => setState(() {
-                _accessCutoffDate =
-                    _dueDate.add(const Duration(days: 1));
+                _accessCutoffDate = _dueDate.add(const Duration(days: 1));
                 _accessCutoffIsDefault = true;
               }),
               child: Text(
@@ -1416,6 +1855,18 @@ class _AdminCreateInvoiceScreenState extends State<AdminCreateInvoiceScreen> {
   // ──────────────── Create Button ────────────────
 
   Widget _buildCreateButton() {
+    final l10n = AppLocalizations.of(context)!;
+    final label = switch (_billingMode) {
+      _InvoiceBillingMode.combinedNow =>
+        l10n.adminCreateInvoiceCreateOneInvoice,
+      _InvoiceBillingMode.separateNow =>
+        l10n.adminCreateInvoiceCreateSeparateInvoices,
+      _InvoiceBillingMode.recurring =>
+        l10n.adminCreateInvoiceCreateRecurringSchedule,
+    };
+    final icon = _billingMode == _InvoiceBillingMode.recurring
+        ? Icons.event_repeat_rounded
+        : Icons.send_rounded;
     return SizedBox(
       width: double.infinity,
       height: 50,
@@ -1426,8 +1877,8 @@ class _AdminCreateInvoiceScreenState extends State<AdminCreateInvoiceScreen> {
           foregroundColor: Colors.white,
           disabledBackgroundColor: const Color(0xFFE2E8F0),
           elevation: 0,
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         ),
         child: _isCreating
             ? const SizedBox(
@@ -1439,10 +1890,10 @@ class _AdminCreateInvoiceScreenState extends State<AdminCreateInvoiceScreen> {
             : Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.send_rounded, size: 18),
+                  Icon(icon, size: 18),
                   const SizedBox(width: 10),
                   Text(
-                    'Create Invoice',
+                    label,
                     style: GoogleFonts.inter(
                       fontWeight: FontWeight.w800,
                       fontSize: 15,

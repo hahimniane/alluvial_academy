@@ -30,6 +30,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   bool _isAdmin = false;
   Map<String, List<ChatUser>> _groupedContacts = {};
   bool _loadingContacts = true;
+
   /// Expanded by default so admin support threads are visible without an extra tap.
   bool _supportInboxCollapsed = false;
 
@@ -623,6 +624,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     Color color;
 
     switch (groupName) {
+      case 'Leadership & Admin':
       case 'Administrators':
         icon = Icons.admin_panel_settings;
         color = const Color(0xffEF4444);

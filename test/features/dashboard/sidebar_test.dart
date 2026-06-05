@@ -24,6 +24,17 @@ void main() {
       expect(sections.any((s) => s.id == 'operations'), isFalse);
     });
 
+    test('getStructureForRole returns parent forms and chat items', () {
+      final sections = SidebarConfig.getStructureForRole('parent');
+      final items = sections.expand((section) => section.items).toList();
+
+      final forms = items.singleWhere((item) => item.id == 'forms');
+      final chat = items.singleWhere((item) => item.id == 'chat');
+
+      expect(forms.screenIndex, equals(3));
+      expect(chat.screenIndex, equals(10));
+    });
+
     test('getStructureForRole defaults to student structure for null role', () {
       final sections = SidebarConfig.getStructureForRole(null);
       expect(sections.any((s) => s.id == 'learning'), isTrue);

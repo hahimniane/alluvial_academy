@@ -1003,6 +1003,84 @@ class FormTemplateService {
         updatedAt: DateTime.now(),
       );
 
+  /// Parent Excuse Request - For parents to report absences or late arrivals
+  static FormTemplate get defaultParentExcuseRequest => FormTemplate(
+        id: 'parent_excuse_request',
+        name: 'Excuse / Absence Request',
+        description:
+            'Notify the school about a student absence, late arrival, or early pickup',
+        frequency: FormFrequency.onDemand,
+        category: FormCategory.administrative,
+        version: 1,
+        allowedRoles: ['parent'],
+        fields: const [
+          FormFieldDefinition(
+            id: 'child_name',
+            label: 'Child\'s Name',
+            type: 'text',
+            required: true,
+            order: 1,
+          ),
+          FormFieldDefinition(
+            id: 'affected_date',
+            label: 'Date',
+            type: 'date',
+            required: true,
+            order: 2,
+          ),
+          FormFieldDefinition(
+            id: 'excuse_type',
+            label: 'Request Type',
+            type: 'radio',
+            required: true,
+            order: 3,
+            options: [
+              'Absence',
+              'Late arrival',
+              'Early pickup',
+              'Missed class',
+              'Other'
+            ],
+          ),
+          FormFieldDefinition(
+            id: 'class_or_teacher',
+            label: 'Class or Teacher',
+            type: 'text',
+            placeholder: 'Name the class or teacher this affects',
+            required: false,
+            order: 4,
+          ),
+          FormFieldDefinition(
+            id: 'reason',
+            label: 'Reason',
+            type: 'long_text',
+            placeholder: 'Please share the reason for this request...',
+            required: true,
+            order: 5,
+          ),
+          FormFieldDefinition(
+            id: 'makeup_requested',
+            label: 'Would you like help scheduling a makeup class?',
+            type: 'radio',
+            required: false,
+            order: 6,
+            options: ['Yes', 'No', 'Not sure'],
+          ),
+          FormFieldDefinition(
+            id: 'contact_preference',
+            label: 'Preferred Follow-up',
+            type: 'radio',
+            required: false,
+            order: 7,
+            options: ['App chat', 'Phone call', 'Email', 'No follow-up needed'],
+          ),
+        ],
+        autoFillRules: const [],
+        isActive: true,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+
   // ============================================================
   // TEMPLATE MANAGEMENT
   // ============================================================

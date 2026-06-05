@@ -415,6 +415,191 @@ const _nextInvoiceNumber = async (tx, year) => {
   return `INV-${year}-${padded}`;
 };
 
+const _nextMonthPeriod = (period) => {
+  const raw = (period || '').toString().trim();
+  const match = raw.match(/^(\d{4})-(\d{2})$/);
+  const base = match
+    ? new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, 1))
+    : new Date();
+  base.setUTCMonth(base.getUTCMonth() + 1);
+  return `${base.getUTCFullYear()}-${String(base.getUTCMonth() + 1).padStart(2, '0')}`;
+};
+
+const _periodFromDate = (date) =>
+  `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
+
+const _dateFromPeriodAndDay = (period, day) => {
+  const raw = (period || '').toString().trim();
+  const match = raw.match(/^(\d{4})-(\d{2})$/);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const clampedDay = Math.min(Math.max(Number(day) || 1, 1), lastDay);
+  return new Date(Date.UTC(year, month - 1, clampedDay, 0, 0, 0));
+};
+
+const _addMonthsToPeriod = (period, months) => {
+  const raw = (period || '').toString().trim();
+  const match = raw.match(/^(\d{4})-(\d{2})$/);
+  if (!match) return null;
+  return _periodFromDate(
+    new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1 + months, 1))
+  );
+};
+
+const _invoiceItemsFromRequest = (itemsRaw) => {
+  if (!Array.isArray(itemsRaw) || itemsRaw.length === 0) return null;
+  const items = itemsRaw.map((i) => ({
+    description: (i.description || '').toString(),
+    quantity: _toNumber(i.quantity) || 1,
+    unit_price: _toNumber(i.unit_price ?? i.unitPrice),
+    total: _toNumber(i.total),
+    shift_ids: Array.isArray(i.shift_ids || i.shiftIds) ? i.shift_ids || i.shiftIds : [],
+  }));
+  return {
+    items,
+    totalAmount: Number(items.reduce((sum, i) => sum + _toNumber(i.total), 0).toFixed(2)),
+  };
+};
+
+const _findExistingRecurringInvoice = async ({db, template, nextPeriod}) => {
+  const parentId = (template.parent_id || '').toString();
+  const studentId = (template.student_id || '').toString();
+  const existingSnap = await db
+    .collection('invoices')
+    .where('parent_id', '==', parentId)
+    .where('student_id', '==', studentId)
+    .where('period', '==', nextPeriod)
+    .limit(1)
+    .get();
+  if (!existingSnap.empty) {
+    return {
+      invoiceRef: existingSnap.docs[0].ref,
+      invoice: existingSnap.docs[0].data(),
+    };
+  }
+  return null;
+};
+
+const _resolveRecurringPaymentInvoice = async ({db, invoiceRef, invoice, uid}) => {
+  let nextPeriod = _nextMonthPeriod(invoice.period);
+
+  for (let i = 0; i < 36; i += 1) {
+    const existing = await _findExistingRecurringInvoice({
+      db,
+      template: invoice,
+      nextPeriod,
+    });
+    if (!existing) {
+      return db.runTransaction(async (tx) => {
+        return _createRecurringInvoiceFromTemplate({
+          db,
+          tx,
+          templateRef: invoiceRef,
+          template: invoice,
+          uid,
+          nextPeriod,
+        });
+      });
+    }
+
+    const existingInvoice = existing.invoice || {};
+    const existingRemaining = Number(
+      (_toNumber(existingInvoice.total_amount) - _toNumber(existingInvoice.paid_amount)).toFixed(2)
+    );
+    if (existingRemaining > 0) {
+      return existing;
+    }
+
+    nextPeriod = _nextMonthPeriod(existingInvoice.period || nextPeriod);
+  }
+
+  throw new functions.https.HttpsError(
+    'failed-precondition',
+    'Unable to find the next unpaid recurring invoice'
+  );
+};
+
+const _createRecurringInvoiceFromTemplate = async ({db, tx, templateRef, template, uid, nextPeriod}) => {
+  const parentId = (template.parent_id || '').toString();
+  const studentId = (template.student_id || '').toString();
+
+  const now = new Date();
+  const dueDate = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+  const accessCutoffDate = new Date(dueDate.getTime() + 24 * 60 * 60 * 1000);
+  const invoiceRef = db.collection('invoices').doc();
+  const invoiceNumber = await _nextInvoiceNumber(tx, now.getUTCFullYear());
+  const paymentLink =
+    (template.reusable_payment_link || template.payment_link || `${_appUrl()}?invoiceId=${encodeURIComponent(templateRef.id)}`)
+      .toString();
+  const invoice = {
+    invoice_number: invoiceNumber,
+    parent_id: parentId,
+    student_id: studentId,
+    status: 'pending',
+    total_amount: _toNumber(template.total_amount),
+    paid_amount: 0,
+    currency: (template.currency || 'USD').toString(),
+    issued_date: admin.firestore.Timestamp.fromDate(now),
+    due_date: admin.firestore.Timestamp.fromDate(dueDate),
+    access_cutoff_date: admin.firestore.Timestamp.fromDate(accessCutoffDate),
+    items: Array.isArray(template.items) ? template.items : [],
+    shift_ids: [],
+    created_at: admin.firestore.FieldValue.serverTimestamp(),
+    updated_at: admin.firestore.FieldValue.serverTimestamp(),
+    created_by: uid,
+    period: nextPeriod,
+    recurring_enabled: true,
+    recurring_template_invoice_id: templateRef.id,
+    payment_link: paymentLink,
+    reusable_payment_link: paymentLink,
+  };
+  tx.set(invoiceRef, invoice);
+  return {invoiceRef, invoice, created: true};
+};
+
+const _createInvoiceFromRecurringSchedule = async ({db, tx, templateRef, template, now}) => {
+  const nextPeriod = (template.next_period || template.start_period || _periodFromDate(now)).toString();
+  const existing = await _findExistingRecurringInvoice({
+    db,
+    template,
+    nextPeriod,
+  });
+  if (existing) return {created: false, invoiceRef: existing.invoiceRef};
+
+  const dueDays = Math.max(0, _toNumber(template.due_days) || 7);
+  const cutoffDays = Math.max(0, _toNumber(template.access_cutoff_days_after_due) || 1);
+  const dueDate = new Date(now.getTime() + dueDays * 24 * 60 * 60 * 1000);
+  const accessCutoffDate = new Date(dueDate.getTime() + cutoffDays * 24 * 60 * 60 * 1000);
+  const invoiceRef = db.collection('invoices').doc();
+  const invoiceNumber = await _nextInvoiceNumber(tx, now.getUTCFullYear());
+  const paymentLink = `${_appUrl()}?invoiceId=${encodeURIComponent(invoiceRef.id)}`;
+  tx.set(invoiceRef, {
+    invoice_number: invoiceNumber,
+    parent_id: (template.parent_id || '').toString(),
+    student_id: (template.student_id || '').toString(),
+    status: 'pending',
+    total_amount: _toNumber(template.total_amount),
+    paid_amount: 0,
+    currency: (template.currency || 'USD').toString(),
+    issued_date: admin.firestore.Timestamp.fromDate(now),
+    due_date: admin.firestore.Timestamp.fromDate(dueDate),
+    access_cutoff_date: admin.firestore.Timestamp.fromDate(accessCutoffDate),
+    items: Array.isArray(template.items) ? template.items : [],
+    shift_ids: [],
+    created_at: admin.firestore.FieldValue.serverTimestamp(),
+    updated_at: admin.firestore.FieldValue.serverTimestamp(),
+    created_by: (template.created_by || '').toString(),
+    period: nextPeriod,
+    recurring_enabled: true,
+    recurring_template_id: templateRef.id,
+    payment_link: paymentLink,
+    reusable_payment_link: paymentLink,
+  });
+  return {created: true, invoiceRef};
+};
+
 const createInvoice = async (request) => {
   if (!request.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Authentication required');
@@ -431,6 +616,8 @@ const createInvoice = async (request) => {
   const studentId = (data.studentId || data.student_id || '').toString().trim();
   const currency = (data.currency || 'USD').toString().trim();
   const shiftIds = Array.isArray(data.shiftIds || data.shift_ids) ? data.shiftIds || data.shift_ids : [];
+  const recurring = data.recurring === true || data.reusable === true;
+  const billingMode = (data.billingMode || data.billing_mode || '').toString().trim();
 
   // Parse optional access cutoff date (ISO string from client)
   const rawAccessCutoff = data.accessCutoffDate || data.access_cutoff_date;
@@ -447,6 +634,67 @@ const createInvoice = async (request) => {
       'invalid-argument',
       'Missing required fields: parentId, studentId'
     );
+  }
+
+  if (billingMode === 'recurring') {
+    const itemPayload = _invoiceItemsFromRequest(data.items);
+    if (!itemPayload) {
+      throw new functions.https.HttpsError(
+        'invalid-argument',
+        'Provide items to create a recurring invoice schedule'
+      );
+    }
+
+    const periods = Array.isArray(data.periods)
+      ? data.periods.map((p) => p.toString().trim()).filter(Boolean)
+      : [];
+    const startPeriod = (data.period || periods[0] || _periodFromDate(new Date())).toString().trim();
+    const sendDay = Math.min(Math.max(_toNumber(data.recurringSendDay || data.recurring_send_day) || 1, 1), 31);
+    const repeatIntervalMonths = Math.max(
+      1,
+      _toNumber(data.repeatIntervalMonths || data.repeat_interval_months) || 1
+    );
+    const repeatCount = Math.max(
+      1,
+      _toNumber(data.repeatCount || data.repeat_count || periods.length || 1)
+    );
+    const dueDays = Math.max(0, _toNumber(data.dueDays || data.due_days) || 7);
+    const accessCutoffDaysAfterDue = Math.max(
+      0,
+      _toNumber(data.accessCutoffDaysAfterDue || data.access_cutoff_days_after_due) || 1
+    );
+    const nextRunAt = _dateFromPeriodAndDay(startPeriod, sendDay) || new Date();
+
+    const templateRef = admin.firestore().collection('recurring_invoice_templates').doc();
+    await templateRef.set({
+      parent_id: parentId,
+      student_id: studentId,
+      currency,
+      items: itemPayload.items,
+      total_amount: itemPayload.totalAmount,
+      active: true,
+      status: 'active',
+      start_period: startPeriod,
+      next_period: startPeriod,
+      next_run_at: admin.firestore.Timestamp.fromDate(nextRunAt),
+      periods,
+      send_day: sendDay,
+      repeat_interval_months: repeatIntervalMonths,
+      repeat_count: repeatCount,
+      generated_count: 0,
+      due_days: dueDays,
+      access_cutoff_days_after_due: accessCutoffDaysAfterDue,
+      created_at: admin.firestore.FieldValue.serverTimestamp(),
+      updated_at: admin.firestore.FieldValue.serverTimestamp(),
+      created_by: uid,
+    });
+
+    return {
+      success: true,
+      recurringTemplateId: templateRef.id,
+      nextPeriod: startPeriod,
+      nextRunAt: nextRunAt.toISOString(),
+    };
   }
 
   let invoicePayload = null;
@@ -472,14 +720,9 @@ const createInvoice = async (request) => {
       currency,
     });
   } else if (Array.isArray(data.items) && data.items.length > 0) {
-    const items = data.items.map((i) => ({
-      description: (i.description || '').toString(),
-      quantity: _toNumber(i.quantity) || 1,
-      unit_price: _toNumber(i.unit_price ?? i.unitPrice),
-      total: _toNumber(i.total),
-      shift_ids: Array.isArray(i.shift_ids || i.shiftIds) ? i.shift_ids || i.shiftIds : [],
-    }));
-    const totalAmount = Number(items.reduce((sum, i) => sum + _toNumber(i.total), 0).toFixed(2));
+    const itemPayload = _invoiceItemsFromRequest(data.items);
+    const items = itemPayload.items;
+    const totalAmount = itemPayload.totalAmount;
     const periodFromRequest = (data.period || data.period_label || '').toString().trim();
 
     // Accept an explicit due date from the client (ISO string); fall back to 7 days from now.
@@ -519,6 +762,7 @@ const createInvoice = async (request) => {
   const result = await db.runTransaction(async (tx) => {
     const now = new Date();
     const invoiceNumber = await _nextInvoiceNumber(tx, now.getUTCFullYear());
+    const paymentLink = `${_appUrl()}?invoiceId=${encodeURIComponent(invoiceRef.id)}`;
     tx.set(invoiceRef, {
       invoice_number: invoiceNumber,
       parent_id: invoicePayload.parent_id,
@@ -547,8 +791,11 @@ const createInvoice = async (request) => {
       updated_at: admin.firestore.FieldValue.serverTimestamp(),
       created_by: uid,
       period: invoicePayload.period || null,
+      payment_link: paymentLink,
+      reusable_payment_link: paymentLink,
+      recurring_enabled: recurring,
     });
-    return {invoiceId: invoiceRef.id, invoiceNumber};
+    return {invoiceId: invoiceRef.id, invoiceNumber, paymentLink};
   });
 
   return {success: true, ...result};
@@ -762,13 +1009,34 @@ const createPaymentSession = async (request) => {
     throw new functions.https.HttpsError('not-found', 'Invoice not found');
   }
 
-  const invoice = invoiceSnap.data();
-  const parentId = (invoice.parent_id || '').toString();
+  let invoice = invoiceSnap.data();
+  let activeInvoiceRef = invoiceRef;
+  let activeInvoiceId = invoiceId;
+  let parentId = (invoice.parent_id || '').toString();
+
+  let totalAmount = _toNumber(invoice.total_amount);
+  let paidAmount = _toNumber(invoice.paid_amount);
+  let remaining = Number((totalAmount - paidAmount).toFixed(2));
+
+  if (remaining <= 0 && invoice.recurring_enabled === true) {
+    const recurringResult = await _resolveRecurringPaymentInvoice({
+      db,
+      invoiceRef,
+      invoice,
+      uid: request.auth.uid,
+    });
+    activeInvoiceRef = recurringResult.invoiceRef;
+    activeInvoiceId = activeInvoiceRef.id;
+    const freshSnap = await activeInvoiceRef.get();
+    invoice = freshSnap.exists ? freshSnap.data() : recurringResult.invoice;
+    parentId = (invoice.parent_id || '').toString();
+    totalAmount = _toNumber(invoice.total_amount);
+    paidAmount = _toNumber(invoice.paid_amount);
+    remaining = Number((totalAmount - paidAmount).toFixed(2));
+  }
+
   const currency = (invoice.currency || 'USD').toString();
   const invoiceNumber = (invoice.invoice_number || '').toString();
-  const totalAmount = _toNumber(invoice.total_amount);
-  const paidAmount = _toNumber(invoice.paid_amount);
-  const remaining = Number((totalAmount - paidAmount).toFixed(2));
 
   if (remaining <= 0) {
     throw new functions.https.HttpsError('failed-precondition', 'Invoice is already paid');
@@ -791,7 +1059,7 @@ const createPaymentSession = async (request) => {
     }
 
     await paymentRef.set({
-      invoice_id: invoiceId,
+      invoice_id: activeInvoiceId,
       parent_id: parentId,
       amount: remaining,
       status: 'pending',
@@ -808,7 +1076,7 @@ const createPaymentSession = async (request) => {
         amountMajor: remaining,
         currency,
         paymentId: paymentRef.id,
-        invoiceId,
+        invoiceId: activeInvoiceId,
         invoiceNumber,
         successUrl,
         cancelUrl,
@@ -845,7 +1113,7 @@ const createPaymentSession = async (request) => {
   }
 
   await paymentRef.set({
-    invoice_id: invoiceId,
+    invoice_id: activeInvoiceId,
     parent_id: parentId,
     amount: remaining,
     status: 'pending',
@@ -1198,17 +1466,70 @@ const handleStripeWebhook = async (req, res) => {
 };
 
 const generateInvoicesForPeriod = onSchedule(
-  // Cloud Scheduler accepts cron syntax; this runs at 00:00 UTC on day 1 of every month.
-  {schedule: '0 0 1 * *', timeZone: 'Etc/UTC'},
+  {schedule: '0 0 * * *', timeZone: 'Etc/UTC'},
   async () => {
     if (process.env.ENABLE_INVOICE_GENERATION !== 'true') {
       console.log('Invoice generation is disabled. Set ENABLE_INVOICE_GENERATION=true to enable.');
       return;
     }
 
-    // Intentionally conservative: invoice generation rules are business-critical.
-    // Implement full shift→invoice logic once billing requirements are finalized.
-    console.log('Invoice generation is enabled, but automated logic is not implemented yet.');
+    const db = admin.firestore();
+    const now = new Date();
+    const dueSnap = await db
+      .collection('recurring_invoice_templates')
+      .where('active', '==', true)
+      .where('next_run_at', '<=', admin.firestore.Timestamp.fromDate(now))
+      .limit(100)
+      .get();
+
+    if (dueSnap.empty) {
+      console.log('[payments] No recurring invoice templates due.');
+      return;
+    }
+
+    let createdCount = 0;
+    for (const doc of dueSnap.docs) {
+      const templateRef = doc.ref;
+      const template = doc.data() || {};
+      await db.runTransaction(async (tx) => {
+        const fresh = await tx.get(templateRef);
+        if (!fresh.exists) return;
+        const freshTemplate = fresh.data() || {};
+        if (freshTemplate.active !== true) return;
+        const nextRun = _toDate(freshTemplate.next_run_at);
+        if (nextRun && nextRun > now) return;
+
+        const result = await _createInvoiceFromRecurringSchedule({
+          db,
+          tx,
+          templateRef,
+          template: freshTemplate,
+          now,
+        });
+        if (result.created) createdCount += 1;
+
+        const generatedCount = (_toNumber(freshTemplate.generated_count) || 0) + 1;
+        const repeatCount = Math.max(1, _toNumber(freshTemplate.repeat_count) || 1);
+        const interval = Math.max(1, _toNumber(freshTemplate.repeat_interval_months) || 1);
+        const sendDay = Math.min(Math.max(_toNumber(freshTemplate.send_day) || 1, 1), 31);
+        const currentPeriod = (freshTemplate.next_period || freshTemplate.start_period || _periodFromDate(now)).toString();
+        const nextPeriod = _addMonthsToPeriod(currentPeriod, interval);
+        const nextRunAt = nextPeriod ? _dateFromPeriodAndDay(nextPeriod, sendDay) : null;
+        const isDone = generatedCount >= repeatCount || !nextRunAt;
+
+        tx.set(templateRef, {
+          generated_count: generatedCount,
+          last_generated_at: admin.firestore.FieldValue.serverTimestamp(),
+          next_period: isDone ? null : nextPeriod,
+          next_run_at: isDone ? null : admin.firestore.Timestamp.fromDate(nextRunAt),
+          active: !isDone,
+          status: isDone ? 'completed' : 'active',
+          updated_at: admin.firestore.FieldValue.serverTimestamp(),
+        }, {merge: true});
+      });
+    }
+
+    console.log(`[payments] Recurring invoice generation completed. Created: ${createdCount}.`);
   }
 );
 
@@ -1224,4 +1545,5 @@ module.exports = {
   generateInvoicesForPeriod,
   _notifyInvoiceRecipient,
   _notifyPaymentCompleted,
+  _nextMonthPeriod,
 };

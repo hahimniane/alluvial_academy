@@ -458,6 +458,19 @@ class SidebarConfig {
         ],
       ),
       SidebarSection(
+        id: 'communication',
+        title: 'Communication',
+        items: [
+          const SidebarItem(
+            id: 'chat',
+            label: 'Chat',
+            icon: Icons.chat,
+            screenIndex: 10,
+            colorValue: 0xffA646F2,
+          ),
+        ],
+      ),
+      SidebarSection(
         id: 'account',
         title: 'Account',
         items: [

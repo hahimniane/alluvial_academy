@@ -49,6 +49,13 @@ import '../../recordings/screens/class_recordings_screen.dart';
 import '../../surah_podcast/screens/surah_podcast_screen.dart';
 import '../../curriculum/screens/curriculum_books_screen.dart';
 import '../../parent/screens/admin_invoice_hub_screen.dart';
+import '../../parent/screens/parent_classes_screen.dart';
+import '../../parent/screens/parent_dashboard_screen.dart';
+import '../../parent/screens/parent_invoices_screen.dart';
+import '../../parent/screens/payment_history_screen.dart';
+import '../../parent/screens/parent_profile_screen.dart';
+import '../../settings/screens/role_settings_screen.dart';
+import '../../tontine/screens/tontine_home_screen.dart';
 
 import '../widgets/custom_sidebar.dart';
 import '../services/sidebar_service.dart';
@@ -261,6 +268,10 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Widget _buildScreenForIndex(int index) {
+    if (_userRole?.toLowerCase() == 'parent') {
+      return _buildParentScreenForIndex(index);
+    }
+
     // IMPORTANT: This factory avoids building every screen up-front.
     // Only the requested index is created.
     switch (index) {
@@ -331,6 +342,40 @@ class _DashboardPageState extends State<DashboardPage> {
         return const CurriculumBooksScreen();
       case 31:
         return const AdminInvoiceHubScreen();
+      default:
+        return const SizedBox.shrink();
+    }
+  }
+
+  Widget _buildParentScreenForIndex(int index) {
+    final parentId = UserRoleService.getCurrentUserId() ??
+        FirebaseAuth.instance.currentUser?.uid;
+
+    switch (index) {
+      case 0:
+        return ParentDashboardScreen(parentId: parentId);
+      case 1:
+        return ParentInvoicesScreen(parentId: parentId ?? '');
+      case 2:
+        return PaymentHistoryScreen(parentId: parentId ?? '');
+      case 3:
+        return TeacherFormsScreen(key: ValueKey(_refreshTrigger));
+      case 4:
+        return const ParentProfileScreen();
+      case 5:
+        return RoleSettingsScreen(
+          title: AppLocalizations.of(context)!.parentSettings,
+        );
+      case 6:
+        return const ParentClassesScreen();
+      case 7:
+        return const ClassRecordingsScreen();
+      case 8:
+        return const TontineHomeScreen();
+      case 9:
+        return const CurriculumBooksScreen();
+      case 10:
+        return const ChatPage();
       default:
         return const SizedBox.shrink();
     }

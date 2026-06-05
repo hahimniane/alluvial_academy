@@ -23,7 +23,13 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
   bool _isLoading = true;
   bool _isSaving = false;
   bool _updatingMobileClasses = false;
+  bool _savingClassMonitor = false;
   bool _hasAccess = true;
+
+  // Designated "class attendance monitor" admin who receives alerts when a class
+  // is in session but the teacher or students haven't joined. Empty = all admins.
+  String _classMonitorAdminId = '';
+  String _classMonitorAdminName = '';
 
   @override
   void initState() {
@@ -114,6 +120,10 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
       if (doc.exists && mounted) {
         final data = doc.data()!;
         _notificationEmailController.text = data['notification_email'] ?? '';
+        _classMonitorAdminId =
+            (data['class_monitor_admin_id'] ?? '').toString().trim();
+        _classMonitorAdminName =
+            (data['class_monitor_admin_name'] ?? '').toString().trim();
       }
     } catch (e) {
       if (mounted) {
@@ -210,6 +220,148 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
     );
   }
 
+  /// Loads admin users (role/user_type admin variants, or is_admin flag).
+  Future<List<Map<String, String>>> _loadAdminUsers() async {
+    const adminRoles = ['admin', 'super_admin', 'admin_teacher'];
+    final firestore = FirebaseFirestore.instance;
+    final results = await Future.wait([
+      firestore.collection('users').where('role', whereIn: adminRoles).get(),
+      firestore.collection('users').where('user_type', whereIn: adminRoles).get(),
+      firestore.collection('users').where('is_admin', isEqualTo: true).get(),
+    ]);
+
+    final byId = <String, Map<String, String>>{};
+    for (final snap in results) {
+      for (final doc in snap.docs) {
+        if (byId.containsKey(doc.id)) continue;
+        final data = doc.data();
+        final name =
+            '${data['first_name'] ?? ''} ${data['last_name'] ?? ''}'.trim();
+        final email = (data['e-mail'] ?? data['email'] ?? '').toString();
+        byId[doc.id] = {
+          'id': doc.id,
+          'name': name.isNotEmpty ? name : (email.isNotEmpty ? email : doc.id),
+          'email': email,
+        };
+      }
+    }
+    final admins = byId.values.toList()
+      ..sort((a, b) =>
+          a['name']!.toLowerCase().compareTo(b['name']!.toLowerCase()));
+    return admins;
+  }
+
+  Future<void> _pickClassMonitorAdmin() async {
+    if (_savingClassMonitor) return;
+    List<Map<String, String>> admins;
+    try {
+      admins = await _loadAdminUsers();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to load administrators: $e')),
+      );
+      return;
+    }
+    if (!mounted) return;
+
+    final selected = await showDialog<Map<String, String>>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: Text(
+          'Class attendance monitor',
+          style: GoogleFonts.inter(fontWeight: FontWeight.w700),
+        ),
+        children: [
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(ctx, {'id': '', 'name': ''}),
+            child: Row(
+              children: [
+                const Icon(Icons.groups_outlined, size: 20, color: Color(0xff6B7280)),
+                const SizedBox(width: 12),
+                Text('All administrators',
+                    style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          ...admins.map(
+            (admin) => SimpleDialogOption(
+              onPressed: () => Navigator.pop(ctx, admin),
+              child: Row(
+                children: [
+                  Icon(
+                    admin['id'] == _classMonitorAdminId
+                        ? Icons.check_circle
+                        : Icons.person_outline,
+                    size: 20,
+                    color: admin['id'] == _classMonitorAdminId
+                        ? const Color(0xff10B981)
+                        : const Color(0xff6B7280),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(admin['name'] ?? '',
+                            style:
+                                GoogleFonts.inter(fontWeight: FontWeight.w600)),
+                        if ((admin['email'] ?? '').isNotEmpty)
+                          Text(admin['email']!,
+                              style: GoogleFonts.inter(
+                                  fontSize: 12, color: const Color(0xff6B7280))),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (selected == null) return;
+    await _setClassMonitorAdmin(selected['id'] ?? '', selected['name'] ?? '');
+  }
+
+  Future<void> _setClassMonitorAdmin(String id, String name) async {
+    setState(() => _savingClassMonitor = true);
+    try {
+      await FirebaseFirestore.instance.collection('settings').doc('admin').set({
+        'class_monitor_admin_id': id,
+        'class_monitor_admin_name': name,
+        'updated_at': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+      if (!mounted) return;
+      setState(() {
+        _classMonitorAdminId = id;
+        _classMonitorAdminName = name;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(id.isEmpty
+              ? 'Class alerts will go to all administrators.'
+              : 'Class alerts will go to $name.'),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to update class monitor: $e'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _savingClassMonitor = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (!_hasAccess) {
@@ -292,6 +444,10 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
                             ),
                           ),
                           const SizedBox(height: 48),
+                          _buildSectionTitle('Class Monitoring'),
+                          const SizedBox(height: 16),
+                          _buildClassMonitorCard(),
+                          const SizedBox(height: 48),
                           _buildSectionTitle('Mobile Classes'),
                           const SizedBox(height: 16),
                           _buildMobileClassesCard(),
@@ -303,6 +459,144 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
                       ),
                     ),
                   ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildClassMonitorCard() {
+    final hasMonitor = _classMonitorAdminId.isNotEmpty;
+    final recipientLabel = hasMonitor
+        ? (_classMonitorAdminName.isNotEmpty
+            ? _classMonitorAdminName
+            : _classMonitorAdminId)
+        : 'All administrators';
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xffF59E0B).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.notifications_active_outlined,
+                  color: Color(0xffF59E0B),
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Missing-attendance alerts',
+                      style: GoogleFonts.inter(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xff111827),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'When a class is in session but the teacher or students '
+                      "haven't joined within 5 minutes, this person is alerted "
+                      'every 5 minutes until someone joins.',
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        color: const Color(0xff6B7280),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xffF8FAFC),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xffE2E8F0)),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  hasMonitor ? Icons.person : Icons.groups_outlined,
+                  size: 18,
+                  color: const Color(0xff64748B),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Alerts go to',
+                        style: GoogleFonts.inter(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xff94A3B8),
+                        ),
+                      ),
+                      Text(
+                        recipientLabel,
+                        style: GoogleFonts.inter(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xff0F172A),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (_savingClassMonitor)
+                  const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              OutlinedButton.icon(
+                onPressed: _savingClassMonitor ? null : _pickClassMonitorAdmin,
+                icon: const Icon(Icons.person_search, size: 18),
+                label: Text(
+                  hasMonitor ? 'Change recipient' : 'Choose recipient',
+                  style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+                ),
+              ),
+              if (hasMonitor) ...[
+                const SizedBox(width: 8),
+                TextButton(
+                  onPressed: _savingClassMonitor
+                      ? null
+                      : () => _setClassMonitorAdmin('', ''),
+                  child: Text(
+                    'Use all admins',
+                    style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
+            ],
           ),
         ],
       ),

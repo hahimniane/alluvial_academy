@@ -75,6 +75,10 @@ class _GuestJoinScreenState extends State<GuestJoinScreen> {
           authToken: joinResult.authToken!,
           displayName: joinResult.displayName ?? 'Guest',
           shiftName: joinResult.shiftName ?? 'Class',
+          shiftId: shiftId,
+          meetingId: joinResult.meetingId,
+          participantId: joinResult.participantId,
+          userRole: joinResult.userRole,
         ),
       ),
     );

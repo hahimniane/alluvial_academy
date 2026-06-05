@@ -75,7 +75,9 @@ class ChatService {
         .asyncMap((chatSnapshot) async {
       try {
         final visibleChats = chatSnapshot.docs
-            .where((doc) => _hasRecentMessage(doc.data()))
+            .where((doc) =>
+                _hasRecentMessage(doc.data()) ||
+                doc.data()['chat_type'] == 'group')
             .toList();
         final chatUsers = await _processChatSnapshot(visibleChats);
 
@@ -291,7 +293,6 @@ class ChatService {
         chatFutures.add(() async {
           final lastMessage =
               await _resolveVisibleLastMessage(chatDoc.id, chatData);
-          if (lastMessage == null) return null;
           final unreadCount = await _getUnreadCount(chatDoc.id);
           return _createGroupChatUser(
             chatDoc,

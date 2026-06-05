@@ -6,6 +6,16 @@ const _path = (config, suffix) => (
   `/accounts/${config.accountId}/realtime/kit/${config.appId}${suffix}`
 );
 
+const _withQuery = (suffix, query = {}) => {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(query)) {
+    if (value === undefined || value === null || value === '') continue;
+    params.set(key, String(value));
+  }
+  const queryString = params.toString();
+  return queryString ? `${suffix}?${queryString}` : suffix;
+};
+
 const realtimeKitRequest = async (method, suffix, body) => {
   const config = getRealtimeKitConfig();
   const response = await fetch(`${API_BASE}${_path(config, suffix)}`, {
@@ -64,6 +74,19 @@ const listMeetingParticipants = (meetingId) =>
     'GET',
     `/meetings/${encodeURIComponent(meetingId)}/participants`,
   );
+const getActiveSession = (meetingId) =>
+  realtimeKitRequest(
+    'GET',
+    `/meetings/${encodeURIComponent(meetingId)}/active-session`,
+  );
+const listSessionParticipants = (sessionId, query = {}) =>
+  realtimeKitRequest(
+    'GET',
+    _withQuery(
+      `/sessions/${encodeURIComponent(sessionId)}/participants`,
+      query,
+    ),
+  );
 const deleteParticipant = (meetingId, participantId) =>
   realtimeKitRequest(
     'DELETE',
@@ -89,6 +112,8 @@ module.exports = {
   addParticipant,
   updateParticipant,
   listMeetingParticipants,
+  getActiveSession,
+  listSessionParticipants,
   deleteParticipant,
   kickActiveSessionParticipants,
   refreshParticipantToken,

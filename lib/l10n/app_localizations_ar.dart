@@ -13568,6 +13568,208 @@ class AppLocalizationsAr extends AppLocalizations {
   String get adminInvoiceEditBillingPeriodLabel => 'Billing period';
 
   @override
+  String get adminInvoicePaymentLinkCopied => 'Invoice payment link copied';
+
+  @override
+  String get adminInvoiceCopyLink => 'Copy link';
+
+  @override
+  String get adminInvoiceReportingTitle => 'Invoice reporting';
+
+  @override
+  String get adminInvoiceExportExcel => 'Export Excel';
+
+  @override
+  String get adminInvoiceMetricIssued => 'Issued';
+
+  @override
+  String get adminInvoiceMetricReceived => 'Received';
+
+  @override
+  String get adminInvoiceMetricOutstanding => 'Outstanding';
+
+  @override
+  String get adminInvoiceSearchHintDetailed => 'Invoice number, ID, or month';
+
+  @override
+  String get adminInvoiceSearchHintUnified =>
+      'ابحث عن الفاتورة أو ولي الأمر أو الطالب أو الرقم أو الشهر';
+
+  @override
+  String get adminInvoiceParentSearchHint => 'Parent name or ID';
+
+  @override
+  String get adminInvoicePaymentFilterSuccessful => 'Successful';
+
+  @override
+  String get adminInvoicePaymentFilterPending => 'Pending';
+
+  @override
+  String get adminInvoicePaymentFilterOverdue => 'Overdue';
+
+  @override
+  String get adminInvoicePaymentFilterFailed => 'Failed';
+
+  @override
+  String get adminInvoiceSortNewest => 'Newest';
+
+  @override
+  String get adminInvoiceSortOldest => 'Oldest';
+
+  @override
+  String get adminInvoiceSortDueSoon => 'Due soon';
+
+  @override
+  String get adminInvoiceSortParent => 'Parent';
+
+  @override
+  String get adminInvoiceSortBalance => 'Balance';
+
+  @override
+  String get adminInvoiceDueDateFilter => 'Due date';
+
+  @override
+  String get adminInvoiceClearFiltersShort => 'Clear';
+
+  @override
+  String get adminInvoiceExportInvoicesSheet => 'Invoices';
+
+  @override
+  String get adminInvoiceExportTransactionsSheet => 'Transactions';
+
+  @override
+  String get adminInvoiceExportInvoiceNumber => 'رقم الفاتورة';
+
+  @override
+  String get adminInvoiceExportParentName => 'ولي الأمر';
+
+  @override
+  String get adminInvoiceExportStudentName => 'الطالب';
+
+  @override
+  String get adminInvoiceExportInvoiceStatus => 'الحالة';
+
+  @override
+  String get adminInvoiceExportTotalAmount => 'Total Amount';
+
+  @override
+  String get adminInvoiceExportPaidAmount => 'Paid Amount';
+
+  @override
+  String get adminInvoiceExportOutstandingBalance => 'Outstanding Balance';
+
+  @override
+  String get adminInvoiceExportCurrency => 'Currency';
+
+  @override
+  String get adminInvoiceExportIssuedDate => 'Issued Date';
+
+  @override
+  String get adminInvoiceExportDueDate => 'Due Date';
+
+  @override
+  String get adminInvoiceExportBillingPeriod => 'Billing Period';
+
+  @override
+  String get adminInvoiceExportRecurringEnabled => 'Recurring Enabled';
+
+  @override
+  String get adminInvoiceExportPaymentLink => 'Payment Link';
+
+  @override
+  String get adminInvoiceExportAmount => 'Amount';
+
+  @override
+  String get adminInvoiceExportPaymentStatus => 'Payment Status';
+
+  @override
+  String get adminInvoiceExportPaymentMethod => 'Payment Method';
+
+  @override
+  String get adminInvoiceExportCreatedAt => 'Created At';
+
+  @override
+  String get adminInvoiceExportCompletedAt => 'Completed At';
+
+  @override
+  String get adminCreateInvoiceSearchHintPhone =>
+      'Search by name, email, or phone...';
+
+  @override
+  String get adminCreateInvoiceSelectBillingMonth =>
+      'Select at least one billing month';
+
+  @override
+  String get adminCreateInvoiceMissingPositiveAmount =>
+      'أدخل مبلغاً لطالب واحد على الأقل';
+
+  @override
+  String adminCreateInvoiceOneCreated(Object invoiceNumber) {
+    return 'Invoice $invoiceNumber created successfully';
+  }
+
+  @override
+  String adminCreateInvoiceManyCreated(int count, Object invoiceNumbers) {
+    return '$count invoices created successfully: $invoiceNumbers';
+  }
+
+  @override
+  String adminCreateInvoiceRecurringCreated(Object month) {
+    return 'تم إنشاء جدول الفواتير المتكررة. سيتم إرسال الفاتورة التالية لشهر $month.';
+  }
+
+  @override
+  String get adminCreateInvoiceBillingMonths => 'Billing months';
+
+  @override
+  String adminCreateInvoiceMonthsSelected(int count) {
+    return '$count months selected';
+  }
+
+  @override
+  String get adminCreateInvoiceBillingModeOneTitle => 'فاتورة واحدة الآن';
+
+  @override
+  String get adminCreateInvoiceBillingModeOneDescription =>
+      'ادمج كل الأشهر المحددة في فاتورة واحدة وأرسل بريداً إلكترونياً واحداً.';
+
+  @override
+  String get adminCreateInvoiceBillingModeSeparateTitle => 'فواتير منفصلة الآن';
+
+  @override
+  String get adminCreateInvoiceBillingModeSeparateDescription =>
+      'أنشئ فاتورة لكل شهر محدد وأرسل كل فاتورة اليوم.';
+
+  @override
+  String get adminCreateInvoiceBillingModeRecurringTitle => 'جدول متكرر';
+
+  @override
+  String get adminCreateInvoiceBillingModeRecurringDescription =>
+      'أرسل كل شهر محدد تلقائياً عند حلول ذلك الشهر.';
+
+  @override
+  String get adminCreateInvoiceRepeatTiming => 'توقيت التكرار';
+
+  @override
+  String adminCreateInvoiceRecurringDay(int day) {
+    return 'اليوم $day';
+  }
+
+  @override
+  String adminCreateInvoiceRecurringSummary(int count) {
+    return 'سيتم إنشاء $count فواتير، شهر واحد في كل مرة.';
+  }
+
+  @override
+  String get adminCreateInvoiceCreateOneInvoice => 'إنشاء فاتورة واحدة';
+
+  @override
+  String get adminCreateInvoiceCreateSeparateInvoices => 'إنشاء فواتير منفصلة';
+
+  @override
+  String get adminCreateInvoiceCreateRecurringSchedule => 'إنشاء جدول متكرر';
+
+  @override
   String get invoiceAlreadyPaid => 'Invoice already paid';
 
   @override

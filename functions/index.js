@@ -23,6 +23,7 @@ const passwordHandlers = require('./handlers/password');
 const paymentHandlers = require('./handlers/payments');
 const invoiceAccessHandlers = require('./handlers/invoice_access');
 const noShowHandlers = require('./handlers/no_show');
+const classAttendanceMonitorHandlers = require('./handlers/class_attendance_monitor');
 const chatHandlers = require('./handlers/chat');
 const directCallHandlers = require('./handlers/direct_calls');
 const aiTutorHandlers = require('./handlers/ai_tutor');
@@ -134,6 +135,8 @@ exports.getUserTimezone = timezoneHandlers.getUserTimezone;
 // No-show reporting
 exports.reportNoShow = noShowHandlers.reportNoShow;
 exports.reportClassTechnicalIssue = noShowHandlers.reportClassTechnicalIssue;
+exports.monitorActiveClassAttendance =
+  classAttendanceMonitorHandlers.monitorActiveClassAttendance;
 exports.generateWeeklyStudentAttendanceReports =
   attendanceHandlers.generateWeeklyStudentAttendanceReports;
 exports.generateMonthlyStudentAttendanceReports =
@@ -368,6 +371,7 @@ exports.cleanupExpiredClassRecordings = livekitHandlers.cleanupExpiredClassRecor
 // Cloudflare RealtimeKit Classroom Video Functions
 exports.getRealtimeKitJoinToken = realtimekitHandlers.getRealtimeKitJoinToken;
 exports.getRealtimeKitRoomPresence = realtimekitHandlers.getRealtimeKitRoomPresence;
+exports.updateRealtimeKitPresence = realtimekitHandlers.updateRealtimeKitPresence;
 exports.kickRealtimeKitParticipant = realtimekitHandlers.kickRealtimeKitParticipant;
 exports.setRealtimeKitRoomLock = realtimekitHandlers.setRealtimeKitRoomLock;
 exports.setRealtimeKitRecordingEnabled =

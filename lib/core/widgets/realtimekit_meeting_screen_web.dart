@@ -1,20 +1,31 @@
 // ignore_for_file: avoid_web_libraries_in_flutter, deprecated_member_use
 
+import 'dart:async';
 import 'dart:html' as html;
 import 'dart:ui_web' as ui_web;
 
 import 'package:flutter/material.dart';
 
+import 'package:alluwalacademyadmin/core/services/class_video_service.dart';
+
 class RealtimeKitMeetingScreen extends StatefulWidget {
   final String authToken;
   final String displayName;
   final String shiftName;
+  final String shiftId;
+  final String? meetingId;
+  final String? participantId;
+  final String? userRole;
 
   const RealtimeKitMeetingScreen({
     super.key,
     required this.authToken,
     required this.displayName,
     required this.shiftName,
+    required this.shiftId,
+    this.meetingId,
+    this.participantId,
+    this.userRole,
   });
 
   @override
@@ -24,6 +35,7 @@ class RealtimeKitMeetingScreen extends StatefulWidget {
 
 class _RealtimeKitMeetingScreenState extends State<RealtimeKitMeetingScreen> {
   late final String _viewType;
+  Timer? _presenceTimer;
 
   @override
   void initState() {
@@ -44,6 +56,17 @@ class _RealtimeKitMeetingScreenState extends State<RealtimeKitMeetingScreen> {
             'camera; microphone; display-capture; fullscreen; autoplay; clipboard-write'
         ..allowFullscreen = true;
     });
+    _markPresence('join');
+    _presenceTimer = Timer.periodic(const Duration(seconds: 20), (_) {
+      _markPresence('heartbeat');
+    });
+  }
+
+  @override
+  void dispose() {
+    _presenceTimer?.cancel();
+    _markPresence('leave');
+    super.dispose();
   }
 
   @override
@@ -57,5 +80,16 @@ class _RealtimeKitMeetingScreenState extends State<RealtimeKitMeetingScreen> {
       ),
       body: HtmlElementView(viewType: _viewType),
     );
+  }
+
+  void _markPresence(String event) {
+    unawaited(ClassVideoPresenceService.markPresence(
+      shiftId: widget.shiftId,
+      event: event,
+      meetingId: widget.meetingId,
+      participantId: widget.participantId,
+      displayName: widget.displayName,
+      userRole: widget.userRole,
+    ));
   }
 }

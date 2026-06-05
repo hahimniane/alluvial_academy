@@ -33,6 +33,11 @@ const mockRealtimeKitClient = {
     data: { id: 'participant_1', token: 'auth_token_1' },
   })),
   listMeetingParticipants: jest.fn(async () => ({ success: true, data: [] })),
+  getActiveSession: jest.fn(async () => ({ success: true, data: null })),
+  listSessionParticipants: jest.fn(async () => ({
+    success: true,
+    data: { participants: [] },
+  })),
   refreshParticipantToken: jest.fn(async () => ({
     success: true,
     data: { token: 'refreshed_auth_token_1' },
@@ -46,10 +51,19 @@ jest.mock('../services/realtimekit/client', () => mockRealtimeKitClient);
 
 let mockUsers;
 let mockShifts;
+let mockRealtimeKitPresence;
+
+const mockTimestampFromDate = (date) => ({
+  toDate: () => date,
+});
 
 const mockMakeDocRef = (collectionName, id) => ({
   get: async () => {
-    const store = collectionName === 'users' ? mockUsers : mockShifts;
+    const store = collectionName === 'users'
+      ? mockUsers
+      : collectionName === 'realtimekit_presence'
+        ? mockRealtimeKitPresence
+        : mockShifts;
     const data = store[id];
     return {
       exists: data !== undefined,
@@ -58,11 +72,19 @@ const mockMakeDocRef = (collectionName, id) => ({
     };
   },
   set: async (data, options) => {
-    const store = collectionName === 'users' ? mockUsers : mockShifts;
+    const store = collectionName === 'users'
+      ? mockUsers
+      : collectionName === 'realtimekit_presence'
+        ? mockRealtimeKitPresence
+        : mockShifts;
     store[id] = options?.merge ? { ...(store[id] || {}), ...data } : data;
   },
   update: async (data) => {
-    const store = collectionName === 'users' ? mockUsers : mockShifts;
+    const store = collectionName === 'users'
+      ? mockUsers
+      : collectionName === 'realtimekit_presence'
+        ? mockRealtimeKitPresence
+        : mockShifts;
     store[id] = { ...(store[id] || {}), ...data };
   },
 });
@@ -84,22 +106,50 @@ const mockFirestore = jest.fn(() => ({
   batch: () => mockMakeBatch(),
   collection: (name) => ({
     doc: (id) => mockMakeDocRef(name, id),
+    where: (field, operator, value) => ({
+      get: async () => {
+        const store = name === 'realtimekit_presence'
+          ? mockRealtimeKitPresence
+          : name === 'users'
+            ? mockUsers
+            : mockShifts;
+        return {
+          docs: Object.entries(store)
+            .filter(([, data]) => {
+              if (operator !== '==') return false;
+              return data[field] === value;
+            })
+            .map(([id, data]) => ({
+              id,
+              data: () => data,
+            })),
+        };
+      },
+    }),
   }),
 }));
 mockFirestore.FieldValue = {
   serverTimestamp: () => new Date('2026-01-01T00:00:00.000Z'),
 };
+mockFirestore.Timestamp = {
+  now: () => mockTimestampFromDate(new Date()),
+  fromDate: mockTimestampFromDate,
+};
 
 jest.mock('firebase-admin', () => ({
   apps: [],
   initializeApp: jest.fn(),
-  firestore: mockFirestore,
+  firestore: Object.assign(mockFirestore, {
+    FieldValue: mockFirestore.FieldValue,
+    Timestamp: mockFirestore.Timestamp,
+  }),
 }));
 
 const {
   getRealtimeKitJoinToken,
   getRealtimeKitGuestJoin,
   getRealtimeKitRoomPresence,
+  updateRealtimeKitPresence,
   kickRealtimeKitParticipant,
   setRealtimeKitRoomLock,
   setRealtimeKitRecordingEnabled,
@@ -188,6 +238,7 @@ describe('RealtimeKit class access', () => {
         subject_display_name: 'Arabic',
       },
     };
+    mockRealtimeKitPresence = {};
   });
 
   test('creates a meeting and participant token for an assigned student', async () => {
@@ -599,19 +650,40 @@ describe('RealtimeKit class access', () => {
     expect(result.participantCount).toBe(0);
     expect(result.participants).toEqual([]);
     expect(mockRealtimeKitClient.listMeetingParticipants).not.toHaveBeenCalled();
+    expect(mockRealtimeKitClient.getActiveSession).not.toHaveBeenCalled();
   });
 
-  test('presence lists RealtimeKit participants for authorized users', async () => {
+  test('presence lists live RealtimeKit session participants for authorized users', async () => {
     mockShifts.shift_1.realtimekit_meeting_id = 'meeting_1';
-    mockRealtimeKitClient.listMeetingParticipants.mockResolvedValueOnce({
+    mockRealtimeKitClient.getActiveSession.mockResolvedValueOnce({
       success: true,
-      data: [{
-        id: 'participant_student',
-        custom_participant_id: 'student_1',
-        name: 'Student One',
-        preset_name: 'student',
-        created_at: '2026-01-01T00:00:00.000Z',
-      }],
+      data: {
+        id: 'session_1',
+        live_participants: 1,
+        status: 'LIVE',
+      },
+    });
+    mockRealtimeKitClient.listSessionParticipants.mockResolvedValueOnce({
+      success: true,
+      data: {
+        participants: [
+          {
+            id: 'participant_student',
+            custom_participant_id: 'student_1',
+            display_name: 'Student One',
+            preset_name: 'student',
+            joined_at: '2026-01-01T00:00:00.000Z',
+          },
+          {
+            id: 'participant_left',
+            custom_participant_id: 'student_left',
+            display_name: 'Student Left',
+            preset_name: 'student',
+            joined_at: '2026-01-01T00:00:00.000Z',
+            left_at: '2026-01-01T00:05:00.000Z',
+          },
+        ],
+      },
     });
 
     const result = await getRealtimeKitRoomPresence({
@@ -621,6 +693,7 @@ describe('RealtimeKit class access', () => {
 
     expect(result.success).toBe(true);
     expect(result.meetingId).toBe('meeting_1');
+    expect(result.sessionId).toBe('session_1');
     expect(result.participantCount).toBe(1);
     expect(result.participants).toEqual([
       expect.objectContaining({
@@ -629,6 +702,123 @@ describe('RealtimeKit class access', () => {
         role: 'student',
       }),
     ]);
+    expect(mockRealtimeKitClient.getActiveSession).toHaveBeenCalledWith('meeting_1');
+    expect(mockRealtimeKitClient.listSessionParticipants).toHaveBeenCalledWith(
+      'session_1',
+      expect.objectContaining({
+        per_page: 100,
+        sort_by: 'joinedAt',
+        sort_order: 'DESC',
+      }),
+    );
+    expect(mockRealtimeKitClient.listMeetingParticipants).not.toHaveBeenCalled();
+  });
+
+  test('presence does not invent participants from aggregate active count alone', async () => {
+    mockShifts.shift_1.realtimekit_meeting_id = 'meeting_1';
+    mockRealtimeKitClient.getActiveSession.mockResolvedValueOnce({
+      success: true,
+      data: {
+        id: 'session_1',
+        live_participants: 2,
+        status: 'LIVE',
+      },
+    });
+    mockRealtimeKitClient.listSessionParticipants.mockResolvedValueOnce({
+      success: true,
+      data: { participants: [] },
+    });
+
+    const result = await getRealtimeKitRoomPresence({
+      auth: { uid: 'teacher_1' },
+      data: { shiftId: 'shift_1' },
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.participantCount).toBe(0);
+    expect(result.participants).toEqual([]);
+  });
+
+  test('client heartbeat presence makes current app participants visible immediately', async () => {
+    mockShifts.shift_1.realtimekit_meeting_id = 'meeting_1';
+
+    const heartbeat = await updateRealtimeKitPresence({
+      auth: { uid: 'student_1' },
+      data: {
+        shiftId: 'shift_1',
+        event: 'heartbeat',
+        meetingId: 'meeting_1',
+        participantId: 'participant_student',
+        displayName: 'Student One',
+        userRole: 'student',
+      },
+    });
+
+    expect(heartbeat).toEqual({ success: true, active: true });
+
+    const result = await getRealtimeKitRoomPresence({
+      auth: { uid: 'teacher_1' },
+      data: { shiftId: 'shift_1' },
+    });
+
+    expect(result.participantCount).toBe(1);
+    expect(result.participants).toEqual([
+      expect.objectContaining({
+        identity: 'student_1',
+        name: 'Student One',
+        role: 'student',
+      }),
+    ]);
+  });
+
+  test('client leave removes the participant from current presence', async () => {
+    mockShifts.shift_1.realtimekit_meeting_id = 'meeting_1';
+    await updateRealtimeKitPresence({
+      auth: { uid: 'student_1' },
+      data: {
+        shiftId: 'shift_1',
+        event: 'join',
+        participantId: 'participant_student',
+        displayName: 'Student One',
+      },
+    });
+    await updateRealtimeKitPresence({
+      auth: { uid: 'student_1' },
+      data: {
+        shiftId: 'shift_1',
+        event: 'leave',
+        participantId: 'participant_student',
+      },
+    });
+
+    const result = await getRealtimeKitRoomPresence({
+      auth: { uid: 'teacher_1' },
+      data: { shiftId: 'shift_1' },
+    });
+
+    expect(result.participantCount).toBe(0);
+    expect(result.participants).toEqual([]);
+  });
+
+  test('stale client presence is ignored', async () => {
+    mockShifts.shift_1.realtimekit_meeting_id = 'meeting_1';
+    mockRealtimeKitPresence.shift_1_student_1 = {
+      shift_id: 'shift_1',
+      user_id: 'student_1',
+      display_name: 'Student One',
+      user_role: 'student',
+      active: true,
+      joined_at: mockTimestampFromDate(new Date('2026-01-01T00:00:00.000Z')),
+      last_seen_at: mockTimestampFromDate(new Date(Date.now() - 5 * 60 * 1000)),
+    };
+
+    const result = await getRealtimeKitRoomPresence({
+      auth: { uid: 'teacher_1' },
+      data: { shiftId: 'shift_1' },
+    });
+
+    expect(result.participantCount).toBe(0);
+    expect(result.participants).toEqual([]);
   });
 
   test('guest join is blocked while the room is locked', async () => {

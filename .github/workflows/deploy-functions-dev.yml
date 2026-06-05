@@ -5,6 +5,8 @@ name: Deploy Functions (dev)
 #
 # Safety: only runs on direct pushes to `main` (which, under branch protection,
 # only happen via merged PRs). Never runs on branches or PRs.
+#
+# Temporarily disabled while the `alluwal-dev` Firebase project is inactive.
 
 on:
   push:
@@ -23,6 +25,7 @@ jobs:
     name: Deploy Functions to alluwal-dev
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    if: false
     steps:
       - name: Checkout
         uses: actions/checkout@v4

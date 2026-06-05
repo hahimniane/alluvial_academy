@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -777,7 +778,7 @@ class _ZoomScreenState extends State<ZoomScreen> with WidgetsBindingObserver {
               shift: shift,
               isTeacher: !isStudent,
               liveKitPresenceFuture: isAdmin &&
-                      shift.usesLiveKit &&
+                      (shift.usesRealtimeKit || shift.usesLiveKit) &&
                       VideoCallService.canJoinClass(shift)
                   ? _getLiveKitPresence(shift.id)
                   : null,
@@ -890,7 +891,8 @@ class _ZoomScreenState extends State<ZoomScreen> with WidgetsBindingObserver {
                     if (isAdmin) {
                       _autoRefreshPresenceShiftIds = zoomShifts
                           .where((s) =>
-                              s.usesLiveKit && VideoCallService.canJoinClass(s))
+                              (s.usesRealtimeKit || s.usesLiveKit) &&
+                              VideoCallService.canJoinClass(s))
                           .take(25)
                           .map((s) => s.id)
                           .toSet();
@@ -1509,29 +1511,36 @@ class _ZoomShiftCard extends StatelessWidget {
                             .zoomInclassnowcount(count),
                         subtitle: subtitle,
                         onTap: count > 0
-                            ? () => _showLiveKitParticipantsDialog(
-                                context, presence)
+                            ? () => _showLiveKitParticipantsPopover(
+                                  context,
+                                  presence,
+                                )
                             : null,
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             if (count > 0)
-                              TextButton(
-                                onPressed: () => _showLiveKitParticipantsDialog(
-                                    context, presence),
-                                style: TextButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 6),
-                                  minimumSize: Size.zero,
-                                  tapTargetSize:
-                                      MaterialTapTargetSize.shrinkWrap,
-                                ),
-                                child: Text(
-                                  AppLocalizations.of(context)!.commonView,
-                                  style: GoogleFonts.inter(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: const Color(0xFF0E72ED),
+                              Builder(
+                                builder: (buttonContext) => TextButton(
+                                  onPressed: () =>
+                                      _showLiveKitParticipantsPopover(
+                                    buttonContext,
+                                    presence,
+                                  ),
+                                  style: TextButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 6),
+                                    minimumSize: Size.zero,
+                                    tapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
+                                  ),
+                                  child: Text(
+                                    AppLocalizations.of(context)!.commonView,
+                                    style: GoogleFonts.inter(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: const Color(0xFF0E72ED),
+                                    ),
                                   ),
                                 ),
                               ),
@@ -1717,93 +1726,235 @@ class _LiveKitPresenceRow extends StatelessWidget {
   }
 }
 
-void _showLiveKitParticipantsDialog(
+void _showLiveKitParticipantsPopover(
   BuildContext context,
   LiveKitRoomPresenceResult presence,
 ) {
-  final participants = presence.participants;
+  final anchorBox = context.findRenderObject() as RenderBox?;
+  final overlay = Navigator.of(context, rootNavigator: true)
+      .overlay
+      ?.context
+      .findRenderObject() as RenderBox?;
+  if (anchorBox == null || overlay == null) return;
 
-  showDialog<void>(
+  const margin = 12.0;
+  const gap = 8.0;
+  const popoverWidth = 360.0;
+  const popoverHeight = 420.0;
+  final anchorOffset = anchorBox.localToGlobal(Offset.zero, ancestor: overlay);
+  final anchorRect = anchorOffset & anchorBox.size;
+  final overlaySize = overlay.size;
+  final fitsRight =
+      overlaySize.width - anchorRect.right - margin >= popoverWidth;
+  final rawLeft =
+      fitsRight ? anchorRect.right + gap : anchorRect.left - popoverWidth - gap;
+  final maxLeft = math.max(margin, overlaySize.width - popoverWidth - margin);
+  final left = rawLeft.clamp(margin, maxLeft).toDouble();
+  final maxTop = math.max(margin, overlaySize.height - popoverHeight - margin);
+  final top = (anchorRect.top - 12).clamp(margin, maxTop).toDouble();
+
+  showMenu<void>(
     context: context,
-    builder: (context) {
-      final l10n = AppLocalizations.of(context)!;
-      return AlertDialog(
-        title: Text(
-          l10n.classesParticipantsCount(presence.participantCount),
-          style: GoogleFonts.inter(fontWeight: FontWeight.w700),
+    useRootNavigator: true,
+    position: RelativeRect.fromLTRB(
+      left,
+      top,
+      math.max(margin, overlaySize.width - left - popoverWidth),
+      math.max(margin, overlaySize.height - top - popoverHeight),
+    ),
+    color: Colors.transparent,
+    elevation: 0,
+    items: [
+      PopupMenuItem<void>(
+        enabled: false,
+        padding: EdgeInsets.zero,
+        child: _LiveKitParticipantsPopover(
+          presence: presence,
+          maxHeight: math.min(popoverHeight, overlaySize.height - 2 * margin),
         ),
-        content: ConstrainedBox(
-          constraints: const BoxConstraints(
-            maxHeight: 320,
-            minWidth: 280,
-            maxWidth: 520,
-          ),
-          child: participants.isEmpty
-              ? Text(
-                  l10n.noOneIsInTheRoom,
-                  style: GoogleFonts.inter(color: const Color(0xFF64748B)),
-                )
-              : ListView.separated(
-                  shrinkWrap: true,
-                  itemCount: participants.length,
-                  separatorBuilder: (_, __) => const Divider(height: 1),
-                  itemBuilder: (context, index) {
-                    final participant = participants[index];
-                    final role = participant.role?.toLowerCase();
+      ),
+    ],
+  );
+}
 
-                    IconData icon = Icons.person_outline;
-                    Color iconColor = const Color(0xFF64748B);
-                    String? roleLabel;
+class _LiveKitParticipantsPopover extends StatelessWidget {
+  final LiveKitRoomPresenceResult presence;
+  final double maxHeight;
 
-                    if (role == 'teacher') {
-                      icon = Icons.school;
-                      iconColor = const Color(0xFF0E72ED);
-                      roleLabel = l10n.roleTeacher;
-                    } else if (role == 'student') {
-                      icon = Icons.person;
-                      iconColor = const Color(0xFF10B981);
-                      roleLabel = l10n.roleStudent;
-                    } else if (role != null && role.isNotEmpty) {
-                      icon = Icons.admin_panel_settings_outlined;
-                      iconColor = const Color(0xFF8B5CF6);
-                      roleLabel = role;
-                    }
+  const _LiveKitParticipantsPopover({
+    required this.presence,
+    required this.maxHeight,
+  });
 
-                    return ListTile(
-                      dense: true,
-                      contentPadding: EdgeInsets.zero,
-                      leading: Icon(icon, color: iconColor),
-                      title: Text(
-                        participant.name.isNotEmpty
-                            ? participant.name
-                            : participant.identity,
-                        style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final participants = presence.participants;
+
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      clipBehavior: Clip.antiAlias,
+      elevation: 14,
+      shadowColor: Colors.black.withAlpha(38),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          minWidth: 360,
+          maxWidth: 360,
+          maxHeight: maxHeight,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 8, 10),
+              child: Row(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0E72ED).withAlpha(26),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      Icons.groups_rounded,
+                      color: Color(0xFF0E72ED),
+                      size: 19,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      l10n.classesParticipantsCount(
+                        presence.participantCount,
                       ),
-                      subtitle: roleLabel == null
-                          ? null
-                          : Text(
-                              roleLabel,
-                              style: GoogleFonts.inter(
-                                fontSize: 12,
-                                color: const Color(0xFF64748B),
-                              ),
-                            ),
-                    );
-                  },
-                ),
+                      style: GoogleFonts.inter(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: const Color(0xFF0F172A),
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close_rounded),
+                    tooltip: l10n.commonClose,
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            Flexible(
+              child: participants.isEmpty
+                  ? Padding(
+                      padding: const EdgeInsets.all(22),
+                      child: Text(
+                        l10n.noOneIsInTheRoom,
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.inter(
+                          color: const Color(0xFF64748B),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    )
+                  : ListView.separated(
+                      shrinkWrap: true,
+                      padding: const EdgeInsets.all(12),
+                      itemCount: participants.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 8),
+                      itemBuilder: (context, index) {
+                        return _LiveKitParticipantTile(
+                          participant: participants[index],
+                        );
+                      },
+                    ),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text(
-              AppLocalizations.of(context)!.commonClose,
-              style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+      ),
+    );
+  }
+}
+
+class _LiveKitParticipantTile extends StatelessWidget {
+  final LiveKitRoomParticipantPresence participant;
+
+  const _LiveKitParticipantTile({required this.participant});
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final role = participant.role?.toLowerCase();
+
+    IconData icon = Icons.person_outline;
+    Color iconColor = const Color(0xFF64748B);
+    String? roleLabel;
+
+    if (role == 'teacher') {
+      icon = Icons.school;
+      iconColor = const Color(0xFF0E72ED);
+      roleLabel = l10n.roleTeacher;
+    } else if (role == 'student') {
+      icon = Icons.person;
+      iconColor = const Color(0xFF10B981);
+      roleLabel = l10n.roleStudent;
+    } else if (role != null && role.isNotEmpty) {
+      icon = Icons.admin_panel_settings_outlined;
+      iconColor = const Color(0xFF8B5CF6);
+      roleLabel = role;
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: iconColor.withAlpha(24),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: iconColor, size: 18),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  participant.name.isNotEmpty
+                      ? participant.name
+                      : participant.identity,
+                  style: GoogleFonts.inter(
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF0F172A),
+                  ),
+                ),
+                if (roleLabel != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    roleLabel,
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      color: const Color(0xFF64748B),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
         ],
-      );
-    },
-  );
+      ),
+    );
+  }
 }
 
 class _NoZoomShiftsState extends StatelessWidget {

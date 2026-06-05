@@ -5517,6 +5517,91 @@
   "classRecordingPermissionDisabled": "Enregistrement désactivé pour ce cours.",
   "classRecordingPermissionUpdateFailed": "Impossible de modifier l’autorisation d’enregistrement.",
   "bulkClassRecordingMenu": "Accès aux enregistrements",
+  "adminInvoicePaymentLinkCopied": "Invoice payment link copied",
+  "adminInvoiceCopyLink": "Copy link",
+  "adminInvoiceReportingTitle": "Invoice reporting",
+  "adminInvoiceExportExcel": "Export Excel",
+  "adminInvoiceMetricIssued": "Issued",
+  "adminInvoiceMetricReceived": "Received",
+  "adminInvoiceMetricOutstanding": "Outstanding",
+  "adminInvoiceSearchHintDetailed": "Invoice number, ID, or month",
+  "adminInvoiceParentSearchHint": "Parent name or ID",
+  "adminInvoicePaymentFilterSuccessful": "Successful",
+  "adminInvoicePaymentFilterPending": "Pending",
+  "adminInvoicePaymentFilterOverdue": "Overdue",
+  "adminInvoicePaymentFilterFailed": "Failed",
+  "adminInvoiceSortNewest": "Newest",
+  "adminInvoiceSortOldest": "Oldest",
+  "adminInvoiceSortDueSoon": "Due soon",
+  "adminInvoiceSortParent": "Parent",
+  "adminInvoiceSortBalance": "Balance",
+  "adminInvoiceDueDateFilter": "Due date",
+  "adminInvoiceClearFiltersShort": "Clear",
+  "adminInvoiceExportInvoicesSheet": "Invoices",
+  "adminInvoiceExportTransactionsSheet": "Transactions",
+  "adminInvoiceExportInvoiceNumber": "Numéro de facture",
+  "adminInvoiceExportParentName": "Parent",
+  "adminInvoiceExportStudentName": "Étudiant",
+  "adminInvoiceExportInvoiceStatus": "Statut",
+  "adminInvoiceExportTotalAmount": "Total Amount",
+  "adminInvoiceExportPaidAmount": "Paid Amount",
+  "adminInvoiceExportOutstandingBalance": "Outstanding Balance",
+  "adminInvoiceExportCurrency": "Currency",
+  "adminInvoiceExportIssuedDate": "Issued Date",
+  "adminInvoiceExportDueDate": "Due Date",
+  "adminInvoiceExportBillingPeriod": "Billing Period",
+  "adminInvoiceExportRecurringEnabled": "Recurring Enabled",
+  "adminInvoiceExportPaymentLink": "Payment Link",
+  "adminInvoiceExportAmount": "Amount",
+  "adminInvoiceExportPaymentStatus": "Payment Status",
+  "adminInvoiceExportPaymentMethod": "Payment Method",
+  "adminInvoiceExportCreatedAt": "Created At",
+  "adminInvoiceExportCompletedAt": "Completed At",
+  "adminCreateInvoiceSearchHintPhone": "Search by name, email, or phone...",
+  "adminCreateInvoiceSelectBillingMonth": "Select at least one billing month",
+  "adminCreateInvoiceOneCreated": "Invoice {invoiceNumber} created successfully",
+  "@adminCreateInvoiceOneCreated": {"placeholders": {"invoiceNumber": {"type": "Object"}}},
+  "adminCreateInvoiceManyCreated": "{count} invoices created successfully: {invoiceNumbers}",
+  "@adminCreateInvoiceManyCreated": {"placeholders": {"count": {"type": "int"}, "invoiceNumbers": {"type": "Object"}}},
+  "adminCreateInvoiceBillingMonths": "Billing months",
+  "adminCreateInvoiceMonthsSelected": "{count} months selected",
+  "@adminCreateInvoiceMonthsSelected": {"placeholders": {"count": {"type": "int"}}},
+  "adminInvoiceSearchHintUnified": "Rechercher une facture, un parent, un élève, un ID ou un mois",
+  "adminCreateInvoiceMissingPositiveAmount": "Saisissez un montant pour au moins un élève",
+  "adminCreateInvoiceRecurringCreated": "Le calendrier de facturation récurrente a été créé. La prochaine facture sera envoyée pour {month}.",
+  "@adminCreateInvoiceRecurringCreated": {
+    "placeholders": {
+      "month": {
+        "type": "Object"
+      }
+    }
+  },
+  "adminCreateInvoiceBillingModeOneTitle": "Une facture maintenant",
+  "adminCreateInvoiceBillingModeOneDescription": "Regrouper tous les mois sélectionnés dans une seule facture et envoyer un seul e-mail.",
+  "adminCreateInvoiceBillingModeSeparateTitle": "Factures séparées maintenant",
+  "adminCreateInvoiceBillingModeSeparateDescription": "Créer une facture par mois sélectionné et envoyer chaque facture aujourd’hui.",
+  "adminCreateInvoiceBillingModeRecurringTitle": "Calendrier récurrent",
+  "adminCreateInvoiceBillingModeRecurringDescription": "Envoyer automatiquement chaque mois sélectionné lorsque ce mois arrive.",
+  "adminCreateInvoiceRepeatTiming": "Moment de répétition",
+  "adminCreateInvoiceRecurringDay": "Jour {day}",
+  "@adminCreateInvoiceRecurringDay": {
+    "placeholders": {
+      "day": {
+        "type": "int"
+      }
+    }
+  },
+  "adminCreateInvoiceRecurringSummary": "Cela créera {count} factures, un mois à la fois.",
+  "@adminCreateInvoiceRecurringSummary": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "adminCreateInvoiceCreateOneInvoice": "Créer une facture",
+  "adminCreateInvoiceCreateSeparateInvoices": "Créer des factures séparées",
+  "adminCreateInvoiceCreateRecurringSchedule": "Créer un calendrier récurrent",
   "bulkClassRecordingTitle": "Accès groupé aux enregistrements",
   "bulkClassRecordingSubtitle": "Autoriser ou bloquer l’enregistrement pour un ensemble ciblé de cours.",
   "bulkClassRecordingAccess": "Modification d’accès",
