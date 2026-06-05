@@ -15,7 +15,6 @@ import '../../../core/models/employee_model.dart';
 import '../../../core/services/class_video_service.dart';
 import 'package:alluwalacademyadmin/features/shift_management/models/subject.dart';
 import 'package:alluwalacademyadmin/features/shift_management/services/shift_service.dart';
-import 'package:alluwalacademyadmin/features/time_clock/services/shift_timesheet_service.dart';
 import 'package:alluwalacademyadmin/features/shift_management/services/subject_service.dart';
 import '../../../core/services/user_role_service.dart';
 import '../../../core/services/web_app_stability_service.dart';
@@ -267,7 +266,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
 
         try {
           final paymentMap =
-              await ShiftTimesheetService.getActualPaymentsForShifts(shiftIds);
+              await ShiftService.getActualPaymentsForShifts(shiftIds);
 
           // Keep only non-zero actual payments so UI can fall back to scheduled
           // payments using: shiftPayments[shift.id] ?? shift.totalPayment

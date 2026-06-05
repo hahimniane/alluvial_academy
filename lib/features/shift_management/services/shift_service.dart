@@ -49,6 +49,89 @@ class ShiftService {
   static final FirebaseFunctions _functionsUsCentral1 =
       FirebaseFunctions.instanceFor(region: 'us-central1');
 
+  /// Batch get actual payment amounts for shifts from their timesheet entries.
+  static Future<Map<String, double>> getActualPaymentsForShifts(
+      List<String> shiftIds) async {
+    if (shiftIds.isEmpty) return {};
+
+    final opId = PerformanceLogger.newOperationId(
+        'ShiftService.getActualPaymentsForShifts');
+    PerformanceLogger.startTimer(opId, metadata: {
+      'shift_count': shiftIds.length,
+    });
+
+    try {
+      final paymentMap = <String, double>{
+        for (final shiftId in shiftIds) shiftId: 0.0,
+      };
+
+      final totalBatches = (shiftIds.length / 10).ceil();
+      int totalEntriesFound = 0;
+      int totalDocsProcessed = 0;
+      int totalQueryMs = 0;
+      int totalCalcMs = 0;
+
+      for (int i = 0; i < shiftIds.length; i += 10) {
+        final batch = shiftIds.skip(i).take(10).toList();
+        final batchIndex = (i ~/ 10) + 1;
+
+        final queryStopwatch = Stopwatch()..start();
+        final snapshot = await _firestore
+            .collection('timesheet_entries')
+            .where('shift_id', whereIn: batch)
+            .get();
+        queryStopwatch.stop();
+        totalQueryMs += queryStopwatch.elapsedMilliseconds;
+        totalEntriesFound += snapshot.docs.length;
+
+        final calcStopwatch = Stopwatch()..start();
+        for (final doc in snapshot.docs) {
+          final data = doc.data();
+          final shiftId = data['shift_id'] as String?;
+          if (shiftId == null || !paymentMap.containsKey(shiftId)) continue;
+
+          final payment = (data['payment_amount'] as num?)?.toDouble() ??
+              (data['total_pay'] as num?)?.toDouble() ??
+              0.0;
+          paymentMap[shiftId] = (paymentMap[shiftId] ?? 0.0) + payment;
+          totalDocsProcessed++;
+        }
+        calcStopwatch.stop();
+        totalCalcMs += calcStopwatch.elapsedMilliseconds;
+
+        PerformanceLogger.checkpoint(opId, 'batch_$batchIndex', metadata: {
+          'batch_index': batchIndex,
+          'total_batches': totalBatches,
+          'batch_size': batch.length,
+          'query_time_ms': queryStopwatch.elapsedMilliseconds,
+          'entries_found': snapshot.docs.length,
+          'calc_time_ms': calcStopwatch.elapsedMilliseconds,
+        });
+      }
+
+      final nonZeroPayments = paymentMap.values.where((v) => v != 0.0).length;
+      PerformanceLogger.endTimer(opId, metadata: {
+        'shift_count': shiftIds.length,
+        'payment_map_size': paymentMap.length,
+        'non_zero_payments': nonZeroPayments,
+        'batches': totalBatches,
+        'total_entries_found': totalEntriesFound,
+        'total_docs_processed': totalDocsProcessed,
+        'total_query_time_ms': totalQueryMs,
+        'total_calc_time_ms': totalCalcMs,
+      });
+
+      return paymentMap;
+    } catch (e) {
+      AppLogger.error('Error batch getting payments for shifts: $e');
+      PerformanceLogger.endTimer(opId, metadata: {
+        'error': e.toString(),
+        'shift_count': shiftIds.length,
+      });
+      return {for (final id in shiftIds) id: 0.0};
+    }
+  }
+
   /// Claims a published shift for the signed-in teacher.
   ///
   /// **Native:** uses the `claimShift` HTTPS callable (same logic as server).
