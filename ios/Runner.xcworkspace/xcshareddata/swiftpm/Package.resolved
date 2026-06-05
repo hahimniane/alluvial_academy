@@ -154,6 +154,15 @@
       }
     },
     {
+      "identity" : "mobile-core-bridge-spm",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/dyte-in/mobile-core-bridge-spm.git",
+      "state" : {
+        "branch" : "main",
+        "revision" : "89e62c0e50560cba1be69996bd61030ee6fbfa09"
+      }
+    },
+    {
       "identity" : "nanopb",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/firebase/nanopb.git",

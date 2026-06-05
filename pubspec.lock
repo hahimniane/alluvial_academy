@@ -361,6 +361,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.3.1"
+  dyte_icons:
+    dependency: transitive
+    description:
+      name: dyte_icons
+      sha256: d029fa0a9ebcdbd7a367bf63a68d679bb34a2abc7d139dbdd325ef4d6da0158f
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.0.3"
   emoji_picker_flutter:
     dependency: "direct main"
     description:
@@ -715,6 +723,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.0.34"
+  flutter_riverpod:
+    dependency: transitive
+    description:
+      name: flutter_riverpod
+      sha256: "9532ee6db4a943a1ed8383072a2e3eeda041db5657cdf6d2acecf3c21ecbe7e1"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.6.1"
   flutter_stripe:
     dependency: "direct main"
     description:
@@ -757,6 +773,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.4.0"
+  focus_detector_v2:
+    dependency: transitive
+    description:
+      name: focus_detector_v2
+      sha256: d4abc4c755ba894238ab92f42f6eee7ade78aa285199e112f45926c7053f90c6
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.1.0+1"
   font_awesome_flutter:
     dependency: "direct main"
     description:
@@ -877,6 +901,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.2.5"
+  get_it:
+    dependency: transitive
+    description:
+      name: get_it
+      sha256: "568d62f0e68666fb5d95519743b3c24a34c7f19d834b0658c46e26d778461f66"
+      url: "https://pub.dev"
+    source: hosted
+    version: "9.2.1"
   google_fonts:
     dependency: "direct main"
     description:
@@ -1437,6 +1469,22 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "6.1.5+1"
+  pub_semver:
+    dependency: transitive
+    description:
+      name: pub_semver
+      sha256: "5bfcf68ca79ef689f8990d1160781b4bad40a3bd5e5218ad4076ddb7f4081585"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.2.0"
+  pubspec_parse:
+    dependency: transitive
+    description:
+      name: pubspec_parse
+      sha256: "0560ba233314abbed0a48a2956f7f022cce7c3e1e73df540277da7544cad4082"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.5.0"
   qr:
     dependency: transitive
     description:
@@ -1453,6 +1501,46 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.2.2"
+  realtimekit_core:
+    dependency: transitive
+    description:
+      name: realtimekit_core
+      sha256: "9de2bdf09aed6ebb4a774c2c89e6f09c98899325a20bd6fa012fd2c3df4b14eb"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.1.6"
+  realtimekit_core_android:
+    dependency: transitive
+    description:
+      name: realtimekit_core_android
+      sha256: "8503919b9005d3298f2e9ad35a8a59c9cba8cd7b276eb0c21edaceab9c544eb3"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.1.6"
+  realtimekit_core_ios:
+    dependency: "direct overridden"
+    description:
+      name: realtimekit_core_ios
+      sha256: "6bd26e5ef9f164f04f5739d23e70ebb9f1f88b6bc984baf62f142daae31c2cf2"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.1.5"
+  realtimekit_core_platform_interface:
+    dependency: transitive
+    description:
+      name: realtimekit_core_platform_interface
+      sha256: c9d8edf550df1ccb687e0cffeeb392337e8877000ebe9641b4f7ac2147271309
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.1.6"
+  realtimekit_ui:
+    dependency: "direct main"
+    description:
+      name: realtimekit_ui
+      sha256: "817b12032997414e53dfbf01e5a3791750735f9eb9aa62fa812c39fd804ec542"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.3.0"
   record:
     dependency: "direct main"
     description:
@@ -1517,6 +1605,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.0.7"
+  riverpod:
+    dependency: transitive
+    description:
+      name: riverpod
+      sha256: "59062512288d3056b2321804332a13ffdd1bf16df70dcc8e506e411280a72959"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.6.1"
   sdp_transform:
     dependency: transitive
     description:
@@ -1626,6 +1722,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.12.1"
+  state_notifier:
+    dependency: transitive
+    description:
+      name: state_notifier
+      sha256: b8677376aa54f2d7c58280d5a007f9e8774f1968d1fb1c096adcb4792fba29bb
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.0"
   stream_channel:
     dependency: transitive
     description:
@@ -1922,6 +2026,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.4.0"
+  visibility_detector:
+    dependency: transitive
+    description:
+      name: visibility_detector
+      sha256: dd5cc11e13494f432d15939c3aa8ae76844c42b723398643ce9addb88a5ed420
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.4.0+2"
   vm_service:
     dependency: transitive
     description:

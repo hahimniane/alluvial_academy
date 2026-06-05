@@ -237,7 +237,7 @@ const _generateAutoName = (teacherName, subject, studentNames) => {
 };
 
 const _buildGeneratedShiftData = ({templateId, shiftId, template, shiftStartUtc, shiftEndUtc}) => {
-  const videoProvider = (template.video_provider || template.videoProvider || 'livekit').toString().trim().toLowerCase();
+  const videoProvider = (template.video_provider || template.videoProvider || 'realtimekit').toString().trim().toLowerCase();
 
   let autoName = template.auto_generated_name;
   if (!autoName) {
@@ -275,6 +275,7 @@ const _buildGeneratedShiftData = ({templateId, shiftId, template, shiftStartUtc,
     leader_role: template.leader_role || null,
     video_provider: videoProvider,
     livekit_room_name: videoProvider === 'livekit' ? `shift_${shiftId}` : null,
+    realtimekit_recording_enabled: template.realtimekit_recording_enabled === true,
     generated_from_template: true,
     template_id: templateId,
   };
@@ -560,7 +561,8 @@ const createShiftTemplate = onCall(async (request) => {
     notes: data.notes || null,
     category: (data.category || 'teaching').toString().trim(),
     leader_role: data.leader_role || null,
-    video_provider: (data.video_provider || 'livekit').toString().trim().toLowerCase(),
+    video_provider: (data.video_provider || 'realtimekit').toString().trim().toLowerCase(),
+    realtimekit_recording_enabled: data.realtimekit_recording_enabled === true,
     created_by_admin_id: data.created_by_admin_id || uid,
     created_at: admin.firestore.FieldValue.serverTimestamp(),
     last_modified: admin.firestore.FieldValue.serverTimestamp(),

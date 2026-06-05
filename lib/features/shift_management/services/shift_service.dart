@@ -1119,8 +1119,7 @@ class ShiftService {
     String? leaderRole,
     // NEW: Hourly rate - if provided, use it; otherwise use subject's defaultWage or teacher's wage
     double? hourlyRate,
-    // Video provider (Zoom or LiveKit beta)
-    VideoProvider videoProvider = VideoProvider.zoom,
+    VideoProvider videoProvider = VideoProvider.realtimekit,
   }) async {
     try {
       final currentUser = _auth.currentUser;
@@ -1318,7 +1317,6 @@ class ShiftService {
         // NEW: Category and leader role
         category: category,
         leaderRole: leaderRole,
-        // Video provider (Zoom or LiveKit beta)
         videoProvider: videoProvider,
         livekitRoomName: videoProvider == VideoProvider.livekit
             ? 'shift_${shiftDoc.id}'
@@ -2076,11 +2074,21 @@ class ShiftService {
   }
 
   /// Get shifts for a specific teacher
-  static Stream<List<TeachingShift>> getTeacherShifts(String teacherId) {
-    return _shiftsCollection
-        .where('teacher_id', isEqualTo: teacherId)
-        .snapshots()
-        .map((snapshot) {
+  static Stream<List<TeachingShift>> getTeacherShifts(
+    String teacherId, {
+    DateTime? start,
+    DateTime? end,
+  }) {
+    Query query = _shiftsCollection.where('teacher_id', isEqualTo: teacherId);
+    if (start != null) {
+      query = query.where('shift_start',
+          isGreaterThanOrEqualTo: Timestamp.fromDate(start));
+    }
+    if (end != null) {
+      query = query.where('shift_start', isLessThan: Timestamp.fromDate(end));
+    }
+
+    return query.snapshots().map((snapshot) {
       final opId =
           PerformanceLogger.newOperationId('ShiftService.getTeacherShifts');
       PerformanceLogger.startTimer(opId, metadata: {
@@ -2141,8 +2149,20 @@ class ShiftService {
   }
 
   /// Get all shifts (admin view)
-  static Stream<List<TeachingShift>> getAllShifts() {
-    return _shiftsCollection.snapshots().map((snapshot) {
+  static Stream<List<TeachingShift>> getAllShifts({
+    DateTime? start,
+    DateTime? end,
+  }) {
+    Query query = _shiftsCollection;
+    if (start != null) {
+      query = query.where('shift_start',
+          isGreaterThanOrEqualTo: Timestamp.fromDate(start));
+    }
+    if (end != null) {
+      query = query.where('shift_start', isLessThan: Timestamp.fromDate(end));
+    }
+
+    return query.snapshots().map((snapshot) {
       final opId =
           PerformanceLogger.newOperationId('ShiftService.getAllShifts');
       PerformanceLogger.startTimer(opId, metadata: {

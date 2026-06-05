@@ -59,15 +59,16 @@ enum WeekDay {
 
 /// Shift category enum - distinguishes between teaching and leadership schedules
 enum ShiftCategory {
-  teaching,    // Regular teacher-student class
-  leadership,  // Admin/leader duties
-  meeting,     // Scheduled meetings
-  training,    // Staff training sessions
+  teaching, // Regular teacher-student class
+  leadership, // Admin/leader duties
+  meeting, // Scheduled meetings
+  training, // Staff training sessions
 }
 
 /// Video provider enum - determines which video platform is used for the class
 enum VideoProvider {
-  livekit,  // Default - uses LiveKit for video calls
-  @Deprecated('Zoom support has been removed. All shifts use LiveKit.')
-  zoom,     // Legacy - no longer supported
+  realtimekit, // Current classroom provider
+  livekit, // Legacy provider kept for rollback/history
+  @Deprecated('Zoom support has been removed.')
+  zoom, // Legacy - no longer supported
 }

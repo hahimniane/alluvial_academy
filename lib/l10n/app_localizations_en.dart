@@ -9127,6 +9127,34 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get classVideoConnectFailed => 'Failed to connect to class';
+
+  @override
+  String get classVideoMobileTeacherNotEnabled =>
+      'Mobile app classes are not enabled for your account. Please contact an administrator.';
+
+  @override
+  String get classVideoEnded => 'This class has ended';
+
+  @override
+  String classVideoOpensInMinutes(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Class opens in $count minutes',
+      one: 'Class opens in 1 minute',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get classVideoJoinUnavailable =>
+      'Unable to join this class right now.';
+
+  @override
+  String get classVideoInvalidGuestLink => 'Invalid or expired class link.';
+
+  @override
   String formsListFormStatus(Object status, Object statut) {
     return 'Form $status';
   }
@@ -14285,4 +14313,41 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get auditMakeupOpenTeachingFormsTab => 'Open Teaching forms';
+
+  @override
+  String get realtimeKitProviderSubtitle => 'Used for scheduled classes';
+
+  @override
+  String get legacyProviderSubtitle => 'Legacy provider for existing classes';
+
+  @override
+  String get classRecordingPermissionTitle => 'Class recording';
+
+  @override
+  String get classRecordingPermissionTeacherAllowed =>
+      'Teacher can record this class';
+
+  @override
+  String get classRecordingPermissionTeacherBlocked =>
+      'Recording is disabled for this class';
+
+  @override
+  String get classRecordingPermissionAdminHelp =>
+      'Only admins can allow recording for a specific class.';
+
+  @override
+  String get classRecordingPermissionTeacherHelp =>
+      'An administrator controls whether recording is available for this class.';
+
+  @override
+  String get classRecordingPermissionEnabled =>
+      'Recording enabled for this class.';
+
+  @override
+  String get classRecordingPermissionDisabled =>
+      'Recording disabled for this class.';
+
+  @override
+  String get classRecordingPermissionUpdateFailed =>
+      'Unable to update recording permission.';
 }

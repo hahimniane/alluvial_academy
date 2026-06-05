@@ -3390,6 +3390,19 @@
       "details": {}
     }
   },
+  "classVideoConnectFailed": "Failed to connect to class",
+  "classVideoMobileTeacherNotEnabled": "Mobile app classes are not enabled for your account. Please contact an administrator.",
+  "classVideoEnded": "This class has ended",
+  "classVideoOpensInMinutes": "{count, plural, =1{Class opens in 1 minute} other{Class opens in {count} minutes}}",
+  "@classVideoOpensInMinutes": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "classVideoJoinUnavailable": "Unable to join this class right now.",
+  "classVideoInvalidGuestLink": "Invalid or expired class link.",
   "formsListFormStatus": "Form {status}",
   "@formsListFormStatus": {
     "placeholders": {
@@ -5554,5 +5567,15 @@
     }
   },
   "auditMakeupEvaluationFooterHint": "لا يمكن إرسال تقييم الموجّه حتى تُوافق أو ترفض كل تقارير التعويض لتعويض الحصة (تبويب نماذج التدريس).",
-  "auditMakeupOpenTeachingFormsTab": "فتح نماذج التدريس"
+  "auditMakeupOpenTeachingFormsTab": "فتح نماذج التدريس",
+  "realtimeKitProviderSubtitle": "يُستخدم للحصص المجدولة",
+  "legacyProviderSubtitle": "مزود قديم للحصص الموجودة",
+  "classRecordingPermissionTitle": "تسجيل الحصة",
+  "classRecordingPermissionTeacherAllowed": "يمكن للمعلم تسجيل هذه الحصة",
+  "classRecordingPermissionTeacherBlocked": "التسجيل معطل لهذه الحصة",
+  "classRecordingPermissionAdminHelp": "يمكن للمسؤولين فقط السماح بالتسجيل لحصة محددة.",
+  "classRecordingPermissionTeacherHelp": "يتحكم المسؤول في توفر التسجيل لهذه الحصة.",
+  "classRecordingPermissionEnabled": "تم تفعيل التسجيل لهذه الحصة.",
+  "classRecordingPermissionDisabled": "تم تعطيل التسجيل لهذه الحصة.",
+  "classRecordingPermissionUpdateFailed": "تعذر تحديث إذن التسجيل."
 }

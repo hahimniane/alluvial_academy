@@ -17088,6 +17088,42 @@ abstract class AppLocalizations {
   /// **'Failed to join class: {details}'**
   String classJoinFailed(Object details);
 
+  /// No description provided for @classVideoConnectFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to connect to class'**
+  String get classVideoConnectFailed;
+
+  /// No description provided for @classVideoMobileTeacherNotEnabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Mobile app classes are not enabled for your account. Please contact an administrator.'**
+  String get classVideoMobileTeacherNotEnabled;
+
+  /// No description provided for @classVideoEnded.
+  ///
+  /// In en, this message translates to:
+  /// **'This class has ended'**
+  String get classVideoEnded;
+
+  /// No description provided for @classVideoOpensInMinutes.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Class opens in 1 minute} other{Class opens in {count} minutes}}'**
+  String classVideoOpensInMinutes(int count);
+
+  /// No description provided for @classVideoJoinUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to join this class right now.'**
+  String get classVideoJoinUnavailable;
+
+  /// No description provided for @classVideoInvalidGuestLink.
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid or expired class link.'**
+  String get classVideoInvalidGuestLink;
+
   /// No description provided for @formsListFormStatus.
   ///
   /// In en, this message translates to:
@@ -26151,6 +26187,66 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Open Teaching forms'**
   String get auditMakeupOpenTeachingFormsTab;
+
+  /// No description provided for @realtimeKitProviderSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Used for scheduled classes'**
+  String get realtimeKitProviderSubtitle;
+
+  /// No description provided for @legacyProviderSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Legacy provider for existing classes'**
+  String get legacyProviderSubtitle;
+
+  /// No description provided for @classRecordingPermissionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Class recording'**
+  String get classRecordingPermissionTitle;
+
+  /// No description provided for @classRecordingPermissionTeacherAllowed.
+  ///
+  /// In en, this message translates to:
+  /// **'Teacher can record this class'**
+  String get classRecordingPermissionTeacherAllowed;
+
+  /// No description provided for @classRecordingPermissionTeacherBlocked.
+  ///
+  /// In en, this message translates to:
+  /// **'Recording is disabled for this class'**
+  String get classRecordingPermissionTeacherBlocked;
+
+  /// No description provided for @classRecordingPermissionAdminHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Only admins can allow recording for a specific class.'**
+  String get classRecordingPermissionAdminHelp;
+
+  /// No description provided for @classRecordingPermissionTeacherHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'An administrator controls whether recording is available for this class.'**
+  String get classRecordingPermissionTeacherHelp;
+
+  /// No description provided for @classRecordingPermissionEnabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Recording enabled for this class.'**
+  String get classRecordingPermissionEnabled;
+
+  /// No description provided for @classRecordingPermissionDisabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Recording disabled for this class.'**
+  String get classRecordingPermissionDisabled;
+
+  /// No description provided for @classRecordingPermissionUpdateFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to update recording permission.'**
+  String get classRecordingPermissionUpdateFailed;
 }
 
 class _AppLocalizationsDelegate

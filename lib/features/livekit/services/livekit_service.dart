@@ -19,6 +19,8 @@ import 'package:alluwalacademyadmin/features/livekit/widgets/call_whiteboard.dar
 import '../../shift_management/models/teaching_shift.dart';
 import 'package:alluwalacademyadmin/features/livekit/services/livekit_session_service.dart';
 import 'package:alluwalacademyadmin/core/services/error_reporting_service.dart';
+import 'package:alluwalacademyadmin/core/services/class_video_service.dart'
+    as class_video;
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 import 'package:alluwalacademyadmin/core/utils/environment_utils.dart';
 import 'package:alluwalacademyadmin/core/utils/picture_in_picture.dart'
@@ -645,28 +647,26 @@ class LiveKitService {
   /// Fetch current LiveKit room participants for a shift (presence preview)
   static Future<LiveKitRoomPresenceResult> getRoomPresence(
       String shiftId) async {
-    try {
-      final user = _auth.currentUser;
-      if (user == null) {
-        return LiveKitRoomPresenceResult.error('User not logged in');
-      }
-
-      final callable = _functions.httpsCallable('getLiveKitRoomPresence');
-      final result = await callable.call({'shiftId': shiftId});
-
-      final data = Map<String, dynamic>.from(result.data as Map);
-      return LiveKitRoomPresenceResult.fromMap(data);
-    } on FirebaseFunctionsException catch (e) {
-      AppLogger.error(
-          'LiveKitService: getRoomPresence Firebase function error: ${e.code} - ${e.message}');
-      final message = e.message?.trim().isNotEmpty == true
-          ? e.message!.trim()
-          : 'Failed to fetch participants';
-      return LiveKitRoomPresenceResult.error('${e.code}: $message');
-    } catch (e) {
-      AppLogger.error('LiveKitService: Error getting room presence: $e');
-      return LiveKitRoomPresenceResult.error('Failed to fetch participants');
-    }
+    final result = await class_video.ClassVideoService.getRoomPresence(shiftId);
+    return LiveKitRoomPresenceResult(
+      success: result.success,
+      roomName: result.roomName,
+      participantCount: result.participantCount,
+      participants: result.participants
+          .map(
+            (participant) => LiveKitRoomParticipantPresence(
+              identity: participant.identity,
+              name: participant.name,
+              role: participant.role,
+              joinedAt: participant.joinedAt,
+              isPublisher: participant.isPublisher,
+            ),
+          )
+          .toList(growable: false),
+      inJoinWindow: result.inJoinWindow,
+      generatedAt: result.generatedAt,
+      error: result.error,
+    );
   }
 
   /// Ensure class recording is started (best effort, non-blocking for UI).
@@ -2958,6 +2958,17 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen>
           extra: 'targetReconnectAttempt=${_reconnectAttempts + 1}',
         );
         AppLogger.warning('LiveKit: Reconnecting to room...');
+        // SDK-driven (resume/ICE) reconnects never reach RoomDisconnectedEvent,
+        // so capture them here — these are the otherwise-invisible mid-class drops.
+        final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+        if (currentUserId != null) {
+          _sessionService.recordTransientDisconnect(
+            shiftId: widget.shiftId,
+            userId: currentUserId,
+            disconnectReason: 'sdk_reconnecting',
+            roomName: widget.roomName,
+          );
+        }
         if (mounted) {
           setState(() => _reconnecting = true);
         }
@@ -2991,6 +3002,16 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen>
         }
 
         if (shouldReconnect) {
+          final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+          if (currentUserId != null) {
+            await _sessionService.recordTransientDisconnect(
+              shiftId: widget.shiftId,
+              userId: currentUserId,
+              disconnectReason: event.reason?.name ?? 'unknown',
+              roomName: widget.roomName,
+              reconnectAttempt: _reconnectAttempts + 1,
+            );
+          }
           await _attemptReconnect(event.reason);
           return;
         }

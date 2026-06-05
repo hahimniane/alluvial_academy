@@ -19,7 +19,8 @@ class JoinLinkService {
     if (guestShiftId != null && guestShiftId.isNotEmpty) {
       _pendingGuestShiftId = guestShiftId;
       _guestConsumed = false;
-      AppLogger.info('JoinLinkService: Found guest join link for shift $guestShiftId');
+      AppLogger.info(
+          'JoinLinkService: Found guest join link for shift $guestShiftId');
       return;
     }
 
@@ -96,14 +97,13 @@ class JoinLinkService {
 
   static String? _extractShiftId(Uri uri) {
     final direct = uri.queryParameters[joinShiftParam];
-    if (direct != null && direct.trim().isNotEmpty) {
-      return direct.trim();
-    }
+    if (direct != null && direct.trim().isNotEmpty) return direct.trim();
 
     final fragment = uri.fragment.trim();
     if (fragment.isEmpty) return null;
 
-    final normalized = fragment.startsWith('/') ? fragment.substring(1) : fragment;
+    final normalized =
+        fragment.startsWith('/') ? fragment.substring(1) : fragment;
     final fragmentUri = Uri.tryParse('https://placeholder/$normalized');
     final fragmentShift = fragmentUri?.queryParameters[joinShiftParam];
     if (fragmentShift != null && fragmentShift.trim().isNotEmpty) {
@@ -115,9 +115,7 @@ class JoinLinkService {
 
   static String? _extractGuestShiftId(Uri uri) {
     final direct = uri.queryParameters[guestShiftParam];
-    if (direct != null && direct.trim().isNotEmpty) {
-      return direct.trim();
-    }
+    if (direct != null && direct.trim().isNotEmpty) return direct.trim();
 
     final fragment = uri.fragment.trim();
     if (fragment.isEmpty) return null;

@@ -9094,6 +9094,34 @@ class AppLocalizationsAr extends AppLocalizations {
   }
 
   @override
+  String get classVideoConnectFailed => 'Failed to connect to class';
+
+  @override
+  String get classVideoMobileTeacherNotEnabled =>
+      'Mobile app classes are not enabled for your account. Please contact an administrator.';
+
+  @override
+  String get classVideoEnded => 'This class has ended';
+
+  @override
+  String classVideoOpensInMinutes(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Class opens in $count minutes',
+      one: 'Class opens in 1 minute',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get classVideoJoinUnavailable =>
+      'Unable to join this class right now.';
+
+  @override
+  String get classVideoInvalidGuestLink => 'Invalid or expired class link.';
+
+  @override
   String formsListFormStatus(Object status, Object statut) {
     return 'Form $status';
   }
@@ -14251,4 +14279,38 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get auditMakeupOpenTeachingFormsTab => 'فتح نماذج التدريس';
+
+  @override
+  String get realtimeKitProviderSubtitle => 'يُستخدم للحصص المجدولة';
+
+  @override
+  String get legacyProviderSubtitle => 'مزود قديم للحصص الموجودة';
+
+  @override
+  String get classRecordingPermissionTitle => 'تسجيل الحصة';
+
+  @override
+  String get classRecordingPermissionTeacherAllowed =>
+      'يمكن للمعلم تسجيل هذه الحصة';
+
+  @override
+  String get classRecordingPermissionTeacherBlocked =>
+      'التسجيل معطل لهذه الحصة';
+
+  @override
+  String get classRecordingPermissionAdminHelp =>
+      'يمكن للمسؤولين فقط السماح بالتسجيل لحصة محددة.';
+
+  @override
+  String get classRecordingPermissionTeacherHelp =>
+      'يتحكم المسؤول في توفر التسجيل لهذه الحصة.';
+
+  @override
+  String get classRecordingPermissionEnabled => 'تم تفعيل التسجيل لهذه الحصة.';
+
+  @override
+  String get classRecordingPermissionDisabled => 'تم تعطيل التسجيل لهذه الحصة.';
+
+  @override
+  String get classRecordingPermissionUpdateFailed => 'تعذر تحديث إذن التسجيل.';
 }

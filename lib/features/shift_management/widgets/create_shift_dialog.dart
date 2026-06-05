@@ -36,11 +36,12 @@ class CreateShiftDialog extends StatefulWidget {
   final TimeOfDay? initialTime; // Pre-fill time when creating from grid cell
   final ShiftCategory?
       initialCategory; // Pre-select category (teaching/leadership)
-  
+
   // Pre-loaded data for optimization (avoids loading all users when we already know them)
   final Employee? preloadedTeacher; // Pre-loaded teacher to avoid fetching all
   final Employee? preloadedStudent; // Pre-loaded student to avoid fetching all
-  final String? sessionDuration;    // Session duration from enrollment (e.g., "60 minutes")
+  final String?
+      sessionDuration; // Session duration from enrollment (e.g., "60 minutes")
 
   const CreateShiftDialog({
     super.key,
@@ -82,8 +83,8 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
   ShiftCategory _selectedCategory = ShiftCategory.teaching;
   String? _selectedLeaderRole;
 
-  // Video provider field (LiveKit for teaching shifts)
-  VideoProvider _selectedVideoProvider = VideoProvider.livekit;
+  // Video provider field (RealtimeKit for teaching shifts)
+  VideoProvider _selectedVideoProvider = VideoProvider.realtimekit;
 
   // Search controllers
   final TextEditingController _teacherSearchController =
@@ -232,28 +233,30 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
   Future<void> _loadAvailableUsers() async {
     try {
       AppLogger.debug('CreateShiftDialog: Loading available users...');
-      
+
       // Check if we have preloaded data (optimization for job-based shift creation)
       final hasPreloadedTeacher = widget.preloadedTeacher != null;
       final hasPreloadedStudent = widget.preloadedStudent != null;
-      
+
       List<Employee> teachers = [];
       List<Employee> students = [];
       List<Employee> leaders = [];
-      
+
       // If preloaded data is available, use it first (faster initial load)
       if (hasPreloadedTeacher) {
         teachers = [widget.preloadedTeacher!];
         _selectedTeacherId = widget.preloadedTeacher!.email;
-        AppLogger.debug('CreateShiftDialog: Using preloaded teacher: ${widget.preloadedTeacher!.email}');
+        AppLogger.debug(
+            'CreateShiftDialog: Using preloaded teacher: ${widget.preloadedTeacher!.email}');
       }
-      
+
       if (hasPreloadedStudent) {
         students = [widget.preloadedStudent!];
         _selectedStudentIds = {widget.preloadedStudent!.documentId!};
-        AppLogger.debug('CreateShiftDialog: Using preloaded student: ${widget.preloadedStudent!.documentId}');
+        AppLogger.debug(
+            'CreateShiftDialog: Using preloaded student: ${widget.preloadedStudent!.documentId}');
       }
-      
+
       // Set preloaded data immediately for faster UI
       if (hasPreloadedTeacher || hasPreloadedStudent) {
         if (mounted) {
@@ -263,7 +266,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
           });
         }
       }
-      
+
       // Load full lists in background (for dropdown selections)
       // Use parallel loading for better performance
       final futures = await Future.wait([
@@ -271,7 +274,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
         ShiftService.getAvailableLeaders(),
         ShiftService.getAvailableStudents(),
       ]);
-      
+
       teachers = futures[0];
       leaders = futures[1];
       students = futures[2];
@@ -876,7 +879,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
       }
 
       _selectedVideoProvider = _selectedCategory == ShiftCategory.teaching
-          ? VideoProvider.livekit
+          ? VideoProvider.realtimekit
           : VideoProvider.zoom;
     }
   }
@@ -978,7 +981,8 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  AppLocalizations.of(context)!.configureIslamicEducationTeachingSchedule,
+                  AppLocalizations.of(context)!
+                      .configureIslamicEducationTeachingSchedule,
                   style: GoogleFonts.inter(
                     fontSize: 14,
                     color: const Color(0xff6B7280),
@@ -1142,7 +1146,8 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                                 icon: const Icon(Icons.check_circle,
                                     color: Color(0xff0386FF), size: 20),
                                 onPressed: null, // Visual indicator only
-                                tooltip: 'Teacher selected: $selectedTeacherName',
+                                tooltip:
+                                    'Teacher selected: $selectedTeacherName',
                               )
                             : null,
                         contentPadding: const EdgeInsets.symmetric(
@@ -1178,14 +1183,16 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                     ? Center(
                         child: Padding(
                           padding: EdgeInsets.all(16),
-                          child: Text(AppLocalizations.of(context)!.commonLoading),
+                          child:
+                              Text(AppLocalizations.of(context)!.commonLoading),
                         ),
                       )
                     : filteredUsers.isEmpty
                         ? Center(
                             child: Padding(
                               padding: EdgeInsets.all(16),
-                              child: Text(AppLocalizations.of(context)!.userNoUsersFound),
+                              child: Text(AppLocalizations.of(context)!
+                                  .userNoUsersFound),
                             ),
                           )
                         : ListView.builder(
@@ -1399,7 +1406,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
               if (widget.shift == null) {
                 _selectedVideoProvider =
                     _selectedCategory == ShiftCategory.teaching
-                        ? VideoProvider.livekit
+                        ? VideoProvider.realtimekit
                         : VideoProvider.zoom;
               }
             });
@@ -1630,7 +1637,8 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                           _selectedStudentIds.isNotEmpty && widget.shift != null
                               ? 'Change students (optional)'
                               : AppLocalizations.of(context)!
-                                  .selectStudentsWithCount(_selectedStudentIds.length),
+                                  .selectStudentsWithCount(
+                                      _selectedStudentIds.length),
                           style: GoogleFonts.inter(
                             fontSize: 14,
                             color: const Color(0xff6B7280),
@@ -1680,7 +1688,8 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                     ? Center(
                         child: Padding(
                           padding: EdgeInsets.all(16),
-                          child: Text(AppLocalizations.of(context)!.loadingStudents),
+                          child: Text(
+                              AppLocalizations.of(context)!.loadingStudents),
                         ),
                       )
                     : ListView.builder(
@@ -1787,8 +1796,10 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                                                 text: TextSpan(
                                                   children: [
                                                     TextSpan(
-                                                      text:
-                                                          AppLocalizations.of(context)!.idDisplaystudentcode(displayStudentCode),
+                                                      text: AppLocalizations.of(
+                                                              context)!
+                                                          .idDisplaystudentcode(
+                                                              displayStudentCode),
                                                       style: GoogleFonts.inter(
                                                         fontSize: 12,
                                                         color: const Color(
@@ -1798,7 +1809,9 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                                                       ),
                                                     ),
                                                     TextSpan(
-                                                      text: AppLocalizations.of(context)!.bulletSeparator,
+                                                      text: AppLocalizations.of(
+                                                              context)!
+                                                          .bulletSeparator,
                                                       style: GoogleFonts.inter(
                                                         fontSize: 12,
                                                         color: const Color(
@@ -1998,7 +2011,8 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           decoration: InputDecoration(
             prefixText: '\$',
-            hintText: AppLocalizations.of(context)!.autoFilledFromSubjectOrLeave,
+            hintText:
+                AppLocalizations.of(context)!.autoFilledFromSubjectOrLeave,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
               borderSide: const BorderSide(color: Color(0xffD1D5DB)),
@@ -2034,7 +2048,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
   IslamicSubject _mapSubjectToEnum(String subjectName) {
     // Normalize the subject name for comparison
     final normalized = subjectName.toLowerCase().replaceAll(' ', '_');
-    
+
     switch (normalized) {
       case 'quran_studies':
       case 'quran':
@@ -2777,7 +2791,8 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                 _recurrence = RecurrencePattern.monthly;
               }
               // Initialize per-day time slots for newly selected weekdays
-              if (newRecurrence.type == EnhancedRecurrenceType.weekly && _useDifferentTimesPerDay) {
+              if (newRecurrence.type == EnhancedRecurrenceType.weekly &&
+                  _useDifferentTimesPerDay) {
                 _syncPerDayTimeSlots(newRecurrence.selectedWeekdays);
               }
             });
@@ -2795,13 +2810,14 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
   void _syncPerDayTimeSlots(List<WeekDay> selectedDays) {
     final newSlots = <WeekDay, WeekdayTimeSlot>{};
     for (final day in selectedDays) {
-      newSlots[day] = _perDayTimeSlots[day] ?? WeekdayTimeSlot(
-        weekday: day,
-        startHour: _startTime.hour,
-        startMinute: _startTime.minute,
-        endHour: _endTime.hour,
-        endMinute: _endTime.minute,
-      );
+      newSlots[day] = _perDayTimeSlots[day] ??
+          WeekdayTimeSlot(
+            weekday: day,
+            startHour: _startTime.hour,
+            startMinute: _startTime.minute,
+            endHour: _endTime.hour,
+            endMinute: _endTime.minute,
+          );
     }
     _perDayTimeSlots = newSlots;
   }
@@ -2824,7 +2840,8 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
             children: [
               Row(
                 children: [
-                  const Icon(Icons.schedule, size: 18, color: Color(0xFF0386FF)),
+                  const Icon(Icons.schedule,
+                      size: 18, color: Color(0xFF0386FF)),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -2842,7 +2859,8 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                       setState(() {
                         _useDifferentTimesPerDay = value;
                         if (value) {
-                          _syncPerDayTimeSlots(_enhancedRecurrence.selectedWeekdays);
+                          _syncPerDayTimeSlots(
+                              _enhancedRecurrence.selectedWeekdays);
                         }
                       });
                     },
@@ -2854,7 +2872,8 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                 _useDifferentTimesPerDay
                     ? l10n.shiftDifferentTimePerDay
                     : l10n.shiftSameTimeAllDays,
-                style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF6B7280)),
+                style: GoogleFonts.inter(
+                    fontSize: 11, color: const Color(0xFF6B7280)),
               ),
               if (_useDifferentTimesPerDay) ...[
                 const SizedBox(height: 12),
@@ -2901,13 +2920,16 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                 );
                 if (picked != null) {
                   setState(() {
-                    _perDayTimeSlots[day] = (slot ?? WeekdayTimeSlot(
-                      weekday: day,
-                      startHour: _startTime.hour,
-                      startMinute: _startTime.minute,
-                      endHour: _endTime.hour,
-                      endMinute: _endTime.minute,
-                    )).copyWith(startHour: picked.hour, startMinute: picked.minute);
+                    _perDayTimeSlots[day] = (slot ??
+                            WeekdayTimeSlot(
+                              weekday: day,
+                              startHour: _startTime.hour,
+                              startMinute: _startTime.minute,
+                              endHour: _endTime.hour,
+                              endMinute: _endTime.minute,
+                            ))
+                        .copyWith(
+                            startHour: picked.hour, startMinute: picked.minute);
                   });
                 }
               },
@@ -2920,7 +2942,8 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                 ),
                 child: Text(
                   startTime.format(context),
-                  style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF374151)),
+                  style: GoogleFonts.inter(
+                      fontSize: 12, color: const Color(0xFF374151)),
                   textAlign: TextAlign.center,
                 ),
               ),
@@ -2928,7 +2951,9 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: Text('→', style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF9CA3AF))),
+            child: Text('→',
+                style: GoogleFonts.inter(
+                    fontSize: 12, color: const Color(0xFF9CA3AF))),
           ),
           // End time
           Expanded(
@@ -2940,13 +2965,16 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                 );
                 if (picked != null) {
                   setState(() {
-                    _perDayTimeSlots[day] = (slot ?? WeekdayTimeSlot(
-                      weekday: day,
-                      startHour: _startTime.hour,
-                      startMinute: _startTime.minute,
-                      endHour: _endTime.hour,
-                      endMinute: _endTime.minute,
-                    )).copyWith(endHour: picked.hour, endMinute: picked.minute);
+                    _perDayTimeSlots[day] = (slot ??
+                            WeekdayTimeSlot(
+                              weekday: day,
+                              startHour: _startTime.hour,
+                              startMinute: _startTime.minute,
+                              endHour: _endTime.hour,
+                              endMinute: _endTime.minute,
+                            ))
+                        .copyWith(
+                            endHour: picked.hour, endMinute: picked.minute);
                   });
                 }
               },
@@ -2959,7 +2987,8 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                 ),
                 child: Text(
                   endTime.format(context),
-                  style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF374151)),
+                  style: GoogleFonts.inter(
+                      fontSize: 12, color: const Color(0xFF374151)),
                   textAlign: TextAlign.center,
                 ),
               ),
@@ -3041,7 +3070,8 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
           controller: _notesController,
           maxLines: 3,
           decoration: InputDecoration(
-            hintText: AppLocalizations.of(context)!.addAnyAdditionalNotesOrInstructions,
+            hintText: AppLocalizations.of(context)!
+                .addAnyAdditionalNotesOrInstructions,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
               borderSide: const BorderSide(color: Color(0xffD1D5DB)),
@@ -3062,12 +3092,16 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
   }
 
   Widget _buildVideoProviderInfo() {
-    final isLiveKit = _selectedVideoProvider == VideoProvider.livekit;
-    final title = isLiveKit ? 'LiveKit' : 'Zoom';
-    final subtitle = isLiveKit
-        ? 'Used for scheduled classes'
-        : 'Legacy provider for existing classes';
-    final icon = isLiveKit ? Icons.video_call : Icons.videocam;
+    final isRealtimeKit = _selectedVideoProvider == VideoProvider.realtimekit;
+    final title = isRealtimeKit
+        ? 'Cloudflare RealtimeKit'
+        : _selectedVideoProvider == VideoProvider.livekit
+            ? 'LiveKit'
+            : 'Zoom';
+    final subtitle = isRealtimeKit
+        ? AppLocalizations.of(context)!.realtimeKitProviderSubtitle
+        : AppLocalizations.of(context)!.legacyProviderSubtitle;
+    final icon = isRealtimeKit ? Icons.video_call : Icons.videocam;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -3188,8 +3222,8 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
       if (_selectedStudentIds.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content:
-                Text(AppLocalizations.of(context)!.pleaseSelectAtLeastOneStudent),
+            content: Text(
+                AppLocalizations.of(context)!.pleaseSelectAtLeastOneStudent),
             backgroundColor: Colors.red,
           ),
         );
@@ -3199,7 +3233,8 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
       if (_selectedLeaderRole == null || _selectedLeaderRole!.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(AppLocalizations.of(context)!.pleaseSelectADutyTypeFor),
+            content:
+                Text(AppLocalizations.of(context)!.pleaseSelectADutyTypeFor),
             backgroundColor: Colors.red,
           ),
         );
@@ -3215,7 +3250,8 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
     if (endMinutes == startMinutes) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(AppLocalizations.of(context)!.shiftEndTimeMustBeDifferent),
+          content:
+              Text(AppLocalizations.of(context)!.shiftEndTimeMustBeDifferent),
           backgroundColor: Colors.red,
         ),
       );
@@ -3424,7 +3460,6 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
           leaderRole: _selectedLeaderRole,
           // NEW: Hourly rate (if custom rate provided)
           hourlyRate: _customHourlyRate,
-          // Video provider (Zoom or LiveKit beta)
           videoProvider: _selectedVideoProvider,
         );
       } else {
@@ -3536,7 +3571,6 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
           // NEW: Category and leader role
           category: _selectedCategory,
           leaderRole: _selectedLeaderRole,
-          // Video provider (Zoom or LiveKit beta)
           videoProvider: _selectedVideoProvider,
         );
 
@@ -3808,7 +3842,9 @@ class _EmployeeSelectionDialogState extends State<EmployeeSelectionDialog> {
                                   children: [
                                     Text(
                                       AppLocalizations.of(context)!
-                                          .idDisplaystudentcode(code.isEmpty ? employee.documentId : code),
+                                          .idDisplaystudentcode(code.isEmpty
+                                              ? employee.documentId
+                                              : code),
                                       style: GoogleFonts.inter(
                                         fontSize: 12,
                                         color: const Color(0xff059669),
