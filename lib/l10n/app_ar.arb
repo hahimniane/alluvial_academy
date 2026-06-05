@@ -5577,5 +5577,85 @@
   "classRecordingPermissionTeacherHelp": "يتحكم المسؤول في توفر التسجيل لهذه الحصة.",
   "classRecordingPermissionEnabled": "تم تفعيل التسجيل لهذه الحصة.",
   "classRecordingPermissionDisabled": "تم تعطيل التسجيل لهذه الحصة.",
-  "classRecordingPermissionUpdateFailed": "تعذر تحديث إذن التسجيل."
+  "classRecordingPermissionUpdateFailed": "تعذر تحديث إذن التسجيل.",
+  "bulkClassRecordingMenu": "إمكانية التسجيل",
+  "bulkClassRecordingTitle": "إمكانية التسجيل بالجملة",
+  "bulkClassRecordingSubtitle": "السماح بالتسجيل أو منعه لمجموعة محددة من حصص التدريس.",
+  "bulkClassRecordingAccess": "تغيير الإمكانية",
+  "bulkClassRecordingEnable": "تفعيل",
+  "bulkClassRecordingDisable": "تعطيل",
+  "bulkClassRecordingScope": "النطاق",
+  "bulkClassRecordingScopeAllTeachers": "كل المعلمين",
+  "bulkClassRecordingScopeTeacher": "معلم",
+  "bulkClassRecordingScopeStudent": "طالب",
+  "bulkClassRecordingScopeSelected": "المحددة",
+  "bulkClassRecordingChooseTeacher": "اختر معلماً",
+  "bulkClassRecordingSearchTeacher": "ابحث عن المعلمين",
+  "bulkClassRecordingChooseStudent": "اختر طالباً",
+  "bulkClassRecordingSearchStudent": "ابحث عن الطلاب",
+  "bulkClassRecordingTimeWindow": "نافذة الحصة",
+  "bulkClassRecordingTimeActiveUpcoming": "النشطة والقادمة",
+  "bulkClassRecordingTimeUpcoming": "القادمة فقط",
+  "bulkClassRecordingTimeActive": "النشطة الآن",
+  "bulkClassRecordingTimePast": "الحصص السابقة",
+  "bulkClassRecordingTimeAll": "كل التواريخ",
+  "bulkClassRecordingPreview": "معاينة",
+  "bulkClassRecordingMatched": "مطابقة",
+  "bulkClassRecordingWillChange": "ستتغير",
+  "bulkClassRecordingAlreadyEnabled": "مفعلة",
+  "bulkClassRecordingAlreadyDisabled": "معطلة",
+  "bulkClassRecordingEnableSummary": "سيتم تفعيل التسجيل لـ {count} حصة.",
+  "@bulkClassRecordingEnableSummary": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "bulkClassRecordingDisableSummary": "سيتم تعطيل التسجيل لـ {count} حصة.",
+  "@bulkClassRecordingDisableSummary": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "bulkClassRecordingSampleClasses": "نماذج الحصص",
+  "bulkClassRecordingMoreClasses": "+{count} حصة أخرى",
+  "@bulkClassRecordingMoreClasses": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "bulkClassRecordingNoMatches": "لا توجد حصص تدريس تطابق هذا النطاق.",
+  "bulkClassRecordingFooterNote": "يحصل المعلمون على إعداد الغرفة الذي يسمح بالتسجيل عند انضمامهم التالي إلى حصة مطابقة.",
+  "bulkClassRecordingApplyEnable": "تفعيل التسجيل",
+  "bulkClassRecordingApplyDisable": "تعطيل التسجيل",
+  "bulkClassRecordingUpdating": "جارٍ تحديث إمكانية التسجيل لـ {count} حصة...",
+  "@bulkClassRecordingUpdating": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "bulkClassRecordingEnabledSuccess": "تم تفعيل التسجيل لـ {count} حصة.",
+  "@bulkClassRecordingEnabledSuccess": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "bulkClassRecordingDisabledSuccess": "تم تعطيل التسجيل لـ {count} حصة.",
+  "@bulkClassRecordingDisabledSuccess": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "bulkClassRecordingUpdateFailed": "تعذر تحديث إمكانية التسجيل."
 }

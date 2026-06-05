@@ -2148,6 +2148,28 @@ class ShiftService {
     });
   }
 
+  static Future<List<TeachingShift>> fetchTeacherShifts(
+    String teacherId, {
+    DateTime? start,
+    DateTime? end,
+  }) async {
+    Query query = _shiftsCollection.where('teacher_id', isEqualTo: teacherId);
+    if (start != null) {
+      query = query.where('shift_start',
+          isGreaterThanOrEqualTo: Timestamp.fromDate(start));
+    }
+    if (end != null) {
+      query = query.where('shift_start', isLessThan: Timestamp.fromDate(end));
+    }
+
+    final snapshot = await query.get(const GetOptions(source: Source.server));
+    return _parseFetchedShiftSnapshot(
+      snapshot,
+      operationName: 'ShiftService.fetchTeacherShifts',
+      metadata: {'teacher_id': teacherId},
+    );
+  }
+
   /// Get all shifts (admin view)
   static Stream<List<TeachingShift>> getAllShifts({
     DateTime? start,
@@ -2219,6 +2241,88 @@ class ShiftService {
       AppLogger.error('Firestore stream error in getAllShifts: $error');
       AppLogger.error('Stack trace: $stackTrace');
     });
+  }
+
+  static Future<List<TeachingShift>> fetchAllShifts({
+    DateTime? start,
+    DateTime? end,
+  }) async {
+    Query query = _shiftsCollection;
+    if (start != null) {
+      query = query.where('shift_start',
+          isGreaterThanOrEqualTo: Timestamp.fromDate(start));
+    }
+    if (end != null) {
+      query = query.where('shift_start', isLessThan: Timestamp.fromDate(end));
+    }
+
+    final snapshot = await query.get(const GetOptions(source: Source.server));
+    return _parseFetchedShiftSnapshot(
+      snapshot,
+      operationName: 'ShiftService.fetchAllShifts',
+    );
+  }
+
+  static List<TeachingShift> _parseFetchedShiftSnapshot(
+    QuerySnapshot snapshot, {
+    required String operationName,
+    Map<String, Object?> metadata = const {},
+  }) {
+    final opId = PerformanceLogger.newOperationId(operationName);
+    PerformanceLogger.startTimer(opId, metadata: {
+      ...metadata,
+      'doc_count': snapshot.docs.length,
+    });
+
+    try {
+      PerformanceLogger.checkpoint(opId, 'parsing_start');
+      final shifts = <TeachingShift>[];
+      var parseErrors = 0;
+      final parseStopwatch = Stopwatch()..start();
+
+      for (final doc in snapshot.docs) {
+        try {
+          shifts.add(TeachingShift.fromFirestore(doc));
+        } catch (e) {
+          AppLogger.error('Error parsing shift document ${doc.id}: $e');
+          parseErrors++;
+        }
+      }
+
+      parseStopwatch.stop();
+      final parseMs = parseStopwatch.elapsedMilliseconds;
+      final avgParseMs =
+          snapshot.docs.isEmpty ? 0.0 : parseMs / snapshot.docs.length;
+      PerformanceLogger.checkpoint(opId, 'parsing_complete', metadata: {
+        'shift_count': shifts.length,
+        'parse_errors': parseErrors,
+        'parse_time_ms': parseMs,
+        'avg_parse_ms_per_doc': avgParseMs.toStringAsFixed(3),
+      });
+
+      final sortStopwatch = Stopwatch()..start();
+      shifts.sort((a, b) => a.shiftStart.compareTo(b.shiftStart));
+      sortStopwatch.stop();
+      PerformanceLogger.checkpoint(opId, 'sorting_complete', metadata: {
+        'sort_time_ms': sortStopwatch.elapsedMilliseconds,
+      });
+
+      PerformanceLogger.endTimer(opId, metadata: {
+        ...metadata,
+        'total_shifts': shifts.length,
+        'doc_count': snapshot.docs.length,
+        'parse_errors': parseErrors,
+      });
+      return shifts;
+    } catch (e) {
+      AppLogger.error('Error processing shift snapshot: $e');
+      PerformanceLogger.endTimer(opId, metadata: {
+        ...metadata,
+        'error': e.toString(),
+        'doc_count': snapshot.docs.length,
+      });
+      return <TeachingShift>[];
+    }
   }
 
   /// Get shifts for a specific student (where student is assigned to the class)

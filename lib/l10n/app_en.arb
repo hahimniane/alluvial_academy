@@ -5871,5 +5871,85 @@
   "classRecordingPermissionTeacherHelp": "An administrator controls whether recording is available for this class.",
   "classRecordingPermissionEnabled": "Recording enabled for this class.",
   "classRecordingPermissionDisabled": "Recording disabled for this class.",
-  "classRecordingPermissionUpdateFailed": "Unable to update recording permission."
+  "classRecordingPermissionUpdateFailed": "Unable to update recording permission.",
+  "bulkClassRecordingMenu": "Recording Access",
+  "bulkClassRecordingTitle": "Bulk recording access",
+  "bulkClassRecordingSubtitle": "Allow or block recording across a focused set of teaching classes.",
+  "bulkClassRecordingAccess": "Access change",
+  "bulkClassRecordingEnable": "Enable",
+  "bulkClassRecordingDisable": "Disable",
+  "bulkClassRecordingScope": "Scope",
+  "bulkClassRecordingScopeAllTeachers": "All teachers",
+  "bulkClassRecordingScopeTeacher": "Teacher",
+  "bulkClassRecordingScopeStudent": "Student",
+  "bulkClassRecordingScopeSelected": "Selected",
+  "bulkClassRecordingChooseTeacher": "Choose teacher",
+  "bulkClassRecordingSearchTeacher": "Search teachers",
+  "bulkClassRecordingChooseStudent": "Choose student",
+  "bulkClassRecordingSearchStudent": "Search students",
+  "bulkClassRecordingTimeWindow": "Class window",
+  "bulkClassRecordingTimeActiveUpcoming": "Active and upcoming",
+  "bulkClassRecordingTimeUpcoming": "Upcoming only",
+  "bulkClassRecordingTimeActive": "Active now",
+  "bulkClassRecordingTimePast": "Past classes",
+  "bulkClassRecordingTimeAll": "All dates",
+  "bulkClassRecordingPreview": "Preview",
+  "bulkClassRecordingMatched": "matched",
+  "bulkClassRecordingWillChange": "will change",
+  "bulkClassRecordingAlreadyEnabled": "enabled",
+  "bulkClassRecordingAlreadyDisabled": "disabled",
+  "bulkClassRecordingEnableSummary": "Recording will be enabled for {count} class(es).",
+  "@bulkClassRecordingEnableSummary": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "bulkClassRecordingDisableSummary": "Recording will be disabled for {count} class(es).",
+  "@bulkClassRecordingDisableSummary": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "bulkClassRecordingSampleClasses": "Sample classes",
+  "bulkClassRecordingMoreClasses": "+{count} more class(es)",
+  "@bulkClassRecordingMoreClasses": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "bulkClassRecordingNoMatches": "No teaching classes match this scope.",
+  "bulkClassRecordingFooterNote": "Teachers receive the recording-capable room preset the next time they join a matching class.",
+  "bulkClassRecordingApplyEnable": "Enable recording",
+  "bulkClassRecordingApplyDisable": "Disable recording",
+  "bulkClassRecordingUpdating": "Updating recording access for {count} class(es)...",
+  "@bulkClassRecordingUpdating": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "bulkClassRecordingEnabledSuccess": "Recording enabled for {count} class(es).",
+  "@bulkClassRecordingEnabledSuccess": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "bulkClassRecordingDisabledSuccess": "Recording disabled for {count} class(es).",
+  "@bulkClassRecordingDisabledSuccess": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "bulkClassRecordingUpdateFailed": "Unable to update recording access."
 }

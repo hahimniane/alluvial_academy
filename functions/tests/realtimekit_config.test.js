@@ -103,4 +103,16 @@ describe('RealtimeKit config', () => {
       teacherRecorder: 'class-recorder',
     });
   });
+
+  test('rejects attendee presets that reuse host presets', () => {
+    process.env.CLOUDFLARE_ACCOUNT_ID = 'account_1';
+    process.env.REALTIMEKIT_APP_ID = 'app_1';
+    process.env.CLOUDFLARE_REALTIME_API_TOKEN = 'token_1';
+    process.env.REALTIMEKIT_TEACHER_PRESET = 'host';
+    process.env.REALTIMEKIT_STUDENT_PRESET = 'host';
+
+    expect(() => getRealtimeKitConfig()).toThrow(
+      /REALTIMEKIT_STUDENT_PRESET/,
+    );
+  });
 });

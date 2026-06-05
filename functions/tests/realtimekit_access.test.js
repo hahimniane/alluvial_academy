@@ -67,7 +67,21 @@ const mockMakeDocRef = (collectionName, id) => ({
   },
 });
 
+const mockMakeBatch = () => {
+  const operations = [];
+  return {
+    set: (ref, data, options) => operations.push(() => ref.set(data, options)),
+    update: (ref, data) => operations.push(() => ref.update(data)),
+    commit: async () => {
+      for (const operation of operations) {
+        await operation();
+      }
+    },
+  };
+};
+
 const mockFirestore = jest.fn(() => ({
+  batch: () => mockMakeBatch(),
   collection: (name) => ({
     doc: (id) => mockMakeDocRef(name, id),
   }),
@@ -89,6 +103,7 @@ const {
   kickRealtimeKitParticipant,
   setRealtimeKitRoomLock,
   setRealtimeKitRecordingEnabled,
+  bulkSetRealtimeKitRecordingEnabled,
 } = require('../handlers/realtimekit');
 
 const makeResponse = () => {
@@ -283,6 +298,84 @@ describe('RealtimeKit class access', () => {
         custom_participant_id: 'teacher_1',
         preset_name: 'teacher_recorder',
       }),
+    );
+  });
+
+  test('recording permission does not upgrade students to host presets', async () => {
+    mockShifts.shift_1.realtimekit_recording_enabled = true;
+
+    const result = await getRealtimeKitJoinToken({
+      auth: { uid: 'student_1' },
+      data: { shiftId: 'shift_1' },
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.userRole).toBe('student');
+    expect(result.recordingEnabled).toBe(true);
+    expect(mockRealtimeKitClient.addParticipant).toHaveBeenCalledWith(
+      'meeting_1',
+      expect.objectContaining({
+        custom_participant_id: 'student_1',
+        preset_name: 'student',
+      }),
+    );
+    expect(mockRealtimeKitClient.addParticipant).not.toHaveBeenCalledWith(
+      'meeting_1',
+      expect.objectContaining({ preset_name: 'teacher_recorder' }),
+    );
+  });
+
+  test('admin can enable recording when their user document is keyed by email', async () => {
+    mockUsers['email_admin@example.com'] = {
+      first_name: 'Email',
+      last_name: 'Admin',
+      user_type: 'admin',
+      email: 'email_admin@example.com',
+    };
+
+    const toggle = await setRealtimeKitRecordingEnabled({
+      auth: {
+        uid: 'auth_uid_without_user_doc',
+        token: { email: 'email_admin@example.com' },
+      },
+      data: { shiftId: 'shift_1', enabled: true },
+    });
+
+    expect(toggle).toEqual({ success: true, recordingEnabled: true });
+    expect(mockShifts.shift_1.realtimekit_recording_enabled).toBe(true);
+  });
+
+  test('bulk admin recording update changes shifts and active teacher preset', async () => {
+    mockShifts.shift_1.realtimekit_meeting_id = 'meeting_1';
+    mockShifts.shift_2.realtimekit_meeting_id = 'meeting_2';
+    mockRealtimeKitClient.listMeetingParticipants
+      .mockResolvedValueOnce({
+        success: true,
+        data: [{
+          id: 'participant_teacher_1',
+          custom_participant_id: 'teacher_1',
+          preset_name: 'teacher',
+        }],
+      })
+      .mockResolvedValueOnce({ success: true, data: [] });
+
+    const result = await bulkSetRealtimeKitRecordingEnabled({
+      auth: { uid: 'admin_1' },
+      data: { shiftIds: ['shift_1', 'shift_2'], enabled: true },
+    });
+
+    expect(result).toEqual({
+      success: true,
+      recordingEnabled: true,
+      updatedCount: 2,
+      activeParticipantsUpdated: 1,
+    });
+    expect(mockShifts.shift_1.realtimekit_recording_enabled).toBe(true);
+    expect(mockShifts.shift_2.realtimekit_recording_enabled).toBe(true);
+    expect(mockRealtimeKitClient.updateParticipant).toHaveBeenCalledWith(
+      'meeting_1',
+      'participant_teacher_1',
+      expect.objectContaining({ preset_name: 'teacher_recorder' }),
     );
   });
 

@@ -46,9 +46,17 @@ In Cloudflare RealtimeKit, the selected presets must allow the classroom tools
 we expect:
 
 - Teacher/admin preset: camera, microphone, screen share, chat, polls/plugins,
-  whiteboard, document sharing, and participant controls.
+  whiteboard, document sharing, participant controls, and the host-only ability
+  to end the meeting for everyone.
 - Student/parent/guest preset: camera, microphone, chat, view screen share,
-  view whiteboard, and draw on whiteboard if teachers want student annotation.
+  view whiteboard, and draw on whiteboard. These presets must not include
+  host controls such as ending the meeting for everyone, kicking participants,
+  room lock controls, or recording controls.
+
+The Cloud Function config rejects attendee preset names that are identical to
+the teacher/admin/recorder preset names, but it cannot inspect the Cloudflare
+dashboard permissions inside a preset. If a student sees "end meeting for all",
+fix the `REALTIMEKIT_STUDENT_PRESET` preset permissions in Cloudflare first.
 
 If whiteboard or screen share does not appear in class, check the preset first;
 the Flutter app intentionally renders the full RealtimeKit UI and does not hide
@@ -81,12 +89,12 @@ Run this against the dev Firebase project and a dev Cloudflare RealtimeKit app:
 3. Toggle microphone/camera from both sides.
 4. Have the teacher share a screen and confirm the student sees it.
 5. Open RealtimeKit whiteboard from the teacher preset and draw.
-6. Confirm the student sees the whiteboard, and verify whether student drawing
-   is enabled or blocked according to the student preset.
+6. Confirm the student sees the whiteboard and can draw on it.
 7. Copy a guest class link, join as guest, and confirm the guest gets the guest
    preset permissions.
-8. Lock the room, then confirm student/guest joins are blocked.
-9. Leave and rejoin both users to confirm the stored `realtimekit_meeting_id`
+8. Confirm students can leave the class but cannot end the meeting for everyone.
+9. Lock the room, then confirm student/guest joins are blocked.
+10. Leave and rejoin both users to confirm the stored `realtimekit_meeting_id`
     is reused.
 
 ## Recordings

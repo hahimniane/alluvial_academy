@@ -5515,5 +5515,85 @@
   "classRecordingPermissionTeacherHelp": "Un administrateur contrôle si l’enregistrement est disponible pour ce cours.",
   "classRecordingPermissionEnabled": "Enregistrement activé pour ce cours.",
   "classRecordingPermissionDisabled": "Enregistrement désactivé pour ce cours.",
-  "classRecordingPermissionUpdateFailed": "Impossible de modifier l’autorisation d’enregistrement."
+  "classRecordingPermissionUpdateFailed": "Impossible de modifier l’autorisation d’enregistrement.",
+  "bulkClassRecordingMenu": "Accès aux enregistrements",
+  "bulkClassRecordingTitle": "Accès groupé aux enregistrements",
+  "bulkClassRecordingSubtitle": "Autoriser ou bloquer l’enregistrement pour un ensemble ciblé de cours.",
+  "bulkClassRecordingAccess": "Modification d’accès",
+  "bulkClassRecordingEnable": "Activer",
+  "bulkClassRecordingDisable": "Désactiver",
+  "bulkClassRecordingScope": "Portée",
+  "bulkClassRecordingScopeAllTeachers": "Tous les enseignants",
+  "bulkClassRecordingScopeTeacher": "Enseignant",
+  "bulkClassRecordingScopeStudent": "Étudiant",
+  "bulkClassRecordingScopeSelected": "Sélectionnés",
+  "bulkClassRecordingChooseTeacher": "Choisir un enseignant",
+  "bulkClassRecordingSearchTeacher": "Rechercher des enseignants",
+  "bulkClassRecordingChooseStudent": "Choisir un étudiant",
+  "bulkClassRecordingSearchStudent": "Rechercher des étudiants",
+  "bulkClassRecordingTimeWindow": "Fenêtre de cours",
+  "bulkClassRecordingTimeActiveUpcoming": "Actifs et à venir",
+  "bulkClassRecordingTimeUpcoming": "À venir seulement",
+  "bulkClassRecordingTimeActive": "Actifs maintenant",
+  "bulkClassRecordingTimePast": "Cours passés",
+  "bulkClassRecordingTimeAll": "Toutes les dates",
+  "bulkClassRecordingPreview": "Aperçu",
+  "bulkClassRecordingMatched": "trouvés",
+  "bulkClassRecordingWillChange": "à modifier",
+  "bulkClassRecordingAlreadyEnabled": "activés",
+  "bulkClassRecordingAlreadyDisabled": "désactivés",
+  "bulkClassRecordingEnableSummary": "L’enregistrement sera activé pour {count} cours.",
+  "@bulkClassRecordingEnableSummary": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "bulkClassRecordingDisableSummary": "L’enregistrement sera désactivé pour {count} cours.",
+  "@bulkClassRecordingDisableSummary": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "bulkClassRecordingSampleClasses": "Exemples de cours",
+  "bulkClassRecordingMoreClasses": "+{count} cours",
+  "@bulkClassRecordingMoreClasses": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "bulkClassRecordingNoMatches": "Aucun cours ne correspond à cette portée.",
+  "bulkClassRecordingFooterNote": "Les enseignants reçoivent le préréglage d’enregistrement lors de leur prochaine connexion à un cours correspondant.",
+  "bulkClassRecordingApplyEnable": "Activer l’enregistrement",
+  "bulkClassRecordingApplyDisable": "Désactiver l’enregistrement",
+  "bulkClassRecordingUpdating": "Mise à jour de l’accès aux enregistrements pour {count} cours...",
+  "@bulkClassRecordingUpdating": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "bulkClassRecordingEnabledSuccess": "Enregistrement activé pour {count} cours.",
+  "@bulkClassRecordingEnabledSuccess": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "bulkClassRecordingDisabledSuccess": "Enregistrement désactivé pour {count} cours.",
+  "@bulkClassRecordingDisabledSuccess": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "bulkClassRecordingUpdateFailed": "Impossible de modifier l’accès aux enregistrements."
 }

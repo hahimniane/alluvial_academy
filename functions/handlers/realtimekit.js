@@ -65,24 +65,71 @@ const getUserDisplayName = async (uid, fallback = 'Participant') => {
   }
 };
 
-const isUserAdmin = async (uid) => {
+const _truthy = (value) => value === true || value === 'true' || value === 1 || value === '1';
+
+const getUserDataForCaller = async (uid, token = {}) => {
+  if (!uid) return null;
+  const db = admin.firestore();
+
+  const userDoc = await db.collection('users').doc(uid).get();
+  if (userDoc.exists) return userDoc.data() || {};
+
+  const rawEmail = typeof token?.email === 'string' ? token.email.trim() : '';
+  if (!rawEmail) return null;
+
+  const lowerEmail = rawEmail.toLowerCase();
+  const emailDoc = await db.collection('users').doc(lowerEmail).get();
+  if (emailDoc.exists) return emailDoc.data() || {};
+
+  if (rawEmail !== lowerEmail) {
+    const originalEmailDoc = await db.collection('users').doc(rawEmail).get();
+    if (originalEmailDoc.exists) return originalEmailDoc.data() || {};
+  }
+
+  for (const field of ['email', 'e-mail']) {
+    const query = await db.collection('users')
+      .where(field, '==', lowerEmail)
+      .limit(1)
+      .get();
+    if (!query.empty) return query.docs[0].data() || {};
+  }
+
+  return null;
+};
+
+const isUserAdmin = async (uid, token = {}) => {
   if (!uid) return false;
   try {
-    const userDoc = await admin.firestore().collection('users').doc(uid).get();
-    if (!userDoc.exists) return false;
-    const data = userDoc.data() || {};
+    const tokenRole = String(token.role || token.user_type || token.userType || '').trim().toLowerCase();
+    if (
+      tokenRole === 'admin' ||
+      tokenRole === 'super_admin' ||
+      _truthy(token.admin) ||
+      _truthy(token.isAdmin) ||
+      _truthy(token.is_admin) ||
+      _truthy(token.is_super_admin) ||
+      _truthy(token.isSuperAdmin) ||
+      _truthy(token.is_admin_teacher) ||
+      _truthy(token.isAdminTeacher)
+    ) {
+      return true;
+    }
+
+    const data = await getUserDataForCaller(uid, token);
+    if (!data) return false;
+    const role = String(data.role || '').trim().toLowerCase();
+    const userType = String(data.user_type || data.userType || '').trim().toLowerCase();
     return (
-      data.role === 'admin' ||
-      data.role === 'super_admin' ||
-      data.user_type === 'admin' ||
-      data.user_type === 'super_admin' ||
-      data.userType === 'admin' ||
-      data.userType === 'super_admin' ||
-      data.is_admin === true ||
-      data.isAdmin === true ||
-      data.is_super_admin === true ||
-      data.isSuperAdmin === true ||
-      data.is_admin_teacher === true
+      role === 'admin' ||
+      role === 'super_admin' ||
+      userType === 'admin' ||
+      userType === 'super_admin' ||
+      _truthy(data.is_admin) ||
+      _truthy(data.isAdmin) ||
+      _truthy(data.is_super_admin) ||
+      _truthy(data.isSuperAdmin) ||
+      _truthy(data.is_admin_teacher) ||
+      _truthy(data.isAdminTeacher)
     );
   } catch (_) {
     return false;
@@ -165,10 +212,10 @@ const assertJoinWindowOrThrow = (shiftData) => {
   };
 };
 
-const getAccessForUser = async ({ uid, teacherId, studentIds }) => {
+const getAccessForUser = async ({ uid, token, teacherId, studentIds }) => {
   const isTeacher = uid === teacherId;
   const isStudent = studentIds.includes(uid);
-  const isAdmin = await isUserAdmin(uid);
+  const isAdmin = await isUserAdmin(uid, token);
   const isParent = !isTeacher && !isStudent && !isAdmin
     ? await isUserParentOfStudent(uid, studentIds)
     : false;
@@ -257,7 +304,28 @@ const addParticipantForRole = async ({ meetingId, uid, displayName, role, record
   };
 };
 
-const buildJoinResponse = async ({ shiftId, uid, displayName, role, guest = false }) => {
+const syncTeacherRecordingPreset = async ({ meetingId, teacherId, recordingEnabled }) => {
+  if (!meetingId || !teacherId) return false;
+  const participantsResponse = await realtimeKit.listMeetingParticipants(meetingId);
+  const participants = Array.isArray(participantsResponse?.data)
+    ? participantsResponse.data
+    : [];
+  const teacherParticipant = participants.find((item) => item.custom_participant_id === teacherId);
+  if (!teacherParticipant?.id) return false;
+
+  const config = getRealtimeKitConfig();
+  const presetName = recordingEnabled
+    ? config.presets.teacherRecorder
+    : config.presets.teacher;
+  if (teacherParticipant.preset_name === presetName) return false;
+
+  await realtimeKit.updateParticipant(meetingId, teacherParticipant.id, {
+    preset_name: presetName,
+  });
+  return true;
+};
+
+const buildJoinResponse = async ({ shiftId, uid, token, displayName, role, guest = false }) => {
   if (!isRealtimeKitConfigured()) {
     throw new HttpsError('unavailable', 'RealtimeKit video is not configured');
   }
@@ -267,7 +335,7 @@ const buildJoinResponse = async ({ shiftId, uid, displayName, role, guest = fals
   const joinWindow = assertJoinWindowOrThrow(shiftData);
 
   if (!guest) {
-    const resolvedRole = await getAccessForUser({ uid, teacherId, studentIds });
+    const resolvedRole = await getAccessForUser({ uid, token, teacherId, studentIds });
     role = resolvedRole;
   }
 
@@ -323,7 +391,13 @@ const getRealtimeKitJoinToken = onCall({
   }
 
   const displayName = await getUserDisplayName(uid);
-  return buildJoinResponse({ shiftId, uid, displayName, role: 'student' });
+  return buildJoinResponse({
+    shiftId,
+    uid,
+    token: request.auth?.token,
+    displayName,
+    role: 'student',
+  });
 });
 
 const getRealtimeKitGuestJoin = onRequest({
@@ -377,7 +451,7 @@ const getRealtimeKitRoomPresence = onCall({
 
   const { shiftData, teacherId, studentIds, meetingId } =
     await getRealtimeKitShiftOrThrow(shiftId);
-  await getAccessForUser({ uid, teacherId, studentIds });
+  await getAccessForUser({ uid, token: request.auth?.token, teacherId, studentIds });
 
   if (!meetingId) {
     return {
@@ -421,7 +495,7 @@ const setRealtimeKitRoomLock = onCall(async (request) => {
   }
 
   const { shiftRef, teacherId } = await getRealtimeKitShiftOrThrow(shiftId);
-  const isAdmin = await isUserAdmin(uid);
+  const isAdmin = await isUserAdmin(uid, request.auth?.token);
   if (uid !== teacherId && !isAdmin) {
     throw new HttpsError('permission-denied', 'Only teachers/admins can manage this class');
   }
@@ -444,8 +518,8 @@ const setRealtimeKitRecordingEnabled = onCall(async (request) => {
     throw new HttpsError('invalid-argument', 'Missing or invalid shiftId');
   }
 
-  const { shiftRef } = await getRealtimeKitShiftOrThrow(shiftId);
-  if (!(await isUserAdmin(uid))) {
+  const { shiftRef, teacherId, meetingId } = await getRealtimeKitShiftOrThrow(shiftId);
+  if (!(await isUserAdmin(uid, request.auth?.token))) {
     throw new HttpsError('permission-denied', 'Only admins can change class recording settings');
   }
 
@@ -453,7 +527,58 @@ const setRealtimeKitRecordingEnabled = onCall(async (request) => {
     realtimekit_recording_enabled: enabled,
     realtimekit_updated_at: admin.firestore.FieldValue.serverTimestamp(),
   }, { merge: true });
+  await syncTeacherRecordingPreset({
+    meetingId,
+    teacherId,
+    recordingEnabled: enabled,
+  }).catch(() => false);
   return { success: true, recordingEnabled: enabled };
+});
+
+const bulkSetRealtimeKitRecordingEnabled = onCall(async (request) => {
+  const uid = request.auth?.uid;
+  const rawShiftIds = request.data?.shiftIds;
+  const enabled = request.data?.enabled === true;
+  if (!uid) throw new HttpsError('unauthenticated', 'Authentication required');
+  if (!Array.isArray(rawShiftIds)) {
+    throw new HttpsError('invalid-argument', 'Missing or invalid shiftIds');
+  }
+  if (!(await isUserAdmin(uid, request.auth?.token))) {
+    throw new HttpsError('permission-denied', 'Only admins can change class recording settings');
+  }
+
+  const shiftIds = _normalizeUidList(rawShiftIds).slice(0, 500);
+  if (shiftIds.length === 0) {
+    return { success: true, recordingEnabled: enabled, updatedCount: 0 };
+  }
+
+  const db = admin.firestore();
+  const batch = db.batch();
+  const presetSyncs = [];
+
+  for (const shiftId of shiftIds) {
+    const { shiftRef, teacherId, meetingId } = await getRealtimeKitShiftOrThrow(shiftId);
+    batch.set(shiftRef, {
+      realtimekit_recording_enabled: enabled,
+      realtimekit_updated_at: admin.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+    if (meetingId) {
+      presetSyncs.push(syncTeacherRecordingPreset({
+        meetingId,
+        teacherId,
+        recordingEnabled: enabled,
+      }).catch(() => false));
+    }
+  }
+
+  await batch.commit();
+  const syncedResults = await Promise.all(presetSyncs);
+  return {
+    success: true,
+    recordingEnabled: enabled,
+    updatedCount: shiftIds.length,
+    activeParticipantsUpdated: syncedResults.filter(Boolean).length,
+  };
 });
 
 const kickRealtimeKitParticipant = onCall({
@@ -467,7 +592,7 @@ const kickRealtimeKitParticipant = onCall({
   }
 
   const { teacherId, meetingId } = await getRealtimeKitShiftOrThrow(shiftId);
-  const isAdmin = await isUserAdmin(uid);
+  const isAdmin = await isUserAdmin(uid, request.auth?.token);
   if (uid !== teacherId && !isAdmin) {
     throw new HttpsError('permission-denied', 'Only teachers/admins can manage this class');
   }
@@ -493,4 +618,5 @@ module.exports = {
   kickRealtimeKitParticipant,
   setRealtimeKitRoomLock,
   setRealtimeKitRecordingEnabled,
+  bulkSetRealtimeKitRecordingEnabled,
 };

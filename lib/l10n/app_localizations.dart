@@ -26247,6 +26247,234 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Unable to update recording permission.'**
   String get classRecordingPermissionUpdateFailed;
+
+  /// No description provided for @bulkClassRecordingMenu.
+  ///
+  /// In en, this message translates to:
+  /// **'Recording Access'**
+  String get bulkClassRecordingMenu;
+
+  /// No description provided for @bulkClassRecordingTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Bulk recording access'**
+  String get bulkClassRecordingTitle;
+
+  /// No description provided for @bulkClassRecordingSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow or block recording across a focused set of teaching classes.'**
+  String get bulkClassRecordingSubtitle;
+
+  /// No description provided for @bulkClassRecordingAccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Access change'**
+  String get bulkClassRecordingAccess;
+
+  /// No description provided for @bulkClassRecordingEnable.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable'**
+  String get bulkClassRecordingEnable;
+
+  /// No description provided for @bulkClassRecordingDisable.
+  ///
+  /// In en, this message translates to:
+  /// **'Disable'**
+  String get bulkClassRecordingDisable;
+
+  /// No description provided for @bulkClassRecordingScope.
+  ///
+  /// In en, this message translates to:
+  /// **'Scope'**
+  String get bulkClassRecordingScope;
+
+  /// No description provided for @bulkClassRecordingScopeAllTeachers.
+  ///
+  /// In en, this message translates to:
+  /// **'All teachers'**
+  String get bulkClassRecordingScopeAllTeachers;
+
+  /// No description provided for @bulkClassRecordingScopeTeacher.
+  ///
+  /// In en, this message translates to:
+  /// **'Teacher'**
+  String get bulkClassRecordingScopeTeacher;
+
+  /// No description provided for @bulkClassRecordingScopeStudent.
+  ///
+  /// In en, this message translates to:
+  /// **'Student'**
+  String get bulkClassRecordingScopeStudent;
+
+  /// No description provided for @bulkClassRecordingScopeSelected.
+  ///
+  /// In en, this message translates to:
+  /// **'Selected'**
+  String get bulkClassRecordingScopeSelected;
+
+  /// No description provided for @bulkClassRecordingChooseTeacher.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose teacher'**
+  String get bulkClassRecordingChooseTeacher;
+
+  /// No description provided for @bulkClassRecordingSearchTeacher.
+  ///
+  /// In en, this message translates to:
+  /// **'Search teachers'**
+  String get bulkClassRecordingSearchTeacher;
+
+  /// No description provided for @bulkClassRecordingChooseStudent.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose student'**
+  String get bulkClassRecordingChooseStudent;
+
+  /// No description provided for @bulkClassRecordingSearchStudent.
+  ///
+  /// In en, this message translates to:
+  /// **'Search students'**
+  String get bulkClassRecordingSearchStudent;
+
+  /// No description provided for @bulkClassRecordingTimeWindow.
+  ///
+  /// In en, this message translates to:
+  /// **'Class window'**
+  String get bulkClassRecordingTimeWindow;
+
+  /// No description provided for @bulkClassRecordingTimeActiveUpcoming.
+  ///
+  /// In en, this message translates to:
+  /// **'Active and upcoming'**
+  String get bulkClassRecordingTimeActiveUpcoming;
+
+  /// No description provided for @bulkClassRecordingTimeUpcoming.
+  ///
+  /// In en, this message translates to:
+  /// **'Upcoming only'**
+  String get bulkClassRecordingTimeUpcoming;
+
+  /// No description provided for @bulkClassRecordingTimeActive.
+  ///
+  /// In en, this message translates to:
+  /// **'Active now'**
+  String get bulkClassRecordingTimeActive;
+
+  /// No description provided for @bulkClassRecordingTimePast.
+  ///
+  /// In en, this message translates to:
+  /// **'Past classes'**
+  String get bulkClassRecordingTimePast;
+
+  /// No description provided for @bulkClassRecordingTimeAll.
+  ///
+  /// In en, this message translates to:
+  /// **'All dates'**
+  String get bulkClassRecordingTimeAll;
+
+  /// No description provided for @bulkClassRecordingPreview.
+  ///
+  /// In en, this message translates to:
+  /// **'Preview'**
+  String get bulkClassRecordingPreview;
+
+  /// No description provided for @bulkClassRecordingMatched.
+  ///
+  /// In en, this message translates to:
+  /// **'matched'**
+  String get bulkClassRecordingMatched;
+
+  /// No description provided for @bulkClassRecordingWillChange.
+  ///
+  /// In en, this message translates to:
+  /// **'will change'**
+  String get bulkClassRecordingWillChange;
+
+  /// No description provided for @bulkClassRecordingAlreadyEnabled.
+  ///
+  /// In en, this message translates to:
+  /// **'enabled'**
+  String get bulkClassRecordingAlreadyEnabled;
+
+  /// No description provided for @bulkClassRecordingAlreadyDisabled.
+  ///
+  /// In en, this message translates to:
+  /// **'disabled'**
+  String get bulkClassRecordingAlreadyDisabled;
+
+  /// No description provided for @bulkClassRecordingEnableSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'Recording will be enabled for {count} class(es).'**
+  String bulkClassRecordingEnableSummary(int count);
+
+  /// No description provided for @bulkClassRecordingDisableSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'Recording will be disabled for {count} class(es).'**
+  String bulkClassRecordingDisableSummary(int count);
+
+  /// No description provided for @bulkClassRecordingSampleClasses.
+  ///
+  /// In en, this message translates to:
+  /// **'Sample classes'**
+  String get bulkClassRecordingSampleClasses;
+
+  /// No description provided for @bulkClassRecordingMoreClasses.
+  ///
+  /// In en, this message translates to:
+  /// **'+{count} more class(es)'**
+  String bulkClassRecordingMoreClasses(int count);
+
+  /// No description provided for @bulkClassRecordingNoMatches.
+  ///
+  /// In en, this message translates to:
+  /// **'No teaching classes match this scope.'**
+  String get bulkClassRecordingNoMatches;
+
+  /// No description provided for @bulkClassRecordingFooterNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Teachers receive the recording-capable room preset the next time they join a matching class.'**
+  String get bulkClassRecordingFooterNote;
+
+  /// No description provided for @bulkClassRecordingApplyEnable.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable recording'**
+  String get bulkClassRecordingApplyEnable;
+
+  /// No description provided for @bulkClassRecordingApplyDisable.
+  ///
+  /// In en, this message translates to:
+  /// **'Disable recording'**
+  String get bulkClassRecordingApplyDisable;
+
+  /// No description provided for @bulkClassRecordingUpdating.
+  ///
+  /// In en, this message translates to:
+  /// **'Updating recording access for {count} class(es)...'**
+  String bulkClassRecordingUpdating(int count);
+
+  /// No description provided for @bulkClassRecordingEnabledSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Recording enabled for {count} class(es).'**
+  String bulkClassRecordingEnabledSuccess(int count);
+
+  /// No description provided for @bulkClassRecordingDisabledSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Recording disabled for {count} class(es).'**
+  String bulkClassRecordingDisabledSuccess(int count);
+
+  /// No description provided for @bulkClassRecordingUpdateFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to update recording access.'**
+  String get bulkClassRecordingUpdateFailed;
 }
 
 class _AppLocalizationsDelegate

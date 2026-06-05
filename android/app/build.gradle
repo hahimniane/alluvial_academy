@@ -13,6 +13,7 @@ def keystorePropertiesFile = rootProject.file('key.properties')
 if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
 }
+def hasReleaseKeystore = keystorePropertiesFile.exists() && keystoreProperties['storeFile']
 
 android {
     namespace = "org.alluvaleducationhub.academy"
@@ -52,7 +53,9 @@ android {
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.release
+            if (hasReleaseKeystore) {
+                signingConfig = signingConfigs.release
+            }
             minifyEnabled false
             shrinkResources false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
@@ -74,6 +77,10 @@ dependencies {
 }
 
 configurations.all {
+    // RealtimeKit pulls the official Twilio audioswitch artifact while
+    // flutter_webrtc needs the davidliu fork with the same package/classes.
+    exclude group: 'com.twilio', module: 'audioswitch'
+
     resolutionStrategy {
         // Force stable versions that don't require AGP 8.9.1
         force 'androidx.browser:browser:1.8.0'

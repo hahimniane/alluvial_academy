@@ -14313,4 +14313,133 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get classRecordingPermissionUpdateFailed => 'تعذر تحديث إذن التسجيل.';
+
+  @override
+  String get bulkClassRecordingMenu => 'إمكانية التسجيل';
+
+  @override
+  String get bulkClassRecordingTitle => 'إمكانية التسجيل بالجملة';
+
+  @override
+  String get bulkClassRecordingSubtitle =>
+      'السماح بالتسجيل أو منعه لمجموعة محددة من حصص التدريس.';
+
+  @override
+  String get bulkClassRecordingAccess => 'تغيير الإمكانية';
+
+  @override
+  String get bulkClassRecordingEnable => 'تفعيل';
+
+  @override
+  String get bulkClassRecordingDisable => 'تعطيل';
+
+  @override
+  String get bulkClassRecordingScope => 'النطاق';
+
+  @override
+  String get bulkClassRecordingScopeAllTeachers => 'كل المعلمين';
+
+  @override
+  String get bulkClassRecordingScopeTeacher => 'معلم';
+
+  @override
+  String get bulkClassRecordingScopeStudent => 'طالب';
+
+  @override
+  String get bulkClassRecordingScopeSelected => 'المحددة';
+
+  @override
+  String get bulkClassRecordingChooseTeacher => 'اختر معلماً';
+
+  @override
+  String get bulkClassRecordingSearchTeacher => 'ابحث عن المعلمين';
+
+  @override
+  String get bulkClassRecordingChooseStudent => 'اختر طالباً';
+
+  @override
+  String get bulkClassRecordingSearchStudent => 'ابحث عن الطلاب';
+
+  @override
+  String get bulkClassRecordingTimeWindow => 'نافذة الحصة';
+
+  @override
+  String get bulkClassRecordingTimeActiveUpcoming => 'النشطة والقادمة';
+
+  @override
+  String get bulkClassRecordingTimeUpcoming => 'القادمة فقط';
+
+  @override
+  String get bulkClassRecordingTimeActive => 'النشطة الآن';
+
+  @override
+  String get bulkClassRecordingTimePast => 'الحصص السابقة';
+
+  @override
+  String get bulkClassRecordingTimeAll => 'كل التواريخ';
+
+  @override
+  String get bulkClassRecordingPreview => 'معاينة';
+
+  @override
+  String get bulkClassRecordingMatched => 'مطابقة';
+
+  @override
+  String get bulkClassRecordingWillChange => 'ستتغير';
+
+  @override
+  String get bulkClassRecordingAlreadyEnabled => 'مفعلة';
+
+  @override
+  String get bulkClassRecordingAlreadyDisabled => 'معطلة';
+
+  @override
+  String bulkClassRecordingEnableSummary(int count) {
+    return 'سيتم تفعيل التسجيل لـ $count حصة.';
+  }
+
+  @override
+  String bulkClassRecordingDisableSummary(int count) {
+    return 'سيتم تعطيل التسجيل لـ $count حصة.';
+  }
+
+  @override
+  String get bulkClassRecordingSampleClasses => 'نماذج الحصص';
+
+  @override
+  String bulkClassRecordingMoreClasses(int count) {
+    return '+$count حصة أخرى';
+  }
+
+  @override
+  String get bulkClassRecordingNoMatches =>
+      'لا توجد حصص تدريس تطابق هذا النطاق.';
+
+  @override
+  String get bulkClassRecordingFooterNote =>
+      'يحصل المعلمون على إعداد الغرفة الذي يسمح بالتسجيل عند انضمامهم التالي إلى حصة مطابقة.';
+
+  @override
+  String get bulkClassRecordingApplyEnable => 'تفعيل التسجيل';
+
+  @override
+  String get bulkClassRecordingApplyDisable => 'تعطيل التسجيل';
+
+  @override
+  String bulkClassRecordingUpdating(int count) {
+    return 'جارٍ تحديث إمكانية التسجيل لـ $count حصة...';
+  }
+
+  @override
+  String bulkClassRecordingEnabledSuccess(int count) {
+    return 'تم تفعيل التسجيل لـ $count حصة.';
+  }
+
+  @override
+  String bulkClassRecordingDisabledSuccess(int count) {
+    return 'تم تعطيل التسجيل لـ $count حصة.';
+  }
+
+  @override
+  String get bulkClassRecordingUpdateFailed => 'تعذر تحديث إمكانية التسجيل.';
 }

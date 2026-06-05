@@ -1066,7 +1066,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen>
 
   // Whiteboard state (web only)
   bool _whiteboardEnabled = false;
-  bool _studentDrawingEnabled = false; // Controlled by teacher
+  bool _studentDrawingEnabled = true;
   final StreamController<Map<String, dynamic>> _whiteboardProjectController =
       StreamController<Map<String, dynamic>>.broadcast();
   Map<String, dynamic>? _lastWhiteboardProject;
@@ -3687,7 +3687,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen>
       if (whiteboard != null) {
         final strokes = whiteboard['strokes'] as List?;
         final studentDrawingEnabled =
-            whiteboard['studentDrawingEnabled'] as bool? ?? false;
+            whiteboard['studentDrawingEnabled'] as bool? ?? true;
 
         if (strokes != null && strokes.isNotEmpty) {
           _initialWhiteboardStrokes = strokes.cast<Map<String, dynamic>>();
@@ -5062,7 +5062,8 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen>
       return _buildScreenShareStage(activeScreenShare);
     }
 
-    // Whiteboard view - teacher can set students as viewer or editor
+    // Whiteboard view - students collaborate by default; teachers can switch
+    // them to view-only for classroom control.
     if (_whiteboardEnabled) {
       return CallWhiteboard(
         isTeacher: widget.isTeacher,

@@ -293,6 +293,30 @@ class ClassVideoService {
     await callable.call({'shiftId': shiftId, 'enabled': enabled});
   }
 
+  static Future<int> bulkSetRecordingEnabled({
+    required List<String> shiftIds,
+    required bool enabled,
+  }) async {
+    final normalizedIds = shiftIds
+        .map((id) => id.trim())
+        .where((id) => id.isNotEmpty)
+        .toSet()
+        .toList(growable: false);
+    if (normalizedIds.isEmpty) return 0;
+
+    final callable =
+        _functions.httpsCallable('bulkSetRealtimeKitRecordingEnabled');
+    final result = await callable.call({
+      'shiftIds': normalizedIds,
+      'enabled': enabled,
+    });
+    final data = result.data;
+    if (data is Map && data['updatedCount'] is num) {
+      return (data['updatedCount'] as num).toInt();
+    }
+    return normalizedIds.length;
+  }
+
   static Future<void> joinClass(
     BuildContext context,
     TeachingShift shift, {
