@@ -5,8 +5,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/services/user_role_service.dart';
-import 'package:alluwalacademyadmin/features/chat/screens/chat_page.dart';
-import 'package:alluwalacademyadmin/features/forms/screens/teacher_forms_screen.dart';
+import '../../chat/screens/chat_page.dart';
+import '../../forms/screens/teacher_forms_screen.dart';
 import '../../website/screens/landing_page.dart';
 import '../../dashboard/widgets/custom_sidebar.dart';
 import 'parent_dashboard_screen.dart';

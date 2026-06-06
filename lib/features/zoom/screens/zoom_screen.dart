@@ -7,13 +7,13 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/models/employee_model.dart';
-import 'package:alluwalacademyadmin/features/shift_management/enums/shift_enums.dart';
-import 'package:alluwalacademyadmin/features/shift_management/models/teaching_shift.dart';
-import 'package:alluwalacademyadmin/features/shift_management/services/shift_service.dart';
-import 'package:alluwalacademyadmin/features/livekit/services/video_call_service.dart';
-import 'package:alluwalacademyadmin/features/livekit/services/livekit_service.dart';
 import '../../../core/services/user_role_service.dart';
+import '../../livekit/services/livekit_service.dart';
+import '../../livekit/services/video_call_service.dart';
 import '../../shift_management/widgets/create_shift_dialog.dart';
+import '../../shift_management/enums/shift_enums.dart';
+import '../../shift_management/models/teaching_shift.dart';
+import '../../shift_management/services/shift_service.dart';
 import '../../recordings/screens/class_recordings_screen.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 

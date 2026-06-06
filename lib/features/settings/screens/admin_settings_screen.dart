@@ -3,9 +3,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/constants/build_info.dart';
-import 'package:alluwalacademyadmin/features/shift_management/services/mobile_classes_access_service.dart';
 import '../../../core/services/user_role_service.dart';
 import '../../shift_management/screens/mobile_classes_access_screen.dart';
+import '../../shift_management/services/mobile_classes_access_service.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
@@ -59,8 +59,8 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
       final availableRoles = await UserRoleService.getAvailableRoles();
       final lower = role?.toLowerCase();
       final isAdminByRole = lower == 'admin' || lower == 'super_admin';
-      final hasAdminAvailable = availableRoles
-          .any((r) => r.toLowerCase() == 'admin' || r.toLowerCase() == 'super_admin');
+      final hasAdminAvailable = availableRoles.any((r) =>
+          r.toLowerCase() == 'admin' || r.toLowerCase() == 'super_admin');
       final isAdmin = isAdminByRole || hasAdminAvailable;
 
       if (!mounted) return;
@@ -82,7 +82,8 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
         final freshRoles = await UserRoleService.getAvailableRoles();
         final freshAdmin = freshRole?.toLowerCase() == 'admin' ||
             freshRole?.toLowerCase() == 'super_admin' ||
-            freshRoles.any((r) => r.toLowerCase() == 'admin' || r.toLowerCase() == 'super_admin');
+            freshRoles.any((r) =>
+                r.toLowerCase() == 'admin' || r.toLowerCase() == 'super_admin');
         if (freshAdmin && mounted) {
           setState(() => _hasAccess = true);
           await _loadSettings();
@@ -128,7 +129,9 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppLocalizations.of(context)!.errorLoadingSettingsE)),
+          SnackBar(
+              content:
+                  Text(AppLocalizations.of(context)!.errorLoadingSettingsE)),
         );
       }
     } finally {
@@ -144,10 +147,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
 
     setState(() => _isSaving = true);
     try {
-      await FirebaseFirestore.instance
-          .collection('settings')
-          .doc('admin')
-          .set({
+      await FirebaseFirestore.instance.collection('settings').doc('admin').set({
         'notification_email': _notificationEmailController.text.trim(),
         'updated_at': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
@@ -155,7 +155,8 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(AppLocalizations.of(context)!.settingsSavedSuccessfully),
+            content:
+                Text(AppLocalizations.of(context)!.settingsSavedSuccessfully),
             backgroundColor: Colors.green,
           ),
         );
@@ -226,7 +227,10 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
     final firestore = FirebaseFirestore.instance;
     final results = await Future.wait([
       firestore.collection('users').where('role', whereIn: adminRoles).get(),
-      firestore.collection('users').where('user_type', whereIn: adminRoles).get(),
+      firestore
+          .collection('users')
+          .where('user_type', whereIn: adminRoles)
+          .get(),
       firestore.collection('users').where('is_admin', isEqualTo: true).get(),
     ]);
 
@@ -277,7 +281,8 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
             onPressed: () => Navigator.pop(ctx, {'id': '', 'name': ''}),
             child: Row(
               children: [
-                const Icon(Icons.groups_outlined, size: 20, color: Color(0xff6B7280)),
+                const Icon(Icons.groups_outlined,
+                    size: 20, color: Color(0xff6B7280)),
                 const SizedBox(width: 12),
                 Text('All administrators',
                     style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
@@ -310,7 +315,8 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
                         if ((admin['email'] ?? '').isNotEmpty)
                           Text(admin['email']!,
                               style: GoogleFonts.inter(
-                                  fontSize: 12, color: const Color(0xff6B7280))),
+                                  fontSize: 12,
+                                  color: const Color(0xff6B7280))),
                       ],
                     ),
                   ),
@@ -399,13 +405,16 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
                           _buildSectionTitle('Notification Settings'),
                           const SizedBox(height: 16),
                           _buildTextField(
-                            label: AppLocalizations.of(context)!.adminSettingsNotificationemail,
+                            label: AppLocalizations.of(context)!
+                                .adminSettingsNotificationemail,
                             hint: 'email@example.com',
                             controller: _notificationEmailController,
-                            helperText: AppLocalizations.of(context)!.thisEmailWillReceiveNotificationsFor,
+                            helperText: AppLocalizations.of(context)!
+                                .thisEmailWillReceiveNotificationsFor,
                             validator: (value) {
                               if (value != null && value.isNotEmpty) {
-                                final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+                                final emailRegex =
+                                    RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
                                 if (!emailRegex.hasMatch(value)) {
                                   return 'Please enter a valid email address';
                                 }
@@ -421,7 +430,8 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xff0386FF),
                                 foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 16),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(8),
                                 ),
@@ -432,11 +442,14 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
                                       height: 20,
                                       child: CircularProgressIndicator(
                                         strokeWidth: 2,
-                                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                        valueColor:
+                                            AlwaysStoppedAnimation<Color>(
+                                                Colors.white),
                                       ),
                                     )
                                   : Text(
-                                      AppLocalizations.of(context)!.timesheetSaveChanges,
+                                      AppLocalizations.of(context)!
+                                          .timesheetSaveChanges,
                                       style: GoogleFonts.inter(
                                         fontWeight: FontWeight.w600,
                                       ),
