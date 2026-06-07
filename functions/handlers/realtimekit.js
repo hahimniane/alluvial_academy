@@ -67,6 +67,19 @@ const getUserDisplayName = async (uid, fallback = 'Participant') => {
 
 const _truthy = (value) => value === true || value === 'true' || value === 1 || value === '1';
 
+const _roleList = (value) => {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((role) => String(role || '').trim().toLowerCase())
+    .filter(Boolean);
+};
+
+const _isAdminRole = (role) => (
+  role === 'admin' ||
+  role === 'super_admin' ||
+  role === 'admin_teacher'
+);
+
 const getUserDataForCaller = async (uid, token = {}) => {
   if (!uid) return null;
   const db = admin.firestore();
@@ -101,9 +114,14 @@ const isUserAdmin = async (uid, token = {}) => {
   if (!uid) return false;
   try {
     const tokenRole = String(token.role || token.user_type || token.userType || '').trim().toLowerCase();
+    const tokenRoles = [
+      ..._roleList(token.roles),
+      ..._roleList(token.secondary_roles),
+      ..._roleList(token.secondaryRoles),
+    ];
     if (
-      tokenRole === 'admin' ||
-      tokenRole === 'super_admin' ||
+      _isAdminRole(tokenRole) ||
+      tokenRoles.some(_isAdminRole) ||
       _truthy(token.admin) ||
       _truthy(token.isAdmin) ||
       _truthy(token.is_admin) ||
@@ -119,11 +137,15 @@ const isUserAdmin = async (uid, token = {}) => {
     if (!data) return false;
     const role = String(data.role || '').trim().toLowerCase();
     const userType = String(data.user_type || data.userType || '').trim().toLowerCase();
+    const secondaryRoles = [
+      ..._roleList(data.roles),
+      ..._roleList(data.secondary_roles),
+      ..._roleList(data.secondaryRoles),
+    ];
     return (
-      role === 'admin' ||
-      role === 'super_admin' ||
-      userType === 'admin' ||
-      userType === 'super_admin' ||
+      _isAdminRole(role) ||
+      _isAdminRole(userType) ||
+      secondaryRoles.some(_isAdminRole) ||
       _truthy(data.is_admin) ||
       _truthy(data.isAdmin) ||
       _truthy(data.is_super_admin) ||
@@ -509,7 +531,9 @@ const setRealtimeKitRoomLock = onCall(async (request) => {
 
 // Admin-only: allow or disallow recording for a single class. Teachers receive
 // the recording-capable preset on their next join only while this is enabled.
-const setRealtimeKitRecordingEnabled = onCall(async (request) => {
+const setRealtimeKitRecordingEnabled = onCall({
+  secrets: REALTIMEKIT_REQUIRED_SECRETS,
+}, async (request) => {
   const uid = request.auth?.uid;
   const shiftId = request.data?.shiftId;
   const enabled = request.data?.enabled === true;
@@ -535,7 +559,9 @@ const setRealtimeKitRecordingEnabled = onCall(async (request) => {
   return { success: true, recordingEnabled: enabled };
 });
 
-const bulkSetRealtimeKitRecordingEnabled = onCall(async (request) => {
+const bulkSetRealtimeKitRecordingEnabled = onCall({
+  secrets: REALTIMEKIT_REQUIRED_SECRETS,
+}, async (request) => {
   const uid = request.auth?.uid;
   const rawShiftIds = request.data?.shiftIds;
   const enabled = request.data?.enabled === true;

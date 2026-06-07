@@ -345,6 +345,39 @@ describe('RealtimeKit class access', () => {
     expect(mockShifts.shift_1.realtimekit_recording_enabled).toBe(true);
   });
 
+  test('admin teacher role can enable class recording', async () => {
+    mockUsers.admin_teacher_1 = {
+      first_name: 'Admin',
+      last_name: 'Teacher',
+      user_type: 'admin_teacher',
+    };
+
+    const toggle = await setRealtimeKitRecordingEnabled({
+      auth: { uid: 'admin_teacher_1' },
+      data: { shiftId: 'shift_1', enabled: true },
+    });
+
+    expect(toggle).toEqual({ success: true, recordingEnabled: true });
+    expect(mockShifts.shift_1.realtimekit_recording_enabled).toBe(true);
+  });
+
+  test('secondary admin role can enable class recording', async () => {
+    mockUsers.teacher_admin_1 = {
+      first_name: 'Teacher',
+      last_name: 'Admin',
+      user_type: 'teacher',
+      secondary_roles: ['admin'],
+    };
+
+    const toggle = await setRealtimeKitRecordingEnabled({
+      auth: { uid: 'teacher_admin_1' },
+      data: { shiftId: 'shift_1', enabled: true },
+    });
+
+    expect(toggle).toEqual({ success: true, recordingEnabled: true });
+    expect(mockShifts.shift_1.realtimekit_recording_enabled).toBe(true);
+  });
+
   test('bulk admin recording update changes shifts and active teacher preset', async () => {
     mockShifts.shift_1.realtimekit_meeting_id = 'meeting_1';
     mockShifts.shift_2.realtimekit_meeting_id = 'meeting_2';
@@ -377,6 +410,22 @@ describe('RealtimeKit class access', () => {
       'participant_teacher_1',
       expect.objectContaining({ preset_name: 'teacher_recorder' }),
     );
+  });
+
+  test('admin teacher token role can bulk update recording access', async () => {
+    const result = await bulkSetRealtimeKitRecordingEnabled({
+      auth: { uid: 'admin_teacher_token_1', token: { role: 'admin_teacher' } },
+      data: { shiftIds: ['shift_1', 'shift_2'], enabled: true },
+    });
+
+    expect(result).toEqual({
+      success: true,
+      recordingEnabled: true,
+      updatedCount: 2,
+      activeParticipantsUpdated: 0,
+    });
+    expect(mockShifts.shift_1.realtimekit_recording_enabled).toBe(true);
+    expect(mockShifts.shift_2.realtimekit_recording_enabled).toBe(true);
   });
 
   test('non-admin cannot enable class recording', async () => {
