@@ -62,6 +62,7 @@ serviceAccountKey.json
 # Node modules
 node_modules/
 package-lock.json
+!apps/web/package-lock.json
 
 # Documentation files (optional - remove if you want to track them)
 FIXES_APPLIED.md

@@ -1,0 +1,12 @@
+.next/
+out/
+node_modules/
+public/assets/
+public/favicon.png
+public/logo-192.png
+public/logo-512.png
+test-results/
+playwright-report/
+tsconfig.tsbuildinfo
+.env.local
+.env.*.local
