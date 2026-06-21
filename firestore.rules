@@ -235,6 +235,12 @@ service cloud.firestore {
       allow read, update, delete: if isAdmin();
     }
 
+    // Allow anyone to submit a leadership application (create only)
+    match /leadership_applications/{applicationId} {
+      allow create: if true;
+      allow read, update, delete: if isAdmin();
+    }
+
     // =========================================================================
     // Authenticated & Admin Collections
     // =========================================================================
