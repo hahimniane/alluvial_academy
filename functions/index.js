@@ -17,6 +17,8 @@ const formHandlers = require('./handlers/forms');
 // LiveKit exports remain for rollback/history and non-class surfaces.
 const livekitHandlers = require('./handlers/livekit');
 const realtimekitHandlers = require('./handlers/realtimekit');
+const zoomHandlers = require('./handlers/zoom');
+const zoomHubBotHandlers = require('./handlers/zoom_hub_bot');
 const testLivekitHandlers = require('./handlers/test_livekit');
 const migrationLivekitHandlers = require('./handlers/migration_livekit');
 const passwordHandlers = require('./handlers/password');
@@ -30,6 +32,7 @@ const attendanceHandlers = require('./handlers/attendance');
 const circleHandlers = require('./handlers/circles');
 const githubReportingHandlers = require('./handlers/github_reporting');
 const publicSitePublicReadHandlers = require('./handlers/public_site_public_read');
+const adminClaimHandlers = require('./handlers/admin_claims');
 // Temporarily commented out to allow deployment
 // const { fixDecemberForms } = require('./fix_december_forms');
 const newImplementation = require('./new_implementation');
@@ -45,6 +48,8 @@ exports.createMultipleUsers = functions.https.onCall(userHandlers.createMultiple
 exports.createUser = functions.https.onCall(userHandlers.createUser);
 exports.deleteUserAccount = functions.https.onCall(userHandlers.deleteUserAccount);
 exports.findUserByEmailOrCode = functions.https.onCall(userHandlers.findUserByEmailOrCode);
+exports.adminSearchDirectoryUsers = functions.https.onCall(userHandlers.adminSearchDirectoryUsers);
+exports.syncPublicSiteAdminClaim = adminClaimHandlers.syncPublicSiteAdminClaim;
 exports.createStudentAccount = functions.https.onCall(studentHandlers.createStudentAccount);
 exports.sendCustomPasswordResetEmail = functions.https.onCall(
   emailHandlers.sendCustomPasswordResetEmail
@@ -134,6 +139,8 @@ exports.getUserTimezone = timezoneHandlers.getUserTimezone;
 // No-show reporting
 exports.reportNoShow = noShowHandlers.reportNoShow;
 exports.reportClassTechnicalIssue = noShowHandlers.reportClassTechnicalIssue;
+exports.detectClassAttendanceNoShows =
+  attendanceHandlers.detectClassAttendanceNoShows;
 exports.generateWeeklyStudentAttendanceReports =
   attendanceHandlers.generateWeeklyStudentAttendanceReports;
 exports.generateMonthlyStudentAttendanceReports =
@@ -141,6 +148,8 @@ exports.generateMonthlyStudentAttendanceReports =
 exports.getStudentAttendanceReport = attendanceHandlers.getStudentAttendanceReport;
 exports.getPublicSiteMarketingBundle =
   publicSitePublicReadHandlers.getPublicSiteMarketingBundle;
+exports.getPublicSiteMarketingBundleHttp =
+  publicSitePublicReadHandlers.getPublicSiteMarketingBundleHttp;
 
 // Chat notifications and permissions
 exports.onChatMessageCreated = chatHandlers.onChatMessageCreated;
@@ -157,6 +166,8 @@ exports.endDirectCall = directCallHandlers.endDirectCall;
 exports.onEnrollmentCreated = enrollmentHandlers.onEnrollmentCreated;
 // Callable version - note: may have IAM issues on some projects
 exports.publishEnrollmentToJobBoard = onCall({ cors: true }, enrollmentHandlers.publishEnrollmentToJobBoard);
+exports.inviteParentForEnrollment = functions.https.onCall(enrollmentHandlers.inviteParentForEnrollment);
+exports.unlinkGuardianFromStudent = functions.https.onCall(enrollmentHandlers.unlinkGuardianFromStudent);
 // Use v1 callables. When context.auth is null (e.g. App Check placeholder), we use idToken from the request body.
 exports.acceptJob = functions.https.onCall(async (data, context) => {
   let auth = context.auth;
@@ -375,6 +386,16 @@ exports.setRealtimeKitRecordingEnabled =
 exports.bulkSetRealtimeKitRecordingEnabled =
   realtimekitHandlers.bulkSetRealtimeKitRecordingEnabled;
 exports.getRealtimeKitGuestJoin = realtimekitHandlers.getRealtimeKitGuestJoin;
+
+// Zoom classroom pilot
+exports.getZoomJoinInfo = zoomHandlers.getZoomJoinInfo;
+exports.setTeacherZoomEnabled = zoomHandlers.setTeacherZoomEnabled;
+exports.zoomWebhook = zoomHandlers.zoomWebhook;
+exports.prepareZoomHubs = zoomHandlers.prepareZoomHubs;
+exports.watchZoomHubBots = zoomHandlers.watchZoomHubBots;
+exports.zoomHubBotDirectives = zoomHubBotHandlers.zoomHubBotDirectives;
+exports.zoomHubBotAssignments = zoomHubBotHandlers.zoomHubBotAssignments;
+exports.zoomHubBotState = zoomHubBotHandlers.zoomHubBotState;
 
 // LiveKit Test Function (for development/testing)
 exports.testLiveKit = testLivekitHandlers.testLiveKit;

@@ -49,11 +49,8 @@ import 'features/livekit/screens/guest_join_screen.dart';
 // If you ever need to run it manually, trigger ShiftWageMigration.runMigration()
 // from a separate maintenance script instead of during app startup.
 
-// const String _firebaseEnv =
-//     String.fromEnvironment('FIREBASE_ENV', defaultValue: '');
-
 const String _firebaseEnv =
-    'prod'; // use 'dev' only when testing against alluwal-dev (separate Auth/users)
+    String.fromEnvironment('FIREBASE_ENV', defaultValue: 'prod');
 
 bool get _useProdFirebase {
   final env = _firebaseEnv.trim().toLowerCase();

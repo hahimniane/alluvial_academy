@@ -236,8 +236,18 @@ const _generateAutoName = (teacherName, subject, studentNames) => {
   }
 };
 
+const _defaultVideoProviderForCategory = (category) =>
+  String(category || 'teaching').trim().toLowerCase() === 'teaching'
+    ? 'zoom'
+    : 'realtimekit';
+
 const _buildGeneratedShiftData = ({templateId, shiftId, template, shiftStartUtc, shiftEndUtc}) => {
-  const videoProvider = (template.video_provider || template.videoProvider || 'realtimekit').toString().trim().toLowerCase();
+  const category = template.category || template.shift_category || 'teaching';
+  const videoProvider = (
+    template.video_provider ||
+    template.videoProvider ||
+    _defaultVideoProviderForCategory(category)
+  ).toString().trim().toLowerCase();
 
   let autoName = template.auto_generated_name;
   if (!autoName) {
@@ -271,7 +281,7 @@ const _buildGeneratedShiftData = ({templateId, shiftId, template, shiftStartUtc,
     recurrence_series_id: template.recurrence_series_id || null,
     series_created_at: template.series_created_at || null,
     notes: template.notes || null,
-    shift_category: template.category || template.shift_category || 'teaching',
+    shift_category: category,
     leader_role: template.leader_role || null,
     video_provider: videoProvider,
     livekit_room_name: videoProvider === 'livekit' ? `shift_${shiftId}` : null,
@@ -561,7 +571,10 @@ const createShiftTemplate = onCall(async (request) => {
     notes: data.notes || null,
     category: (data.category || 'teaching').toString().trim(),
     leader_role: data.leader_role || null,
-    video_provider: (data.video_provider || 'realtimekit').toString().trim().toLowerCase(),
+    video_provider: (
+      data.video_provider ||
+      _defaultVideoProviderForCategory(data.category || 'teaching')
+    ).toString().trim().toLowerCase(),
     realtimekit_recording_enabled: data.realtimekit_recording_enabled === true,
     created_by_admin_id: data.created_by_admin_id || uid,
     created_at: admin.firestore.FieldValue.serverTimestamp(),
@@ -956,6 +969,8 @@ module.exports = {
   _generateShiftsForTemplate,
   _cleanupGeneratedShifts,
   __test: {
+    _buildGeneratedShiftData,
+    _defaultVideoProviderForCategory,
     _buildGeneratedShiftId,
     _matchesRecurrence,
     _normalizeTimezone,

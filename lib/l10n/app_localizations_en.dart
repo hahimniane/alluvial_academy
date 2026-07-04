@@ -3348,6 +3348,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get connectingToClass => 'Connecting To Class';
 
   @override
+  String get zoomStillConnectingToClass =>
+      'Still connecting to your private classroom...';
+
+  @override
+  String get zoomClassRoutingHelp =>
+      'This class is still connecting. Please leave and rejoin, or ask an administrator for help.';
+
+  @override
   String get connectingToTaskDatabase => 'Connecting To Task Database';
 
   @override
@@ -5492,6 +5500,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get leaveClass => 'Leave Class';
+
+  @override
+  String get leaveMeeting => 'Leave Meeting';
 
   @override
   String get lessComfortable => 'Less Comfortable';
@@ -9153,6 +9164,61 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get classVideoInvalidGuestLink => 'Invalid or expired class link.';
+
+  @override
+  String get enableZoomClasses => 'Enable Zoom classes';
+
+  @override
+  String get disableZoomClasses => 'Disable Zoom classes';
+
+  @override
+  String zoomEnabledFor(Object name, int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count upcoming shifts updated.',
+      one: '1 upcoming shift updated.',
+      zero: 'No upcoming shifts updated.',
+    );
+    return 'Zoom enabled for $name. $_temp0';
+  }
+
+  @override
+  String zoomDisabledFor(Object name, int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count upcoming shifts updated.',
+      one: '1 upcoming shift updated.',
+      zero: 'No upcoming shifts updated.',
+    );
+    return 'Zoom disabled for $name. $_temp0';
+  }
+
+  @override
+  String zoomToggleError(Object details) {
+    return 'Unable to update Zoom access: $details';
+  }
+
+  @override
+  String get zoomUnableToLoadMeeting => 'Unable to load Zoom meeting.';
+
+  @override
+  String get zoomUnableToJoinMeeting => 'Unable to join Zoom meeting.';
+
+  @override
+  String get zoomUnableToInitialize => 'Unable to initialize Zoom.';
+
+  @override
+  String get zoomOpenInZoomApp => 'Open in Zoom app';
+
+  @override
+  String get zoomMobileUnavailableTitle =>
+      'Zoom classes are web-only for this pilot';
+
+  @override
+  String get zoomMobileUnavailableBody =>
+      'Open this class in a web browser while the mobile Zoom classroom is being tested.';
 
   @override
   String formsListFormStatus(Object status, Object statut) {
@@ -13267,6 +13333,52 @@ class AppLocalizationsEn extends AppLocalizations {
       'Parent account created, but the invite email could not be sent.';
 
   @override
+  String get manageGuardiansButton => 'Manage Guardians';
+
+  @override
+  String get manageGuardiansTitle => 'Linked Guardians';
+
+  @override
+  String manageGuardiansSubtitle(String studentName) {
+    return 'Parents currently linked to $studentName. Unlinking removes their access to this student\'s classes, chats, and invoices.';
+  }
+
+  @override
+  String get manageGuardiansEmpty =>
+      'No guardians are linked to this student yet.';
+
+  @override
+  String get manageGuardiansLoadError => 'Could not load linked guardians.';
+
+  @override
+  String get unlinkGuardianConfirmTitle => 'Unlink guardian?';
+
+  @override
+  String unlinkGuardianConfirmBody(String guardianName, String studentName) {
+    return '$guardianName will no longer be linked to $studentName. They will lose access to this student\'s classes, chat, and invoices. This does not delete either account.';
+  }
+
+  @override
+  String get unlinkGuardianReasonLabel => 'Reason (optional)';
+
+  @override
+  String get unlinkGuardianReasonHint => 'e.g. Linked to the wrong family';
+
+  @override
+  String get unlinkGuardianConfirmAction => 'Unlink';
+
+  @override
+  String get unlinkGuardianSuccess => 'Guardian unlinked from this student.';
+
+  @override
+  String get unlinkGuardianError =>
+      'Could not unlink this guardian. Please try again.';
+
+  @override
+  String get unlinkGuardianMinorBlocked =>
+      'This is the only guardian of a minor student. Link another guardian first, or mark the student as an adult, before unlinking.';
+
+  @override
   String get enrollmentStateChooseProgram => '1. Choose a Program';
 
   @override
@@ -14318,6 +14430,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get realtimeKitProviderSubtitle => 'Used for scheduled classes';
 
   @override
+  String get zoomProviderSubtitle =>
+      'Used for teachers assigned to the Zoom pilot';
+
+  @override
   String get legacyProviderSubtitle => 'Legacy provider for existing classes';
 
   @override
@@ -14480,4 +14596,264 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get bulkClassRecordingUpdateFailed =>
       'Unable to update recording access.';
+
+  @override
+  String get noShowAlertsTitle => 'No-Show Alerts';
+
+  @override
+  String get noShowAlertsSubtitle =>
+      'Classes where a teacher or student didn\'t show up.';
+
+  @override
+  String get noShowTeacher => 'Teacher no-show';
+
+  @override
+  String get noShowStudent => 'Student no-show';
+
+  @override
+  String get noShowNeedsReview => 'Needs review';
+
+  @override
+  String get noShowReviewed => 'Reviewed';
+
+  @override
+  String get noShowMarkReviewed => 'Mark reviewed';
+
+  @override
+  String get noShowSearchHint => 'Search teacher, reporter, or class';
+
+  @override
+  String get noShowFilterAll => 'All';
+
+  @override
+  String get noShowEmpty => 'No no-show alerts';
+
+  @override
+  String get noShowLoadError => 'Couldn\'t load no-show alerts';
+
+  @override
+  String get noShowRetry => 'Retry';
+
+  @override
+  String get noShowStatTotal => 'Total';
+
+  @override
+  String get noShowStatTeacher => 'Teacher no-shows';
+
+  @override
+  String get noShowStatStudent => 'Student no-shows';
+
+  @override
+  String get noShowStatPending => 'Needs review';
+
+  @override
+  String get noShowTopAbsent => 'Most no-shows';
+
+  @override
+  String noShowReportedBy(String name) {
+    return 'Reported by $name';
+  }
+
+  @override
+  String noShowTeacherLabel(String name) {
+    return 'Teacher: $name';
+  }
+
+  @override
+  String noShowPendingShort(int count) {
+    return '$count pending';
+  }
+
+  @override
+  String get noShowDateAll => 'All dates';
+
+  @override
+  String get noShowDateToday => 'Today';
+
+  @override
+  String get noShowDate7Days => 'Last 7 days';
+
+  @override
+  String get noShowDate30Days => 'Last 30 days';
+
+  @override
+  String get noShowFromDate => 'From';
+
+  @override
+  String get noShowToDate => 'To';
+
+  @override
+  String get noShowAttendanceAll => 'All attendance';
+
+  @override
+  String get noShowNeverJoined => 'Never joined';
+
+  @override
+  String get noShowJoinedLate => 'Joined late';
+
+  @override
+  String get noShowHadPresence => 'Had presence';
+
+  @override
+  String noShowScheduled(String date) {
+    return 'Scheduled: $date';
+  }
+
+  @override
+  String noShowDetectedAfter(int minutes) {
+    return 'Flagged after $minutes min';
+  }
+
+  @override
+  String get noShowRoleTeacher => 'Teacher';
+
+  @override
+  String get noShowRoleStudent => 'Student';
+
+  @override
+  String get noShowNoJoinRecorded => 'No join recorded';
+
+  @override
+  String noShowJoinedAt(String time) {
+    return 'Joined $time';
+  }
+
+  @override
+  String noShowJoinOffsetLate(int minutes) {
+    return '$minutes min late';
+  }
+
+  @override
+  String noShowJoinOffsetEarly(int minutes) {
+    return '$minutes min early';
+  }
+
+  @override
+  String get noShowJoinOffsetOnTime => 'On time';
+
+  @override
+  String noShowPresentMinutes(int minutes) {
+    return 'Present $minutes min';
+  }
+
+  @override
+  String get noShowCopySummary => 'Copy summary';
+
+  @override
+  String get noShowCopied => 'No-show summary copied';
+
+  @override
+  String get noShowSummaryClass => 'Class';
+
+  @override
+  String get noShowSummaryAlert => 'Alert';
+
+  @override
+  String get noShowSummaryScheduled => 'Scheduled';
+
+  @override
+  String get noShowSummaryDetected => 'Detected';
+
+  @override
+  String get noShowSummaryStatus => 'Status';
+
+  @override
+  String noShowStudentLabel(String name) {
+    return 'Student: $name';
+  }
+
+  @override
+  String get noShowReviewTitle => 'Review no-show alert';
+
+  @override
+  String get noShowReviewActionsPrompt => 'Actions taken';
+
+  @override
+  String get noShowReviewOtherLabel => 'Other action or note';
+
+  @override
+  String get noShowReviewOtherHint => 'Type what was done if it is not listed';
+
+  @override
+  String get noShowReviewSubmit => 'Submit review';
+
+  @override
+  String get noShowReviewActionContactedTeacher => 'Contacted teacher';
+
+  @override
+  String get noShowReviewActionContactedStudentParent =>
+      'Contacted student or parent';
+
+  @override
+  String get noShowReviewActionConfirmedTeacherLate =>
+      'Confirmed teacher joined late';
+
+  @override
+  String get noShowReviewActionConfirmedStudentLate =>
+      'Confirmed student joined late';
+
+  @override
+  String get noShowReviewActionExcusedAbsence => 'Excused absence';
+
+  @override
+  String get noShowReviewActionRescheduledClass => 'Rescheduled class';
+
+  @override
+  String get noShowReviewActionTechnicalFollowup => 'Technical issue follow-up';
+
+  @override
+  String get noShowReviewActionBillingFollowup => 'Billing/payroll follow-up';
+
+  @override
+  String get noShowReviewActionEscalatedAdmin => 'Escalated to admin';
+
+  @override
+  String get noShowReviewActionFalseAlarm => 'False alarm/no action needed';
+
+  @override
+  String noShowReviewedBy(String name) {
+    return 'Reviewed by $name';
+  }
+
+  @override
+  String noShowReviewActionsLabel(String actions) {
+    return 'Actions: $actions';
+  }
+
+  @override
+  String noShowReviewNoteLabel(String note) {
+    return 'Note: $note';
+  }
+
+  @override
+  String get zoomHostPickerTitle => 'Assign Zoom host';
+
+  @override
+  String zoomHostPickerBody(String name) {
+    return 'Choose which licensed Zoom account will host $name\'s classes.';
+  }
+
+  @override
+  String get zoomHostPickerCustomLabel => 'Or enter a host account email';
+
+  @override
+  String get zoomHostPickerAssign => 'Assign & enable';
+
+  @override
+  String get zoomScopeTitle => 'Which classes?';
+
+  @override
+  String zoomScopeBody(String name) {
+    return 'Move all of $name\'s classes to Zoom, or only selected students\' classes?';
+  }
+
+  @override
+  String get zoomScopeAll => 'All classes';
+
+  @override
+  String get zoomScopeSelect => 'Only selected students\' classes';
+
+  @override
+  String get zoomScopeNoStudents =>
+      'No upcoming classes found for this teacher.';
 }

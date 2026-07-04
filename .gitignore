@@ -57,6 +57,7 @@ app.*.map.json
 
 # Sensitive files
 serviceAccountKey.json
+.hostinger-deploy.env
 *.hprof
 
 # Node modules

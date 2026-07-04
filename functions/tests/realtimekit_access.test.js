@@ -46,10 +46,45 @@ jest.mock('../services/realtimekit/client', () => mockRealtimeKitClient);
 
 let mockUsers;
 let mockShifts;
+let mockLivekitSessions;
+
+const mockStoreForCollection = (collectionName) => {
+  if (collectionName === 'users') return mockUsers;
+  if (collectionName === 'teaching_shifts') return mockShifts;
+  if (collectionName === 'livekit_sessions') return mockLivekitSessions;
+  return {};
+};
+
+const mockMakeQuery = (collectionName, filters = [], maxResults = null) => ({
+  where: (field, op, value) =>
+    mockMakeQuery(collectionName, [...filters, { field, op, value }], maxResults),
+  limit: (limitValue) => mockMakeQuery(collectionName, filters, limitValue),
+  get: async () => {
+    const store = mockStoreForCollection(collectionName);
+    let entries = Object.entries(store);
+    for (const filter of filters) {
+      entries = entries.filter(([, data]) => {
+        if (filter.op !== '==') return false;
+        return data?.[filter.field] === filter.value;
+      });
+    }
+    const limited = maxResults == null ? entries : entries.slice(0, maxResults);
+    const docs = limited.map(([id, data]) => ({
+      id,
+      exists: true,
+      data: () => data,
+    }));
+    return {
+      empty: docs.length === 0,
+      docs,
+      forEach: (callback) => docs.forEach(callback),
+    };
+  },
+});
 
 const mockMakeDocRef = (collectionName, id) => ({
   get: async () => {
-    const store = collectionName === 'users' ? mockUsers : mockShifts;
+    const store = mockStoreForCollection(collectionName);
     const data = store[id];
     return {
       exists: data !== undefined,
@@ -58,11 +93,11 @@ const mockMakeDocRef = (collectionName, id) => ({
     };
   },
   set: async (data, options) => {
-    const store = collectionName === 'users' ? mockUsers : mockShifts;
+    const store = mockStoreForCollection(collectionName);
     store[id] = options?.merge ? { ...(store[id] || {}), ...data } : data;
   },
   update: async (data) => {
-    const store = collectionName === 'users' ? mockUsers : mockShifts;
+    const store = mockStoreForCollection(collectionName);
     store[id] = { ...(store[id] || {}), ...data };
   },
 });
@@ -84,6 +119,7 @@ const mockFirestore = jest.fn(() => ({
   batch: () => mockMakeBatch(),
   collection: (name) => ({
     doc: (id) => mockMakeDocRef(name, id),
+    where: (field, op, value) => mockMakeQuery(name, [{ field, op, value }]),
   }),
 }));
 mockFirestore.FieldValue = {
@@ -172,6 +208,7 @@ describe('RealtimeKit class access', () => {
       },
     };
     mockUsers.student_1.guardian_ids = ['parent_1'];
+    mockLivekitSessions = {};
     mockShifts = {
       shift_1: {
         teacher_id: 'teacher_1',
@@ -678,6 +715,59 @@ describe('RealtimeKit class access', () => {
         role: 'student',
       }),
     ]);
+  });
+
+  test('presence lists Zoom participants with teacher, student, and admin roles', async () => {
+    const joinedAt = {
+      toDate: () => new Date('2026-01-01T00:00:00.000Z'),
+    };
+    mockShifts.shift_1.video_provider = 'zoom';
+    mockShifts.shift_1.zoom_meeting_id = '987654321';
+    mockLivekitSessions = {
+      session_teacher: {
+        shift_id: 'shift_1',
+        user_id: 'teacher_1',
+        role: 'teacher',
+        zoom_participant_name: 'Teacher One',
+        presence_windows: [{ join_at: joinedAt, leave_at: null }],
+      },
+      session_student: {
+        shift_id: 'shift_1',
+        user_id: 'student_1',
+        role: 'student',
+        zoom_participant_name: 'Student One',
+        presence_windows: [{ join_at: joinedAt, leave_at: null }],
+      },
+      session_admin: {
+        shift_id: 'shift_1',
+        user_id: 'admin_1',
+        role: 'participant',
+        zoom_participant_name: 'Admin One',
+        presence_windows: [{ join_at: joinedAt, leave_at: null }],
+      },
+      session_closed: {
+        shift_id: 'shift_1',
+        user_id: 'outsider_1',
+        role: 'participant',
+        zoom_participant_name: 'Outside User',
+        presence_windows: [{ join_at: joinedAt, leave_at: joinedAt }],
+      },
+    };
+
+    const result = await getRealtimeKitRoomPresence({
+      auth: { uid: 'admin_1' },
+      data: { shiftId: 'shift_1' },
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.meetingId).toBe('987654321');
+    expect(result.participantCount).toBe(3);
+    expect(result.participants).toEqual(expect.arrayContaining([
+      expect.objectContaining({ identity: 'teacher_1', role: 'teacher' }),
+      expect.objectContaining({ identity: 'student_1', role: 'student' }),
+      expect.objectContaining({ identity: 'admin_1', role: 'admin' }),
+    ]));
+    expect(mockRealtimeKitClient.listMeetingParticipants).not.toHaveBeenCalled();
   });
 
   test('guest join is blocked while the room is locked', async () => {

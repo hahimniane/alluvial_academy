@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import '../models/sidebar_model.dart';
 
 class SidebarConfig {
-  static List<SidebarSection> getStructureForRole(String? role) {
+  static List<SidebarSection> getStructureForRole(
+    String? role, {
+    bool isAdultStudent = false,
+  }) {
     // Default to student/limited view if role is null
     final userRole = role?.toLowerCase() ?? 'student';
 
@@ -13,7 +16,7 @@ class SidebarConfig {
     } else if (userRole == 'parent') {
       return _getParentStructure();
     } else {
-      return _getStudentStructure();
+      return _getStudentStructure(isAdultStudent: isAdultStudent);
     }
   }
 
@@ -90,6 +93,13 @@ class SidebarConfig {
             icon: Icons.assessment,
             screenIndex: 19,
             colorValue: 0xffDC2626,
+          ),
+          const SidebarItem(
+            id: 'no_show_alerts',
+            label: 'No-Show Alerts',
+            icon: Icons.event_busy,
+            screenIndex: 32,
+            colorValue: 0xffF59E0B,
           ),
         ],
       ),
@@ -480,7 +490,9 @@ class SidebarConfig {
     ];
   }
 
-  static List<SidebarSection> _getStudentStructure() {
+  static List<SidebarSection> _getStudentStructure({
+    bool isAdultStudent = false,
+  }) {
     return [
       SidebarSection(
         id: 'overview',
@@ -495,6 +507,29 @@ class SidebarConfig {
           ),
         ],
       ),
+      // Adult students pay their own tuition, so they get the same Finance
+      // section parents have. Minors never see it (their parent handles billing).
+      if (isAdultStudent)
+        SidebarSection(
+          id: 'finance',
+          title: 'Finance',
+          items: [
+            const SidebarItem(
+              id: 'invoices',
+              label: 'Invoices',
+              icon: Icons.receipt_long,
+              screenIndex: 29,
+              colorValue: 0xff10B981,
+            ),
+            const SidebarItem(
+              id: 'payments',
+              label: 'Payments',
+              icon: Icons.payments,
+              screenIndex: 33,
+              colorValue: 0xff059669,
+            ),
+          ],
+        ),
       SidebarSection(
         id: 'learning',
         title: 'Learning',

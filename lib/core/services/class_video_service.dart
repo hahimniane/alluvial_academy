@@ -14,6 +14,7 @@ import 'package:alluwalacademyadmin/core/services/user_role_service.dart';
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 import 'package:alluwalacademyadmin/core/utils/environment_utils.dart';
 import 'package:alluwalacademyadmin/core/widgets/realtimekit_meeting_screen.dart';
+import 'package:alluwalacademyadmin/core/widgets/zoom_meeting_screen.dart';
 import 'package:alluwalacademyadmin/features/shift_management/enums/shift_enums.dart';
 import 'package:alluwalacademyadmin/features/shift_management/models/teaching_shift.dart';
 import 'package:alluwalacademyadmin/features/shift_management/services/mobile_classes_access_service.dart';
@@ -57,6 +58,65 @@ class ClassVideoJoinResult {
 
   factory ClassVideoJoinResult.error(String message) {
     return ClassVideoJoinResult(success: false, error: message);
+  }
+}
+
+class ZoomClassJoinInfo {
+  final bool success;
+  final String? meetingNumber;
+  final String? password;
+  final String? signature;
+  final String? sdkKey;
+  final String? displayName;
+  final String? shiftName;
+  final String? customerKey;
+  final String? joinUrl;
+  final String? routingMode;
+  final String? hubMeetingId;
+  final String? breakoutRoomName;
+  final String? breakoutRoomKey;
+  final bool autoJoinBreakoutRoom;
+  final String? error;
+
+  ZoomClassJoinInfo({
+    required this.success,
+    this.meetingNumber,
+    this.password,
+    this.signature,
+    this.sdkKey,
+    this.displayName,
+    this.shiftName,
+    this.customerKey,
+    this.joinUrl,
+    this.routingMode,
+    this.hubMeetingId,
+    this.breakoutRoomName,
+    this.breakoutRoomKey,
+    this.autoJoinBreakoutRoom = false,
+    this.error,
+  });
+
+  factory ZoomClassJoinInfo.fromMap(Map<String, dynamic> data) {
+    return ZoomClassJoinInfo(
+      success: data['success'] == true,
+      meetingNumber: data['meetingNumber']?.toString(),
+      password: data['password']?.toString(),
+      signature: data['signature']?.toString(),
+      sdkKey: data['sdkKey']?.toString(),
+      displayName: data['displayName']?.toString(),
+      shiftName: data['shiftName']?.toString(),
+      customerKey: data['customerKey']?.toString(),
+      joinUrl: data['joinUrl']?.toString(),
+      routingMode: data['routingMode']?.toString(),
+      hubMeetingId: data['hubMeetingId']?.toString(),
+      breakoutRoomName: data['breakoutRoomName']?.toString(),
+      breakoutRoomKey: data['breakoutRoomKey']?.toString(),
+      autoJoinBreakoutRoom: data['autoJoinBreakoutRoom'] == true,
+    );
+  }
+
+  factory ZoomClassJoinInfo.error(String message) {
+    return ZoomClassJoinInfo(success: false, error: message);
   }
 }
 
@@ -155,8 +215,12 @@ class VideoCallService {
     bool isTeacher = false,
   }) =>
       ClassVideoService.joinClass(context, shift, isTeacher: isTeacher);
-  static String getProviderDisplayName(VideoProvider provider) => 'Video Call';
-  static IconData getProviderIcon(VideoProvider provider) => Icons.video_call;
+  static String getProviderDisplayName(VideoProvider provider) =>
+      provider == VideoProvider.zoom ? 'Zoom' : 'Video Call';
+  static IconData getProviderIcon(VideoProvider provider) =>
+      provider == VideoProvider.zoom
+          ? Icons.video_camera_front
+          : Icons.video_call;
   static bool hasVideoCall(TeachingShift shift) =>
       shift.category == ShiftCategory.teaching;
   static Uri buildJoinLink(TeachingShift shift) =>
@@ -209,6 +273,31 @@ class ClassVideoService {
     } catch (e) {
       AppLogger.error('ClassVideoService: join token error: $e');
       return ClassVideoJoinResult.error(fallbackError);
+    }
+  }
+
+  static Future<ZoomClassJoinInfo> getZoomJoinInfo(
+    String shiftId, {
+    String fallbackError = '',
+    String unauthenticatedError = '',
+  }) async {
+    try {
+      if (_auth.currentUser == null) {
+        return ZoomClassJoinInfo.error(unauthenticatedError);
+      }
+      final callable = _functions.httpsCallable('getZoomJoinInfo');
+      final result = await callable.call({'shiftId': shiftId});
+      return ZoomClassJoinInfo.fromMap(
+        Map<String, dynamic>.from(result.data as Map),
+      );
+    } on FirebaseFunctionsException catch (e) {
+      AppLogger.error(
+        'ClassVideoService: Zoom join info error: ${e.code} - ${e.message}',
+      );
+      return ZoomClassJoinInfo.error(e.message ?? fallbackError);
+    } catch (e) {
+      AppLogger.error('ClassVideoService: Zoom join info error: $e');
+      return ZoomClassJoinInfo.error(fallbackError);
     }
   }
 
@@ -323,7 +412,7 @@ class ClassVideoService {
     bool isTeacher = false,
   }) async {
     AppLogger.info(
-        'ClassVideoService: Joining class ${shift.id} via RealtimeKit');
+        'ClassVideoService: Joining class ${shift.id} via ${shift.usesZoom ? 'Zoom' : 'RealtimeKit'}');
     final l10n = AppLocalizations.of(context)!;
 
     final currentUser = _auth.currentUser;
@@ -412,6 +501,53 @@ class ClassVideoService {
     }
 
     try {
+      if (shift.usesZoom) {
+        final joinInfo = await getZoomJoinInfo(
+          shift.id,
+          fallbackError: l10n.classVideoConnectFailed,
+          unauthenticatedError: l10n.pleaseSignInAgainToJoin,
+        );
+        if (context.mounted) Navigator.of(context).pop();
+
+        final hasRequiredZoomInfo = joinInfo.meetingNumber != null &&
+            joinInfo.signature != null &&
+            joinInfo.sdkKey != null;
+        if (!joinInfo.success || !hasRequiredZoomInfo) {
+          final error = joinInfo.error?.trim().isNotEmpty == true
+              ? joinInfo.error!
+              : l10n.classVideoConnectFailed;
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(error),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          return;
+        }
+
+        if (!context.mounted) return;
+        await Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => ZoomMeetingScreen(
+              sdkKey: joinInfo.sdkKey!,
+              signature: joinInfo.signature!,
+              meetingNumber: joinInfo.meetingNumber!,
+              password: joinInfo.password ?? '',
+              displayName: joinInfo.displayName ?? 'Participant',
+              shiftName: joinInfo.shiftName ?? 'Class',
+              customerKey: joinInfo.customerKey ?? uid,
+              joinUrl: joinInfo.joinUrl,
+              breakoutRoomName: joinInfo.breakoutRoomName,
+              breakoutRoomKey: joinInfo.breakoutRoomKey,
+              autoJoinBreakoutRoom: joinInfo.autoJoinBreakoutRoom,
+            ),
+          ),
+        );
+        return;
+      }
+
       final joinResult = await getJoinToken(
         shift.id,
         fallbackError: l10n.classVideoConnectFailed,

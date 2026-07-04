@@ -3317,6 +3317,14 @@ class AppLocalizationsAr extends AppLocalizations {
   String get connectingToClass => 'Connecting To Class';
 
   @override
+  String get zoomStillConnectingToClass =>
+      'Still connecting to your private classroom...';
+
+  @override
+  String get zoomClassRoutingHelp =>
+      'This class is still connecting. Please leave and rejoin, or ask an administrator for help.';
+
+  @override
   String get connectingToTaskDatabase => 'Connecting To Task Database';
 
   @override
@@ -5460,6 +5468,9 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get leaveClass => 'Leave Class';
+
+  @override
+  String get leaveMeeting => 'Leave Meeting';
 
   @override
   String get lessComfortable => 'Less Comfortable';
@@ -9120,6 +9131,61 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get classVideoInvalidGuestLink => 'Invalid or expired class link.';
+
+  @override
+  String get enableZoomClasses => 'تفعيل حصص Zoom';
+
+  @override
+  String get disableZoomClasses => 'إيقاف حصص Zoom';
+
+  @override
+  String zoomEnabledFor(Object name, int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'تم تحديث $count حصص قادمة.',
+      one: 'تم تحديث حصة قادمة واحدة.',
+      zero: 'لم يتم تحديث أي حصة قادمة.',
+    );
+    return 'تم تفعيل Zoom لـ $name. $_temp0';
+  }
+
+  @override
+  String zoomDisabledFor(Object name, int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'تم تحديث $count حصص قادمة.',
+      one: 'تم تحديث حصة قادمة واحدة.',
+      zero: 'لم يتم تحديث أي حصة قادمة.',
+    );
+    return 'تم إيقاف Zoom لـ $name. $_temp0';
+  }
+
+  @override
+  String zoomToggleError(Object details) {
+    return 'تعذر تحديث صلاحية Zoom: $details';
+  }
+
+  @override
+  String get zoomUnableToLoadMeeting => 'تعذر تحميل اجتماع Zoom.';
+
+  @override
+  String get zoomUnableToJoinMeeting => 'تعذر الانضمام إلى اجتماع Zoom.';
+
+  @override
+  String get zoomUnableToInitialize => 'تعذر تهيئة Zoom.';
+
+  @override
+  String get zoomOpenInZoomApp => 'افتح في تطبيق Zoom';
+
+  @override
+  String get zoomMobileUnavailableTitle =>
+      'حصص Zoom متاحة على الويب فقط في هذه التجربة';
+
+  @override
+  String get zoomMobileUnavailableBody =>
+      'افتح هذه الحصة في متصفح ويب أثناء اختبار فصل Zoom على الجوال.';
 
   @override
   String formsListFormStatus(Object status, Object statut) {
@@ -13234,6 +13300,52 @@ class AppLocalizationsAr extends AppLocalizations {
       'تم إنشاء حساب ولي الأمر، لكن تعذّر إرسال بريد الدعوة.';
 
   @override
+  String get manageGuardiansButton => 'إدارة أولياء الأمور';
+
+  @override
+  String get manageGuardiansTitle => 'أولياء الأمور المرتبطون';
+
+  @override
+  String manageGuardiansSubtitle(String studentName) {
+    return 'أولياء الأمور المرتبطون حاليًا بـ $studentName. يؤدي إلغاء الربط إلى إزالة وصولهم إلى حصص هذا الطالب ومحادثاته وفواتيره.';
+  }
+
+  @override
+  String get manageGuardiansEmpty =>
+      'لا يوجد أولياء أمور مرتبطون بهذا الطالب بعد.';
+
+  @override
+  String get manageGuardiansLoadError => 'تعذّر تحميل أولياء الأمور المرتبطين.';
+
+  @override
+  String get unlinkGuardianConfirmTitle => 'إلغاء ربط ولي الأمر؟';
+
+  @override
+  String unlinkGuardianConfirmBody(String guardianName, String studentName) {
+    return 'لن يعود $guardianName مرتبطًا بـ $studentName. سيفقد الوصول إلى حصص هذا الطالب ومحادثته وفواتيره. لن يؤدي ذلك إلى حذف أي حساب.';
+  }
+
+  @override
+  String get unlinkGuardianReasonLabel => 'السبب (اختياري)';
+
+  @override
+  String get unlinkGuardianReasonHint => 'مثال: تم الربط بالعائلة الخطأ';
+
+  @override
+  String get unlinkGuardianConfirmAction => 'إلغاء الربط';
+
+  @override
+  String get unlinkGuardianSuccess => 'تم إلغاء ربط ولي الأمر بهذا الطالب.';
+
+  @override
+  String get unlinkGuardianError =>
+      'تعذّر إلغاء ربط ولي الأمر. يرجى المحاولة مرة أخرى.';
+
+  @override
+  String get unlinkGuardianMinorBlocked =>
+      'هذا هو ولي الأمر الوحيد لطالب قاصر. اربط ولي أمر آخر أولاً، أو حدِّد الطالب كبالغ، قبل إلغاء الربط.';
+
+  @override
   String get enrollmentStateChooseProgram => '١. اختيار البرنامج';
 
   @override
@@ -14284,6 +14396,9 @@ class AppLocalizationsAr extends AppLocalizations {
   String get realtimeKitProviderSubtitle => 'يُستخدم للحصص المجدولة';
 
   @override
+  String get zoomProviderSubtitle => 'يُستخدم للمعلمين المضافين إلى تجربة Zoom';
+
+  @override
   String get legacyProviderSubtitle => 'مزود قديم للحصص الموجودة';
 
   @override
@@ -14442,4 +14557,261 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get bulkClassRecordingUpdateFailed => 'تعذر تحديث إمكانية التسجيل.';
+
+  @override
+  String get noShowAlertsTitle => 'تنبيهات الغياب';
+
+  @override
+  String get noShowAlertsSubtitle => 'الحصص التي لم يحضرها معلم أو طالب.';
+
+  @override
+  String get noShowTeacher => 'غياب المعلم';
+
+  @override
+  String get noShowStudent => 'غياب الطالب';
+
+  @override
+  String get noShowNeedsReview => 'بحاجة إلى مراجعة';
+
+  @override
+  String get noShowReviewed => 'تمت المراجعة';
+
+  @override
+  String get noShowMarkReviewed => 'وضع علامة كمراجَع';
+
+  @override
+  String get noShowSearchHint => 'ابحث عن معلم أو مُبلِّغ أو حصة';
+
+  @override
+  String get noShowFilterAll => 'الكل';
+
+  @override
+  String get noShowEmpty => 'لا توجد تنبيهات غياب';
+
+  @override
+  String get noShowLoadError => 'تعذّر تحميل تنبيهات الغياب';
+
+  @override
+  String get noShowRetry => 'إعادة المحاولة';
+
+  @override
+  String get noShowStatTotal => 'الإجمالي';
+
+  @override
+  String get noShowStatTeacher => 'غيابات المعلمين';
+
+  @override
+  String get noShowStatStudent => 'غيابات الطلاب';
+
+  @override
+  String get noShowStatPending => 'بحاجة إلى مراجعة';
+
+  @override
+  String get noShowTopAbsent => 'الأكثر غيابًا';
+
+  @override
+  String noShowReportedBy(String name) {
+    return 'أبلغ عنه $name';
+  }
+
+  @override
+  String noShowTeacherLabel(String name) {
+    return 'المعلم: $name';
+  }
+
+  @override
+  String noShowPendingShort(int count) {
+    return '$count قيد الانتظار';
+  }
+
+  @override
+  String get noShowDateAll => 'كل التواريخ';
+
+  @override
+  String get noShowDateToday => 'اليوم';
+
+  @override
+  String get noShowDate7Days => 'آخر 7 أيام';
+
+  @override
+  String get noShowDate30Days => 'آخر 30 يومًا';
+
+  @override
+  String get noShowFromDate => 'من';
+
+  @override
+  String get noShowToDate => 'إلى';
+
+  @override
+  String get noShowAttendanceAll => 'كل الحضور';
+
+  @override
+  String get noShowNeverJoined => 'لم ينضم';
+
+  @override
+  String get noShowJoinedLate => 'انضم متأخرًا';
+
+  @override
+  String get noShowHadPresence => 'حضور مسجّل';
+
+  @override
+  String noShowScheduled(String date) {
+    return 'الموعد: $date';
+  }
+
+  @override
+  String noShowDetectedAfter(int minutes) {
+    return 'تم التنبيه بعد $minutes دقيقة';
+  }
+
+  @override
+  String get noShowRoleTeacher => 'المعلم';
+
+  @override
+  String get noShowRoleStudent => 'الطالب';
+
+  @override
+  String get noShowNoJoinRecorded => 'لا يوجد دخول مسجّل';
+
+  @override
+  String noShowJoinedAt(String time) {
+    return 'انضم في $time';
+  }
+
+  @override
+  String noShowJoinOffsetLate(int minutes) {
+    return 'متأخر $minutes دقيقة';
+  }
+
+  @override
+  String noShowJoinOffsetEarly(int minutes) {
+    return 'مبكر $minutes دقيقة';
+  }
+
+  @override
+  String get noShowJoinOffsetOnTime => 'في الوقت';
+
+  @override
+  String noShowPresentMinutes(int minutes) {
+    return 'حضر $minutes دقيقة';
+  }
+
+  @override
+  String get noShowCopySummary => 'نسخ الملخص';
+
+  @override
+  String get noShowCopied => 'تم نسخ ملخص الغياب';
+
+  @override
+  String get noShowSummaryClass => 'الحصة';
+
+  @override
+  String get noShowSummaryAlert => 'التنبيه';
+
+  @override
+  String get noShowSummaryScheduled => 'الموعد';
+
+  @override
+  String get noShowSummaryDetected => 'الكشف';
+
+  @override
+  String get noShowSummaryStatus => 'الحالة';
+
+  @override
+  String noShowStudentLabel(String name) {
+    return 'الطالب: $name';
+  }
+
+  @override
+  String get noShowReviewTitle => 'مراجعة تنبيه الغياب';
+
+  @override
+  String get noShowReviewActionsPrompt => 'الإجراءات المتخذة';
+
+  @override
+  String get noShowReviewOtherLabel => 'إجراء آخر أو ملاحظة';
+
+  @override
+  String get noShowReviewOtherHint =>
+      'اكتب ما تم فعله إذا لم يكن موجودًا في القائمة';
+
+  @override
+  String get noShowReviewSubmit => 'إرسال المراجعة';
+
+  @override
+  String get noShowReviewActionContactedTeacher => 'تم التواصل مع المعلم';
+
+  @override
+  String get noShowReviewActionContactedStudentParent =>
+      'تم التواصل مع الطالب أو ولي الأمر';
+
+  @override
+  String get noShowReviewActionConfirmedTeacherLate => 'تم تأكيد تأخر المعلم';
+
+  @override
+  String get noShowReviewActionConfirmedStudentLate => 'تم تأكيد تأخر الطالب';
+
+  @override
+  String get noShowReviewActionExcusedAbsence => 'غياب بعذر';
+
+  @override
+  String get noShowReviewActionRescheduledClass => 'تمت إعادة جدولة الحصة';
+
+  @override
+  String get noShowReviewActionTechnicalFollowup => 'متابعة مشكلة تقنية';
+
+  @override
+  String get noShowReviewActionBillingFollowup => 'متابعة الفوترة/الرواتب';
+
+  @override
+  String get noShowReviewActionEscalatedAdmin => 'تم التصعيد للإدارة';
+
+  @override
+  String get noShowReviewActionFalseAlarm => 'تنبيه خاطئ/لا يلزم إجراء';
+
+  @override
+  String noShowReviewedBy(String name) {
+    return 'تمت المراجعة بواسطة $name';
+  }
+
+  @override
+  String noShowReviewActionsLabel(String actions) {
+    return 'الإجراءات: $actions';
+  }
+
+  @override
+  String noShowReviewNoteLabel(String note) {
+    return 'ملاحظة: $note';
+  }
+
+  @override
+  String get zoomHostPickerTitle => 'تعيين مضيف Zoom';
+
+  @override
+  String zoomHostPickerBody(String name) {
+    return 'اختر حساب Zoom المرخّص الذي سيستضيف حصص $name.';
+  }
+
+  @override
+  String get zoomHostPickerCustomLabel => 'أو أدخل بريد حساب المضيف';
+
+  @override
+  String get zoomHostPickerAssign => 'تعيين وتفعيل';
+
+  @override
+  String get zoomScopeTitle => 'أي الحصص؟';
+
+  @override
+  String zoomScopeBody(String name) {
+    return 'نقل جميع حصص $name إلى Zoom، أم فقط حصص الطلاب المحددين؟';
+  }
+
+  @override
+  String get zoomScopeAll => 'جميع الحصص';
+
+  @override
+  String get zoomScopeSelect => 'فقط حصص الطلاب المحددين';
+
+  @override
+  String get zoomScopeNoStudents => 'لا توجد حصص قادمة لهذا المعلم.';
 }

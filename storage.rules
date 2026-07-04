@@ -1,6 +1,21 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
+    function isPublicSiteAssetAdmin() {
+      return request.auth != null &&
+        (
+          request.auth.token.admin == true ||
+          request.auth.token.isAdmin == true ||
+          request.auth.token.is_admin_teacher == true ||
+          request.auth.token.isAdminTeacher == true
+        );
+    }
+
+    function isPublicSiteImageUpload() {
+      return request.resource.size < 10 * 1024 * 1024 &&
+        request.resource.contentType.matches('image/.*');
+    }
+
     // Allow authenticated users to upload profile pictures
     match /profile_pictures/{allPaths=**} {
       allow read: if request.auth != null;
@@ -86,6 +101,18 @@ service firebase.storage {
     match /curriculum/{fileName} {
       allow read: if true;
       allow write: if request.auth != null;
+    }
+
+    // Public website CMS images: readable by visitors, writable by admins only.
+    match /public_site_assets/cms/{uploaderUid}/{allPaths=**} {
+      allow read: if true;
+      allow create, update: if request.auth != null &&
+                              request.auth.uid == uploaderUid &&
+                              isPublicSiteAssetAdmin() &&
+                              isPublicSiteImageUpload();
+      allow delete: if request.auth != null &&
+                     request.auth.uid == uploaderUid &&
+                     isPublicSiteAssetAdmin();
     }
 
     // Default rule - deny everything else

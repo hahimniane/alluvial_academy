@@ -83,8 +83,8 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
   ShiftCategory _selectedCategory = ShiftCategory.teaching;
   String? _selectedLeaderRole;
 
-  // Video provider field (RealtimeKit for teaching shifts)
-  VideoProvider _selectedVideoProvider = VideoProvider.realtimekit;
+  // Video provider field (Zoom for teaching shifts)
+  VideoProvider _selectedVideoProvider = VideoProvider.zoom;
 
   // Search controllers
   final TextEditingController _teacherSearchController =
@@ -230,6 +230,30 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
     super.dispose();
   }
 
+  VideoProvider _videoProviderForTeacher(Employee? teacher) {
+    if (_selectedCategory != ShiftCategory.teaching) {
+      return VideoProvider.realtimekit;
+    }
+    return VideoProvider.zoom;
+  }
+
+  Employee? _selectedTeacherFromList(List<Employee> teachers) {
+    final selectedEmail = _selectedTeacherId?.toLowerCase().trim();
+    if (selectedEmail == null || selectedEmail.isEmpty) return null;
+    for (final teacher in teachers) {
+      if (teacher.email.toLowerCase().trim() == selectedEmail) {
+        return teacher;
+      }
+    }
+    return null;
+  }
+
+  void _applyVideoProviderForSelectedTeacher(List<Employee> teachers) {
+    if (widget.shift != null) return;
+    _selectedVideoProvider =
+        _videoProviderForTeacher(_selectedTeacherFromList(teachers));
+  }
+
   Future<void> _loadAvailableUsers() async {
     try {
       AppLogger.debug('CreateShiftDialog: Loading available users...');
@@ -263,6 +287,9 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
           setState(() {
             if (hasPreloadedTeacher) _availableTeachers = teachers;
             if (hasPreloadedStudent) _availableStudents = students;
+            if (hasPreloadedTeacher) {
+              _applyVideoProviderForSelectedTeacher(_availableTeachers);
+            }
           });
         }
       }
@@ -331,6 +358,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
           _availableTeachers = teachers;
           _availableLeaders = leaders; // NEW: Store leaders
           _availableStudents = students;
+          _applyVideoProviderForSelectedTeacher(_availableTeachers);
         });
         AppLogger.info(
             'CreateShiftDialog: State updated with teachers: ${_availableTeachers.length}, students: ${_availableStudents.length}');
@@ -433,6 +461,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
           if (_availableLeaders.any((l) => l.email == teacher!.email)) {
             _selectedCategory = ShiftCategory.leadership;
           }
+          _selectedVideoProvider = _videoProviderForTeacher(teacher);
           // Set search controller to show teacher name for better UX
           _teacherSearchController.text =
               '${teacher!.firstName} ${teacher!.lastName}';
@@ -458,6 +487,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
           setState(() {
             _selectedTeacherId = null;
             _teacherSearchController.clear();
+            _applyVideoProviderForSelectedTeacher(_availableTeachers);
           });
         }
       }
@@ -879,8 +909,8 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
       }
 
       _selectedVideoProvider = _selectedCategory == ShiftCategory.teaching
-          ? VideoProvider.realtimekit
-          : VideoProvider.zoom;
+          ? VideoProvider.zoom
+          : VideoProvider.realtimekit;
     }
   }
 
@@ -1090,6 +1120,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                     setState(() {
                       _selectedTeacherId = null;
                       _teacherSearchController.clear();
+                      _applyVideoProviderForSelectedTeacher(_availableTeachers);
                     });
                   },
                   style: TextButton.styleFrom(
@@ -1207,6 +1238,8 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                                 onTap: () {
                                   setState(() {
                                     _selectedTeacherId = user.email;
+                                    _selectedVideoProvider =
+                                        _videoProviderForTeacher(user);
                                     AppLogger.debug(
                                         'Selected ${_selectedCategory == ShiftCategory.teaching ? "teacher" : "leader"}: ${user.firstName} ${user.lastName} (${user.email})');
                                     _updateTimezoneForTeacher(user.email);
@@ -1236,6 +1269,8 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                                         onChanged: (value) {
                                           setState(() {
                                             _selectedTeacherId = value;
+                                            _selectedVideoProvider =
+                                                _videoProviderForTeacher(user);
                                             AppLogger.debug(
                                                 'Radio selected ${_selectedCategory == ShiftCategory.teaching ? "teacher" : "leader"}: ${user.firstName} ${user.lastName} (${user.email})');
                                             _updateTimezoneForTeacher(value!);
@@ -1404,10 +1439,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
               }
 
               if (widget.shift == null) {
-                _selectedVideoProvider =
-                    _selectedCategory == ShiftCategory.teaching
-                        ? VideoProvider.realtimekit
-                        : VideoProvider.zoom;
+                _applyVideoProviderForSelectedTeacher(_availableTeachers);
               }
             });
           },
@@ -3100,7 +3132,9 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
             : 'Zoom';
     final subtitle = isRealtimeKit
         ? AppLocalizations.of(context)!.realtimeKitProviderSubtitle
-        : AppLocalizations.of(context)!.legacyProviderSubtitle;
+        : _selectedVideoProvider == VideoProvider.zoom
+            ? AppLocalizations.of(context)!.zoomProviderSubtitle
+            : AppLocalizations.of(context)!.legacyProviderSubtitle;
     final icon = isRealtimeKit ? Icons.video_call : Icons.videocam;
 
     return Column(

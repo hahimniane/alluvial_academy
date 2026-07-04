@@ -46,6 +46,14 @@ async function loadUserRecordForCaller(uid, email) {
     if (snap.exists) return snap.data();
     snap = await db.collection('users').doc(email).get();
     if (snap.exists) return snap.data();
+    for (const field of ['email', 'e-mail']) {
+      const querySnap = await db
+        .collection('users')
+        .where(field, '==', lower)
+        .limit(1)
+        .get();
+      if (!querySnap.empty) return querySnap.docs[0].data();
+    }
   }
   return null;
 }

@@ -34,6 +34,7 @@ import '../../enrollment_management/screens/enrollment_management_screen.dart';
 import '../../teacher_applications/screens/teacher_application_management_screen.dart';
 import '../../settings/screens/admin_settings_screen.dart';
 import '../../audit/screens/admin_audit_screen.dart';
+import '../../no_show/screens/no_show_alerts_screen.dart';
 import '../../audit/screens/teacher_audit_screen.dart';
 import '../../audit/screens/teacher_audit_detail_screen.dart';
 import '../../audit/screens/test_audit_generation.dart';
@@ -49,6 +50,8 @@ import '../../recordings/screens/class_recordings_screen.dart';
 import '../../surah_podcast/screens/surah_podcast_screen.dart';
 import '../../curriculum/screens/curriculum_books_screen.dart';
 import '../../parent/screens/admin_invoice_hub_screen.dart';
+import '../../parent/screens/parent_invoices_screen.dart';
+import '../../parent/screens/payment_history_screen.dart';
 
 import '../widgets/custom_sidebar.dart';
 import '../services/sidebar_service.dart';
@@ -91,14 +94,23 @@ class _DashboardPageState extends State<DashboardPage> {
   // Cache for lazy screen construction.
   // Only screens that were visited are stored here, which avoids building all screens up-front.
   final Map<int, Widget> _lazyScreensCache = <int, Widget>{};
-  static const int _screenCount = 32;
+  static const int _screenCount = 34;
+
+  /// Adult students manage their own tuition and so get the Finance screens
+  /// (invoices/payments) that are otherwise parent-only.
+  bool get _isAdultStudent => _userData?['is_adult_student'] == true;
+
+  String get _currentUserId =>
+      UserRoleService.getCurrentUserId() ??
+      FirebaseAuth.instance.currentUser?.uid ??
+      '';
 
   // GlobalKey for accessing Scaffold state
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   Future<void> _showCommandPalette() async {
     final allowedIndexes = _allowedScreenIndexes(_userRole);
-    final structure = SidebarConfig.getStructureForRole(_userRole);
+    final structure = SidebarConfig.getStructureForRole(_userRole, isAdultStudent: _isAdultStudent);
 
     final items = <CommandPaletteItem>[];
     for (final section in structure) {
@@ -166,7 +178,10 @@ class _DashboardPageState extends State<DashboardPage> {
           'Dashboard: Loading user data - Role: $role, ProfilePicUrl: ${profilePicUrl ?? "null"}');
       if (mounted) {
         final prevRole = _userRole;
-        final allowedIndexes = _allowedScreenIndexes(role);
+        final allowedIndexes = _allowedScreenIndexes(
+          role,
+          isAdultStudent: data?['is_adult_student'] == true,
+        );
         final nextSelectedIndex = allowedIndexes.contains(_selectedIndex)
             ? _selectedIndex
             : _defaultScreenIndexForRole(role);
@@ -331,6 +346,14 @@ class _DashboardPageState extends State<DashboardPage> {
         return const CurriculumBooksScreen();
       case 31:
         return const AdminInvoiceHubScreen();
+      case 29:
+        // Adult-student invoices: their invoices are keyed by parent_id == own uid.
+        return ParentInvoicesScreen(parentId: _currentUserId);
+      case 32:
+        return const NoShowAlertsScreen();
+      case 33:
+        // Adult-student payment history.
+        return PaymentHistoryScreen(parentId: _currentUserId);
       default:
         return const SizedBox.shrink();
     }
@@ -363,8 +386,11 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
-  Set<int> _allowedScreenIndexes(String? role) {
-    final sections = SidebarConfig.getStructureForRole(role);
+  Set<int> _allowedScreenIndexes(String? role, {bool? isAdultStudent}) {
+    final sections = SidebarConfig.getStructureForRole(
+      role,
+      isAdultStudent: isAdultStudent ?? _isAdultStudent,
+    );
     return sections
         .expand((section) => section.items)
         .map((item) => item.screenIndex)
@@ -1318,7 +1344,7 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Widget _buildBreadcrumbBar() {
-    final structure = SidebarConfig.getStructureForRole(_userRole);
+    final structure = SidebarConfig.getStructureForRole(_userRole, isAdultStudent: _isAdultStudent);
     String? sectionLabel;
     String? itemLabel;
 
@@ -1766,6 +1792,7 @@ class _DashboardPageState extends State<DashboardPage> {
         _saveSidebarState();
       },
       userRole: _userRole,
+      isAdultStudent: _isAdultStudent,
       badgeScreenIndices: _badgeScreenIndices,
     );
   }
@@ -1900,7 +1927,10 @@ class _DashboardPageState extends State<DashboardPage> {
   /// Gets mobile drawer items from sidebar structure
   Future<List<Map<String, dynamic>>> _getMobileDrawerItems() async {
     final sidebarService = SidebarService();
-    final sections = await sidebarService.loadSidebar(_userRole);
+    final sections = await sidebarService.loadSidebar(
+      _userRole,
+      isAdultStudent: _isAdultStudent,
+    );
 
     final List<Map<String, dynamic>> items = [];
     for (var section in sections) {

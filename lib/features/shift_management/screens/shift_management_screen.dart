@@ -6,7 +6,6 @@ import 'package:syncfusion_flutter_calendar/calendar.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import 'package:syncfusion_flutter_core/theme.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import 'package:alluwalacademyadmin/features/shift_management/models/teaching_shift.dart';
@@ -113,6 +112,8 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
   List<String>? _pendingPaymentShiftIds;
   int? _inFlightPaymentsHash;
   static const Duration _webShiftLoadTimeout = Duration(seconds: 25);
+  static const int _webShiftLookbackDays = 90;
+  static const int _webShiftLookaheadDays = 120;
 
   @override
   void initState() {
@@ -171,15 +172,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
             _currentUserId = currentUser.uid;
             _isAdmin = true;
           });
-          final futures = <Future>[
-            _loadShiftData(),
-            _loadSubjects(),
-            _loadTeachers(),
-            _loadLeaders(),
-            _loadStudents(),
-          ];
-          await Future.wait(futures);
-          await _loadShiftStatistics();
+          await _loadInitialAdminData();
           return;
         }
       }
@@ -196,19 +189,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
           return;
         }
 
-        // OPTIMIZATION: Load data in parallel instead of sequentially
-        // This reduces initial load time significantly
-        final futures = <Future>[
-          _loadShiftData(),
-          _loadSubjects(),
-          _loadTeachers(),
-          _loadLeaders(),
-          _loadStudents(),
-        ];
-
-        // Load statistics after shifts are loaded (it depends on shifts)
-        await Future.wait(futures);
-        await _loadShiftStatistics();
+        await _loadInitialAdminData();
       }
     } catch (e) {
       AppLogger.error('Error initializing user role: $e');
@@ -227,6 +208,51 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
     _searchController.dispose();
     _pageScrollController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadInitialAdminData() async {
+    final futures = <Future>[
+      _loadShiftData(),
+      _loadSubjects(),
+      _loadTeachers(),
+      _loadLeaders(),
+      _loadStudents(),
+    ];
+
+    await Future.wait(futures);
+    if (!kIsWeb) {
+      await _loadShiftStatistics();
+    }
+  }
+
+  DateTimeRange? _webShiftQueryRange() {
+    if (!kIsWeb) return null;
+    final now = DateTime.now();
+    final start = DateTime(now.year, now.month, now.day)
+        .subtract(const Duration(days: _webShiftLookbackDays));
+    final end = DateTime(now.year, now.month, now.day)
+        .add(const Duration(days: _webShiftLookaheadDays + 1));
+    return DateTimeRange(start: start, end: end);
+  }
+
+  Map<String, dynamic> _buildShiftStatsFromLoadedShifts() {
+    return {
+      'total_shifts': _allShifts.length,
+      'scheduled_shifts':
+          _allShifts.where((s) => s.status == ShiftStatus.scheduled).length,
+      'active_shifts':
+          _allShifts.where((s) => s.status == ShiftStatus.active).length,
+      'completed_shifts': _allShifts
+          .where((s) =>
+              s.status == ShiftStatus.completed ||
+              s.status == ShiftStatus.partiallyCompleted ||
+              s.status == ShiftStatus.fullyCompleted)
+          .length,
+      'missed_shifts':
+          _allShifts.where((s) => s.status == ShiftStatus.missed).length,
+      'today_shifts': _todayShifts.length,
+      'upcoming_shifts': _upcomingShifts.length,
+    };
   }
 
   void _requestPaymentsLoad(List<TeachingShift> shifts,
@@ -311,11 +337,18 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
       if (kIsWeb) {
         await _shiftsSubscription?.cancel();
         _shiftsSubscription = null;
+        final range = _webShiftQueryRange();
 
         final shifts = _isAdmin
-            ? await ShiftService.fetchAllShifts().timeout(_webShiftLoadTimeout)
-            : await ShiftService.fetchTeacherShifts(_currentUserId!)
-                .timeout(_webShiftLoadTimeout);
+            ? await ShiftService.fetchAllShifts(
+                start: range?.start,
+                end: range?.end,
+              ).timeout(_webShiftLoadTimeout)
+            : await ShiftService.fetchTeacherShifts(
+                _currentUserId!,
+                start: range?.start,
+                end: range?.end,
+              ).timeout(_webShiftLoadTimeout);
 
         PerformanceLogger.checkpoint(opId, 'shifts_fetched', metadata: {
           'mode': 'one_shot_web',
@@ -327,6 +360,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
           setState(() {
             _allShifts = shifts;
             _categorizeShifts();
+            _shiftStats = _buildShiftStatsFromLoadedShifts();
             _isLoading = false;
           });
           stateStopwatch.stop();
@@ -335,7 +369,6 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
             'all_shifts': _allShifts.length,
           });
           WebAppStabilityService.instance.pokeFirestoreActivity();
-          _loadShiftStatistics();
         }
 
         _requestPaymentsLoad(shifts, emissionOpId: opId);
@@ -406,6 +439,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
             setState(() {
               _allShifts = shifts;
               _categorizeShifts();
+              _shiftStats = _buildShiftStatsFromLoadedShifts();
               _isLoading = false;
             });
             stateStopwatch.stop();
@@ -415,7 +449,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                   'all_shifts': _allShifts.length,
                 });
 
-            // Reload statistics when shifts change (non-blocking)
+            // Reload statistics when native/mobile live streams change.
             _loadShiftStatistics();
           }
 
@@ -467,6 +501,15 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
   }
 
   Future<void> _loadShiftStatistics() async {
+    if (kIsWeb) {
+      if (mounted) {
+        setState(() {
+          _shiftStats = _buildShiftStatsFromLoadedShifts();
+        });
+      }
+      return;
+    }
+
     final opId = PerformanceLogger.newOperationId(
         'ShiftManagementScreen._loadShiftStatistics');
     PerformanceLogger.startTimer(opId, metadata: {
@@ -516,45 +559,19 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
   }
 
   Future<void> _loadTeachers() async {
-    AppLogger.error('ShiftManagement: Loading teachers using ShiftService...');
+    AppLogger.debug('ShiftManagement: Loading teachers using ShiftService...');
     try {
       // Use the same method as CreateShiftDialog
       final teachers = await ShiftService.getAvailableTeachers();
       AppLogger.debug(
           'ShiftManagement: ShiftService returned ${teachers.length} teachers');
 
-      // OPTIMIZATION: Batch load email to document ID mapping in parallel
-      final emailToIdMap = <String, String>{};
-      final emailQueries = teachers.map((teacher) async {
-        try {
-          final teacherSnapshot = await FirebaseFirestore.instance
-              .collection('users')
-              .where('e-mail', isEqualTo: teacher.email)
-              .limit(1)
-              .get();
-
-          if (teacherSnapshot.docs.isNotEmpty) {
-            AppLogger.debug(
-                'ShiftManagement: ✅ Mapped ${teacher.email} -> ${teacherSnapshot.docs.first.id}');
-            return MapEntry(teacher.email, teacherSnapshot.docs.first.id);
-          } else {
-            AppLogger.error(
-                'ShiftManagement: ❌ No document found for email: ${teacher.email}');
-          }
-        } catch (e) {
-          AppLogger.error(
-              'ShiftManagement: Error mapping teacher email to ID: $e');
-        }
-        return null;
-      }).toList();
-
-      // Wait for all queries in parallel
-      final emailResults = await Future.wait(emailQueries);
-      for (final entry in emailResults) {
-        if (entry != null) {
-          emailToIdMap[entry.key] = entry.value;
-        }
-      }
+      final emailToIdMap = <String, String>{
+        for (final teacher in teachers)
+          if (teacher.email.trim().isNotEmpty &&
+              teacher.documentId.trim().isNotEmpty)
+            teacher.email: teacher.documentId,
+      };
 
       if (mounted) {
         setState(() {
@@ -563,10 +580,6 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
         });
         AppLogger.info(
             'ShiftManagement: ✅ Successfully loaded ${teachers.length} teachers');
-        for (final teacher in teachers) {
-          AppLogger.error(
-              'ShiftManagement: Teacher: ${teacher.firstName} ${teacher.lastName} (${teacher.email})');
-        }
       }
     } catch (e) {
       AppLogger.error('ShiftManagement: ❌ Error loading teachers: $e');
@@ -1389,7 +1402,9 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
       },
       onRefresh: () {
         _loadShiftData();
-        _loadShiftStatistics();
+        if (!kIsWeb) {
+          _loadShiftStatistics();
+        }
       },
       isAdmin: _isAdmin,
     );
@@ -1479,7 +1494,9 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                                 builder: (context) => TemplateManagementDialog(
                                   onTemplateUpdated: () {
                                     _loadShiftData();
-                                    _loadShiftStatistics();
+                                    if (!kIsWeb) {
+                                      _loadShiftStatistics();
+                                    }
                                   },
                                 ),
                               );

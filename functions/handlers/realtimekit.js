@@ -80,6 +80,37 @@ const _isAdminRole = (role) => (
   role === 'admin_teacher'
 );
 
+const _resolveUserRosterRole = async (db, userId, fallbackRole) => {
+  const fallback = String(fallbackRole || '').trim().toLowerCase() || null;
+  try {
+    const userDoc = await db.collection('users').doc(userId).get();
+    const data = userDoc.exists ? userDoc.data() || {} : {};
+    const role = String(data.role || '').trim().toLowerCase();
+    const userType = String(data.user_type || data.userType || '').trim().toLowerCase();
+    const secondaryRoles = [
+      ..._roleList(data.roles),
+      ..._roleList(data.secondary_roles),
+      ..._roleList(data.secondaryRoles),
+    ];
+    if (
+      _isAdminRole(role) ||
+      _isAdminRole(userType) ||
+      secondaryRoles.some(_isAdminRole) ||
+      _truthy(data.is_admin) ||
+      _truthy(data.isAdmin) ||
+      _truthy(data.is_super_admin) ||
+      _truthy(data.isSuperAdmin) ||
+      _truthy(data.is_admin_teacher) ||
+      _truthy(data.isAdminTeacher)
+    ) {
+      return 'admin';
+    }
+    return userType || role || fallback;
+  } catch (_) {
+    return fallback;
+  }
+};
+
 const getUserDataForCaller = async (uid, token = {}) => {
   if (!uid) return null;
   const db = admin.firestore();
@@ -403,6 +434,7 @@ const buildJoinResponse = async ({ shiftId, uid, token, displayName, role, guest
 };
 
 const getRealtimeKitJoinToken = onCall({
+  cors: true,
   secrets: REALTIMEKIT_REQUIRED_SECRETS,
 }, async (request) => {
   const uid = request.auth?.uid;
@@ -461,7 +493,61 @@ const getRealtimeKitGuestJoin = onRequest({
   }
 });
 
+// Live roster for a Zoom class, read from the presence windows the Zoom
+// webhook writes into `livekit_sessions`. Returns the same shape as the
+// RealtimeKit path so the existing "Live Participants" UI works unchanged.
+const buildZoomRoomPresence = async (shiftId, shiftData) => {
+  const db = admin.firestore();
+  const snap = await db
+    .collection('livekit_sessions')
+    .where('shift_id', '==', shiftId)
+    .get();
+
+  const teacherId = String(shiftData.teacher_id || shiftData.teacherId || '').trim();
+  const studentIds = _normalizeUidList(shiftData.student_ids || shiftData.studentIds || []);
+
+  const openDocs = [];
+  snap.forEach((doc) => {
+    const data = doc.data() || {};
+    const windows = Array.isArray(data.presence_windows) ? data.presence_windows : [];
+    const openWindow = windows.find((w) => w && (w.leave_at === null || w.leave_at === undefined));
+    if (openWindow) openDocs.push({ data, openWindow });
+  });
+
+  const participants = await Promise.all(openDocs.map(async ({ data, openWindow }) => {
+    const userId = String(data.user_id || '').trim();
+    let role = data.role || null;
+    if (userId && userId === teacherId) {
+      role = 'teacher';
+    } else if (studentIds.includes(userId)) {
+      role = 'student';
+    } else if (userId) {
+      role = await _resolveUserRosterRole(db, userId, role);
+    }
+    const joinedAt = openWindow.join_at || data.first_joined_at || null;
+    return {
+      identity: userId,
+      name: data.zoom_participant_name || userId || 'Participant',
+      role,
+      joinedAtIso: joinedAt && joinedAt.toDate ? joinedAt.toDate().toISOString() : null,
+      isPublisher: true,
+    };
+  }));
+
+  return {
+    success: true,
+    roomName: String(shiftData.zoom_meeting_id || shiftData.zoomMeetingId || ''),
+    meetingId: String(shiftData.zoom_meeting_id || shiftData.zoomMeetingId || ''),
+    participantCount: participants.length,
+    participants,
+    inJoinWindow: true,
+    generatedAtIso: new Date().toISOString(),
+    shiftName: _deriveShiftDisplayName(shiftData),
+  };
+};
+
 const getRealtimeKitRoomPresence = onCall({
+  cors: true,
   secrets: REALTIMEKIT_REQUIRED_SECRETS,
 }, async (request) => {
   const uid = request.auth?.uid;
@@ -474,6 +560,13 @@ const getRealtimeKitRoomPresence = onCall({
   const { shiftData, teacherId, studentIds, meetingId } =
     await getRealtimeKitShiftOrThrow(shiftId);
   await getAccessForUser({ uid, token: request.auth?.token, teacherId, studentIds });
+
+  const provider = String(shiftData.video_provider || shiftData.videoProvider || '')
+    .trim()
+    .toLowerCase();
+  if (provider === 'zoom') {
+    return buildZoomRoomPresence(shiftId, shiftData);
+  }
 
   if (!meetingId) {
     return {
@@ -507,7 +600,7 @@ const getRealtimeKitRoomPresence = onCall({
   };
 });
 
-const setRealtimeKitRoomLock = onCall(async (request) => {
+const setRealtimeKitRoomLock = onCall({ cors: true }, async (request) => {
   const uid = request.auth?.uid;
   const shiftId = request.data?.shiftId;
   const locked = request.data?.locked === true;
@@ -532,6 +625,7 @@ const setRealtimeKitRoomLock = onCall(async (request) => {
 // Admin-only: allow or disallow recording for a single class. Teachers receive
 // the recording-capable preset on their next join only while this is enabled.
 const setRealtimeKitRecordingEnabled = onCall({
+  cors: true,
   secrets: REALTIMEKIT_REQUIRED_SECRETS,
 }, async (request) => {
   const uid = request.auth?.uid;
@@ -560,6 +654,7 @@ const setRealtimeKitRecordingEnabled = onCall({
 });
 
 const bulkSetRealtimeKitRecordingEnabled = onCall({
+  cors: true,
   secrets: REALTIMEKIT_REQUIRED_SECRETS,
 }, async (request) => {
   const uid = request.auth?.uid;
@@ -608,6 +703,7 @@ const bulkSetRealtimeKitRecordingEnabled = onCall({
 });
 
 const kickRealtimeKitParticipant = onCall({
+  cors: true,
   secrets: REALTIMEKIT_REQUIRED_SECRETS,
 }, async (request) => {
   const uid = request.auth?.uid;

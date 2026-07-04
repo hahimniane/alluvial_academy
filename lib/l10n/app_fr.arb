@@ -1159,6 +1159,8 @@
   "connectWithTheWorldThroughLanguage": "Se connecter au monde par la langue",
   "connecteam": "Connexion",
   "connectingToClass": "Connexion à la classe",
+  "zoomStillConnectingToClass": "Connexion à votre salle de classe privée...",
+  "zoomClassRoutingHelp": "Cette classe est encore en cours de connexion. Veuillez quitter puis rejoindre à nouveau, ou demander de l'aide à un administrateur.",
   "connectingToTaskDatabase": "Connexion à la base de données des tâches",
   "connectionTestErrorE": "Erreur de test de connexion E",
   "contactInformation": "Coordonnées",
@@ -1908,6 +1910,7 @@
   "learningTracks": "Les pistes d'apprentissage",
   "leave": "Quitter",
   "leaveClass": "Quitter la classe",
+  "leaveMeeting": "Quitter la réunion",
   "lessComfortable": "Moins confortable",
   "letSGetStarted": "Laissez-le commencer",
   "link": "Lien",
@@ -3366,6 +3369,38 @@
   },
   "classVideoJoinUnavailable": "Impossible de rejoindre cette classe pour le moment.",
   "classVideoInvalidGuestLink": "Lien de classe invalide ou expiré.",
+  "enableZoomClasses": "Activer les classes Zoom",
+  "disableZoomClasses": "Désactiver les classes Zoom",
+  "zoomEnabledFor": "Zoom activé pour {name}. {count, plural, =0{Aucun cours à venir mis à jour.} =1{1 cours à venir mis à jour.} other{{count} cours à venir mis à jour.}}",
+  "@zoomEnabledFor": {
+    "placeholders": {
+      "name": {},
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "zoomDisabledFor": "Zoom désactivé pour {name}. {count, plural, =0{Aucun cours à venir mis à jour.} =1{1 cours à venir mis à jour.} other{{count} cours à venir mis à jour.}}",
+  "@zoomDisabledFor": {
+    "placeholders": {
+      "name": {},
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "zoomToggleError": "Impossible de mettre à jour l’accès Zoom : {details}",
+  "@zoomToggleError": {
+    "placeholders": {
+      "details": {}
+    }
+  },
+  "zoomUnableToLoadMeeting": "Impossible de charger la réunion Zoom.",
+  "zoomUnableToJoinMeeting": "Impossible de rejoindre la réunion Zoom.",
+  "zoomUnableToInitialize": "Impossible d’initialiser Zoom.",
+  "zoomOpenInZoomApp": "Ouvrir dans l'application Zoom",
+  "zoomMobileUnavailableTitle": "Les classes Zoom sont disponibles sur le web pour ce pilote",
+  "zoomMobileUnavailableBody": "Ouvrez cette classe dans un navigateur web pendant que la classe Zoom mobile est testée.",
   "formsListFormStatus": "Formulaire {statut}",
   "@formsListFormStatus": {
     "placeholders": {
@@ -5374,6 +5409,20 @@
   "inviteParentSuccessInvited": "E-mail d'invitation envoyé au parent.",
   "inviteParentSuccessInvitedNoEmail": "Compte parent créé, mais l'e-mail d'invitation n'a pas pu être envoyé.",
 
+  "manageGuardiansButton": "Gérer les responsables",
+  "manageGuardiansTitle": "Responsables liés",
+  "manageGuardiansSubtitle": "Parents actuellement liés à {studentName}. Dissocier supprime leur accès aux cours, discussions et factures de cet élève.",
+  "manageGuardiansEmpty": "Aucun responsable n'est encore lié à cet élève.",
+  "manageGuardiansLoadError": "Impossible de charger les responsables liés.",
+  "unlinkGuardianConfirmTitle": "Dissocier le responsable ?",
+  "unlinkGuardianConfirmBody": "{guardianName} ne sera plus lié à {studentName}. Il perdra l'accès aux cours, à la discussion et aux factures de cet élève. Cela ne supprime aucun compte.",
+  "unlinkGuardianReasonLabel": "Motif (facultatif)",
+  "unlinkGuardianReasonHint": "ex. Lié à la mauvaise famille",
+  "unlinkGuardianConfirmAction": "Dissocier",
+  "unlinkGuardianSuccess": "Responsable dissocié de cet élève.",
+  "unlinkGuardianError": "Impossible de dissocier ce responsable. Veuillez réessayer.",
+  "unlinkGuardianMinorBlocked": "Il s'agit du seul responsable d'un élève mineur. Associez d'abord un autre responsable, ou marquez l'élève comme adulte, avant de dissocier.",
+
   "enrollmentStateChooseProgram": "1. Choisir un programme",
   "enrollmentStateClassPreferences": "2. Préférences de cours",
   "enrollmentStatePricingAndHours": "3. Tarifs et heures",
@@ -5507,6 +5556,7 @@
   "auditMakeupEvaluationFooterHint": "L’envoi de l’évaluation coach reste bloqué tant qu’un rattrapage n’est pas approuvé ou refusé (onglet Formulaires).",
   "auditMakeupOpenTeachingFormsTab": "Ouvrir Formulaires",
   "realtimeKitProviderSubtitle": "Utilisé pour les cours planifiés",
+  "zoomProviderSubtitle": "Utilisé pour les enseignants affectés au pilote Zoom",
   "legacyProviderSubtitle": "Ancien fournisseur pour les cours existants",
   "classRecordingPermissionTitle": "Enregistrement du cours",
   "classRecordingPermissionTeacherAllowed": "L’enseignant peut enregistrer ce cours",
@@ -5595,5 +5645,85 @@
       }
     }
   },
-  "bulkClassRecordingUpdateFailed": "Impossible de modifier l’accès aux enregistrements."
+  "bulkClassRecordingUpdateFailed": "Impossible de modifier l’accès aux enregistrements.",
+  "noShowAlertsTitle": "Alertes d'absence",
+  "noShowAlertsSubtitle": "Cours où un enseignant ou un élève ne s'est pas présenté.",
+  "noShowTeacher": "Absence enseignant",
+  "noShowStudent": "Absence élève",
+  "noShowNeedsReview": "À examiner",
+  "noShowReviewed": "Examiné",
+  "noShowMarkReviewed": "Marquer comme examiné",
+  "noShowSearchHint": "Rechercher enseignant, déclarant ou cours",
+  "noShowFilterAll": "Tous",
+  "noShowEmpty": "Aucune alerte d'absence",
+  "noShowLoadError": "Impossible de charger les alertes d'absence",
+  "noShowRetry": "Réessayer",
+  "noShowStatTotal": "Total",
+  "noShowStatTeacher": "Absences enseignants",
+  "noShowStatStudent": "Absences élèves",
+  "noShowStatPending": "À examiner",
+  "noShowTopAbsent": "Plus d'absences",
+  "noShowReportedBy": "Signalé par {name}",
+  "noShowTeacherLabel": "Enseignant : {name}",
+  "noShowPendingShort": "{count} en attente",
+  "noShowDateAll": "Toutes les dates",
+  "noShowDateToday": "Aujourd'hui",
+  "noShowDate7Days": "7 derniers jours",
+  "noShowDate30Days": "30 derniers jours",
+  "noShowFromDate": "Du",
+  "noShowToDate": "Au",
+  "noShowAttendanceAll": "Toute présence",
+  "noShowNeverJoined": "Jamais rejoint",
+  "noShowJoinedLate": "Arrivé en retard",
+  "noShowHadPresence": "Présence enregistrée",
+  "noShowScheduled": "Prévu : {date}",
+  "noShowDetectedAfter": "Signalé après {minutes} min",
+  "noShowRoleTeacher": "Enseignant",
+  "noShowRoleStudent": "Élève",
+  "noShowNoJoinRecorded": "Aucune arrivée enregistrée",
+  "noShowJoinedAt": "Arrivé à {time}",
+  "noShowJoinOffsetLate": "{minutes} min en retard",
+  "noShowJoinOffsetEarly": "{minutes} min en avance",
+  "noShowJoinOffsetOnTime": "À l'heure",
+  "noShowPresentMinutes": "Présent {minutes} min",
+  "noShowCopySummary": "Copier le résumé",
+  "noShowCopied": "Résumé d'absence copié",
+  "noShowSummaryClass": "Cours",
+  "noShowSummaryAlert": "Alerte",
+  "noShowSummaryScheduled": "Prévu",
+  "noShowSummaryDetected": "Détecté",
+  "noShowSummaryStatus": "Statut",
+  "noShowStudentLabel": "Élève : {name}",
+  "noShowReviewTitle": "Examiner l'alerte d'absence",
+  "noShowReviewActionsPrompt": "Actions effectuées",
+  "noShowReviewOtherLabel": "Autre action ou note",
+  "noShowReviewOtherHint": "Saisissez ce qui a été fait si ce n'est pas listé",
+  "noShowReviewSubmit": "Soumettre l'examen",
+  "noShowReviewActionContactedTeacher": "Enseignant contacté",
+  "noShowReviewActionContactedStudentParent": "Élève ou parent contacté",
+  "noShowReviewActionConfirmedTeacherLate": "Retard de l'enseignant confirmé",
+  "noShowReviewActionConfirmedStudentLate": "Retard de l'élève confirmé",
+  "noShowReviewActionExcusedAbsence": "Absence excusée",
+  "noShowReviewActionRescheduledClass": "Cours reprogrammé",
+  "noShowReviewActionTechnicalFollowup": "Suivi d'un problème technique",
+  "noShowReviewActionBillingFollowup": "Suivi facturation/paie",
+  "noShowReviewActionEscalatedAdmin": "Escaladé à l'administration",
+  "noShowReviewActionFalseAlarm": "Fausse alerte/aucune action nécessaire",
+  "noShowReviewedBy": "Examiné par {name}",
+  "noShowReviewActionsLabel": "Actions : {actions}",
+  "noShowReviewNoteLabel": "Note : {note}",
+  "zoomHostPickerTitle": "Attribuer un hôte Zoom",
+  "zoomHostPickerBody": "Choisissez quel compte Zoom sous licence hébergera les cours de {name}.",
+  "zoomHostPickerCustomLabel": "Ou saisissez l'e-mail d'un compte hôte",
+  "zoomHostPickerAssign": "Attribuer et activer",
+  "zoomScopeTitle": "Quels cours ?",
+  "zoomScopeBody": "Basculer tous les cours de {name} vers Zoom, ou seulement les cours des élèves sélectionnés ?",
+  "@zoomScopeBody": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "zoomScopeAll": "Tous les cours",
+  "zoomScopeSelect": "Seulement les cours des élèves sélectionnés",
+  "zoomScopeNoStudents": "Aucun cours à venir trouvé pour cet enseignant."
 }

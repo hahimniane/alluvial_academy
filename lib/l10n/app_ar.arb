@@ -1325,6 +1325,8 @@
   "connectWithTheWorldThroughLanguage": "Connect With The World Through Language",
   "connecteam": "Connecteam",
   "connectingToClass": "Connecting To Class",
+  "zoomStillConnectingToClass": "Still connecting to your private classroom...",
+  "zoomClassRoutingHelp": "This class is still connecting. Please leave and rejoin, or ask an administrator for help.",
   "connectingToTaskDatabase": "Connecting To Task Database",
   "connectionTestErrorE": "Connection Test Error E",
   "contactInformation": "Contact Information",
@@ -2086,6 +2088,7 @@
   "learningTracks": "Learning Tracks",
   "leave": "Leave",
   "leaveClass": "Leave Class",
+  "leaveMeeting": "Leave Meeting",
   "lessComfortable": "Less Comfortable",
   "letSGetStarted": "Let SGet Started",
   "link": "Link",
@@ -3403,6 +3406,38 @@
   },
   "classVideoJoinUnavailable": "Unable to join this class right now.",
   "classVideoInvalidGuestLink": "Invalid or expired class link.",
+  "enableZoomClasses": "تفعيل حصص Zoom",
+  "disableZoomClasses": "إيقاف حصص Zoom",
+  "zoomEnabledFor": "تم تفعيل Zoom لـ {name}. {count, plural, =0{لم يتم تحديث أي حصة قادمة.} =1{تم تحديث حصة قادمة واحدة.} other{تم تحديث {count} حصص قادمة.}}",
+  "@zoomEnabledFor": {
+    "placeholders": {
+      "name": {},
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "zoomDisabledFor": "تم إيقاف Zoom لـ {name}. {count, plural, =0{لم يتم تحديث أي حصة قادمة.} =1{تم تحديث حصة قادمة واحدة.} other{تم تحديث {count} حصص قادمة.}}",
+  "@zoomDisabledFor": {
+    "placeholders": {
+      "name": {},
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "zoomToggleError": "تعذر تحديث صلاحية Zoom: {details}",
+  "@zoomToggleError": {
+    "placeholders": {
+      "details": {}
+    }
+  },
+  "zoomUnableToLoadMeeting": "تعذر تحميل اجتماع Zoom.",
+  "zoomUnableToJoinMeeting": "تعذر الانضمام إلى اجتماع Zoom.",
+  "zoomUnableToInitialize": "تعذر تهيئة Zoom.",
+  "zoomOpenInZoomApp": "افتح في تطبيق Zoom",
+  "zoomMobileUnavailableTitle": "حصص Zoom متاحة على الويب فقط في هذه التجربة",
+  "zoomMobileUnavailableBody": "افتح هذه الحصة في متصفح ويب أثناء اختبار فصل Zoom على الجوال.",
   "formsListFormStatus": "Form {status}",
   "@formsListFormStatus": {
     "placeholders": {
@@ -5379,6 +5414,20 @@
   "inviteParentSuccessInvited": "تم إرسال بريد الدعوة إلى ولي الأمر.",
   "inviteParentSuccessInvitedNoEmail": "تم إنشاء حساب ولي الأمر، لكن تعذّر إرسال بريد الدعوة.",
 
+  "manageGuardiansButton": "إدارة أولياء الأمور",
+  "manageGuardiansTitle": "أولياء الأمور المرتبطون",
+  "manageGuardiansSubtitle": "أولياء الأمور المرتبطون حاليًا بـ {studentName}. يؤدي إلغاء الربط إلى إزالة وصولهم إلى حصص هذا الطالب ومحادثاته وفواتيره.",
+  "manageGuardiansEmpty": "لا يوجد أولياء أمور مرتبطون بهذا الطالب بعد.",
+  "manageGuardiansLoadError": "تعذّر تحميل أولياء الأمور المرتبطين.",
+  "unlinkGuardianConfirmTitle": "إلغاء ربط ولي الأمر؟",
+  "unlinkGuardianConfirmBody": "لن يعود {guardianName} مرتبطًا بـ {studentName}. سيفقد الوصول إلى حصص هذا الطالب ومحادثته وفواتيره. لن يؤدي ذلك إلى حذف أي حساب.",
+  "unlinkGuardianReasonLabel": "السبب (اختياري)",
+  "unlinkGuardianReasonHint": "مثال: تم الربط بالعائلة الخطأ",
+  "unlinkGuardianConfirmAction": "إلغاء الربط",
+  "unlinkGuardianSuccess": "تم إلغاء ربط ولي الأمر بهذا الطالب.",
+  "unlinkGuardianError": "تعذّر إلغاء ربط ولي الأمر. يرجى المحاولة مرة أخرى.",
+  "unlinkGuardianMinorBlocked": "هذا هو ولي الأمر الوحيد لطالب قاصر. اربط ولي أمر آخر أولاً، أو حدِّد الطالب كبالغ، قبل إلغاء الربط.",
+
   "enrollmentStateChooseProgram": "١. اختيار البرنامج",
   "enrollmentStateClassPreferences": "٢. تفضيلات الفصل",
   "enrollmentStatePricingAndHours": "٣. الأسعار والساعات",
@@ -5569,6 +5618,7 @@
   "auditMakeupEvaluationFooterHint": "لا يمكن إرسال تقييم الموجّه حتى تُوافق أو ترفض كل تقارير التعويض لتعويض الحصة (تبويب نماذج التدريس).",
   "auditMakeupOpenTeachingFormsTab": "فتح نماذج التدريس",
   "realtimeKitProviderSubtitle": "يُستخدم للحصص المجدولة",
+  "zoomProviderSubtitle": "يُستخدم للمعلمين المضافين إلى تجربة Zoom",
   "legacyProviderSubtitle": "مزود قديم للحصص الموجودة",
   "classRecordingPermissionTitle": "تسجيل الحصة",
   "classRecordingPermissionTeacherAllowed": "يمكن للمعلم تسجيل هذه الحصة",
@@ -5657,5 +5707,85 @@
       }
     }
   },
-  "bulkClassRecordingUpdateFailed": "تعذر تحديث إمكانية التسجيل."
+  "bulkClassRecordingUpdateFailed": "تعذر تحديث إمكانية التسجيل.",
+  "noShowAlertsTitle": "تنبيهات الغياب",
+  "noShowAlertsSubtitle": "الحصص التي لم يحضرها معلم أو طالب.",
+  "noShowTeacher": "غياب المعلم",
+  "noShowStudent": "غياب الطالب",
+  "noShowNeedsReview": "بحاجة إلى مراجعة",
+  "noShowReviewed": "تمت المراجعة",
+  "noShowMarkReviewed": "وضع علامة كمراجَع",
+  "noShowSearchHint": "ابحث عن معلم أو مُبلِّغ أو حصة",
+  "noShowFilterAll": "الكل",
+  "noShowEmpty": "لا توجد تنبيهات غياب",
+  "noShowLoadError": "تعذّر تحميل تنبيهات الغياب",
+  "noShowRetry": "إعادة المحاولة",
+  "noShowStatTotal": "الإجمالي",
+  "noShowStatTeacher": "غيابات المعلمين",
+  "noShowStatStudent": "غيابات الطلاب",
+  "noShowStatPending": "بحاجة إلى مراجعة",
+  "noShowTopAbsent": "الأكثر غيابًا",
+  "noShowReportedBy": "أبلغ عنه {name}",
+  "noShowTeacherLabel": "المعلم: {name}",
+  "noShowPendingShort": "{count} قيد الانتظار",
+  "noShowDateAll": "كل التواريخ",
+  "noShowDateToday": "اليوم",
+  "noShowDate7Days": "آخر 7 أيام",
+  "noShowDate30Days": "آخر 30 يومًا",
+  "noShowFromDate": "من",
+  "noShowToDate": "إلى",
+  "noShowAttendanceAll": "كل الحضور",
+  "noShowNeverJoined": "لم ينضم",
+  "noShowJoinedLate": "انضم متأخرًا",
+  "noShowHadPresence": "حضور مسجّل",
+  "noShowScheduled": "الموعد: {date}",
+  "noShowDetectedAfter": "تم التنبيه بعد {minutes} دقيقة",
+  "noShowRoleTeacher": "المعلم",
+  "noShowRoleStudent": "الطالب",
+  "noShowNoJoinRecorded": "لا يوجد دخول مسجّل",
+  "noShowJoinedAt": "انضم في {time}",
+  "noShowJoinOffsetLate": "متأخر {minutes} دقيقة",
+  "noShowJoinOffsetEarly": "مبكر {minutes} دقيقة",
+  "noShowJoinOffsetOnTime": "في الوقت",
+  "noShowPresentMinutes": "حضر {minutes} دقيقة",
+  "noShowCopySummary": "نسخ الملخص",
+  "noShowCopied": "تم نسخ ملخص الغياب",
+  "noShowSummaryClass": "الحصة",
+  "noShowSummaryAlert": "التنبيه",
+  "noShowSummaryScheduled": "الموعد",
+  "noShowSummaryDetected": "الكشف",
+  "noShowSummaryStatus": "الحالة",
+  "noShowStudentLabel": "الطالب: {name}",
+  "noShowReviewTitle": "مراجعة تنبيه الغياب",
+  "noShowReviewActionsPrompt": "الإجراءات المتخذة",
+  "noShowReviewOtherLabel": "إجراء آخر أو ملاحظة",
+  "noShowReviewOtherHint": "اكتب ما تم فعله إذا لم يكن موجودًا في القائمة",
+  "noShowReviewSubmit": "إرسال المراجعة",
+  "noShowReviewActionContactedTeacher": "تم التواصل مع المعلم",
+  "noShowReviewActionContactedStudentParent": "تم التواصل مع الطالب أو ولي الأمر",
+  "noShowReviewActionConfirmedTeacherLate": "تم تأكيد تأخر المعلم",
+  "noShowReviewActionConfirmedStudentLate": "تم تأكيد تأخر الطالب",
+  "noShowReviewActionExcusedAbsence": "غياب بعذر",
+  "noShowReviewActionRescheduledClass": "تمت إعادة جدولة الحصة",
+  "noShowReviewActionTechnicalFollowup": "متابعة مشكلة تقنية",
+  "noShowReviewActionBillingFollowup": "متابعة الفوترة/الرواتب",
+  "noShowReviewActionEscalatedAdmin": "تم التصعيد للإدارة",
+  "noShowReviewActionFalseAlarm": "تنبيه خاطئ/لا يلزم إجراء",
+  "noShowReviewedBy": "تمت المراجعة بواسطة {name}",
+  "noShowReviewActionsLabel": "الإجراءات: {actions}",
+  "noShowReviewNoteLabel": "ملاحظة: {note}",
+  "zoomHostPickerTitle": "تعيين مضيف Zoom",
+  "zoomHostPickerBody": "اختر حساب Zoom المرخّص الذي سيستضيف حصص {name}.",
+  "zoomHostPickerCustomLabel": "أو أدخل بريد حساب المضيف",
+  "zoomHostPickerAssign": "تعيين وتفعيل",
+  "zoomScopeTitle": "أي الحصص؟",
+  "zoomScopeBody": "نقل جميع حصص {name} إلى Zoom، أم فقط حصص الطلاب المحددين؟",
+  "@zoomScopeBody": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "zoomScopeAll": "جميع الحصص",
+  "zoomScopeSelect": "فقط حصص الطلاب المحددين",
+  "zoomScopeNoStudents": "لا توجد حصص قادمة لهذا المعلم."
 }

@@ -2,6 +2,7 @@ const { onDocumentCreated } = require('firebase-functions/v2/firestore');
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const { createTransporter } = require('../services/email/transporter');
+const { generateRandomPassword } = require('../utils/password');
 
 /** Escape text for safe HTML interpolation (names, notes, etc.). */
 const escapeHtml = (value) => String(value ?? '')
@@ -1022,9 +1023,9 @@ const inviteParentForEnrollment = async (request) => {
     if (e.code !== 'auth/user-not-found') {
       throw new functions.https.HttpsError('internal', e.message || 'Auth lookup failed');
     }
-    // Create a fresh parent Auth user. Use a random password - the parent will
-    // set their own via the reset email.
-    const tempPassword = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2).toUpperCase() + '!1';
+    // Create a fresh parent Auth user with a generated temporary password; the
+    // parent sets their own password through the reset link below.
+    const tempPassword = generateRandomPassword();
     const created = await admin.auth().createUser({
       email,
       password: tempPassword,
@@ -1092,9 +1093,7 @@ const inviteParentForEnrollment = async (request) => {
     { merge: true },
   );
 
-  // Fire the password-reset email when we had to create the Auth user, or
-  // when an existing Auth user still has no password set. We rely on client-
-  // library's generatePasswordResetLink, delivered via our transporter.
+  // Send a password setup email when we had to create the Auth user.
   let inviteSent = false;
   let inviteError = null;
   if (createdAuthUser) {
@@ -1132,6 +1131,188 @@ const inviteParentForEnrollment = async (request) => {
   };
 };
 
+// Verify the caller is an authenticated admin. Returns the caller's uid.
+async function requireAdminCaller(request) {
+  const auth = request.auth;
+  if (!auth || !auth.uid) {
+    throw new functions.https.HttpsError('unauthenticated', 'Sign-in required');
+  }
+  const callerDoc = await admin.firestore().collection('users').doc(auth.uid).get();
+  if (!callerDoc.exists) {
+    throw new functions.https.HttpsError('permission-denied', 'Caller has no user profile');
+  }
+  const callerData = callerDoc.data() || {};
+  const callerRole = (callerData.role || callerData.user_type || '').toString().toLowerCase();
+  const isAdmin =
+    callerRole === 'admin' ||
+    callerRole === 'super_admin' ||
+    callerData.isAdmin === true ||
+    callerData.is_admin === true ||
+    callerData.isSuperAdmin === true ||
+    callerData.is_super_admin === true;
+  if (!isAdmin) {
+    throw new functions.https.HttpsError('permission-denied', 'Admin role required');
+  }
+  return auth.uid;
+}
+
+/**
+ * Admin-only: sever the link between a parent/guardian and a student.
+ *
+ * The link created by `inviteParentForEnrollment` is two-sided plus enrollment
+ * metadata, so unlinking must undo all three atomically:
+ *   - remove parentUid from the student's `guardian_ids` (+ legacy `guardianIds`)
+ *   - remove studentUid from the parent's `children_ids`
+ *   - mark any enrollment that linked this pair as `unlinked`
+ * Every unlink is recorded in `guardian_link_history` for an audit trail.
+ */
+const unlinkGuardianFromStudent = async (request) => {
+  const callerUid = await requireAdminCaller(request);
+
+  const payload = request.data || {};
+  const studentUid = String(payload.studentUid || '').trim();
+  const parentUid = String(payload.parentUid || '').trim();
+  const reason = String(payload.reason || '').trim().slice(0, 500);
+
+  if (!studentUid) {
+    throw new functions.https.HttpsError('invalid-argument', 'studentUid is required');
+  }
+  if (!parentUid) {
+    throw new functions.https.HttpsError('invalid-argument', 'parentUid is required');
+  }
+  if (studentUid === parentUid) {
+    throw new functions.https.HttpsError('invalid-argument', 'studentUid and parentUid must differ');
+  }
+
+  const db = admin.firestore();
+  const studentRef = db.collection('users').doc(studentUid);
+  const parentRef = db.collection('users').doc(parentUid);
+
+  const [studentSnap, parentSnap] = await Promise.all([studentRef.get(), parentRef.get()]);
+  if (!studentSnap.exists) {
+    throw new functions.https.HttpsError('not-found', `Student ${studentUid} not found`);
+  }
+
+  const studentData = studentSnap.data() || {};
+  const currentGuardians = [
+    ...((studentData.guardian_ids) || []),
+    ...((studentData.guardianIds) || []),
+  ].map(String);
+  const parentData = parentSnap.exists ? (parentSnap.data() || {}) : {};
+  const currentChildren = ((parentData.children_ids) || []).map(String);
+
+  const wasLinked =
+    currentGuardians.includes(parentUid) || currentChildren.includes(studentUid);
+  if (!wasLinked) {
+    throw new functions.https.HttpsError(
+      'failed-precondition',
+      'This parent is not linked to this student',
+    );
+  }
+
+  // Safety net: never leave a minor student without a guardian. A minor is any
+  // student that hasn't been explicitly flagged as an adult. Adult students are
+  // allowed to stand alone (they manage their own classes/invoices).
+  const dedupedGuardians = [...new Set(
+    currentGuardians.map((id) => id.trim()).filter(Boolean),
+  )];
+  const remainingGuardians = dedupedGuardians.filter((id) => id !== parentUid);
+  const isMinor = studentData.is_adult_student !== true;
+  if (isMinor && remainingGuardians.length === 0) {
+    throw new functions.https.HttpsError(
+      'failed-precondition',
+      'Cannot unlink the only guardian of a minor student. Link another guardian first, or mark this student as an adult.',
+      { reason: 'last_guardian_minor' },
+    );
+  }
+
+  const now = admin.firestore.FieldValue.serverTimestamp();
+  const batch = db.batch();
+
+  batch.set(
+    studentRef,
+    {
+      guardian_ids: admin.firestore.FieldValue.arrayRemove(parentUid),
+      guardianIds: admin.firestore.FieldValue.arrayRemove(parentUid),
+      updated_at: now,
+    },
+    { merge: true },
+  );
+
+  if (parentSnap.exists) {
+    batch.set(
+      parentRef,
+      {
+        children_ids: admin.firestore.FieldValue.arrayRemove(studentUid),
+        updated_at: now,
+      },
+      { merge: true },
+    );
+  }
+
+  await batch.commit();
+
+  // Best-effort: mark enrollments that linked this exact pair as unlinked so the
+  // pipeline UI no longer shows a stale "linked" chip.
+  let enrollmentsTouched = 0;
+  try {
+    const enrollmentSnap = await db
+      .collection('enrollments')
+      .where('metadata.parentUserId', '==', parentUid)
+      .get();
+    const enrollmentBatch = db.batch();
+    enrollmentSnap.docs.forEach((doc) => {
+      const data = doc.data() || {};
+      const meta = data.metadata || {};
+      const enrollmentStudent = String(meta.studentUserId || meta.studentUid || '');
+      if (enrollmentStudent && enrollmentStudent !== studentUid) return;
+      enrollmentBatch.set(
+        doc.ref,
+        {
+          contact: { guardianId: admin.firestore.FieldValue.delete() },
+          metadata: {
+            parentInviteStatus: 'unlinked',
+            parentUnlinkedAt: now,
+            parentUnlinkedBy: callerUid,
+          },
+        },
+        { merge: true },
+      );
+      enrollmentsTouched += 1;
+    });
+    if (enrollmentsTouched > 0) await enrollmentBatch.commit();
+  } catch (e) {
+    console.error('unlinkGuardianFromStudent: enrollment cleanup failed', e.message || e);
+  }
+
+  // Audit trail.
+  try {
+    await db.collection('guardian_link_history').add({
+      action: 'unlink',
+      studentUid,
+      parentUid,
+      reason: reason || null,
+      performedBy: callerUid,
+      enrollmentsTouched,
+      studentName: `${studentData.first_name || ''} ${studentData.last_name || ''}`.trim() || null,
+      parentName: `${parentData.first_name || ''} ${parentData.last_name || ''}`.trim() || null,
+      createdAt: now,
+    });
+  } catch (e) {
+    console.error('unlinkGuardianFromStudent: audit write failed', e.message || e);
+  }
+
+  const remainingGuardianCount = remainingGuardians.length;
+
+  return {
+    success: true,
+    studentUid,
+    parentUid,
+    remainingGuardianCount,
+    enrollmentsTouched,
+  };
+};
+
 // Small helper: generate a unique 6-digit kiosque code for new parents
 // (matches the format used elsewhere).
 async function generateKiosqueCodeForParent() {
@@ -1148,5 +1329,5 @@ module.exports = {
   onEnrollmentCreated,
   publishEnrollmentToJobBoard,
   inviteParentForEnrollment,
+  unlinkGuardianFromStudent,
 };
-

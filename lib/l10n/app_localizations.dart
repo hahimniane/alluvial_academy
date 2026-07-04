@@ -6252,6 +6252,18 @@ abstract class AppLocalizations {
   /// **'Connecting To Class'**
   String get connectingToClass;
 
+  /// No description provided for @zoomStillConnectingToClass.
+  ///
+  /// In en, this message translates to:
+  /// **'Still connecting to your private classroom...'**
+  String get zoomStillConnectingToClass;
+
+  /// No description provided for @zoomClassRoutingHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'This class is still connecting. Please leave and rejoin, or ask an administrator for help.'**
+  String get zoomClassRoutingHelp;
+
   /// No description provided for @connectingToTaskDatabase.
   ///
   /// In en, this message translates to:
@@ -10337,6 +10349,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Leave Class'**
   String get leaveClass;
+
+  /// No description provided for @leaveMeeting.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave Meeting'**
+  String get leaveMeeting;
 
   /// No description provided for @lessComfortable.
   ///
@@ -17123,6 +17141,72 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Invalid or expired class link.'**
   String get classVideoInvalidGuestLink;
+
+  /// No description provided for @enableZoomClasses.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable Zoom classes'**
+  String get enableZoomClasses;
+
+  /// No description provided for @disableZoomClasses.
+  ///
+  /// In en, this message translates to:
+  /// **'Disable Zoom classes'**
+  String get disableZoomClasses;
+
+  /// No description provided for @zoomEnabledFor.
+  ///
+  /// In en, this message translates to:
+  /// **'Zoom enabled for {name}. {count, plural, =0{No upcoming shifts updated.} =1{1 upcoming shift updated.} other{{count} upcoming shifts updated.}}'**
+  String zoomEnabledFor(Object name, int count);
+
+  /// No description provided for @zoomDisabledFor.
+  ///
+  /// In en, this message translates to:
+  /// **'Zoom disabled for {name}. {count, plural, =0{No upcoming shifts updated.} =1{1 upcoming shift updated.} other{{count} upcoming shifts updated.}}'**
+  String zoomDisabledFor(Object name, int count);
+
+  /// No description provided for @zoomToggleError.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to update Zoom access: {details}'**
+  String zoomToggleError(Object details);
+
+  /// No description provided for @zoomUnableToLoadMeeting.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to load Zoom meeting.'**
+  String get zoomUnableToLoadMeeting;
+
+  /// No description provided for @zoomUnableToJoinMeeting.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to join Zoom meeting.'**
+  String get zoomUnableToJoinMeeting;
+
+  /// No description provided for @zoomUnableToInitialize.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to initialize Zoom.'**
+  String get zoomUnableToInitialize;
+
+  /// No description provided for @zoomOpenInZoomApp.
+  ///
+  /// In en, this message translates to:
+  /// **'Open in Zoom app'**
+  String get zoomOpenInZoomApp;
+
+  /// No description provided for @zoomMobileUnavailableTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Zoom classes are web-only for this pilot'**
+  String get zoomMobileUnavailableTitle;
+
+  /// No description provided for @zoomMobileUnavailableBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Open this class in a web browser while the mobile Zoom classroom is being tested.'**
+  String get zoomMobileUnavailableBody;
 
   /// No description provided for @formsListFormStatus.
   ///
@@ -24274,6 +24358,84 @@ abstract class AppLocalizations {
   /// **'Parent account created, but the invite email could not be sent.'**
   String get inviteParentSuccessInvitedNoEmail;
 
+  /// No description provided for @manageGuardiansButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage Guardians'**
+  String get manageGuardiansButton;
+
+  /// No description provided for @manageGuardiansTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Linked Guardians'**
+  String get manageGuardiansTitle;
+
+  /// No description provided for @manageGuardiansSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Parents currently linked to {studentName}. Unlinking removes their access to this student\'s classes, chats, and invoices.'**
+  String manageGuardiansSubtitle(String studentName);
+
+  /// No description provided for @manageGuardiansEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No guardians are linked to this student yet.'**
+  String get manageGuardiansEmpty;
+
+  /// No description provided for @manageGuardiansLoadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load linked guardians.'**
+  String get manageGuardiansLoadError;
+
+  /// No description provided for @unlinkGuardianConfirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlink guardian?'**
+  String get unlinkGuardianConfirmTitle;
+
+  /// No description provided for @unlinkGuardianConfirmBody.
+  ///
+  /// In en, this message translates to:
+  /// **'{guardianName} will no longer be linked to {studentName}. They will lose access to this student\'s classes, chat, and invoices. This does not delete either account.'**
+  String unlinkGuardianConfirmBody(String guardianName, String studentName);
+
+  /// No description provided for @unlinkGuardianReasonLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Reason (optional)'**
+  String get unlinkGuardianReasonLabel;
+
+  /// No description provided for @unlinkGuardianReasonHint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. Linked to the wrong family'**
+  String get unlinkGuardianReasonHint;
+
+  /// No description provided for @unlinkGuardianConfirmAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlink'**
+  String get unlinkGuardianConfirmAction;
+
+  /// No description provided for @unlinkGuardianSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Guardian unlinked from this student.'**
+  String get unlinkGuardianSuccess;
+
+  /// No description provided for @unlinkGuardianError.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not unlink this guardian. Please try again.'**
+  String get unlinkGuardianError;
+
+  /// No description provided for @unlinkGuardianMinorBlocked.
+  ///
+  /// In en, this message translates to:
+  /// **'This is the only guardian of a minor student. Link another guardian first, or mark the student as an adult, before unlinking.'**
+  String get unlinkGuardianMinorBlocked;
+
   /// No description provided for @enrollmentStateChooseProgram.
   ///
   /// In en, this message translates to:
@@ -26194,6 +26356,12 @@ abstract class AppLocalizations {
   /// **'Used for scheduled classes'**
   String get realtimeKitProviderSubtitle;
 
+  /// No description provided for @zoomProviderSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Used for teachers assigned to the Zoom pilot'**
+  String get zoomProviderSubtitle;
+
   /// No description provided for @legacyProviderSubtitle.
   ///
   /// In en, this message translates to:
@@ -26475,6 +26643,456 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Unable to update recording access.'**
   String get bulkClassRecordingUpdateFailed;
+
+  /// No description provided for @noShowAlertsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No-Show Alerts'**
+  String get noShowAlertsTitle;
+
+  /// No description provided for @noShowAlertsSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Classes where a teacher or student didn\'t show up.'**
+  String get noShowAlertsSubtitle;
+
+  /// No description provided for @noShowTeacher.
+  ///
+  /// In en, this message translates to:
+  /// **'Teacher no-show'**
+  String get noShowTeacher;
+
+  /// No description provided for @noShowStudent.
+  ///
+  /// In en, this message translates to:
+  /// **'Student no-show'**
+  String get noShowStudent;
+
+  /// No description provided for @noShowNeedsReview.
+  ///
+  /// In en, this message translates to:
+  /// **'Needs review'**
+  String get noShowNeedsReview;
+
+  /// No description provided for @noShowReviewed.
+  ///
+  /// In en, this message translates to:
+  /// **'Reviewed'**
+  String get noShowReviewed;
+
+  /// No description provided for @noShowMarkReviewed.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark reviewed'**
+  String get noShowMarkReviewed;
+
+  /// No description provided for @noShowSearchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search teacher, reporter, or class'**
+  String get noShowSearchHint;
+
+  /// No description provided for @noShowFilterAll.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get noShowFilterAll;
+
+  /// No description provided for @noShowEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No no-show alerts'**
+  String get noShowEmpty;
+
+  /// No description provided for @noShowLoadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load no-show alerts'**
+  String get noShowLoadError;
+
+  /// No description provided for @noShowRetry.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get noShowRetry;
+
+  /// No description provided for @noShowStatTotal.
+  ///
+  /// In en, this message translates to:
+  /// **'Total'**
+  String get noShowStatTotal;
+
+  /// No description provided for @noShowStatTeacher.
+  ///
+  /// In en, this message translates to:
+  /// **'Teacher no-shows'**
+  String get noShowStatTeacher;
+
+  /// No description provided for @noShowStatStudent.
+  ///
+  /// In en, this message translates to:
+  /// **'Student no-shows'**
+  String get noShowStatStudent;
+
+  /// No description provided for @noShowStatPending.
+  ///
+  /// In en, this message translates to:
+  /// **'Needs review'**
+  String get noShowStatPending;
+
+  /// No description provided for @noShowTopAbsent.
+  ///
+  /// In en, this message translates to:
+  /// **'Most no-shows'**
+  String get noShowTopAbsent;
+
+  /// No description provided for @noShowReportedBy.
+  ///
+  /// In en, this message translates to:
+  /// **'Reported by {name}'**
+  String noShowReportedBy(String name);
+
+  /// No description provided for @noShowTeacherLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Teacher: {name}'**
+  String noShowTeacherLabel(String name);
+
+  /// No description provided for @noShowPendingShort.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} pending'**
+  String noShowPendingShort(int count);
+
+  /// No description provided for @noShowDateAll.
+  ///
+  /// In en, this message translates to:
+  /// **'All dates'**
+  String get noShowDateAll;
+
+  /// No description provided for @noShowDateToday.
+  ///
+  /// In en, this message translates to:
+  /// **'Today'**
+  String get noShowDateToday;
+
+  /// No description provided for @noShowDate7Days.
+  ///
+  /// In en, this message translates to:
+  /// **'Last 7 days'**
+  String get noShowDate7Days;
+
+  /// No description provided for @noShowDate30Days.
+  ///
+  /// In en, this message translates to:
+  /// **'Last 30 days'**
+  String get noShowDate30Days;
+
+  /// No description provided for @noShowFromDate.
+  ///
+  /// In en, this message translates to:
+  /// **'From'**
+  String get noShowFromDate;
+
+  /// No description provided for @noShowToDate.
+  ///
+  /// In en, this message translates to:
+  /// **'To'**
+  String get noShowToDate;
+
+  /// No description provided for @noShowAttendanceAll.
+  ///
+  /// In en, this message translates to:
+  /// **'All attendance'**
+  String get noShowAttendanceAll;
+
+  /// No description provided for @noShowNeverJoined.
+  ///
+  /// In en, this message translates to:
+  /// **'Never joined'**
+  String get noShowNeverJoined;
+
+  /// No description provided for @noShowJoinedLate.
+  ///
+  /// In en, this message translates to:
+  /// **'Joined late'**
+  String get noShowJoinedLate;
+
+  /// No description provided for @noShowHadPresence.
+  ///
+  /// In en, this message translates to:
+  /// **'Had presence'**
+  String get noShowHadPresence;
+
+  /// No description provided for @noShowScheduled.
+  ///
+  /// In en, this message translates to:
+  /// **'Scheduled: {date}'**
+  String noShowScheduled(String date);
+
+  /// No description provided for @noShowDetectedAfter.
+  ///
+  /// In en, this message translates to:
+  /// **'Flagged after {minutes} min'**
+  String noShowDetectedAfter(int minutes);
+
+  /// No description provided for @noShowRoleTeacher.
+  ///
+  /// In en, this message translates to:
+  /// **'Teacher'**
+  String get noShowRoleTeacher;
+
+  /// No description provided for @noShowRoleStudent.
+  ///
+  /// In en, this message translates to:
+  /// **'Student'**
+  String get noShowRoleStudent;
+
+  /// No description provided for @noShowNoJoinRecorded.
+  ///
+  /// In en, this message translates to:
+  /// **'No join recorded'**
+  String get noShowNoJoinRecorded;
+
+  /// No description provided for @noShowJoinedAt.
+  ///
+  /// In en, this message translates to:
+  /// **'Joined {time}'**
+  String noShowJoinedAt(String time);
+
+  /// No description provided for @noShowJoinOffsetLate.
+  ///
+  /// In en, this message translates to:
+  /// **'{minutes} min late'**
+  String noShowJoinOffsetLate(int minutes);
+
+  /// No description provided for @noShowJoinOffsetEarly.
+  ///
+  /// In en, this message translates to:
+  /// **'{minutes} min early'**
+  String noShowJoinOffsetEarly(int minutes);
+
+  /// No description provided for @noShowJoinOffsetOnTime.
+  ///
+  /// In en, this message translates to:
+  /// **'On time'**
+  String get noShowJoinOffsetOnTime;
+
+  /// No description provided for @noShowPresentMinutes.
+  ///
+  /// In en, this message translates to:
+  /// **'Present {minutes} min'**
+  String noShowPresentMinutes(int minutes);
+
+  /// No description provided for @noShowCopySummary.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy summary'**
+  String get noShowCopySummary;
+
+  /// No description provided for @noShowCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'No-show summary copied'**
+  String get noShowCopied;
+
+  /// No description provided for @noShowSummaryClass.
+  ///
+  /// In en, this message translates to:
+  /// **'Class'**
+  String get noShowSummaryClass;
+
+  /// No description provided for @noShowSummaryAlert.
+  ///
+  /// In en, this message translates to:
+  /// **'Alert'**
+  String get noShowSummaryAlert;
+
+  /// No description provided for @noShowSummaryScheduled.
+  ///
+  /// In en, this message translates to:
+  /// **'Scheduled'**
+  String get noShowSummaryScheduled;
+
+  /// No description provided for @noShowSummaryDetected.
+  ///
+  /// In en, this message translates to:
+  /// **'Detected'**
+  String get noShowSummaryDetected;
+
+  /// No description provided for @noShowSummaryStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Status'**
+  String get noShowSummaryStatus;
+
+  /// No description provided for @noShowStudentLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Student: {name}'**
+  String noShowStudentLabel(String name);
+
+  /// No description provided for @noShowReviewTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Review no-show alert'**
+  String get noShowReviewTitle;
+
+  /// No description provided for @noShowReviewActionsPrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'Actions taken'**
+  String get noShowReviewActionsPrompt;
+
+  /// No description provided for @noShowReviewOtherLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Other action or note'**
+  String get noShowReviewOtherLabel;
+
+  /// No description provided for @noShowReviewOtherHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Type what was done if it is not listed'**
+  String get noShowReviewOtherHint;
+
+  /// No description provided for @noShowReviewSubmit.
+  ///
+  /// In en, this message translates to:
+  /// **'Submit review'**
+  String get noShowReviewSubmit;
+
+  /// No description provided for @noShowReviewActionContactedTeacher.
+  ///
+  /// In en, this message translates to:
+  /// **'Contacted teacher'**
+  String get noShowReviewActionContactedTeacher;
+
+  /// No description provided for @noShowReviewActionContactedStudentParent.
+  ///
+  /// In en, this message translates to:
+  /// **'Contacted student or parent'**
+  String get noShowReviewActionContactedStudentParent;
+
+  /// No description provided for @noShowReviewActionConfirmedTeacherLate.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirmed teacher joined late'**
+  String get noShowReviewActionConfirmedTeacherLate;
+
+  /// No description provided for @noShowReviewActionConfirmedStudentLate.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirmed student joined late'**
+  String get noShowReviewActionConfirmedStudentLate;
+
+  /// No description provided for @noShowReviewActionExcusedAbsence.
+  ///
+  /// In en, this message translates to:
+  /// **'Excused absence'**
+  String get noShowReviewActionExcusedAbsence;
+
+  /// No description provided for @noShowReviewActionRescheduledClass.
+  ///
+  /// In en, this message translates to:
+  /// **'Rescheduled class'**
+  String get noShowReviewActionRescheduledClass;
+
+  /// No description provided for @noShowReviewActionTechnicalFollowup.
+  ///
+  /// In en, this message translates to:
+  /// **'Technical issue follow-up'**
+  String get noShowReviewActionTechnicalFollowup;
+
+  /// No description provided for @noShowReviewActionBillingFollowup.
+  ///
+  /// In en, this message translates to:
+  /// **'Billing/payroll follow-up'**
+  String get noShowReviewActionBillingFollowup;
+
+  /// No description provided for @noShowReviewActionEscalatedAdmin.
+  ///
+  /// In en, this message translates to:
+  /// **'Escalated to admin'**
+  String get noShowReviewActionEscalatedAdmin;
+
+  /// No description provided for @noShowReviewActionFalseAlarm.
+  ///
+  /// In en, this message translates to:
+  /// **'False alarm/no action needed'**
+  String get noShowReviewActionFalseAlarm;
+
+  /// No description provided for @noShowReviewedBy.
+  ///
+  /// In en, this message translates to:
+  /// **'Reviewed by {name}'**
+  String noShowReviewedBy(String name);
+
+  /// No description provided for @noShowReviewActionsLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Actions: {actions}'**
+  String noShowReviewActionsLabel(String actions);
+
+  /// No description provided for @noShowReviewNoteLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Note: {note}'**
+  String noShowReviewNoteLabel(String note);
+
+  /// No description provided for @zoomHostPickerTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Assign Zoom host'**
+  String get zoomHostPickerTitle;
+
+  /// No description provided for @zoomHostPickerBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose which licensed Zoom account will host {name}\'s classes.'**
+  String zoomHostPickerBody(String name);
+
+  /// No description provided for @zoomHostPickerCustomLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Or enter a host account email'**
+  String get zoomHostPickerCustomLabel;
+
+  /// No description provided for @zoomHostPickerAssign.
+  ///
+  /// In en, this message translates to:
+  /// **'Assign & enable'**
+  String get zoomHostPickerAssign;
+
+  /// No description provided for @zoomScopeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Which classes?'**
+  String get zoomScopeTitle;
+
+  /// No description provided for @zoomScopeBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Move all of {name}\'s classes to Zoom, or only selected students\' classes?'**
+  String zoomScopeBody(String name);
+
+  /// No description provided for @zoomScopeAll.
+  ///
+  /// In en, this message translates to:
+  /// **'All classes'**
+  String get zoomScopeAll;
+
+  /// No description provided for @zoomScopeSelect.
+  ///
+  /// In en, this message translates to:
+  /// **'Only selected students\' classes'**
+  String get zoomScopeSelect;
+
+  /// No description provided for @zoomScopeNoStudents.
+  ///
+  /// In en, this message translates to:
+  /// **'No upcoming classes found for this teacher.'**
+  String get zoomScopeNoStudents;
 }
 
 class _AppLocalizationsDelegate

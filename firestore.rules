@@ -114,6 +114,14 @@ service cloud.firestore {
 
     }
 
+    function teacherIdFromData(data) {
+      return data.teacher_id != null
+        ? data.teacher_id
+        : (data.teacherId != null
+          ? data.teacherId
+          : (data.reportedBy != null ? data.reportedBy : ''));
+    }
+
     
 
     // Helper to ensure sensitive fields remain unchanged during updates
@@ -617,6 +625,13 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
+    // System-generated class attendance alerts. Cloud Functions create these
+    // from class presence; admins review them in No-Show Alerts.
+    match /class_attendance_alerts/{alertId} {
+      allow read, update, delete: if isAdmin();
+      allow create: if false;
+    }
+
     // Schedule issue reports - teachers submit from class/schedule screens,
     // admins review and resolve.
     match /schedule_issue_reports/{reportId} {
@@ -710,11 +725,41 @@ service cloud.firestore {
 
       allow create, delete: if isAdmin();
 
-      // Allow teachers to accept jobs (open -> accepted) OR withdraw from jobs (accepted -> open)
+      function teacherAvailabilityParentUpdate() {
+        let changed = request.resource.data.diff(resource.data).affectedKeys();
+        return resource.data.status == 'open' &&
+          request.resource.data.enrollmentId == resource.data.enrollmentId &&
+          request.resource.data.lastResponseByTeacherId == request.auth.uid &&
+          changed.hasOnly([
+            'lastResponseAt',
+            'lastResponseByTeacherId',
+            'responseCounts',
+            'status',
+            'closedReason',
+            'closedAt'
+          ]) &&
+          (
+            (
+              request.resource.data.status == 'open' &&
+              !('closedReason' in request.resource.data) &&
+              !('closedAt' in request.resource.data)
+            ) ||
+            (
+              request.resource.data.status == 'closed' &&
+              request.resource.data.closedReason == 'teacher_fully_available' &&
+              ('closedAt' in request.resource.data)
+            )
+          );
+      }
+
+      // Allow teachers to accept jobs (open -> accepted), withdraw from jobs
+      // (accepted -> open), or submit availability responses for admin review.
 
       allow update: if isSignedIn() && (
 
         isAdmin() ||
+
+        teacherAvailabilityParentUpdate() ||
 
         (
 
@@ -737,6 +782,36 @@ service cloud.firestore {
         )
 
       );
+
+      match /responses/{teacherId} {
+        function validTeacherAvailabilityResponse() {
+          return teacherId == request.auth.uid &&
+            request.resource.data.keys().hasOnly([
+              'teacherId',
+              'teacherName',
+              'teacherEmail',
+              'teacherTimezone',
+              'availabilityStatus',
+              'comment',
+              'availableAlternatives',
+              'createdAt',
+              'updatedAt'
+            ]) &&
+            request.resource.data.teacherId == request.auth.uid &&
+            request.resource.data.availabilityStatus in ['available', 'partial'] &&
+            (
+              request.resource.data.availabilityStatus == 'available' ||
+              (
+                request.resource.data.comment is string &&
+                request.resource.data.comment.size() > 0
+              )
+            );
+        }
+
+        allow read: if isSignedIn() && (isAdmin() || teacherId == request.auth.uid);
+        allow create, update: if isSignedIn() && validTeacherAvailabilityResponse();
+        allow delete: if isAdmin();
+      }
 
     }
 

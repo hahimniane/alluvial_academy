@@ -205,6 +205,20 @@
       ]
     },
     {
+      "collectionGroup": "teaching_shifts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "student_ids",
+          "arrayConfig": "CONTAINS"
+        },
+        {
+          "fieldPath": "shift_start",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
       "collectionGroup": "invoices",
       "queryScope": "COLLECTION",
       "fields": [
@@ -428,20 +442,6 @@
         },
         {
           "fieldPath": "status",
-          "order": "ASCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "circle_members",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "circle_id",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "payout_position",
           "order": "ASCENDING"
         }
       ]

@@ -1,0 +1,19 @@
+[Unit]
+Description=Alluwal Zoom Hub Bot Lane %i
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/alluwal/zoom-hub-bot
+EnvironmentFile=/etc/alluwal/zoom-hub-bot.env
+Environment=ZOOM_HUB_LANE=%i
+Environment=ZOOM_HUB_BOT_HEADLESS=true
+ExecStart=/usr/bin/node /opt/alluwal/zoom-hub-bot/bot.js
+Restart=always
+RestartSec=5
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

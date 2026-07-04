@@ -1358,6 +1358,8 @@
   "connectWithTheWorldThroughLanguage": "Connect With The World Through Language",
   "connecteam": "Connecteam",
   "connectingToClass": "Connecting To Class",
+  "zoomStillConnectingToClass": "Still connecting to your private classroom...",
+  "zoomClassRoutingHelp": "This class is still connecting. Please leave and rejoin, or ask an administrator for help.",
   "connectingToTaskDatabase": "Connecting To Task Database",
   "connectionTestErrorE": "Connection Test Error E",
   "contactInformation": "Contact Information",
@@ -2144,6 +2146,7 @@
   "learningTracks": "Learning Tracks",
   "leave": "Leave",
   "leaveClass": "Leave Class",
+  "leaveMeeting": "Leave Meeting",
   "lessComfortable": "Less Comfortable",
   "letSGetStarted": "Let SGet Started",
   "link": "Link",
@@ -3476,6 +3479,38 @@
   },
   "classVideoJoinUnavailable": "Unable to join this class right now.",
   "classVideoInvalidGuestLink": "Invalid or expired class link.",
+  "enableZoomClasses": "Enable Zoom classes",
+  "disableZoomClasses": "Disable Zoom classes",
+  "zoomEnabledFor": "Zoom enabled for {name}. {count, plural, =0{No upcoming shifts updated.} =1{1 upcoming shift updated.} other{{count} upcoming shifts updated.}}",
+  "@zoomEnabledFor": {
+    "placeholders": {
+      "name": {},
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "zoomDisabledFor": "Zoom disabled for {name}. {count, plural, =0{No upcoming shifts updated.} =1{1 upcoming shift updated.} other{{count} upcoming shifts updated.}}",
+  "@zoomDisabledFor": {
+    "placeholders": {
+      "name": {},
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "zoomToggleError": "Unable to update Zoom access: {details}",
+  "@zoomToggleError": {
+    "placeholders": {
+      "details": {}
+    }
+  },
+  "zoomUnableToLoadMeeting": "Unable to load Zoom meeting.",
+  "zoomUnableToJoinMeeting": "Unable to join Zoom meeting.",
+  "zoomUnableToInitialize": "Unable to initialize Zoom.",
+  "zoomOpenInZoomApp": "Open in Zoom app",
+  "zoomMobileUnavailableTitle": "Zoom classes are web-only for this pilot",
+  "zoomMobileUnavailableBody": "Open this class in a web browser while the mobile Zoom classroom is being tested.",
   "formsListFormStatus": "Form {status}",
   "@formsListFormStatus": {
     "placeholders": {
@@ -5500,6 +5535,37 @@
   "inviteParentSuccessInvited": "Invite email sent to the parent.",
   "inviteParentSuccessInvitedNoEmail": "Parent account created, but the invite email could not be sent.",
 
+  "manageGuardiansButton": "Manage Guardians",
+  "manageGuardiansTitle": "Linked Guardians",
+  "manageGuardiansSubtitle": "Parents currently linked to {studentName}. Unlinking removes their access to this student's classes, chats, and invoices.",
+  "@manageGuardiansSubtitle": {
+    "placeholders": {
+      "studentName": {
+        "type": "String"
+      }
+    }
+  },
+  "manageGuardiansEmpty": "No guardians are linked to this student yet.",
+  "manageGuardiansLoadError": "Could not load linked guardians.",
+  "unlinkGuardianConfirmTitle": "Unlink guardian?",
+  "unlinkGuardianConfirmBody": "{guardianName} will no longer be linked to {studentName}. They will lose access to this student's classes, chat, and invoices. This does not delete either account.",
+  "@unlinkGuardianConfirmBody": {
+    "placeholders": {
+      "guardianName": {
+        "type": "String"
+      },
+      "studentName": {
+        "type": "String"
+      }
+    }
+  },
+  "unlinkGuardianReasonLabel": "Reason (optional)",
+  "unlinkGuardianReasonHint": "e.g. Linked to the wrong family",
+  "unlinkGuardianConfirmAction": "Unlink",
+  "unlinkGuardianSuccess": "Guardian unlinked from this student.",
+  "unlinkGuardianError": "Could not unlink this guardian. Please try again.",
+  "unlinkGuardianMinorBlocked": "This is the only guardian of a minor student. Link another guardian first, or mark the student as an adult, before unlinking.",
+
   "enrollmentStateChooseProgram": "1. Choose a Program",
   "enrollmentStateClassPreferences": "2. Class Preferences",
   "enrollmentStatePricingAndHours": "3. Pricing & Hours",
@@ -5863,6 +5929,7 @@
   "auditMakeupEvaluationFooterHint": "Coach evaluation submit stays disabled until every missed-class makeup is approved or rejected (Teaching forms tab).",
   "auditMakeupOpenTeachingFormsTab": "Open Teaching forms",
   "realtimeKitProviderSubtitle": "Used for scheduled classes",
+  "zoomProviderSubtitle": "Used for teachers assigned to the Zoom pilot",
   "legacyProviderSubtitle": "Legacy provider for existing classes",
   "classRecordingPermissionTitle": "Class recording",
   "classRecordingPermissionTeacherAllowed": "Teacher can record this class",
@@ -5951,5 +6018,155 @@
       }
     }
   },
-  "bulkClassRecordingUpdateFailed": "Unable to update recording access."
+  "bulkClassRecordingUpdateFailed": "Unable to update recording access.",
+  "noShowAlertsTitle": "No-Show Alerts",
+  "noShowAlertsSubtitle": "Classes where a teacher or student didn't show up.",
+  "noShowTeacher": "Teacher no-show",
+  "noShowStudent": "Student no-show",
+  "noShowNeedsReview": "Needs review",
+  "noShowReviewed": "Reviewed",
+  "noShowMarkReviewed": "Mark reviewed",
+  "noShowSearchHint": "Search teacher, reporter, or class",
+  "noShowFilterAll": "All",
+  "noShowEmpty": "No no-show alerts",
+  "noShowLoadError": "Couldn't load no-show alerts",
+  "noShowRetry": "Retry",
+  "noShowStatTotal": "Total",
+  "noShowStatTeacher": "Teacher no-shows",
+  "noShowStatStudent": "Student no-shows",
+  "noShowStatPending": "Needs review",
+  "noShowTopAbsent": "Most no-shows",
+  "noShowReportedBy": "Reported by {name}",
+  "@noShowReportedBy": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "noShowTeacherLabel": "Teacher: {name}",
+  "@noShowTeacherLabel": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "noShowPendingShort": "{count} pending",
+  "@noShowPendingShort": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "noShowDateAll": "All dates",
+  "noShowDateToday": "Today",
+  "noShowDate7Days": "Last 7 days",
+  "noShowDate30Days": "Last 30 days",
+  "noShowFromDate": "From",
+  "noShowToDate": "To",
+  "noShowAttendanceAll": "All attendance",
+  "noShowNeverJoined": "Never joined",
+  "noShowJoinedLate": "Joined late",
+  "noShowHadPresence": "Had presence",
+  "noShowScheduled": "Scheduled: {date}",
+  "@noShowScheduled": {
+    "placeholders": {
+      "date": { "type": "String" }
+    }
+  },
+  "noShowDetectedAfter": "Flagged after {minutes} min",
+  "@noShowDetectedAfter": {
+    "placeholders": {
+      "minutes": { "type": "int" }
+    }
+  },
+  "noShowRoleTeacher": "Teacher",
+  "noShowRoleStudent": "Student",
+  "noShowNoJoinRecorded": "No join recorded",
+  "noShowJoinedAt": "Joined {time}",
+  "@noShowJoinedAt": {
+    "placeholders": {
+      "time": { "type": "String" }
+    }
+  },
+  "noShowJoinOffsetLate": "{minutes} min late",
+  "@noShowJoinOffsetLate": {
+    "placeholders": {
+      "minutes": { "type": "int" }
+    }
+  },
+  "noShowJoinOffsetEarly": "{minutes} min early",
+  "@noShowJoinOffsetEarly": {
+    "placeholders": {
+      "minutes": { "type": "int" }
+    }
+  },
+  "noShowJoinOffsetOnTime": "On time",
+  "noShowPresentMinutes": "Present {minutes} min",
+  "@noShowPresentMinutes": {
+    "placeholders": {
+      "minutes": { "type": "int" }
+    }
+  },
+  "noShowCopySummary": "Copy summary",
+  "noShowCopied": "No-show summary copied",
+  "noShowSummaryClass": "Class",
+  "noShowSummaryAlert": "Alert",
+  "noShowSummaryScheduled": "Scheduled",
+  "noShowSummaryDetected": "Detected",
+  "noShowSummaryStatus": "Status",
+  "noShowStudentLabel": "Student: {name}",
+  "@noShowStudentLabel": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "noShowReviewTitle": "Review no-show alert",
+  "noShowReviewActionsPrompt": "Actions taken",
+  "noShowReviewOtherLabel": "Other action or note",
+  "noShowReviewOtherHint": "Type what was done if it is not listed",
+  "noShowReviewSubmit": "Submit review",
+  "noShowReviewActionContactedTeacher": "Contacted teacher",
+  "noShowReviewActionContactedStudentParent": "Contacted student or parent",
+  "noShowReviewActionConfirmedTeacherLate": "Confirmed teacher joined late",
+  "noShowReviewActionConfirmedStudentLate": "Confirmed student joined late",
+  "noShowReviewActionExcusedAbsence": "Excused absence",
+  "noShowReviewActionRescheduledClass": "Rescheduled class",
+  "noShowReviewActionTechnicalFollowup": "Technical issue follow-up",
+  "noShowReviewActionBillingFollowup": "Billing/payroll follow-up",
+  "noShowReviewActionEscalatedAdmin": "Escalated to admin",
+  "noShowReviewActionFalseAlarm": "False alarm/no action needed",
+  "noShowReviewedBy": "Reviewed by {name}",
+  "@noShowReviewedBy": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "noShowReviewActionsLabel": "Actions: {actions}",
+  "@noShowReviewActionsLabel": {
+    "placeholders": {
+      "actions": { "type": "String" }
+    }
+  },
+  "noShowReviewNoteLabel": "Note: {note}",
+  "@noShowReviewNoteLabel": {
+    "placeholders": {
+      "note": { "type": "String" }
+    }
+  },
+  "zoomHostPickerTitle": "Assign Zoom host",
+  "zoomHostPickerBody": "Choose which licensed Zoom account will host {name}'s classes.",
+  "@zoomHostPickerBody": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "zoomHostPickerCustomLabel": "Or enter a host account email",
+  "zoomHostPickerAssign": "Assign & enable",
+  "zoomScopeTitle": "Which classes?",
+  "zoomScopeBody": "Move all of {name}'s classes to Zoom, or only selected students' classes?",
+  "@zoomScopeBody": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "zoomScopeAll": "All classes",
+  "zoomScopeSelect": "Only selected students' classes",
+  "zoomScopeNoStudents": "No upcoming classes found for this teacher."
 }

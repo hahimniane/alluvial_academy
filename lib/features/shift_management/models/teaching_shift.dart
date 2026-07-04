@@ -69,14 +69,10 @@ class TeachingShift {
   final String?
       leaderRole; // Role for leader shifts (admin, coordination, meeting, etc.)
 
-  // Legacy Zoom meeting fields - kept for backward compatibility during migration
-  @Deprecated('Zoom support has been removed. All shifts use LiveKit.')
+  // Zoom Meeting SDK fields for the pilot and old migrated records.
   final String? zoomMeetingId;
-  @Deprecated('Zoom support has been removed. All shifts use LiveKit.')
   final String? zoomEncryptedJoinUrl;
-  @Deprecated('Zoom support has been removed. All shifts use LiveKit.')
   final DateTime? zoomMeetingCreatedAt;
-  @Deprecated('Zoom support has been removed. All shifts use LiveKit.')
   final DateTime? zoomInviteSentAt;
 
   // Hub Meeting Fields
@@ -159,7 +155,7 @@ class TeachingShift {
     this.routingRiskParticipants = const [],
     this.preAssignedParticipants = const [],
     this.hasRoutingRisk = false,
-    this.videoProvider = VideoProvider.realtimekit,
+    this.videoProvider = VideoProvider.zoom,
     this.livekitRoomName,
     this.livekitLastTokenIssuedAt,
   }) {
@@ -223,8 +219,6 @@ class TeachingShift {
     }
   }
 
-  // Legacy - Zoom support removed. Kept for backward compatibility.
-  @Deprecated('Zoom support has been removed. All shifts use LiveKit.')
   bool get hasZoomMeeting =>
       (zoomMeetingId != null && zoomMeetingId!.isNotEmpty) ||
       (hubMeetingId != null && hubMeetingId!.isNotEmpty);
@@ -234,9 +228,7 @@ class TeachingShift {
   // Legacy helper kept for older callers.
   bool get usesLiveKit => videoProvider == VideoProvider.livekit;
 
-  // Legacy - Zoom support removed
-  @Deprecated('Zoom support has been removed. All shifts use LiveKit.')
-  bool get usesZoom => false;
+  bool get usesZoom => videoProvider == VideoProvider.zoom;
 
   // Check if video call is available - only true for teaching shifts.
   // Leader Duty, meeting, and training shifts are admin/internal and have no video class.
@@ -605,7 +597,9 @@ class TeachingShift {
         if (normalized == 'zoom') return VideoProvider.zoom;
         if (normalized == 'livekit') return VideoProvider.livekit;
       }
-      return VideoProvider.realtimekit;
+      return category == ShiftCategory.teaching
+          ? VideoProvider.zoom
+          : VideoProvider.realtimekit;
     }
 
     final videoProvider = parseVideoProvider();

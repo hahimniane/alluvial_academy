@@ -11,6 +11,7 @@ class CustomSidebar extends StatefulWidget {
   final bool isCollapsed;
   final VoidCallback onToggleCollapse;
   final String? userRole;
+  final bool isAdultStudent;
   final Set<int> badgeScreenIndices;
   final Set<String> hiddenSectionIds;
 
@@ -21,6 +22,7 @@ class CustomSidebar extends StatefulWidget {
     required this.isCollapsed,
     required this.onToggleCollapse,
     this.userRole,
+    this.isAdultStudent = false,
     this.badgeScreenIndices = const {},
     this.hiddenSectionIds = const {},
   });
@@ -59,6 +61,7 @@ class _CustomSidebarState extends State<CustomSidebar> {
   void didUpdateWidget(CustomSidebar oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.userRole != widget.userRole ||
+        oldWidget.isAdultStudent != widget.isAdultStudent ||
         oldWidget.hiddenSectionIds != widget.hiddenSectionIds) {
       _loadSidebar();
       return;
@@ -99,7 +102,10 @@ class _CustomSidebarState extends State<CustomSidebar> {
 
   Future<void> _loadSidebar() async {
     setState(() => _isLoading = true);
-    var sections = await _sidebarService.loadSidebar(widget.userRole);
+    var sections = await _sidebarService.loadSidebar(
+      widget.userRole,
+      isAdultStudent: widget.isAdultStudent,
+    );
     if (widget.hiddenSectionIds.isNotEmpty) {
       sections = sections
           .where((s) => !widget.hiddenSectionIds.contains(s.id))
@@ -467,8 +473,10 @@ class _CustomSidebarState extends State<CustomSidebar> {
         color: Colors.transparent,
         child: InkWell(
           onTap: () async {
-            final defaultSections =
-                await _sidebarService.resetToDefault(widget.userRole);
+            final defaultSections = await _sidebarService.resetToDefault(
+              widget.userRole,
+              isAdultStudent: widget.isAdultStudent,
+            );
             setState(() => _sections = defaultSections);
             setState(() => _favoriteItemIds = <String>{});
           },

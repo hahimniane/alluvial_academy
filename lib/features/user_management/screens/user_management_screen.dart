@@ -572,6 +572,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
         onViewCredentials: _viewStudentCredentials,
         onToggleAITutor: _toggleAITutor,
         onToggleTontine: _toggleTontine,
+        onToggleZoom: _toggleZoom,
         context: context,
       );
       _adminDataSource = AdminEmployeeDataSource(
@@ -584,6 +585,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
         onDeleteUser: _deleteUser,
         onToggleAITutor: _toggleAITutor,
         onToggleTontine: _toggleTontine,
+        onToggleZoom: _toggleZoom,
         context: context,
       );
     }
@@ -1195,6 +1197,287 @@ class _UserManagementScreenState extends State<UserManagementScreen>
     } catch (e) {
       _showErrorSnackBar('Error updating Tontine access: $e');
     }
+  }
+
+  Future<void> _toggleZoom(Employee employee) async {
+    final l10n = AppLocalizations.of(context)!;
+    final newValue = !employee.useZoom;
+
+    // Enabling requires a licensed Zoom host account. Let the admin pick one
+    // (the callable will persist it) instead of failing the precondition.
+    String? hostAccount;
+    List<String>? studentIds;
+    if (newValue) {
+      hostAccount = await _pickZoomHost(employee);
+      if (hostAccount == null) return; // cancelled
+      if (!mounted) return;
+      // Ask whether to switch every class or only selected students' classes.
+      // Empty list => all classes; non-empty => only those students' shifts.
+      studentIds = await _pickZoomScope(employee);
+      if (studentIds == null) return; // cancelled
+    }
+
+    try {
+      final callable = FirebaseFunctions.instanceFor(region: 'us-central1')
+          .httpsCallable('setTeacherZoomEnabled');
+      final payload = <String, dynamic>{
+        'teacherId': employee.documentId,
+        'enabled': newValue,
+      };
+      if (hostAccount != null && hostAccount.isNotEmpty) {
+        payload['zoomHostAccount'] = hostAccount;
+      }
+      if (studentIds != null && studentIds.isNotEmpty) {
+        payload['studentIds'] = studentIds;
+      }
+      final result = await callable.call(payload);
+      final data =
+          result.data is Map ? Map<String, dynamic>.from(result.data) : {};
+      final updatedCount = (data['updatedShiftCount'] as num?)?.toInt() ?? 0;
+
+      _showSuccessSnackBar(
+        newValue
+            ? l10n.zoomEnabledFor(employee.firstName, updatedCount)
+            : l10n.zoomDisabledFor(employee.firstName, updatedCount),
+      );
+
+      _refreshData();
+    } on FirebaseFunctionsException catch (e) {
+      final message =
+          e.message?.trim().isNotEmpty == true ? e.message!.trim() : e.code;
+      _showErrorSnackBar(l10n.zoomToggleError(message));
+    } catch (e) {
+      _showErrorSnackBar(l10n.zoomToggleError(e.toString()));
+    }
+  }
+
+  /// Licensed Zoom host accounts available for the pilot. Each hosts one
+  /// concurrent class, so a teacher is mapped to one of these.
+  static const List<String> _zoomHostAccounts = [
+    'support@alluwaleducationhub.org',
+    'billing@alluwaleducationhub.org',
+  ];
+
+  /// Prompt the admin to choose which licensed Zoom account hosts this
+  /// teacher's classes. Returns the chosen host email, or null if cancelled.
+  Future<String?> _pickZoomHost(Employee employee) async {
+    final l10n = AppLocalizations.of(context)!;
+    String selected = _zoomHostAccounts.first;
+    final customController = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (dialogContext, setLocalState) {
+            final custom = customController.text.trim();
+            final effective = custom.isNotEmpty ? custom : selected;
+            return AlertDialog(
+              title: Text(l10n.zoomHostPickerTitle),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(l10n.zoomHostPickerBody(employee.firstName)),
+                  const SizedBox(height: 8),
+                  ..._zoomHostAccounts.map((host) {
+                    final isSelected = custom.isEmpty && selected == host;
+                    return InkWell(
+                      onTap: () => setLocalState(() {
+                        selected = host;
+                        customController.clear();
+                      }),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        child: Row(
+                          children: [
+                            Icon(
+                              isSelected
+                                  ? Icons.radio_button_checked
+                                  : Icons.radio_button_unchecked,
+                              size: 18,
+                              color: isSelected
+                                  ? const Color(0xff1a6ef5)
+                                  : Colors.grey,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(host,
+                                  style: const TextStyle(fontSize: 13)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }),
+                  const SizedBox(height: 4),
+                  TextField(
+                    controller: customController,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: InputDecoration(
+                      isDense: true,
+                      labelText: l10n.zoomHostPickerCustomLabel,
+                    ),
+                    onChanged: (_) => setLocalState(() {}),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: Text(l10n.commonCancel),
+                ),
+                ElevatedButton(
+                  onPressed: effective.trim().isEmpty
+                      ? null
+                      : () => Navigator.pop(dialogContext, effective.trim()),
+                  child: Text(l10n.zoomHostPickerAssign),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  /// Unique students taught by this teacher in upcoming teaching shifts,
+  /// as an ordered id -> display name map. Used to scope the Zoom switch.
+  Future<Map<String, String>> _fetchTeacherStudents(String teacherId) async {
+    final snap = await FirebaseFirestore.instance
+        .collection('teaching_shifts')
+        .where('teacher_id', isEqualTo: teacherId)
+        .get();
+    final now = DateTime.now();
+    final students = <String, String>{};
+    for (final doc in snap.docs) {
+      final data = doc.data();
+      final category =
+          (data['category'] ?? data['shift_category'] ?? 'teaching')
+              .toString()
+              .toLowerCase();
+      if (category != 'teaching') continue;
+      final rawStart = data['shift_start'];
+      final start = rawStart is Timestamp ? rawStart.toDate() : null;
+      if (start == null || start.isBefore(now)) continue;
+      final ids = (data['student_ids'] as List?) ?? const [];
+      final names = (data['student_names'] as List?) ?? const [];
+      for (var i = 0; i < ids.length; i++) {
+        final id = ids[i].toString().trim();
+        if (id.isEmpty) continue;
+        final name =
+            i < names.length ? names[i].toString().trim() : id;
+        students.putIfAbsent(id, () => name.isEmpty ? id : name);
+      }
+    }
+    return students;
+  }
+
+  /// Ask the admin whether to switch all of the teacher's classes or only
+  /// selected students' classes to Zoom. Returns:
+  ///   null       -> cancelled
+  ///   empty list -> all upcoming classes
+  ///   non-empty  -> only shifts containing these student ids
+  Future<List<String>?> _pickZoomScope(Employee employee) async {
+    final l10n = AppLocalizations.of(context)!;
+    final students = await _fetchTeacherStudents(employee.documentId);
+    if (!mounted) return null;
+
+    bool allClasses = true;
+    final selected = <String>{};
+    return showDialog<List<String>>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (dialogContext, setLocalState) {
+            return AlertDialog(
+              title: Text(l10n.zoomScopeTitle),
+              content: SizedBox(
+                width: 400,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(l10n.zoomScopeBody(employee.firstName)),
+                    const SizedBox(height: 8),
+                    RadioListTile<bool>(
+                      value: true,
+                      groupValue: allClasses,
+                      onChanged: (_) => setLocalState(() => allClasses = true),
+                      title: Text(l10n.zoomScopeAll),
+                      contentPadding: EdgeInsets.zero,
+                      dense: true,
+                    ),
+                    RadioListTile<bool>(
+                      value: false,
+                      groupValue: allClasses,
+                      onChanged: (_) => setLocalState(() => allClasses = false),
+                      title: Text(l10n.zoomScopeSelect),
+                      contentPadding: EdgeInsets.zero,
+                      dense: true,
+                    ),
+                    if (!allClasses) ...[
+                      const Divider(height: 12),
+                      if (students.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          child: Text(
+                            l10n.zoomScopeNoStudents,
+                            style: const TextStyle(
+                                fontSize: 13, color: Colors.grey),
+                          ),
+                        )
+                      else
+                        Flexible(
+                          child: SingleChildScrollView(
+                            child: Column(
+                              children: students.entries.map((entry) {
+                                final checked = selected.contains(entry.key);
+                                return CheckboxListTile(
+                                  value: checked,
+                                  dense: true,
+                                  contentPadding: EdgeInsets.zero,
+                                  controlAffinity:
+                                      ListTileControlAffinity.leading,
+                                  title: Text(
+                                    entry.value,
+                                    style: const TextStyle(fontSize: 13),
+                                  ),
+                                  onChanged: (v) => setLocalState(() {
+                                    if (v == true) {
+                                      selected.add(entry.key);
+                                    } else {
+                                      selected.remove(entry.key);
+                                    }
+                                  }),
+                                );
+                              }).toList(),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: Text(l10n.commonCancel),
+                ),
+                ElevatedButton(
+                  onPressed: (!allClasses && selected.isEmpty)
+                      ? null
+                      : () => Navigator.pop(
+                            dialogContext,
+                            allClasses ? <String>[] : selected.toList(),
+                          ),
+                  child: Text(l10n.zoomHostPickerAssign),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   /// View student login credentials

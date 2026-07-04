@@ -1202,7 +1202,7 @@ class ShiftService {
     String? leaderRole,
     // NEW: Hourly rate - if provided, use it; otherwise use subject's defaultWage or teacher's wage
     double? hourlyRate,
-    VideoProvider videoProvider = VideoProvider.realtimekit,
+    VideoProvider videoProvider = VideoProvider.zoom,
   }) async {
     try {
       final currentUser = _auth.currentUser;
@@ -1294,6 +1294,8 @@ class ShiftService {
       final teacherName =
           '${teacherData['first_name']} ${teacherData['last_name']}';
       final teacherTimezone = teacherData['timezone'] ?? 'UTC';
+      final effectiveVideoProvider =
+          category == ShiftCategory.teaching ? VideoProvider.zoom : videoProvider;
 
       // Determine hourly rate: use provided rate, or subject's defaultWage, or teacher's wage
       double effectiveHourlyRate;
@@ -1400,8 +1402,8 @@ class ShiftService {
         // NEW: Category and leader role
         category: category,
         leaderRole: leaderRole,
-        videoProvider: videoProvider,
-        livekitRoomName: videoProvider == VideoProvider.livekit
+        videoProvider: effectiveVideoProvider,
+        livekitRoomName: effectiveVideoProvider == VideoProvider.livekit
             ? 'shift_${shiftDoc.id}'
             : null,
       );

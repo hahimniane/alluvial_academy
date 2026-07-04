@@ -99,6 +99,11 @@ dependencies:
   phone_numbers_parser: ^9.0.21
   realtimekit_ui: 0.3.0
 
+  # Native Zoom Meeting SDK (Android/iOS) for the Zoom classroom pilot.
+  # Requires the Zoom Meeting SDK binaries to be downloaded and placed per
+  # docs/zoom-classroom-pilot.md. Web uses web/zoom_meeting.html instead.
+  flutter_zoom_meeting_wrapper: ^0.0.2
+
 dependency_overrides:
   realtimekit_core_ios: 0.1.5
 

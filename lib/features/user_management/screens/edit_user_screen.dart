@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../../core/models/employee_model.dart';
+import '../widgets/manage_guardians_dialog.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class EditUserScreen extends StatefulWidget {
@@ -242,6 +243,10 @@ class _EditUserScreenState extends State<EditUserScreen>
                         _buildSecondaryRolesSection(),
                         const SizedBox(height: 24),
                         _buildAdditionalInfoSection(),
+                        if (_selectedUserType == 'student') ...[
+                          const SizedBox(height: 24),
+                          _buildGuardiansSection(),
+                        ],
                         // AI Tutor access toggle - only show for students and teachers
                         if (_selectedUserType == 'student' ||
                             _selectedUserType == 'teacher') ...[
@@ -819,6 +824,54 @@ class _EditUserScreenState extends State<EditUserScreen>
           icon: Icons.lock_outline,
         ),
       ],
+    );
+  }
+
+  Widget _buildGuardiansSection() {
+    final l = AppLocalizations.of(context)!;
+    return _buildSection(
+      title: l.manageGuardiansTitle,
+      icon: Icons.family_restroom,
+      children: [
+        Text(
+          l.manageGuardiansSubtitle(
+            '${widget.employee.firstName} ${widget.employee.lastName}'.trim(),
+          ),
+          style: GoogleFonts.inter(
+            fontSize: 13,
+            color: const Color(0xff6B7280),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: OutlinedButton.icon(
+            onPressed: _openManageGuardians,
+            icon: const Icon(Icons.link_off, size: 16),
+            label: Text(
+              l.manageGuardiansButton,
+              style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+            ),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: const Color(0xff3B82F6),
+              side: const BorderSide(color: Color(0xffE2E8F0)),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _openManageGuardians() async {
+    await showDialog<bool>(
+      context: context,
+      builder: (_) => ManageGuardiansDialog(
+        studentUid: widget.employee.documentId,
+        studentName:
+            '${widget.employee.firstName} ${widget.employee.lastName}'.trim(),
+      ),
     );
   }
 
