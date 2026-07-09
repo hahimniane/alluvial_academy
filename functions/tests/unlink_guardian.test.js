@@ -309,4 +309,40 @@ describe('unlinkGuardianFromStudent', () => {
     expect(result.remainingGuardianCount).toBe(0);
     expect(mockStore.users.get('adult_1').guardian_ids).toEqual([]);
   });
+
+  test('can explicitly convert a minor student to adult before unlinking the last guardian', async () => {
+    mockStore.users.set('minor_2', {
+      user_type: 'student',
+      first_name: 'Mariam',
+      last_name: 'Bah',
+      guardian_ids: ['parent_1'],
+    });
+
+    const result = await unlinkGuardianFromStudent({
+      auth: { uid: 'admin_uid' },
+      data: {
+        studentUid: 'minor_2',
+        parentUid: 'parent_1',
+        convertStudentToAdult: true,
+        reason: 'Admin confirmed adult status',
+      },
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.convertedStudentToAdult).toBe(true);
+    expect(result.remainingGuardianCount).toBe(0);
+
+    const student = mockStore.users.get('minor_2');
+    expect(student.guardian_ids).toEqual([]);
+    expect(student.is_adult_student).toBe(true);
+    expect(student.adult_status_updated_by).toBe('admin_uid');
+
+    const audits = Array.from(mockStore.guardian_link_history.values());
+    expect(audits[0]).toMatchObject({
+      action: 'unlink',
+      studentUid: 'minor_2',
+      parentUid: 'parent_1',
+      convertedStudentToAdult: true,
+    });
+  });
 });

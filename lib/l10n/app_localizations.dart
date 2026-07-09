@@ -6264,6 +6264,18 @@ abstract class AppLocalizations {
   /// **'This class is still connecting. Please leave and rejoin, or ask an administrator for help.'**
   String get zoomClassRoutingHelp;
 
+  /// No description provided for @zoomClassEndingSoon.
+  ///
+  /// In en, this message translates to:
+  /// **'This class ends in {minutes} min'**
+  String zoomClassEndingSoon(String minutes);
+
+  /// No description provided for @zoomClassEnded.
+  ///
+  /// In en, this message translates to:
+  /// **'This class has ended.'**
+  String get zoomClassEnded;
+
   /// No description provided for @connectingToTaskDatabase.
   ///
   /// In en, this message translates to:
@@ -13515,7 +13527,7 @@ abstract class AppLocalizations {
   /// No description provided for @searchInvoiceNumber.
   ///
   /// In en, this message translates to:
-  /// **'Search Invoice Number'**
+  /// **'Search invoice, parent, student, email, phone, or ID'**
   String get searchInvoiceNumber;
 
   /// No description provided for @searchParentsByNameOrEmail.
@@ -20727,6 +20739,12 @@ abstract class AppLocalizations {
   /// **'Join ({time})'**
   String classJoinIn(String time);
 
+  /// No description provided for @classControllerBot.
+  ///
+  /// In en, this message translates to:
+  /// **'Bot {lane}'**
+  String classControllerBot(int lane);
+
   /// No description provided for @classEnded.
   ///
   /// In en, this message translates to:
@@ -24388,6 +24406,36 @@ abstract class AppLocalizations {
   /// **'Could not load linked guardians.'**
   String get manageGuardiansLoadError;
 
+  /// No description provided for @manageParentStudentsButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage linked students'**
+  String get manageParentStudentsButton;
+
+  /// No description provided for @manageParentStudentsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Linked Students'**
+  String get manageParentStudentsTitle;
+
+  /// No description provided for @manageParentStudentsSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Students currently linked to {parentName}. Removing one keeps both accounts but removes this parent\'s access to that student\'s classes, chats, and invoices.'**
+  String manageParentStudentsSubtitle(String parentName);
+
+  /// No description provided for @manageParentStudentsEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No students are linked to this parent yet.'**
+  String get manageParentStudentsEmpty;
+
+  /// No description provided for @manageParentStudentsLoadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load linked students.'**
+  String get manageParentStudentsLoadError;
+
   /// No description provided for @unlinkGuardianConfirmTitle.
   ///
   /// In en, this message translates to:
@@ -24435,6 +24483,31 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'This is the only guardian of a minor student. Link another guardian first, or mark the student as an adult, before unlinking.'**
   String get unlinkGuardianMinorBlocked;
+
+  /// No description provided for @unlinkGuardianAdultOverrideTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Convert student to adult?'**
+  String get unlinkGuardianAdultOverrideTitle;
+
+  /// No description provided for @unlinkGuardianAdultOverrideBody.
+  ///
+  /// In en, this message translates to:
+  /// **'{studentName} has no other valid linked parent. Only continue if an admin has confirmed this student should manage their own account as an adult after removing {guardianName}.'**
+  String unlinkGuardianAdultOverrideBody(
+      String studentName, String guardianName);
+
+  /// No description provided for @unlinkGuardianAdultOverrideAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark adult and unlink'**
+  String get unlinkGuardianAdultOverrideAction;
+
+  /// No description provided for @invalidParentSelected.
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid parent selected.'**
+  String get invalidParentSelected;
 
   /// No description provided for @enrollmentStateChooseProgram.
   ///
@@ -24724,6 +24797,78 @@ abstract class AppLocalizations {
   /// **'This overlaps with \"{slot}\". Pick a non-overlapping time.'**
   String prepareBroadcastOverlapError(String slot);
 
+  /// No description provided for @noShowSettingsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No-Show Alert Recipients'**
+  String get noShowSettingsTitle;
+
+  /// No description provided for @noShowSettingsNotifyAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Notify all administrators'**
+  String get noShowSettingsNotifyAll;
+
+  /// No description provided for @noShowSettingsNotifyAllSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn off to choose which administrators receive no-show alerts.'**
+  String get noShowSettingsNotifyAllSubtitle;
+
+  /// No description provided for @noShowSettingsNoAdmins.
+  ///
+  /// In en, this message translates to:
+  /// **'No administrators found'**
+  String get noShowSettingsNoAdmins;
+
+  /// No description provided for @noShowSettingsSelectAtLeastOne.
+  ///
+  /// In en, this message translates to:
+  /// **'No administrators selected — all administrators will still be notified until you select at least one.'**
+  String get noShowSettingsSelectAtLeastOne;
+
+  /// No description provided for @prepareBroadcastRecipientsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Broadcast To'**
+  String get prepareBroadcastRecipientsTitle;
+
+  /// No description provided for @prepareBroadcastAllTeachers.
+  ///
+  /// In en, this message translates to:
+  /// **'All teachers'**
+  String get prepareBroadcastAllTeachers;
+
+  /// No description provided for @prepareBroadcastSpecificTeachers.
+  ///
+  /// In en, this message translates to:
+  /// **'Specific teachers'**
+  String get prepareBroadcastSpecificTeachers;
+
+  /// No description provided for @prepareBroadcastSearchTeachers.
+  ///
+  /// In en, this message translates to:
+  /// **'Search teachers...'**
+  String get prepareBroadcastSearchTeachers;
+
+  /// No description provided for @prepareBroadcastNoTeachersFound.
+  ///
+  /// In en, this message translates to:
+  /// **'No teachers found'**
+  String get prepareBroadcastNoTeachersFound;
+
+  /// No description provided for @prepareBroadcastSelectTeacherFirst.
+  ///
+  /// In en, this message translates to:
+  /// **'Select at least one teacher before broadcasting.'**
+  String get prepareBroadcastSelectTeacherFirst;
+
+  /// No description provided for @prepareBroadcastTeachersSelected.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} teacher(s) selected'**
+  String prepareBroadcastTeachersSelected(int count);
+
   /// No description provided for @adminActionCardsViewAll.
   ///
   /// In en, this message translates to:
@@ -24976,6 +25121,756 @@ abstract class AppLocalizations {
   /// **'All Invoices'**
   String get sidebarAllInvoices;
 
+  /// No description provided for @financeOverviewTab.
+  ///
+  /// In en, this message translates to:
+  /// **'Overview'**
+  String get financeOverviewTab;
+
+  /// No description provided for @financeCutoffsTab.
+  ///
+  /// In en, this message translates to:
+  /// **'Cutoffs'**
+  String get financeCutoffsTab;
+
+  /// No description provided for @financeOverviewTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Finance Command Center'**
+  String get financeOverviewTitle;
+
+  /// No description provided for @financeMonthLive.
+  ///
+  /// In en, this message translates to:
+  /// **'Live view for {month}. Revenue, invoices, recorded expenses, and approved payroll are reflected here.'**
+  String financeMonthLive(Object month);
+
+  /// No description provided for @financePreviousMonth.
+  ///
+  /// In en, this message translates to:
+  /// **'Previous month'**
+  String get financePreviousMonth;
+
+  /// No description provided for @financeNextMonth.
+  ///
+  /// In en, this message translates to:
+  /// **'Next month'**
+  String get financeNextMonth;
+
+  /// No description provided for @financeOpenCreateInvoice.
+  ///
+  /// In en, this message translates to:
+  /// **'Create invoice'**
+  String get financeOpenCreateInvoice;
+
+  /// No description provided for @financeOpenAllInvoices.
+  ///
+  /// In en, this message translates to:
+  /// **'All invoices'**
+  String get financeOpenAllInvoices;
+
+  /// No description provided for @financeSetIncomeGoal.
+  ///
+  /// In en, this message translates to:
+  /// **'Set goal'**
+  String get financeSetIncomeGoal;
+
+  /// No description provided for @financeRecordExpense.
+  ///
+  /// In en, this message translates to:
+  /// **'Record expense'**
+  String get financeRecordExpense;
+
+  /// No description provided for @financeRevenueCollected.
+  ///
+  /// In en, this message translates to:
+  /// **'Revenue collected'**
+  String get financeRevenueCollected;
+
+  /// No description provided for @financeProjectedRevenue.
+  ///
+  /// In en, this message translates to:
+  /// **'Projected revenue'**
+  String get financeProjectedRevenue;
+
+  /// No description provided for @financeMonthEndProjection.
+  ///
+  /// In en, this message translates to:
+  /// **'Month-end projection'**
+  String get financeMonthEndProjection;
+
+  /// No description provided for @financeIncomeGoal.
+  ///
+  /// In en, this message translates to:
+  /// **'Income goal'**
+  String get financeIncomeGoal;
+
+  /// No description provided for @financeNoIncomeGoal.
+  ///
+  /// In en, this message translates to:
+  /// **'No goal set'**
+  String get financeNoIncomeGoal;
+
+  /// No description provided for @financeGoalProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'{percent} of goal'**
+  String financeGoalProgress(Object percent);
+
+  /// No description provided for @financeProjectedGoalProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'Projected {percent} of goal'**
+  String financeProjectedGoalProgress(Object percent);
+
+  /// No description provided for @financeInvoiced.
+  ///
+  /// In en, this message translates to:
+  /// **'Invoiced'**
+  String get financeInvoiced;
+
+  /// No description provided for @financeOutstanding.
+  ///
+  /// In en, this message translates to:
+  /// **'Outstanding'**
+  String get financeOutstanding;
+
+  /// No description provided for @financeKnownExpenses.
+  ///
+  /// In en, this message translates to:
+  /// **'Known expenses'**
+  String get financeKnownExpenses;
+
+  /// No description provided for @financeEstimatedNet.
+  ///
+  /// In en, this message translates to:
+  /// **'Estimated net'**
+  String get financeEstimatedNet;
+
+  /// No description provided for @financeProfitMargin.
+  ///
+  /// In en, this message translates to:
+  /// **'Profit margin'**
+  String get financeProfitMargin;
+
+  /// No description provided for @financeCurrentMonth.
+  ///
+  /// In en, this message translates to:
+  /// **'This month'**
+  String get financeCurrentMonth;
+
+  /// No description provided for @financeNoPriorRevenue.
+  ///
+  /// In en, this message translates to:
+  /// **'No prior revenue'**
+  String get financeNoPriorRevenue;
+
+  /// No description provided for @financeNewRevenueThisMonth.
+  ///
+  /// In en, this message translates to:
+  /// **'New this month'**
+  String get financeNewRevenueThisMonth;
+
+  /// No description provided for @financeUpFromLastMonth.
+  ///
+  /// In en, this message translates to:
+  /// **'Up {percent} from last month'**
+  String financeUpFromLastMonth(Object percent);
+
+  /// No description provided for @financeDownFromLastMonth.
+  ///
+  /// In en, this message translates to:
+  /// **'Down {percent} from last month'**
+  String financeDownFromLastMonth(Object percent);
+
+  /// No description provided for @financeOverdueInvoices.
+  ///
+  /// In en, this message translates to:
+  /// **'overdue invoices'**
+  String get financeOverdueInvoices;
+
+  /// No description provided for @financeStaffPayrollOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'Staff payroll only'**
+  String get financeStaffPayrollOnly;
+
+  /// No description provided for @financePartialLedger.
+  ///
+  /// In en, this message translates to:
+  /// **'Partial expense ledger'**
+  String get financePartialLedger;
+
+  /// No description provided for @financeRevenueMinusKnownExpenses.
+  ///
+  /// In en, this message translates to:
+  /// **'Revenue minus known expenses'**
+  String get financeRevenueMinusKnownExpenses;
+
+  /// No description provided for @financeCashFlowTable.
+  ///
+  /// In en, this message translates to:
+  /// **'Cash flow'**
+  String get financeCashFlowTable;
+
+  /// No description provided for @financeSixMonthTrend.
+  ///
+  /// In en, this message translates to:
+  /// **'6-month cash flow'**
+  String get financeSixMonthTrend;
+
+  /// No description provided for @financeNoChartData.
+  ///
+  /// In en, this message translates to:
+  /// **'No chart data for this range.'**
+  String get financeNoChartData;
+
+  /// No description provided for @financeRevenue.
+  ///
+  /// In en, this message translates to:
+  /// **'Revenue'**
+  String get financeRevenue;
+
+  /// No description provided for @financeExpenses.
+  ///
+  /// In en, this message translates to:
+  /// **'Expenses'**
+  String get financeExpenses;
+
+  /// No description provided for @financeNet.
+  ///
+  /// In en, this message translates to:
+  /// **'Net'**
+  String get financeNet;
+
+  /// No description provided for @financeExpenseCoverage.
+  ///
+  /// In en, this message translates to:
+  /// **'Expense coverage'**
+  String get financeExpenseCoverage;
+
+  /// No description provided for @financeStaffPayroll.
+  ///
+  /// In en, this message translates to:
+  /// **'Staff payroll'**
+  String get financeStaffPayroll;
+
+  /// No description provided for @financeConnected.
+  ///
+  /// In en, this message translates to:
+  /// **'Connected'**
+  String get financeConnected;
+
+  /// No description provided for @financeSubscriptions.
+  ///
+  /// In en, this message translates to:
+  /// **'Subscriptions'**
+  String get financeSubscriptions;
+
+  /// No description provided for @financeNotConnected.
+  ///
+  /// In en, this message translates to:
+  /// **'Not connected'**
+  String get financeNotConnected;
+
+  /// No description provided for @financeSubscriptionLedgerMissing.
+  ///
+  /// In en, this message translates to:
+  /// **'Subscription ledger needed'**
+  String get financeSubscriptionLedgerMissing;
+
+  /// No description provided for @financeManualExpenses.
+  ///
+  /// In en, this message translates to:
+  /// **'Manual expenses'**
+  String get financeManualExpenses;
+
+  /// No description provided for @financeIncludesRecordedExpenses.
+  ///
+  /// In en, this message translates to:
+  /// **'Includes recorded expenses'**
+  String get financeIncludesRecordedExpenses;
+
+  /// No description provided for @financeRecordedThisMonth.
+  ///
+  /// In en, this message translates to:
+  /// **'Recorded this month'**
+  String get financeRecordedThisMonth;
+
+  /// No description provided for @financeNoRecordedExpenses.
+  ///
+  /// In en, this message translates to:
+  /// **'No recorded expenses'**
+  String get financeNoRecordedExpenses;
+
+  /// No description provided for @financeExpensesByCategory.
+  ///
+  /// In en, this message translates to:
+  /// **'Expenses by category'**
+  String get financeExpensesByCategory;
+
+  /// No description provided for @financeSpendingInsightsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Spending intelligence'**
+  String get financeSpendingInsightsTitle;
+
+  /// No description provided for @financeWhereMoneyGoes.
+  ///
+  /// In en, this message translates to:
+  /// **'Where money is going'**
+  String get financeWhereMoneyGoes;
+
+  /// No description provided for @financeRecipientPayouts.
+  ///
+  /// In en, this message translates to:
+  /// **'Teacher/admin payout history'**
+  String get financeRecipientPayouts;
+
+  /// No description provided for @financeSelectRecipient.
+  ///
+  /// In en, this message translates to:
+  /// **'Select teacher/admin'**
+  String get financeSelectRecipient;
+
+  /// No description provided for @financeNoSpendingTrend.
+  ///
+  /// In en, this message translates to:
+  /// **'No spending trend data yet.'**
+  String get financeNoSpendingTrend;
+
+  /// No description provided for @financeNoRecipientPayouts.
+  ///
+  /// In en, this message translates to:
+  /// **'No teacher or admin payout records yet.'**
+  String get financeNoRecipientPayouts;
+
+  /// No description provided for @financeMonthly.
+  ///
+  /// In en, this message translates to:
+  /// **'Monthly'**
+  String get financeMonthly;
+
+  /// No description provided for @financeQuarterly.
+  ///
+  /// In en, this message translates to:
+  /// **'Quarterly'**
+  String get financeQuarterly;
+
+  /// No description provided for @financeAuditPayrollSource.
+  ///
+  /// In en, this message translates to:
+  /// **'Audit payroll'**
+  String get financeAuditPayrollSource;
+
+  /// No description provided for @financeTimesheetPayrollSource.
+  ///
+  /// In en, this message translates to:
+  /// **'Timesheet payroll'**
+  String get financeTimesheetPayrollSource;
+
+  /// No description provided for @financeRecordedExpenseSource.
+  ///
+  /// In en, this message translates to:
+  /// **'Recorded expense'**
+  String get financeRecordedExpenseSource;
+
+  /// No description provided for @financeCurrentMonthSpend.
+  ///
+  /// In en, this message translates to:
+  /// **'This month'**
+  String get financeCurrentMonthSpend;
+
+  /// No description provided for @financeSixMonthSpend.
+  ///
+  /// In en, this message translates to:
+  /// **'6-month total'**
+  String get financeSixMonthSpend;
+
+  /// No description provided for @financeManualExpenseLedgerMissing.
+  ///
+  /// In en, this message translates to:
+  /// **'Expense ledger needed'**
+  String get financeManualExpenseLedgerMissing;
+
+  /// No description provided for @financeRevenueByMethod.
+  ///
+  /// In en, this message translates to:
+  /// **'Revenue by method'**
+  String get financeRevenueByMethod;
+
+  /// No description provided for @financeNoRevenueMethods.
+  ///
+  /// In en, this message translates to:
+  /// **'No completed payments for this month.'**
+  String get financeNoRevenueMethods;
+
+  /// No description provided for @financeUnknownMethod.
+  ///
+  /// In en, this message translates to:
+  /// **'UNKNOWN METHOD'**
+  String get financeUnknownMethod;
+
+  /// No description provided for @financeAttentionQueue.
+  ///
+  /// In en, this message translates to:
+  /// **'Attention queue'**
+  String get financeAttentionQueue;
+
+  /// No description provided for @financeDueSoonInvoices.
+  ///
+  /// In en, this message translates to:
+  /// **'Due soon invoices'**
+  String get financeDueSoonInvoices;
+
+  /// No description provided for @financeDueSoon.
+  ///
+  /// In en, this message translates to:
+  /// **'Due within 7 days'**
+  String get financeDueSoon;
+
+  /// No description provided for @financePendingPayments.
+  ///
+  /// In en, this message translates to:
+  /// **'Pending payments'**
+  String get financePendingPayments;
+
+  /// No description provided for @financeFailedPayments.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed payments'**
+  String get financeFailedPayments;
+
+  /// No description provided for @financeFailedInvoiceSends.
+  ///
+  /// In en, this message translates to:
+  /// **'Invoice send failures'**
+  String get financeFailedInvoiceSends;
+
+  /// No description provided for @financePendingPayroll.
+  ///
+  /// In en, this message translates to:
+  /// **'Pending payroll'**
+  String get financePendingPayroll;
+
+  /// No description provided for @financeNeedsReview.
+  ///
+  /// In en, this message translates to:
+  /// **'Needs review'**
+  String get financeNeedsReview;
+
+  /// No description provided for @financeNeedsApproval.
+  ///
+  /// In en, this message translates to:
+  /// **'Needs approval'**
+  String get financeNeedsApproval;
+
+  /// No description provided for @financeDataGaps.
+  ///
+  /// In en, this message translates to:
+  /// **'Data gaps'**
+  String get financeDataGaps;
+
+  /// No description provided for @financeSomeSourcesUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Some finance sources could not be read'**
+  String get financeSomeSourcesUnavailable;
+
+  /// No description provided for @financeNoAttentionItems.
+  ///
+  /// In en, this message translates to:
+  /// **'No urgent finance items for this view.'**
+  String get financeNoAttentionItems;
+
+  /// No description provided for @financeRecentActivity.
+  ///
+  /// In en, this message translates to:
+  /// **'Recent activity'**
+  String get financeRecentActivity;
+
+  /// No description provided for @financeNoRecentActivity.
+  ///
+  /// In en, this message translates to:
+  /// **'No recent invoice or payment activity.'**
+  String get financeNoRecentActivity;
+
+  /// No description provided for @financeInvoiceCreated.
+  ///
+  /// In en, this message translates to:
+  /// **'Invoice created'**
+  String get financeInvoiceCreated;
+
+  /// No description provided for @financePaymentCompleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment completed'**
+  String get financePaymentCompleted;
+
+  /// No description provided for @financePaymentPending.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment pending'**
+  String get financePaymentPending;
+
+  /// No description provided for @financeExpenseRecorded.
+  ///
+  /// In en, this message translates to:
+  /// **'Expense recorded'**
+  String get financeExpenseRecorded;
+
+  /// No description provided for @financeDataLoadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load finance data'**
+  String get financeDataLoadError;
+
+  /// No description provided for @financeExpenseInvalidAmount.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter an expense amount greater than zero.'**
+  String get financeExpenseInvalidAmount;
+
+  /// No description provided for @financeExpenseOtherRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter the other expense category.'**
+  String get financeExpenseOtherRequired;
+
+  /// No description provided for @financeExpenseAmount.
+  ///
+  /// In en, this message translates to:
+  /// **'Amount'**
+  String get financeExpenseAmount;
+
+  /// No description provided for @financeExpenseCategory.
+  ///
+  /// In en, this message translates to:
+  /// **'Expense category'**
+  String get financeExpenseCategory;
+
+  /// No description provided for @financeExpenseOtherCategory.
+  ///
+  /// In en, this message translates to:
+  /// **'Other category'**
+  String get financeExpenseOtherCategory;
+
+  /// No description provided for @financeExpenseVendor.
+  ///
+  /// In en, this message translates to:
+  /// **'Vendor or payee'**
+  String get financeExpenseVendor;
+
+  /// No description provided for @financeExpenseTeacherRecipient.
+  ///
+  /// In en, this message translates to:
+  /// **'Teacher / recipient'**
+  String get financeExpenseTeacherRecipient;
+
+  /// No description provided for @financeExpenseLeadershipRecipient.
+  ///
+  /// In en, this message translates to:
+  /// **'Leader / recipient'**
+  String get financeExpenseLeadershipRecipient;
+
+  /// No description provided for @financeExpenseRecipientManual.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter another recipient'**
+  String get financeExpenseRecipientManual;
+
+  /// No description provided for @financeExpenseSubcategory.
+  ///
+  /// In en, this message translates to:
+  /// **'Expense type'**
+  String get financeExpenseSubcategory;
+
+  /// No description provided for @financeExpenseMethod.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment method'**
+  String get financeExpenseMethod;
+
+  /// No description provided for @financeExpenseMethodCard.
+  ///
+  /// In en, this message translates to:
+  /// **'Card'**
+  String get financeExpenseMethodCard;
+
+  /// No description provided for @financeExpenseDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Expense date'**
+  String get financeExpenseDate;
+
+  /// No description provided for @financeExpenseNotes.
+  ///
+  /// In en, this message translates to:
+  /// **'Notes'**
+  String get financeExpenseNotes;
+
+  /// No description provided for @financeSaveExpense.
+  ///
+  /// In en, this message translates to:
+  /// **'Save expense'**
+  String get financeSaveExpense;
+
+  /// No description provided for @financeGoalInvalidAmount.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a valid goal amount.'**
+  String get financeGoalInvalidAmount;
+
+  /// No description provided for @financeSaveGoal.
+  ///
+  /// In en, this message translates to:
+  /// **'Save goal'**
+  String get financeSaveGoal;
+
+  /// No description provided for @financeExpenseCategoryTeacherPayment.
+  ///
+  /// In en, this message translates to:
+  /// **'Teacher Payment'**
+  String get financeExpenseCategoryTeacherPayment;
+
+  /// No description provided for @financeExpenseCategoryLeadershipCost.
+  ///
+  /// In en, this message translates to:
+  /// **'Leadership cost'**
+  String get financeExpenseCategoryLeadershipCost;
+
+  /// No description provided for @financeExpenseCategoryMarketingCost.
+  ///
+  /// In en, this message translates to:
+  /// **'Marketing cost'**
+  String get financeExpenseCategoryMarketingCost;
+
+  /// No description provided for @financeExpenseCategoryResearchDevelopment.
+  ///
+  /// In en, this message translates to:
+  /// **'R&D'**
+  String get financeExpenseCategoryResearchDevelopment;
+
+  /// No description provided for @financeExpenseSubcategorySocialMarketing.
+  ///
+  /// In en, this message translates to:
+  /// **'Social marketing'**
+  String get financeExpenseSubcategorySocialMarketing;
+
+  /// No description provided for @financeExpenseSubcategoryNewsletterSubscription.
+  ///
+  /// In en, this message translates to:
+  /// **'Newsletter subscription'**
+  String get financeExpenseSubcategoryNewsletterSubscription;
+
+  /// No description provided for @financeExpenseSubcategoryPaidAds.
+  ///
+  /// In en, this message translates to:
+  /// **'Paid ads'**
+  String get financeExpenseSubcategoryPaidAds;
+
+  /// No description provided for @financeExpenseSubcategoryCreativeTools.
+  ///
+  /// In en, this message translates to:
+  /// **'Creative tools'**
+  String get financeExpenseSubcategoryCreativeTools;
+
+  /// No description provided for @financeExpenseSubcategoryWebsiteFees.
+  ///
+  /// In en, this message translates to:
+  /// **'Website fees'**
+  String get financeExpenseSubcategoryWebsiteFees;
+
+  /// No description provided for @financeExpenseSubcategoryRecurringSubscriptions.
+  ///
+  /// In en, this message translates to:
+  /// **'Recurring subscriptions'**
+  String get financeExpenseSubcategoryRecurringSubscriptions;
+
+  /// No description provided for @financeExpenseSubcategorySoftwareTools.
+  ///
+  /// In en, this message translates to:
+  /// **'Software tools'**
+  String get financeExpenseSubcategorySoftwareTools;
+
+  /// No description provided for @financeExpenseSubcategoryResearchTools.
+  ///
+  /// In en, this message translates to:
+  /// **'Research tools'**
+  String get financeExpenseSubcategoryResearchTools;
+
+  /// No description provided for @financeExpenseCategorySoftware.
+  ///
+  /// In en, this message translates to:
+  /// **'Software & subscriptions'**
+  String get financeExpenseCategorySoftware;
+
+  /// No description provided for @financeExpenseCategoryMarketing.
+  ///
+  /// In en, this message translates to:
+  /// **'Marketing & ads'**
+  String get financeExpenseCategoryMarketing;
+
+  /// No description provided for @financeExpenseCategoryRentUtilities.
+  ///
+  /// In en, this message translates to:
+  /// **'Rent & utilities'**
+  String get financeExpenseCategoryRentUtilities;
+
+  /// No description provided for @financeExpenseCategorySupplies.
+  ///
+  /// In en, this message translates to:
+  /// **'Classroom materials & supplies'**
+  String get financeExpenseCategorySupplies;
+
+  /// No description provided for @financeExpenseCategoryPaymentFees.
+  ///
+  /// In en, this message translates to:
+  /// **'Bank & payment fees'**
+  String get financeExpenseCategoryPaymentFees;
+
+  /// No description provided for @financeExpenseCategoryInsuranceLegalTaxes.
+  ///
+  /// In en, this message translates to:
+  /// **'Insurance, legal & taxes'**
+  String get financeExpenseCategoryInsuranceLegalTaxes;
+
+  /// No description provided for @financeExpenseCategoryContractors.
+  ///
+  /// In en, this message translates to:
+  /// **'Contractors & professional services'**
+  String get financeExpenseCategoryContractors;
+
+  /// No description provided for @financeExpenseCategoryTeacherStaffExtra.
+  ///
+  /// In en, this message translates to:
+  /// **'Teacher/staff extra pay'**
+  String get financeExpenseCategoryTeacherStaffExtra;
+
+  /// No description provided for @financeExpenseCategoryRefundsScholarships.
+  ///
+  /// In en, this message translates to:
+  /// **'Refunds & scholarships'**
+  String get financeExpenseCategoryRefundsScholarships;
+
+  /// No description provided for @financeExpenseCategoryInternetPhone.
+  ///
+  /// In en, this message translates to:
+  /// **'Internet & phone'**
+  String get financeExpenseCategoryInternetPhone;
+
+  /// No description provided for @financeExpenseCategoryTravelEvents.
+  ///
+  /// In en, this message translates to:
+  /// **'Travel & events'**
+  String get financeExpenseCategoryTravelEvents;
+
+  /// No description provided for @financeRefresh.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh'**
+  String get financeRefresh;
+
   /// No description provided for @adminInvoiceDeleteTitle.
   ///
   /// In en, this message translates to:
@@ -25012,6 +25907,300 @@ abstract class AppLocalizations {
   /// **'Print PDF'**
   String get adminInvoicePrintPdf;
 
+  /// No description provided for @adminInvoiceRecordPayment.
+  ///
+  /// In en, this message translates to:
+  /// **'Record Payment'**
+  String get adminInvoiceRecordPayment;
+
+  /// No description provided for @adminInvoiceRecordPaymentTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Record manual payment'**
+  String get adminInvoiceRecordPaymentTitle;
+
+  /// No description provided for @adminInvoicePaymentAmount.
+  ///
+  /// In en, this message translates to:
+  /// **'Amount received'**
+  String get adminInvoicePaymentAmount;
+
+  /// No description provided for @adminInvoicePaymentMethod.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment method'**
+  String get adminInvoicePaymentMethod;
+
+  /// No description provided for @adminInvoicePaymentReference.
+  ///
+  /// In en, this message translates to:
+  /// **'Reference'**
+  String get adminInvoicePaymentReference;
+
+  /// No description provided for @adminInvoicePaymentReferenceHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirmation, sender, or transfer ID'**
+  String get adminInvoicePaymentReferenceHint;
+
+  /// No description provided for @adminInvoicePaymentNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Internal note'**
+  String get adminInvoicePaymentNote;
+
+  /// No description provided for @adminInvoicePaymentNoteHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Optional admin note'**
+  String get adminInvoicePaymentNoteHint;
+
+  /// No description provided for @adminInvoicePaymentReceivedDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Received date'**
+  String get adminInvoicePaymentReceivedDate;
+
+  /// No description provided for @adminInvoicePaymentSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment recorded and invoice updated.'**
+  String get adminInvoicePaymentSuccess;
+
+  /// No description provided for @adminInvoicePaymentInvalidAmount.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter an amount greater than zero and no more than the balance due.'**
+  String get adminInvoicePaymentInvalidAmount;
+
+  /// No description provided for @adminInvoicePaymentMethodZelle.
+  ///
+  /// In en, this message translates to:
+  /// **'Zelle'**
+  String get adminInvoicePaymentMethodZelle;
+
+  /// No description provided for @adminInvoicePaymentMethodCashApp.
+  ///
+  /// In en, this message translates to:
+  /// **'Cash App'**
+  String get adminInvoicePaymentMethodCashApp;
+
+  /// No description provided for @adminInvoicePaymentMethodBankTransfer.
+  ///
+  /// In en, this message translates to:
+  /// **'Bank transfer'**
+  String get adminInvoicePaymentMethodBankTransfer;
+
+  /// No description provided for @adminInvoicePaymentMethodMoneyGram.
+  ///
+  /// In en, this message translates to:
+  /// **'MoneyGram'**
+  String get adminInvoicePaymentMethodMoneyGram;
+
+  /// No description provided for @adminInvoicePaymentMethodWesternUnion.
+  ///
+  /// In en, this message translates to:
+  /// **'Western Union'**
+  String get adminInvoicePaymentMethodWesternUnion;
+
+  /// No description provided for @adminInvoicePaymentMethodCash.
+  ///
+  /// In en, this message translates to:
+  /// **'Cash'**
+  String get adminInvoicePaymentMethodCash;
+
+  /// No description provided for @adminInvoicePaymentMethodCheck.
+  ///
+  /// In en, this message translates to:
+  /// **'Check'**
+  String get adminInvoicePaymentMethodCheck;
+
+  /// No description provided for @adminInvoicePaymentMethodOther.
+  ///
+  /// In en, this message translates to:
+  /// **'Other'**
+  String get adminInvoicePaymentMethodOther;
+
+  /// No description provided for @adminInvoiceBillingOptionsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Billing options'**
+  String get adminInvoiceBillingOptionsTitle;
+
+  /// No description provided for @adminInvoiceBillingCoverage.
+  ///
+  /// In en, this message translates to:
+  /// **'Months included'**
+  String get adminInvoiceBillingCoverage;
+
+  /// No description provided for @adminInvoiceBillingCoveragePreview.
+  ///
+  /// In en, this message translates to:
+  /// **'Invoice covers {period}'**
+  String adminInvoiceBillingCoveragePreview(Object period);
+
+  /// No description provided for @adminInvoiceCoverageOneMonth.
+  ///
+  /// In en, this message translates to:
+  /// **'1 month'**
+  String get adminInvoiceCoverageOneMonth;
+
+  /// No description provided for @adminInvoiceCoverageMonths.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} months'**
+  String adminInvoiceCoverageMonths(Object count);
+
+  /// No description provided for @adminInvoiceRecurringPlan.
+  ///
+  /// In en, this message translates to:
+  /// **'Make this recurring'**
+  String get adminInvoiceRecurringPlan;
+
+  /// No description provided for @adminInvoiceRecurringPlanSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Creates the next {coverage} invoice automatically when that billing period starts and tracks send failures.'**
+  String adminInvoiceRecurringPlanSubtitle(Object coverage);
+
+  /// No description provided for @cutoffTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Access Cutoff Control'**
+  String get cutoffTitle;
+
+  /// No description provided for @cutoffSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Suspended students, blocking invoices, and quick extension controls.'**
+  String get cutoffSubtitle;
+
+  /// No description provided for @cutoffSuspendedStudents.
+  ///
+  /// In en, this message translates to:
+  /// **'Suspended'**
+  String get cutoffSuspendedStudents;
+
+  /// No description provided for @cutoffParentGroups.
+  ///
+  /// In en, this message translates to:
+  /// **'Parent groups'**
+  String get cutoffParentGroups;
+
+  /// No description provided for @cutoffStudentsInGroup.
+  ///
+  /// In en, this message translates to:
+  /// **'Students'**
+  String get cutoffStudentsInGroup;
+
+  /// No description provided for @cutoffBlockingInvoices.
+  ///
+  /// In en, this message translates to:
+  /// **'Blocking invoices'**
+  String get cutoffBlockingInvoices;
+
+  /// No description provided for @cutoffTotalPastDue.
+  ///
+  /// In en, this message translates to:
+  /// **'Past due'**
+  String get cutoffTotalPastDue;
+
+  /// No description provided for @cutoffOldestCutoff.
+  ///
+  /// In en, this message translates to:
+  /// **'Oldest cutoff'**
+  String get cutoffOldestCutoff;
+
+  /// No description provided for @cutoffExtendAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Extend cutoff'**
+  String get cutoffExtendAction;
+
+  /// No description provided for @cutoffExtendParentAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Extend all'**
+  String get cutoffExtendParentAction;
+
+  /// No description provided for @cutoffExtendStudentAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Extend student'**
+  String get cutoffExtendStudentAction;
+
+  /// No description provided for @cutoffExtendedSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Cutoff extended and access recalculated.'**
+  String get cutoffExtendedSuccess;
+
+  /// No description provided for @cutoffNoStudents.
+  ///
+  /// In en, this message translates to:
+  /// **'No students are currently cut off'**
+  String get cutoffNoStudents;
+
+  /// No description provided for @cutoffNoStudentsDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'When an unpaid invoice passes its cutoff, the student will appear here.'**
+  String get cutoffNoStudentsDetail;
+
+  /// No description provided for @cutoffLoadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to load cutoff data'**
+  String get cutoffLoadError;
+
+  /// No description provided for @cutoffExtendTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Extend access cutoff'**
+  String get cutoffExtendTitle;
+
+  /// No description provided for @cutoffExtendParentTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Extend parent group'**
+  String get cutoffExtendParentTitle;
+
+  /// No description provided for @cutoffExtendBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a new cutoff date for {name}. Blocking invoices will be moved to this date.'**
+  String cutoffExtendBody(Object name);
+
+  /// No description provided for @cutoffExtendParentBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a new cutoff date for every blocked student under {name}.'**
+  String cutoffExtendParentBody(Object name);
+
+  /// No description provided for @cutoffExtendBy7.
+  ///
+  /// In en, this message translates to:
+  /// **'+7 days'**
+  String get cutoffExtendBy7;
+
+  /// No description provided for @cutoffExtendBy14.
+  ///
+  /// In en, this message translates to:
+  /// **'+14 days'**
+  String get cutoffExtendBy14;
+
+  /// No description provided for @cutoffExtendBy30.
+  ///
+  /// In en, this message translates to:
+  /// **'+30 days'**
+  String get cutoffExtendBy30;
+
+  /// No description provided for @cutoffApplyExtension.
+  ///
+  /// In en, this message translates to:
+  /// **'Apply extension'**
+  String get cutoffApplyExtension;
+
   /// No description provided for @adminInvoicesTitle.
   ///
   /// In en, this message translates to:
@@ -25035,6 +26224,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Billing: {billing}'**
   String adminInvoiceBillingPeriodChip(Object billing);
+
+  /// No description provided for @adminInvoiceSendFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Send failed'**
+  String get adminInvoiceSendFailed;
+
+  /// No description provided for @adminInvoiceSendPending.
+  ///
+  /// In en, this message translates to:
+  /// **'Send pending'**
+  String get adminInvoiceSendPending;
 
   /// No description provided for @adminInvoiceBalanceDue.
   ///
@@ -27093,6 +28294,150 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No upcoming classes found for this teacher.'**
   String get zoomScopeNoStudents;
+
+  /// No description provided for @shiftLoadingCurrentWeek.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading this week\'s shifts...'**
+  String get shiftLoadingCurrentWeek;
+
+  /// No description provided for @shiftLoadingFullHistoryCount.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading full shift history: {loaded} shifts loaded'**
+  String shiftLoadingFullHistoryCount(int loaded);
+
+  /// No description provided for @shiftLoadingFullHistoryPercent.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading full shift history: {percent}% ({loaded}/{total})'**
+  String shiftLoadingFullHistoryPercent(int percent, int loaded, int total);
+
+  /// No description provided for @leaderWorkCardTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Scheduled work'**
+  String get leaderWorkCardTitle;
+
+  /// No description provided for @leaderWorkCardSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your month-to-date clock-in status for assigned leader duties.'**
+  String get leaderWorkCardSubtitle;
+
+  /// No description provided for @leaderWorkScheduled.
+  ///
+  /// In en, this message translates to:
+  /// **'Scheduled'**
+  String get leaderWorkScheduled;
+
+  /// No description provided for @leaderWorkCompleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Completed'**
+  String get leaderWorkCompleted;
+
+  /// No description provided for @leaderWorkAbsences.
+  ///
+  /// In en, this message translates to:
+  /// **'Absences'**
+  String get leaderWorkAbsences;
+
+  /// No description provided for @leaderWorkLateClockIns.
+  ///
+  /// In en, this message translates to:
+  /// **'Late clock-ins'**
+  String get leaderWorkLateClockIns;
+
+  /// No description provided for @leaderWorkOpenTimeClock.
+  ///
+  /// In en, this message translates to:
+  /// **'Open time clock'**
+  String get leaderWorkOpenTimeClock;
+
+  /// No description provided for @leaderWorkNoUser.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in to view your scheduled work.'**
+  String get leaderWorkNoUser;
+
+  /// No description provided for @leaderWorkLoadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load scheduled work metrics.'**
+  String get leaderWorkLoadError;
+
+  /// No description provided for @timeClockEarlyClockOutTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Clocking out early'**
+  String get timeClockEarlyClockOutTitle;
+
+  /// No description provided for @timeClockLateClockOutTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Clocking out late'**
+  String get timeClockLateClockOutTitle;
+
+  /// No description provided for @timeClockEarlyClockOutBody.
+  ///
+  /// In en, this message translates to:
+  /// **'You are clocking out {minutes} minutes before your scheduled end. Please explain why.'**
+  String timeClockEarlyClockOutBody(int minutes);
+
+  /// No description provided for @timeClockLateClockOutBody.
+  ///
+  /// In en, this message translates to:
+  /// **'You are clocking out {minutes} minutes after your scheduled end. Please explain why.'**
+  String timeClockLateClockOutBody(int minutes);
+
+  /// No description provided for @timeClockClockOutNoteLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Explanation'**
+  String get timeClockClockOutNoteLabel;
+
+  /// No description provided for @timeClockClockOutNoteHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Briefly explain why this shift ended early or late'**
+  String get timeClockClockOutNoteHint;
+
+  /// No description provided for @timeClockClockOutNoteRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Please add a short explanation.'**
+  String get timeClockClockOutNoteRequired;
+
+  /// No description provided for @timeClockContinueClockOut.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue clock-out'**
+  String get timeClockContinueClockOut;
+
+  /// No description provided for @timeClockClockOutHelpText.
+  ///
+  /// In en, this message translates to:
+  /// **'Click \"Clock Out\" to finish and submit your timesheet'**
+  String get timeClockClockOutHelpText;
+
+  /// No description provided for @timeClockClockInHelpText.
+  ///
+  /// In en, this message translates to:
+  /// **'Click \"Clock In\" to start tracking your scheduled work time'**
+  String get timeClockClockInHelpText;
+
+  /// No description provided for @timeClockTeachingSessionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Teaching: {name}'**
+  String timeClockTeachingSessionTitle(String name);
+
+  /// No description provided for @timeClockLeadershipSessionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Leadership: {name}'**
+  String timeClockLeadershipSessionTitle(String name);
 }
 
 class _AppLocalizationsDelegate

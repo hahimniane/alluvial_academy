@@ -38,7 +38,12 @@ class _ParentClassesScreenState extends State<ParentClassesScreen> {
     }
     try {
       final children = await ParentService.getParentChildren(uid);
-      if (mounted) setState(() { _children = children; _loading = false; });
+      if (mounted) {
+        setState(() {
+          _children = children;
+          _loading = false;
+        });
+      }
     } catch (_) {
       if (mounted) setState(() => _loading = false);
     }
@@ -53,7 +58,7 @@ class _ParentClassesScreenState extends State<ParentClassesScreen> {
         elevation: 0,
         automaticallyImplyLeading: false,
         title: Text(
-          'Classes',
+          AppLocalizations.of(context)!.navClasses,
           style: GoogleFonts.inter(
             fontSize: 20,
             fontWeight: FontWeight.w800,
@@ -75,10 +80,9 @@ class _ParentClassesScreenState extends State<ParentClassesScreen> {
                   onRefresh: _loadChildren,
                   child: ListView(
                     padding: const EdgeInsets.all(16),
-                    children: _children.map((child) => _ChildClassesSection(
-                      studentId: child['id'] as String,
-                      studentName: child['name'] as String,
-                    )).toList(),
+                    children: [
+                      _ParentClassesList(children: _children),
+                    ],
                   ),
                 ),
     );
@@ -106,23 +110,60 @@ class _ParentClassesScreenState extends State<ParentClassesScreen> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Per-child section — mirrors AdminClassesScreen exactly
+// Combined child class list. Siblings in the same room/time show one join card.
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _ChildClassesSection extends StatefulWidget {
-  final String studentId;
-  final String studentName;
+class _ParentClassGroup {
+  final String key;
+  final TeachingShift shift;
+  final List<String> childIds;
+  final List<String> childNames;
 
-  const _ChildClassesSection({
-    required this.studentId,
-    required this.studentName,
+  const _ParentClassGroup({
+    required this.key,
+    required this.shift,
+    required this.childIds,
+    required this.childNames,
   });
-
-  @override
-  State<_ChildClassesSection> createState() => _ChildClassesSectionState();
 }
 
-class _ChildClassesSectionState extends State<_ChildClassesSection> {
+class _ParentClassGroupBuilder {
+  final String key;
+  TeachingShift shift;
+  final List<String> childIds = [];
+  final List<String> childNames = [];
+
+  _ParentClassGroupBuilder({
+    required this.key,
+    required this.shift,
+  });
+
+  void addChild(String childId, String childName) {
+    if (childIds.contains(childId)) return;
+    childIds.add(childId);
+    childNames.add(childName);
+  }
+
+  _ParentClassGroup build() {
+    return _ParentClassGroup(
+      key: key,
+      shift: shift,
+      childIds: List.unmodifiable(childIds),
+      childNames: List.unmodifiable(childNames),
+    );
+  }
+}
+
+class _ParentClassesList extends StatefulWidget {
+  final List<Map<String, dynamic>> children;
+
+  const _ParentClassesList({required this.children});
+
+  @override
+  State<_ParentClassesList> createState() => _ParentClassesListState();
+}
+
+class _ParentClassesListState extends State<_ParentClassesList> {
   bool _showUpcoming = true;
   final Map<String, LiveKitRoomPresenceResult> _presenceCache = {};
   // Track which shiftIds have a pending fetch so we don't flood the server
@@ -130,9 +171,11 @@ class _ChildClassesSectionState extends State<_ChildClassesSection> {
   Timer? _presenceTimer;
   Timer? _refreshTimer;
 
-  List<TeachingShift> _shifts = [];
-  bool _loadingShifts = true;
-  StreamSubscription<List<TeachingShift>>? _shiftsSubscription;
+  final Map<String, String> _studentNamesById = {};
+  final Map<String, List<TeachingShift>> _shiftsByStudentId = {};
+  final Map<String, StreamSubscription<List<TeachingShift>>>
+      _shiftSubscriptions = {};
+  final Set<String> _loadingStudentIds = {};
 
   @override
   void initState() {
@@ -149,34 +192,67 @@ class _ChildClassesSectionState extends State<_ChildClassesSection> {
   }
 
   @override
+  void didUpdateWidget(covariant _ParentClassesList oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final oldIds = oldWidget.children.map((child) => child['id']).join('|');
+    final newIds = widget.children.map((child) => child['id']).join('|');
+    if (oldIds != newIds) {
+      _subscribeToShifts();
+    }
+  }
+
+  @override
   void dispose() {
     _presenceTimer?.cancel();
     _refreshTimer?.cancel();
-    _shiftsSubscription?.cancel();
+    for (final subscription in _shiftSubscriptions.values) {
+      subscription.cancel();
+    }
     super.dispose();
   }
 
   void _subscribeToShifts() {
-    _shiftsSubscription?.cancel();
-    _shiftsSubscription = ShiftService.getStudentShifts(widget.studentId).listen(
-      (shifts) {
-        if (!mounted) return;
-        setState(() {
-          _shifts = shifts;
-          _loadingShifts = false;
-        });
-        // Kick off presence fetch for any newly active classes
-        for (final s in shifts) {
-          final isActive = s.status == ShiftStatus.active || s.isClockedIn;
-          if (isActive && !_presenceCache.containsKey(s.id)) {
-            _fetchPresence(s.id);
+    for (final subscription in _shiftSubscriptions.values) {
+      subscription.cancel();
+    }
+    _shiftSubscriptions.clear();
+    _studentNamesById.clear();
+    _shiftsByStudentId.clear();
+    _loadingStudentIds.clear();
+
+    for (final child in widget.children) {
+      final studentId = (child['id'] ?? '').toString();
+      if (studentId.isEmpty) continue;
+      _studentNamesById[studentId] =
+          (child['name'] ?? studentId).toString().trim().isNotEmpty
+              ? (child['name'] ?? studentId).toString().trim()
+              : studentId;
+      _loadingStudentIds.add(studentId);
+      _shiftSubscriptions[studentId] =
+          ShiftService.getStudentShifts(studentId).listen(
+        (shifts) {
+          if (!mounted) return;
+          setState(() {
+            _shiftsByStudentId[studentId] = shifts;
+            _loadingStudentIds.remove(studentId);
+          });
+          for (final shift in shifts) {
+            final isActive =
+                shift.status == ShiftStatus.active || shift.isClockedIn;
+            if (isActive && !_presenceCache.containsKey(shift.id)) {
+              _fetchPresence(shift.id);
+            }
           }
-        }
-      },
-      onError: (_) {
-        if (mounted) setState(() => _loadingShifts = false);
-      },
-    );
+        },
+        onError: (_) {
+          if (mounted) {
+            setState(() => _loadingStudentIds.remove(studentId));
+          }
+        },
+      );
+    }
+
+    if (mounted) setState(() {});
   }
 
   Future<void> _fetchPresence(String shiftId) async {
@@ -193,43 +269,110 @@ class _ChildClassesSectionState extends State<_ChildClassesSection> {
   }
 
   void _refreshActivePresence() {
-    for (final shift in _shifts) {
+    for (final shift in _allShifts) {
       final isActive = shift.status == ShiftStatus.active || shift.isClockedIn;
       if (isActive) _fetchPresence(shift.id);
     }
   }
 
+  List<TeachingShift> get _allShifts => _shiftsByStudentId.values
+      .expand((shifts) => shifts)
+      .toList(growable: false);
+
   // ── Build ────────────────────────────────────────────────────────────────
+
+  List<_ParentClassGroup> _buildClassGroups() {
+    final builders = <String, _ParentClassGroupBuilder>{};
+
+    for (final entry in _shiftsByStudentId.entries) {
+      final studentId = entry.key;
+      final studentName = _studentNamesById[studentId] ?? studentId;
+
+      for (final shift in entry.value) {
+        final key = _classGroupKey(shift);
+        final builder = builders.putIfAbsent(
+          key,
+          () => _ParentClassGroupBuilder(key: key, shift: shift),
+        );
+        builder.addChild(studentId, studentName);
+
+        final currentCanJoin = VideoCallService.canJoinClass(builder.shift);
+        final candidateCanJoin = VideoCallService.canJoinClass(shift);
+        if (candidateCanJoin && !currentCanJoin) {
+          builder.shift = shift;
+        }
+      }
+    }
+
+    return builders.values.map((builder) => builder.build()).toList();
+  }
+
+  String _classGroupKey(TeachingShift shift) {
+    String clean(String? value) => (value ?? '').trim();
+
+    final livekitRoomName = clean(shift.livekitRoomName);
+    if (livekitRoomName.isNotEmpty) return 'livekit:$livekitRoomName';
+
+    final zoomMeetingId = clean(shift.zoomMeetingId);
+    if (zoomMeetingId.isNotEmpty) {
+      final roomKey = clean(shift.breakoutRoomKey).isNotEmpty
+          ? clean(shift.breakoutRoomKey)
+          : clean(shift.breakoutRoomName);
+      return 'zoom:$zoomMeetingId:$roomKey';
+    }
+
+    final hubMeetingId = clean(shift.hubMeetingId);
+    if (hubMeetingId.isNotEmpty) {
+      final roomKey = clean(shift.breakoutRoomKey).isNotEmpty
+          ? clean(shift.breakoutRoomKey)
+          : clean(shift.breakoutRoomName);
+      return 'hub:$hubMeetingId:$roomKey';
+    }
+
+    final subjectKey = clean(shift.subjectId).isNotEmpty
+        ? clean(shift.subjectId)
+        : clean(shift.subjectDisplayName).isNotEmpty
+            ? clean(shift.subjectDisplayName).toLowerCase()
+            : shift.subject.name;
+    final start = shift.shiftStart.toUtc().millisecondsSinceEpoch;
+    final end = shift.shiftEnd.toUtc().millisecondsSinceEpoch;
+    return 'fallback:${shift.teacherId}:$subjectKey:$start:$end';
+  }
 
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
-    final List<TeachingShift> upcoming = _shifts
-        .where((s) => s.shiftEnd.isAfter(now))
-        .toList()
-      ..sort((a, b) {
-        final aActive = a.status == ShiftStatus.active || a.isClockedIn;
-        final bActive = b.status == ShiftStatus.active || b.isClockedIn;
-        if (aActive && !bActive) return -1;
-        if (!aActive && bActive) return 1;
-        final aCanJoin = VideoCallService.canJoinClass(a);
-        final bCanJoin = VideoCallService.canJoinClass(b);
-        if (aCanJoin && !bCanJoin) return -1;
-        if (!aCanJoin && bCanJoin) return 1;
-        return a.shiftStart.compareTo(b.shiftStart);
-      });
+    final groups = _buildClassGroups();
+    final List<_ParentClassGroup> upcoming =
+        groups.where((group) => group.shift.shiftEnd.isAfter(now)).toList()
+          ..sort((a, b) {
+            final aShift = a.shift;
+            final bShift = b.shift;
+            final aActive =
+                aShift.status == ShiftStatus.active || aShift.isClockedIn;
+            final bActive =
+                bShift.status == ShiftStatus.active || bShift.isClockedIn;
+            if (aActive && !bActive) return -1;
+            if (!aActive && bActive) return 1;
+            final aCanJoin = VideoCallService.canJoinClass(aShift);
+            final bCanJoin = VideoCallService.canJoinClass(bShift);
+            if (aCanJoin && !bCanJoin) return -1;
+            if (!aCanJoin && bCanJoin) return 1;
+            return aShift.shiftStart.compareTo(bShift.shiftStart);
+          });
 
-    final List<TeachingShift> history = _shifts
-        .where((s) => !s.shiftEnd.isAfter(now))
+    final List<_ParentClassGroup> history = groups
+        .where((group) => !group.shift.shiftEnd.isAfter(now))
         .toList()
-      ..sort((a, b) => b.shiftStart.compareTo(a.shiftStart));
+      ..sort((a, b) => b.shift.shiftStart.compareTo(a.shift.shiftStart));
 
     final displayList = _showUpcoming ? upcoming : history;
+    final isInitialLoading =
+        _loadingStudentIds.isNotEmpty && _shiftsByStudentId.isEmpty;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // ── Child header ──────────────────────────────────────────────────
         Row(
           children: [
             Container(
@@ -238,12 +381,13 @@ class _ChildClassesSectionState extends State<_ChildClassesSection> {
                 color: const Color(0xFFEFF6FF),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Icon(Icons.person, size: 18, color: Color(0xFF1D4ED8)),
+              child:
+                  const Icon(Icons.school, size: 18, color: Color(0xFF1D4ED8)),
             ),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
-                widget.studentName,
+                AppLocalizations.of(context)!.navClasses,
                 style: GoogleFonts.inter(
                   fontSize: 16,
                   fontWeight: FontWeight.w800,
@@ -257,18 +401,19 @@ class _ChildClassesSectionState extends State<_ChildClassesSection> {
         const SizedBox(height: 12),
 
         // ── List ─────────────────────────────────────────────────────────
-        if (_loadingShifts)
+        if (isInitialLoading)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 24),
             child: Center(child: CircularProgressIndicator()),
           )
         else if (displayList.isEmpty)
-          _buildEmpty(_showUpcoming ? 'No upcoming classes' : 'No class history')
+          _buildEmpty(
+              _showUpcoming ? 'No upcoming classes' : 'No class history')
         else
-          ...displayList.map((shift) => Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: _buildClassCard(shift),
-          )),
+          ...displayList.map((group) => Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _buildClassCard(group),
+              )),
 
         const SizedBox(height: 24),
       ],
@@ -302,7 +447,10 @@ class _ChildClassesSectionState extends State<_ChildClassesSection> {
           color: isSelected ? Colors.white : Colors.transparent,
           borderRadius: BorderRadius.circular(6),
           boxShadow: isSelected
-              ? [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 4)]
+              ? [
+                  BoxShadow(
+                      color: Colors.black.withOpacity(0.06), blurRadius: 4)
+                ]
               : null,
         ),
         child: Text(
@@ -310,7 +458,8 @@ class _ChildClassesSectionState extends State<_ChildClassesSection> {
           style: GoogleFonts.inter(
             fontSize: 12,
             fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-            color: isSelected ? const Color(0xFF111827) : const Color(0xFF6B7280),
+            color:
+                isSelected ? const Color(0xFF111827) : const Color(0xFF6B7280),
           ),
         ),
       ),
@@ -319,7 +468,8 @@ class _ChildClassesSectionState extends State<_ChildClassesSection> {
 
   // ── Class card — identical layout to AdminClassesScreen ─────────────────
 
-  Widget _buildClassCard(TeachingShift shift) {
+  Widget _buildClassCard(_ParentClassGroup group) {
+    final shift = group.shift;
     final now = DateTime.now();
     final isActive = shift.status == ShiftStatus.active || shift.isClockedIn;
     final canJoin = isActive || VideoCallService.canJoinClass(shift);
@@ -389,7 +539,8 @@ class _ChildClassesSectionState extends State<_ChildClassesSection> {
               Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
                       color: statusColor.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(20),
@@ -413,17 +564,20 @@ class _ChildClassesSectionState extends State<_ChildClassesSection> {
                   if (isActive && participantCount > 0) ...[
                     const SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: const Color(0xFF10B981).withOpacity(0.1),
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: const Color(0xFF10B981).withOpacity(0.3)),
+                        border: Border.all(
+                            color: const Color(0xFF10B981).withOpacity(0.3)),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Container(
-                            width: 6, height: 6,
+                            width: 6,
+                            height: 6,
                             decoration: const BoxDecoration(
                               color: Color(0xFF10B981),
                               shape: BoxShape.circle,
@@ -474,7 +628,8 @@ class _ChildClassesSectionState extends State<_ChildClassesSection> {
                   Expanded(
                     child: Text(
                       'Teacher: ${shift.teacherName.isNotEmpty ? shift.teacherName : 'Unknown'}',
-                      style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF64748B)),
+                      style: GoogleFonts.inter(
+                          fontSize: 13, color: const Color(0xFF64748B)),
                     ),
                   ),
                 ],
@@ -484,11 +639,29 @@ class _ChildClassesSectionState extends State<_ChildClassesSection> {
               // ── Date ────────────────────────────────────────────────────
               Row(
                 children: [
-                  const Icon(Icons.calendar_today, size: 16, color: Color(0xFF64748B)),
+                  const Icon(Icons.calendar_today,
+                      size: 16, color: Color(0xFF64748B)),
                   const SizedBox(width: 6),
                   Text(
                     DateFormat('EEEE, MMM d, yyyy').format(shift.shiftStart),
-                    style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF64748B)),
+                    style: GoogleFonts.inter(
+                        fontSize: 13, color: const Color(0xFF64748B)),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+
+              Row(
+                children: [
+                  const Icon(Icons.people_alt_outlined,
+                      size: 16, color: Color(0xFF64748B)),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      group.childNames.join(', '),
+                      style: GoogleFonts.inter(
+                          fontSize: 13, color: const Color(0xFF64748B)),
+                    ),
                   ),
                 ],
               ),
@@ -501,7 +674,8 @@ class _ChildClassesSectionState extends State<_ChildClassesSection> {
                   decoration: BoxDecoration(
                     color: const Color(0xFF10B981).withOpacity(0.05),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFF10B981).withOpacity(0.2)),
+                    border: Border.all(
+                        color: const Color(0xFF10B981).withOpacity(0.2)),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -509,9 +683,11 @@ class _ChildClassesSectionState extends State<_ChildClassesSection> {
                       Row(
                         children: [
                           Container(
-                            width: 8, height: 8,
+                            width: 8,
+                            height: 8,
                             decoration: const BoxDecoration(
-                              color: Color(0xFF10B981), shape: BoxShape.circle,
+                              color: Color(0xFF10B981),
+                              shape: BoxShape.circle,
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -535,7 +711,8 @@ class _ChildClassesSectionState extends State<_ChildClassesSection> {
                             )
                           else
                             const SizedBox(
-                              width: 12, height: 12,
+                              width: 12,
+                              height: 12,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
                                 color: Color(0xFF10B981),
@@ -543,21 +720,25 @@ class _ChildClassesSectionState extends State<_ChildClassesSection> {
                             ),
                         ],
                       ),
-                      if (presence != null && presence.participants.isNotEmpty) ...[
+                      if (presence != null &&
+                          presence.participants.isNotEmpty) ...[
                         const SizedBox(height: 10),
                         ...presence.participants.map((p) {
                           final duration = p.joinedAt != null
-                              ? _formatDuration(DateTime.now().difference(p.joinedAt!))
+                              ? _formatDuration(
+                                  DateTime.now().difference(p.joinedAt!))
                               : '';
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 8),
                             child: Row(
                               children: [
                                 Container(
-                                  width: 28, height: 28,
+                                  width: 28,
+                                  height: 28,
                                   decoration: BoxDecoration(
                                     color: p.isPublisher
-                                        ? const Color(0xFF10B981).withOpacity(0.2)
+                                        ? const Color(0xFF10B981)
+                                            .withOpacity(0.2)
                                         : Colors.grey[200],
                                     shape: BoxShape.circle,
                                   ),
@@ -572,7 +753,8 @@ class _ChildClassesSectionState extends State<_ChildClassesSection> {
                                 const SizedBox(width: 10),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         p.name.isNotEmpty ? p.name : p.identity,
@@ -596,7 +778,8 @@ class _ChildClassesSectionState extends State<_ChildClassesSection> {
                                 if (duration.isNotEmpty)
                                   Container(
                                     padding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 3,
+                                      horizontal: 8,
+                                      vertical: 3,
                                     ),
                                     decoration: BoxDecoration(
                                       color: Colors.white,
@@ -615,7 +798,8 @@ class _ChildClassesSectionState extends State<_ChildClassesSection> {
                             ),
                           );
                         }),
-                      ] else if (presence != null && presence.participants.isEmpty) ...[
+                      ] else if (presence != null &&
+                          presence.participants.isEmpty) ...[
                         const SizedBox(height: 8),
                         Text(
                           AppLocalizations.of(context)!.noOneHasJoinedYet,
@@ -681,7 +865,8 @@ class _ChildClassesSectionState extends State<_ChildClassesSection> {
       AppLogger.error('ParentClasses: join error: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to join: $e'), backgroundColor: Colors.red),
+          SnackBar(
+              content: Text('Failed to join: $e'), backgroundColor: Colors.red),
         );
       }
     }
@@ -705,7 +890,8 @@ class _ChildClassesSectionState extends State<_ChildClassesSection> {
     );
   }
 
-  Future<LiveKitRoomPresenceResult?> _fetchPresenceAndReturn(String shiftId) async {
+  Future<LiveKitRoomPresenceResult?> _fetchPresenceAndReturn(
+      String shiftId) async {
     try {
       final result = await LiveKitService.getRoomPresence(shiftId);
       if (mounted) setState(() => _presenceCache[shiftId] = result);
@@ -736,7 +922,8 @@ class _ChildClassesSectionState extends State<_ChildClassesSection> {
           const SizedBox(width: 10),
           Text(
             message,
-            style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF6B7280)),
+            style:
+                GoogleFonts.inter(fontSize: 13, color: const Color(0xFF6B7280)),
           ),
         ],
       ),
@@ -778,7 +965,8 @@ class _ClassDetailsSheet extends StatelessWidget {
             // Handle
             Container(
               margin: const EdgeInsets.only(top: 12),
-              width: 40, height: 4,
+              width: 40,
+              height: 4,
               decoration: BoxDecoration(
                 color: Colors.grey[300],
                 borderRadius: BorderRadius.circular(2),
@@ -805,7 +993,8 @@ class _ClassDetailsSheet extends StatelessWidget {
                       ),
                       if (isActive)
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
                             color: const Color(0xFF10B981).withOpacity(0.1),
                             borderRadius: BorderRadius.circular(20),
@@ -814,9 +1003,11 @@ class _ClassDetailsSheet extends StatelessWidget {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Container(
-                                width: 8, height: 8,
+                                width: 8,
+                                height: 8,
                                 decoration: const BoxDecoration(
-                                  color: Color(0xFF10B981), shape: BoxShape.circle,
+                                  color: Color(0xFF10B981),
+                                  shape: BoxShape.circle,
                                 ),
                               ),
                               const SizedBox(width: 6),
@@ -835,8 +1026,10 @@ class _ClassDetailsSheet extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    DateFormat('EEEE, MMMM d, yyyy • h:mm a').format(shift.shiftStart),
-                    style: GoogleFonts.inter(fontSize: 14, color: const Color(0xFF64748B)),
+                    DateFormat('EEEE, MMMM d, yyyy • h:mm a')
+                        .format(shift.shiftStart),
+                    style: GoogleFonts.inter(
+                        fontSize: 14, color: const Color(0xFF64748B)),
                   ),
                 ],
               ),
@@ -852,8 +1045,11 @@ class _ClassDetailsSheet extends StatelessWidget {
                 children: [
                   // Teacher section
                   _buildSection('Teacher', Icons.person, [
-                    _buildInfoRow('Name',
-                        shift.teacherName.isNotEmpty ? shift.teacherName : 'Unknown'),
+                    _buildInfoRow(
+                        'Name',
+                        shift.teacherName.isNotEmpty
+                            ? shift.teacherName
+                            : 'Unknown'),
                     if (shift.clockInTime != null)
                       _buildInfoRow(
                         'Clocked in',
@@ -862,7 +1058,8 @@ class _ClassDetailsSheet extends StatelessWidget {
                     if (shift.clockInTime != null && isActive)
                       _buildInfoRow(
                         'Time in class',
-                        _formatDuration(DateTime.now().difference(shift.clockInTime!)),
+                        _formatDuration(
+                            DateTime.now().difference(shift.clockInTime!)),
                       ),
                   ]),
 
@@ -873,19 +1070,26 @@ class _ClassDetailsSheet extends StatelessWidget {
                     'Assigned Students (${shift.studentIds.length})',
                     Icons.people,
                     shift.studentNames.isEmpty
-                        ? [_buildInfoRow('Students', '${shift.studentIds.length} assigned')]
-                        : shift.studentNames.map((n) => _buildInfoRow('', n)).toList(),
+                        ? [
+                            _buildInfoRow('Students',
+                                '${shift.studentIds.length} assigned')
+                          ]
+                        : shift.studentNames
+                            .map((n) => _buildInfoRow('', n))
+                            .toList(),
                   ),
 
                   // Currently in class (LiveKit)
-                  if (presence != null && presence!.participants.isNotEmpty) ...[
+                  if (presence != null &&
+                      presence!.participants.isNotEmpty) ...[
                     const SizedBox(height: 20),
                     _buildSection(
                       'Currently in Class (${presence!.participantCount})',
                       Icons.videocam,
                       presence!.participants.map((p) {
                         final duration = p.joinedAt != null
-                            ? _formatDuration(DateTime.now().difference(p.joinedAt!))
+                            ? _formatDuration(
+                                DateTime.now().difference(p.joinedAt!))
                             : AppLocalizations.of(context)!.commonUnknown;
                         return _buildParticipantRow(
                           p.name.isNotEmpty ? p.name : p.identity,
@@ -984,7 +1188,8 @@ class _ClassDetailsSheet extends StatelessWidget {
               width: 100,
               child: Text(
                 label,
-                style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF64748B)),
+                style: GoogleFonts.inter(
+                    fontSize: 13, color: const Color(0xFF64748B)),
               ),
             ),
           Expanded(
@@ -1009,7 +1214,8 @@ class _ClassDetailsSheet extends StatelessWidget {
       child: Row(
         children: [
           Container(
-            width: 32, height: 32,
+            width: 32,
+            height: 32,
             decoration: BoxDecoration(
               color: isPublisher
                   ? const Color(0xFF10B981).withOpacity(0.1)
@@ -1019,7 +1225,9 @@ class _ClassDetailsSheet extends StatelessWidget {
             child: Icon(
               isPublisher ? Icons.mic : Icons.mic_off,
               size: 16,
-              color: isPublisher ? const Color(0xFF10B981) : const Color(0xFF64748B),
+              color: isPublisher
+                  ? const Color(0xFF10B981)
+                  : const Color(0xFF64748B),
             ),
           ),
           const SizedBox(width: 12),
@@ -1037,7 +1245,8 @@ class _ClassDetailsSheet extends StatelessWidget {
                 ),
                 Text(
                   role,
-                  style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF64748B)),
+                  style: GoogleFonts.inter(
+                      fontSize: 11, color: const Color(0xFF64748B)),
                 ),
               ],
             ),

@@ -1156,6 +1156,37 @@ async function requireAdminCaller(request) {
   return auth.uid;
 }
 
+function roleValue(data) {
+  return (data?.role || data?.user_type || data?.userType || '')
+    .toString()
+    .trim()
+    .toLowerCase();
+}
+
+function isParentUser(data) {
+  const role = roleValue(data);
+  return role === 'parent' || role === 'guardian';
+}
+
+function stringList(value) {
+  if (!Array.isArray(value)) return [];
+  return value.map((item) => String(item).trim()).filter(Boolean);
+}
+
+async function validRemainingGuardianIds(db, guardianIds) {
+  const uniqueIds = [...new Set(guardianIds.map((id) => id.trim()).filter(Boolean))];
+  if (uniqueIds.length === 0) return [];
+
+  const snaps = await Promise.all(
+    uniqueIds.map((id) => db.collection('users').doc(id).get()),
+  );
+
+  return snaps
+    .map((snap, index) => ({ id: uniqueIds[index], snap }))
+    .filter(({ snap }) => snap.exists && isParentUser(snap.data() || {}))
+    .map(({ id }) => id);
+}
+
 /**
  * Admin-only: sever the link between a parent/guardian and a student.
  *
@@ -1173,6 +1204,9 @@ const unlinkGuardianFromStudent = async (request) => {
   const studentUid = String(payload.studentUid || '').trim();
   const parentUid = String(payload.parentUid || '').trim();
   const reason = String(payload.reason || '').trim().slice(0, 500);
+  const convertStudentToAdult =
+    payload.convertStudentToAdult === true ||
+    payload.markStudentAdult === true;
 
   if (!studentUid) {
     throw new functions.https.HttpsError('invalid-argument', 'studentUid is required');
@@ -1194,12 +1228,24 @@ const unlinkGuardianFromStudent = async (request) => {
   }
 
   const studentData = studentSnap.data() || {};
+  if (roleValue(studentData) !== 'student') {
+    throw new functions.https.HttpsError('failed-precondition', 'Selected user is not a student');
+  }
   const currentGuardians = [
-    ...((studentData.guardian_ids) || []),
-    ...((studentData.guardianIds) || []),
-  ].map(String);
+    ...stringList(studentData.guardian_ids),
+    ...stringList(studentData.guardianIds),
+    studentData.guardian_id ? String(studentData.guardian_id).trim() : '',
+    studentData.parent_id ? String(studentData.parent_id).trim() : '',
+    studentData.parentId ? String(studentData.parentId).trim() : '',
+  ].filter(Boolean);
   const parentData = parentSnap.exists ? (parentSnap.data() || {}) : {};
-  const currentChildren = ((parentData.children_ids) || []).map(String);
+  if (parentSnap.exists && !isParentUser(parentData)) {
+    throw new functions.https.HttpsError('failed-precondition', 'Selected guardian is not a parent account');
+  }
+  const currentChildren = [
+    ...stringList(parentData.children_ids),
+    ...stringList(parentData.childrenIds),
+  ];
 
   const wasLinked =
     currentGuardians.includes(parentUid) || currentChildren.includes(studentUid);
@@ -1218,7 +1264,8 @@ const unlinkGuardianFromStudent = async (request) => {
   )];
   const remainingGuardians = dedupedGuardians.filter((id) => id !== parentUid);
   const isMinor = studentData.is_adult_student !== true;
-  if (isMinor && remainingGuardians.length === 0) {
+  const validRemainingGuardians = await validRemainingGuardianIds(db, remainingGuardians);
+  if (isMinor && validRemainingGuardians.length === 0 && !convertStudentToAdult) {
     throw new functions.https.HttpsError(
       'failed-precondition',
       'Cannot unlink the only guardian of a minor student. Link another guardian first, or mark this student as an adult.',
@@ -1234,6 +1281,22 @@ const unlinkGuardianFromStudent = async (request) => {
     {
       guardian_ids: admin.firestore.FieldValue.arrayRemove(parentUid),
       guardianIds: admin.firestore.FieldValue.arrayRemove(parentUid),
+      ...(String(studentData.guardian_id || '').trim() === parentUid
+        ? { guardian_id: admin.firestore.FieldValue.delete() }
+        : {}),
+      ...(String(studentData.parent_id || '').trim() === parentUid
+        ? { parent_id: admin.firestore.FieldValue.delete() }
+        : {}),
+      ...(String(studentData.parentId || '').trim() === parentUid
+        ? { parentId: admin.firestore.FieldValue.delete() }
+        : {}),
+      ...(isMinor && validRemainingGuardians.length === 0 && convertStudentToAdult
+        ? {
+            is_adult_student: true,
+            adult_status_updated_at: now,
+            adult_status_updated_by: callerUid,
+          }
+        : {}),
       updated_at: now,
     },
     { merge: true },
@@ -1244,6 +1307,7 @@ const unlinkGuardianFromStudent = async (request) => {
       parentRef,
       {
         children_ids: admin.firestore.FieldValue.arrayRemove(studentUid),
+        childrenIds: admin.firestore.FieldValue.arrayRemove(studentUid),
         updated_at: now,
       },
       { merge: true },
@@ -1294,6 +1358,8 @@ const unlinkGuardianFromStudent = async (request) => {
       reason: reason || null,
       performedBy: callerUid,
       enrollmentsTouched,
+      convertedStudentToAdult:
+        isMinor && validRemainingGuardians.length === 0 && convertStudentToAdult,
       studentName: `${studentData.first_name || ''} ${studentData.last_name || ''}`.trim() || null,
       parentName: `${parentData.first_name || ''} ${parentData.last_name || ''}`.trim() || null,
       createdAt: now,
@@ -1302,7 +1368,7 @@ const unlinkGuardianFromStudent = async (request) => {
     console.error('unlinkGuardianFromStudent: audit write failed', e.message || e);
   }
 
-  const remainingGuardianCount = remainingGuardians.length;
+  const remainingGuardianCount = validRemainingGuardians.length;
 
   return {
     success: true,
@@ -1310,6 +1376,8 @@ const unlinkGuardianFromStudent = async (request) => {
     parentUid,
     remainingGuardianCount,
     enrollmentsTouched,
+    convertedStudentToAdult:
+      isMinor && validRemainingGuardians.length === 0 && convertStudentToAdult,
   };
 };
 

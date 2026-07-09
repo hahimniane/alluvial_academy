@@ -21,6 +21,7 @@ import '../../../core/services/user_role_service.dart';
 import '../../shift_management/widgets/create_shift_dialog.dart'
     show EmployeeSelectionDialog;
 import 'edit_user_screen.dart';
+import '../widgets/manage_guardians_dialog.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
@@ -40,6 +41,7 @@ class _ParentSearchDialog extends StatefulWidget {
   final ValueChanged<String> onParentSelected;
   final VoidCallback onClearFilter;
   final ValueChanged<Map<String, dynamic>>? onLinkStudentToParent;
+  final ValueChanged<Map<String, dynamic>>? onManageParentStudents;
 
   const _ParentSearchDialog({
     required this.parents,
@@ -47,6 +49,7 @@ class _ParentSearchDialog extends StatefulWidget {
     required this.onParentSelected,
     required this.onClearFilter,
     this.onLinkStudentToParent,
+    this.onManageParentStudents,
   });
 
   @override
@@ -418,6 +421,47 @@ class _ParentSearchDialogState extends State<_ParentSearchDialog> {
                                                     Icons.person_add_alt_1,
                                                     size: 18,
                                                     color: Color(0xff10B981),
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      if (widget.onManageParentStudents != null)
+                                        Padding(
+                                          padding: const EdgeInsets.only(
+                                            left: 8,
+                                          ),
+                                          child: Tooltip(
+                                            message:
+                                                AppLocalizations.of(context)!
+                                                    .manageParentStudentsButton,
+                                            child: Material(
+                                              color: Colors.transparent,
+                                              child: InkWell(
+                                                borderRadius:
+                                                    BorderRadius.circular(10),
+                                                onTap: () {
+                                                  Navigator.pop(context);
+                                                  widget.onManageParentStudents
+                                                      ?.call(parent);
+                                                },
+                                                child: Container(
+                                                  padding:
+                                                      const EdgeInsets.all(8),
+                                                  decoration: BoxDecoration(
+                                                    color:
+                                                        const Color(0xffDC2626)
+                                                            .withValues(
+                                                                alpha: 0.1),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            10),
+                                                  ),
+                                                  child: const Icon(
+                                                    Icons.link_off,
+                                                    size: 18,
+                                                    color: Color(0xffDC2626),
                                                   ),
                                                 ),
                                               ),
@@ -847,7 +891,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
       Map<String, dynamic> parent) async {
     final parentId = (parent['id'] ?? '').toString().trim();
     if (parentId.isEmpty) {
-      _showErrorSnackBar('Invalid parent selected.');
+      _showErrorSnackBar(AppLocalizations.of(context)!.invalidParentSelected);
       return;
     }
 
@@ -919,6 +963,37 @@ class _UserManagementScreenState extends State<UserManagementScreen>
       _showErrorSnackBar(
         'Failed to link parent and student. Please try again.',
       );
+    }
+  }
+
+  Future<void> _showManageParentStudentsDialog(
+      Map<String, dynamic> parent) async {
+    final parentId = (parent['id'] ?? '').toString().trim();
+    if (parentId.isEmpty) {
+      _showErrorSnackBar(AppLocalizations.of(context)!.invalidParentSelected);
+      return;
+    }
+
+    final parentName = (parent['name'] ?? '').toString().trim().isNotEmpty
+        ? (parent['name'] ?? '').toString().trim()
+        : (parent['email'] ?? '').toString().trim().isNotEmpty
+            ? (parent['email'] ?? '').toString().trim()
+            : parentId;
+
+    if (!mounted) return;
+    final changed = await showDialog<bool>(
+      context: context,
+      builder: (_) => ManageParentStudentsDialog(
+        parentUid: parentId,
+        parentName: parentName,
+      ),
+    );
+
+    if (changed == true) {
+      await _loadParentStudentRelationships();
+      if (mounted) {
+        setState(() => _applyFilters());
+      }
     }
   }
 
@@ -1364,8 +1439,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
       for (var i = 0; i < ids.length; i++) {
         final id = ids[i].toString().trim();
         if (id.isEmpty) continue;
-        final name =
-            i < names.length ? names[i].toString().trim() : id;
+        final name = i < names.length ? names[i].toString().trim() : id;
         students.putIfAbsent(id, () => name.isEmpty ? id : name);
       }
     }
@@ -2479,44 +2553,48 @@ class _UserManagementScreenState extends State<UserManagementScreen>
     return _boundedHorizontalScrollGrid(
       minContentWidth: _kAdminsGridMinContentWidth,
       child: SfDataGrid(
-      source: _adminDataSource!,
-      rowHeight: 48,
-      headerRowHeight: 42,
-      gridLinesVisibility: GridLinesVisibility.horizontal,
-      headerGridLinesVisibility: GridLinesVisibility.horizontal,
-      columnWidthMode: ColumnWidthMode.none,
-      columns: <GridColumn>[
-        GridColumn(
-          columnName: 'FirstName',
-          width: 110,
-          label: _denseHeaderLabel(AppLocalizations.of(context)!.userFirstName),
-        ),
-        GridColumn(
-          columnName: 'LastName',
-          width: 110,
-          label: _denseHeaderLabel(AppLocalizations.of(context)!.userLastName),
-        ),
-        GridColumn(
-          columnName: 'Email',
-          width: 200,
-          label: _denseHeaderLabel(AppLocalizations.of(context)!.profileEmail),
-        ),
-        GridColumn(
-          columnName: 'UserType',
-          width: 110,
-          label: _denseHeaderLabel(AppLocalizations.of(context)!.roleType),
-        ),
-        GridColumn(
-          columnName: 'AdminType',
-          width: 140,
-          label: _denseHeaderLabel(AppLocalizations.of(context)!.adminType),
-        ),
-        GridColumn(
-          columnName: 'Actions',
-          width: 250,
-          label: _denseHeaderLabel(AppLocalizations.of(context)!.timesheetActions),
-        ),
-      ],
+        source: _adminDataSource!,
+        rowHeight: 48,
+        headerRowHeight: 42,
+        gridLinesVisibility: GridLinesVisibility.horizontal,
+        headerGridLinesVisibility: GridLinesVisibility.horizontal,
+        columnWidthMode: ColumnWidthMode.none,
+        columns: <GridColumn>[
+          GridColumn(
+            columnName: 'FirstName',
+            width: 110,
+            label:
+                _denseHeaderLabel(AppLocalizations.of(context)!.userFirstName),
+          ),
+          GridColumn(
+            columnName: 'LastName',
+            width: 110,
+            label:
+                _denseHeaderLabel(AppLocalizations.of(context)!.userLastName),
+          ),
+          GridColumn(
+            columnName: 'Email',
+            width: 200,
+            label:
+                _denseHeaderLabel(AppLocalizations.of(context)!.profileEmail),
+          ),
+          GridColumn(
+            columnName: 'UserType',
+            width: 110,
+            label: _denseHeaderLabel(AppLocalizations.of(context)!.roleType),
+          ),
+          GridColumn(
+            columnName: 'AdminType',
+            width: 140,
+            label: _denseHeaderLabel(AppLocalizations.of(context)!.adminType),
+          ),
+          GridColumn(
+            columnName: 'Actions',
+            width: 250,
+            label: _denseHeaderLabel(
+                AppLocalizations.of(context)!.timesheetActions),
+          ),
+        ],
       ),
     );
   }
@@ -2617,6 +2695,9 @@ class _UserManagementScreenState extends State<UserManagementScreen>
         },
         onLinkStudentToParent: (parent) {
           _showLinkStudentToParentDialog(parent);
+        },
+        onManageParentStudents: (parent) {
+          _showManageParentStudentsDialog(parent);
         },
       ),
     );
@@ -2722,8 +2803,8 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                               children: [
                                 // Users Tab
                                 Container(
-                                  padding: const EdgeInsets.fromLTRB(
-                                      6, 4, 6, 6),
+                                  padding:
+                                      const EdgeInsets.fromLTRB(6, 4, 6, 6),
                                   child: _employeeDataSource == null
                                       ? const Center(
                                           child: CircularProgressIndicator())
@@ -2815,8 +2896,8 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                 ),
                                 // Admins Tab
                                 Container(
-                                  padding: const EdgeInsets.fromLTRB(
-                                      10, 8, 10, 10),
+                                  padding:
+                                      const EdgeInsets.fromLTRB(10, 8, 10, 10),
                                   child: Column(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,

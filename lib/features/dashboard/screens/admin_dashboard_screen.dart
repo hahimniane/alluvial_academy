@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../../../core/services/teacher_metrics_service.dart';
 import '../../../core/services/user_role_service.dart';
 import 'package:alluwalacademyadmin/features/settings/screens/system_settings_screen.dart';
 
@@ -48,6 +49,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
   Map<String, dynamic>? userData;
   Map<String, dynamic> stats = {};
   Map<String, dynamic> teacherStats = {};
+  Future<TeacherBasicMetrics?>? _leaderWorkMetricsFuture;
   int _profileCompletionTrigger = 0; // Trigger to refresh profile completion
 
   // Platform detection for responsive layouts - check screen width instead
@@ -73,10 +75,13 @@ class _AdminDashboardState extends State<AdminDashboard> {
   Future<void> _loadUserData() async {
     final role = await UserRoleService.getCurrentUserRole();
     final data = await UserRoleService.getCurrentUserData();
+    final lowerRole = role?.toLowerCase() ?? '';
+    final isAdmin = lowerRole == 'admin' || lowerRole == 'super_admin';
     if (mounted) {
       setState(() {
         userRole = role;
         userData = data;
+        _leaderWorkMetricsFuture = isAdmin ? _loadLeaderWorkMetrics() : null;
       });
 
       // Load teacher-specific stats if user is a teacher
@@ -86,12 +91,22 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
       // For this redesign: admin uses per-card queries (no global stats reads).
       // Other roles keep using the existing stats loading logic.
-      final lowerRole = role?.toLowerCase() ?? '';
-      final isAdmin = lowerRole == 'admin' || lowerRole == 'super_admin';
       if (!isAdmin && lowerRole != 'teacher') {
         _loadStats();
       }
     }
+  }
+
+  Future<TeacherBasicMetrics?> _loadLeaderWorkMetrics() async {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) return null;
+
+    final now = DateTime.now();
+    return TeacherMetricsService.aggregate(
+      teacherId: currentUser.uid,
+      start: DateTime(now.year, now.month),
+      end: DateTime(now.year, now.month + 1, 0, 23, 59, 59),
+    );
   }
 
   Future<void> _loadTeacherStats() async {
@@ -197,7 +212,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
   Future<void> _loadStats() async {
     try {
       final role = userRole ?? await UserRoleService.getCurrentUserRole();
-      final isAdmin = role?.toLowerCase() == 'admin' || role?.toLowerCase() == 'super_admin';
+      final isAdmin = role?.toLowerCase() == 'admin' ||
+          role?.toLowerCase() == 'super_admin';
       // Redesign: Admin home cards use per-card queries (no global KPI/stat reads).
       if (isAdmin) {
         if (mounted && stats.isNotEmpty) {
@@ -442,7 +458,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
     if (userRole?.toLowerCase() == 'teacher') {
       return const TeacherHomeScreen(showScaffold: false);
     }
-    
+
     // On mobile, don't show the welcome header (only show it on desktop)
     if (_isMobile) {
       return _buildDashboardContent();
@@ -534,6 +550,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
   Widget _buildDashboardContent() {
     switch (userRole?.toLowerCase()) {
       case 'admin':
+      case 'super_admin':
         return _buildAdminDashboard();
       case 'teacher':
         // ✅ UNIFIED TEACHER DASHBOARD - Use TeacherHomeScreen (single source of truth)
@@ -546,6 +563,236 @@ class _AdminDashboardState extends State<AdminDashboard> {
       default:
         return _buildDefaultDashboard();
     }
+  }
+
+  Widget _buildLeaderWorkSummaryCard() {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final future = _leaderWorkMetricsFuture;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? theme.colorScheme.surface : Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: theme.colorScheme.outline.withValues(alpha: 0.12),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.18 : 0.05),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xff059669).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.event_available_rounded,
+                  color: Color(0xff059669),
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l10n.leaderWorkCardTitle,
+                      style: GoogleFonts.inter(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                        color: theme.textTheme.titleMedium?.color,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      l10n.leaderWorkCardSubtitle,
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        color: theme.textTheme.bodySmall?.color
+                            ?.withValues(alpha: 0.7),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (!_isMobile)
+                TextButton.icon(
+                  onPressed: widget.onNavigate == null
+                      ? null
+                      : () => widget.onNavigate!(6),
+                  icon: const Icon(Icons.timer_outlined, size: 18),
+                  label: Text(l10n.leaderWorkOpenTimeClock),
+                ),
+            ],
+          ),
+          if (_isMobile) ...[
+            const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: widget.onNavigate == null
+                    ? null
+                    : () => widget.onNavigate!(6),
+                icon: const Icon(Icons.timer_outlined, size: 18),
+                label: Text(l10n.leaderWorkOpenTimeClock),
+              ),
+            ),
+          ],
+          const SizedBox(height: 18),
+          if (future == null)
+            Text(
+              l10n.leaderWorkNoUser,
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.7),
+              ),
+            )
+          else
+            FutureBuilder<TeacherBasicMetrics?>(
+              future: future,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState != ConnectionState.done) {
+                  return const LinearProgressIndicator(minHeight: 3);
+                }
+                if (snapshot.hasError) {
+                  return Text(
+                    l10n.leaderWorkLoadError,
+                    style: GoogleFonts.inter(
+                      fontSize: 13,
+                      color: theme.colorScheme.error,
+                    ),
+                  );
+                }
+
+                final metrics = snapshot.data;
+                if (metrics == null) {
+                  return Text(
+                    l10n.leaderWorkNoUser,
+                    style: GoogleFonts.inter(
+                      fontSize: 13,
+                      color: theme.textTheme.bodySmall?.color
+                          ?.withValues(alpha: 0.7),
+                    ),
+                  );
+                }
+
+                return LayoutBuilder(
+                  builder: (context, constraints) {
+                    final narrow = constraints.maxWidth < 560;
+                    final tileWidth = narrow
+                        ? (constraints.maxWidth - 12) / 2
+                        : (constraints.maxWidth - 36) / 4;
+                    return Wrap(
+                      spacing: 12,
+                      runSpacing: 12,
+                      children: [
+                        _buildLeaderWorkMetricTile(
+                          width: tileWidth,
+                          label: l10n.leaderWorkScheduled,
+                          value: metrics.scheduledClasses.toString(),
+                          icon: Icons.calendar_month_outlined,
+                          color: const Color(0xff0386FF),
+                        ),
+                        _buildLeaderWorkMetricTile(
+                          width: tileWidth,
+                          label: l10n.leaderWorkCompleted,
+                          value: metrics.completedClasses.toString(),
+                          icon: Icons.check_circle_outline,
+                          color: const Color(0xff10B981),
+                        ),
+                        _buildLeaderWorkMetricTile(
+                          width: tileWidth,
+                          label: l10n.leaderWorkAbsences,
+                          value: metrics.missedClasses.toString(),
+                          icon: Icons.event_busy_outlined,
+                          color: const Color(0xffEF4444),
+                        ),
+                        _buildLeaderWorkMetricTile(
+                          width: tileWidth,
+                          label: l10n.leaderWorkLateClockIns,
+                          value: metrics.lateClockIns.toString(),
+                          icon: Icons.schedule_outlined,
+                          color: const Color(0xffF59E0B),
+                        ),
+                      ],
+                    );
+                  },
+                );
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLeaderWorkMetricTile({
+    required double width,
+    required String label,
+    required String value,
+    required IconData icon,
+    required Color color,
+  }) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return SizedBox(
+      width: width.clamp(120, 260).toDouble(),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: isDark ? 0.16 : 0.08),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: color, size: 19),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    value,
+                    style: GoogleFonts.inter(
+                      fontSize: 19,
+                      fontWeight: FontWeight.w800,
+                      color: theme.textTheme.titleLarge?.color,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    label,
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      color: theme.textTheme.bodySmall?.color
+                          ?.withValues(alpha: 0.72),
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildAdminDashboard() {
@@ -601,6 +848,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   ],
                 ),
                 const SizedBox(height: 24),
+                _buildLeaderWorkSummaryCard(),
+                const SizedBox(height: 24),
                 ApplicantsToReviewCard(
                   onNavigate: widget.onNavigate,
                 ),
@@ -649,6 +898,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
               UpcomingShiftsCard(
                 onNavigate: widget.onNavigate,
               ),
+              const SizedBox(height: 16),
+              _buildLeaderWorkSummaryCard(),
               const SizedBox(height: 16),
               ApplicantsToReviewCard(
                 onNavigate: widget.onNavigate,
@@ -1028,14 +1279,15 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
   Widget _buildMobileTeacherDashboard() {
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 100), // Extra bottom padding for scroll
+      padding: const EdgeInsets.fromLTRB(
+          16, 16, 16, 100), // Extra bottom padding for scroll
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Compact Welcome Header
           _buildMobileTeacherWelcomeHeader(),
           const SizedBox(height: 20),
-          
+
           // Profile Alert (Condense this!)
           FutureBuilder<int>(
             key: ValueKey(_profileCompletionTrigger),
@@ -1056,19 +1308,19 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
           // Stats Grid
           _buildMobileTeacherQuickStats(),
-          
+
           const SizedBox(height: 24),
-          
+
           // Classes Section
           _buildMyClassesModern(),
-          
+
           const SizedBox(height: 24),
-          
+
           // Student Progress
           _buildStudentProgressModern(),
-          
+
           const SizedBox(height: 24),
-          
+
           // Quick Actions
           _buildQuickActionsTeacher(),
         ],
@@ -1129,7 +1381,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
               // Notification icon inside the header
               CircleAvatar(
                 backgroundColor: Colors.white.withOpacity(0.12),
-                child: const Icon(Icons.notifications, color: Colors.white, size: 20),
+                child: const Icon(Icons.notifications,
+                    color: Colors.white, size: 20),
               ),
             ],
           ),
@@ -1140,7 +1393,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
@@ -1155,17 +1409,19 @@ class _AdminDashboardState extends State<AdminDashboard> {
                         height: 16,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(Colors.white),
                         ),
                       ),
                     ],
                   ),
                 );
               }
-              
+
               final prayerInfo = snapshot.data ?? 'Prayer times unavailable';
               return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
@@ -1173,7 +1429,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.access_time, color: Colors.white, size: 16),
+                    const Icon(Icons.access_time,
+                        color: Colors.white, size: 16),
                     const SizedBox(width: 8),
                     Text(
                       prayerInfo,
@@ -1236,7 +1493,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
       builder: (context, constraints) {
         // Calculate item width based on screen size (2 columns)
         double itemWidth = (constraints.maxWidth - 12) / 2;
-        
+
         return Wrap(
           spacing: 12,
           runSpacing: 12,
@@ -2091,7 +2348,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      AppLocalizations.of(context)!.avgResponseTimeResponsetimeMs,
+                      AppLocalizations.of(context)!
+                          .avgResponseTimeResponsetimeMs,
                       style: GoogleFonts.inter(
                         fontSize: 13,
                         color:
@@ -2449,19 +2707,24 @@ class _AdminDashboardState extends State<AdminDashboard> {
       case 'Add New User':
         // Navigate to add user screen
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppLocalizations.of(context)!.navigatingToAddNewUser)),
+          SnackBar(
+              content:
+                  Text(AppLocalizations.of(context)!.navigatingToAddNewUser)),
         );
         break;
       case 'Create Form':
         // Navigate to form builder
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppLocalizations.of(context)!.navigatingToFormBuilder)),
+          SnackBar(
+              content:
+                  Text(AppLocalizations.of(context)!.navigatingToFormBuilder)),
         );
         break;
       case 'View Reports':
         // Navigate to reports
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppLocalizations.of(context)!.navigatingToReports)),
+          SnackBar(
+              content: Text(AppLocalizations.of(context)!.navigatingToReports)),
         );
         break;
       case 'Export Form Responses':
@@ -2469,7 +2732,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
         break;
       default:
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppLocalizations.of(context)!.actionFeatureComingSoon)),
+          SnackBar(
+              content:
+                  Text(AppLocalizations.of(context)!.actionFeatureComingSoon)),
         );
     }
   }
@@ -4601,7 +4866,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  AppLocalizations.of(context)!.mayAllahBlessYourTeachingEfforts,
+                  AppLocalizations.of(context)!
+                      .mayAllahBlessYourTeachingEfforts,
                   style: GoogleFonts.inter(
                     fontSize: 16,
                     color: Colors.white.withOpacity(0.9),
@@ -4993,12 +5259,15 @@ class _AdminDashboardState extends State<AdminDashboard> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                padding: EdgeInsets.all(_isMobile ? 8 : 10), // Smaller icon container on mobile
+                padding: EdgeInsets.all(
+                    _isMobile ? 8 : 10), // Smaller icon container on mobile
                 decoration: BoxDecoration(
                   color: color.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(icon, color: color, size: _isMobile ? 20 : 24), // Smaller icon on mobile
+                child: Icon(icon,
+                    color: color,
+                    size: _isMobile ? 20 : 24), // Smaller icon on mobile
               ),
               SizedBox(width: _isMobile ? 8 : 12), // Reduced spacing on mobile
               // FIX: Show only student names (pre-calculated for performance)
@@ -5020,7 +5289,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     const SizedBox(height: 4),
                     Row(
                       children: [
-                        Icon(Icons.people_outline, size: 14, color: Colors.grey.shade600),
+                        Icon(Icons.people_outline,
+                            size: 14, color: Colors.grey.shade600),
                         const SizedBox(width: 4),
                         Text(
                           studentsText,
@@ -5036,7 +5306,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
               ),
             ],
           ),
-          
+
           const SizedBox(height: 16),
           const Divider(height: 1, color: Color(0xffF1F5F9)),
           const SizedBox(height: 12),
@@ -5048,7 +5318,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
               // FIX: Wrap the Time container in Expanded to prevent collision with Status
               Expanded(
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
                     color: const Color(0xffF3F4F6),
                     borderRadius: BorderRadius.circular(8),
@@ -5072,15 +5343,16 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   ),
                 ),
               ),
-              
+
               const SizedBox(width: 8), // Add spacing between Time and Status
 
               // Status Chip
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
-                  color: shift.status == ShiftStatus.scheduled 
-                      ? const Color(0xffDCFCE7) 
+                  color: shift.status == ShiftStatus.scheduled
+                      ? const Color(0xffDCFCE7)
                       : color.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(20),
                 ),
@@ -5089,8 +5361,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   style: GoogleFonts.inter(
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
-                    color: shift.status == ShiftStatus.scheduled 
-                        ? const Color(0xff166534) 
+                    color: shift.status == ShiftStatus.scheduled
+                        ? const Color(0xff166534)
                         : color,
                   ),
                 ),
@@ -5309,7 +5581,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       builder: (context, snapshot) {
                         final percentage = snapshot.data ?? 0;
                         return Text(
-                          AppLocalizations.of(context)!.profilePercentageComplete,
+                          AppLocalizations.of(context)!
+                              .profilePercentageComplete,
                           style: GoogleFonts.inter(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
@@ -5408,7 +5681,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xffF59E0B),
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -5715,7 +5989,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
               // FIX: Smaller font to show full text
               Expanded(
                 child: Text(
-                  AppLocalizations.of(context)?.myStudentsOverview ?? 'My Students Overview',
+                  AppLocalizations.of(context)?.myStudentsOverview ??
+                      'My Students Overview',
                   style: GoogleFonts.inter(
                     fontSize: _isMobile ? 14 : 15, // Even smaller on mobile
                     fontWeight: FontWeight.w600,
@@ -5730,7 +6005,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       onPressed: _showAssignmentDialog,
                       icon: const Icon(Icons.add, size: 18), // Smaller icon
                       color: const Color(0xff06B6D4),
-                      tooltip: AppLocalizations.of(context)?.addAssignment ?? 'Add Assignment',
+                      tooltip: AppLocalizations.of(context)?.addAssignment ??
+                          'Add Assignment',
                       padding: EdgeInsets.zero, // Remove padding
                       constraints: const BoxConstraints(), // Remove constraints
                     )
@@ -5738,7 +6014,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       onPressed: _showAssignmentDialog,
                       icon: const Icon(Icons.add, size: 16),
                       label: Text(
-                        AppLocalizations.of(context)?.addAssignment ?? 'Add Assignment',
+                        AppLocalizations.of(context)?.addAssignment ??
+                            'Add Assignment',
                         style: GoogleFonts.inter(
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
@@ -5872,7 +6149,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        AppLocalizations.of(context)!.studentsWillAppearHereAfterYou,
+                        AppLocalizations.of(context)!
+                            .studentsWillAppearHereAfterYou,
                         textAlign: TextAlign.center,
                         style: GoogleFonts.inter(
                           fontSize: 14,
@@ -6472,7 +6750,8 @@ class _AssignmentDialogState extends State<_AssignmentDialog> {
     if (_selectedStudents.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(AppLocalizations.of(context)!.pleaseSelectAtLeastOneStudent),
+          content:
+              Text(AppLocalizations.of(context)!.pleaseSelectAtLeastOneStudent),
           backgroundColor: Colors.red,
         ),
       );
@@ -7143,8 +7422,8 @@ class _AssignmentDialogState extends State<_AssignmentDialog> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content:
-                  Text(AppLocalizations.of(context)!.fileAttachmentIsOnlySupportedOn),
+              content: Text(AppLocalizations.of(context)!
+                  .fileAttachmentIsOnlySupportedOn),
               backgroundColor: Colors.orange,
             ),
           );
@@ -7159,7 +7438,9 @@ class _AssignmentDialogState extends State<_AssignmentDialog> {
               children: [
                 const Icon(Icons.error, color: Colors.white),
                 SizedBox(width: 8),
-                Expanded(child: Text(AppLocalizations.of(context)!.failedToAddFileE)),
+                Expanded(
+                    child:
+                        Text(AppLocalizations.of(context)!.failedToAddFileE)),
               ],
             ),
             backgroundColor: Colors.red,
@@ -7271,7 +7552,8 @@ class _MyAssignmentsDialogState extends State<_MyAssignmentsDialog> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(AppLocalizations.of(context)!.failedToLoadAssignmentsE),
+            content:
+                Text(AppLocalizations.of(context)!.failedToLoadAssignmentsE),
             backgroundColor: Colors.red,
           ),
         );
@@ -7485,7 +7767,8 @@ class _MyAssignmentsDialogState extends State<_MyAssignmentsDialog> {
                       children: [
                         Icon(Icons.delete, size: 18, color: Colors.red),
                         SizedBox(width: 8),
-                        Text(AppLocalizations.of(context)!.commonDelete, style: TextStyle(color: Colors.red)),
+                        Text(AppLocalizations.of(context)!.commonDelete,
+                            style: TextStyle(color: Colors.red)),
                       ],
                     ),
                   ),
@@ -7572,7 +7855,8 @@ class _MyAssignmentsDialogState extends State<_MyAssignmentsDialog> {
             ],
           ),
           // Show attachments/files if they exist
-          if (assignment['attachments'] != null && (assignment['attachments'] as List).isNotEmpty) ...[
+          if (assignment['attachments'] != null &&
+              (assignment['attachments'] as List).isNotEmpty) ...[
             const SizedBox(height: 12),
             const Divider(height: 1, color: Color(0xffE5E7EB)),
             const SizedBox(height: 12),
@@ -7588,15 +7872,22 @@ class _MyAssignmentsDialogState extends State<_MyAssignmentsDialog> {
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: (assignment['attachments'] as List).map<Widget>((attachment) {
+              children:
+                  (assignment['attachments'] as List).map<Widget>((attachment) {
                 final attachmentMap = attachment as Map<String, dynamic>;
-                final fileName = attachmentMap['name'] ?? attachmentMap['originalName'] ?? 'Unknown file';
-                final downloadUrl = attachmentMap['downloadURL'] ?? attachmentMap['url'] ?? '';
+                final fileName = attachmentMap['name'] ??
+                    attachmentMap['originalName'] ??
+                    'Unknown file';
+                final downloadUrl =
+                    attachmentMap['downloadURL'] ?? attachmentMap['url'] ?? '';
                 return InkWell(
-                  onTap: downloadUrl.isNotEmpty ? () => _openFile(downloadUrl) : null,
+                  onTap: downloadUrl.isNotEmpty
+                      ? () => _openFile(downloadUrl)
+                      : null,
                   borderRadius: BorderRadius.circular(8),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
                       color: const Color(0xffF3F4F6),
                       borderRadius: BorderRadius.circular(8),
@@ -7812,21 +8103,24 @@ class _MyAssignmentsDialogState extends State<_MyAssignmentsDialog> {
 
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text(AppLocalizations.of(context)!.assignmentDeletedSuccessfully),
+                    content: Text(AppLocalizations.of(context)!
+                        .assignmentDeletedSuccessfully),
                     backgroundColor: Color(0xff10B981),
                   ),
                 );
               } catch (e) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text(AppLocalizations.of(context)!.failedToDeleteAssignmentE),
+                    content: Text(AppLocalizations.of(context)!
+                        .failedToDeleteAssignmentE),
                     backgroundColor: Colors.red,
                   ),
                 );
               }
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: Text(AppLocalizations.of(context)!.commonDelete, style: TextStyle(color: Colors.white)),
+            child: Text(AppLocalizations.of(context)!.commonDelete,
+                style: TextStyle(color: Colors.white)),
           ),
         ],
       ),

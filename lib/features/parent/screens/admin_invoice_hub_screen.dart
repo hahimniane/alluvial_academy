@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'package:alluwalacademyadmin/features/parent/screens/admin_cutoff_management_screen.dart';
 import 'package:alluwalacademyadmin/features/parent/screens/admin_create_invoice_screen.dart';
+import 'package:alluwalacademyadmin/features/parent/screens/admin_finance_overview_screen.dart';
 import 'package:alluwalacademyadmin/features/parent/screens/admin_invoices_screen.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
-/// Unified invoice hub: Create + All Invoices in a single tabbed view.
+/// Unified finance hub: overview + invoice creation + all invoices.
 class AdminInvoiceHubScreen extends StatefulWidget {
-  /// Pass 1 to open directly on the "All Invoices" tab.
+  /// Pass 3 to open directly on the "All Invoices" tab.
   final int initialTab;
 
   const AdminInvoiceHubScreen({super.key, this.initialTab = 0});
@@ -23,9 +26,9 @@ class _AdminInvoiceHubScreenState extends State<AdminInvoiceHubScreen>
   void initState() {
     super.initState();
     _tabController = TabController(
-      length: 2,
+      length: 4,
       vsync: this,
-      initialIndex: widget.initialTab.clamp(0, 1),
+      initialIndex: widget.initialTab.clamp(0, 3),
     );
   }
 
@@ -39,6 +42,7 @@ class _AdminInvoiceHubScreenState extends State<AdminInvoiceHubScreen>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    final l10n = AppLocalizations.of(context)!;
 
     return Column(
       children: [
@@ -58,14 +62,22 @@ class _AdminInvoiceHubScreenState extends State<AdminInvoiceHubScreen>
             unselectedLabelColor: cs.onSurfaceVariant,
             indicatorColor: cs.primary,
             indicatorWeight: 2.5,
-            tabs: const [
+            tabs: [
               Tab(
-                icon: Icon(Icons.add_circle_outline_rounded, size: 20),
-                text: 'Create Invoice',
+                icon: const Icon(Icons.assessment, size: 20),
+                text: l10n.financeOverviewTab,
               ),
               Tab(
-                icon: Icon(Icons.folder_special_outlined, size: 20),
-                text: 'All Invoices',
+                icon: const Icon(Icons.lock_clock_rounded, size: 20),
+                text: l10n.financeCutoffsTab,
+              ),
+              Tab(
+                icon: const Icon(Icons.add_circle_outline_rounded, size: 20),
+                text: l10n.sidebarCreateInvoice,
+              ),
+              Tab(
+                icon: const Icon(Icons.folder_special_outlined, size: 20),
+                text: l10n.sidebarAllInvoices,
               ),
             ],
           ),
@@ -73,9 +85,14 @@ class _AdminInvoiceHubScreenState extends State<AdminInvoiceHubScreen>
         Expanded(
           child: TabBarView(
             controller: _tabController,
-            children: const [
-              AdminCreateInvoiceScreen(),
-              AdminInvoicesScreen(),
+            children: [
+              AdminFinanceOverviewScreen(
+                onOpenCreateInvoice: () => _tabController.animateTo(2),
+                onOpenAllInvoices: () => _tabController.animateTo(3),
+              ),
+              const AdminCutoffManagementScreen(),
+              const AdminCreateInvoiceScreen(),
+              const AdminInvoicesScreen(),
             ],
           ),
         ),

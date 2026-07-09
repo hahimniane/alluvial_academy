@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import 'package:alluwalacademyadmin/features/parent/models/invoice.dart';
 import 'package:alluwalacademyadmin/features/parent/services/invoice_pdf_service.dart';
@@ -22,19 +24,82 @@ class InvoiceService {
 
     query = query.orderBy('due_date', descending: true).limit(limit);
 
+    final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+    if (currentUserId != parentId) {
+      return _watchInvoiceQuery(query).handleError((error, stackTrace) {
+        AppLogger.error(
+            'InvoiceService: getParentInvoices stream error: $error');
+        AppLogger.error('InvoiceService: stack: $stackTrace');
+      });
+    }
+
+    final controller = StreamController<List<Invoice>>();
+    List<Invoice>? byParent;
+    List<Invoice>? byStudent;
+    late final StreamSubscription<List<Invoice>> parentSubscription;
+    late final StreamSubscription<List<Invoice>> studentSubscription;
+
+    void emitIfReady() {
+      final parentInvoices = byParent;
+      final studentInvoices = byStudent;
+      if (parentInvoices == null || studentInvoices == null) return;
+      final mergedById = <String, Invoice>{};
+      for (final invoice in [...parentInvoices, ...studentInvoices]) {
+        if (status != null && invoice.status != status) continue;
+        mergedById[invoice.id] = invoice;
+      }
+      final merged = mergedById.values.toList()
+        ..sort((a, b) => b.dueDate.compareTo(a.dueDate));
+      controller.add(merged.take(limit).toList());
+    }
+
+    parentSubscription = _watchInvoiceQuery(query).listen(
+      (invoices) {
+        byParent = invoices;
+        emitIfReady();
+      },
+      onError: controller.addError,
+    );
+
+    studentSubscription = _watchInvoiceQuery(
+      _invoices.where('student_id', isEqualTo: parentId),
+    ).listen(
+      (invoices) {
+        byStudent = invoices;
+        emitIfReady();
+      },
+      onError: (error, stackTrace) {
+        AppLogger.error(
+            'InvoiceService: student invoice fallback stream error: $error');
+        AppLogger.error('InvoiceService: stack: $stackTrace');
+        byStudent = const <Invoice>[];
+        emitIfReady();
+      },
+    );
+
+    controller.onCancel = () async {
+      await parentSubscription.cancel();
+      await studentSubscription.cancel();
+    };
+
+    return controller.stream.handleError((error, stackTrace) {
+      AppLogger.error('InvoiceService: getParentInvoices stream error: $error');
+      AppLogger.error('InvoiceService: stack: $stackTrace');
+    });
+  }
+
+  static Stream<List<Invoice>> _watchInvoiceQuery(Query query) {
     return query.snapshots().map((snapshot) {
       final invoices = <Invoice>[];
       for (final doc in snapshot.docs) {
         try {
           invoices.add(Invoice.fromFirestore(doc));
         } catch (e) {
-          AppLogger.error('InvoiceService: Failed to parse invoice ${doc.id}: $e');
+          AppLogger.error(
+              'InvoiceService: Failed to parse invoice ${doc.id}: $e');
         }
       }
       return invoices;
-    }).handleError((error, stackTrace) {
-      AppLogger.error('InvoiceService: getParentInvoices stream error: $error');
-      AppLogger.error('InvoiceService: stack: $stackTrace');
     });
   }
 
@@ -53,7 +118,8 @@ class InvoiceService {
       try {
         return Invoice.fromFirestore(doc);
       } catch (e) {
-        AppLogger.error('InvoiceService: Failed to parse invoice $invoiceId: $e');
+        AppLogger.error(
+            'InvoiceService: Failed to parse invoice $invoiceId: $e');
         return null;
       }
     });
@@ -68,7 +134,8 @@ class InvoiceService {
 
   /// Legacy method for backward compatibility
   /// Now generates PDF on-the-fly instead of expecting a stored URL
-  @Deprecated('Use generateInvoicePDF instead. This method is kept for backward compatibility.')
+  @Deprecated(
+      'Use generateInvoicePDF instead. This method is kept for backward compatibility.')
   static Future<String> downloadInvoicePDF(String invoiceId) async {
     // This method is deprecated but kept for any code that might still call it
     // The actual PDF generation is now handled in InvoiceDetailScreen
@@ -77,4 +144,3 @@ class InvoiceService {
     );
   }
 }
-

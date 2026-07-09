@@ -1,14 +1,14 @@
 // Import statements for required packages and local files
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';  // For custom fonts
-import 'package:firebase_auth/firebase_auth.dart';  // Firebase authentication
-import 'dart:async';  // For asynchronous operations and timers
-import 'package:alluwalacademyadmin/features/time_clock/services/shift_timesheet_service.dart';  // Shift/timesheet operations
-import 'package:alluwalacademyadmin/features/shift_management/services/location_service.dart';  // Location handling
-import 'package:alluwalacademyadmin/features/shift_management/models/teaching_shift.dart';  // Shift data model
-import '../../../core/utils/platform_utils.dart';  // Platform detection
+import 'package:google_fonts/google_fonts.dart'; // For custom fonts
+import 'package:firebase_auth/firebase_auth.dart'; // Firebase authentication
+import 'dart:async'; // For asynchronous operations and timers
+import 'package:alluwalacademyadmin/features/time_clock/services/shift_timesheet_service.dart'; // Shift/timesheet operations
+import 'package:alluwalacademyadmin/features/shift_management/services/location_service.dart'; // Location handling
+import 'package:alluwalacademyadmin/features/shift_management/models/teaching_shift.dart'; // Shift data model
+import '../../../core/utils/platform_utils.dart'; // Platform detection
 
-import 'package:alluwalacademyadmin/core/utils/app_logger.dart';  // Logging utility
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart'; // Logging utility
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 /// Simple clock screen widget for mobile clock-in/out functionality
@@ -22,23 +22,24 @@ class SimpleClockScreen extends StatefulWidget {
 /// State class for SimpleClockScreen that manages clock-in/out logic
 class _SimpleClockScreenState extends State<SimpleClockScreen> {
   // State variables
-  bool _isClockedIn = false;  // Tracks if user is currently clocked in
-  DateTime? _clockInTime;  // Timestamp when user clocked in
-  Timer? _timer;  // Timer for tracking elapsed time
-  Timer? _autoLogoutTimer;  // Timer for automatic logout after shift
-  Timer? _availabilityRefreshTimer;  // Timer to periodically check shift availability
-  String _elapsedTime = "00:00:00";  // Formatted elapsed time display
-  TeachingShift? _currentShift;  // Current teaching shift data
-  bool _isProcessing = false;  // Flag for in-progress operations
-  StreamSubscription<User?>? _authSub;  // Firebase auth state listener
-  String? _availabilityMessage;  // Message about when clock-in becomes available
+  bool _isClockedIn = false; // Tracks if user is currently clocked in
+  DateTime? _clockInTime; // Timestamp when user clocked in
+  Timer? _timer; // Timer for tracking elapsed time
+  Timer? _autoLogoutTimer; // Timer for automatic logout after shift
+  Timer?
+      _availabilityRefreshTimer; // Timer to periodically check shift availability
+  String _elapsedTime = "00:00:00"; // Formatted elapsed time display
+  TeachingShift? _currentShift; // Current teaching shift data
+  bool _isProcessing = false; // Flag for in-progress operations
+  StreamSubscription<User?>? _authSub; // Firebase auth state listener
+  String? _availabilityMessage; // Message about when clock-in becomes available
 
   @override
   void initState() {
     super.initState();
     // Initialize shift status when widget loads
     _checkCurrentShiftStatus();
-    
+
     // Listen to auth state changes to handle session persistence
     _authSub = FirebaseAuth.instance.authStateChanges().listen((user) {
       if (user != null) {
@@ -48,7 +49,8 @@ class _SimpleClockScreenState extends State<SimpleClockScreen> {
 
     // Periodically check shift availability to enable 1-minute early clock-in
     // This ensures the button becomes active when the clock-in window opens
-    _availabilityRefreshTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+    _availabilityRefreshTimer =
+        Timer.periodic(const Duration(seconds: 5), (timer) {
       if (!_isClockedIn && !_isProcessing && mounted) {
         _checkShiftAvailability();
       }
@@ -72,10 +74,12 @@ class _SimpleClockScreenState extends State<SimpleClockScreen> {
     if (user == null) return;
 
     try {
-      final shiftResult = await ShiftTimesheetService.getValidShiftForClockIn(user.uid);
+      final shiftResult =
+          await ShiftTimesheetService.getValidShiftForClockIn(user.uid);
       final shift = shiftResult['shift'] as TeachingShift?;
       final canClockIn = shiftResult['canClockIn'] as bool;
-      final canProgramClockIn = (shiftResult['canProgramClockIn'] as bool?) ?? false;
+      final canProgramClockIn =
+          (shiftResult['canProgramClockIn'] as bool?) ?? false;
       final message = shiftResult['message'] as String?;
 
       if (mounted) {
@@ -115,8 +119,8 @@ class _SimpleClockScreenState extends State<SimpleClockScreen> {
             _isClockedIn = true;
             _currentShift = shift;
             _clockInTime = start ?? DateTime.now();
-            _startTimer();  // Start tracking elapsed time
-            _startAutoLogoutTimer();  // Start auto logout timer
+            _startTimer(); // Start tracking elapsed time
+            _startAutoLogoutTimer(); // Start auto logout timer
           });
           return;
         }
@@ -156,10 +160,12 @@ class _SimpleClockScreenState extends State<SimpleClockScreen> {
           await ShiftTimesheetService.getValidShiftForClockIn(user.uid);
       final shift = shiftResult['shift'] as TeachingShift?;
       final canClockIn = shiftResult['canClockIn'] as bool;
-      final canProgramClockIn = (shiftResult['canProgramClockIn'] as bool?) ?? false;
+      final canProgramClockIn =
+          (shiftResult['canProgramClockIn'] as bool?) ?? false;
 
       if ((!canClockIn && !canProgramClockIn) || shift == null) {
-        _showMessage('No valid shift: ${shiftResult['message']}', isError: true);
+        _showMessage('No valid shift: ${shiftResult['message']}',
+            isError: true);
         return;
       }
 
@@ -197,7 +203,8 @@ class _SimpleClockScreenState extends State<SimpleClockScreen> {
           _isClockedIn = true;
           _currentShift = shift;
           _clockInTime = DateTime.now();
-          _availabilityMessage = null;  // Clear availability message after successful clock-in
+          _availabilityMessage =
+              null; // Clear availability message after successful clock-in
           _startTimer();
           _startAutoLogoutTimer();
         });
@@ -215,6 +222,13 @@ class _SimpleClockScreenState extends State<SimpleClockScreen> {
   /// Handles the clock-out process
   Future<void> _clockOut() async {
     if (_isProcessing || _currentShift == null) return;
+
+    final shiftForClockOut = _currentShift!;
+    String? clockOutNote;
+    if (ShiftTimesheetService.requiresClockOutNote(shiftForClockOut)) {
+      clockOutNote = await _showClockOutNoteDialog(shiftForClockOut);
+      if (clockOutNote == null) return;
+    }
 
     setState(() => _isProcessing = true);
 
@@ -245,9 +259,10 @@ class _SimpleClockScreenState extends State<SimpleClockScreen> {
       final platform = PlatformUtils.detectPlatform();
       final result = await ShiftTimesheetService.clockOutFromShift(
         user.uid,
-        _currentShift!.id,
+        shiftForClockOut.id,
         location: location,
         platform: platform,
+        employeeNote: clockOutNote,
       );
 
       if (result['success']) {
@@ -278,16 +293,17 @@ class _SimpleClockScreenState extends State<SimpleClockScreen> {
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_clockInTime != null && mounted) {
         DateTime effectiveStartTime = _clockInTime!;
-        if (_currentShift != null && _clockInTime!.isBefore(_currentShift!.shiftStart)) {
-           effectiveStartTime = _currentShift!.shiftStart;
+        if (_currentShift != null &&
+            _clockInTime!.isBefore(_currentShift!.shiftStart)) {
+          effectiveStartTime = _currentShift!.shiftStart;
         }
-        
+
         final now = DateTime.now();
         Duration elapsed;
         if (now.isBefore(effectiveStartTime)) {
-           elapsed = Duration.zero;
+          elapsed = Duration.zero;
         } else {
-           elapsed = now.difference(effectiveStartTime);
+          elapsed = now.difference(effectiveStartTime);
         }
 
         setState(() {
@@ -295,6 +311,73 @@ class _SimpleClockScreenState extends State<SimpleClockScreen> {
         });
       }
     });
+  }
+
+  Future<String?> _showClockOutNoteDialog(TeachingShift shift) async {
+    final l10n = AppLocalizations.of(context)!;
+    final status = ShiftTimesheetService.clockOutStatusForShift(shift);
+    final minutes = ShiftTimesheetService.clockOutDeviationMinutes(shift).abs();
+    final controller = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    final result = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        final isEarly = status == 'early';
+        return AlertDialog(
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Text(isEarly
+              ? l10n.timeClockEarlyClockOutTitle
+              : l10n.timeClockLateClockOutTitle),
+          content: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(isEarly
+                    ? l10n.timeClockEarlyClockOutBody(minutes)
+                    : l10n.timeClockLateClockOutBody(minutes)),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: controller,
+                  maxLines: 3,
+                  decoration: InputDecoration(
+                    labelText: l10n.timeClockClockOutNoteLabel,
+                    hintText: l10n.timeClockClockOutNoteHint,
+                    border: const OutlineInputBorder(),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return l10n.timeClockClockOutNoteRequired;
+                    }
+                    return null;
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: Text(l10n.commonCancel),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (formKey.currentState?.validate() != true) return;
+                Navigator.pop(dialogContext, controller.text.trim());
+              },
+              child: Text(l10n.timeClockContinueClockOut),
+            ),
+          ],
+        );
+      },
+    );
+
+    controller.dispose();
+    return result;
   }
 
   /// Starts auto logout timer based on shift end time
@@ -568,8 +651,8 @@ class _SimpleClockScreenState extends State<SimpleClockScreen> {
               // Help Text
               Text(
                 _isClockedIn
-                    ? 'Click "Clock Out" to finish and submit your timesheet'
-                    : 'Click "Clock In" to start tracking your teaching time',
+                    ? AppLocalizations.of(context)!.timeClockClockOutHelpText
+                    : AppLocalizations.of(context)!.timeClockClockInHelpText,
                 style: GoogleFonts.inter(
                   fontSize: 14,
                   color: const Color(0xff6B7280),

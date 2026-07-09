@@ -6,12 +6,89 @@ import 'package:alluwalacademyadmin/features/shift_management/enums/shift_enums.
 import 'package:alluwalacademyadmin/core/utils/performance_logger.dart';
 import 'package:alluwalacademyadmin/features/shift_management/services/location_service.dart';
 import 'package:alluwalacademyadmin/features/shift_management/services/shift_service.dart';
+import 'package:alluwalacademyadmin/features/shift_management/services/wage_management_service.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 
 class ShiftTimesheetService {
   static FirebaseFirestore get _firestore => FirebaseFirestore.instance;
   static final FirebaseAuth _auth = FirebaseAuth.instance;
+  static const Duration clockExceptionTolerance = Duration(minutes: 5);
+
+  static bool isLeadershipShift(TeachingShift shift) =>
+      shift.category == ShiftCategory.leadership ||
+      shift.category == ShiftCategory.meeting ||
+      shift.category == ShiftCategory.training;
+
+  static bool _isTeachingShift(TeachingShift shift) =>
+      shift.category == ShiftCategory.teaching;
+
+  static Future<({double rate, String source})> _resolveTimesheetPayRate(
+    TeachingShift shift,
+    Map<String, dynamic>? timesheetData,
+  ) async {
+    final storedRate =
+        (timesheetData?['hourly_rate'] as num?)?.toDouble() ?? 0.0;
+
+    if (_isTeachingShift(shift)) {
+      if (shift.hourlyRate > 0) {
+        return (rate: shift.hourlyRate, source: 'teaching_shift_rate');
+      }
+      return (rate: storedRate, source: 'timesheet_fallback_rate');
+    }
+
+    try {
+      final staffRate =
+          await WageManagementService.getEffectiveWageForUser(shift.teacherId);
+      if (staffRate > 0) {
+        return (rate: staffRate, source: 'staff_wage_rate');
+      }
+    } catch (e) {
+      AppLogger.warning(
+          'ShiftTimesheetService: Could not resolve staff wage for non-teaching shift ${shift.id}: $e');
+    }
+
+    return (rate: storedRate, source: 'timesheet_fallback_rate');
+  }
+
+  static String workLabelForShift(TeachingShift shift) {
+    if (shift.category == ShiftCategory.teaching) {
+      return shift.studentNames.isNotEmpty
+          ? shift.studentNames.join(', ')
+          : shift.displayName;
+    }
+    return shift.displayName;
+  }
+
+  static String clockOutStatusForShift(TeachingShift shift, {DateTime? at}) {
+    final actual = at ?? DateTime.now();
+    final delta = actual.difference(shift.shiftEnd);
+    if (delta < -clockExceptionTolerance) return 'early';
+    if (delta > clockExceptionTolerance) return 'late';
+    return 'on_time';
+  }
+
+  static int clockOutDeviationMinutes(TeachingShift shift, {DateTime? at}) {
+    final actual = at ?? DateTime.now();
+    return actual.difference(shift.shiftEnd).inMinutes;
+  }
+
+  static bool requiresClockOutNote(TeachingShift shift, {DateTime? at}) {
+    return clockOutStatusForShift(shift, at: at) != 'on_time';
+  }
+
+  static String clockInStatusForShift(TeachingShift shift, {DateTime? at}) {
+    final actual = at ?? DateTime.now();
+    final delta = actual.difference(shift.shiftStart);
+    if (delta > clockExceptionTolerance) return 'late';
+    if (delta < -clockExceptionTolerance) return 'early';
+    return 'on_time';
+  }
+
+  static int clockInDeviationMinutes(TeachingShift shift, {DateTime? at}) {
+    final actual = at ?? DateTime.now();
+    return actual.difference(shift.shiftStart).inMinutes;
+  }
 
   /// Check if teacher has a valid shift for clock-in or active shift for clock-out
   /// Also returns information about programmed clock-in availability
@@ -92,7 +169,6 @@ class ShiftTimesheetService {
         AppLogger.debug('  - canClockInNow: $canClockInNow');
         AppLogger.debug('  - nowUtc: $nowUtc');
         AppLogger.debug('  - shiftStartUtc: $shiftStartUtc');
-
 
         return {
           'shift': shift,
@@ -428,7 +504,9 @@ class ShiftTimesheetService {
   /// Clock out from a shift with location and timesheet update
   static Future<Map<String, dynamic>> clockOutFromShift(
       String teacherId, String shiftId,
-      {required LocationData location, String? platform}) async {
+      {required LocationData location,
+      String? platform,
+      String? employeeNote}) async {
     try {
       AppLogger.debug(
           'ShiftTimesheetService: Starting clock-out process for shift $shiftId');
@@ -470,7 +548,7 @@ class ShiftTimesheetService {
       // Update timesheet entry with clock-out data FIRST
       final timesheetEntry = await _updateTimesheetEntryWithClockOut(
           shift, location,
-          platform: platform);
+          platform: platform, employeeNote: employeeNote);
 
       // Then update shift status (if this fails, we still have the timesheet)
       try {
@@ -696,6 +774,13 @@ class ShiftTimesheetService {
 
       // Build shift type string for export (ConnectTeam-style)
       final shiftTypeString = _buildShiftTypeString(shift);
+      final clockInStatus = clockInStatusForShift(shift, at: now);
+      final clockInDeviation = clockInDeviationMinutes(shift, at: now);
+      final workLabel = workLabelForShift(shift);
+      final description = shift.category == ShiftCategory.teaching
+          ? 'Teaching session: ${shift.effectiveSubjectDisplayName} - ${shift.displayName}'
+          : 'Leadership shift: ${shift.displayName}';
+      final payRate = await _resolveTimesheetPayRate(shift, null);
 
       // Create timesheet entry data with proper clock-in timestamp
       final entryData = {
@@ -703,22 +788,25 @@ class ShiftTimesheetService {
         'teacher_email': user.email,
         'teacher_name': shift.teacherName,
         'shift_id': shift.id,
+        'shift_category': shift.category.name,
+        'leader_role': shift.leaderRole,
         'date': date,
-        'student_name': shift.studentNames.isNotEmpty
-            ? shift.studentNames.join(', ')
-            : 'No students assigned',
+        'student_name': workLabel,
         'start_time': time,
         'end_time': '',
         'total_hours': '00:00',
-        'hourly_rate': shift.hourlyRate, // Add hourly rate from shift
-        'description':
-            'Teaching session: ${shift.subjectDisplayName} - ${shift.displayName}',
+        'hourly_rate': payRate.rate,
+        'pay_rate_source': payRate.source,
+        'is_subject_billable': _isTeachingShift(shift),
+        'description': description,
         'status':
             'pending', // Changed: Immediately set to pending on clock-in (not draft)
         'source': 'shift_clock_in',
         'completion_method': 'pending',
         // Store the actual clock-in timestamp for persistence
         'clock_in_timestamp': Timestamp.fromDate(now),
+        'clock_in_status': clockInStatus,
+        'clock_in_deviation_minutes': clockInDeviation,
         // Platform tracking
         'clock_in_platform': platform ?? 'unknown',
         // Location data
@@ -762,7 +850,7 @@ class ShiftTimesheetService {
   /// Update timesheet entry with clock-out data
   static Future<Map<String, dynamic>> _updateTimesheetEntryWithClockOut(
       TeachingShift shift, LocationData location,
-      {String? platform}) async {
+      {String? platform, String? employeeNote}) async {
     try {
       final user = _auth.currentUser;
       if (user == null) throw Exception('User not authenticated');
@@ -782,6 +870,15 @@ class ShiftTimesheetService {
       final docData = querySnapshot.docs.first.data() as Map<String, dynamic>?;
 
       final now = DateTime.now(); // Actual clock out time
+      final clockOutStatus = clockOutStatusForShift(shift, at: now);
+      final clockOutDeviation = clockOutDeviationMinutes(shift, at: now);
+      final clockOutRequiresNote = clockOutStatus != 'on_time';
+      final cleanEmployeeNote = employeeNote?.trim();
+
+      if (clockOutRequiresNote &&
+          (cleanEmployeeNote == null || cleanEmployeeNote.isEmpty)) {
+        throw Exception('A note is required when clocking out early or late.');
+      }
 
       // --- FIX 1: CAP PAYMENT TIME TO SCHEDULED DURATION ---
       // For calculation purposes, cap both start and end times to scheduled shift window
@@ -838,11 +935,8 @@ class ShiftTimesheetService {
           '${validDuration.inHours.toString().padLeft(2, '0')}:${(validDuration.inMinutes % 60).toString().padLeft(2, '0')}:${(validDuration.inSeconds % 60).toString().padLeft(2, '0')}';
 
       // --- FIX 2: CALCULATE PAY AND SAVE TO DB ---
-      double hourlyRate = shift.hourlyRate;
-      if (hourlyRate <= 0) {
-        // Fallback to rate stored in timesheet if shift rate is missing
-        hourlyRate = (docData?['hourly_rate'] as num?)?.toDouble() ?? 0.0;
-      }
+      final payRate = await _resolveTimesheetPayRate(shift, docData);
+      final hourlyRate = payRate.rate;
 
       final double hoursWorked = validDuration.inSeconds / 3600.0;
       final double calculatedPay = hoursWorked * hourlyRate;
@@ -860,19 +954,24 @@ class ShiftTimesheetService {
 
       // --- FIX 3: SAVE PAYMENT DATA AND UPDATE STATUS ---
       // Update the timesheet entry
-      await docRef.update({
+      final updatePayload = <String, dynamic>{
         'end_time': endTimeString,
         'total_hours': totalHours,
         'clock_out_timestamp':
             Timestamp.fromDate(now), // Save ACTUAL time for audit
         'effective_end_timestamp':
             Timestamp.fromDate(effectiveEndTime), // Save PAID time
+        'clock_out_status': clockOutStatus,
+        'clock_out_deviation_minutes': clockOutDeviation,
+        'requires_clock_out_note': clockOutRequiresNote,
 
         // SAVE PAYMENT DATA SO ADMIN PANEL SEES IT
         'total_pay': calculatedPay,
         'payment_amount':
             calculatedPay, // Saving as both keys to be safe with legacy admin code
         'hourly_rate': hourlyRate, // Ensure rate is locked in
+        'pay_rate_source': payRate.source,
+        'is_subject_billable': _isTeachingShift(shift),
 
         // UPDATE STATUS
         'status': 'pending', // Changed from 'draft' to 'pending'
@@ -885,7 +984,14 @@ class ShiftTimesheetService {
         'clock_out_neighborhood': location.neighborhood,
         'clock_out_platform': platform ?? 'unknown',
         'updated_at': FieldValue.serverTimestamp(),
-      });
+      };
+
+      if (cleanEmployeeNote != null && cleanEmployeeNote.isNotEmpty) {
+        updatePayload['clock_out_note'] = cleanEmployeeNote;
+        updatePayload['employee_notes'] = cleanEmployeeNote;
+      }
+
+      await docRef.update(updatePayload);
 
       AppLogger.info(
           'ShiftTimesheetService: ✅ Updated timesheet entry ${docRef.id} with clock-out data');
@@ -926,10 +1032,20 @@ class ShiftTimesheetService {
         'status': 'pending',
         'total_pay': calculatedPay,
         'payment_amount': calculatedPay,
+        'hourly_rate': hourlyRate,
+        'pay_rate_source': payRate.source,
+        'is_subject_billable': _isTeachingShift(shift),
         'clock_out_latitude': location.latitude,
         'clock_out_longitude': location.longitude,
         'clock_out_address': location.address,
         'clock_out_neighborhood': location.neighborhood,
+        'clock_out_status': clockOutStatus,
+        'clock_out_deviation_minutes': clockOutDeviation,
+        'requires_clock_out_note': clockOutRequiresNote,
+        if (cleanEmployeeNote != null && cleanEmployeeNote.isNotEmpty)
+          'clock_out_note': cleanEmployeeNote,
+        if (cleanEmployeeNote != null && cleanEmployeeNote.isNotEmpty)
+          'employee_notes': cleanEmployeeNote,
       };
     } catch (e) {
       AppLogger.error('Error updating timesheet entry: $e');
@@ -1013,10 +1129,8 @@ class ShiftTimesheetService {
           '${validDuration.inHours.toString().padLeft(2, '0')}:${(validDuration.inMinutes % 60).toString().padLeft(2, '0')}:${(validDuration.inSeconds % 60).toString().padLeft(2, '0')}';
 
       // Calculate payment for auto clock-out
-      double hourlyRate = shift.hourlyRate;
-      if (hourlyRate <= 0) {
-        hourlyRate = (docData?['hourly_rate'] as num?)?.toDouble() ?? 0.0;
-      }
+      final payRate = await _resolveTimesheetPayRate(shift, docData);
+      final hourlyRate = payRate.rate;
       final double hoursWorked = validDuration.inSeconds / 3600.0;
       final double calculatedPay = hoursWorked * hourlyRate;
 
@@ -1028,11 +1142,16 @@ class ShiftTimesheetService {
             Timestamp.fromDate(autoClockOutTimeUtc), // Actual time
         'effective_end_timestamp':
             Timestamp.fromDate(effectiveEndTime), // Effective (capped) time
+        'clock_out_status': 'auto',
+        'clock_out_deviation_minutes': 0,
+        'requires_clock_out_note': false,
 
         // SAVE PAYMENT DATA SO ADMIN PANEL SEES IT
         'total_pay': calculatedPay,
         'payment_amount': calculatedPay,
         'hourly_rate': hourlyRate,
+        'pay_rate_source': payRate.source,
+        'is_subject_billable': _isTeachingShift(shift),
 
         'clock_out_latitude': location.latitude,
         'clock_out_longitude': location.longitude,
@@ -1056,6 +1175,9 @@ class ShiftTimesheetService {
         'status': 'pending',
         'total_pay': calculatedPay,
         'payment_amount': calculatedPay,
+        'hourly_rate': hourlyRate,
+        'pay_rate_source': payRate.source,
+        'is_subject_billable': _isTeachingShift(shift),
         'clock_out_latitude': location.latitude,
         'clock_out_longitude': location.longitude,
         'clock_out_address': location.address,

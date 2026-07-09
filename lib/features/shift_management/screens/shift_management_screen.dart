@@ -111,14 +111,23 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
   bool _isPaymentLoadInProgress = false;
   List<String>? _pendingPaymentShiftIds;
   int? _inFlightPaymentsHash;
+  int _shiftLoadGeneration = 0;
+  bool _isHydratingAllWebShifts = false;
+  int _hydratedAdminShiftCount = 0;
+  int? _adminShiftTotalCount;
   static const Duration _webShiftLoadTimeout = Duration(seconds: 25);
+  static const Duration _webShiftCountTimeout = Duration(seconds: 8);
+  static const Duration _webShiftPageLoadTimeout = Duration(seconds: 20);
   static const int _webShiftLookbackDays = 90;
   static const int _webShiftLookaheadDays = 120;
+  static const int _webShiftHydrationPageSize = 150;
+  static const int _maxImmediatePaymentShiftLoads = 250;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
+    _tabController.addListener(_handleShiftTabChanged);
     _initializeUserRole();
   }
 
@@ -204,6 +213,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
   @override
   void dispose() {
     _shiftsSubscription?.cancel();
+    _tabController.removeListener(_handleShiftTabChanged);
     _tabController.dispose();
     _searchController.dispose();
     _pageScrollController.dispose();
@@ -227,12 +237,160 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
 
   DateTimeRange? _webShiftQueryRange() {
     if (!kIsWeb) return null;
+    if (_isAdmin) return null;
     final now = DateTime.now();
     final start = DateTime(now.year, now.month, now.day)
         .subtract(const Duration(days: _webShiftLookbackDays));
     final end = DateTime(now.year, now.month, now.day)
         .add(const Duration(days: _webShiftLookaheadDays + 1));
     return DateTimeRange(start: start, end: end);
+  }
+
+  DateTimeRange _currentWeekQueryRange() {
+    final start = DateTime(
+      _currentWeekStart.year,
+      _currentWeekStart.month,
+      _currentWeekStart.day,
+    );
+    return DateTimeRange(start: start, end: start.add(const Duration(days: 7)));
+  }
+
+  void _applyLoadedShiftData(
+    List<TeachingShift> shifts,
+    String opId, {
+    required String source,
+  }) {
+    if (!mounted) return;
+    final stateStopwatch = Stopwatch()..start();
+    setState(() {
+      _allShifts = shifts;
+      _categorizeShifts();
+      _shiftStats = _buildShiftStatsFromLoadedShifts();
+      _isLoading = false;
+    });
+    stateStopwatch.stop();
+    PerformanceLogger.checkpoint(opId, 'state_updated', metadata: {
+      'source': source,
+      'set_state_time_ms': stateStopwatch.elapsedMilliseconds,
+      'all_shifts': _allShifts.length,
+    });
+    WebAppStabilityService.instance.pokeFirestoreActivity();
+  }
+
+  List<TeachingShift> _sortedMergedShifts(
+    Map<String, TeachingShift> shiftsById,
+  ) {
+    return shiftsById.values.toList(growable: false)
+      ..sort((a, b) => a.shiftStart.compareTo(b.shiftStart));
+  }
+
+  void _setAdminShiftHydrationProgress({
+    required bool isHydrating,
+    required int loadedCount,
+    int? totalCount,
+  }) {
+    if (!mounted) return;
+    setState(() {
+      _isHydratingAllWebShifts = isHydrating;
+      _hydratedAdminShiftCount = loadedCount;
+      if (totalCount != null || !isHydrating) {
+        _adminShiftTotalCount = totalCount;
+      }
+    });
+  }
+
+  List<TeachingShift> _shiftsInCurrentWeek(List<TeachingShift> shifts) {
+    final weekEnd = _currentWeekStart.add(const Duration(days: 6));
+    return shifts.where((shift) {
+      final shiftDate = DateTime(
+        shift.shiftStart.year,
+        shift.shiftStart.month,
+        shift.shiftStart.day,
+      );
+      return shiftDate
+              .isAfter(_currentWeekStart.subtract(const Duration(days: 1))) &&
+          shiftDate.isBefore(weekEnd.add(const Duration(days: 1)));
+    }).toList(growable: false);
+  }
+
+  List<TeachingShift> _currentFilteredShiftsForPayments() {
+    switch (_tabController.index) {
+      case 0:
+        return _filteredAllShifts;
+      case 1:
+        return _filteredTodayShifts;
+      case 2:
+        return _filteredUpcomingShifts;
+      case 3:
+        return _filteredActiveShifts;
+      default:
+        return _filteredAllShifts;
+    }
+  }
+
+  List<TeachingShift> _paymentLoadScopeForCurrentView() {
+    final shifts = _currentFilteredShiftsForPayments();
+    if (shifts.isEmpty) return const <TeachingShift>[];
+
+    if (_viewMode == 'grid') {
+      return _shiftsInCurrentWeek(shifts);
+    }
+
+    if (_isCalendarView || _viewMode == 'week') {
+      return const <TeachingShift>[];
+    }
+
+    if (shifts.length <= _maxImmediatePaymentShiftLoads) {
+      return shifts;
+    }
+
+    final now = DateTime.now();
+    final recentStart = DateTime(now.year, now.month, now.day)
+        .subtract(const Duration(days: 7));
+    final nearTermShifts = shifts
+        .where((shift) => !shift.shiftStart.isBefore(recentStart))
+        .take(_maxImmediatePaymentShiftLoads)
+        .toList(growable: false);
+    if (nearTermShifts.isNotEmpty) {
+      return nearTermShifts;
+    }
+
+    return shifts.reversed
+        .take(_maxImmediatePaymentShiftLoads)
+        .toList(growable: false);
+  }
+
+  void _requestCurrentViewPaymentsLoad({required String emissionOpId}) {
+    final scopedShifts = _paymentLoadScopeForCurrentView();
+    if (scopedShifts.isEmpty) {
+      PerformanceLogger.checkpoint(emissionOpId, 'payments_load_skipped',
+          metadata: {'reason': 'no_visible_payment_scope'});
+      return;
+    }
+
+    _requestPaymentsLoad(scopedShifts, emissionOpId: emissionOpId);
+  }
+
+  void _queueCurrentViewPaymentRefresh(String reason) {
+    if (!mounted || _isLoading) return;
+    final opId = PerformanceLogger.newOperationId(
+        'ShiftManagementScreen._queueCurrentViewPaymentRefresh');
+    PerformanceLogger.startTimer(opId, metadata: {
+      'reason': reason,
+      'view_mode': _viewMode,
+      'tab_index': _tabController.index,
+    });
+    _requestCurrentViewPaymentsLoad(emissionOpId: opId);
+    PerformanceLogger.endTimer(opId, metadata: {
+      'reason': reason,
+      'view_mode': _viewMode,
+      'tab_index': _tabController.index,
+    });
+  }
+
+  void _handleShiftTabChanged() {
+    if (_tabController.indexIsChanging || _viewMode != 'list') return;
+    _queueCurrentViewPaymentRefresh('tab_changed');
   }
 
   Map<String, dynamic> _buildShiftStatsFromLoadedShifts() {
@@ -323,9 +481,113 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
     }
   }
 
+  Future<void> _hydrateAllAdminWebShifts(int loadGeneration) async {
+    final opId = PerformanceLogger.newOperationId(
+        'ShiftManagementScreen._hydrateAllAdminWebShifts');
+    PerformanceLogger.startTimer(opId, metadata: {
+      'page_size': _webShiftHydrationPageSize,
+      'load_generation': loadGeneration,
+    });
+
+    final shiftsById = <String, TeachingShift>{
+      for (final shift in _allShifts) shift.id: shift,
+    };
+    ShiftFetchPage? previousPage;
+    var pageCount = 0;
+    var fetchedCount = 0;
+
+    try {
+      int? totalCount;
+      try {
+        totalCount = await ShiftService.fetchAllShiftsCount()
+            .timeout(_webShiftCountTimeout);
+      } catch (e) {
+        AppLogger.warning('ShiftManagement: shift count unavailable: $e');
+      }
+      if (mounted && loadGeneration == _shiftLoadGeneration) {
+        _setAdminShiftHydrationProgress(
+          isHydrating: true,
+          loadedCount: shiftsById.length,
+          totalCount: totalCount,
+        );
+      }
+
+      while (mounted && loadGeneration == _shiftLoadGeneration) {
+        final page = await ShiftService.fetchAllShiftsPage(
+          limit: _webShiftHydrationPageSize,
+          startAfterDocument: previousPage?.lastDocument,
+        ).timeout(_webShiftPageLoadTimeout);
+
+        pageCount++;
+        fetchedCount += page.shifts.length;
+        for (final shift in page.shifts) {
+          shiftsById[shift.id] = shift;
+        }
+
+        if (!mounted || loadGeneration != _shiftLoadGeneration) {
+          PerformanceLogger.endTimer(opId, metadata: {
+            'reason': 'stale_or_unmounted',
+            'pages': pageCount,
+            'fetched_count': fetchedCount,
+            'merged_count': shiftsById.length,
+          });
+          return;
+        }
+
+        _applyLoadedShiftData(
+          _sortedMergedShifts(shiftsById),
+          opId,
+          source: 'admin_full_hydration_page',
+        );
+        _setAdminShiftHydrationProgress(
+          isHydrating: page.hasMore,
+          loadedCount: shiftsById.length,
+          totalCount: totalCount,
+        );
+        _requestCurrentViewPaymentsLoad(emissionOpId: opId);
+        PerformanceLogger.checkpoint(opId, 'page_loaded', metadata: {
+          'page': pageCount,
+          'page_shift_count': page.shifts.length,
+          'fetched_count': fetchedCount,
+          'merged_count': shiftsById.length,
+          'has_more': page.hasMore,
+        });
+
+        if (!page.hasMore || page.lastDocument == null) break;
+        previousPage = page;
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+      }
+
+      PerformanceLogger.endTimer(opId, metadata: {
+        'pages': pageCount,
+        'fetched_count': fetchedCount,
+        'merged_count': shiftsById.length,
+        'total_count': totalCount,
+      });
+    } catch (e) {
+      AppLogger.warning(
+        'ShiftManagement: background full shift hydration did not finish: $e',
+      );
+      if (mounted && loadGeneration == _shiftLoadGeneration) {
+        _setAdminShiftHydrationProgress(
+          isHydrating: false,
+          loadedCount: shiftsById.length,
+          totalCount: _adminShiftTotalCount,
+        );
+      }
+      PerformanceLogger.endTimer(opId, metadata: {
+        'error': e.toString(),
+        'pages': pageCount,
+        'fetched_count': fetchedCount,
+        'merged_count': shiftsById.length,
+      });
+    }
+  }
+
   Future<void> _loadShiftData() async {
     final opId = PerformanceLogger.newOperationId(
         'ShiftManagementScreen._loadShiftData');
+    final loadGeneration = ++_shiftLoadGeneration;
     PerformanceLogger.startTimer(opId, metadata: {
       'is_admin': _isAdmin,
       'user_id': _currentUserId ?? '',
@@ -337,41 +599,68 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
       if (kIsWeb) {
         await _shiftsSubscription?.cancel();
         _shiftsSubscription = null;
+
+        if (_isAdmin) {
+          _setAdminShiftHydrationProgress(
+            isHydrating: false,
+            loadedCount: 0,
+            totalCount: null,
+          );
+          final initialRange = _currentWeekQueryRange();
+          final shifts = await ShiftService.fetchAllShifts(
+            start: initialRange.start,
+            end: initialRange.end,
+          ).timeout(_webShiftLoadTimeout);
+
+          PerformanceLogger.checkpoint(opId, 'shifts_fetched', metadata: {
+            'mode': 'admin_visible_week_web',
+            'shift_count': shifts.length,
+            'range_start': initialRange.start.toIso8601String(),
+            'range_end': initialRange.end.toIso8601String(),
+          });
+
+          if (mounted && loadGeneration == _shiftLoadGeneration) {
+            _applyLoadedShiftData(
+              shifts,
+              opId,
+              source: 'admin_visible_week_web',
+            );
+            _setAdminShiftHydrationProgress(
+              isHydrating: true,
+              loadedCount: shifts.length,
+              totalCount: null,
+            );
+          }
+
+          _requestCurrentViewPaymentsLoad(emissionOpId: opId);
+          PerformanceLogger.endTimer(opId, metadata: {
+            'shift_count': shifts.length,
+            'payments': 'deferred',
+            'mode': 'admin_visible_week_web',
+            'full_hydration': 'background',
+          });
+          unawaited(_hydrateAllAdminWebShifts(loadGeneration));
+          return;
+        }
+
         final range = _webShiftQueryRange();
 
-        final shifts = _isAdmin
-            ? await ShiftService.fetchAllShifts(
-                start: range?.start,
-                end: range?.end,
-              ).timeout(_webShiftLoadTimeout)
-            : await ShiftService.fetchTeacherShifts(
-                _currentUserId!,
-                start: range?.start,
-                end: range?.end,
-              ).timeout(_webShiftLoadTimeout);
+        final shifts = await ShiftService.fetchTeacherShifts(
+          _currentUserId!,
+          start: range?.start,
+          end: range?.end,
+        ).timeout(_webShiftLoadTimeout);
 
         PerformanceLogger.checkpoint(opId, 'shifts_fetched', metadata: {
           'mode': 'one_shot_web',
           'shift_count': shifts.length,
         });
 
-        if (mounted) {
-          final stateStopwatch = Stopwatch()..start();
-          setState(() {
-            _allShifts = shifts;
-            _categorizeShifts();
-            _shiftStats = _buildShiftStatsFromLoadedShifts();
-            _isLoading = false;
-          });
-          stateStopwatch.stop();
-          PerformanceLogger.checkpoint(opId, 'state_updated', metadata: {
-            'set_state_time_ms': stateStopwatch.elapsedMilliseconds,
-            'all_shifts': _allShifts.length,
-          });
-          WebAppStabilityService.instance.pokeFirestoreActivity();
+        if (mounted && loadGeneration == _shiftLoadGeneration) {
+          _applyLoadedShiftData(shifts, opId, source: 'one_shot_web');
         }
 
-        _requestPaymentsLoad(shifts, emissionOpId: opId);
+        _requestCurrentViewPaymentsLoad(emissionOpId: opId);
         PerformanceLogger.endTimer(opId, metadata: {
           'shift_count': shifts.length,
           'payments': 'deferred',
@@ -453,7 +742,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
             _loadShiftStatistics();
           }
 
-          _requestPaymentsLoad(shifts, emissionOpId: emissionOpId);
+          _requestCurrentViewPaymentsLoad(emissionOpId: emissionOpId);
 
           final metadata = {
             'shift_count': shifts.length,
@@ -495,7 +784,10 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
         'error': e.toString(),
       });
       if (mounted) {
-        setState(() => _isLoading = false);
+        setState(() {
+          _isLoading = false;
+          _isHydratingAllWebShifts = false;
+        });
       }
     }
   }
@@ -1286,19 +1578,25 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
             icon: Icons.grid_on,
             label: AppLocalizations.of(context)!.shiftManagementGrid,
             selected: _viewMode == 'grid',
-            onTap: () => setState(() {
-              _viewMode = 'grid';
-              _isCalendarView = false;
-            }),
+            onTap: () {
+              setState(() {
+                _viewMode = 'grid';
+                _isCalendarView = false;
+              });
+              _queueCurrentViewPaymentRefresh('grid_view_selected');
+            },
           ),
           _buildToggleButton(
             icon: Icons.view_list,
             label: AppLocalizations.of(context)!.shiftManagementList,
             selected: _viewMode == 'list',
-            onTap: () => setState(() {
-              _viewMode = 'list';
-              _isCalendarView = false;
-            }),
+            onTap: () {
+              setState(() {
+                _viewMode = 'list';
+                _isCalendarView = false;
+              });
+              _queueCurrentViewPaymentRefresh('list_view_selected');
+            },
           ),
         ],
       ),
@@ -1360,15 +1658,21 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
         });
       },
       onViewOptionSelected: (value) {
+        var shouldRefreshPayments = false;
         setState(() {
           if (value == 'grid' || value == 'week' || value == 'list') {
             _viewMode = value;
+            _isCalendarView = value == 'week';
+            shouldRefreshPayments = true;
           } else if (value == 'teachers' ||
               value == 'leaders' ||
               value == 'all') {
             _scheduleTypeFilter = value;
           }
         });
+        if (shouldRefreshPayments) {
+          _queueCurrentViewPaymentRefresh('compact_view_selected');
+        }
       },
       onActionSelected: (value) async {
         if (value == 'subjects') {
@@ -1759,43 +2063,107 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
 
   Widget _buildStatsCards() {
     if (_isLoading) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: Center(child: CircularProgressIndicator()),
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Center(
+          child: _buildShiftLoadingChip(isInitialLoad: true),
+        ),
       );
     }
 
     // Compact stats row - single line
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            _buildCompactStatChip(
+              AppLocalizations.of(context)!.total,
+              '${_shiftStats['total_shifts'] ?? 0}',
+              Icons.event,
+              const Color(0xff0386FF),
+            ),
+            const SizedBox(width: 8),
+            _buildCompactStatChip(
+              AppLocalizations.of(context)!.shiftActive,
+              '${_shiftStats['active_shifts'] ?? 0}',
+              Icons.play_circle_fill,
+              const Color(0xff10B981),
+            ),
+            const SizedBox(width: 8),
+            _buildCompactStatChip(
+              AppLocalizations.of(context)!.dashboardToday,
+              '${_shiftStats['today_shifts'] ?? 0}',
+              Icons.today,
+              const Color(0xffF59E0B),
+            ),
+            const SizedBox(width: 8),
+            _buildCompactStatChip(
+              AppLocalizations.of(context)!.shiftUpcoming,
+              '${_shiftStats['upcoming_shifts'] ?? 0}',
+              Icons.upcoming,
+              const Color(0xff8B5CF6),
+            ),
+            if (_isHydratingAllWebShifts) ...[
+              const SizedBox(width: 8),
+              _buildShiftLoadingChip(),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildShiftLoadingChip({bool isInitialLoad = false}) {
+    final l10n = AppLocalizations.of(context)!;
+    final total = _adminShiftTotalCount;
+    final loaded = _hydratedAdminShiftCount;
+    final progress = !isInitialLoad && total != null && total > 0
+        ? (loaded / total).clamp(0.0, 1.0)
+        : null;
+    final percent = progress == null ? null : (progress * 100).floor();
+    final cappedLoaded = total == null ? loaded : math.min(loaded, total);
+    final label = isInitialLoad
+        ? l10n.shiftLoadingCurrentWeek
+        : percent == null
+            ? l10n.shiftLoadingFullHistoryCount(loaded)
+            : l10n.shiftLoadingFullHistoryPercent(
+                percent,
+                cappedLoaded,
+                total!,
+              );
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xff0386FF).withOpacity(0.08),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xff0386FF).withOpacity(0.24)),
+      ),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          _buildCompactStatChip(
-            AppLocalizations.of(context)!.total,
-            '${_shiftStats['total_shifts'] ?? 0}',
-            Icons.event,
-            const Color(0xff0386FF),
+          SizedBox(
+            width: 14,
+            height: 14,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              value: progress,
+              color: const Color(0xff0386FF),
+              backgroundColor: progress == null
+                  ? null
+                  : const Color(0xff0386FF).withOpacity(0.14),
+            ),
           ),
           const SizedBox(width: 8),
-          _buildCompactStatChip(
-            AppLocalizations.of(context)!.shiftActive,
-            '${_shiftStats['active_shifts'] ?? 0}',
-            Icons.play_circle_fill,
-            const Color(0xff10B981),
-          ),
-          const SizedBox(width: 8),
-          _buildCompactStatChip(
-            AppLocalizations.of(context)!.dashboardToday,
-            '${_shiftStats['today_shifts'] ?? 0}',
-            Icons.today,
-            const Color(0xffF59E0B),
-          ),
-          const SizedBox(width: 8),
-          _buildCompactStatChip(
-            AppLocalizations.of(context)!.shiftUpcoming,
-            '${_shiftStats['upcoming_shifts'] ?? 0}',
-            Icons.upcoming,
-            const Color(0xff8B5CF6),
+          Text(
+            label,
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: const Color(0xff0369C9),
+            ),
           ),
         ],
       ),

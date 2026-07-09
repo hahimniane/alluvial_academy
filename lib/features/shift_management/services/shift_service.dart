@@ -37,6 +37,18 @@ class BulkShiftConflict {
   });
 }
 
+class ShiftFetchPage {
+  final List<TeachingShift> shifts;
+  final DocumentSnapshot? lastDocument;
+  final bool hasMore;
+
+  const ShiftFetchPage({
+    required this.shifts,
+    required this.lastDocument,
+    required this.hasMore,
+  });
+}
+
 class ShiftService {
   /// Service responsible for managing teaching shifts, including creation,
   /// modification, deletion, and status updates (clock-in/out).
@@ -1294,14 +1306,16 @@ class ShiftService {
       final teacherName =
           '${teacherData['first_name']} ${teacherData['last_name']}';
       final teacherTimezone = teacherData['timezone'] ?? 'UTC';
-      final effectiveVideoProvider =
-          category == ShiftCategory.teaching ? VideoProvider.zoom : videoProvider;
+      final effectiveVideoProvider = category == ShiftCategory.teaching
+          ? VideoProvider.zoom
+          : videoProvider;
 
-      // Determine hourly rate: use provided rate, or subject's defaultWage, or teacher's wage
+      // Determine hourly rate. Teaching shifts may use subject default wages;
+      // non-teaching/admin shifts must use the staff wage system.
       double effectiveHourlyRate;
-      if (hourlyRate != null) {
+      if (hourlyRate != null && hourlyRate > 0) {
         effectiveHourlyRate = hourlyRate;
-      } else if (subjectId != null) {
+      } else if (category == ShiftCategory.teaching && subjectId != null) {
         // Try to get subject's defaultWage
         try {
           final subjectDoc =
@@ -2247,7 +2261,10 @@ class ShiftService {
       query = query.where('shift_start', isLessThan: Timestamp.fromDate(end));
     }
 
-    final snapshot = await query.get(const GetOptions(source: Source.server));
+    final snapshot = await _getShiftQueryWithCacheFallback(
+      query,
+      operationName: 'ShiftService.fetchTeacherShifts',
+    );
     return _parseFetchedShiftSnapshot(
       snapshot,
       operationName: 'ShiftService.fetchTeacherShifts',
@@ -2341,11 +2358,77 @@ class ShiftService {
       query = query.where('shift_start', isLessThan: Timestamp.fromDate(end));
     }
 
-    final snapshot = await query.get(const GetOptions(source: Source.server));
+    final snapshot = await _getShiftQueryWithCacheFallback(
+      query,
+      operationName: 'ShiftService.fetchAllShifts',
+    );
     return _parseFetchedShiftSnapshot(
       snapshot,
       operationName: 'ShiftService.fetchAllShifts',
     );
+  }
+
+  static Future<int?> fetchAllShiftsCount() async {
+    try {
+      final snapshot = await _shiftsCollection.count().get();
+      return snapshot.count;
+    } catch (e) {
+      AppLogger.warning('Error counting all shifts: $e');
+      return null;
+    }
+  }
+
+  static Future<ShiftFetchPage> fetchAllShiftsPage({
+    int limit = 400,
+    DocumentSnapshot? startAfterDocument,
+    DateTime? start,
+    DateTime? end,
+  }) async {
+    Query query = _shiftsCollection;
+    if (start != null) {
+      query = query.where('shift_start',
+          isGreaterThanOrEqualTo: Timestamp.fromDate(start));
+    }
+    if (end != null) {
+      query = query.where('shift_start', isLessThan: Timestamp.fromDate(end));
+    }
+    query = query.orderBy('shift_start').limit(limit);
+    if (startAfterDocument != null) {
+      query = query.startAfterDocument(startAfterDocument);
+    }
+
+    final snapshot = await _getShiftQueryWithCacheFallback(
+      query,
+      operationName: 'ShiftService.fetchAllShiftsPage',
+    );
+    final shifts = _parseFetchedShiftSnapshot(
+      snapshot,
+      operationName: 'ShiftService.fetchAllShiftsPage',
+      metadata: {
+        'limit': limit,
+        'has_cursor': startAfterDocument != null,
+      },
+    );
+    return ShiftFetchPage(
+      shifts: shifts,
+      lastDocument: snapshot.docs.isEmpty ? null : snapshot.docs.last,
+      hasMore: snapshot.docs.length == limit,
+    );
+  }
+
+  static Future<QuerySnapshot> _getShiftQueryWithCacheFallback(
+    Query query, {
+    required String operationName,
+  }) async {
+    try {
+      return await query.get(const GetOptions(source: Source.serverAndCache));
+    } on FirebaseException catch (e) {
+      if (e.code != 'unavailable') rethrow;
+      AppLogger.error(
+        '$operationName: server read unavailable, using cached shifts: $e',
+      );
+      return query.get(const GetOptions(source: Source.cache));
+    }
   }
 
   static List<TeachingShift> _parseFetchedShiftSnapshot(
@@ -2969,9 +3052,12 @@ class ShiftService {
           final clockInTime = clockIn.toDate();
 
           if (clockOut != null) {
-            final hourlyRate = shift.hourlyRate > 0
-                ? shift.hourlyRate
-                : (data['hourly_rate'] as num?)?.toDouble() ?? 0.0;
+            final hourlyRate = shift.category == ShiftCategory.teaching
+                ? (shift.hourlyRate > 0
+                    ? shift.hourlyRate
+                    : (data['hourly_rate'] as num?)?.toDouble() ?? 0.0)
+                : await WageManagementService.getEffectiveWageForUser(
+                    shift.teacherId);
             final perEntryShift = Map<String, dynamic>.from(shiftMap)
               ..['hourly_rate'] = hourlyRate;
             final perEntryResult = ShiftSessionAggregator.computeSession(
@@ -2989,6 +3075,10 @@ class ShiftService {
               'payment_amount': newPayment,
               'total_pay': newPayment,
               'hourly_rate': hourlyRate,
+              'pay_rate_source': shift.category == ShiftCategory.teaching
+                  ? 'teaching_shift_rate'
+                  : 'staff_wage_rate',
+              'is_subject_billable': shift.category == ShiftCategory.teaching,
               'scheduled_start': Timestamp.fromDate(shift.shiftStart),
               'scheduled_end': Timestamp.fromDate(shift.shiftEnd),
               'scheduled_duration_minutes': shift.scheduledDurationMinutes,

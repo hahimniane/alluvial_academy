@@ -2,14 +2,15 @@ import { expect, test } from "@playwright/test";
 
 const publicRoutes = [
   ["/", "Learn with online tutoring"],
-  ["/about/", "Where education transcends boundaries"],
+  ["/about/", "About Alluwal Education Hub"],
   ["/programs/", "Explore our programs"],
   ["/enroll/", "Who's enrolling"],
   ["/team/", "Meet the people"],
   ["/contact/", "Get in touch"],
   ["/teacher-application/", "Teacher Application"],
   ["/leadership-application/", "Join Our Leadership Team"],
-  ["/login/", "Staff, parent, and student access"],
+  ["/login/", "Welcome Back"],
+  ["/classroom/join/", "Unable to Join"],
 ] as const;
 
 test.describe("public route parity smoke", () => {

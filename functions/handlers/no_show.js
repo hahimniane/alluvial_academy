@@ -451,26 +451,10 @@ const reportNoShow = onCall(async (request) => {
   
   try {
     const shiftMeta = await getShiftDetails(shiftId);
-    
-    // Get all admins to notify
-    const adminsSnapshot = await admin.firestore()
-      .collection('users')
-      .where('role', '==', 'admin')
-      .get();
-    
-    const adminEmails = [];
-    const adminTokens = [];
-    
-    adminsSnapshot.docs.forEach(doc => {
-      const userData = doc.data();
-      if (userData.email) {
-        adminEmails.push(userData.email);
-      }
-      if (userData.fcmToken) {
-        adminTokens.push(userData.fcmToken);
-      }
-    });
-    
+
+    const {emails: adminEmails, tokens: adminTokens} =
+      await resolveNoShowRecipients();
+
     const reportData = buildNoShowReportData(
       data,
       request.auth.uid,
@@ -573,6 +557,69 @@ const reportClassTechnicalIssue = onCall(async (request) => {
     );
   }
 });
+
+/**
+ * Resolve which admins should receive no-show notifications.
+ * Reads settings/admin: no_show_notify_all_admins (default true) and
+ * no_show_recipient_admin_ids. Falls back to all admins when unset.
+ */
+async function resolveNoShowRecipients() {
+  const db = admin.firestore();
+  let notifyAll = true;
+  let recipientIds = [];
+  try {
+    const settingsDoc = await db.collection('settings').doc('admin').get();
+    if (settingsDoc.exists) {
+      const settings = settingsDoc.data() || {};
+      if (settings.no_show_notify_all_admins === false) notifyAll = false;
+      if (Array.isArray(settings.no_show_recipient_admin_ids)) {
+        recipientIds = settings.no_show_recipient_admin_ids.filter(Boolean);
+      }
+    }
+  } catch (error) {
+    console.warn('[NO-SHOW] Failed to read notification settings, notifying all admins:', error);
+  }
+
+  const usersById = new Map();
+  if (!notifyAll && recipientIds.length > 0) {
+    const snaps = await Promise.all(
+      recipientIds.map((id) => db.collection('users').doc(id).get())
+    );
+    snaps.forEach((snap) => {
+      if (snap.exists) usersById.set(snap.id, snap.data());
+    });
+  } else {
+    const [primaryAdmins, secondaryAdmins, adminTeachers] = await Promise.all([
+      db.collection('users').where('user_type', '==', 'admin').get(),
+      db.collection('users').where('secondary_roles', 'array-contains', 'admin').get(),
+      db.collection('users').where('is_admin_teacher', '==', true).get(),
+    ]);
+    [primaryAdmins, secondaryAdmins, adminTeachers].forEach((snap) => {
+      snap.docs.forEach((doc) => usersById.set(doc.id, doc.data()));
+    });
+  }
+
+  const emails = [];
+  const tokens = [];
+  usersById.forEach((userData) => {
+    if (userData.is_active === false) return;
+    const email = userData['e-mail'] || userData.email;
+    if (email) emails.push(email);
+    if (Array.isArray(userData.fcmTokens)) {
+      userData.fcmTokens.forEach((entry) => {
+        const token = typeof entry === 'string' ? entry : entry && entry.token;
+        if (token) tokens.push(token);
+      });
+    }
+    if (userData.fcmToken) tokens.push(userData.fcmToken);
+  });
+
+  console.log(
+    `[NO-SHOW] Notifying ${usersById.size} admins ` +
+    `(notifyAll=${notifyAll}, emails=${emails.length}, tokens=${tokens.length})`
+  );
+  return {emails, tokens};
+}
 
 /**
  * Send email notification to admins about no-show
@@ -721,5 +768,8 @@ module.exports = {
     getIssueCategory,
     normalizeShiftDetails,
     trimDiagnostics,
+    resolveNoShowRecipients,
+    sendNoShowEmail,
+    sendNoShowPushNotification,
   },
 };

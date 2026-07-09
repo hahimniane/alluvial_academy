@@ -83,12 +83,17 @@ lib/core/services/data_fix_service.dart
 lib/features/dashboard/screens/teacher_mobile_home.dart
 .env
 functions/.env
+functions/.env.*
 
 # Zoom Meeting SDK binaries (download from Zoom Marketplace)
 # Run ./tools/setup_zoom_meeting_sdk.sh to set up
 android/app/libs/zoom/
 ios/ZoomSDK/
 !ios/ZoomSDK/ZoomMobileRTC.podspec
+packages/flutter_zoom_meeting_wrapper/android/libs/*.aar
+packages/flutter_zoom_meeting_wrapper/ios/Frameworks/*.framework/
+packages/flutter_zoom_meeting_wrapper/ios/Frameworks/*.xcframework/
+packages/flutter_zoom_meeting_wrapper/ios/Frameworks/*.bundle/
 
 # Gradle build cache (should not be versioned)
 **/.gradle/

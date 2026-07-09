@@ -34,6 +34,17 @@ Functions, Hosting).
 go through `AppLocalizations`.**
 - **Firebase projects:** `alluwal-academy` (prod), `alluwal-dev` (dev).
 
+### Zoom hub routing reference
+
+`docs/zoom-hub-bot-plan.md` is the living implementation and production
+handoff reference for Zoom classrooms. Any agent touching Zoom classrooms,
+hub routing, class presence/rosters, no-show attendance, `web/zoom_meeting.html`,
+`functions/handlers/zoom*.js`, `functions/handlers/realtimekit.js`,
+`lib/core/services/class_video_service.dart`, `lib/features/zoom/`, or
+`services/zoom-hub-bot/` must read that document before changing code and
+update it before handoff with changes, tests, deploys, live-class findings,
+and remaining blockers.
+
 ---
 
 ## 2. Architecture rules (ENFORCED)
@@ -129,6 +140,13 @@ functions/
   tests/            # Jest test files
 ```
 
+### Non-Flutter service layout
+
+```
+services/
+  zoom-hub-bot/     # VPS-only Zoom host/router bot, not deployed to Hosting
+```
+
 ---
 
 ## 3. Code rules
@@ -166,23 +184,30 @@ squash-merge.**
 
 ### Web build → Hostinger
 
-- **Never** run `flutter build web --release` on its own. Always bump the
-cache-busting version first:
+- **Always** use the repository release script for web builds:
   ```bash
-  ./increment_version.sh && flutter build web --release --pwa-strategy=none
+  ./build_release.sh
   ```
+- **Never** run `flutter build web --release` directly, and do not manually
+  substitute `./increment_version.sh && flutter build web ...` for the release
+  script. `./build_release.sh` is the single approved web build entrypoint.
   The script updates `?v=X` query strings in `web/index.html` for
-  `flutter_bootstrap.js` and `manifest.json`. Without it, users won't see
-  new deploys until they hard-refresh.
+  `flutter_bootstrap.js` and `manifest.json`, injects matching build metadata,
+  copies Hostinger root files, and patches `main.dart.js` cache busting.
+  Without it, users can remain stuck on an old deployed bundle such as version
+  119 until they hard-refresh or clear browser data.
   `--pwa-strategy=none` is critical: it disables Flutter's auto-generated
   service worker, which otherwise aggressively caches `main.dart.js` and
   asset bundles in the browser. Without it, a deploy can leave returning
   users on the previous bundle until they manually clear browsing data.
 - Deployment workflow to Hostinger:
-  1. `./increment_version.sh && flutter build web --release --pwa-strategy=none`
-  2. Upload `build/web/` contents to Hostinger
-  3. Ensure `web/.htaccess` is uploaded to the Hostinger root for proper
-    cache headers
+  1. Use `./scripts/deploy_hostinger_web.sh`
+  2. The script runs `./build_release.sh`, backs up Hostinger `public_html`,
+     uploads `build/web/` with rsync, and verifies the public site version.
+  3. Hostinger details are documented in `docs/hostinger-web-deploy.md`.
+     Current target:
+     `u161013520@46.202.183.189:/home/u161013520/domains/alluwaleducationhub.org/public_html/`
+     over SSH port `65002` using `~/.ssh/laawol_hostinger`.
 
 ### Localization regeneration
 
@@ -270,4 +295,3 @@ told to.
 - `docs/HOW_WE_WORK.md` — friendly developer guide with real examples.
 - `docs/ci-setup.md` — CI and branch-protection setup.
 - `docs/tech-debt.md` — known pre-existing issues; what CI does *not* enforce.
-

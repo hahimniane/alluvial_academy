@@ -1,0 +1,4 @@
+RewriteEngine On
+
+RewriteCond %{HTTP_HOST} ^(ops|routing|control)\.alluwaleducationhub\.org$ [NC]
+RewriteRule ^$ /admin/routing-control/ [R=302,L]

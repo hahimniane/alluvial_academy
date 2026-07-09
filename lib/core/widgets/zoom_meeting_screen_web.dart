@@ -5,6 +5,7 @@ import 'dart:html' as html;
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'package:alluwalacademyadmin/core/services/join_link_service.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class ZoomMeetingScreen extends StatefulWidget {
@@ -13,12 +14,16 @@ class ZoomMeetingScreen extends StatefulWidget {
   final String meetingNumber;
   final String password;
   final String displayName;
+  final String? nativeDisplayName;
+  final String? routingDisplayName;
   final String shiftName;
   final String customerKey;
   final String? joinUrl;
   final String? breakoutRoomName;
   final String? breakoutRoomKey;
   final bool autoJoinBreakoutRoom;
+  final DateTime? classEndsAt;
+  final bool preferDesktopZoomApp;
 
   const ZoomMeetingScreen({
     super.key,
@@ -27,12 +32,16 @@ class ZoomMeetingScreen extends StatefulWidget {
     required this.meetingNumber,
     required this.password,
     required this.displayName,
+    this.nativeDisplayName,
+    this.routingDisplayName,
     required this.shiftName,
     required this.customerKey,
     this.joinUrl,
     this.breakoutRoomName,
     this.breakoutRoomKey,
     this.autoJoinBreakoutRoom = false,
+    this.classEndsAt,
+    this.preferDesktopZoomApp = false,
   });
 
   @override
@@ -41,6 +50,7 @@ class ZoomMeetingScreen extends StatefulWidget {
 
 class _ZoomMeetingScreenState extends State<ZoomMeetingScreen> {
   bool _launched = false;
+  bool _returnScheduled = false;
   String? _meetingPageUrl;
 
   @override
@@ -56,7 +66,7 @@ class _ZoomMeetingScreenState extends State<ZoomMeetingScreen> {
       'password': widget.password,
       'displayName': widget.displayName,
       'customerKey': widget.customerKey,
-      'returnUrl': html.window.location.href,
+      'returnUrl': JoinLinkService.removeJoinParameters(Uri.base).toString(),
       'embedded': '0',
       'connectingText': l10n.connectingToClass,
       'loadErrorText': l10n.zoomUnableToLoadMeeting,
@@ -66,6 +76,11 @@ class _ZoomMeetingScreenState extends State<ZoomMeetingScreen> {
       'leaveMeetingText': l10n.leaveMeeting,
       'routingStillConnectingText': l10n.zoomStillConnectingToClass,
       'routingHelpText': l10n.zoomClassRoutingHelp,
+      if (widget.classEndsAt != null)
+        'classEndsAt': widget.classEndsAt!.toUtc().toIso8601String(),
+      // {minutes} placeholder is substituted by the meeting page as it counts down.
+      'classEndingSoonText': l10n.zoomClassEndingSoon('{minutes}'),
+      'classEndedText': l10n.zoomClassEnded,
       if ((widget.breakoutRoomName ?? '').trim().isNotEmpty)
         'breakoutRoomName': widget.breakoutRoomName!.trim(),
       if ((widget.breakoutRoomKey ?? '').trim().isNotEmpty)
@@ -80,7 +95,11 @@ class _ZoomMeetingScreenState extends State<ZoomMeetingScreen> {
     _meetingPageUrl = 'zoom_meeting.html?join=$cacheBust#$hash';
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || _meetingPageUrl == null) return;
-      html.window.location.assign(_meetingPageUrl!);
+      if (widget.preferDesktopZoomApp) {
+        _openDesktopZoomApp();
+        return;
+      }
+      _openZoomClassroom();
     });
   }
 
@@ -99,6 +118,51 @@ class _ZoomMeetingScreenState extends State<ZoomMeetingScreen> {
       mode: LaunchMode.externalApplication,
       webOnlyWindowName: '_blank',
     );
+  }
+
+  String get _desktopZoomDisplayName {
+    final routingName = (widget.routingDisplayName ?? '').trim();
+    if (routingName.isNotEmpty) return routingName;
+    final nativeName = (widget.nativeDisplayName ?? '').trim();
+    if (nativeName.isNotEmpty) return nativeName;
+    return widget.displayName.trim().isNotEmpty
+        ? widget.displayName.trim()
+        : 'Participant';
+  }
+
+  Uri? _desktopZoomUri() {
+    final meetingNumber = widget.meetingNumber.replaceAll(RegExp(r'\D'), '');
+    if (meetingNumber.isEmpty) return null;
+    return Uri(
+      scheme: 'zoommtg',
+      host: 'zoom.us',
+      path: '/join',
+      queryParameters: {
+        'action': 'join',
+        'confno': meetingNumber,
+        if (widget.password.trim().isNotEmpty) 'pwd': widget.password.trim(),
+        'uname': _desktopZoomDisplayName,
+      },
+    );
+  }
+
+  void _openDesktopZoomApp() {
+    final uri = _desktopZoomUri();
+    if (uri == null) {
+      _openZoomClassroom();
+      return;
+    }
+    html.window.location.assign(uri.toString());
+    _returnToAppAfterDesktopLaunch();
+  }
+
+  void _returnToAppAfterDesktopLaunch() {
+    if (_returnScheduled) return;
+    _returnScheduled = true;
+    Future<void>.delayed(const Duration(milliseconds: 900), () {
+      if (!mounted) return;
+      Navigator.of(context).maybePop();
+    });
   }
 
   void _openZoomClassroom() {
@@ -180,12 +244,31 @@ class _ZoomMeetingScreenState extends State<ZoomMeetingScreen> {
                 ),
                 const SizedBox(height: 22),
                 FilledButton.icon(
-                  onPressed: _openZoomClassroom,
-                  icon: const Icon(Icons.video_camera_front_outlined),
-                  label: Text(l10n.joinClass),
+                  onPressed: widget.preferDesktopZoomApp
+                      ? _openDesktopZoomApp
+                      : _openZoomClassroom,
+                  icon: Icon(
+                    widget.preferDesktopZoomApp
+                        ? Icons.open_in_new
+                        : Icons.video_camera_front_outlined,
+                  ),
+                  label: Text(
+                    widget.preferDesktopZoomApp
+                        ? l10n.zoomOpenInZoomApp
+                        : l10n.joinClass,
+                  ),
                 ),
+                if (widget.preferDesktopZoomApp) ...[
+                  const SizedBox(height: 10),
+                  OutlinedButton.icon(
+                    onPressed: _openZoomClassroom,
+                    icon: const Icon(Icons.video_camera_front_outlined),
+                    label: Text(l10n.joinClass),
+                  ),
+                ],
                 if ((widget.joinUrl ?? '').trim().isNotEmpty &&
-                    !widget.autoJoinBreakoutRoom) ...[
+                    !widget.autoJoinBreakoutRoom &&
+                    !widget.preferDesktopZoomApp) ...[
                   const SizedBox(height: 10),
                   OutlinedButton.icon(
                     onPressed: _openNativeZoom,

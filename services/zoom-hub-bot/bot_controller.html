@@ -72,11 +72,52 @@
       let joined = false;
       let roomsOpened = false;
       let leaving = false;
+      // When this page instance loaded. Used to honor a backend force-rejoin
+      // signal (reload = clean rejoin into a fresh meeting instance) and to
+      // recover from a "zombie" session where the meeting ended server-side but
+      // our SDK keeps reporting stale rooms.
+      const pageLoadedAt = Date.now();
+      let rejoinTriggered = false;
+      const triggerRejoin = (reason) => {
+        if (rejoinTriggered) return;
+        rejoinTriggered = true;
+        // Cap reloads within a single page lifetime so a persistently failing
+        // rejoin cannot loop forever; systemd + backend watcher remain backstops.
+        let reloadCount = 0;
+        try {
+          reloadCount = Number(window.sessionStorage.getItem('alluwal_rejoin_count') || '0') || 0;
+          window.sessionStorage.setItem('alluwal_rejoin_count', String(reloadCount + 1));
+        } catch (_) {}
+        if (reloadCount >= 5) {
+          console.error(`Rejoin cap reached (${reloadCount}); not reloading again (${reason})`);
+          return;
+        }
+        console.warn(`Reloading to rejoin a fresh meeting instance (reason: ${reason}, reload #${reloadCount + 1})`);
+        setTimeout(() => window.location.reload(), 500);
+      };
       let lastBoIdByRoomName = config.boIdByRoomName || {};
       let liveBoIdByRoomName = {};
       let lastRoutingSnapshotLogAt = 0;
       const routeIntervalMs = 3000;
       const heartbeatIntervalMs = 15000;
+      // Self-heal state: the Zoom SDK's breakout room list (getBreakoutRooms)
+      // can go empty and stay empty on a busy hub. When it does, the bot cannot
+      // assign anyone. We repair by close+reopen, but only when it is safe for
+      // people already INSIDE rooms. These track what we last knew about room
+      // occupancy so the heal never bumps a live class.
+      let haveReadRoomsThisSession = false;
+      let lastKnownInRoomCount = 0;
+      let lastReadableRoomsAt = 0;
+      let roomsCreatedFresh = false;
+      let lastHealAttemptAt = 0;
+      const healThrottleMs = 20000;
+      // When an in-place close+reopen cannot restore a readable room list, the
+      // meeting instance is corrupted beyond repair. After this many consecutive
+      // failed self-heals we ask the backend to END the meeting so we can rejoin
+      // a clean instance — only ever when no one is inside a room.
+      let consecutiveHealFailures = 0;
+      const healFailuresBeforeReset = 2;
+      let resetRequested = false;
 
       function setStatus(message) {
         if (statusEl) statusEl.textContent = message;
@@ -302,6 +343,14 @@
         const attendeesPayload = await zoomCall('getAttendeeslist').catch(() => []);
         const normalized = normalizeBreakoutPayload(breakoutPayload);
         rememberLiveRooms(normalized.rooms);
+        if (normalized.rooms.length > 0) {
+          haveReadRoomsThisSession = true;
+          lastReadableRoomsAt = Date.now();
+          lastKnownInRoomCount = normalized.rooms.reduce(
+            (sum, room) => sum + routing.roomParticipants(room).length,
+            0,
+          );
+        }
         const attendeeList = Array.isArray(attendeesPayload)
           ? attendeesPayload
           : routing.normalizeUnassigned(attendeesPayload);
@@ -342,6 +391,19 @@
         if (state.rooms.length > 0 || !options.primeIfEmpty) return state;
         await primeBreakoutUi(options.reason || 'empty_rooms');
         return readBreakoutState();
+      }
+
+      // The SDK's breakout list can read empty transiently. Before any
+      // destructive close+reopen we retry the read hard: if it becomes readable
+      // we both avoid an unnecessary reopen AND learn true occupancy (which
+      // updates lastKnownInRoomCount and protects a live class from being reopened).
+      async function burstReadBreakoutRooms(maxTries = 8) {
+        let state = await readBreakoutState();
+        for (let i = 0; i < maxTries && state.rooms.length === 0; i += 1) {
+          await sleep(1000);
+          state = await readBreakoutState();
+        }
+        return state;
       }
 
       function isInvalidOperation(error) {
@@ -426,6 +488,24 @@
         return seen.size;
       }
 
+      // Safe to close+reopen rooms only when nobody is inside a room. A person
+      // waiting in the MAIN session is fine to reopen around — closing breakout
+      // rooms never affects them. We refuse to reopen when occupancy is unknown
+      // (rooms we inherited from a previous session and have never read) so a
+      // bot restart during a live class can never bump students out of rooms.
+      // Reopen is safe unless there is POSITIVE evidence someone is inside a
+      // room: either a live readable snapshot shows in-room participants, or the
+      // last time we could read the list it showed occupants. When the list is
+      // simply unreadable (empty) and we have no such evidence — the common
+      // failure — reopening restores routing, and any assigned user who was
+      // briefly in a room is auto-pulled back on reopen (isAutoJoinRoom). Callers
+      // must burst-read first so a busy/warm hub reports its real occupancy here.
+      function isSafeToReopen(state) {
+        if (state && inRoomParticipantCount(state) > 0) return false;
+        if (lastKnownInRoomCount > 0) return false;
+        return true;
+      }
+
       async function currentBreakoutStatus() {
         const status = await zoomCall('getBreakoutRoomStatus').catch(() => null);
         return breakoutStatusValue(status);
@@ -480,7 +560,13 @@
               breakoutState.rooms.length === 0 &&
               Object.keys(lastBoIdByRoomName).length > 0
             ) {
-              if (nonBotAttendeeCount(breakoutState) === 0) {
+              // Try hard to read the inherited rooms before touching them; this
+              // both avoids an unnecessary reopen and surfaces real occupancy.
+              breakoutState = await burstReadBreakoutRooms();
+              if (breakoutState.rooms.length > 0) {
+                continue;
+              }
+              if (isSafeToReopen(breakoutState)) {
                 setStatus('Reopening rooms: current bot cannot read existing rooms');
                 lastBoIdByRoomName = {};
                 liveBoIdByRoomName = {};
@@ -490,8 +576,8 @@
                 breakoutState = await getBreakoutState({ primeIfEmpty: true, reason: 'after_close_unreadable' });
                 continue;
               }
-              console.error('Breakout rooms are unreadable while attendees are present; not reopening');
-              await postState('error', { error: 'breakout_rooms_unreadable_with_attendees' })
+              console.error('Breakout rooms are unreadable and in-room occupancy is detected; not reopening to protect a live class');
+              await postState('error', { error: 'breakout_rooms_unreadable_occupancy_detected' })
                 .catch(() => {});
               break;
             }
@@ -526,6 +612,9 @@
               const createdPayload = await zoomCall('createBreakoutRoom', { data: missingRooms, pattern: 2 });
               const createdRooms = routing.normalizeRooms(createdPayload);
               rememberLiveRooms(createdRooms);
+              // We created the room set this session, so no prior occupants can
+              // be inside — safe for the self-heal to close+reopen if needed.
+              roomsCreatedFresh = true;
               console.log('Create breakout rooms payload', JSON.stringify({
                 roomCount: createdRooms.length,
                 rooms: createdRooms.map(summarizeRoom),
@@ -561,14 +650,88 @@
 
         rememberLiveRooms(breakoutState.rooms);
         roomsOpened = true;
+        // Healthy open — clear the reload cap so future transient rejoins over a
+        // long healthy session are not counted against it.
+        try { window.sessionStorage.setItem('alluwal_rejoin_count', '0'); } catch (_) {}
         await postState('roomsOpen');
         setStatus(`Rooms open for ${config.hubDocId}`);
       }
 
       async function routeOnce() {
         const assignments = await getAssignments();
-        const zoomState = await getBreakoutState({ primeIfEmpty: true, reason: 'route_once' });
+        // Backend force-rejoin signal (zombie meeting detected server-side):
+        // reload into a fresh instance. Only when nobody is inside a room.
+        const forceRejoinAt = Number(assignments && assignments.forceRejoinAt);
+        if (Number.isFinite(forceRejoinAt) && forceRejoinAt > pageLoadedAt) {
+          const currentState = await readBreakoutState().catch(() => null);
+          const inRoom = currentState ? inRoomParticipantCount(currentState) : 0;
+          if (inRoom === 0) {
+            triggerRejoin('backend_force_rejoin');
+            return;
+          }
+        }
+        let zoomState = await getBreakoutState({ primeIfEmpty: true, reason: 'route_once' });
         rememberLiveRooms(zoomState.rooms);
+
+        // Self-heal: if the SDK's live breakout list is empty while routing is
+        // actually needed, the bot cannot assign anyone (assignUserToBreakoutRoom
+        // rejects every target as "room id not found"). Repair by re-running the
+        // open/recovery path, which restores a readable room list. Gated so it
+        // never closes rooms that could hold a live class (isSafeToReopen) and
+        // throttled so it does not thrash.
+        const liveRoomCount = (zoomState.breakoutPayloadSummary || {}).roomCount || 0;
+        const botUid = `zoom_hub_bot_lane_${config.lane}`;
+        const waitingPeople = (zoomState.unassigned || []).some((participant) => {
+          const uid = routing.zoomCustomerKey(participant);
+          return uid && uid !== botUid;
+        });
+        const membersExpected = Array.isArray(assignments.members) && assignments.members.length > 0;
+        if (
+          liveRoomCount === 0 &&
+          config.rooms.length > 0 &&
+          (waitingPeople || membersExpected) &&
+          Date.now() - lastHealAttemptAt > healThrottleMs
+        ) {
+          lastHealAttemptAt = Date.now();
+          zoomState = await burstReadBreakoutRooms();
+          rememberLiveRooms(zoomState.rooms);
+          const recoveredRoomCount = (zoomState.breakoutPayloadSummary || {}).roomCount || 0;
+          if (recoveredRoomCount > 0) {
+            console.log('Self-heal: breakout room list recovered via burst read; no reopen needed');
+            consecutiveHealFailures = 0;
+          } else if (isSafeToReopen(zoomState)) {
+            console.warn('Self-heal: breakout room list still empty after burst read; reopening rooms');
+            await ensureRoomsOpen().catch((error) => console.warn('Self-heal ensureRoomsOpen failed', error));
+            zoomState = await getBreakoutState({ primeIfEmpty: true, reason: 'after_self_heal' });
+            rememberLiveRooms(zoomState.rooms);
+            const afterReopenRoomCount = (zoomState.breakoutPayloadSummary || {}).roomCount || 0;
+            if (afterReopenRoomCount > 0) {
+              consecutiveHealFailures = 0;
+            } else {
+              consecutiveHealFailures += 1;
+              console.warn(`Self-heal: reopen did not restore rooms (${consecutiveHealFailures}/${healFailuresBeforeReset})`);
+              // The meeting instance is corrupted beyond in-place repair. Ask the
+              // backend to end it, then leave; the directive poll rejoins a fresh
+              // instance. Guarded by isSafeToReopen (no one inside a room).
+              if (consecutiveHealFailures >= healFailuresBeforeReset && !resetRequested) {
+                resetRequested = true;
+                console.error('Self-heal exhausted; requesting meeting reset for a clean rejoin');
+                // Ask the backend to end the (corrupted) meeting, then reload to
+                // rejoin a fresh instance. Reloading is self-contained and does
+                // not depend on the launcher re-opening the page.
+                await postState('resetMeeting', {
+                  stats: { liveRoomCount: 0, inRoomOccupants: inRoomParticipantCount(zoomState) },
+                }).catch((error) => console.warn('resetMeeting request failed', error));
+                triggerRejoin('self_heal_exhausted');
+                return;
+              }
+            }
+          } else {
+            console.warn('Self-heal skipped: in-room participants detected; not reopening to protect a live class');
+            consecutiveHealFailures = 0;
+          }
+        }
+
         if (zoomState.rooms.length === 0 && Object.keys(liveBoIdByRoomName).length > 0) {
           zoomState.rooms = roomsFromLiveBoIds(assignments);
         } else if (zoomState.rooms.length > 0 && Object.keys(lastBoIdByRoomName).length > 0) {
@@ -629,6 +792,14 @@
             customerKeyCount: participants.filter((participant) => routing.zoomCustomerKey(participant)).length,
             routableRoomCount: zoomState.rooms.filter((room) => routing.roomId(room)).length,
             targetMemberCount: Array.isArray(assignments.members) ? assignments.members.length : 0,
+            // liveRoomCount is the real getBreakoutRooms() reading. When it is 0
+            // while rooms should be open and members are expected, the meeting
+            // instance's breakout state is corrupted and the bot cannot route.
+            // The server-side watcher ends+resets such a meeting so the bot can
+            // rejoin a clean instance. inRoomOccupants lets the watcher confirm
+            // no live class would be disrupted before it resets.
+            liveRoomCount: (zoomState.breakoutPayloadSummary || {}).roomCount || 0,
+            inRoomOccupants: Math.max(inRoomParticipantCount(zoomState), lastKnownInRoomCount),
           },
         });
       }

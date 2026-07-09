@@ -1,0 +1,1138 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link type="text/css" rel="stylesheet" href="https://source.zoom.us/6.2.0/css/bootstrap.css" crossorigin="anonymous" />
+  <link type="text/css" rel="stylesheet" href="https://source.zoom.us/6.2.0/css/react-select.css" crossorigin="anonymous" />
+  <style>
+    html, body, #zmmtg-root { margin: 0; width: 100%; height: 100%; background: #000; }
+    body { overflow: hidden; }
+    /* Keep Zoom's Client View un-cropped. Do NOT force a z-index here:
+       Zoom renders dropdown popups (More menu -> Whiteboards, Captions,
+       Settings) in portals that can stack below an inflated #zmmtg-root
+       z-index, which makes the More menu appear empty. */
+    #zmmtg-root {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      width: 100vw; height: 100vh;
+    }
+    body.alluwal-private-routing-pending #zmmtg-root {
+      opacity: 0 !important;
+      pointer-events: none !important;
+    }
+    #status {
+      position: fixed;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      background: #000;
+      color: #fff;
+      font: 14px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      text-align: center;
+      padding: 24px;
+      z-index: 2147483647;
+      pointer-events: none;
+    }
+    body.alluwal-private-routing-pending #status {
+      pointer-events: auto;
+    }
+    #status.status-toast {
+      inset: 16px auto auto 50%;
+      transform: translateX(-50%);
+      width: max-content;
+      max-width: calc(100vw - 32px);
+      min-height: 0;
+      padding: 10px 14px;
+      border-radius: 999px;
+      background: rgba(17, 24, 39, 0.86);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.32);
+      font-size: 13px;
+      line-height: 1.3;
+    }
+    #leaveMeetingButton {
+      position: fixed;
+      right: 18px;
+      top: calc(18px + env(safe-area-inset-top, 0px));
+      z-index: 2147483647;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      min-height: 40px;
+      max-width: calc(100vw - 36px);
+      padding: 0 16px;
+      border: 0;
+      border-radius: 999px;
+      background: #dc2626;
+      color: #fff;
+      font: 700 13px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+      cursor: pointer;
+      isolation: isolate;
+    }
+    #leaveMeetingButton::before {
+      content: "";
+      position: absolute;
+      inset: -10px -14px;
+      z-index: -1;
+      border-radius: 999px;
+      background: #000;
+    }
+    #leaveMeetingButton:hover { background: #b91c1c; }
+    #leaveMeetingButton:disabled {
+      cursor: default;
+      opacity: 0.72;
+    }
+    #classCountdown {
+      position: fixed;
+      left: 50%;
+      top: calc(14px + env(safe-area-inset-top, 0px));
+      transform: translateX(-50%);
+      z-index: 2147483647;
+      display: none;
+      align-items: center;
+      max-width: calc(100vw - 140px);
+      padding: 8px 14px;
+      border-radius: 999px;
+      background: rgba(180, 83, 9, 0.95);
+      color: #fff;
+      font: 700 13px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+      pointer-events: none;
+      text-align: center;
+      line-height: 1.3;
+    }
+    #classCountdown.ended { background: rgba(220, 38, 38, 0.96); }
+    @media (max-width: 640px), (pointer: coarse) {
+      #zmmtg-root #wc-footer,
+      #zmmtg-root [class*="footer" i],
+      #zmmtg-root [class*="meeting-footer" i],
+      #zmmtg-root [class*="meeting-bottom" i] {
+        max-width: 100vw !important;
+        overflow-x: auto !important;
+        overflow-y: visible !important;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+      }
+      #zmmtg-root #wc-footer::-webkit-scrollbar,
+      #zmmtg-root [class*="footer" i]::-webkit-scrollbar,
+      #zmmtg-root [class*="meeting-footer" i]::-webkit-scrollbar,
+      #zmmtg-root [class*="meeting-bottom" i]::-webkit-scrollbar {
+        display: none;
+      }
+      #zmmtg-root [class*="footer-button" i],
+      #zmmtg-root [class*="footer__" i],
+      #zmmtg-root [class*="meeting-footer" i] button,
+      #zmmtg-root [class*="meeting-bottom" i] button {
+        flex: 0 0 auto !important;
+      }
+      #zmmtg-root button[aria-label*="Share" i],
+      #zmmtg-root [role="button"][aria-label*="Share" i],
+      #zmmtg-root button[title*="Share" i],
+      #zmmtg-root [role="button"][title*="Share" i],
+      #zmmtg-root [class*="share" i] {
+        display: inline-flex !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        pointer-events: auto !important;
+        flex: 0 0 auto !important;
+      }
+    }
+    .alluwal-classroom-hidden,
+    button:not(#leaveMeetingButton)[aria-label*="Leave" i],
+    button:not(#leaveMeetingButton)[aria-label*="End Meeting" i],
+    button:not(#leaveMeetingButton)[title*="Leave" i],
+    button:not(#leaveMeetingButton)[title*="End Meeting" i],
+    [role="button"]:not(#leaveMeetingButton)[aria-label*="Leave" i],
+    [role="button"]:not(#leaveMeetingButton)[aria-label*="End Meeting" i],
+    [class*="footer" i] [aria-label*="Leave" i],
+    [class*="footer" i] [aria-label*="End Meeting" i],
+    [class*="footer" i] [title*="Leave" i],
+    [class*="footer" i] [title*="End Meeting" i],
+    [class*="leave-meeting" i],
+    [class*="end-meeting" i] {
+      display: none !important;
+      visibility: hidden !important;
+      pointer-events: none !important;
+    }
+  </style>
+</head>
+<body>
+  <div id="status"></div>
+  <div id="classCountdown"></div>
+  <button id="leaveMeetingButton" type="button"></button>
+  <script src="https://source.zoom.us/6.2.0/lib/vendor/react.min.js" crossorigin="anonymous"></script>
+  <script src="https://source.zoom.us/6.2.0/lib/vendor/react-dom.min.js" crossorigin="anonymous"></script>
+  <script src="https://source.zoom.us/6.2.0/lib/vendor/redux.min.js" crossorigin="anonymous"></script>
+  <script src="https://source.zoom.us/6.2.0/lib/vendor/redux-thunk.min.js" crossorigin="anonymous"></script>
+  <script src="https://source.zoom.us/6.2.0/lib/vendor/lodash.min.js" crossorigin="anonymous"></script>
+  <script src="https://source.zoom.us/zoom-meeting-6.2.0.min.js" crossorigin="anonymous"></script>
+  <script>
+    const statusEl = document.getElementById('status');
+    const leaveMeetingButton = document.getElementById('leaveMeetingButton');
+    const initialHash = location.hash;
+    window.addEventListener('hashchange', () => {
+      if (location.hash && location.hash !== initialHash) {
+        location.reload();
+      }
+    });
+    let statusHideTimer = null;
+    const clearStatusHideTimer = () => {
+      if (statusHideTimer) {
+        clearTimeout(statusHideTimer);
+        statusHideTimer = null;
+      }
+    };
+    const setStatus = (message, options = {}) => {
+      clearStatusHideTimer();
+      statusEl.textContent = message;
+      statusEl.classList.toggle('status-toast', options.toast === true);
+      statusEl.style.display = 'grid';
+      if (options.hideAfterMs) hideStatusAfter(options.hideAfterMs);
+    };
+    const hideStatus = () => {
+      if (document.body && document.body.classList.contains('alluwal-private-routing-pending')) return;
+      clearStatusHideTimer();
+      statusEl.classList.remove('status-toast');
+      statusEl.style.display = 'none';
+      statusEl.textContent = '';
+    };
+    const hideStatusAfter = (ms) => {
+      clearStatusHideTimer();
+      statusHideTimer = setTimeout(() => {
+        statusHideTimer = null;
+        hideStatus();
+      }, ms);
+    };
+    const params = new URLSearchParams(location.hash.slice(1));
+    const returnUrl = params.get('returnUrl') || '';
+    const embedded = params.get('embedded') !== '0';
+    const returnToApp = () => {
+      if (returnUrl) {
+        location.replace(returnUrl);
+        return true;
+      }
+      return false;
+    };
+    if (params.get('left') === '1') {
+      if (embedded && window.parent && window.parent !== window) {
+        window.parent.postMessage('alluwal-zoom-left', location.origin);
+      } else {
+        returnToApp();
+      }
+      setStatus(params.get('leftText') || '');
+    } else {
+      const sdkKey = params.get('sdkKey') || '';
+      const signature = params.get('signature') || '';
+      const meetingNumber = params.get('meetingNumber') || '';
+      const password = params.get('password') || '';
+      const displayName = params.get('displayName') || 'Participant';
+      const customerKey = params.get('customerKey') || '';
+      const connectingText = params.get('connectingText') || '';
+      const routingStillConnectingText = params.get('routingStillConnectingText') || connectingText;
+      const routingHelpText = params.get('routingHelpText') || routingStillConnectingText;
+      const loadErrorText = params.get('loadErrorText') || '';
+      const joinErrorText = params.get('joinErrorText') || '';
+      const initErrorText = params.get('initErrorText') || '';
+      const leftText = params.get('leftText') || '';
+      const leaveMeetingText = params.get('leaveMeetingText') || leftText || 'Leave Meeting';
+      const breakoutRoomName = params.get('breakoutRoomName') || '';
+      const breakoutRoomKey = params.get('breakoutRoomKey') || '';
+      const autoJoinBreakoutRoom = params.get('autoJoinBreakoutRoom') === '1';
+      // Class end countdown: warn participants before everyone is removed at the
+      // 15-minute-past-class limit. classEndsAt is the exact removal time.
+      const classEndsAtMs = (() => {
+        const raw = params.get('classEndsAt') || '';
+        const t = raw ? Date.parse(raw) : NaN;
+        return Number.isFinite(t) ? t : null;
+      })();
+      const classEndingSoonText = params.get('classEndingSoonText') || 'This class ends in {minutes} min';
+      const classEndedText = params.get('classEndedText') || 'This class has ended.';
+      const countdownEl = document.getElementById('classCountdown');
+      const COUNTDOWN_WARN_MS = 5 * 60 * 1000;
+      let classCountdownStarted = false;
+      const startClassCountdown = () => {
+        if (classCountdownStarted || classEndsAtMs === null || !countdownEl) return;
+        classCountdownStarted = true;
+        const tick = () => {
+          const remaining = classEndsAtMs - Date.now();
+          if (remaining > COUNTDOWN_WARN_MS) {
+            countdownEl.style.display = 'none';
+            return;
+          }
+          if (remaining <= 0) {
+            countdownEl.classList.add('ended');
+            countdownEl.textContent = classEndedText;
+            countdownEl.style.display = 'inline-flex';
+            return;
+          }
+          const minutes = Math.max(1, Math.ceil(remaining / 60000));
+          countdownEl.classList.remove('ended');
+          countdownEl.textContent = classEndingSoonText.replace('{minutes}', String(minutes));
+          countdownEl.style.display = 'inline-flex';
+        };
+        tick();
+        setInterval(tick, 15000);
+      };
+      const privateRoutingClass = 'alluwal-private-routing-pending';
+      let privateRoutingPending = autoJoinBreakoutRoom && Boolean(breakoutRoomName);
+      const setPrivateRoutingPending = (pending) => {
+        privateRoutingPending = pending;
+        document.body.classList.toggle(privateRoutingClass, pending);
+        if (pending) {
+          clearStatusHideTimer();
+          statusEl.classList.remove('status-toast');
+          statusEl.style.display = 'grid';
+          if (!statusEl.textContent) statusEl.textContent = connectingText;
+        }
+      };
+      const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+      const joinedRoutingStatusMs = 6000;
+      const joinAttemptTimeoutMs = 18000;
+      const stillConnectingMs = 60000;
+      const routingHelpMs = 180000;
+      if (privateRoutingPending) setPrivateRoutingPending(true);
+      const zoomSdkCall = (method, options = {}) => new Promise((resolve, reject) => {
+        const fn = ZoomMtg && ZoomMtg[method];
+        if (typeof fn !== 'function') {
+          reject(new Error(`${method} unavailable`));
+          return;
+        }
+        fn({
+          ...options,
+          success: resolve,
+          error: reject,
+        });
+      });
+      const extractList = (value, keys = []) => {
+        if (Array.isArray(value)) return value;
+        if (!value || typeof value !== 'object') return [];
+        for (const key of keys) {
+          if (Array.isArray(value[key])) return value[key];
+        }
+        const result = value.result && typeof value.result === 'object' ? value.result : null;
+        if (result) {
+          for (const key of keys) {
+            if (Array.isArray(result[key])) return result[key];
+          }
+        }
+        return [];
+      };
+      const getAttendees = async () => {
+        const response = await zoomSdkCall('getAttendeeslist');
+        return extractList(response, [
+          'attendeesList',
+          'attendeeList',
+          'attendees',
+          'participants',
+          'users',
+        ]);
+      };
+      const roomIdentifier = (room) =>
+        room && (room.roomId || room.boId || room.id || room.room_id || '');
+      const roomDisplayName = (room) =>
+        String(room && (room.name || room.roomName || room.room_name || '')).trim();
+      const normalizeRoomName = (value) =>
+        String(value || '').replace(/\s+/g, ' ').trim().toLowerCase();
+      const findRoomByName = (rooms, name) => {
+        const target = String(name || '').trim();
+        if (!target) return null;
+        const normalizedTarget = normalizeRoomName(target);
+        const exact = rooms.find((room) => normalizeRoomName(roomDisplayName(room)) === normalizedTarget);
+        if (exact) return exact;
+
+        const shortKey = String(breakoutRoomKey || '').trim().slice(-6);
+        if (shortKey) {
+          const normalizedShortKeyPrefix = normalizeRoomName(`${shortKey} |`);
+          const byKey = rooms.find((room) =>
+            normalizeRoomName(roomDisplayName(room)).startsWith(normalizedShortKeyPrefix)
+          );
+          if (byKey) return byKey;
+        }
+
+        return rooms.find((room) => {
+          const display = normalizeRoomName(roomDisplayName(room));
+          return display === normalizedTarget;
+        }) || null;
+      };
+      const participantIdentifier = (participant) =>
+        participant && (
+          participant.participantId ||
+          participant.participantID ||
+          participant.userId ||
+          participant.userID ||
+          participant.user_id ||
+          participant.id ||
+          ''
+        );
+      const participantCustomerKey = (participant) =>
+        String(participant && (
+          participant.customerKey ||
+          participant.customer_key ||
+          participant.customerKeyValue ||
+          participant.customer_key_value ||
+          participant.customUserId ||
+          participant.custom_user_id ||
+          participant.userGuid ||
+          participant.userGUID ||
+          ''
+        ) || '').trim();
+      let targetBreakoutRoomId = '';
+      let breakoutAutomationStarted = false;
+      let breakoutRoomChangeListenerAttached = false;
+      let breakoutManagementGuardStarted = false;
+      let meetingJoinConfirmed = false;
+      let meetingUiMonitorStarted = false;
+      let attemptedActiveMeetingRecovery = false;
+      let clearZoomSession = () => {};
+      let announceZoomSession = () => {};
+      const isZoomMeetingUiVisible = () => {
+        const root = document.getElementById('zmmtg-root');
+        if (!root) return false;
+        if (root.querySelector('canvas, video, .meeting-app, .meeting-client, .footer-button__button, .join-audio-container')) {
+          return true;
+        }
+        const text = root.innerText || '';
+        return /\b(Mute|Unmute|Start Video|Stop Video|Participants|Chat|Share Screen|Leave)\b/i.test(text);
+      };
+      const showJoinedRoutingStatus = () => {
+        if (privateRoutingPending) return;
+        setStatus(connectingText, {
+          toast: true,
+          hideAfterMs: joinedRoutingStatusMs,
+        });
+      };
+      const markPrivateRoomReady = () => {
+        setPrivateRoutingPending(false);
+        hideStatus();
+      };
+      const showLeaveMeetingButton = () => {
+        leaveMeetingButton.textContent = leaveMeetingText;
+        leaveMeetingButton.setAttribute('aria-label', leaveMeetingText);
+        leaveMeetingButton.style.display = 'inline-flex';
+      };
+      let zoomLeaveRequested = false;
+      const requestZoomLeave = (onDone = () => {}) => {
+        clearZoomSession();
+        const done = typeof onDone === 'function' ? onDone : () => {};
+        if (zoomLeaveRequested) {
+          setTimeout(done, 0);
+          return;
+        }
+        zoomLeaveRequested = true;
+        try {
+          if (ZoomMtg && typeof ZoomMtg.leaveMeeting === 'function') {
+            ZoomMtg.leaveMeeting({
+              success: done,
+              error: done,
+            });
+            return;
+          }
+        } catch (_) {}
+        done();
+      };
+      const leaveZoomSilently = () => {
+        requestZoomLeave();
+      };
+      const leaveMeeting = () => {
+        leaveMeetingButton.disabled = true;
+        const leaveUrl = returnUrl || `${location.origin}${location.pathname}#left=1&leftText=${encodeURIComponent(leftText)}`;
+        let redirected = false;
+        const redirectAfterLeave = () => {
+          if (redirected) return;
+          redirected = true;
+          if (embedded && window.parent && window.parent !== window) {
+            window.parent.postMessage('alluwal-zoom-left', location.origin);
+            return;
+          }
+          if (returnUrl) {
+            location.replace(returnUrl);
+            return;
+          }
+          location.replace(leaveUrl);
+        };
+        requestZoomLeave(redirectAfterLeave);
+        setTimeout(redirectAfterLeave, 1500);
+      };
+      leaveMeetingButton.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        leaveMeeting();
+      });
+      const zoomSessionStorageKey = 'alluwal_zoom_meeting_session';
+      const zoomSessionChannelName = 'alluwal-zoom-meeting-session';
+      const zoomMeetingSessionId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      let zoomSessionChannel = null;
+      const parseZoomSession = (value) => {
+        try {
+          return JSON.parse(value || '{}');
+        } catch (_) {
+          return {};
+        }
+      };
+      clearZoomSession = () => {
+        try {
+          const current = parseZoomSession(window.localStorage.getItem(zoomSessionStorageKey));
+          if (current && current.sessionId === zoomMeetingSessionId) {
+            window.localStorage.removeItem(zoomSessionStorageKey);
+          }
+        } catch (_) {}
+      };
+      const handleCompetingZoomSession = (payload) => {
+        if (!payload || payload.type !== 'alluwal-zoom-session-claim') return;
+        if (payload.sessionId === zoomMeetingSessionId) return;
+        console.warn('Another classroom tab requested Zoom focus; leaving this meeting', {
+          meetingNumber,
+          nextMeetingNumber: payload.meetingNumber,
+        });
+        leaveMeeting();
+      };
+      announceZoomSession = () => {
+        const payload = {
+          type: 'alluwal-zoom-session-claim',
+          sessionId: zoomMeetingSessionId,
+          meetingNumber,
+          at: Date.now(),
+        };
+        try {
+          window.localStorage.setItem(zoomSessionStorageKey, JSON.stringify(payload));
+        } catch (_) {}
+        try {
+          if (zoomSessionChannel) zoomSessionChannel.postMessage(payload);
+        } catch (_) {}
+      };
+      try {
+        zoomSessionChannel = new BroadcastChannel(zoomSessionChannelName);
+        zoomSessionChannel.onmessage = (event) => handleCompetingZoomSession(event.data);
+      } catch (_) {}
+      window.addEventListener('storage', (event) => {
+        if (event.key !== zoomSessionStorageKey) return;
+        handleCompetingZoomSession(parseZoomSession(event.newValue));
+      });
+      window.addEventListener('pagehide', leaveZoomSilently, { capture: true });
+      window.addEventListener('beforeunload', leaveZoomSilently, { capture: true });
+      const startMeetingUiMonitor = () => {
+        if (meetingUiMonitorStarted) return;
+        meetingUiMonitorStarted = true;
+        const startedAt = Date.now();
+        const timer = setInterval(() => {
+          if (isZoomMeetingUiVisible()) {
+            meetingJoinConfirmed = true;
+            showLeaveMeetingButton();
+            startClassCountdown();
+            clearInterval(timer);
+            if (autoJoinBreakoutRoom) {
+              showJoinedRoutingStatus();
+            } else {
+              hideStatus();
+            }
+            return;
+          }
+          if (Date.now() - startedAt > 30000) clearInterval(timer);
+        }, 500);
+      };
+      const isOwnClassroomControl = (element) =>
+        element && (
+          element === leaveMeetingButton ||
+          (element.closest && element.closest('#leaveMeetingButton'))
+        );
+      const hiddenFromClassroom = (element) => {
+        if (!element || isOwnClassroomControl(element)) return;
+        element.classList && element.classList.add('alluwal-classroom-hidden');
+        element.style.setProperty('display', 'none', 'important');
+        element.style.setProperty('visibility', 'hidden', 'important');
+        element.style.setProperty('pointer-events', 'none', 'important');
+        element.style.setProperty('opacity', '0', 'important');
+        element.setAttribute('aria-hidden', 'true');
+      };
+      const compactText = (value) => String(value || '').replace(/\s+/g, ' ').trim();
+      const formatZoomError = (fallback, error) => {
+        const details = [
+          error && error.reason,
+          error && error.errorMessage,
+          error && error.message,
+          error && error.errorCode ? `Code ${error.errorCode}` : '',
+          error && error.type,
+        ]
+          .map(compactText)
+          .filter(Boolean);
+        const uniqueDetails = Array.from(new Set(details));
+        if (uniqueDetails.length === 0) return fallback || '';
+        const detailText = uniqueDetails.join(' · ');
+        return fallback ? `${fallback} ${detailText}` : detailText;
+      };
+      const isConcurrentHostMeetingError = (error) => {
+        const code = compactText(error && (error.errorCode || error.code));
+        const text = compactText([
+          error && error.reason,
+          error && error.errorMessage,
+          error && error.message,
+          error && error.type,
+        ].filter(Boolean).join(' '));
+        return code === '3000' || /already has other meetings in progress/i.test(text);
+      };
+      const joinTimeoutError = () => ({
+        errorCode: 'JOIN_TIMEOUT',
+        message: 'Zoom did not finish joining the meeting',
+      });
+      const elementText = (element) => String(element && element.innerText ? element.innerText : '');
+      const elementLabel = (element) => [
+        element && element.textContent,
+        element && element.getAttribute && element.getAttribute('aria-label'),
+        element && element.getAttribute && element.getAttribute('title'),
+      ]
+        .map(compactText)
+        .filter(Boolean)
+        .join(' ');
+      const mediaControlPattern = /\b(video|camera|cam|audio|microphone|mic|mute|unmute|start video|stop video|start camera|stop camera|enable video|disable video|turn on camera|turn off camera|join audio|share audio)\b/i;
+      const screenShareControlPattern = /\b(share screen|screen share|share content|share)\b/i;
+      const utilityControlPattern = /\b(more|whiteboards?|whiteboard|apps?|captions?|settings|reactions?|react|chat|share)\b/i;
+      const isZoomMediaControl = (element) => {
+        if (!element || isOwnClassroomControl(element)) return false;
+        const label = compactText(elementLabel(element) || elementText(element));
+        const className = compactText(element.className || '');
+        const testText = `${label} ${className}`;
+        if (!mediaControlPattern.test(testText)) return false;
+        return !/\b(leave|end meeting|end for all|breakout)\b/i.test(testText);
+      };
+      const isZoomAllowedUtilityControl = (element) => {
+        if (!element || isOwnClassroomControl(element)) return false;
+        const label = compactText(elementLabel(element) || elementText(element));
+        const className = compactText(element.className || '');
+        const testText = `${label} ${className}`;
+        if (!utilityControlPattern.test(testText) && !screenShareControlPattern.test(testText)) return false;
+        return !/\b(leave|end meeting|end for all|close all rooms|add room|broadcast|assign|open all rooms|recreate)\b/i.test(testText);
+      };
+      const isCompactControl = (element, maxLength = 140) => {
+        if (!element) return false;
+        const label = compactText(elementLabel(element) || elementText(element));
+        if (!label || label.length > maxLength) return false;
+        const rawText = String(elementText(element) || '');
+        const lineCount = rawText.split('\n').map((line) => line.trim()).filter(Boolean).length;
+        if (lineCount > 3) return false;
+        const rect = element.getBoundingClientRect();
+        if (rect.width === 0 && rect.height === 0) return true;
+        return rect.width <= 360 && rect.height <= 160;
+      };
+      const isVisibleElement = (element) => {
+        if (!element || !element.getBoundingClientRect) return false;
+        const rect = element.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0) return false;
+        const style = window.getComputedStyle(element);
+        return style.visibility !== 'hidden' &&
+          style.display !== 'none' &&
+          Number(style.opacity || 1) > 0;
+      };
+      const classroomControlSelector = [
+        'button',
+        '[role="button"]',
+        '[role="menuitem"]',
+        'a',
+        'li',
+        '[aria-label]',
+        '[title]',
+        '[class*="footer-button"]',
+        '[class*="footer__"]',
+        '[class*="meeting-footer"]',
+        '[class*="meeting-bottom"]',
+        '[class*="menu-item"]',
+        '[class*="menu__item"]',
+        '[class*="dropdown-item"]',
+        '[class*="zm-btn"]',
+        '[class*="zmu-btn"]',
+        '[data-tooltip]',
+        '[class*="leave"]',
+        '[class*="end"]',
+      ].join(', ');
+      const classroomControlTarget = (element) => {
+        if (!element || isOwnClassroomControl(element)) return element;
+        return element.closest && element.closest(
+          'button, [role="button"], [role="menuitem"], a, li, ' +
+          '[class*="footer-button"], [class*="footer__"], [class*="meeting-footer"], ' +
+          '[class*="meeting-bottom"], [class*="menu-item"], [class*="menu__item"], ' +
+          '[class*="dropdown-item"], [class*="zm-btn"], [class*="zmu-btn"], ' +
+          '[data-tooltip], [class*="leave"], [class*="end"]'
+        ) || element;
+      };
+      const isZoomNativeLeaveControl = (element) => {
+        if (isZoomMediaControl(element)) return false;
+        if (!element || isOwnClassroomControl(element) || !isCompactControl(element, 180)) return false;
+        const label = compactText(elementLabel(element));
+        const className = compactText(element.className || '');
+        const footerLike = Boolean(element.closest && element.closest(
+          '#wc-footer, [class*="footer"], [class*="meeting-footer"], [class*="meeting-bottom"], [class*="leave"], [class*="end"]'
+        ));
+        const explicitLabel = /^(End|Leave|Leave Meeting|End Meeting|End Meeting for All)$/i.test(label) ||
+          /\b(Leave Meeting|End Meeting|End Meeting for All)\b/i.test(label);
+        const compactFooterLabel = footerLike && /^(End|Leave)$/i.test(label);
+        const leaveClass = footerLike && /\b(leave|end)(?:[-_ ]?(meeting|btn|button|option|container))?\b/i.test(className);
+        return explicitLabel || compactFooterLabel || leaveClass;
+      };
+      const expandedRect = (rect, pixels) => ({
+        top: rect.top - pixels,
+        right: rect.right + pixels,
+        bottom: rect.bottom + pixels,
+        left: rect.left - pixels,
+      });
+      const rectsOverlap = (first, second) =>
+        first.width > 0 &&
+        first.height > 0 &&
+        second.right > first.left &&
+        second.left < first.right &&
+        second.bottom > first.top &&
+        second.top < first.bottom;
+      const hideControlsUnderLeaveButton = () => {
+        const ownRect = leaveMeetingButton.getBoundingClientRect();
+        if (ownRect.width <= 0 || ownRect.height <= 0) return false;
+        let suppressed = false;
+        const controls = Array.from(document.querySelectorAll(
+          'button, [role="button"], a, [aria-label], [title], [data-tooltip], [class*="leave"], [class*="end"]'
+        ));
+        for (const control of controls) {
+          if (isZoomMediaControl(control)) continue;
+          if (isZoomAllowedUtilityControl(control)) continue;
+          if (isOwnClassroomControl(control) || !isCompactControl(control, 180)) continue;
+          if (isZoomNativeLeaveControl(control)) {
+            hiddenFromClassroom(classroomControlTarget(control));
+            suppressed = true;
+          }
+        }
+        return suppressed;
+      };
+      const dialogContainerSelector =
+        '[role="dialog"], .zm-modal, .ReactModal__Content, .zmu-modal, [class*="modal"], [class*="dialog"]';
+      const closestDialogContainer = (element) =>
+        element && element.closest ? element.closest(dialogContainerSelector) : null;
+      const noAudioVideoPromptPattern =
+        /\b(Are you sure you don't want audio or video|Continue without audio or video)\b/i;
+      const continueWithoutAudioVideoPattern = /^Continue without audio or video$/i;
+      const autoConfirmNoAudioVideoPrompt = () => {
+        if (!privateRoutingPending) return false;
+        const buttons = Array.from(document.querySelectorAll('button, [role="button"]'));
+        for (const button of buttons) {
+          if (!isVisibleElement(button)) continue;
+          const label = compactText(elementLabel(button) || elementText(button));
+          if (!continueWithoutAudioVideoPattern.test(label)) continue;
+          const dialog = closestDialogContainer(button) || button.closest('div') || document.body;
+          const promptText = compactText(`${elementText(dialog)} ${label}`);
+          if (!noAudioVideoPromptPattern.test(promptText)) continue;
+          button.click();
+          return true;
+        }
+        return false;
+      };
+      // Zoom's breakout INVITE dialog ("The host is inviting you to join
+      // Breakout Room: X") is what pulls a web participant into their room
+      // when auto-join is not in effect. It must be auto-accepted, never
+      // suppressed — the black routing layer keeps it invisible to the user.
+      const isBreakoutInviteDialog = (element) => {
+        const text = compactText(elementText(element));
+        if (!text || text.length > 600) return false;
+        return /\b(invit(?:es?|ed|ing)|assigned|moved)\b[\s\S]{0,80}\bbreakout room\b/i.test(text) ||
+          /\bbreakout room\b[\s\S]{0,80}\binvit(?:es?|ed|ing)\b/i.test(text) ||
+          /^join breakout room\b/i.test(text) ||
+          /\bjoining breakout room\b/i.test(text);
+      };
+      const withinBreakoutInviteDialog = (element) => {
+        const dialog = closestDialogContainer(element);
+        return Boolean(dialog && isBreakoutInviteDialog(dialog));
+      };
+      const inviteAcceptLabel = /^(join(?: breakout room)?(?: now)?|yes|ok|accept)$/i;
+      const inviteDeclineLabel = /\b(later|not now|cancel|no thanks|decline)\b/i;
+      const autoAcceptBreakoutInvite = () => {
+        if (!autoJoinBreakoutRoom) return false;
+        const dialogs = Array.from(document.querySelectorAll(dialogContainerSelector));
+        for (const dialog of dialogs) {
+          if (!isBreakoutInviteDialog(dialog)) continue;
+          const buttons = Array.from(dialog.querySelectorAll('button, [role="button"]'));
+          const joinButton = buttons.find((button) => {
+            const label = compactText(elementLabel(button));
+            return inviteAcceptLabel.test(label) && !inviteDeclineLabel.test(label);
+          });
+          if (joinButton) {
+            joinButton.click();
+            return true;
+          }
+        }
+        return false;
+      };
+      const isBreakoutManagementDialog = (element) => {
+        if (isBreakoutInviteDialog(element)) return false;
+        const text = elementText(element);
+        return /Breakout Rooms\s*(-|–)\s*In Progress/i.test(text) ||
+          (/\bBreakout\s*Rooms?\b/i.test(text) &&
+            /\b(Participants?|Rooms?|Join|Joined|Open|Close|Add Room|Broadcast|Assign|Options)\b/i.test(text)) ||
+          (/Close All Rooms/i.test(text) && /Add Room/i.test(text));
+      };
+      const isBreakoutManagementControl = (element) =>
+        isCompactControl(element) &&
+        !withinBreakoutInviteDialog(element) && (
+          /\b(Breakout\s*Rooms?|Close All Rooms|Add Room|Broadcast|Leave (?:Breakout )?Room|Recreate|Assign|Open All Rooms)\b/i
+            .test(elementLabel(element)) ||
+          (/\bOptions\b/i.test(elementLabel(element)) && /\bBreakout\b/i.test(elementLabel(element)))
+        );
+      const isDialogSizedContainer = (element) => {
+        const rect = element.getBoundingClientRect();
+        const className = String(element.className || '');
+        if (element.getAttribute('role') === 'dialog' || /modal|dialog/i.test(className)) return true;
+        return rect.width > 0 &&
+          rect.height > 0 &&
+          rect.width <= 900 &&
+          rect.height <= 900 &&
+          elementText(element).length <= 3000;
+      };
+      const suppressBreakoutManagementUi = () => {
+        let suppressed = false;
+        autoConfirmNoAudioVideoPrompt();
+        autoAcceptBreakoutInvite();
+        const controls = Array.from(document.querySelectorAll(classroomControlSelector));
+        for (const control of controls) {
+          if (isZoomMediaControl(control)) continue;
+          if (isZoomAllowedUtilityControl(control)) continue;
+          if (isBreakoutManagementControl(control)) {
+            hiddenFromClassroom(classroomControlTarget(control));
+            suppressed = true;
+          }
+          if (isZoomNativeLeaveControl(control)) {
+            hiddenFromClassroom(classroomControlTarget(control));
+            suppressed = true;
+          }
+        }
+        if (hideControlsUnderLeaveButton()) suppressed = true;
+
+        const explicitDialogs = Array.from(document.querySelectorAll(
+          '[role="dialog"], .zm-modal, .ReactModal__Content, .zmu-modal, [class*="modal"], [class*="dialog"]'
+        ));
+        const fallbackDialogs = Array.from(document.querySelectorAll('div'))
+          .filter((element) => isBreakoutManagementDialog(element) && isDialogSizedContainer(element))
+          .sort((first, second) => elementText(first).length - elementText(second).length)
+          .slice(0, 3);
+        const dialogs = Array.from(new Set([...explicitDialogs, ...fallbackDialogs]));
+        for (const dialog of dialogs) {
+          if (isBreakoutManagementDialog(dialog) && isDialogSizedContainer(dialog)) {
+            hiddenFromClassroom(dialog);
+            suppressed = true;
+          }
+        }
+        if (suppressed) hideStatus();
+        return suppressed;
+      };
+      const blockBreakoutManagementEvent = (event) => {
+        const rawTarget = event.target && event.target.nodeType === Node.TEXT_NODE
+          ? event.target.parentElement
+          : event.target;
+        const target = rawTarget && rawTarget.closest
+          ? rawTarget.closest(`${classroomControlSelector}, [role="dialog"], .zm-modal, .ReactModal__Content, .zmu-modal, [class*="modal"], [class*="dialog"]`)
+          : null;
+        if (!target) return;
+        const dialog = target.closest
+          ? target.closest('[role="dialog"], .zm-modal, .ReactModal__Content, .zmu-modal, [class*="modal"], [class*="dialog"]')
+          : null;
+        if (
+          !isBreakoutManagementControl(target) &&
+          !isZoomNativeLeaveControl(target) &&
+          !isBreakoutManagementDialog(dialog)
+        ) return;
+
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        if (isBreakoutManagementControl(target) || isZoomNativeLeaveControl(target)) {
+          hiddenFromClassroom(classroomControlTarget(target));
+        }
+        suppressBreakoutManagementUi();
+      };
+      const startBreakoutManagementGuard = () => {
+        if (breakoutManagementGuardStarted) return;
+        breakoutManagementGuardStarted = true;
+        document.addEventListener('click', blockBreakoutManagementEvent, true);
+        document.addEventListener('pointerdown', blockBreakoutManagementEvent, true);
+        document.addEventListener('keydown', (event) => {
+          if (event.key === 'Escape') suppressBreakoutManagementUi();
+        }, true);
+        const observer = new MutationObserver(() => suppressBreakoutManagementUi());
+        observer.observe(document.body || document.documentElement, {
+          childList: true,
+          subtree: true,
+        });
+        setInterval(() => suppressBreakoutManagementUi(), 750);
+        suppressBreakoutManagementUi();
+      };
+      const listenForBreakoutArrival = () => {
+        if (breakoutRoomChangeListenerAttached) return;
+        breakoutRoomChangeListenerAttached = true;
+        try {
+          if (typeof ZoomMtg.inMeetingServiceListener !== 'function') return;
+          ZoomMtg.inMeetingServiceListener('onRoomStatusChange', async (event) => {
+            const status = Number(event && event.status);
+            if (autoJoinBreakoutRoom && (status === 3 || status === 4)) {
+              setPrivateRoutingPending(true);
+              setStatus(routingStillConnectingText);
+            }
+          });
+        } catch (_) {}
+      };
+      const currentBreakoutRoom = async () => {
+        const response = await zoomSdkCall('getCurrentBreakoutRoom');
+        return response && response.result ? response.result : response;
+      };
+      const currentUserBreakoutStatus = async () => {
+        try {
+          const response = await zoomSdkCall('getUserStatus');
+          return response && response.result ? response.result : response;
+        } catch (_) {
+          return null;
+        }
+      };
+      const userStatusInRoom = (status) => {
+        if (!status) return null;
+        const raw = status.status ?? status.userStatus ?? status.roomStatus ?? status.value;
+        const rawNumber = Number(raw);
+        if (Number.isFinite(rawNumber)) {
+          if (rawNumber === 3) return true;
+          if (rawNumber === 4 || rawNumber === 5) return false;
+        }
+        const text = compactText(JSON.stringify(status));
+        if (/\b(in[_ ]?room|started)\b/i.test(text)) return true;
+        if (/\b(closing|closed|main[_ ]?session|not[_ ]?joined)\b/i.test(text)) return false;
+        return null;
+      };
+      const isInTargetBreakoutRoom = async (targetRoomId = '') => {
+        try {
+          const room = await currentBreakoutRoom();
+          const currentId = roomIdentifier(room);
+          const currentName = roomDisplayName(room);
+          const roomMatches = (targetRoomId && currentId && String(currentId) === String(targetRoomId)) ||
+            (Boolean(currentName) &&
+              normalizeRoomName(currentName) === normalizeRoomName(breakoutRoomName));
+          if (!roomMatches) return false;
+          const status = userStatusInRoom(await currentUserBreakoutStatus());
+          return status !== false;
+        } catch (_) {
+          return false;
+        }
+      };
+      let breakoutRenderMonitorStarted = false;
+      const startBreakoutRenderMonitor = () => {
+        if (breakoutRenderMonitorStarted || !autoJoinBreakoutRoom || !breakoutRoomName) return;
+        breakoutRenderMonitorStarted = true;
+        const startedAt = Date.now();
+        const timer = setInterval(() => {
+          const text = document.body ? document.body.innerText || '' : '';
+          const isTargetRoomVisible = text.includes(breakoutRoomName);
+          if (isTargetRoomVisible) {
+            clearInterval(timer);
+            markPrivateRoomReady();
+            return;
+          }
+          if (Date.now() - startedAt > 120000) {
+            clearInterval(timer);
+          }
+        }, 1000);
+      };
+      const startBreakoutAutomation = () => {
+        if (breakoutAutomationStarted) return;
+        if (!autoJoinBreakoutRoom || !breakoutRoomName) return;
+        breakoutAutomationStarted = true;
+        startBreakoutManagementGuard();
+        listenForBreakoutArrival();
+        startBreakoutRenderMonitor();
+        setPrivateRoutingPending(true);
+        setStatus(connectingText);
+        setTimeout(() => {
+          if (privateRoutingPending) setStatus(routingStillConnectingText);
+        }, stillConnectingMs);
+        setTimeout(() => {
+          if (privateRoutingPending) setStatus(routingHelpText);
+        }, routingHelpMs);
+        let lastSelfJoinAttemptAt = 0;
+        const selfJoinIfInvited = async () => {
+          if (Date.now() - lastSelfJoinAttemptAt < 5000) return;
+          const statusText = compactText(
+            JSON.stringify((await currentUserBreakoutStatus()) || {})
+          ).toLowerCase();
+          if (!/invit/.test(statusText)) return;
+          lastSelfJoinAttemptAt = Date.now();
+          autoAcceptBreakoutInvite();
+          try {
+            // Once invited, the client holds the room token; the roomId from
+            // our OWN getCurrentBreakoutRoom is the only one Zoom accepts here.
+            const invitedRoom = await currentBreakoutRoom();
+            const invitedRoomId = roomIdentifier(invitedRoom);
+            if (invitedRoomId) {
+              await zoomSdkCall('joinBreakoutRoom', { roomId: invitedRoomId })
+                .catch((error) => console.warn('joinBreakoutRoom (invited) skipped', error));
+            }
+          } catch (_) {}
+        };
+        (async () => {
+          while (true) {
+            const inTargetRoom = await isInTargetBreakoutRoom(targetBreakoutRoomId);
+            if (inTargetRoom) {
+              markPrivateRoomReady();
+              await sleep(5000);
+              continue;
+            }
+            await selfJoinIfInvited().catch(() => {});
+            if (!privateRoutingPending) {
+              setPrivateRoutingPending(true);
+              setStatus(routingStillConnectingText);
+            }
+            await sleep(1500);
+          }
+        })();
+      };
+      setStatus(connectingText);
+
+      if (!sdkKey || !signature || !meetingNumber) {
+        setStatus(loadErrorText);
+      } else {
+        ZoomMtg.setZoomJSLib('https://source.zoom.us/6.2.0/lib', '/av');
+        ZoomMtg.preLoadWasm();
+        ZoomMtg.prepareWebSDK();
+        ZoomMtg.i18n.load('en-US');
+        ZoomMtg.i18n.reload('en-US');
+        ZoomMtg.init({
+          leaveUrl: returnUrl || `${location.origin}${location.pathname}#left=1&leftText=${encodeURIComponent(leftText)}`,
+          patchJsMedia: true,
+          disableCORP: !window.crossOriginIsolated,
+          defaultView: 'gallery',
+          showMeetingHeader: true,
+          videoHeader: true,
+          videoDrag: true,
+          isLockBottom: false,
+          screenShare: true,
+          sharingMode: 'both',
+          showPureSharingContent: false,
+          disableInvite: false,
+          disableJoinAudio: false,
+          disablePreview: true,
+          disableRecord: false,
+          disableReport: false,
+          disableVoIP: false,
+          disableCallOut: false,
+          disableZoomPhone: false,
+          hideShareAudioOption: false,
+          isSupportAV: true,
+          isSupportBreakout: true,
+          isSupportCC: true,
+          isSupportChat: true,
+          isSupportNonverbal: true,
+          isSupportPolling: true,
+          isSupportQA: true,
+          meetingInfo: [
+            'topic',
+            'host',
+            'mn',
+            'pwd',
+            'telPwd',
+            'invite',
+            'participant',
+            'dc',
+            'enctype',
+            'report'
+          ],
+          success: () => {
+            const onJoinSuccess = () => {
+              meetingJoinConfirmed = true;
+              showLeaveMeetingButton();
+              startClassCountdown();
+              if (autoJoinBreakoutRoom) {
+                showJoinedRoutingStatus();
+              } else {
+                hideStatus();
+              }
+              startBreakoutAutomation();
+            };
+            // A hub meeting can be briefly unavailable to a participant during
+            // normal operation: a block-boundary handoff, or an automatic
+            // meeting reset after the bot recovers from a corrupted instance.
+            // Never hard-fail on that — keep the black "connecting" layer up and
+            // retry with backoff so the class reconnects on its own the moment
+            // the hub is back. The status text escalates over time so the user
+            // knows we are still working, but we keep trying indefinitely.
+            let joinAttempts = 0;
+            const firstJoinAttemptAt = Date.now();
+            const retryStatusForElapsed = () => {
+              const elapsed = Date.now() - firstJoinAttemptAt;
+              if (elapsed >= routingHelpMs) return routingHelpText;
+              if (elapsed >= stillConnectingMs) return routingStillConnectingText;
+              return connectingText;
+            };
+            const scheduleJoinRetry = () => {
+              const delay = Math.min(2000 * Math.pow(2, Math.min(joinAttempts, 4)), 30000);
+              setStatus(retryStatusForElapsed());
+              setTimeout(() => attemptZoomJoin(), delay);
+            };
+            const attemptZoomJoin = () => {
+              joinAttempts += 1;
+              let settled = false;
+              const finishJoinAttempt = (callback) => {
+                if (settled) return;
+                settled = true;
+                clearTimeout(joinTimer);
+                callback();
+              };
+              const handleJoinFailure = (error, timedOut = false) => {
+                console.error(timedOut ? 'Zoom join timed out' : 'Zoom join failed', {
+                  error,
+                  meetingNumber,
+                  hasPassword: Boolean(password),
+                  autoJoinBreakoutRoom,
+                  joinAttempts,
+                });
+                if (timedOut && isZoomMeetingUiVisible()) {
+                  onJoinSuccess();
+                  return;
+                }
+                if (!attemptedActiveMeetingRecovery && isConcurrentHostMeetingError(error)) {
+                  attemptedActiveMeetingRecovery = true;
+                  console.warn('Zoom join blocked by another active browser meeting; retrying after closing older classroom tabs', {
+                    meetingNumber,
+                  });
+                  announceZoomSession();
+                  setStatus(connectingText);
+                  setTimeout(() => {
+                    attemptZoomJoin();
+                  }, 1600);
+                  return;
+                }
+                // Transient hub unavailability (boundary handoff / meeting reset
+                // / host not present yet): keep the connecting layer and retry.
+                scheduleJoinRetry();
+              };
+              const joinTimer = setTimeout(() => {
+                finishJoinAttempt(() => handleJoinFailure(joinTimeoutError(), true));
+              }, joinAttemptTimeoutMs);
+              const joinOptions = {
+                sdkKey,
+                signature,
+                meetingNumber,
+                passWord: password,
+                userName: displayName,
+                customerKey,
+                success: () => finishJoinAttempt(onJoinSuccess),
+                error: (error) => finishJoinAttempt(() => handleJoinFailure(error)),
+              };
+              try {
+                ZoomMtg.join(joinOptions);
+              } catch (error) {
+                finishJoinAttempt(() => handleJoinFailure(error));
+              }
+            };
+            startMeetingUiMonitor();
+            announceZoomSession();
+            setTimeout(() => {
+              attemptZoomJoin();
+            }, 900);
+          },
+          error: (error) => {
+            console.error('Zoom init failed', { error });
+            setStatus(formatZoomError(initErrorText, error));
+          },
+        });
+      }
+    }
+  </script>
+</body>
+</html>

@@ -30,6 +30,9 @@ import 'prayer_time_service.dart';
 class PrayerNotificationService {
   static const String _enabledKey = 'prayer_notification_enabled';
 
+  static bool get _supportsPrayerNotifications =>
+      !kIsWeb && (Platform.isAndroid || Platform.isIOS);
+
   /// Android notification channel ID/name for Adhan notifications.
   static const String channelId = 'prayer_times';
   static const String channelName = 'Prayer Times (Adhan)';
@@ -64,6 +67,10 @@ class PrayerNotificationService {
   static Future<void> setEnabled(bool enabled) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_enabledKey, enabled);
+
+    if (!_supportsPrayerNotifications) {
+      return;
+    }
 
     if (enabled) {
       await scheduleAllPrayerNotifications();
@@ -114,7 +121,7 @@ class PrayerNotificationService {
   ///
   /// Call this at app startup and also whenever the user enables the feature.
   static Future<void> scheduleAllPrayerNotifications() async {
-    if (kIsWeb) return;
+    if (!_supportsPrayerNotifications) return;
 
     try {
       final enabled = await isEnabled();
@@ -126,8 +133,7 @@ class PrayerNotificationService {
       // Resolve the device's local IANA timezone.
       final tzName = await TimezoneUtils.detectUserTimezone();
       TimezoneUtils.initializeTimezones();
-      final location =
-          tz.getLocation(TimezoneUtils.normalizeTimezone(tzName));
+      final location = tz.getLocation(TimezoneUtils.normalizeTimezone(tzName));
       final now = DateTime.now();
 
       int count = 0;
@@ -144,8 +150,7 @@ class PrayerNotificationService {
       }
 
       // Always schedule tomorrow's prayers so there is no gap overnight.
-      final tomorrowPrayers =
-          await PrayerTimeService.getTomorrowPrayerTimes();
+      final tomorrowPrayers = await PrayerTimeService.getTomorrowPrayerTimes();
       for (final prayer in tomorrowPrayers) {
         final id = _tomorrowIds[prayer.name];
         if (id == null) continue;
@@ -221,7 +226,7 @@ class PrayerNotificationService {
 
   /// Cancel all scheduled prayer notifications (today and tomorrow).
   static Future<void> cancelAllPrayerNotifications() async {
-    if (kIsWeb) return;
+    if (!_supportsPrayerNotifications) return;
 
     final plugin = NotificationService.localNotificationsPlugin;
     for (final id in [

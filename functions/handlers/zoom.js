@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const admin = require('firebase-admin');
 const { onCall, onRequest, HttpsError } = require('firebase-functions/v2/https');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
+const { onDocumentWritten } = require('firebase-functions/v2/firestore');
 const { DateTime } = require('luxon');
 const { getZoomConfig } = require('../services/zoom/config');
 const zoomClient = require('../services/zoom/client');
@@ -25,6 +26,21 @@ const ZOOM_HOST_CONFLICT_LOOKBACK_MS = 24 * 60 * 60 * 1000;
 const ZOOM_HUB_WINDOW_PADDING_MS = 15 * 60 * 1000;
 const ZOOM_HUB_PREP_LOOKAHEAD_MS = 60 * 60 * 1000;
 const ZOOM_HUB_BOT_STALE_MS = 2 * 60 * 1000;
+const ZOOM_HUB_STATUS_LOOKBACK_MS = 24 * 60 * 60 * 1000;
+const ZOOM_HUB_STATUS_LOOKAHEAD_MS = 2 * 60 * 60 * 1000;
+const ZOOM_HUB_CAPACITY_FORECAST_DAYS = 90;
+const ZOOM_HUB_CAPACITY_WARNING_RATIO = 0.75;
+const ZOOM_HUB_SEAT_WARNING_RATIO = 0.8;
+const ZOOM_HUB_PARTICIPANT_CAP_PER_LANE = Number(
+  process.env.ZOOM_HUB_PARTICIPANT_CAP_PER_LANE || 100,
+);
+const ZOOM_HUB_RESERVED_SEATS_PER_LANE = 1;
+// A hub whose bot reports rooms open yet its live breakout list reads empty
+// (getBreakoutRooms == 0) while members are expected has a corrupted meeting
+// instance the bot cannot repair in place. After this many consecutive watcher
+// checks, end the meeting so the bot rejoins a clean instance. Never triggered
+// for a healthy hub (its live room count is > 0).
+const ZOOM_HUB_POISON_RESET_STREAK = 2;
 // Zoom meetings have a hard maximum runtime. Keep hub windows well below it
 // so one shared classroom hub never expires while unrelated classes are live.
 const ZOOM_HUB_SAFE_MAX_MEETING_MINUTES = 28 * 60;
@@ -103,6 +119,45 @@ const getUserDataForCaller = async (uid, token = {}) => {
   }
 
   return null;
+};
+
+const _emailCandidatesFromUser = (data = {}, token = {}) => {
+  const candidates = [
+    token.email,
+    data.email,
+    data['e-mail'],
+    data.user_email,
+    data.userEmail,
+  ]
+    .map((value) => String(value || '').trim().toLowerCase())
+    .filter(Boolean);
+  return new Set(candidates);
+};
+
+const _isUserShiftTeacher = async ({ uid, token = {}, teacherId }) => {
+  const normalizedUid = String(uid || '').trim();
+  const normalizedTeacherId = String(teacherId || '').trim();
+  if (!normalizedUid || !normalizedTeacherId) return false;
+  if (normalizedUid === normalizedTeacherId) return true;
+
+  try {
+    const db = admin.firestore();
+    const [callerData, teacherDoc] = await Promise.all([
+      getUserDataForCaller(normalizedUid, token),
+      db.collection('users').doc(normalizedTeacherId).get(),
+    ]);
+    if (!teacherDoc.exists) return false;
+    const teacherData = teacherDoc.data() || {};
+    const callerEmails = _emailCandidatesFromUser(callerData || {}, token);
+    if (callerEmails.size === 0) return false;
+    const teacherEmails = _emailCandidatesFromUser(teacherData);
+    for (const email of teacherEmails) {
+      if (callerEmails.has(email)) return true;
+    }
+  } catch (_) {
+    return false;
+  }
+  return false;
 };
 
 const isUserAdmin = async (uid, token = {}) => {
@@ -187,27 +242,52 @@ const isStudentAccessSuspended = async (uid) => {
   return data.access_suspended === true || data.accessSuspended === true;
 };
 
-const getAccessForUser = async ({ uid, token, teacherId, studentIds }) => {
-  const isTeacher = uid === teacherId;
+const _normalizeRequestedClassRole = (activeRole) => {
+  const role = String(activeRole || '').trim().toLowerCase();
+  if (role === 'super_admin' || role === 'admin_teacher') return 'admin';
+  if (['admin', 'teacher', 'student', 'parent'].includes(role)) return role;
+  return '';
+};
+
+const _resolveClassroomRole = ({ activeRole, isTeacher, isStudent, isAdmin, isParent }) => {
+  const requestedRole = _normalizeRequestedClassRole(activeRole);
+  if (requestedRole === 'teacher' && isTeacher) return 'teacher';
+  if (requestedRole === 'student' && isStudent) return 'student';
+  if (requestedRole === 'parent' && isParent) return 'parent';
+  if (requestedRole === 'admin' && isAdmin) return 'admin';
+
+  if (isTeacher) return 'teacher';
+  if (isAdmin) return 'admin';
+  if (isParent) return 'parent';
+  return 'student';
+};
+
+const getAccessForUser = async ({ uid, token, teacherId, studentIds, activeRole }) => {
+  const isTeacher = await _isUserShiftTeacher({ uid, token, teacherId });
   const isStudent = studentIds.includes(uid);
   const isAdmin = await isUserAdmin(uid, token);
-  const isParent = !isTeacher && !isStudent && !isAdmin
+  const isParent = !isTeacher && !isStudent
     ? await isUserParentOfStudent(uid, studentIds)
     : false;
 
   if (!isTeacher && !isStudent && !isAdmin && !isParent) {
     throw new HttpsError('permission-denied', 'You are not allowed to join this class');
   }
-  if (isStudent && await isStudentAccessSuspended(uid)) {
+
+  const resolvedRole = _resolveClassroomRole({
+    activeRole,
+    isTeacher,
+    isStudent,
+    isAdmin,
+    isParent,
+  });
+  if (resolvedRole === 'student' && await isStudentAccessSuspended(uid)) {
     throw new HttpsError(
       'permission-denied',
       'Class access is suspended because of an outstanding unpaid invoice.',
     );
   }
-  if (isAdmin) return 'admin';
-  if (isTeacher) return 'teacher';
-  if (isParent) return 'parent';
-  return 'student';
+  return resolvedRole;
 };
 
 const getUserDisplayName = async (uid, fallback = 'Participant') => {
@@ -796,6 +876,15 @@ const ensureZoomHostClassroomSettings = async (hostAccount) => {
   try {
     await zoomClient.updateUserSettings(hostAccount, {
       in_meeting: {
+        // Everyone (teacher/student/parent/admin) must be able to share their
+        // screen. In the hub model all humans are participants (role 0; only the
+        // bot is host), so participant sharing must be fully enabled:
+        screen_sharing: true,
+        who_can_share_screen: 'all',
+        // ...even while someone else is already sharing (otherwise only the host
+        // — the bot, which isn't in the breakout room — could share, blocking a
+        // teacher whose student is presenting).
+        who_can_share_screen_when_someone_is_sharing: 'all',
         disable_screen_sharing_for_hosts_meetings: false,
         disable_screen_sharing_for_in_meeting_guests: false,
       },
@@ -1290,6 +1379,10 @@ const ensureZoomHubMeeting = async ({
   let createdMeeting = null;
 
   if (!meetingId) {
+    // Enforce "everyone can share their screen" on the host account BEFORE the
+    // hub meeting is created — Zoom applies these settings at meeting-start, so
+    // setting them only at join time is too late for a long-running hub.
+    await ensureZoomHostClassroomSettings(meta.hostAccount);
     createdMeeting = await zoomClient.createMeeting(meta.hostAccount, {
       topic: `Alluwal Classrooms ${meta.dayKey} Block ${meta.blockIndex} Lane ${meta.lane}`,
       type: 2,
@@ -1466,6 +1559,9 @@ const ensureZoomHubMeeting = async ({
     breakoutRoomName: roomName,
     breakoutRooms: rooms,
     targetRoom: roomPlan.targetRoom,
+    // When everyone is removed (last class + 15 min). Drives the participant
+    // "class ends in N minutes" countdown.
+    classEndsAtIso: windowInfo.windowEnd.toISOString(),
     meta,
   };
 };
@@ -1473,11 +1569,20 @@ const ensureZoomHubMeeting = async ({
 const _writeZoomHubMember = async ({
   hubMeetingId,
   uid,
+  userId,
   shiftId,
   role,
   displayName,
+  realDisplayName,
+  routingDisplayName,
 }) => {
   if (!hubMeetingId || !uid || !shiftId) return;
+  const baseDisplayName = String(realDisplayName || displayName || '').trim();
+  const displayNameAliases = _zoomHubDisplayNameAliases({
+    displayName,
+    routingDisplayName,
+    realDisplayName: baseDisplayName,
+  });
   await admin.firestore()
     .collection('hub_meetings')
     .doc(hubMeetingId)
@@ -1485,17 +1590,715 @@ const _writeZoomHubMember = async ({
     .doc(uid)
     .set({
       uid,
+      userId: userId || uid,
+      user_id: userId || uid,
       shiftId,
       shift_id: shiftId,
       role,
       displayName,
       display_name: displayName,
+      routingDisplayName: routingDisplayName || displayName,
+      routing_display_name: routingDisplayName || displayName,
+      displayNameAliases,
+      display_name_aliases: displayNameAliases,
+      realDisplayName: baseDisplayName,
+      real_display_name: baseDisplayName,
       addedAt: admin.firestore.FieldValue.serverTimestamp(),
       added_at: admin.firestore.FieldValue.serverTimestamp(),
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       updated_at: admin.firestore.FieldValue.serverTimestamp(),
     }, { merge: true });
 };
+
+const _zoomHubCustomerKey = ({ uid, shiftId }) => {
+  const normalizedUid = String(uid || '').trim();
+  const normalizedShiftId = String(shiftId || '').trim();
+  if (!normalizedUid || !normalizedShiftId) return normalizedUid;
+  const digest = crypto
+    .createHash('sha256')
+    .update(`${normalizedUid}:${normalizedShiftId}`)
+    .digest('base64url')
+    .slice(0, 24);
+  return `zh_${digest}`;
+};
+
+const _zoomHubDisplayToken = (routingKey) =>
+  String(routingKey || '').trim().replace(/^zh_/, '').slice(0, 8);
+
+const _zoomHubRoutingDisplayName = ({ displayName, routingKey }) => {
+  const base = String(displayName || '').replace(/\s+/g, ' ').trim() || 'Participant';
+  const token = _zoomHubDisplayToken(routingKey);
+  if (!token) return base;
+  const suffix = `#${token}`;
+  const maxBaseLength = Math.max(1, 64 - suffix.length - 1);
+  return `${_truncate(base, maxBaseLength)} ${suffix}`;
+};
+
+const _zoomHubDisplayNameAliases = ({ displayName, routingDisplayName, realDisplayName }) => {
+  const aliases = new Set();
+  for (const value of [realDisplayName, displayName, routingDisplayName]) {
+    const normalized = String(value || '').replace(/\s+/g, ' ').trim();
+    if (normalized) aliases.add(normalized);
+  }
+  return Array.from(aliases);
+};
+
+const _zoomParticipantDisplayName = (participant) =>
+  String(
+    participant?.user_name ||
+    participant?.userName ||
+    participant?.displayName ||
+    participant?.display_name ||
+    participant?.name ||
+    '',
+  ).replace(/\s+/g, ' ').trim();
+
+const _isZoomHubRoutingKey = (value) => String(value || '').trim().startsWith('zh_');
+
+const _findHubMemberForRoutingKey = async ({ meetingId, routingKey }) => {
+  const normalizedMeetingId = String(meetingId || '').trim();
+  const normalizedRoutingKey = String(routingKey || '').trim();
+  if (!normalizedMeetingId || !_isZoomHubRoutingKey(normalizedRoutingKey)) return null;
+
+  const db = admin.firestore();
+  const queries = [
+    db.collection('hub_meetings').where('meetingNumber', '==', normalizedMeetingId),
+    db.collection('hub_meetings').where('meeting_number', '==', normalizedMeetingId),
+    db.collection('hub_meetings').where('zoom_meeting_id', '==', normalizedMeetingId),
+  ];
+
+  for (const query of queries) {
+    const hubSnapshot = await query.get();
+    for (const hubDoc of hubSnapshot.docs) {
+      const memberDoc = await hubDoc.ref.collection('members').doc(normalizedRoutingKey).get();
+      if (!memberDoc.exists) continue;
+      const data = memberDoc.data() || {};
+      const shiftId = String(data.shiftId || data.shift_id || '').trim();
+      const userId = String(data.userId || data.user_id || '').trim();
+      if (shiftId && userId) {
+        return {
+          hubDoc,
+          shiftId,
+          userId,
+          realDisplayName: String(
+            data.realDisplayName ||
+            data.real_display_name ||
+            data.displayName ||
+            data.display_name ||
+            '',
+          ).trim(),
+        };
+      }
+    }
+  }
+  return null;
+};
+
+const _findHubMemberForRoutingDisplayName = async ({ meetingId, displayName }) => {
+  const normalizedMeetingId = String(meetingId || '').trim();
+  const normalizedDisplayName = String(displayName || '').replace(/\s+/g, ' ').trim();
+  if (!normalizedMeetingId || !normalizedDisplayName) return null;
+
+  const db = admin.firestore();
+  const matches = [];
+  const seenMatches = new Set();
+  const queries = [
+    db.collection('hub_meetings').where('meetingNumber', '==', normalizedMeetingId),
+    db.collection('hub_meetings').where('meeting_number', '==', normalizedMeetingId),
+    db.collection('hub_meetings').where('zoom_meeting_id', '==', normalizedMeetingId),
+  ];
+
+  for (const query of queries) {
+    const hubSnapshot = await query.get();
+    for (const hubDoc of hubSnapshot.docs) {
+      const membersSnapshot = await hubDoc.ref.collection('members').get();
+      for (const memberDoc of membersSnapshot.docs) {
+        const data = memberDoc.data() || {};
+        const displayCandidates = [
+          data.displayName,
+          data.display_name,
+          data.routingDisplayName,
+          data.routing_display_name,
+          ...(Array.isArray(data.displayNameAliases) ? data.displayNameAliases : []),
+          ...(Array.isArray(data.display_name_aliases) ? data.display_name_aliases : []),
+        ]
+          .map((value) => String(value || '').replace(/\s+/g, ' ').trim())
+          .filter(Boolean);
+        if (!displayCandidates.includes(normalizedDisplayName)) continue;
+        const shiftId = String(data.shiftId || data.shift_id || '').trim();
+        const userId = String(data.userId || data.user_id || '').trim();
+        if (shiftId && userId) {
+          const matchKey = `${hubDoc.id}:${memberDoc.id}`;
+          if (seenMatches.has(matchKey)) continue;
+          seenMatches.add(matchKey);
+          matches.push({
+            hubDoc,
+            shiftId,
+            userId,
+            realDisplayName: String(
+              data.realDisplayName ||
+              data.real_display_name ||
+              data.displayName ||
+              data.display_name ||
+              '',
+            ).trim(),
+          });
+        }
+      }
+    }
+  }
+  return matches.length === 1 ? matches[0] : null;
+};
+
+const _isoOrNull = (value) => {
+  const date = _toDate(value);
+  return date ? date.toISOString() : null;
+};
+
+const _numberOrZero = (value) => {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : 0;
+};
+
+const _normalizeZoomHubRooms = (rawRooms) =>
+  (Array.isArray(rawRooms) ? rawRooms : [])
+    .map((room) => ({
+      shiftId: String(room?.shiftId || room?.shift_id || '').trim(),
+      name: String(room?.name || '').trim(),
+      spare: room?.spare === true ||
+        String(room?.shiftId || room?.shift_id || '').startsWith('__spare_'),
+    }))
+    .filter((room) => room.name);
+
+const _hubStatusValue = (hubData = {}) =>
+  String(hubData.status || hubData.bot_status || '').trim();
+
+const _hubStatusRelevantForDashboard = ({ hubData, now }) => {
+  const nowMs = now.getTime();
+  const start = _toDate(hubData.window_start || hubData.windowStart);
+  const end = _toDate(hubData.window_end || hubData.windowEnd);
+  const heartbeat = _toDate(hubData.heartbeat_at || hubData.heartbeatAt);
+  const status = _hubStatusValue(hubData);
+  if (start && end) {
+    return start.getTime() <= nowMs + ZOOM_HUB_STATUS_LOOKAHEAD_MS &&
+      end.getTime() >= nowMs - ZOOM_HUB_STATUS_LOOKBACK_MS;
+  }
+  if (heartbeat && heartbeat.getTime() >= nowMs - ZOOM_HUB_STATUS_LOOKBACK_MS) {
+    return true;
+  }
+  return ['joined', 'roomsOpen', 'error', 'resetMeeting'].includes(status);
+};
+
+const _shiftTitleForRoutingStatus = (shiftData = {}, fallback = '') => {
+  const hasShiftData = shiftData && Object.keys(shiftData).length > 0;
+  const derived = hasShiftData ? _deriveShiftDisplayName(shiftData) : '';
+  return derived && derived !== 'Class' ? derived : fallback || derived || 'Classroom';
+};
+
+const _shiftIsScheduledNow = ({ shiftData = {}, now }) => {
+  const start = _toDate(shiftData.shift_start || shiftData.startTime || shiftData.start_time);
+  const end = _toDate(shiftData.shift_end || shiftData.endTime || shiftData.end_time);
+  if (!start || !end) return false;
+  const nowMs = now.getTime();
+  return start.getTime() <= nowMs && end.getTime() >= nowMs;
+};
+
+const _shiftStatusValue = (shiftData = {}) =>
+  String(
+    shiftData.status ||
+    shiftData.completion_status ||
+    shiftData.completionState ||
+    '',
+  ).trim().toLowerCase();
+
+const _shiftCancelledForCapacity = (shiftData = {}) => {
+  if (
+    shiftData.deleted === true ||
+    shiftData.is_deleted === true ||
+    shiftData.archived === true
+  ) {
+    return true;
+  }
+  const status = _shiftStatusValue(shiftData);
+  return ['cancelled', 'canceled', 'deleted', 'void'].includes(status) ||
+    status.includes('cancel');
+};
+
+const _studentCountForCapacity = (shiftData = {}) => {
+  const students = Array.isArray(shiftData.student_ids)
+    ? shiftData.student_ids
+    : Array.isArray(shiftData.studentIds)
+      ? shiftData.studentIds
+      : [];
+  return students.length;
+};
+
+const _peakZoomHubOverlap = (shifts = [], timezone = ZOOM_HUB_DEFAULT_TIMEZONE) => {
+  const events = [];
+  for (const shift of shifts) {
+    const start = _toDate(shift.start);
+    const end = _toDate(shift.end);
+    if (!start || !end || end <= start) continue;
+    events.push({
+      t: start.getTime(),
+      classDelta: 1,
+      seatDelta: Number(shift.seats || 0),
+      label: DateTime.fromJSDate(start).setZone(timezone).toFormat('yyyy-LL-dd HH:mm'),
+    });
+    events.push({
+      t: end.getTime(),
+      classDelta: -1,
+      seatDelta: -Number(shift.seats || 0),
+      label: DateTime.fromJSDate(end).setZone(timezone).toFormat('yyyy-LL-dd HH:mm'),
+    });
+  }
+  events.sort((a, b) => a.t - b.t || a.classDelta - b.classDelta);
+
+  let classes = 0;
+  let seats = 0;
+  let peakClasses = 0;
+  let peakSeats = 0;
+  let peakAt = null;
+  for (const event of events) {
+    classes += event.classDelta;
+    seats += event.seatDelta;
+    if (classes > peakClasses || seats > peakSeats) {
+      peakClasses = Math.max(peakClasses, classes);
+      peakSeats = Math.max(peakSeats, seats);
+      peakAt = event.label;
+    }
+  }
+  return { classes: peakClasses, seats: peakSeats, at: peakAt };
+};
+
+const _zoomHubCapacityStatus = ({
+  totalRooms,
+  laneRoomCounts,
+  lanePeaks,
+  classRoomCapPerLane,
+  totalRoomCap,
+  warningRoomsPerLane,
+  warningRoomsTotal,
+  participantCapPerLane,
+  warningSeatsPerLane,
+}) => {
+  const hardReasons = [];
+  const warningReasons = [];
+  if (totalRooms > totalRoomCap) hardReasons.push('total_room_cap');
+  if (totalRooms >= warningRoomsTotal) warningReasons.push('total_room_pressure');
+
+  laneRoomCounts.forEach((count, index) => {
+    if (count > classRoomCapPerLane) hardReasons.push(`lane_${index + 1}_room_cap`);
+    else if (count >= warningRoomsPerLane) warningReasons.push(`lane_${index + 1}_room_pressure`);
+  });
+  lanePeaks.forEach((peak, index) => {
+    if (peak.seats > participantCapPerLane) hardReasons.push(`lane_${index + 1}_seat_cap`);
+    else if (peak.seats >= warningSeatsPerLane) warningReasons.push(`lane_${index + 1}_seat_pressure`);
+  });
+
+  if (hardReasons.length) return { status: 'hard_limit', reasons: hardReasons };
+  if (warningReasons.length) return { status: 'warning', reasons: warningReasons };
+  return { status: 'ok', reasons: [] };
+};
+
+const _buildZoomHubCapacityForecast = async ({ now = new Date() } = {}) => {
+  const db = admin.firestore();
+  const config = await _loadZoomHubBlockConfig();
+  const timezone = config.timezone || ZOOM_HUB_DEFAULT_TIMEZONE;
+  const start = DateTime.fromJSDate(now).setZone(timezone).startOf('day');
+  const end = start.plus({ days: ZOOM_HUB_CAPACITY_FORECAST_DAYS });
+  const hostAccounts = _zoomClassroomHostAccounts();
+  const laneCount = Math.max(1, hostAccounts.length);
+  const classRoomCapPerLane = ZOOM_HUB_MAX_ROOM_COUNT - ZOOM_HUB_SPARE_ROOM_COUNT;
+  const totalRoomCap = classRoomCapPerLane * laneCount;
+  const participantCapPerLane = Number.isFinite(ZOOM_HUB_PARTICIPANT_CAP_PER_LANE)
+    ? Math.max(1, ZOOM_HUB_PARTICIPANT_CAP_PER_LANE)
+    : 100;
+  const humanParticipantCapPerLane = Math.max(
+    1,
+    participantCapPerLane - ZOOM_HUB_RESERVED_SEATS_PER_LANE,
+  );
+  const warningRoomsPerLane = Math.floor(classRoomCapPerLane * ZOOM_HUB_CAPACITY_WARNING_RATIO);
+  const warningRoomsTotal = Math.floor(totalRoomCap * ZOOM_HUB_CAPACITY_WARNING_RATIO);
+  const warningSeatsPerLane = Math.floor(humanParticipantCapPerLane * ZOOM_HUB_SEAT_WARNING_RATIO);
+
+  const snapshot = await db.collection('teaching_shifts')
+    .where('shift_start', '>=', admin.firestore.Timestamp.fromDate(start.toJSDate()))
+    .where('shift_start', '<', admin.firestore.Timestamp.fromDate(end.toJSDate()))
+    .orderBy('shift_start')
+    .get();
+
+  const shifts = [];
+  let nonHubZoomRecords = 0;
+  let lastScheduledDay = null;
+  for (const doc of snapshot.docs) {
+    const data = doc.data() || {};
+    const startDate = _toDate(data.shift_start || data.shiftStart);
+    const endDate = _toDate(data.shift_end || data.shiftEnd);
+    if (!startDate || !endDate || endDate <= startDate) continue;
+    const provider = String(data.video_provider || data.videoProvider || '')
+      .trim()
+      .toLowerCase();
+    if (provider !== 'zoom') continue;
+    if (_shiftCancelledForCapacity(data)) continue;
+    if (!_usesHubRouting({ shiftData: data, meetingId: String(data.zoom_meeting_id || '') })) {
+      nonHubZoomRecords += 1;
+      continue;
+    }
+
+    const laneIndex = _laneIndexForShift({ shiftId: doc.id, shiftData: data });
+    const block = _blockForShift(data, config);
+    const localStart = DateTime.fromJSDate(startDate).setZone(timezone);
+    lastScheduledDay = !lastScheduledDay || localStart.toISODate() > lastScheduledDay
+      ? localStart.toISODate()
+      : lastScheduledDay;
+    shifts.push({
+      id: doc.id,
+      start: startDate,
+      end: endDate,
+      day: localStart.toISODate(),
+      blockDay: block.dayKey,
+      blockIndex: block.blockIndex,
+      blockLabel: `${DateTime.fromJSDate(block.blockStart).setZone(timezone).toFormat('HH:mm')}-${DateTime.fromJSDate(block.blockEnd).setZone(timezone).toFormat('HH:mm')}`,
+      lane: laneIndex + 1,
+      seats: Math.max(1, 1 + _studentCountForCapacity(data)),
+    });
+  }
+
+  const dayCounts = new Map();
+  const blockGroups = new Map();
+  for (const shift of shifts) {
+    dayCounts.set(shift.day, (dayCounts.get(shift.day) || 0) + 1);
+    const key = `${shift.blockDay}|${shift.blockIndex}|${shift.blockLabel}`;
+    const group = blockGroups.get(key) || {
+      day: shift.blockDay,
+      blockIndex: shift.blockIndex,
+      blockLabel: shift.blockLabel,
+      totalRooms: 0,
+      laneRoomCounts: Array.from({ length: laneCount }, () => 0),
+      shifts: [],
+    };
+    group.totalRooms += 1;
+    if (!group.laneRoomCounts[shift.lane - 1]) group.laneRoomCounts[shift.lane - 1] = 0;
+    group.laneRoomCounts[shift.lane - 1] += 1;
+    group.shifts.push(shift);
+    blockGroups.set(key, group);
+  }
+
+  const blocks = [];
+  for (const group of blockGroups.values()) {
+    const lanePeaks = Array.from({ length: laneCount }, (_, index) =>
+      _peakZoomHubOverlap(group.shifts.filter((shift) => shift.lane === index + 1), timezone));
+    const overallPeak = _peakZoomHubOverlap(group.shifts, timezone);
+    const capacity = _zoomHubCapacityStatus({
+      totalRooms: group.totalRooms,
+      laneRoomCounts: group.laneRoomCounts,
+      lanePeaks,
+      classRoomCapPerLane,
+      totalRoomCap,
+      warningRoomsPerLane,
+      warningRoomsTotal,
+      participantCapPerLane: humanParticipantCapPerLane,
+      warningSeatsPerLane,
+    });
+    const lanePressure = group.laneRoomCounts.map((count, index) => ({
+      lane: index + 1,
+      rooms: count || 0,
+      roomHeadroom: Math.max(0, classRoomCapPerLane - (count || 0)),
+      peakConcurrentClasses: lanePeaks[index]?.classes || 0,
+      peakSeats: lanePeaks[index]?.seats || 0,
+      seatHeadroom: Math.max(0, humanParticipantCapPerLane - (lanePeaks[index]?.seats || 0)),
+    }));
+    blocks.push({
+      day: group.day,
+      blockIndex: group.blockIndex,
+      block: group.blockLabel,
+      totalRooms: group.totalRooms,
+      totalRoomHeadroom: Math.max(0, totalRoomCap - group.totalRooms),
+      peakConcurrentClasses: overallPeak.classes,
+      peakAt: overallPeak.at,
+      status: capacity.status,
+      reasons: capacity.reasons,
+      lanes: lanePressure,
+    });
+  }
+
+  const blockPressureScore = (block) => {
+    const laneRoomPressure = block.lanes.reduce((max, lane) =>
+      Math.max(max, lane.rooms / classRoomCapPerLane), 0);
+    const laneSeatPressure = block.lanes.reduce((max, lane) =>
+      Math.max(max, lane.peakSeats / humanParticipantCapPerLane), 0);
+    return Math.max(block.totalRooms / totalRoomCap, laneRoomPressure, laneSeatPressure);
+  };
+  const blocksByPressure = [...blocks].sort((a, b) =>
+    blockPressureScore(b) - blockPressureScore(a) ||
+    a.day.localeCompare(b.day) ||
+    a.blockIndex - b.blockIndex);
+  const blocksByDate = [...blocks].sort((a, b) =>
+    a.day.localeCompare(b.day) ||
+    a.blockIndex - b.blockIndex);
+  const nextHardLimit = blocksByDate.find((block) => block.status === 'hard_limit') || null;
+  const nextWarning = blocksByDate.find((block) => block.status === 'warning') || null;
+  const busiestBlock = blocksByPressure[0] || null;
+  const topDays = Array.from(dayCounts.entries())
+    .map(([day, count]) => ({ day, hubRoutedZoomShifts: count }))
+    .sort((a, b) => b.hubRoutedZoomShifts - a.hubRoutedZoomShifts || a.day.localeCompare(b.day))
+    .slice(0, 14);
+  const topBlocks = blocksByPressure.slice(0, 14);
+  const summaryStatus = nextHardLimit ? 'add_account' : nextWarning ? 'watch' : 'ok';
+  const recommendation = nextHardLimit
+    ? `Add another Zoom account before ${nextHardLimit.day} ${nextHardLimit.block}.`
+    : nextWarning
+      ? `Start planning another Zoom account before ${nextWarning.day} ${nextWarning.block}.`
+      : `No additional Zoom account is needed in the generated schedule through ${lastScheduledDay || end.minus({ days: 1 }).toISODate()} based on peak concurrent human participants and hub-block room pressure.`;
+
+  return {
+    success: true,
+    generatedAt: now.toISOString(),
+    horizonStart: start.toISODate(),
+    horizonEnd: lastScheduledDay || end.minus({ days: 1 }).toISODate(),
+    summaryStatus,
+    recommendation,
+    capacity: {
+      laneCount,
+      hostAccounts,
+      blockBoundaries: config.boundaryLabels,
+      classRoomCapPerLane,
+      classRoomCapTotal: totalRoomCap,
+      warningRoomsPerLane,
+      warningRoomsTotal,
+      participantCapPerLane,
+      reservedSeatsPerLane: ZOOM_HUB_RESERVED_SEATS_PER_LANE,
+      humanParticipantCapPerLane,
+      warningSeatsPerLane,
+      spareRoomsPerHub: ZOOM_HUB_SPARE_ROOM_COUNT,
+    },
+    totals: {
+      scannedHubRoutedZoomShifts: shifts.length,
+      nonHubZoomRecords,
+      daysWithHubShifts: dayCounts.size,
+    },
+    nextHardLimit,
+    nextWarning,
+    busiestBlock,
+    topDays,
+    topBlocks,
+  };
+};
+
+const _buildZoomHubRoutingStatus = async ({ now = new Date() } = {}) => {
+  const db = admin.firestore();
+  const [hubSnapshot, alertSnapshot] = await Promise.all([
+    db.collection('hub_meetings').get(),
+    db.collection('system_alerts').get(),
+  ]);
+
+  const shiftCache = new Map();
+  const loadShift = async (shiftId) => {
+    const id = String(shiftId || '').trim();
+    if (!id || id.startsWith('__spare_')) return null;
+    if (shiftCache.has(id)) return shiftCache.get(id);
+    const doc = await db.collection('teaching_shifts').doc(id).get();
+    const value = doc.exists ? { id: doc.id, data: doc.data() || {} } : null;
+    shiftCache.set(id, value);
+    return value;
+  };
+
+  const hubs = [];
+  for (const hubDoc of hubSnapshot.docs) {
+    const hubData = hubDoc.data() || {};
+    if (!_hubStatusRelevantForDashboard({ hubData, now })) continue;
+
+    const rooms = _normalizeZoomHubRooms(hubData.rooms);
+    const membersSnapshot = await hubDoc.ref.collection('members').get();
+    const members = membersSnapshot.docs.map((doc) => {
+      const data = doc.data() || {};
+      return {
+        id: doc.id,
+        uid: String(data.uid || doc.id || '').trim(),
+        shiftId: String(data.shiftId || data.shift_id || '').trim(),
+        role: String(data.role || '').trim(),
+        displayName: String(
+          data.realDisplayName ||
+          data.real_display_name ||
+          data.displayName ||
+          data.display_name ||
+          '',
+        ).trim(),
+      };
+    }).filter((member) => member.uid && member.shiftId);
+
+    const memberCountByShift = new Map();
+    for (const member of members) {
+      memberCountByShift.set(
+        member.shiftId,
+        (memberCountByShift.get(member.shiftId) || 0) + 1,
+      );
+    }
+
+    const classRooms = [];
+    for (const room of rooms) {
+      if (room.spare && !room.shiftId) continue;
+      const shift = await loadShift(room.shiftId);
+      const shiftData = shift?.data || {};
+      const scheduledNow = shift ? _shiftIsScheduledNow({ shiftData, now }) : false;
+      classRooms.push({
+        shiftId: room.shiftId || null,
+        roomName: room.name,
+        title: _shiftTitleForRoutingStatus(shiftData, room.name),
+        teacherName: String(
+          shiftData.teacher_name ||
+          shiftData.teacherName ||
+          shiftData.teacher_display_name ||
+          '',
+        ).trim(),
+        studentNames: Array.isArray(shiftData.student_names)
+          ? shiftData.student_names.map((name) => String(name || '').trim()).filter(Boolean)
+          : [],
+        start: _isoOrNull(shiftData.shift_start || shiftData.startTime || shiftData.start_time),
+        end: _isoOrNull(shiftData.shift_end || shiftData.endTime || shiftData.end_time),
+        scheduledNow,
+        targetMemberCount: memberCountByShift.get(room.shiftId) || 0,
+        spare: room.spare,
+      });
+    }
+
+    const stats = (hubData.stats && typeof hubData.stats === 'object') ? hubData.stats : {};
+    const heartbeatAt = _toDate(hubData.heartbeat_at || hubData.heartbeatAt);
+    const heartbeatAgeMs = heartbeatAt ? Math.max(0, now.getTime() - heartbeatAt.getTime()) : null;
+    const heartbeatFresh = heartbeatAgeMs !== null && heartbeatAgeMs <= ZOOM_HUB_BOT_STALE_MS;
+    const windowStart = _toDate(hubData.window_start || hubData.windowStart);
+    const windowEnd = _toDate(hubData.window_end || hubData.windowEnd);
+    const active = Boolean(windowStart && windowEnd &&
+      windowStart.getTime() <= now.getTime() &&
+      windowEnd.getTime() >= now.getTime());
+
+    hubs.push({
+      hubDocId: hubDoc.id,
+      lane: _numberOrZero(hubData.lane || hubData.zoom_hub_lane || hubData.zoom_hub_lane_index),
+      blockIndex: _numberOrZero(hubData.blockIndex ?? hubData.block_index),
+      hostAccount: String(hubData.hostAccount || hubData.host_account || '').trim(),
+      meetingNumber: String(
+        hubData.meetingNumber ||
+        hubData.meeting_number ||
+        hubData.zoom_meeting_id ||
+        '',
+      ).trim(),
+      status: _hubStatusValue(hubData) || 'unknown',
+      active,
+      roomsOpen: _hubStatusValue(hubData) === 'roomsOpen',
+      heartbeatAt: heartbeatAt ? heartbeatAt.toISOString() : null,
+      heartbeatAgeMs,
+      heartbeatFresh,
+      windowStart: windowStart ? windowStart.toISOString() : null,
+      windowEnd: windowEnd ? windowEnd.toISOString() : null,
+      plannedRoomCount: rooms.length,
+      classRoomCount: rooms.filter((room) => !room.spare).length,
+      liveRoomCount: _numberOrZero(stats.liveRoomCount),
+      inRoomOccupants: _numberOrZero(stats.inRoomOccupants),
+      attendeeCount: _numberOrZero(stats.attendeeCount),
+      customerKeyCount: _numberOrZero(stats.customerKeyCount),
+      routableRoomCount: _numberOrZero(stats.routableRoomCount),
+      targetMemberCount: members.length || _numberOrZero(stats.targetMemberCount),
+      lastRoutingActionCount: _numberOrZero(stats.routedCount),
+      botError: hubData.bot_error ? String(hubData.bot_error) : '',
+      forceRejoinAt: _isoOrNull(hubData.force_rejoin_at || hubData.forceRejoinAt),
+      classes: classRooms.sort((a, b) => (
+        Number(b.scheduledNow) - Number(a.scheduledNow) ||
+        b.targetMemberCount - a.targetMemberCount ||
+        String(a.start || '').localeCompare(String(b.start || '')) ||
+        a.roomName.localeCompare(b.roomName)
+      )),
+    });
+  }
+
+  hubs.sort((a, b) => (
+    a.lane - b.lane ||
+    a.blockIndex - b.blockIndex ||
+    String(a.windowStart || '').localeCompare(String(b.windowStart || ''))
+  ));
+
+  const alertCutoffMs = now.getTime() - ZOOM_HUB_STATUS_LOOKBACK_MS;
+  const incidents = alertSnapshot.docs
+    .map((doc) => {
+      const data = doc.data() || {};
+      const createdAt = _toDate(data.created_at || data.createdAt || data.updated_at);
+      return {
+        id: doc.id,
+        type: String(data.type || '').trim(),
+        severity: String(data.severity || '').trim() || 'warning',
+        reason: String(data.reason || '').trim(),
+        title: String(data.title || data.reason || doc.id).trim(),
+        createdAt: createdAt ? createdAt.toISOString() : null,
+        open: data.resolved !== true && data.status !== 'resolved' && !data.resolved_at,
+        hubDocId: String(data.data?.hubDocId || data.hubDocId || '').trim(),
+        lane: _numberOrZero(data.data?.lane || data.lane),
+      };
+    })
+    .filter((incident) => incident.type === 'zoom_hub')
+    .filter((incident) => (
+      incident.open ||
+      (incident.createdAt && new Date(incident.createdAt).getTime() >= alertCutoffMs)
+    ))
+    .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')))
+    .slice(0, 12);
+
+  const totals = hubs.reduce((acc, hub) => {
+    if (hub.active) acc.activeHubs += 1;
+    if (hub.roomsOpen) acc.roomsOpen += 1;
+    if (hub.heartbeatFresh) acc.onlineBots += 1;
+    else if (hub.active) acc.staleBots += 1;
+    acc.inRoomOccupants += hub.inRoomOccupants;
+    acc.attendeeCount += hub.attendeeCount;
+    acc.targetMemberCount += hub.targetMemberCount;
+    acc.liveRoomCount += hub.liveRoomCount;
+    acc.plannedRoomCount += hub.plannedRoomCount;
+    acc.lastRoutingActionCount += hub.lastRoutingActionCount;
+    acc.scheduledClassCount += hub.classes.filter((classRoom) => classRoom.scheduledNow).length;
+    return acc;
+  }, {
+    activeHubs: 0,
+    roomsOpen: 0,
+    onlineBots: 0,
+    staleBots: 0,
+    inRoomOccupants: 0,
+    attendeeCount: 0,
+    targetMemberCount: 0,
+    liveRoomCount: 0,
+    plannedRoomCount: 0,
+    lastRoutingActionCount: 0,
+    scheduledClassCount: 0,
+  });
+
+  return {
+    success: true,
+    generatedAt: now.toISOString(),
+    totals: {
+      ...totals,
+      openIncidentCount: incidents.filter((incident) => incident.open).length,
+    },
+    hubs,
+    incidents,
+  };
+};
+
+const getZoomHubRoutingStatus = onCall({ cors: true }, async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError('unauthenticated', 'Authentication required');
+  if (!await isUserAdmin(uid, request.auth?.token || {})) {
+    throw new HttpsError('permission-denied', 'Only admins can view Zoom hub routing status');
+  }
+  return _buildZoomHubRoutingStatus();
+});
+
+const getZoomHubCapacityForecast = onCall({ cors: true }, async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError('unauthenticated', 'Authentication required');
+  if (!await isUserAdmin(uid, request.auth?.token || {})) {
+    throw new HttpsError('permission-denied', 'Only admins can view Zoom hub capacity forecasts');
+  }
+  return _buildZoomHubCapacityForecast();
+});
 
 const getZoomJoinInfo = onCall({
   cors: true,
@@ -1521,6 +2324,7 @@ const getZoomJoinInfo = onCall({
     token: request.auth?.token,
     teacherId,
     studentIds,
+    activeRole: request.data?.activeRole,
   });
   const useHubRouting = _usesHubRouting({ shiftData, meetingId });
   const teacherHostAccount = await _getZoomHostAccountForTeacher(teacherId, {
@@ -1546,6 +2350,32 @@ const getZoomJoinInfo = onCall({
       breakoutRoomName: '',
       breakoutRooms: [],
     };
+  // Never hand out a hub the bot has abandoned. If the resolved hub's bot was
+  // present but its heartbeat has since gone clearly stale (bot left/crashed and
+  // the watchdog has not recovered it yet), joining would drop the user into a
+  // bot-less main session. Ask them to retry — watchZoomHubBots restores the bot
+  // within ~2 min. A hub with NO heartbeat yet is freshly provisioned and the
+  // bot is on its way in, so it is left alone (not a false positive).
+  if (routing.routingMode === 'hub' && routing.hubMeetingId) {
+    const hubSnap = await admin.firestore()
+      .collection('hub_meetings').doc(routing.hubMeetingId).get();
+    const hubInfo = hubSnap.exists ? hubSnap.data() || {} : {};
+    const hb = _toDate(hubInfo.heartbeat_at || hubInfo.heartbeatAt);
+    if (hb && hb.getTime() + 2 * ZOOM_HUB_BOT_STALE_MS < Date.now()) {
+      await _sendZoomHubAdminAlert({
+        alertId: `${routing.hubMeetingId}_stale_on_join`,
+        reason: 'stale_hub_on_join',
+        title: 'Join blocked: hub bot not present',
+        body: `A user tried to join ${_deriveShiftDisplayName(shiftData)} but the bot for ${routing.hubMeetingId} is not present (heartbeat stale). Asked them to retry while the watchdog recovers it.`,
+        severity: 'critical',
+        data: { hubDocId: routing.hubMeetingId, shiftId },
+      }).catch(() => {});
+      throw new HttpsError(
+        'unavailable',
+        'Your class is reconnecting. Please tap Join again in a moment.',
+      );
+    }
+  }
   await ensureZoomHostClassroomSettings(routing.hostAccount);
   const meeting = routing.meeting;
   const meetingNumber = String(meeting.id || meeting.meetingNumber || '').trim();
@@ -1557,7 +2387,19 @@ const getZoomJoinInfo = onCall({
   });
   const participantSignature = signature;
 
-  const displayName = await getUserDisplayName(uid);
+  const realDisplayName = await getUserDisplayName(uid);
+  const hubCustomerKey = routing.routingMode === 'hub'
+    ? _zoomHubCustomerKey({ uid, shiftId })
+    : '';
+  const nativeRoutingDisplayName = routing.routingMode === 'hub'
+    ? _zoomHubRoutingDisplayName({ displayName: realDisplayName, routingKey: hubCustomerKey })
+    : realDisplayName;
+  // Participants see their real name in the classroom. Per-class separation and
+  // presence mapping ride on the hidden customerKey (zh_<hash(uid:shiftId)>),
+  // not the display name, so clients keep a clean visible name. The
+  // deterministic routing display name is still stored on the hub member as a
+  // fallback for old native builds that did not send customerKey.
+  const displayName = realDisplayName;
   const targetHubRoom = routing.targetRoom || _targetHubRoomForJoin({
     rooms: routing.breakoutRooms || [],
     shiftId,
@@ -1569,12 +2411,18 @@ const getZoomJoinInfo = onCall({
   if (routing.routingMode === 'hub') {
     await _writeZoomHubMember({
       hubMeetingId: routing.hubMeetingId,
-      uid,
+      uid: hubCustomerKey,
+      userId: uid,
       shiftId,
       role: userRole,
       displayName,
+      realDisplayName,
+      routingDisplayName: nativeRoutingDisplayName,
     });
   }
+  const customerKey = routing.routingMode === 'hub'
+    ? hubCustomerKey
+    : uid;
   return {
     success: true,
     provider: 'zoom',
@@ -1585,9 +2433,12 @@ const getZoomJoinInfo = onCall({
     sdkKey,
     zak: null,
     displayName,
+    realDisplayName,
+    nativeDisplayName: displayName,
+    routingDisplayName: nativeRoutingDisplayName,
     role: sdkRole,
     userRole,
-    customerKey: uid,
+    customerKey,
     shiftName: _deriveShiftDisplayName(shiftData),
     joinUrl: meeting.join_url || meeting.joinUrl || shiftData.zoom_join_url || '',
     routingMode: routing.routingMode,
@@ -1596,6 +2447,7 @@ const getZoomJoinInfo = onCall({
     hostRoleBlockedReason: '',
     breakoutRoomName: routing.breakoutRoomName || '',
     breakoutRoomKey: shiftId,
+    classEndsAtIso: routing.classEndsAtIso || null,
     targetBreakoutRoom: targetHubRoom || null,
     hubBreakoutRooms: [],
     assignmentToken: '',
@@ -1790,6 +2642,82 @@ const prepareZoomHubs = onSchedule({
   console.log(`[ZoomHub] Prepared ${preparedCount} hub(s) for ${snapshot.docs.length} upcoming Zoom shift(s).`);
 });
 
+const _shiftStartMs = (shiftData) => {
+  const v = shiftData && (shiftData.shift_start || shiftData.shiftStart);
+  if (!v) return null;
+  if (typeof v.toMillis === 'function') return v.toMillis();
+  if (typeof v.toDate === 'function') return v.toDate().getTime();
+  if (typeof v === 'number') return v;
+  if (typeof v === 'string') { const t = Date.parse(v); return Number.isNaN(t) ? null : t; }
+  if (v._seconds != null) return v._seconds * 1000;
+  if (v.seconds != null) return v.seconds * 1000;
+  return null;
+};
+
+// Only re-provision when something that affects the hub/room actually changed.
+// ensureZoomHubMeeting writes hub metadata back onto the shift doc, so without
+// this guard the trigger would re-fire on its own writes.
+const _provisioningRelevantChange = (before, after) => {
+  if (!before) return true; // newly created shift
+  const field = (d, a, b) => {
+    const v = d[a] !== undefined ? d[a] : d[b];
+    if (v && typeof v.toMillis === 'function') return v.toMillis();
+    return v === undefined ? null : v;
+  };
+  // Only compare fields that ensureZoomHubMeeting NEVER writes back to the shift
+  // doc, otherwise the trigger would re-fire on its own writes. (It writes
+  // hub_meeting_id, zoom_meeting_id, zoom_hub_lane_index, zoom_join_url, etc.)
+  const pairs = [
+    ['shift_start', 'shiftStart'],
+    ['teacher_id', 'teacherId'],
+    ['video_provider', 'videoProvider'],
+    ['zoom_enabled', 'zoomEnabled'],
+  ];
+  for (const [a, b] of pairs) {
+    if (JSON.stringify(field(before, a, b)) !== JSON.stringify(field(after, a, b))) return true;
+  }
+  const roster = (d) => JSON.stringify(d.student_ids || d.studentIds || []);
+  return roster(before) !== roster(after);
+};
+
+// Eagerly provision a hub the moment a Zoom hub-routed shift is created or moved
+// into the imminent window, so an ad-hoc "create a class right now" is routable
+// without waiting for the 10-minute prepareZoomHubs cycle. Writing the hub doc
+// makes the bot join it on its next poll, so joins land in the correct room.
+const onTeachingShiftWritten = onDocumentWritten({
+  document: 'teaching_shifts/{shiftId}',
+  region: 'us-central1',
+  secrets: ZOOM_JOIN_SECRETS,
+}, async (event) => {
+  const afterSnap = event.data && event.data.after;
+  if (!afterSnap || !afterSnap.exists) return; // deletion — nothing to provision
+  const shiftData = afterSnap.data() || {};
+  const before = event.data.before && event.data.before.exists
+    ? event.data.before.data()
+    : null;
+
+  const provider = String(shiftData.video_provider || shiftData.videoProvider || '')
+    .trim()
+    .toLowerCase();
+  const meetingId = String(shiftData.zoom_meeting_id || shiftData.zoomMeetingId || '').trim();
+  if (provider !== 'zoom' || !_usesHubRouting({ shiftData, meetingId })) return;
+
+  const startMs = _shiftStartMs(shiftData);
+  if (startMs == null) return;
+  const now = Date.now();
+  if (startMs < now - ZOOM_HUB_WINDOW_PADDING_MS) return; // already past its window
+  if (startMs > now + ZOOM_HUB_PREP_LOOKAHEAD_MS) return; // too far out; prepareZoomHubs handles it
+
+  if (!_provisioningRelevantChange(before, shiftData)) return; // avoid self-trigger loops
+
+  try {
+    await _prepareZoomHubForShiftDoc(afterSnap);
+    console.log(`[ZoomHub] Eagerly provisioned hub for imminent shift ${event.params.shiftId}`);
+  } catch (err) {
+    console.error(`[ZoomHub] Eager provision failed for shift ${event.params.shiftId}:`, err);
+  }
+});
+
 const _writeZoomHubBotAlert = async ({ hubDocId, hubData, reason }) => {
   const title = reason === 'heartbeat_stale'
     ? 'Critical Zoom hub bot heartbeat is stale'
@@ -1812,24 +2740,177 @@ const _writeZoomHubBotAlert = async ({ hubDocId, hubData, reason }) => {
 };
 
 const watchZoomHubBots = onSchedule({
-  schedule: 'every 5 minutes',
+  schedule: 'every 2 minutes',
   region: 'us-central1',
   secrets: ZOOM_JOIN_SECRETS,
 }, async () => {
   const now = new Date();
   const snapshot = await admin.firestore().collection('hub_meetings').get();
+
+  // Precompute, per lane, the newest currently-active block index. A hub is
+  // "superseded" when a newer block on the same lane is already active — its
+  // classes must take the shared account, so an older block whose own classes
+  // are over must release the account even if someone forgot to leave.
+  const laneNewestActiveBlock = new Map();
+  for (const doc of snapshot.docs) {
+    const d = doc.data() || {};
+    const ws = _toDate(d.window_start || d.windowStart);
+    const we = _toDate(d.window_end || d.windowEnd);
+    if (!ws || !we) continue;
+    if (ws.getTime() > now.getTime() || we.getTime() < now.getTime()) continue;
+    const lane = Number(d.lane ?? d.laneIndex);
+    const blockIndex = Number(d.blockIndex ?? d.block_index);
+    if (!Number.isFinite(lane) || !Number.isFinite(blockIndex)) continue;
+    const prev = laneNewestActiveBlock.get(lane);
+    if (prev === undefined || blockIndex > prev) laneNewestActiveBlock.set(lane, blockIndex);
+  }
+
   let alertCount = 0;
   for (const doc of snapshot.docs) {
     const data = doc.data() || {};
     const windowStart = _toDate(data.window_start || data.windowStart);
     const windowEnd = _toDate(data.window_end || data.windowEnd);
     if (!windowStart || !windowEnd) continue;
-    if (windowStart.getTime() > now.getTime() || windowEnd.getTime() < now.getTime()) continue;
+    if (windowStart.getTime() > now.getTime()) continue;
+
+    const stats = (data.stats && typeof data.stats === 'object') ? data.stats : {};
+    const inRoom = Number(stats.inRoomOccupants || 0);
+    const meetingNumber = String(
+      data.meetingNumber || data.zoom_meeting_id || data.meeting_number || '',
+    ).trim();
+    const lane = Number(data.lane ?? data.laneIndex);
+    const blockIndex = Number(data.blockIndex ?? data.block_index);
+    const realClassEnd = windowEnd.getTime() - ZOOM_HUB_WINDOW_PADDING_MS;
+    const classesOver = now.getTime() > realClassEnd;
+    const superseded = Number.isFinite(lane) &&
+      Number.isFinite(blockIndex) &&
+      (laneNewestActiveBlock.get(lane) ?? -Infinity) > blockIndex;
+
+    // Policy: a class may stay at most 15 minutes past its scheduled end, then
+    // everyone is removed. window_end already IS (last class end + 15 min), so we
+    // END this hub's Zoom meeting — regardless of who is still inside — once:
+    //  - now is at/after window_end (the 15-minute limit); or
+    //  - it is superseded by a newer block whose classes are due and this hub's
+    //    own real classes are over (hand the shared account over early).
+    // This guarantees a forgotten participant can never hold the account or push
+    // the meeting toward Zoom's 30h cap.
+    const shouldEndMeeting =
+      (now.getTime() >= windowEnd.getTime()) ||
+      (superseded && classesOver);
+
+    if (shouldEndMeeting) {
+      if (!data.ended_at && meetingNumber && typeof zoomClient.endMeeting === 'function') {
+        try {
+          await zoomClient.endMeeting(meetingNumber);
+          await doc.ref.set({
+            ended_at: admin.firestore.FieldValue.serverTimestamp(),
+          }, { merge: true });
+          const why = (now.getTime() >= windowEnd.getTime())
+            ? (inRoom > 0 ? 'reached 15-min limit with stragglers' : 'reached 15-min limit, empty')
+            : 'superseded by newer block';
+          console.warn(`[ZoomHub] Ended hub meeting ${meetingNumber} (${doc.id}) to free the account (${why}).`);
+          if (inRoom > 0) {
+            await _writeZoomHubBotAlert({
+              hubDocId: doc.id, hubData: data, reason: 'stragglers_removed_at_time_limit',
+            });
+            alertCount += 1;
+          }
+        } catch (err) {
+          console.warn(`[ZoomHub] Failed to end hub meeting ${meetingNumber}:`, err.message || err);
+        }
+      }
+      continue;
+    }
     const status = String(data.status || data.bot_status || '').trim();
     const heartbeat = _toDate(data.heartbeat_at || data.heartbeatAt);
     const staleHeartbeat = !heartbeat ||
       heartbeat.getTime() + ZOOM_HUB_BOT_STALE_MS < now.getTime();
-    if (status === 'roomsOpen' && !staleHeartbeat) continue;
+
+    // Detect the "poisoned meeting" state: the bot is alive and reports rooms
+    // open, but its live breakout list is empty while members are expected, so
+    // it cannot route anyone. Only reset when nobody is inside a room, so a live
+    // class is never interrupted.
+    const liveRoomCount = Number(stats.liveRoomCount);
+    const targetMemberCount = Number(stats.targetMemberCount || 0);
+    const isPoisoned = status === 'roomsOpen' &&
+      !staleHeartbeat &&
+      Number.isFinite(liveRoomCount) && liveRoomCount === 0 &&
+      targetMemberCount > 0 &&
+      inRoom === 0;
+
+    if (status === 'roomsOpen' && !staleHeartbeat && !isPoisoned) {
+      // Zombie check: the bot claims a healthy, open meeting, but the meeting may
+      // have actually ended server-side (Zoom-side end, 30h cap, admin action) —
+      // the bot's browser session keeps reporting stale rooms and neither the
+      // poison nor heartbeat check catches it. Verify real liveness via REST; if
+      // the meeting is not 'started', stamp force_rejoin_at so the bot reloads
+      // into a fresh instance. Throttled so we don't re-stamp before it reloads.
+      const lastForceRejoin = _toDate(data.force_rejoin_at || data.forceRejoinAt);
+      const recentlyForced = lastForceRejoin &&
+        lastForceRejoin.getTime() + 3 * 60 * 1000 > now.getTime();
+      if (meetingNumber && !recentlyForced && inRoom === 0 &&
+        typeof zoomClient.getMeeting === 'function') {
+        let meetingLive = true;
+        try {
+          const meeting = await zoomClient.getMeeting(meetingNumber);
+          meetingLive = String(meeting?.status || '').trim() === 'started';
+        } catch (err) {
+          // A 404/3001 means the meeting no longer exists = definitely not live.
+          const text = String(err?.message || err || '');
+          meetingLive = !/3001|not exist|not found|404/i.test(text);
+        }
+        if (!meetingLive) {
+          await doc.ref.set({
+            force_rejoin_at: admin.firestore.FieldValue.serverTimestamp(),
+          }, { merge: true });
+          await _writeZoomHubBotAlert({
+            hubDocId: doc.id,
+            hubData: data,
+            reason: 'zombie_meeting_forced_rejoin',
+          });
+          alertCount += 1;
+          console.warn(`[ZoomHub] Zombie hub ${doc.id}: meeting ${meetingNumber} not live; forced bot rejoin.`);
+          continue;
+        }
+      }
+      if (Number(data.poison_streak) > 0) {
+        await doc.ref.set({ poison_streak: 0 }, { merge: true });
+      }
+      continue;
+    }
+
+    if (isPoisoned) {
+      const streak = (Number(data.poison_streak) || 0) + 1;
+      if (streak >= ZOOM_HUB_POISON_RESET_STREAK &&
+        meetingNumber &&
+        typeof zoomClient.endMeeting === 'function') {
+        try {
+          await zoomClient.endMeeting(meetingNumber);
+          await doc.ref.set({
+            poison_streak: 0,
+            poison_reset_at: admin.firestore.FieldValue.serverTimestamp(),
+            last_poison_reset_meeting: meetingNumber,
+          }, { merge: true });
+          console.warn(`[ZoomHub] Auto-reset poisoned hub ${doc.id} (ended meeting ${meetingNumber}); bot will rejoin a clean instance.`);
+        } catch (err) {
+          await doc.ref.set({
+            poison_streak: streak,
+            bot_end_error: err.message || String(err),
+          }, { merge: true });
+          console.warn(`[ZoomHub] Failed to auto-reset poisoned hub ${doc.id}:`, err.message || err);
+        }
+      } else {
+        await doc.ref.set({ poison_streak: streak }, { merge: true });
+      }
+      await _writeZoomHubBotAlert({
+        hubDocId: doc.id,
+        hubData: data,
+        reason: 'breakout_unreadable_poisoned',
+      });
+      alertCount += 1;
+      continue;
+    }
+
     await _writeZoomHubBotAlert({
       hubDocId: doc.id,
       hubData: data,
@@ -1946,9 +3027,27 @@ const _directUserIdFromParticipant = (participant) =>
     '',
   ).trim();
 
+const _isZoomHubBotParticipant = (participant) => {
+  const customerKey = _directUserIdFromParticipant(participant).toLowerCase();
+  const name = _zoomParticipantDisplayName(participant).toLowerCase();
+  return (
+    customerKey.startsWith('zoom_hub_bot_lane_') ||
+    name.includes('alluwal hub bot lane')
+  );
+};
+
 const _userIdFromParticipant = async ({ participant, shiftData }) => {
   const direct = _directUserIdFromParticipant(participant);
-  if (direct) return direct;
+  if (direct && !_isZoomHubRoutingKey(direct)) return direct;
+
+  const teacherId = String(shiftData.teacher_id || shiftData.teacherId || '').trim();
+  const teacherName = String(shiftData.teacher_name || shiftData.teacherName || '')
+    .trim()
+    .toLowerCase();
+  const participantName = _zoomParticipantDisplayName(participant).toLowerCase();
+  if (teacherId && teacherName && participantName && participantName === teacherName) {
+    return teacherId;
+  }
 
   const zoomHostAccount = String(
     shiftData.zoom_host_email ||
@@ -1965,7 +3064,7 @@ const _userIdFromParticipant = async ({ participant, shiftData }) => {
     zoomHostAccount &&
     (participantEmail === zoomHostAccount || participantUserId === zoomHostAccount)
   ) {
-    return String(shiftData.teacher_id || shiftData.teacherId || '').trim();
+    return teacherId;
   }
 
   if (participantEmail) {
@@ -2215,17 +3314,47 @@ const handleZoomPresenceWebhook = async (body) => {
   }
 
   const participant = object.participant || {};
+  if (_isZoomHubBotParticipant(participant)) {
+    return { success: true, ignored: true, reason: 'hub_bot_participant' };
+  }
   const at = _eventDate(body, participant);
   const directUserId = _directUserIdFromParticipant(participant);
-  const shiftDoc = await _selectShiftForZoomMeeting({
+  const hubMember = await _findHubMemberForRoutingKey({
     meetingId,
-    userId: directUserId,
-    at,
+    routingKey: directUserId,
+  }) || await _findHubMemberForRoutingDisplayName({
+    meetingId,
+    displayName: _zoomParticipantDisplayName(participant),
   });
-  if (!shiftDoc) return { success: true, ignored: true, reason: 'shift_not_found' };
+  let shiftDoc = null;
+  let userId = '';
+  const participantForRecord = hubMember?.realDisplayName
+    ? {
+      ...participant,
+      user_name: hubMember.realDisplayName,
+      userName: hubMember.realDisplayName,
+      displayName: hubMember.realDisplayName,
+    }
+    : participant;
+  if (hubMember) {
+    shiftDoc = await admin.firestore()
+      .collection('teaching_shifts')
+      .doc(hubMember.shiftId)
+      .get();
+    userId = hubMember.userId;
+  } else {
+    shiftDoc = await _selectShiftForZoomMeeting({
+      meetingId,
+      userId: directUserId,
+      at,
+    });
+  }
+  if (!shiftDoc || !shiftDoc.exists) {
+    return { success: true, ignored: true, reason: 'shift_not_found' };
+  }
 
-  const userId = await _userIdFromParticipant({
-    participant,
+  userId = userId || await _userIdFromParticipant({
+    participant: participantForRecord,
     shiftData: shiftDoc.data() || {},
   });
   if (!userId) {
@@ -2233,11 +3362,11 @@ const handleZoomPresenceWebhook = async (body) => {
   }
 
   if (event === 'meeting.participant_joined') {
-    await _recordZoomParticipantJoin({ shiftDoc, userId, participant, at });
+    await _recordZoomParticipantJoin({ shiftDoc, userId, participant: participantForRecord, at });
     return { success: true, recorded: 'join', userId };
   }
   if (event === 'meeting.participant_left') {
-    await _recordZoomParticipantLeave({ shiftDoc, userId, participant, at });
+    await _recordZoomParticipantLeave({ shiftDoc, userId, participant: participantForRecord, at });
     return { success: true, recorded: 'leave', userId };
   }
   return { success: true, ignored: true, reason: 'unsupported_event' };
@@ -2289,14 +3418,19 @@ const zoomWebhook = onRequest({
 
 module.exports = {
   getZoomJoinInfo,
+  getZoomHubCapacityForecast,
+  getZoomHubRoutingStatus,
   setTeacherZoomEnabled,
   prepareZoomHubs,
   watchZoomHubBots,
+  onTeachingShiftWritten,
   zoomWebhook,
   __test__: {
     _blockForShift,
     _buildHubRoomsForBlock,
+    _buildZoomHubCapacityForecast,
     _hubMetaForShift,
+    _buildZoomHubRoutingStatus,
     _hubWindowExceedsSafeZoomLifetime,
     _hubWindowForShiftDocs,
     _laneIndexForShift,

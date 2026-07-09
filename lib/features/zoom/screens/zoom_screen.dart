@@ -776,6 +776,7 @@ class _ZoomScreenState extends State<ZoomScreen> with WidgetsBindingObserver {
             child: _ZoomShiftCard(
               shift: shift,
               isTeacher: !isStudent,
+              isAdmin: isAdmin,
               liveKitPresenceFuture: isAdmin &&
                       (shift.usesLiveKit || shift.usesZoom) &&
                       VideoCallService.canJoinClass(shift)
@@ -1183,15 +1184,32 @@ class _HeaderCard extends StatelessWidget {
   }
 }
 
+/// Hub controller "bot"/lane that will route a Zoom class, mirroring the
+/// backend `_laneIndexForShift` + `_hashString` in `functions/handlers/zoom.js`.
+/// There are two licensed host accounts (two bots): lane 1 = billing@,
+/// lane 2 = support@. Admin-only diagnostic label; matches the VPS bot lanes.
+int zoomHubControllerLane(String teacherId) {
+  const hostAccountCount = 2;
+  if (hostAccountCount <= 0) return 1;
+  var hash = 0;
+  for (var i = 0; i < teacherId.length; i++) {
+    hash = ((hash << 5) - hash) + teacherId.codeUnitAt(i);
+    hash = hash.toSigned(32);
+  }
+  return (hash.abs() % hostAccountCount) + 1;
+}
+
 class _ZoomShiftCard extends StatelessWidget {
   final TeachingShift shift;
   final bool isTeacher;
+  final bool isAdmin;
   final Future<LiveKitRoomPresenceResult>? liveKitPresenceFuture;
   final VoidCallback? onRefreshLiveKitPresence;
 
   const _ZoomShiftCard({
     required this.shift,
     this.isTeacher = true,
+    this.isAdmin = false,
     this.liveKitPresenceFuture,
     this.onRefreshLiveKitPresence,
   });
@@ -1255,6 +1273,7 @@ class _ZoomShiftCard extends StatelessWidget {
             : shift.studentNames.length <= 2
                 ? shift.studentNames.join(', ')
                 : '${shift.studentNames.take(2).join(', ')} +${shift.studentNames.length - 2}';
+    final useCompactActions = MediaQuery.sizeOf(context).width < 430;
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -1338,6 +1357,45 @@ class _ZoomShiftCard extends StatelessWidget {
                             fontSize: 9,
                             fontWeight: FontWeight.w600,
                             color: const Color(0xFF7C3AED),
+                          ),
+                        ),
+                      ),
+                    ],
+                    if (isAdmin && shift.usesZoom) ...[
+                      const SizedBox(width: 6),
+                      Tooltip(
+                        message:
+                            'Hub controller bot ${zoomHubControllerLane(shift.teacherId)}',
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 5, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF2563EB).withAlpha(26),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(
+                              color: const Color(0xFF2563EB).withAlpha(51),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.smart_toy_outlined,
+                                size: 10,
+                                color: Color(0xFF1D4ED8),
+                              ),
+                              const SizedBox(width: 3),
+                              Text(
+                                AppLocalizations.of(context)!.classControllerBot(
+                                  zoomHubControllerLane(shift.teacherId),
+                                ),
+                                style: GoogleFonts.inter(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w600,
+                                  color: const Color(0xFF1D4ED8),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
@@ -1547,70 +1605,15 @@ class _ZoomShiftCard extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              IconButton(
-                tooltip: l10n.copyClassLink,
-                onPressed: () => VideoCallService.copyJoinLink(context, shift),
-                icon: const Icon(Icons.link, size: 18),
-                color: const Color(0xFF0E72ED),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-              ),
-              const SizedBox(width: 4),
-              SizedBox(
-                height: 36,
-                child: ElevatedButton.icon(
-                  onPressed: canJoin
-                      ? () => VideoCallService.joinClass(
-                            context,
-                            shift,
-                            isTeacher: isTeacher,
-                          )
-                      : (!hasVideoCall && withinJoinWindow && !hasEnded)
-                          ? () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    l10n.thisClassDoesNotHaveA,
-                                    style: GoogleFonts.inter(
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  behavior: SnackBarBehavior.floating,
-                                ),
-                              );
-                            }
-                          : null,
-                  icon: Icon(
-                    VideoCallService.getProviderIcon(shift.videoProvider),
-                    size: 16,
-                  ),
-                  label: Text(
-                    buttonLabel,
-                    style: GoogleFonts.inter(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 12,
-                    ),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: canJoin
-                        ? const Color(0xFF0E72ED)
-                        : const Color(0xFF94A3B8),
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
-              ),
-            ],
+          _ClassCardActions(
+            shift: shift,
+            isTeacher: isTeacher,
+            buttonLabel: buttonLabel,
+            canJoin: canJoin,
+            hasVideoCall: hasVideoCall,
+            withinJoinWindow: withinJoinWindow,
+            hasEnded: hasEnded,
+            compact: useCompactActions,
           ),
         ],
       ),
@@ -1631,6 +1634,141 @@ class _ZoomShiftCard extends StatelessWidget {
     final remaining = minutes % 60;
     if (remaining == 0) return '${hours}h';
     return '${hours}h ${remaining}m';
+  }
+}
+
+class _ClassCardActions extends StatelessWidget {
+  final TeachingShift shift;
+  final bool isTeacher;
+  final String buttonLabel;
+  final bool canJoin;
+  final bool hasVideoCall;
+  final bool withinJoinWindow;
+  final bool hasEnded;
+  final bool compact;
+
+  const _ClassCardActions({
+    required this.shift,
+    required this.isTeacher,
+    required this.buttonLabel,
+    required this.canJoin,
+    required this.hasVideoCall,
+    required this.withinJoinWindow,
+    required this.hasEnded,
+    required this.compact,
+  });
+
+  VoidCallback? _joinHandler(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    if (canJoin) {
+      return () => VideoCallService.joinClass(
+            context,
+            shift,
+            isTeacher: isTeacher,
+          );
+    }
+    if (!hasVideoCall && withinJoinWindow && !hasEnded) {
+      return () {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              l10n.thisClassDoesNotHaveA,
+              style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+            ),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      };
+    }
+    return null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final joinHandler = _joinHandler(context);
+    final providerIcon = VideoCallService.getProviderIcon(shift.videoProvider);
+
+    final copyButton = IconButton(
+      tooltip: l10n.copyClassLink,
+      onPressed: () => VideoCallService.copyJoinLink(context, shift),
+      icon: const Icon(Icons.link, size: 18),
+      color: const Color(0xFF0E72ED),
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints.tightFor(width: 36, height: 36),
+      style: IconButton.styleFrom(
+        backgroundColor: const Color(0xFFE7F3FF),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+
+    if (compact) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          copyButton,
+          const SizedBox(height: 6),
+          Tooltip(
+            message: buttonLabel,
+            child: SizedBox(
+              width: 36,
+              height: 36,
+              child: ElevatedButton(
+                onPressed: joinHandler,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: canJoin
+                      ? const Color(0xFF0E72ED)
+                      : const Color(0xFF94A3B8),
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  padding: EdgeInsets.zero,
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: Icon(providerIcon, size: 17),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        copyButton,
+        const SizedBox(width: 4),
+        SizedBox(
+          height: 36,
+          child: ElevatedButton.icon(
+            onPressed: joinHandler,
+            icon: Icon(providerIcon, size: 16),
+            label: Text(
+              buttonLabel,
+              style: GoogleFonts.inter(
+                fontWeight: FontWeight.w600,
+                fontSize: 12,
+              ),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor:
+                  canJoin ? const Color(0xFF0E72ED) : const Color(0xFF94A3B8),
+              foregroundColor: Colors.white,
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }
 

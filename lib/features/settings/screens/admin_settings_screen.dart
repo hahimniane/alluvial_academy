@@ -24,6 +24,11 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
   bool _isSaving = false;
   bool _updatingMobileClasses = false;
   bool _hasAccess = true;
+  bool _noShowNotifyAll = true;
+  Set<String> _noShowRecipientIds = {};
+  List<({String id, String name})> _adminOptions = [];
+  bool _loadingAdmins = false;
+  bool _savingNoShowSettings = false;
 
   @override
   void initState() {
@@ -114,6 +119,12 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
       if (doc.exists && mounted) {
         final data = doc.data()!;
         _notificationEmailController.text = data['notification_email'] ?? '';
+        _noShowNotifyAll = data['no_show_notify_all_admins'] != false;
+        _noShowRecipientIds = Set<String>.from(
+            (data['no_show_recipient_admin_ids'] as List?) ?? const []);
+      }
+      if (!_noShowNotifyAll) {
+        await _ensureAdminsLoaded();
       }
     } catch (e) {
       if (mounted) {
@@ -163,6 +174,60 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
       if (mounted) {
         setState(() => _isSaving = false);
       }
+    }
+  }
+
+  Future<void> _ensureAdminsLoaded() async {
+    if (_adminOptions.isNotEmpty || _loadingAdmins) return;
+    if (mounted) setState(() => _loadingAdmins = true);
+    try {
+      final usersRef = FirebaseFirestore.instance.collection('users');
+      final results = await Future.wait([
+        usersRef.where('user_type', isEqualTo: 'admin').get(),
+        usersRef.where('secondary_roles', arrayContains: 'admin').get(),
+        usersRef.where('is_admin_teacher', isEqualTo: true).get(),
+      ]);
+      final byId = <String, ({String id, String name})>{};
+      for (final snap in results) {
+        for (final doc in snap.docs) {
+          final data = doc.data();
+          if (data['is_active'] == false) continue;
+          var name =
+              '${data['first_name'] ?? ''} ${data['last_name'] ?? ''}'.trim();
+          if (name.isEmpty) name = data['e-mail'] as String? ?? doc.id;
+          byId[doc.id] = (id: doc.id, name: name);
+        }
+      }
+      final admins = byId.values.toList()
+        ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+      if (mounted) setState(() => _adminOptions = admins);
+    } catch (e) {
+      AppLogger.error('AdminSettings: error loading admins: $e');
+    } finally {
+      if (mounted) setState(() => _loadingAdmins = false);
+    }
+  }
+
+  Future<void> _saveNoShowSettings() async {
+    if (!_hasAccess || _savingNoShowSettings) return;
+    setState(() => _savingNoShowSettings = true);
+    try {
+      await FirebaseFirestore.instance.collection('settings').doc('admin').set({
+        'no_show_notify_all_admins': _noShowNotifyAll,
+        'no_show_recipient_admin_ids': _noShowRecipientIds.toList(),
+        'updated_at': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(AppLocalizations.of(context)!.errorSavingSettingsE),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _savingNoShowSettings = false);
     }
   }
 
@@ -292,6 +357,10 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
                             ),
                           ),
                           const SizedBox(height: 48),
+                          _buildSectionTitle(AppLocalizations.of(context)!.noShowSettingsTitle),
+                          const SizedBox(height: 16),
+                          _buildNoShowRecipientsCard(),
+                          const SizedBox(height: 48),
                           _buildSectionTitle('Mobile Classes'),
                           const SizedBox(height: 16),
                           _buildMobileClassesCard(),
@@ -304,6 +373,147 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
                     ),
                   ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNoShowRecipientsCard() {
+    final l = AppLocalizations.of(context)!;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xffF59E0B).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.notification_important_outlined,
+                  color: Color(0xffF59E0B),
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l.noShowSettingsNotifyAll,
+                      style: GoogleFonts.inter(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xff111827),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      l.noShowSettingsNotifyAllSubtitle,
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        color: const Color(0xff6B7280),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Switch(
+                value: _noShowNotifyAll,
+                onChanged: _savingNoShowSettings
+                    ? null
+                    : (value) {
+                        setState(() => _noShowNotifyAll = value);
+                        if (!value) _ensureAdminsLoaded();
+                        _saveNoShowSettings();
+                      },
+              ),
+            ],
+          ),
+          if (!_noShowNotifyAll) ...[
+            const SizedBox(height: 12),
+            if (_loadingAdmins)
+              const Padding(
+                padding: EdgeInsets.all(16),
+                child: Center(
+                  child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                ),
+              )
+            else if (_adminOptions.isEmpty)
+              Padding(
+                padding: const EdgeInsets.all(8),
+                child: Text(
+                  l.noShowSettingsNoAdmins,
+                  style: GoogleFonts.inter(
+                      fontSize: 13, color: const Color(0xff6B7280)),
+                ),
+              )
+            else
+              Container(
+                constraints: const BoxConstraints(maxHeight: 260),
+                decoration: BoxDecoration(
+                  color: const Color(0xffF8FAFC),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xffE2E8F0)),
+                ),
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: _adminOptions.length,
+                  itemBuilder: (context, i) {
+                    final adminUser = _adminOptions[i];
+                    return CheckboxListTile(
+                      dense: true,
+                      controlAffinity: ListTileControlAffinity.leading,
+                      visualDensity: VisualDensity.compact,
+                      activeColor: const Color(0xff0386FF),
+                      title: Text(
+                        adminUser.name,
+                        style: GoogleFonts.inter(
+                            fontSize: 13, color: const Color(0xff1E293B)),
+                      ),
+                      value: _noShowRecipientIds.contains(adminUser.id),
+                      onChanged: _savingNoShowSettings
+                          ? null
+                          : (checked) {
+                              setState(() {
+                                if (checked == true) {
+                                  _noShowRecipientIds.add(adminUser.id);
+                                } else {
+                                  _noShowRecipientIds.remove(adminUser.id);
+                                }
+                              });
+                              _saveNoShowSettings();
+                            },
+                    );
+                  },
+                ),
+              ),
+            if (_noShowRecipientIds.isEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                l.noShowSettingsSelectAtLeastOne,
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xffDC2626),
+                ),
+              ),
+            ],
+          ],
         ],
       ),
     );

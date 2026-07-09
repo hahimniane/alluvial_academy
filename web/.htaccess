@@ -12,8 +12,28 @@
     Header always set Cross-Origin-Opener-Policy "same-origin"
     Header always set Cross-Origin-Embedder-Policy "credentialless"
 
+    # The Zoom meeting page needs cross-origin isolation (SharedArrayBuffer) for
+    # full media rendering — including viewing a shared screen on iPhone. iOS
+    # WebKit ignores `credentialless` and only honors `require-corp`, so scope
+    # require-corp to the meeting page ONLY (the rest of the app stays on
+    # credentialless so Firebase/font/CDN assets keep loading). The Zoom SDK
+    # scripts carry `crossorigin` and Zoom's AV resources send CORP, so they
+    # satisfy require-corp.
+    <FilesMatch "^zoom_meeting(_iostest)?\.html$">
+        Header always set Cross-Origin-Embedder-Policy "require-corp"
+    </FilesMatch>
+
     # Never cache the HTML entrypoint - CRITICAL for version updates
     <FilesMatch "^(index\.html)$">
+        Header always set Cache-Control "no-cache, no-store, must-revalidate, max-age=0"
+        Header always set Pragma "no-cache"
+        Header always set Expires "0"
+        Header always unset ETag
+        Header always set X-Content-Type-Options "nosniff"
+    </FilesMatch>
+
+    # Never cache policy pages used by app store review.
+    <FilesMatch "^(privacy-policy\.html)$">
         Header always set Cache-Control "no-cache, no-store, must-revalidate, max-age=0"
         Header always set Pragma "no-cache"
         Header always set Expires "0"
@@ -81,6 +101,10 @@ FileETag None
 <IfModule mod_rewrite.c>
     RewriteEngine On
     RewriteBase /
+
+    # Direct privacy policy for Google Play review. This must serve policy text
+    # directly and must not fall through to the Flutter app shell.
+    RewriteRule ^privacy-policy/?$ /privacy-policy.html [L]
     
     # Handle Angular and other front-end routes
     RewriteCond %{REQUEST_FILENAME} !-f

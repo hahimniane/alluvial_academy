@@ -23,6 +23,7 @@ export function SiteFooter() {
             <Link href="/team/">Team</Link>
             <Link href="/about/">About</Link>
             <Link href="/contact/">Contact</Link>
+            <Link href="/privacy-policy/">Privacy Policy</Link>
           </div>
         </div>
         <div>

@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link type="text/css" rel="stylesheet" href="https://source.zoom.us/6.2.0/css/bootstrap.css" />
-  <link type="text/css" rel="stylesheet" href="https://source.zoom.us/6.2.0/css/react-select.css" />
+  <link type="text/css" rel="stylesheet" href="https://source.zoom.us/6.2.0/css/bootstrap.css" crossorigin="anonymous" />
+  <link type="text/css" rel="stylesheet" href="https://source.zoom.us/6.2.0/css/react-select.css" crossorigin="anonymous" />
   <style>
     html, body, #zmmtg-root { margin: 0; width: 100%; height: 100%; background: #000; }
     body { overflow: hidden; }
@@ -83,6 +83,61 @@
       cursor: default;
       opacity: 0.72;
     }
+    #classCountdown {
+      position: fixed;
+      left: 50%;
+      top: calc(14px + env(safe-area-inset-top, 0px));
+      transform: translateX(-50%);
+      z-index: 2147483647;
+      display: none;
+      align-items: center;
+      max-width: calc(100vw - 140px);
+      padding: 8px 14px;
+      border-radius: 999px;
+      background: rgba(180, 83, 9, 0.95);
+      color: #fff;
+      font: 700 13px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+      pointer-events: none;
+      text-align: center;
+      line-height: 1.3;
+    }
+    #classCountdown.ended { background: rgba(220, 38, 38, 0.96); }
+    @media (max-width: 640px), (pointer: coarse) {
+      #zmmtg-root #wc-footer,
+      #zmmtg-root [class*="footer" i],
+      #zmmtg-root [class*="meeting-footer" i],
+      #zmmtg-root [class*="meeting-bottom" i] {
+        max-width: 100vw !important;
+        overflow-x: auto !important;
+        overflow-y: visible !important;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+      }
+      #zmmtg-root #wc-footer::-webkit-scrollbar,
+      #zmmtg-root [class*="footer" i]::-webkit-scrollbar,
+      #zmmtg-root [class*="meeting-footer" i]::-webkit-scrollbar,
+      #zmmtg-root [class*="meeting-bottom" i]::-webkit-scrollbar {
+        display: none;
+      }
+      #zmmtg-root [class*="footer-button" i],
+      #zmmtg-root [class*="footer__" i],
+      #zmmtg-root [class*="meeting-footer" i] button,
+      #zmmtg-root [class*="meeting-bottom" i] button {
+        flex: 0 0 auto !important;
+      }
+      #zmmtg-root button[aria-label*="Share" i],
+      #zmmtg-root [role="button"][aria-label*="Share" i],
+      #zmmtg-root button[title*="Share" i],
+      #zmmtg-root [role="button"][title*="Share" i],
+      #zmmtg-root [class*="share" i] {
+        display: inline-flex !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        pointer-events: auto !important;
+        flex: 0 0 auto !important;
+      }
+    }
     .alluwal-classroom-hidden,
     button:not(#leaveMeetingButton)[aria-label*="Leave" i],
     button:not(#leaveMeetingButton)[aria-label*="End Meeting" i],
@@ -104,13 +159,14 @@
 </head>
 <body>
   <div id="status"></div>
+  <div id="classCountdown"></div>
   <button id="leaveMeetingButton" type="button"></button>
-  <script src="https://source.zoom.us/6.2.0/lib/vendor/react.min.js"></script>
-  <script src="https://source.zoom.us/6.2.0/lib/vendor/react-dom.min.js"></script>
-  <script src="https://source.zoom.us/6.2.0/lib/vendor/redux.min.js"></script>
-  <script src="https://source.zoom.us/6.2.0/lib/vendor/redux-thunk.min.js"></script>
-  <script src="https://source.zoom.us/6.2.0/lib/vendor/lodash.min.js"></script>
-  <script src="https://source.zoom.us/zoom-meeting-6.2.0.min.js"></script>
+  <script src="https://source.zoom.us/6.2.0/lib/vendor/react.min.js" crossorigin="anonymous"></script>
+  <script src="https://source.zoom.us/6.2.0/lib/vendor/react-dom.min.js" crossorigin="anonymous"></script>
+  <script src="https://source.zoom.us/6.2.0/lib/vendor/redux.min.js" crossorigin="anonymous"></script>
+  <script src="https://source.zoom.us/6.2.0/lib/vendor/redux-thunk.min.js" crossorigin="anonymous"></script>
+  <script src="https://source.zoom.us/6.2.0/lib/vendor/lodash.min.js" crossorigin="anonymous"></script>
+  <script src="https://source.zoom.us/zoom-meeting-6.2.0.min.js" crossorigin="anonymous"></script>
   <script>
     const statusEl = document.getElementById('status');
     const leaveMeetingButton = document.getElementById('leaveMeetingButton');
@@ -120,6 +176,491 @@
         location.reload();
       }
     });
+    const activeScreenShareStreams = new Set();
+    const trackScreenShareStream = (stream) => {
+      if (!stream || typeof stream.getVideoTracks !== 'function') return;
+      activeScreenShareStreams.add(stream);
+      for (const track of stream.getVideoTracks()) {
+        try {
+          track.addEventListener('ended', () => activeScreenShareStreams.delete(stream));
+        } catch (_) {}
+      }
+    };
+    const isScreenSharing = () => {
+      for (const stream of activeScreenShareStreams) {
+        try {
+          if (stream.getVideoTracks().some((track) => track.readyState === 'live')) return true;
+        } catch (_) {}
+        activeScreenShareStreams.delete(stream);
+      }
+      return false;
+    };
+    const installScreenShareFocusGuard = () => {
+      const mediaDevices = navigator.mediaDevices;
+      if (!mediaDevices || typeof mediaDevices.getDisplayMedia !== 'function') return;
+      if (mediaDevices.getDisplayMedia.__alluwalFocusGuardInstalled === true) return;
+
+      const originalGetDisplayMedia = mediaDevices.getDisplayMedia.bind(mediaDevices);
+      const supportsConditionalFocus =
+        typeof window.CaptureController === 'function' &&
+        window.CaptureController.prototype &&
+        typeof window.CaptureController.prototype.setFocusBehavior === 'function';
+
+      mediaDevices.getDisplayMedia = function(options) {
+        let controller = options && typeof options === 'object' ? options.controller : null;
+        let guardedOptions = options;
+        if (!controller && supportsConditionalFocus) {
+          try {
+            controller = new window.CaptureController();
+            guardedOptions = options && typeof options === 'object'
+              ? Object.assign({}, options, { controller })
+              : { video: true, controller };
+          } catch (_) {
+            controller = null;
+          }
+        }
+
+        if (controller && typeof controller.setFocusBehavior === 'function') {
+          try { controller.setFocusBehavior('no-focus-change'); } catch (_) {}
+        }
+
+        try { feedPipVideo(); } catch (_) {}
+        const capturePromise = originalGetDisplayMedia(guardedOptions);
+        try { requestZoomPictureInPicture(); } catch (_) {}
+        if (!capturePromise || typeof capturePromise.then !== 'function') return capturePromise;
+
+        return capturePromise.then((stream) => {
+          if (controller && typeof controller.setFocusBehavior === 'function') {
+            try { controller.setFocusBehavior('no-focus-change'); } catch (_) {}
+          }
+          trackScreenShareStream(stream);
+          return stream;
+        }, (error) => {
+          throw error;
+        });
+      };
+      mediaDevices.getDisplayMedia.__alluwalFocusGuardInstalled = true;
+    };
+    installScreenShareFocusGuard();
+    // Keep the sharer's participant view visible after a tab switch.
+    //
+    // Why the previous approach failed: it called requestPictureInPicture()
+    // directly on a Zoom-owned <video>. When the tab hides, the Zoom SDK
+    // pauses/detaches/re-renders its own video elements, and Chrome closes a
+    // PiP window the instant its element leaves the DOM, hence "PiP flashes
+    // then disappears". So instead we PiP a video element THIS page owns and
+    // never detaches, feed it from Zoom's live media (a video srcObject when
+    // one exists, else canvas.captureStream() of Zoom's rendering canvas), and
+    // hot-swap its source without closing the PiP window.
+    const pipVideo = document.createElement('video');
+    pipVideo.id = 'alluwalPipVideo';
+    pipVideo.muted = true;
+    pipVideo.autoplay = true;
+    pipVideo.playsInline = true;
+    pipVideo.setAttribute('playsinline', '');
+    pipVideo.disablePictureInPicture = false;
+    try {
+      pipVideo.autoPictureInPicture = true;
+      pipVideo.setAttribute('autopictureinpicture', '');
+    } catch (_) {}
+    pipVideo.style.cssText =
+      'position:fixed;right:0;bottom:0;width:2px;height:2px;opacity:0.01;pointer-events:none;';
+    (document.body || document.documentElement).appendChild(pipVideo);
+    const pipCanvas = document.createElement('canvas');
+    pipCanvas.id = 'alluwalPipCanvas';
+    pipCanvas.width = 640;
+    pipCanvas.height = 360;
+    pipCanvas.style.cssText =
+      'position:fixed;right:0;bottom:0;width:2px;height:2px;opacity:0.01;pointer-events:none;';
+    (document.body || document.documentElement).appendChild(pipCanvas);
+    let pipCanvasContext = null;
+    let pipCanvasStream = null;
+    let pipCanvasHasFrame = false;
+    try {
+      pipCanvasContext = pipCanvas.getContext('2d', { alpha: false });
+      if (typeof pipCanvas.captureStream === 'function') {
+        pipCanvasStream = pipCanvas.captureStream(15);
+      }
+    } catch (_) {}
+
+    const liveStreamOf = (video) => {
+      const stream = video.srcObject;
+      if (!stream || typeof stream.getVideoTracks !== 'function') return null;
+      try {
+        return stream.getVideoTracks().some((track) => track.readyState === 'live')
+          ? stream
+          : null;
+      } catch (_) {
+        return null;
+      }
+    };
+    const streamTrackIds = (stream) => {
+      if (!stream || typeof stream.getVideoTracks !== 'function') return [];
+      try {
+        return stream.getVideoTracks().map((track) => track.id).filter(Boolean);
+      } catch (_) {
+        return [];
+      }
+    };
+    const isActiveScreenShareStream = (stream) => {
+      if (!stream) return false;
+      const sourceTrackIds = new Set(streamTrackIds(stream));
+      for (const shareStream of activeScreenShareStreams) {
+        if (stream === shareStream) return true;
+        for (const trackId of streamTrackIds(shareStream)) {
+          if (sourceTrackIds.has(trackId)) return true;
+        }
+      }
+      return false;
+    };
+    const elementArea = (el) => {
+      const rect = el.getBoundingClientRect();
+      return rect.width * rect.height;
+    };
+    const mediaElementContext = (el) => {
+      const parts = [];
+      let node = el;
+      for (let depth = 0; node && depth < 5; depth += 1) {
+        if (node.id) parts.push(node.id);
+        if (typeof node.className === 'string') parts.push(node.className);
+        if (node.getAttribute) {
+          parts.push(
+            node.getAttribute('aria-label') || '',
+            node.getAttribute('title') || '',
+            node.getAttribute('data-testid') || '',
+            node.getAttribute('data-purpose') || '',
+            node.getAttribute('data-type') || ''
+          );
+        }
+        if (node.id === 'zmmtg-root') break;
+        node = node.parentElement;
+      }
+      return parts.join(' ');
+    };
+    const sharedContentContextPattern =
+      /\b(screen[\s_-]*share|share[\s_-]*(screen|content)|content[\s_-]*share|shared[\s_-]*content|sharing|whiteboard|presentation)\b/i;
+    const participantVideoContextPattern =
+      /\b(participant|gallery|video|camera|webcam|speaker|thumbnail|filmstrip|avatar|user|attendee)\b/i;
+    const isVisibleMediaElement = (el) => {
+      if (!el || !el.getBoundingClientRect) return false;
+      const rect = el.getBoundingClientRect();
+      if (rect.width < 24 || rect.height < 24) return false;
+      const style = window.getComputedStyle(el);
+      return style.display !== 'none' &&
+        style.visibility !== 'hidden' &&
+        Number(style.opacity || 1) > 0;
+    };
+    const frameSampleCanvas = document.createElement('canvas');
+    frameSampleCanvas.width = 32;
+    frameSampleCanvas.height = 18;
+    let frameSampleContext = null;
+    try {
+      frameSampleContext = frameSampleCanvas.getContext('2d', { willReadFrequently: true });
+    } catch (_) {}
+    const mediaFrameQuality = (el) => {
+      if (!frameSampleContext) return null;
+      try {
+        if (el.tagName === 'VIDEO') {
+          if (Number(el.readyState || 0) < 2) return null;
+          if (!el.videoWidth || !el.videoHeight) return null;
+        }
+        const sourceWidth = el.videoWidth || el.width || Math.round(el.getBoundingClientRect().width);
+        const sourceHeight = el.videoHeight || el.height || Math.round(el.getBoundingClientRect().height);
+        if (sourceWidth <= 1 || sourceHeight <= 1) return null;
+        frameSampleContext.clearRect(0, 0, frameSampleCanvas.width, frameSampleCanvas.height);
+        frameSampleContext.drawImage(el, 0, 0, frameSampleCanvas.width, frameSampleCanvas.height);
+        const pixels = frameSampleContext.getImageData(
+          0,
+          0,
+          frameSampleCanvas.width,
+          frameSampleCanvas.height
+        ).data;
+        let lumaTotal = 0;
+        let lumaSquaredTotal = 0;
+        let nonDarkPixels = 0;
+        let brightPixels = 0;
+        let colorDeltaTotal = 0;
+        const pixelCount = pixels.length / 4;
+        for (let index = 0; index < pixels.length; index += 4) {
+          const red = pixels[index];
+          const green = pixels[index + 1];
+          const blue = pixels[index + 2];
+          const luma = (0.2126 * red) + (0.7152 * green) + (0.0722 * blue);
+          lumaTotal += luma;
+          lumaSquaredTotal += luma * luma;
+          if (luma > 45) nonDarkPixels += 1;
+          if (luma > 150) brightPixels += 1;
+          colorDeltaTotal += Math.abs(red - green) + Math.abs(green - blue) + Math.abs(red - blue);
+        }
+        const averageLuma = lumaTotal / pixelCount;
+        const variance = Math.max(0, (lumaSquaredTotal / pixelCount) - (averageLuma * averageLuma));
+        const nonDarkRatio = nonDarkPixels / pixelCount;
+        const brightRatio = brightPixels / pixelCount;
+        const averageColorDelta = colorDeltaTotal / pixelCount;
+        const blankAvatarLike = averageLuma < 70 &&
+          nonDarkRatio < 0.24 &&
+          brightRatio < 0.08 &&
+          averageColorDelta < 45;
+        const cameraLikeScore =
+          (nonDarkRatio * 9000000) +
+          (Math.min(variance, 5000) * 900) +
+          (Math.min(averageColorDelta, 120) * 18000);
+        return {
+          averageLuma,
+          variance,
+          nonDarkRatio,
+          brightRatio,
+          averageColorDelta,
+          blankAvatarLike,
+          cameraLikeScore,
+        };
+      } catch (_) {
+        return null;
+      }
+    };
+    const participantCandidateScore = (el) => {
+      if (!isVisibleMediaElement(el)) return Number.NEGATIVE_INFINITY;
+      const area = elementArea(el);
+      const viewportArea = Math.max(1, window.innerWidth * window.innerHeight);
+      const areaRatio = area / viewportArea;
+      const context = mediaElementContext(el);
+      let score = Math.min(area, 250000);
+      const frameQuality = mediaFrameQuality(el);
+      if (frameQuality) {
+        score += frameQuality.cameraLikeScore;
+        if (frameQuality.blankAvatarLike) score -= 25000000;
+      }
+      if (participantVideoContextPattern.test(context)) score += 10000000;
+      if (sharedContentContextPattern.test(context)) score -= 10000000;
+      if (isScreenSharing()) {
+        if (areaRatio > 0.35) score -= 8000000;
+        if (areaRatio >= 0.002 && areaRatio <= 0.25) score += 5000000;
+      } else {
+        score += Math.min(area, 1000000);
+      }
+      return score;
+    };
+    const bestZoomVideoStream = () => {
+      const videos = Array.from(document.querySelectorAll('#zmmtg-root video, video'))
+        .map((video) => ({
+          video,
+          stream: video === pipVideo ? null : liveStreamOf(video),
+          score: participantCandidateScore(video),
+        }))
+        .filter((candidate) => candidate.stream &&
+          !isActiveScreenShareStream(candidate.stream) &&
+          (!isScreenSharing() || candidate.score > 0));
+      videos.sort((first, second) => second.score - first.score);
+      return videos.length ? videos[0].stream : null;
+    };
+    const bestZoomDrawableElement = () => {
+      const media = Array.from(document.querySelectorAll('#zmmtg-root video, #zmmtg-root canvas, video, canvas'))
+        .filter((element) => element !== pipVideo && element !== pipCanvas)
+        .map((element) => ({
+          element,
+          stream: element.tagName === 'VIDEO' ? liveStreamOf(element) : null,
+          score: participantCandidateScore(element),
+        }))
+        .filter((candidate) => {
+          if (candidate.stream && isActiveScreenShareStream(candidate.stream)) return false;
+          return !isScreenSharing() || candidate.score > 0;
+        });
+      media.sort((first, second) => second.score - first.score);
+      return media.length ? media[0].element : null;
+    };
+    const bestZoomCanvasStream = () => {
+      const canvases = Array.from(document.querySelectorAll('#zmmtg-root canvas, canvas'))
+        .filter((canvas) => canvas !== pipCanvas &&
+          canvas.width > 1 && canvas.height > 1 &&
+          typeof canvas.captureStream === 'function')
+        .map((canvas) => ({ canvas, score: participantCandidateScore(canvas) }))
+        .filter((candidate) => !isScreenSharing() || candidate.score > 0);
+      canvases.sort((first, second) => second.score - first.score);
+      const canvas = canvases.length ? canvases[0].canvas : null;
+      if (!canvas) return null;
+      try {
+        const cached = canvas.__alluwalPipStream;
+        const cachedLive = cached &&
+          cached.getVideoTracks().some((track) => track.readyState === 'live');
+        if (!cachedLive) canvas.__alluwalPipStream = canvas.captureStream(15);
+        return canvas.__alluwalPipStream;
+      } catch (_) {
+        return null;
+      }
+    };
+    const drawPipCanvasFrame = () => {
+      if (!pipCanvasContext) return false;
+      const sourceElement = bestZoomDrawableElement();
+      if (!sourceElement) return pipCanvasHasFrame;
+      const sourceWidth = sourceElement.videoWidth || sourceElement.width ||
+        Math.round(sourceElement.getBoundingClientRect().width) || 640;
+      const sourceHeight = sourceElement.videoHeight || sourceElement.height ||
+        Math.round(sourceElement.getBoundingClientRect().height) || 360;
+      if (sourceWidth <= 1 || sourceHeight <= 1) return pipCanvasHasFrame;
+      const targetWidth = Math.min(960, Math.max(320, sourceWidth));
+      const targetHeight = Math.min(540, Math.max(180, sourceHeight));
+      if (pipCanvas.width !== targetWidth || pipCanvas.height !== targetHeight) {
+        pipCanvas.width = targetWidth;
+        pipCanvas.height = targetHeight;
+      }
+      try {
+        pipCanvasContext.fillStyle = '#000';
+        pipCanvasContext.fillRect(0, 0, pipCanvas.width, pipCanvas.height);
+        pipCanvasContext.drawImage(sourceElement, 0, 0, pipCanvas.width, pipCanvas.height);
+        pipCanvasHasFrame = true;
+      } catch (_) {}
+      return pipCanvasHasFrame;
+    };
+    const feedPipVideo = () => {
+      const hasCanvasFrame = drawPipCanvasFrame();
+      const canvasStreamLive = Boolean(pipCanvasStream &&
+        typeof pipCanvasStream.getVideoTracks === 'function' &&
+        pipCanvasStream.getVideoTracks().some((track) => track.readyState === 'live'));
+      if (hasCanvasFrame && canvasStreamLive) {
+        if (pipVideo.srcObject !== pipCanvasStream) pipVideo.srcObject = pipCanvasStream;
+        const canvasPlayAttempt = pipVideo.play();
+        if (canvasPlayAttempt && typeof canvasPlayAttempt.catch === 'function') {
+          canvasPlayAttempt.catch(() => {});
+        }
+        return true;
+      }
+      const current = pipVideo.srcObject;
+      const currentLive = Boolean(current &&
+        typeof current.getVideoTracks === 'function' &&
+        current.getVideoTracks().some((track) => track.readyState === 'live'));
+      // Prefer a real Zoom video stream; otherwise keep a still-live current
+      // source; fall back to capturing Zoom's rendering canvas.
+      const source = bestZoomVideoStream() ||
+        (currentLive ? current : bestZoomCanvasStream());
+      if (!source) return false;
+      if (pipVideo.srcObject !== source) pipVideo.srcObject = source;
+      const playAttempt = pipVideo.play();
+      if (playAttempt && typeof playAttempt.catch === 'function') playAttempt.catch(() => {});
+      return true;
+    };
+    const requestZoomPictureInPicture = async () => {
+      if (!document.pictureInPictureEnabled) return false;
+      if (document.pictureInPictureElement === pipVideo) return true;
+      if (!feedPipVideo()) return false;
+      try {
+        await pipVideo.requestPictureInPicture();
+        return true;
+      } catch (error) {
+        console.debug('Zoom picture-in-picture request skipped', error);
+        return false;
+      }
+    };
+    window.__alluwalPipDebug = {
+      bestZoomVideoStream,
+      bestZoomCanvasStream,
+      bestZoomDrawableElement,
+      drawPipCanvasFrame,
+      mediaFrameQuality,
+      participantCandidateScore,
+      isActiveScreenShareStream,
+      trackScreenShareStream,
+      requestZoomPictureInPicture,
+      feedPipVideo,
+      pipVideo,
+      pipCanvas,
+    };
+    // Zoom-owned videos must NOT be PiP candidates: Chrome's auto-PiP would
+    // pick one, and the SDK detaches its elements on tab-hide, closing the PiP
+    // window instantly. Our owned element must be the only eligible target.
+    const suppressZoomOwnedPictureInPicture = () => {
+      const videos = Array.from(document.querySelectorAll('#zmmtg-root video, video'));
+      for (const video of videos) {
+        if (video === pipVideo) continue;
+        try {
+          video.disablePictureInPicture = true;
+          video.removeAttribute('autopictureinpicture');
+          if ('autoPictureInPicture' in video) video.autoPictureInPicture = false;
+        } catch (_) {}
+      }
+    };
+    // The Zoom SDK loads after this script and may register its own
+    // 'enterpictureinpicture' handler, which would replace ours (last
+    // registration wins) and re-point auto-PiP at a doomed Zoom element.
+    // Re-assert ours so it stays in control.
+    const registerEnterPictureInPictureHandler = () => {
+      try {
+        if (navigator.mediaSession &&
+            typeof navigator.mediaSession.setActionHandler === 'function') {
+          navigator.mediaSession.setActionHandler('enterpictureinpicture', () => {
+            requestZoomPictureInPicture();
+          });
+        }
+      } catch (error) {
+        console.debug('Automatic picture-in-picture action unavailable', error);
+      }
+    };
+    // Deterministic path: Chrome's AUTOMATIC PiP has eligibility rules we
+    // cannot control (mic/camera capture, a granted auto-PiP permission), and
+    // screen-share-only sessions often do not qualify, so auto-PiP may simply
+    // never fire. This button appears while the user is sharing; one click is
+    // a real user gesture, which makes requestPictureInPicture() guaranteed to
+    // open on our owned element, and the floating view then survives every tab
+    // switch for the rest of the share.
+    const pipButton = document.createElement('button');
+    pipButton.id = 'alluwalPipButton';
+    pipButton.type = 'button';
+    pipButton.textContent = 'Keep participants visible';
+    pipButton.style.cssText =
+      'display:none;position:fixed;right:16px;bottom:86px;z-index:2147483647;' +
+      'padding:11px 16px;border:none;border-radius:999px;background:#0e72ed;color:#fff;' +
+      'font:600 13px/1 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;' +
+      'box-shadow:0 4px 14px rgba(0,0,0,.45);cursor:pointer;';
+    pipButton.addEventListener('click', () => {
+      requestZoomPictureInPicture().then((opened) => {
+        if (!opened) {
+          pipButton.textContent = 'Participant video not ready yet...';
+          setTimeout(() => { pipButton.textContent = 'Keep participants visible'; }, 2200);
+        }
+        updatePipButton();
+      });
+    });
+    (document.body || document.documentElement).appendChild(pipButton);
+    const updatePipButton = () => {
+      const shouldShow = document.pictureInPictureEnabled &&
+        isScreenSharing() &&
+        document.pictureInPictureElement !== pipVideo;
+      pipButton.style.display = shouldShow ? 'block' : 'none';
+    };
+    const installAutomaticPictureInPicture = () => {
+      if (window.__alluwalAutomaticPictureInPictureInstalled === true) return;
+      window.__alluwalAutomaticPictureInPictureInstalled = true;
+      registerEnterPictureInPictureHandler();
+      suppressZoomOwnedPictureInPicture();
+      setInterval(() => {
+        suppressZoomOwnedPictureInPicture();
+        registerEnterPictureInPictureHandler();
+        updatePipButton();
+        // Keep a page-owned stream pre-warmed even before sharing starts; after
+        // Zoom rebuilds/hides its own media nodes, the PiP button still has a
+        // source ready instead of reporting "participant video not ready yet".
+        feedPipVideo();
+      }, 1500);
+      // If the PiP window gets closed while the sharer is still away (e.g. the
+      // SDK exits it), bring it back.
+      pipVideo.addEventListener('leavepictureinpicture', () => {
+        updatePipButton();
+        if (document.hidden && isScreenSharing()) {
+          setTimeout(() => { requestZoomPictureInPicture(); }, 150);
+        }
+      });
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden && document.pictureInPictureElement !== pipVideo) {
+          // Gesture-free PiP is only granted through the mediaSession auto-PiP
+          // path, but attempting here too is harmless and covers browsers that
+          // allow it. Only bother while this user is actively screen sharing.
+          if (isScreenSharing()) setTimeout(() => { requestZoomPictureInPicture(); }, 50);
+        }
+        // Do NOT auto-exit when the tab becomes visible again: a PiP opened via
+        // the button is the user's floating view for the whole share, and
+        // re-opening it after an auto-exit would need another gesture.
+      });
+    };
+    installAutomaticPictureInPicture();
     let statusHideTimer = null;
     const clearStatusHideTimer = () => {
       if (statusHideTimer) {
@@ -183,6 +724,41 @@
       const breakoutRoomName = params.get('breakoutRoomName') || '';
       const breakoutRoomKey = params.get('breakoutRoomKey') || '';
       const autoJoinBreakoutRoom = params.get('autoJoinBreakoutRoom') === '1';
+      // Class end countdown: warn participants before everyone is removed at the
+      // 15-minute-past-class limit. classEndsAt is the exact removal time.
+      const classEndsAtMs = (() => {
+        const raw = params.get('classEndsAt') || '';
+        const t = raw ? Date.parse(raw) : NaN;
+        return Number.isFinite(t) ? t : null;
+      })();
+      const classEndingSoonText = params.get('classEndingSoonText') || 'This class ends in {minutes} min';
+      const classEndedText = params.get('classEndedText') || 'This class has ended.';
+      const countdownEl = document.getElementById('classCountdown');
+      const COUNTDOWN_WARN_MS = 5 * 60 * 1000;
+      let classCountdownStarted = false;
+      const startClassCountdown = () => {
+        if (classCountdownStarted || classEndsAtMs === null || !countdownEl) return;
+        classCountdownStarted = true;
+        const tick = () => {
+          const remaining = classEndsAtMs - Date.now();
+          if (remaining > COUNTDOWN_WARN_MS) {
+            countdownEl.style.display = 'none';
+            return;
+          }
+          if (remaining <= 0) {
+            countdownEl.classList.add('ended');
+            countdownEl.textContent = classEndedText;
+            countdownEl.style.display = 'inline-flex';
+            return;
+          }
+          const minutes = Math.max(1, Math.ceil(remaining / 60000));
+          countdownEl.classList.remove('ended');
+          countdownEl.textContent = classEndingSoonText.replace('{minutes}', String(minutes));
+          countdownEl.style.display = 'inline-flex';
+        };
+        tick();
+        setInterval(tick, 15000);
+      };
       const privateRoutingClass = 'alluwal-private-routing-pending';
       let privateRoutingPending = autoJoinBreakoutRoom && Boolean(breakoutRoomName);
       const setPrivateRoutingPending = (pending) => {
@@ -195,12 +771,12 @@
           if (!statusEl.textContent) statusEl.textContent = connectingText;
         }
       };
-      if (privateRoutingPending) setPrivateRoutingPending(true);
       const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
       const joinedRoutingStatusMs = 6000;
       const joinAttemptTimeoutMs = 18000;
       const stillConnectingMs = 60000;
       const routingHelpMs = 180000;
+      if (privateRoutingPending) setPrivateRoutingPending(true);
       const zoomSdkCall = (method, options = {}) => new Promise((resolve, reject) => {
         const fn = ZoomMtg && ZoomMtg[method];
         if (typeof fn !== 'function') {
@@ -278,7 +854,10 @@
         String(participant && (
           participant.customerKey ||
           participant.customer_key ||
+          participant.customerKeyValue ||
           participant.customer_key_value ||
+          participant.customUserId ||
+          participant.custom_user_id ||
           participant.userGuid ||
           participant.userGUID ||
           ''
@@ -317,8 +896,30 @@
         leaveMeetingButton.setAttribute('aria-label', leaveMeetingText);
         leaveMeetingButton.style.display = 'inline-flex';
       };
-      const leaveMeeting = () => {
+      let zoomLeaveRequested = false;
+      const requestZoomLeave = (onDone = () => {}) => {
         clearZoomSession();
+        const done = typeof onDone === 'function' ? onDone : () => {};
+        if (zoomLeaveRequested) {
+          setTimeout(done, 0);
+          return;
+        }
+        zoomLeaveRequested = true;
+        try {
+          if (ZoomMtg && typeof ZoomMtg.leaveMeeting === 'function') {
+            ZoomMtg.leaveMeeting({
+              success: done,
+              error: done,
+            });
+            return;
+          }
+        } catch (_) {}
+        done();
+      };
+      const leaveZoomSilently = () => {
+        requestZoomLeave();
+      };
+      const leaveMeeting = () => {
         leaveMeetingButton.disabled = true;
         const leaveUrl = returnUrl || `${location.origin}${location.pathname}#left=1&leftText=${encodeURIComponent(leftText)}`;
         let redirected = false;
@@ -335,17 +936,8 @@
           }
           location.replace(leaveUrl);
         };
-        try {
-          if (ZoomMtg && typeof ZoomMtg.leaveMeeting === 'function') {
-            ZoomMtg.leaveMeeting({
-              success: redirectAfterLeave,
-              error: redirectAfterLeave,
-            });
-            setTimeout(redirectAfterLeave, 1500);
-            return;
-          }
-        } catch (_) {}
-        redirectAfterLeave();
+        requestZoomLeave(redirectAfterLeave);
+        setTimeout(redirectAfterLeave, 1500);
       };
       leaveMeetingButton.addEventListener('click', (event) => {
         event.preventDefault();
@@ -402,7 +994,8 @@
         if (event.key !== zoomSessionStorageKey) return;
         handleCompetingZoomSession(parseZoomSession(event.newValue));
       });
-      window.addEventListener('beforeunload', clearZoomSession);
+      window.addEventListener('pagehide', leaveZoomSilently, { capture: true });
+      window.addEventListener('beforeunload', leaveZoomSilently, { capture: true });
       const startMeetingUiMonitor = () => {
         if (meetingUiMonitorStarted) return;
         meetingUiMonitorStarted = true;
@@ -411,6 +1004,7 @@
           if (isZoomMeetingUiVisible()) {
             meetingJoinConfirmed = true;
             showLeaveMeetingButton();
+            startClassCountdown();
             clearInterval(timer);
             if (autoJoinBreakoutRoom) {
               showJoinedRoutingStatus();
@@ -476,6 +1070,7 @@
         .filter(Boolean)
         .join(' ');
       const mediaControlPattern = /\b(video|camera|cam|audio|microphone|mic|mute|unmute|start video|stop video|start camera|stop camera|enable video|disable video|turn on camera|turn off camera|join audio|share audio)\b/i;
+      const screenShareControlPattern = /\b(share screen|screen share|share content|share)\b/i;
       const utilityControlPattern = /\b(more|whiteboards?|whiteboard|apps?|captions?|settings|reactions?|react|chat|share)\b/i;
       const isZoomMediaControl = (element) => {
         if (!element || isOwnClassroomControl(element)) return false;
@@ -490,7 +1085,7 @@
         const label = compactText(elementLabel(element) || elementText(element));
         const className = compactText(element.className || '');
         const testText = `${label} ${className}`;
-        if (!utilityControlPattern.test(testText)) return false;
+        if (!utilityControlPattern.test(testText) && !screenShareControlPattern.test(testText)) return false;
         return !/\b(leave|end meeting|end for all|close all rooms|add room|broadcast|assign|open all rooms|recreate)\b/i.test(testText);
       };
       const isCompactControl = (element, maxLength = 140) => {
@@ -503,6 +1098,15 @@
         const rect = element.getBoundingClientRect();
         if (rect.width === 0 && rect.height === 0) return true;
         return rect.width <= 360 && rect.height <= 160;
+      };
+      const isVisibleElement = (element) => {
+        if (!element || !element.getBoundingClientRect) return false;
+        const rect = element.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0) return false;
+        const style = window.getComputedStyle(element);
+        return style.visibility !== 'hidden' &&
+          style.display !== 'none' &&
+          Number(style.opacity || 1) > 0;
       };
       const classroomControlSelector = [
         'button',
@@ -584,6 +1188,24 @@
         '[role="dialog"], .zm-modal, .ReactModal__Content, .zmu-modal, [class*="modal"], [class*="dialog"]';
       const closestDialogContainer = (element) =>
         element && element.closest ? element.closest(dialogContainerSelector) : null;
+      const noAudioVideoPromptPattern =
+        /\b(Are you sure you don't want audio or video|Continue without audio or video)\b/i;
+      const continueWithoutAudioVideoPattern = /^Continue without audio or video$/i;
+      const autoConfirmNoAudioVideoPrompt = () => {
+        if (!privateRoutingPending) return false;
+        const buttons = Array.from(document.querySelectorAll('button, [role="button"]'));
+        for (const button of buttons) {
+          if (!isVisibleElement(button)) continue;
+          const label = compactText(elementLabel(button) || elementText(button));
+          if (!continueWithoutAudioVideoPattern.test(label)) continue;
+          const dialog = closestDialogContainer(button) || button.closest('div') || document.body;
+          const promptText = compactText(`${elementText(dialog)} ${label}`);
+          if (!noAudioVideoPromptPattern.test(promptText)) continue;
+          button.click();
+          return true;
+        }
+        return false;
+      };
       // Zoom's breakout INVITE dialog ("The host is inviting you to join
       // Breakout Room: X") is what pulls a web participant into their room
       // when auto-join is not in effect. It must be auto-accepted, never
@@ -646,6 +1268,7 @@
       };
       const suppressBreakoutManagementUi = () => {
         let suppressed = false;
+        autoConfirmNoAudioVideoPrompt();
         autoAcceptBreakoutInvite();
         const controls = Array.from(document.querySelectorAll(classroomControlSelector));
         for (const control of controls) {
@@ -868,6 +1491,7 @@
           showPureSharingContent: false,
           disableInvite: false,
           disableJoinAudio: false,
+          disablePictureInPicture: false,
           disablePreview: true,
           disableRecord: false,
           disableReport: false,
@@ -898,6 +1522,7 @@
             const onJoinSuccess = () => {
               meetingJoinConfirmed = true;
               showLeaveMeetingButton();
+              startClassCountdown();
               if (autoJoinBreakoutRoom) {
                 showJoinedRoutingStatus();
               } else {
@@ -905,7 +1530,28 @@
               }
               startBreakoutAutomation();
             };
+            // A hub meeting can be briefly unavailable to a participant during
+            // normal operation: a block-boundary handoff, or an automatic
+            // meeting reset after the bot recovers from a corrupted instance.
+            // Never hard-fail on that — keep the black "connecting" layer up and
+            // retry with backoff so the class reconnects on its own the moment
+            // the hub is back. The status text escalates over time so the user
+            // knows we are still working, but we keep trying indefinitely.
+            let joinAttempts = 0;
+            const firstJoinAttemptAt = Date.now();
+            const retryStatusForElapsed = () => {
+              const elapsed = Date.now() - firstJoinAttemptAt;
+              if (elapsed >= routingHelpMs) return routingHelpText;
+              if (elapsed >= stillConnectingMs) return routingStillConnectingText;
+              return connectingText;
+            };
+            const scheduleJoinRetry = () => {
+              const delay = Math.min(2000 * Math.pow(2, Math.min(joinAttempts, 4)), 30000);
+              setStatus(retryStatusForElapsed());
+              setTimeout(() => attemptZoomJoin(), delay);
+            };
             const attemptZoomJoin = () => {
+              joinAttempts += 1;
               let settled = false;
               const finishJoinAttempt = (callback) => {
                 if (settled) return;
@@ -919,6 +1565,7 @@
                   meetingNumber,
                   hasPassword: Boolean(password),
                   autoJoinBreakoutRoom,
+                  joinAttempts,
                 });
                 if (timedOut && isZoomMeetingUiVisible()) {
                   onJoinSuccess();
@@ -936,7 +1583,9 @@
                   }, 1600);
                   return;
                 }
-                setStatus(formatZoomError(joinErrorText, error));
+                // Transient hub unavailability (boundary handoff / meeting reset
+                // / host not present yet): keep the connecting layer and retry.
+                scheduleJoinRetry();
               };
               const joinTimer = setTimeout(() => {
                 finishJoinAttempt(() => handleJoinFailure(joinTimeoutError(), true));

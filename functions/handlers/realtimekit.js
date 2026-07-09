@@ -141,6 +141,45 @@ const getUserDataForCaller = async (uid, token = {}) => {
   return null;
 };
 
+const _emailCandidatesFromUser = (data = {}, token = {}) => {
+  const candidates = [
+    token.email,
+    data.email,
+    data['e-mail'],
+    data.user_email,
+    data.userEmail,
+  ]
+    .map((value) => String(value || '').trim().toLowerCase())
+    .filter(Boolean);
+  return new Set(candidates);
+};
+
+const _isUserShiftTeacher = async ({ uid, token = {}, teacherId }) => {
+  const normalizedUid = String(uid || '').trim();
+  const normalizedTeacherId = String(teacherId || '').trim();
+  if (!normalizedUid || !normalizedTeacherId) return false;
+  if (normalizedUid === normalizedTeacherId) return true;
+
+  try {
+    const db = admin.firestore();
+    const [callerData, teacherDoc] = await Promise.all([
+      getUserDataForCaller(normalizedUid, token),
+      db.collection('users').doc(normalizedTeacherId).get(),
+    ]);
+    if (!teacherDoc.exists) return false;
+    const teacherData = teacherDoc.data() || {};
+    const callerEmails = _emailCandidatesFromUser(callerData || {}, token);
+    if (callerEmails.size === 0) return false;
+    const teacherEmails = _emailCandidatesFromUser(teacherData);
+    for (const email of teacherEmails) {
+      if (callerEmails.has(email)) return true;
+    }
+  } catch (_) {
+    return false;
+  }
+  return false;
+};
+
 const isUserAdmin = async (uid, token = {}) => {
   if (!uid) return false;
   try {
@@ -219,6 +258,26 @@ const isStudentAccessSuspended = async (uid) => {
   return data.access_suspended === true || data.accessSuspended === true;
 };
 
+const _normalizeRequestedClassRole = (activeRole) => {
+  const role = String(activeRole || '').trim().toLowerCase();
+  if (role === 'super_admin' || role === 'admin_teacher') return 'admin';
+  if (['admin', 'teacher', 'student', 'parent'].includes(role)) return role;
+  return '';
+};
+
+const _resolveClassroomRole = ({ activeRole, isTeacher, isStudent, isAdmin, isParent }) => {
+  const requestedRole = _normalizeRequestedClassRole(activeRole);
+  if (requestedRole === 'teacher' && isTeacher) return 'teacher';
+  if (requestedRole === 'student' && isStudent) return 'student';
+  if (requestedRole === 'parent' && isParent) return 'parent';
+  if (requestedRole === 'admin' && isAdmin) return 'admin';
+
+  if (isTeacher) return 'teacher';
+  if (isAdmin) return 'admin';
+  if (isParent) return 'parent';
+  return 'student';
+};
+
 const getRealtimeKitShiftOrThrow = async (shiftId) => {
   const shiftRef = admin.firestore().collection('teaching_shifts').doc(shiftId);
   const shiftDoc = await shiftRef.get();
@@ -265,27 +324,32 @@ const assertJoinWindowOrThrow = (shiftData) => {
   };
 };
 
-const getAccessForUser = async ({ uid, token, teacherId, studentIds }) => {
-  const isTeacher = uid === teacherId;
+const getAccessForUser = async ({ uid, token, teacherId, studentIds, activeRole }) => {
+  const isTeacher = await _isUserShiftTeacher({ uid, token, teacherId });
   const isStudent = studentIds.includes(uid);
   const isAdmin = await isUserAdmin(uid, token);
-  const isParent = !isTeacher && !isStudent && !isAdmin
+  const isParent = !isTeacher && !isStudent
     ? await isUserParentOfStudent(uid, studentIds)
     : false;
 
   if (!isTeacher && !isStudent && !isAdmin && !isParent) {
     throw new HttpsError('permission-denied', 'You are not allowed to join this class');
   }
-  if (isStudent && await isStudentAccessSuspended(uid)) {
+
+  const resolvedRole = _resolveClassroomRole({
+    activeRole,
+    isTeacher,
+    isStudent,
+    isAdmin,
+    isParent,
+  });
+  if (resolvedRole === 'student' && await isStudentAccessSuspended(uid)) {
     throw new HttpsError(
       'permission-denied',
       'Class access is suspended because of an outstanding unpaid invoice.',
     );
   }
-  if (isAdmin) return 'admin';
-  if (isTeacher) return 'teacher';
-  if (isParent) return 'parent';
-  return 'student';
+  return resolvedRole;
 };
 
 const ensureMeeting = async ({ shiftId, shiftRef, shiftData, meetingId }) => {
@@ -378,7 +442,15 @@ const syncTeacherRecordingPreset = async ({ meetingId, teacherId, recordingEnabl
   return true;
 };
 
-const buildJoinResponse = async ({ shiftId, uid, token, displayName, role, guest = false }) => {
+const buildJoinResponse = async ({
+  shiftId,
+  uid,
+  token,
+  displayName,
+  role,
+  activeRole,
+  guest = false,
+}) => {
   if (!isRealtimeKitConfigured()) {
     throw new HttpsError('unavailable', 'RealtimeKit video is not configured');
   }
@@ -388,7 +460,13 @@ const buildJoinResponse = async ({ shiftId, uid, token, displayName, role, guest
   const joinWindow = assertJoinWindowOrThrow(shiftData);
 
   if (!guest) {
-    const resolvedRole = await getAccessForUser({ uid, token, teacherId, studentIds });
+    const resolvedRole = await getAccessForUser({
+      uid,
+      token,
+      teacherId,
+      studentIds,
+      activeRole,
+    });
     role = resolvedRole;
   }
 
@@ -451,6 +529,7 @@ const getRealtimeKitJoinToken = onCall({
     token: request.auth?.token,
     displayName,
     role: 'student',
+    activeRole: request.data?.activeRole,
   });
 });
 
@@ -509,6 +588,14 @@ const buildZoomRoomPresence = async (shiftId, shiftData) => {
   const openDocs = [];
   snap.forEach((doc) => {
     const data = doc.data() || {};
+    const userId = String(data.user_id || '').trim().toLowerCase();
+    const participantName = String(data.zoom_participant_name || '').trim().toLowerCase();
+    if (
+      userId.startsWith('zoom_hub_bot_lane_') ||
+      participantName.includes('alluwal hub bot lane')
+    ) {
+      return;
+    }
     const windows = Array.isArray(data.presence_windows) ? data.presence_windows : [];
     const openWindow = windows.find((w) => w && (w.leave_at === null || w.leave_at === undefined));
     if (openWindow) openDocs.push({ data, openWindow });

@@ -39,8 +39,9 @@ fi
 
 # Step 3: Ensure Hostinger config files are included in build output
 echo ""
-echo "🧩 Step 3: Copying Hostinger web root files (.htaccess)..."
+echo "🧩 Step 3: Copying Hostinger web root files (.htaccess, static policy pages)..."
 cp web/.htaccess build/web/.htaccess
+cp web/privacy-policy.html build/web/privacy-policy.html
 
 # Step 4: Ensure main.dart.js is cache-busted (helps unstick users with long-lived HTTP cache)
 echo ""

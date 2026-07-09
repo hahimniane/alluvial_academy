@@ -1,5 +1,6 @@
 const { onDocumentWritten } = require('firebase-functions/v2/firestore');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
+const { HttpsError } = require('firebase-functions/v2/https');
 const admin = require('firebase-admin');
 
 const BATCH_SIZE = 400;
@@ -36,6 +37,49 @@ const _collectString = (target, value) => {
   if (normalized) target.add(normalized);
 };
 
+const _throwCallableError = (code, message, details) => {
+  throw new HttpsError(code, message, details);
+};
+
+const _isAdminRole = (data) => {
+  if (!data) return false;
+  const role = _normalizeStatus(data.role);
+  const userType = _normalizeStatus(data.user_type);
+  const camelUserType = _normalizeStatus(data.userType);
+  return (
+    role === 'admin' ||
+    role === 'super_admin' ||
+    userType === 'admin' ||
+    userType === 'super_admin' ||
+    camelUserType === 'admin' ||
+    camelUserType === 'super_admin' ||
+    data.is_admin === true ||
+    data.isAdmin === true ||
+    data.is_super_admin === true ||
+    data.isSuperAdmin === true ||
+    data.is_admin_teacher === true
+  );
+};
+
+const _isAdminUid = async (uid) => {
+  if (!uid) return false;
+  const doc = await admin.firestore().collection('users').doc(uid).get();
+  if (!doc.exists) return false;
+  return _isAdminRole(doc.data());
+};
+
+const _isBlockingInvoice = (invoice, now = new Date()) => {
+  const status = _normalizeStatus(invoice.status);
+  if (status === 'paid' || status === 'cancelled') return false;
+
+  const totalAmount = _toNumber(invoice.total_amount, invoice.totalAmount);
+  const paidAmount = _toNumber(invoice.paid_amount, invoice.paidAmount);
+  if (totalAmount > 0 && paidAmount >= totalAmount) return false;
+
+  const cutoffDate = _getEffectiveAccessCutoffDate(invoice);
+  return !!cutoffDate && cutoffDate <= now;
+};
+
 /**
  * Recomputes access_suspended for all students linked to a parent.
  *
@@ -50,16 +94,29 @@ const _collectString = (target, value) => {
 const _recomputeStudentAccess = async (db, parentId) => {
   if (!parentId) return;
 
-  const invoicesSnap = await db
-    .collection('invoices')
-    .where('parent_id', '==', parentId)
-    .get();
+  const invoiceDocsById = new Map();
+  const addInvoiceDocs = (snap) => {
+    snap.docs.forEach((doc) => invoiceDocsById.set(doc.id, doc));
+  };
+
+  const [snakeParentSnap, camelParentSnap] = await Promise.all([
+    db
+      .collection('invoices')
+      .where('parent_id', '==', parentId)
+      .get(),
+    db
+      .collection('invoices')
+      .where('parentId', '==', parentId)
+      .get(),
+  ]);
+  addInvoiceDocs(snakeParentSnap);
+  addInvoiceDocs(camelParentSnap);
 
   const now = new Date();
   let shouldSuspend = false;
   const invoiceStudentIds = new Set();
 
-  for (const doc of invoicesSnap.docs) {
+  for (const doc of invoiceDocsById.values()) {
     const invoice = doc.data();
     _collectString(invoiceStudentIds, invoice.student_id || invoice.studentId);
 
@@ -141,7 +198,9 @@ const onInvoiceWrite = onDocumentWritten('invoices/{invoiceId}', async (event) =
 
   const parentId = (
     (afterData && afterData.parent_id) ||
+    (afterData && afterData.parentId) ||
     (beforeData && beforeData.parent_id) ||
+    (beforeData && beforeData.parentId) ||
     ''
   )
     .toString()
@@ -153,8 +212,11 @@ const onInvoiceWrite = onDocumentWritten('invoices/{invoiceId}', async (event) =
   const relevantFields = [
     'status',
     'paid_amount',
+    'paidAmount',
     'total_amount',
+    'totalAmount',
     'access_cutoff_date',
+    'accessCutoffDate',
   ];
 
   let changed = !before.exists || !after.exists; // create or delete always triggers
@@ -264,9 +326,144 @@ const checkAccessCutoffs = onSchedule('every 60 minutes', async () => {
   }
 });
 
+const extendStudentAccessCutoff = async (request) => {
+  if (!request.auth) {
+    _throwCallableError('unauthenticated', 'Authentication required');
+  }
+
+  const isAdmin = await _isAdminUid(request.auth.uid);
+  if (!isAdmin) {
+    _throwCallableError('permission-denied', 'Admin access required');
+  }
+
+  const data = request.data || {};
+  const studentId = (data.studentId || data.student_id || '').toString().trim();
+  const parentId = (data.parentId || data.parent_id || '').toString().trim();
+  const scope = (data.scope || '').toString().trim().toLowerCase();
+  const extendTo = _toDate(data.extendTo || data.extend_to || data.accessCutoffDate);
+
+  if (!studentId && !parentId) {
+    _throwCallableError(
+      'invalid-argument',
+      'Missing studentId or parentId'
+    );
+  }
+  if (!extendTo || extendTo <= new Date()) {
+    _throwCallableError(
+      'invalid-argument',
+      'New cutoff date must be in the future'
+    );
+  }
+
+  const db = admin.firestore();
+  const parentIds = new Set();
+  _collectString(parentIds, parentId);
+
+  const invoiceRefs = new Map();
+  const collectBlockingInvoices = (snap) => {
+    const now = new Date();
+    snap.docs.forEach((doc) => {
+      const invoice = doc.data();
+      if (!_isBlockingInvoice(invoice, now)) return;
+      invoiceRefs.set(doc.id, {ref: doc.ref, data: invoice});
+      _collectString(parentIds, invoice.parent_id || invoice.parentId);
+    });
+  };
+
+  if (parentId && scope === 'parent') {
+    const byParent = await db
+      .collection('invoices')
+      .where('parent_id', '==', parentId)
+      .get();
+    collectBlockingInvoices(byParent);
+    const byCamelParent = await db
+      .collection('invoices')
+      .where('parentId', '==', parentId)
+      .get();
+    collectBlockingInvoices(byCamelParent);
+  } else {
+    if (!studentId) {
+      _throwCallableError(
+        'invalid-argument',
+        'Missing studentId for individual extension'
+      );
+    }
+
+    const studentSnap = await db.collection('users').doc(studentId).get();
+    if (!studentSnap.exists) {
+      _throwCallableError('not-found', 'Student not found');
+    }
+
+    const student = studentSnap.data() || {};
+    [
+      ...(Array.isArray(student.guardian_ids) ? student.guardian_ids : []),
+      ...(Array.isArray(student.guardianIds) ? student.guardianIds : []),
+      student.parent_id,
+      student.parentId,
+    ].forEach((id) => _collectString(parentIds, id));
+
+    const byStudent = await db
+      .collection('invoices')
+      .where('student_id', '==', studentId)
+      .get();
+    collectBlockingInvoices(byStudent);
+    const byCamelStudent = await db
+      .collection('invoices')
+      .where('studentId', '==', studentId)
+      .get();
+    collectBlockingInvoices(byCamelStudent);
+
+    const adultStudentInvoices = await db
+      .collection('invoices')
+      .where('parent_id', '==', studentId)
+      .get();
+    collectBlockingInvoices(adultStudentInvoices);
+    const adultStudentCamelInvoices = await db
+      .collection('invoices')
+      .where('parentId', '==', studentId)
+      .get();
+    collectBlockingInvoices(adultStudentCamelInvoices);
+  }
+
+  if (invoiceRefs.size === 0) {
+    return {success: true, updatedInvoices: 0, recomputedParents: 0};
+  }
+
+  const invoiceEntries = Array.from(invoiceRefs.entries());
+  for (let i = 0; i < invoiceEntries.length; i += BATCH_SIZE) {
+    const batch = db.batch();
+    const chunk = invoiceEntries.slice(i, i + BATCH_SIZE);
+    for (const [, item] of chunk) {
+      batch.set(
+        item.ref,
+        {
+          access_cutoff_date: admin.firestore.Timestamp.fromDate(extendTo),
+          access_extended_at: admin.firestore.FieldValue.serverTimestamp(),
+          access_extended_by: request.auth.uid,
+          updated_at: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        {merge: true}
+      );
+    }
+    await batch.commit();
+  }
+
+  for (const parentId of Array.from(parentIds)) {
+    await _recomputeStudentAccess(db, parentId);
+  }
+
+  return {
+    success: true,
+    updatedInvoices: invoiceRefs.size,
+    recomputedParents: parentIds.size,
+  };
+};
+
 module.exports = {
   onInvoiceWrite,
   checkAccessCutoffs,
+  extendStudentAccessCutoff,
   _recomputeStudentAccess,
   _getEffectiveAccessCutoffDate,
+  _isBlockingInvoice,
 };

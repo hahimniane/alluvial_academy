@@ -32,6 +32,9 @@ class NotificationService {
   bool _initialized = false;
   String? _fcmToken;
 
+  bool get _supportsFirebaseMessagingPush =>
+      !kIsWeb && (Platform.isAndroid || Platform.isIOS);
+
   /// Expose the local notifications plugin so other services
   /// (e.g. PrayerNotificationService) can schedule/cancel notifications
   /// without needing a separate, uninitialized plugin instance.
@@ -39,17 +42,18 @@ class NotificationService {
       _instance._localNotifications;
 
   /// Global navigator key for navigation from notifications
-  static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
-  
+  static final GlobalKey<NavigatorState> navigatorKey =
+      GlobalKey<NavigatorState>();
+
   /// Track the currently open chat to suppress notifications for it
   static String? _currentOpenChatId;
-  
+
   /// Set the currently open chat ID (call when entering a chat screen)
   static void setCurrentOpenChat(String? chatId) {
     _currentOpenChatId = chatId;
     debugPrint('NotificationService: Current open chat set to: $chatId');
   }
-  
+
   /// Get the currently open chat ID
   static String? get currentOpenChatId => _currentOpenChatId;
 
@@ -61,23 +65,25 @@ class NotificationService {
     if (_initialized) return;
 
     try {
-      // Request permission for iOS
-      await _requestPermission();
-
       // Initialize local notifications
       await _initializeLocalNotifications();
 
-      // Get FCM token
-      await _getFCMToken();
+      if (_supportsFirebaseMessagingPush) {
+        // Request permission for iOS
+        await _requestPermission();
 
-      // Configure foreground notification presentation
-      await _configureForegroundNotificationPresentation();
+        // Get FCM token
+        await _getFCMToken();
 
-      // Setup message handlers
-      _setupMessageHandlers();
+        // Configure foreground notification presentation
+        await _configureForegroundNotificationPresentation();
 
-      // Setup token refresh listener
-      _setupTokenRefreshListener();
+        // Setup message handlers
+        _setupMessageHandlers();
+
+        // Setup token refresh listener
+        _setupTokenRefreshListener();
+      }
 
       _initialized = true;
       debugPrint('NotificationService initialized successfully');
@@ -88,6 +94,8 @@ class NotificationService {
 
   /// Request notification permissions (especially important for iOS)
   Future<void> _requestPermission() async {
+    if (!_supportsFirebaseMessagingPush) return;
+
     try {
       final settings = await _firebaseMessaging.requestPermission(
         alert: true,
@@ -99,11 +107,13 @@ class NotificationService {
         sound: true,
       );
 
-      debugPrint('Notification permission status: ${settings.authorizationStatus}');
+      debugPrint(
+          'Notification permission status: ${settings.authorizationStatus}');
 
       if (settings.authorizationStatus == AuthorizationStatus.authorized) {
         debugPrint('User granted notification permission');
-      } else if (settings.authorizationStatus == AuthorizationStatus.provisional) {
+      } else if (settings.authorizationStatus ==
+          AuthorizationStatus.provisional) {
         debugPrint('User granted provisional notification permission');
       } else {
         debugPrint('User declined or has not accepted notification permission');
@@ -115,8 +125,14 @@ class NotificationService {
 
   /// Initialize Flutter Local Notifications plugin
   Future<void> _initializeLocalNotifications() async {
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidSettings =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
     const iosSettings = DarwinInitializationSettings(
+      requestAlertPermission: false,
+      requestBadgePermission: false,
+      requestSoundPermission: false,
+    );
+    const macosSettings = DarwinInitializationSettings(
       requestAlertPermission: false,
       requestBadgePermission: false,
       requestSoundPermission: false,
@@ -125,6 +141,7 @@ class NotificationService {
     const initSettings = InitializationSettings(
       android: androidSettings,
       iOS: iosSettings,
+      macOS: macosSettings,
     );
 
     await _localNotifications.initialize(
@@ -140,10 +157,10 @@ class NotificationService {
 
   /// Create notification channels for Android
   Future<void> _createNotificationChannel() async {
-    final androidPlugin = _localNotifications
-        .resolvePlatformSpecificImplementation<
+    final androidPlugin =
+        _localNotifications.resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>();
-    
+
     if (androidPlugin == null) return;
 
     // High importance channel for general notifications
@@ -182,39 +199,43 @@ class NotificationService {
 
   /// Get FCM token (with retry for iOS)
   Future<void> _getFCMToken() async {
+    if (!_supportsFirebaseMessagingPush) return;
+
     try {
       // On iOS, we need to wait for APNs token first
       if (Platform.isIOS) {
         debugPrint('📱 iOS: Waiting for APNs token...');
         String? apnsToken = await _firebaseMessaging.getAPNSToken();
-        
+
         // If APNs token not ready, wait and retry
         int retryCount = 0;
         while (apnsToken == null && retryCount < 5) {
           retryCount++;
-          debugPrint('⏳ iOS: APNs token not ready, retry $retryCount/5 in 2 seconds...');
+          debugPrint(
+              '⏳ iOS: APNs token not ready, retry $retryCount/5 in 2 seconds...');
           await Future.delayed(const Duration(seconds: 2));
           apnsToken = await _firebaseMessaging.getAPNSToken();
         }
-        
+
         if (apnsToken != null) {
           debugPrint('✅ iOS: APNs token received');
         } else {
           debugPrint('⚠️ iOS: APNs token still not available after retries');
         }
       }
-      
+
       _fcmToken = await _firebaseMessaging.getToken();
       debugPrint('FCM Token: $_fcmToken');
-      
+
       // On iOS, token might be null initially - retry after a delay
       if (_fcmToken == null && Platform.isIOS) {
-        debugPrint('⏳ iOS: FCM Token null on first attempt, retrying in 3 seconds...');
+        debugPrint(
+            '⏳ iOS: FCM Token null on first attempt, retrying in 3 seconds...');
         await Future.delayed(const Duration(seconds: 3));
         _fcmToken = await _firebaseMessaging.getToken();
         debugPrint('FCM Token after retry: $_fcmToken');
       }
-      
+
       // Token will be saved on app launch via main.dart
       // No need to save here as it happens too early in the init process
     } catch (e) {
@@ -224,6 +245,8 @@ class NotificationService {
 
   /// Configure how notifications are presented when app is in foreground
   Future<void> _configureForegroundNotificationPresentation() async {
+    if (!_supportsFirebaseMessagingPush) return;
+
     await _firebaseMessaging.setForegroundNotificationPresentationOptions(
       alert: true,
       badge: true,
@@ -233,6 +256,8 @@ class NotificationService {
 
   /// Setup message handlers for different app states
   void _setupMessageHandlers() {
+    if (!_supportsFirebaseMessagingPush) return;
+
     // Handle foreground messages
     FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
 
@@ -251,7 +276,7 @@ class NotificationService {
     final notification = message.notification;
     final android = message.notification?.android;
     final data = message.data;
-    
+
     // Check if this is a chat message notification
     final notificationType = data['type'] as String?;
     final chatId = data['chatId'] as String?;
@@ -275,12 +300,17 @@ class NotificationService {
             presentBadge: true,
             presentSound: true,
           ),
+          macOS: DarwinNotificationDetails(
+            presentAlert: true,
+            presentBadge: true,
+            presentSound: true,
+          ),
         ),
         payload: jsonEncode(message.data),
       );
       return;
     }
-    
+
     // Suppress notification if user is currently viewing this chat
     if (notificationType == 'chat_message' && chatId != null) {
       if (_currentOpenChatId == chatId) {
@@ -293,14 +323,15 @@ class NotificationService {
       // Determine which channel to use based on notification type
       String channelId = 'high_importance_channel';
       String channelName = 'High Importance Notifications';
-      String channelDescription = 'This channel is used for important notifications.';
-      
+      String channelDescription =
+          'This channel is used for important notifications.';
+
       if (notificationType == 'chat_message') {
         channelId = 'chat_messages';
         channelName = 'Chat Messages';
         channelDescription = 'Notifications for new chat messages';
       }
-      
+
       // For chat messages, use the full message for expandable notifications
       final fullMessage = data['fullMessage'] as String?;
       final bool isChatWithFullText = notificationType == 'chat_message' &&
@@ -336,6 +367,11 @@ class NotificationService {
             presentBadge: true,
             presentSound: true,
           ),
+          macOS: const DarwinNotificationDetails(
+            presentAlert: true,
+            presentBadge: true,
+            presentSound: true,
+          ),
         ),
         payload: jsonEncode(message.data),
       );
@@ -355,13 +391,15 @@ class NotificationService {
   Future<void> _checkInitialMessage() async {
     final initialMessage = await _firebaseMessaging.getInitialMessage();
     if (initialMessage != null) {
-      debugPrint('App opened from terminated state via notification: ${initialMessage.messageId}');
+      debugPrint(
+          'App opened from terminated state via notification: ${initialMessage.messageId}');
       // Store for later navigation (app may not be fully initialized yet)
       _pendingNavigation = initialMessage.data;
-      debugPrint('📱 Stored initial message for navigation: ${initialMessage.data}');
+      debugPrint(
+          '📱 Stored initial message for navigation: ${initialMessage.data}');
     }
   }
-  
+
   /// Process any pending navigation (call after app is fully initialized)
   Future<void> processPendingNavigation() async {
     final data = _pendingNavigation;
@@ -375,20 +413,20 @@ class NotificationService {
   /// Handle notification tap from local notification
   void _onNotificationTapped(NotificationResponse response) {
     debugPrint('Local notification tapped: ${response.payload}');
-    
+
     if (response.payload == null || response.payload!.isEmpty) return;
-    
+
     try {
       // Parse the JSON payload
       final data = jsonDecode(response.payload!) as Map<String, dynamic>;
       debugPrint('📱 Parsed notification data: $data');
-      
+
       _navigateToChatIfNeeded(data);
     } catch (e) {
       debugPrint('Error parsing notification payload: $e');
     }
   }
-  
+
   /// Navigate to chat screen if notification is a chat message
   Future<void> _navigateToChatIfNeeded(Map<String, dynamic> data) async {
     final type = data['type'] as String?;
@@ -411,7 +449,7 @@ class NotificationService {
       );
       return;
     }
-    
+
     if (type == 'chat_message') {
       final senderId = data['senderId'] as String?;
       final senderName = data['senderName'] as String?;
@@ -419,7 +457,7 @@ class NotificationService {
       final chatType = data['chatType'] as String?;
       final chatId = data['chatId'] as String?;
       final groupName = data['groupName'] as String?;
-      
+
       final isGroup = chatType == 'group';
 
       if (isGroup) {
@@ -433,17 +471,22 @@ class NotificationService {
           return;
         }
       }
-      
-      debugPrint('💬 Navigating to chat: isGroup=$isGroup, chatId=$chatId, senderId=$senderId');
-      
+
+      debugPrint(
+          '💬 Navigating to chat: isGroup=$isGroup, chatId=$chatId, senderId=$senderId');
+
       final chatUser = ChatUser(
         id: isGroup ? chatId! : senderId!,
-        name: isGroup ? (groupName?.isNotEmpty == true ? groupName! : 'Group Chat') : senderName!,
+        name: isGroup
+            ? (groupName?.isNotEmpty == true ? groupName! : 'Group Chat')
+            : senderName!,
         email: '',
-        profilePicture: senderProfilePicture?.isNotEmpty == true ? senderProfilePicture : null,
+        profilePicture: senderProfilePicture?.isNotEmpty == true
+            ? senderProfilePicture
+            : null,
         isGroup: isGroup,
       );
-      
+
       final navigator = navigatorKey.currentState;
       if (navigator != null) {
         navigator.push(
@@ -460,13 +503,13 @@ class NotificationService {
       _handleNotificationNavigation(data);
     }
   }
-  
+
   /// Handle navigation based on notification data
   void _handleNotificationNavigation(Map<String, dynamic> data) {
     debugPrint('🔔 Handling notification navigation: $data');
-    
+
     final type = data['type'] as String?;
-    
+
     if (type == 'form_required' || type == 'pending_forms') {
       // Store the navigation data so the app can open the correct daily-report form
       // (same form as in Daily reports, from config/template).
@@ -491,10 +534,10 @@ class NotificationService {
       debugPrint('⚠️ Stored pending no-show navigation: ${data['shiftId']}');
     }
   }
-  
+
   // Store pending navigation data
   Map<String, dynamic>? _pendingNavigation;
-  
+
   /// Get and clear pending navigation data
   Map<String, dynamic>? getPendingNavigation() {
     final data = _pendingNavigation;
@@ -507,15 +550,17 @@ class NotificationService {
     _firebaseMessaging.onTokenRefresh.listen((newToken) async {
       debugPrint('🔄 FCM Token refreshed: $newToken');
       _fcmToken = newToken;
-      
+
       // Automatically update token if user is logged in
       final currentUser = FirebaseAuth.instance.currentUser;
       if (currentUser != null) {
-        debugPrint('🔄 Auto-saving refreshed token for user: ${currentUser.uid}');
+        debugPrint(
+            '🔄 Auto-saving refreshed token for user: ${currentUser.uid}');
         await saveTokenToFirestore(userId: currentUser.uid);
         debugPrint('✅ Refreshed FCM token saved to Firestore');
       } else {
-        debugPrint('⚠️ Token refreshed but no user logged in - will save on next login');
+        debugPrint(
+            '⚠️ Token refreshed but no user logged in - will save on next login');
       }
     });
   }
@@ -523,12 +568,12 @@ class NotificationService {
   /// Navigate to appropriate screen based on message data
   void _navigateBasedOnMessage(RemoteMessage message) {
     final data = message.data;
-    
+
     // Navigate based on notification type
     if (data.containsKey('type')) {
       final type = data['type'];
       debugPrint('Navigating based on type: $type');
-      
+
       // Store navigation data for the app to handle
       switch (type) {
         case 'chat_message':
@@ -564,6 +609,8 @@ class NotificationService {
 
   /// Subscribe to a topic
   Future<void> subscribeToTopic(String topic) async {
+    if (!_supportsFirebaseMessagingPush) return;
+
     try {
       await _firebaseMessaging.subscribeToTopic(topic);
       debugPrint('Subscribed to topic: $topic');
@@ -574,6 +621,8 @@ class NotificationService {
 
   /// Unsubscribe from a topic
   Future<void> unsubscribeFromTopic(String topic) async {
+    if (!_supportsFirebaseMessagingPush) return;
+
     try {
       await _firebaseMessaging.unsubscribeFromTopic(topic);
       debugPrint('Unsubscribed from topic: $topic');
@@ -587,61 +636,73 @@ class NotificationService {
     if (kIsWeb) return 'web';
     if (Platform.isAndroid) return 'android';
     if (Platform.isIOS) return 'ios';
+    if (Platform.isMacOS) return 'macos';
+    if (Platform.isWindows) return 'windows';
+    if (Platform.isLinux) return 'linux';
     return 'unknown';
   }
 
   /// Save FCM token to Firestore with platform information
   Future<void> saveTokenToFirestore({String? userId}) async {
+    if (!_supportsFirebaseMessagingPush) return;
+
     try {
       AppLogger.debug('📱 saveTokenToFirestore called');
-      
+
       var token = _fcmToken;
-      
+
       // If token is null (common on iOS on first launch), try to get it now
       if (token == null) {
         AppLogger.debug('⚠️ Token is null, attempting to fetch now...');
-        
+
         // On iOS, we need to wait for APNs token first
         if (Platform.isIOS) {
           AppLogger.debug('📱 iOS: Checking APNs token...');
           String? apnsToken = await _firebaseMessaging.getAPNSToken();
-          
+
           // If APNs token not ready, wait and retry
           int retryCount = 0;
           while (apnsToken == null && retryCount < 5) {
             retryCount++;
-            AppLogger.debug('⏳ iOS: APNs token not ready, retry $retryCount/5 in 2 seconds...');
+            AppLogger.debug(
+                '⏳ iOS: APNs token not ready, retry $retryCount/5 in 2 seconds...');
             await Future.delayed(const Duration(seconds: 2));
             apnsToken = await _firebaseMessaging.getAPNSToken();
           }
-          
+
           if (apnsToken != null) {
-            AppLogger.debug('✅ iOS: APNs token received, now getting FCM token');
+            AppLogger.debug(
+                '✅ iOS: APNs token received, now getting FCM token');
           } else {
-            AppLogger.debug('⚠️ iOS: APNs token still not available - will rely on token refresh listener');
+            AppLogger.debug(
+                '⚠️ iOS: APNs token still not available - will rely on token refresh listener');
             return; // Exit and let the token refresh listener handle this
           }
         }
-        
+
         token = await _firebaseMessaging.getToken();
         _fcmToken = token;
-        
+
         // On iOS, wait a bit and retry if still null
         if (token == null && Platform.isIOS) {
-          AppLogger.debug('⏳ iOS: Token still null, waiting 3 seconds and retrying...');
+          AppLogger.debug(
+              '⏳ iOS: Token still null, waiting 3 seconds and retrying...');
           await Future.delayed(const Duration(seconds: 3));
           token = await _firebaseMessaging.getToken();
           _fcmToken = token;
         }
       }
-      
-      AppLogger.debug('📱 FCM Token: ${token != null ? "${token.substring(0, 20)}..." : "null"}');
-      
+
+      AppLogger.debug(
+          '📱 FCM Token: ${token != null ? "${token.substring(0, 20)}..." : "null"}');
+
       if (token == null) {
         AppLogger.debug('❌ No FCM token available to save after retries');
         if (Platform.isIOS) {
-          AppLogger.debug('❌ iOS: Make sure APNs is configured and device has network connectivity');
-          AppLogger.info('❌ iOS: Token will be saved automatically when it becomes available via token refresh listener');
+          AppLogger.debug(
+              '❌ iOS: Make sure APNs is configured and device has network connectivity');
+          AppLogger.info(
+              '❌ iOS: Token will be saved automatically when it becomes available via token refresh listener');
         }
         return;
       }
@@ -649,7 +710,7 @@ class NotificationService {
       // Get user ID - either from parameter or current auth user
       final uid = userId ?? FirebaseAuth.instance.currentUser?.uid;
       AppLogger.debug('📱 User ID: $uid');
-      
+
       if (uid == null) {
         AppLogger.debug('❌ No user ID available - user not logged in');
         return;
@@ -657,7 +718,7 @@ class NotificationService {
 
       final platform = _getPlatformName();
       AppLogger.debug('📱 Platform: $platform');
-      
+
       // Use Timestamp.now() for array elements (serverTimestamp doesn't work in arrays)
       final now = Timestamp.now();
 
@@ -671,12 +732,13 @@ class NotificationService {
       // Get reference to user document
       final userRef = FirebaseFirestore.instance.collection('users').doc(uid);
       AppLogger.debug('📱 Checking if user document exists...');
-      
+
       final userDoc = await userRef.get();
       AppLogger.debug('📱 User document exists: ${userDoc.exists}');
 
       if (!userDoc.exists) {
-        AppLogger.debug('📱 User document does not exist, creating with FCM token');
+        AppLogger.debug(
+            '📱 User document does not exist, creating with FCM token');
         // Create user document with token
         await userRef.set({
           'fcmTokens': [tokenData],
@@ -694,20 +756,23 @@ class NotificationService {
         final filteredTokens = existingTokens
             .where((t) => t is Map && t['platform'] != platform)
             .toList();
-        
+
         // Add the current token
         filteredTokens.add(tokenData);
-        
-        AppLogger.debug('📱 Updating tokens: removed old $platform tokens, new count: ${filteredTokens.length}');
+
+        AppLogger.debug(
+            '📱 Updating tokens: removed old $platform tokens, new count: ${filteredTokens.length}');
 
         await userRef.update({
           'fcmTokens': filteredTokens,
           'lastTokenUpdate': FieldValue.serverTimestamp(),
         });
-        AppLogger.info('✅ Updated FCM token for $platform (replaced old token)');
+        AppLogger.info(
+            '✅ Updated FCM token for $platform (replaced old token)');
       }
 
-      AppLogger.info('✅ FCM Token saved successfully to Firestore for user $uid on $platform');
+      AppLogger.info(
+          '✅ FCM Token saved successfully to Firestore for user $uid on $platform');
     } catch (e, stackTrace) {
       AppLogger.error('❌ Error saving FCM token to Firestore: $e');
       AppLogger.error('❌ Stack trace: $stackTrace');
@@ -716,6 +781,8 @@ class NotificationService {
 
   /// Remove a specific token from Firestore (call this on logout)
   Future<void> removeTokenFromFirestore({String? userId}) async {
+    if (!_supportsFirebaseMessagingPush) return;
+
     try {
       final token = _fcmToken;
       if (token == null) return;
@@ -762,12 +829,18 @@ class NotificationService {
         android: AndroidNotificationDetails(
           'high_importance_channel',
           'High Importance Notifications',
-          channelDescription: 'This channel is used for important notifications.',
+          channelDescription:
+              'This channel is used for important notifications.',
           importance: Importance.high,
           priority: Priority.high,
           icon: '@mipmap/ic_launcher',
         ),
         iOS: DarwinNotificationDetails(
+          presentAlert: true,
+          presentBadge: true,
+          presentSound: true,
+        ),
+        macOS: DarwinNotificationDetails(
           presentAlert: true,
           presentBadge: true,
           presentSound: true,
@@ -787,4 +860,3 @@ class NotificationService {
     await _localNotifications.cancelAll();
   }
 }
-

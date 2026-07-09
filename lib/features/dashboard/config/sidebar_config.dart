@@ -1,7 +1,11 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../models/sidebar_model.dart';
 
 class SidebarConfig {
+  /// Circles (savings) is hidden for all roles for now; flip to re-enable.
+  static const bool showCircles = false;
+
   static List<SidebarSection> getStructureForRole(
     String? role, {
     bool isAdultStudent = false,
@@ -66,6 +70,20 @@ class SidebarConfig {
         id: 'operations',
         title: 'Operations',
         items: [
+          const SidebarItem(
+            id: 'my_shifts',
+            label: 'My Shifts',
+            icon: Icons.event_available,
+            screenIndex: 4,
+            colorValue: 0xff059669,
+          ),
+          const SidebarItem(
+            id: 'time_clock',
+            label: 'Time Clock',
+            icon: Icons.timer,
+            screenIndex: 6,
+            colorValue: 0xffEF4444,
+          ),
           const SidebarItem(
             id: 'shifts',
             label: 'Shifts',
@@ -204,19 +222,20 @@ class SidebarConfig {
           ),
         ],
       ),
-      SidebarSection(
-        id: 'savings',
-        title: 'Savings',
-        items: [
-          const SidebarItem(
-            id: 'circles',
-            label: 'Circles',
-            icon: Icons.groups,
-            screenIndex: 28,
-            colorValue: 0xff10B981,
-          ),
-        ],
-      ),
+      if (showCircles)
+        SidebarSection(
+          id: 'savings',
+          title: 'Savings',
+          items: [
+            const SidebarItem(
+              id: 'circles',
+              label: 'Circles',
+              icon: Icons.groups,
+              screenIndex: 28,
+              colorValue: 0xff10B981,
+            ),
+          ],
+        ),
       SidebarSection(
         id: 'system',
         title: 'System',
@@ -228,25 +247,28 @@ class SidebarConfig {
             screenIndex: 18,
             colorValue: 0xff6B7280,
           ),
-          const SidebarItem(
-            id: 'test_audit',
-            label: 'Test Audit Génération',
-            icon: Icons.play_arrow,
-            screenIndex: 21,
-            colorValue: 0xff10B981,
-          ),
-          const SidebarItem(
-            id: 'roles',
-            label: 'Roles (Test)',
-            icon: Icons.security,
-            screenIndex: 13,
-          ),
-          const SidebarItem(
-            id: 'debug',
-            label: 'Debug',
-            icon: Icons.bug_report,
-            screenIndex: 14,
-          ),
+          if (kDebugMode)
+            const SidebarItem(
+              id: 'test_audit',
+              label: 'Test Audit Génération',
+              icon: Icons.play_arrow,
+              screenIndex: 21,
+              colorValue: 0xff10B981,
+            ),
+          if (kDebugMode)
+            const SidebarItem(
+              id: 'roles',
+              label: 'Roles (Test)',
+              icon: Icons.security,
+              screenIndex: 13,
+            ),
+          if (kDebugMode)
+            const SidebarItem(
+              id: 'debug',
+              label: 'Debug',
+              icon: Icons.bug_report,
+              screenIndex: 14,
+            ),
         ],
       ),
     ];
@@ -356,19 +378,20 @@ class SidebarConfig {
           ),
         ],
       ),
-      SidebarSection(
-        id: 'savings',
-        title: 'Savings',
-        items: [
-          const SidebarItem(
-            id: 'circles',
-            label: 'Circles',
-            icon: Icons.groups,
-            screenIndex: 28,
-            colorValue: 0xff10B981,
-          ),
-        ],
-      ),
+      if (showCircles)
+        SidebarSection(
+          id: 'savings',
+          title: 'Savings',
+          items: [
+            const SidebarItem(
+              id: 'circles',
+              label: 'Circles',
+              icon: Icons.groups,
+              screenIndex: 28,
+              colorValue: 0xff10B981,
+            ),
+          ],
+        ),
       SidebarSection(
         id: 'reports',
         title: 'Reports',
@@ -445,13 +468,14 @@ class SidebarConfig {
             screenIndex: 2,
             colorValue: 0xff059669,
           ),
-          const SidebarItem(
-            id: 'circles',
-            label: 'Circles',
-            icon: Icons.groups,
-            screenIndex: 8,
-            colorValue: 0xff10B981,
-          ),
+          if (showCircles)
+            const SidebarItem(
+              id: 'circles',
+              label: 'Circles',
+              icon: Icons.groups,
+              screenIndex: 8,
+              colorValue: 0xff10B981,
+            ),
         ],
       ),
       SidebarSection(
@@ -578,19 +602,20 @@ class SidebarConfig {
           ),
         ],
       ),
-      SidebarSection(
-        id: 'savings',
-        title: 'Savings',
-        items: [
-          const SidebarItem(
-            id: 'circles',
-            label: 'Circles',
-            icon: Icons.groups,
-            screenIndex: 28,
-            colorValue: 0xff10B981,
-          ),
-        ],
-      ),
+      if (showCircles)
+        SidebarSection(
+          id: 'savings',
+          title: 'Savings',
+          items: [
+            const SidebarItem(
+              id: 'circles',
+              label: 'Circles',
+              icon: Icons.groups,
+              screenIndex: 28,
+              colorValue: 0xff10B981,
+            ),
+          ],
+        ),
       SidebarSection(
         id: 'communication',
         title: 'Communication',

@@ -334,6 +334,102 @@ describe('Zoom handler', () => {
     expect(mockZoomClient.getUserZak).not.toHaveBeenCalled();
   });
 
+  test('teacher auth alias joins Zoom as teacher when verified email matches the assigned teacher record', async () => {
+    const now = Date.now();
+    stores.users.set('teacher_alias_doc', {
+      user_type: 'teacher',
+      email: 'teacher.alias@example.com',
+      zoom_host_account: 'host@example.com',
+    });
+    stores.teaching_shifts.set('alias_shift', {
+      teacher_id: 'teacher_alias_doc',
+      teacher_name: 'Teacher Alias',
+      student_ids: ['student_1'],
+      shift_start: makeTimestamp(new Date(now - 5 * 60 * 1000)),
+      shift_end: makeTimestamp(new Date(now + 55 * 60 * 1000)),
+      video_provider: 'zoom',
+      zoomRoutingMode: 'single',
+      custom_name: 'Alias Teacher Class',
+    });
+
+    const result = await zoomHandlers.getZoomJoinInfo({
+      auth: {
+        uid: 'auth_uid_for_teacher_alias',
+        token: { email: 'teacher.alias@example.com' },
+      },
+      data: { shiftId: 'alias_shift' },
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.userRole).toBe('teacher');
+    expect(result.customerKey).toBe('auth_uid_for_teacher_alias');
+  });
+
+  test('honors active student role for an admin who is assigned as a student', async () => {
+    const now = Date.now();
+    stores.users.set('teacher_1', {
+      user_type: 'teacher',
+      zoom_host_account: 'host@example.com',
+    });
+    stores.users.set('admin_1', {
+      user_type: 'admin',
+    });
+    stores.teaching_shifts.set('multi_role_shift', {
+      teacher_id: 'teacher_1',
+      teacher_name: 'Teacher One',
+      student_ids: ['admin_1'],
+      student_names: ['Admin Student'],
+      shift_start: makeTimestamp(new Date(now - 5 * 60 * 1000)),
+      shift_end: makeTimestamp(new Date(now + 55 * 60 * 1000)),
+      video_provider: 'zoom',
+      zoomRoutingMode: 'single',
+      custom_name: 'Multi Role Class',
+    });
+
+    const result = await zoomHandlers.getZoomJoinInfo({
+      auth: { uid: 'admin_1', token: { role: 'admin' } },
+      data: { shiftId: 'multi_role_shift', activeRole: 'student' },
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.userRole).toBe('student');
+    expect(result.customerKey).toBe('admin_1');
+    expect(result.role).toBe(0);
+  });
+
+  test('does not apply student cutoff when the same assigned user joins Zoom as admin', async () => {
+    const now = Date.now();
+    stores.users.set('teacher_1', {
+      user_type: 'teacher',
+      zoom_host_account: 'host@example.com',
+    });
+    stores.users.set('admin_1', {
+      user_type: 'admin',
+      access_suspended: true,
+    });
+    stores.teaching_shifts.set('multi_role_shift', {
+      teacher_id: 'teacher_1',
+      teacher_name: 'Teacher One',
+      student_ids: ['admin_1'],
+      student_names: ['Admin Student'],
+      shift_start: makeTimestamp(new Date(now - 5 * 60 * 1000)),
+      shift_end: makeTimestamp(new Date(now + 55 * 60 * 1000)),
+      video_provider: 'zoom',
+      zoomRoutingMode: 'single',
+      custom_name: 'Multi Role Class',
+    });
+
+    const result = await zoomHandlers.getZoomJoinInfo({
+      auth: { uid: 'admin_1', token: { role: 'admin' } },
+      data: { shiftId: 'multi_role_shift', activeRole: 'admin' },
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.userRole).toBe('admin');
+    expect(result.customerKey).toBe('admin_1');
+    expect(result.role).toBe(0);
+  });
+
   test('allows teacher participant join when another host meeting is not started', async () => {
     const now = Date.now();
     stores.users.set('teacher_1', {
@@ -380,6 +476,9 @@ describe('Zoom handler', () => {
       'host@example.com',
       {
         in_meeting: {
+          screen_sharing: true,
+          who_can_share_screen: 'all',
+          who_can_share_screen_when_someone_is_sharing: 'all',
           disable_screen_sharing_for_hosts_meetings: false,
           disable_screen_sharing_for_in_meeting_guests: false,
         },
@@ -519,6 +618,8 @@ describe('Zoom handler', () => {
     expect(result.hubController).toBe(false);
     expect(result.autoOpenBreakoutRooms).toBe(false);
     expect(result.autoJoinBreakoutRoom).toBe(true);
+    expect(typeof result.classEndsAtIso).toBe('string');
+    expect(Number.isFinite(Date.parse(result.classEndsAtIso))).toBe(true);
     expect(result.breakoutRoomName).toContain('Teacher One');
     expect(result.hubBreakoutRooms).toEqual([]);
     expect(result.assignmentToken).toBe('');
@@ -534,9 +635,12 @@ describe('Zoom handler', () => {
         expect.objectContaining({ spare: true }),
       ]),
     );
-    expect(stores[`hub_meetings/${result.hubMeetingId}/members`].get('teacher_1')).toEqual(
+    expect(result.customerKey).toMatch(/^zh_/);
+    expect(result.customerKey).not.toBe('teacher_1');
+    expect(stores[`hub_meetings/${result.hubMeetingId}/members`].get(result.customerKey)).toEqual(
       expect.objectContaining({
-        uid: 'teacher_1',
+        uid: result.customerKey,
+        userId: 'teacher_1',
         shiftId: 'hub_shift',
         role: 'teacher',
       }),
@@ -656,8 +760,9 @@ describe('Zoom handler', () => {
     expect(rejoinResult.autoOpenBreakoutRooms).toBe(false);
     expect(rejoinResult.autoJoinBreakoutRoom).toBe(true);
     expect(rejoinResult.hostRoleBlockedReason).toBe('');
-    expect(stores[`hub_meetings/${rejoinResult.hubMeetingId}/members`].get('teacher_1')).toEqual(
-      expect.objectContaining({ shiftId: 'hub_shift', role: 'teacher' }),
+    expect(rejoinResult.customerKey).toMatch(/^zh_/);
+    expect(stores[`hub_meetings/${rejoinResult.hubMeetingId}/members`].get(rejoinResult.customerKey)).toEqual(
+      expect.objectContaining({ userId: 'teacher_1', shiftId: 'hub_shift', role: 'teacher' }),
     );
     expect(mockZoomClient.getUserZak).not.toHaveBeenCalled();
   });
@@ -776,11 +881,11 @@ describe('Zoom handler', () => {
       expect.objectContaining({ shiftId: 'hub_shift_2' }),
     );
     expect(secondTeacherResult.hubBreakoutRooms).toEqual([]);
-    expect(stores[`hub_meetings/${controllerResult.hubMeetingId}/members`].get('teacher_1')).toEqual(
-      expect.objectContaining({ shiftId: 'hub_shift_1', role: 'teacher' }),
+    expect(stores[`hub_meetings/${controllerResult.hubMeetingId}/members`].get(controllerResult.customerKey)).toEqual(
+      expect.objectContaining({ userId: 'teacher_1', shiftId: 'hub_shift_1', role: 'teacher' }),
     );
-    expect(stores[`hub_meetings/${controllerResult.hubMeetingId}/members`].get('teacher_a')).toEqual(
-      expect.objectContaining({ shiftId: 'hub_shift_2', role: 'teacher' }),
+    expect(stores[`hub_meetings/${controllerResult.hubMeetingId}/members`].get(secondTeacherResult.customerKey)).toEqual(
+      expect.objectContaining({ userId: 'teacher_a', shiftId: 'hub_shift_2', role: 'teacher' }),
     );
     expect(mockZoomClient.getUserZak).not.toHaveBeenCalled();
   });
@@ -1249,6 +1354,8 @@ describe('Zoom handler', () => {
         shiftId: 'shift_1',
         role: 'teacher',
         displayName: 'Teacher One',
+        routingDisplayName: 'Teacher One #abc12345',
+        displayNameAliases: ['Teacher One', 'Teacher One #abc12345'],
       }],
       ['student_1', { uid: 'student_1', shiftId: 'shift_1', role: 'student' }],
       ['late_teacher', {
@@ -1307,12 +1414,14 @@ describe('Zoom handler', () => {
     ]);
     expect(assignmentsRes.body.members).toEqual(
       expect.arrayContaining([
-        {
+        expect.objectContaining({
           uid: 'teacher_1',
           shiftId: 'shift_1',
           role: 'teacher',
           displayName: 'Teacher One',
-        },
+          routingDisplayName: 'Teacher One #abc12345',
+          displayNameAliases: ['Teacher One', 'Teacher One #abc12345'],
+        }),
         { uid: 'student_1', shiftId: 'shift_1', role: 'student' },
         {
           uid: 'late_teacher',
@@ -1407,6 +1516,125 @@ describe('Zoom handler', () => {
     );
   });
 
+  test('admin routing status aggregates live hub docs without exposing bot credentials', async () => {
+    const now = Date.now();
+    stores.users.set('admin_1', { role: 'admin', email: 'admin@example.com' });
+    stores.teaching_shifts.set('shift_1', {
+      teacher_id: 'teacher_1',
+      teacher_name: 'Teacher One',
+      student_names: ['Student One', 'Student Two'],
+      custom_name: 'Billing Test',
+      shift_start: makeTimestamp(new Date(now - 15 * 60 * 1000)),
+      shift_end: makeTimestamp(new Date(now + 45 * 60 * 1000)),
+      video_provider: 'zoom',
+    });
+    stores.hub_meetings.set('hub_1', {
+      lane: 2,
+      blockIndex: 3,
+      meetingNumber: 'hub_meeting',
+      zoom_password: 'hub_pass',
+      hostAccount: 'support@example.com',
+      status: 'roomsOpen',
+      bot_status: 'roomsOpen',
+      window_start: makeTimestamp(new Date(now - 20 * 60 * 1000)),
+      window_end: makeTimestamp(new Date(now + 60 * 60 * 1000)),
+      heartbeat_at: makeTimestamp(new Date(now - 10 * 1000)),
+      rooms: [
+        { shiftId: 'shift_1', name: 'Billing Test' },
+        { shiftId: '__spare_1', name: 'Spare 1', spare: true },
+      ],
+      stats: {
+        liveRoomCount: 2,
+        inRoomOccupants: 3,
+        attendeeCount: 4,
+        customerKeyCount: 4,
+        routableRoomCount: 2,
+        targetMemberCount: 3,
+        routedCount: 1,
+      },
+    });
+    stores['hub_meetings/hub_1/members'] = new Map([
+      ['teacher_1', { uid: 'teacher_1', shiftId: 'shift_1', role: 'teacher', displayName: 'Teacher One' }],
+      ['student_1', { uid: 'student_1', shiftId: 'shift_1', role: 'student', displayName: 'Student One' }],
+      ['student_2', { uid: 'student_2', shiftId: 'shift_1', role: 'student', displayName: 'Student Two' }],
+    ]);
+    stores.system_alerts.set('hub_1_heartbeat_stale', {
+      type: 'zoom_hub',
+      severity: 'critical',
+      reason: 'heartbeat_stale',
+      title: 'Critical Zoom hub bot heartbeat is stale',
+      created_at: makeTimestamp(new Date(now - 30 * 60 * 1000)),
+      data: { hubDocId: 'hub_1', lane: 2 },
+    });
+
+    const result = await zoomHandlers.getZoomHubRoutingStatus({
+      auth: { uid: 'admin_1', token: { role: 'admin' } },
+      data: {},
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.totals).toEqual(expect.objectContaining({
+      activeHubs: 1,
+      roomsOpen: 1,
+      onlineBots: 1,
+      inRoomOccupants: 3,
+      attendeeCount: 4,
+      targetMemberCount: 3,
+      scheduledClassCount: 1,
+      lastRoutingActionCount: 1,
+      openIncidentCount: 1,
+    }));
+    expect(result.hubs).toEqual([
+      expect.objectContaining({
+        hubDocId: 'hub_1',
+        lane: 2,
+        hostAccount: 'support@example.com',
+        meetingNumber: 'hub_meeting',
+        status: 'roomsOpen',
+        heartbeatFresh: true,
+        plannedRoomCount: 2,
+        liveRoomCount: 2,
+        targetMemberCount: 3,
+        classes: [
+          expect.objectContaining({
+            shiftId: 'shift_1',
+            roomName: 'Billing Test',
+            title: 'Billing Test',
+            teacherName: 'Teacher One',
+            scheduledNow: true,
+            targetMemberCount: 3,
+          }),
+          expect.objectContaining({
+            shiftId: '__spare_1',
+            roomName: 'Spare 1',
+            spare: true,
+          }),
+        ],
+      }),
+    ]);
+    expect(result.hubs[0]).not.toHaveProperty('zak');
+    expect(result.hubs[0]).not.toHaveProperty('signatureRole1');
+    expect(result.hubs[0]).not.toHaveProperty('password');
+    expect(result.incidents[0]).toEqual(expect.objectContaining({
+      id: 'hub_1_heartbeat_stale',
+      reason: 'heartbeat_stale',
+      open: true,
+      hubDocId: 'hub_1',
+      lane: 2,
+    }));
+  });
+
+  test('routing status is admin-only', async () => {
+    stores.users.set('teacher_1', { user_type: 'teacher' });
+
+    await expect(zoomHandlers.getZoomHubRoutingStatus({
+      auth: { uid: 'teacher_1', token: { role: 'teacher' } },
+      data: {},
+    })).rejects.toMatchObject({
+      code: 'permission-denied',
+    });
+  });
+
   test('bot watcher alerts admins when a live hub heartbeat is stale', async () => {
     const now = Date.now();
     stores.users.set('admin_1', {
@@ -1447,6 +1675,324 @@ describe('Zoom handler', () => {
     expect(mockSendEachForMulticast).toHaveBeenCalledWith(expect.objectContaining({
       tokens: ['admin_token'],
     }));
+  });
+
+  test('bot watcher auto-resets a poisoned hub whose live breakout list is empty', async () => {
+    const now = Date.now();
+    mockZoomClient.endMeeting.mockClear();
+    stores.hub_meetings.set('poison_hub', {
+      lane: 1,
+      status: 'roomsOpen',
+      bot_status: 'roomsOpen',
+      meetingNumber: 'poison_meeting',
+      window_start: makeTimestamp(new Date(now - 5 * 60 * 1000)),
+      window_end: makeTimestamp(new Date(now + 55 * 60 * 1000)),
+      heartbeat_at: makeTimestamp(new Date(now - 10 * 1000)),
+      stats: { liveRoomCount: 0, targetMemberCount: 3, inRoomOccupants: 0 },
+      poison_streak: 1,
+    });
+
+    await zoomHandlers.watchZoomHubBots();
+
+    expect(mockZoomClient.endMeeting).toHaveBeenCalledWith('poison_meeting');
+    expect(stores.hub_meetings.get('poison_hub')).toEqual(expect.objectContaining({
+      poison_streak: 0,
+      last_poison_reset_meeting: 'poison_meeting',
+    }));
+  });
+
+  test('bot watcher waits one cycle before resetting a poisoned hub', async () => {
+    const now = Date.now();
+    mockZoomClient.endMeeting.mockClear();
+    stores.hub_meetings.set('poison_hub_new', {
+      lane: 1,
+      status: 'roomsOpen',
+      bot_status: 'roomsOpen',
+      meetingNumber: 'poison_meeting_new',
+      window_start: makeTimestamp(new Date(now - 5 * 60 * 1000)),
+      window_end: makeTimestamp(new Date(now + 55 * 60 * 1000)),
+      heartbeat_at: makeTimestamp(new Date(now - 10 * 1000)),
+      stats: { liveRoomCount: 0, targetMemberCount: 3, inRoomOccupants: 0 },
+    });
+
+    await zoomHandlers.watchZoomHubBots();
+
+    expect(mockZoomClient.endMeeting).not.toHaveBeenCalled();
+    expect(stores.hub_meetings.get('poison_hub_new').poison_streak).toBe(1);
+  });
+
+  test('bot watcher never resets a poisoned hub with participants inside rooms', async () => {
+    const now = Date.now();
+    mockZoomClient.endMeeting.mockClear();
+    stores.hub_meetings.set('occupied_hub', {
+      lane: 1,
+      status: 'roomsOpen',
+      bot_status: 'roomsOpen',
+      meetingNumber: 'occupied_meeting',
+      window_start: makeTimestamp(new Date(now - 5 * 60 * 1000)),
+      window_end: makeTimestamp(new Date(now + 55 * 60 * 1000)),
+      heartbeat_at: makeTimestamp(new Date(now - 10 * 1000)),
+      stats: { liveRoomCount: 0, targetMemberCount: 3, inRoomOccupants: 2 },
+      poison_streak: 9,
+    });
+
+    await zoomHandlers.watchZoomHubBots();
+
+    expect(mockZoomClient.endMeeting).not.toHaveBeenCalled();
+  });
+
+  test('bot watcher leaves a healthy hub alone and clears its poison streak', async () => {
+    const now = Date.now();
+    mockZoomClient.endMeeting.mockClear();
+    mockZoomClient.getMeeting.mockResolvedValueOnce({ id: 'healthy_meeting', status: 'started' });
+    stores.hub_meetings.set('healthy_hub', {
+      lane: 2,
+      status: 'roomsOpen',
+      bot_status: 'roomsOpen',
+      meetingNumber: 'healthy_meeting',
+      window_start: makeTimestamp(new Date(now - 5 * 60 * 1000)),
+      window_end: makeTimestamp(new Date(now + 55 * 60 * 1000)),
+      heartbeat_at: makeTimestamp(new Date(now - 10 * 1000)),
+      stats: { liveRoomCount: 16, targetMemberCount: 3, inRoomOccupants: 0 },
+      poison_streak: 1,
+    });
+
+    await zoomHandlers.watchZoomHubBots();
+
+    expect(mockZoomClient.endMeeting).not.toHaveBeenCalled();
+    expect(stores.hub_meetings.get('healthy_hub').poison_streak).toBe(0);
+    expect(stores.hub_meetings.get('healthy_hub').force_rejoin_at).toBeUndefined();
+  });
+
+  test('bot watcher forces a rejoin when a bot claims health but the meeting is not live (zombie)', async () => {
+    const now = Date.now();
+    mockZoomClient.endMeeting.mockClear();
+    // Bot reports a healthy, open meeting with rooms, but Zoom says the meeting
+    // actually ended server-side — a zombie session that neither the poison nor
+    // heartbeat check would catch.
+    mockZoomClient.getMeeting.mockResolvedValueOnce({ id: 'zombie_meeting', status: 'waiting' });
+    stores.hub_meetings.set('zombie_hub', {
+      lane: 1,
+      status: 'roomsOpen',
+      bot_status: 'roomsOpen',
+      meetingNumber: 'zombie_meeting',
+      window_start: makeTimestamp(new Date(now - 5 * 60 * 1000)),
+      window_end: makeTimestamp(new Date(now + 55 * 60 * 1000)),
+      heartbeat_at: makeTimestamp(new Date(now - 10 * 1000)),
+      stats: { liveRoomCount: 8, targetMemberCount: 2, inRoomOccupants: 0 },
+    });
+
+    await zoomHandlers.watchZoomHubBots();
+
+    // We do NOT end the meeting here (it is already ended); we stamp the signal
+    // that makes the bot reload into a fresh instance.
+    expect(stores.hub_meetings.get('zombie_hub').force_rejoin_at).toBeDefined();
+  });
+
+  test('bot watcher ends an expired hub meeting to free the account for the next block', async () => {
+    const now = Date.now();
+    mockZoomClient.endMeeting.mockClear();
+    stores.hub_meetings.set('expired_hub', {
+      lane: 1,
+      status: 'roomsOpen',
+      meetingNumber: 'expired_meeting',
+      window_start: makeTimestamp(new Date(now - 90 * 60 * 1000)),
+      window_end: makeTimestamp(new Date(now - 5 * 60 * 1000)),
+      heartbeat_at: makeTimestamp(new Date(now - 10 * 1000)),
+      stats: { inRoomOccupants: 0 },
+    });
+
+    await zoomHandlers.watchZoomHubBots();
+
+    expect(mockZoomClient.endMeeting).toHaveBeenCalledWith('expired_meeting');
+    expect(stores.hub_meetings.get('expired_hub').ended_at).toBeDefined();
+  });
+
+  test('bot watcher removes stragglers at the 15-minute limit (ends the meeting past window_end)', async () => {
+    const now = Date.now();
+    mockZoomClient.endMeeting.mockClear();
+    // window_end (= last class + 15 min) has passed and someone is still inside:
+    // policy says everyone is removed now.
+    stores.hub_meetings.set('over_limit_hub', {
+      lane: 1,
+      status: 'roomsOpen',
+      meetingNumber: 'over_limit_meeting',
+      window_start: makeTimestamp(new Date(now - 90 * 60 * 1000)),
+      window_end: makeTimestamp(new Date(now - 1 * 60 * 1000)),
+      heartbeat_at: makeTimestamp(new Date(now - 10 * 1000)),
+      stats: { inRoomOccupants: 2 },
+    });
+
+    await zoomHandlers.watchZoomHubBots();
+
+    expect(mockZoomClient.endMeeting).toHaveBeenCalledWith('over_limit_meeting');
+    expect(stores.hub_meetings.get('over_limit_hub').ended_at).toBeDefined();
+  });
+
+  test('bot watcher does NOT remove participants before the 15-minute limit', async () => {
+    const now = Date.now();
+    mockZoomClient.endMeeting.mockClear();
+    mockZoomClient.getMeeting.mockResolvedValueOnce({ id: 'within_limit_meeting', status: 'started' });
+    // Still within the allowed 15-minute grace (window_end is 8 min in the
+    // future), class running over — must NOT be ended.
+    stores.hub_meetings.set('within_limit_hub', {
+      lane: 1,
+      status: 'roomsOpen',
+      meetingNumber: 'within_limit_meeting',
+      window_start: makeTimestamp(new Date(now - 90 * 60 * 1000)),
+      window_end: makeTimestamp(new Date(now + 8 * 60 * 1000)),
+      heartbeat_at: makeTimestamp(new Date(now - 10 * 1000)),
+      stats: { liveRoomCount: 5, targetMemberCount: 1, inRoomOccupants: 2 },
+    });
+
+    await zoomHandlers.watchZoomHubBots();
+
+    expect(mockZoomClient.endMeeting).not.toHaveBeenCalled();
+  });
+
+  test('bot watcher ends a superseded old block even with stragglers, to free the account for the newer block', async () => {
+    const now = Date.now();
+    mockZoomClient.endMeeting.mockClear();
+    // Newer block is live; the old block's real classes are over but someone
+    // forgot to leave. The old block must release the shared account.
+    mockZoomClient.getMeeting.mockResolvedValueOnce({ id: 'new_meeting', status: 'started' });
+    stores.hub_meetings.set('old_block', {
+      lane: 1, blockIndex: 2,
+      status: 'roomsOpen', meetingNumber: 'old_meeting',
+      window_start: makeTimestamp(new Date(now - 120 * 60 * 1000)),
+      window_end: makeTimestamp(new Date(now - 5 * 60 * 1000)), // realEnd = now-20min
+      heartbeat_at: makeTimestamp(new Date(now - 10 * 1000)),
+      stats: { inRoomOccupants: 2 },
+    });
+    stores.hub_meetings.set('new_block', {
+      lane: 1, blockIndex: 3,
+      status: 'roomsOpen', meetingNumber: 'new_meeting',
+      window_start: makeTimestamp(new Date(now - 2 * 60 * 1000)),
+      window_end: makeTimestamp(new Date(now + 60 * 60 * 1000)),
+      heartbeat_at: makeTimestamp(new Date(now - 10 * 1000)),
+      stats: { liveRoomCount: 5, targetMemberCount: 1, inRoomOccupants: 0 },
+    });
+
+    await zoomHandlers.watchZoomHubBots();
+
+    expect(mockZoomClient.endMeeting).toHaveBeenCalledWith('old_meeting');
+    expect(mockZoomClient.endMeeting).not.toHaveBeenCalledWith('new_meeting');
+    expect(stores.hub_meetings.get('old_block').ended_at).toBeDefined();
+  });
+
+  test('bot watcher force-ends a lingering hub past the hard grace even with stragglers', async () => {
+    const now = Date.now();
+    mockZoomClient.endMeeting.mockClear();
+    // No competing block, but someone never left and it is now well past the
+    // window end + grace — force-end so it cannot hold the account or approach
+    // Zoom's 30h cap.
+    stores.hub_meetings.set('lingering_hub', {
+      lane: 2, blockIndex: 1,
+      status: 'roomsOpen', meetingNumber: 'lingering_meeting',
+      window_start: makeTimestamp(new Date(now - 120 * 60 * 1000)),
+      window_end: makeTimestamp(new Date(now - 12 * 60 * 1000)), // past window_end + 10min grace
+      heartbeat_at: makeTimestamp(new Date(now - 10 * 1000)),
+      stats: { inRoomOccupants: 2 },
+    });
+
+    await zoomHandlers.watchZoomHubBots();
+
+    expect(mockZoomClient.endMeeting).toHaveBeenCalledWith('lingering_meeting');
+    expect(stores.hub_meetings.get('lingering_hub').ended_at).toBeDefined();
+  });
+
+  test('directives serve only one hub per lane, preferring a block with a live class', () => {
+    const { _selectPrimaryActiveHub } = require('../handlers/zoom_hub_bot').__test__;
+    const now = Date.now();
+    // realEndInMs: when the block's real (unpadded) classes end. window_end is
+    // realEnd + 15min pad.
+    const mkDoc = (id, blockIndex, inRoomOccupants, realEndInMs = 30 * 60 * 1000, heartbeatAgoMs = 10 * 1000) => ({
+      id,
+      data: () => ({
+        blockIndex,
+        heartbeat_at: makeTimestamp(new Date(now - heartbeatAgoMs)),
+        window_end: makeTimestamp(new Date(now + realEndInMs + 15 * 60 * 1000)),
+        stats: { inRoomOccupants },
+      }),
+    });
+
+    // Boundary overlap, old block's class is still genuinely running -> keep old.
+    const withLiveOld = _selectPrimaryActiveHub([
+      mkDoc('block2', 2, 3, 20 * 60 * 1000),
+      mkDoc('block3', 3, 0),
+    ], now);
+    expect(withLiveOld).toHaveLength(1);
+    expect(withLiveOld[0].id).toBe('block2');
+
+    // Old block drained (no occupants) -> move to the newest block.
+    const drainedOld = _selectPrimaryActiveHub([
+      mkDoc('block2', 2, 0),
+      mkDoc('block3', 3, 0),
+    ], now);
+    expect(drainedOld).toHaveLength(1);
+    expect(drainedOld[0].id).toBe('block3');
+
+    // Forgot-to-leave: old block's real classes already ENDED but someone is
+    // still inside -> the straggler must NOT protect it; the newer block wins.
+    const stragglerOld = _selectPrimaryActiveHub([
+      mkDoc('block2', 2, 2, -5 * 60 * 1000), // realEnd 5 min in the past
+      mkDoc('block3', 3, 0),
+    ], now);
+    expect(stragglerOld[0].id).toBe('block3');
+
+    // A stale "live" reading (dead heartbeat) is not trusted as live.
+    const staleLive = _selectPrimaryActiveHub([
+      mkDoc('block2', 2, 3, 20 * 60 * 1000, 10 * 60 * 1000),
+      mkDoc('block3', 3, 0),
+    ], now);
+    expect(staleLive[0].id).toBe('block3');
+  });
+
+  test('bot resetMeeting ends a corrupted empty hub so it can rejoin fresh', async () => {
+    const botHandlers = require('../handlers/zoom_hub_bot');
+    process.env.ZOOM_HUB_BOT_KEY = 'bot-key';
+    mockZoomClient.endMeeting.mockClear();
+    stores.hub_meetings.set('corrupt_hub', {
+      lane: 1,
+      status: 'roomsOpen',
+      meetingNumber: 'corrupt_meeting',
+      stats: { inRoomOccupants: 0 },
+    });
+
+    const res = makeResponse();
+    await botHandlers.zoomHubBotState({
+      method: 'POST',
+      body: { hubDocId: 'corrupt_hub', status: 'resetMeeting' },
+      headers: { 'x-bot-key': 'bot-key' },
+      get: (name) => ({ 'x-bot-key': 'bot-key' }[name.toLowerCase()]),
+    }, res);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(mockZoomClient.endMeeting).toHaveBeenCalledWith('corrupt_meeting');
+    expect(stores.hub_meetings.get('corrupt_hub').reset_at).toBeDefined();
+  });
+
+  test('bot resetMeeting never ends a hub that has participants inside rooms', async () => {
+    const botHandlers = require('../handlers/zoom_hub_bot');
+    process.env.ZOOM_HUB_BOT_KEY = 'bot-key';
+    mockZoomClient.endMeeting.mockClear();
+    stores.hub_meetings.set('busy_hub', {
+      lane: 1,
+      status: 'roomsOpen',
+      meetingNumber: 'busy_meeting',
+      stats: { inRoomOccupants: 2 },
+    });
+
+    const res = makeResponse();
+    await botHandlers.zoomHubBotState({
+      method: 'POST',
+      body: { hubDocId: 'busy_hub', status: 'resetMeeting' },
+      headers: { 'x-bot-key': 'bot-key' },
+      get: (name) => ({ 'x-bot-key': 'bot-key' }[name.toLowerCase()]),
+    }, res);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(mockZoomClient.endMeeting).not.toHaveBeenCalled();
   });
 
   test('returns the same hub room target for a student without host automation', async () => {
@@ -1495,8 +2041,8 @@ describe('Zoom handler', () => {
       expect.objectContaining({ shiftId: 'hub_shift' }),
     );
     expect(studentResult.hubBreakoutRooms).toEqual([]);
-    expect(stores[`hub_meetings/${teacherResult.hubMeetingId}/members`].get('student_1')).toEqual(
-      expect.objectContaining({ shiftId: 'hub_shift', role: 'student' }),
+    expect(stores[`hub_meetings/${teacherResult.hubMeetingId}/members`].get(studentResult.customerKey)).toEqual(
+      expect.objectContaining({ userId: 'student_1', shiftId: 'hub_shift', role: 'student' }),
     );
   });
 
@@ -1512,7 +2058,7 @@ describe('Zoom handler', () => {
       guardian_ids: ['parent_1'],
     });
     stores.users.set('parent_1', { user_type: 'parent' });
-    stores.users.set('admin_1', { role: 'admin' });
+    stores.users.set('admin_1', { role: 'admin', first_name: 'Admin', last_name: 'One' });
     stores.teaching_shifts.set('hub_shift', {
       teacher_id: 'teacher_1',
       teacher_name: 'Teacher One',
@@ -1579,12 +2125,217 @@ describe('Zoom handler', () => {
     expect(adminResult.autoJoinBreakoutRoom).toBe(true);
     expect(adminResult.hubBreakoutRooms).toEqual([]);
     expect(adminResult.assignmentToken).toBe('');
-    expect(stores[`hub_meetings/${teacherResult.hubMeetingId}/members`].get('parent_1')).toEqual(
-      expect.objectContaining({ shiftId: 'hub_shift', role: 'parent' }),
+    expect(stores[`hub_meetings/${teacherResult.hubMeetingId}/members`].get(parentResult.customerKey)).toEqual(
+      expect.objectContaining({ userId: 'parent_1', shiftId: 'hub_shift', role: 'parent' }),
     );
-    expect(stores[`hub_meetings/${teacherResult.hubMeetingId}/members`].get('admin_1')).toEqual(
-      expect.objectContaining({ shiftId: 'hub_shift', role: 'admin' }),
+    expect(stores[`hub_meetings/${teacherResult.hubMeetingId}/members`].get(adminResult.customerKey)).toEqual(
+      expect.objectContaining({ userId: 'admin_1', shiftId: 'hub_shift', role: 'admin' }),
     );
+  });
+
+  test('keeps one admin separately routed when they click multiple classes in the same hub', async () => {
+    process.env.ZOOM_CLASSROOM_HOST_ACCOUNTS = 'host@example.com,backup@example.com';
+    const now = Date.now();
+    stores.users.set('admin_1', { role: 'admin' });
+    stores.users.set('teacher_1', { user_type: 'teacher' });
+    stores.users.set('teacher_2', { user_type: 'teacher' });
+    stores.teaching_shifts.set('hub_shift_a', {
+      teacher_id: 'teacher_1',
+      teacher_name: 'Teacher One',
+      student_ids: ['student_1'],
+      student_names: ['Student One'],
+      shift_start: makeTimestamp(new Date(now - 5 * 60 * 1000)),
+      shift_end: makeTimestamp(new Date(now + 55 * 60 * 1000)),
+      video_provider: 'zoom',
+      category: 'teaching',
+      custom_name: 'Hub Class A',
+      zoom_hub_lane_index: 0,
+    });
+    stores.teaching_shifts.set('hub_shift_b', {
+      teacher_id: 'teacher_2',
+      teacher_name: 'Teacher Two',
+      student_ids: ['student_2'],
+      student_names: ['Student Two'],
+      shift_start: makeTimestamp(new Date(now - 5 * 60 * 1000)),
+      shift_end: makeTimestamp(new Date(now + 55 * 60 * 1000)),
+      video_provider: 'zoom',
+      category: 'teaching',
+      custom_name: 'Hub Class B',
+      zoom_hub_lane_index: 0,
+    });
+    mockZoomClient.createMeeting.mockResolvedValueOnce({
+      id: 'hub_meeting_1',
+      password: 'hub_pass',
+      host_email: 'host@example.com',
+      join_url: 'https://zoom.us/j/hub_meeting_1?pwd=hub_pass',
+    });
+
+    const firstJoin = await zoomHandlers.getZoomJoinInfo({
+      auth: { uid: 'admin_1', token: { role: 'admin' } },
+      data: { shiftId: 'hub_shift_a' },
+    });
+    const secondJoin = await zoomHandlers.getZoomJoinInfo({
+      auth: { uid: 'admin_1', token: { role: 'admin' } },
+      data: { shiftId: 'hub_shift_b' },
+    });
+
+    expect(firstJoin.hubMeetingId).toBe(secondJoin.hubMeetingId);
+    expect(firstJoin.meetingNumber).toBe('hub_meeting_1');
+    expect(secondJoin.meetingNumber).toBe('hub_meeting_1');
+    expect(firstJoin.customerKey).toMatch(/^zh_/);
+    expect(secondJoin.customerKey).toMatch(/^zh_/);
+    expect(firstJoin.customerKey).not.toBe(secondJoin.customerKey);
+    // Display name stays clean (no per-class suffix); separation rides on the
+    // hidden customerKey, not the visible name.
+    expect(firstJoin.displayName).toBe('Participant');
+    expect(secondJoin.displayName).toBe('Participant');
+    expect(firstJoin.realDisplayName).toBe('Participant');
+    expect(secondJoin.realDisplayName).toBe('Participant');
+    expect(firstJoin.breakoutRoomName).not.toBe(secondJoin.breakoutRoomName);
+
+    const members = stores[`hub_meetings/${firstJoin.hubMeetingId}/members`];
+    expect(members.get(firstJoin.customerKey)).toEqual(
+      expect.objectContaining({
+        userId: 'admin_1',
+        shiftId: 'hub_shift_a',
+        role: 'admin',
+        displayName: firstJoin.displayName,
+        realDisplayName: 'Participant',
+      }),
+    );
+    expect(members.get(secondJoin.customerKey)).toEqual(
+      expect.objectContaining({
+        userId: 'admin_1',
+        shiftId: 'hub_shift_b',
+        role: 'admin',
+        displayName: secondJoin.displayName,
+        realDisplayName: 'Participant',
+      }),
+    );
+
+    const joined = {
+      event: 'meeting.participant_joined',
+      event_ts: 1782916810000,
+      payload: {
+        object: {
+          id: 'hub_meeting_1',
+          participant: {
+            id: 'zoom_admin_1',
+            user_name: secondJoin.displayName,
+            customer_key: secondJoin.customerKey,
+            join_time: '2026-07-01T12:02:00Z',
+          },
+        },
+      },
+    };
+
+    await zoomHandlers.zoomWebhook(signBody(joined), makeResponse());
+
+    expect(stores.livekit_sessions.has('hub_shift_a_admin_1')).toBe(false);
+    const session = stores.livekit_sessions.get('hub_shift_b_admin_1');
+    expect(session).toBeDefined();
+    expect(session.shift_id).toBe('hub_shift_b');
+    expect(session.user_id).toBe('admin_1');
+    expect(session.zoom_participant_name).toBe('Participant');
+  });
+
+  test('keeps native mobile hub display names clean while storing routing aliases', async () => {
+    process.env.ZOOM_CLASSROOM_HOST_ACCOUNTS = 'host@example.com,backup@example.com';
+    const now = Date.now();
+    stores.users.set('admin_1', { role: 'admin' });
+    stores.users.set('teacher_1', { user_type: 'teacher' });
+    stores.users.set('teacher_2', { user_type: 'teacher' });
+    stores.teaching_shifts.set('hub_shift_a', {
+      teacher_id: 'teacher_1',
+      teacher_name: 'Teacher One',
+      student_ids: ['student_1'],
+      student_names: ['Student One'],
+      shift_start: makeTimestamp(new Date(now - 5 * 60 * 1000)),
+      shift_end: makeTimestamp(new Date(now + 55 * 60 * 1000)),
+      video_provider: 'zoom',
+      category: 'teaching',
+      custom_name: 'Hub Class A',
+      zoom_hub_lane_index: 0,
+    });
+    stores.teaching_shifts.set('hub_shift_b', {
+      teacher_id: 'teacher_2',
+      teacher_name: 'Teacher Two',
+      student_ids: ['student_2'],
+      student_names: ['Student Two'],
+      shift_start: makeTimestamp(new Date(now - 5 * 60 * 1000)),
+      shift_end: makeTimestamp(new Date(now + 55 * 60 * 1000)),
+      video_provider: 'zoom',
+      category: 'teaching',
+      custom_name: 'Hub Class B',
+      zoom_hub_lane_index: 0,
+    });
+    mockZoomClient.createMeeting.mockResolvedValueOnce({
+      id: 'hub_meeting_1',
+      password: 'hub_pass',
+      host_email: 'host@example.com',
+      join_url: 'https://zoom.us/j/hub_meeting_1?pwd=hub_pass',
+    });
+
+    const firstJoin = await zoomHandlers.getZoomJoinInfo({
+      auth: { uid: 'admin_1', token: { role: 'admin' } },
+      data: { shiftId: 'hub_shift_a', clientPlatform: 'native_mobile' },
+    });
+    const secondJoin = await zoomHandlers.getZoomJoinInfo({
+      auth: { uid: 'admin_1', token: { role: 'admin' } },
+      data: { shiftId: 'hub_shift_b', clientPlatform: 'native_mobile' },
+    });
+
+    expect(firstJoin.customerKey).toMatch(/^zh_/);
+    expect(secondJoin.customerKey).toMatch(/^zh_/);
+    expect(firstJoin.customerKey).not.toBe(secondJoin.customerKey);
+    expect(firstJoin.displayName).toBe('Participant');
+    expect(secondJoin.displayName).toBe('Participant');
+    expect(firstJoin.nativeDisplayName).toBe(firstJoin.displayName);
+    expect(secondJoin.nativeDisplayName).toBe(secondJoin.displayName);
+    expect(firstJoin.routingDisplayName).toMatch(/^Participant #[A-Za-z0-9_-]{8}$/);
+    expect(secondJoin.routingDisplayName).toMatch(/^Participant #[A-Za-z0-9_-]{8}$/);
+    expect(firstJoin.routingDisplayName).not.toBe(secondJoin.routingDisplayName);
+    expect(secondJoin.realDisplayName).toBe('Participant');
+
+    const members = stores[`hub_meetings/${firstJoin.hubMeetingId}/members`];
+    expect(members.get(secondJoin.customerKey)).toEqual(
+      expect.objectContaining({
+        userId: 'admin_1',
+        shiftId: 'hub_shift_b',
+        role: 'admin',
+        displayName: secondJoin.displayName,
+        realDisplayName: 'Participant',
+        routingDisplayName: secondJoin.routingDisplayName,
+        displayNameAliases: expect.arrayContaining([
+          'Participant',
+          secondJoin.routingDisplayName,
+        ]),
+      }),
+    );
+
+    const joinedWithoutCustomerKey = {
+      event: 'meeting.participant_joined',
+      event_ts: 1782916810000,
+      payload: {
+        object: {
+          id: 'hub_meeting_1',
+          participant: {
+            id: 'zoom_admin_native',
+            user_name: secondJoin.routingDisplayName,
+            join_time: '2026-07-01T12:02:00Z',
+          },
+        },
+      },
+    };
+
+    await zoomHandlers.zoomWebhook(signBody(joinedWithoutCustomerKey), makeResponse());
+
+    expect(stores.livekit_sessions.has('hub_shift_a_admin_1')).toBe(false);
+    const session = stores.livekit_sessions.get('hub_shift_b_admin_1');
+    expect(session).toBeDefined();
+    expect(session.shift_id).toBe('hub_shift_b');
+    expect(session.user_id).toBe('admin_1');
+    expect(session.zoom_participant_name).toBe('Participant');
   });
 
   test('responds to Zoom webhook URL validation', async () => {
@@ -1713,6 +2464,79 @@ describe('Zoom handler', () => {
     expect(session.presence_windows[0].leave_at.toDate().toISOString())
       .toBe('2026-07-01T12:06:00.000Z');
     expect(session.total_presence_seconds).toBe(5 * 60);
+  });
+
+  test('ignores Zoom hub bot presence webhook events', async () => {
+    stores.teaching_shifts.set('shift_1', {
+      teacher_id: 'teacher_1',
+      student_ids: ['student_1'],
+      shift_start: makeTimestamp(new Date('2026-07-01T12:00:00.000Z')),
+      shift_end: makeTimestamp(new Date('2026-07-01T13:00:00.000Z')),
+      video_provider: 'zoom',
+      zoom_meeting_id: '987654321',
+    });
+
+    const joined = {
+      event: 'meeting.participant_joined',
+      event_ts: 1782916810000,
+      payload: {
+        object: {
+          id: '987654321',
+          participant: {
+            id: 'zoom_bot_1',
+            customer_key: 'zoom_hub_bot_lane_1',
+            user_name: 'Alluwal Hub Bot Lane 1',
+            join_time: '2026-07-01T12:01:00Z',
+          },
+        },
+      },
+    };
+
+    const res = makeResponse();
+    await zoomHandlers.zoomWebhook(signBody(joined), res);
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toEqual({
+      success: true,
+      ignored: true,
+      reason: 'hub_bot_participant',
+    });
+    expect(stores.livekit_sessions.size).toBe(0);
+  });
+
+  test('maps Zoom participant presence to the teacher by display name when customer key is missing', async () => {
+    stores.teaching_shifts.set('shift_1', {
+      teacher_id: 'teacher_1',
+      teacher_name: 'Teacher One',
+      student_ids: ['student_1'],
+      shift_start: makeTimestamp(new Date('2026-07-01T12:00:00.000Z')),
+      shift_end: makeTimestamp(new Date('2026-07-01T13:00:00.000Z')),
+      video_provider: 'zoom',
+      zoom_meeting_id: '987654321',
+    });
+
+    const joined = {
+      event: 'meeting.participant_joined',
+      event_ts: 1782916810000,
+      payload: {
+        object: {
+          id: '987654321',
+          participant: {
+            id: 'zoom_participant_1',
+            user_name: 'Teacher One',
+            join_time: '2026-07-01T12:01:00Z',
+          },
+        },
+      },
+    };
+
+    await zoomHandlers.zoomWebhook(signBody(joined), makeResponse());
+
+    const session = stores.livekit_sessions.get('shift_1_teacher_1');
+    expect(session).toBeDefined();
+    expect(session.user_id).toBe('teacher_1');
+    expect(session.role).toBe('teacher');
+    expect(session.presence_windows[0].leave_at).toBeNull();
   });
 
   test('maps shared hub Zoom webhook events to the matching simultaneous shift', async () => {

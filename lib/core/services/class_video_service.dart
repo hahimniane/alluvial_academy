@@ -68,6 +68,9 @@ class ZoomClassJoinInfo {
   final String? signature;
   final String? sdkKey;
   final String? displayName;
+  final String? nativeDisplayName;
+  final String? routingDisplayName;
+  final String? userRole;
   final String? shiftName;
   final String? customerKey;
   final String? joinUrl;
@@ -76,6 +79,7 @@ class ZoomClassJoinInfo {
   final String? breakoutRoomName;
   final String? breakoutRoomKey;
   final bool autoJoinBreakoutRoom;
+  final DateTime? classEndsAt;
   final String? error;
 
   ZoomClassJoinInfo({
@@ -85,6 +89,9 @@ class ZoomClassJoinInfo {
     this.signature,
     this.sdkKey,
     this.displayName,
+    this.nativeDisplayName,
+    this.routingDisplayName,
+    this.userRole,
     this.shiftName,
     this.customerKey,
     this.joinUrl,
@@ -93,6 +100,7 @@ class ZoomClassJoinInfo {
     this.breakoutRoomName,
     this.breakoutRoomKey,
     this.autoJoinBreakoutRoom = false,
+    this.classEndsAt,
     this.error,
   });
 
@@ -104,6 +112,9 @@ class ZoomClassJoinInfo {
       signature: data['signature']?.toString(),
       sdkKey: data['sdkKey']?.toString(),
       displayName: data['displayName']?.toString(),
+      nativeDisplayName: data['nativeDisplayName']?.toString(),
+      routingDisplayName: data['routingDisplayName']?.toString(),
+      userRole: data['userRole']?.toString(),
       shiftName: data['shiftName']?.toString(),
       customerKey: data['customerKey']?.toString(),
       joinUrl: data['joinUrl']?.toString(),
@@ -112,6 +123,9 @@ class ZoomClassJoinInfo {
       breakoutRoomName: data['breakoutRoomName']?.toString(),
       breakoutRoomKey: data['breakoutRoomKey']?.toString(),
       autoJoinBreakoutRoom: data['autoJoinBreakoutRoom'] == true,
+      classEndsAt: data['classEndsAtIso'] == null
+          ? null
+          : DateTime.tryParse(data['classEndsAtIso'].toString()),
     );
   }
 
@@ -260,8 +274,12 @@ class ClassVideoService {
       if (_auth.currentUser == null) {
         return ClassVideoJoinResult.error(unauthenticatedError);
       }
+      final activeRole = await _activeRoleForJoinRequest();
       final callable = _functions.httpsCallable('getRealtimeKitJoinToken');
-      final result = await callable.call({'shiftId': shiftId});
+      final result = await callable.call({
+        'shiftId': shiftId,
+        if (activeRole != null) 'activeRole': activeRole,
+      });
       return ClassVideoJoinResult.fromMap(
         Map<String, dynamic>.from(result.data as Map),
       );
@@ -278,6 +296,7 @@ class ClassVideoService {
 
   static Future<ZoomClassJoinInfo> getZoomJoinInfo(
     String shiftId, {
+    String? clientPlatform,
     String fallbackError = '',
     String unauthenticatedError = '',
   }) async {
@@ -285,8 +304,13 @@ class ClassVideoService {
       if (_auth.currentUser == null) {
         return ZoomClassJoinInfo.error(unauthenticatedError);
       }
+      final activeRole = await _activeRoleForJoinRequest();
       final callable = _functions.httpsCallable('getZoomJoinInfo');
-      final result = await callable.call({'shiftId': shiftId});
+      final result = await callable.call({
+        'shiftId': shiftId,
+        if (activeRole != null) 'activeRole': activeRole,
+        if (clientPlatform != null) 'clientPlatform': clientPlatform,
+      });
       return ZoomClassJoinInfo.fromMap(
         Map<String, dynamic>.from(result.data as Map),
       );
@@ -434,7 +458,15 @@ class ClassVideoService {
       try {
         final role =
             (await UserRoleService.getCurrentUserRole())?.toLowerCase();
-        if (role == 'admin' || role == 'super_admin' || role == 'parent') {
+        final availableRoles = (await UserRoleService.getAvailableRoles())
+            .map((value) => value.toLowerCase())
+            .toSet();
+        if (role == 'admin' ||
+            role == 'super_admin' ||
+            role == 'parent' ||
+            role == 'teacher' ||
+            availableRoles.contains('admin') ||
+            availableRoles.contains('super_admin')) {
           isAllowed = true;
         }
       } catch (_) {}
@@ -455,6 +487,10 @@ class ClassVideoService {
     final isNativeMobile = !kIsWeb &&
         (defaultTargetPlatform == TargetPlatform.iOS ||
             defaultTargetPlatform == TargetPlatform.android);
+    final isDesktopWeb = kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.macOS ||
+            defaultTargetPlatform == TargetPlatform.windows ||
+            defaultTargetPlatform == TargetPlatform.linux);
     final isTeacherForShift = uid == shift.teacherId;
     if (isNativeMobile && isTeacherForShift) {
       final userData = await UserRoleService.getCurrentUserData();
@@ -504,6 +540,7 @@ class ClassVideoService {
       if (shift.usesZoom) {
         final joinInfo = await getZoomJoinInfo(
           shift.id,
+          clientPlatform: isNativeMobile ? 'native_mobile' : null,
           fallbackError: l10n.classVideoConnectFailed,
           unauthenticatedError: l10n.pleaseSignInAgainToJoin,
         );
@@ -536,12 +573,17 @@ class ClassVideoService {
               meetingNumber: joinInfo.meetingNumber!,
               password: joinInfo.password ?? '',
               displayName: joinInfo.displayName ?? 'Participant',
+              nativeDisplayName: joinInfo.nativeDisplayName,
+              routingDisplayName: joinInfo.routingDisplayName,
               shiftName: joinInfo.shiftName ?? 'Class',
               customerKey: joinInfo.customerKey ?? uid,
               joinUrl: joinInfo.joinUrl,
               breakoutRoomName: joinInfo.breakoutRoomName,
               breakoutRoomKey: joinInfo.breakoutRoomKey,
               autoJoinBreakoutRoom: joinInfo.autoJoinBreakoutRoom,
+              classEndsAt: joinInfo.classEndsAt,
+              preferDesktopZoomApp:
+                  _shouldPreferDesktopZoomApp(isDesktopWeb, joinInfo),
             ),
           ),
         );
@@ -652,6 +694,32 @@ class ClassVideoService {
       'getRealtimeKitGuestJoin',
       params,
     );
+  }
+
+  static Future<String?> _activeRoleForJoinRequest() async {
+    try {
+      final role =
+          (await UserRoleService.getCurrentUserRole())?.trim().toLowerCase();
+      return role == null || role.isEmpty ? null : role;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static bool _shouldPreferDesktopZoomApp(
+    bool isDesktopWeb,
+    ZoomClassJoinInfo joinInfo,
+  ) {
+    if (!isDesktopWeb) return false;
+    if (joinInfo.routingMode != 'hub' || !joinInfo.autoJoinBreakoutRoom) {
+      return false;
+    }
+    if ((joinInfo.routingDisplayName ?? '').trim().isEmpty) return false;
+    final role = (joinInfo.userRole ?? '').trim().toLowerCase();
+    return role == 'teacher' ||
+        role == 'admin' ||
+        role == 'super_admin' ||
+        role == 'admin_teacher';
   }
 
   static Future<void> _showLoading(BuildContext context) {

@@ -1,5 +1,6 @@
 const path = require('path');
-const { pathToFileURL } = require('url');
+const fs = require('fs/promises');
+const http = require('http');
 const { chromium } = require('playwright');
 
 const lane = Number(process.env.ZOOM_HUB_LANE || process.argv[2] || 0);
@@ -19,6 +20,8 @@ if (!botKey) {
 }
 
 let browser;
+let controllerServer;
+let controllerBaseUrl;
 const sessions = new Map();
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -56,8 +59,52 @@ async function fetchJson(pathname, options = {}) {
   return body;
 }
 
-function controllerUrl(directive) {
-  const url = new URL(pathToFileURL(path.join(__dirname, 'bot_controller.html')).href);
+function contentTypeFor(filePath) {
+  if (filePath.endsWith('.html')) return 'text/html; charset=utf-8';
+  if (filePath.endsWith('.js')) return 'application/javascript; charset=utf-8';
+  if (filePath.endsWith('.css')) return 'text/css; charset=utf-8';
+  return 'application/octet-stream';
+}
+
+async function ensureControllerServer() {
+  if (controllerBaseUrl) return controllerBaseUrl;
+  const allowedFiles = new Set(['bot_controller.html', 'routing.js']);
+  controllerServer = http.createServer(async (request, response) => {
+    try {
+      const url = new URL(request.url || '/', 'http://127.0.0.1');
+      const fileName = url.pathname === '/' ? 'bot_controller.html' : path.basename(url.pathname);
+      if (!allowedFiles.has(fileName)) {
+        response.writeHead(404);
+        response.end('not found');
+        return;
+      }
+      const filePath = path.join(__dirname, fileName);
+      const body = await fs.readFile(filePath);
+      response.writeHead(200, {
+        'content-type': contentTypeFor(filePath),
+        'cache-control': 'no-store',
+      });
+      response.end(body);
+    } catch (error) {
+      response.writeHead(500);
+      response.end(serializeError(error));
+    }
+  });
+  await new Promise((resolve, reject) => {
+    controllerServer.once('error', reject);
+    controllerServer.listen(0, '127.0.0.1', () => {
+      controllerServer.off('error', reject);
+      resolve();
+    });
+  });
+  const address = controllerServer.address();
+  controllerBaseUrl = `http://127.0.0.1:${address.port}`;
+  return controllerBaseUrl;
+}
+
+async function controllerUrl(directive) {
+  const baseUrl = await ensureControllerServer();
+  const url = new URL('/bot_controller.html', baseUrl);
   const params = url.searchParams;
   params.set('functionBaseUrl', functionBaseUrl);
   params.set('botKey', botKey);
@@ -111,16 +158,23 @@ async function startHub(directive) {
     } catch (_) {}
   });
   page.on('close', () => {
+    const session = sessions.get(directive.hubDocId);
+    if (session && session.controlWakeTimer) clearInterval(session.controlWakeTimer);
     sessions.delete(directive.hubDocId);
   });
+
+  const controlWakeTimer = setInterval(() => {
+    page.mouse.move(320, 460).catch(() => {});
+  }, 2000);
 
   sessions.set(directive.hubDocId, {
     context,
     page,
+    controlWakeTimer,
     windowEnd: directive.windowEnd ? new Date(directive.windowEnd).getTime() : null,
   });
 
-  await page.goto(controllerUrl(directive), { waitUntil: 'domcontentloaded', timeout: 60000 });
+  await page.goto(await controllerUrl(directive), { waitUntil: 'domcontentloaded', timeout: 60000 });
   console.log(`[lane ${lane}] started hub ${directive.hubDocId}`);
 }
 
@@ -152,6 +206,7 @@ async function closeExpiredSessions(activeIds) {
     const inactive = !activeIds.has(hubDocId);
     if (!expired && !inactive) continue;
     await leaveSession(session);
+    if (session.controlWakeTimer) clearInterval(session.controlWakeTimer);
     try {
       await session.context.close();
     } catch (error) {
@@ -167,12 +222,18 @@ async function closeExpiredSessions(activeIds) {
 async function shutdown() {
   for (const session of sessions.values()) {
     await leaveSession(session);
+    if (session.controlWakeTimer) clearInterval(session.controlWakeTimer);
     try {
       await session.context.close();
     } catch (_) {}
   }
   sessions.clear();
   if (browser) await browser.close().catch(() => {});
+  if (controllerServer) {
+    await new Promise((resolve) => controllerServer.close(resolve)).catch(() => {});
+    controllerServer = null;
+    controllerBaseUrl = '';
+  }
 }
 
 async function runOnce() {

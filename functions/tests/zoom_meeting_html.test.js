@@ -69,6 +69,97 @@ describe('zoom_meeting.html', () => {
     expect(html).not.toContain('rectsOverlap(shieldRect, rect)');
   });
 
+  test('Zoom Share Screen controls remain available when the SDK renders them', () => {
+    expect(html).toContain('screenShare: true');
+    expect(html).toContain('sharingMode: \'both\'');
+    expect(html).toContain('showPureSharingContent: false');
+    expect(html).toContain('disablePictureInPicture: false');
+    expect(html).toContain('@media (max-width: 640px), (pointer: coarse)');
+    expect(html).toContain('overflow-x: auto !important');
+    expect(html).toContain('-webkit-overflow-scrolling: touch');
+    expect(html).toContain('#zmmtg-root button[aria-label*="Share" i]');
+    expect(html).toContain('screenShareControlPattern');
+    expect(html).toContain('share screen|screen share|share content|share');
+    expect(html).toContain('!screenShareControlPattern.test(testText)');
+    expect(html).toContain('if (isZoomAllowedUtilityControl(control)) continue');
+  });
+
+  test('screen share does not force-refocus the Zoom tab', () => {
+    expect(html).toContain('installScreenShareFocusGuard');
+    expect(html).toContain('navigator.mediaDevices');
+    expect(html).toContain('mediaDevices.getDisplayMedia');
+    expect(html).toContain('__alluwalFocusGuardInstalled');
+    expect(html).toContain('window.CaptureController');
+    expect(html).toContain("controller.setFocusBehavior('no-focus-change')");
+    expect(html).not.toContain('window.focus();');
+    expect(html).not.toContain('focusClassroomAfterScreenSharePrompt');
+  });
+
+  test('picture-in-picture uses a page-owned video that survives Zoom re-renders', () => {
+    expect(html).toContain('installAutomaticPictureInPicture');
+    expect(html).toContain('__alluwalAutomaticPictureInPictureInstalled');
+    // PiP must target an element this page owns and never detaches — PiP on a
+    // Zoom-owned <video> closes the PiP window the moment the SDK re-renders it.
+    expect(html).toContain('alluwalPipVideo');
+    expect(html).toContain('alluwalPipCanvas');
+    expect(html).toContain('pipCanvas.captureStream(15)');
+    expect(html).toContain('pipVideo.autoPictureInPicture = true');
+    expect(html).toContain('pipVideo.requestPictureInPicture()');
+    expect(html).not.toContain('video.requestPictureInPicture()');
+    // Zoom-owned videos are PiP-DISABLED so Chrome auto-PiP can only pick our
+    // element, and our mediaSession handler is re-asserted so the SDK cannot
+    // replace it after load.
+    expect(html).toContain('suppressZoomOwnedPictureInPicture');
+    expect(html).toContain('video.disablePictureInPicture = true');
+    expect(html).toContain('registerEnterPictureInPictureHandler');
+    expect(html).toContain("pipVideo.addEventListener('leavepictureinpicture'");
+    // Source is hot-swapped (video srcObject preferred, canvas capture fallback)
+    // without closing the PiP window.
+    expect(html).toContain('feedPipVideo');
+    expect(html).toContain('bestZoomVideoStream');
+    expect(html).toContain('bestZoomDrawableElement');
+    expect(html).toContain('drawPipCanvasFrame');
+    expect(html).toContain('mediaFrameQuality');
+    expect(html).toContain('frameSampleCanvas');
+    expect(html).toContain('blankAvatarLike');
+    expect(html).toContain('cameraLikeScore');
+    expect(html).toContain('nonDarkRatio');
+    expect(html).toContain('captureStream');
+    expect(html).toContain('isActiveScreenShareStream');
+    expect(html).toContain('participantCandidateScore');
+    expect(html).toContain('sharedContentContextPattern');
+    expect(html).toContain('participantVideoContextPattern');
+    expect(html).toContain('areaRatio > 0.35');
+    expect(html).toContain('candidate.score > 0');
+    expect(html).toContain('window.__alluwalPipDebug');
+    expect(html).toContain('pipVideo');
+    expect(html).toContain('pipCanvas');
+    expect(html).toContain('try { feedPipVideo(); } catch (_) {}');
+    expect(html).toContain('try { requestZoomPictureInPicture(); } catch (_) {}');
+    expect(html).toContain("navigator.mediaSession.setActionHandler('enterpictureinpicture'");
+    expect(html).toContain('requestZoomPictureInPicture');
+    expect(html).toContain("document.addEventListener('visibilitychange'");
+    // Only the active sharer's hidden-tab path auto-attempts PiP.
+    expect(html).toContain('isScreenSharing');
+    expect(html).toContain('trackScreenShareStream');
+    // Deterministic gesture path: auto-PiP eligibility is Chrome's call and can
+    // simply never fire for screen-share-only sessions, so a button shown while
+    // sharing opens the floating view with a guaranteed user gesture — and the
+    // page must NOT auto-exit PiP when the tab becomes visible again.
+    expect(html).toContain('alluwalPipButton');
+    expect(html).toContain('Keep participants visible');
+    expect(html).toContain('updatePipButton');
+    expect(html).not.toContain('document.exitPictureInPicture()');
+  });
+
+  test('mobile share screen fix stays inside the web meeting page', () => {
+    expect(html).not.toContain('id="openNativeZoomButton"');
+    expect(html).not.toContain("params.get('openNativeZoomForShareText')");
+    expect(html).not.toContain('const shouldShowNativeZoomShareFallback');
+    expect(html).not.toContain('location.assign(joinUrl)');
+    expect(html).not.toContain('zoomOpenInZoomAppForScreenShare');
+  });
+
   test('hub classroom stays hidden until private breakout room is confirmed', () => {
     expect(html).toContain('alluwal-private-routing-pending');
     expect(html).toContain('body.alluwal-private-routing-pending #zmmtg-root');
@@ -80,6 +171,38 @@ describe('zoom_meeting.html', () => {
     expect(html).toContain("params.get('routingStillConnectingText')");
     expect(html).toContain("params.get('routingHelpText')");
     expect(html).not.toContain('hideAfterMs: meetingJoinConfirmed ? joinedRoutingStatusMs : 0');
+  });
+
+  test('private routing guard auto-confirms Zoom no-audio-video prompt', () => {
+    expect(html).toContain('autoConfirmNoAudioVideoPrompt');
+    expect(html).toContain('privateRoutingPending');
+    expect(html).toContain("Are you sure you don't want audio or video");
+    expect(html).toContain('Continue without audio or video');
+    expect(html).toContain('button.click()');
+    expect(html).toContain('autoConfirmNoAudioVideoPrompt();');
+    expect(html).toContain('pointer-events: none !important');
+    expect(html).not.toContain('body.alluwal-private-routing-pending #zmmtg-root {\n      opacity: 0 !important;\n      pointer-events: auto !important;');
+  });
+
+  test('closing or navigating away silently asks Zoom to leave the meeting', () => {
+    expect(html).toContain('requestZoomLeave');
+    expect(html).toContain('leaveZoomSilently');
+    expect(html).toContain('zoomLeaveRequested');
+    expect(html).toContain('clearZoomSession();');
+    expect(html).toContain('ZoomMtg.leaveMeeting');
+    expect(html).toContain("window.addEventListener('pagehide', leaveZoomSilently");
+    expect(html).toContain("window.addEventListener('beforeunload', leaveZoomSilently");
+    expect(html).not.toContain("window.addEventListener('visibilitychange', leaveZoomSilently");
+  });
+
+  test('breakout room checks understand Zoom customer key field variants', () => {
+    expect(html).toContain('participantCustomerKey');
+    expect(html).toContain('participant.customerKey');
+    expect(html).toContain('participant.customer_key');
+    expect(html).toContain('participant.customerKeyValue');
+    expect(html).toContain('participant.customer_key_value');
+    expect(html).toContain('participant.customUserId');
+    expect(html).toContain('participant.custom_user_id');
   });
 
   test('participant page does not expose hub assignments or host breakout APIs', () => {
@@ -104,7 +227,28 @@ describe('zoom_meeting.html', () => {
     expect(html).toContain('error && error.reason');
     expect(html).toContain('error && error.errorMessage');
     expect(html).toContain('Code ${error.errorCode}');
-    expect(html).toContain('setStatus(formatZoomError(joinErrorText, error))');
+    // Init errors still surface the formatted Zoom reason.
+    expect(html).toContain('setStatus(formatZoomError(initErrorText, error))');
+  });
+
+  test('shows a class-ending countdown before participants are removed at the time limit', () => {
+    expect(html).toContain('classEndsAt');
+    expect(html).toContain('startClassCountdown');
+    expect(html).toContain('COUNTDOWN_WARN_MS');
+    expect(html).toContain('classEndingSoonText');
+    expect(html).toContain('classEndedText');
+    // Countdown starts once the participant is actually in the meeting.
+    expect(html).toContain('startClassCountdown();');
+  });
+
+  test('Zoom join failures auto-retry with backoff instead of hard-failing the class', () => {
+    // A hub can be briefly unavailable (block-boundary handoff or meeting reset)
+    // — the class must keep the connecting layer and reconnect on its own.
+    expect(html).toContain('scheduleJoinRetry');
+    expect(html).toContain('retryStatusForElapsed');
+    expect(html).toContain('joinAttempts');
+    // The join-failure path retries rather than showing a terminal join error.
+    expect(html).toContain('Transient hub unavailability');
   });
 
   test('Zoom active-browser concurrency errors ask older classroom tabs to leave before retrying', () => {

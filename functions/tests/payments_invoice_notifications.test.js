@@ -19,6 +19,10 @@ admin.firestore.FieldValue = {
   serverTimestamp: jest.fn(() => ({__type: 'serverTimestamp'})),
   delete: jest.fn(() => ({__type: 'delete'})),
 };
+admin.firestore.Timestamp = {
+  ...(admin.firestore.Timestamp || {}),
+  fromDate: jest.fn((date) => ({__type: 'timestamp', date, toDate: () => date})),
+};
 
 const buildDb = ({users = {}} = {}) => {
   const historyAdds = [];
@@ -48,6 +52,163 @@ const buildDb = ({users = {}} = {}) => {
     }),
     historyAdds,
     userSets,
+  };
+
+  return db;
+};
+
+const buildManualPaymentDb = ({users = {}, invoices = {}} = {}) => {
+  const historyAdds = [];
+  const writes = [];
+  let paymentCounter = 0;
+
+  const docRef = (collectionName, id) => ({collectionName, id});
+
+  const db = {
+    collection: jest.fn((name) => {
+      if (name === 'users') {
+        return {
+          doc: (id) => ({
+            ...docRef(name, id),
+            get: async () => ({
+              exists: Object.prototype.hasOwnProperty.call(users, id),
+              data: () => users[id],
+            }),
+          }),
+        };
+      }
+
+      if (name === 'invoices') {
+        return {
+          doc: (id) => docRef(name, id),
+        };
+      }
+
+      if (name === 'payments') {
+        return {
+          doc: () => docRef(name, `payment_${++paymentCounter}`),
+        };
+      }
+
+      if (name === 'notification_history') {
+        return {
+          add: async (data) => historyAdds.push(data),
+        };
+      }
+
+      throw new Error(`Unexpected collection: ${name}`);
+    }),
+    runTransaction: async (handler) => {
+      const tx = {
+        get: async (ref) => {
+          if (ref.collectionName === 'invoices') {
+            return {
+              exists: Object.prototype.hasOwnProperty.call(invoices, ref.id),
+              data: () => invoices[ref.id],
+            };
+          }
+          throw new Error(`Unexpected tx.get: ${ref.collectionName}/${ref.id}`);
+        },
+        set: (ref, data, options) => {
+          writes.push({ref, data, options});
+          if (ref.collectionName === 'invoices') {
+            invoices[ref.id] = {...(invoices[ref.id] || {}), ...data};
+          }
+        },
+      };
+      return handler(tx);
+    },
+    historyAdds,
+    writes,
+    invoices,
+  };
+
+  return db;
+};
+
+const buildRecurringDb = ({plans = {}, invoices = {}, counters = {}} = {}) => {
+  const writes = [];
+  const docRef = (collectionName, id) => ({collectionName, id});
+
+  const applySet = (ref, data, options) => {
+    writes.push({ref, data, options});
+    if (ref.collectionName === 'recurring_billing_plans') {
+      plans[ref.id] =
+        options?.merge === true ? {...(plans[ref.id] || {}), ...data} : data;
+    }
+    if (ref.collectionName === 'invoices') {
+      invoices[ref.id] =
+        options?.merge === true ? {...(invoices[ref.id] || {}), ...data} : data;
+    }
+    if (ref.collectionName === 'invoice_counters') {
+      counters[ref.id] =
+        options?.merge === true ? {...(counters[ref.id] || {}), ...data} : data;
+    }
+  };
+
+  const db = {
+    collection: jest.fn((name) => {
+      if (name === 'recurring_billing_plans') {
+        return {
+          doc: (id) => ({
+            ...docRef(name, id),
+            set: async (data, options) =>
+              applySet(docRef(name, id), data, options),
+          }),
+          where: () => ({
+            limit: () => ({
+              get: async () => ({
+                docs: Object.entries(plans)
+                  .filter(([, data]) => data.status === 'active')
+                  .map(([id, data]) => ({
+                    id,
+                    data: () => data,
+                  })),
+              }),
+            }),
+          }),
+        };
+      }
+
+      if (name === 'invoices' || name === 'invoice_counters') {
+        return {
+          doc: (id) => docRef(name, id),
+        };
+      }
+
+      throw new Error(`Unexpected collection: ${name}`);
+    }),
+    runTransaction: async (handler) => {
+      const tx = {
+        get: async (ref) => {
+          if (ref.collectionName === 'recurring_billing_plans') {
+            return {
+              exists: Object.prototype.hasOwnProperty.call(plans, ref.id),
+              data: () => plans[ref.id],
+            };
+          }
+          if (ref.collectionName === 'invoices') {
+            return {
+              exists: Object.prototype.hasOwnProperty.call(invoices, ref.id),
+              data: () => invoices[ref.id],
+            };
+          }
+          if (ref.collectionName === 'invoice_counters') {
+            return {
+              exists: Object.prototype.hasOwnProperty.call(counters, ref.id),
+              data: () => counters[ref.id],
+            };
+          }
+          throw new Error(`Unexpected tx.get: ${ref.collectionName}/${ref.id}`);
+        },
+        set: (ref, data, options) => applySet(ref, data, options),
+      };
+      return handler(tx);
+    },
+    writes,
+    plans,
+    invoices,
+    counters,
   };
 
   return db;
@@ -263,6 +424,208 @@ describe('payments invoice notifications', () => {
           paymentId: 'payment_1',
           invoiceId: 'invoice_1',
         }),
+      })
+    );
+  });
+
+  test('marks the invoice when notification sending fails', async () => {
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    sendInvoiceCreatedEmail.mockRejectedValueOnce(new Error('SMTP down'));
+    admin.messaging.mockReturnValue({
+      sendEachForMulticast: jest.fn(),
+    });
+
+    const db = buildDb({
+      users: {
+        parent_1: {
+          first_name: 'Amina',
+          last_name: 'Diallo',
+          email: 'parent@example.com',
+        },
+      },
+    });
+    admin.firestore.mockReturnValue(db);
+
+    const writes = [];
+    const {onInvoiceCreated} = require('../handlers/payments');
+    await onInvoiceCreated({
+      params: {invoiceId: 'invoice_failed'},
+      data: {
+        data: () => ({
+          parent_id: 'parent_1',
+          invoice_number: 'INV-2026-030',
+          total_amount: 100,
+          paid_amount: 0,
+          currency: 'USD',
+        }),
+        ref: {
+          set: async (data, options) => writes.push({data, options}),
+        },
+      },
+    });
+
+    expect(writes).toHaveLength(1);
+    expect(writes[0].options).toEqual({merge: true});
+    expect(writes[0].data.notification_status).toBe('failed');
+    expect(writes[0].data.notification_result).toEqual(
+      expect.objectContaining({
+        success: true,
+        email_sent: false,
+        push_sent: false,
+        errors: expect.arrayContaining(['email: SMTP down']),
+      })
+    );
+    expect(errorSpy).toHaveBeenCalledWith(
+      '[payments] Failed to send invoice email for invoice_failed:',
+      expect.any(Error)
+    );
+    errorSpy.mockRestore();
+  });
+
+  test('records a manual Zelle payment and clears the invoice balance', async () => {
+    const db = buildManualPaymentDb({
+      users: {
+        admin_1: {role: 'admin'},
+        parent_1: {
+          first_name: 'Amina',
+          last_name: 'Diallo',
+          email: 'parent@example.com',
+        },
+      },
+      invoices: {
+        invoice_1: {
+          invoice_number: 'INV-2026-020',
+          parent_id: 'parent_1',
+          student_id: 'student_1',
+          total_amount: 100,
+          paid_amount: 40,
+          currency: 'USD',
+          status: 'overdue',
+          due_date: {toDate: () => new Date('2026-07-01T00:00:00.000Z')},
+        },
+      },
+    });
+    admin.firestore.mockReturnValue(db);
+
+    const {recordManualPayment} = require('../handlers/payments');
+    const result = await recordManualPayment({
+      auth: {uid: 'admin_1'},
+      data: {
+        invoiceId: 'invoice_1',
+        amount: 60,
+        paymentMethod: 'zelle',
+        reference: 'ZELLE-123',
+        receivedAt: '2026-07-04T00:00:00.000Z',
+      },
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.invoiceStatus).toBe('paid');
+    expect(db.invoices.invoice_1).toEqual(
+      expect.objectContaining({
+        paid_amount: 100,
+        status: 'paid',
+      })
+    );
+    expect(db.writes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          ref: expect.objectContaining({collectionName: 'payments'}),
+          data: expect.objectContaining({
+            invoice_id: 'invoice_1',
+            parent_id: 'parent_1',
+            amount: 60,
+            status: 'completed',
+            payment_method: 'zelle',
+            payment_source: 'manual',
+            reference_number: 'ZELLE-123',
+            created_by: 'admin_1',
+          }),
+        }),
+        expect.objectContaining({
+          ref: expect.objectContaining({
+            collectionName: 'invoices',
+            id: 'invoice_1',
+          }),
+          data: expect.objectContaining({
+            paid_amount: 100,
+            status: 'paid',
+          }),
+          options: {merge: true},
+        }),
+      ])
+    );
+    expect(sendPaymentConfirmationEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: 'parent@example.com',
+        invoiceNumber: 'INV-2026-020',
+        amountPaid: '$60.00',
+        paymentMethod: 'Zelle',
+      })
+    );
+  });
+
+  test('generates due recurring invoices with the full billing period', async () => {
+    const db = buildRecurringDb({
+      counters: {
+        2026: {next: 31},
+      },
+      plans: {
+        plan_1: {
+          parent_id: 'parent_1',
+          student_id: 'student_1',
+          status: 'active',
+          currency: 'USD',
+          next_period: '2026-08',
+          billing_months: 2,
+          due_day: 5,
+          access_cutoff_days_after_due: 2,
+          base_items: [
+            {
+              description: 'Tuition - Student One',
+              quantity: 1,
+              unit_price: 100,
+              total: 100,
+            },
+          ],
+          created_by: 'admin_1',
+        },
+      },
+    });
+    admin.firestore.mockReturnValue(db);
+
+    const {_runRecurringInvoiceGeneration} = require('../handlers/payments');
+    const result = await _runRecurringInvoiceGeneration({
+      db,
+      now: new Date('2026-08-01T00:00:00.000Z'),
+    });
+
+    expect(result.invoicesCreated).toBe(1);
+    expect(db.plans.plan_1).toEqual(
+      expect.objectContaining({
+        next_period: '2026-10',
+        last_invoice_id: 'recurring_plan_1_2026-08',
+        last_invoice_number: 'INV-2026-031',
+      })
+    );
+    expect(db.invoices['recurring_plan_1_2026-08']).toEqual(
+      expect.objectContaining({
+        invoice_number: 'INV-2026-031',
+        parent_id: 'parent_1',
+        student_id: 'student_1',
+        total_amount: 200,
+        period: '2026-08..2026-09',
+        period_start: '2026-08',
+        period_end: '2026-09',
+        billing_months: 2,
+        recurring_plan_id: 'plan_1',
+        notification_status: 'pending',
+      })
+    );
+    expect(db.invoices['recurring_plan_1_2026-08'].items[0]).toEqual(
+      expect.objectContaining({
+        description: 'Tuition - Student One · Aug 2026 - Sep 2026',
+        total: 200,
       })
     );
   });

@@ -298,6 +298,40 @@ describe('RealtimeKit class access', () => {
     );
   });
 
+  test('allows a teacher auth alias to join when the verified email matches the assigned teacher record', async () => {
+    mockUsers.teacher_alias_doc = {
+      first_name: 'Teacher',
+      last_name: 'Alias',
+      user_type: 'teacher',
+      email: 'teacher.alias@example.com',
+    };
+    mockShifts.shift_alias = {
+      teacher_id: 'teacher_alias_doc',
+      student_ids: ['student_1'],
+      shift_start: new Date(Date.now() - 5 * 60 * 1000),
+      shift_end: new Date(Date.now() + 55 * 60 * 1000),
+      subject_display_name: 'Quran',
+    };
+
+    const result = await getRealtimeKitJoinToken({
+      auth: {
+        uid: 'auth_uid_for_teacher_alias',
+        token: { email: 'teacher.alias@example.com' },
+      },
+      data: { shiftId: 'shift_alias' },
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.userRole).toBe('teacher');
+    expect(mockRealtimeKitClient.addParticipant).toHaveBeenCalledWith(
+      'meeting_1',
+      expect.objectContaining({
+        custom_participant_id: 'auth_uid_for_teacher_alias',
+        preset_name: 'teacher',
+      }),
+    );
+  });
+
   test('recording is disabled by default for teacher joins', async () => {
     const result = await getRealtimeKitJoinToken({
       auth: { uid: 'teacher_1' },
@@ -480,6 +514,45 @@ describe('RealtimeKit class access', () => {
     const result = await getRealtimeKitJoinToken({
       auth: { uid: 'admin_1' },
       data: { shiftId: 'shift_1' },
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.userRole).toBe('admin');
+    expect(mockRealtimeKitClient.addParticipant).toHaveBeenCalledWith(
+      'meeting_1',
+      expect.objectContaining({
+        custom_participant_id: 'admin_1',
+        preset_name: 'teacher',
+      }),
+    );
+  });
+
+  test('honors active student role for an admin who is assigned as a student', async () => {
+    mockShifts.shift_1.student_ids = ['student_1', 'admin_1'];
+
+    const result = await getRealtimeKitJoinToken({
+      auth: { uid: 'admin_1' },
+      data: { shiftId: 'shift_1', activeRole: 'student' },
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.userRole).toBe('student');
+    expect(mockRealtimeKitClient.addParticipant).toHaveBeenCalledWith(
+      'meeting_1',
+      expect.objectContaining({
+        custom_participant_id: 'admin_1',
+        preset_name: 'student',
+      }),
+    );
+  });
+
+  test('does not apply student cutoff when the same assigned user joins as admin', async () => {
+    mockUsers.admin_1.access_suspended = true;
+    mockShifts.shift_1.student_ids = ['student_1', 'admin_1'];
+
+    const result = await getRealtimeKitJoinToken({
+      auth: { uid: 'admin_1' },
+      data: { shiftId: 'shift_1', activeRole: 'admin' },
     });
 
     expect(result.success).toBe(true);
@@ -745,6 +818,13 @@ describe('RealtimeKit class access', () => {
         zoom_participant_name: 'Admin One',
         presence_windows: [{ join_at: joinedAt, leave_at: null }],
       },
+      session_hub_bot: {
+        shift_id: 'shift_1',
+        user_id: 'zoom_hub_bot_lane_1',
+        role: 'participant',
+        zoom_participant_name: 'Alluwal Hub Bot Lane 1',
+        presence_windows: [{ join_at: joinedAt, leave_at: null }],
+      },
       session_closed: {
         shift_id: 'shift_1',
         user_id: 'outsider_1',
@@ -766,6 +846,9 @@ describe('RealtimeKit class access', () => {
       expect.objectContaining({ identity: 'teacher_1', role: 'teacher' }),
       expect.objectContaining({ identity: 'student_1', role: 'student' }),
       expect.objectContaining({ identity: 'admin_1', role: 'admin' }),
+    ]));
+    expect(result.participants).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ identity: 'zoom_hub_bot_lane_1' }),
     ]));
     expect(mockRealtimeKitClient.listMeetingParticipants).not.toHaveBeenCalled();
   });
