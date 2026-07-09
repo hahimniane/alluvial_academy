@@ -1637,6 +1637,33 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
               color: Colors.white.withOpacity(0.8),
             ),
           ),
+          if (isClockedIn) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.16),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.timer_outlined,
+                      color: Colors.white, size: 20),
+                  const SizedBox(width: 10),
+                  Text(
+                    AppLocalizations.of(context)!
+                        .shiftElapsedTime(_activeSessionElapsed(shift)),
+                    style: GoogleFonts.inter(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 16),
           Row(
             children: [
@@ -1697,6 +1724,25 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
         ],
       ),
     );
+  }
+
+  String _activeSessionElapsed(TeachingShift shift) {
+    final clockIn = shift.clockInTime ?? shift.shiftStart;
+    final effectiveStart =
+        clockIn.isBefore(shift.shiftStart) ? shift.shiftStart : clockIn;
+    final now = DateTime.now();
+    final elapsed = now.isBefore(effectiveStart)
+        ? Duration.zero
+        : now.difference(effectiveStart);
+    return _formatElapsedDuration(elapsed);
+  }
+
+  String _formatElapsedDuration(Duration duration) {
+    String twoDigits(int value) => value.toString().padLeft(2, '0');
+    final hours = twoDigits(duration.inHours);
+    final minutes = twoDigits(duration.inMinutes.remainder(60));
+    final seconds = twoDigits(duration.inSeconds.remainder(60));
+    return '$hours:$minutes:$seconds';
   }
 
   Widget _buildRecentTasksSection() {

@@ -74,7 +74,8 @@ class ShiftTimesheetService {
   }
 
   static bool requiresClockOutNote(TeachingShift shift, {DateTime? at}) {
-    return clockOutStatusForShift(shift, at: at) != 'on_time';
+    return isLeadershipShift(shift) &&
+        clockOutStatusForShift(shift, at: at) != 'on_time';
   }
 
   static String clockInStatusForShift(TeachingShift shift, {DateTime? at}) {
@@ -872,7 +873,7 @@ class ShiftTimesheetService {
       final now = DateTime.now(); // Actual clock out time
       final clockOutStatus = clockOutStatusForShift(shift, at: now);
       final clockOutDeviation = clockOutDeviationMinutes(shift, at: now);
-      final clockOutRequiresNote = clockOutStatus != 'on_time';
+      final clockOutRequiresNote = requiresClockOutNote(shift, at: now);
       final cleanEmployeeNote = employeeNote?.trim();
 
       if (clockOutRequiresNote &&
