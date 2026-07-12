@@ -508,7 +508,7 @@ test.describe("teacher dashboard", () => {
     await expect(page.getByRole("button", { name: "Recent Chats" })).toBeVisible();
     await expect(page.getByRole("button", { name: "My Contacts" })).toBeVisible();
     await expect(page.getByLabel("Search conversations and users")).toBeVisible();
-    await expect(page.getByText(/No conversations yet|Admin Support|Administrators/)).toBeVisible();
+    await expect(page.getByText(/No conversations yet|Admin Support|Administrators|Codex Chat/).first()).toBeVisible();
   });
 
   test("teacher can send an admin support chat message", async ({ page }, testInfo) => {

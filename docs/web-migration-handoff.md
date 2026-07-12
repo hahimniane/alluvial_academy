@@ -3331,6 +3331,20 @@ render and the native Next authenticated CMS write/upload tests pass against
   real dev Zoom meeting/hub session is still not available for destructive live
   acceptance; production remains read-only.
 
+### Teacher final regression gate (2026-07-12)
+
+- The full Next.js Playwright run completed with 171 passing tests, 237
+  intentionally skipped tests, and no failures across Chromium, mobile Chrome,
+  and WebKit projects. The enabled teacher coverage includes authenticated
+  navigation, workflow reads and mutations, error recovery, and the independent
+  desktop sidebar/content scroll regions.
+- `npm run typecheck`, the production-style `npm run build`, Hostinger packaging,
+  and `git diff --check` all pass. The local review server remains available at
+  `http://localhost:3021/teacher/` against `alluwal-dev`.
+- No Flutter files, Firebase Functions, production Firebase data, Zoom routing,
+  or deployment targets were changed as part of this gate. Real two-party Zoom
+  hub acceptance remains the only external live-session verification item.
+
 ## Post-parity additions (2026-07-09)
 
 These are deliberate improvements beyond Flutter parity, requested by the
