@@ -74,7 +74,7 @@ test.describe("public route parity smoke", () => {
   });
 
   test("team directory filters and profile sheet work", async ({ page }) => {
-    await page.goto("/team/");
+    await page.goto("/team/", { waitUntil: "commit" });
     await expect(page.getByRole("heading", { name: /Meet the people/i })).toBeVisible();
 
     await page.getByRole("button", { name: /^Teachers\s+Global Knowledge Carriers\s+\d+$/ }).click();

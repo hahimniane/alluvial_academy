@@ -3125,6 +3125,27 @@ render and the native Next authenticated CMS write/upload tests pass against
   Typecheck, the production-style Next build, Hostinger packaging, and
   `git diff --check` passed.
 
+### Teacher final integration gate (2026-07-12)
+
+- Combined the classroom, transactional, forms/chat, and content/shell slices
+  on `feature/teacher-final-cutover` without changing Flutter source or any
+  production Firebase resource.
+- Integrated teacher coverage passed across Chromium, mobile Chrome, and
+  WebKit (47 passed, 73 intentionally skipped). RealtimeKit configuration,
+  classroom access, and task status tests passed (39 tests).
+- A repository-wide run exposed a mobile enrollment test whose Continue button
+  was covered by the dismissible Quran player and one isolated WebKit
+  navigation hang. The test now dismisses the player through its public control;
+  both failed cases passed when rerun in isolation. The clean rerun completed
+  144 tests with 203 intentional skips; its sole failure was a different WebKit
+  static-page navigation hang on `/team/`, which passed immediately in
+  isolation after switching the test to committed-document navigation. A final
+  sequential WebKit-only run reached 40 passes before the same non-deterministic
+  navigation hang moved to `/teacher/`; both routes pass in focused runs.
+- Next typecheck, production-style build, Hostinger packaging, and
+  `git diff --check` passed. No site, rule, Function, or Firebase deployment was
+  performed from the integration branch.
+
 ## Post-parity additions (2026-07-09)
 
 These are deliberate improvements beyond Flutter parity, requested by the
