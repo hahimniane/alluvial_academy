@@ -368,6 +368,7 @@ export function TeacherShell({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [canSwitchToAdmin, setCanSwitchToAdmin] = useState(false);
+  const [notificationCount, setNotificationCount] = useState(0);
   const normalizedSearch = searchQuery.trim().toLowerCase();
   const allSidebarItems = useMemo(() => teacherSections.flatMap((section) => section.items), []);
   const favoriteSidebarItems = allSidebarItems.filter((item) => favoritedItems.has(item.label));
@@ -427,6 +428,7 @@ export function TeacherShell({
         const roles = rolesForUserRecord(record);
         setCanSwitchToAdmin(roles.has("admin") || roles.has("super_admin"));
       });
+      void getDocs(query(collection(db, "audit_notifications"), where("teacherId", "==", user.uid), where("read", "==", false), limit(100))).then((snapshot) => setNotificationCount(snapshot.size)).catch(() => setNotificationCount(0));
     }
   }, []);
 
@@ -532,7 +534,7 @@ export function TeacherShell({
             <p className="text-sm font-bold text-[#64748B]">{breadcrumb}</p>
             <div className="flex items-center gap-3">
               <span className="inline-flex min-h-9 items-center rounded-full bg-[#0386FF] px-4 text-xs font-black text-white">Teacher</span>
-              <Bell size={20} className="text-[#64748B]" />
+              <Link href="/teacher/report/" aria-label={notificationCount ? `${notificationCount} unread report notification${notificationCount === 1 ? "" : "s"}` : "Open report notifications"} className="relative grid h-11 w-11 place-items-center rounded-xl text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#0386FF]"><Bell size={20} />{notificationCount ? <span className="absolute right-1 top-1 grid min-h-4 min-w-4 place-items-center rounded-full bg-red-500 px-1 text-[9px] font-black text-white">{notificationCount > 99 ? "99+" : notificationCount}</span> : null}</Link>
               <div className="relative">
                 <button type="button" aria-label="Open teacher account menu" aria-expanded={accountMenuOpen} onClick={() => setAccountMenuOpen((current) => !current)} className="flex min-h-11 items-center gap-3 rounded-xl px-2 hover:bg-[#F8FAFC]">
                   <span className="max-w-[240px] truncate text-sm font-semibold text-[#2563EB]">{summary.displayName}</span>

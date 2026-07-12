@@ -3336,6 +3336,13 @@ render and the native Next authenticated CMS write/upload tests pass against
   successful clock-in/out lifecycle. Readback confirmed both shift timestamps,
   one `shift_clock_in` timesheet, web/GPS metadata, and manual completion; the
   shift and timesheet were deleted. The Dashboard row now has no known gap.
+- The formerly inert desktop bell is now a labelled link to My Report and shows
+  the real unread `audit_notifications` count. Opening My Report attempts the
+  same teacher-owned read acknowledgement as Flutter. A disposable notification
+  verified count and navigation; deployed dev rules rejected the read update
+  despite the checked-in rule allowing it, so the badge correctly remained
+  unread. No rules were deployed and production was not touched; reconcile the
+  dev rules deployment before requiring read-clear acceptance.
 
 ### Teacher Zoom provider routing check (2026-07-12)
 

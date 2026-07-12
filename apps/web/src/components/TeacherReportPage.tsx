@@ -1,7 +1,7 @@
 "use client";
 
 import { onAuthStateChanged, type User } from "firebase/auth";
-import { collection, doc, getDoc, getDocs, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, query, serverTimestamp, updateDoc, where, writeBatch } from "firebase/firestore";
 import { AlertTriangle, BarChart3, CalendarDays, CheckCircle2, Clock3, Download, FileText, Menu, MessageSquare, RefreshCw, Send } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
@@ -183,6 +183,8 @@ async function loadAudits(uid: string, setAudits: (items: AuditData[]) => void, 
     setAudits(items);
     const months = items.map((item) => stringValue(item.yearMonth));
     setMonth(preferred && months.includes(preferred) ? preferred : months.includes(currentMonth()) ? currentMonth() : months[0] || currentMonth());
+    const unread = await getDocs(query(collection(db, "audit_notifications"), where("teacherId", "==", uid), where("read", "==", false))).catch(() => null);
+    if (unread?.docs.length) { const batch = writeBatch(db); unread.docs.forEach((item) => batch.update(item.ref, { read: true })); await batch.commit().catch(() => null); }
   } catch (cause) { setError(cause instanceof Error ? cause.message : "Please check your connection and try again."); }
   finally { setLoading(false); }
 }

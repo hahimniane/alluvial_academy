@@ -126,6 +126,15 @@ test.describe("teacher dashboard", () => {
     await expect(session.getByText(/Successfully clocked out/)).toBeVisible();
   });
 
+  test("teacher report notification badge opens the report", async ({ page }, testInfo) => {
+    skipUnlessDesktopTeacherE2EEnabled(testInfo.project.name);
+    test.skip(process.env.ALLUWAL_RUN_TEACHER_NOTIFICATION_E2E !== "1", "Enable only with the disposable audit notification fixture.");
+    await signInAsTeacher(page);
+    await page.getByRole("link", { name: "1 unread report notification" }).click();
+    await expect(page).toHaveURL(/\/teacher\/report\/$/);
+    await expect(page.getByRole("heading", { name: "My Performance Audit" })).toBeVisible();
+  });
+
   test("teacher account menu exposes role switch and logout", async ({ page }, testInfo) => {
     skipUnlessDesktopTeacherE2EEnabled(testInfo.project.name);
     await signInAsTeacher(page);
