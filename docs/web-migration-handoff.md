@@ -3316,6 +3316,21 @@ render and the native Next authenticated CMS write/upload tests pass against
   Admin role destination when present, sidebar persistence/reset, the separated
   scroll columns, mobile drawer navigation, quick actions, and metric rendering.
 
+### Teacher Zoom provider routing check (2026-07-12)
+
+- A disposable dev shift with `video_provider: zoom` exercised the Next
+  classroom provider branch. The callable response was mocked at the network
+  boundary to avoid invoking production-critical hub allocation or creating a
+  real Zoom meeting.
+- The browser routed into the existing `/zoom_meeting.html` host with Meeting
+  SDK credentials, customer identity, breakout room name/key, auto-join flag,
+  class-end timestamp, and `/teacher/classes/` return URL intact. Returning to
+  Classes rendered the native schedule again. The shift was deleted afterward.
+- This proves Next payload and return routing without modifying the Zoom hub,
+  bot lanes, meeting lifetimes, Flutter, Functions, or production Firebase. A
+  real dev Zoom meeting/hub session is still not available for destructive live
+  acceptance; production remains read-only.
+
 ## Post-parity additions (2026-07-09)
 
 These are deliberate improvements beyond Flutter parity, requested by the

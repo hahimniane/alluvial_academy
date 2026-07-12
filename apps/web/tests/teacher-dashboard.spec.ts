@@ -642,6 +642,37 @@ test.describe("teacher dashboard", () => {
     await expect(page.getByRole("link", { name: "Go to login" })).toHaveAttribute("href", "/login/");
   });
 
+  test("Zoom provider classroom routes through the existing Zoom host with a return path", async ({ page }, testInfo) => {
+    skipUnlessDesktopTeacherE2EEnabled(testInfo.project.name);
+    test.skip(process.env.ALLUWAL_RUN_TEACHER_ZOOM_ROUTING_E2E !== "1", "Enable only with the disposable dev Zoom-provider shift.");
+    await page.route("**/getZoomJoinInfo", (route) => route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({result: {
+        success: true,
+        meetingNumber: "12345678901",
+        password: "codex-pass",
+        signature: "codex-signature",
+        sdkKey: "codex-sdk-key",
+        displayName: "Codex CMS Staff",
+        customerKey: "uZyvgk7VBeRrhsZfYAzGfOSRCJo2",
+        shiftName: "Codex Zoom Routing QA",
+        breakoutRoomName: "Codex Student Room",
+        breakoutRoomKey: "codex-room-key",
+        autoJoinBreakoutRoom: true,
+        classEndsAtIso: "2026-07-12T06:00:00.000Z",
+      }}),
+    }));
+    await signInAsTeacher(page);
+    await page.goto("/teacher/classroom/?shiftId=codex_teacher_zoom_routing_qa");
+    await expect.poll(() => page.url()).toMatch(/\/zoom_meeting(?:\.html)?(?:\?join=\d+)?#/);
+    expect(page.url()).toContain("returnUrl=http%3A%2F%2F127.0.0.1%3A3021%2Fteacher%2Fclasses%2F");
+    expect(page.url()).toContain("breakoutRoomKey=codex-room-key");
+    expect(page.url()).toContain("autoJoinBreakoutRoom=1");
+    await page.goto("/teacher/classes/");
+    await expect(page.getByRole("heading", {name: "Classes", exact: true})).toBeVisible();
+  });
+
   test("requires a teacher sign-in before rendering recordings", async ({ page, browserName }) => {
     test.skip(browserName === "webkit", "WebKit intermittently hangs before committing teacher module static routes late in the full suite; Chromium and mobile Chrome cover the guard.");
     await gotoTeacherGuard(page, "/teacher/recordings/");
