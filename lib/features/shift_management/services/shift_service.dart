@@ -58,6 +58,31 @@ class ShiftGuardrailException implements Exception {
   String toString() => message;
 }
 
+/// Thrown when a create/update/reschedule would double-book a teacher.
+/// Carries the conflicting shift's details so the UI can tell the user
+/// exactly which class blocks the requested time.
+class ShiftOverlapException implements Exception {
+  final String conflictingShiftId;
+  final String conflictingShiftName;
+  final List<String> conflictingStudentNames;
+  final DateTime conflictingStart;
+  final DateTime conflictingEnd;
+
+  const ShiftOverlapException({
+    required this.conflictingShiftId,
+    required this.conflictingShiftName,
+    required this.conflictingStudentNames,
+    required this.conflictingStart,
+    required this.conflictingEnd,
+  });
+
+  @override
+  String toString() =>
+      'This time overlaps with "$conflictingShiftName" '
+      '(${conflictingStart.toLocal()} - ${conflictingEnd.toLocal()}). '
+      'A teacher cannot be in two classes at once.';
+}
+
 class ShiftService {
   /// Service responsible for managing teaching shifts, including creation,
   /// modification, deletion, and status updates (clock-in/out).
@@ -508,6 +533,11 @@ class ShiftService {
         }
 
         final existingShift = TeachingShift.fromFirestore(doc);
+
+        // Cancelled shifts free up their slot.
+        if (existingShift.status == ShiftStatus.cancelled) {
+          continue;
+        }
 
         // Check if shifts overlap
         // Two shifts overlap if:
@@ -1345,12 +1375,32 @@ class ShiftService {
     for (final doc in docs) {
       if (excludeShiftId != null && doc.id == excludeShiftId) continue;
       final existingShift = TeachingShift.fromFirestore(doc);
+      if (existingShift.status == ShiftStatus.cancelled) continue;
       final overlaps = shiftStart.isBefore(existingShift.shiftEnd) &&
           shiftEnd.isAfter(existingShift.shiftStart);
       if (overlaps) return existingShift;
     }
 
     return null;
+  }
+
+  /// Blocks any write that would leave [shift]'s teacher double-booked.
+  static Future<void> _throwIfTeacherOverlapBlocked(TeachingShift shift) async {
+    final conflictingShift = await _findFirstConflictingShift(
+      teacherId: shift.teacherId,
+      shiftStart: shift.shiftStart,
+      shiftEnd: shift.shiftEnd,
+      excludeShiftId: shift.id,
+    );
+    if (conflictingShift != null) {
+      throw ShiftOverlapException(
+        conflictingShiftId: conflictingShift.id,
+        conflictingShiftName: conflictingShift.displayName,
+        conflictingStudentNames: conflictingShift.studentNames,
+        conflictingStart: conflictingShift.shiftStart,
+        conflictingEnd: conflictingShift.shiftEnd,
+      );
+    }
   }
 
   /// Create a new teaching shift.
@@ -1653,7 +1703,7 @@ class ShiftService {
       AppLogger.error('Shift created successfully: ${shift.displayName}');
       return shiftDoc.id;
     } catch (e) {
-      if (e is ShiftGuardrailException) rethrow;
+      if (e is ShiftGuardrailException || e is ShiftOverlapException) rethrow;
       AppLogger.error('Error creating shift: $e');
       throw Exception('Failed to create shift: $e');
     }
@@ -3213,6 +3263,8 @@ class ShiftService {
         existingShiftId: normalizedShift.id,
       );
 
+      await _throwIfTeacherOverlapBlocked(normalizedShift);
+
       TeachingShift? existingShift;
       if (EnvironmentUtils.isShiftTemplateEnabled && !skipTemplateExclusion) {
         final snapshot = await _shiftsCollection.doc(shift.id).get();
@@ -3233,7 +3285,7 @@ class ShiftService {
         await _excludeTemplateDateForShift(existingShift);
       }
     } catch (e) {
-      if (e is ShiftGuardrailException) rethrow;
+      if (e is ShiftGuardrailException || e is ShiftOverlapException) rethrow;
       AppLogger.error('Error updating shift in Firestore: $e');
       throw Exception('Failed to update shift');
     }
@@ -3283,6 +3335,8 @@ class ShiftService {
         source: 'shift_service_update_shift_direct',
         existingShiftId: normalizedShift.id,
       );
+
+      await _throwIfTeacherOverlapBlocked(normalizedShift);
 
       final now = DateTime.now();
       final updateData = normalizedShift.toFirestore();
@@ -3437,7 +3491,7 @@ class ShiftService {
       await _shiftsCollection.doc(shift.id).update(updateData);
       AppLogger.debug('Shift updated directly (quick edit)');
     } catch (e) {
-      if (e is ShiftGuardrailException) rethrow;
+      if (e is ShiftGuardrailException || e is ShiftOverlapException) rethrow;
       AppLogger.error('Error updating shift directly: $e');
       throw Exception('Failed to update shift');
     }

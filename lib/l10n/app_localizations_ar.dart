@@ -13549,6 +13549,11 @@ class AppLocalizationsAr extends AppLocalizations {
   }
 
   @override
+  String shiftOverlapBlockedDetailed(String shiftName, String window) {
+    return 'هذا الوقت يتعارض مع \"$shiftName\" ($window). لا يمكن للمعلم أن يكون في حصتين في الوقت نفسه — يرجى اختيار وقت آخر.';
+  }
+
+  @override
   String get noShowSettingsTitle => 'مستلمو تنبيهات الغياب';
 
   @override

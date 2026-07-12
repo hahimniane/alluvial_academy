@@ -13858,6 +13858,11 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
+  String shiftOverlapBlockedDetailed(String shiftName, String window) {
+    return 'Ce créneau chevauche « $shiftName » ($window). Un enseignant ne peut pas donner deux cours en même temps — choisissez un autre horaire.';
+  }
+
+  @override
   String get noShowSettingsTitle => 'Destinataires des alertes d\'absence';
 
   @override

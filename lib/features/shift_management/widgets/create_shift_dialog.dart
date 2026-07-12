@@ -3801,6 +3801,21 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
           ),
         );
       }
+    } on ShiftOverlapException catch (e) {
+      if (mounted) {
+        final start = e.conflictingStart.toLocal();
+        final end = e.conflictingEnd.toLocal();
+        final window =
+            '${DateFormat('MMM d, h:mm a').format(start)} - ${DateFormat('h:mm a').format(end)}';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(AppLocalizations.of(context)!
+                .shiftOverlapBlockedDetailed(e.conflictingShiftName, window)),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 8),
+          ),
+        );
+      }
     } catch (e) {
       if (mounted) {
         final raw = e.toString();

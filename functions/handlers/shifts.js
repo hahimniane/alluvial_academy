@@ -1973,6 +1973,79 @@ const _rescheduleShiftLifecycleTasks = async ({
   });
 };
 
+// Longest plausible shift; bounds the query window when scanning for overlaps.
+const MAX_SHIFT_LOOKBACK_HOURS = 48;
+
+const _findOverlappingShiftForTeacher = async ({
+  db,
+  teacherId,
+  newStart,
+  newEnd,
+  excludeShiftIds = [],
+}) => {
+  const excluded = new Set(excludeShiftIds.map(String));
+  const rangeStart = new Date(newStart.getTime() - MAX_SHIFT_LOOKBACK_HOURS * 3600 * 1000);
+
+  let docs = [];
+  try {
+    const snap = await db
+      .collection('teaching_shifts')
+      .where('teacher_id', '==', teacherId)
+      .where('shift_start', '>=', admin.firestore.Timestamp.fromDate(rangeStart))
+      .where('shift_start', '<', admin.firestore.Timestamp.fromDate(newEnd))
+      .get();
+    docs = snap.docs;
+  } catch (err) {
+    const missingIndex =
+      err?.code === 9 && typeof err?.message === 'string' && err.message.toLowerCase().includes('index');
+    if (!missingIndex) throw err;
+    const snap = await db.collection('teaching_shifts').where('teacher_id', '==', teacherId).get();
+    docs = snap.docs;
+  }
+
+  for (const doc of docs) {
+    if (excluded.has(doc.id)) continue;
+    const data = doc.data() || {};
+    if ((data.status || '').toString().trim().toLowerCase() === 'cancelled') continue;
+
+    const existingStart = toDate(data.shift_start);
+    const existingEnd = toDate(data.shift_end);
+    if (!existingStart || !existingEnd) continue;
+
+    if (newStart < existingEnd && newEnd > existingStart) {
+      return {
+        id: doc.id,
+        name: data.shift_name || data.auto_generated_name || data.display_name || 'another class',
+        studentNames: Array.isArray(data.student_names) ? data.student_names : [],
+        start: existingStart,
+        end: existingEnd,
+      };
+    }
+  }
+  return null;
+};
+
+const _throwShiftOverlapError = ({conflict, timezone}) => {
+  const zone = timezone || 'UTC';
+  const startLocal = DateTime.fromJSDate(conflict.start).setZone(zone);
+  const endLocal = DateTime.fromJSDate(conflict.end).setZone(zone);
+  const window = `${startLocal.toFormat('MMM d, h:mm a')} - ${endLocal.toFormat('h:mm a')} (${zone})`;
+  throw new functions.https.HttpsError(
+    'failed-precondition',
+    `This time overlaps with an existing class: "${conflict.name}" on ${window}. ` +
+      'A teacher cannot be in two classes at once. Please pick a different time.',
+    {
+      code: 'shift_overlap',
+      conflictShiftId: conflict.id,
+      conflictShiftName: conflict.name,
+      conflictStudentNames: conflict.studentNames,
+      conflictStart: conflict.start.toISOString(),
+      conflictEnd: conflict.end.toISOString(),
+      timezone: zone,
+    },
+  );
+};
+
 /**
  * Teacher Reschedule Shift
  * Allows teachers to reschedule their own shifts with proper audit trail
@@ -2035,6 +2108,17 @@ const teacherRescheduleShift = onCall({cors: true, invoker: 'public'}, async (re
   });
   const newStart = resolvedWindow.startDt.toUTC().toJSDate();
   const newEnd = resolvedWindow.endDt.toUTC().toJSDate();
+
+  const conflict = await _findOverlappingShiftForTeacher({
+    db,
+    teacherId: uid,
+    newStart,
+    newEnd,
+    excludeShiftIds: [shiftId],
+  });
+  if (conflict) {
+    _throwShiftOverlapError({conflict, timezone: resolvedWindow.timezone});
+  }
 
   const batch = db.batch();
 
@@ -2263,30 +2347,57 @@ const teacherRescheduleFutureShifts = onCall({cors: true, invoker: 'public'}, as
   const durationMinutes = resolvedWindow.durationMinutes;
   const updatedShiftWindows = [];
 
+  // Validate every planned window against the teacher's other shifts before
+  // writing anything, so a series reschedule can never create an overlap.
+  const candidateIds = candidateShifts.map((doc) => doc.id);
+  const plannedUpdates = [];
+  for (const doc of candidateShifts) {
+    const data = doc.data() || {};
+    const currentStart = toDate(data.shift_start || data.start_time);
+    const currentEnd = toDate(data.shift_end || data.end_time);
+    if (!currentStart || !currentEnd) continue;
+
+    const currentStartLocal = DateTime.fromJSDate(currentStart, {zone: resolvedWindow.timezone});
+    if (!currentStartLocal.isValid) continue;
+
+    const newShiftStartLocal = currentStartLocal.set({
+      hour: startTemplateLocal.hour,
+      minute: startTemplateLocal.minute,
+      second: 0,
+      millisecond: 0,
+    });
+    const newShiftEndLocal = newShiftStartLocal.plus({minutes: durationMinutes});
+
+    plannedUpdates.push({
+      doc,
+      data,
+      currentStart,
+      currentEnd,
+      newShiftStartUtc: newShiftStartLocal.toUTC().toJSDate(),
+      newShiftEndUtc: newShiftEndLocal.toUTC().toJSDate(),
+    });
+  }
+
+  for (const planned of plannedUpdates) {
+    const conflict = await _findOverlappingShiftForTeacher({
+      db,
+      teacherId: uid,
+      newStart: planned.newShiftStartUtc,
+      newEnd: planned.newShiftEndUtc,
+      excludeShiftIds: candidateIds,
+    });
+    if (conflict) {
+      _throwShiftOverlapError({conflict, timezone: resolvedWindow.timezone});
+    }
+  }
+
   let updatedCount = 0;
-  for (let i = 0; i < candidateShifts.length; i += 250) {
-    const chunk = candidateShifts.slice(i, i + 250);
+  for (let i = 0; i < plannedUpdates.length; i += 250) {
+    const chunk = plannedUpdates.slice(i, i + 250);
     const batch = db.batch();
 
-    for (const doc of chunk) {
-      const data = doc.data() || {};
-      const currentStart = toDate(data.shift_start || data.start_time);
-      const currentEnd = toDate(data.shift_end || data.end_time);
-      if (!currentStart || !currentEnd) continue;
-
-      const currentStartLocal = DateTime.fromJSDate(currentStart, {zone: resolvedWindow.timezone});
-      if (!currentStartLocal.isValid) continue;
-
-      const newShiftStartLocal = currentStartLocal.set({
-        hour: startTemplateLocal.hour,
-        minute: startTemplateLocal.minute,
-        second: 0,
-        millisecond: 0,
-      });
-      const newShiftEndLocal = newShiftStartLocal.plus({minutes: durationMinutes});
-
-      const newShiftStartUtc = newShiftStartLocal.toUTC().toJSDate();
-      const newShiftEndUtc = newShiftEndLocal.toUTC().toJSDate();
+    for (const planned of chunk) {
+      const {doc, data, currentStart, currentEnd, newShiftStartUtc, newShiftEndUtc} = planned;
 
       batch.update(doc.ref, {
         shift_start: admin.firestore.Timestamp.fromDate(newShiftStartUtc),
@@ -2596,6 +2707,7 @@ module.exports = {
   fixTimesheetsPayAndStatus,
   teacherRescheduleShift,
   teacherRescheduleFutureShifts,
+  _findOverlappingShiftForTeacher,
   // CORS + public Cloud Run invoker so browser OPTIONS preflight succeeds; auth
   // is still required inside the handler (request.auth).
   claimShift: onCall({cors: true, invoker: 'public'}, async (request) => {
