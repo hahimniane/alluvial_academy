@@ -3395,6 +3395,14 @@ render and the native Next authenticated CMS write/upload tests pass against
   admin access. The UI now reports partial cleanup instead of silently claiming
   success. No Storage rule was changed or deployed; attachment cleanup remains
   an explicit environment blocker for full Assignments acceptance.
+- Follow-up: `storage.rules` now treats `request.resource == null` as a delete
+  while retaining the existing authenticated-user requirement and 50 MB limit
+  for create/update. The Storage rule alone was compiled and deployed to
+  `alluwal-dev` on 2026-07-12; no Functions, Firestore rules, website, Flutter,
+  or production project was deployed. The full browser lifecycle was repeated,
+  and bucket readback found zero lifecycle or cancelled-upload leftovers.
+  Assignments attachment cleanup is no longer blocked in dev; production still
+  requires explicit deployment authorization.
 
 ### Teacher Zoom provider routing check (2026-07-12)
 
