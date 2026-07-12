@@ -98,6 +98,14 @@ export function TeacherTasksPage() {
     });
   }, []);
 
+  useEffect(() => {
+    if (!tasks.length || typeof window === "undefined") return;
+    const requestedId = new URLSearchParams(window.location.search).get("task")?.trim() ?? "";
+    if (!requestedId) return;
+    const requested = tasks.find((task) => task.id === requestedId);
+    if (requested) setSelectedTask((current) => current?.id === requestedId ? current : requested);
+  }, [tasks]);
+
   const visibleTasks = useMemo(() => {
     const term = search.trim().toLowerCase();
     const today = new Date();

@@ -118,6 +118,18 @@ test.describe("teacher dashboard", () => {
     }
   });
 
+  test("dashboard recent task opens the exact task details", async ({ page }, testInfo) => {
+    skipUnlessDesktopTeacherE2EEnabled(testInfo.project.name);
+    test.skip(process.env.ALLUWAL_RUN_TEACHER_DASHBOARD_TASK_E2E !== "1", "Enable only with the disposable dashboard task fixture.");
+    await signInAsTeacher(page);
+    await expect(page.getByRole("heading", { name: "My Tasks" })).toBeVisible();
+    const task = page.getByRole("link", { name: /Codex Dashboard Recent Task/ });
+    await expect(task).toHaveAttribute("href", "/teacher/tasks/?task=codex-dashboard-recent-task");
+    await task.click();
+    await expect(page).toHaveURL(/\/teacher\/tasks\/\?task=codex-dashboard-recent-task/);
+    await expect(page.getByRole("dialog", { name: "Codex Dashboard Recent Task details" })).toBeVisible();
+  });
+
   test("teacher assignments quick access supports create, attachment, edit, details, and delete", async ({ page }, testInfo) => {
     skipUnlessDesktopTeacherE2EEnabled(testInfo.project.name);
     test.skip(process.env.ALLUWAL_RUN_TEACHER_ASSIGNMENTS_E2E !== "1", "Enable only for disposable dev assignment writes.");

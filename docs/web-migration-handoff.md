@@ -3342,6 +3342,12 @@ render and the native Next authenticated CMS write/upload tests pass against
   external resources. External destinations are labelled links that open in a
   separate tab with safe opener isolation. Desktop and mobile Chrome verified
   every href and target.
+- Flutter also renders up to three recent assigned tasks between Schedule and
+  Quick Access. Next now uses the already-loaded task records for the same
+  section, including status color, due/overdue state, See All, and exact-task
+  deep links. The Tasks route consumes `?task=` and opens the requested detail
+  dialog after authorization/load. A disposable dev task verified the complete
+  dashboard-to-detail path and was deleted.
 - The formerly inert desktop bell is now a labelled link to My Report and shows
   the real unread `audit_notifications` count. Opening My Report attempts the
   same teacher-owned read acknowledgement as Flutter. A disposable notification

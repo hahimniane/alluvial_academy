@@ -263,6 +263,7 @@ function TeacherHomeContent({
   const monthAbsences = data.shifts.filter((shift) => shift.start && shift.start >= monthStart && isMissedStatus(shift.status)).length;
   const monthLate = data.timesheets.filter((entry) => entry.date && entry.date >= monthStart && entry.status.includes("late")).length;
   const openAssignments = data.tasks.filter((task) => task.status !== "done").length;
+  const recentTasks = [...data.tasks].sort((a, b) => (a.dueDate?.getTime() ?? Number.MAX_SAFE_INTEGER) - (b.dueDate?.getTime() ?? Number.MAX_SAFE_INTEGER)).slice(0, 3);
   const pendingFormShifts = data.shifts
     .filter((shift) => shift.end && shift.end < now && isFormRequiredStatus(shift.status) && !data.completedFormShiftIds.has(shift.id))
     .sort((a, b) => (b.start?.getTime() ?? 0) - (a.start?.getTime() ?? 0));
@@ -336,6 +337,7 @@ function TeacherHomeContent({
       </section>
 
       <section className="mt-6">
+        {recentTasks.length ? <div className="mb-6" aria-labelledby="teacher-recent-tasks"><div className="mb-3 flex items-center justify-between"><div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-red-50 text-[#EF4444]"><CheckCircle2 size={20} /></span><h2 id="teacher-recent-tasks" className="text-xl font-black text-[#1F2937]">My Tasks</h2></div><Link href="/teacher/tasks/" className="text-sm font-bold text-[#0386FF]">See All</Link></div><div className="grid gap-3">{recentTasks.map((task) => <DashboardTaskCard key={task.id} task={task} />)}</div></div> : null}
         <div className="mb-4 flex items-center gap-3">
           <span className="grid h-10 w-10 place-items-center rounded-xl bg-[#DBEAFE] text-[#0386FF]">
             <Grid3X3 size={21} />
@@ -353,6 +355,8 @@ function TeacherHomeContent({
     </main>
   );
 }
+
+function DashboardTaskCard({ task }: { task: TeacherTask }) { const normalized = task.status.toLowerCase().replace(/[_\s-]+/g, ""); const done = normalized === "done" || normalized === "completed"; const inProgress = normalized === "inprogress"; const overdue = Boolean(task.dueDate && task.dueDate < new Date() && !done); return <Link href={`/teacher/tasks/?task=${encodeURIComponent(task.id)}`} className={`flex min-h-16 items-center gap-3 rounded-xl border bg-white p-4 shadow-sm ${overdue ? "border-red-200" : "border-[#E2E8F0]"}`}><span className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg ${done ? "bg-emerald-50 text-emerald-600" : inProgress ? "bg-amber-50 text-amber-600" : "bg-blue-50 text-[#0386FF]"}`}><CheckCircle2 size={19} /></span><span className="min-w-0 flex-1"><span className="block truncate text-sm font-bold text-[#1E293B]">{task.title}</span><span className={`mt-1 block text-xs ${overdue ? "font-bold text-red-600" : "text-[#64748B]"}`}>{task.dueDate ? `Due ${new Intl.DateTimeFormat("en", { month: "short", day: "numeric" }).format(task.dueDate)}` : "No due date"}</span></span><span aria-hidden="true" className="text-[#94A3B8]">›</span></Link>; }
 
 function ActiveSessionCard({ shift, busy, notice, onClockAction }: { shift: TeacherShift; busy: boolean; notice: string; onClockAction: () => void }) {
   const clockedIn = isDashboardClockedIn(shift);
