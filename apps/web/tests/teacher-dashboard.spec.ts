@@ -137,6 +137,40 @@ test.describe("teacher dashboard", () => {
     await expect(page.getByText("Fix My Timezone Only")).toBeVisible();
   });
 
+  test("my shifts prevents duplicate clock actions and recovers after reload", async ({ page, context }, testInfo) => {
+    skipUnlessDesktopTeacherE2EEnabled(testInfo.project.name);
+    test.skip(process.env.ALLUWAL_RUN_TEACHER_SHIFT_RESILIENCE_E2E !== "1", "Enable only with the disposable dev My Shifts fixture.");
+    await context.grantPermissions(["geolocation"]);
+    await context.setGeolocation({latitude: 40.7128, longitude: -74.006});
+    await signInAsTeacher(page);
+    await page.getByRole("link", {name: /My Shifts/}).click();
+    const second = await context.newPage();
+    await second.goto("/teacher/shifts/");
+    const title = "Codex Teacher Shift Resilience QA";
+    await Promise.all([expect(page.getByText(title)).toBeVisible(), expect(second.getByText(title)).toBeVisible()]);
+    await Promise.all([
+      page.getByRole("button", {name: "Clock In", exact: true}).click(),
+      second.getByRole("button", {name: "Clock In", exact: true}).click(),
+    ]);
+    await Promise.all([
+      expect(page.getByText(/Successfully clocked in|already clocked in/)).toBeVisible(),
+      expect(second.getByText(/Successfully clocked in|already clocked in/)).toBeVisible(),
+    ]);
+    await Promise.all([page.reload(), second.reload()]);
+    await Promise.all([
+      expect(page.getByRole("button", {name: "Clock Out", exact: true})).toBeVisible(),
+      expect(second.getByRole("button", {name: "Clock Out", exact: true})).toBeVisible(),
+    ]);
+    await Promise.all([
+      page.getByRole("button", {name: "Clock Out", exact: true}).click(),
+      second.getByRole("button", {name: "Clock Out", exact: true}).click(),
+    ]);
+    await Promise.all([
+      expect(page.getByText(/Successfully clocked out|No active clock-in|already been clocked out/)).toBeVisible(),
+      expect(second.getByText(/Successfully clocked out|No active clock-in|already been clocked out/)).toBeVisible(),
+    ]);
+  });
+
   test("requires a teacher sign-in before rendering time clock", async ({ page, browserName }) => {
     test.skip(browserName === "webkit", "WebKit intermittently hangs before committing teacher module static routes late in the full suite; Chromium and mobile Chrome cover the guard.");
     await gotoTeacherGuard(page, "/teacher/time-clock/");
@@ -182,6 +216,55 @@ test.describe("teacher dashboard", () => {
     await expect(page.getByText(/Successfully clocked in/)).toBeVisible();
     await page.getByRole("button", {name: "Clock Out"}).click();
     await expect(page.getByText(/Successfully clocked out/)).toBeVisible();
+  });
+
+  test("teacher clock actions handle location denial, duplicate tabs, and reload", async ({ page, context }, testInfo) => {
+    skipUnlessDesktopTeacherE2EEnabled(testInfo.project.name);
+    test.skip(process.env.ALLUWAL_RUN_TEACHER_CLOCK_RESILIENCE_E2E !== "1", "Enable only with the disposable dev resilience shift fixture.");
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, "geolocation", {
+        configurable: true,
+        value: {
+          getCurrentPosition: (_success: PositionCallback, error: PositionErrorCallback) => error({code: 1, message: "Permission denied", PERMISSION_DENIED: 1, POSITION_UNAVAILABLE: 2, TIMEOUT: 3} as GeolocationPositionError),
+        },
+      });
+    });
+    await signInAsTeacher(page);
+    await page.getByRole("link", {name: /Time Clock/}).click();
+    await expect(page.getByText("Codex Teacher Clock Resilience QA")).toBeVisible();
+    await page.getByRole("button", {name: "Clock In Now"}).click();
+    await expect(page.getByText(/Location access is required/)).toBeVisible();
+
+    await context.grantPermissions(["geolocation"]);
+    await context.setGeolocation({latitude: 40.7128, longitude: -74.006});
+    const first = await context.newPage();
+    const second = await context.newPage();
+    await Promise.all([first.goto("/teacher/time-clock/"), second.goto("/teacher/time-clock/")]);
+    await Promise.all([
+      expect(first.getByText("Codex Teacher Clock Resilience QA")).toBeVisible(),
+      expect(second.getByText("Codex Teacher Clock Resilience QA")).toBeVisible(),
+    ]);
+    await Promise.all([
+      first.getByRole("button", {name: "Clock In Now"}).click(),
+      second.getByRole("button", {name: "Clock In Now"}).click(),
+    ]);
+    await Promise.all([
+      expect(first.getByText(/Successfully clocked in|already clocked in/)).toBeVisible(),
+      expect(second.getByText(/Successfully clocked in|already clocked in/)).toBeVisible(),
+    ]);
+    await Promise.all([first.reload(), second.reload()]);
+    await Promise.all([
+      expect(first.getByRole("button", {name: "Clock Out"})).toBeVisible(),
+      expect(second.getByRole("button", {name: "Clock Out"})).toBeVisible(),
+    ]);
+    await Promise.all([
+      first.getByRole("button", {name: "Clock Out"}).click(),
+      second.getByRole("button", {name: "Clock Out"}).click(),
+    ]);
+    await Promise.all([
+      expect(first.getByText(/Successfully clocked out|No active clock-in|already been clocked out/)).toBeVisible(),
+      expect(second.getByText(/Successfully clocked out|No active clock-in|already been clocked out/)).toBeVisible(),
+    ]);
   });
 
   test("requires a teacher sign-in before rendering tasks", async ({ page, browserName }) => {

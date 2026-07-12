@@ -1,7 +1,7 @@
 "use client";
 
 import { onAuthStateChanged, type User } from "firebase/auth";
-import { collection, doc, getDocs, limit, query, serverTimestamp, Timestamp, updateDoc, where, writeBatch } from "firebase/firestore";
+import { collection, doc, getDocs, limit, query, runTransaction, serverTimestamp, Timestamp, updateDoc, where, writeBatch } from "firebase/firestore";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { AlertTriangle, CalendarDays, Clock3, Download, Eye, LogIn, LogOut, MapPin, Menu, Pencil, Send, Shuffle, TimerReset, X } from "lucide-react";
 import { auth, db } from "@/lib/firebase";
@@ -147,7 +147,7 @@ export function TeacherTimeClockPage() {
         showNotice(action.disabledMessage);
         return;
       }
-      const location = await getBrowserLocation(action.kind === "clockIn");
+      const location = await getBrowserLocation();
       const result = action.kind === "clockOut"
         ? await clockOutOfShift(currentUser, activeShift, location)
         : await clockInToShift(currentUser, activeShift, location);
@@ -1050,9 +1050,9 @@ async function clockInToShift(user: User, shift: TeacherShift, location: Browser
   if (openEntry) throw new Error("You are already clocked in to this shift");
   const now = new Date();
   const payRateSource = shift.hourlyRate > 0 ? "teaching_shift_rate" : "timesheet_fallback_rate";
-  const batch = writeBatch(db);
   const timesheetRef = doc(collection(db, "timesheet_entries"));
-  batch.set(timesheetRef, {
+  const shiftRef = doc(db, "teaching_shifts", shift.id);
+  const timesheetData = {
     teacher_id: user.uid,
     teacher_email: user.email,
     teacher_name: shift.teacherName,
@@ -1092,15 +1092,23 @@ async function clockInToShift(user: User, shift: TeacherShift, location: Browser
     manager_notes: "",
     created_at: serverTimestamp(),
     updated_at: serverTimestamp(),
+  };
+  await runTransaction(db, async (transaction) => {
+    const shiftSnap = await transaction.get(shiftRef);
+    if (!shiftSnap.exists()) throw new Error("This shift is no longer available.");
+    const current = shiftSnap.data() as Record<string, unknown>;
+    const currentClockIn = dateValue(current.clock_in_time ?? current.clockInTime);
+    const currentClockOut = dateValue(current.clock_out_time ?? current.clockOutTime);
+    if (currentClockIn && !currentClockOut) throw new Error("You are already clocked in to this shift");
+    transaction.set(timesheetRef, timesheetData);
+    transaction.update(shiftRef, {
+      last_modified: Timestamp.fromDate(now),
+      status: "active",
+      clock_out_time: null,
+      clock_in_time: Timestamp.fromDate(now),
+      last_clock_in_platform: "web",
+    });
   });
-  batch.update(doc(db, "teaching_shifts", shift.id), {
-    last_modified: Timestamp.fromDate(now),
-    status: "active",
-    clock_out_time: null,
-    clock_in_time: shift.clockInTime ? Timestamp.fromDate(shift.clockInTime) : Timestamp.fromDate(now),
-    last_clock_in_platform: "web",
-  });
-  await batch.commit();
   return { message: `Successfully clocked in to ${shift.title}` };
 }
 
@@ -1118,8 +1126,8 @@ async function clockOutOfShift(user: User, shift: TeacherShift, location: Browse
   const calculatedPay = hoursWorked * shift.hourlyRate;
   const clockOutStatus = clockDeviationStatus(now, shift.end);
   const clockOutDeviation = clockDeviationMinutes(now, shift.end);
-  const batch = writeBatch(db);
-  batch.update(openEntry.ref, {
+  const shiftRef = doc(db, "teaching_shifts", shift.id);
+  const entryUpdate = {
     end_time: formatTime(effectiveEnd),
     total_hours: formatDurationHms(validMs),
     clock_out_timestamp: Timestamp.fromDate(now),
@@ -1140,12 +1148,22 @@ async function clockOutOfShift(user: User, shift: TeacherShift, location: Browse
     clock_out_neighborhood: location.neighborhood,
     clock_out_platform: "web",
     updated_at: serverTimestamp(),
+  };
+  await runTransaction(db, async (transaction) => {
+    const entrySnap = await transaction.get(openEntry.ref);
+    if (!entrySnap.exists()) throw new Error("No active clock-in found for this shift.");
+    const entry = entrySnap.data() as Record<string, unknown>;
+    if (dateValue(entry.clock_out_timestamp) || stringValue(entry.end_time)) {
+      throw new Error("This shift has already been clocked out.");
+    }
+    const shiftSnap = await transaction.get(shiftRef);
+    if (!shiftSnap.exists()) throw new Error("This shift is no longer available.");
+    transaction.update(openEntry.ref, entryUpdate);
+    transaction.update(shiftRef, {
+      last_modified: Timestamp.fromDate(now),
+      clock_out_time: Timestamp.fromDate(now),
+    });
   });
-  batch.update(doc(db, "teaching_shifts", shift.id), {
-    last_modified: Timestamp.fromDate(now),
-    clock_out_time: Timestamp.fromDate(now),
-  });
-  await batch.commit();
   return { message: `Successfully clocked out from ${shift.title}` };
 }
 
@@ -1159,10 +1177,9 @@ async function findOpenTimesheetEntry(teacherId: string, shiftId: string) {
   return nullDoc ? { ref: nullDoc.ref, data: nullDoc.data() as Record<string, unknown> } : null;
 }
 
-async function getBrowserLocation(required: boolean): Promise<BrowserLocation> {
+async function getBrowserLocation(): Promise<BrowserLocation> {
   if (!("geolocation" in navigator)) {
-    if (required) throw new Error("Clock-in location error");
-    return fallbackLocation();
+    throw new Error("Location access is required to clock in or out. Enable location services and try again.");
   }
   try {
     const position = await new Promise<GeolocationPosition>((resolve, reject) => {
@@ -1176,18 +1193,8 @@ async function getBrowserLocation(required: boolean): Promise<BrowserLocation> {
       neighborhood: "GPS coordinates",
     };
   } catch {
-    if (required) throw new Error("Clock-in location error");
-    return fallbackLocation();
+    throw new Error("Location access is required to clock in or out. Allow location access and try again.");
   }
-}
-
-function fallbackLocation(): BrowserLocation {
-  return {
-    latitude: 0,
-    longitude: 0,
-    address: "Clock-out location unavailable",
-    neighborhood: "Location unavailable",
-  };
 }
 
 function isLeadershipShift(shift: TeacherShift) {

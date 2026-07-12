@@ -9,8 +9,8 @@ This matrix tracks functional parity between the Flutter teacher role and
 | Area | Native route | Current functional checkpoint | Remaining acceptance work |
 | --- | --- | --- | --- |
 | Dashboard | `/teacher/` | Native shell, metrics, quick access, sidebar, mobile drawer | Full role-switch/logout and stale metric failure pass |
-| My Shifts | `/teacher/shifts/` | Day/week/month, details, issue report, timezone, clock actions | Geolocation denial, duplicate action, reload recovery |
-| Time Clock | `/teacher/time-clock/` | Clock actions, filters, draft edit/submit, desktop/mobile detail views | Offline/failure and duplicate submission pass |
+| My Shifts | `/teacher/shifts/` | Day/week/month, details, issue report, timezone, transactional clock actions, location denial, duplicate-tab protection, reload recovery | No known functional gap; retain in final regression |
+| Time Clock | `/teacher/time-clock/` | Transactional clock actions, location denial, duplicate-tab protection, reload recovery, filters, draft edit/submit, desktop/mobile detail views | Offline/failure and duplicate submission pass |
 | Tasks | `/teacher/tasks/` | Native list and task actions | Lifecycle/status and stale-record pass |
 | Job Board | `/teacher/job-board/` | Accept and withdraw/rebroadcast | Permission/failure and concurrent acceptance pass |
 | Chat | `/teacher/chat/` | Conversation creation/repair and text send | Ordering, unread state, send failure, mobile back navigation |

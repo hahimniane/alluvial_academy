@@ -3166,6 +3166,24 @@ render and the native Next authenticated CMS write/upload tests pass against
   only to `alluwal-dev`. No production Firebase, Hostinger, VPS, Zoom routing,
   meeting lifetime, or Flutter change was made.
 
+### Teacher clock resilience acceptance (2026-07-12)
+
+- Flutter clock behavior was inspected read-only and confirmed to require a
+  location for clock-in and clock-out. Native My Shifts and Time Clock now show
+  an actionable location-access error for either action instead of writing a
+  zero-coordinate clock-out.
+- Clock-in and clock-out writes now use Firestore transactions against the
+  shift and timesheet entry. Concurrent browser tabs cannot create duplicate
+  entries or close the same entry twice, and refreshed pages recover the active
+  clock state from Firestore.
+- Guarded Chromium resilience tests passed for both native routes with two
+  authenticated tabs and reloads. The My Shifts run produced exactly one
+  Flutter-compatible `timesheet_entries` document containing scheduled times,
+  clock timestamps, status/deviation, web platform, pay, and real clock-in/out
+  coordinates. The disposable entry and shift were deleted afterward.
+- Next typecheck and the production-style build passed for this implementation
+  checkpoint. Flutter/Dart and production Firebase remained untouched.
+
 ## Post-parity additions (2026-07-09)
 
 These are deliberate improvements beyond Flutter parity, requested by the
