@@ -365,9 +365,9 @@ export function TeacherShell({
   };
 
   return (
-    <main className="min-h-screen bg-[#F5F5F5] text-[#0F172A]">
-      <div className="flex min-h-screen">
-        <aside className="hidden w-[260px] shrink-0 flex-col border-r border-black/10 bg-white lg:flex">
+    <main className="h-screen overflow-hidden bg-[#F5F5F5] text-[#0F172A]">
+      <div className="flex h-screen overflow-hidden">
+        <aside className="hidden h-screen w-[260px] shrink-0 flex-col border-r border-[#D7DEE8] bg-white shadow-[4px_0_18px_rgba(15,23,42,0.04)] lg:flex">
           <div className="flex min-h-14 items-center justify-center border-b border-black/5 px-4">
             <img src="/assets/Alluwal_Education_Hub_Logo.png" alt="Alluwal Education Hub" className="h-12 w-auto object-contain" />
           </div>
@@ -448,8 +448,8 @@ export function TeacherShell({
           </div>
         </aside>
 
-        <section className="min-w-0 flex-1">
-          <header className="hidden min-h-14 items-center justify-between border-b border-black/5 bg-white px-4 lg:flex">
+        <section className="flex h-screen min-w-0 flex-1 flex-col overflow-hidden">
+          <header className="hidden min-h-14 shrink-0 items-center justify-between border-b border-black/5 bg-white px-4 lg:flex">
             <p className="text-sm font-bold text-[#64748B]">{breadcrumb}</p>
             <div className="flex items-center gap-3">
               <span className="inline-flex min-h-9 items-center rounded-full bg-[#0386FF] px-4 text-xs font-black text-white">Teacher</span>
@@ -468,7 +468,7 @@ export function TeacherShell({
               </div>
             </div>
           </header>
-          {children}
+          <div className="min-h-0 flex-1 overflow-y-auto" aria-label="Teacher page content">{children}</div>
         </section>
       </div>
       {mobileMenuOpen ? (

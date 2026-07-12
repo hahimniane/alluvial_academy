@@ -111,6 +111,21 @@ test.describe("teacher dashboard", () => {
     await expect(page.getByRole("navigation", {name: "Teacher dashboard navigation"}).getByText("Favorites")).toBeHidden();
   });
 
+  test("teacher sidebar and page content use separate desktop columns and scroll regions", async ({ page }, testInfo) => {
+    skipUnlessDesktopTeacherE2EEnabled(testInfo.project.name);
+    await signInAsTeacher(page);
+    const sidebar = page.getByRole("navigation", {name: "Teacher dashboard navigation"}).locator("..");
+    const content = page.getByLabel("Teacher page content");
+    const [sidebarBox, contentBox] = await Promise.all([sidebar.boundingBox(), content.boundingBox()]);
+    expect(sidebarBox).not.toBeNull();
+    expect(contentBox).not.toBeNull();
+    expect((sidebarBox?.x ?? 0) + (sidebarBox?.width ?? 0)).toBeLessThanOrEqual(contentBox?.x ?? 0);
+    const sidebarTop = sidebarBox?.y ?? 0;
+    await content.evaluate((element) => { element.scrollTop = Math.min(240, element.scrollHeight - element.clientHeight); });
+    expect(await page.evaluate(() => window.scrollY)).toBe(0);
+    expect((await sidebar.boundingBox())?.y).toBe(sidebarTop);
+  });
+
   test("requires a teacher sign-in before rendering my shifts", async ({ page, browserName }) => {
     test.skip(browserName === "webkit", "WebKit intermittently hangs before committing teacher module static routes late in the full suite; Chromium and mobile Chrome cover the guard.");
     await gotoTeacherGuard(page, "/teacher/shifts/");
@@ -843,6 +858,45 @@ test.describe("teacher dashboard", () => {
     await page.getByRole("button", {name: "Submit Form", exact: true}).click();
     await expect(page.getByText("Please enter a valid email address")).toBeVisible();
     await expect(page.getByText("Please enter a valid phone number")).toBeVisible();
+  });
+
+  test("offline form submission keeps entered values available to retry", async ({ page, context }, testInfo) => {
+    skipUnlessDesktopTeacherE2EEnabled(testInfo.project.name);
+    await signInAsTeacher(page);
+    await page.getByRole("link", {name: /Submit Form/}).click();
+    await page.getByLabel("Search forms").fill("Codex Time Field QA");
+    await page.getByRole("button", {name: /Codex Time Field QA/}).click();
+    await page.getByLabel("What time should the makeup class start?").fill("14:30");
+    await page.getByLabel("Reason").fill("Offline retry verification");
+    await context.setOffline(true);
+    await page.getByRole("button", {name: "Submit Form", exact: true}).click();
+    await expect(page.getByText("You appear to be offline. Reconnect and try again.")).toBeVisible();
+    await expect(page.getByLabel("What time should the makeup class start?")).toHaveValue("14:30");
+    await expect(page.getByLabel("Reason")).toHaveValue("Offline retry verification");
+    await context.setOffline(false);
+  });
+
+  test("per-session form submission rejects a concurrent duplicate", async ({ page, context }, testInfo) => {
+    skipUnlessDesktopTeacherE2EEnabled(testInfo.project.name);
+    test.skip(process.env.ALLUWAL_RUN_TEACHER_FORM_DUPLICATE_E2E !== "1", "Enable only with disposable dev form and shift fixtures.");
+    await signInAsTeacher(page);
+    const second = await context.newPage();
+    await Promise.all([page.goto("/teacher/submit-form/"), second.goto("/teacher/submit-form/")]);
+    for (const target of [page, second]) {
+      await target.getByLabel("Search forms").fill("Codex Duplicate Form QA");
+      await target.getByRole("button", {name: /Codex Duplicate Form QA/}).click();
+      const shift = target.locator("article").filter({hasText: "Codex Duplicate Form Student"});
+      await shift.getByRole("button", {name: "Form", exact: true}).click();
+      await target.getByLabel("Session summary").fill("Concurrent submission QA");
+    }
+    await Promise.all([
+      page.getByRole("button", {name: "Submit Form", exact: true}).click(),
+      second.getByRole("button", {name: "Submit Form", exact: true}).click(),
+    ]);
+    await Promise.all([
+      expect(page.getByText(/Form submitted successfully|already been submitted/)).toBeVisible(),
+      expect(second.getByText(/Form submitted successfully|already been submitted/)).toBeVisible(),
+    ]);
   });
 
   test("requires a teacher sign-in before rendering my form submissions", async ({ page, browserName }) => {

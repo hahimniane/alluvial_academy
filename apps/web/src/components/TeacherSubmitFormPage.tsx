@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { onAuthStateChanged, type User } from "firebase/auth";
-import { addDoc, collection, doc, getDoc, getDocs, limit, query, serverTimestamp, Timestamp, updateDoc, where } from "firebase/firestore";
-import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
+import { addDoc, collection, doc, getDoc, getDocs, limit, query, serverTimestamp, setDoc, Timestamp, updateDoc, where } from "firebase/firestore";
+import { deleteObject, getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertCircle,
@@ -700,8 +700,12 @@ function TeacherFormSheet({
 
     setSubmitting(true);
     setNotice("");
+    let uploadedPaths: string[] = [];
     try {
-      const uploadedValues = await uploadPendingFiles(values, user.uid);
+      if (!navigator.onLine) throw new Error("You appear to be offline. Reconnect and try again.");
+      const uploadResult = await uploadPendingFiles(values, user.uid);
+      const uploadedValues = uploadResult.values;
+      uploadedPaths = uploadResult.storagePaths;
       const responses = fields.reduce<Record<string, SubmittedFieldValue>>((acc, item) => {
         acc[item.id] = uploadedValues[item.id] ?? "";
         return acc;
@@ -734,7 +738,21 @@ function TeacherFormSheet({
         ...(selectedShift?.timesheetId ? { timesheetId: selectedShift.timesheetId } : {}),
       };
 
-      const responseRef = await addDoc(collection(db, "form_responses"), submissionData);
+      const responseRef = selectedShift
+        ? doc(db, "form_responses", perSessionResponseId(template.id, selectedShift.id, user.uid))
+        : await addDoc(collection(db, "form_responses"), submissionData);
+      if (selectedShift) {
+        try {
+          await setDoc(responseRef, submissionData);
+        } catch (error) {
+          const existing = await getDoc(responseRef).catch(() => null);
+          const existingData = existing?.exists() ? (existing.data() as Record<string, unknown>) : null;
+          if (existingData && stringValue(existingData.userId) === user.uid && stringValue(existingData.shiftId ?? existingData.shift_id) === selectedShift.id) {
+            throw new Error("This form has already been submitted for the selected shift.");
+          }
+          throw error;
+        }
+      }
       if (selectedShift) {
         await linkFormResponseToShiftAndTimesheet(selectedShift, responseRef.id).catch(() => null);
       }
@@ -742,7 +760,8 @@ function TeacherFormSheet({
       await onSubmitted();
       window.setTimeout(onClose, 900);
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "Could not submit this form.");
+      if (uploadedPaths.length) await cleanupUploadedFiles(uploadedPaths);
+      setNotice(formActionError(error, "Could not submit this form."));
     } finally {
       setSubmitting(false);
     }
@@ -997,34 +1016,56 @@ function isEmptyFormValue(value: FormFieldValue | undefined) {
 
 async function uploadPendingFiles(values: Record<string, FormFieldValue>, uid: string) {
   const uploaded: Record<string, SubmittedFieldValue> = {};
-  for (const [fieldId, value] of Object.entries(values)) {
-    if (!isPendingFileValue(value)) {
-      uploaded[fieldId] = value as SubmittedFieldValue;
-      continue;
+  const storagePaths: string[] = [];
+  try {
+    for (const [fieldId, value] of Object.entries(values)) {
+      if (!isPendingFileValue(value)) {
+        uploaded[fieldId] = value as SubmittedFieldValue;
+        continue;
+      }
+      const safeName = safeStorageFileName(value.fileName);
+      const storagePath = `form_images/${uid}/${Date.now()}_${safeName}`;
+      const storageRef = ref(storage, storagePath);
+      const snapshot = await uploadBytes(storageRef, value.file, {
+        contentType: value.contentType || contentTypeForFileName(value.fileName),
+        customMetadata: {
+          uploadedBy: uid,
+          originalFileName: value.fileName,
+        },
+      });
+      storagePaths.push(storagePath);
+      const downloadURL = await getDownloadURL(snapshot.ref);
+      uploaded[fieldId] = {
+        fileName: value.fileName,
+        downloadURL,
+        url: downloadURL,
+        storagePath,
+        size: value.size,
+        contentType: value.contentType || contentTypeForFileName(value.fileName),
+        type: value.fieldType,
+        uploadedAt: serverTimestamp(),
+      };
     }
-    const safeName = safeStorageFileName(value.fileName);
-    const storagePath = `form_images/${uid}/${Date.now()}_${safeName}`;
-    const storageRef = ref(storage, storagePath);
-    const snapshot = await uploadBytes(storageRef, value.file, {
-      contentType: value.contentType || contentTypeForFileName(value.fileName),
-      customMetadata: {
-        uploadedBy: uid,
-        originalFileName: value.fileName,
-      },
-    });
-    const downloadURL = await getDownloadURL(snapshot.ref);
-    uploaded[fieldId] = {
-      fileName: value.fileName,
-      downloadURL,
-      url: downloadURL,
-      storagePath,
-      size: value.size,
-      contentType: value.contentType || contentTypeForFileName(value.fileName),
-      type: value.fieldType,
-      uploadedAt: serverTimestamp(),
-    };
+    return { values: uploaded, storagePaths };
+  } catch (error) {
+    await cleanupUploadedFiles(storagePaths);
+    throw error;
   }
-  return uploaded;
+}
+
+async function cleanupUploadedFiles(storagePaths: string[]) {
+  await Promise.allSettled(storagePaths.map((storagePath) => deleteObject(ref(storage, storagePath))));
+}
+
+function perSessionResponseId(templateId: string, shiftId: string, uid: string) {
+  return [templateId, shiftId, uid].map((value) => value.replace(/[^a-zA-Z0-9_-]+/g, "_")).join("__").slice(0, 1400);
+}
+
+function formActionError(error: unknown, fallback: string) {
+  const message = error instanceof Error ? error.message : String(error || "");
+  if (/permission-denied|insufficient permissions/i.test(message)) return "You do not have permission to submit this form. Contact an administrator if this continues.";
+  if (/unavailable|network|offline/i.test(message) || !navigator.onLine) return "You appear to be offline. Reconnect and try again.";
+  return message.replace(/^Firebase:\s*/i, "").trim() || fallback;
 }
 
 function safeStorageFileName(fileName: string) {

@@ -3278,6 +3278,26 @@ render and the native Next authenticated CMS write/upload tests pass against
 - No application code, Flutter source, Storage object, or production resource
   was changed for this pass.
 
+### Teacher shell separation and form resilience (2026-07-12)
+
+- Following owner review, the desktop teacher shell now has two structurally
+  separate viewport columns: a fixed-height sidebar with its own navigation
+  scroll, and an independently scrolling header/content column. A focused
+  browser test confirms non-overlap, stationary sidebar position, and zero
+  window-level scroll while page content moves. The live preview on port 3021
+  was rebuilt for review.
+- The current `alluwal-dev` form inventory contains `time`, `long_text`,
+  `email`, `phone`, `image_upload`, and `signature`; all six types have native
+  rendering/validation or upload coverage. No speculative field type was added.
+- Per-session submissions now use a deterministic response ID and create-only
+  Firestore behavior. A real two-tab dev run produced exactly one compatible
+  completed response, linked the shift to that ID, and showed the losing tab an
+  already-submitted message. The response, shift, and template were deleted.
+- Failed submissions preserve entered values. Uploaded form files are deleted
+  if a later upload or Firestore response write fails, preventing orphaned
+  Storage objects. A focused offline browser test confirmed values remain ready
+  to retry.
+
 ## Post-parity additions (2026-07-09)
 
 These are deliberate improvements beyond Flutter parity, requested by the
