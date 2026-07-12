@@ -3503,3 +3503,22 @@ For each screen, use at most two focused visual polish passes. Fix
 user-noticeable gaps: missing content, wrong layout structure, wrong copy,
 broken mobile behavior, broken forms, console errors. Do not loop on tiny font
 rendering, pixel spacing, or differences a normal user would not notice.
+# 2026-07-12 — Teacher profile and settings navigation parity
+
+- Audited Flutter's teacher mobile profile sheet and confirmed that Next.js
+  omitted its working View Profile and Settings destinations.
+- Added guarded native routes at `/teacher/profile/` and `/teacher/settings/`
+  and exposed them from both the desktop account menu and mobile drawer.
+- Profile reads/writes the same `users/{uid}` and `teacher_profiles/{uid}`
+  documents and uses the same owner-scoped `profile_pictures/{uid}/...`
+  Storage layout as Flutter. Editing, required-name validation, upload size/type
+  errors, offline/permission errors, and responsive dialogs are implemented.
+- Settings now includes password reauthentication/update, persisted English or
+  French preference, a visible persisted light/dark theme, help/privacy links,
+  profile navigation, and sign-out. Notification preference data parity remains
+  in the matrix rather than being claimed complete.
+- Verification: `npm run typecheck`, production `npm run build`, Hostinger
+  packaging, three focused desktop guard/navigation browser tests, one mobile
+  drawer test, and a live dev profile save plus password mismatch validation.
+  The preview remains available at `http://localhost:3021/teacher/` against
+  `alluwal-dev`. No Flutter or Firebase Functions files were changed.

@@ -909,6 +909,32 @@ textarea {
   transform: scaleX(1);
 }
 
+html.dark .teacher-settings,
+html.dark .teacher-settings [aria-label="Teacher page content"] > div {
+  background: #0f172a !important;
+  color: #f8fafc;
+}
+
+html.dark .teacher-settings section,
+html.dark .teacher-settings header,
+html.dark .teacher-settings select,
+html.dark .teacher-settings [role="dialog"] form {
+  border-color: #334155 !important;
+  background: #1e293b !important;
+}
+
+html.dark .teacher-settings h1,
+html.dark .teacher-settings h2,
+html.dark .teacher-settings strong,
+html.dark .teacher-settings label,
+html.dark .teacher-settings p {
+  color: #f8fafc !important;
+}
+
+html.dark .teacher-settings span {
+  color: #cbd5e1;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .knowledge-ring,
   .knowledge-orbit,

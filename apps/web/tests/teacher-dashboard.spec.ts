@@ -69,6 +69,8 @@ test.describe("teacher dashboard", () => {
     await expect(mobileNav.getByRole("link", { name: /Dashboard/ })).toBeVisible();
     await expect(mobileNav.getByRole("link", { name: /My Report/ })).toBeVisible();
     await expect(page.getByRole("button", {name: "Log out"})).toBeVisible();
+    await expect(page.getByRole("link", {name: "View Profile"})).toHaveAttribute("href", "/teacher/profile/");
+    await expect(page.getByRole("link", {name: "Settings"})).toHaveAttribute("href", "/teacher/settings/");
     await mobileNav.getByRole("link", { name: /Time Clock/ }).click();
     await expect(page).toHaveURL(/\/teacher\/time-clock\/$/);
     await expect(page.getByText("Timesheet status")).toBeVisible();
@@ -266,6 +268,57 @@ test.describe("teacher dashboard", () => {
     await expect(page).toHaveURL(/\/login\/$/);
     await expect(page.getByRole("heading", {name: "Welcome Back"})).toBeVisible();
   });
+
+  test("teacher account menu opens native profile and settings", async ({ page }, testInfo) => {
+    skipUnlessDesktopTeacherE2EEnabled(testInfo.project.name);
+    await signInAsTeacher(page);
+    await page.getByLabel("Open teacher account menu").click();
+    const accountMenu = page.getByRole("menu", {name: "Teacher account menu"});
+    await accountMenu.getByRole("menuitem", {name: "View Profile"}).click();
+    await expect(page).toHaveURL(/\/teacher\/profile\/$/);
+    await expect(page.getByRole("heading", {name: "Contact & account"})).toBeVisible();
+    await page.getByLabel("Open teacher account menu").click();
+    await page.getByRole("menu", {name: "Teacher account menu"}).getByRole("menuitem", {name: "Settings"}).click();
+    await expect(page).toHaveURL(/\/teacher\/settings\/$/);
+    await expect(page.getByRole("heading", {name: "Settings"}).first()).toBeVisible();
+    await expect(page.getByRole("button", {name: /Change Password/})).toBeVisible();
+  });
+
+  test("teacher can save the native profile and use local settings", async ({ page }, testInfo) => {
+    skipUnlessDesktopTeacherE2EEnabled(testInfo.project.name);
+    await signInAsTeacher(page);
+    await page.goto("/teacher/profile/");
+    await page.getByRole("button", {name: "Edit Profile"}).click();
+    const fullName = page.getByLabel("Full name");
+    const existingName = await fullName.inputValue();
+    await fullName.fill(existingName || "Codex CMS Staff");
+    await page.getByRole("button", {name: "Save Profile"}).click();
+    await expect(page.getByRole("status")).toContainText("Profile updated successfully");
+    await page.goto("/teacher/settings/");
+    await page.getByLabel("Language").selectOption("fr");
+    await expect(page.getByLabel("Language")).toHaveValue("fr");
+    await page.reload();
+    await expect(page.getByLabel("Language")).toHaveValue("fr");
+    await page.getByLabel("Language").selectOption("en");
+    const themeButton = page.getByRole("button", {name: /Dark Mode/});
+    await themeButton.click();
+    await expect(page.locator("html")).toHaveClass(/dark/);
+    await themeButton.click();
+    await expect(page.locator("html")).not.toHaveClass(/dark/);
+    await page.getByRole("button", {name: /Change Password/}).click();
+    await page.getByLabel("Current password").fill("not-used-for-validation");
+    await page.getByLabel("New password", {exact: true}).fill("123456");
+    await page.getByLabel("Confirm new password").fill("654321");
+    await page.getByRole("button", {name: "Change Password", exact: true}).click();
+    await expect(page.getByRole("status")).toContainText("do not match");
+  });
+
+  for (const [path, heading] of [["profile", "Teacher sign-in required"], ["settings", "Teacher sign-in required"]] as const) {
+    test(`requires a teacher sign-in before rendering ${path}`, async ({ page }) => {
+      await gotoTeacherGuard(page, `/teacher/${path}/`);
+      await expect(page.getByRole("heading", {name: heading})).toBeVisible();
+    });
+  }
 
   test("teacher sidebar favorites persist and reset", async ({ page }, testInfo) => {
     skipUnlessDesktopTeacherE2EEnabled(testInfo.project.name);

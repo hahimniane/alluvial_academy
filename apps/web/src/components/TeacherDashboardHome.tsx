@@ -6,6 +6,7 @@ import { collection, doc, getDocs, limit, query, runTransaction, serverTimestamp
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   Bell,
+  CircleUserRound,
   BookOpen,
   Briefcase,
   CalendarCheck,
@@ -27,6 +28,7 @@ import {
   Podcast,
   RotateCcw,
   Search,
+  Settings,
   ShieldCheck,
   BarChart3,
   Star,
@@ -463,7 +465,7 @@ export function TeacherShell({
   };
 
   return (
-    <main className="h-screen overflow-hidden bg-[#F5F5F5] text-[#0F172A]">
+    <main className={`h-screen overflow-hidden bg-[#F5F5F5] text-[#0F172A] ${activeLabel === "Settings" ? "teacher-settings" : ""}`}>
       <div className="flex h-screen overflow-hidden">
         <aside className="hidden h-screen w-[260px] shrink-0 flex-col border-r border-[#D7DEE8] bg-white shadow-[4px_0_18px_rgba(15,23,42,0.04)] lg:flex">
           <div className="flex min-h-14 items-center justify-center border-b border-black/5 px-4">
@@ -559,6 +561,8 @@ export function TeacherShell({
                 </button>
                 {accountMenuOpen ? (
                   <div className="absolute right-0 top-12 z-50 w-56 rounded-2xl border border-[#E2E8F0] bg-white p-2 shadow-xl" role="menu" aria-label="Teacher account menu">
+                    <Link href="/teacher/profile/" role="menuitem" className="flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-bold text-[#334155] hover:bg-[#F1F5F9]"><CircleUserRound size={18} />View Profile</Link>
+                    <Link href="/teacher/settings/" role="menuitem" className="flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-bold text-[#334155] hover:bg-[#F1F5F9]"><Settings size={18} />Settings</Link>
                     {canSwitchToAdmin ? <Link href="/admin/" role="menuitem" className="flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-bold text-[#334155] hover:bg-[#F1F5F9]"><ShieldCheck size={18} />Switch to Admin</Link> : null}
                     <button type="button" role="menuitem" onClick={() => void logout()} className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-bold text-[#DC2626] hover:bg-[#FEF2F2]"><LogOut size={18} />Log out</button>
                   </div>
@@ -644,6 +648,8 @@ function TeacherMobileMenu({
           ))}
         </nav>
         <div className="border-t border-black/10 p-3">
+          <Link href="/teacher/profile/" onClick={onClose} className="flex min-h-12 items-center gap-3 rounded-xl px-3 text-sm font-bold text-[#334155] hover:bg-[#F1F5F9]"><CircleUserRound size={19} />View Profile</Link>
+          <Link href="/teacher/settings/" onClick={onClose} className="flex min-h-12 items-center gap-3 rounded-xl px-3 text-sm font-bold text-[#334155] hover:bg-[#F1F5F9]"><Settings size={19} />Settings</Link>
           {canSwitchToAdmin ? <Link href="/admin/" onClick={onClose} className="flex min-h-12 items-center gap-3 rounded-xl px-3 text-sm font-bold text-[#334155] hover:bg-[#F1F5F9]"><ShieldCheck size={19} />Switch to Admin</Link> : null}
           <button type="button" onClick={onLogout} className="flex min-h-12 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-bold text-[#DC2626] hover:bg-[#FEF2F2]"><LogOut size={19} />Log out</button>
         </div>
