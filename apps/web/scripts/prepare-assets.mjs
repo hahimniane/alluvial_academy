@@ -44,6 +44,7 @@ await Promise.all([
   copyFileOrDir(join(repoRoot, "web", "favicon.png"), join(publicDir, "favicon.png")),
   copyFileOrDir(join(repoRoot, "web", "logo-192.png"), join(publicDir, "logo-192.png")),
   copyFileOrDir(join(repoRoot, "web", "logo-512.png"), join(publicDir, "logo-512.png")),
+  copyFileOrDir(join(repoRoot, "web", "zoom_meeting.html"), join(publicDir, "zoom_meeting.html")),
 ]);
 
 console.log("Prepared Next.js public assets.");

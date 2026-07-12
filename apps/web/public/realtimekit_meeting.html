@@ -17,11 +17,20 @@
   <script src="https://cdn.jsdelivr.net/npm/@cloudflare/realtimekit@1.5.1/dist/browser.js"></script>
   <script>
     (async () => {
-      const params = new URLSearchParams(location.hash.slice(1));
-      const authToken = params.get('token');
-      if (!authToken) return;
-      const meeting = await RealtimeKitClient.init({ authToken });
-      document.getElementById('meeting').meeting = meeting;
+      const notifyParent = (type, message = '') => {
+        if (window.parent === window) return;
+        window.parent.postMessage({ source: 'alluwal-realtimekit', type, message }, location.origin);
+      };
+      try {
+        const params = new URLSearchParams(location.hash.slice(1));
+        const authToken = params.get('token');
+        if (!authToken) throw new Error('Missing class access token.');
+        const meeting = await RealtimeKitClient.init({ authToken });
+        document.getElementById('meeting').meeting = meeting;
+        notifyParent('ready');
+      } catch (error) {
+        notifyParent('error', error instanceof Error ? error.message : 'Unable to initialize the class meeting.');
+      }
     })();
   </script>
 </body>
