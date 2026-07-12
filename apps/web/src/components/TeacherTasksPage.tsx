@@ -50,6 +50,7 @@ export function TeacherTasksPage() {
   const [statusFilter, setStatusFilter] = useState<TaskStatus | "all">("all");
   const [priorityFilter, setPriorityFilter] = useState<TaskPriority | "all">("all");
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [user, setUser] = useState<User | null>(null);
   const [selectedTask, setSelectedTask] = useState<TeacherTask | null>(null);
   const [statusBusy, setStatusBusy] = useState(false);
@@ -82,9 +83,15 @@ export function TeacherTasksPage() {
         setSummary(summaryForUser(nextUser, userRecord));
         setAccess("allowed");
         const loaded = await loadTeacherTasks(nextUser.uid);
-        if (mounted) setTasks(loaded);
-      } catch {
-        if (mounted) setTasks([]);
+        if (mounted) {
+          setTasks(loaded);
+          setLoadError("");
+        }
+      } catch (error) {
+        if (mounted) {
+          setTasks([]);
+          setLoadError(taskLoadErrorMessage(error));
+        }
       } finally {
         if (mounted) setLoading(false);
       }
@@ -106,6 +113,19 @@ export function TeacherTasksPage() {
   }, [activeTab, priorityFilter, search, statusFilter, tasks, user]);
 
   if (access !== "allowed") return <TeacherAccessPrompt access={access} />;
+
+  const retryLoad = async () => {
+    if (!user || loading) return;
+    setLoading(true);
+    setLoadError("");
+    try {
+      setTasks(await loadTeacherTasks(user.uid));
+    } catch (error) {
+      setLoadError(taskLoadErrorMessage(error));
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const updateTaskStatus = async (task: TeacherTask, status: TaskStatus) => {
     if (!user || statusBusy || task.status === status) return;
@@ -186,6 +206,8 @@ export function TeacherTasksPage() {
             <div className="grid min-h-[560px] place-items-center">
               <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#DBEAFE] border-t-[#0386FF]" />
             </div>
+          ) : loadError ? (
+            <TaskLoadFailure message={loadError} onRetry={() => void retryLoad()} />
           ) : visibleTasks.length === 0 ? (
             <EmptyTasks />
           ) : (
@@ -255,6 +277,19 @@ function EmptyTasks() {
   );
 }
 
+function TaskLoadFailure({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <div className="grid min-h-[590px] place-items-center px-4 lg:min-h-[660px]" role="alert">
+      <div className="max-w-md text-center">
+        <div className="mx-auto grid h-[82px] w-[82px] place-items-center rounded-full bg-[#FEE2E2] text-[#B91C1C]"><Lock size={38} /></div>
+        <h2 className="mt-5 text-xl font-bold text-[#111827]">Could not load tasks</h2>
+        <p className="mt-2 text-sm text-[#64748B]">{message}</p>
+        <button type="button" onClick={onRetry} className="mt-5 min-h-11 rounded-xl bg-[#0386FF] px-5 text-sm font-bold text-white">Try again</button>
+      </div>
+    </div>
+  );
+}
+
 function TaskCard({ task, onOpen }: { task: TeacherTask; onOpen: () => void }) {
   const overdue = Boolean(task.dueDate && task.dueDate < new Date() && task.status !== "done");
   return (
@@ -315,17 +350,10 @@ function TaskDetailsDialog({ task, busy, error, onClose, onStatusChange }: { tas
 }
 
 async function loadTeacherTasks(uid: string) {
-  const [assignedCamel, assignedSnake, createdCamel, createdSnake] = await Promise.all([
-    getDocs(query(collection(db, "tasks"), where("assignedTo", "array-contains", uid), limit(100))).catch(() => null),
-    getDocs(query(collection(db, "tasks"), where("assigned_to", "array-contains", uid), limit(100))).catch(() => null),
-    getDocs(query(collection(db, "tasks"), where("createdBy", "==", uid), limit(100))).catch(() => null),
-    getDocs(query(collection(db, "tasks"), where("created_by", "==", uid), limit(100))).catch(() => null),
-  ]);
+  const assigned = await getDocs(query(collection(db, "tasks"), where("assignedTo", "array-contains", uid), limit(100)));
   const byId = new Map<string, TeacherTask>();
-  [assignedCamel, assignedSnake, createdCamel, createdSnake].forEach((snap) => {
-    snap?.docs.forEach((entry) => {
-      byId.set(entry.id, normalizeTask(entry.id, entry.data() as Record<string, unknown>));
-    });
+  assigned.docs.forEach((entry) => {
+    byId.set(entry.id, normalizeTask(entry.id, entry.data() as Record<string, unknown>));
   });
   return Array.from(byId.values()).sort((a, b) => (a.dueDate?.getTime() ?? Number.MAX_SAFE_INTEGER) - (b.dueDate?.getTime() ?? Number.MAX_SAFE_INTEGER));
 }
@@ -401,7 +429,17 @@ function stringValue(value: unknown) {
 
 function cleanFunctionError(error: unknown, fallback: string) {
   const message = error instanceof Error ? error.message : String(error || "");
+  if (/not-found|task not found/i.test(message)) return "This task is no longer available. Close it and refresh your task list.";
+  if (/permission-denied|only assigned users/i.test(message)) return "You are no longer assigned to this task and cannot update it.";
+  if (/unavailable|network|offline/i.test(message) || !navigator.onLine) return "You appear to be offline. Reconnect and try again.";
   return message.replace(/^Firebase:\s*/i, "").replace(/^functions\//i, "").trim() || fallback;
+}
+
+function taskLoadErrorMessage(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error || "");
+  if (/permission-denied/i.test(message)) return "You do not have permission to view assigned tasks. Contact an administrator if this continues.";
+  if (/unavailable|network|offline/i.test(message) || !navigator.onLine) return "You appear to be offline. Reconnect and try again.";
+  return "Check your connection and try again. If the problem continues, contact an administrator.";
 }
 
 function labelFor(value: string) {

@@ -344,6 +344,47 @@ test.describe("teacher dashboard", () => {
     await dialog.getByRole("button", {name: "In Progress"}).click();
     await expect(page.getByText("Task status updated")).toBeVisible();
     await expect(dialog.getByRole("button", {name: "In Progress"})).toBeDisabled();
+    await dialog.getByRole("button", {name: "Done"}).click();
+    await expect(page.getByText("Task submitted successfully")).toBeVisible();
+    await expect(dialog.getByRole("button", {name: "Done"})).toBeDisabled();
+  });
+
+  test("teacher sees an actionable error when an open task becomes stale", async ({ page }, testInfo) => {
+    skipUnlessDesktopTeacherE2EEnabled(testInfo.project.name);
+    test.skip(process.env.ALLUWAL_RUN_TEACHER_TASK_RESILIENCE_E2E !== "1", "Enable only with the disposable dev task fixture.");
+    await page.route("**/updateAssignedTaskStatus", (route) => route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({error: {status: "NOT_FOUND", message: "Task not found"}}),
+    }));
+    await signInAsTeacher(page);
+    await page.getByRole("link", {name: /Tasks/}).click();
+    await page.getByLabel("Search tasks").fill("Codex Teacher Task Status QA");
+    await page.locator("article").filter({hasText: "Codex Teacher Task Status QA"}).getByRole("button", {name: "View and update"}).click();
+    const dialog = page.getByRole("dialog", {name: /Codex Teacher Task Status QA details/});
+    const target = dialog.getByRole("button", {name: "Done"});
+    if (await target.isDisabled()) await dialog.getByRole("button", {name: "To Do"}).click();
+    else await target.click();
+    await expect(dialog.getByRole("alert")).toHaveText("This task is no longer available. Close it and refresh your task list.");
+  });
+
+  test("teacher sees an actionable error after task assignment is revoked", async ({ page }, testInfo) => {
+    skipUnlessDesktopTeacherE2EEnabled(testInfo.project.name);
+    test.skip(process.env.ALLUWAL_RUN_TEACHER_TASK_RESILIENCE_E2E !== "1", "Enable only with the disposable dev task fixture.");
+    await page.route("**/updateAssignedTaskStatus", (route) => route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({error: {status: "PERMISSION_DENIED", message: "Only assigned users can update this task"}}),
+    }));
+    await signInAsTeacher(page);
+    await page.getByRole("link", {name: /Tasks/}).click();
+    await page.getByLabel("Search tasks").fill("Codex Teacher Task Status QA");
+    await page.locator("article").filter({hasText: "Codex Teacher Task Status QA"}).getByRole("button", {name: "View and update"}).click();
+    const dialog = page.getByRole("dialog", {name: /Codex Teacher Task Status QA details/});
+    const target = dialog.getByRole("button", {name: "Done"});
+    if (await target.isDisabled()) await dialog.getByRole("button", {name: "To Do"}).click();
+    else await target.click();
+    await expect(dialog.getByRole("alert")).toHaveText("You are no longer assigned to this task and cannot update it.");
   });
 
   test("requires a teacher sign-in before rendering job board", async ({ page, browserName }) => {
@@ -362,6 +403,39 @@ test.describe("teacher dashboard", () => {
     await expect(page.getByRole("heading", { name: "New Student Opportunities" })).toBeVisible();
     await expect(page.getByText("Accept new students to fill your schedule")).toBeVisible();
     await expect(page.locator("text=/No opportunities right now|Submit availability|Filled Opportunities/").first()).toBeVisible();
+  });
+
+  test("job board filters targeted posts and handles offline and concurrent responses", async ({ page, context }, testInfo) => {
+    skipUnlessDesktopTeacherE2EEnabled(testInfo.project.name);
+    test.skip(process.env.ALLUWAL_RUN_TEACHER_JOB_RESILIENCE_E2E !== "1", "Enable only with disposable dev job fixtures.");
+    await signInAsTeacher(page);
+    await page.getByRole("link", {name: /Job Board/}).click();
+    await expect(page.getByText("Codex Job Concurrency Student")).toBeVisible();
+    await expect(page.getByText("Codex Hidden Target Student")).toBeHidden();
+
+    const firstCard = page.locator("article").filter({hasText: "Codex Job Concurrency Student"});
+    await firstCard.getByRole("button", {name: "Submit availability"}).click();
+    await context.setOffline(true);
+    await page.getByRole("dialog", {name: "Reply to broadcast"}).getByRole("button", {name: "Submit", exact: true}).click();
+    await expect(page.getByText("You appear to be offline. Reconnect and try again.")).toBeVisible();
+    await context.setOffline(false);
+    await page.getByRole("dialog", {name: "Reply to broadcast"}).getByRole("button", {name: "Cancel"}).click();
+
+    const second = await context.newPage();
+    await second.goto("/teacher/job-board/");
+    await Promise.all([
+      firstCard.getByRole("button", {name: "Submit availability"}).click(),
+      second.locator("article").filter({hasText: "Codex Job Concurrency Student"}).getByRole("button", {name: "Submit availability"}).click(),
+    ]);
+    const firstDialog = page.getByRole("dialog", {name: "Reply to broadcast"});
+    const secondDialog = second.getByRole("dialog", {name: "Reply to broadcast"});
+    await Promise.all([
+      firstDialog.getByRole("button", {name: "Submit", exact: true}).click(),
+      secondDialog.getByRole("button", {name: "Submit", exact: true}).click(),
+    ]);
+    await expect.poll(async () => Number(await firstDialog.isVisible()) + Number(await secondDialog.isVisible())).toBe(1);
+    const losingPage = await firstDialog.isVisible() ? page : second;
+    await expect(losingPage.getByText(/This opportunity is closed|not open for availability responses|You do not have permission to update this opportunity/)).toBeVisible();
   });
 
   test("teacher can review withdraw confirmation for an accepted job", async ({ page }, testInfo) => {

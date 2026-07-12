@@ -3192,6 +3192,40 @@ render and the native Next authenticated CMS write/upload tests pass against
   produced one pending transition and one visible already-submitted result.
   Both disposable drafts were deleted after Firestore verification.
 
+### Teacher task lifecycle acceptance (2026-07-12)
+
+- Flutter task loading was inspected read-only and confirmed that non-admin
+  teachers load tasks assigned to them. Next no longer mixes creator-owned
+  tasks into the teacher list, because those records are not teacher-actionable
+  under the assigned-task callable contract.
+- A failed task query now renders a retryable error instead of the misleading
+  `No Tasks Found` state. Stale task and revoked-assignment callable failures
+  remain inside the details dialog with actionable wording.
+- A disposable assigned task completed the real dev `todo` → `inProgress` →
+  `done` lifecycle through the browser. Firestore verification confirmed
+  `TaskStatus.done`, the teacher `updatedBy`, `completedAt`, and
+  `overdueDaysAtCompletion`. Guarded mocked-callable browser checks covered
+  not-found and permission-denied responses. The task was deleted afterward.
+- No Flutter source, production Firebase resource, rule, or Function was
+  changed or deployed.
+
+### Teacher Job Board resilience acceptance (2026-07-12)
+
+- Flutter Job Board source was inspected read-only. Next now applies the same
+  `targetTeacherIds` visibility rule, so teachers do not see broadcasts aimed
+  only at other teachers.
+- Availability response and withdrawal actions now fail immediately with a
+  retryable offline message and translate Firestore permission failures into an
+  actionable in-app error rather than exposing the raw SDK response.
+- A guarded two-tab dev test submitted full availability concurrently against
+  one disposable open job. Transaction retries produced one response document,
+  one `available` count, and the expected `closed` /
+  `teacher_fully_available` parent state; the losing tab showed an explicit
+  failure. A second targeted job was confirmed hidden. Both jobs and the
+  response were deleted after verification.
+- Previously verified withdraw/rebroadcast behavior remains covered by its
+  guarded mutation test. No Flutter or production Firebase change occurred.
+
 ## Post-parity additions (2026-07-09)
 
 These are deliberate improvements beyond Flutter parity, requested by the
