@@ -3570,3 +3570,20 @@ rendering, pixel spacing, or differences a normal user would not notice.
 - Guard and enablement/preference browser tests pass. A gated live-session test
   records the unresolved signaling acceptance failure. Whiteboard and
   AI-requested teacher clock-in/reschedule actions remain explicitly open.
+
+## AI Tutor whiteboard and teacher-action follow-up
+
+- Added both Flutter-compatible whiteboard topics (`ai_tutor_whiteboard` and
+  legacy `alluwal_whiteboard`) using the same `{type, payload}` envelope and
+  version-2 project shape. Normalized pen strokes, undo/redo/clear, agent
+  project replay, inbound project display, and inbound drawing permission are
+  implemented on desktop and mobile.
+- Added `ai_tutor_teacher_actions` handling and reliable
+  `ai_tutor_teacher_action_results` responses. Supported actions match Flutter:
+  GPS-backed transactional `clock_in`, `reschedule_shift`, and
+  `reschedule_shift_future`. Rescheduling requires explicit confirmation and a
+  valid single/future scope before calling the existing deployed contracts.
+- Added focused protocol tests for exact Flutter whiteboard normalization and
+  rejection of unsupported or unconfirmed mutations. These pass alongside
+  typecheck and production static export. End-to-end agent delivery remains
+  gated by the previously recorded LiveKit proxy 404/CORS failure.
