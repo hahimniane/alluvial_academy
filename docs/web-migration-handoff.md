@@ -3424,6 +3424,11 @@ render and the native Next authenticated CMS write/upload tests pass against
 - No Flutter files, Firebase Functions, production Firebase data, Zoom routing,
   or deployment targets were changed as part of this gate. Real two-party Zoom
   hub acceptance remains the only external live-session verification item.
+- After the Assignments/dashboard/shift-detail additions, the three-project
+  teacher run completed 63 enabled tests with 154 fixture-gated skips. Its only
+  two failures were selector collisions caused by the restored Islamic resource
+  link and the now-labelled notification bell; both tests were scoped to their
+  owning navigation/content regions and their focused Chromium reruns pass.
 
 ### Teacher My Report parity recovery (2026-07-12)
 

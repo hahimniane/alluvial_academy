@@ -960,7 +960,7 @@ test.describe("teacher dashboard", () => {
   test("teacher can open the native surah podcasts page", async ({ page }, testInfo) => {
     skipUnlessDesktopTeacherE2EEnabled(testInfo.project.name);
     await signInAsTeacher(page);
-    await page.getByRole("link", { name: /Surah Podcasts/ }).click();
+    await page.getByRole("navigation", { name: "Teacher dashboard navigation" }).getByRole("link", { name: "Surah Podcasts" }).click();
     await expect(page).toHaveURL(/\/teacher\/surah-podcasts\/$/);
     await expect(page.getByRole("heading", { name: "Surah Content" })).toBeVisible();
     await expect(page.getByRole("button", { name: /Library/ })).toBeVisible();
@@ -1060,7 +1060,8 @@ test.describe("teacher dashboard", () => {
     skipUnlessDesktopTeacherE2EEnabled(testInfo.project.name);
     await signInAsTeacher(page);
     await page.getByRole("link", {name: /Curriculum Books/}).click();
-    const links = page.getByRole("link", {name: /Open|Download/});
+    const curriculumContent = page.getByLabel("Teacher page content");
+    const links = curriculumContent.getByRole("link", {name: /Open|Download/});
     await expect(links).toHaveCount(8);
     const hrefs = await links.evaluateAll((anchors) => anchors.map((anchor) => (anchor as HTMLAnchorElement).href.replace(/#.*$/, "")));
     for (const href of hrefs) {
@@ -1068,9 +1069,9 @@ test.describe("teacher dashboard", () => {
       expect(response.ok(), `${href} should resolve`).toBe(true);
       expect(Number(response.headers()["content-length"] ?? 0)).toBeGreaterThan(0);
     }
-    await expect(page.getByRole("link", {name: "Open"}).first()).toHaveAttribute("href", /alphabet_and_fatha\.pdf#view=Fit$/);
-    await expect(page.getByRole("link", {name: "Open"}).first()).toHaveAttribute("target", "_blank");
-    await expect(page.getByRole("link", {name: "Download"}).first()).toHaveAttribute("href", /alphabet_and_fatha\.pptx$/);
+    await expect(curriculumContent.getByRole("link", {name: "Open"}).first()).toHaveAttribute("href", /alphabet_and_fatha\.pdf#view=Fit$/);
+    await expect(curriculumContent.getByRole("link", {name: "Open"}).first()).toHaveAttribute("target", "_blank");
+    await expect(curriculumContent.getByRole("link", {name: "Download"}).first()).toHaveAttribute("href", /alphabet_and_fatha\.pptx$/);
   });
 
   test("requires a teacher sign-in before rendering submit form", async ({ page, browserName }) => {
