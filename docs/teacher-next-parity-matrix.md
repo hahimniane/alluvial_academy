@@ -1,0 +1,31 @@
+# Teacher Next.js Parity Matrix
+
+Last updated: 2026-07-11. Coordination issue: #25.
+
+This matrix tracks functional parity between the Flutter teacher role and
+`apps/web`. Production is read-only during verification; mutations use
+`alluwal-dev`.
+
+| Area | Native route | Current functional checkpoint | Remaining acceptance work |
+| --- | --- | --- | --- |
+| Dashboard | `/teacher/` | Native shell, metrics, quick access, sidebar, mobile drawer | Full role-switch/logout and stale metric failure pass |
+| My Shifts | `/teacher/shifts/` | Day/week/month, details, issue report, timezone, clock actions | Geolocation denial, duplicate action, reload recovery |
+| Time Clock | `/teacher/time-clock/` | Clock actions, filters, draft edit/submit, desktop/mobile detail views | Offline/failure and duplicate submission pass |
+| Tasks | `/teacher/tasks/` | Native list and task actions | Lifecycle/status and stale-record pass |
+| Job Board | `/teacher/job-board/` | Accept and withdraw/rebroadcast | Permission/failure and concurrent acceptance pass |
+| Chat | `/teacher/chat/` | Conversation creation/repair and text send | Ordering, unread state, send failure, mobile back navigation |
+| Classes | `/teacher/classes/` | Schedule, presence, details, guest link | Provider-specific join and live session recovery pass |
+| Classroom | `/teacher/classroom/` | RealtimeKit embed; provider selection added in #25 work | RealtimeKit lock/roster/remove/reconnect and real Zoom hub join verification |
+| Recordings | `/teacher/recordings/` | Native listing and playback | Expired/missing URL and playback failure pass |
+| Surah Podcasts | `/teacher/surah-podcasts/` | Native browse and assignment sharing | Failed write, empty assignment, responsive dialog pass |
+| Curriculum Books | `/teacher/curriculum-books/` | Native content listing | Broken/missing asset and download/navigation pass |
+| Submit Form | `/teacher/submit-form/` | Shift selection, saved detection, time/image/signature fields, linked writes | Inventory every live template field type and failure recovery |
+| Form Submissions | `/teacher/form-submissions/` | Native history and hydrated labels | Missing template, legacy response, empty/error states |
+
+## Completion rule
+
+An area moves to complete only after its Flutter behavior is observed, its
+desktop and mobile Next workflows pass, data writes are Flutter-compatible,
+failure states are visible, focused browser coverage exists, and the full web
+regression remains green. Cosmetic-only differences do not block completion
+unless they would make the migration noticeable or impair use.
