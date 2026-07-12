@@ -3103,6 +3103,28 @@ render and the native Next authenticated CMS write/upload tests pass against
   upload rendering E2E passed. No function/rule deployment or production change
   occurred in this slice.
 
+### Teacher content and shell cutover (2026-07-11)
+
+- Recordings now reports a retryable in-app error when the browser cannot play
+  a selected recording instead of leaving a silent failed player.
+- The teacher shell now persists sidebar favorites and collapsed state, offers
+  Reset Layout, exposes an authenticated account menu, supports the existing
+  Admin role switch when the user record allows it, and signs out to `/login/`
+  from desktop and mobile controls.
+- The Surah share workflow was exercised end-to-end in `alluwal-dev` with
+  disposable podcast, teaching-shift, student, and assignment data. Share,
+  persisted Shared-tab visibility, and removal passed; the assignment and both
+  source fixtures were deleted after verification.
+- All eight production curriculum PDF/PPTX targets were checked read-only and
+  returned HTTP 200. Production Firestore, Functions, rules, and Hosting were
+  not changed. No Flutter source was changed.
+- Focused Chromium checks passed for account-menu role/logout controls, actual
+  logout, sidebar persistence/reset, and Surah share/remove. The full teacher
+  matrix passed on desktop Chromium, mobile Chrome, and WebKit (44 passed, 52
+  intentionally skipped); the fixture-dependent write smoke passed separately.
+  Typecheck, the production-style Next build, Hostinger packaging, and
+  `git diff --check` passed.
+
 ## Post-parity additions (2026-07-09)
 
 These are deliberate improvements beyond Flutter parity, requested by the
