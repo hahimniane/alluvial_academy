@@ -346,6 +346,7 @@ export function TeacherSubmitFormPage() {
   const [shiftTemplate, setShiftTemplate] = useState<FormTemplateRecord | null>(null);
   const [selectedShift, setSelectedShift] = useState<ShiftOption | null>(null);
   const [existingSubmission, setExistingSubmission] = useState<ExistingSubmission | null>(null);
+  const openedShiftDeepLink = useRef("");
 
   useEffect(() => {
     let mounted = true;
@@ -434,6 +435,25 @@ export function TeacherSubmitFormPage() {
       })
       .filter((group) => group.items.length > 0);
   }, [visibleTemplates]);
+
+  useEffect(() => {
+    if (!currentUser || loading || typeof window === "undefined") return;
+    const requestedShiftId = new URLSearchParams(window.location.search).get("shift")?.trim() ?? "";
+    if (!requestedShiftId || openedShiftDeepLink.current === requestedShiftId) return;
+    const perSessionTemplate = visibleTemplates.find((template) => template.frequency === "perSession" && template.isActive);
+    if (!perSessionTemplate) return;
+    openedShiftDeepLink.current = requestedShiftId;
+    void loadRecentTeacherShifts(currentUser.uid).then(async (shifts) => {
+      const shift = shifts.find((item) => item.id === requestedShiftId);
+      if (!shift) { setMessage("This class is not currently available for a readiness form."); return; }
+      if (shift.formResponseId) {
+        const existing = await loadExistingSubmission(shift.formResponseId);
+        if (existing) { setExistingSubmission(existing); return; }
+      }
+      setSelectedShift(shift);
+      setActiveTemplate(perSessionTemplate);
+    }).catch(() => setMessage("Could not open the selected class. Please choose it from the form list."));
+  }, [currentUser, loading, visibleTemplates]);
 
   if (access !== "allowed") return <TeacherAccessPrompt access={access} />;
 

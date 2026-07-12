@@ -82,6 +82,32 @@ test.describe("teacher dashboard", () => {
     await expect(page.getByRole("heading", { name: "New Student Opportunities" })).toBeVisible();
   });
 
+  test("dashboard pending readiness form opens the selected class form", async ({ page }, testInfo) => {
+    skipUnlessStableTeacherE2EEnabled(testInfo.project.name);
+    test.skip(process.env.ALLUWAL_RUN_TEACHER_PENDING_FORM_E2E !== "1", "Enable only with the disposable completed-shift fixture.");
+    await signInAsTeacher(page);
+    const pendingButton = page.getByRole("button", { name: /Readiness Forms? Required/ });
+    await expect(pendingButton).toBeVisible();
+    await pendingButton.click();
+    const dialog = page.getByRole("dialog", { name: "Pending readiness forms" });
+    await expect(dialog.getByText("Codex Pending Form Class")).toBeVisible();
+    await dialog.locator('a[href="/teacher/submit-form/?shift=codex-dashboard-pending-form"]').click();
+    await expect(page).toHaveURL(/\/teacher\/submit-form\/\?shift=codex-dashboard-pending-form/);
+    await expect(page.getByRole("heading", { name: "Daily Class Report" })).toBeVisible();
+    await expect(page.getByText(/Codex Student.*Jul 11/)).toBeVisible();
+    await page.getByLabel("What lesson/topic did you cover today?").fill("Codex pending-form dashboard parity");
+    await page.getByLabel("How many students attended?").fill("1");
+    await page.getByRole("radio", { name: /How did the session go\?: Good/ }).check();
+    await page.getByRole("button", { name: "Submit Form", exact: true }).click();
+    await expect(page.getByText("Form submitted successfully")).toBeVisible();
+    await page.goto("/teacher/");
+    const remainingPending = page.getByRole("button", { name: /Readiness Forms? Required/ });
+    if (await remainingPending.isVisible().catch(() => false)) {
+      await remainingPending.click();
+      await expect(page.getByRole("dialog", { name: "Pending readiness forms" }).getByText("Codex Pending Form Class")).toBeHidden();
+    }
+  });
+
   test("teacher account menu exposes role switch and logout", async ({ page }, testInfo) => {
     skipUnlessDesktopTeacherE2EEnabled(testInfo.project.name);
     await signInAsTeacher(page);

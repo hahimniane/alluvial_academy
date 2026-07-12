@@ -68,6 +68,7 @@ type TeacherHomeData = {
   shifts: TeacherShift[];
   tasks: TeacherTask[];
   timesheets: TeacherTimesheet[];
+  completedFormShiftIds: Set<string>;
 };
 
 type TeacherSummary = {
@@ -144,7 +145,7 @@ export function TeacherDashboardHome() {
   const [access, setAccess] = useState<AccessState>("checking");
   const [user, setUser] = useState<User | null>(null);
   const [summary, setSummary] = useState<TeacherSummary>({ displayName: "Teacher", firstName: "Teacher", initials: "TE" });
-  const [data, setData] = useState<TeacherHomeData>({ shifts: [], tasks: [], timesheets: [] });
+  const [data, setData] = useState<TeacherHomeData>({ shifts: [], tasks: [], timesheets: [], completedFormShiftIds: new Set() });
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
 
@@ -223,6 +224,7 @@ function TeacherHomeContent({
   summary: TeacherSummary;
   user: User | null;
 }) {
+  const [pendingFormsOpen, setPendingFormsOpen] = useState(false);
   const now = new Date();
   const weekStart = startOfWeek(now);
   const weekEnd = addDays(weekStart, 7);
@@ -240,6 +242,9 @@ function TeacherHomeContent({
   const monthAbsences = data.shifts.filter((shift) => shift.start && shift.start >= monthStart && isMissedStatus(shift.status)).length;
   const monthLate = data.timesheets.filter((entry) => entry.date && entry.date >= monthStart && entry.status.includes("late")).length;
   const openAssignments = data.tasks.filter((task) => task.status !== "done").length;
+  const pendingFormShifts = data.shifts
+    .filter((shift) => shift.end && shift.end < now && isFormRequiredStatus(shift.status) && !data.completedFormShiftIds.has(shift.id))
+    .sort((a, b) => (b.start?.getTime() ?? 0) - (a.start?.getTime() ?? 0));
 
   return (
     <main className="min-h-[calc(100vh-56px)] overflow-y-auto bg-[#F5F5F5] px-5 pb-20 pt-0 text-[#111827] lg:px-5 lg:pb-8">
@@ -275,6 +280,8 @@ function TeacherHomeContent({
         <EarningCell label="Month" value={money(monthPay)} />
       </section>
 
+      {pendingFormShifts.length ? <button type="button" onClick={() => setPendingFormsOpen(true)} className="mt-4 flex min-h-20 w-full items-center gap-4 rounded-2xl bg-gradient-to-br from-[#F59E0B] to-[#EF4444] p-4 text-left text-white shadow-[0_8px_18px_rgba(245,158,11,0.28)]"><span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-white/20"><ClipboardList size={25} /></span><span className="min-w-0 flex-1"><span className="block font-extrabold">{pendingFormShifts.length} Readiness Form{pendingFormShifts.length === 1 ? "" : "s"} Required</span><span className="mt-1 block text-sm text-white/90">Complete a report for each completed or missed class.</span></span><span aria-hidden="true" className="text-2xl">›</span></button> : null}
+
       <section className="mt-5">
         <div className="mb-4 flex items-center justify-between">
           <h1 className="text-[21px] font-black text-[#111827]">Next Class</h1>
@@ -305,8 +312,13 @@ function TeacherHomeContent({
           ))}
         </div>
       </section>
+      {pendingFormsOpen ? <PendingFormsDialog shifts={pendingFormShifts} onClose={() => setPendingFormsOpen(false)} /> : null}
     </main>
   );
+}
+
+function PendingFormsDialog({ shifts, onClose }: { shifts: TeacherShift[]; onClose: () => void }) {
+  return <section className="fixed inset-0 z-[90] grid items-end bg-black/45 sm:place-items-center" role="dialog" aria-modal="true" aria-label="Pending readiness forms"><div className="max-h-[78vh] w-full overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:max-w-xl sm:rounded-3xl"><header className="flex items-center gap-3 border-b border-[#E2E8F0] p-5"><span className="grid h-11 w-11 place-items-center rounded-xl bg-amber-100 text-amber-600"><ClipboardList size={22} /></span><div className="min-w-0 flex-1"><h2 className="text-lg font-extrabold text-[#111827]">Pending Readiness Forms</h2><p className="text-sm text-[#64748B]">Select a class to complete its report.</p></div><button type="button" aria-label="Close pending forms" onClick={onClose} className="grid h-10 w-10 place-items-center rounded-xl text-[#64748B] hover:bg-[#F1F5F9]"><X size={20} /></button></header><div className="max-h-[calc(78vh-84px)] divide-y divide-[#E2E8F0] overflow-y-auto">{shifts.map((shift) => <div key={shift.id} className="flex flex-wrap items-center gap-3 p-5"><div className="min-w-0 flex-1"><p className="truncate font-bold text-[#334155]">{shift.title}</p><p className="mt-1 text-sm text-[#64748B]">{formatDateTimeRange(shift.start, shift.end)}</p><span className={`mt-2 inline-flex rounded-full px-2 py-1 text-xs font-bold ${isMissedStatus(shift.status) ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800"}`}>{isMissedStatus(shift.status) ? "Missed" : "Completed"}</span></div><Link href={`/teacher/submit-form/?shift=${encodeURIComponent(shift.id)}`} className="inline-flex min-h-11 items-center justify-center rounded-xl bg-[#0386FF] px-4 text-sm font-bold text-white">Fill Form</Link></div>)}</div></div></section>;
 }
 
 export function TeacherShell({
@@ -755,16 +767,28 @@ export function TeacherAccessPrompt({ access }: { access: AccessState }) {
 }
 
 async function loadTeacherHomeData(uid: string): Promise<{data: TeacherHomeData; failed: string[]}> {
-  const results = await Promise.allSettled([loadTeacherShifts(uid), loadTeacherTasks(uid), loadTeacherTimesheets(uid)]);
-  const labels = ["class schedule", "tasks", "timesheets"];
+  const results = await Promise.allSettled([loadTeacherShifts(uid), loadTeacherTasks(uid), loadTeacherTimesheets(uid), loadTeacherFormShiftIds(uid)]);
+  const labels = ["class schedule", "tasks", "timesheets", "form status"];
   return {
     data: {
       shifts: results[0].status === "fulfilled" ? results[0].value : [],
       tasks: results[1].status === "fulfilled" ? results[1].value : [],
       timesheets: results[2].status === "fulfilled" ? results[2].value : [],
+      completedFormShiftIds: results[3].status === "fulfilled" ? results[3].value : new Set(),
     },
     failed: results.flatMap((result, index) => result.status === "rejected" ? [labels[index]] : []),
   };
+}
+
+async function loadTeacherFormShiftIds(uid: string) {
+  const snapshots = await Promise.all(["userId", "submittedBy", "submitted_by"].map((field) => getDocs(query(collection(db, "form_responses"), where(field, "==", uid), limit(200))).catch(() => null)));
+  const ids = new Set<string>();
+  snapshots.flatMap((snapshot) => snapshot?.docs ?? []).forEach((entry) => {
+    const data = entry.data() as Record<string, unknown>;
+    const shiftId = stringValue(data.shiftId ?? data.shift_id ?? data.linked_shift_id);
+    if (shiftId) ids.add(shiftId);
+  });
+  return ids;
 }
 
 function homeLoadError(failed: string[]) {
@@ -773,8 +797,10 @@ function homeLoadError(failed: string[]) {
 }
 
 async function loadTeacherShifts(uid: string) {
-  const snap = await getDocs(query(collection(db, "teaching_shifts"), where("teacher_id", "==", uid), limit(100)));
-  return snap.docs.map((entry) => normalizeShift(entry.id, entry.data() as Record<string, unknown>));
+  const snapshots = await Promise.all(["teacher_id", "teacherId"].map((field) => getDocs(query(collection(db, "teaching_shifts"), where(field, "==", uid), limit(500))).catch(() => null)));
+  const byId = new Map<string, TeacherShift>();
+  snapshots.flatMap((snapshot) => snapshot?.docs ?? []).forEach((entry) => byId.set(entry.id, normalizeShift(entry.id, entry.data() as Record<string, unknown>)));
+  return Array.from(byId.values());
 }
 
 async function loadTeacherTasks(uid: string) {
@@ -898,6 +924,8 @@ function isCompletedStatus(status: string) {
 function isMissedStatus(status: string) {
   return ["missed", "no_show", "noshow"].includes(status.toLowerCase().replace(/\s+/g, ""));
 }
+
+function isFormRequiredStatus(status: string) { return isCompletedStatus(status) || isMissedStatus(status); }
 
 function formatNumber(value: number) {
   return value.toFixed(1).replace(/\\.0$/, ".0");

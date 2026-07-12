@@ -3315,6 +3315,17 @@ render and the native Next authenticated CMS write/upload tests pass against
 - Existing authenticated coverage verifies account-menu logout, conditional
   Admin role destination when present, sidebar persistence/reset, the separated
   scroll columns, mobile drawer navigation, quick actions, and metric rendering.
+- Flutter's pending-readiness workflow is now native on the Next dashboard.
+  Completed and missed shifts without a compatible `form_responses` shift link
+  produce the warning banner and responsive class picker. `Fill Form` carries
+  the shift into `/teacher/submit-form/`, which opens the active per-session
+  template and selected class directly; successful submission removes it from
+  the pending list after reload.
+- Real desktop and mobile Chrome runs completed and removed a disposable shift
+  plus one response each. During the audit the former 100-shift single-field
+  dashboard limit was also corrected to merge both Flutter teacher-id field
+  variants with a 500-row ceiling, preventing older valid sessions from being
+  silently omitted. Active-session parity is the next dashboard checkpoint.
 
 ### Teacher Zoom provider routing check (2026-07-12)
 
