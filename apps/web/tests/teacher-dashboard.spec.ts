@@ -267,6 +267,41 @@ test.describe("teacher dashboard", () => {
     ]);
   });
 
+  test("time clock reports offline submission and rejects a duplicate submit", async ({ page, context }, testInfo) => {
+    skipUnlessDesktopTeacherE2EEnabled(testInfo.project.name);
+    test.skip(process.env.ALLUWAL_RUN_TEACHER_TIMESHEET_SUBMIT_RESILIENCE_E2E !== "1", "Enable only with disposable dev draft fixtures.");
+    await signInAsTeacher(page);
+    await page.getByRole("link", {name: /Time Clock/}).click();
+
+    const offlineRow = page.getByRole("row").filter({hasText: "Codex Offline Submission Student"}).first();
+    await expect(offlineRow).toBeVisible();
+    await context.setOffline(true);
+    await offlineRow.getByRole("button", {name: /^Submit$/}).click();
+    await page.getByRole("button", {name: "Submit for Review"}).click();
+    await expect(page.getByText("You appear to be offline. Reconnect and try again.")).toBeVisible();
+    await context.setOffline(false);
+    await page.getByRole("button", {name: "Cancel"}).click();
+
+    const second = await context.newPage();
+    await second.goto("/teacher/time-clock/");
+    const duplicateStudent = "Codex Duplicate Submission Student";
+    const firstRow = page.getByRole("row").filter({hasText: duplicateStudent}).first();
+    const secondRow = second.getByRole("row").filter({hasText: duplicateStudent}).first();
+    await Promise.all([expect(firstRow).toBeVisible(), expect(secondRow).toBeVisible()]);
+    await Promise.all([
+      firstRow.getByRole("button", {name: /^Submit$/}).click(),
+      secondRow.getByRole("button", {name: /^Submit$/}).click(),
+    ]);
+    await Promise.all([
+      page.getByRole("button", {name: "Submit for Review"}).click(),
+      second.getByRole("button", {name: "Submit for Review"}).click(),
+    ]);
+    await Promise.all([
+      expect(page.getByText(/Timesheet submitted for review|already been submitted/)).toBeVisible(),
+      expect(second.getByText(/Timesheet submitted for review|already been submitted/)).toBeVisible(),
+    ]);
+  });
+
   test("requires a teacher sign-in before rendering tasks", async ({ page, browserName }) => {
     test.skip(browserName === "webkit", "WebKit intermittently hangs before committing teacher module static routes late in the full suite; Chromium and mobile Chrome cover the guard.");
     await gotoTeacherGuard(page, "/teacher/tasks/");

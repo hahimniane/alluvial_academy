@@ -3183,6 +3183,14 @@ render and the native Next authenticated CMS write/upload tests pass against
   coordinates. The disposable entry and shift were deleted afterward.
 - Next typecheck and the production-style build passed for this implementation
   checkpoint. Flutter/Dart and production Firebase remained untouched.
+- Single and bulk draft submission now verify `status: draft` inside a
+  transaction before changing an entry to pending. The confirmation action is
+  disabled while submitting, and offline/network and permission failures show
+  actionable in-app messages while keeping the draft available to retry.
+- A second guarded two-tab dev run confirmed that an offline draft remained a
+  draft without `submitted_at`, while concurrent submission of another draft
+  produced one pending transition and one visible already-submitted result.
+  Both disposable drafts were deleted after Firestore verification.
 
 ## Post-parity additions (2026-07-09)
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { onAuthStateChanged, type User } from "firebase/auth";
-import { collection, doc, getDocs, limit, query, runTransaction, serverTimestamp, Timestamp, updateDoc, where, writeBatch } from "firebase/firestore";
+import { collection, doc, getDocs, limit, query, runTransaction, serverTimestamp, Timestamp, updateDoc, where } from "firebase/firestore";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { AlertTriangle, CalendarDays, Clock3, Download, Eye, LogIn, LogOut, MapPin, Menu, Pencil, Send, Shuffle, TimerReset, X } from "lucide-react";
 import { auth, db } from "@/lib/firebase";
@@ -72,6 +72,7 @@ export function TeacherTimeClockPage() {
   const [notice, setNotice] = useState("");
   const [clockBusy, setClockBusy] = useState(false);
   const [submittingDrafts, setSubmittingDrafts] = useState(false);
+  const [submittingEntryId, setSubmittingEntryId] = useState("");
   const [viewingEntry, setViewingEntry] = useState<TimesheetEntry | null>(null);
   const [editingEntry, setEditingEntry] = useState<TimesheetEntry | null>(null);
   const [submitEntry, setSubmitEntry] = useState<TimesheetEntry | null>(null);
@@ -161,14 +162,18 @@ export function TeacherTimeClockPage() {
   };
 
   const submitDraftEntry = async (entry: TimesheetEntry) => {
-    await updateDoc(doc(db, "timesheet_entries", entry.id), {
-      status: "pending",
-      submitted_at: serverTimestamp(),
-      updated_at: serverTimestamp(),
-    });
-    setEntries((current) => current.map((item) => item.id === entry.id ? { ...item, status: "pending" } : item));
-    setSubmitEntry(null);
-    showNotice("Timesheet submitted for review");
+    if (submittingEntryId) return;
+    setSubmittingEntryId(entry.id);
+    try {
+      await submitDraftEntries([entry]);
+      setEntries((current) => current.map((item) => item.id === entry.id ? { ...item, status: "pending" } : item));
+      setSubmitEntry(null);
+      showNotice("Timesheet submitted for review");
+    } catch (error) {
+      showNotice(writeFailureMessage(error, "Could not submit the timesheet."));
+    } finally {
+      setSubmittingEntryId("");
+    }
   };
 
   const saveEditedEntry = async (entry: TimesheetEntry, values: TimesheetEditValues) => {
@@ -223,19 +228,11 @@ export function TeacherTimeClockPage() {
     if (!confirmed) return;
     setSubmittingDrafts(true);
     try {
-      const batch = writeBatch(db);
-      draftEntries.forEach((entry) => {
-        batch.update(doc(db, "timesheet_entries", entry.id), {
-          status: "pending",
-          submitted_at: serverTimestamp(),
-          updated_at: serverTimestamp(),
-        });
-      });
-      await batch.commit();
+      await submitDraftEntries(draftEntries);
       setEntries((current) => current.map((entry) => entry.status.toLowerCase() === "draft" ? { ...entry, status: "pending" } : entry));
       showNotice(`Submitted ${draftEntries.length} entr${draftEntries.length === 1 ? "y" : "ies"} for review`);
     } catch (error) {
-      showNotice(error instanceof Error ? error.message : "Submission failed");
+      showNotice(writeFailureMessage(error, "Could not submit draft timesheets."));
     } finally {
       setSubmittingDrafts(false);
     }
@@ -293,6 +290,7 @@ export function TeacherTimeClockPage() {
           {submitEntry ? (
             <SubmitTimesheetDialog
               entry={submitEntry}
+              submitting={submittingEntryId === submitEntry.id}
               onClose={() => setSubmitEntry(null)}
               onConfirm={() => submitDraftEntry(submitEntry)}
             />
@@ -811,7 +809,7 @@ function TimesheetEditDialog({
   );
 }
 
-function SubmitTimesheetDialog({ entry, onClose, onConfirm }: { entry: TimesheetEntry; onClose: () => void; onConfirm: () => void }) {
+function SubmitTimesheetDialog({ entry, submitting, onClose, onConfirm }: { entry: TimesheetEntry; submitting: boolean; onClose: () => void; onConfirm: () => void }) {
   return (
     <DialogFrame title="Submit for Review" icon={<Send size={20} />} onClose={onClose}>
       <p className="text-sm text-[#374151]">Submit this timesheet for admin review?</p>
@@ -825,15 +823,45 @@ function SubmitTimesheetDialog({ entry, onClose, onConfirm }: { entry: Timesheet
         Once submitted, this entry moves to pending review.
       </div>
       <div className="mt-5 flex justify-end gap-2">
-        <button type="button" onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-semibold text-[#64748B]">
+        <button type="button" onClick={onClose} disabled={submitting} className="rounded-lg px-4 py-2 text-sm font-semibold text-[#64748B] disabled:opacity-60">
           Cancel
         </button>
-        <button type="button" onClick={onConfirm} className="rounded-lg bg-[#10B981] px-4 py-2 text-sm font-semibold text-white">
-          Submit for Review
+        <button type="button" onClick={onConfirm} disabled={submitting} className="rounded-lg bg-[#10B981] px-4 py-2 text-sm font-semibold text-white disabled:bg-[#94A3B8]">
+          {submitting ? "Submitting..." : "Submit for Review"}
         </button>
       </div>
     </DialogFrame>
   );
+}
+
+async function submitDraftEntries(entries: TimesheetEntry[]) {
+  if (!navigator.onLine) throw new Error("You appear to be offline. Reconnect and try again.");
+  await runTransaction(db, async (transaction) => {
+    const refs = entries.map((entry) => doc(db, "timesheet_entries", entry.id));
+    const snapshots = await Promise.all(refs.map((ref) => transaction.get(ref)));
+    snapshots.forEach((snapshot) => {
+      if (!snapshot.exists()) throw new Error("A draft timesheet is no longer available. Refresh and try again.");
+      if (stringValue(snapshot.data().status).toLowerCase() !== "draft") {
+        throw new Error("This timesheet has already been submitted. Refresh to see its current status.");
+      }
+    });
+    refs.forEach((ref) => {
+      transaction.update(ref, {
+        status: "pending",
+        submitted_at: serverTimestamp(),
+        updated_at: serverTimestamp(),
+      });
+    });
+  });
+}
+
+function writeFailureMessage(error: unknown, fallback: string) {
+  const code = typeof error === "object" && error && "code" in error ? String(error.code) : "";
+  if (!navigator.onLine || code.includes("unavailable") || code.includes("network")) {
+    return "You appear to be offline. Reconnect and try again.";
+  }
+  if (code.includes("permission-denied")) return "You do not have permission to update this timesheet.";
+  return error instanceof Error && error.message ? error.message : fallback;
 }
 
 function DialogFrame({ title, icon, onClose, children }: { title: string; icon: ReactNode; onClose: () => void; children: ReactNode }) {
