@@ -3522,3 +3522,16 @@ rendering, pixel spacing, or differences a normal user would not notice.
   drawer test, and a live dev profile save plus password mismatch validation.
   The preview remains available at `http://localhost:3021/teacher/` against
   `alluwal-dev`. No Flutter or Firebase Functions files were changed.
+
+## Notification preference follow-up
+
+- Added the Flutter teacher preference set to the native Settings route:
+  shift reminders (10/15/20/30 minutes), task reminders (1/2/3/5/7 days),
+  chat messages, and device-local prayer reminders.
+- The first dev browser write showed that the deployed notification callable
+  rejects the authenticated web client. Next now uses the existing owner-only
+  Firestore update permission to write the identical nested
+  `notificationPreferences` fields. No Function source or deployment changed.
+- A reversible dev test toggled chat notification delivery and restored the
+  original value. Focused Chromium write coverage and mobile Chrome viewport
+  coverage pass; errors remain actionable and draft choices remain visible.

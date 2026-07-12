@@ -24,7 +24,7 @@ This matrix tracks functional parity between the Flutter teacher role and
 | Form Submissions | `/teacher/form-submissions/` | Native history in TeacherShell, sidebar navigation, hydrated/fallback labels, uploaded files, missing-template legacy and empty-response states, retryable read failure | No known functional gap; retain in final regression |
 | My Report | `/teacher/report/` | Current Flutter detail-screen parity: month selection, KPIs/payment/issues, classes/clock-ins/forms details, acknowledgement, discussion link, correction request/status, refresh, failure states, and shift/session CSV export | No known functional gap; retain in final regression |
 | Profile | `/teacher/profile/` | Native guarded profile view/editor using Flutter-compatible `users`, `teacher_profiles`, and owner-scoped profile-picture contracts; responsive view, validation, write/upload errors | Profile-photo upload/removal lifecycle fixture pass |
-| Settings | `/teacher/settings/` | Native guarded account settings, password reauthentication/update, persisted language/theme preferences, support/privacy destinations, and sign-out from desktop/mobile account navigation | Notification-preference data parity and final theme/language refinement |
+| Settings | `/teacher/settings/` | Native guarded account settings, password reauthentication/update, Flutter-compatible shift/task/chat/prayer notification preferences, persisted language/theme preferences, support/privacy destinations, and sign-out from desktop/mobile account navigation | Final language refinement |
 
 ## Completion rule
 

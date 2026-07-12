@@ -313,6 +313,42 @@ test.describe("teacher dashboard", () => {
     await expect(page.getByRole("status")).toContainText("do not match");
   });
 
+  test("teacher notification preferences use Flutter-compatible controls and writes", async ({ page }, testInfo) => {
+    skipUnlessDesktopTeacherE2EEnabled(testInfo.project.name);
+    await signInAsTeacher(page);
+    await page.goto("/teacher/settings/");
+    await page.getByRole("button", {name: /Notifications/}).click();
+    const dialog = page.getByRole("dialog", {name: "Notification preferences"});
+    await expect(dialog).toBeVisible();
+    const shift = dialog.getByRole("switch", {name: "SHIFT REMINDERS"});
+    const task = dialog.getByRole("switch", {name: "TASK REMINDERS"});
+    const chat = dialog.getByRole("switch", {name: "CHAT MESSAGES"});
+    const prayer = dialog.getByRole("switch", {name: "PRAYER TIMES (ADHAN)"});
+    await expect(shift).toBeVisible();
+    await expect(task).toBeVisible();
+    await expect(chat).toBeVisible();
+    await expect(prayer).toBeVisible();
+    const originalChat = await chat.getAttribute("aria-checked");
+    await chat.click();
+    await dialog.getByRole("button", {name: "Save Preferences"}).click();
+    await expect(dialog.getByRole("status")).toContainText("preferences saved");
+    await chat.click();
+    await dialog.getByRole("button", {name: "Save Preferences"}).click();
+    await expect(chat).toHaveAttribute("aria-checked", originalChat || "true");
+  });
+
+  test("teacher notification preferences fit the mobile viewport", async ({ page }, testInfo) => {
+    skipUnlessMobileTeacherE2EEnabled(testInfo.project.name);
+    await signInAsTeacher(page);
+    await page.goto("/teacher/settings/");
+    await page.getByRole("button", {name: /Notifications/}).click();
+    const dialog = page.getByRole("dialog", {name: "Notification preferences"});
+    await expect(dialog).toBeVisible();
+    const box = await dialog.locator("div").first().boundingBox();
+    expect(box?.width ?? 0).toBeLessThanOrEqual(page.viewportSize()?.width ?? 412);
+    await expect(dialog.getByRole("button", {name: "Save Preferences"})).toBeVisible();
+  });
+
   for (const [path, heading] of [["profile", "Teacher sign-in required"], ["settings", "Teacher sign-in required"]] as const) {
     test(`requires a teacher sign-in before rendering ${path}`, async ({ page }) => {
       await gotoTeacherGuard(page, `/teacher/${path}/`);
