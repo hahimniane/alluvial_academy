@@ -25,6 +25,7 @@ This matrix tracks functional parity between the Flutter teacher role and
 | My Report | `/teacher/report/` | Current Flutter detail-screen parity: month selection, KPIs/payment/issues, classes/clock-ins/forms details, acknowledgement, discussion link, correction request/status, refresh, failure states, and shift/session CSV export | No known functional gap; retain in final regression |
 | Profile | `/teacher/profile/` | Native guarded profile view/editor using Flutter-compatible `users`, `teacher_profiles`, and owner-scoped profile-picture contracts; responsive view, validation, write/upload errors, and verified photo upload/removal cleanup | No known functional gap; retain in final regression |
 | Settings | `/teacher/settings/` | Native guarded account settings, password reauthentication/update, Flutter-compatible shift/task/chat/prayer notification preferences, persisted language/theme preferences, support/privacy destinations, and sign-out from desktop/mobile account navigation | Final language refinement |
+| AI Tutor | `/teacher/tutor/` | Conditional `ai_tutor_enabled` entry, guarded disabled state, Flutter-compatible mode/voice/background preferences, real token request, LiveKit room lifecycle, microphone controls, text data channel, transcripts, reconnect/error/end cleanup | Dev LiveKit signaling currently returns HTTP 404/CORS failure; whiteboard and AI-requested teacher actions remain to implement and verify after core signaling works |
 
 ## Completion rule
 

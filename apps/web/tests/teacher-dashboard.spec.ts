@@ -25,6 +25,11 @@ function skipUnlessStableTeacherE2EEnabled(projectName: string) {
   test.skip(projectName === "webkit", "WebKit intermittently misses the authenticated teacher dashboard render; Chromium and mobile Chrome cover this flow.");
 }
 
+function skipUnlessTutorE2EEnabled(projectName: string) {
+  skipUnlessDesktopTeacherE2EEnabled(projectName);
+  test.skip(process.env.ALLUWAL_RUN_TUTOR_E2E !== "1", "Set ALLUWAL_RUN_TUTOR_E2E=1 for disposable live AI Tutor sessions.");
+}
+
 async function signInAsTeacher(page: Page) {
   await page.goto("/login/");
   await page.locator("input[type='email']").fill(teacherEmail);
@@ -372,6 +377,41 @@ test.describe("teacher dashboard", () => {
       await expect(page.getByRole("heading", {name: heading})).toBeVisible();
     });
   }
+
+  test("requires a teacher sign-in before rendering AI Tutor", async ({ page }) => {
+    await gotoTeacherGuard(page, "/teacher/tutor/");
+    await expect(page.getByRole("heading", {name: "Teacher sign-in required"})).toBeVisible();
+  });
+
+  test("teacher AI Tutor follows the account enablement flag and exposes Flutter preferences", async ({ page }, testInfo) => {
+    skipUnlessDesktopTeacherE2EEnabled(testInfo.project.name);
+    await signInAsTeacher(page);
+    await page.goto("/teacher/tutor/");
+    const unavailable = page.getByRole("heading", {name: "AI Tutor unavailable"});
+    const modeHeading = page.getByRole("heading", {name: "How would you like to interact?"});
+    await expect(unavailable.or(modeHeading)).toBeVisible();
+    if (await unavailable.isVisible().catch(() => false)) {
+      await expect(unavailable.locator("..")).toContainText("not been enabled");
+      return;
+    }
+    await expect(modeHeading).toBeVisible();
+    await page.getByRole("button", {name: "Tutor preferences"}).click();
+    const preferences = page.getByRole("dialog", {name: "Tutor preferences"});
+    await expect(preferences.getByLabel("Interaction mode")).toBeVisible();
+    await expect(preferences.getByLabel("Tutor voice")).toHaveValue(/blake|jacqueline|robyn/);
+    await expect(preferences.getByLabel("Background sound")).toBeVisible();
+  });
+
+  test("teacher can connect and end a disposable text AI Tutor session", async ({ page }, testInfo) => {
+    skipUnlessTutorE2EEnabled(testInfo.project.name);
+    await signInAsTeacher(page);
+    await page.goto("/teacher/tutor/");
+    await page.getByRole("button", {name: /Text/}).click();
+    await expect(page.getByText(/Alluwal is ready|Waiting for the tutor agent/)).toBeVisible({timeout: 30000});
+    await expect(page.getByLabel("Tutor conversation")).toBeVisible();
+    await page.getByRole("button", {name: "End"}).click();
+    await expect(page.getByRole("heading", {name: "How would you like to interact?"})).toBeVisible();
+  });
 
   test("teacher sidebar favorites persist and reset", async ({ page }, testInfo) => {
     skipUnlessDesktopTeacherE2EEnabled(testInfo.project.name);

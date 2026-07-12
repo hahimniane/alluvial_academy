@@ -3543,3 +3543,30 @@ rendering, pixel spacing, or differences a normal user would not notice.
   teacher's owner-scoped Storage folder, rendered from the persisted download
   URL, then removed through the UI. The `users/{uid}.profile_picture_url` field
   and test object were cleaned up, leaving the fixture in its original state.
+
+# 2026-07-12 — Teacher AI Tutor native foundation
+
+- Audited Flutter's conditional AI Tutor FAB, stored interaction/voice/background
+  preferences, `getAITutorToken` payload, LiveKit data topics, microphone and
+  disconnect behavior, transcript handling, whiteboard, and teacher-action path.
+- Added the guarded `/teacher/tutor/` route and conditional AI Tutor action when
+  `users/{uid}.ai_tutor_enabled` is true. Disabled users see Flutter's explicit
+  administrator-contact state rather than an inert control.
+- Added `livekit-client@2.20.1`; this dependency is necessary because the
+  deployed callable returns a LiveKit room/token and the browser needs the
+  official SDK for signaling, WebRTC media, data messages, and cleanup.
+- Implemented mode selection, Blake/Jacqueline/Robyn voices, all five background
+  choices, local preference persistence, token payload parity, microphone
+  permission and toggle behavior, tutor agent presence, text data publishing,
+  transcript rendering, failed-draft preservation, preference restart, room
+  disconnect, backend session ending, and failed-connect session cleanup.
+- Temporarily enabled AI Tutor only for the disposable dev teacher and restored
+  its original false value after testing. Token generation succeeded, but the
+  returned `wss://live.alluwaleducationhub.org/rtc/v1` signaling request receives
+  HTTP 404 and its HTTPS validation fallback lacks CORS headers. The same
+  endpoint is used by Flutter, so real room/agent acceptance is externally
+  blocked until that dev LiveKit proxy is corrected. The disposable session was
+  closed. No Function source or deployment changed.
+- Guard and enablement/preference browser tests pass. A gated live-session test
+  records the unresolved signaling acceptance failure. Whiteboard and
+  AI-requested teacher clock-in/reschedule actions remain explicitly open.

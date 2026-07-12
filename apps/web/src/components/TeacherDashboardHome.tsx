@@ -6,6 +6,7 @@ import { collection, doc, getDocs, limit, query, runTransaction, serverTimestamp
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   Bell,
+  Bot,
   CircleUserRound,
   BookOpen,
   Briefcase,
@@ -388,6 +389,7 @@ export function TeacherShell({
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [canSwitchToAdmin, setCanSwitchToAdmin] = useState(false);
   const [notificationCount, setNotificationCount] = useState(0);
+  const [aiTutorEnabled, setAiTutorEnabled] = useState(false);
   const normalizedSearch = searchQuery.trim().toLowerCase();
   const allSidebarItems = useMemo(() => teacherSections.flatMap((section) => section.items), []);
   const favoriteSidebarItems = allSidebarItems.filter((item) => favoritedItems.has(item.label));
@@ -446,6 +448,7 @@ export function TeacherShell({
         if (!record) return;
         const roles = rolesForUserRecord(record);
         setCanSwitchToAdmin(roles.has("admin") || roles.has("super_admin"));
+        setAiTutorEnabled(record.ai_tutor_enabled === true);
       });
       void getDocs(query(collection(db, "audit_notifications"), where("teacherId", "==", user.uid), where("read", "==", false), limit(100))).then((snapshot) => setNotificationCount(snapshot.size)).catch(() => setNotificationCount(0));
     }
@@ -582,6 +585,7 @@ export function TeacherShell({
           onClose={() => setMobileMenuOpen(false)}
         />
       ) : null}
+      {aiTutorEnabled ? <Link href="/teacher/tutor/" aria-label="Open AI Tutor" className="fixed bottom-5 right-5 z-40 inline-flex min-h-12 items-center gap-2 rounded-full bg-[#0E72ED] px-5 font-extrabold text-white shadow-xl hover:bg-[#075FC9]"><Bot size={20} />AI Tutor</Link> : null}
     </main>
   );
 }
