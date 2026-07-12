@@ -3037,6 +3037,30 @@ render and the native Next authenticated CMS write/upload tests pass against
    git diff --check
    ```
 
+## Teacher forms and chat parity continuation (2026-07-11)
+
+- Kept Flutter/Dart and production Firebase untouched; Flutter form/chat source
+  was used read-only to enumerate supported behavior and field/message shapes.
+- Submit Form now applies Flutter-equivalent email and phone validation and
+  exposes accessible labels for text, select, radio, checkbox, boolean, and
+  multi-select controls. A disposable dev template verified both validation
+  messages through the browser and was removed afterward.
+- My Form Submissions now renders uploaded image/signature responses as previews
+  and accessible file links instead of raw JSON. A disposable response/template
+  verified the detail flow and was removed afterward.
+- Chat now computes unread counts from unread incoming message documents, marks
+  them read when opening a conversation, and records `last_read_by`. A dev
+  fixture verified both fields in Firestore before cleanup.
+- Chat now supports browser image, video, file, audio, and recorded voice
+  messages using the same Storage folders and message metadata as Flutter.
+  Non-text messages render native image/video/audio/file controls. A real dev
+  image upload/send/render flow passed; its message and Storage object were
+  verified and removed, and the prior chat preview was restored.
+- Verification: Next typecheck and repeated production-style static builds
+  passed; guarded form validation, unread receipt, image attachment, and saved
+  upload rendering E2E passed. No function/rule deployment or production change
+  occurred in this slice.
+
 ## Post-parity additions (2026-07-09)
 
 These are deliberate improvements beyond Flutter parity, requested by the

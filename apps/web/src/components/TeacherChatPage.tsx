@@ -1,11 +1,12 @@
 "use client";
 
 import { onAuthStateChanged, type User } from "firebase/auth";
-import { addDoc, collection, doc, getDoc, getDocs, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, Timestamp, updateDoc, where } from "firebase/firestore";
-import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, GraduationCap, Lock, Menu, MessageSquare, School, Search, Send, ShieldCheck, Shuffle, Users } from "lucide-react";
+import { addDoc, collection, doc, getDoc, getDocs, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, Timestamp, updateDoc, where, writeBatch } from "firebase/firestore";
+import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ArrowLeft, GraduationCap, Lock, Menu, MessageSquare, Mic, Paperclip, School, Search, Send, ShieldCheck, Shuffle, Square, Users } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { auth, db } from "@/lib/firebase";
+import { auth, db, storage } from "@/lib/firebase";
 import { getCurrentUserRecord, isCurrentUserTeacher } from "@/lib/userRoles";
 import { TeacherAccessPrompt, TeacherShell, openTeacherMobileMenu } from "@/components/TeacherDashboardHome";
 
@@ -54,6 +55,7 @@ type ChatMessageRecord = {
   content: string;
   timestamp: Date | null;
   messageType: string;
+  metadata: Record<string, unknown>;
 };
 
 const groupOrder = ["Administrators", "Students", "Parents", "Teachers", "Other"];
@@ -74,6 +76,7 @@ export function TeacherChatPage() {
   const [draft, setDraft] = useState("");
   const [sendError, setSendError] = useState("");
   const [sending, setSending] = useState(false);
+  const [attachmentSending, setAttachmentSending] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -169,7 +172,7 @@ export function TeacherChatPage() {
     });
   }, [contacts, search]);
 
-  const openChat = (chat: ChatPreview) => {
+  const openChat = async (chat: ChatPreview) => {
     setSendError("");
     setConversation({
       id: chat.id,
@@ -179,6 +182,10 @@ export function TeacherChatPage() {
       isSupport: false,
       participants: chat.participants,
     });
+    if (user) {
+      await markChatRead(chat.id, user.uid).catch(() => undefined);
+      setChats((current) => current.map((item) => item.id === chat.id ? {...item, unreadCount: 0} : item));
+    }
   };
 
   const openContact = async (contact: ContactRecord) => {
@@ -194,6 +201,7 @@ export function TeacherChatPage() {
       isSupport: false,
       participants: [user.uid, contact.id],
     });
+    await markChatRead(chatId, user.uid).catch(() => undefined);
   };
 
   const openSupport = async () => {
@@ -209,6 +217,7 @@ export function TeacherChatPage() {
       isSupport: true,
       participants: [user.uid, adminSupportId],
     });
+    await markChatRead(chatId, user.uid).catch(() => undefined);
   };
 
   const sendMessage = async () => {
@@ -232,6 +241,36 @@ export function TeacherChatPage() {
       setSendError("Message could not be sent. Please try again.");
     } finally {
       setSending(false);
+    }
+  };
+
+  const sendAttachment = async (file: File, duration = 0) => {
+    if (!user || !conversation || attachmentSending) return;
+    setAttachmentSending(true);
+    setSendError("");
+    try {
+      const messageType = file.type.startsWith("image/") ? "image" : file.type.startsWith("video/") ? "video" : file.type.startsWith("audio/") ? "voice" : "file";
+      const folder = messageType === "image" ? "chat_images" : messageType === "video" ? "chat_videos" : messageType === "voice" ? "chat_voice" : "chat_files";
+      const fileName = `${Date.now()}_${safeChatFileName(file.name || `${messageType}.webm`)}`;
+      const storageRef = ref(storage, `${folder}/${user.uid}/${fileName}`);
+      await uploadBytes(storageRef, file, {contentType: file.type || undefined});
+      const fileUrl = await getDownloadURL(storageRef);
+      const content = messageType === "image" ? "📷 Photo" : messageType === "video" ? "🎥 Video" : messageType === "voice" ? "🎤 Voice message" : `📎 ${file.name}`;
+      await sendChatMessage({
+        chatId: conversation.id,
+        currentUser: user,
+        senderName: summary.displayName,
+        content,
+        participants: conversation.participants,
+        chatType: conversation.isSupport ? "admin_support" : conversation.isGroup ? "group" : "individual",
+        messageType,
+        metadata: {file_url: fileUrl, file_name: file.name || fileName, file_size: file.size, mime_type: file.type, ...(duration ? {duration} : {})},
+      });
+      setChats((current) => mergeSentPreview(current, conversation, content));
+    } catch {
+      setSendError("Attachment could not be sent. Please try again.");
+    } finally {
+      setAttachmentSending(false);
     }
   };
 
@@ -287,6 +326,7 @@ export function TeacherChatPage() {
             draft={draft}
             sending={sending}
             error={sendError}
+            attachmentSending={attachmentSending}
             onDraftChange={setDraft}
             onClose={() => {
               setConversation(null);
@@ -295,6 +335,7 @@ export function TeacherChatPage() {
               setSendError("");
             }}
             onSend={sendMessage}
+            onAttachment={sendAttachment}
           />
         ) : null}
       </main>
@@ -441,9 +482,11 @@ function ConversationPanel({
   draft,
   sending,
   error,
+  attachmentSending,
   onDraftChange,
   onClose,
   onSend,
+  onAttachment,
 }: {
   conversation: Conversation;
   messages: ChatMessageRecord[];
@@ -452,10 +495,47 @@ function ConversationPanel({
   draft: string;
   sending: boolean;
   error: string;
+  attachmentSending: boolean;
   onDraftChange: (value: string) => void;
   onClose: () => void;
   onSend: () => void;
+  onAttachment: (file: File, duration?: number) => Promise<void>;
 }) {
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const recordingStartedAtRef = useRef(0);
+  const chunksRef = useRef<Blob[]>([]);
+  const [recording, setRecording] = useState(false);
+  const [recordingError, setRecordingError] = useState("");
+
+  const toggleRecording = async () => {
+    if (recording) {
+      recorderRef.current?.stop();
+      setRecording(false);
+      return;
+    }
+    try {
+      setRecordingError("");
+      const stream = await navigator.mediaDevices.getUserMedia({audio: true});
+      const recorder = new MediaRecorder(stream);
+      chunksRef.current = [];
+      recorder.ondataavailable = (event) => { if (event.data.size) chunksRef.current.push(event.data); };
+      recorder.onstop = () => {
+        const duration = Math.max(1, Math.round((Date.now() - recordingStartedAtRef.current) / 1000));
+        const mimeType = recorder.mimeType || "audio/webm";
+        const file = new File(chunksRef.current, `voice_${Date.now()}.webm`, {type: mimeType});
+        stream.getTracks().forEach((track) => track.stop());
+        void onAttachment(file, duration);
+      };
+      recorderRef.current = recorder;
+      recordingStartedAtRef.current = Date.now();
+      recorder.start();
+      setRecording(true);
+    } catch {
+      setRecording(false);
+      setRecordingError("Microphone access is required to record a voice message.");
+    }
+  };
   return (
     <aside className="fixed inset-0 z-40 flex bg-white lg:left-auto lg:w-[460px] lg:border-l lg:border-[#E5E7EB] lg:shadow-2xl">
       <div className="flex min-h-0 w-full flex-col">
@@ -494,7 +574,13 @@ function ConversationPanel({
 
         <footer className="border-t border-[#E5E7EB] bg-white p-4">
           {error ? <p className="mb-2 rounded-lg bg-[#FEF2F2] px-3 py-2 text-sm font-semibold text-[#DC2626]">{error}</p> : null}
+          {recordingError ? <p className="mb-2 rounded-lg bg-[#FEF2F2] px-3 py-2 text-sm font-semibold text-[#DC2626]">{recordingError}</p> : null}
           <div className="flex items-end gap-2">
+            <input ref={fileInputRef} type="file" className="sr-only" aria-label="Attach a file" onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; if (file) void onAttachment(file); }} />
+            <button type="button" aria-label="Attach file" onClick={() => fileInputRef.current?.click()} disabled={attachmentSending || recording} className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-[#E5E7EB] text-[#475569] disabled:opacity-50"><Paperclip size={20} /></button>
+            <button type="button" aria-label={recording ? "Stop voice recording" : "Record voice message"} onClick={() => void toggleRecording()} disabled={attachmentSending} className={`grid h-12 w-12 shrink-0 place-items-center rounded-2xl border ${recording ? "border-red-300 bg-red-50 text-red-600" : "border-[#E5E7EB] text-[#475569]"} disabled:opacity-50`}>
+              {recording ? <Square size={17} fill="currentColor" /> : <Mic size={20} />}
+            </button>
             <textarea
               value={draft}
               onChange={(event) => onDraftChange(event.target.value)}
@@ -526,10 +612,16 @@ function ConversationPanel({
 }
 
 function MessageBubble({ message, mine }: { message: ChatMessageRecord; mine: boolean }) {
+  const fileUrl = stringValue(message.metadata.file_url ?? message.metadata.fileUrl);
+  const fileName = stringValue(message.metadata.file_name ?? message.metadata.fileName) || "Attachment";
   return (
     <div className={`flex ${mine ? "justify-end" : "justify-start"}`}>
       <div className={`max-w-[82%] rounded-2xl px-4 py-3 shadow-sm ${mine ? "rounded-br-md bg-[#0386FF] text-white" : "rounded-bl-md bg-white text-[#111827]"}`}>
         {!mine ? <p className="mb-1 text-xs font-bold text-[#64748B]">{message.senderName || "Sender"}</p> : null}
+        {message.messageType === "image" && fileUrl ? <img src={fileUrl} alt={message.content || fileName} className="mb-2 max-h-64 w-full rounded-xl object-contain" /> : null}
+        {message.messageType === "video" && fileUrl ? <video src={fileUrl} controls className="mb-2 max-h-64 w-full rounded-xl" /> : null}
+        {message.messageType === "voice" && fileUrl ? <audio src={fileUrl} controls className="mb-2 max-w-full" /> : null}
+        {message.messageType === "file" && fileUrl ? <a href={fileUrl} target="_blank" rel="noreferrer" className={`mb-2 block rounded-lg px-3 py-2 text-sm font-bold underline ${mine ? "bg-white/15" : "bg-[#EFF6FF] text-[#0369A1]"}`}>{fileName}</a> : null}
         <p className="whitespace-pre-wrap text-sm leading-6">{message.content}</p>
         <p className={`mt-1 text-right text-[11px] ${mine ? "text-white/75" : "text-[#94A3B8]"}`}>{message.timestamp ? shortMessageTime(message.timestamp) : "Sending..."}</p>
       </div>
@@ -582,7 +674,30 @@ async function loadTeacherChats(uid: string) {
     const chat = normalizeChat(docSnap.id, docSnap.data() as Record<string, unknown>, uid);
     if (chat) rows.push(chat);
   });
-  return rows.sort((a, b) => (b.lastMessageTime?.getTime() ?? 0) - (a.lastMessageTime?.getTime() ?? 0));
+  const withUnread = await Promise.all(rows.map(async (chat) => ({...chat, unreadCount: await loadUnreadCount(chat.id, uid)})));
+  return withUnread.sort((a, b) => (b.lastMessageTime?.getTime() ?? 0) - (a.lastMessageTime?.getTime() ?? 0));
+}
+
+async function loadUnreadCount(chatId: string, uid: string) {
+  const unread = await getDocs(query(collection(db, "chats", chatId, "messages"), where("is_read", "==", false), limit(100))).catch(() => null);
+  return unread?.docs.filter((entry) => {
+    const data = entry.data() as Record<string, unknown>;
+    return stringValue(data.sender_id ?? data.senderId) !== uid;
+  }).length ?? 0;
+}
+
+async function markChatRead(chatId: string, uid: string) {
+  const unread = await getDocs(query(collection(db, "chats", chatId, "messages"), where("is_read", "==", false), limit(100))).catch(() => null);
+  const incoming = unread?.docs.filter((entry) => {
+    const data = entry.data() as Record<string, unknown>;
+    return stringValue(data.sender_id ?? data.senderId) !== uid;
+  }) ?? [];
+  if (incoming.length) {
+    const batch = writeBatch(db);
+    incoming.forEach((entry) => batch.update(entry.ref, {is_read: true}));
+    await batch.commit();
+  }
+  await updateDoc(doc(db, "chats", chatId), {[`last_read_by.${uid}`]: serverTimestamp()}).catch(() => undefined);
 }
 
 async function loadTeacherContacts(uid: string) {
@@ -667,6 +782,8 @@ async function sendChatMessage({
   content,
   participants,
   chatType,
+  messageType = "text",
+  metadata = null,
 }: {
   chatId: string;
   currentUser: User;
@@ -674,6 +791,8 @@ async function sendChatMessage({
   content: string;
   participants: string[];
   chatType: string;
+  messageType?: string;
+  metadata?: Record<string, unknown> | null;
 }) {
   const chatRef = doc(db, "chats", chatId);
   const messageData = {
@@ -683,8 +802,8 @@ async function sendChatMessage({
     content,
     timestamp: serverTimestamp(),
     is_read: false,
-    message_type: "text",
-    metadata: null,
+    message_type: messageType,
+    metadata,
   };
 
   const existing = await getDoc(chatRef);
@@ -732,8 +851,14 @@ function normalizeMessage(id: string, data: Record<string, unknown>): ChatMessag
     content: stringValue(data.content),
     timestamp: dateValue(data.timestamp),
     messageType: stringValue(data.message_type ?? data.messageType) || "text",
+    metadata: objectValue(data.metadata),
   };
 }
+
+function safeChatFileName(value: string) {
+  return value.replace(/[^a-zA-Z0-9._-]+/g, "_").slice(-120) || "attachment";
+}
+
 
 function normalizeContact(id: string, data: Record<string, unknown>): ContactRecord {
   const first = stringValue(data.first_name ?? data.firstName);
