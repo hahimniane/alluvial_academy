@@ -26,6 +26,7 @@ import {
   RotateCcw,
   Search,
   ShieldCheck,
+  BarChart3,
   Star,
   TimerReset,
   Video,
@@ -117,6 +118,10 @@ const teacherSections: SidebarSection[] = [
       { label: "Submit Form", icon: FileText, href: "/teacher/submit-form/", color: "#EC4899" },
       { label: "My Form Submissions", icon: RotateCcw, href: "/teacher/form-submissions/", color: "#64748B" },
     ],
+  },
+  {
+    title: "Reports",
+    items: [{ label: "My Report", icon: BarChart3, href: "/teacher/report/", color: "#DC2626" }],
   },
 ];
 

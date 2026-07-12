@@ -3345,6 +3345,21 @@ render and the native Next authenticated CMS write/upload tests pass against
   or deployment targets were changed as part of this gate. Real two-party Zoom
   hub acceptance remains the only external live-session verification item.
 
+### Teacher My Report parity recovery (2026-07-12)
+
+- A fresh Flutter sidebar audit found that the earlier matrix omitted the
+  teacher-only Reports section and `My Report` workflow. Next.js now exposes a
+  stable `/teacher/report/` route in the shared desktop and mobile navigation.
+- The native report reads the same `teacher_audits` documents and legacy
+  `oderId`/current `userId` ownership fields as Flutter. It supports month
+  selection, overview score/rates/stats/issues, Classes, Clock-ins, and Forms
+  detail tabs, visible retry/error and no-data states, and CSV download.
+- A disposable `alluwal-dev` audit verified the populated 88.5% overview, all
+  three detail collections, issue rendering, and downloaded CSV filename. The
+  fixture was deleted immediately afterward. Desktop populated/guard tests and
+  mobile sidebar discovery pass; no Flutter, Functions, or production data was
+  changed.
+
 ## Post-parity additions (2026-07-09)
 
 These are deliberate improvements beyond Flutter parity, requested by the

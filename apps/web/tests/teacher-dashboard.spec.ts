@@ -67,6 +67,7 @@ test.describe("teacher dashboard", () => {
     await expect(page.getByLabel("Teacher mobile menu")).toBeVisible();
     const mobileNav = page.getByRole("navigation", { name: "Teacher mobile navigation" });
     await expect(mobileNav.getByRole("link", { name: /Dashboard/ })).toBeVisible();
+    await expect(mobileNav.getByRole("link", { name: /My Report/ })).toBeVisible();
     await expect(page.getByRole("button", {name: "Log out"})).toBeVisible();
     await mobileNav.getByRole("link", { name: /Time Clock/ }).click();
     await expect(page).toHaveURL(/\/teacher\/time-clock\/$/);
@@ -134,6 +135,44 @@ test.describe("teacher dashboard", () => {
     await content.evaluate((element) => { element.scrollTop = Math.min(240, element.scrollHeight - element.clientHeight); });
     expect(await page.evaluate(() => window.scrollY)).toBe(0);
     expect((await sidebar.boundingBox())?.y).toBe(sidebarTop);
+  });
+
+  test("requires a teacher sign-in before rendering my report", async ({ page }) => {
+    await gotoTeacherGuard(page, "/teacher/report/");
+    await expect(page.getByRole("heading", { name: "Teacher sign-in required" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "My Performance Audit" })).toBeHidden();
+  });
+
+  test("teacher can open the native performance report", async ({ page }, testInfo) => {
+    skipUnlessDesktopTeacherE2EEnabled(testInfo.project.name);
+    await signInAsTeacher(page);
+    const navigation = page.getByRole("navigation", { name: "Teacher dashboard navigation" });
+    await expect(navigation.getByText("Reports")).toBeVisible();
+    await navigation.getByRole("link", { name: "My Report" }).click();
+    await expect(page).toHaveURL(/\/teacher\/report\/$/);
+    await expect(page.getByRole("heading", { name: "My Performance Audit" })).toBeVisible();
+    await expect(page.getByText(/No audit data for|Score Breakdown/).first()).toBeVisible();
+    await expect(page.getByRole("button", { name: "Refresh report" })).toBeVisible();
+  });
+
+  test("teacher performance report renders every populated section and exports CSV", async ({ page }, testInfo) => {
+    skipUnlessDesktopTeacherE2EEnabled(testInfo.project.name);
+    test.skip(process.env.ALLUWAL_RUN_TEACHER_REPORT_FIXTURE_E2E !== "1", "Enable only with the disposable dev teacher audit fixture.");
+    await signInAsTeacher(page);
+    await page.getByRole("navigation", { name: "Teacher dashboard navigation" }).getByRole("link", { name: "My Report" }).click();
+    await expect(page.getByText("88.5%")).toBeVisible();
+    await expect(page.getByText("Codex disposable report issue")).toBeVisible();
+    await page.getByRole("tab", { name: "Classes" }).click();
+    await expect(page.getByText("Codex Quran Class")).toBeVisible();
+    await page.getByRole("tab", { name: "Clock-ins" }).click();
+    await expect(page.getByText("submitted", { exact: true })).toBeVisible();
+    await page.getByRole("tab", { name: "Forms" }).click();
+    await expect(page.getByText("Codex Readiness Form")).toBeVisible();
+    await page.getByRole("tab", { name: "Overview" }).click();
+    const downloadPromise = page.waitForEvent("download");
+    await page.getByRole("button", { name: "Download My Teaching Data (CSV)" }).click();
+    const download = await downloadPromise;
+    expect(download.suggestedFilename()).toBe("teacher-report-2026-07.csv");
   });
 
   test("requires a teacher sign-in before rendering my shifts", async ({ page, browserName }) => {
