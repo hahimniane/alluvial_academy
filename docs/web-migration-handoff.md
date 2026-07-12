@@ -3037,6 +3037,30 @@ render and the native Next authenticated CMS write/upload tests pass against
    git diff --check
    ```
 
+## Teacher transactional parity continuation (2026-07-11)
+
+- Kept Flutter/Dart and the production `alluwal-academy` Firebase project
+  untouched. Flutter source was read only as the behavioral/data reference.
+- Added assigned-teacher task status actions in Next for To Do, In Progress,
+  and Done. A narrowly validated `updateAssignedTaskStatus` callable enforces
+  assignment ownership and writes Flutter-compatible status/completion fields.
+  The callable and disposable fixture were deployed only to `alluwal-dev`.
+- Added the task details/status sheet on desktop and responsive mobile. A real
+  dev browser write moved the disposable task to In Progress; Firestore
+  verification confirmed the status/updater fields, then removed the fixture.
+- Completed the clock metadata compatibility pass in both native My Shifts and
+  Time Clock: category/leader role, pay-rate source, subject billability,
+  clock-in/out status, deviation minutes, and clock-out-note requirement flags
+  now match Flutter fields. A real dev browser clock-in/out passed and the
+  resulting timesheet fields were verified before cleanup.
+- Corrected Job Board withdrawal resets to satisfy the deployed ownership rules
+  while clearing auxiliary accepted/match fields like Flutter. A real dev
+  accepted-job withdrawal passed, the re-broadcast job/enrollment shapes were
+  verified, and all disposable records/notifications were removed.
+- Verification: Next typecheck and production-style build passed; task callable
+  Jest passed (3 tests); guarded task, clock, and Job Board write E2E passed.
+  No production function, rule, data, Hosting, Flutter, or VPS change occurred.
+
 ## Post-parity additions (2026-07-09)
 
 These are deliberate improvements beyond Flutter parity, requested by the

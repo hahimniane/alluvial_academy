@@ -82,6 +82,9 @@ exports.sendTeacherAuditDecisionNotification = functions.https.onCall(
 exports.sendTaskStatusUpdateNotification = onCall(
   taskHandlers.sendTaskStatusUpdateNotification
 );
+exports.updateAssignedTaskStatus = onCall(
+  taskHandlers.updateAssignedTaskStatus
+);
 exports.sendTaskCommentNotification = onCall(
   taskHandlers.sendTaskCommentNotification
 );

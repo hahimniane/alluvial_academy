@@ -2,9 +2,10 @@
 
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { collection, getDocs, limit, query, Timestamp, where } from "firebase/firestore";
+import { httpsCallable } from "firebase/functions";
 import { useEffect, useMemo, useState } from "react";
-import { CalendarDays, CheckCircle2, Clock3, Lock, Menu, Search, Shuffle, SlidersHorizontal } from "lucide-react";
-import { auth, db } from "@/lib/firebase";
+import { CalendarDays, CheckCircle2, Clock3, Loader2, Lock, Menu, Search, Shuffle, SlidersHorizontal, X } from "lucide-react";
+import { auth, db, functions } from "@/lib/firebase";
 import { getCurrentUserRecord, isCurrentUserTeacher } from "@/lib/userRoles";
 import { TeacherAccessPrompt, TeacherShell, openTeacherMobileMenu } from "@/components/TeacherDashboardHome";
 
@@ -50,6 +51,10 @@ export function TeacherTasksPage() {
   const [priorityFilter, setPriorityFilter] = useState<TaskPriority | "all">("all");
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
+  const [selectedTask, setSelectedTask] = useState<TeacherTask | null>(null);
+  const [statusBusy, setStatusBusy] = useState(false);
+  const [statusError, setStatusError] = useState("");
+  const [notice, setNotice] = useState("");
 
   useEffect(() => {
     let mounted = true;
@@ -101,6 +106,33 @@ export function TeacherTasksPage() {
   }, [activeTab, priorityFilter, search, statusFilter, tasks, user]);
 
   if (access !== "allowed") return <TeacherAccessPrompt access={access} />;
+
+  const updateTaskStatus = async (task: TeacherTask, status: TaskStatus) => {
+    if (!user || statusBusy || task.status === status) return;
+    setStatusBusy(true);
+    setStatusError("");
+    try {
+      const callable = httpsCallable(functions, "updateAssignedTaskStatus");
+      await callable({taskId: task.id, status});
+      const updated = {...task, status};
+      setTasks((current) => current.map((item) => item.id === task.id ? updated : item));
+      setSelectedTask(updated);
+      setNotice(status === "done" ? "Task submitted successfully" : "Task status updated");
+      window.setTimeout(() => setNotice(""), 3000);
+      void httpsCallable(functions, "sendTaskStatusUpdateNotification")({
+        taskId: task.id,
+        taskTitle: task.title,
+        oldStatus: task.status,
+        newStatus: status,
+        updatedByName: summary.displayName,
+        createdBy: task.createdBy,
+      }).catch(() => undefined);
+    } catch (error) {
+      setStatusError(cleanFunctionError(error, "Unable to update this task."));
+    } finally {
+      setStatusBusy(false);
+    }
+  };
 
   return (
     <TeacherShell activeLabel="Tasks" breadcrumb="Work / Tasks" summary={summary}>
@@ -159,11 +191,21 @@ export function TeacherTasksPage() {
           ) : (
             <div className="grid gap-4 p-4 md:grid-cols-2 xl:grid-cols-3">
               {visibleTasks.map((task) => (
-                <TaskCard key={task.id} task={task} />
+                <TaskCard key={task.id} task={task} onOpen={() => { setSelectedTask(task); setStatusError(""); }} />
               ))}
             </div>
           )}
         </section>
+        {notice ? <div className="fixed bottom-5 right-5 z-50 rounded-xl bg-[#111827] px-4 py-3 text-sm font-semibold text-white shadow-lg">{notice}</div> : null}
+        {selectedTask ? (
+          <TaskDetailsDialog
+            task={selectedTask}
+            busy={statusBusy}
+            error={statusError}
+            onClose={() => setSelectedTask(null)}
+            onStatusChange={(status) => void updateTaskStatus(selectedTask, status)}
+          />
+        ) : null}
       </main>
     </TeacherShell>
   );
@@ -213,7 +255,7 @@ function EmptyTasks() {
   );
 }
 
-function TaskCard({ task }: { task: TeacherTask }) {
+function TaskCard({ task, onOpen }: { task: TeacherTask; onOpen: () => void }) {
   const overdue = Boolean(task.dueDate && task.dueDate < new Date() && task.status !== "done");
   return (
     <article className="rounded-xl border border-[#E5E7EB] bg-white p-4 shadow-sm">
@@ -234,7 +276,41 @@ function TaskCard({ task }: { task: TeacherTask }) {
         <span className="rounded-full bg-[#F8FAFC] px-2 py-1 font-semibold">{labelFor(task.status)}</span>
         <span className="rounded-full bg-[#F8FAFC] px-2 py-1 font-semibold">{labelFor(task.priority)}</span>
       </div>
+      <button type="button" onClick={onOpen} className="mt-4 min-h-10 w-full rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] text-sm font-bold text-[#0369A1] hover:bg-[#DBEAFE]">
+        View and update
+      </button>
     </article>
+  );
+}
+
+function TaskDetailsDialog({ task, busy, error, onClose, onStatusChange }: { task: TeacherTask; busy: boolean; error: string; onClose: () => void; onStatusChange: (status: TaskStatus) => void }) {
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-end bg-black/40 sm:place-items-center sm:p-6" role="dialog" aria-modal="true" aria-label={`${task.title} details`}>
+      <section className="max-h-[90vh] w-full overflow-y-auto rounded-t-3xl bg-white p-5 shadow-2xl sm:max-w-xl sm:rounded-2xl">
+        <header className="flex items-start gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-black uppercase tracking-wide text-[#0386FF]">Task details</p>
+            <h2 className="mt-1 text-xl font-black text-[#111827]">{task.title}</h2>
+          </div>
+          <button type="button" aria-label="Close task details" onClick={onClose} disabled={busy} className="grid h-10 w-10 place-items-center rounded-xl text-[#64748B] hover:bg-[#F1F5F9] disabled:opacity-50"><X size={20} /></button>
+        </header>
+        <p className="mt-4 whitespace-pre-wrap text-sm leading-6 text-[#475569]">{task.description || "No description"}</p>
+        <div className="mt-4 grid gap-2 rounded-xl bg-[#F8FAFC] p-4 text-sm">
+          <p><span className="font-bold text-[#64748B]">Due:</span> {task.dueDate ? task.dueDate.toLocaleString() : "No due date"}</p>
+          <p><span className="font-bold text-[#64748B]">Priority:</span> {labelFor(task.priority)}</p>
+          {task.labels.length ? <p><span className="font-bold text-[#64748B]">Labels:</span> {task.labels.join(", ")}</p> : null}
+        </div>
+        <h3 className="mt-5 text-sm font-black text-[#111827]">Update status</h3>
+        <div className="mt-2 grid grid-cols-3 gap-2">
+          {(["todo", "inProgress", "done"] as TaskStatus[]).map((status) => (
+            <button key={status} type="button" onClick={() => onStatusChange(status)} disabled={busy || status === task.status} className={`min-h-11 rounded-xl px-2 text-xs font-bold disabled:cursor-default ${status === task.status ? "bg-[#0386FF] text-white" : "border border-[#CBD5E1] bg-white text-[#475569] hover:bg-[#F8FAFC]"}`}>
+              {busy && status !== task.status ? <Loader2 size={16} className="mx-auto animate-spin" /> : labelFor(status)}
+            </button>
+          ))}
+        </div>
+        {error ? <p className="mt-3 rounded-xl bg-[#FEE2E2] px-3 py-2 text-sm font-semibold text-[#B91C1C]" role="alert">{error}</p> : null}
+      </section>
+    </div>
   );
 }
 
@@ -321,6 +397,11 @@ function summaryForUser(user: User, data: UserRecord | null): TeacherSummary {
 
 function stringValue(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function cleanFunctionError(error: unknown, fallback: string) {
+  const message = error instanceof Error ? error.message : String(error || "");
+  return message.replace(/^Firebase:\s*/i, "").replace(/^functions\//i, "").trim() || fallback;
 }
 
 function labelFor(value: string) {
