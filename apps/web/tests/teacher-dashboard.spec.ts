@@ -171,6 +171,17 @@ test.describe("teacher dashboard", () => {
     await page.getByRole("tab", { name: "Overview" }).click();
     await expect(page.getByText("Payment Summary")).toBeVisible();
     await expect(page.getByText("$225.00")).toBeVisible();
+    await page.getByRole("button", { name: "Acknowledge that I have read this report" }).click();
+    await expect(page.getByText(/Acknowledged/)).toBeVisible();
+    await page.getByRole("button", { name: "Send correction request" }).click();
+    await expect(page.getByText("Select the field you want corrected.")).toBeVisible();
+    await page.getByLabel("Field to correct").selectOption("payment_amount");
+    await page.getByLabel("Correction reason").fill("The payment amount should include my additional completed session.");
+    await page.getByLabel("Suggested value").fill("$300.00");
+    await page.getByRole("button", { name: "Send correction request" }).click();
+    await expect(page.getByText("Your correction request was sent successfully.")).toBeVisible();
+    await expect(page.getByText("Existing correction request")).toBeVisible();
+    await expect(page.getByText(/Payment amount/).last()).toBeVisible();
     const downloadPromise = page.waitForEvent("download");
     await page.getByRole("button", { name: "Download My Teaching Data (CSV)" }).click();
     const download = await downloadPromise;

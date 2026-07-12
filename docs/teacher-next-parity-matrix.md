@@ -21,7 +21,7 @@ This matrix tracks functional parity between the Flutter teacher role and
 | Curriculum Books | `/teacher/curriculum-books/` | Native content cards; all PDF/PPTX targets resolve with non-empty files and correct open/download destinations | No known functional gap; retain in final regression |
 | Submit Form | `/teacher/submit-form/` | Current dev field inventory covered, shift selection/linking, deterministic duplicate protection, validation, image/signature uploads with orphan cleanup, offline value preservation | No known functional gap; retain in final regression |
 | Form Submissions | `/teacher/form-submissions/` | Native history in TeacherShell, sidebar navigation, hydrated/fallback labels, uploaded files, missing-template legacy and empty-response states, retryable read failure | No known functional gap; retain in final regression |
-| My Report | `/teacher/report/` | Flutter-matching Reports navigation, month selection, overview KPIs, payment summary, issues, classes/clock-ins/forms detail tabs, refresh, empty/error states, and shift/session CSV export | No known functional gap; retain in final regression |
+| My Report | `/teacher/report/` | Current Flutter detail-screen parity: month selection, KPIs/payment/issues, classes/clock-ins/forms details, acknowledgement, discussion link, correction request/status, refresh, failure states, and shift/session CSV export | No known functional gap; retain in final regression |
 
 ## Completion rule
 

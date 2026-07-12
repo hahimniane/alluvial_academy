@@ -3364,6 +3364,17 @@ render and the native Next authenticated CMS write/upload tests pass against
   session-oriented columns: date, shift, status, scheduled hours, worked hours,
   pay, and form presence. A second disposable fixture verified a 1.5-hour,
   $75.00 session and the exact downloaded CSV contents, then was deleted.
+- Re-checking Flutter's actual sidebar route showed it opens the newer
+  `TeacherAuditDetailScreen`. Next now also implements that screen's teacher
+  actions: report acknowledgement, general discussion navigation, correction
+  validation, compatible nested `reviewChain.teacherDispute` submission,
+  top-level `disputed` status, and existing request/admin-response display.
+  Real dev writes confirmed both the allowed acknowledgement field set and the
+  dispute document shape; the transactional audit fixture was then deleted.
+- When an audit contains `coachEvaluation.coachId`, Open discussion now carries
+  that contact into Chat and opens/repairs the direct conversation after the
+  contact list loads. Audits without a coach retain Flutter's general Chat
+  fallback.
 
 ## Post-parity additions (2026-07-09)
 

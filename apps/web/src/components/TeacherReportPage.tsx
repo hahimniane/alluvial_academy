@@ -1,8 +1,9 @@
 "use client";
 
 import { onAuthStateChanged, type User } from "firebase/auth";
-import { collection, doc, getDoc, getDocs, query, where } from "firebase/firestore";
-import { AlertTriangle, BarChart3, CalendarDays, Clock3, Download, FileText, Menu, RefreshCw } from "lucide-react";
+import { collection, doc, getDoc, getDocs, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
+import { AlertTriangle, BarChart3, CalendarDays, CheckCircle2, Clock3, Download, FileText, Menu, MessageSquare, RefreshCw, Send } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { TeacherAccessPrompt, TeacherShell, openTeacherMobileMenu } from "@/components/TeacherDashboardHome";
 import { auth, db } from "@/lib/firebase";
@@ -21,6 +22,8 @@ export function TeacherReportPage() {
   const [tab, setTab] = useState<Tab>("Overview");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [actionMessage, setActionMessage] = useState("");
+  const [actionBusy, setActionBusy] = useState(false);
 
   useEffect(() => onAuthStateChanged(auth, async (nextUser) => {
     setUser(nextUser);
@@ -69,6 +72,35 @@ export function TeacherReportPage() {
                 {(["Overview", "Classes", "Clock-ins", "Forms"] as Tab[]).map((item) => { const Icon = item === "Overview" ? BarChart3 : item === "Classes" ? CalendarDays : item === "Clock-ins" ? Clock3 : FileText; return <button key={item} type="button" role="tab" aria-selected={tab === item} onClick={() => setTab(item)} className={`flex min-h-11 items-center justify-center gap-2 rounded-xl px-3 text-sm font-bold ${tab === item ? "bg-[#EAF4FF] text-[#0386FF]" : "text-[#64748B] hover:bg-[#F8FAFC]"}`}><Icon size={17} />{item}</button>; })}
               </div>
               {tab === "Overview" ? <Overview audit={audit} onExport={() => exportAuditCsv(audit)} /> : <DetailTable tab={tab} audit={audit} />}
+              <TeacherReportActions
+                audit={audit}
+                busy={actionBusy}
+                message={actionMessage}
+                onAcknowledge={async () => {
+                  if (!user) return;
+                  setActionBusy(true); setActionMessage("");
+                  try {
+                    await updateDoc(doc(db, "teacher_audits", audit.id), { teacherAcknowledgedAt: serverTimestamp(), lastUpdated: serverTimestamp() });
+                    setActionMessage("Report acknowledged successfully.");
+                    await loadAudits(user.uid, setAudits, setMonth, setError, setLoading, month);
+                  } catch (cause) { setActionMessage(actionError(cause, "Could not acknowledge the report.")); }
+                  finally { setActionBusy(false); }
+                }}
+                onDispute={async (field, reason, suggestedValue) => {
+                  if (!user) return false;
+                  setActionBusy(true); setActionMessage("");
+                  try {
+                    await updateDoc(doc(db, "teacher_audits", audit.id), {
+                      "reviewChain.teacherDispute": { teacherId: user.uid, disputedAt: new Date(), field, reason, suggestedValue, status: "pending", adminResponse: "", auditStatusBeforeDispute: stringValue(audit.status) || "pending" },
+                      status: "disputed", lastUpdated: serverTimestamp(),
+                    });
+                    setActionMessage("Your correction request was sent successfully.");
+                    await loadAudits(user.uid, setAudits, setMonth, setError, setLoading, month);
+                    return true;
+                  } catch (cause) { setActionMessage(actionError(cause, "Could not send your correction request.")); return false; }
+                  finally { setActionBusy(false); }
+                }}
+              />
             </>
           )}
         </div>
@@ -76,6 +108,29 @@ export function TeacherReportPage() {
     </TeacherShell>
   );
 }
+
+function TeacherReportActions({ audit, busy, message, onAcknowledge, onDispute }: { audit: AuditData; busy: boolean; message: string; onAcknowledge: () => Promise<void>; onDispute: (field: string, reason: string, suggestedValue: string) => Promise<boolean> }) {
+  const [field, setField] = useState("");
+  const [reason, setReason] = useState("");
+  const [suggestedValue, setSuggestedValue] = useState("");
+  const [validation, setValidation] = useState("");
+  const acknowledgedAt = dateValue(audit.teacherAcknowledgedAt);
+  const reviewChain = objectValue(audit.reviewChain);
+  const dispute = objectValue(reviewChain.teacherDispute);
+  const coachId = stringValue(objectValue(audit.coachEvaluation).coachId);
+  const canDispute = !Object.keys(dispute).length || stringValue(dispute.status) === "rejected";
+  return <div className="mt-5 space-y-5">
+    <section className="rounded-2xl border border-[#E2E8F0] bg-white p-5"><h2 className="text-lg font-extrabold text-[#111827]">Report Actions</h2>{acknowledgedAt ? <p className="mt-3 flex items-center gap-2 text-sm font-semibold text-emerald-700"><CheckCircle2 size={18} />Acknowledged {new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short" }).format(acknowledgedAt)}</p> : <button type="button" disabled={busy} onClick={() => void onAcknowledge()} className="mt-4 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#0386FF] px-4 font-bold text-white disabled:opacity-50"><CheckCircle2 size={18} />Acknowledge that I have read this report</button>}<Link href={coachId ? `/teacher/chat/?contact=${encodeURIComponent(coachId)}` : "/teacher/chat/"} className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-[#CBD5E1] font-bold text-[#334155]"><MessageSquare size={18} />Open discussion</Link>{message ? <p role="status" className={`mt-3 text-sm font-semibold ${/successfully/i.test(message) ? "text-emerald-700" : "text-red-700"}`}>{message}</p> : null}</section>
+    <section className="rounded-2xl border border-[#E2E8F0] bg-white p-5"><h2 className="text-lg font-extrabold text-[#111827]">Request a Correction</h2><p className="mt-1 text-sm text-[#64748B]">If something is inaccurate, tell the review team what should be corrected.</p>
+      {Object.keys(dispute).length ? <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950"><div className="flex items-center justify-between gap-3"><strong>Existing correction request</strong><span className="rounded-full bg-amber-200 px-2 py-1 text-xs font-bold uppercase">{stringValue(dispute.status) || "pending"}</span></div><p className="mt-2"><strong>Field:</strong> {disputeFieldLabel(stringValue(dispute.field))}</p><p><strong>Reason:</strong> {stringValue(dispute.reason)}</p>{stringValue(dispute.adminResponse) ? <p className="mt-2"><strong>Admin response:</strong> {stringValue(dispute.adminResponse)}</p> : null}</div> : null}
+      {canDispute ? <form className="mt-4 space-y-3" onSubmit={async (event) => { event.preventDefault(); if (!field) { setValidation("Select the field you want corrected."); return; } if (reason.trim().length < 20) { setValidation("Please provide at least 20 characters explaining the correction."); return; } setValidation(""); if (await onDispute(field, reason.trim(), suggestedValue.trim())) { setReason(""); setSuggestedValue(""); } }}><label className="block text-sm font-bold text-[#334155]">Field to correct<select aria-label="Field to correct" value={field} onChange={(event) => setField(event.target.value)} className="mt-1 h-11 w-full rounded-xl border border-[#CBD5E1] bg-white px-3 font-normal"><option value="">Select a field</option>{disputeFields.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><label className="block text-sm font-bold text-[#334155]">Reason<textarea aria-label="Correction reason" value={reason} onChange={(event) => setReason(event.target.value)} rows={4} className="mt-1 w-full rounded-xl border border-[#CBD5E1] p-3 font-normal" placeholder="Explain what is incorrect and why" /></label><label className="block text-sm font-bold text-[#334155]">Suggested value (optional)<input aria-label="Suggested value" value={suggestedValue} onChange={(event) => setSuggestedValue(event.target.value)} className="mt-1 h-11 w-full rounded-xl border border-[#CBD5E1] px-3 font-normal" /></label>{validation ? <p role="alert" className="text-sm font-semibold text-red-700">{validation}</p> : null}<button type="submit" disabled={busy} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#0386FF] px-4 font-bold text-white disabled:opacity-50"><Send size={18} />{busy ? "Sending…" : "Send correction request"}</button></form> : null}
+    </section>
+  </div>;
+}
+
+const disputeFields = [["classes_count", "Classes count"], ["hours_taught", "Hours taught"], ["punctuality_rate", "Punctuality rate"], ["forms_count", "Forms count"], ["payment_amount", "Payment amount"], ["overall_score", "Overall score"], ["other", "Other"]] as const;
+function disputeFieldLabel(value: string) { return disputeFields.find(([id]) => id === value)?.[1] ?? value; }
+function actionError(cause: unknown, fallback: string) { const message = cause instanceof Error ? cause.message : ""; return /permission|denied/i.test(message) ? `${fallback} You do not have permission to update this report.` : /offline|network|unavailable/i.test(message) ? `${fallback} Check your connection and try again.` : `${fallback}${message ? ` ${message}` : ""}`; }
 
 function Overview({ audit, onExport }: { audit: AuditData; onExport: () => void }) {
   const score = numberValue(audit.overallScore);

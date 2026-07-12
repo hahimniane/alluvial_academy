@@ -77,6 +77,7 @@ export function TeacherChatPage() {
   const [sendError, setSendError] = useState("");
   const [sending, setSending] = useState(false);
   const [attachmentSending, setAttachmentSending] = useState(false);
+  const requestedContactOpened = useRef("");
 
   useEffect(() => {
     let mounted = true;
@@ -220,6 +221,16 @@ export function TeacherChatPage() {
     });
     await markChatRead(chatId, user.uid).catch(() => undefined);
   };
+
+  useEffect(() => {
+    if (!user || !contacts.length || typeof window === "undefined") return;
+    const requestedId = new URLSearchParams(window.location.search).get("contact")?.trim() ?? "";
+    if (!requestedId || requestedContactOpened.current === requestedId) return;
+    const contact = contacts.find((item) => item.id === requestedId);
+    if (!contact) return;
+    requestedContactOpened.current = requestedId;
+    void openContact(contact);
+  }, [contacts, user]);
 
   const openSupport = async () => {
     if (!user) return;
