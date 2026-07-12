@@ -13583,6 +13583,11 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String shiftOverlapBlockedDetailed(String shiftName, String window) {
+    return 'This time overlaps with \"$shiftName\" ($window). A teacher can\'t be in two classes at once — pick a different time.';
+  }
+
+  @override
   String get noShowSettingsTitle => 'No-Show Alert Recipients';
 
   @override

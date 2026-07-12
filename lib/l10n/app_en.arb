@@ -5665,6 +5665,17 @@
       }
     }
   },
+  "shiftOverlapBlockedDetailed": "This time overlaps with \"{shiftName}\" ({window}). A teacher can't be in two classes at once — pick a different time.",
+  "@shiftOverlapBlockedDetailed": {
+    "placeholders": {
+      "shiftName": {
+        "type": "String"
+      },
+      "window": {
+        "type": "String"
+      }
+    }
+  },
   "noShowSettingsTitle": "No-Show Alert Recipients",
   "noShowSettingsNotifyAll": "Notify all administrators",
   "noShowSettingsNotifyAllSubtitle": "Turn off to choose which administrators receive no-show alerts.",

@@ -5503,6 +5503,7 @@
   "prepareBroadcastSlotAlreadyExists": "هذه الفترة الزمنية موجودة مسبقاً.",
   "prepareBroadcastEndBeforeStart": "يجب أن يكون وقت النهاية بعد وقت البداية.",
   "prepareBroadcastOverlapError": "هذا يتداخل مع \"{slot}\". اختر وقتاً غير متداخل.",
+  "shiftOverlapBlockedDetailed": "هذا الوقت يتعارض مع \"{shiftName}\" ({window}). لا يمكن للمعلم أن يكون في حصتين في الوقت نفسه — يرجى اختيار وقت آخر.",
   "noShowSettingsTitle": "مستلمو تنبيهات الغياب",
   "noShowSettingsNotifyAll": "إشعار جميع المسؤولين",
   "noShowSettingsNotifyAllSubtitle": "أوقف التفعيل لاختيار المسؤولين الذين يتلقون تنبيهات الغياب.",

@@ -24797,6 +24797,12 @@ abstract class AppLocalizations {
   /// **'This overlaps with \"{slot}\". Pick a non-overlapping time.'**
   String prepareBroadcastOverlapError(String slot);
 
+  /// No description provided for @shiftOverlapBlockedDetailed.
+  ///
+  /// In en, this message translates to:
+  /// **'This time overlaps with \"{shiftName}\" ({window}). A teacher can\'t be in two classes at once — pick a different time.'**
+  String shiftOverlapBlockedDetailed(String shiftName, String window);
+
   /// No description provided for @noShowSettingsTitle.
   ///
   /// In en, this message translates to:

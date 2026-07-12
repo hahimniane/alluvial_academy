@@ -155,6 +155,17 @@ class _RescheduleShiftDialogState extends State<RescheduleShiftDialog> {
         );
         Navigator.pop(context, true); // Return true to indicate refresh needed
       }
+    } on FirebaseFunctionsException catch (e) {
+      AppLogger.error('Error rescheduling shift: ${e.code} ${e.message}');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(_rescheduleErrorMessage(e)),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 6),
+          ),
+        );
+      }
     } catch (e) {
       AppLogger.error('Error rescheduling shift: $e');
       if (mounted) {
@@ -170,6 +181,32 @@ class _RescheduleShiftDialogState extends State<RescheduleShiftDialog> {
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  /// Turns a backend reschedule failure into a user-facing explanation.
+  /// Overlap rejections include the exact conflicting class and its time
+  /// window in the teacher's selected timezone.
+  String _rescheduleErrorMessage(FirebaseFunctionsException e) {
+    final details = e.details;
+    if (details is Map && details['code'] == 'shift_overlap') {
+      final name = (details['conflictShiftName'] ?? '').toString();
+      final start =
+          DateTime.tryParse((details['conflictStart'] ?? '').toString());
+      final end = DateTime.tryParse((details['conflictEnd'] ?? '').toString());
+      var window = '';
+      if (start != null && end != null) {
+        final localStart =
+            TimezoneUtils.convertToTimezone(start.toUtc(), _selectedTimezone);
+        final localEnd =
+            TimezoneUtils.convertToTimezone(end.toUtc(), _selectedTimezone);
+        window =
+            '${DateFormat('MMM d, h:mm a').format(localStart)} - ${DateFormat('h:mm a').format(localEnd)} '
+            '(${TimezoneUtils.getTimezoneAbbreviation(_selectedTimezone)})';
+      }
+      return AppLocalizations.of(context)!
+          .shiftOverlapBlockedDetailed(name, window);
+    }
+    return AppLocalizations.of(context)!.errorReschedulingShiftE;
   }
 
   @override

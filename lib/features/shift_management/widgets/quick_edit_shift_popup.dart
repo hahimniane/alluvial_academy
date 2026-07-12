@@ -615,6 +615,22 @@ class _QuickEditShiftPopupState extends State<QuickEditShiftPopup> {
               backgroundColor: Colors.green),
         );
       }
+    } on ShiftOverlapException catch (e) {
+      AppLogger.error('Shift update blocked by overlap: $e');
+      if (mounted) {
+        final start = e.conflictingStart.toLocal();
+        final end = e.conflictingEnd.toLocal();
+        final window =
+            '${DateFormat('MMM d, h:mm a').format(start)} - ${DateFormat('h:mm a').format(end)}';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(AppLocalizations.of(context)!
+                .shiftOverlapBlockedDetailed(e.conflictingShiftName, window)),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 6),
+          ),
+        );
+      }
     } catch (e) {
       AppLogger.error('Error updating shift: $e');
       if (mounted) {

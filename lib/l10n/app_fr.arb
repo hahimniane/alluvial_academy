@@ -5498,6 +5498,7 @@
   "prepareBroadcastSlotAlreadyExists": "Ce créneau horaire existe déjà.",
   "prepareBroadcastEndBeforeStart": "L'heure de fin doit être après l'heure de début.",
   "prepareBroadcastOverlapError": "Ceci chevauche le créneau \"{slot}\". Choisissez un créneau sans chevauchement.",
+  "shiftOverlapBlockedDetailed": "Ce créneau chevauche « {shiftName} » ({window}). Un enseignant ne peut pas donner deux cours en même temps — choisissez un autre horaire.",
   "noShowSettingsTitle": "Destinataires des alertes d'absence",
   "noShowSettingsNotifyAll": "Notifier tous les administrateurs",
   "noShowSettingsNotifyAllSubtitle": "Désactivez pour choisir quels administrateurs reçoivent les alertes d'absence.",
