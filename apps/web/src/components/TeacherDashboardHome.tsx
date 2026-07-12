@@ -703,12 +703,12 @@ function EmptyNextClass() {
 
 function NextClassCard({ shift }: { shift: TeacherShift }) {
   return (
-    <div className="w-full max-w-[420px] rounded-xl border border-[#BFDBFE] bg-white p-5 shadow-sm">
+    <Link href={`/teacher/shifts/?shift=${encodeURIComponent(shift.id)}`} aria-label={`View ${shift.title} session details`} className="block w-full max-w-[420px] rounded-xl border border-[#BFDBFE] bg-white p-5 shadow-sm hover:border-[#0386FF] hover:shadow-md">
       <p className="text-xs font-bold uppercase tracking-[0.08em] text-[#0386FF]">Upcoming class</p>
       <h2 className="mt-2 text-lg font-black text-[#111827]">{shift.title}</h2>
       <p className="mt-2 text-sm font-semibold text-[#64748B]">{shift.studentNames.join(", ") || "Students"}</p>
       <p className="mt-3 text-sm font-medium text-[#334155]">{formatDateTimeRange(shift.start, shift.end)}</p>
-    </div>
+    </Link>
   );
 }
 

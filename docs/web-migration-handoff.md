@@ -3348,6 +3348,9 @@ render and the native Next authenticated CMS write/upload tests pass against
   deep links. The Tasks route consumes `?task=` and opens the requested detail
   dialog after authorization/load. A disposable dev task verified the complete
   dashboard-to-detail path and was deleted.
+- The Next Class card itself now carries the shift ID into My Shifts and opens
+  the exact detail dialog, matching Flutter's tappable upcoming-class card
+  rather than presenting a dead informational surface.
 - The formerly inert desktop bell is now a labelled link to My Report and shows
   the real unread `audit_notifications` count. Opening My Report attempts the
   same teacher-owned read acknowledgement as Flutter. A disposable notification
