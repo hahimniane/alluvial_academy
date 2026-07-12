@@ -43,6 +43,8 @@ type TeacherShift = {
   end: Date | null;
   status: string;
   subject: string;
+  category: string;
+  leaderRole: string;
   teacherName: string;
   teacherId: string;
   hourlyRate: number;
@@ -877,6 +879,8 @@ function normalizeShift(id: string, data: Record<string, unknown>): TeacherShift
     end: dateValue(data.shift_end ?? data.shiftEnd ?? data.end_time ?? data.endTime),
     status: stringValue(data.status) || "scheduled",
     subject,
+    category: stringValue(data.shift_category ?? data.shiftCategory) || "teaching",
+    leaderRole: stringValue(data.leader_role ?? data.leaderRole),
     teacherName: stringValue(data.teacher_name ?? data.teacherName),
     teacherId: stringValue(data.teacher_id ?? data.teacherId),
     hourlyRate: numberValue(data.hourly_rate ?? data.hourlyRate),
@@ -901,6 +905,7 @@ async function clockInToShift(user: User, shift: TeacherShift, location: Browser
     throw new Error("You are already clocked in to this shift");
   }
   const now = new Date();
+  const payRateSource = shift.hourlyRate > 0 ? "teaching_shift_rate" : "timesheet_fallback_rate";
   const batch = writeBatch(db);
   const timesheetRef = doc(collection(db, "timesheet_entries"));
   batch.set(timesheetRef, {
@@ -908,17 +913,23 @@ async function clockInToShift(user: User, shift: TeacherShift, location: Browser
     teacher_email: user.email,
     teacher_name: shift.teacherName,
     shift_id: shift.id,
+    shift_category: shift.category,
+    leader_role: shift.leaderRole || null,
     date: formatTimesheetDate(now),
-    student_name: shift.studentNames.length ? shift.studentNames.join(", ") : "No students assigned",
+    student_name: shift.category === "teaching" && shift.studentNames.length ? shift.studentNames.join(", ") : shift.title,
     start_time: formatClockTime(now),
     end_time: "",
     total_hours: "00:00",
     hourly_rate: shift.hourlyRate,
+    pay_rate_source: payRateSource,
+    is_subject_billable: shift.category === "teaching",
     description: `Teaching session: ${shift.subject || shift.title} - ${shift.title}`,
     status: "pending",
     source: "shift_clock_in",
     completion_method: "pending",
     clock_in_timestamp: Timestamp.fromDate(now),
+    clock_in_status: clockDeviationStatus(now, shift.start),
+    clock_in_deviation_minutes: clockDeviationMinutes(now, shift.start),
     clock_in_platform: "web",
     clock_in_latitude: location.latitude,
     clock_in_longitude: location.longitude,
@@ -963,6 +974,8 @@ async function clockOutOfShift(user: User, shift: TeacherShift, location: Browse
   const validMs = Math.max(0, Math.min(rawDurationMs, Math.max(0, scheduledMs)));
   const hoursWorked = validMs / 36e5;
   const calculatedPay = hoursWorked * shift.hourlyRate;
+  const clockOutStatus = clockDeviationStatus(now, shift.end);
+  const clockOutDeviation = clockDeviationMinutes(now, shift.end);
   const batch = writeBatch(db);
   batch.update(openEntry.ref, {
     end_time: formatClockTime(effectiveEnd),
@@ -972,8 +985,13 @@ async function clockOutOfShift(user: User, shift: TeacherShift, location: Browse
     total_pay: calculatedPay,
     payment_amount: calculatedPay,
     hourly_rate: shift.hourlyRate,
+    pay_rate_source: shift.hourlyRate > 0 ? "teaching_shift_rate" : "timesheet_fallback_rate",
+    is_subject_billable: shift.category === "teaching",
     status: "pending",
     completion_method: "manual",
+    clock_out_status: clockOutStatus,
+    clock_out_deviation_minutes: clockOutDeviation,
+    requires_clock_out_note: isLeadershipShift(shift) && clockOutStatus !== "on_time",
     clock_out_latitude: location.latitude,
     clock_out_longitude: location.longitude,
     clock_out_address: location.address,
@@ -1028,6 +1046,21 @@ function fallbackLocation(): BrowserLocation {
     address: "Clock-out location unavailable",
     neighborhood: "Location unavailable",
   };
+}
+
+function isLeadershipShift(shift: TeacherShift) {
+  return ["leadership", "meeting", "training"].includes(shift.category.toLowerCase());
+}
+
+function clockDeviationMinutes(actual: Date, scheduled: Date | null) {
+  return scheduled ? Math.trunc((actual.getTime() - scheduled.getTime()) / 60000) : 0;
+}
+
+function clockDeviationStatus(actual: Date, scheduled: Date | null) {
+  const minutes = clockDeviationMinutes(actual, scheduled);
+  if (minutes < -5) return "early";
+  if (minutes > 5) return "late";
+  return "on_time";
 }
 
 function summaryForUser(user: User, data: UserRecord | null): TeacherSummary {

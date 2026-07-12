@@ -690,23 +690,23 @@ async function withdrawTeacherFromJob(jobId: string, user: User) {
     transaction.update(jobRef, {
       status: "open",
       acceptedByTeacherId: null,
-      acceptedAt: null,
-      teacherSelectedTimes: null,
+      acceptedAt: deleteField(),
+      teacherSelectedTimes: deleteField(),
       withdrawnAt: nowTs,
       withdrawnByTeacherId: user.uid,
       withdrawalHistory: arrayUnion({
         teacherId: user.uid,
         teacherName,
-        withdrawnAt: new Date().toISOString(),
+        withdrawnAt: nowTs,
       }),
     });
 
     transaction.update(enrollmentRef, {
       "metadata.status": "broadcasted",
       "metadata.matchedTeacherId": null,
-      "metadata.matchedTeacherName": null,
-      "metadata.matchedAt": null,
-      "metadata.teacherSelectedTimes": null,
+      "metadata.matchedTeacherName": deleteField(),
+      "metadata.matchedAt": deleteField(),
+      "metadata.teacherSelectedTimes": deleteField(),
       "metadata.lastWithdrawnBy": user.uid,
       "metadata.lastWithdrawnAt": nowTs,
       "metadata.actionHistory": arrayUnion({
@@ -714,7 +714,7 @@ async function withdrawTeacherFromJob(jobId: string, user: User) {
         status: "broadcasted",
         teacherId: user.uid,
         teacherName,
-        timestamp: new Date().toISOString(),
+        timestamp: nowTs,
       }),
     });
 
