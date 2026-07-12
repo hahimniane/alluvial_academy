@@ -65,6 +65,7 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
       'After School Tutoring (Math, Science, Physics, etc...)';
   static const String _adultLiteracySubject =
       'Adult Literacy (Reading and Writing English & French, etc...)';
+  static const String _draftIdPrefsKey = 'alluwal_enrollment_draft_id';
 
   final _formKey = GlobalKey<FormState>();
   late AnimationController _progressController;
@@ -109,11 +110,16 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
   int? _hoursPerWeek;
   String? _timeOfDayPreference;
   String? _selectedLevel;
+  Timer? _draftSaveDebounce;
+  String? _enrollmentDraftId;
+  bool _enrollmentDraftIdCreated = false;
+  bool _enrollmentDraftCompleted = false;
 
   // Multi-student support
   final List<_StudentInput> _students = [];
   bool _applyProgramToAll = true;
   int _activeProgramTab = 0;
+
   /// Selected student on step 1 (0 = first child, 1..n = [_students] entries).
   int _activeStudentProfileTab = 0;
   bool _enrollmentSummaryExpanded = true;
@@ -440,11 +446,13 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
     return t.isEmpty ? 'Student ${slot + 1}' : t;
   }
 
-  String? _programSubjectForReviewSlot(int slot) =>
-      slot == 0 ? _selectedSubject : (_students[slot - 1].subject ?? _selectedSubject);
+  String? _programSubjectForReviewSlot(int slot) => slot == 0
+      ? _selectedSubject
+      : (_students[slot - 1].subject ?? _selectedSubject);
 
-  String? _programLevelForReviewSlot(int slot) =>
-      slot == 0 ? _selectedLevel : (_students[slot - 1].level ?? _selectedLevel);
+  String? _programLevelForReviewSlot(int slot) => slot == 0
+      ? _selectedLevel
+      : (_students[slot - 1].level ?? _selectedLevel);
 
   String? _programClassTypeForReviewSlot(int slot) =>
       slot == 0 ? _classType : (_students[slot - 1].classType ?? _classType);
@@ -729,6 +737,7 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
       _customTimeSlots.add(slot);
       _selectedTimeSlots.add(slot);
     });
+    _scheduleEnrollmentDraftSave();
   }
 
   Future<void> _addCustomTimeSlotForStudent(_StudentInput s) async {
@@ -785,6 +794,7 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
       s.customTimeSlots.add(slot);
       s.selectedTimeSlots.add(slot);
     });
+    _scheduleEnrollmentDraftSave();
   }
 
   final List<String> _languages = ['English', 'French', 'Arabic', 'Other'];
@@ -809,7 +819,9 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
     _selectedAfricanLanguage = widget.initialAfricanLanguage;
     final extraStudents = widget.initialAdditionalStudents.clamp(0, 7);
     for (var i = 0; i < extraStudents; i++) {
-      _students.add(_StudentInput());
+      final student = _StudentInput();
+      _attachDraftListenersForStudent(student);
+      _students.add(student);
     }
     _selectedCountry = Country.parse('US');
     _initialCountryCode = 'US';
@@ -826,11 +838,271 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
     );
     _cardController.forward();
 
+    _attachEnrollmentDraftListeners();
     _initTimezone();
 
     PublicSiteCmsService.getPricingDoc().then((doc) {
       if (mounted) setState(() => _pricingCms = doc);
     });
+  }
+
+  void _attachEnrollmentDraftListeners() {
+    for (final controller in [
+      _emailController,
+      _phoneController,
+      _parentNameController,
+      _cityController,
+      _whatsAppNumberController,
+      _studentNameController,
+      _studentAgeController,
+      _schedulingNotesController,
+    ]) {
+      controller.addListener(_scheduleEnrollmentDraftSave);
+    }
+  }
+
+  void _detachEnrollmentDraftListeners() {
+    for (final controller in [
+      _emailController,
+      _phoneController,
+      _parentNameController,
+      _cityController,
+      _whatsAppNumberController,
+      _studentNameController,
+      _studentAgeController,
+      _schedulingNotesController,
+    ]) {
+      controller.removeListener(_scheduleEnrollmentDraftSave);
+    }
+
+    for (final student in _students) {
+      _detachDraftListenersForStudent(student);
+    }
+  }
+
+  void _attachDraftListenersForStudent(_StudentInput student) {
+    student.nameController.addListener(_scheduleEnrollmentDraftSave);
+    student.ageController.addListener(_scheduleEnrollmentDraftSave);
+  }
+
+  void _detachDraftListenersForStudent(_StudentInput student) {
+    student.nameController.removeListener(_scheduleEnrollmentDraftSave);
+    student.ageController.removeListener(_scheduleEnrollmentDraftSave);
+  }
+
+  void _scheduleEnrollmentDraftSave() {
+    if (_enrollmentDraftCompleted) return;
+    _draftSaveDebounce?.cancel();
+    _draftSaveDebounce =
+        Timer(const Duration(milliseconds: 900), _saveEnrollmentDraftNow);
+  }
+
+  Future<String> _ensureEnrollmentDraftId() async {
+    if (_enrollmentDraftId != null) return _enrollmentDraftId!;
+
+    final prefs = await SharedPreferences.getInstance();
+    final existing = prefs.getString(_draftIdPrefsKey);
+    if (existing != null && existing.isNotEmpty) {
+      _enrollmentDraftId = existing;
+      _enrollmentDraftIdCreated = false;
+      return existing;
+    }
+
+    final id =
+        FirebaseFirestore.instance.collection('enrollment_drafts').doc().id;
+    await prefs.setString(_draftIdPrefsKey, id);
+    _enrollmentDraftId = id;
+    _enrollmentDraftIdCreated = true;
+    return id;
+  }
+
+  bool _draftHasReachableContact(Map<String, dynamic> contact) {
+    return (contact['email'] as String).trim().isNotEmpty ||
+        (contact['phoneNumber'] as String).trim().isNotEmpty ||
+        (contact['whatsAppNumber'] as String).trim().isNotEmpty;
+  }
+
+  bool _draftHasSignal(Map<String, dynamic> payload) {
+    final contact = payload['contact'] as Map<String, dynamic>;
+    final students = payload['students'] as List<Map<String, dynamic>>;
+    return _draftHasReachableContact(contact) ||
+        students
+            .any((student) => (student['name'] as String).trim().isNotEmpty);
+  }
+
+  String get _enrollmentDraftStepTitle {
+    switch (_currentStep) {
+      case 0:
+        return 'Role';
+      case 1:
+        return 'Student details';
+      case 2:
+        return 'Program';
+      case 3:
+        return 'Schedule';
+      case 4:
+        return 'Contact';
+      default:
+        return 'Step ${_currentStep + 1}';
+    }
+  }
+
+  Map<String, dynamic> _studentDraftPayload({
+    required String name,
+    required String age,
+    String? gender,
+    String? subject,
+    String? specificLanguage,
+    String? level,
+    String? classType,
+    String? sessionDuration,
+    int? hoursPerWeek,
+    String? timeOfDayPreference,
+    required List<String> preferredDays,
+    required List<String> preferredTimeSlots,
+  }) {
+    return {
+      'name': name.trim(),
+      'age': age.trim(),
+      'gender': gender ?? '',
+      'subject': subject ?? '',
+      'specificLanguage': specificLanguage ?? '',
+      'level': level ?? '',
+      'classType': classType ?? '',
+      'sessionDuration': sessionDuration ?? '',
+      'hoursPerWeek': hoursPerWeek ?? 0,
+      'timeOfDayPreference': timeOfDayPreference ?? '',
+      'preferredDays': List<String>.from(preferredDays),
+      'preferredTimeSlots': List<String>.from(preferredTimeSlots),
+    };
+  }
+
+  Map<String, dynamic> _buildEnrollmentDraftPayload() {
+    final primaryStudent = _studentDraftPayload(
+      name: _studentNameController.text,
+      age: _studentAgeController.text,
+      gender: _gender,
+      subject: _selectedSubject,
+      specificLanguage: _selectedAfricanLanguage,
+      level: _selectedLevel,
+      classType: _classType,
+      sessionDuration: _sessionDuration,
+      hoursPerWeek: _hoursPerWeek,
+      timeOfDayPreference: _timeOfDayPreference,
+      preferredDays: _selectedDays,
+      preferredTimeSlots: _selectedTimeSlots,
+    );
+
+    final additionalStudents = _students.map((student) {
+      final effectiveSubject =
+          _applyProgramToAll ? _selectedSubject : student.subject;
+      return _studentDraftPayload(
+        name: student.nameController.text,
+        age: student.ageController.text,
+        gender: student.gender,
+        subject: effectiveSubject ?? _selectedSubject,
+        specificLanguage: effectiveSubject == _afroLanguagesSubject
+            ? (_applyProgramToAll
+                ? _selectedAfricanLanguage
+                : student.specificLanguage)
+            : null,
+        level: _applyProgramToAll
+            ? _selectedLevel
+            : (student.level ?? _selectedLevel),
+        classType:
+            _applyProgramToAll ? _classType : (student.classType ?? _classType),
+        sessionDuration: student.sessionDuration ?? _sessionDuration,
+        hoursPerWeek: student.hoursPerWeek ?? _hoursPerWeek,
+        timeOfDayPreference:
+            student.timeOfDayPreference ?? _timeOfDayPreference,
+        preferredDays: student.selectedDays.isNotEmpty
+            ? student.selectedDays
+            : _selectedDays,
+        preferredTimeSlots: student.selectedTimeSlots.isNotEmpty
+            ? student.selectedTimeSlots
+            : _selectedTimeSlots,
+      );
+    }).toList();
+
+    return {
+      'step': _currentStep,
+      'stepTitle': _enrollmentDraftStepTitle,
+      'role': _role ?? '',
+      'preferredLanguage': _preferredLanguage ?? '',
+      'timeZone': _ianaTimeZone,
+      'pricingPlanId': _pricingPlanForSubmit().id,
+      'pricingPlanLabel': _pricingPlanForSubmit().label,
+      'trackId': _quoteTrackId ?? _resolvedTrackId ?? '',
+      'schedulingNotes': _schedulingNotesController.text.trim(),
+      'students': <Map<String, dynamic>>[
+        primaryStudent,
+        ...additionalStudents,
+      ],
+      'contact': {
+        'email': _emailController.text.trim(),
+        'phoneNumber': _phoneNumber.trim().isNotEmpty
+            ? _phoneNumber.trim()
+            : _phoneController.text.trim(),
+        'whatsAppNumber': _whatsAppNumber.trim().isNotEmpty
+            ? _whatsAppNumber.trim()
+            : _whatsAppNumberController.text.trim(),
+        'parentName': _parentNameController.text.trim(),
+        'city': _cityController.text.trim(),
+        'countryName': _selectedCountry?.name ?? '',
+      },
+    };
+  }
+
+  Future<void> _saveEnrollmentDraftNow() async {
+    if (_enrollmentDraftCompleted) return;
+    if (!mounted) return;
+
+    try {
+      final payload = _buildEnrollmentDraftPayload();
+      if (!_draftHasSignal(payload)) return;
+
+      final contact = payload['contact'] as Map<String, dynamic>;
+      final id = await _ensureEnrollmentDraftId();
+      await FirebaseFirestore.instance
+          .collection('enrollment_drafts')
+          .doc(id)
+          .set({
+        ...payload,
+        'status': 'in_progress',
+        'source': 'flutter_enroll_form',
+        'hasContact': _draftHasReachableContact(contact),
+        'updatedAt': FieldValue.serverTimestamp(),
+        if (_enrollmentDraftIdCreated)
+          'createdAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+      _enrollmentDraftIdCreated = false;
+    } catch (e) {
+      debugPrint('Enrollment draft save skipped: $e');
+    }
+  }
+
+  Future<void> _completeEnrollmentDraft() async {
+    if (_enrollmentDraftCompleted) return;
+    _draftSaveDebounce?.cancel();
+    _enrollmentDraftCompleted = true;
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final id = _enrollmentDraftId ?? prefs.getString(_draftIdPrefsKey);
+      if (id == null || id.isEmpty) return;
+
+      await FirebaseFirestore.instance
+          .collection('enrollment_drafts')
+          .doc(id)
+          .set({
+        'status': 'completed',
+        'completedAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+      await prefs.remove(_draftIdPrefsKey);
+    } catch (e) {
+      debugPrint('Enrollment draft completion skipped: $e');
+    }
   }
 
   Future<void> _initTimezone() async {
@@ -846,6 +1118,7 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
         setState(() {
           _ianaTimeZone = currentTimeZone;
         });
+        _scheduleEnrollmentDraftSave();
       }
     } catch (e) {
       debugPrint('Could not get IANA timezone: $e');
@@ -882,15 +1155,14 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
           _phoneController.text = (result['phone'] as String?) ?? '';
           _phoneNumber = (result['phone'] as String?) ?? '';
         });
+        _scheduleEnrollmentDraftSave();
         _showSnackBar('Account linked successfully!', isSuccess: true);
       } else if (result['error'] != null) {
         // Server/network error - distinct from "not found"
-        _showSnackBar(
-            'Could not verify account right now. Please try again.',
+        _showSnackBar('Could not verify account right now. Please try again.',
             isError: true);
       } else {
-        _showSnackBar(
-            'No parent account found with that email or kiosque code',
+        _showSnackBar('No parent account found with that email or kiosque code',
             isError: true);
       }
     } catch (e) {
@@ -941,10 +1213,13 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
       _phoneController.clear();
       _parentIdentityController.clear();
     });
+    _scheduleEnrollmentDraftSave();
   }
 
   @override
   void dispose() {
+    _draftSaveDebounce?.cancel();
+    _detachEnrollmentDraftListeners();
     _progressController.dispose();
     _cardController.dispose();
     _rightPaneScroll.dispose();
@@ -974,6 +1249,7 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
   void _nextStep() {
     if (!_validateCurrentStep()) return;
     if (_currentStep < kEnrollmentFlowSubmitStepIndex) {
+      _scheduleEnrollmentDraftSave();
       _stepForward = true;
       _cardController.reverse().then((_) {
         setState(() {
@@ -987,6 +1263,7 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
         });
         _cardController.forward();
         _scrollRightPaneToTop();
+        _scheduleEnrollmentDraftSave();
       });
     } else {
       _submitForm();
@@ -1000,6 +1277,7 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
         setState(() => _currentStep--);
         _cardController.forward();
         _scrollRightPaneToTop();
+        _scheduleEnrollmentDraftSave();
       });
     }
   }
@@ -1055,6 +1333,7 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
     String? emptyLanguageMessage,
     String? emptyLevelMessage,
     String? emptyClassTypeMessage,
+
     /// When false (additional children in "different programs" mode), the
     /// program may be on another V2 track than the banner tier; only student 1
     /// must match the globally selected pricing tier.
@@ -1471,8 +1750,7 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
   bool _contactStepFieldsSatisfied() {
     if (_isParentGuardian) {
       final hasLinkedParent = _linkedParentData != null;
-      if (!hasLinkedParent &&
-          _parentNameController.text.trim().isEmpty) {
+      if (!hasLinkedParent && _parentNameController.text.trim().isEmpty) {
         return false;
       }
     }
@@ -1506,8 +1784,7 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
         // [hoursPerWeek] was never written — align validation with that UX.
         if (_isParentGuardian &&
             _students.isNotEmpty &&
-            (!_applyProgramToAll ||
-                _perChildProgramBundlesDifferFromFirst())) {
+            (!_applyProgramToAll || _perChildProgramBundlesDifferFromFirst())) {
           for (final s in _students) {
             final h = s.hoursPerWeek ?? _hoursPerWeek;
             if ((h ?? 0) < 1) return false;
@@ -1617,8 +1894,8 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
               ),
               if (showSummary && isMobile) ...[
                 InkWell(
-                  onTap: () => setState(() => _enrollmentSummaryExpanded =
-                      !_enrollmentSummaryExpanded),
+                  onTap: () => setState(() =>
+                      _enrollmentSummaryExpanded = !_enrollmentSummaryExpanded),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 4),
                     child: Row(
@@ -1626,8 +1903,7 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
                       children: [
                         Text('Details',
                             style: GoogleFonts.inter(
-                                fontSize: 11,
-                                color: const Color(0xff94A3B8))),
+                                fontSize: 11, color: const Color(0xff94A3B8))),
                         Icon(
                           _enrollmentSummaryExpanded
                               ? Icons.expand_less
@@ -1787,13 +2063,16 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   IconButton(
-                    constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                    constraints:
+                        const BoxConstraints(minWidth: 28, minHeight: 28),
                     iconSize: 18,
                     padding: EdgeInsets.zero,
                     onPressed: h > 1 ? () => onHoursChanged(h - 1) : null,
                     icon: Icon(
                       Icons.remove_circle_outline_rounded,
-                      color: h > 1 ? const Color(0xff3B82F6) : const Color(0xffCBD5E1),
+                      color: h > 1
+                          ? const Color(0xff3B82F6)
+                          : const Color(0xffCBD5E1),
                     ),
                   ),
                   Container(
@@ -1809,13 +2088,16 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
                     ),
                   ),
                   IconButton(
-                    constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                    constraints:
+                        const BoxConstraints(minWidth: 28, minHeight: 28),
                     iconSize: 18,
                     padding: EdgeInsets.zero,
                     onPressed: h < 8 ? () => onHoursChanged(h + 1) : null,
                     icon: Icon(
                       Icons.add_circle_outline_rounded,
-                      color: h < 8 ? const Color(0xff3B82F6) : const Color(0xffCBD5E1),
+                      color: h < 8
+                          ? const Color(0xff3B82F6)
+                          : const Color(0xffCBD5E1),
                     ),
                   ),
                 ],
@@ -1869,6 +2151,7 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
           _hoursPerWeek = nh;
           _sessionDuration = _durationFromHoursPerWeek(nh);
         });
+        _scheduleEnrollmentDraftSave();
       },
     );
   }
@@ -2147,7 +2430,8 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
                   style: OutlinedButton.styleFrom(
                     foregroundColor: const Color(0xff475569),
                     backgroundColor: Colors.white,
-                    side: const BorderSide(color: Color(0xffE2E8F0), width: 1.5),
+                    side:
+                        const BorderSide(color: Color(0xffE2E8F0), width: 1.5),
                     padding: EdgeInsets.symmetric(
                       horizontal: isMobile ? 10 : 14,
                       vertical: isMobile ? 9 : 10,
@@ -2267,13 +2551,13 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
       parent: _cardController,
       curve: Curves.easeOutCubic,
     );
-    final slideBegin = _stepForward
-        ? const Offset(0.04, 0)
-        : const Offset(-0.04, 0);
-    
+    final slideBegin =
+        _stepForward ? const Offset(0.04, 0) : const Offset(-0.04, 0);
+
     final headerColumn = Column(
       mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: centerHeader ? CrossAxisAlignment.center : CrossAxisAlignment.start,
+      crossAxisAlignment:
+          centerHeader ? CrossAxisAlignment.center : CrossAxisAlignment.start,
       children: [
         Text(
           title,
@@ -2318,10 +2602,7 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (centerHeader)
-          Center(child: headerColumn)
-        else
-          headerColumn,
+        if (centerHeader) Center(child: headerColumn) else headerColumn,
         SizedBox(height: isMobile ? 6 : 5),
         ...children,
         if (includeOuterShell) const SizedBox(height: 4),
@@ -2425,7 +2706,10 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
       children: [
         EnrollmentStepRoleView(
           selectedRole: _role,
-          onSelectRole: (r) => setState(() => _role = r),
+          onSelectRole: (r) {
+            setState(() => _role = r);
+            _scheduleEnrollmentDraftSave();
+          },
           extraStudentCount: _students.length,
           onAddStudent: _addStudent,
           onRemoveLastStudent: _students.isEmpty
@@ -2619,9 +2903,8 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.person_rounded, 
-                          size: isMobile ? 14 : 16, 
-                          color: iconTint),
+                      Icon(Icons.person_rounded,
+                          size: isMobile ? 14 : 16, color: iconTint),
                       SizedBox(width: isMobile ? 5 : 6),
                       Expanded(
                         child: Column(
@@ -2652,9 +2935,8 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
                       if (removable)
                         IconButton(
                           tooltip: l.removeStudent,
-                          onPressed: () =>
-                              _removeStudent(safeTab - 1),
-                          icon: Icon(Icons.close_rounded, 
+                          onPressed: () => _removeStudent(safeTab - 1),
+                          icon: Icon(Icons.close_rounded,
                               size: isMobile ? 16 : 18),
                           color: const Color(0xffEF4444),
                           padding: EdgeInsets.zero,
@@ -2877,8 +3159,7 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
                 return null;
               },
             );
-            final genderWidget =
-                _buildSegmentedGender(gender, onGenderChanged);
+            final genderWidget = _buildSegmentedGender(gender, onGenderChanged);
             if (narrow) {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -2904,8 +3185,10 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
   }
 
   void _addStudent() {
+    final student = _StudentInput();
+    _attachDraftListenersForStudent(student);
     setState(() {
-      _students.add(_StudentInput());
+      _students.add(student);
       _applyProgramToAll = true;
       _activeProgramTab = 0;
       // Keep focus on the child you're already editing; the new slot appears
@@ -2913,12 +3196,14 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
       _activeStudentProfileTab =
           _activeStudentProfileTab.clamp(0, _students.length - 1);
     });
+    _scheduleEnrollmentDraftSave();
   }
 
   void _removeStudent(int index) {
     setState(() {
       final removedTab = index + 1;
       final wasActive = _activeStudentProfileTab == removedTab;
+      _detachDraftListenersForStudent(_students[index]);
       _students[index].dispose();
       _students.removeAt(index);
       final maxTab = _students.length;
@@ -2929,6 +3214,7 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
       }
       _activeStudentProfileTab = _activeStudentProfileTab.clamp(0, maxTab);
     });
+    _scheduleEnrollmentDraftSave();
   }
 
   List<String> _getLevelsForSubject(String? subject) {
@@ -2945,8 +3231,16 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
   }) {
     final l = AppLocalizations.of(context)!;
     final tracks = [
-      (PricingPlanIds.islamic, l.pricingTrackIslamicTitle, Icons.menu_book_rounded),
-      (PricingPlanIds.tutoring, l.pricingTrackTutoringTitle, Icons.school_rounded),
+      (
+        PricingPlanIds.islamic,
+        l.pricingTrackIslamicTitle,
+        Icons.menu_book_rounded
+      ),
+      (
+        PricingPlanIds.tutoring,
+        l.pricingTrackTutoringTitle,
+        Icons.school_rounded
+      ),
       (PricingPlanIds.group, l.pricingTrackGroupTitle, Icons.groups_rounded),
     ];
     return Wrap(
@@ -3106,47 +3400,48 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-          _buildProgramFields(
-            subject: subject,
-            onSubjectChanged: onSubjectChanged,
-            specificLanguage: specificLanguage,
-            onSpecificLanguageChanged: onSpecificLanguageChanged,
-            level: level,
-            onLevelChanged: onLevelChanged,
-            classType: classType,
-            onClassTypeChanged: onClassTypeChanged,
-            fieldKeyPrefix: 'student$studentIndex',
-            showTrackSelector: true,
+        _buildProgramFields(
+          subject: subject,
+          onSubjectChanged: onSubjectChanged,
+          specificLanguage: specificLanguage,
+          onSpecificLanguageChanged: onSpecificLanguageChanged,
+          level: level,
+          onLevelChanged: onLevelChanged,
+          classType: classType,
+          onClassTypeChanged: onClassTypeChanged,
+          fieldKeyPrefix: 'student$studentIndex',
+          showTrackSelector: true,
+        ),
+        if (hoursTarget != null) ...[
+          const SizedBox(height: 8),
+          _buildHoursStepper(
+            hours: (hoursTarget.hoursPerWeek ?? _hoursPerWeek ?? 1).clamp(1, 8),
+            trackId: _trackForSubject(subject) ?? _quoteTrackId,
+            headerLabel: l.enrollmentStudentHoursPerWeek,
+            onHoursChanged: (nh) {
+              setState(() {
+                hoursTarget.hoursPerWeek = nh;
+                hoursTarget.sessionDuration = _durationFromHoursPerWeek(nh);
+              });
+              _scheduleEnrollmentDraftSave();
+            },
           ),
-          if (hoursTarget != null) ...[
-            const SizedBox(height: 8),
-            _buildHoursStepper(
-              hours:
-                  (hoursTarget.hoursPerWeek ?? _hoursPerWeek ?? 1).clamp(1, 8),
-              trackId: _trackForSubject(subject) ?? _quoteTrackId,
-              headerLabel: l.enrollmentStudentHoursPerWeek,
-              onHoursChanged: (nh) {
-                setState(() {
-                  hoursTarget.hoursPerWeek = nh;
-                  hoursTarget.sessionDuration = _durationFromHoursPerWeek(nh);
-                });
-              },
-            ),
-          ],
-          if (showGlobalHoursStepper && hoursTarget == null) ...[
-            const SizedBox(height: 8),
-            _buildHoursStepper(
-              hours: (_hoursPerWeek ?? 1).clamp(1, 8),
-              trackId: _trackForSubject(subject) ?? _quoteTrackId,
-              headerLabel: l.enrollmentStudentHoursPerWeek,
-              onHoursChanged: (nh) {
-                setState(() {
-                  _hoursPerWeek = nh;
-                  _sessionDuration = _durationFromHoursPerWeek(nh);
-                });
-              },
-            ),
-          ],
+        ],
+        if (showGlobalHoursStepper && hoursTarget == null) ...[
+          const SizedBox(height: 8),
+          _buildHoursStepper(
+            hours: (_hoursPerWeek ?? 1).clamp(1, 8),
+            trackId: _trackForSubject(subject) ?? _quoteTrackId,
+            headerLabel: l.enrollmentStudentHoursPerWeek,
+            onHoursChanged: (nh) {
+              setState(() {
+                _hoursPerWeek = nh;
+                _sessionDuration = _durationFromHoursPerWeek(nh);
+              });
+              _scheduleEnrollmentDraftSave();
+            },
+          ),
+        ],
       ],
     );
   }
@@ -3201,14 +3496,16 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
                   boxShadow: isActive
                       ? [
                           BoxShadow(
-                            color: const Color(0xff3B82F6).withValues(alpha: 0.4),
+                            color:
+                                const Color(0xff3B82F6).withValues(alpha: 0.4),
                             blurRadius: 12,
                             offset: const Offset(0, 4),
                           ),
                         ]
                       : [
                           BoxShadow(
-                            color: const Color(0xff0F172A).withValues(alpha: 0.02),
+                            color:
+                                const Color(0xff0F172A).withValues(alpha: 0.02),
                             blurRadius: 2,
                             offset: const Offset(0, 1),
                           ),
@@ -3321,6 +3618,7 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
                 }
               }
             });
+            _scheduleEnrollmentDraftSave();
           },
         ),
       ],
@@ -3347,17 +3645,27 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
                   onSubjectChanged: (v) {
                     setState(() {
                       _selectedSubject = v;
-                      if (v != _afroLanguagesSubject) _selectedAfricanLanguage = null;
+                      if (v != _afroLanguagesSubject)
+                        _selectedAfricanLanguage = null;
                       _selectedLevel = null;
                     });
+                    _scheduleEnrollmentDraftSave();
                   },
                   specificLanguage: _selectedAfricanLanguage,
-                  onSpecificLanguageChanged: (v) =>
-                      setState(() => _selectedAfricanLanguage = v),
+                  onSpecificLanguageChanged: (v) {
+                    setState(() => _selectedAfricanLanguage = v);
+                    _scheduleEnrollmentDraftSave();
+                  },
                   level: _selectedLevel,
-                  onLevelChanged: (v) => setState(() => _selectedLevel = v),
+                  onLevelChanged: (v) {
+                    setState(() => _selectedLevel = v);
+                    _scheduleEnrollmentDraftSave();
+                  },
                   classType: _classType,
-                  onClassTypeChanged: (v) => setState(() => _classType = v),
+                  onClassTypeChanged: (v) {
+                    setState(() => _classType = v);
+                    _scheduleEnrollmentDraftSave();
+                  },
                   fieldKeyPrefix: 'solo',
                   showTrackSelector: false,
                 ),
@@ -3366,7 +3674,10 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
                   l.enrollmentStatePreferredLanguage,
                   _languages,
                   _preferredLanguage,
-                  (v) => setState(() => _preferredLanguage = v),
+                  (v) {
+                    setState(() => _preferredLanguage = v);
+                    _scheduleEnrollmentDraftSave();
+                  },
                   Icons.translate_rounded,
                 ),
               ],
@@ -3432,6 +3743,7 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
                       }
                     }
                   });
+                  _scheduleEnrollmentDraftSave();
                 },
                 activeTrackColor: const Color(0xff3B82F6).withOpacity(0.5),
                 activeThumbColor: const Color(0xff3B82F6),
@@ -3464,6 +3776,7 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
                         s.level = null;
                       }
                     });
+                    _scheduleEnrollmentDraftSave();
                   },
                   specificLanguage: _selectedAfricanLanguage,
                   onSpecificLanguageChanged: (v) {
@@ -3473,6 +3786,7 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
                         s.specificLanguage = v;
                       }
                     });
+                    _scheduleEnrollmentDraftSave();
                   },
                   level: _selectedLevel,
                   onLevelChanged: (v) {
@@ -3482,6 +3796,7 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
                         s.level = v;
                       }
                     });
+                    _scheduleEnrollmentDraftSave();
                   },
                   classType: _classType,
                   onClassTypeChanged: (v) {
@@ -3491,6 +3806,7 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
                         s.classType = v;
                       }
                     });
+                    _scheduleEnrollmentDraftSave();
                   },
                   fieldKeyPrefix: 'applyAll',
                   showTrackSelector: false,
@@ -3500,7 +3816,10 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
                   l.enrollmentStatePreferredLanguage,
                   _languages,
                   _preferredLanguage,
-                  (v) => setState(() => _preferredLanguage = v),
+                  (v) {
+                    setState(() => _preferredLanguage = v);
+                    _scheduleEnrollmentDraftSave();
+                  },
                   Icons.translate_rounded,
                 ),
               ],
@@ -3536,16 +3855,23 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
                                 }
                                 _selectedLevel = null;
                               });
+                              _scheduleEnrollmentDraftSave();
                             },
                             specificLanguage: _selectedAfricanLanguage,
-                            onSpecificLanguageChanged: (v) =>
-                                setState(() => _selectedAfricanLanguage = v),
+                            onSpecificLanguageChanged: (v) {
+                              setState(() => _selectedAfricanLanguage = v);
+                              _scheduleEnrollmentDraftSave();
+                            },
                             level: _selectedLevel,
-                            onLevelChanged: (v) =>
-                                setState(() => _selectedLevel = v),
+                            onLevelChanged: (v) {
+                              setState(() => _selectedLevel = v);
+                              _scheduleEnrollmentDraftSave();
+                            },
                             classType: _classType,
-                            onClassTypeChanged: (v) =>
-                                setState(() => _classType = v),
+                            onClassTypeChanged: (v) {
+                              setState(() => _classType = v);
+                              _scheduleEnrollmentDraftSave();
+                            },
                             showGlobalHoursStepper: true,
                           ),
                         )
@@ -3573,16 +3899,23 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
                                   }
                                   student.level = null;
                                 });
+                                _scheduleEnrollmentDraftSave();
                               },
                               specificLanguage: student.specificLanguage,
-                              onSpecificLanguageChanged: (v) =>
-                                  setState(() => student.specificLanguage = v),
+                              onSpecificLanguageChanged: (v) {
+                                setState(() => student.specificLanguage = v);
+                                _scheduleEnrollmentDraftSave();
+                              },
                               level: student.level,
-                              onLevelChanged: (v) =>
-                                  setState(() => student.level = v),
+                              onLevelChanged: (v) {
+                                setState(() => student.level = v);
+                                _scheduleEnrollmentDraftSave();
+                              },
                               classType: student.classType,
-                              onClassTypeChanged: (v) =>
-                                  setState(() => student.classType = v),
+                              onClassTypeChanged: (v) {
+                                setState(() => student.classType = v);
+                                _scheduleEnrollmentDraftSave();
+                              },
                               hoursRow: student,
                             );
                           },
@@ -3593,7 +3926,10 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
                   l.enrollmentStatePreferredLanguage,
                   _languages,
                   _preferredLanguage,
-                  (v) => setState(() => _preferredLanguage = v),
+                  (v) {
+                    setState(() => _preferredLanguage = v);
+                    _scheduleEnrollmentDraftSave();
+                  },
                   Icons.translate_rounded,
                 ),
               ],
@@ -3627,7 +3963,8 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
           padding: const EdgeInsets.only(bottom: 12),
           child: Row(
             children: [
-              const Icon(Icons.public_rounded, size: 16, color: Color(0xff3B82F6)),
+              const Icon(Icons.public_rounded,
+                  size: 16, color: Color(0xff3B82F6)),
               const SizedBox(width: 8),
               Expanded(
                 child: RichText(
@@ -3637,7 +3974,8 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
                       color: const Color(0xff1E293B),
                     ),
                     children: [
-                      const TextSpan(text: 'All times are in your local timezone: '),
+                      const TextSpan(
+                          text: 'All times are in your local timezone: '),
                       TextSpan(
                         text: _ianaTimeZone,
                         style: const TextStyle(fontWeight: FontWeight.w700),
@@ -3652,40 +3990,48 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
         Text(
           l.enrollmentScheduleConfirmTimesHint,
           style: GoogleFonts.inter(
-            fontSize: 12, fontWeight: FontWeight.w500,
-            color: const Color(0xff64748B), height: 1.35,
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: const Color(0xff64748B),
+            height: 1.35,
           ),
         ),
         const SizedBox(height: 16),
-        
+
         _buildModernLabel(l.enrollmentStateWhichDaysWorkBest),
         const SizedBox(height: 8),
         _buildCompactDayChips(
           selectedDays: _selectedDays,
-          onToggle: (day) => setState(() {
-            _selectedDays.contains(day)
-                ? _selectedDays.remove(day)
-                : _selectedDays.add(day);
-          }),
+          onToggle: (day) {
+            setState(() {
+              _selectedDays.contains(day)
+                  ? _selectedDays.remove(day)
+                  : _selectedDays.add(day);
+            });
+            _scheduleEnrollmentDraftSave();
+          },
         ),
-        
+
         const SizedBox(height: 16),
         _buildModernLabel(l.enrollmentStateWhatTimeOfDay),
         const SizedBox(height: 8),
         _buildTimeOfDayCards(
           _timeOfDayPreference,
-          (v) => setState(() {
-            _timeOfDayPreference = v;
-            _customTimeSlots.clear();
-            _selectedTimeSlots
-                .removeWhere((slot) => !_filteredTimeSlots.contains(slot));
-            for (final s in _students) {
-              s.selectedTimeSlots
-                  .removeWhere((slot) => !_allTimeSlots.contains(slot));
-            }
-          }),
+          (v) {
+            setState(() {
+              _timeOfDayPreference = v;
+              _customTimeSlots.clear();
+              _selectedTimeSlots
+                  .removeWhere((slot) => !_filteredTimeSlots.contains(slot));
+              for (final s in _students) {
+                s.selectedTimeSlots
+                    .removeWhere((slot) => !_allTimeSlots.contains(slot));
+              }
+            });
+            _scheduleEnrollmentDraftSave();
+          },
         ),
-        
+
         if (hasHours) ...[
           const SizedBox(height: 10),
           Theme(
@@ -3696,7 +4042,8 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
               title: Text(
                 l.enrollmentStateAdvancedSelectTimes,
                 style: GoogleFonts.inter(
-                  fontSize: 13, fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
                   color: const Color(0xff3B82F6),
                 ),
               ),
@@ -3708,11 +4055,14 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
                   _buildCompactSlotChips(
                     slots: _allTimeSlots,
                     selectedSlots: _selectedTimeSlots,
-                    onToggle: (slot) => setState(() {
-                      _selectedTimeSlots.contains(slot)
-                          ? _selectedTimeSlots.remove(slot)
-                          : _selectedTimeSlots.add(slot);
-                    }),
+                    onToggle: (slot) {
+                      setState(() {
+                        _selectedTimeSlots.contains(slot)
+                            ? _selectedTimeSlots.remove(slot)
+                            : _selectedTimeSlots.add(slot);
+                      });
+                      _scheduleEnrollmentDraftSave();
+                    },
                   ),
                 if (_sessionDuration != null)
                   Padding(
@@ -3741,11 +4091,13 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
             final label = s.nameController.text.trim().isNotEmpty
                 ? s.nameController.text.trim()
                 : 'Student ${i + 2}';
-            
+
             final studentHours = s.hoursPerWeek ?? _hoursPerWeek;
             final studentDuration = s.sessionDuration ?? _sessionDuration;
-            final bool canBeSame = _applyProgramToAll || (studentHours == _hoursPerWeek && studentDuration == _sessionDuration);
-            
+            final bool canBeSame = _applyProgramToAll ||
+                (studentHours == _hoursPerWeek &&
+                    studentDuration == _sessionDuration);
+
             final bool effectivelyCustom = !canBeSame || s.useCustomSchedule;
 
             return AnimatedSize(
@@ -3761,9 +4113,11 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
                     Row(
                       children: [
                         Expanded(
-                          child: Text(label,
+                          child: Text(
+                            label,
                             style: GoogleFonts.inter(
-                              fontSize: 13, fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
                               color: const Color(0xff0F172A),
                             ),
                           ),
@@ -3775,7 +4129,8 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
                               Text(
                                 !s.useCustomSchedule ? 'Same' : 'Custom',
                                 style: GoogleFonts.inter(
-                                  fontSize: 11, fontWeight: FontWeight.w500,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
                                   color: const Color(0xff64748B),
                                 ),
                               ),
@@ -3793,7 +4148,8 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
                                         s.customTimeSlots = [];
                                       } else {
                                         if (s.selectedDays.isEmpty) {
-                                          s.selectedDays = List.from(_selectedDays);
+                                          s.selectedDays =
+                                              List.from(_selectedDays);
                                         }
                                         if (s.selectedTimeSlots.isEmpty) {
                                           s.selectedTimeSlots =
@@ -3801,8 +4157,10 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
                                         }
                                       }
                                     });
+                                    _scheduleEnrollmentDraftSave();
                                   },
-                                  activeTrackColor: const Color(0xff3B82F6).withValues(alpha: 0.5),
+                                  activeTrackColor: const Color(0xff3B82F6)
+                                      .withValues(alpha: 0.5),
                                   activeThumbColor: const Color(0xff3B82F6),
                                   materialTapTargetSize:
                                       MaterialTapTargetSize.shrinkWrap,
@@ -3818,25 +4176,31 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
                       const SizedBox(height: 8),
                       _buildTimeOfDayCards(
                         s.timeOfDayPreference ?? _timeOfDayPreference,
-                        (v) => setState(() {
-                          s.timeOfDayPreference = v;
-                          s.customTimeSlots.clear();
-                          final slots = _getFilteredTimeSlotsFor(
-                              s.sessionDuration ?? _sessionDuration, v);
-                          s.selectedTimeSlots
-                              .removeWhere((slot) => !slots.contains(slot));
-                        }),
+                        (v) {
+                          setState(() {
+                            s.timeOfDayPreference = v;
+                            s.customTimeSlots.clear();
+                            final slots = _getFilteredTimeSlotsFor(
+                                s.sessionDuration ?? _sessionDuration, v);
+                            s.selectedTimeSlots
+                                .removeWhere((slot) => !slots.contains(slot));
+                          });
+                          _scheduleEnrollmentDraftSave();
+                        },
                       ),
                       const SizedBox(height: 8),
                       _buildModernLabel(l.enrollmentStatePreferredDays),
                       const SizedBox(height: 6),
                       _buildCompactDayChips(
                         selectedDays: s.selectedDays,
-                        onToggle: (day) => setState(() {
-                          s.selectedDays.contains(day)
-                              ? s.selectedDays.remove(day)
-                              : s.selectedDays.add(day);
-                        }),
+                        onToggle: (day) {
+                          setState(() {
+                            s.selectedDays.contains(day)
+                                ? s.selectedDays.remove(day)
+                                : s.selectedDays.add(day);
+                          });
+                          _scheduleEnrollmentDraftSave();
+                        },
                       ),
                       const SizedBox(height: 6),
                       Builder(
@@ -3852,14 +4216,16 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
                           final hasDuration =
                               (s.hoursPerWeek ?? _hoursPerWeek ?? 0) > 0;
                           return Theme(
-                            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                            data: Theme.of(context)
+                                .copyWith(dividerColor: Colors.transparent),
                             child: ExpansionTile(
                               tilePadding: EdgeInsets.zero,
                               childrenPadding: EdgeInsets.zero,
                               title: Text(
                                 l.enrollmentStateAdvancedSelectTimes,
                                 style: GoogleFonts.inter(
-                                  fontSize: 13, fontWeight: FontWeight.w600,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
                                   color: const Color(0xff3B82F6),
                                 ),
                               ),
@@ -3868,11 +4234,14 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
                                   _buildCompactSlotChips(
                                     slots: studentSlots,
                                     selectedSlots: s.selectedTimeSlots,
-                                    onToggle: (slot) => setState(() {
-                                      s.selectedTimeSlots.contains(slot)
-                                          ? s.selectedTimeSlots.remove(slot)
-                                          : s.selectedTimeSlots.add(slot);
-                                    }),
+                                    onToggle: (slot) {
+                                      setState(() {
+                                        s.selectedTimeSlots.contains(slot)
+                                            ? s.selectedTimeSlots.remove(slot)
+                                            : s.selectedTimeSlots.add(slot);
+                                      });
+                                      _scheduleEnrollmentDraftSave();
+                                    },
                                   ),
                                 if (hasDuration)
                                   Padding(
@@ -3880,11 +4249,15 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
                                     child: TextButton.icon(
                                       onPressed: () =>
                                           _addCustomTimeSlotForStudent(s),
-                                      icon: const Icon(Icons.add_rounded, size: 16),
-                                      label: Text(l.enrollmentStateAddCustomTime,
-                                          style: GoogleFonts.inter(fontSize: 12)),
+                                      icon: const Icon(Icons.add_rounded,
+                                          size: 16),
+                                      label: Text(
+                                          l.enrollmentStateAddCustomTime,
+                                          style:
+                                              GoogleFonts.inter(fontSize: 12)),
                                       style: TextButton.styleFrom(
-                                        foregroundColor: const Color(0xff3B82F6),
+                                        foregroundColor:
+                                            const Color(0xff3B82F6),
                                         padding: const EdgeInsets.symmetric(
                                             horizontal: 12, vertical: 6),
                                       ),
@@ -3916,7 +4289,8 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
             children: [
               Row(
                 children: [
-                  const Icon(Icons.edit_note_rounded, color: Color(0xffD97706), size: 20),
+                  const Icon(Icons.edit_note_rounded,
+                      color: Color(0xffD97706), size: 20),
                   const SizedBox(width: 8),
                   Text(
                     'Important Scheduling Notes',
@@ -3928,14 +4302,16 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
                   ),
                   const SizedBox(width: 6),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
                       color: const Color(0xffFDE68A),
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(l.enrollmentStateOptional,
                         style: GoogleFonts.inter(
-                          fontSize: 10, fontWeight: FontWeight.w600,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
                           color: const Color(0xffB45309),
                         )),
                   ),
@@ -3947,13 +4323,15 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
                 maxLines: 3,
                 minLines: 2,
                 style: GoogleFonts.inter(
-                  fontSize: 13, fontWeight: FontWeight.w500,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
                   color: const Color(0xff0F172A),
                 ),
                 decoration: InputDecoration(
                   hintText: l.enrollmentStateSchedulingNotesHint,
                   hintStyle: GoogleFonts.inter(
-                    color: const Color(0xff94A3B8), fontWeight: FontWeight.w400,
+                    color: const Color(0xff94A3B8),
+                    fontWeight: FontWeight.w400,
                     fontSize: 13,
                   ),
                   filled: true,
@@ -3968,7 +4346,8 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(color: Color(0xffF59E0B), width: 2),
+                    borderSide:
+                        const BorderSide(color: Color(0xffF59E0B), width: 2),
                   ),
                   contentPadding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -4108,7 +4487,8 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
             ? s.nameController.text.trim()
             : 'Student ${i + 2}';
         final a = s.ageController.text.trim();
-        studentRows.add(('Student ${i + 2}', '$nm${a.isNotEmpty ? ', $a' : ''}'));
+        studentRows
+            .add(('Student ${i + 2}', '$nm${a.isNotEmpty ? ', $a' : ''}'));
       }
     }
 
@@ -4124,7 +4504,8 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
       if ((_hoursPerWeek ?? 0) > 0) {
         programRows.add(('Hours/week', '${_hoursPerWeek}h'));
       }
-    } else if (_applyProgramToAll && !_perChildProgramBundlesDifferFromFirst()) {
+    } else if (_applyProgramToAll &&
+        !_perChildProgramBundlesDifferFromFirst()) {
       final progLabel = _shortProgramLabelFromSubject(_selectedSubject);
       if (progLabel.isNotEmpty) programRows.add(('Program', progLabel));
       if (_selectedLevel != null) programRows.add(('Level', _selectedLevel!));
@@ -4349,8 +4730,8 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
                     disableLengthCheck: true,
                     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                     autovalidateMode: AutovalidateMode.onUserInteraction,
-                    validator: (p) => PhoneNationalInputValidation
-                        .validateOptionalNational(
+                    validator: (p) =>
+                        PhoneNationalInputValidation.validateOptionalNational(
                       p,
                       l.phoneInternationalSubscriberInvalid,
                     ),
@@ -4367,6 +4748,7 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
                     initialCountryCode: _initialCountryCode,
                     onChanged: (phone) {
                       setState(() => _whatsAppNumber = phone.completeNumber);
+                      _scheduleEnrollmentDraftSave();
                     },
                   ),
                 ],
@@ -4399,6 +4781,7 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
                     initialCountryCode: _initialCountryCode,
                     onChanged: (phone) {
                       setState(() => _phoneNumber = phone.completeNumber);
+                      _scheduleEnrollmentDraftSave();
                     },
                   ),
                 ],
@@ -4454,6 +4837,7 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
                             _phoneIntlCountryCode = country.countryCode;
                             _whatsAppIntlCountryCode = country.countryCode;
                           });
+                          _scheduleEnrollmentDraftSave();
                         },
                       );
                     },
@@ -4566,12 +4950,11 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
             onSelectionChanged: (s) => onChanged(s.isEmpty ? null : s.first),
             style: ButtonStyle(
               visualDensity: VisualDensity.compact,
-              textStyle: WidgetStatePropertyAll(
-                  GoogleFonts.inter(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.1,
-                  )),
+              textStyle: WidgetStatePropertyAll(GoogleFonts.inter(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.1,
+              )),
               padding: const WidgetStatePropertyAll(
                 EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               ),
@@ -4634,12 +5017,11 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
             onSelectionChanged: (s) => onChanged(s.isEmpty ? null : s.first),
             style: ButtonStyle(
               visualDensity: VisualDensity.compact,
-              textStyle: WidgetStatePropertyAll(
-                  GoogleFonts.inter(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.1,
-                  )),
+              textStyle: WidgetStatePropertyAll(GoogleFonts.inter(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.1,
+              )),
               padding: const WidgetStatePropertyAll(
                 EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               ),
@@ -4720,7 +5102,8 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
                         ]
                       : [
                           BoxShadow(
-                            color: const Color(0xff0F172A).withValues(alpha: 0.02),
+                            color:
+                                const Color(0xff0F172A).withValues(alpha: 0.02),
                             blurRadius: 2,
                             offset: const Offset(0, 1),
                           ),
@@ -4781,8 +5164,7 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
     void Function(String)? onChanged,
     bool onDarkPanel = false,
   }) {
-    final labelColor =
-        onDarkPanel ? const Color(0xffCBD5E1) : null;
+    final labelColor = onDarkPanel ? const Color(0xffCBD5E1) : null;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -4823,63 +5205,66 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
                 fontWeight: FontWeight.w400,
                 letterSpacing: 0.05,
               ),
-            prefixIcon: Icon(icon, color: const Color(0xff64748B), size: 18),
-            filled: true,
-            fillColor: onDarkPanel
-                ? (isEnabled ? Colors.white : const Color(0xffF1F5F9))
-                : (isEnabled
-                    ? const Color(0xffFAFBFC)
-                    : const Color(0xffF1F5F9)),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide(
-                color: onDarkPanel
-                    ? const Color(0xffCBD5E1)
-                    : const Color(0xffE2E8F0),
-                width: 1.5,
+              prefixIcon: Icon(icon, color: const Color(0xff64748B), size: 18),
+              filled: true,
+              fillColor: onDarkPanel
+                  ? (isEnabled ? Colors.white : const Color(0xffF1F5F9))
+                  : (isEnabled
+                      ? const Color(0xffFAFBFC)
+                      : const Color(0xffF1F5F9)),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(
+                  color: onDarkPanel
+                      ? const Color(0xffCBD5E1)
+                      : const Color(0xffE2E8F0),
+                  width: 1.5,
+                ),
               ),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide(
-                color: onDarkPanel
-                    ? const Color(0xffCBD5E1)
-                    : const Color(0xffE2E8F0),
-                width: 1.5,
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(
+                  color: onDarkPanel
+                      ? const Color(0xffCBD5E1)
+                      : const Color(0xffE2E8F0),
+                  width: 1.5,
+                ),
               ),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: Color(0xff3B82F6), width: 2),
-            ),
-            errorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: Color(0xffEF4444), width: 1.5),
-            ),
-            focusedErrorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: Color(0xffEF4444), width: 2),
-            ),
-            disabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide(
-                color: onDarkPanel
-                    ? const Color(0xff94A3B8)
-                    : const Color(0xffE2E8F0),
-                width: 1.5,
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide:
+                    const BorderSide(color: Color(0xff3B82F6), width: 2),
               ),
+              errorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide:
+                    const BorderSide(color: Color(0xffEF4444), width: 1.5),
+              ),
+              focusedErrorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide:
+                    const BorderSide(color: Color(0xffEF4444), width: 2),
+              ),
+              disabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(
+                  color: onDarkPanel
+                      ? const Color(0xff94A3B8)
+                      : const Color(0xffE2E8F0),
+                  width: 1.5,
+                ),
+              ),
+              contentPadding: compact
+                  ? const EdgeInsets.symmetric(horizontal: 10, vertical: 8)
+                  : const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
             ),
-            contentPadding: compact
-                ? const EdgeInsets.symmetric(horizontal: 10, vertical: 8)
-                : const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+            validator: validator ??
+                (value) => value == null || value.isEmpty ? 'Required' : null,
           ),
-          validator: validator ??
-              (value) => value == null || value.isEmpty ? 'Required' : null,
         ),
-      ),
-    ],
-  );
-}
+      ],
+    );
+  }
 
   Widget _buildModernDropdown(
     String label,
@@ -4951,23 +5336,28 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
               fillColor: const Color(0xffFAFBFC),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: Color(0xffE2E8F0), width: 1.5),
+                borderSide:
+                    const BorderSide(color: Color(0xffE2E8F0), width: 1.5),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: Color(0xffE2E8F0), width: 1.5),
+                borderSide:
+                    const BorderSide(color: Color(0xffE2E8F0), width: 1.5),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: Color(0xff3B82F6), width: 2),
+                borderSide:
+                    const BorderSide(color: Color(0xff3B82F6), width: 2),
               ),
               errorBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: Color(0xffEF4444), width: 1.5),
+                borderSide:
+                    const BorderSide(color: Color(0xffEF4444), width: 1.5),
               ),
               focusedErrorBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: Color(0xffEF4444), width: 2),
+                borderSide:
+                    const BorderSide(color: Color(0xffEF4444), width: 2),
               ),
               contentPadding:
                   const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
@@ -5113,6 +5503,8 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
 
           await EnrollmentService().submitEnrollment(request);
         }
+
+        await _completeEnrollmentDraft();
 
         if (mounted) {
           Navigator.pushReplacement(

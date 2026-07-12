@@ -24,6 +24,7 @@ import {
   Mars,
   MinusCircle,
   MoonStar,
+  Phone,
   PlusCircle,
   School,
   Send,
@@ -32,6 +33,13 @@ import {
   UsersRound,
   Venus,
 } from "lucide-react";
+import { trackEvent } from "@/lib/analytics";
+import {
+  completeEnrollmentDraft,
+  draftHasSignal,
+  saveEnrollmentDraft,
+  type EnrollmentDraftPayload,
+} from "@/lib/enrollmentDrafts";
 import { checkParentIdentity, submitEnrollment } from "@/lib/forms";
 import {
   fallbackPricing,
@@ -260,6 +268,51 @@ export function ProgramsOverview() {
     };
   }, [status]);
 
+  useEffect(() => {
+    trackEvent("enrollment_form_viewed", {
+      initial_track: initialTrack || undefined,
+      initial_subject: initialSubject?.id ?? undefined,
+    });
+  }, []);
+
+  useEffect(() => {
+    if (status === "success") return;
+    const payload: EnrollmentDraftPayload = {
+      step,
+      stepTitle: steps[step]?.title ?? "",
+      role,
+      preferredLanguage,
+      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+      students: students.map((student) => {
+        const subject = subjectFor(student.subjectId);
+        return {
+          name: student.name,
+          age: student.age,
+          gender: student.gender,
+          subject: subject?.label ?? "",
+          level: student.level,
+          classType: student.classType,
+          hoursPerWeek: student.hoursPerWeek,
+          preferredDays: student.preferredDays,
+          preferredTimeSlots: student.preferredTimeSlots,
+        };
+      }),
+      contact: {
+        email: contact.email,
+        phoneNumber: contact.phoneNumber,
+        whatsAppNumber: contact.whatsAppNumber,
+        parentName: contact.parentName,
+        city: contact.city,
+        countryName: contact.countryName,
+      },
+    };
+    if (!draftHasSignal(payload)) return;
+    const timer = setTimeout(() => {
+      void saveEnrollmentDraft(payload);
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [step, role, students, contact, preferredLanguage, status]);
+
   const isParentGuardian = role === "Parent" || role === "Guardian";
   const primaryStudent = students[0];
   const activeStudent = students[activeStudentIndex] ?? primaryStudent;
@@ -465,6 +518,7 @@ export function ProgramsOverview() {
     const form = event.currentTarget;
     if (!validateStep(form)) return;
     if (step < 4) {
+      trackEvent("enrollment_step_completed", { step, step_title: steps[step]?.title });
       if (step === 0) setActiveStudentIndex(0);
       setStep((current) => current + 1);
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -510,8 +564,15 @@ export function ProgramsOverview() {
           };
         }),
       });
+      trackEvent("enrollment_submitted", {
+        students: students.length,
+        track: primarySubject?.trackId ?? "tutoring",
+        role,
+      });
+      void completeEnrollmentDraft();
       setStatus("success");
     } catch {
+      trackEvent("enrollment_submit_failed", { step });
       setStatus("error");
     }
   }
@@ -631,6 +692,31 @@ export function ProgramsOverview() {
                   isSelfEnrollment={!isParentGuardian}
                   onChange={(patch) => updateStudent(activeStudentIndex, patch)}
                 />
+                <div className="mt-4 rounded-xl border border-[#BAE6FD] bg-[#F0F9FF] px-3.5 py-3">
+                  <p className="text-[12px] font-bold text-slate-900">Stay in touch while you apply (optional)</p>
+                  <p className="mt-0.5 text-[11px] leading-4 text-slate-500">
+                    Leave an email or WhatsApp number and our team can help you finish enrolling if you get interrupted.
+                  </p>
+                  <div className="mt-2.5 grid gap-3 sm:grid-cols-2">
+                    <IconField
+                      label="Email"
+                      name="earlyEmail"
+                      value={contact.email}
+                      placeholder="your@email.com"
+                      icon={<Mail size={17} />}
+                      onChange={(value) => updateContact("email", value)}
+                      type="email"
+                    />
+                    <IconField
+                      label="WhatsApp / phone"
+                      name="earlyWhatsApp"
+                      value={contact.whatsAppNumber}
+                      placeholder="+1 555 000 0000"
+                      icon={<Phone size={17} />}
+                      onChange={(value) => updateContact("whatsAppNumber", value)}
+                    />
+                  </div>
+                </div>
               </StepCard>
             ) : null}
 

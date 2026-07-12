@@ -3348,6 +3348,22 @@ class AppLocalizationsEn extends AppLocalizations {
   String get connectingToClass => 'Connecting To Class';
 
   @override
+  String get zoomStillConnectingToClass =>
+      'Still connecting to your private classroom...';
+
+  @override
+  String get zoomClassRoutingHelp =>
+      'This class is still connecting. Please leave and rejoin, or ask an administrator for help.';
+
+  @override
+  String zoomClassEndingSoon(String minutes) {
+    return 'This class ends in $minutes min';
+  }
+
+  @override
+  String get zoomClassEnded => 'This class has ended.';
+
+  @override
   String get connectingToTaskDatabase => 'Connecting To Task Database';
 
   @override
@@ -5494,6 +5510,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get leaveClass => 'Leave Class';
 
   @override
+  String get leaveMeeting => 'Leave Meeting';
+
+  @override
   String get lessComfortable => 'Less Comfortable';
 
   @override
@@ -7153,7 +7172,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get searchForms => 'Search Forms';
 
   @override
-  String get searchInvoiceNumber => 'Search Invoice Number';
+  String get searchInvoiceNumber =>
+      'Search invoice, parent, student, email, phone, or ID';
 
   @override
   String get searchParentsByNameOrEmail => 'Search Parents By Name Or Email';
@@ -9153,6 +9173,61 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get classVideoInvalidGuestLink => 'Invalid or expired class link.';
+
+  @override
+  String get enableZoomClasses => 'Enable Zoom classes';
+
+  @override
+  String get disableZoomClasses => 'Disable Zoom classes';
+
+  @override
+  String zoomEnabledFor(Object name, int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count upcoming shifts updated.',
+      one: '1 upcoming shift updated.',
+      zero: 'No upcoming shifts updated.',
+    );
+    return 'Zoom enabled for $name. $_temp0';
+  }
+
+  @override
+  String zoomDisabledFor(Object name, int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count upcoming shifts updated.',
+      one: '1 upcoming shift updated.',
+      zero: 'No upcoming shifts updated.',
+    );
+    return 'Zoom disabled for $name. $_temp0';
+  }
+
+  @override
+  String zoomToggleError(Object details) {
+    return 'Unable to update Zoom access: $details';
+  }
+
+  @override
+  String get zoomUnableToLoadMeeting => 'Unable to load Zoom meeting.';
+
+  @override
+  String get zoomUnableToJoinMeeting => 'Unable to join Zoom meeting.';
+
+  @override
+  String get zoomUnableToInitialize => 'Unable to initialize Zoom.';
+
+  @override
+  String get zoomOpenInZoomApp => 'Open in Zoom app';
+
+  @override
+  String get zoomMobileUnavailableTitle =>
+      'Zoom classes are web-only for this pilot';
+
+  @override
+  String get zoomMobileUnavailableBody =>
+      'Open this class in a web browser while the mobile Zoom classroom is being tested.';
 
   @override
   String formsListFormStatus(Object status, Object statut) {
@@ -11260,6 +11335,11 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String classControllerBot(int lane) {
+    return 'Bot $lane';
+  }
+
+  @override
   String get classEnded => 'Ended';
 
   @override
@@ -13267,6 +13347,85 @@ class AppLocalizationsEn extends AppLocalizations {
       'Parent account created, but the invite email could not be sent.';
 
   @override
+  String get manageGuardiansButton => 'Manage Guardians';
+
+  @override
+  String get manageGuardiansTitle => 'Linked Guardians';
+
+  @override
+  String manageGuardiansSubtitle(String studentName) {
+    return 'Parents currently linked to $studentName. Unlinking removes their access to this student\'s classes, chats, and invoices.';
+  }
+
+  @override
+  String get manageGuardiansEmpty =>
+      'No guardians are linked to this student yet.';
+
+  @override
+  String get manageGuardiansLoadError => 'Could not load linked guardians.';
+
+  @override
+  String get manageParentStudentsButton => 'Manage linked students';
+
+  @override
+  String get manageParentStudentsTitle => 'Linked Students';
+
+  @override
+  String manageParentStudentsSubtitle(String parentName) {
+    return 'Students currently linked to $parentName. Removing one keeps both accounts but removes this parent\'s access to that student\'s classes, chats, and invoices.';
+  }
+
+  @override
+  String get manageParentStudentsEmpty =>
+      'No students are linked to this parent yet.';
+
+  @override
+  String get manageParentStudentsLoadError => 'Could not load linked students.';
+
+  @override
+  String get unlinkGuardianConfirmTitle => 'Unlink guardian?';
+
+  @override
+  String unlinkGuardianConfirmBody(String guardianName, String studentName) {
+    return '$guardianName will no longer be linked to $studentName. They will lose access to this student\'s classes, chat, and invoices. This does not delete either account.';
+  }
+
+  @override
+  String get unlinkGuardianReasonLabel => 'Reason (optional)';
+
+  @override
+  String get unlinkGuardianReasonHint => 'e.g. Linked to the wrong family';
+
+  @override
+  String get unlinkGuardianConfirmAction => 'Unlink';
+
+  @override
+  String get unlinkGuardianSuccess => 'Guardian unlinked from this student.';
+
+  @override
+  String get unlinkGuardianError =>
+      'Could not unlink this guardian. Please try again.';
+
+  @override
+  String get unlinkGuardianMinorBlocked =>
+      'This is the only guardian of a minor student. Link another guardian first, or mark the student as an adult, before unlinking.';
+
+  @override
+  String get unlinkGuardianAdultOverrideTitle => 'Convert student to adult?';
+
+  @override
+  String unlinkGuardianAdultOverrideBody(
+      String studentName, String guardianName) {
+    return '$studentName has no other valid linked parent. Only continue if an admin has confirmed this student should manage their own account as an adult after removing $guardianName.';
+  }
+
+  @override
+  String get unlinkGuardianAdultOverrideAction => 'Mark adult and unlink';
+
+  @override
+  String get invalidParentSelected => 'Invalid parent selected.';
+
+  @override
   String get enrollmentStateChooseProgram => '1. Choose a Program';
 
   @override
@@ -13424,6 +13583,47 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get noShowSettingsTitle => 'No-Show Alert Recipients';
+
+  @override
+  String get noShowSettingsNotifyAll => 'Notify all administrators';
+
+  @override
+  String get noShowSettingsNotifyAllSubtitle =>
+      'Turn off to choose which administrators receive no-show alerts.';
+
+  @override
+  String get noShowSettingsNoAdmins => 'No administrators found';
+
+  @override
+  String get noShowSettingsSelectAtLeastOne =>
+      'No administrators selected — all administrators will still be notified until you select at least one.';
+
+  @override
+  String get prepareBroadcastRecipientsTitle => 'Broadcast To';
+
+  @override
+  String get prepareBroadcastAllTeachers => 'All teachers';
+
+  @override
+  String get prepareBroadcastSpecificTeachers => 'Specific teachers';
+
+  @override
+  String get prepareBroadcastSearchTeachers => 'Search teachers...';
+
+  @override
+  String get prepareBroadcastNoTeachersFound => 'No teachers found';
+
+  @override
+  String get prepareBroadcastSelectTeacherFirst =>
+      'Select at least one teacher before broadcasting.';
+
+  @override
+  String prepareBroadcastTeachersSelected(int count) {
+    return '$count teacher(s) selected';
+  }
+
+  @override
   String get adminActionCardsViewAll => 'View all';
 
   @override
@@ -13552,6 +13752,402 @@ class AppLocalizationsEn extends AppLocalizations {
   String get sidebarAllInvoices => 'All Invoices';
 
   @override
+  String get financeOverviewTab => 'Overview';
+
+  @override
+  String get financeCutoffsTab => 'Cutoffs';
+
+  @override
+  String get financeOverviewTitle => 'Finance Command Center';
+
+  @override
+  String financeMonthLive(Object month) {
+    return 'Live view for $month. Revenue, invoices, recorded expenses, and approved payroll are reflected here.';
+  }
+
+  @override
+  String get financePreviousMonth => 'Previous month';
+
+  @override
+  String get financeNextMonth => 'Next month';
+
+  @override
+  String get financeOpenCreateInvoice => 'Create invoice';
+
+  @override
+  String get financeOpenAllInvoices => 'All invoices';
+
+  @override
+  String get financeSetIncomeGoal => 'Set goal';
+
+  @override
+  String get financeRecordExpense => 'Record expense';
+
+  @override
+  String get financeRevenueCollected => 'Revenue collected';
+
+  @override
+  String get financeProjectedRevenue => 'Projected revenue';
+
+  @override
+  String get financeMonthEndProjection => 'Month-end projection';
+
+  @override
+  String get financeIncomeGoal => 'Income goal';
+
+  @override
+  String get financeNoIncomeGoal => 'No goal set';
+
+  @override
+  String financeGoalProgress(Object percent) {
+    return '$percent of goal';
+  }
+
+  @override
+  String financeProjectedGoalProgress(Object percent) {
+    return 'Projected $percent of goal';
+  }
+
+  @override
+  String get financeInvoiced => 'Invoiced';
+
+  @override
+  String get financeOutstanding => 'Outstanding';
+
+  @override
+  String get financeKnownExpenses => 'Known expenses';
+
+  @override
+  String get financeEstimatedNet => 'Estimated net';
+
+  @override
+  String get financeProfitMargin => 'Profit margin';
+
+  @override
+  String get financeCurrentMonth => 'This month';
+
+  @override
+  String get financeNoPriorRevenue => 'No prior revenue';
+
+  @override
+  String get financeNewRevenueThisMonth => 'New this month';
+
+  @override
+  String financeUpFromLastMonth(Object percent) {
+    return 'Up $percent from last month';
+  }
+
+  @override
+  String financeDownFromLastMonth(Object percent) {
+    return 'Down $percent from last month';
+  }
+
+  @override
+  String get financeOverdueInvoices => 'overdue invoices';
+
+  @override
+  String get financeStaffPayrollOnly => 'Staff payroll only';
+
+  @override
+  String get financePartialLedger => 'Partial expense ledger';
+
+  @override
+  String get financeRevenueMinusKnownExpenses => 'Revenue minus known expenses';
+
+  @override
+  String get financeCashFlowTable => 'Cash flow';
+
+  @override
+  String get financeSixMonthTrend => '6-month cash flow';
+
+  @override
+  String get financeNoChartData => 'No chart data for this range.';
+
+  @override
+  String get financeRevenue => 'Revenue';
+
+  @override
+  String get financeExpenses => 'Expenses';
+
+  @override
+  String get financeNet => 'Net';
+
+  @override
+  String get financeExpenseCoverage => 'Expense coverage';
+
+  @override
+  String get financeStaffPayroll => 'Staff payroll';
+
+  @override
+  String get financeConnected => 'Connected';
+
+  @override
+  String get financeSubscriptions => 'Subscriptions';
+
+  @override
+  String get financeNotConnected => 'Not connected';
+
+  @override
+  String get financeSubscriptionLedgerMissing => 'Subscription ledger needed';
+
+  @override
+  String get financeManualExpenses => 'Manual expenses';
+
+  @override
+  String get financeIncludesRecordedExpenses => 'Includes recorded expenses';
+
+  @override
+  String get financeRecordedThisMonth => 'Recorded this month';
+
+  @override
+  String get financeNoRecordedExpenses => 'No recorded expenses';
+
+  @override
+  String get financeExpensesByCategory => 'Expenses by category';
+
+  @override
+  String get financeSpendingInsightsTitle => 'Spending intelligence';
+
+  @override
+  String get financeWhereMoneyGoes => 'Where money is going';
+
+  @override
+  String get financeRecipientPayouts => 'Teacher/admin payout history';
+
+  @override
+  String get financeSelectRecipient => 'Select teacher/admin';
+
+  @override
+  String get financeNoSpendingTrend => 'No spending trend data yet.';
+
+  @override
+  String get financeNoRecipientPayouts =>
+      'No teacher or admin payout records yet.';
+
+  @override
+  String get financeMonthly => 'Monthly';
+
+  @override
+  String get financeQuarterly => 'Quarterly';
+
+  @override
+  String get financeAuditPayrollSource => 'Audit payroll';
+
+  @override
+  String get financeTimesheetPayrollSource => 'Timesheet payroll';
+
+  @override
+  String get financeRecordedExpenseSource => 'Recorded expense';
+
+  @override
+  String get financeCurrentMonthSpend => 'This month';
+
+  @override
+  String get financeSixMonthSpend => '6-month total';
+
+  @override
+  String get financeManualExpenseLedgerMissing => 'Expense ledger needed';
+
+  @override
+  String get financeRevenueByMethod => 'Revenue by method';
+
+  @override
+  String get financeNoRevenueMethods => 'No completed payments for this month.';
+
+  @override
+  String get financeUnknownMethod => 'UNKNOWN METHOD';
+
+  @override
+  String get financeAttentionQueue => 'Attention queue';
+
+  @override
+  String get financeDueSoonInvoices => 'Due soon invoices';
+
+  @override
+  String get financeDueSoon => 'Due within 7 days';
+
+  @override
+  String get financePendingPayments => 'Pending payments';
+
+  @override
+  String get financeFailedPayments => 'Failed payments';
+
+  @override
+  String get financeFailedInvoiceSends => 'Invoice send failures';
+
+  @override
+  String get financePendingPayroll => 'Pending payroll';
+
+  @override
+  String get financeNeedsReview => 'Needs review';
+
+  @override
+  String get financeNeedsApproval => 'Needs approval';
+
+  @override
+  String get financeDataGaps => 'Data gaps';
+
+  @override
+  String get financeSomeSourcesUnavailable =>
+      'Some finance sources could not be read';
+
+  @override
+  String get financeNoAttentionItems =>
+      'No urgent finance items for this view.';
+
+  @override
+  String get financeRecentActivity => 'Recent activity';
+
+  @override
+  String get financeNoRecentActivity =>
+      'No recent invoice or payment activity.';
+
+  @override
+  String get financeInvoiceCreated => 'Invoice created';
+
+  @override
+  String get financePaymentCompleted => 'Payment completed';
+
+  @override
+  String get financePaymentPending => 'Payment pending';
+
+  @override
+  String get financeExpenseRecorded => 'Expense recorded';
+
+  @override
+  String get financeDataLoadError => 'Could not load finance data';
+
+  @override
+  String get financeExpenseInvalidAmount =>
+      'Enter an expense amount greater than zero.';
+
+  @override
+  String get financeExpenseOtherRequired => 'Enter the other expense category.';
+
+  @override
+  String get financeExpenseAmount => 'Amount';
+
+  @override
+  String get financeExpenseCategory => 'Expense category';
+
+  @override
+  String get financeExpenseOtherCategory => 'Other category';
+
+  @override
+  String get financeExpenseVendor => 'Vendor or payee';
+
+  @override
+  String get financeExpenseTeacherRecipient => 'Teacher / recipient';
+
+  @override
+  String get financeExpenseLeadershipRecipient => 'Leader / recipient';
+
+  @override
+  String get financeExpenseRecipientManual => 'Enter another recipient';
+
+  @override
+  String get financeExpenseSubcategory => 'Expense type';
+
+  @override
+  String get financeExpenseMethod => 'Payment method';
+
+  @override
+  String get financeExpenseMethodCard => 'Card';
+
+  @override
+  String get financeExpenseDate => 'Expense date';
+
+  @override
+  String get financeExpenseNotes => 'Notes';
+
+  @override
+  String get financeSaveExpense => 'Save expense';
+
+  @override
+  String get financeGoalInvalidAmount => 'Enter a valid goal amount.';
+
+  @override
+  String get financeSaveGoal => 'Save goal';
+
+  @override
+  String get financeExpenseCategoryTeacherPayment => 'Teacher Payment';
+
+  @override
+  String get financeExpenseCategoryLeadershipCost => 'Leadership cost';
+
+  @override
+  String get financeExpenseCategoryMarketingCost => 'Marketing cost';
+
+  @override
+  String get financeExpenseCategoryResearchDevelopment => 'R&D';
+
+  @override
+  String get financeExpenseSubcategorySocialMarketing => 'Social marketing';
+
+  @override
+  String get financeExpenseSubcategoryNewsletterSubscription =>
+      'Newsletter subscription';
+
+  @override
+  String get financeExpenseSubcategoryPaidAds => 'Paid ads';
+
+  @override
+  String get financeExpenseSubcategoryCreativeTools => 'Creative tools';
+
+  @override
+  String get financeExpenseSubcategoryWebsiteFees => 'Website fees';
+
+  @override
+  String get financeExpenseSubcategoryRecurringSubscriptions =>
+      'Recurring subscriptions';
+
+  @override
+  String get financeExpenseSubcategorySoftwareTools => 'Software tools';
+
+  @override
+  String get financeExpenseSubcategoryResearchTools => 'Research tools';
+
+  @override
+  String get financeExpenseCategorySoftware => 'Software & subscriptions';
+
+  @override
+  String get financeExpenseCategoryMarketing => 'Marketing & ads';
+
+  @override
+  String get financeExpenseCategoryRentUtilities => 'Rent & utilities';
+
+  @override
+  String get financeExpenseCategorySupplies => 'Classroom materials & supplies';
+
+  @override
+  String get financeExpenseCategoryPaymentFees => 'Bank & payment fees';
+
+  @override
+  String get financeExpenseCategoryInsuranceLegalTaxes =>
+      'Insurance, legal & taxes';
+
+  @override
+  String get financeExpenseCategoryContractors =>
+      'Contractors & professional services';
+
+  @override
+  String get financeExpenseCategoryTeacherStaffExtra =>
+      'Teacher/staff extra pay';
+
+  @override
+  String get financeExpenseCategoryRefundsScholarships =>
+      'Refunds & scholarships';
+
+  @override
+  String get financeExpenseCategoryInternetPhone => 'Internet & phone';
+
+  @override
+  String get financeExpenseCategoryTravelEvents => 'Travel & events';
+
+  @override
+  String get financeRefresh => 'Refresh';
+
+  @override
   String get adminInvoiceDeleteTitle => 'Delete invoice?';
 
   @override
@@ -13572,6 +14168,169 @@ class AppLocalizationsEn extends AppLocalizations {
   String get adminInvoicePrintPdf => 'Print PDF';
 
   @override
+  String get adminInvoiceRecordPayment => 'Record Payment';
+
+  @override
+  String get adminInvoiceRecordPaymentTitle => 'Record manual payment';
+
+  @override
+  String get adminInvoicePaymentAmount => 'Amount received';
+
+  @override
+  String get adminInvoicePaymentMethod => 'Payment method';
+
+  @override
+  String get adminInvoicePaymentReference => 'Reference';
+
+  @override
+  String get adminInvoicePaymentReferenceHint =>
+      'Confirmation, sender, or transfer ID';
+
+  @override
+  String get adminInvoicePaymentNote => 'Internal note';
+
+  @override
+  String get adminInvoicePaymentNoteHint => 'Optional admin note';
+
+  @override
+  String get adminInvoicePaymentReceivedDate => 'Received date';
+
+  @override
+  String get adminInvoicePaymentSuccess =>
+      'Payment recorded and invoice updated.';
+
+  @override
+  String get adminInvoicePaymentInvalidAmount =>
+      'Enter an amount greater than zero and no more than the balance due.';
+
+  @override
+  String get adminInvoicePaymentMethodZelle => 'Zelle';
+
+  @override
+  String get adminInvoicePaymentMethodCashApp => 'Cash App';
+
+  @override
+  String get adminInvoicePaymentMethodBankTransfer => 'Bank transfer';
+
+  @override
+  String get adminInvoicePaymentMethodMoneyGram => 'MoneyGram';
+
+  @override
+  String get adminInvoicePaymentMethodWesternUnion => 'Western Union';
+
+  @override
+  String get adminInvoicePaymentMethodCash => 'Cash';
+
+  @override
+  String get adminInvoicePaymentMethodCheck => 'Check';
+
+  @override
+  String get adminInvoicePaymentMethodOther => 'Other';
+
+  @override
+  String get adminInvoiceBillingOptionsTitle => 'Billing options';
+
+  @override
+  String get adminInvoiceBillingCoverage => 'Months included';
+
+  @override
+  String adminInvoiceBillingCoveragePreview(Object period) {
+    return 'Invoice covers $period';
+  }
+
+  @override
+  String get adminInvoiceCoverageOneMonth => '1 month';
+
+  @override
+  String adminInvoiceCoverageMonths(Object count) {
+    return '$count months';
+  }
+
+  @override
+  String get adminInvoiceRecurringPlan => 'Make this recurring';
+
+  @override
+  String adminInvoiceRecurringPlanSubtitle(Object coverage) {
+    return 'Creates the next $coverage invoice automatically when that billing period starts and tracks send failures.';
+  }
+
+  @override
+  String get cutoffTitle => 'Access Cutoff Control';
+
+  @override
+  String get cutoffSubtitle =>
+      'Suspended students, blocking invoices, and quick extension controls.';
+
+  @override
+  String get cutoffSuspendedStudents => 'Suspended';
+
+  @override
+  String get cutoffParentGroups => 'Parent groups';
+
+  @override
+  String get cutoffStudentsInGroup => 'Students';
+
+  @override
+  String get cutoffBlockingInvoices => 'Blocking invoices';
+
+  @override
+  String get cutoffTotalPastDue => 'Past due';
+
+  @override
+  String get cutoffOldestCutoff => 'Oldest cutoff';
+
+  @override
+  String get cutoffExtendAction => 'Extend cutoff';
+
+  @override
+  String get cutoffExtendParentAction => 'Extend all';
+
+  @override
+  String get cutoffExtendStudentAction => 'Extend student';
+
+  @override
+  String get cutoffExtendedSuccess =>
+      'Cutoff extended and access recalculated.';
+
+  @override
+  String get cutoffNoStudents => 'No students are currently cut off';
+
+  @override
+  String get cutoffNoStudentsDetail =>
+      'When an unpaid invoice passes its cutoff, the student will appear here.';
+
+  @override
+  String get cutoffLoadError => 'Unable to load cutoff data';
+
+  @override
+  String get cutoffExtendTitle => 'Extend access cutoff';
+
+  @override
+  String get cutoffExtendParentTitle => 'Extend parent group';
+
+  @override
+  String cutoffExtendBody(Object name) {
+    return 'Choose a new cutoff date for $name. Blocking invoices will be moved to this date.';
+  }
+
+  @override
+  String cutoffExtendParentBody(Object name) {
+    return 'Choose a new cutoff date for every blocked student under $name.';
+  }
+
+  @override
+  String get cutoffExtendBy7 => '+7 days';
+
+  @override
+  String get cutoffExtendBy14 => '+14 days';
+
+  @override
+  String get cutoffExtendBy30 => '+30 days';
+
+  @override
+  String get cutoffApplyExtension => 'Apply extension';
+
+  @override
   String get adminInvoicesTitle => 'Invoices';
 
   @override
@@ -13585,6 +14344,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String adminInvoiceBillingPeriodChip(Object billing) {
     return 'Billing: $billing';
   }
+
+  @override
+  String get adminInvoiceSendFailed => 'Send failed';
+
+  @override
+  String get adminInvoiceSendPending => 'Send pending';
 
   @override
   String adminInvoiceBalanceDue(Object amount) {
@@ -14318,6 +15083,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get realtimeKitProviderSubtitle => 'Used for scheduled classes';
 
   @override
+  String get zoomProviderSubtitle =>
+      'Used for teachers assigned to the Zoom pilot';
+
+  @override
   String get legacyProviderSubtitle => 'Legacy provider for existing classes';
 
   @override
@@ -14480,4 +15249,352 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get bulkClassRecordingUpdateFailed =>
       'Unable to update recording access.';
+
+  @override
+  String get noShowAlertsTitle => 'No-Show Alerts';
+
+  @override
+  String get noShowAlertsSubtitle =>
+      'Classes where a teacher or student didn\'t show up.';
+
+  @override
+  String get noShowTeacher => 'Teacher no-show';
+
+  @override
+  String get noShowStudent => 'Student no-show';
+
+  @override
+  String get noShowNeedsReview => 'Needs review';
+
+  @override
+  String get noShowReviewed => 'Reviewed';
+
+  @override
+  String get noShowMarkReviewed => 'Mark reviewed';
+
+  @override
+  String get noShowSearchHint => 'Search teacher, reporter, or class';
+
+  @override
+  String get noShowFilterAll => 'All';
+
+  @override
+  String get noShowEmpty => 'No no-show alerts';
+
+  @override
+  String get noShowLoadError => 'Couldn\'t load no-show alerts';
+
+  @override
+  String get noShowRetry => 'Retry';
+
+  @override
+  String get noShowStatTotal => 'Total';
+
+  @override
+  String get noShowStatTeacher => 'Teacher no-shows';
+
+  @override
+  String get noShowStatStudent => 'Student no-shows';
+
+  @override
+  String get noShowStatPending => 'Needs review';
+
+  @override
+  String get noShowTopAbsent => 'Most no-shows';
+
+  @override
+  String noShowReportedBy(String name) {
+    return 'Reported by $name';
+  }
+
+  @override
+  String noShowTeacherLabel(String name) {
+    return 'Teacher: $name';
+  }
+
+  @override
+  String noShowPendingShort(int count) {
+    return '$count pending';
+  }
+
+  @override
+  String get noShowDateAll => 'All dates';
+
+  @override
+  String get noShowDateToday => 'Today';
+
+  @override
+  String get noShowDate7Days => 'Last 7 days';
+
+  @override
+  String get noShowDate30Days => 'Last 30 days';
+
+  @override
+  String get noShowFromDate => 'From';
+
+  @override
+  String get noShowToDate => 'To';
+
+  @override
+  String get noShowAttendanceAll => 'All attendance';
+
+  @override
+  String get noShowNeverJoined => 'Never joined';
+
+  @override
+  String get noShowJoinedLate => 'Joined late';
+
+  @override
+  String get noShowHadPresence => 'Had presence';
+
+  @override
+  String noShowScheduled(String date) {
+    return 'Scheduled: $date';
+  }
+
+  @override
+  String noShowDetectedAfter(int minutes) {
+    return 'Flagged after $minutes min';
+  }
+
+  @override
+  String get noShowRoleTeacher => 'Teacher';
+
+  @override
+  String get noShowRoleStudent => 'Student';
+
+  @override
+  String get noShowNoJoinRecorded => 'No join recorded';
+
+  @override
+  String noShowJoinedAt(String time) {
+    return 'Joined $time';
+  }
+
+  @override
+  String noShowJoinOffsetLate(int minutes) {
+    return '$minutes min late';
+  }
+
+  @override
+  String noShowJoinOffsetEarly(int minutes) {
+    return '$minutes min early';
+  }
+
+  @override
+  String get noShowJoinOffsetOnTime => 'On time';
+
+  @override
+  String noShowPresentMinutes(int minutes) {
+    return 'Present $minutes min';
+  }
+
+  @override
+  String get noShowCopySummary => 'Copy summary';
+
+  @override
+  String get noShowCopied => 'No-show summary copied';
+
+  @override
+  String get noShowSummaryClass => 'Class';
+
+  @override
+  String get noShowSummaryAlert => 'Alert';
+
+  @override
+  String get noShowSummaryScheduled => 'Scheduled';
+
+  @override
+  String get noShowSummaryDetected => 'Detected';
+
+  @override
+  String get noShowSummaryStatus => 'Status';
+
+  @override
+  String noShowStudentLabel(String name) {
+    return 'Student: $name';
+  }
+
+  @override
+  String get noShowReviewTitle => 'Review no-show alert';
+
+  @override
+  String get noShowReviewActionsPrompt => 'Actions taken';
+
+  @override
+  String get noShowReviewOtherLabel => 'Other action or note';
+
+  @override
+  String get noShowReviewOtherHint => 'Type what was done if it is not listed';
+
+  @override
+  String get noShowReviewSubmit => 'Submit review';
+
+  @override
+  String get noShowReviewActionContactedTeacher => 'Contacted teacher';
+
+  @override
+  String get noShowReviewActionContactedStudentParent =>
+      'Contacted student or parent';
+
+  @override
+  String get noShowReviewActionConfirmedTeacherLate =>
+      'Confirmed teacher joined late';
+
+  @override
+  String get noShowReviewActionConfirmedStudentLate =>
+      'Confirmed student joined late';
+
+  @override
+  String get noShowReviewActionExcusedAbsence => 'Excused absence';
+
+  @override
+  String get noShowReviewActionRescheduledClass => 'Rescheduled class';
+
+  @override
+  String get noShowReviewActionTechnicalFollowup => 'Technical issue follow-up';
+
+  @override
+  String get noShowReviewActionBillingFollowup => 'Billing/payroll follow-up';
+
+  @override
+  String get noShowReviewActionEscalatedAdmin => 'Escalated to admin';
+
+  @override
+  String get noShowReviewActionFalseAlarm => 'False alarm/no action needed';
+
+  @override
+  String noShowReviewedBy(String name) {
+    return 'Reviewed by $name';
+  }
+
+  @override
+  String noShowReviewActionsLabel(String actions) {
+    return 'Actions: $actions';
+  }
+
+  @override
+  String noShowReviewNoteLabel(String note) {
+    return 'Note: $note';
+  }
+
+  @override
+  String get zoomHostPickerTitle => 'Assign Zoom host';
+
+  @override
+  String zoomHostPickerBody(String name) {
+    return 'Choose which licensed Zoom account will host $name\'s classes.';
+  }
+
+  @override
+  String get zoomHostPickerCustomLabel => 'Or enter a host account email';
+
+  @override
+  String get zoomHostPickerAssign => 'Assign & enable';
+
+  @override
+  String get zoomScopeTitle => 'Which classes?';
+
+  @override
+  String zoomScopeBody(String name) {
+    return 'Move all of $name\'s classes to Zoom, or only selected students\' classes?';
+  }
+
+  @override
+  String get zoomScopeAll => 'All classes';
+
+  @override
+  String get zoomScopeSelect => 'Only selected students\' classes';
+
+  @override
+  String get zoomScopeNoStudents =>
+      'No upcoming classes found for this teacher.';
+
+  @override
+  String get shiftLoadingCurrentWeek => 'Loading this week\'s shifts...';
+
+  @override
+  String shiftLoadingFullHistoryCount(int loaded) {
+    return 'Loading full shift history: $loaded shifts loaded';
+  }
+
+  @override
+  String shiftLoadingFullHistoryPercent(int percent, int loaded, int total) {
+    return 'Loading full shift history: $percent% ($loaded/$total)';
+  }
+
+  @override
+  String get leaderWorkCardTitle => 'Scheduled work';
+
+  @override
+  String get leaderWorkCardSubtitle =>
+      'Your month-to-date clock-in status for assigned leader duties.';
+
+  @override
+  String get leaderWorkScheduled => 'Scheduled';
+
+  @override
+  String get leaderWorkCompleted => 'Completed';
+
+  @override
+  String get leaderWorkAbsences => 'Absences';
+
+  @override
+  String get leaderWorkLateClockIns => 'Late clock-ins';
+
+  @override
+  String get leaderWorkOpenTimeClock => 'Open time clock';
+
+  @override
+  String get leaderWorkNoUser => 'Sign in to view your scheduled work.';
+
+  @override
+  String get leaderWorkLoadError => 'Could not load scheduled work metrics.';
+
+  @override
+  String get timeClockEarlyClockOutTitle => 'Clocking out early';
+
+  @override
+  String get timeClockLateClockOutTitle => 'Clocking out late';
+
+  @override
+  String timeClockEarlyClockOutBody(int minutes) {
+    return 'You are clocking out $minutes minutes before your scheduled end. Please explain why.';
+  }
+
+  @override
+  String timeClockLateClockOutBody(int minutes) {
+    return 'You are clocking out $minutes minutes after your scheduled end. Please explain why.';
+  }
+
+  @override
+  String get timeClockClockOutNoteLabel => 'Explanation';
+
+  @override
+  String get timeClockClockOutNoteHint =>
+      'Briefly explain why this shift ended early or late';
+
+  @override
+  String get timeClockClockOutNoteRequired => 'Please add a short explanation.';
+
+  @override
+  String get timeClockContinueClockOut => 'Continue clock-out';
+
+  @override
+  String get timeClockClockOutHelpText =>
+      'Click \"Clock Out\" to finish and submit your timesheet';
+
+  @override
+  String get timeClockClockInHelpText =>
+      'Click \"Clock In\" to start tracking your scheduled work time';
+
+  @override
+  String timeClockTeachingSessionTitle(String name) {
+    return 'Teaching: $name';
+  }
+
+  @override
+  String timeClockLeadershipSessionTitle(String name) {
+    return 'Leadership: $name';
+  }
 }

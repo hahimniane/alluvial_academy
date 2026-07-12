@@ -1358,6 +1358,17 @@
   "connectWithTheWorldThroughLanguage": "Connect With The World Through Language",
   "connecteam": "Connecteam",
   "connectingToClass": "Connecting To Class",
+  "zoomStillConnectingToClass": "Still connecting to your private classroom...",
+  "zoomClassRoutingHelp": "This class is still connecting. Please leave and rejoin, or ask an administrator for help.",
+  "zoomClassEndingSoon": "This class ends in {minutes} min",
+  "@zoomClassEndingSoon": {
+    "placeholders": {
+      "minutes": {
+        "type": "String"
+      }
+    }
+  },
+  "zoomClassEnded": "This class has ended.",
   "connectingToTaskDatabase": "Connecting To Task Database",
   "connectionTestErrorE": "Connection Test Error E",
   "contactInformation": "Contact Information",
@@ -2144,6 +2155,7 @@
   "learningTracks": "Learning Tracks",
   "leave": "Leave",
   "leaveClass": "Leave Class",
+  "leaveMeeting": "Leave Meeting",
   "lessComfortable": "Less Comfortable",
   "letSGetStarted": "Let SGet Started",
   "link": "Link",
@@ -2670,7 +2682,7 @@
   "searchClassesTeacherStudentSubject": "Search Classes Teacher Student Subject",
   "searchCountry": "Search Country",
   "searchForms": "Search Forms",
-  "searchInvoiceNumber": "Search Invoice Number",
+  "searchInvoiceNumber": "Search invoice, parent, student, email, phone, or ID",
   "searchParentsByNameOrEmail": "Search Parents By Name Or Email",
   "searchStudents": "Search Students",
   "searchSubjects": "Search Subjects",
@@ -3476,6 +3488,38 @@
   },
   "classVideoJoinUnavailable": "Unable to join this class right now.",
   "classVideoInvalidGuestLink": "Invalid or expired class link.",
+  "enableZoomClasses": "Enable Zoom classes",
+  "disableZoomClasses": "Disable Zoom classes",
+  "zoomEnabledFor": "Zoom enabled for {name}. {count, plural, =0{No upcoming shifts updated.} =1{1 upcoming shift updated.} other{{count} upcoming shifts updated.}}",
+  "@zoomEnabledFor": {
+    "placeholders": {
+      "name": {},
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "zoomDisabledFor": "Zoom disabled for {name}. {count, plural, =0{No upcoming shifts updated.} =1{1 upcoming shift updated.} other{{count} upcoming shifts updated.}}",
+  "@zoomDisabledFor": {
+    "placeholders": {
+      "name": {},
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "zoomToggleError": "Unable to update Zoom access: {details}",
+  "@zoomToggleError": {
+    "placeholders": {
+      "details": {}
+    }
+  },
+  "zoomUnableToLoadMeeting": "Unable to load Zoom meeting.",
+  "zoomUnableToJoinMeeting": "Unable to join Zoom meeting.",
+  "zoomUnableToInitialize": "Unable to initialize Zoom.",
+  "zoomOpenInZoomApp": "Open in Zoom app",
+  "zoomMobileUnavailableTitle": "Zoom classes are web-only for this pilot",
+  "zoomMobileUnavailableBody": "Open this class in a web browser while the mobile Zoom classroom is being tested.",
   "formsListFormStatus": "Form {status}",
   "@formsListFormStatus": {
     "placeholders": {
@@ -4695,6 +4739,14 @@
       }
     }
   },
+  "classControllerBot": "Bot {lane}",
+  "@classControllerBot": {
+    "placeholders": {
+      "lane": {
+        "type": "int"
+      }
+    }
+  },
   "classEnded": "Ended",
   "classFilterAll": "All",
   "classFilterJoinable": "Joinable",
@@ -5500,6 +5552,63 @@
   "inviteParentSuccessInvited": "Invite email sent to the parent.",
   "inviteParentSuccessInvitedNoEmail": "Parent account created, but the invite email could not be sent.",
 
+  "manageGuardiansButton": "Manage Guardians",
+  "manageGuardiansTitle": "Linked Guardians",
+  "manageGuardiansSubtitle": "Parents currently linked to {studentName}. Unlinking removes their access to this student's classes, chats, and invoices.",
+  "@manageGuardiansSubtitle": {
+    "placeholders": {
+      "studentName": {
+        "type": "String"
+      }
+    }
+  },
+  "manageGuardiansEmpty": "No guardians are linked to this student yet.",
+  "manageGuardiansLoadError": "Could not load linked guardians.",
+  "manageParentStudentsButton": "Manage linked students",
+  "manageParentStudentsTitle": "Linked Students",
+  "manageParentStudentsSubtitle": "Students currently linked to {parentName}. Removing one keeps both accounts but removes this parent's access to that student's classes, chats, and invoices.",
+  "@manageParentStudentsSubtitle": {
+    "placeholders": {
+      "parentName": {
+        "type": "String"
+      }
+    }
+  },
+  "manageParentStudentsEmpty": "No students are linked to this parent yet.",
+  "manageParentStudentsLoadError": "Could not load linked students.",
+  "unlinkGuardianConfirmTitle": "Unlink guardian?",
+  "unlinkGuardianConfirmBody": "{guardianName} will no longer be linked to {studentName}. They will lose access to this student's classes, chat, and invoices. This does not delete either account.",
+  "@unlinkGuardianConfirmBody": {
+    "placeholders": {
+      "guardianName": {
+        "type": "String"
+      },
+      "studentName": {
+        "type": "String"
+      }
+    }
+  },
+  "unlinkGuardianReasonLabel": "Reason (optional)",
+  "unlinkGuardianReasonHint": "e.g. Linked to the wrong family",
+  "unlinkGuardianConfirmAction": "Unlink",
+  "unlinkGuardianSuccess": "Guardian unlinked from this student.",
+  "unlinkGuardianError": "Could not unlink this guardian. Please try again.",
+  "unlinkGuardianMinorBlocked": "This is the only guardian of a minor student. Link another guardian first, or mark the student as an adult, before unlinking.",
+  "unlinkGuardianAdultOverrideTitle": "Convert student to adult?",
+  "unlinkGuardianAdultOverrideBody": "{studentName} has no other valid linked parent. Only continue if an admin has confirmed this student should manage their own account as an adult after removing {guardianName}.",
+  "@unlinkGuardianAdultOverrideBody": {
+    "placeholders": {
+      "studentName": {
+        "type": "String"
+      },
+      "guardianName": {
+        "type": "String"
+      }
+    }
+  },
+  "unlinkGuardianAdultOverrideAction": "Mark adult and unlink",
+  "invalidParentSelected": "Invalid parent selected.",
+
   "enrollmentStateChooseProgram": "1. Choose a Program",
   "enrollmentStateClassPreferences": "2. Class Preferences",
   "enrollmentStatePricingAndHours": "3. Pricing & Hours",
@@ -5556,6 +5665,25 @@
       }
     }
   },
+  "noShowSettingsTitle": "No-Show Alert Recipients",
+  "noShowSettingsNotifyAll": "Notify all administrators",
+  "noShowSettingsNotifyAllSubtitle": "Turn off to choose which administrators receive no-show alerts.",
+  "noShowSettingsNoAdmins": "No administrators found",
+  "noShowSettingsSelectAtLeastOne": "No administrators selected — all administrators will still be notified until you select at least one.",
+  "prepareBroadcastRecipientsTitle": "Broadcast To",
+  "prepareBroadcastAllTeachers": "All teachers",
+  "prepareBroadcastSpecificTeachers": "Specific teachers",
+  "prepareBroadcastSearchTeachers": "Search teachers...",
+  "prepareBroadcastNoTeachersFound": "No teachers found",
+  "prepareBroadcastSelectTeacherFirst": "Select at least one teacher before broadcasting.",
+  "prepareBroadcastTeachersSelected": "{count} teacher(s) selected",
+  "@prepareBroadcastTeachersSelected": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
 
   "adminActionCardsViewAll": "View all",
   "adminActionCardsPendingTimesheets": "Pending timesheets",
@@ -5601,6 +5729,136 @@
   "sidebarFinance": "Finance",
   "sidebarCreateInvoice": "Create Invoice",
   "sidebarAllInvoices": "All Invoices",
+  "financeOverviewTab": "Overview",
+  "financeCutoffsTab": "Cutoffs",
+  "financeOverviewTitle": "Finance Command Center",
+  "financeMonthLive": "Live view for {month}. Revenue, invoices, recorded expenses, and approved payroll are reflected here.",
+  "@financeMonthLive": {"placeholders": {"month": {"type": "Object"}}},
+  "financePreviousMonth": "Previous month",
+  "financeNextMonth": "Next month",
+  "financeOpenCreateInvoice": "Create invoice",
+  "financeOpenAllInvoices": "All invoices",
+  "financeSetIncomeGoal": "Set goal",
+  "financeRecordExpense": "Record expense",
+  "financeRevenueCollected": "Revenue collected",
+  "financeProjectedRevenue": "Projected revenue",
+  "financeMonthEndProjection": "Month-end projection",
+  "financeIncomeGoal": "Income goal",
+  "financeNoIncomeGoal": "No goal set",
+  "financeGoalProgress": "{percent} of goal",
+  "@financeGoalProgress": {"placeholders": {"percent": {"type": "Object"}}},
+  "financeProjectedGoalProgress": "Projected {percent} of goal",
+  "@financeProjectedGoalProgress": {"placeholders": {"percent": {"type": "Object"}}},
+  "financeInvoiced": "Invoiced",
+  "financeOutstanding": "Outstanding",
+  "financeKnownExpenses": "Known expenses",
+  "financeEstimatedNet": "Estimated net",
+  "financeProfitMargin": "Profit margin",
+  "financeCurrentMonth": "This month",
+  "financeNoPriorRevenue": "No prior revenue",
+  "financeNewRevenueThisMonth": "New this month",
+  "financeUpFromLastMonth": "Up {percent} from last month",
+  "@financeUpFromLastMonth": {"placeholders": {"percent": {"type": "Object"}}},
+  "financeDownFromLastMonth": "Down {percent} from last month",
+  "@financeDownFromLastMonth": {"placeholders": {"percent": {"type": "Object"}}},
+  "financeOverdueInvoices": "overdue invoices",
+  "financeStaffPayrollOnly": "Staff payroll only",
+  "financePartialLedger": "Partial expense ledger",
+  "financeRevenueMinusKnownExpenses": "Revenue minus known expenses",
+  "financeCashFlowTable": "Cash flow",
+  "financeSixMonthTrend": "6-month cash flow",
+  "financeNoChartData": "No chart data for this range.",
+  "financeRevenue": "Revenue",
+  "financeExpenses": "Expenses",
+  "financeNet": "Net",
+  "financeExpenseCoverage": "Expense coverage",
+  "financeStaffPayroll": "Staff payroll",
+  "financeConnected": "Connected",
+  "financeSubscriptions": "Subscriptions",
+  "financeNotConnected": "Not connected",
+  "financeSubscriptionLedgerMissing": "Subscription ledger needed",
+  "financeManualExpenses": "Manual expenses",
+  "financeIncludesRecordedExpenses": "Includes recorded expenses",
+  "financeRecordedThisMonth": "Recorded this month",
+  "financeNoRecordedExpenses": "No recorded expenses",
+  "financeExpensesByCategory": "Expenses by category",
+  "financeSpendingInsightsTitle": "Spending intelligence",
+  "financeWhereMoneyGoes": "Where money is going",
+  "financeRecipientPayouts": "Teacher/admin payout history",
+  "financeSelectRecipient": "Select teacher/admin",
+  "financeNoSpendingTrend": "No spending trend data yet.",
+  "financeNoRecipientPayouts": "No teacher or admin payout records yet.",
+  "financeMonthly": "Monthly",
+  "financeQuarterly": "Quarterly",
+  "financeAuditPayrollSource": "Audit payroll",
+  "financeTimesheetPayrollSource": "Timesheet payroll",
+  "financeRecordedExpenseSource": "Recorded expense",
+  "financeCurrentMonthSpend": "This month",
+  "financeSixMonthSpend": "6-month total",
+  "financeManualExpenseLedgerMissing": "Expense ledger needed",
+  "financeRevenueByMethod": "Revenue by method",
+  "financeNoRevenueMethods": "No completed payments for this month.",
+  "financeUnknownMethod": "UNKNOWN METHOD",
+  "financeAttentionQueue": "Attention queue",
+  "financeDueSoonInvoices": "Due soon invoices",
+  "financeDueSoon": "Due within 7 days",
+  "financePendingPayments": "Pending payments",
+  "financeFailedPayments": "Failed payments",
+  "financeFailedInvoiceSends": "Invoice send failures",
+  "financePendingPayroll": "Pending payroll",
+  "financeNeedsReview": "Needs review",
+  "financeNeedsApproval": "Needs approval",
+  "financeDataGaps": "Data gaps",
+  "financeSomeSourcesUnavailable": "Some finance sources could not be read",
+  "financeNoAttentionItems": "No urgent finance items for this view.",
+  "financeRecentActivity": "Recent activity",
+  "financeNoRecentActivity": "No recent invoice or payment activity.",
+  "financeInvoiceCreated": "Invoice created",
+  "financePaymentCompleted": "Payment completed",
+  "financePaymentPending": "Payment pending",
+  "financeExpenseRecorded": "Expense recorded",
+  "financeDataLoadError": "Could not load finance data",
+  "financeExpenseInvalidAmount": "Enter an expense amount greater than zero.",
+  "financeExpenseOtherRequired": "Enter the other expense category.",
+  "financeExpenseAmount": "Amount",
+  "financeExpenseCategory": "Expense category",
+  "financeExpenseOtherCategory": "Other category",
+  "financeExpenseVendor": "Vendor or payee",
+  "financeExpenseTeacherRecipient": "Teacher / recipient",
+  "financeExpenseLeadershipRecipient": "Leader / recipient",
+  "financeExpenseRecipientManual": "Enter another recipient",
+  "financeExpenseSubcategory": "Expense type",
+  "financeExpenseMethod": "Payment method",
+  "financeExpenseMethodCard": "Card",
+  "financeExpenseDate": "Expense date",
+  "financeExpenseNotes": "Notes",
+  "financeSaveExpense": "Save expense",
+  "financeGoalInvalidAmount": "Enter a valid goal amount.",
+  "financeSaveGoal": "Save goal",
+  "financeExpenseCategoryTeacherPayment": "Teacher Payment",
+  "financeExpenseCategoryLeadershipCost": "Leadership cost",
+  "financeExpenseCategoryMarketingCost": "Marketing cost",
+  "financeExpenseCategoryResearchDevelopment": "R&D",
+  "financeExpenseSubcategorySocialMarketing": "Social marketing",
+  "financeExpenseSubcategoryNewsletterSubscription": "Newsletter subscription",
+  "financeExpenseSubcategoryPaidAds": "Paid ads",
+  "financeExpenseSubcategoryCreativeTools": "Creative tools",
+  "financeExpenseSubcategoryWebsiteFees": "Website fees",
+  "financeExpenseSubcategoryRecurringSubscriptions": "Recurring subscriptions",
+  "financeExpenseSubcategorySoftwareTools": "Software tools",
+  "financeExpenseSubcategoryResearchTools": "Research tools",
+  "financeExpenseCategorySoftware": "Software & subscriptions",
+  "financeExpenseCategoryMarketing": "Marketing & ads",
+  "financeExpenseCategoryRentUtilities": "Rent & utilities",
+  "financeExpenseCategorySupplies": "Classroom materials & supplies",
+  "financeExpenseCategoryPaymentFees": "Bank & payment fees",
+  "financeExpenseCategoryInsuranceLegalTaxes": "Insurance, legal & taxes",
+  "financeExpenseCategoryContractors": "Contractors & professional services",
+  "financeExpenseCategoryTeacherStaffExtra": "Teacher/staff extra pay",
+  "financeExpenseCategoryRefundsScholarships": "Refunds & scholarships",
+  "financeExpenseCategoryInternetPhone": "Internet & phone",
+  "financeExpenseCategoryTravelEvents": "Travel & events",
+  "financeRefresh": "Refresh",
   "adminInvoiceDeleteTitle": "Delete invoice?",
   "adminInvoiceDeleteConfirm": "Are you sure you want to delete invoice {invoiceNumber}?",
   "@adminInvoiceDeleteConfirm": {"placeholders": {"invoiceNumber": {"type": "Object"}}},
@@ -5608,11 +5866,67 @@
   "adminInvoiceDownloadPdf": "Download PDF",
   "adminInvoiceEdit": "Edit Invoice",
   "adminInvoicePrintPdf": "Print PDF",
+  "adminInvoiceRecordPayment": "Record Payment",
+  "adminInvoiceRecordPaymentTitle": "Record manual payment",
+  "adminInvoicePaymentAmount": "Amount received",
+  "adminInvoicePaymentMethod": "Payment method",
+  "adminInvoicePaymentReference": "Reference",
+  "adminInvoicePaymentReferenceHint": "Confirmation, sender, or transfer ID",
+  "adminInvoicePaymentNote": "Internal note",
+  "adminInvoicePaymentNoteHint": "Optional admin note",
+  "adminInvoicePaymentReceivedDate": "Received date",
+  "adminInvoicePaymentSuccess": "Payment recorded and invoice updated.",
+  "adminInvoicePaymentInvalidAmount": "Enter an amount greater than zero and no more than the balance due.",
+  "adminInvoicePaymentMethodZelle": "Zelle",
+  "adminInvoicePaymentMethodCashApp": "Cash App",
+  "adminInvoicePaymentMethodBankTransfer": "Bank transfer",
+  "adminInvoicePaymentMethodMoneyGram": "MoneyGram",
+  "adminInvoicePaymentMethodWesternUnion": "Western Union",
+  "adminInvoicePaymentMethodCash": "Cash",
+  "adminInvoicePaymentMethodCheck": "Check",
+  "adminInvoicePaymentMethodOther": "Other",
+  "adminInvoiceBillingOptionsTitle": "Billing options",
+  "adminInvoiceBillingCoverage": "Months included",
+  "adminInvoiceBillingCoveragePreview": "Invoice covers {period}",
+  "@adminInvoiceBillingCoveragePreview": {"placeholders": {"period": {"type": "Object"}}},
+  "adminInvoiceCoverageOneMonth": "1 month",
+  "adminInvoiceCoverageMonths": "{count} months",
+  "@adminInvoiceCoverageMonths": {"placeholders": {"count": {"type": "Object"}}},
+  "adminInvoiceRecurringPlan": "Make this recurring",
+  "adminInvoiceRecurringPlanSubtitle": "Creates the next {coverage} invoice automatically when that billing period starts and tracks send failures.",
+  "@adminInvoiceRecurringPlanSubtitle": {"placeholders": {"coverage": {"type": "Object"}}},
+  "cutoffTitle": "Access Cutoff Control",
+  "cutoffSubtitle": "Suspended students, blocking invoices, and quick extension controls.",
+  "cutoffSuspendedStudents": "Suspended",
+  "cutoffParentGroups": "Parent groups",
+  "cutoffStudentsInGroup": "Students",
+  "cutoffBlockingInvoices": "Blocking invoices",
+  "cutoffTotalPastDue": "Past due",
+  "cutoffOldestCutoff": "Oldest cutoff",
+  "cutoffExtendAction": "Extend cutoff",
+  "cutoffExtendParentAction": "Extend all",
+  "cutoffExtendStudentAction": "Extend student",
+  "cutoffExtendedSuccess": "Cutoff extended and access recalculated.",
+  "cutoffNoStudents": "No students are currently cut off",
+  "cutoffNoStudentsDetail": "When an unpaid invoice passes its cutoff, the student will appear here.",
+  "cutoffLoadError": "Unable to load cutoff data",
+  "cutoffExtendTitle": "Extend access cutoff",
+  "cutoffExtendParentTitle": "Extend parent group",
+  "cutoffExtendBody": "Choose a new cutoff date for {name}. Blocking invoices will be moved to this date.",
+  "@cutoffExtendBody": {"placeholders": {"name": {"type": "Object"}}},
+  "cutoffExtendParentBody": "Choose a new cutoff date for every blocked student under {name}.",
+  "@cutoffExtendParentBody": {"placeholders": {"name": {"type": "Object"}}},
+  "cutoffExtendBy7": "+7 days",
+  "cutoffExtendBy14": "+14 days",
+  "cutoffExtendBy30": "+30 days",
+  "cutoffApplyExtension": "Apply extension",
   "adminInvoicesTitle": "Invoices",
   "adminInvoicesSubtitle": "Create, review, and manage parent invoices.",
   "adminInvoiceFilterAll": "All",
   "adminInvoiceBillingPeriodChip": "Billing: {billing}",
   "@adminInvoiceBillingPeriodChip": {"placeholders": {"billing": {"type": "Object"}}},
+  "adminInvoiceSendFailed": "Send failed",
+  "adminInvoiceSendPending": "Send pending",
   "adminInvoiceBalanceDue": "Balance due: {amount}",
   "@adminInvoiceBalanceDue": {"placeholders": {"amount": {"type": "Object"}}},
   "adminInvoiceInvalidNumbers": "Enter valid billing numbers.",
@@ -5863,6 +6177,7 @@
   "auditMakeupEvaluationFooterHint": "Coach evaluation submit stays disabled until every missed-class makeup is approved or rejected (Teaching forms tab).",
   "auditMakeupOpenTeachingFormsTab": "Open Teaching forms",
   "realtimeKitProviderSubtitle": "Used for scheduled classes",
+  "zoomProviderSubtitle": "Used for teachers assigned to the Zoom pilot",
   "legacyProviderSubtitle": "Legacy provider for existing classes",
   "classRecordingPermissionTitle": "Class recording",
   "classRecordingPermissionTeacherAllowed": "Teacher can record this class",
@@ -5951,5 +6266,211 @@
       }
     }
   },
-  "bulkClassRecordingUpdateFailed": "Unable to update recording access."
+  "bulkClassRecordingUpdateFailed": "Unable to update recording access.",
+  "noShowAlertsTitle": "No-Show Alerts",
+  "noShowAlertsSubtitle": "Classes where a teacher or student didn't show up.",
+  "noShowTeacher": "Teacher no-show",
+  "noShowStudent": "Student no-show",
+  "noShowNeedsReview": "Needs review",
+  "noShowReviewed": "Reviewed",
+  "noShowMarkReviewed": "Mark reviewed",
+  "noShowSearchHint": "Search teacher, reporter, or class",
+  "noShowFilterAll": "All",
+  "noShowEmpty": "No no-show alerts",
+  "noShowLoadError": "Couldn't load no-show alerts",
+  "noShowRetry": "Retry",
+  "noShowStatTotal": "Total",
+  "noShowStatTeacher": "Teacher no-shows",
+  "noShowStatStudent": "Student no-shows",
+  "noShowStatPending": "Needs review",
+  "noShowTopAbsent": "Most no-shows",
+  "noShowReportedBy": "Reported by {name}",
+  "@noShowReportedBy": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "noShowTeacherLabel": "Teacher: {name}",
+  "@noShowTeacherLabel": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "noShowPendingShort": "{count} pending",
+  "@noShowPendingShort": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "noShowDateAll": "All dates",
+  "noShowDateToday": "Today",
+  "noShowDate7Days": "Last 7 days",
+  "noShowDate30Days": "Last 30 days",
+  "noShowFromDate": "From",
+  "noShowToDate": "To",
+  "noShowAttendanceAll": "All attendance",
+  "noShowNeverJoined": "Never joined",
+  "noShowJoinedLate": "Joined late",
+  "noShowHadPresence": "Had presence",
+  "noShowScheduled": "Scheduled: {date}",
+  "@noShowScheduled": {
+    "placeholders": {
+      "date": { "type": "String" }
+    }
+  },
+  "noShowDetectedAfter": "Flagged after {minutes} min",
+  "@noShowDetectedAfter": {
+    "placeholders": {
+      "minutes": { "type": "int" }
+    }
+  },
+  "noShowRoleTeacher": "Teacher",
+  "noShowRoleStudent": "Student",
+  "noShowNoJoinRecorded": "No join recorded",
+  "noShowJoinedAt": "Joined {time}",
+  "@noShowJoinedAt": {
+    "placeholders": {
+      "time": { "type": "String" }
+    }
+  },
+  "noShowJoinOffsetLate": "{minutes} min late",
+  "@noShowJoinOffsetLate": {
+    "placeholders": {
+      "minutes": { "type": "int" }
+    }
+  },
+  "noShowJoinOffsetEarly": "{minutes} min early",
+  "@noShowJoinOffsetEarly": {
+    "placeholders": {
+      "minutes": { "type": "int" }
+    }
+  },
+  "noShowJoinOffsetOnTime": "On time",
+  "noShowPresentMinutes": "Present {minutes} min",
+  "@noShowPresentMinutes": {
+    "placeholders": {
+      "minutes": { "type": "int" }
+    }
+  },
+  "noShowCopySummary": "Copy summary",
+  "noShowCopied": "No-show summary copied",
+  "noShowSummaryClass": "Class",
+  "noShowSummaryAlert": "Alert",
+  "noShowSummaryScheduled": "Scheduled",
+  "noShowSummaryDetected": "Detected",
+  "noShowSummaryStatus": "Status",
+  "noShowStudentLabel": "Student: {name}",
+  "@noShowStudentLabel": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "noShowReviewTitle": "Review no-show alert",
+  "noShowReviewActionsPrompt": "Actions taken",
+  "noShowReviewOtherLabel": "Other action or note",
+  "noShowReviewOtherHint": "Type what was done if it is not listed",
+  "noShowReviewSubmit": "Submit review",
+  "noShowReviewActionContactedTeacher": "Contacted teacher",
+  "noShowReviewActionContactedStudentParent": "Contacted student or parent",
+  "noShowReviewActionConfirmedTeacherLate": "Confirmed teacher joined late",
+  "noShowReviewActionConfirmedStudentLate": "Confirmed student joined late",
+  "noShowReviewActionExcusedAbsence": "Excused absence",
+  "noShowReviewActionRescheduledClass": "Rescheduled class",
+  "noShowReviewActionTechnicalFollowup": "Technical issue follow-up",
+  "noShowReviewActionBillingFollowup": "Billing/payroll follow-up",
+  "noShowReviewActionEscalatedAdmin": "Escalated to admin",
+  "noShowReviewActionFalseAlarm": "False alarm/no action needed",
+  "noShowReviewedBy": "Reviewed by {name}",
+  "@noShowReviewedBy": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "noShowReviewActionsLabel": "Actions: {actions}",
+  "@noShowReviewActionsLabel": {
+    "placeholders": {
+      "actions": { "type": "String" }
+    }
+  },
+  "noShowReviewNoteLabel": "Note: {note}",
+  "@noShowReviewNoteLabel": {
+    "placeholders": {
+      "note": { "type": "String" }
+    }
+  },
+  "zoomHostPickerTitle": "Assign Zoom host",
+  "zoomHostPickerBody": "Choose which licensed Zoom account will host {name}'s classes.",
+  "@zoomHostPickerBody": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "zoomHostPickerCustomLabel": "Or enter a host account email",
+  "zoomHostPickerAssign": "Assign & enable",
+  "zoomScopeTitle": "Which classes?",
+  "zoomScopeBody": "Move all of {name}'s classes to Zoom, or only selected students' classes?",
+  "@zoomScopeBody": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "zoomScopeAll": "All classes",
+  "zoomScopeSelect": "Only selected students' classes",
+  "zoomScopeNoStudents": "No upcoming classes found for this teacher.",
+  "shiftLoadingCurrentWeek": "Loading this week's shifts...",
+  "shiftLoadingFullHistoryCount": "Loading full shift history: {loaded} shifts loaded",
+  "@shiftLoadingFullHistoryCount": {
+    "placeholders": {
+      "loaded": { "type": "int" }
+    }
+  },
+  "shiftLoadingFullHistoryPercent": "Loading full shift history: {percent}% ({loaded}/{total})",
+  "@shiftLoadingFullHistoryPercent": {
+    "placeholders": {
+      "percent": { "type": "int" },
+      "loaded": { "type": "int" },
+      "total": { "type": "int" }
+    }
+  },
+  "leaderWorkCardTitle": "Scheduled work",
+  "leaderWorkCardSubtitle": "Your month-to-date clock-in status for assigned leader duties.",
+  "leaderWorkScheduled": "Scheduled",
+  "leaderWorkCompleted": "Completed",
+  "leaderWorkAbsences": "Absences",
+  "leaderWorkLateClockIns": "Late clock-ins",
+  "leaderWorkOpenTimeClock": "Open time clock",
+  "leaderWorkNoUser": "Sign in to view your scheduled work.",
+  "leaderWorkLoadError": "Could not load scheduled work metrics.",
+  "timeClockEarlyClockOutTitle": "Clocking out early",
+  "timeClockLateClockOutTitle": "Clocking out late",
+  "timeClockEarlyClockOutBody": "You are clocking out {minutes} minutes before your scheduled end. Please explain why.",
+  "@timeClockEarlyClockOutBody": {
+    "placeholders": {
+      "minutes": { "type": "int" }
+    }
+  },
+  "timeClockLateClockOutBody": "You are clocking out {minutes} minutes after your scheduled end. Please explain why.",
+  "@timeClockLateClockOutBody": {
+    "placeholders": {
+      "minutes": { "type": "int" }
+    }
+  },
+  "timeClockClockOutNoteLabel": "Explanation",
+  "timeClockClockOutNoteHint": "Briefly explain why this shift ended early or late",
+  "timeClockClockOutNoteRequired": "Please add a short explanation.",
+  "timeClockContinueClockOut": "Continue clock-out",
+  "timeClockClockOutHelpText": "Click \"Clock Out\" to finish and submit your timesheet",
+  "timeClockClockInHelpText": "Click \"Clock In\" to start tracking your scheduled work time",
+  "timeClockTeachingSessionTitle": "Teaching: {name}",
+  "@timeClockTeachingSessionTitle": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "timeClockLeadershipSessionTitle": "Leadership: {name}",
+  "@timeClockLeadershipSessionTitle": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  }
 }

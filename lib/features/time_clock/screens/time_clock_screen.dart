@@ -1255,6 +1255,73 @@ class _TimeClockScreenState extends State<TimeClockScreen>
     _clockOut();
   }
 
+  Future<String?> _showClockOutNoteDialog(TeachingShift shift) async {
+    final l10n = AppLocalizations.of(context)!;
+    final status = ShiftTimesheetService.clockOutStatusForShift(shift);
+    final minutes = ShiftTimesheetService.clockOutDeviationMinutes(shift).abs();
+    final controller = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    final result = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        final isEarly = status == 'early';
+        return AlertDialog(
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Text(isEarly
+              ? l10n.timeClockEarlyClockOutTitle
+              : l10n.timeClockLateClockOutTitle),
+          content: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(isEarly
+                    ? l10n.timeClockEarlyClockOutBody(minutes)
+                    : l10n.timeClockLateClockOutBody(minutes)),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: controller,
+                  maxLines: 3,
+                  decoration: InputDecoration(
+                    labelText: l10n.timeClockClockOutNoteLabel,
+                    hintText: l10n.timeClockClockOutNoteHint,
+                    border: const OutlineInputBorder(),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return l10n.timeClockClockOutNoteRequired;
+                    }
+                    return null;
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: Text(l10n.commonCancel),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (formKey.currentState?.validate() != true) return;
+                Navigator.pop(dialogContext, controller.text.trim());
+              },
+              child: Text(l10n.timeClockContinueClockOut),
+            ),
+          ],
+        );
+      },
+    );
+
+    controller.dispose();
+    return result;
+  }
+
   /// Starts a new teaching session (clock-in flow)
   ///
   /// This method handles the location verification and clock-in process:
@@ -1634,6 +1701,16 @@ class _TimeClockScreenState extends State<TimeClockScreen>
 
     _debugLog('Starting clock-out process for shift ${_currentShift!.id}');
 
+    final shiftForClockOut = _currentShift!;
+    String? clockOutNote;
+    if (ShiftTimesheetService.requiresClockOutNote(shiftForClockOut)) {
+      clockOutNote = await _showClockOutNoteDialog(shiftForClockOut);
+      if (clockOutNote == null) {
+        _debugLog('Clock-out cancelled before required note was submitted');
+        return;
+      }
+    }
+
     setState(() {
       _isGettingLocation = true;
     });
@@ -1667,9 +1744,10 @@ class _TimeClockScreenState extends State<TimeClockScreen>
         _debugLog('Clock-out platform detected: $platform');
         final result = await ShiftTimesheetService.clockOutFromShift(
           user.uid,
-          _currentShift!.id,
+          shiftForClockOut.id,
           location: clockOutLocation,
           platform: platform,
+          employeeNote: clockOutNote,
         );
 
         _debugLog(
@@ -2213,7 +2291,17 @@ class _TimeClockScreenState extends State<TimeClockScreen>
                         child: Column(
                           children: [
                             Text(
-                              'Teaching: ${_currentShift!.studentNames.join(', ')}',
+                              _currentShift!.category == ShiftCategory.teaching
+                                  ? AppLocalizations.of(context)!
+                                      .timeClockTeachingSessionTitle(
+                                          ShiftTimesheetService
+                                              .workLabelForShift(
+                                                  _currentShift!))
+                                  : AppLocalizations.of(context)!
+                                      .timeClockLeadershipSessionTitle(
+                                          ShiftTimesheetService
+                                              .workLabelForShift(
+                                                  _currentShift!)),
                               style: GoogleFonts.inter(
                                 fontSize: _isMobile ? 14 : 16,
                                 fontWeight: FontWeight.w600,

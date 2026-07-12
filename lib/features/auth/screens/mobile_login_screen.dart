@@ -230,7 +230,11 @@ class _MobileLoginScreenState extends State<MobileLoginScreen> with SingleTicker
             errorMessage = _useStudentIdLogin ? l10n.loginNoAccountStudentId : l10n.loginNoAccountEmail;
             break;
           case 'wrong-password':
+          case 'invalid-credential':
             errorMessage = l10n.loginIncorrectPassword;
+            break;
+          case 'keychain-error':
+            errorMessage = e.message ?? l10n.loginUnexpectedError;
             break;
           case 'invalid-email':
             errorMessage = l10n.loginInvalidEmailFormat;

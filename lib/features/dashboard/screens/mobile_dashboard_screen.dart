@@ -24,6 +24,7 @@ import '../../profile/screens/teacher_profile_screen.dart';
 import '../../student/screens/student_classes_screen.dart'; // Student classes screen
 import '../../student/screens/student_progress_screen.dart'; // Student progress screen
 import '../../shift_management/screens/admin_classes_screen.dart'; // Admin classes screen
+import '../../parent/screens/parent_classes_screen.dart';
 import '../../recordings/screens/class_recordings_screen.dart';
 import '../../surah_podcast/screens/surah_podcast_screen.dart';
 import '../../quiz/screens/quiz_home_screen.dart'; // Quiz feature
@@ -32,6 +33,7 @@ import '../../curriculum/screens/curriculum_books_screen.dart';
 import '../../tontine/screens/tontine_home_screen.dart';
 import '../../tontine/screens/circle_member_profile_setup_screen.dart';
 import 'package:alluwalacademyadmin/features/parent/screens/admin_invoice_hub_screen.dart';
+import 'package:alluwalacademyadmin/features/parent/screens/parent_invoices_screen.dart';
 
 // Onboarding imports
 import 'package:alluwalacademyadmin/features/onboarding/services/onboarding_service.dart';
@@ -184,6 +186,15 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
     if (mounted) {
       studentFeatureTour.startTour(context, isReplay: true);
     }
+  }
+
+  bool get _isAdultStudent {
+    if (_userRole?.toLowerCase() != 'student') return false;
+    final value = _userData?['is_adult_student'] ??
+        _userData?['isAdultStudent'] ??
+        _userData?['isAdult'];
+    if (value is bool) return value;
+    return value?.toString().toLowerCase() == 'true';
   }
 
   Future<void> _refreshProfilePicture() async {
@@ -538,20 +549,39 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
     }
 
     if (role == 'student') {
-      return [
+      if (_isAdultStudent) {
+        return [
+          const StudentClassesScreen(),
+          ParentInvoicesScreen(
+            parentId: FirebaseAuth.instance.currentUser?.uid ?? '',
+          ),
+          const ChatPage(),
+          const QuickTasksScreen(),
+          _StudentMoreScreen(
+            onNavigate: _navigateToStudentFeature,
+            tontineEnabled: _tontineEnabled,
+          ),
+        ];
+      }
+
+      final studentScreens = <Widget>[
         const StudentClassesScreen(),
         const QuizHomeScreen(),
         const ChatPage(),
         const QuickTasksScreen(),
         const StudentProgressScreen(),
         const CurriculumBooksScreen(),
-        if (_tontineEnabled) const TontineHomeScreen(),
       ];
+      if (_tontineEnabled) {
+        studentScreens.add(const TontineHomeScreen());
+      }
+      return studentScreens;
     }
 
     // Parents get basic features
     return [
       const AdminDashboard(refreshTrigger: 0),
+      const ParentClassesScreen(),
       const ChatPage(),
       const QuickTasksScreen(),
       const CurriculumBooksScreen(),
@@ -596,6 +626,21 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
     }
 
     if (role == 'student') {
+      if (_isAdultStudent) {
+        return [
+          _NavItemData(Icons.school_rounded, l10n.navClasses, 0),
+          _NavItemData(Icons.receipt_long_rounded, l10n.invoices, 1),
+          _NavItemData(
+            Icons.chat_bubble_rounded,
+            l10n.navChat,
+            2,
+            isChat: true,
+          ),
+          _NavItemData(Icons.task_alt_rounded, l10n.navTasks, 3),
+          _NavItemData(Icons.grid_view_rounded, 'More', 4),
+        ];
+      }
+
       final items = [
         _NavItemData(Icons.school_rounded, l10n.navClasses, 0),
         _NavItemData(Icons.quiz_rounded, l10n.navQuiz, 1),
@@ -605,7 +650,9 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
         _NavItemData(Icons.menu_book_rounded, 'Books', 5),
       ];
       if (_tontineEnabled) {
-        items.add(_NavItemData(Icons.groups_rounded, l10n.tontineCircles, 6));
+        items.add(
+          _NavItemData(Icons.groups_rounded, l10n.tontineCircles, items.length),
+        );
       }
       return items;
     }
@@ -613,12 +660,13 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
     // Parents get basic features
     final items = [
       _NavItemData(Icons.home_rounded, l10n.navHome, 0),
-      _NavItemData(Icons.chat_bubble_rounded, l10n.navChat, 1, isChat: true),
-      _NavItemData(Icons.task_alt_rounded, l10n.navTasks, 2),
-      _NavItemData(Icons.menu_book_rounded, 'Books', 3),
+      _NavItemData(Icons.school_rounded, l10n.navClasses, 1),
+      _NavItemData(Icons.chat_bubble_rounded, l10n.navChat, 2, isChat: true),
+      _NavItemData(Icons.task_alt_rounded, l10n.navTasks, 3),
+      _NavItemData(Icons.menu_book_rounded, 'Books', 4),
     ];
     if (_tontineEnabled) {
-      items.add(_NavItemData(Icons.groups_rounded, l10n.tontineCircles, 4));
+      items.add(_NavItemData(Icons.groups_rounded, l10n.tontineCircles, 5));
     }
     return items;
   }
@@ -631,6 +679,13 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
 
   /// Navigate to a full-screen admin feature from the "More" grid.
   void _navigateToAdminFeature(Widget screen) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => screen),
+    );
+  }
+
+  /// Navigate to a full-screen student feature from the "More" grid.
+  void _navigateToStudentFeature(Widget screen) {
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => screen),
     );
@@ -1284,6 +1339,112 @@ class _AdminMoreScreen extends StatelessWidget {
         color: const Color(0xff6366F1),
         screen: const SurahPodcastScreen(),
       ),
+      _MoreItem(
+        icon: Icons.settings_rounded,
+        label: l10n.settingsTitle,
+        color: const Color(0xff64748B),
+        screen: const MobileSettingsScreen(),
+      ),
+    ];
+
+    return Container(
+      color: isDark
+          ? Theme.of(context).scaffoldBackgroundColor
+          : const Color(0xffF8FAFC),
+      child: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'More',
+                style: GoogleFonts.inter(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w800,
+                  color: Theme.of(context).textTheme.titleLarge?.color,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Additional tools and features',
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: isDark
+                      ? const Color(0xff94A3B8)
+                      : const Color(0xff64748B),
+                ),
+              ),
+              const SizedBox(height: 24),
+              GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: items.length,
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 3,
+                  crossAxisSpacing: 14,
+                  mainAxisSpacing: 14,
+                  childAspectRatio: 0.95,
+                ),
+                itemBuilder: (context, index) {
+                  final item = items[index];
+                  return _MoreTile(
+                    item: item,
+                    isDark: isDark,
+                    onTap: () => onNavigate(item.screen),
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The "More" grid for adult students, keeping the bottom nav to five items.
+class _StudentMoreScreen extends StatelessWidget {
+  final void Function(Widget screen) onNavigate;
+  final bool tontineEnabled;
+
+  const _StudentMoreScreen({
+    required this.onNavigate,
+    required this.tontineEnabled,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final items = <_MoreItem>[
+      _MoreItem(
+        icon: Icons.quiz_rounded,
+        label: l10n.navQuiz,
+        color: const Color(0xff8B5CF6),
+        screen: const QuizHomeScreen(),
+      ),
+      _MoreItem(
+        icon: Icons.insights_rounded,
+        label: l10n.progress,
+        color: const Color(0xff0EA5E9),
+        screen: const StudentProgressScreen(),
+      ),
+      _MoreItem(
+        icon: Icons.menu_book_rounded,
+        label: 'Books',
+        color: const Color(0xff10B981),
+        screen: const CurriculumBooksScreen(),
+      ),
+      if (tontineEnabled)
+        _MoreItem(
+          icon: Icons.groups_rounded,
+          label: l10n.tontineCircles,
+          color: const Color(0xffEC4899),
+          screen: const TontineHomeScreen(),
+        ),
       _MoreItem(
         icon: Icons.settings_rounded,
         label: l10n.settingsTitle,

@@ -137,7 +137,8 @@ class _QuickEditShiftPopupState extends State<QuickEditShiftPopup> {
             // Teacher info (read-only)
             _buildInfoRow(
               AppLocalizations.of(context)!.roleTeacher,
-              widget.shift.teacherName ?? AppLocalizations.of(context)!.commonUnknown,
+              widget.shift.teacherName ??
+                  AppLocalizations.of(context)!.commonUnknown,
               Icons.person,
             ),
             const SizedBox(height: 12),
@@ -168,12 +169,16 @@ class _QuickEditShiftPopupState extends State<QuickEditShiftPopup> {
             Row(
               children: [
                 Expanded(
-                    child: _buildTimeSelector(AppLocalizations.of(context)!.shiftStartTime, _startTime, (time) {
+                    child: _buildTimeSelector(
+                        AppLocalizations.of(context)!.shiftStartTime,
+                        _startTime, (time) {
                   setState(() => _startTime = time);
                 })),
                 const SizedBox(width: 12),
                 Expanded(
-                    child: _buildTimeSelector(AppLocalizations.of(context)!.shiftEndTime, _endTime, (time) {
+                    child: _buildTimeSelector(
+                        AppLocalizations.of(context)!.shiftEndTime, _endTime,
+                        (time) {
                   setState(() => _endTime = time);
                 })),
               ],
@@ -384,7 +389,8 @@ class _QuickEditShiftPopupState extends State<QuickEditShiftPopup> {
             ),
             const SizedBox(width: 8),
             Tooltip(
-              message: AppLocalizations.of(context)!.theTimezoneForTheTimesBelow,
+              message:
+                  AppLocalizations.of(context)!.theTimezoneForTheTimesBelow,
               child: Icon(
                 Icons.info_outline,
                 size: 14,
@@ -484,7 +490,8 @@ class _QuickEditShiftPopupState extends State<QuickEditShiftPopup> {
               await _deleteShift();
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: Text(AppLocalizations.of(context)!.commonDelete, style: TextStyle(color: Colors.white)),
+            child: Text(AppLocalizations.of(context)!.commonDelete,
+                style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -500,14 +507,17 @@ class _QuickEditShiftPopupState extends State<QuickEditShiftPopup> {
         widget.onDeleted();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: Text(AppLocalizations.of(context)!.shiftDeleted), backgroundColor: Colors.green),
+              content: Text(AppLocalizations.of(context)!.shiftDeleted),
+              backgroundColor: Colors.green),
         );
       }
     } catch (e) {
       AppLogger.error('Error deleting shift: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppLocalizations.of(context)!.errorE), backgroundColor: Colors.red),
+          SnackBar(
+              content: Text(AppLocalizations.of(context)!.errorE),
+              backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -553,6 +563,45 @@ class _QuickEditShiftPopupState extends State<QuickEditShiftPopup> {
         notes: _notesController.text.isEmpty ? null : _notesController.text,
       );
 
+      final guardrailMessage = ShiftService.zoomHubShiftTimingGuardrailMessage(
+        shiftStart: updatedShift.shiftStart,
+        shiftEnd: updatedShift.shiftEnd,
+        adminTimezone: updatedShift.adminTimezone,
+        category: updatedShift.category,
+        videoProvider: updatedShift.videoProvider,
+      );
+      if (guardrailMessage != null) {
+        final notes = _notesController.text.trim();
+        await ShiftService.recordZoomHubGuardrailAttempt(
+          operation: 'quick_edit_shift',
+          source: 'quick_edit_shift_popup',
+          existingShiftId: widget.shift.id,
+          message: guardrailMessage,
+          shiftAttempt: {
+            'operation': 'quick_edit_shift',
+            'source': 'quick_edit_shift_popup',
+            'existingShiftId': widget.shift.id,
+            'teacherId': widget.shift.teacherId,
+            'teacherName': widget.shift.teacherName,
+            'studentIds': widget.shift.studentIds,
+            'studentNames': widget.shift.studentNames,
+            'shiftStartIso': utcStart.toUtc().toIso8601String(),
+            'shiftEndIso': utcEnd.toUtc().toIso8601String(),
+            'localStartIso': naiveStart.toIso8601String(),
+            'localEndIso': naiveEnd.toIso8601String(),
+            'timezone': _selectedTimezone,
+            'adminTimezone': widget.shift.adminTimezone,
+            'category': widget.shift.category.name,
+            'videoProvider': widget.shift.videoProvider.name,
+            'subjectId': widget.shift.subjectId,
+            'subjectDisplayName': widget.shift.subjectDisplayName,
+            'customName': widget.shift.customName,
+            'notes': notes.isNotEmpty ? notes : null,
+          }..removeWhere((_, value) => value == null),
+        );
+        throw ShiftGuardrailException(guardrailMessage);
+      }
+
       // Use the standard update path so lifecycle tasks are rescheduled for the
       // new times (best-effort; will not block the edit if scheduling fails).
       await ShiftService.updateShift(updatedShift);
@@ -562,14 +611,19 @@ class _QuickEditShiftPopupState extends State<QuickEditShiftPopup> {
         widget.onSaved();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: Text(AppLocalizations.of(context)!.shiftUpdated), backgroundColor: Colors.green),
+              content: Text(AppLocalizations.of(context)!.shiftUpdated),
+              backgroundColor: Colors.green),
         );
       }
     } catch (e) {
       AppLogger.error('Error updating shift: $e');
       if (mounted) {
+        final raw = e.toString();
+        final message = raw.startsWith('Exception: ')
+            ? raw.substring('Exception: '.length)
+            : raw;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppLocalizations.of(context)!.errorE), backgroundColor: Colors.red),
+          SnackBar(content: Text(message), backgroundColor: Colors.red),
         );
       }
     } finally {

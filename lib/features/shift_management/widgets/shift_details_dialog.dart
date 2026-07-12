@@ -607,9 +607,8 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
     // Check if there's an active timesheet entry (has clock-in but no clock-out)
     for (final entry in _allTimesheetEntries) {
       final clockIn = entry['clock_in_time'] ?? entry['clock_in_timestamp'];
-      final clockOut = entry['clock_out_time'] ?? entry['clock_out_timestamp'];
 
-      if (clockIn != null && (clockOut == null || clockOut == '')) {
+      if (clockIn != null && _isOpenTimesheetEntry(entry)) {
         // Found an active entry - start the timer
         if (clockIn is Timestamp) {
           _clockInTime = clockIn.toDate();
@@ -623,6 +622,13 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
         break;
       }
     }
+  }
+
+  bool _isOpenTimesheetEntry(Map<String, dynamic> entry) {
+    final endTime = entry['end_time'];
+    final clockOut = entry['clock_out_time'] ?? entry['clock_out_timestamp'];
+    return (endTime == null || endTime == '') &&
+        (clockOut == null || clockOut == '');
   }
 
   /// Starts the timer that updates elapsed time every second
@@ -1001,9 +1007,8 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
     // Check if ANY entry is currently active (has clock in but no clock out)
     for (final entry in _allTimesheetEntries) {
       final clockIn = entry['clock_in_time'] ?? entry['clock_in_timestamp'];
-      final clockOut = entry['clock_out_time'] ?? entry['clock_out_timestamp'];
 
-      if (clockIn != null && (clockOut == null || clockOut == '')) {
+      if (clockIn != null && _isOpenTimesheetEntry(entry)) {
         return true;
       }
     }
@@ -1065,8 +1070,35 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
       );
 
       if (result['success'] == true) {
-        // Start the elapsed timer
-        _clockInTime = DateTime.now();
+        final now = DateTime.now();
+        final timesheetEntry =
+            result['timesheetEntry'] as Map<String, dynamic>?;
+
+        final activeEntry = <String, dynamic>{
+          if (timesheetEntry != null) ...timesheetEntry,
+          'id': timesheetEntry?['documentId'] ?? timesheetEntry?['id'],
+          'shift_id': widget.shift.id,
+          'clock_in_timestamp':
+              timesheetEntry?['clock_in_timestamp'] ?? Timestamp.fromDate(now),
+          'start_time':
+              timesheetEntry?['start_time'] ?? DateFormat('h:mm a').format(now),
+          'end_time': '',
+          'clock_out_timestamp': null,
+        };
+
+        setState(() {
+          _clockInTime = now;
+          _liveShift = (_liveShift ?? widget.shift).copyWith(
+            clockInTime: now,
+            clockOutTime: null,
+            status: ShiftStatus.active,
+          );
+          _timesheetEntry = activeEntry;
+          _allTimesheetEntries
+              .removeWhere((entry) => entry['id'] == activeEntry['id']);
+          _allTimesheetEntries.insert(0, activeEntry);
+        });
+
         _startElapsedTimer();
 
         if (mounted) {
@@ -1076,8 +1108,8 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
               backgroundColor: Colors.green,
             ),
           );
-          Navigator.pop(context);
           widget.onRefresh?.call();
+          unawaited(_reloadMergedTimesheetsAndForm());
         }
       } else {
         if (mounted) {
@@ -1111,6 +1143,13 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) throw Exception('Not authenticated');
+      final shiftForClockOut = _liveShift ?? widget.shift;
+      String? clockOutNote;
+
+      if (ShiftTimesheetService.requiresClockOutNote(shiftForClockOut)) {
+        clockOutNote = await _showClockOutNoteDialog(shiftForClockOut);
+        if (clockOutNote == null) return;
+      }
 
       // Get location
       final location = await LocationService.getCurrentLocation();
@@ -1129,9 +1168,10 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
       // Clock out
       final result = await ShiftTimesheetService.clockOutFromShift(
         user.uid,
-        widget.shift.id,
+        shiftForClockOut.id,
         location: location,
         platform: 'mobile',
+        employeeNote: clockOutNote,
       );
 
       if (result['success'] == true) {
@@ -1202,6 +1242,73 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
     } finally {
       if (mounted) setState(() => _isClockingOut = false);
     }
+  }
+
+  Future<String?> _showClockOutNoteDialog(TeachingShift shift) async {
+    final l10n = AppLocalizations.of(context)!;
+    final status = ShiftTimesheetService.clockOutStatusForShift(shift);
+    final minutes = ShiftTimesheetService.clockOutDeviationMinutes(shift).abs();
+    final controller = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    final result = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        final isEarly = status == 'early';
+        return AlertDialog(
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Text(isEarly
+              ? l10n.timeClockEarlyClockOutTitle
+              : l10n.timeClockLateClockOutTitle),
+          content: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(isEarly
+                    ? l10n.timeClockEarlyClockOutBody(minutes)
+                    : l10n.timeClockLateClockOutBody(minutes)),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: controller,
+                  maxLines: 3,
+                  decoration: InputDecoration(
+                    labelText: l10n.timeClockClockOutNoteLabel,
+                    hintText: l10n.timeClockClockOutNoteHint,
+                    border: const OutlineInputBorder(),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return l10n.timeClockClockOutNoteRequired;
+                    }
+                    return null;
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: Text(l10n.commonCancel),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (formKey.currentState?.validate() != true) return;
+                Navigator.pop(dialogContext, controller.text.trim());
+              },
+              child: Text(l10n.timeClockContinueClockOut),
+            ),
+          ],
+        );
+      },
+    );
+
+    controller.dispose();
+    return result;
   }
 
   void _showEditTimesheetDialog(String timesheetId) {

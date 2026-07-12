@@ -46,10 +46,47 @@ jest.mock('../services/realtimekit/client', () => mockRealtimeKitClient);
 
 let mockUsers;
 let mockShifts;
+let mockLivekitSessions;
+let mockHubMeetings;
+
+const mockStoreForCollection = (collectionName) => {
+  if (collectionName === 'users') return mockUsers;
+  if (collectionName === 'teaching_shifts') return mockShifts;
+  if (collectionName === 'livekit_sessions') return mockLivekitSessions;
+  if (collectionName === 'hub_meetings') return mockHubMeetings;
+  return {};
+};
+
+const mockMakeQuery = (collectionName, filters = [], maxResults = null) => ({
+  where: (field, op, value) =>
+    mockMakeQuery(collectionName, [...filters, { field, op, value }], maxResults),
+  limit: (limitValue) => mockMakeQuery(collectionName, filters, limitValue),
+  get: async () => {
+    const store = mockStoreForCollection(collectionName);
+    let entries = Object.entries(store);
+    for (const filter of filters) {
+      entries = entries.filter(([, data]) => {
+        if (filter.op !== '==') return false;
+        return data?.[filter.field] === filter.value;
+      });
+    }
+    const limited = maxResults == null ? entries : entries.slice(0, maxResults);
+    const docs = limited.map(([id, data]) => ({
+      id,
+      exists: true,
+      data: () => data,
+    }));
+    return {
+      empty: docs.length === 0,
+      docs,
+      forEach: (callback) => docs.forEach(callback),
+    };
+  },
+});
 
 const mockMakeDocRef = (collectionName, id) => ({
   get: async () => {
-    const store = collectionName === 'users' ? mockUsers : mockShifts;
+    const store = mockStoreForCollection(collectionName);
     const data = store[id];
     return {
       exists: data !== undefined,
@@ -58,11 +95,11 @@ const mockMakeDocRef = (collectionName, id) => ({
     };
   },
   set: async (data, options) => {
-    const store = collectionName === 'users' ? mockUsers : mockShifts;
+    const store = mockStoreForCollection(collectionName);
     store[id] = options?.merge ? { ...(store[id] || {}), ...data } : data;
   },
   update: async (data) => {
-    const store = collectionName === 'users' ? mockUsers : mockShifts;
+    const store = mockStoreForCollection(collectionName);
     store[id] = { ...(store[id] || {}), ...data };
   },
 });
@@ -84,6 +121,7 @@ const mockFirestore = jest.fn(() => ({
   batch: () => mockMakeBatch(),
   collection: (name) => ({
     doc: (id) => mockMakeDocRef(name, id),
+    where: (field, op, value) => mockMakeQuery(name, [{ field, op, value }]),
   }),
 }));
 mockFirestore.FieldValue = {
@@ -172,6 +210,8 @@ describe('RealtimeKit class access', () => {
       },
     };
     mockUsers.student_1.guardian_ids = ['parent_1'];
+    mockLivekitSessions = {};
+    mockHubMeetings = {};
     mockShifts = {
       shift_1: {
         teacher_id: 'teacher_1',
@@ -256,6 +296,40 @@ describe('RealtimeKit class access', () => {
       'meeting_1',
       expect.objectContaining({
         custom_participant_id: 'teacher_1',
+        preset_name: 'teacher',
+      }),
+    );
+  });
+
+  test('allows a teacher auth alias to join when the verified email matches the assigned teacher record', async () => {
+    mockUsers.teacher_alias_doc = {
+      first_name: 'Teacher',
+      last_name: 'Alias',
+      user_type: 'teacher',
+      email: 'teacher.alias@example.com',
+    };
+    mockShifts.shift_alias = {
+      teacher_id: 'teacher_alias_doc',
+      student_ids: ['student_1'],
+      shift_start: new Date(Date.now() - 5 * 60 * 1000),
+      shift_end: new Date(Date.now() + 55 * 60 * 1000),
+      subject_display_name: 'Quran',
+    };
+
+    const result = await getRealtimeKitJoinToken({
+      auth: {
+        uid: 'auth_uid_for_teacher_alias',
+        token: { email: 'teacher.alias@example.com' },
+      },
+      data: { shiftId: 'shift_alias' },
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.userRole).toBe('teacher');
+    expect(mockRealtimeKitClient.addParticipant).toHaveBeenCalledWith(
+      'meeting_1',
+      expect.objectContaining({
+        custom_participant_id: 'auth_uid_for_teacher_alias',
         preset_name: 'teacher',
       }),
     );
@@ -443,6 +517,45 @@ describe('RealtimeKit class access', () => {
     const result = await getRealtimeKitJoinToken({
       auth: { uid: 'admin_1' },
       data: { shiftId: 'shift_1' },
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.userRole).toBe('admin');
+    expect(mockRealtimeKitClient.addParticipant).toHaveBeenCalledWith(
+      'meeting_1',
+      expect.objectContaining({
+        custom_participant_id: 'admin_1',
+        preset_name: 'teacher',
+      }),
+    );
+  });
+
+  test('honors active student role for an admin who is assigned as a student', async () => {
+    mockShifts.shift_1.student_ids = ['student_1', 'admin_1'];
+
+    const result = await getRealtimeKitJoinToken({
+      auth: { uid: 'admin_1' },
+      data: { shiftId: 'shift_1', activeRole: 'student' },
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.userRole).toBe('student');
+    expect(mockRealtimeKitClient.addParticipant).toHaveBeenCalledWith(
+      'meeting_1',
+      expect.objectContaining({
+        custom_participant_id: 'admin_1',
+        preset_name: 'student',
+      }),
+    );
+  });
+
+  test('does not apply student cutoff when the same assigned user joins as admin', async () => {
+    mockUsers.admin_1.access_suspended = true;
+    mockShifts.shift_1.student_ids = ['student_1', 'admin_1'];
+
+    const result = await getRealtimeKitJoinToken({
+      auth: { uid: 'admin_1' },
+      data: { shiftId: 'shift_1', activeRole: 'admin' },
     });
 
     expect(result.success).toBe(true);
@@ -678,6 +791,120 @@ describe('RealtimeKit class access', () => {
         role: 'student',
       }),
     ]);
+  });
+
+  test('presence lists Zoom participants with teacher, student, and admin roles', async () => {
+    const joinedAt = {
+      toDate: () => new Date('2026-01-01T00:00:00.000Z'),
+    };
+    mockShifts.shift_1.video_provider = 'zoom';
+    mockShifts.shift_1.zoom_meeting_id = '987654321';
+    mockLivekitSessions = {
+      session_teacher: {
+        shift_id: 'shift_1',
+        user_id: 'teacher_1',
+        role: 'teacher',
+        zoom_participant_name: 'Teacher One',
+        presence_windows: [{ join_at: joinedAt, leave_at: null }],
+      },
+      session_student: {
+        shift_id: 'shift_1',
+        user_id: 'student_1',
+        role: 'student',
+        zoom_participant_name: 'Student One',
+        presence_windows: [{ join_at: joinedAt, leave_at: null }],
+      },
+      session_admin: {
+        shift_id: 'shift_1',
+        user_id: 'admin_1',
+        role: 'participant',
+        zoom_participant_name: 'Admin One',
+        presence_windows: [{ join_at: joinedAt, leave_at: null }],
+      },
+      session_hub_bot: {
+        shift_id: 'shift_1',
+        user_id: 'zoom_hub_bot_lane_1',
+        role: 'participant',
+        zoom_participant_name: 'Alluwal Hub Bot Lane 1',
+        presence_windows: [{ join_at: joinedAt, leave_at: null }],
+      },
+      session_closed: {
+        shift_id: 'shift_1',
+        user_id: 'outsider_1',
+        role: 'participant',
+        zoom_participant_name: 'Outside User',
+        presence_windows: [{ join_at: joinedAt, leave_at: joinedAt }],
+      },
+    };
+
+    const result = await getRealtimeKitRoomPresence({
+      auth: { uid: 'admin_1' },
+      data: { shiftId: 'shift_1' },
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.meetingId).toBe('987654321');
+    expect(result.participantCount).toBe(3);
+    expect(result.participants).toEqual(expect.arrayContaining([
+      expect.objectContaining({ identity: 'teacher_1', role: 'teacher' }),
+      expect.objectContaining({ identity: 'student_1', role: 'student' }),
+      expect.objectContaining({ identity: 'admin_1', role: 'admin' }),
+    ]));
+    expect(result.participants).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ identity: 'zoom_hub_bot_lane_1' }),
+    ]));
+    expect(mockRealtimeKitClient.listMeetingParticipants).not.toHaveBeenCalled();
+  });
+
+  test('presence prefers fresh Zoom hub bot roster over stale webhook sessions', async () => {
+    const joinedAt = {
+      toDate: () => new Date('2026-01-01T00:00:00.000Z'),
+    };
+    mockShifts.shift_1.video_provider = 'zoom';
+    mockShifts.shift_1.zoom_meeting_id = '987654321';
+    mockShifts.shift_1.hub_meeting_id = 'hub_1';
+    mockLivekitSessions = {
+      session_teacher: {
+        shift_id: 'shift_1',
+        user_id: 'teacher_1',
+        role: 'teacher',
+        zoom_participant_name: 'Teacher One',
+        presence_windows: [{ join_at: joinedAt, leave_at: null }],
+      },
+      session_student_closed: {
+        shift_id: 'shift_1',
+        user_id: 'student_1',
+        role: 'student',
+        zoom_participant_name: 'Student One',
+        presence_windows: [{ join_at: joinedAt, leave_at: joinedAt }],
+      },
+    };
+    mockHubMeetings = {
+      hub_1: {
+        status: 'roomsOpen',
+        liveParticipantsUpdatedAt: { toDate: () => new Date() },
+        liveParticipantsByShift: {
+          shift_1: [
+            { identity: 'teacher_1', name: 'Teacher One', role: 'teacher' },
+            { identity: 'student_1', name: 'Student One', role: 'student' },
+          ],
+        },
+      },
+    };
+
+    const result = await getRealtimeKitRoomPresence({
+      auth: { uid: 'admin_1' },
+      data: { shiftId: 'shift_1' },
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.source).toBe('zoom_hub_bot');
+    expect(result.participantCount).toBe(2);
+    expect(result.participants).toEqual(expect.arrayContaining([
+      expect.objectContaining({ identity: 'teacher_1', role: 'teacher' }),
+      expect.objectContaining({ identity: 'student_1', role: 'student' }),
+    ]));
+    expect(mockRealtimeKitClient.listMeetingParticipants).not.toHaveBeenCalled();
   });
 
   test('guest join is blocked while the room is locked', async () => {

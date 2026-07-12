@@ -1,0 +1,28 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    html, body, rtk-meeting { margin: 0; width: 100%; height: 100%; background: #000; }
+    body { overflow: hidden; }
+  </style>
+</head>
+<body>
+  <rtk-meeting id="meeting" mode="fill" show-setup-screen="false"></rtk-meeting>
+  <script type="module">
+    import { defineCustomElements } from 'https://cdn.jsdelivr.net/npm/@cloudflare/realtimekit-ui@1.2.0/loader/index.es2017.js';
+    defineCustomElements();
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/@cloudflare/realtimekit@1.5.1/dist/browser.js"></script>
+  <script>
+    (async () => {
+      const params = new URLSearchParams(location.hash.slice(1));
+      const authToken = params.get('token');
+      if (!authToken) return;
+      const meeting = await RealtimeKitClient.init({ authToken });
+      document.getElementById('meeting').meeting = meeting;
+    })();
+  </script>
+</body>
+</html>

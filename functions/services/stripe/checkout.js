@@ -25,6 +25,79 @@ const getStripePublishableKey = () => (process.env.STRIPE_PUBLISHABLE_KEY || '')
 
 const isStripeConfigured = () => Boolean(getStripeSecretKey());
 
+const LIVE_STRIPE_PROJECT_IDS = new Set(['alluwal-academy']);
+
+const getProjectId = () => {
+  const direct = (
+    process.env.GCLOUD_PROJECT ||
+    process.env.GCP_PROJECT ||
+    process.env.GOOGLE_CLOUD_PROJECT ||
+    ''
+  ).trim();
+  if (direct) return direct;
+
+  try {
+    const firebaseConfig = JSON.parse(process.env.FIREBASE_CONFIG || '{}');
+    return (firebaseConfig.projectId || '').toString().trim();
+  } catch (_) {
+    return '';
+  }
+};
+
+const stripeKeyMode = (key) => {
+  const value = (key || '').trim();
+  if (!value) return 'missing';
+  if (value.startsWith('sk_live_') || value.startsWith('pk_live_')) {
+    return 'live';
+  }
+  if (value.startsWith('sk_test_') || value.startsWith('pk_test_')) {
+    return 'test';
+  }
+  return 'unknown';
+};
+
+const getStripeConfigurationStatus = () => {
+  const projectId = getProjectId();
+  const secretMode = stripeKeyMode(getStripeSecretKey());
+  const publishableMode = stripeKeyMode(getStripePublishableKey());
+  const requiresLive = LIVE_STRIPE_PROJECT_IDS.has(projectId);
+
+  return {
+    projectId,
+    requiresLive,
+    secretMode,
+    publishableMode,
+  };
+};
+
+const assertStripeConfiguration = () => {
+  const status = getStripeConfigurationStatus();
+  const {projectId, requiresLive, secretMode, publishableMode} = status;
+
+  if (secretMode === 'missing') {
+    throw new Error('Stripe secret key is not configured');
+  }
+
+  if (requiresLive && (secretMode !== 'live' || publishableMode !== 'live')) {
+    throw new Error(
+      `Production project ${projectId} must use live Stripe keys, not ${secretMode}/${publishableMode} keys`
+    );
+  }
+
+  if (
+    publishableMode !== 'missing' &&
+    secretMode !== 'unknown' &&
+    publishableMode !== 'unknown' &&
+    secretMode !== publishableMode
+  ) {
+    throw new Error(
+      `Stripe secret and publishable keys must use the same mode, got ${secretMode}/${publishableMode}`
+    );
+  }
+
+  return status;
+};
+
 const getCheckoutUrls = () => ({
   success: (process.env.STRIPE_CHECKOUT_SUCCESS_URL || '').trim(),
   cancel: (process.env.STRIPE_CHECKOUT_CANCEL_URL || '').trim(),
@@ -173,6 +246,8 @@ module.exports = {
   isStripeConfigured,
   getStripeSecretKey,
   getStripePublishableKey,
+  getStripeConfigurationStatus,
+  assertStripeConfiguration,
   getCheckoutUrls,
   createCheckoutSession,
   getOrCreateCustomer,

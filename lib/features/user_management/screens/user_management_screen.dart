@@ -21,6 +21,7 @@ import '../../../core/services/user_role_service.dart';
 import '../../shift_management/widgets/create_shift_dialog.dart'
     show EmployeeSelectionDialog;
 import 'edit_user_screen.dart';
+import '../widgets/manage_guardians_dialog.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
@@ -40,6 +41,7 @@ class _ParentSearchDialog extends StatefulWidget {
   final ValueChanged<String> onParentSelected;
   final VoidCallback onClearFilter;
   final ValueChanged<Map<String, dynamic>>? onLinkStudentToParent;
+  final ValueChanged<Map<String, dynamic>>? onManageParentStudents;
 
   const _ParentSearchDialog({
     required this.parents,
@@ -47,6 +49,7 @@ class _ParentSearchDialog extends StatefulWidget {
     required this.onParentSelected,
     required this.onClearFilter,
     this.onLinkStudentToParent,
+    this.onManageParentStudents,
   });
 
   @override
@@ -424,6 +427,47 @@ class _ParentSearchDialogState extends State<_ParentSearchDialog> {
                                             ),
                                           ),
                                         ),
+                                      if (widget.onManageParentStudents != null)
+                                        Padding(
+                                          padding: const EdgeInsets.only(
+                                            left: 8,
+                                          ),
+                                          child: Tooltip(
+                                            message:
+                                                AppLocalizations.of(context)!
+                                                    .manageParentStudentsButton,
+                                            child: Material(
+                                              color: Colors.transparent,
+                                              child: InkWell(
+                                                borderRadius:
+                                                    BorderRadius.circular(10),
+                                                onTap: () {
+                                                  Navigator.pop(context);
+                                                  widget.onManageParentStudents
+                                                      ?.call(parent);
+                                                },
+                                                child: Container(
+                                                  padding:
+                                                      const EdgeInsets.all(8),
+                                                  decoration: BoxDecoration(
+                                                    color:
+                                                        const Color(0xffDC2626)
+                                                            .withValues(
+                                                                alpha: 0.1),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            10),
+                                                  ),
+                                                  child: const Icon(
+                                                    Icons.link_off,
+                                                    size: 18,
+                                                    color: Color(0xffDC2626),
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
                                       if (isSelected)
                                         const Padding(
                                           padding: EdgeInsets.only(left: 12),
@@ -572,6 +616,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
         onViewCredentials: _viewStudentCredentials,
         onToggleAITutor: _toggleAITutor,
         onToggleTontine: _toggleTontine,
+        onToggleZoom: _toggleZoom,
         context: context,
       );
       _adminDataSource = AdminEmployeeDataSource(
@@ -584,6 +629,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
         onDeleteUser: _deleteUser,
         onToggleAITutor: _toggleAITutor,
         onToggleTontine: _toggleTontine,
+        onToggleZoom: _toggleZoom,
         context: context,
       );
     }
@@ -845,7 +891,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
       Map<String, dynamic> parent) async {
     final parentId = (parent['id'] ?? '').toString().trim();
     if (parentId.isEmpty) {
-      _showErrorSnackBar('Invalid parent selected.');
+      _showErrorSnackBar(AppLocalizations.of(context)!.invalidParentSelected);
       return;
     }
 
@@ -917,6 +963,37 @@ class _UserManagementScreenState extends State<UserManagementScreen>
       _showErrorSnackBar(
         'Failed to link parent and student. Please try again.',
       );
+    }
+  }
+
+  Future<void> _showManageParentStudentsDialog(
+      Map<String, dynamic> parent) async {
+    final parentId = (parent['id'] ?? '').toString().trim();
+    if (parentId.isEmpty) {
+      _showErrorSnackBar(AppLocalizations.of(context)!.invalidParentSelected);
+      return;
+    }
+
+    final parentName = (parent['name'] ?? '').toString().trim().isNotEmpty
+        ? (parent['name'] ?? '').toString().trim()
+        : (parent['email'] ?? '').toString().trim().isNotEmpty
+            ? (parent['email'] ?? '').toString().trim()
+            : parentId;
+
+    if (!mounted) return;
+    final changed = await showDialog<bool>(
+      context: context,
+      builder: (_) => ManageParentStudentsDialog(
+        parentUid: parentId,
+        parentName: parentName,
+      ),
+    );
+
+    if (changed == true) {
+      await _loadParentStudentRelationships();
+      if (mounted) {
+        setState(() => _applyFilters());
+      }
     }
   }
 
@@ -1195,6 +1272,286 @@ class _UserManagementScreenState extends State<UserManagementScreen>
     } catch (e) {
       _showErrorSnackBar('Error updating Tontine access: $e');
     }
+  }
+
+  Future<void> _toggleZoom(Employee employee) async {
+    final l10n = AppLocalizations.of(context)!;
+    final newValue = !employee.useZoom;
+
+    // Enabling requires a licensed Zoom host account. Let the admin pick one
+    // (the callable will persist it) instead of failing the precondition.
+    String? hostAccount;
+    List<String>? studentIds;
+    if (newValue) {
+      hostAccount = await _pickZoomHost(employee);
+      if (hostAccount == null) return; // cancelled
+      if (!mounted) return;
+      // Ask whether to switch every class or only selected students' classes.
+      // Empty list => all classes; non-empty => only those students' shifts.
+      studentIds = await _pickZoomScope(employee);
+      if (studentIds == null) return; // cancelled
+    }
+
+    try {
+      final callable = FirebaseFunctions.instanceFor(region: 'us-central1')
+          .httpsCallable('setTeacherZoomEnabled');
+      final payload = <String, dynamic>{
+        'teacherId': employee.documentId,
+        'enabled': newValue,
+      };
+      if (hostAccount != null && hostAccount.isNotEmpty) {
+        payload['zoomHostAccount'] = hostAccount;
+      }
+      if (studentIds != null && studentIds.isNotEmpty) {
+        payload['studentIds'] = studentIds;
+      }
+      final result = await callable.call(payload);
+      final data =
+          result.data is Map ? Map<String, dynamic>.from(result.data) : {};
+      final updatedCount = (data['updatedShiftCount'] as num?)?.toInt() ?? 0;
+
+      _showSuccessSnackBar(
+        newValue
+            ? l10n.zoomEnabledFor(employee.firstName, updatedCount)
+            : l10n.zoomDisabledFor(employee.firstName, updatedCount),
+      );
+
+      _refreshData();
+    } on FirebaseFunctionsException catch (e) {
+      final message =
+          e.message?.trim().isNotEmpty == true ? e.message!.trim() : e.code;
+      _showErrorSnackBar(l10n.zoomToggleError(message));
+    } catch (e) {
+      _showErrorSnackBar(l10n.zoomToggleError(e.toString()));
+    }
+  }
+
+  /// Licensed Zoom host accounts available for the pilot. Each hosts one
+  /// concurrent class, so a teacher is mapped to one of these.
+  static const List<String> _zoomHostAccounts = [
+    'support@alluwaleducationhub.org',
+    'billing@alluwaleducationhub.org',
+  ];
+
+  /// Prompt the admin to choose which licensed Zoom account hosts this
+  /// teacher's classes. Returns the chosen host email, or null if cancelled.
+  Future<String?> _pickZoomHost(Employee employee) async {
+    final l10n = AppLocalizations.of(context)!;
+    String selected = _zoomHostAccounts.first;
+    final customController = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (dialogContext, setLocalState) {
+            final custom = customController.text.trim();
+            final effective = custom.isNotEmpty ? custom : selected;
+            return AlertDialog(
+              title: Text(l10n.zoomHostPickerTitle),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(l10n.zoomHostPickerBody(employee.firstName)),
+                  const SizedBox(height: 8),
+                  ..._zoomHostAccounts.map((host) {
+                    final isSelected = custom.isEmpty && selected == host;
+                    return InkWell(
+                      onTap: () => setLocalState(() {
+                        selected = host;
+                        customController.clear();
+                      }),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        child: Row(
+                          children: [
+                            Icon(
+                              isSelected
+                                  ? Icons.radio_button_checked
+                                  : Icons.radio_button_unchecked,
+                              size: 18,
+                              color: isSelected
+                                  ? const Color(0xff1a6ef5)
+                                  : Colors.grey,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(host,
+                                  style: const TextStyle(fontSize: 13)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }),
+                  const SizedBox(height: 4),
+                  TextField(
+                    controller: customController,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: InputDecoration(
+                      isDense: true,
+                      labelText: l10n.zoomHostPickerCustomLabel,
+                    ),
+                    onChanged: (_) => setLocalState(() {}),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: Text(l10n.commonCancel),
+                ),
+                ElevatedButton(
+                  onPressed: effective.trim().isEmpty
+                      ? null
+                      : () => Navigator.pop(dialogContext, effective.trim()),
+                  child: Text(l10n.zoomHostPickerAssign),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  /// Unique students taught by this teacher in upcoming teaching shifts,
+  /// as an ordered id -> display name map. Used to scope the Zoom switch.
+  Future<Map<String, String>> _fetchTeacherStudents(String teacherId) async {
+    final snap = await FirebaseFirestore.instance
+        .collection('teaching_shifts')
+        .where('teacher_id', isEqualTo: teacherId)
+        .get();
+    final now = DateTime.now();
+    final students = <String, String>{};
+    for (final doc in snap.docs) {
+      final data = doc.data();
+      final category =
+          (data['category'] ?? data['shift_category'] ?? 'teaching')
+              .toString()
+              .toLowerCase();
+      if (category != 'teaching') continue;
+      final rawStart = data['shift_start'];
+      final start = rawStart is Timestamp ? rawStart.toDate() : null;
+      if (start == null || start.isBefore(now)) continue;
+      final ids = (data['student_ids'] as List?) ?? const [];
+      final names = (data['student_names'] as List?) ?? const [];
+      for (var i = 0; i < ids.length; i++) {
+        final id = ids[i].toString().trim();
+        if (id.isEmpty) continue;
+        final name = i < names.length ? names[i].toString().trim() : id;
+        students.putIfAbsent(id, () => name.isEmpty ? id : name);
+      }
+    }
+    return students;
+  }
+
+  /// Ask the admin whether to switch all of the teacher's classes or only
+  /// selected students' classes to Zoom. Returns:
+  ///   null       -> cancelled
+  ///   empty list -> all upcoming classes
+  ///   non-empty  -> only shifts containing these student ids
+  Future<List<String>?> _pickZoomScope(Employee employee) async {
+    final l10n = AppLocalizations.of(context)!;
+    final students = await _fetchTeacherStudents(employee.documentId);
+    if (!mounted) return null;
+
+    bool allClasses = true;
+    final selected = <String>{};
+    return showDialog<List<String>>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (dialogContext, setLocalState) {
+            return AlertDialog(
+              title: Text(l10n.zoomScopeTitle),
+              content: SizedBox(
+                width: 400,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(l10n.zoomScopeBody(employee.firstName)),
+                    const SizedBox(height: 8),
+                    RadioListTile<bool>(
+                      value: true,
+                      groupValue: allClasses,
+                      onChanged: (_) => setLocalState(() => allClasses = true),
+                      title: Text(l10n.zoomScopeAll),
+                      contentPadding: EdgeInsets.zero,
+                      dense: true,
+                    ),
+                    RadioListTile<bool>(
+                      value: false,
+                      groupValue: allClasses,
+                      onChanged: (_) => setLocalState(() => allClasses = false),
+                      title: Text(l10n.zoomScopeSelect),
+                      contentPadding: EdgeInsets.zero,
+                      dense: true,
+                    ),
+                    if (!allClasses) ...[
+                      const Divider(height: 12),
+                      if (students.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          child: Text(
+                            l10n.zoomScopeNoStudents,
+                            style: const TextStyle(
+                                fontSize: 13, color: Colors.grey),
+                          ),
+                        )
+                      else
+                        Flexible(
+                          child: SingleChildScrollView(
+                            child: Column(
+                              children: students.entries.map((entry) {
+                                final checked = selected.contains(entry.key);
+                                return CheckboxListTile(
+                                  value: checked,
+                                  dense: true,
+                                  contentPadding: EdgeInsets.zero,
+                                  controlAffinity:
+                                      ListTileControlAffinity.leading,
+                                  title: Text(
+                                    entry.value,
+                                    style: const TextStyle(fontSize: 13),
+                                  ),
+                                  onChanged: (v) => setLocalState(() {
+                                    if (v == true) {
+                                      selected.add(entry.key);
+                                    } else {
+                                      selected.remove(entry.key);
+                                    }
+                                  }),
+                                );
+                              }).toList(),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: Text(l10n.commonCancel),
+                ),
+                ElevatedButton(
+                  onPressed: (!allClasses && selected.isEmpty)
+                      ? null
+                      : () => Navigator.pop(
+                            dialogContext,
+                            allClasses ? <String>[] : selected.toList(),
+                          ),
+                  child: Text(l10n.zoomHostPickerAssign),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   /// View student login credentials
@@ -2196,44 +2553,48 @@ class _UserManagementScreenState extends State<UserManagementScreen>
     return _boundedHorizontalScrollGrid(
       minContentWidth: _kAdminsGridMinContentWidth,
       child: SfDataGrid(
-      source: _adminDataSource!,
-      rowHeight: 48,
-      headerRowHeight: 42,
-      gridLinesVisibility: GridLinesVisibility.horizontal,
-      headerGridLinesVisibility: GridLinesVisibility.horizontal,
-      columnWidthMode: ColumnWidthMode.none,
-      columns: <GridColumn>[
-        GridColumn(
-          columnName: 'FirstName',
-          width: 110,
-          label: _denseHeaderLabel(AppLocalizations.of(context)!.userFirstName),
-        ),
-        GridColumn(
-          columnName: 'LastName',
-          width: 110,
-          label: _denseHeaderLabel(AppLocalizations.of(context)!.userLastName),
-        ),
-        GridColumn(
-          columnName: 'Email',
-          width: 200,
-          label: _denseHeaderLabel(AppLocalizations.of(context)!.profileEmail),
-        ),
-        GridColumn(
-          columnName: 'UserType',
-          width: 110,
-          label: _denseHeaderLabel(AppLocalizations.of(context)!.roleType),
-        ),
-        GridColumn(
-          columnName: 'AdminType',
-          width: 140,
-          label: _denseHeaderLabel(AppLocalizations.of(context)!.adminType),
-        ),
-        GridColumn(
-          columnName: 'Actions',
-          width: 250,
-          label: _denseHeaderLabel(AppLocalizations.of(context)!.timesheetActions),
-        ),
-      ],
+        source: _adminDataSource!,
+        rowHeight: 48,
+        headerRowHeight: 42,
+        gridLinesVisibility: GridLinesVisibility.horizontal,
+        headerGridLinesVisibility: GridLinesVisibility.horizontal,
+        columnWidthMode: ColumnWidthMode.none,
+        columns: <GridColumn>[
+          GridColumn(
+            columnName: 'FirstName',
+            width: 110,
+            label:
+                _denseHeaderLabel(AppLocalizations.of(context)!.userFirstName),
+          ),
+          GridColumn(
+            columnName: 'LastName',
+            width: 110,
+            label:
+                _denseHeaderLabel(AppLocalizations.of(context)!.userLastName),
+          ),
+          GridColumn(
+            columnName: 'Email',
+            width: 200,
+            label:
+                _denseHeaderLabel(AppLocalizations.of(context)!.profileEmail),
+          ),
+          GridColumn(
+            columnName: 'UserType',
+            width: 110,
+            label: _denseHeaderLabel(AppLocalizations.of(context)!.roleType),
+          ),
+          GridColumn(
+            columnName: 'AdminType',
+            width: 140,
+            label: _denseHeaderLabel(AppLocalizations.of(context)!.adminType),
+          ),
+          GridColumn(
+            columnName: 'Actions',
+            width: 250,
+            label: _denseHeaderLabel(
+                AppLocalizations.of(context)!.timesheetActions),
+          ),
+        ],
       ),
     );
   }
@@ -2334,6 +2695,9 @@ class _UserManagementScreenState extends State<UserManagementScreen>
         },
         onLinkStudentToParent: (parent) {
           _showLinkStudentToParentDialog(parent);
+        },
+        onManageParentStudents: (parent) {
+          _showManageParentStudentsDialog(parent);
         },
       ),
     );
@@ -2439,8 +2803,8 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                               children: [
                                 // Users Tab
                                 Container(
-                                  padding: const EdgeInsets.fromLTRB(
-                                      6, 4, 6, 6),
+                                  padding:
+                                      const EdgeInsets.fromLTRB(6, 4, 6, 6),
                                   child: _employeeDataSource == null
                                       ? const Center(
                                           child: CircularProgressIndicator())
@@ -2532,8 +2896,8 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                 ),
                                 // Admins Tab
                                 Container(
-                                  padding: const EdgeInsets.fromLTRB(
-                                      10, 8, 10, 10),
+                                  padding:
+                                      const EdgeInsets.fromLTRB(10, 8, 10, 10),
                                   child: Column(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,

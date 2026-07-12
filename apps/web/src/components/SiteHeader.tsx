@@ -70,11 +70,11 @@ export function SiteHeader() {
 
   return (
     <header className="site-header sticky top-0 z-50 bg-white shadow-[0_2px_10px_rgba(0,0,0,0.02)]">
-      <div className="bg-[#1d4ed8] text-white">
+      <div className="border-b border-[#F59E0B]/60 bg-[linear-gradient(90deg,#0B1B3A_0%,#16337F_55%,#1D4ED8_100%)] text-white">
         <div className="flex items-center gap-3 px-3 py-[3px] md:px-5 md:py-[5px]">
           <Link
             href="/enroll/"
-            className="inline-flex min-h-0 items-center rounded-md border border-white px-2.5 py-0 text-[10.5px] font-bold leading-[1.45] tracking-[0.3px] md:px-3.5 md:py-1 md:text-[11.5px]"
+            className="inline-flex min-h-0 items-center rounded-full border border-white/70 bg-white/12 px-2.5 py-0 text-[10.5px] font-bold leading-[1.45] tracking-[0.3px] shadow-[0_8px_24px_rgba(0,0,0,0.12)] backdrop-blur transition hover:bg-white/20 md:px-3.5 md:py-1 md:text-[11.5px]"
           >
             Sign Up For New Class
           </Link>
@@ -85,7 +85,7 @@ export function SiteHeader() {
         </div>
       </div>
 
-      <div className="border-b border-slate-100 bg-white">
+      <div className="border-b border-slate-100 bg-white/95 backdrop-blur">
         <div className="flex min-h-[55px] items-center gap-3 px-3 py-1.5 md:px-5">
           <Link href="/" className="flex shrink-0 items-center gap-3" aria-label="Alluwal Education Hub home">
             <img
@@ -94,15 +94,15 @@ export function SiteHeader() {
               className="h-8 w-[124px] object-contain lg:h-9 lg:w-[158px]"
             />
             <div className="hidden leading-tight lg:block">
-              <div className="text-lg font-black tracking-normal text-[#111827]">Alluwal</div>
-              <div className="text-[9px] font-semibold uppercase tracking-[1.5px] text-[#3B82F6]">Education Hub</div>
+              <div className="font-display text-lg font-bold tracking-normal text-[#0B1B3A]">Alluwal</div>
+              <div className="text-[9px] font-semibold uppercase tracking-[1.5px] text-[#1D4ED8]">Education Hub</div>
             </div>
           </Link>
 
           <nav className="ml-3 hidden items-center gap-3 xl:flex" aria-label="Primary navigation">
             <Link
               href="/"
-              className="text-[13.5px] font-semibold text-[#111827] transition hover:text-[#0386FF]"
+              className="link-underline text-[13.5px] font-semibold text-[#111827] transition hover:text-[#1D4ED8]"
               onClick={closeAll}
             >
               Home
@@ -128,7 +128,7 @@ export function SiteHeader() {
 
               {megaOpen ? (
                 <div className="absolute left-1/2 top-[42px] w-[920px] -translate-x-1/2 pt-4">
-                  <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl shadow-slate-900/14">
+                  <div className="menu-pop rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl shadow-slate-900/14">
                     <div className="grid gap-3 md:grid-cols-3">
                       {megaTracks.map(({ href, title, subtitle, icon: Icon, tint }) => (
                         <Link
@@ -183,8 +183,8 @@ export function SiteHeader() {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`text-[13.5px] font-semibold transition hover:text-[#0386FF] ${
-                    active ? "text-[#0386FF]" : "text-[#111827]"
+                  className={`link-underline text-[13.5px] font-semibold transition hover:text-[#1D4ED8] ${
+                    active ? "text-[#1D4ED8]" : "text-[#111827]"
                   }`}
                   onClick={closeAll}
                 >
@@ -224,7 +224,7 @@ export function SiteHeader() {
       </div>
 
       {open ? (
-        <div className="border-b border-slate-200 bg-white xl:hidden">
+        <div className="menu-pop border-b border-slate-200 bg-white xl:hidden">
           <nav className="grid gap-1 px-3 py-4" aria-label="Mobile navigation">
             <Link href="/" className="rounded-md px-3 py-3 text-base font-extrabold text-slate-900" onClick={closeAll}>
               Home

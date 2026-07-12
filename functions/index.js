@@ -17,6 +17,8 @@ const formHandlers = require('./handlers/forms');
 // LiveKit exports remain for rollback/history and non-class surfaces.
 const livekitHandlers = require('./handlers/livekit');
 const realtimekitHandlers = require('./handlers/realtimekit');
+const zoomHandlers = require('./handlers/zoom');
+const zoomHubBotHandlers = require('./handlers/zoom_hub_bot');
 const testLivekitHandlers = require('./handlers/test_livekit');
 const migrationLivekitHandlers = require('./handlers/migration_livekit');
 const passwordHandlers = require('./handlers/password');
@@ -30,6 +32,7 @@ const attendanceHandlers = require('./handlers/attendance');
 const circleHandlers = require('./handlers/circles');
 const githubReportingHandlers = require('./handlers/github_reporting');
 const publicSitePublicReadHandlers = require('./handlers/public_site_public_read');
+const adminClaimHandlers = require('./handlers/admin_claims');
 // Temporarily commented out to allow deployment
 // const { fixDecemberForms } = require('./fix_december_forms');
 const newImplementation = require('./new_implementation');
@@ -39,27 +42,55 @@ admin.initializeApp();
 exports.sendTaskAssignmentNotification = functions.https.onCall(
   taskHandlers.sendTaskAssignmentNotification
 );
-exports.sendWelcomeEmail = functions.https.onCall(emailHandlers.sendWelcomeEmail);
-exports.createUserWithEmail = functions.https.onCall(userHandlers.createUserWithEmail);
-exports.createMultipleUsers = functions.https.onCall(userHandlers.createMultipleUsers);
+exports.sendWelcomeEmail = functions.https.onCall(
+  emailHandlers.sendWelcomeEmail
+);
+exports.createUserWithEmail = functions.https.onCall(
+  userHandlers.createUserWithEmail
+);
+exports.createMultipleUsers = functions.https.onCall(
+  userHandlers.createMultipleUsers
+);
 exports.createUser = functions.https.onCall(userHandlers.createUser);
-exports.deleteUserAccount = functions.https.onCall(userHandlers.deleteUserAccount);
-exports.findUserByEmailOrCode = functions.https.onCall(userHandlers.findUserByEmailOrCode);
-exports.createStudentAccount = functions.https.onCall(studentHandlers.createStudentAccount);
+exports.deleteUserAccount = functions.https.onCall(
+  userHandlers.deleteUserAccount
+);
+exports.findUserByEmailOrCode = functions.https.onCall(
+  userHandlers.findUserByEmailOrCode
+);
+exports.adminSearchDirectoryUsers = functions.https.onCall(
+  userHandlers.adminSearchDirectoryUsers
+);
+exports.syncPublicSiteAdminClaim = adminClaimHandlers.syncPublicSiteAdminClaim;
+exports.createStudentAccount = functions.https.onCall(
+  studentHandlers.createStudentAccount
+);
 exports.sendCustomPasswordResetEmail = functions.https.onCall(
   emailHandlers.sendCustomPasswordResetEmail
 );
 exports.sendTestEmail = functions.https.onCall(emailHandlers.sendTestEmail);
-exports.sendAdminNotification = functions.https.onCall(notificationHandlers.sendAdminNotification);
-exports.sendAuditNotification = functions.https.onCall(notificationHandlers.sendAuditNotification);
+exports.sendAdminNotification = functions.https.onCall(
+  notificationHandlers.sendAdminNotification
+);
+exports.sendAuditNotification = functions.https.onCall(
+  notificationHandlers.sendAuditNotification
+);
 exports.sendTeacherAuditDecisionNotification = functions.https.onCall(
   notificationHandlers.sendTeacherAuditDecisionNotification
 );
 
-exports.sendTaskStatusUpdateNotification = onCall(taskHandlers.sendTaskStatusUpdateNotification);
-exports.sendTaskCommentNotification = onCall(taskHandlers.sendTaskCommentNotification);
-exports.sendTaskDeletionNotification = onCall(taskHandlers.sendTaskDeletionNotification);
-exports.sendTaskEditNotification = onCall(taskHandlers.sendTaskEditNotification);
+exports.sendTaskStatusUpdateNotification = onCall(
+  taskHandlers.sendTaskStatusUpdateNotification
+);
+exports.sendTaskCommentNotification = onCall(
+  taskHandlers.sendTaskCommentNotification
+);
+exports.sendTaskDeletionNotification = onCall(
+  taskHandlers.sendTaskDeletionNotification
+);
+exports.sendTaskEditNotification = onCall(
+  taskHandlers.sendTaskEditNotification
+);
 exports.sendRecurringTaskReminders = taskHandlers.sendRecurringTaskReminders;
 
 exports.processTaskCommentEmail = taskHandlers.processTaskCommentEmail;
@@ -77,15 +108,18 @@ exports.sendScheduledShiftReminders = shiftHandlers.sendScheduledShiftReminders;
 exports.scheduleUpcomingShiftLifecycleTasks =
   shiftHandlers.scheduleUpcomingShiftLifecycleTasks;
 exports.teacherRescheduleShift = shiftHandlers.teacherRescheduleShift;
-exports.teacherRescheduleFutureShifts = shiftHandlers.teacherRescheduleFutureShifts;
+exports.teacherRescheduleFutureShifts =
+  shiftHandlers.teacherRescheduleFutureShifts;
 exports.handleShiftNotificationTask = shiftHandlers.handleShiftNotificationTask;
 
 // Dev-only template-based shift generation (rolling window)
 exports.generateDailyShifts = shiftTemplateHandlers.generateDailyShifts;
 exports.createShiftTemplate = shiftTemplateHandlers.createShiftTemplate;
-exports.generateShiftsForTemplate = shiftTemplateHandlers.generateShiftsForTemplateCallable;
+exports.generateShiftsForTemplate =
+  shiftTemplateHandlers.generateShiftsForTemplateCallable;
 exports.updateShiftTemplate = shiftTemplateHandlers.updateShiftTemplate;
-exports.excludeShiftTemplateDate = shiftTemplateHandlers.excludeShiftTemplateDate;
+exports.excludeShiftTemplateDate =
+  shiftTemplateHandlers.excludeShiftTemplateDate;
 exports.onTeacherDeleted = shiftTemplateHandlers.onTeacherDeleted;
 // Zoom functions removed - all video calls now use LiveKit
 exports.fixActiveShiftsStatus = shiftHandlers.fixActiveShiftsStatus;
@@ -98,15 +132,24 @@ exports.onInvoiceCreated = paymentHandlers.onInvoiceCreated;
 // Invoice access control (student suspension)
 exports.onInvoiceWrite = invoiceAccessHandlers.onInvoiceWrite;
 exports.checkAccessCutoffs = invoiceAccessHandlers.checkAccessCutoffs;
+exports.extendStudentAccessCutoff = onCall(
+  invoiceAccessHandlers.extendStudentAccessCutoff
+);
 exports.getParentInvoices = onCall(paymentHandlers.getParentInvoices);
 exports.createPaymentSession = onCall(paymentHandlers.createPaymentSession);
 exports.createPaymentIntent = onCall(paymentHandlers.createPaymentIntent);
+exports.recordManualPayment = onCall(paymentHandlers.recordManualPayment);
 exports.getPaymentHistory = onCall(paymentHandlers.getPaymentHistory);
-exports.handlePayoneerWebhook = functions.https.onRequest(paymentHandlers.handlePayoneerWebhook);
-exports.handleStripeWebhook = functions.https.onRequest(paymentHandlers.handleStripeWebhook);
+exports.handlePayoneerWebhook = functions.https.onRequest(
+  paymentHandlers.handlePayoneerWebhook
+);
+exports.handleStripeWebhook = functions.https.onRequest(
+  paymentHandlers.handleStripeWebhook
+);
 exports.generateInvoicesForPeriod = paymentHandlers.generateInvoicesForPeriod;
 exports.onCircleActivated = circleHandlers.onCircleActivated;
-exports.onContributionStatusChanged = circleHandlers.onContributionStatusChanged;
+exports.onContributionStatusChanged =
+  circleHandlers.onContributionStatusChanged;
 exports.onCycleCompleted = circleHandlers.onCycleCompleted;
 exports.onMemberJoined = circleHandlers.onMemberJoined;
 exports.onInviteCreated = circleHandlers.onInviteCreated;
@@ -117,34 +160,43 @@ exports.resendCircleInvite = circleHandlers.resendCircleInvite;
 // Zoom host management removed - all video calls now use LiveKit
 
 // Form management functions
-exports.checkIncompleteReadinessForms = formHandlers.checkIncompleteReadinessForms;
+exports.checkIncompleteReadinessForms =
+  formHandlers.checkIncompleteReadinessForms;
 exports.ingestGitHubActivity = functions.https.onRequest(
   githubReportingHandlers.ingestGitHubActivity
 );
 exports.runCtoWeeklyReportNow = functions.https.onRequest(
   githubReportingHandlers.runCtoWeeklyReportHttp
 );
-exports.generateWeeklyCtoReport = githubReportingHandlers.generateWeeklyCtoReport;
+exports.generateWeeklyCtoReport =
+  githubReportingHandlers.generateWeeklyCtoReport;
 
 // Timezone management functions
 exports.updateUserTimezone = timezoneHandlers.updateUserTimezone;
-exports.updateNotificationPreferences = timezoneHandlers.updateNotificationPreferences;
+exports.updateNotificationPreferences =
+  timezoneHandlers.updateNotificationPreferences;
 exports.getUserTimezone = timezoneHandlers.getUserTimezone;
 
 // No-show reporting
 exports.reportNoShow = noShowHandlers.reportNoShow;
 exports.reportClassTechnicalIssue = noShowHandlers.reportClassTechnicalIssue;
+exports.detectClassAttendanceNoShows =
+  attendanceHandlers.detectClassAttendanceNoShows;
 exports.generateWeeklyStudentAttendanceReports =
   attendanceHandlers.generateWeeklyStudentAttendanceReports;
 exports.generateMonthlyStudentAttendanceReports =
   attendanceHandlers.generateMonthlyStudentAttendanceReports;
-exports.getStudentAttendanceReport = attendanceHandlers.getStudentAttendanceReport;
+exports.getStudentAttendanceReport =
+  attendanceHandlers.getStudentAttendanceReport;
 exports.getPublicSiteMarketingBundle =
   publicSitePublicReadHandlers.getPublicSiteMarketingBundle;
+exports.getPublicSiteMarketingBundleHttp =
+  publicSitePublicReadHandlers.getPublicSiteMarketingBundleHttp;
 
 // Chat notifications and permissions
 exports.onChatMessageCreated = chatHandlers.onChatMessageCreated;
-exports.updateChatNotificationPreference = chatHandlers.updateChatNotificationPreference;
+exports.updateChatNotificationPreference =
+  chatHandlers.updateChatNotificationPreference;
 exports.onShiftStatusChangeChat = chatHandlers.onShiftStatusChange;
 exports.onShiftCreatedChat = chatHandlers.onShiftCreated;
 
@@ -156,7 +208,16 @@ exports.endDirectCall = directCallHandlers.endDirectCall;
 // Enrollment management functions
 exports.onEnrollmentCreated = enrollmentHandlers.onEnrollmentCreated;
 // Callable version - note: may have IAM issues on some projects
-exports.publishEnrollmentToJobBoard = onCall({ cors: true }, enrollmentHandlers.publishEnrollmentToJobBoard);
+exports.publishEnrollmentToJobBoard = onCall(
+  { cors: true },
+  enrollmentHandlers.publishEnrollmentToJobBoard
+);
+exports.inviteParentForEnrollment = functions.https.onCall(
+  enrollmentHandlers.inviteParentForEnrollment
+);
+exports.unlinkGuardianFromStudent = functions.https.onCall(
+  enrollmentHandlers.unlinkGuardianFromStudent
+);
 // Use v1 callables. When context.auth is null (e.g. App Check placeholder), we use idToken from the request body.
 exports.acceptJob = functions.https.onCall(async (data, context) => {
   let auth = context.auth;
@@ -171,25 +232,41 @@ exports.acceptJob = functions.https.onCall(async (data, context) => {
 exports.withdrawFromJob = functions.https.onCall(async (data, context) => {
   let auth = context.auth;
   const hasIdToken = !!(data && data.idToken);
-  console.log('[index] withdrawFromJob: context.auth=', !!auth, 'data.idToken present=', hasIdToken);
+  console.log(
+    '[index] withdrawFromJob: context.auth=',
+    !!auth,
+    'data.idToken present=',
+    hasIdToken
+  );
   if (!auth && data && data.idToken) {
     try {
       const decoded = await admin.auth().verifyIdToken(data.idToken);
       auth = { uid: decoded.uid };
-      console.log('[index] withdrawFromJob: auth from idToken fallback, uid=', decoded.uid);
+      console.log(
+        '[index] withdrawFromJob: auth from idToken fallback, uid=',
+        decoded.uid
+      );
     } catch (e) {
-      console.warn('[index] withdrawFromJob: idToken verify failed', e.code || e.message, e.message);
+      console.warn(
+        '[index] withdrawFromJob: idToken verify failed',
+        e.code || e.message,
+        e.message
+      );
     }
   } else if (!auth) {
-    console.warn('[index] withdrawFromJob: no context.auth and no data.idToken - cannot authenticate');
+    console.warn(
+      '[index] withdrawFromJob: no context.auth and no data.idToken - cannot authenticate'
+    );
   }
   return jobHandlers.withdrawFromJob({ data: data || {}, auth });
 });
 
 // Application management functions (Leader & Teacher)
 const applicationHandlers = require('./handlers/applications');
-exports.onLeadershipApplicationCreated = applicationHandlers.onLeadershipApplicationCreated;
-exports.onTeacherApplicationCreated = applicationHandlers.onTeacherApplicationCreated;
+exports.onLeadershipApplicationCreated =
+  applicationHandlers.onLeadershipApplicationCreated;
+exports.onTeacherApplicationCreated =
+  applicationHandlers.onTeacherApplicationCreated;
 
 exports.getLandingPageContent = functions.https.onRequest(async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
@@ -208,7 +285,11 @@ exports.getLandingPageContent = functions.https.onRequest(async (req, res) => {
   }
 
   try {
-    const snapshot = await admin.firestore().collection('landing_page_content').doc('main').get();
+    const snapshot = await admin
+      .firestore()
+      .collection('landing_page_content')
+      .doc('main')
+      .get();
 
     if (!snapshot.exists) {
       res.status(404).json({ error: 'Landing page content not found' });
@@ -238,7 +319,9 @@ exports.exportTimesheet = newImplementation.exportTimesheet;
 
 // Programmed Clock-in Executor (HTTP callable for cron jobs)
 const clockinSchedulerHandlers = require('./handlers/clockin_scheduler');
-exports.executeProgrammedClockIns = functions.https.onCall(clockinSchedulerHandlers.executeProgrammedClockIns);
+exports.executeProgrammedClockIns = functions.https.onCall(
+  clockinSchedulerHandlers.executeProgrammedClockIns
+);
 
 // Debug function to check kiosque codes (HTTP version for easy testing)
 const checkKiosqueCodesHttp = functions.https.onRequest(async (req, res) => {
@@ -259,7 +342,8 @@ const checkKiosqueCodesHttp = functions.https.onRequest(async (req, res) => {
 
   try {
     // Get all users with kiosque_code
-    const kiosqueSnapshot = await db.collection('users')
+    const kiosqueSnapshot = await db
+      .collection('users')
       .where('kiosque_code', '!=', null)
       .get();
 
@@ -282,7 +366,8 @@ const checkKiosqueCodesHttp = functions.https.onRequest(async (req, res) => {
     });
 
     // Get all parents
-    const parentsSnapshot = await db.collection('users')
+    const parentsSnapshot = await db
+      .collection('users')
       .where('user_type', '==', 'parent')
       .get();
 
@@ -297,7 +382,8 @@ const checkKiosqueCodesHttp = functions.https.onRequest(async (req, res) => {
     });
 
     // Check for specific code
-    const specificCodeSnapshot = await db.collection('users')
+    const specificCodeSnapshot = await db
+      .collection('users')
       .where('kiosque_code', '==', 'YKPR49182773')
       .get();
 
@@ -347,13 +433,16 @@ exports.checkKiosqueCodesHttp = checkKiosqueCodesHttp;
 
 // Kiosque code migration function
 const migrateKiosqueCodesHandlers = require('./handlers/migrate_kiosque_codes');
-exports.migrateKiosqueCodes = functions.https.onCall(migrateKiosqueCodesHandlers.migrateKiosqueCodes);
+exports.migrateKiosqueCodes = functions.https.onCall(
+  migrateKiosqueCodesHandlers.migrateKiosqueCodes
+);
 
 // Zoom check, breakout, and hybrid test functions removed.
 
 // Legacy LiveKit Video Functions
 exports.getLiveKitJoinToken = livekitHandlers.getLiveKitJoinToken;
-exports.ensureLiveKitShiftRecording = livekitHandlers.ensureLiveKitShiftRecording;
+exports.ensureLiveKitShiftRecording =
+  livekitHandlers.ensureLiveKitShiftRecording;
 exports.checkLiveKitAvailability = livekitHandlers.checkLiveKitAvailability;
 exports.getLiveKitRoomPresence = livekitHandlers.getLiveKitRoomPresence;
 exports.muteLiveKitParticipant = livekitHandlers.muteLiveKitParticipant;
@@ -362,13 +451,17 @@ exports.kickLiveKitParticipant = livekitHandlers.kickLiveKitParticipant;
 exports.setLiveKitRoomLock = livekitHandlers.setLiveKitRoomLock;
 exports.getLiveKitGuestJoin = livekitHandlers.getLiveKitGuestJoin;
 exports.listClassRecordings = livekitHandlers.listClassRecordings;
-exports.getClassRecordingPlaybackUrl = livekitHandlers.getClassRecordingPlaybackUrl;
-exports.cleanupExpiredClassRecordings = livekitHandlers.cleanupExpiredClassRecordings;
+exports.getClassRecordingPlaybackUrl =
+  livekitHandlers.getClassRecordingPlaybackUrl;
+exports.cleanupExpiredClassRecordings =
+  livekitHandlers.cleanupExpiredClassRecordings;
 
 // Cloudflare RealtimeKit Classroom Video Functions
 exports.getRealtimeKitJoinToken = realtimekitHandlers.getRealtimeKitJoinToken;
-exports.getRealtimeKitRoomPresence = realtimekitHandlers.getRealtimeKitRoomPresence;
-exports.kickRealtimeKitParticipant = realtimekitHandlers.kickRealtimeKitParticipant;
+exports.getRealtimeKitRoomPresence =
+  realtimekitHandlers.getRealtimeKitRoomPresence;
+exports.kickRealtimeKitParticipant =
+  realtimekitHandlers.kickRealtimeKitParticipant;
 exports.setRealtimeKitRoomLock = realtimekitHandlers.setRealtimeKitRoomLock;
 exports.setRealtimeKitRecordingEnabled =
   realtimekitHandlers.setRealtimeKitRecordingEnabled;
@@ -376,12 +469,30 @@ exports.bulkSetRealtimeKitRecordingEnabled =
   realtimekitHandlers.bulkSetRealtimeKitRecordingEnabled;
 exports.getRealtimeKitGuestJoin = realtimekitHandlers.getRealtimeKitGuestJoin;
 
+// Zoom classroom pilot
+exports.getZoomJoinInfo = zoomHandlers.getZoomJoinInfo;
+exports.getZoomHubCapacityForecast = zoomHandlers.getZoomHubCapacityForecast;
+exports.getZoomHubRoutingStatus = zoomHandlers.getZoomHubRoutingStatus;
+exports.recordZoomHubGuardrailAttempt = zoomHandlers.recordZoomHubGuardrailAttempt;
+exports.validateZoomShiftCapacity = zoomHandlers.validateZoomShiftCapacity;
+exports.setTeacherZoomEnabled = zoomHandlers.setTeacherZoomEnabled;
+exports.zoomWebhook = zoomHandlers.zoomWebhook;
+exports.prepareZoomHubs = zoomHandlers.prepareZoomHubs;
+exports.watchZoomHubCapacityForecast = zoomHandlers.watchZoomHubCapacityForecast;
+exports.watchZoomHubBots = zoomHandlers.watchZoomHubBots;
+exports.onTeachingShiftWritten = zoomHandlers.onTeachingShiftWritten;
+exports.zoomHubBotDirectives = zoomHubBotHandlers.zoomHubBotDirectives;
+exports.zoomHubBotAssignments = zoomHubBotHandlers.zoomHubBotAssignments;
+exports.zoomHubBotState = zoomHubBotHandlers.zoomHubBotState;
+
 // LiveKit Test Function (for development/testing)
 exports.testLiveKit = testLivekitHandlers.testLiveKit;
 
 // LiveKit Migration Functions (one-time use)
-exports.migrateShiftsToLiveKit = migrationLivekitHandlers.migrateShiftsToLiveKit;
-exports.revertLiveKitMigration = migrationLivekitHandlers.revertLiveKitMigration;
+exports.migrateShiftsToLiveKit =
+  migrationLivekitHandlers.migrateShiftsToLiveKit;
+exports.revertLiveKitMigration =
+  migrationLivekitHandlers.revertLiveKitMigration;
 
 // Password Management Functions
 exports.resetStudentPassword = passwordHandlers.resetStudentPassword;

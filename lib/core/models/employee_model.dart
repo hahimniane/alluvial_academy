@@ -23,6 +23,8 @@ class Employee {
     this.isActive = true,
     this.aiTutorEnabled = false,
     this.tontineEnabled = false,
+    this.useZoom = false,
+    this.zoomHostAccount = '',
     this.secondaryRoles = const [],
   });
 
@@ -45,6 +47,8 @@ class Employee {
   final bool isActive;
   final bool aiTutorEnabled;
   final bool tontineEnabled;
+  final bool useZoom;
+  final String zoomHostAccount;
   final List<String> secondaryRoles;
 }
 
@@ -161,6 +165,12 @@ class EmployeeDataSource extends DataGridSource {
             true, // Default to active if field doesn't exist
         aiTutorEnabled: data['ai_tutor_enabled'] as bool? ?? false,
         tontineEnabled: data['tontine_enabled'] as bool? ?? false,
+        useZoom: data['use_zoom'] as bool? ?? false,
+        zoomHostAccount: (data['zoom_host_account'] ??
+                data['zoomHostAccount'] ??
+                data['zoom_host_email'] ??
+                '')
+            .toString(),
         secondaryRoles: List<String>.from(data['secondary_roles'] ?? []),
       );
     }).toList();

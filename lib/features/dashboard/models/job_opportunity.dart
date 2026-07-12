@@ -45,6 +45,12 @@ class JobOpportunity {
   /// Admin notes visible to teachers on the job board.
   final String? adminNotesForTeachers;
 
+  /// Teacher UIDs this job was broadcast to. Null/empty = visible to all teachers.
+  final List<String>? targetTeacherIds;
+
+  /// Display names matching [targetTeacherIds], for admin views.
+  final List<String>? targetTeacherNames;
+
   JobOpportunity({
     required this.id,
     required this.enrollmentId,
@@ -79,6 +85,8 @@ class JobOpportunity {
     this.teacherSelectedTimes,
     this.scheduleTimezoneRef,
     this.adminNotesForTeachers,
+    this.targetTeacherIds,
+    this.targetTeacherNames,
   });
 
   static List<String> _daysToList(dynamic value) {
@@ -135,6 +143,12 @@ class JobOpportunity {
           : null,
       scheduleTimezoneRef: data['scheduleTimezoneRef'] as String?,
       adminNotesForTeachers: data['adminNotesForTeachers'] as String?,
+      targetTeacherIds: data['targetTeacherIds'] != null
+          ? List<String>.from(data['targetTeacherIds'])
+          : null,
+      targetTeacherNames: data['targetTeacherNames'] != null
+          ? List<String>.from(data['targetTeacherNames'])
+          : null,
     );
   }
 
@@ -171,7 +185,17 @@ class JobOpportunity {
       if (teacherSelectedTimes != null) 'teacherSelectedTimes': teacherSelectedTimes,
       if (scheduleTimezoneRef != null) 'scheduleTimezoneRef': scheduleTimezoneRef,
       if (adminNotesForTeachers != null) 'adminNotesForTeachers': adminNotesForTeachers,
+      if (targetTeacherIds != null) 'targetTeacherIds': targetTeacherIds,
+      if (targetTeacherNames != null) 'targetTeacherNames': targetTeacherNames,
     };
+  }
+
+  /// Whether this job should appear on [teacherId]'s job board.
+  /// Jobs without targeting are visible to everyone.
+  bool isVisibleToTeacher(String teacherId) {
+    final targets = targetTeacherIds;
+    if (targets == null || targets.isEmpty) return true;
+    return targets.contains(teacherId);
   }
   
   /// Best display name for the program/subject.

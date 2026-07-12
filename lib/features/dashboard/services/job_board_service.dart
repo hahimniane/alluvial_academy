@@ -20,6 +20,7 @@ class JobBoardService {
   /// adjust the schedule before teachers see it.
   /// [scheduleTimezoneRef] records which IANA timezone the times refer to.
   /// [adminNotesForTeachers] are visible to teachers on the job board.
+  /// [targetTeacherIds] limits which teachers see the job; null/empty = all teachers.
   Future<void> broadcastEnrollment(
     EnrollmentRequest enrollment, {
     List<String>? overrideDays,
@@ -27,6 +28,8 @@ class JobBoardService {
     String? overrideTimeOfDay,
     String? scheduleTimezoneRef,
     String? adminNotesForTeachers,
+    List<String>? targetTeacherIds,
+    List<String>? targetTeacherNames,
   }) async {
     if (enrollment.id == null) throw Exception('Enrollment ID is missing');
 
@@ -78,12 +81,15 @@ class JobBoardService {
           ? scheduleTimezoneRef.trim()
           : studentTz;
       final nowTs = Timestamp.fromDate(DateTime.now());
+      final hasTargets = targetTeacherIds != null && targetTeacherIds.isNotEmpty;
       final broadcastSnapshot = <String, dynamic>{
         'days': days,
         'timeSlots': timeSlots,
         'timeOfDayPreference': timeOfDay,
         'timezoneRef': timezoneRef,
         if (adminNotesForTeachers != null) 'adminNotesForTeachers': adminNotesForTeachers,
+        if (hasTargets) 'targetTeacherIds': targetTeacherIds,
+        if (hasTargets && targetTeacherNames != null) 'targetTeacherNames': targetTeacherNames,
         'broadcastedBy': user.uid,
         'broadcastedAt': nowTs,
       };
@@ -120,6 +126,8 @@ class JobBoardService {
         'broadcastSnapshot': broadcastSnapshot,
         'scheduleTimezoneRef': timezoneRef,
         if (adminNotesForTeachers != null) 'adminNotesForTeachers': adminNotesForTeachers,
+        if (hasTargets) 'targetTeacherIds': targetTeacherIds,
+        if (hasTargets && targetTeacherNames != null) 'targetTeacherNames': targetTeacherNames,
       };
       
       // Remove null values
@@ -1041,14 +1049,16 @@ class JobBoardService {
         });
   }
 
-  /// Get stream of open jobs
+  /// Get stream of open jobs visible to the current teacher
   Stream<List<JobOpportunity>> getOpenJobs() {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
     return _jobCollection
         .where('status', isEqualTo: 'open')
         .snapshots()
         .map((snapshot) {
           final jobs = snapshot.docs
               .map((doc) => JobOpportunity.fromFirestore(doc))
+              .where((job) => uid == null || job.isVisibleToTeacher(uid))
               .toList();
           // Sort by createdAt in descending order (newest first)
           jobs.sort((a, b) => b.createdAt.compareTo(a.createdAt));
@@ -1075,6 +1085,7 @@ class JobBoardService {
           AppLogger.info('JobBoardService.getAllJobs: Received ${snapshot.docs.length} jobs');
           final jobs = snapshot.docs
               .map((doc) => JobOpportunity.fromFirestore(doc))
+              .where((job) => job.isVisibleToTeacher(user.uid))
               .toList();
           // Sort by createdAt in descending order (newest first)
           jobs.sort((a, b) => b.createdAt.compareTo(a.createdAt));

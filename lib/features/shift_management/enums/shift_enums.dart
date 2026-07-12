@@ -67,8 +67,7 @@ enum ShiftCategory {
 
 /// Video provider enum - determines which video platform is used for the class
 enum VideoProvider {
-  realtimekit, // Current classroom provider
+  realtimekit, // Legacy provider kept for rollback/history
   livekit, // Legacy provider kept for rollback/history
-  @Deprecated('Zoom support has been removed.')
-  zoom, // Legacy - no longer supported
+  zoom, // Current classroom provider
 }

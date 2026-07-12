@@ -1,8 +1,15 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../models/sidebar_model.dart';
 
 class SidebarConfig {
-  static List<SidebarSection> getStructureForRole(String? role) {
+  /// Circles (savings) is hidden for all roles for now; flip to re-enable.
+  static const bool showCircles = false;
+
+  static List<SidebarSection> getStructureForRole(
+    String? role, {
+    bool isAdultStudent = false,
+  }) {
     // Default to student/limited view if role is null
     final userRole = role?.toLowerCase() ?? 'student';
 
@@ -13,7 +20,7 @@ class SidebarConfig {
     } else if (userRole == 'parent') {
       return _getParentStructure();
     } else {
-      return _getStudentStructure();
+      return _getStudentStructure(isAdultStudent: isAdultStudent);
     }
   }
 
@@ -64,6 +71,20 @@ class SidebarConfig {
         title: 'Operations',
         items: [
           const SidebarItem(
+            id: 'my_shifts',
+            label: 'My Shifts',
+            icon: Icons.event_available,
+            screenIndex: 4,
+            colorValue: 0xff059669,
+          ),
+          const SidebarItem(
+            id: 'time_clock',
+            label: 'Time Clock',
+            icon: Icons.timer,
+            screenIndex: 6,
+            colorValue: 0xffEF4444,
+          ),
+          const SidebarItem(
             id: 'shifts',
             label: 'Shifts',
             icon: Icons.schedule,
@@ -90,6 +111,13 @@ class SidebarConfig {
             icon: Icons.assessment,
             screenIndex: 19,
             colorValue: 0xffDC2626,
+          ),
+          const SidebarItem(
+            id: 'no_show_alerts',
+            label: 'No-Show Alerts',
+            icon: Icons.event_busy,
+            screenIndex: 32,
+            colorValue: 0xffF59E0B,
           ),
         ],
       ),
@@ -194,19 +222,20 @@ class SidebarConfig {
           ),
         ],
       ),
-      SidebarSection(
-        id: 'savings',
-        title: 'Savings',
-        items: [
-          const SidebarItem(
-            id: 'circles',
-            label: 'Circles',
-            icon: Icons.groups,
-            screenIndex: 28,
-            colorValue: 0xff10B981,
-          ),
-        ],
-      ),
+      if (showCircles)
+        SidebarSection(
+          id: 'savings',
+          title: 'Savings',
+          items: [
+            const SidebarItem(
+              id: 'circles',
+              label: 'Circles',
+              icon: Icons.groups,
+              screenIndex: 28,
+              colorValue: 0xff10B981,
+            ),
+          ],
+        ),
       SidebarSection(
         id: 'system',
         title: 'System',
@@ -218,25 +247,28 @@ class SidebarConfig {
             screenIndex: 18,
             colorValue: 0xff6B7280,
           ),
-          const SidebarItem(
-            id: 'test_audit',
-            label: 'Test Audit Génération',
-            icon: Icons.play_arrow,
-            screenIndex: 21,
-            colorValue: 0xff10B981,
-          ),
-          const SidebarItem(
-            id: 'roles',
-            label: 'Roles (Test)',
-            icon: Icons.security,
-            screenIndex: 13,
-          ),
-          const SidebarItem(
-            id: 'debug',
-            label: 'Debug',
-            icon: Icons.bug_report,
-            screenIndex: 14,
-          ),
+          if (kDebugMode)
+            const SidebarItem(
+              id: 'test_audit',
+              label: 'Test Audit Génération',
+              icon: Icons.play_arrow,
+              screenIndex: 21,
+              colorValue: 0xff10B981,
+            ),
+          if (kDebugMode)
+            const SidebarItem(
+              id: 'roles',
+              label: 'Roles (Test)',
+              icon: Icons.security,
+              screenIndex: 13,
+            ),
+          if (kDebugMode)
+            const SidebarItem(
+              id: 'debug',
+              label: 'Debug',
+              icon: Icons.bug_report,
+              screenIndex: 14,
+            ),
         ],
       ),
     ];
@@ -346,19 +378,20 @@ class SidebarConfig {
           ),
         ],
       ),
-      SidebarSection(
-        id: 'savings',
-        title: 'Savings',
-        items: [
-          const SidebarItem(
-            id: 'circles',
-            label: 'Circles',
-            icon: Icons.groups,
-            screenIndex: 28,
-            colorValue: 0xff10B981,
-          ),
-        ],
-      ),
+      if (showCircles)
+        SidebarSection(
+          id: 'savings',
+          title: 'Savings',
+          items: [
+            const SidebarItem(
+              id: 'circles',
+              label: 'Circles',
+              icon: Icons.groups,
+              screenIndex: 28,
+              colorValue: 0xff10B981,
+            ),
+          ],
+        ),
       SidebarSection(
         id: 'reports',
         title: 'Reports',
@@ -435,13 +468,14 @@ class SidebarConfig {
             screenIndex: 2,
             colorValue: 0xff059669,
           ),
-          const SidebarItem(
-            id: 'circles',
-            label: 'Circles',
-            icon: Icons.groups,
-            screenIndex: 8,
-            colorValue: 0xff10B981,
-          ),
+          if (showCircles)
+            const SidebarItem(
+              id: 'circles',
+              label: 'Circles',
+              icon: Icons.groups,
+              screenIndex: 8,
+              colorValue: 0xff10B981,
+            ),
         ],
       ),
       SidebarSection(
@@ -480,7 +514,9 @@ class SidebarConfig {
     ];
   }
 
-  static List<SidebarSection> _getStudentStructure() {
+  static List<SidebarSection> _getStudentStructure({
+    bool isAdultStudent = false,
+  }) {
     return [
       SidebarSection(
         id: 'overview',
@@ -495,6 +531,29 @@ class SidebarConfig {
           ),
         ],
       ),
+      // Adult students pay their own tuition, so they get the same Finance
+      // section parents have. Minors never see it (their parent handles billing).
+      if (isAdultStudent)
+        SidebarSection(
+          id: 'finance',
+          title: 'Finance',
+          items: [
+            const SidebarItem(
+              id: 'invoices',
+              label: 'Invoices',
+              icon: Icons.receipt_long,
+              screenIndex: 29,
+              colorValue: 0xff10B981,
+            ),
+            const SidebarItem(
+              id: 'payments',
+              label: 'Payments',
+              icon: Icons.payments,
+              screenIndex: 33,
+              colorValue: 0xff059669,
+            ),
+          ],
+        ),
       SidebarSection(
         id: 'learning',
         title: 'Learning',
@@ -543,19 +602,20 @@ class SidebarConfig {
           ),
         ],
       ),
-      SidebarSection(
-        id: 'savings',
-        title: 'Savings',
-        items: [
-          const SidebarItem(
-            id: 'circles',
-            label: 'Circles',
-            icon: Icons.groups,
-            screenIndex: 28,
-            colorValue: 0xff10B981,
-          ),
-        ],
-      ),
+      if (showCircles)
+        SidebarSection(
+          id: 'savings',
+          title: 'Savings',
+          items: [
+            const SidebarItem(
+              id: 'circles',
+              label: 'Circles',
+              icon: Icons.groups,
+              screenIndex: 28,
+              colorValue: 0xff10B981,
+            ),
+          ],
+        ),
       SidebarSection(
         id: 'communication',
         title: 'Communication',

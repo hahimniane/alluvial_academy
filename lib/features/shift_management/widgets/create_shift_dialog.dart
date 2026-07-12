@@ -83,8 +83,8 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
   ShiftCategory _selectedCategory = ShiftCategory.teaching;
   String? _selectedLeaderRole;
 
-  // Video provider field (RealtimeKit for teaching shifts)
-  VideoProvider _selectedVideoProvider = VideoProvider.realtimekit;
+  // Video provider field (Zoom for teaching shifts)
+  VideoProvider _selectedVideoProvider = VideoProvider.zoom;
 
   // Search controllers
   final TextEditingController _teacherSearchController =
@@ -230,6 +230,144 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
     super.dispose();
   }
 
+  VideoProvider _videoProviderForTeacher(Employee? teacher) {
+    if (_selectedCategory != ShiftCategory.teaching) {
+      return VideoProvider.realtimekit;
+    }
+    return VideoProvider.zoom;
+  }
+
+  Employee? _selectedTeacherFromList(List<Employee> teachers) {
+    final selectedEmail = _selectedTeacherId?.toLowerCase().trim();
+    if (selectedEmail == null || selectedEmail.isEmpty) return null;
+    for (final teacher in teachers) {
+      if (teacher.email.toLowerCase().trim() == selectedEmail) {
+        return teacher;
+      }
+    }
+    return null;
+  }
+
+  void _applyVideoProviderForSelectedTeacher(List<Employee> teachers) {
+    if (widget.shift != null) return;
+    _selectedVideoProvider =
+        _videoProviderForTeacher(_selectedTeacherFromList(teachers));
+  }
+
+  String _employeeName(Employee employee) {
+    final name = '${employee.firstName} ${employee.lastName}'.trim();
+    return name.isNotEmpty ? name : employee.email;
+  }
+
+  Employee? _selectedTeacherRecord() {
+    final selected = _selectedTeacherId?.toLowerCase().trim();
+    if (selected == null || selected.isEmpty) return null;
+    for (final employee in [..._availableTeachers, ..._availableLeaders]) {
+      if (employee.email.toLowerCase().trim() == selected ||
+          employee.documentId.toLowerCase().trim() == selected) {
+        return employee;
+      }
+    }
+    return null;
+  }
+
+  Map<String, dynamic> _zoomHubGuardrailShiftAttempt({
+    required String operation,
+    String? existingShiftId,
+    required String teacherId,
+    required String teacherName,
+    required List<String> studentIds,
+    required List<String> studentNames,
+    required DateTime shiftStart,
+    required DateTime shiftEnd,
+    required DateTime localStart,
+    required DateTime localEnd,
+    Subject? selectedSubject,
+  }) {
+    final teacherRecord = _selectedTeacherRecord();
+    final notes = _notesController.text.trim();
+    final customName = _customNameController.text.trim();
+
+    return {
+      'operation': operation,
+      'source': 'create_shift_dialog',
+      'existingShiftId': existingShiftId,
+      'teacherId': teacherId,
+      'teacherEmail': _selectedTeacherId,
+      'teacherName': teacherName.trim().isNotEmpty ? teacherName.trim() : null,
+      'selectedTeacherName':
+          teacherRecord != null ? _employeeName(teacherRecord) : null,
+      'studentIds': studentIds,
+      'studentNames': studentNames,
+      'shiftStartIso': shiftStart.toUtc().toIso8601String(),
+      'shiftEndIso': shiftEnd.toUtc().toIso8601String(),
+      'localStartIso': localStart.toIso8601String(),
+      'localEndIso': localEnd.toIso8601String(),
+      'timezone': _selectedTimezone,
+      'adminTimezone': _adminTimezone,
+      'category': _selectedCategory.name,
+      'videoProvider': _selectedVideoProvider.name,
+      'subjectId': _selectedSubjectId,
+      'subjectName': selectedSubject?.name,
+      'subjectDisplayName': selectedSubject?.displayName,
+      'customName': _useCustomName && customName.isNotEmpty ? customName : null,
+      'notes': notes.isNotEmpty ? notes : null,
+      'recurrence': _recurrence.name,
+      'enhancedRecurrenceType': _enhancedRecurrence.type.name,
+      'recurrenceEndDateIso': _recurrenceEndDate?.toIso8601String(),
+      'useDifferentTimesPerDay': _useDifferentTimesPerDay,
+      'perDayTimeSlots': _perDayTimeSlots.map(
+        (day, slot) => MapEntry(day.name, slot.toFirestore()),
+      ),
+      'hourlyRate': _customHourlyRate,
+      'leaderRole': _selectedLeaderRole,
+    }..removeWhere((_, value) => value == null);
+  }
+
+  Future<void> _recordAndThrowIfZoomHubGuardrailBlocked({
+    required String operation,
+    String? existingShiftId,
+    required String teacherId,
+    required String teacherName,
+    required List<String> studentIds,
+    required List<String> studentNames,
+    required DateTime shiftStart,
+    required DateTime shiftEnd,
+    required DateTime localStart,
+    required DateTime localEnd,
+    Subject? selectedSubject,
+  }) async {
+    final message = ShiftService.zoomHubShiftTimingGuardrailMessage(
+      shiftStart: shiftStart,
+      shiftEnd: shiftEnd,
+      adminTimezone: _selectedTimezone,
+      category: _selectedCategory,
+      videoProvider: _selectedVideoProvider,
+    );
+    if (message == null) return;
+
+    await ShiftService.recordZoomHubGuardrailAttempt(
+      operation: operation,
+      source: 'create_shift_dialog',
+      existingShiftId: existingShiftId,
+      message: message,
+      shiftAttempt: _zoomHubGuardrailShiftAttempt(
+        operation: operation,
+        existingShiftId: existingShiftId,
+        teacherId: teacherId,
+        teacherName: teacherName,
+        studentIds: studentIds,
+        studentNames: studentNames,
+        shiftStart: shiftStart,
+        shiftEnd: shiftEnd,
+        localStart: localStart,
+        localEnd: localEnd,
+        selectedSubject: selectedSubject,
+      ),
+    );
+    throw ShiftGuardrailException(message);
+  }
+
   Future<void> _loadAvailableUsers() async {
     try {
       AppLogger.debug('CreateShiftDialog: Loading available users...');
@@ -263,6 +401,9 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
           setState(() {
             if (hasPreloadedTeacher) _availableTeachers = teachers;
             if (hasPreloadedStudent) _availableStudents = students;
+            if (hasPreloadedTeacher) {
+              _applyVideoProviderForSelectedTeacher(_availableTeachers);
+            }
           });
         }
       }
@@ -331,6 +472,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
           _availableTeachers = teachers;
           _availableLeaders = leaders; // NEW: Store leaders
           _availableStudents = students;
+          _applyVideoProviderForSelectedTeacher(_availableTeachers);
         });
         AppLogger.info(
             'CreateShiftDialog: State updated with teachers: ${_availableTeachers.length}, students: ${_availableStudents.length}');
@@ -433,6 +575,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
           if (_availableLeaders.any((l) => l.email == teacher!.email)) {
             _selectedCategory = ShiftCategory.leadership;
           }
+          _selectedVideoProvider = _videoProviderForTeacher(teacher);
           // Set search controller to show teacher name for better UX
           _teacherSearchController.text =
               '${teacher!.firstName} ${teacher!.lastName}';
@@ -458,6 +601,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
           setState(() {
             _selectedTeacherId = null;
             _teacherSearchController.clear();
+            _applyVideoProviderForSelectedTeacher(_availableTeachers);
           });
         }
       }
@@ -864,10 +1008,14 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
         _notesController.text = shift.notes!;
       }
 
-      // Load hourly rate from existing shift
-      if (shift.hourlyRate > 0) {
+      // Load hourly rate from existing teaching shifts only. Non-teaching/admin
+      // shifts resolve pay from staff wages, not subject/class rates.
+      if (shift.category == ShiftCategory.teaching && shift.hourlyRate > 0) {
         _hourlyRateController.text = shift.hourlyRate.toStringAsFixed(2);
         _customHourlyRate = shift.hourlyRate;
+      } else {
+        _hourlyRateController.clear();
+        _customHourlyRate = null;
       }
 
       // Load video provider from existing shift
@@ -879,8 +1027,8 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
       }
 
       _selectedVideoProvider = _selectedCategory == ShiftCategory.teaching
-          ? VideoProvider.realtimekit
-          : VideoProvider.zoom;
+          ? VideoProvider.zoom
+          : VideoProvider.realtimekit;
     }
   }
 
@@ -1090,6 +1238,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                     setState(() {
                       _selectedTeacherId = null;
                       _teacherSearchController.clear();
+                      _applyVideoProviderForSelectedTeacher(_availableTeachers);
                     });
                   },
                   style: TextButton.styleFrom(
@@ -1207,6 +1356,8 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                                 onTap: () {
                                   setState(() {
                                     _selectedTeacherId = user.email;
+                                    _selectedVideoProvider =
+                                        _videoProviderForTeacher(user);
                                     AppLogger.debug(
                                         'Selected ${_selectedCategory == ShiftCategory.teaching ? "teacher" : "leader"}: ${user.firstName} ${user.lastName} (${user.email})');
                                     _updateTimezoneForTeacher(user.email);
@@ -1236,6 +1387,8 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                                         onChanged: (value) {
                                           setState(() {
                                             _selectedTeacherId = value;
+                                            _selectedVideoProvider =
+                                                _videoProviderForTeacher(user);
                                             AppLogger.debug(
                                                 'Radio selected ${_selectedCategory == ShiftCategory.teaching ? "teacher" : "leader"}: ${user.firstName} ${user.lastName} (${user.email})');
                                             _updateTimezoneForTeacher(value!);
@@ -1397,6 +1550,11 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
               if (_selectedCategory != ShiftCategory.teaching) {
                 _selectedStudentIds.clear();
                 _selectedSubjectId = null;
+                _hourlyRateController.clear();
+                _customHourlyRate = null;
+              } else if (_selectedSubjectId == null &&
+                  _availableSubjects.isNotEmpty) {
+                _selectedSubjectId = _availableSubjects.first.id;
               }
               // Clear leader role when switching to teaching
               if (_selectedCategory == ShiftCategory.teaching) {
@@ -1404,10 +1562,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
               }
 
               if (widget.shift == null) {
-                _selectedVideoProvider =
-                    _selectedCategory == ShiftCategory.teaching
-                        ? VideoProvider.realtimekit
-                        : VideoProvider.zoom;
+                _applyVideoProviderForSelectedTeacher(_availableTeachers);
               }
             });
           },
@@ -3100,7 +3255,9 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
             : 'Zoom';
     final subtitle = isRealtimeKit
         ? AppLocalizations.of(context)!.realtimeKitProviderSubtitle
-        : AppLocalizations.of(context)!.legacyProviderSubtitle;
+        : _selectedVideoProvider == VideoProvider.zoom
+            ? AppLocalizations.of(context)!.zoomProviderSubtitle
+            : AppLocalizations.of(context)!.legacyProviderSubtitle;
     final icon = isRealtimeKit ? Icons.video_call : Icons.videocam;
 
     return Column(
@@ -3368,6 +3525,10 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
         }
 
         final teacherUid = teacherSnapshot.docs.first.id;
+        final teacherData = teacherSnapshot.docs.first.data();
+        final teacherName =
+            '${teacherData['first_name'] ?? ''} ${teacherData['last_name'] ?? ''}'
+                .trim();
 
         final studentUids = _selectedCategory == ShiftCategory.teaching
             ? _selectedStudentIds.toList(growable: false)
@@ -3424,6 +3585,19 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
               )
             : null;
 
+        await _recordAndThrowIfZoomHubGuardrailBlocked(
+          operation: 'create_shift',
+          teacherId: teacherUid,
+          teacherName: teacherName,
+          studentIds: studentUids,
+          studentNames: studentNames,
+          shiftStart: shiftStart,
+          shiftEnd: shiftEnd,
+          localStart: naiveStart,
+          localEnd: naiveEnd,
+          selectedSubject: selectedSubject,
+        );
+
         // Create new shift
         await ShiftService.createShift(
           teacherId: teacherUid,
@@ -3436,8 +3610,12 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
           adminTimezone:
               _selectedTimezone, // Store the timezone used for scheduling
           subject: _mapSubjectToEnum(selectedSubject?.name ?? 'quran_studies'),
-          subjectId: _selectedSubjectId,
-          subjectDisplayName: selectedSubject?.displayName,
+          subjectId: _selectedCategory == ShiftCategory.teaching
+              ? _selectedSubjectId
+              : null,
+          subjectDisplayName: _selectedCategory == ShiftCategory.teaching
+              ? selectedSubject?.displayName
+              : null,
           customName: _useCustomName ? _customNameController.text.trim() : null,
           notes: _notesController.text.trim().isNotEmpty
               ? _notesController.text.trim()
@@ -3459,7 +3637,9 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
           category: _selectedCategory,
           leaderRole: _selectedLeaderRole,
           // NEW: Hourly rate (if custom rate provided)
-          hourlyRate: _customHourlyRate,
+          hourlyRate: _selectedCategory == ShiftCategory.teaching
+              ? _customHourlyRate
+              : null,
           videoProvider: _selectedVideoProvider,
         );
       } else {
@@ -3548,6 +3728,20 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
           studentNames: studentNames,
         );
 
+        await _recordAndThrowIfZoomHubGuardrailBlocked(
+          operation: 'update_shift',
+          existingShiftId: widget.shift!.id,
+          teacherId: teacherUid,
+          teacherName: teacherName,
+          studentIds: studentUids,
+          studentNames: studentNames,
+          shiftStart: shiftStart,
+          shiftEnd: shiftEnd,
+          localStart: naiveStart,
+          localEnd: naiveEnd,
+          selectedSubject: selectedSubject,
+        );
+
         final updatedShift = widget.shift!.copyWith(
           teacherId: teacherUid,
           teacherName: teacherName,
@@ -3559,8 +3753,14 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
           shiftEnd: shiftEnd,
           adminTimezone: _selectedTimezone,
           subject: _mapSubjectToEnum(selectedSubject?.name ?? 'quran_studies'),
-          subjectId: _selectedSubjectId,
-          subjectDisplayName: selectedSubject?.displayName,
+          subjectId: _selectedCategory == ShiftCategory.teaching
+              ? _selectedSubjectId
+              : null,
+          subjectDisplayName: _selectedCategory == ShiftCategory.teaching
+              ? selectedSubject?.displayName
+              : null,
+          clearSubjectId: _selectedCategory != ShiftCategory.teaching,
+          clearSubjectDisplayName: _selectedCategory != ShiftCategory.teaching,
           autoGeneratedName: autoGeneratedName,
           customName: _useCustomName ? _customNameController.text.trim() : null,
           notes: _notesController.text.trim().isNotEmpty
@@ -3572,6 +3772,9 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
           category: _selectedCategory,
           leaderRole: _selectedLeaderRole,
           videoProvider: _selectedVideoProvider,
+          hourlyRate: _selectedCategory == ShiftCategory.teaching
+              ? (_customHourlyRate ?? widget.shift!.hourlyRate)
+              : 0,
         );
 
         AppLogger.debug('CreateShiftDialog: Updating shift with:');

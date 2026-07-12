@@ -281,6 +281,55 @@ function SelectField({
   );
 }
 
+function PhoneField({
+  countryCode,
+  phoneNumber,
+  onChange,
+  tone = "purple",
+}: {
+  countryCode: string;
+  phoneNumber: string;
+  onChange: (name: string, value: string) => void;
+  tone?: "purple" | "green";
+}) {
+  const focusClass =
+    tone === "green"
+      ? "focus-within:border-[#10B981] focus-within:ring-[#10B981]/20"
+      : "focus-within:border-[#8B5CF6] focus-within:ring-[#8B5CF6]/20";
+
+  return (
+    <label className="grid gap-3 text-[15px] font-semibold leading-[1.4] text-[#111827]">
+      <span>
+        WhatsApp Number <span className="ml-1 text-red-600">*</span>
+      </span>
+      <span
+        className={`flex min-h-[54px] overflow-hidden rounded-2xl border border-[#E5E7EB] bg-[#FAFAFA] text-sm text-[#111827] transition focus-within:ring-2 ${focusClass}`}
+      >
+        <input
+          name="countryCode"
+          value={countryCode}
+          onChange={(event) => onChange("countryCode", event.target.value)}
+          className="w-[86px] border-r border-[#E5E7EB] bg-transparent px-4 py-4 font-semibold outline-none placeholder:text-[#9CA3AF]"
+          required
+          placeholder="+1"
+          autoComplete="tel-country-code"
+          aria-label="Country code"
+        />
+        <input
+          name="phoneNumber"
+          value={phoneNumber}
+          onChange={(event) => onChange("phoneNumber", event.target.value)}
+          className="min-w-0 flex-1 bg-transparent px-4 py-4 outline-none placeholder:text-[#9CA3AF]"
+          required
+          placeholder="6468728590"
+          autoComplete="tel"
+          aria-label="WhatsApp Number"
+        />
+      </span>
+    </label>
+  );
+}
+
 function SectionTitle({ icon: Icon, title }: { icon: typeof UserRound; title: string }) {
   return (
     <div className="flex items-center gap-3">
@@ -435,10 +484,7 @@ export function TeacherApplicationForm() {
             <Field label="Email" name="email" value={values.email} onChange={update} required type="email" placeholder="Mahmoud.barry@example.com" autoComplete="email" />
             <Field label="Current Location (Country and City)" name="currentLocation" value={values.currentLocation} onChange={update} required placeholder="United States, New York" />
             <SelectField label="Gender" name="gender" value={values.gender} onChange={update} options={genderOptions} required />
-            <div className="grid gap-4 md:grid-cols-[150px_1fr]">
-              <Field label="Country code" name="countryCode" value={values.countryCode} onChange={update} required placeholder="+1" autoComplete="tel-country-code" />
-              <Field label="WhatsApp Number" name="phoneNumber" value={values.phoneNumber} onChange={update} required placeholder="6468728590" autoComplete="tel" />
-            </div>
+            <PhoneField countryCode={values.countryCode} phoneNumber={values.phoneNumber} onChange={update} />
             <Field label="Nationality" name="nationality" value={values.nationality} onChange={update} required placeholder="American" />
             <SelectField label="I am currently a..." name="currentStatus" value={values.currentStatus} onChange={update} options={currentStatusOptions} required />
             {values.currentStatus === "other" ? (
@@ -777,27 +823,24 @@ export function LeadershipApplicationForm() {
         </p>
       </div>
 
-      <SectionTitle title="Personal Information" icon={UserRound} />
+      <h2 className="text-xl font-bold text-[#111827]">Personal Information</h2>
       <div className="grid gap-4 md:grid-cols-2">
         <Field label="First Name" name="firstName" value={values.firstName} onChange={update} required autoComplete="given-name" />
         <Field label="Last Name" name="lastName" value={values.lastName} onChange={update} required autoComplete="family-name" />
       </div>
       <Field label="Email" name="email" value={values.email} onChange={update} required type="email" autoComplete="email" />
       <Field label="Current Location (Country and City)" name="currentLocation" value={values.currentLocation} onChange={update} required />
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-[2fr_3fr]">
         <SelectField label="Gender" name="gender" value={values.gender} onChange={update} options={genderOptions} required />
-        <Field label="Nationality" name="nationality" value={values.nationality} onChange={update} required />
+        <PhoneField countryCode={values.countryCode} phoneNumber={values.phoneNumber} onChange={update} tone="green" />
       </div>
-      <div className="grid gap-4 md:grid-cols-[150px_1fr]">
-        <Field label="Country code" name="countryCode" value={values.countryCode} onChange={update} required placeholder="+1" autoComplete="tel-country-code" />
-        <Field label="WhatsApp Number" name="phoneNumber" value={values.phoneNumber} onChange={update} required autoComplete="tel" />
-      </div>
+      <Field label="Nationality" name="nationality" value={values.nationality} onChange={update} required />
       <SelectField label="I am currently a..." name="currentStatus" value={values.currentStatus} onChange={update} options={leadershipStatusOptions} required />
       {values.currentStatus === "other" ? (
         <Field label="Please specify" name="currentStatusOther" value={values.currentStatusOther} onChange={update} required />
       ) : null}
 
-      <SectionTitle title="Leadership Interest" icon={ShieldCheck} />
+      <h2 className="text-xl font-bold text-[#111827]">Leadership Interest</h2>
       <TextArea
         label="Why are you interested in a leadership role?"
         name="interestReason"
@@ -818,7 +861,11 @@ export function LeadershipApplicationForm() {
         <Field label="Please specify availability" name="availabilityStartOther" value={values.availabilityStartOther} onChange={update} required />
       ) : null}
 
-      <button type="submit" className="alluwal-button alluwal-button-primary" disabled={status === "saving"}>
+      <button
+        type="submit"
+        className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#10B981] px-6 py-4 text-base font-semibold text-white shadow-[0_10px_20px_rgba(16,185,129,0.18)] transition hover:bg-[#059669] disabled:cursor-wait disabled:opacity-75"
+        disabled={status === "saving"}
+      >
         <Send size={18} />
         {status === "saving" ? "Submitting..." : "Submit Application"}
       </button>

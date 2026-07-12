@@ -7,8 +7,12 @@ class SidebarService {
   static const String _prefsKey = 'admin_sidebar_preferences';
 
   /// Loads the sidebar structure, applying user preferences if they exist.
-  Future<List<SidebarSection>> loadSidebar(String? role) async {
-    final defaultSections = SidebarConfig.getStructureForRole(role);
+  Future<List<SidebarSection>> loadSidebar(
+    String? role, {
+    bool isAdultStudent = false,
+  }) async {
+    final defaultSections =
+        SidebarConfig.getStructureForRole(role, isAdultStudent: isAdultStudent);
 
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -62,10 +66,13 @@ class SidebarService {
   }
 
   /// Resets the sidebar to the default configuration.
-  Future<List<SidebarSection>> resetToDefault(String? role) async {
+  Future<List<SidebarSection>> resetToDefault(
+    String? role, {
+    bool isAdultStudent = false,
+  }) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_prefsKey);
-    return SidebarConfig.getStructureForRole(role);
+    return SidebarConfig.getStructureForRole(role, isAdultStudent: isAdultStudent);
   }
 
   /// Merges user preferences with the default structure.

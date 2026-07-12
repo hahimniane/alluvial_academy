@@ -32,6 +32,13 @@ void main() {
         expect(testShift.lastClockInPlatform, isNull);
       });
 
+      test('should route Zoom provider shifts to Zoom', () {
+        final shift = testShift.copyWith(videoProvider: VideoProvider.zoom);
+
+        expect(shift.usesZoom, isTrue);
+        expect(shift.usesRealtimeKit, isFalse);
+      });
+
       test('should create shift with platform', () {
         final shift = TeachingShift(
           id: 'test-shift-2',

@@ -1,0 +1,333 @@
+"use client";
+
+import { onAuthStateChanged, type User } from "firebase/auth";
+import { collection, getDocs, limit, query, Timestamp, where } from "firebase/firestore";
+import { useEffect, useMemo, useState } from "react";
+import { CalendarDays, CheckCircle2, Clock3, Lock, Menu, Search, Shuffle, SlidersHorizontal } from "lucide-react";
+import { auth, db } from "@/lib/firebase";
+import { getCurrentUserRecord, isCurrentUserTeacher } from "@/lib/userRoles";
+import { TeacherAccessPrompt, TeacherShell, openTeacherMobileMenu } from "@/components/TeacherDashboardHome";
+
+type AccessState = "checking" | "signedOut" | "allowed" | "denied";
+type UserRecord = Record<string, unknown>;
+type TaskTab = "all" | "my" | "today";
+type TaskStatus = "todo" | "inProgress" | "done";
+type TaskPriority = "low" | "medium" | "high";
+
+type TeacherSummary = {
+  displayName: string;
+  firstName: string;
+  initials: string;
+};
+
+type TeacherTask = {
+  id: string;
+  title: string;
+  description: string;
+  createdBy: string;
+  assignedTo: string[];
+  dueDate: Date | null;
+  priority: TaskPriority;
+  status: TaskStatus;
+  isArchived: boolean;
+  labels: string[];
+};
+
+const taskTabs: { id: TaskTab; label: string }[] = [
+  { id: "all", label: "All Tasks" },
+  { id: "my", label: "My Tasks" },
+  { id: "today", label: "Today" },
+];
+
+export function TeacherTasksPage() {
+  const [access, setAccess] = useState<AccessState>("checking");
+  const [summary, setSummary] = useState<TeacherSummary>({ displayName: "Teacher", firstName: "Teacher", initials: "TE" });
+  const [tasks, setTasks] = useState<TeacherTask[]>([]);
+  const [activeTab, setActiveTab] = useState<TaskTab>("all");
+  const [search, setSearch] = useState("");
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<TaskStatus | "all">("all");
+  const [priorityFilter, setPriorityFilter] = useState<TaskPriority | "all">("all");
+  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    return onAuthStateChanged(auth, async (nextUser) => {
+      if (!mounted) return;
+      setUser(nextUser);
+      if (!nextUser) {
+        setAccess("signedOut");
+        setLoading(false);
+        return;
+      }
+
+      setAccess("checking");
+      setLoading(true);
+      try {
+        const allowed = await isCurrentUserTeacher(nextUser);
+        if (!mounted) return;
+        if (!allowed) {
+          setAccess("denied");
+          setLoading(false);
+          return;
+        }
+        const userRecord = await getCurrentUserRecord(nextUser);
+        if (!mounted) return;
+        setSummary(summaryForUser(nextUser, userRecord));
+        setAccess("allowed");
+        const loaded = await loadTeacherTasks(nextUser.uid);
+        if (mounted) setTasks(loaded);
+      } catch {
+        if (mounted) setTasks([]);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    });
+  }, []);
+
+  const visibleTasks = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    const today = new Date();
+    return tasks.filter((task) => {
+      if (task.isArchived) return false;
+      if (activeTab === "my" && user && !task.assignedTo.includes(user.uid) && task.createdBy !== user.uid) return false;
+      if (activeTab === "today" && !isSameDay(task.dueDate, today)) return false;
+      if (statusFilter !== "all" && task.status !== statusFilter) return false;
+      if (priorityFilter !== "all" && task.priority !== priorityFilter) return false;
+      if (!term) return true;
+      return [task.title, task.description, task.priority, task.status, ...task.labels].some((value) => value.toLowerCase().includes(term));
+    });
+  }, [activeTab, priorityFilter, search, statusFilter, tasks, user]);
+
+  if (access !== "allowed") return <TeacherAccessPrompt access={access} />;
+
+  return (
+    <TeacherShell activeLabel="Tasks" breadcrumb="Work / Tasks" summary={summary}>
+      <main className="min-h-[calc(100vh-56px)] overflow-y-auto bg-[#F1F4F8] text-[#111827]">
+        <MobileTeacherTopBar summary={summary} />
+        <section className="border-b border-[#DDE3EA] bg-white px-3 py-2 lg:px-4">
+          <div className="flex items-center gap-3">
+            <h1 className="shrink-0 text-[20px] font-bold text-[#111827]">Tasks</h1>
+            <label className="relative block h-[35px] min-w-0 flex-1 lg:h-[35px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#6B7280]" size={19} />
+              <input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Search Tasks"
+                aria-label="Search tasks"
+                className="h-full w-full rounded-full border border-[#CBD5E1] bg-white pl-11 pr-3 text-[15px] font-medium text-[#374151] outline-none focus:border-[#0386FF]"
+              />
+            </label>
+          </div>
+
+          <div className="mt-2 flex gap-5 overflow-x-auto text-[13px]">
+            {taskTabs.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                className={`min-h-7 shrink-0 border-b-2 font-semibold ${
+                  activeTab === tab.id ? "border-[#0386FF] text-[#0386FF]" : "border-transparent text-[#64748B]"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          <button type="button" onClick={() => setFiltersOpen((current) => !current)} className="mt-2 inline-flex min-h-8 items-center gap-2 text-sm font-medium text-[#0386FF]">
+            <SlidersHorizontal size={18} />
+            {filtersOpen ? "Hide filters" : "Show filters"}
+          </button>
+
+          {filtersOpen ? (
+            <div className="mt-2 flex flex-wrap gap-2 pb-2">
+              <FilterSelect label="Status" value={statusFilter} onChange={(value) => setStatusFilter(value as TaskStatus | "all")} options={["all", "todo", "inProgress", "done"]} />
+              <FilterSelect label="Priority" value={priorityFilter} onChange={(value) => setPriorityFilter(value as TaskPriority | "all")} options={["all", "low", "medium", "high"]} />
+            </div>
+          ) : null}
+        </section>
+
+        <section className="relative min-h-[calc(100vh-178px)]">
+          {loading ? (
+            <div className="grid min-h-[560px] place-items-center">
+              <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#DBEAFE] border-t-[#0386FF]" />
+            </div>
+          ) : visibleTasks.length === 0 ? (
+            <EmptyTasks />
+          ) : (
+            <div className="grid gap-4 p-4 md:grid-cols-2 xl:grid-cols-3">
+              {visibleTasks.map((task) => (
+                <TaskCard key={task.id} task={task} />
+              ))}
+            </div>
+          )}
+        </section>
+      </main>
+    </TeacherShell>
+  );
+}
+
+function MobileTeacherTopBar({ summary }: { summary: TeacherSummary }) {
+  return (
+    <header className="grid min-h-[64px] grid-cols-[56px_1fr_96px] items-center bg-white px-3 lg:hidden">
+      <button type="button" aria-label="Open teacher menu" onClick={openTeacherMobileMenu} className="grid h-11 w-11 place-items-center rounded-xl text-[#111827]">
+        <Menu size={24} />
+      </button>
+      <div className="min-w-0 text-center text-[16px] font-semibold text-[#111827]">Alluwal Academy</div>
+      <div className="flex items-center justify-end gap-3">
+        <Shuffle size={18} className="text-[#111827]" />
+        <span className="grid h-8 w-8 place-items-center rounded-full bg-[#009688] text-[12px] font-black text-white">{summary.initials}</span>
+      </div>
+    </header>
+  );
+}
+
+function FilterSelect({ label, value, options, onChange }: { label: string; value: string; options: string[]; onChange: (value: string) => void }) {
+  return (
+    <label className="inline-flex min-h-9 items-center gap-2 rounded-xl border border-[#CBD5E1] bg-white px-3 text-sm text-[#374151]">
+      {label}
+      <select value={value} onChange={(event) => onChange(event.target.value)} className="bg-transparent text-sm font-semibold outline-none">
+        {options.map((option) => (
+          <option key={option} value={option}>
+            {option === "all" ? "All" : labelFor(option)}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function EmptyTasks() {
+  return (
+    <div className="grid min-h-[590px] place-items-center lg:min-h-[660px]">
+      <div className="text-center">
+        <div className="mx-auto grid h-[100px] w-[100px] place-items-center rounded-full bg-[#E5E7EB] text-[#BDBDBD]">
+          <Search size={54} />
+        </div>
+        <div className="mt-7 text-2xl font-semibold text-[#111827]">No Tasks Found</div>
+        <div className="mt-3 text-base tracking-wide text-[#6B7280]">Try Adjusting Your Filters Or Search</div>
+      </div>
+    </div>
+  );
+}
+
+function TaskCard({ task }: { task: TeacherTask }) {
+  const overdue = Boolean(task.dueDate && task.dueDate < new Date() && task.status !== "done");
+  return (
+    <article className="rounded-xl border border-[#E5E7EB] bg-white p-4 shadow-sm">
+      <div className="flex items-start gap-3">
+        <span className={`mt-1 grid h-8 w-8 shrink-0 place-items-center rounded-xl ${task.status === "done" ? "bg-[#DCFCE7] text-[#16A34A]" : "bg-[#E6F3FF] text-[#0386FF]"}`}>
+          {task.status === "done" ? <CheckCircle2 size={18} /> : <Clock3 size={18} />}
+        </span>
+        <div className="min-w-0 flex-1">
+          <h2 className="truncate text-base font-bold text-[#111827]">{task.title}</h2>
+          <p className="mt-1 line-clamp-2 min-h-10 text-sm text-[#64748B]">{task.description || "No description"}</p>
+        </div>
+      </div>
+      <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-[#64748B]">
+        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-1 font-semibold ${overdue ? "bg-[#FEE2E2] text-[#B91C1C]" : "bg-[#F8FAFC]"}`}>
+          <CalendarDays size={13} />
+          {task.dueDate ? `Due ${task.dueDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : "No due date"}
+        </span>
+        <span className="rounded-full bg-[#F8FAFC] px-2 py-1 font-semibold">{labelFor(task.status)}</span>
+        <span className="rounded-full bg-[#F8FAFC] px-2 py-1 font-semibold">{labelFor(task.priority)}</span>
+      </div>
+    </article>
+  );
+}
+
+async function loadTeacherTasks(uid: string) {
+  const [assignedCamel, assignedSnake, createdCamel, createdSnake] = await Promise.all([
+    getDocs(query(collection(db, "tasks"), where("assignedTo", "array-contains", uid), limit(100))).catch(() => null),
+    getDocs(query(collection(db, "tasks"), where("assigned_to", "array-contains", uid), limit(100))).catch(() => null),
+    getDocs(query(collection(db, "tasks"), where("createdBy", "==", uid), limit(100))).catch(() => null),
+    getDocs(query(collection(db, "tasks"), where("created_by", "==", uid), limit(100))).catch(() => null),
+  ]);
+  const byId = new Map<string, TeacherTask>();
+  [assignedCamel, assignedSnake, createdCamel, createdSnake].forEach((snap) => {
+    snap?.docs.forEach((entry) => {
+      byId.set(entry.id, normalizeTask(entry.id, entry.data() as Record<string, unknown>));
+    });
+  });
+  return Array.from(byId.values()).sort((a, b) => (a.dueDate?.getTime() ?? Number.MAX_SAFE_INTEGER) - (b.dueDate?.getTime() ?? Number.MAX_SAFE_INTEGER));
+}
+
+function normalizeTask(id: string, data: Record<string, unknown>): TeacherTask {
+  return {
+    id,
+    title: stringValue(data.title) || "Untitled Task",
+    description: stringValue(data.description),
+    createdBy: stringValue(data.createdBy ?? data.created_by),
+    assignedTo: arrayOfStrings(data.assignedTo ?? data.assigned_to),
+    dueDate: dateValue(data.dueDate ?? data.due_date),
+    priority: parsePriority(data.priority),
+    status: parseStatus(data.status),
+    isArchived: data.isArchived === true || data.is_archived === true,
+    labels: arrayOfStrings(data.labels),
+  };
+}
+
+function parsePriority(value: unknown): TaskPriority {
+  const normalized = stringValue(value).replace("TaskPriority.", "");
+  if (normalized === "low" || normalized === "high") return normalized;
+  return "medium";
+}
+
+function parseStatus(value: unknown): TaskStatus {
+  const normalized = stringValue(value).replace("TaskStatus.", "");
+  if (normalized === "inProgress" || normalized === "done") return normalized;
+  return "todo";
+}
+
+function isSameDay(value: Date | null, day: Date) {
+  return Boolean(value && value.getFullYear() === day.getFullYear() && value.getMonth() === day.getMonth() && value.getDate() === day.getDate());
+}
+
+function dateValue(value: unknown): Date | null {
+  if (value instanceof Timestamp) return value.toDate();
+  if (value instanceof Date) return value;
+  if (typeof value === "string" || typeof value === "number") {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+  if (value && typeof value === "object" && "toDate" in value && typeof value.toDate === "function") {
+    const parsed = value.toDate();
+    return parsed instanceof Date && !Number.isNaN(parsed.getTime()) ? parsed : null;
+  }
+  return null;
+}
+
+function arrayOfStrings(value: unknown) {
+  if (Array.isArray(value)) return value.map((item) => stringValue(item)).filter(Boolean);
+  const single = stringValue(value);
+  return single ? [single] : [];
+}
+
+function summaryForUser(user: User, data: UserRecord | null): TeacherSummary {
+  const displayName =
+    data
+      ? [stringValue(data.first_name ?? data["first-name"]), stringValue(data.last_name ?? data["last-name"])].filter(Boolean).join(" ")
+      : "";
+  const fallback = user.displayName?.trim() || user.email?.replace(/@.*/, "") || "Teacher";
+  const name = displayName || fallback;
+  return {
+    displayName: name,
+    firstName: name.split(/\s+/)[0] || "Teacher",
+    initials: initialsFromName(name),
+  };
+}
+
+function stringValue(value: unknown) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function labelFor(value: string) {
+  return value.replace(/([A-Z])/g, " $1").replace(/^./, (letter) => letter.toUpperCase());
+}
+
+function initialsFromName(name: string) {
+  const parts = name.replace(/@.*/, "").split(/[\s._-]+/).filter(Boolean);
+  return parts.slice(0, 2).map((part) => part[0]?.toUpperCase()).join("") || "TE";
+}

@@ -187,9 +187,12 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
 
           // Update upcoming shifts - get ALL future shifts, sorted, then take first for "next session"
           final now = DateTime.now();
+          final activeShiftId = _clockedInShift?.id;
           final futureShifts = shifts.where((s) {
             final shiftEnd = s.shiftEnd.toLocal();
-            return shiftEnd.isAfter(now) && !s.isClockedIn;
+            return shiftEnd.isAfter(now) &&
+                s.id != activeShiftId &&
+                !s.isClockedIn;
           }).toList();
           futureShifts.sort((a, b) => a.shiftStart.compareTo(b.shiftStart));
           _upcomingShifts =
@@ -334,8 +337,8 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
           });
         }
 
-        // Load active shift (currently clocked in)
-        final active = await ShiftService.getCurrentActiveShift(user.uid);
+        // Load active shift from the open timesheet entry, not only shift status.
+        final active = await ShiftTimesheetService.getActiveShift(user.uid);
 
         // Load ALL teacher shifts (including past for calendar navigation)
         // Use cached repository for better performance
@@ -347,7 +350,9 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
         final now = DateTime.now();
         final futureShifts = allShifts.where((shift) {
           final localEnd = shift.shiftEnd.toLocal();
-          return localEnd.isAfter(now) && !shift.isClockedIn;
+          return localEnd.isAfter(now) &&
+              shift.id != active?.id &&
+              !shift.isClockedIn;
         }).toList();
 
         futureShifts.sort((a, b) => a.shiftStart.compareTo(b.shiftStart));
@@ -1637,6 +1642,33 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
               color: Colors.white.withOpacity(0.8),
             ),
           ),
+          if (isClockedIn) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.16),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.timer_outlined,
+                      color: Colors.white, size: 20),
+                  const SizedBox(width: 10),
+                  Text(
+                    AppLocalizations.of(context)!
+                        .shiftElapsedTime(_activeSessionElapsed(shift)),
+                    style: GoogleFonts.inter(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 16),
           Row(
             children: [
@@ -1697,6 +1729,25 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
         ],
       ),
     );
+  }
+
+  String _activeSessionElapsed(TeachingShift shift) {
+    final clockIn = shift.clockInTime ?? shift.shiftStart;
+    final effectiveStart =
+        clockIn.isBefore(shift.shiftStart) ? shift.shiftStart : clockIn;
+    final now = DateTime.now();
+    final elapsed = now.isBefore(effectiveStart)
+        ? Duration.zero
+        : now.difference(effectiveStart);
+    return _formatElapsedDuration(elapsed);
+  }
+
+  String _formatElapsedDuration(Duration duration) {
+    String twoDigits(int value) => value.toString().padLeft(2, '0');
+    final hours = twoDigits(duration.inHours);
+    final minutes = twoDigits(duration.inMinutes.remainder(60));
+    final seconds = twoDigits(duration.inSeconds.remainder(60));
+    return '$hours:$minutes:$seconds';
   }
 
   Widget _buildRecentTasksSection() {
@@ -1855,6 +1906,9 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
 
   Widget _buildUpcomingSection(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final upcomingShifts = _upcomingShifts
+        .where((shift) => !_isCurrentActiveShift(shift))
+        .toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1891,9 +1945,9 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
         const SizedBox(height: 12),
         _isLoading
             ? const Center(child: CircularProgressIndicator())
-            : _upcomingShifts.isEmpty
+            : upcomingShifts.isEmpty
                 ? _buildEmptyUpcoming(context)
-                : _buildUpcomingCard(_upcomingShifts.first),
+                : _buildUpcomingCard(upcomingShifts.first),
       ],
     );
   }
@@ -2114,6 +2168,10 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
 
   /// Build clock-in action buttons based on current time and shift state
   Widget _buildClockInActionButtons(TeachingShift shift) {
+    if (_isCurrentActiveShift(shift)) {
+      return const SizedBox.shrink();
+    }
+
     // Use local time for both to ensure consistent comparison
     final now = DateTime.now();
     final shiftStart = shift.shiftStart.toLocal();
@@ -2285,6 +2343,10 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
     }
 
     return const SizedBox.shrink();
+  }
+
+  bool _isCurrentActiveShift(TeachingShift shift) {
+    return _clockedInShift?.id == shift.id || shift.isClockedIn;
   }
 
   /// Handle clock-out button press

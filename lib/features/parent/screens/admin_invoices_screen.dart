@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
@@ -27,6 +28,8 @@ class _AdminInvoicesScreenState extends State<AdminInvoicesScreen> {
   final _firestore = FirebaseFirestore.instance;
   InvoiceStatus? _statusFilter;
   final Map<String, String> _nameCache = {};
+  final Map<String, _InvoiceUserSearchData?> _userSearchCache = {};
+  final Map<String, Future<_InvoiceUserSearchData?>> _userSearchFutures = {};
 
   @override
   void dispose() {
@@ -52,12 +55,105 @@ class _AdminInvoicesScreenState extends State<AdminInvoicesScreen> {
     return _nameCache[userId]!;
   }
 
-  Stream<List<Invoice>> _invoiceStream() {
+  Future<_InvoiceUserSearchData?> _resolveUserSearchData(String userId) {
+    final id = userId.trim();
+    if (id.isEmpty) return Future.value(null);
+    if (_userSearchCache.containsKey(id)) {
+      return Future.value(_userSearchCache[id]);
+    }
+    return _userSearchFutures.putIfAbsent(id, () async {
+      try {
+        final doc = await _firestore.collection('users').doc(id).get();
+        if (!doc.exists) {
+          _userSearchCache[id] = _InvoiceUserSearchData(id: id);
+          return _userSearchCache[id];
+        }
+        final data = doc.data() ?? const <String, dynamic>{};
+        final user = _InvoiceUserSearchData.fromMap(id, data);
+        _userSearchCache[id] = user;
+        return user;
+      } catch (e) {
+        AppLogger.error(
+            'AdminInvoices: failed to load user $id for search: $e');
+        _userSearchCache[id] = _InvoiceUserSearchData(id: id);
+        return _userSearchCache[id];
+      } finally {
+        _userSearchFutures.remove(id);
+      }
+    });
+  }
+
+  Future<String> _invoiceSearchText(Invoice invoice) async {
+    final parts = <String>[
+      invoice.id,
+      invoice.invoiceNumber,
+      invoice.parentId,
+      invoice.studentId,
+      invoice.status.name,
+      invoice.currency,
+      invoice.totalAmount.toStringAsFixed(2),
+      invoice.remainingBalance.toStringAsFixed(2),
+      DateFormat.yMd().format(invoice.issuedDate),
+      DateFormat.yMd().format(invoice.dueDate),
+      invoice.period ?? '',
+      invoice.displayBillingPeriod ?? '',
+    ];
+
+    final parent = await _resolveUserSearchData(invoice.parentId);
+    if (parent != null) {
+      parts.addAll(parent.searchTerms);
+      for (final childId in parent.childrenIds.take(30)) {
+        final child = await _resolveUserSearchData(childId);
+        if (child != null) parts.addAll(child.searchTerms);
+      }
+    }
+
+    final student = await _resolveUserSearchData(invoice.studentId);
+    if (student != null) parts.addAll(student.searchTerms);
+
+    return parts.join(' ').toLowerCase();
+  }
+
+  Future<List<Invoice>> _filterInvoicesForSearch(
+    List<Invoice> invoices,
+    String query,
+  ) async {
+    final normalizedQuery = query.trim().toLowerCase();
+    if (normalizedQuery.isEmpty) return invoices;
+
+    final terms = normalizedQuery
+        .split(RegExp(r'\s+'))
+        .where((term) => term.trim().isNotEmpty)
+        .toList();
+    final queryDigits = _digitsOnly(normalizedQuery);
+    final matches = await Future.wait(invoices.map((invoice) async {
+      final text = await _invoiceSearchText(invoice);
+      final textDigits = _digitsOnly(text);
+      final textMatch = terms.every(text.contains);
+      final phoneMatch = queryDigits.length >= 3 &&
+          textDigits.isNotEmpty &&
+          textDigits.contains(queryDigits);
+      return textMatch || phoneMatch;
+    }));
+
+    return [
+      for (var i = 0; i < invoices.length; i++)
+        if (matches[i]) invoices[i],
+    ];
+  }
+
+  static String _digitsOnly(String value) =>
+      value.replaceAll(RegExp(r'[^0-9]'), '');
+
+  Stream<List<Invoice>> _invoiceStream({bool expanded = false}) {
     Query query = _firestore.collection('invoices');
     if (_statusFilter != null) {
       query = query.where('status', isEqualTo: _statusFilter!.name);
     }
-    query = query.orderBy('created_at', descending: true).limit(200);
+    query = query.orderBy('created_at', descending: true);
+    if (!expanded) {
+      query = query.limit(200);
+    }
 
     return query.snapshots().map((snap) {
       return snap.docs.map((doc) => Invoice.fromFirestore(doc)).toList();
@@ -74,23 +170,28 @@ class _AdminInvoicesScreenState extends State<AdminInvoicesScreen> {
             style: GoogleFonts.inter(fontWeight: FontWeight.w800)),
         content: Text(
           l10n.adminInvoiceDeleteConfirm(
-            invoice.invoiceNumber.isNotEmpty ? invoice.invoiceNumber : invoice.id,
+            invoice.invoiceNumber.isNotEmpty
+                ? invoice.invoiceNumber
+                : invoice.id,
           ),
           style: GoogleFonts.inter(),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: Text(l10n.commonCancel, style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+            child: Text(l10n.commonCancel,
+                style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFDC2626),
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
             ),
-            child: Text(l10n.adminInvoiceDelete, style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+            child: Text(l10n.adminInvoiceDelete,
+                style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
           ),
         ],
       ),
@@ -102,7 +203,8 @@ class _AdminInvoicesScreenState extends State<AdminInvoicesScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('${l10n.adminInvoiceDelete}: ${invoice.invoiceNumber}'),
+              content:
+                  Text('${l10n.adminInvoiceDelete}: ${invoice.invoiceNumber}'),
               backgroundColor: const Color(0xFF16A34A),
             ),
           );
@@ -127,6 +229,22 @@ class _AdminInvoicesScreenState extends State<AdminInvoicesScreen> {
     );
   }
 
+  Future<void> _recordPayment(Invoice invoice) async {
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => _RecordPaymentDialog(invoice: invoice),
+    );
+    if (saved == true && mounted) {
+      final l10n = AppLocalizations.of(context)!;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(l10n.adminInvoicePaymentSuccess),
+          backgroundColor: const Color(0xFF16A34A),
+        ),
+      );
+    }
+  }
+
   Future<Uint8List> _buildPdfBytes(Invoice invoice) {
     return InvoicePdfService.generateInvoicePDF(invoice).timeout(
       const Duration(seconds: 45),
@@ -145,9 +263,10 @@ class _AdminInvoicesScreenState extends State<AdminInvoicesScreen> {
       );
 
       final pdfBytes = await _buildPdfBytes(invoice);
-      final safeName =
-          (invoice.invoiceNumber.isNotEmpty ? invoice.invoiceNumber : invoice.id)
-              .replaceAll(RegExp(r'[^\w\-]+'), '_');
+      final safeName = (invoice.invoiceNumber.isNotEmpty
+              ? invoice.invoiceNumber
+              : invoice.id)
+          .replaceAll(RegExp(r'[^\w\-]+'), '_');
 
       if (!mounted) return;
       Navigator.of(context).pop();
@@ -189,9 +308,10 @@ class _AdminInvoicesScreenState extends State<AdminInvoicesScreen> {
       final pdfBytes = await _buildPdfBytes(invoice);
       if (!mounted) return;
       Navigator.of(context).pop();
-      final safeName =
-          (invoice.invoiceNumber.isNotEmpty ? invoice.invoiceNumber : invoice.id)
-              .replaceAll(RegExp(r'[^\w\-]+'), '_');
+      final safeName = (invoice.invoiceNumber.isNotEmpty
+              ? invoice.invoiceNumber
+              : invoice.id)
+          .replaceAll(RegExp(r'[^\w\-]+'), '_');
       await presentInvoicePdfBytes(
         bytes: pdfBytes,
         filename: 'Invoice_${safeName}_print.pdf',
@@ -309,7 +429,9 @@ class _AdminInvoicesScreenState extends State<AdminInvoicesScreen> {
               ),
               Expanded(
                 child: StreamBuilder<List<Invoice>>(
-                  stream: _invoiceStream(),
+                  stream: _invoiceStream(
+                    expanded: _searchController.text.trim().isNotEmpty,
+                  ),
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
                       return const Center(child: CircularProgressIndicator());
@@ -321,49 +443,44 @@ class _AdminInvoicesScreenState extends State<AdminInvoicesScreen> {
                           child: Text(
                             '${l10n.failedToLoadInvoicesNMessage}: ${snapshot.error}',
                             textAlign: TextAlign.center,
-                            style: GoogleFonts.inter(color: const Color(0xFF94A3B8)),
+                            style: GoogleFonts.inter(
+                                color: const Color(0xFF94A3B8)),
                           ),
                         ),
                       );
                     }
 
-                    var invoices = snapshot.data ?? [];
+                    final allInvoices = snapshot.data ?? [];
                     final query = _searchController.text.trim().toLowerCase();
-                    if (query.isNotEmpty) {
-                      invoices = invoices
-                          .where((i) =>
-                              i.invoiceNumber.toLowerCase().contains(query) ||
-                              i.id.toLowerCase().contains(query))
-                          .toList();
+                    if (query.isEmpty) {
+                      return _buildInvoiceList(allInvoices, l10n);
                     }
-
-                    if (invoices.isEmpty) {
-                      return Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.receipt_long,
-                                size: 48, color: const Color(0xFFCBD5E1)),
-                            const SizedBox(height: 12),
-                            Text(
-                              l10n.noInvoicesFound,
-                              style: GoogleFonts.inter(
-                                color: const Color(0xFF94A3B8),
-                                fontWeight: FontWeight.w600,
+                    return FutureBuilder<List<Invoice>>(
+                      future: _filterInvoicesForSearch(allInvoices, query),
+                      builder: (context, filteredSnapshot) {
+                        if (filteredSnapshot.connectionState ==
+                                ConnectionState.waiting &&
+                            query.isNotEmpty) {
+                          return const Center(
+                              child: CircularProgressIndicator());
+                        }
+                        if (filteredSnapshot.hasError) {
+                          return Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(24),
+                              child: Text(
+                                '${l10n.failedToLoadInvoicesNMessage}: ${filteredSnapshot.error}',
+                                textAlign: TextAlign.center,
+                                style: GoogleFonts.inter(
+                                    color: const Color(0xFF94A3B8)),
                               ),
                             ),
-                          ],
-                        ),
-                      );
-                    }
+                          );
+                        }
 
-                    return ListView.separated(
-                      padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
-                      itemCount: invoices.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 10),
-                      itemBuilder: (context, index) {
-                        final invoice = invoices[index];
-                        return _buildInvoiceCard(context, invoice, l10n);
+                        final invoices =
+                            filteredSnapshot.data ?? const <Invoice>[];
+                        return _buildInvoiceList(invoices, l10n);
                       },
                     );
                   },
@@ -376,12 +493,44 @@ class _AdminInvoicesScreenState extends State<AdminInvoicesScreen> {
     );
   }
 
+  Widget _buildInvoiceList(List<Invoice> invoices, AppLocalizations l10n) {
+    if (invoices.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.receipt_long, size: 48, color: const Color(0xFFCBD5E1)),
+            const SizedBox(height: 12),
+            Text(
+              l10n.noInvoicesFound,
+              style: GoogleFonts.inter(
+                color: const Color(0xFF94A3B8),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+      itemCount: invoices.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 10),
+      itemBuilder: (context, index) {
+        final invoice = invoices[index];
+        return _buildInvoiceCard(context, invoice, l10n);
+      },
+    );
+  }
+
   Widget _buildFilterChips(AppLocalizations l10n) {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
         children: [
-          _chip(l10n.adminInvoiceFilterAll, _statusFilter == null, () => setState(() => _statusFilter = null)),
+          _chip(l10n.adminInvoiceFilterAll, _statusFilter == null,
+              () => setState(() => _statusFilter = null)),
           const SizedBox(width: 8),
           _chip(l10n.shiftStatusPending, _statusFilter == InvoiceStatus.pending,
               () => setState(() => _statusFilter = InvoiceStatus.pending)),
@@ -392,7 +541,9 @@ class _AdminInvoicesScreenState extends State<AdminInvoicesScreen> {
           _chip(l10n.overdue, _statusFilter == InvoiceStatus.overdue,
               () => setState(() => _statusFilter = InvoiceStatus.overdue)),
           const SizedBox(width: 8),
-          _chip(l10n.shiftStatusCancelled, _statusFilter == InvoiceStatus.cancelled,
+          _chip(
+              l10n.shiftStatusCancelled,
+              _statusFilter == InvoiceStatus.cancelled,
               () => setState(() => _statusFilter = InvoiceStatus.cancelled)),
         ],
       ),
@@ -409,7 +560,8 @@ class _AdminInvoicesScreenState extends State<AdminInvoicesScreen> {
           color: selected ? const Color(0xFF0386FF) : Colors.white,
           borderRadius: BorderRadius.circular(999),
           border: Border.all(
-              color: selected ? const Color(0xFF0386FF) : const Color(0xFFE2E8F0)),
+              color:
+                  selected ? const Color(0xFF0386FF) : const Color(0xFFE2E8F0)),
         ),
         child: Text(
           label,
@@ -426,11 +578,14 @@ class _AdminInvoicesScreenState extends State<AdminInvoicesScreen> {
   Widget _buildInvoiceCard(
       BuildContext context, Invoice invoice, AppLocalizations l10n) {
     final money = NumberFormat.simpleCurrency(name: invoice.currency);
-    final statusLabel =
-        invoice.isOverdue ? l10n.overdue.toUpperCase() : invoice.status.name.toUpperCase();
+    final statusLabel = invoice.isOverdue
+        ? l10n.overdue.toUpperCase()
+        : invoice.status.name.toUpperCase();
     final statusColor = _statusColor(invoice);
     final dateLabel = DateFormat.yMMMd().format(invoice.issuedDate);
     final billing = invoice.displayBillingPeriod;
+    final notificationStatus =
+        (invoice.notificationStatus ?? '').toLowerCase().trim();
 
     return FutureBuilder<String>(
       future: _resolveName(invoice.parentId),
@@ -458,7 +613,8 @@ class _AdminInvoicesScreenState extends State<AdminInvoicesScreen> {
                 onTap: () {
                   Navigator.of(context).push(
                     MaterialPageRoute(
-                      builder: (_) => InvoiceDetailScreen(invoiceId: invoice.id),
+                      builder: (_) =>
+                          InvoiceDetailScreen(invoiceId: invoice.id),
                     ),
                   );
                 },
@@ -477,7 +633,8 @@ class _AdminInvoicesScreenState extends State<AdminInvoicesScreen> {
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: Center(
-                              child: Icon(Icons.receipt, color: statusColor, size: 18),
+                              child: Icon(Icons.receipt,
+                                  color: statusColor, size: 18),
                             ),
                           ),
                           const SizedBox(width: 12),
@@ -544,10 +701,24 @@ class _AdminInvoicesScreenState extends State<AdminInvoicesScreen> {
                               l10n.adminInvoiceBillingPeriodChip(billing),
                               color: const Color(0xFF0369A1),
                             ),
+                          if (notificationStatus == 'failed')
+                            _infoTag(
+                              Icons.mark_email_unread_rounded,
+                              l10n.adminInvoiceSendFailed,
+                              color: const Color(0xFFDC2626),
+                            ),
+                          if (notificationStatus == 'pending')
+                            _infoTag(
+                              Icons.schedule_send_rounded,
+                              l10n.adminInvoiceSendPending,
+                              color: const Color(0xFFD97706),
+                            ),
                           if (invoice.remainingBalance > 0 &&
                               !invoice.isFullyPaid)
-                            _infoTag(Icons.pending_rounded,
-                                l10n.adminInvoiceBalanceDue(money.format(invoice.remainingBalance)),
+                            _infoTag(
+                                Icons.pending_rounded,
+                                l10n.adminInvoiceBalanceDue(
+                                    money.format(invoice.remainingBalance)),
                                 color: const Color(0xFFDC2626)),
                         ],
                       ),
@@ -571,6 +742,16 @@ class _AdminInvoicesScreenState extends State<AdminInvoicesScreen> {
                       label: l10n.adminInvoicePrintPdf,
                       onTap: () => _printPdf(invoice),
                     ),
+                    if (invoice.remainingBalance > 0 &&
+                        invoice.status != InvoiceStatus.cancelled) ...[
+                      const SizedBox(width: 8),
+                      _actionButton(
+                        icon: Icons.payments_rounded,
+                        label: l10n.adminInvoiceRecordPayment,
+                        color: const Color(0xFF047857),
+                        onTap: () => _recordPayment(invoice),
+                      ),
+                    ],
                     const SizedBox(width: 8),
                     _actionButton(
                       icon: Icons.edit_rounded,
@@ -648,7 +829,8 @@ class _AdminInvoicesScreenState extends State<AdminInvoicesScreen> {
           foregroundColor: c,
           side: const BorderSide(color: Color(0xFFE2E8F0)),
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
       ),
     );
@@ -664,6 +846,461 @@ class _AdminInvoicesScreenState extends State<AdminInvoicesScreen> {
       case InvoiceStatus.pending:
       case InvoiceStatus.overdue:
         return const Color(0xFFF59E0B);
+    }
+  }
+}
+
+class _InvoiceUserSearchData {
+  final String id;
+  final String name;
+  final String email;
+  final String phone;
+  final String studentCode;
+  final String kioskCode;
+  final List<String> childrenIds;
+
+  const _InvoiceUserSearchData({
+    required this.id,
+    this.name = '',
+    this.email = '',
+    this.phone = '',
+    this.studentCode = '',
+    this.kioskCode = '',
+    this.childrenIds = const [],
+  });
+
+  factory _InvoiceUserSearchData.fromMap(
+    String id,
+    Map<String, dynamic> data,
+  ) {
+    final first = (data['first_name'] ?? '').toString().trim();
+    final last = (data['last_name'] ?? '').toString().trim();
+    final displayName =
+        (data['displayName'] ?? data['name'] ?? '').toString().trim();
+    final name = ('$first $last').trim();
+    final countryCode =
+        (data['country_code'] ?? data['countryCode'] ?? '').toString().trim();
+    final phone = (data['phone_number'] ??
+            data['mobile_phone'] ??
+            data['phone'] ??
+            data['mobilePhone'] ??
+            '')
+        .toString()
+        .trim();
+    return _InvoiceUserSearchData(
+      id: id,
+      name: name.isNotEmpty ? name : displayName,
+      email: (data['e-mail'] ?? data['email'] ?? '').toString(),
+      phone: [countryCode, phone]
+          .where((part) => part.trim().isNotEmpty)
+          .join(' '),
+      studentCode: (data['student_code'] ??
+              data['studentCode'] ??
+              data['student_id'] ??
+              '')
+          .toString(),
+      kioskCode: (data['kiosk_code'] ?? data['kiosqueCode'] ?? '').toString(),
+      childrenIds: {
+        ...((data['children_ids'] as List?)?.map((e) => e.toString()) ??
+            const <String>[]),
+        ...((data['childrenIds'] as List?)?.map((e) => e.toString()) ??
+            const <String>[]),
+      }.where((id) => id.trim().isNotEmpty).toList(),
+    );
+  }
+
+  List<String> get searchTerms => [
+        id,
+        name,
+        email,
+        phone,
+        studentCode,
+        kioskCode,
+        _digitsOnly(phone),
+      ].where((term) => term.trim().isNotEmpty).toList();
+
+  static String _digitsOnly(String value) =>
+      value.replaceAll(RegExp(r'[^0-9]'), '');
+}
+
+class _RecordPaymentDialog extends StatefulWidget {
+  final Invoice invoice;
+
+  const _RecordPaymentDialog({required this.invoice});
+
+  @override
+  State<_RecordPaymentDialog> createState() => _RecordPaymentDialogState();
+}
+
+class _RecordPaymentDialogState extends State<_RecordPaymentDialog> {
+  late final TextEditingController _amountController;
+  final _referenceController = TextEditingController();
+  final _noteController = TextEditingController();
+  String _method = 'zelle';
+  late DateTime _receivedDate;
+  bool _isSaving = false;
+  String? _error;
+
+  static const _methods = [
+    'zelle',
+    'cash_app',
+    'bank_transfer',
+    'moneygram',
+    'western_union',
+    'cash',
+    'check',
+    'other',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _amountController = TextEditingController(
+      text: widget.invoice.remainingBalance.toStringAsFixed(2),
+    );
+    final now = DateTime.now();
+    _receivedDate = DateTime(now.year, now.month, now.day);
+  }
+
+  @override
+  void dispose() {
+    _amountController.dispose();
+    _referenceController.dispose();
+    _noteController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final l10n = AppLocalizations.of(context)!;
+    final amount = double.tryParse(_amountController.text.trim());
+    if (amount == null ||
+        amount <= 0 ||
+        amount > widget.invoice.remainingBalance) {
+      setState(() => _error = l10n.adminInvoicePaymentInvalidAmount);
+      return;
+    }
+
+    setState(() {
+      _isSaving = true;
+      _error = null;
+    });
+
+    try {
+      final callable =
+          FirebaseFunctions.instance.httpsCallable('recordManualPayment');
+      await callable.call({
+        'invoiceId': widget.invoice.id,
+        'amount': amount,
+        'paymentMethod': _method,
+        'reference': _referenceController.text.trim(),
+        'note': _noteController.text.trim(),
+        'receivedAt': _receivedDate.toIso8601String(),
+      });
+      if (mounted) Navigator.pop(context, true);
+    } on FirebaseFunctionsException catch (e) {
+      setState(() => _error = e.message ?? e.code);
+    } catch (e) {
+      setState(() => _error = e.toString());
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final money = NumberFormat.simpleCurrency(name: widget.invoice.currency);
+
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 480),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(18),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEFFDF5),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFBBF7D0)),
+                    ),
+                    child: const Icon(
+                      Icons.payments_rounded,
+                      color: Color(0xFF047857),
+                      size: 19,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          l10n.adminInvoiceRecordPaymentTitle,
+                          style: GoogleFonts.inter(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w900,
+                            color: const Color(0xFF0F172A),
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '${widget.invoice.invoiceNumber} · ${l10n.adminInvoiceBalanceDue(money.format(widget.invoice.remainingBalance))}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFF64748B),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: l10n.commonClose,
+                    onPressed: _isSaving ? null : () => Navigator.pop(context),
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              _dialogLabel(l10n.adminInvoicePaymentAmount),
+              const SizedBox(height: 6),
+              TextField(
+                controller: _amountController,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                style: GoogleFonts.inter(fontWeight: FontWeight.w800),
+                decoration:
+                    _inputDecoration(prefixText: '${widget.invoice.currency} '),
+              ),
+              const SizedBox(height: 12),
+              _dialogLabel(l10n.adminInvoicePaymentMethod),
+              const SizedBox(height: 6),
+              Container(
+                height: 46,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: _method,
+                    isExpanded: true,
+                    items: _methods
+                        .map(
+                          (method) => DropdownMenuItem(
+                            value: method,
+                            child: Text(
+                              _methodLabel(l10n, method),
+                              style: GoogleFonts.inter(
+                                  fontWeight: FontWeight.w700),
+                            ),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: _isSaving
+                        ? null
+                        : (value) {
+                            if (value != null) setState(() => _method = value);
+                          },
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              _dialogLabel(l10n.adminInvoicePaymentReceivedDate),
+              const SizedBox(height: 6),
+              InkWell(
+                onTap: _isSaving
+                    ? null
+                    : () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: _receivedDate,
+                          firstDate: DateTime(2020),
+                          lastDate: DateTime.now().add(const Duration(days: 1)),
+                        );
+                        if (picked != null) {
+                          setState(() => _receivedDate = picked);
+                        }
+                      },
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  height: 46,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.calendar_today_rounded,
+                          size: 16, color: Color(0xFF64748B)),
+                      const SizedBox(width: 8),
+                      Text(
+                        DateFormat.yMMMd().format(_receivedDate),
+                        style: GoogleFonts.inter(fontWeight: FontWeight.w700),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              _dialogLabel(l10n.adminInvoicePaymentReference),
+              const SizedBox(height: 6),
+              TextField(
+                controller: _referenceController,
+                decoration: _inputDecoration(
+                  hintText: l10n.adminInvoicePaymentReferenceHint,
+                ),
+              ),
+              const SizedBox(height: 12),
+              _dialogLabel(l10n.adminInvoicePaymentNote),
+              const SizedBox(height: 6),
+              TextField(
+                controller: _noteController,
+                minLines: 2,
+                maxLines: 3,
+                decoration: _inputDecoration(
+                  hintText: l10n.adminInvoicePaymentNoteHint,
+                ),
+              ),
+              if (_error != null) ...[
+                const SizedBox(height: 12),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEF2F2),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFFECACA)),
+                  ),
+                  child: Text(
+                    _error!,
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF991B1B),
+                    ),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed:
+                          _isSaving ? null : () => Navigator.pop(context),
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size.fromHeight(42),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: Text(l10n.commonCancel),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: _isSaving ? null : _save,
+                      icon: _isSaving
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(Icons.check_rounded, size: 18),
+                      label: Text(l10n.adminInvoiceRecordPayment),
+                      style: ElevatedButton.styleFrom(
+                        minimumSize: const Size.fromHeight(42),
+                        backgroundColor: const Color(0xFF047857),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _dialogLabel(String label) {
+    return Text(
+      label,
+      style: GoogleFonts.inter(
+        fontSize: 12,
+        fontWeight: FontWeight.w800,
+        color: const Color(0xFF475569),
+      ),
+    );
+  }
+
+  InputDecoration _inputDecoration({String? hintText, String? prefixText}) {
+    return InputDecoration(
+      hintText: hintText,
+      prefixText: prefixText,
+      hintStyle: GoogleFonts.inter(
+        color: const Color(0xFF94A3B8),
+        fontWeight: FontWeight.w500,
+      ),
+      filled: true,
+      fillColor: const Color(0xFFF8FAFC),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: const BorderSide(color: Color(0xFF047857), width: 1.5),
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+    );
+  }
+
+  String _methodLabel(AppLocalizations l10n, String method) {
+    switch (method) {
+      case 'zelle':
+        return l10n.adminInvoicePaymentMethodZelle;
+      case 'cash_app':
+        return l10n.adminInvoicePaymentMethodCashApp;
+      case 'bank_transfer':
+        return l10n.adminInvoicePaymentMethodBankTransfer;
+      case 'moneygram':
+        return l10n.adminInvoicePaymentMethodMoneyGram;
+      case 'western_union':
+        return l10n.adminInvoicePaymentMethodWesternUnion;
+      case 'cash':
+        return l10n.adminInvoicePaymentMethodCash;
+      case 'check':
+        return l10n.adminInvoicePaymentMethodCheck;
+      default:
+        return l10n.adminInvoicePaymentMethodOther;
     }
   }
 }
@@ -690,11 +1327,12 @@ class _EditInvoiceDialogState extends State<_EditInvoiceDialog> {
   void initState() {
     super.initState();
     _status = widget.invoice.status;
-    _totalController =
-        TextEditingController(text: widget.invoice.totalAmount.toStringAsFixed(2));
-    _paidController =
-        TextEditingController(text: widget.invoice.paidAmount.toStringAsFixed(2));
-    _periodController = TextEditingController(text: widget.invoice.period ?? '');
+    _totalController = TextEditingController(
+        text: widget.invoice.totalAmount.toStringAsFixed(2));
+    _paidController = TextEditingController(
+        text: widget.invoice.paidAmount.toStringAsFixed(2));
+    _periodController =
+        TextEditingController(text: widget.invoice.period ?? '');
     _dueDate = widget.invoice.dueDate;
     _accessCutoffDate = widget.invoice.effectiveAccessCutoffDate;
   }
@@ -717,7 +1355,8 @@ class _EditInvoiceDialogState extends State<_EditInvoiceDialog> {
     }
 
     final periodTrim = _periodController.text.trim();
-    if (periodTrim.isNotEmpty && !RegExp(r'^\d{4}-\d{2}$').hasMatch(periodTrim)) {
+    if (periodTrim.isNotEmpty &&
+        !RegExp(r'^\d{4}-\d{2}$').hasMatch(periodTrim)) {
       setState(() => _error = l10n.adminInvoiceEditBillingPeriodHint);
       return;
     }
@@ -776,7 +1415,8 @@ class _EditInvoiceDialogState extends State<_EditInvoiceDialog> {
                       color: const Color(0xFFEFF6FF),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: const Icon(Icons.edit, color: Color(0xFF0386FF), size: 20),
+                    child: const Icon(Icons.edit,
+                        color: Color(0xFF0386FF), size: 20),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -819,7 +1459,8 @@ class _EditInvoiceDialogState extends State<_EditInvoiceDialog> {
                         .map((s) => DropdownMenuItem(
                             value: s,
                             child: Text(s.name.toUpperCase(),
-                                style: GoogleFonts.inter(fontWeight: FontWeight.w600))))
+                                style: GoogleFonts.inter(
+                                    fontWeight: FontWeight.w600))))
                         .toList(),
                     onChanged: (v) {
                       if (v != null) setState(() => _status = v);
@@ -840,7 +1481,8 @@ class _EditInvoiceDialogState extends State<_EditInvoiceDialog> {
               const SizedBox(height: 6),
               TextField(
                 controller: _periodController,
-                style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600),
+                style: GoogleFonts.inter(
+                    fontSize: 14, fontWeight: FontWeight.w600),
                 decoration: InputDecoration(
                   hintText: l10n.adminInvoiceEditBillingPeriodHint,
                   filled: true,
@@ -855,7 +1497,8 @@ class _EditInvoiceDialogState extends State<_EditInvoiceDialog> {
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(color: Color(0xFF0386FF), width: 1.5),
+                    borderSide:
+                        const BorderSide(color: Color(0xFF0386FF), width: 1.5),
                   ),
                   contentPadding:
                       const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -881,7 +1524,8 @@ class _EditInvoiceDialogState extends State<_EditInvoiceDialog> {
                       _dueDate = picked;
                       // Clamp access cutoff if it would be before the new due date
                       if (_accessCutoffDate.isBefore(_dueDate)) {
-                        _accessCutoffDate = _dueDate.add(const Duration(days: 1));
+                        _accessCutoffDate =
+                            _dueDate.add(const Duration(days: 1));
                       }
                     });
                   }
@@ -889,7 +1533,8 @@ class _EditInvoiceDialogState extends State<_EditInvoiceDialog> {
                 borderRadius: BorderRadius.circular(10),
                 child: Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
                   decoration: BoxDecoration(
                     color: const Color(0xFFF8FAFC),
                     borderRadius: BorderRadius.circular(10),
@@ -939,8 +1584,8 @@ class _EditInvoiceDialogState extends State<_EditInvoiceDialog> {
                 borderRadius: BorderRadius.circular(10),
                 child: Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 14, vertical: 14),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
                   decoration: BoxDecoration(
                     color: const Color(0xFFFFFBEB),
                     borderRadius: BorderRadius.circular(10),
@@ -954,8 +1599,7 @@ class _EditInvoiceDialogState extends State<_EditInvoiceDialog> {
                       Text(
                         DateFormat.yMMMd().format(_accessCutoffDate),
                         style: GoogleFonts.inter(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600),
+                            fontSize: 14, fontWeight: FontWeight.w600),
                       ),
                     ],
                   ),
@@ -1006,8 +1650,8 @@ class _EditInvoiceDialogState extends State<_EditInvoiceDialog> {
                               child: CircularProgressIndicator(
                                   strokeWidth: 2, color: Colors.white))
                           : Text(l10n.commonSave,
-                              style:
-                                  GoogleFonts.inter(fontWeight: FontWeight.w700)),
+                              style: GoogleFonts.inter(
+                                  fontWeight: FontWeight.w700)),
                     ),
                   ),
                 ],
@@ -1049,7 +1693,8 @@ class _EditInvoiceDialogState extends State<_EditInvoiceDialog> {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: Color(0xFF0386FF), width: 1.5),
+              borderSide:
+                  const BorderSide(color: Color(0xFF0386FF), width: 1.5),
             ),
             contentPadding:
                 const EdgeInsets.symmetric(horizontal: 14, vertical: 12),

@@ -3,12 +3,12 @@ PODS:
   - flutter_webrtc (1.4.0):
     - Flutter
     - WebRTC-SDK (= 144.7559.01)
-  - livekit_client (2.7.0):
+  - flutter_zoom_meeting_wrapper (0.0.2):
+    - Flutter
+  - livekit_client (2.8.0):
     - Flutter
     - flutter_webrtc
     - WebRTC-SDK (= 144.7559.01)
-  - permission_handler_apple (9.3.0):
-    - Flutter
   - PhoneNumberKit (3.7.11):
     - PhoneNumberKit/PhoneNumberKitCore (= 3.7.11)
     - PhoneNumberKit/UIKit (= 3.7.11)
@@ -22,8 +22,8 @@ PODS:
 DEPENDENCIES:
   - Flutter (from `Flutter`)
   - flutter_webrtc (from `.symlinks/plugins/flutter_webrtc/ios`)
+  - flutter_zoom_meeting_wrapper (from `.symlinks/plugins/flutter_zoom_meeting_wrapper/ios`)
   - livekit_client (from `.symlinks/plugins/livekit_client/ios`)
-  - permission_handler_apple (from `.symlinks/plugins/permission_handler_apple/ios`)
   - PhoneNumberKit (~> 3.7.6)
   - printing (from `.symlinks/plugins/printing/ios`)
 
@@ -37,20 +37,20 @@ EXTERNAL SOURCES:
     :path: Flutter
   flutter_webrtc:
     :path: ".symlinks/plugins/flutter_webrtc/ios"
+  flutter_zoom_meeting_wrapper:
+    :path: ".symlinks/plugins/flutter_zoom_meeting_wrapper/ios"
   livekit_client:
     :path: ".symlinks/plugins/livekit_client/ios"
-  permission_handler_apple:
-    :path: ".symlinks/plugins/permission_handler_apple/ios"
   printing:
     :path: ".symlinks/plugins/printing/ios"
 
 SPEC CHECKSUMS:
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
-  flutter_webrtc: 5aa37bfb8b834bff989a03182d1c4266a4f93377
-  livekit_client: e3c4fe5a12a8b70841db479ddf45e0a4e88d68c4
-  permission_handler_apple: 9878588469a2b0d0fc1e048d9f43605f92e6cec2
+  flutter_webrtc: ec91d94b484ad49cf191ef93413f64a40ffd3b4c
+  flutter_zoom_meeting_wrapper: f39026942367d42498d266a757b9704a9d06ac70
+  livekit_client: 549b62f57d4bae9385f541922b621e7ce84aae4b
   PhoneNumberKit: 9ff0c5ae9fe4770193b68a3d3e6c938fe976788c
-  printing: 233e1b73bd1f4a05615548e9b5a324c98588640b
+  printing: 54ff03f28fe9ba3aa93358afb80a8595a071dd07
   WebRTC-SDK: ab9b5319e458c2bfebdc92b3600740da35d5630d
 
 PODFILE CHECKSUM: 6bbf079872e096b42e0e199d133080ce7d74871f

@@ -20,7 +20,7 @@
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Alluwal Education Hub - Comprehensive Islamic Education Management System for students, teachers, and administrators">
-  
+
   <!-- Open Graph / Facebook -->
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://alluwaleducationhub.org">
@@ -30,22 +30,22 @@
   <meta property="og:image:width" content="512">
   <meta property="og:image:height" content="512">
   <meta property="og:site_name" content="Alluwal Education Hub">
-  
+
   <!-- Twitter -->
   <meta property="twitter:card" content="summary_large_image">
   <meta property="twitter:url" content="https://alluwaleducationhub.org">
   <meta property="twitter:title" content="Alluwal Education Hub - Islamic Education Management System">
   <meta property="twitter:description" content="Comprehensive Islamic Education Management System for students, teachers, and administrators.">
   <meta property="twitter:image" content="https://alluwaleducationhub.org/logo-512.png">
-  
+
   <!-- WhatsApp / Telegram -->
   <meta property="og:image:alt" content="Alluwal Education Hub Logo">
-  
+
   <!-- Additional meta tags -->
   <meta name="author" content="Alluwal Education Hub">
   <meta name="keywords" content="Islamic Education, Management System, Online Learning, Student Portal, Teacher Dashboard, Educational Technology">
   <meta name="theme-color" content="#3B82F6">
-  
+
   <!-- Cache Control -->
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
@@ -71,15 +71,15 @@
   <link href="https://fonts.googleapis.com/css2?family=Material+Icons+Round" rel="stylesheet">
 
   <title>Alluwal Education Hub - Islamic Education Management System</title>
-  <link rel="manifest" href="manifest.json?v=99">
+  <link rel="manifest" href="manifest.json?v=168">
 </head>
 <body>
   <!-- Version check: Force reload if cached version is outdated -->
   <script>
     (function() {
-      var CURRENT_VERSION = 99; // This will be updated by increment_version.sh
+      var CURRENT_VERSION = 168; // This will be updated by increment_version.sh
       var VERSION_KEY = 'flutter_web_version';
-      
+
       try {
         var cachedVersion = localStorage.getItem(VERSION_KEY);
         if (cachedVersion && parseInt(cachedVersion) < CURRENT_VERSION) {
@@ -88,7 +88,7 @@
           // IMPORTANT: Do NOT clear localStorage/sessionStorage here.
           // Clearing storage can sign users out (Firebase Auth persistence) and create "login bounce" loops.
           localStorage.setItem(VERSION_KEY, CURRENT_VERSION.toString());
-          
+
           // Clear caches if available
           if ('caches' in window) {
             caches.keys().then(function(names) {
@@ -97,7 +97,7 @@
               });
             });
           }
-          
+
           // Unregister service workers
           if ('serviceWorker' in navigator) {
             navigator.serviceWorker.getRegistrations().then(function(registrations) {
@@ -106,12 +106,12 @@
               });
             });
           }
-          
+
           // Force reload
           window.location.reload();
           return;
         }
-        
+
         // Store current version
         localStorage.setItem(VERSION_KEY, CURRENT_VERSION.toString());
       } catch (e) {
@@ -120,7 +120,7 @@
       }
     })();
   </script>
-  
-  <script src="flutter_bootstrap.js?v=99" async></script>
+
+  <script src="flutter_bootstrap.js?v=168" async></script>
 </body>
 </html>

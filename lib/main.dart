@@ -49,11 +49,8 @@ import 'features/livekit/screens/guest_join_screen.dart';
 // If you ever need to run it manually, trigger ShiftWageMigration.runMigration()
 // from a separate maintenance script instead of during app startup.
 
-// const String _firebaseEnv =
-//     String.fromEnvironment('FIREBASE_ENV', defaultValue: '');
-
 const String _firebaseEnv =
-    'prod'; // use 'dev' only when testing against alluwal-dev (separate Auth/users)
+    String.fromEnvironment('FIREBASE_ENV', defaultValue: 'prod');
 
 bool get _useProdFirebase {
   final env = _firebaseEnv.trim().toLowerCase();
@@ -234,8 +231,9 @@ Future<void> main() async {
     }
   }
 
-  // Initialize Firebase Cloud Messaging background handler
-  if (!kIsWeb) {
+  // Initialize Firebase Cloud Messaging background handler.
+  // The current push-notification flow is configured for native mobile only.
+  if (_isNativeMobilePlatform) {
     FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
   }
 
@@ -253,8 +251,8 @@ Future<void> main() async {
   // Initialize timezone database
   TimezoneUtils.initializeTimezones();
 
-  // Initialize Notification Service (only for mobile platforms)
-  if (!kIsWeb) {
+  // Initialize Notification Service (only for native mobile platforms)
+  if (_isNativeMobilePlatform) {
     await NotificationService().initialize();
 
     // Create the Adhan notification channel (Android only, safe no-op on iOS).
@@ -1211,8 +1209,13 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
               'No account found with this email address. Please check your email or contact an administrator.';
           break;
         case 'wrong-password':
+        case 'invalid-credential':
           errorMessage =
               'Incorrect password. Please try again or use "Forgot Password" if needed.';
+          break;
+        case 'keychain-error':
+          errorMessage =
+              'macOS could not access the sign-in keychain. Rebuild the app and try again.';
           break;
         case 'invalid-email':
           errorMessage = 'Please enter a valid email address.';

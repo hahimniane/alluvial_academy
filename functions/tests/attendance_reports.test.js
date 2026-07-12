@@ -1,6 +1,16 @@
+const admin = require('firebase-admin');
 const { __test__ } = require('../handlers/attendance');
 
 describe('attendance analytics helpers', () => {
+  beforeAll(() => {
+    admin.firestore.Timestamp = {
+      fromDate: (date) => global.createMockTimestamp(date),
+    };
+    admin.firestore.FieldValue = {
+      serverTimestamp: () => ({ __type: 'serverTimestamp' }),
+    };
+  });
+
   test('computeParticipantPresenceMetrics clips windows to shift and detects early joins', () => {
     const shiftStart = new Date('2026-02-24T10:00:00.000Z');
     const shiftEnd = new Date('2026-02-24T11:00:00.000Z');
@@ -125,5 +135,92 @@ describe('attendance analytics helpers', () => {
     expect(report.metrics.student_present_teacher_absent_classes).toBe(1);
     expect(report.rates.attendance_rate).toBeCloseTo(0.5, 5);
     expect(report.rates.late_rate).toBeCloseTo(1.0, 5);
+  });
+
+  test('missingStateForShift detects teacher, student, and both no-shows', () => {
+    const shift = {
+      id: 'shift_1',
+      teacherId: 'teacher_1',
+      studentIds: ['student_1', 'student_2'],
+      shiftStart: new Date('2026-02-24T10:00:00.000Z'),
+      shiftEnd: new Date('2026-02-24T11:00:00.000Z'),
+      status: 'scheduled',
+    };
+    const teacherPresent = __test__.computeParticipantPresenceMetrics({
+      sessionData: {
+        presence_windows: [
+          {
+            join_at: new Date('2026-02-24T10:00:00.000Z'),
+            leave_at: null,
+          },
+        ],
+      },
+      shiftStart: shift.shiftStart,
+      shiftEnd: shift.shiftEnd,
+    });
+    const studentPresent = __test__.computeParticipantPresenceMetrics({
+      sessionData: {
+        presence_windows: [
+          {
+            join_at: new Date('2026-02-24T10:01:00.000Z'),
+            leave_at: null,
+          },
+        ],
+      },
+      shiftStart: shift.shiftStart,
+      shiftEnd: shift.shiftEnd,
+    });
+
+    expect(__test__.missingStateForShift({
+      shift,
+      metricsForShift: new Map([
+        ['teacher_1', teacherPresent],
+        ['student_1', studentPresent],
+      ]),
+    })).toBeNull();
+    expect(__test__.missingStateForShift({
+      shift,
+      metricsForShift: new Map([['student_1', studentPresent]]),
+    })).toBe('teacher');
+    expect(__test__.missingStateForShift({
+      shift,
+      metricsForShift: new Map([['teacher_1', teacherPresent]]),
+    })).toBe('students');
+    expect(__test__.missingStateForShift({
+      shift,
+      metricsForShift: new Map(),
+    })).toBe('both');
+  });
+
+  test('buildClassAttendanceAlertData matches the no-show admin screen schema', () => {
+    const shift = {
+      id: 'shift_1',
+      teacherId: 'teacher_1',
+      teacherName: 'Teacher One',
+      studentIds: ['student_1'],
+      studentNames: ['Student One'],
+      shiftStart: new Date('2026-02-24T10:00:00.000Z'),
+      shiftEnd: new Date('2026-02-24T11:00:00.000Z'),
+      subjectName: 'Quran',
+      className: 'Teacher One - Quran - Student One',
+      videoProvider: 'zoom',
+    };
+
+    const alert = __test__.buildClassAttendanceAlertData({
+      shift,
+      missing: 'both',
+      now: new Date('2026-02-24T10:06:00.000Z'),
+    });
+
+    expect(alert.shift_id).toBe('shift_1');
+    expect(alert.class_name).toBe('Teacher One - Quran - Student One');
+    expect(alert.teacher_id).toBe('teacher_1');
+    expect(alert.student_ids).toEqual(['student_1']);
+    expect(alert.missing).toBe('both');
+    expect(alert.provider).toBe('zoom');
+    expect(alert.minutes_since_start).toBe(6);
+    expect(alert.status).toBe('pending');
+    expect(alert.first_detected_at.toDate().toISOString())
+      .toBe('2026-02-24T10:06:00.000Z');
   });
 });

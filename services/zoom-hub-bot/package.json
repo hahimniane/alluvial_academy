@@ -1,0 +1,20 @@
+{
+  "name": "zoom-hub-bot",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Headless Zoom host bot for Alluwal classroom hub routing.",
+  "main": "bot.js",
+  "scripts": {
+    "start": "node bot.js",
+    "test": "jest --runInBand"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "playwright": "^1.55.0"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  }
+}

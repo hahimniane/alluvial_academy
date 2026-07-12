@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/models/enrollment_request.dart';
@@ -39,7 +40,13 @@ class _PrepareAndBroadcastDialogState extends State<PrepareAndBroadcastDialog> {
   late String? _timeOfDay;
   late String _scheduleTimezone;
   final _adminNotesController = TextEditingController();
+  final _teacherSearchController = TextEditingController();
   bool _isBroadcasting = false;
+  bool _broadcastToAll = true;
+  bool _loadingTeachers = false;
+  List<_TeacherOption> _teachers = [];
+  final Set<String> _selectedTeacherIds = {};
+  String _teacherSearch = '';
 
   static const _allDays = [
     'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'
@@ -65,7 +72,37 @@ class _PrepareAndBroadcastDialogState extends State<PrepareAndBroadcastDialog> {
   @override
   void dispose() {
     _adminNotesController.dispose();
+    _teacherSearchController.dispose();
     super.dispose();
+  }
+
+  Future<void> _ensureTeachersLoaded() async {
+    if (_teachers.isNotEmpty || _loadingTeachers) return;
+    setState(() => _loadingTeachers = true);
+    try {
+      final usersRef = FirebaseFirestore.instance.collection('users');
+      final results = await Future.wait([
+        usersRef.where('user_type', isEqualTo: 'teacher').get(),
+        usersRef.where('secondary_roles', arrayContains: 'teacher').get(),
+      ]);
+      final byId = <String, _TeacherOption>{};
+      for (final snap in results) {
+        for (final doc in snap.docs) {
+          final data = doc.data();
+          if (data['is_active'] == false) continue;
+          var name = '${data['first_name'] ?? ''} ${data['last_name'] ?? ''}'.trim();
+          if (name.isEmpty) name = data['e-mail'] as String? ?? doc.id;
+          byId[doc.id] = _TeacherOption(id: doc.id, name: name);
+        }
+      }
+      final teachers = byId.values.toList()
+        ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+      if (mounted) setState(() => _teachers = teachers);
+    } catch (e) {
+      if (mounted) _showError('$e');
+    } finally {
+      if (mounted) setState(() => _loadingTeachers = false);
+    }
   }
 
   @override
@@ -107,6 +144,10 @@ class _PrepareAndBroadcastDialogState extends State<PrepareAndBroadcastDialog> {
                     _buildSectionTitle(AppLocalizations.of(context)!.prepareBroadcastNotesForTeachers, Icons.note_alt_outlined),
                     const SizedBox(height: 8),
                     _buildAdminNotesField(),
+                    const SizedBox(height: 20),
+                    _buildSectionTitle(AppLocalizations.of(context)!.prepareBroadcastRecipientsTitle, Icons.group_outlined),
+                    const SizedBox(height: 8),
+                    _buildRecipientSelector(),
                     const SizedBox(height: 16),
                   ],
                 ),
@@ -580,6 +621,153 @@ class _PrepareAndBroadcastDialogState extends State<PrepareAndBroadcastDialog> {
     );
   }
 
+  Widget _buildRecipientSelector() {
+    final l = AppLocalizations.of(context)!;
+    final filtered = _teacherSearch.isEmpty
+        ? _teachers
+        : _teachers
+            .where((t) => t.name.toLowerCase().contains(_teacherSearch.toLowerCase()))
+            .toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: 8,
+          children: [
+            ChoiceChip(
+              label: Text(
+                l.prepareBroadcastAllTeachers,
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: _broadcastToAll ? Colors.white : const Color(0xff475569),
+                ),
+              ),
+              selected: _broadcastToAll,
+              onSelected: (v) {
+                if (v) setState(() => _broadcastToAll = true);
+              },
+              selectedColor: const Color(0xff3B82F6),
+              backgroundColor: const Color(0xffF1F5F9),
+              checkmarkColor: Colors.white,
+            ),
+            ChoiceChip(
+              label: Text(
+                l.prepareBroadcastSpecificTeachers,
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: !_broadcastToAll ? Colors.white : const Color(0xff475569),
+                ),
+              ),
+              selected: !_broadcastToAll,
+              onSelected: (v) {
+                if (v) {
+                  setState(() => _broadcastToAll = false);
+                  _ensureTeachersLoaded();
+                }
+              },
+              selectedColor: const Color(0xff3B82F6),
+              backgroundColor: const Color(0xffF1F5F9),
+              checkmarkColor: Colors.white,
+            ),
+          ],
+        ),
+        if (!_broadcastToAll) ...[
+          const SizedBox(height: 10),
+          TextField(
+            controller: _teacherSearchController,
+            style: GoogleFonts.inter(fontSize: 13),
+            decoration: InputDecoration(
+              hintText: l.prepareBroadcastSearchTeachers,
+              hintStyle: GoogleFonts.inter(fontSize: 12, color: const Color(0xff94A3B8)),
+              prefixIcon: const Icon(Icons.search, size: 18, color: Color(0xff94A3B8)),
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(color: Color(0xffCBD5E1)),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(color: Color(0xffCBD5E1)),
+              ),
+            ),
+            onChanged: (v) => setState(() => _teacherSearch = v.trim()),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            constraints: const BoxConstraints(maxHeight: 200),
+            decoration: BoxDecoration(
+              color: const Color(0xffF8FAFC),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xffE2E8F0)),
+            ),
+            child: _loadingTeachers
+                ? const Padding(
+                    padding: EdgeInsets.all(20),
+                    child: Center(
+                      child: SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    ),
+                  )
+                : filtered.isEmpty
+                    ? Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Text(
+                          l.prepareBroadcastNoTeachersFound,
+                          style: GoogleFonts.inter(fontSize: 12, color: const Color(0xff64748B)),
+                        ),
+                      )
+                    : ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: filtered.length,
+                        itemBuilder: (context, i) {
+                          final teacher = filtered[i];
+                          final selected = _selectedTeacherIds.contains(teacher.id);
+                          return CheckboxListTile(
+                            dense: true,
+                            controlAffinity: ListTileControlAffinity.leading,
+                            visualDensity: VisualDensity.compact,
+                            activeColor: const Color(0xff3B82F6),
+                            title: Text(
+                              teacher.name,
+                              style: GoogleFonts.inter(fontSize: 13, color: const Color(0xff1E293B)),
+                            ),
+                            value: selected,
+                            onChanged: (v) {
+                              setState(() {
+                                if (v == true) {
+                                  _selectedTeacherIds.add(teacher.id);
+                                } else {
+                                  _selectedTeacherIds.remove(teacher.id);
+                                }
+                              });
+                            },
+                          );
+                        },
+                      ),
+          ),
+          if (_selectedTeacherIds.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              l.prepareBroadcastTeachersSelected(_selectedTeacherIds.length),
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xff3B82F6),
+              ),
+            ),
+          ],
+        ],
+      ],
+    );
+  }
+
   Widget _buildAdminNotesField() {
     return TextField(
       controller: _adminNotesController,
@@ -652,9 +840,16 @@ class _PrepareAndBroadcastDialogState extends State<PrepareAndBroadcastDialog> {
       _showError(AppLocalizations.of(context)!.prepareBroadcastAddTimeSlotFirst);
       return;
     }
+    if (!_broadcastToAll && _selectedTeacherIds.isEmpty) {
+      _showError(AppLocalizations.of(context)!.prepareBroadcastSelectTeacherFirst);
+      return;
+    }
     setState(() => _isBroadcasting = true);
     try {
       final adminNotes = _adminNotesController.text.trim();
+      final targetTeachers = _broadcastToAll
+          ? null
+          : _teachers.where((t) => _selectedTeacherIds.contains(t.id)).toList();
       await JobBoardService().broadcastEnrollment(
         widget.enrollment,
         overrideDays: _selectedDays,
@@ -662,6 +857,8 @@ class _PrepareAndBroadcastDialogState extends State<PrepareAndBroadcastDialog> {
         overrideTimeOfDay: _timeOfDay,
         scheduleTimezoneRef: _scheduleTimezone,
         adminNotesForTeachers: adminNotes.isEmpty ? null : adminNotes,
+        targetTeacherIds: targetTeachers?.map((t) => t.id).toList(),
+        targetTeacherNames: targetTeachers?.map((t) => t.name).toList(),
       );
       if (context.mounted) {
         Navigator.pop(context);
@@ -684,4 +881,11 @@ class _PrepareAndBroadcastDialogState extends State<PrepareAndBroadcastDialog> {
       }
     }
   }
+}
+
+class _TeacherOption {
+  final String id;
+  final String name;
+
+  const _TeacherOption({required this.id, required this.name});
 }

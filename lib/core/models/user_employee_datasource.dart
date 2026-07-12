@@ -15,6 +15,7 @@ class UserEmployeeDataSource extends DataGridSource {
     this.onViewCredentials,
     this.onToggleAITutor,
     this.onToggleTontine,
+    this.onToggleZoom,
     required this.context,
   }) {
     _employees = employees.map<DataGridRow>((e) {
@@ -40,6 +41,7 @@ class UserEmployeeDataSource extends DataGridSource {
   final Function(Employee)? onViewCredentials;
   final Function(Employee)? onToggleAITutor;
   final Function(Employee)? onToggleTontine;
+  final Function(Employee)? onToggleZoom;
   final BuildContext context;
 
   List<DataGridRow> _employees = [];
@@ -116,6 +118,21 @@ class UserEmployeeDataSource extends DataGridSource {
                     tooltip: employee.tontineEnabled
                         ? 'Disable Tontine'
                         : 'Enable Tontine',
+                  ),
+                if (employee.userType.toLowerCase() == 'teacher' &&
+                    onToggleZoom != null &&
+                    employee.isActive)
+                  _buildActionButton(
+                    icon: employee.useZoom
+                        ? Icons.video_camera_front
+                        : Icons.video_camera_front_outlined,
+                    color: employee.useZoom
+                        ? const Color(0xff10B981)
+                        : const Color(0xff9CA3AF),
+                    onTap: () => onToggleZoom!(employee),
+                    tooltip: employee.useZoom
+                        ? AppLocalizations.of(context)!.disableZoomClasses
+                        : AppLocalizations.of(context)!.enableZoomClasses,
                   ),
                 // Edit button - always available for active users
                 if (employee.isActive)

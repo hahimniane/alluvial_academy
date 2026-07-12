@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:firebase_auth/firebase_auth.dart';
 
 import 'public_site_cms_service.dart';
@@ -18,6 +20,9 @@ import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
+  bool get _isNativeMobilePlatform =>
+      !kIsWeb && (Platform.isAndroid || Platform.isIOS);
+
   // Shared post-login logic
   Future<void> handleSuccessfulLogin(User user) async {
     // Web: make sure the freshly-signed-in user's token is ready before any Firestore calls.
@@ -27,7 +32,8 @@ class AuthService {
         await user.getIdToken(true);
         AppLogger.debug('AuthService: refreshed ID token after login (web)');
       } catch (e) {
-        AppLogger.error('AuthService: failed to refresh ID token after login: $e');
+        AppLogger.error(
+            'AuthService: failed to refresh ID token after login: $e');
       }
     }
 
@@ -36,12 +42,14 @@ class AuthService {
     if (userData == null) {
       if (user.phoneNumber != null && user.phoneNumber!.isNotEmpty) {
         try {
-          AppLogger.info('AuthService: New phone user ${user.uid} — auto-provisioning as circle_member');
+          AppLogger.info(
+              'AuthService: New phone user ${user.uid} — auto-provisioning as circle_member');
           await _provisionCircleMemberUser(user);
           UserRoleService.clearCache();
           userData = await UserRoleService.getCurrentUserData();
         } catch (e) {
-          AppLogger.error('AuthService: Failed to provision circle_member for ${user.uid}: $e');
+          AppLogger.error(
+              'AuthService: Failed to provision circle_member for ${user.uid}: $e');
           await _auth.signOut();
           throw FirebaseAuthException(
             code: 'user-not-registered',
@@ -52,7 +60,8 @@ class AuthService {
       }
 
       if (userData == null) {
-        AppLogger.debug('AuthService: User authenticated but no Firestore document found for ${user.uid}');
+        AppLogger.debug(
+            'AuthService: User authenticated but no Firestore document found for ${user.uid}');
         await _auth.signOut();
         throw FirebaseAuthException(
           code: 'user-not-registered',
@@ -85,7 +94,8 @@ class AuthService {
 
     // Initialize location and prayer times for teachers (non-blocking)
     _initializeTeacherServices(user).catchError((e) {
-      AppLogger.error('AuthService: Background teacher initialization failed: $e');
+      AppLogger.error(
+          'AuthService: Background teacher initialization failed: $e');
     });
   }
 
@@ -102,7 +112,10 @@ class AuthService {
       }
 
       return user;
-    } on FirebaseAuthException {
+    } on FirebaseAuthException catch (e) {
+      AppLogger.error(
+        'AuthService: email sign-in failed: ${e.code} - ${e.message}',
+      );
       // Re-throw FirebaseAuthException to preserve error codes
       rethrow;
     } catch (e) {
@@ -185,7 +198,10 @@ class AuthService {
       }
 
       return user;
-    } on FirebaseAuthException {
+    } on FirebaseAuthException catch (e) {
+      AppLogger.error(
+        'AuthService: Google Firebase sign-in failed: ${e.code} - ${e.message}',
+      );
       rethrow;
     } catch (e) {
       AppLogger.error('AuthService: Google sign-in error: $e');
@@ -198,12 +214,17 @@ class AuthService {
 
   // Initialize services for teachers after login
   Future<void> _initializeTeacherServices(User user) async {
+    if (!_isNativeMobilePlatform) {
+      return;
+    }
+
     try {
       // Get user role
       final role = await UserRoleService.getCurrentUserRole();
 
       if (role?.toLowerCase() == 'teacher') {
-        AppLogger.debug('AuthService: Initializing services for teacher ${user.uid}');
+        AppLogger.debug(
+            'AuthService: Initializing services for teacher ${user.uid}');
 
         // Fetch location in background - completely fire and forget
         _fetchLocationInBackground(user).catchError((e) {
@@ -212,7 +233,8 @@ class AuthService {
 
         // Pre-load prayer times - fire and forget
         _preloadPrayerTimesInBackground().catchError((e) {
-          AppLogger.error('AuthService: Background prayer time pre-load failed: $e');
+          AppLogger.error(
+              'AuthService: Background prayer time pre-load failed: $e');
         });
       }
     } catch (e) {
@@ -239,8 +261,9 @@ class AuthService {
       }
 
       // Request location permission and get current location with timeout
-      final location = await LocationService.getCurrentLocation(interactive: false)
-          .timeout(const Duration(seconds: 10), onTimeout: () {
+      final location =
+          await LocationService.getCurrentLocation(interactive: false)
+              .timeout(const Duration(seconds: 10), onTimeout: () {
         AppLogger.debug('AuthService: Location request timed out');
         return null;
       });
@@ -304,7 +327,8 @@ class AuthService {
           await uidDoc.reference.update({
             'last_login': FieldValue.serverTimestamp(),
           });
-          AppLogger.debug('AuthService: Last login time updated for uid ${user.uid}');
+          AppLogger.debug(
+              'AuthService: Last login time updated for uid ${user.uid}');
           return;
         }
       } catch (_) {
@@ -320,25 +344,38 @@ class AuthService {
             await emailDoc.reference.update({
               'last_login': FieldValue.serverTimestamp(),
             });
-            AppLogger.debug('AuthService: Last login time updated for ${user.email}');
+            AppLogger.debug(
+                'AuthService: Last login time updated for ${user.email}');
             return;
           }
         } catch (_) {}
 
-        QuerySnapshot userQuery = await users.where('e-mail', isEqualTo: email).limit(1).get();
+        QuerySnapshot userQuery =
+            await users.where('e-mail', isEqualTo: email).limit(1).get();
         if (userQuery.docs.isEmpty) {
-          userQuery = await users.where('email', isEqualTo: email).limit(1).get();
+          userQuery =
+              await users.where('email', isEqualTo: email).limit(1).get();
         }
 
         // Check aliases if using a generated student/kiosk auth email
-        if (userQuery.docs.isEmpty && email.endsWith('@alluwaleducationhub.org')) {
+        if (userQuery.docs.isEmpty &&
+            email.endsWith('@alluwaleducationhub.org')) {
           final alias = email.split('@')[0];
-          userQuery = await users.where('student_code', isEqualTo: alias).limit(1).get();
+          userQuery = await users
+              .where('student_code', isEqualTo: alias)
+              .limit(1)
+              .get();
           if (userQuery.docs.isEmpty) {
-            userQuery = await users.where('studentCode', isEqualTo: alias).limit(1).get();
+            userQuery = await users
+                .where('studentCode', isEqualTo: alias)
+                .limit(1)
+                .get();
           }
           if (userQuery.docs.isEmpty) {
-            userQuery = await users.where('kiosk_code', isEqualTo: alias).limit(1).get();
+            userQuery = await users
+                .where('kiosk_code', isEqualTo: alias)
+                .limit(1)
+                .get();
           }
         }
 
@@ -347,7 +384,8 @@ class AuthService {
           await userDoc.reference.update({
             'last_login': FieldValue.serverTimestamp(),
           });
-          AppLogger.debug('AuthService: Last login time updated for ${user.email}');
+          AppLogger.debug(
+              'AuthService: Last login time updated for ${user.email}');
           return;
         }
       }
@@ -355,21 +393,27 @@ class AuthService {
       // Fallback: lookup by phone number
       final phoneNumber = user.phoneNumber;
       if (phoneNumber != null && phoneNumber.isNotEmpty) {
-        final phoneQuery = await users.where('phone_number', isEqualTo: phoneNumber).limit(1).get();
+        final phoneQuery = await users
+            .where('phone_number', isEqualTo: phoneNumber)
+            .limit(1)
+            .get();
         if (phoneQuery.docs.isNotEmpty) {
           await phoneQuery.docs.first.reference.update({
             'last_login': FieldValue.serverTimestamp(),
           });
-          AppLogger.debug('AuthService: Last login time updated for phone $phoneNumber');
+          AppLogger.debug(
+              'AuthService: Last login time updated for phone $phoneNumber');
           return;
         }
       }
 
-      AppLogger.debug('AuthService: User document not found for last login update (uid: ${user.uid})');
+      AppLogger.debug(
+          'AuthService: User document not found for last login update (uid: ${user.uid})');
     } on FirebaseException catch (e) {
       if (e.code == 'permission-denied') {
         // Not critical for normal app usage; avoid spamming error logs for roles that can't update metadata.
-        AppLogger.debug('AuthService: Skipping last login update (permission denied)');
+        AppLogger.debug(
+            'AuthService: Skipping last login update (permission denied)');
         return;
       }
       AppLogger.error('AuthService: Error updating last login time: $e');
@@ -424,7 +468,8 @@ class AuthService {
         'displayName': displayName,
       });
 
-      AppLogger.debug('AuthService: Custom password reset email sent to $email');
+      AppLogger.debug(
+          'AuthService: Custom password reset email sent to $email');
     } on FirebaseFunctionsException catch (e) {
       AppLogger.error(
           'AuthService: Password reset function error: ${e.code} - ${e.message}');
@@ -471,7 +516,8 @@ class AuthService {
       'last_name': '',
       'name': phone,
     });
-    AppLogger.info('AuthService: Created circle_member doc for $phone (uid=${user.uid})');
+    AppLogger.info(
+        'AuthService: Created circle_member doc for $phone (uid=${user.uid})');
 
     // Step 2: Link pending invites and members (non-blocking — failures here
     // should not prevent login since the user doc already exists)
@@ -497,10 +543,12 @@ class AuthService {
           batch.update(doc.reference, {'user_id': user.uid});
         }
         await batch.commit();
-        AppLogger.info('AuthService: Linked ${inviteQuery.docs.length} invite(s) and ${memberQuery.docs.length} member record(s) for $phone');
+        AppLogger.info(
+            'AuthService: Linked ${inviteQuery.docs.length} invite(s) and ${memberQuery.docs.length} member record(s) for $phone');
       }
     } catch (e) {
-      AppLogger.error('AuthService: Failed to link invites/members for $phone (non-fatal): $e');
+      AppLogger.error(
+          'AuthService: Failed to link invites/members for $phone (non-fatal): $e');
     }
   }
 
@@ -508,13 +556,14 @@ class AuthService {
   Future<void> signOut() async {
     try {
       // Remove FCM token before signing out (mobile only)
-      if (!kIsWeb) {
+      if (_isNativeMobilePlatform) {
         final currentUser = _auth.currentUser;
         if (currentUser != null) {
-          await NotificationService().removeTokenFromFirestore(userId: currentUser.uid);
+          await NotificationService()
+              .removeTokenFromFirestore(userId: currentUser.uid);
         }
       }
-      
+
       // Clear persisted route on sign out
       await RoutePersistenceService.clearRoute();
 

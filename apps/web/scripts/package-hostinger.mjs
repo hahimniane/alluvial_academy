@@ -30,6 +30,7 @@ if (await exists(flutterWeb)) {
   await rm(join(packageOut, "app"), { recursive: true, force: true });
   await cp(flutterWeb, join(packageOut, "app"), { recursive: true, force: true });
   await rewriteFlutterBridgeBaseHref(join(packageOut, "app", "index.html"));
+  await rewriteFlutterBridgeHtaccess(join(packageOut, "app", ".htaccess"));
   await rm(join(packageOut, "app", "flutter_service_worker.js"), { force: true });
   await removeByName(packageOut, ".DS_Store");
   console.log("Packaged Next.js site with Flutter bridge at build/hostinger-web/app.");
@@ -47,6 +48,15 @@ async function rewriteFlutterBridgeBaseHref(indexPath) {
   const html = await readFile(indexPath, "utf8");
   const updated = html.replace(/<base href="[^"]*">/, '<base href="/app/">');
   await writeFile(indexPath, updated);
+}
+
+async function rewriteFlutterBridgeHtaccess(htaccessPath) {
+  if (!(await exists(htaccessPath))) return;
+  const htaccess = await readFile(htaccessPath, "utf8");
+  const updated = htaccess
+    .replace(/RewriteBase \/\s*$/m, "RewriteBase /app/")
+    .replace(/RewriteRule \. \/index\.html \[L\]/, "RewriteRule . /app/index.html [L]");
+  await writeFile(htaccessPath, updated);
 }
 
 async function removeByName(root, fileName) {

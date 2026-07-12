@@ -55,6 +55,7 @@ class WebAppStabilityService {
 
   /// localStorage key for the build hash that last did a Cache Storage purge.
   static const String _cacheBustKey = 'wsst_build_cache_purged';
+  static const String _fatalReloadKey = 'wsst_fatal_firestore_reload';
 
   bool _initialized = false;
   bool _watchdogPaused = false;
@@ -87,6 +88,7 @@ class WebAppStabilityService {
     ]);
 
     _startProbeLoop();
+    _clearFatalReloadMarkerIfFreshPageIsHealthy();
   }
 
   /// Stops the periodic Firestore probe while signed out (or whenever you want
@@ -355,5 +357,40 @@ class WebAppStabilityService {
     AppLogger.error(
       'WebAppStability: fatal Firestore assertion detected; switching to reload-only mode. Error: $error',
     );
+    _reloadOnceForFatalFirestoreAssertion();
+  }
+
+  void _reloadOnceForFatalFirestoreAssertion() {
+    try {
+      final storage = html.window.sessionStorage;
+      final currentBuild = _currentBuildHash();
+      final previous = storage[_fatalReloadKey];
+      if (previous == currentBuild) {
+        AppLogger.warning(
+            'WebAppStability: fatal Firestore assertion already reloaded once for this build/session; showing reload banner.');
+        return;
+      }
+      storage[_fatalReloadKey] = currentBuild;
+      Future<void>.delayed(const Duration(milliseconds: 250), () {
+        try {
+          html.window.location.reload();
+        } catch (e) {
+          AppLogger.error('WebAppStability: fatal auto-reload failed: $e');
+        }
+      });
+    } catch (e) {
+      AppLogger.error('WebAppStability: fatal auto-reload setup failed: $e');
+    }
+  }
+
+  void _clearFatalReloadMarkerIfFreshPageIsHealthy() {
+    Future<void>.delayed(const Duration(seconds: 20), () {
+      if (_fatalFirestoreAssertionDetected) return;
+      try {
+        html.window.sessionStorage.remove(_fatalReloadKey);
+      } catch (_) {
+        // ignore
+      }
+    });
   }
 }

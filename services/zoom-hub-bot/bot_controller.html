@@ -1,0 +1,983 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Alluwal Zoom Hub Bot</title>
+  <link type="text/css" rel="stylesheet" href="https://source.zoom.us/6.2.0/css/bootstrap.css" />
+  <link type="text/css" rel="stylesheet" href="https://source.zoom.us/6.2.0/css/react-select.css" />
+  <style>
+    html, body, #zmmtg-root {
+      width: 640px;
+      height: 480px;
+      overflow: hidden;
+      background: #000;
+      color: #fff;
+      font: 13px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    #status {
+      position: fixed;
+      z-index: 999999;
+      inset: 12px auto auto 12px;
+      max-width: 520px;
+      padding: 8px 10px;
+      border-radius: 6px;
+      background: rgba(15, 23, 42, 0.9);
+    }
+  </style>
+</head>
+<body>
+  <div id="status">Starting Zoom hub bot...</div>
+  <div id="zmmtg-root"></div>
+
+  <script src="routing.js"></script>
+  <script src="https://source.zoom.us/6.2.0/lib/vendor/react.min.js"></script>
+  <script src="https://source.zoom.us/6.2.0/lib/vendor/react-dom.min.js"></script>
+  <script src="https://source.zoom.us/6.2.0/lib/vendor/redux.min.js"></script>
+  <script src="https://source.zoom.us/6.2.0/lib/vendor/redux-thunk.min.js"></script>
+  <script src="https://source.zoom.us/6.2.0/lib/vendor/lodash.min.js"></script>
+  <script src="https://source.zoom.us/zoom-meeting-6.2.0.min.js"></script>
+  <script>
+    (function runBotController() {
+      const params = new URLSearchParams(window.location.search);
+      const config = {
+        functionBaseUrl: (params.get('functionBaseUrl') || '').replace(/\/+$/, ''),
+        botKey: params.get('botKey') || '',
+        lane: params.get('lane') || '',
+        hubDocId: params.get('hubDocId') || '',
+        sdkKey: params.get('sdkKey') || '',
+        signature: params.get('signature') || '',
+        meetingNumber: params.get('meetingNumber') || '',
+        password: params.get('password') || '',
+        zak: params.get('zak') || '',
+        hostAccount: params.get('hostAccount') || '',
+        rooms: [],
+        boIdByRoomName: {},
+        windowEnd: params.get('windowEnd') || '',
+      };
+      try {
+        config.rooms = JSON.parse(params.get('rooms') || '[]').map((name) => String(name || '').trim()).filter(Boolean);
+      } catch (_) {
+        config.rooms = [];
+      }
+      try {
+        const storedMap = JSON.parse(params.get('boIdByRoomName') || '{}');
+        config.boIdByRoomName = storedMap && typeof storedMap === 'object' ? storedMap : {};
+      } catch (_) {
+        config.boIdByRoomName = {};
+      }
+
+      const routing = window.ZoomHubRouting;
+      const statusEl = document.getElementById('status');
+      let joined = false;
+      let roomsOpened = false;
+      let leaving = false;
+      // When this page instance loaded. Used to honor a backend force-rejoin
+      // signal (reload = clean rejoin into a fresh meeting instance) and to
+      // recover from a "zombie" session where the meeting ended server-side but
+      // our SDK keeps reporting stale rooms.
+      const pageLoadedAt = Date.now();
+      let rejoinTriggered = false;
+      const triggerRejoin = (reason) => {
+        if (rejoinTriggered) return;
+        rejoinTriggered = true;
+        // Cap reloads within a single page lifetime so a persistently failing
+        // rejoin cannot loop forever; systemd + backend watcher remain backstops.
+        let reloadCount = 0;
+        try {
+          reloadCount = Number(window.sessionStorage.getItem('alluwal_rejoin_count') || '0') || 0;
+          window.sessionStorage.setItem('alluwal_rejoin_count', String(reloadCount + 1));
+        } catch (_) {}
+        if (reloadCount >= 5) {
+          console.error(`Rejoin cap reached (${reloadCount}); not reloading again (${reason})`);
+          return;
+        }
+        console.warn(`Reloading to rejoin a fresh meeting instance (reason: ${reason}, reload #${reloadCount + 1})`);
+        setTimeout(() => window.location.reload(), 500);
+      };
+      let lastBoIdByRoomName = config.boIdByRoomName || {};
+      let liveBoIdByRoomName = {};
+      let lastRoutingSnapshotLogAt = 0;
+      const routeIntervalMs = 3000;
+      const heartbeatIntervalMs = 15000;
+      // Self-heal state: the Zoom SDK's breakout room list (getBreakoutRooms)
+      // can go empty and stay empty on a busy hub. When it does, the bot cannot
+      // assign anyone. We repair by close+reopen, but only when it is safe for
+      // people already INSIDE rooms. These track what we last knew about room
+      // occupancy so the heal never bumps a live class.
+      let haveReadRoomsThisSession = false;
+      let lastKnownInRoomCount = 0;
+      let lastReadableRoomsAt = 0;
+      let roomsCreatedFresh = false;
+      let lastHealAttemptAt = 0;
+      const healThrottleMs = 20000;
+      // When an in-place close+reopen cannot restore a readable room list, the
+      // meeting instance is corrupted beyond repair. After this many consecutive
+      // failed self-heals we ask the backend to END the meeting so we can rejoin
+      // a clean instance — only ever when no one is inside a room.
+      let consecutiveHealFailures = 0;
+      const healFailuresBeforeReset = 2;
+      let resetRequested = false;
+
+      function setStatus(message) {
+        if (statusEl) statusEl.textContent = message;
+        console.log(message);
+      }
+
+      function sleep(ms) {
+        return new Promise((resolve) => setTimeout(resolve, ms));
+      }
+
+      function serializeError(error) {
+        if (!error) return '';
+        if (typeof error === 'string') return error;
+        if (error instanceof Error) {
+          return JSON.stringify({
+            name: error.name,
+            message: error.message,
+            stack: error.stack,
+          });
+        }
+        try {
+          return JSON.stringify(error);
+        } catch (_) {
+          return String(error);
+        }
+      }
+
+      function zoomCall(method, args) {
+        return new Promise((resolve, reject) => {
+          if (!window.ZoomMtg || typeof window.ZoomMtg[method] !== 'function') {
+            reject(new Error(`Zoom method unavailable: ${method}`));
+            return;
+          }
+          try {
+            window.ZoomMtg[method]({
+              ...(args || {}),
+              success: (value) => resolve(value),
+              error: (error) => reject(error),
+            });
+          } catch (error) {
+            reject(error);
+          }
+        });
+      }
+
+      async function botFetch(path, options) {
+        const response = await fetch(`${config.functionBaseUrl}${path}`, {
+          ...(options || {}),
+          headers: {
+            'x-bot-key': config.botKey,
+            ...((options && options.body) ? { 'content-type': 'application/json' } : {}),
+            ...((options && options.headers) || {}),
+          },
+        });
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok || body.success === false) {
+          throw new Error(body.error || `HTTP ${response.status}`);
+        }
+        return body;
+      }
+
+      async function postState(status, extra) {
+        const body = {
+          hubDocId: config.hubDocId,
+          status,
+          boIdByRoomName: lastBoIdByRoomName,
+          stats: {
+            lane: config.lane,
+            roomCount: config.rooms.length,
+            roomsOpened,
+            joined,
+            ...(extra && extra.stats ? extra.stats : {}),
+          },
+          error: extra && extra.error ? String(extra.error) : null,
+          error_detail: extra && extra.error ? serializeError(extra.error) : null,
+        };
+        if (Object.prototype.hasOwnProperty.call(extra || {}, 'liveParticipantsByShift')) {
+          body.liveParticipantsByShift = extra.liveParticipantsByShift || {};
+        }
+        await botFetch('/zoomHubBotState', {
+          method: 'POST',
+          body: JSON.stringify(body),
+        });
+      }
+
+      async function getAssignments() {
+        return botFetch(`/zoomHubBotAssignments?hubDocId=${encodeURIComponent(config.hubDocId)}`);
+      }
+
+      function normalizeBreakoutPayload(payload) {
+        const rooms = routing.normalizeRooms(payload);
+        const unassigned = routing.normalizeUnassigned(payload);
+        return { rooms, unassigned };
+      }
+
+      function buildBoIdMap(rooms) {
+        const map = {};
+        for (const room of rooms || []) {
+          const name = routing.roomName(room);
+          const boId = routing.roomId(room);
+          if (name && boId) map[name] = boId;
+        }
+        return map;
+      }
+
+      function rememberLiveRooms(rooms) {
+        const map = buildBoIdMap(rooms);
+        if (Object.keys(map).length > 0) {
+          liveBoIdByRoomName = map;
+          lastBoIdByRoomName = map;
+        }
+        return map;
+      }
+
+      function summarizeRoom(room) {
+        if (!room || typeof room !== 'object') return {};
+        const participants = routing.roomParticipants(room);
+        return {
+          name: routing.roomName(room),
+          id: routing.roomId(room),
+          idFields: Object.fromEntries(
+            ['boId', 'boID', 'boid', 'bo_id', 'roomId', 'roomID', 'room_id', 'breakoutRoomId', 'breakout_room_id', 'id']
+              .filter((key) => room[key] !== undefined && room[key] !== null && room[key] !== '')
+              .map((key) => [key, String(room[key])]),
+          ),
+          participantCount: participants.length,
+        };
+      }
+
+      function summarizeParticipant(participant) {
+        if (!participant || typeof participant !== 'object') return {};
+        return {
+          uid: routing.zoomCustomerKey(participant),
+          userId: routing.zoomUserId(participant),
+          name: String(participant.userName || participant.user_name || participant.displayName || participant.display_name || '').trim(),
+          keys: Object.keys(participant).slice(0, 20),
+        };
+      }
+
+      function participantIsHubBot(participant) {
+        const uid = String(routing.zoomCustomerKey(participant) || '').trim().toLowerCase();
+        if (uid.indexOf('zoom_hub_bot') === 0) return true;
+        if (participant && (participant.isHost === true || participant.is_host === true || participant.isBotUser === true || participant.is_bot_user === true)) {
+          return true;
+        }
+        const name = routing.normalizeRoomName(routing.zoomDisplayName(participant));
+        return name.indexOf('hub bot') !== -1 || name.indexOf('alluwal hub') !== -1;
+      }
+
+      function memberAliases(member) {
+        const values = [
+          member && member.displayName,
+          member && member.display_name,
+          member && member.routingDisplayName,
+          member && member.routing_display_name,
+          member && member.name,
+          ...((member && Array.isArray(member.displayNameAliases)) ? member.displayNameAliases : []),
+          ...((member && Array.isArray(member.display_name_aliases)) ? member.display_name_aliases : []),
+        ];
+        return values
+          .map((value) => routing.normalizeRoomName(value))
+          .filter(Boolean);
+      }
+
+      function buildLiveParticipantsByShift(assignments, zoomState) {
+        const rooms = Array.isArray(assignments?.rooms) ? assignments.rooms : [];
+        const members = Array.isArray(assignments?.members) ? assignments.members : [];
+        const shiftByRoomName = new Map();
+        for (const room of rooms) {
+          const shiftId = String(room?.shiftId || room?.shift_id || '').trim();
+          const roomName = routing.normalizeRoomName(room?.name);
+          if (shiftId && roomName) shiftByRoomName.set(roomName, shiftId);
+        }
+
+        const memberByRoutingUid = new Map();
+        const memberByAlias = new Map();
+        for (const member of members) {
+          const uid = String(member?.uid || '').trim();
+          if (uid) memberByRoutingUid.set(uid, member);
+          for (const alias of memberAliases(member)) {
+            if (!memberByAlias.has(alias)) {
+              memberByAlias.set(alias, member);
+            } else {
+              memberByAlias.set(alias, null);
+            }
+          }
+        }
+
+        const liveByShift = {};
+        const seen = new Set();
+        for (const room of Array.isArray(zoomState?.rooms) ? zoomState.rooms : []) {
+          const roomName = routing.normalizeRoomName(routing.roomName(room));
+          const shiftId = shiftByRoomName.get(roomName);
+          if (!shiftId) continue;
+          for (const participant of routing.roomParticipants(room)) {
+            if (participantIsHubBot(participant)) continue;
+            const routingUid = String(routing.zoomCustomerKey(participant) || '').trim();
+            const name = String(routing.zoomDisplayName(participant) || '').trim();
+            const member = (routingUid && memberByRoutingUid.get(routingUid)) ||
+              (name && memberByAlias.get(routing.normalizeRoomName(name))) ||
+              null;
+            const identity = String(member?.userId || member?.user_id || '').trim();
+            const role = String(member?.role || 'participant').trim() || 'participant';
+            const key = `${shiftId}:${identity || routingUid || name || routing.zoomUserId(participant)}`;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            if (!liveByShift[shiftId]) liveByShift[shiftId] = [];
+            liveByShift[shiftId].push({
+              identity,
+              routingUid,
+              zoomUserId: routing.zoomUserId(participant),
+              name: name || String(member?.displayName || member?.display_name || '').trim() || 'Participant',
+              role,
+              source: 'zoom_hub_bot',
+            });
+          }
+        }
+        return liveByShift;
+      }
+
+      function summarizeBreakoutPayload(payload, normalized) {
+        const result = payload && typeof payload === 'object' && payload.result && typeof payload.result === 'object'
+          ? payload.result
+          : {};
+        return {
+          topKeys: payload && typeof payload === 'object' ? Object.keys(payload).slice(0, 20) : [],
+          resultKeys: Object.keys(result).slice(0, 30),
+          roomCount: normalized.rooms.length,
+          breakoutUnassigned: normalized.unassigned.map(summarizeParticipant),
+        };
+      }
+
+      function roomsFromLiveBoIds(assignments) {
+        const rooms = [];
+        const assignedRooms = Array.isArray(assignments?.rooms) ? assignments.rooms : [];
+        for (const room of assignedRooms) {
+          const name = String(room?.name || '').trim();
+          const boId = liveBoIdByRoomName[name];
+          if (name && boId) rooms.push({ name, boId, participants: [] });
+        }
+        return rooms;
+      }
+
+      function roomsWithStoredBoIds(rooms) {
+        return (Array.isArray(rooms) ? rooms : []).map((room) => {
+          if (routing.roomId(room)) return room;
+          const name = routing.roomName(room);
+          const boId = lastBoIdByRoomName[name];
+          return name && boId ? { ...room, boId } : room;
+        });
+      }
+
+      function isVisibleElement(element) {
+        if (!element || !element.getBoundingClientRect) return false;
+        const rect = element.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0) return false;
+        const style = window.getComputedStyle(element);
+        return style.visibility !== 'hidden' && style.display !== 'none' && Number(style.opacity || 1) > 0;
+      }
+
+      function controlText(element) {
+        return [
+          element?.innerText,
+          element?.textContent,
+          element?.getAttribute?.('aria-label'),
+          element?.getAttribute?.('title'),
+        ].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+      }
+
+      function clickZoomControl(matcher, options = {}) {
+        const blocked = options.blocked || /\b(close all|end meeting|end for all|leave meeting|leave room)\b/i;
+        const nodes = Array.from(document.querySelectorAll(
+          'button,[role="button"],a,li,[aria-label],[title],.footer-button-base__button',
+        ));
+        for (const node of nodes) {
+          if (!isVisibleElement(node)) continue;
+          const text = controlText(node);
+          if (!text || blocked.test(text) || !matcher.test(text)) continue;
+          const target = node.closest('button,[role="button"],a,li') || node;
+          if (!isVisibleElement(target)) continue;
+          target.click();
+          return text;
+        }
+        return '';
+      }
+
+      async function primeBreakoutUi(reason) {
+        let clicked = clickZoomControl(/\bbreakout\s*rooms?\b/i);
+        if (!clicked) {
+          const more = clickZoomControl(/^\s*more\s*$/i, { blocked: /\b(end meeting|leave meeting)\b/i });
+          if (more) {
+            await sleep(500);
+            clicked = clickZoomControl(/\bbreakout\s*rooms?\b/i);
+          }
+        }
+        if (clicked) {
+          console.log('Breakout UI prime', JSON.stringify({ reason, clicked }));
+          await sleep(1200);
+          return true;
+        }
+        console.warn('Breakout UI prime did not find a control', reason);
+        await sleep(300);
+        return false;
+      }
+
+      async function readBreakoutState() {
+        const breakoutPayload = await zoomCall('getBreakoutRooms');
+        const attendeesPayload = await zoomCall('getAttendeeslist').catch(() => []);
+        const normalized = normalizeBreakoutPayload(breakoutPayload);
+        rememberLiveRooms(normalized.rooms);
+        if (normalized.rooms.length > 0) {
+          haveReadRoomsThisSession = true;
+          lastReadableRoomsAt = Date.now();
+          lastKnownInRoomCount = normalized.rooms.reduce(
+            (sum, room) => sum + routing.roomParticipants(room).length,
+            0,
+          );
+        }
+        const attendeeList = Array.isArray(attendeesPayload)
+          ? attendeesPayload
+          : routing.normalizeUnassigned(attendeesPayload);
+        const breakoutUnassigned = normalized.unassigned;
+        const assignedUids = new Set();
+        for (const room of normalized.rooms) {
+          for (const participant of routing.roomParticipants(room)) {
+            const uid = routing.zoomCustomerKey(participant);
+            if (uid) assignedUids.add(uid);
+          }
+        }
+        const unassignedByParticipant = new Map();
+        for (const participant of normalized.unassigned) {
+          const uid = routing.zoomCustomerKey(participant);
+          const userId = routing.zoomUserId(participant);
+          const key = uid && userId !== null ? `${uid}:${String(userId)}` : uid;
+          if (uid && key) unassignedByParticipant.set(key, participant);
+        }
+        for (const participant of attendeeList) {
+          const uid = routing.zoomCustomerKey(participant);
+          const userId = routing.zoomUserId(participant);
+          const key = uid && userId !== null ? `${uid}:${String(userId)}` : uid;
+          if (uid && key && !assignedUids.has(uid) && !unassignedByParticipant.has(key)) {
+            unassignedByParticipant.set(key, participant);
+          }
+        }
+        return {
+          rooms: normalized.rooms,
+          unassigned: Array.from(unassignedByParticipant.values()),
+          breakoutUnassigned,
+          attendeeList,
+          breakoutPayloadSummary: summarizeBreakoutPayload(breakoutPayload, normalized),
+        };
+      }
+
+      async function getBreakoutState(options = {}) {
+        const state = await readBreakoutState();
+        if (state.rooms.length > 0 || !options.primeIfEmpty) return state;
+        await primeBreakoutUi(options.reason || 'empty_rooms');
+        return readBreakoutState();
+      }
+
+      // The SDK's breakout list can read empty transiently. Before any
+      // destructive close+reopen we retry the read hard: if it becomes readable
+      // we both avoid an unnecessary reopen AND learn true occupancy (which
+      // updates lastKnownInRoomCount and protects a live class from being reopened).
+      async function burstReadBreakoutRooms(maxTries = 8) {
+        let state = await readBreakoutState();
+        for (let i = 0; i < maxTries && state.rooms.length === 0; i += 1) {
+          await sleep(1000);
+          state = await readBreakoutState();
+        }
+        return state;
+      }
+
+      function isInvalidOperation(error) {
+        const text = JSON.stringify(error || {}).toLowerCase();
+        return text.includes('invalid_operation') || text.includes('already') || text.includes('started');
+      }
+
+      function breakoutStatusValue(payload) {
+        if (typeof payload === 'number') return payload;
+        if (!payload || typeof payload !== 'object') return null;
+        // Zoom wraps responses as {status: <success boolean>, result: <value>}
+        // — the boolean is NOT the room status, so only trust numeric fields.
+        const candidates = [
+          typeof payload.status === 'number' ? payload.status : undefined,
+          typeof payload.result === 'number' ? payload.result : undefined,
+          payload.result && typeof payload.result === 'object'
+            ? payload.result.status ?? payload.result.value
+            : undefined,
+          typeof payload.value === 'number' ? payload.value : undefined,
+        ];
+        for (const raw of candidates) {
+          const number = Number(raw);
+          if (Number.isFinite(number)) return number;
+          if (typeof raw === 'string') {
+            const text = raw.toLowerCase();
+            if (text.includes('progress') || text.includes('started') || text.includes('open')) return 2;
+            if (text.includes('closed') || text.includes('not started')) return 4;
+          }
+        }
+        return null;
+      }
+
+      function isAlreadyStartedError(error) {
+        return /breakout room has started/i.test(JSON.stringify(error || {}));
+      }
+
+      const desiredRoomOptions = {
+        isAutoJoinRoom: true,
+        isBackToMainSessionEnabled: false,
+        isTimerEnabled: false,
+        needCountDown: false,
+      };
+
+      function unwrapResult(payload) {
+        if (payload && typeof payload === 'object' && payload.result && typeof payload.result === 'object') {
+          return payload.result;
+        }
+        return payload && typeof payload === 'object' ? payload : {};
+      }
+
+      // Breakout options freeze at the FIRST openBreakoutRooms and cannot be
+      // changed while rooms are open. Unreadable options count as mismatched:
+      // stale options (invitation mode instead of auto-pull) are exactly the
+      // failure we cannot detect any other way.
+      function roomOptionsMismatch(rawOptions) {
+        const options = unwrapResult(rawOptions);
+        if (typeof options.isAutoJoinRoom !== 'boolean') return true;
+        return options.isAutoJoinRoom !== desiredRoomOptions.isAutoJoinRoom ||
+          options.isBackToMainSessionEnabled !== desiredRoomOptions.isBackToMainSessionEnabled;
+      }
+
+      function inRoomParticipantCount(state) {
+        return (state.rooms || []).reduce(
+          (sum, room) => sum + routing.roomParticipants(room).length,
+          0,
+        );
+      }
+
+      function nonBotAttendeeCount(state) {
+        const botUid = `zoom_hub_bot_lane_${config.lane}`;
+        const attendees = state?.attendeeList && state.attendeeList.length > 0
+          ? state.attendeeList
+          : state?.unassigned || [];
+        const seen = new Set();
+        for (const participant of attendees) {
+          const uid = routing.zoomCustomerKey(participant);
+          const userId = routing.zoomUserId(participant);
+          const key = uid || String(userId || '');
+          if (!key || key === botUid || seen.has(key)) continue;
+          seen.add(key);
+        }
+        return seen.size;
+      }
+
+      // Safe to close+reopen rooms only when nobody is inside a room. A person
+      // waiting in the MAIN session is fine to reopen around — closing breakout
+      // rooms never affects them. We refuse to reopen when occupancy is unknown
+      // (rooms we inherited from a previous session and have never read) so a
+      // bot restart during a live class can never bump students out of rooms.
+      // Reopen is safe unless there is POSITIVE evidence someone is inside a
+      // room: either a live readable snapshot shows in-room participants, or the
+      // last time we could read the list it showed occupants. When the list is
+      // simply unreadable (empty) and we have no such evidence — the common
+      // failure — reopening restores routing, and any assigned user who was
+      // briefly in a room is auto-pulled back on reopen (isAutoJoinRoom). Callers
+      // must burst-read first so a busy/warm hub reports its real occupancy here.
+      function isSafeToReopen(state) {
+        if (state && inRoomParticipantCount(state) > 0) return false;
+        if (lastKnownInRoomCount > 0) return false;
+        return true;
+      }
+
+      async function currentBreakoutStatus() {
+        const status = await zoomCall('getBreakoutRoomStatus').catch(() => null);
+        return breakoutStatusValue(status);
+      }
+
+      async function waitForRoomsClosed(timeoutMs = 90000) {
+        const startedAt = Date.now();
+        while (Date.now() - startedAt < timeoutMs) {
+          const status = await currentBreakoutStatus();
+          if (status !== 2 && status !== 3) return true;
+          await sleep(2000);
+        }
+        return false;
+      }
+
+      // Returns true when it closed stale rooms (caller should retry a fresh
+      // create+open pass). Never closes occupied rooms.
+      async function closeRoomsIfStale(breakoutState) {
+        const options = await zoomCall('getBreakoutRoomOptions').catch(() => null);
+        console.log('BO options payload', JSON.stringify(options));
+        if (!roomOptionsMismatch(options)) return false;
+        if (inRoomParticipantCount(breakoutState) > 0) {
+          console.error(
+            'Breakout options are stale but rooms are occupied; not reopening',
+            unwrapResult(options),
+          );
+          await postState('error', { error: 'stale_breakout_options_with_occupants' })
+            .catch(() => {});
+          return false;
+        }
+        setStatus('Reopening rooms: stale breakout options detected');
+        await zoomCall('closeBreakoutRooms')
+          .catch((error) => console.warn('closeBreakoutRooms failed', error));
+        await waitForRoomsClosed();
+        return true;
+      }
+
+      async function ensureRoomsOpen() {
+        let breakoutState = await getBreakoutState();
+
+        for (let attempt = 0; attempt < 2; attempt += 1) {
+          const statusPayload = await zoomCall('getBreakoutRoomStatus').catch(() => null);
+          console.log('BO status payload', JSON.stringify(statusPayload));
+          const inProgress = breakoutStatusValue(statusPayload) === 2;
+          const existingNames = new Set(
+            breakoutState.rooms.map((room) => routing.normalizeRoomName(routing.roomName(room))).filter(Boolean),
+          );
+          const missingRooms = config.rooms.filter((name) => !existingNames.has(routing.normalizeRoomName(name)));
+
+          if (inProgress) {
+            if (
+              breakoutState.rooms.length === 0 &&
+              Object.keys(lastBoIdByRoomName).length > 0
+            ) {
+              // Try hard to read the inherited rooms before touching them; this
+              // both avoids an unnecessary reopen and surfaces real occupancy.
+              breakoutState = await burstReadBreakoutRooms();
+              if (breakoutState.rooms.length > 0) {
+                continue;
+              }
+              if (isSafeToReopen(breakoutState)) {
+                setStatus('Reopening rooms: current bot cannot read existing rooms');
+                lastBoIdByRoomName = {};
+                liveBoIdByRoomName = {};
+                await zoomCall('closeBreakoutRooms')
+                  .catch((error) => console.warn('closeBreakoutRooms failed', error));
+                await waitForRoomsClosed();
+                breakoutState = await getBreakoutState({ primeIfEmpty: true, reason: 'after_close_unreadable' });
+                continue;
+              }
+              console.error('Breakout rooms are unreadable and in-room occupancy is detected; not reopening to protect a live class');
+              await postState('error', { error: 'breakout_rooms_unreadable_occupancy_detected' })
+                .catch(() => {});
+              break;
+            }
+            if (missingRooms.length > 0) {
+              try {
+                setStatus(`Adding ${missingRooms.length} breakout rooms`);
+                const createdPayload = await zoomCall('createBreakoutRoom', { data: missingRooms, pattern: 2 });
+                const createdRooms = routing.normalizeRooms(createdPayload);
+                rememberLiveRooms(createdRooms);
+                console.log('Add breakout rooms payload', JSON.stringify({
+                  roomCount: createdRooms.length,
+                  rooms: createdRooms.map(summarizeRoom),
+                }));
+                breakoutState = await getBreakoutState({ primeIfEmpty: true, reason: 'after_add_live_rooms' });
+              } catch (error) {
+                console.warn('Live room creation rejected; continuing with current rooms', error);
+                await postState('error', { error: `live_room_creation_failed:${serializeError(error)}` })
+                  .catch(() => {});
+              }
+            }
+            if (attempt === 0 && await closeRoomsIfStale(breakoutState)) {
+              breakoutState = await getBreakoutState();
+              continue;
+            }
+            break;
+          }
+
+          let learnedRoomsStarted = false;
+          if (missingRooms.length > 0) {
+            try {
+              setStatus(`Creating ${missingRooms.length} breakout rooms`);
+              const createdPayload = await zoomCall('createBreakoutRoom', { data: missingRooms, pattern: 2 });
+              const createdRooms = routing.normalizeRooms(createdPayload);
+              rememberLiveRooms(createdRooms);
+              // We created the room set this session, so no prior occupants can
+              // be inside — safe for the self-heal to close+reopen if needed.
+              roomsCreatedFresh = true;
+              console.log('Create breakout rooms payload', JSON.stringify({
+                roomCount: createdRooms.length,
+                rooms: createdRooms.map(summarizeRoom),
+              }));
+            } catch (error) {
+              if (!isInvalidOperation(error)) throw error;
+              learnedRoomsStarted = learnedRoomsStarted || isAlreadyStartedError(error);
+              console.warn('Room creation rejected; continuing to open step', error);
+            }
+            breakoutState = await getBreakoutState({ primeIfEmpty: true, reason: 'after_create' });
+          }
+
+          setStatus('Opening breakout rooms');
+          try {
+            const openPayload = await zoomCall('openBreakoutRooms', { options: desiredRoomOptions });
+            console.log('Open breakout rooms payload', JSON.stringify(openPayload));
+          } catch (error) {
+            if (!isInvalidOperation(error)) throw error;
+            learnedRoomsStarted = learnedRoomsStarted || isAlreadyStartedError(error);
+            console.warn('Rooms already open', error);
+          }
+          await sleep(1500);
+          breakoutState = await getBreakoutState({ primeIfEmpty: true, reason: 'after_open' });
+
+          // Status probe said "not started" but Zoom's errors say otherwise:
+          // rooms are open, options may be stale — verify once and retry.
+          if (learnedRoomsStarted && attempt === 0 && await closeRoomsIfStale(breakoutState)) {
+            breakoutState = await getBreakoutState();
+            continue;
+          }
+          break;
+        }
+
+        rememberLiveRooms(breakoutState.rooms);
+        roomsOpened = true;
+        // Healthy open — clear the reload cap so future transient rejoins over a
+        // long healthy session are not counted against it.
+        try { window.sessionStorage.setItem('alluwal_rejoin_count', '0'); } catch (_) {}
+        await postState('roomsOpen');
+        setStatus(`Rooms open for ${config.hubDocId}`);
+      }
+
+      async function routeOnce() {
+        const assignments = await getAssignments();
+        // Backend force-rejoin signal (zombie meeting detected server-side):
+        // reload into a fresh instance. Only when nobody is inside a room.
+        const forceRejoinAt = Number(assignments && assignments.forceRejoinAt);
+        if (Number.isFinite(forceRejoinAt) && forceRejoinAt > pageLoadedAt) {
+          const currentState = await readBreakoutState().catch(() => null);
+          const inRoom = currentState ? inRoomParticipantCount(currentState) : 0;
+          if (inRoom === 0) {
+            triggerRejoin('backend_force_rejoin');
+            return;
+          }
+        }
+        let zoomState = await getBreakoutState({ primeIfEmpty: true, reason: 'route_once' });
+        rememberLiveRooms(zoomState.rooms);
+
+        // Self-heal: if the SDK's live breakout list is empty while routing is
+        // actually needed, the bot cannot assign anyone (assignUserToBreakoutRoom
+        // rejects every target as "room id not found"). Repair by re-running the
+        // open/recovery path, which restores a readable room list. Gated so it
+        // never closes rooms that could hold a live class (isSafeToReopen) and
+        // throttled so it does not thrash.
+        const liveRoomCount = (zoomState.breakoutPayloadSummary || {}).roomCount || 0;
+        const botUid = `zoom_hub_bot_lane_${config.lane}`;
+        const waitingPeople = (zoomState.unassigned || []).some((participant) => {
+          const uid = routing.zoomCustomerKey(participant);
+          return uid && uid !== botUid;
+        });
+        const membersExpected = Array.isArray(assignments.members) && assignments.members.length > 0;
+        if (
+          liveRoomCount === 0 &&
+          config.rooms.length > 0 &&
+          (waitingPeople || membersExpected) &&
+          Date.now() - lastHealAttemptAt > healThrottleMs
+        ) {
+          lastHealAttemptAt = Date.now();
+          zoomState = await burstReadBreakoutRooms();
+          rememberLiveRooms(zoomState.rooms);
+          const recoveredRoomCount = (zoomState.breakoutPayloadSummary || {}).roomCount || 0;
+          if (recoveredRoomCount > 0) {
+            console.log('Self-heal: breakout room list recovered via burst read; no reopen needed');
+            consecutiveHealFailures = 0;
+          } else if (isSafeToReopen(zoomState)) {
+            console.warn('Self-heal: breakout room list still empty after burst read; reopening rooms');
+            await ensureRoomsOpen().catch((error) => console.warn('Self-heal ensureRoomsOpen failed', error));
+            zoomState = await getBreakoutState({ primeIfEmpty: true, reason: 'after_self_heal' });
+            rememberLiveRooms(zoomState.rooms);
+            const afterReopenRoomCount = (zoomState.breakoutPayloadSummary || {}).roomCount || 0;
+            if (afterReopenRoomCount > 0) {
+              consecutiveHealFailures = 0;
+            } else {
+              consecutiveHealFailures += 1;
+              console.warn(`Self-heal: reopen did not restore rooms (${consecutiveHealFailures}/${healFailuresBeforeReset})`);
+              // The meeting instance is corrupted beyond in-place repair. Ask the
+              // backend to end it, then leave; the directive poll rejoins a fresh
+              // instance. Guarded by isSafeToReopen (no one inside a room).
+              if (consecutiveHealFailures >= healFailuresBeforeReset && !resetRequested) {
+                resetRequested = true;
+                console.error('Self-heal exhausted; requesting meeting reset for a clean rejoin');
+                // Ask the backend to end the (corrupted) meeting, then reload to
+                // rejoin a fresh instance. Reloading is self-contained and does
+                // not depend on the launcher re-opening the page.
+                await postState('resetMeeting', {
+                  stats: { liveRoomCount: 0, inRoomOccupants: inRoomParticipantCount(zoomState) },
+                }).catch((error) => console.warn('resetMeeting request failed', error));
+                triggerRejoin('self_heal_exhausted');
+                return;
+              }
+            }
+          } else {
+            console.warn('Self-heal skipped: in-room participants detected; not reopening to protect a live class');
+            consecutiveHealFailures = 0;
+          }
+        }
+
+        if (zoomState.rooms.length === 0 && Object.keys(liveBoIdByRoomName).length > 0) {
+          zoomState.rooms = roomsFromLiveBoIds(assignments);
+        } else if (zoomState.rooms.length > 0 && Object.keys(lastBoIdByRoomName).length > 0) {
+          zoomState.rooms = roomsWithStoredBoIds(zoomState.rooms);
+        }
+        const actions = routing.whoNeedsToMoveWhere(assignments, zoomState);
+        const now = Date.now();
+        if (now - lastRoutingSnapshotLogAt > 15000 || actions.length > 0) {
+          lastRoutingSnapshotLogAt = now;
+          console.log('Routing snapshot', JSON.stringify({
+            rooms: zoomState.rooms.map(summarizeRoom),
+            unassigned: zoomState.unassigned.map((participant) => ({
+              uid: routing.zoomCustomerKey(participant),
+              userId: routing.zoomUserId(participant),
+            })),
+            breakoutUnassigned: (zoomState.breakoutUnassigned || []).map(summarizeParticipant),
+            attendeeList: (zoomState.attendeeList || []).map(summarizeParticipant),
+            breakoutPayload: zoomState.breakoutPayloadSummary || null,
+            actions: actions.map((action) => ({
+              uid: action.uid,
+              userId: action.userId,
+              action: action.action,
+              targetRoomName: action.targetRoomName,
+              targetRoomId: action.targetRoomId,
+            })),
+          }));
+        }
+        const participants = [
+          ...zoomState.unassigned,
+          ...zoomState.rooms.flatMap((room) => routing.roomParticipants(room)),
+        ];
+        for (const action of actions) {
+          const method = action.action === 'move'
+            ? 'moveUserToBreakoutRoom'
+            : 'assignUserToBreakoutRoom';
+          await zoomCall(method, {
+            userId: action.userId,
+            targetRoomId: action.targetRoomId,
+          }).catch((error) => {
+            console.warn(`${method} failed for ${action.uid}`, error);
+          });
+          if (action.action === 'assign') {
+            await sleep(250);
+            await zoomCall('moveUserToBreakoutRoom', {
+              userId: action.userId,
+              targetRoomId: action.targetRoomId,
+            }).catch((error) => {
+              console.warn(`moveUserToBreakoutRoom after assign failed for ${action.uid}`, error);
+            });
+          }
+        }
+        await postState('roomsOpen', {
+          liveParticipantsByShift: buildLiveParticipantsByShift(assignments, zoomState),
+          stats: {
+            routedCount: actions.length,
+            attendeeCount: zoomState.unassigned.length + zoomState.rooms.reduce((sum, room) => (
+              sum + routing.roomParticipants(room).length
+            ), 0),
+            customerKeyCount: participants.filter((participant) => routing.zoomCustomerKey(participant)).length,
+            routableRoomCount: zoomState.rooms.filter((room) => routing.roomId(room)).length,
+            targetMemberCount: Array.isArray(assignments.members) ? assignments.members.length : 0,
+            // liveRoomCount is the real getBreakoutRooms() reading. When it is 0
+            // while rooms should be open and members are expected, the meeting
+            // instance's breakout state is corrupted and the bot cannot route.
+            // The server-side watcher ends+resets such a meeting so the bot can
+            // rejoin a clean instance. inRoomOccupants lets the watcher confirm
+            // no live class would be disrupted before it resets.
+            liveRoomCount: (zoomState.breakoutPayloadSummary || {}).roomCount || 0,
+            inRoomOccupants: Math.max(inRoomParticipantCount(zoomState), lastKnownInRoomCount),
+          },
+        });
+      }
+
+      function shouldLeave() {
+        if (!config.windowEnd) return false;
+        const end = new Date(config.windowEnd).getTime();
+        return Number.isFinite(end) && Date.now() > end;
+      }
+
+      async function leaveMeeting() {
+        if (leaving) return;
+        leaving = true;
+        await postState('left').catch(() => {});
+        if (window.ZoomMtg && typeof window.ZoomMtg.leaveMeeting === 'function') {
+          await zoomCall('leaveMeeting').catch(() => {});
+        }
+      }
+
+      async function routingLoop() {
+        let lastHeartbeat = 0;
+        while (!leaving) {
+          if (shouldLeave()) {
+            await leaveMeeting();
+            return;
+          }
+          try {
+            await routeOnce();
+            const now = Date.now();
+            if (now - lastHeartbeat > heartbeatIntervalMs) {
+              await postState('roomsOpen');
+              lastHeartbeat = now;
+            }
+          } catch (error) {
+            console.error('Routing loop failed', error);
+            await postState('error', { error }).catch(() => {});
+          }
+          await sleep(routeIntervalMs);
+        }
+      }
+
+      function joinMeeting() {
+        setStatus(`Joining hub ${config.hubDocId}`);
+        window.ZoomMtg.setZoomJSLib('https://source.zoom.us/6.2.0/lib', '/av');
+        window.ZoomMtg.preLoadWasm();
+        window.ZoomMtg.prepareWebSDK();
+        window.ZoomMtg.i18n.load('en-US');
+        window.ZoomMtg.i18n.reload('en-US');
+        window.ZoomMtg.init({
+          leaveUrl: 'about:blank',
+          disableJoinAudio: true,
+          disablePreview: true,
+          disableCallOut: true,
+          disableVoIP: true,
+          isSupportAV: false,
+          disableCORP: true,
+          success: () => {
+            window.ZoomMtg.join({
+              sdkKey: config.sdkKey,
+              signature: config.signature,
+              meetingNumber: config.meetingNumber,
+              passWord: config.password,
+              userName: `Alluwal Hub Bot Lane ${config.lane}`,
+              userEmail: config.hostAccount,
+              customerKey: `zoom_hub_bot_lane_${config.lane}`,
+              zak: config.zak,
+              success: async () => {
+                joined = true;
+                setStatus('Joined as host');
+                await postState('joined').catch(() => {});
+                await ensureRoomsOpen();
+                routingLoop();
+              },
+              error: async (error) => {
+                setStatus('Zoom join failed');
+                console.error('Zoom join failed detail', serializeError(error));
+                await postState('error', { error }).catch(() => {});
+                throw error;
+              },
+            });
+          },
+          error: async (error) => {
+            setStatus('Zoom init failed');
+            console.error('Zoom init failed detail', serializeError(error));
+            await postState('error', { error }).catch(() => {});
+            throw error;
+          },
+        });
+      }
+
+      joinMeeting();
+    })();
+  </script>
+</body>
+</html>

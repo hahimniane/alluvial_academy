@@ -2,11 +2,10 @@
  * Public read of marketing CMS docs (Admin SDK — bypasses client Firestore rules).
  * Used when the web app has no signed-in user but Firestore rules still require auth.
  */
-const { onCall } = require('firebase-functions/v2/https');
+const { onCall, onRequest } = require('firebase-functions/v2/https');
 const admin = require('firebase-admin');
 
-exports.getPublicSiteMarketingBundle = onCall({ cors: true, invoker: 'public', region: 'us-central1' }, async () => {
-  // Auth may be null — callable still returns public marketing docs only.
+const _buildMarketingBundle = async () => {
   const db = admin.firestore();
   const [pricingSnap, socialSnap, landingSnap, teamSnap] = await Promise.all([
     db.collection('public_site_cms_pricing').doc('main').get(),
@@ -33,4 +32,45 @@ exports.getPublicSiteMarketingBundle = onCall({ cors: true, invoker: 'public', r
     landing: landingSnap.exists ? landingSnap.data() : null,
     teamMembers,
   };
-});
+};
+
+exports.getPublicSiteMarketingBundle = onCall(
+  { cors: true, invoker: 'public', region: 'us-central1' },
+  async () => {
+    // Auth may be null — callable still returns public marketing docs only.
+    return _buildMarketingBundle();
+  }
+);
+
+exports.getPublicSiteMarketingBundleHttp = onRequest(
+  { invoker: 'public', region: 'us-central1' },
+  async (req, res) => {
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.set('Vary', 'Origin');
+
+    if (req.method === 'OPTIONS') {
+      res.status(204).send('');
+      return;
+    }
+
+    if (req.method !== 'GET') {
+      res.status(405).json({ error: 'method-not-allowed' });
+      return;
+    }
+
+    try {
+      const bundle = await _buildMarketingBundle();
+      res.set('Cache-Control', 'public, max-age=45');
+      res.status(200).json(bundle);
+    } catch (error) {
+      console.error('[getPublicSiteMarketingBundleHttp] failed:', error);
+      res.status(500).json({ error: 'internal' });
+    }
+  }
+);
+
+exports.__test__ = {
+  _buildMarketingBundle,
+};

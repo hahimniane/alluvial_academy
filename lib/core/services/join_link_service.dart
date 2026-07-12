@@ -66,6 +66,16 @@ class JoinLinkService {
     return base.replace(queryParameters: nextParams);
   }
 
+  static Uri removeJoinParameters(Uri uri) {
+    final queryParameters = _removeJoinParameters(uri.queryParameters);
+    var cleaned = _replaceQueryParameters(uri, queryParameters);
+    final fragment = _removeJoinParametersFromFragment(cleaned.fragment);
+    if (fragment != cleaned.fragment) {
+      cleaned = cleaned.replace(fragment: fragment);
+    }
+    return cleaned;
+  }
+
   static Uri _resolveBaseUri() {
     if (kIsWeb) {
       final base = Uri.base;
@@ -129,5 +139,62 @@ class JoinLinkService {
     }
 
     return null;
+  }
+
+  static Uri _replaceQueryParameters(
+    Uri uri,
+    Map<String, String> queryParameters,
+  ) {
+    if (queryParameters.isNotEmpty) {
+      return uri.replace(queryParameters: queryParameters);
+    }
+
+    if (!uri.hasQuery) return uri;
+
+    return Uri(
+      scheme: uri.scheme,
+      userInfo: uri.userInfo,
+      host: uri.host,
+      port: uri.hasPort ? uri.port : null,
+      path: uri.path,
+      fragment: uri.hasFragment ? uri.fragment : null,
+    );
+  }
+
+  static Map<String, String> _removeJoinParameters(
+    Map<String, String> parameters,
+  ) {
+    if (!parameters.containsKey(joinShiftParam) &&
+        !parameters.containsKey(guestShiftParam)) {
+      return parameters;
+    }
+
+    return Map<String, String>.from(parameters)
+      ..remove(joinShiftParam)
+      ..remove(guestShiftParam);
+  }
+
+  static String _removeJoinParametersFromFragment(String fragment) {
+    if (fragment.trim().isEmpty) return fragment;
+
+    final hasLeadingSlash = fragment.startsWith('/');
+    final normalized = hasLeadingSlash ? fragment.substring(1) : fragment;
+    final fragmentUri = Uri.tryParse('https://placeholder/$normalized');
+    if (fragmentUri == null) return fragment;
+
+    final queryParameters = _removeJoinParameters(fragmentUri.queryParameters);
+    if (queryParameters.length == fragmentUri.queryParameters.length) {
+      return fragment;
+    }
+
+    final path = fragmentUri.path == '/' && normalized.startsWith('?')
+        ? ''
+        : fragmentUri.path.replaceFirst(RegExp(r'^/'), '');
+    final rebuilt = Uri(
+      path: hasLeadingSlash && path.isNotEmpty ? '/$path' : path,
+      queryParameters: queryParameters.isEmpty ? null : queryParameters,
+      fragment: fragmentUri.fragment.isEmpty ? null : fragmentUri.fragment,
+    ).toString();
+    return rebuilt.isEmpty && hasLeadingSlash ? '/' : rebuilt;
   }
 }

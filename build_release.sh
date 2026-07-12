@@ -39,8 +39,9 @@ fi
 
 # Step 3: Ensure Hostinger config files are included in build output
 echo ""
-echo "🧩 Step 3: Copying Hostinger web root files (.htaccess)..."
+echo "🧩 Step 3: Copying Hostinger web root files (.htaccess, static policy pages)..."
 cp web/.htaccess build/web/.htaccess
+cp web/privacy-policy.html build/web/privacy-policy.html
 
 # Step 4: Ensure main.dart.js is cache-busted (helps unstick users with long-lived HTTP cache)
 echo ""
@@ -78,5 +79,6 @@ echo "✅ Build completed successfully!"
 echo ""
 echo "📁 Output directory: build/web/"
 echo "📤 Next steps:"
-echo "   1. Upload the contents of 'build/web/' to your Hostinger hosting"
+echo "   1. Deploy to Hostinger with: ./scripts/deploy_hostinger_web.sh"
+echo "      (or use its rsync command from docs/hostinger-web-deploy.md when debugging)"
 echo "🎉 Your website is ready for deployment with automatic cache busting!"

@@ -3317,6 +3317,22 @@ class AppLocalizationsAr extends AppLocalizations {
   String get connectingToClass => 'Connecting To Class';
 
   @override
+  String get zoomStillConnectingToClass =>
+      'Still connecting to your private classroom...';
+
+  @override
+  String get zoomClassRoutingHelp =>
+      'This class is still connecting. Please leave and rejoin, or ask an administrator for help.';
+
+  @override
+  String zoomClassEndingSoon(String minutes) {
+    return 'ينتهي هذا الدرس خلال $minutes دقيقة';
+  }
+
+  @override
+  String get zoomClassEnded => 'انتهى هذا الدرس.';
+
+  @override
   String get connectingToTaskDatabase => 'Connecting To Task Database';
 
   @override
@@ -5462,6 +5478,9 @@ class AppLocalizationsAr extends AppLocalizations {
   String get leaveClass => 'Leave Class';
 
   @override
+  String get leaveMeeting => 'Leave Meeting';
+
+  @override
   String get lessComfortable => 'Less Comfortable';
 
   @override
@@ -7121,7 +7140,8 @@ class AppLocalizationsAr extends AppLocalizations {
   String get searchForms => 'Search Forms';
 
   @override
-  String get searchInvoiceNumber => 'Search Invoice Number';
+  String get searchInvoiceNumber =>
+      'ابحث عن فاتورة أو ولي أمر أو طالب أو بريد أو هاتف أو معرّف';
 
   @override
   String get searchParentsByNameOrEmail => 'Search Parents By Name Or Email';
@@ -9120,6 +9140,61 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get classVideoInvalidGuestLink => 'Invalid or expired class link.';
+
+  @override
+  String get enableZoomClasses => 'تفعيل حصص Zoom';
+
+  @override
+  String get disableZoomClasses => 'إيقاف حصص Zoom';
+
+  @override
+  String zoomEnabledFor(Object name, int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'تم تحديث $count حصص قادمة.',
+      one: 'تم تحديث حصة قادمة واحدة.',
+      zero: 'لم يتم تحديث أي حصة قادمة.',
+    );
+    return 'تم تفعيل Zoom لـ $name. $_temp0';
+  }
+
+  @override
+  String zoomDisabledFor(Object name, int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'تم تحديث $count حصص قادمة.',
+      one: 'تم تحديث حصة قادمة واحدة.',
+      zero: 'لم يتم تحديث أي حصة قادمة.',
+    );
+    return 'تم إيقاف Zoom لـ $name. $_temp0';
+  }
+
+  @override
+  String zoomToggleError(Object details) {
+    return 'تعذر تحديث صلاحية Zoom: $details';
+  }
+
+  @override
+  String get zoomUnableToLoadMeeting => 'تعذر تحميل اجتماع Zoom.';
+
+  @override
+  String get zoomUnableToJoinMeeting => 'تعذر الانضمام إلى اجتماع Zoom.';
+
+  @override
+  String get zoomUnableToInitialize => 'تعذر تهيئة Zoom.';
+
+  @override
+  String get zoomOpenInZoomApp => 'افتح في تطبيق Zoom';
+
+  @override
+  String get zoomMobileUnavailableTitle =>
+      'حصص Zoom متاحة على الويب فقط في هذه التجربة';
+
+  @override
+  String get zoomMobileUnavailableBody =>
+      'افتح هذه الحصة في متصفح ويب أثناء اختبار فصل Zoom على الجوال.';
 
   @override
   String formsListFormStatus(Object status, Object statut) {
@@ -11226,6 +11301,11 @@ class AppLocalizationsAr extends AppLocalizations {
   }
 
   @override
+  String classControllerBot(int lane) {
+    return 'بوت $lane';
+  }
+
+  @override
   String get classEnded => 'Ended';
 
   @override
@@ -13234,6 +13314,85 @@ class AppLocalizationsAr extends AppLocalizations {
       'تم إنشاء حساب ولي الأمر، لكن تعذّر إرسال بريد الدعوة.';
 
   @override
+  String get manageGuardiansButton => 'إدارة أولياء الأمور';
+
+  @override
+  String get manageGuardiansTitle => 'أولياء الأمور المرتبطون';
+
+  @override
+  String manageGuardiansSubtitle(String studentName) {
+    return 'أولياء الأمور المرتبطون حاليًا بـ $studentName. يؤدي إلغاء الربط إلى إزالة وصولهم إلى حصص هذا الطالب ومحادثاته وفواتيره.';
+  }
+
+  @override
+  String get manageGuardiansEmpty =>
+      'لا يوجد أولياء أمور مرتبطون بهذا الطالب بعد.';
+
+  @override
+  String get manageGuardiansLoadError => 'تعذّر تحميل أولياء الأمور المرتبطين.';
+
+  @override
+  String get manageParentStudentsButton => 'إدارة الطلاب المرتبطين';
+
+  @override
+  String get manageParentStudentsTitle => 'الطلاب المرتبطون';
+
+  @override
+  String manageParentStudentsSubtitle(String parentName) {
+    return 'الطلاب المرتبطون حاليًا بـ $parentName. إزالة طالب تُبقي الحسابين ولكن تزيل وصول ولي الأمر إلى حصص ذلك الطالب ومحادثاته وفواتيره.';
+  }
+
+  @override
+  String get manageParentStudentsEmpty =>
+      'لا يوجد طلاب مرتبطون بهذا ولي الأمر بعد.';
+
+  @override
+  String get manageParentStudentsLoadError => 'تعذّر تحميل الطلاب المرتبطين.';
+
+  @override
+  String get unlinkGuardianConfirmTitle => 'إلغاء ربط ولي الأمر؟';
+
+  @override
+  String unlinkGuardianConfirmBody(String guardianName, String studentName) {
+    return 'لن يعود $guardianName مرتبطًا بـ $studentName. سيفقد الوصول إلى حصص هذا الطالب ومحادثته وفواتيره. لن يؤدي ذلك إلى حذف أي حساب.';
+  }
+
+  @override
+  String get unlinkGuardianReasonLabel => 'السبب (اختياري)';
+
+  @override
+  String get unlinkGuardianReasonHint => 'مثال: تم الربط بالعائلة الخطأ';
+
+  @override
+  String get unlinkGuardianConfirmAction => 'إلغاء الربط';
+
+  @override
+  String get unlinkGuardianSuccess => 'تم إلغاء ربط ولي الأمر بهذا الطالب.';
+
+  @override
+  String get unlinkGuardianError =>
+      'تعذّر إلغاء ربط ولي الأمر. يرجى المحاولة مرة أخرى.';
+
+  @override
+  String get unlinkGuardianMinorBlocked =>
+      'هذا هو ولي الأمر الوحيد لطالب قاصر. اربط ولي أمر آخر أولاً، أو حدِّد الطالب كبالغ، قبل إلغاء الربط.';
+
+  @override
+  String get unlinkGuardianAdultOverrideTitle => 'تحويل الطالب إلى بالغ؟';
+
+  @override
+  String unlinkGuardianAdultOverrideBody(
+      String studentName, String guardianName) {
+    return 'لا يوجد لدى $studentName ولي أمر صالح آخر مرتبط. تابع فقط إذا أكد المسؤول أن هذا الطالب يجب أن يدير حسابه كطالب بالغ بعد إزالة $guardianName.';
+  }
+
+  @override
+  String get unlinkGuardianAdultOverrideAction => 'تحديده كبالغ وإلغاء الربط';
+
+  @override
+  String get invalidParentSelected => 'تم اختيار ولي أمر غير صالح.';
+
+  @override
   String get enrollmentStateChooseProgram => '١. اختيار البرنامج';
 
   @override
@@ -13390,6 +13549,47 @@ class AppLocalizationsAr extends AppLocalizations {
   }
 
   @override
+  String get noShowSettingsTitle => 'مستلمو تنبيهات الغياب';
+
+  @override
+  String get noShowSettingsNotifyAll => 'إشعار جميع المسؤولين';
+
+  @override
+  String get noShowSettingsNotifyAllSubtitle =>
+      'أوقف التفعيل لاختيار المسؤولين الذين يتلقون تنبيهات الغياب.';
+
+  @override
+  String get noShowSettingsNoAdmins => 'لم يتم العثور على مسؤولين';
+
+  @override
+  String get noShowSettingsSelectAtLeastOne =>
+      'لم يتم اختيار أي مسؤول — سيتم إشعار جميع المسؤولين حتى تختار مسؤولاً واحداً على الأقل.';
+
+  @override
+  String get prepareBroadcastRecipientsTitle => 'البث إلى';
+
+  @override
+  String get prepareBroadcastAllTeachers => 'جميع المعلمين';
+
+  @override
+  String get prepareBroadcastSpecificTeachers => 'معلمون محددون';
+
+  @override
+  String get prepareBroadcastSearchTeachers => 'ابحث عن المعلمين...';
+
+  @override
+  String get prepareBroadcastNoTeachersFound => 'لم يتم العثور على معلمين';
+
+  @override
+  String get prepareBroadcastSelectTeacherFirst =>
+      'اختر معلماً واحداً على الأقل قبل البث.';
+
+  @override
+  String prepareBroadcastTeachersSelected(int count) {
+    return 'تم اختيار $count معلم/معلمين';
+  }
+
+  @override
   String get adminActionCardsViewAll => 'عرض الكل';
 
   @override
@@ -13518,6 +13718,400 @@ class AppLocalizationsAr extends AppLocalizations {
   String get sidebarAllInvoices => 'All Invoices';
 
   @override
+  String get financeOverviewTab => 'نظرة عامة';
+
+  @override
+  String get financeCutoffsTab => 'إيقاف الوصول';
+
+  @override
+  String get financeOverviewTitle => 'مركز قيادة المالية';
+
+  @override
+  String financeMonthLive(Object month) {
+    return 'عرض مباشر لشهر $month. تظهر هنا الإيرادات والفواتير والمصروفات المسجلة والرواتب المعتمدة.';
+  }
+
+  @override
+  String get financePreviousMonth => 'الشهر السابق';
+
+  @override
+  String get financeNextMonth => 'الشهر التالي';
+
+  @override
+  String get financeOpenCreateInvoice => 'إنشاء فاتورة';
+
+  @override
+  String get financeOpenAllInvoices => 'كل الفواتير';
+
+  @override
+  String get financeSetIncomeGoal => 'تحديد الهدف';
+
+  @override
+  String get financeRecordExpense => 'تسجيل مصروف';
+
+  @override
+  String get financeRevenueCollected => 'الإيرادات المحصلة';
+
+  @override
+  String get financeProjectedRevenue => 'الإيراد المتوقع';
+
+  @override
+  String get financeMonthEndProjection => 'توقع نهاية الشهر';
+
+  @override
+  String get financeIncomeGoal => 'هدف الدخل';
+
+  @override
+  String get financeNoIncomeGoal => 'لم يتم تحديد هدف';
+
+  @override
+  String financeGoalProgress(Object percent) {
+    return '$percent من الهدف';
+  }
+
+  @override
+  String financeProjectedGoalProgress(Object percent) {
+    return 'متوقع $percent من الهدف';
+  }
+
+  @override
+  String get financeInvoiced => 'المفوتر';
+
+  @override
+  String get financeOutstanding => 'المتبقي';
+
+  @override
+  String get financeKnownExpenses => 'المصروفات المعروفة';
+
+  @override
+  String get financeEstimatedNet => 'الصافي المقدر';
+
+  @override
+  String get financeProfitMargin => 'هامش الربح';
+
+  @override
+  String get financeCurrentMonth => 'هذا الشهر';
+
+  @override
+  String get financeNoPriorRevenue => 'لا توجد إيرادات سابقة';
+
+  @override
+  String get financeNewRevenueThisMonth => 'جديد هذا الشهر';
+
+  @override
+  String financeUpFromLastMonth(Object percent) {
+    return 'ارتفاع $percent عن الشهر الماضي';
+  }
+
+  @override
+  String financeDownFromLastMonth(Object percent) {
+    return 'انخفاض $percent عن الشهر الماضي';
+  }
+
+  @override
+  String get financeOverdueInvoices => 'فواتير متأخرة';
+
+  @override
+  String get financeStaffPayrollOnly => 'رواتب الموظفين فقط';
+
+  @override
+  String get financePartialLedger => 'سجل مصروفات جزئي';
+
+  @override
+  String get financeRevenueMinusKnownExpenses =>
+      'الإيرادات ناقص المصروفات المعروفة';
+
+  @override
+  String get financeCashFlowTable => 'التدفق النقدي';
+
+  @override
+  String get financeSixMonthTrend => 'التدفق النقدي خلال 6 أشهر';
+
+  @override
+  String get financeNoChartData => 'لا توجد بيانات رسم بياني لهذه الفترة.';
+
+  @override
+  String get financeRevenue => 'الإيرادات';
+
+  @override
+  String get financeExpenses => 'المصروفات';
+
+  @override
+  String get financeNet => 'الصافي';
+
+  @override
+  String get financeExpenseCoverage => 'تغطية المصروفات';
+
+  @override
+  String get financeStaffPayroll => 'رواتب الموظفين';
+
+  @override
+  String get financeConnected => 'متصل';
+
+  @override
+  String get financeSubscriptions => 'الاشتراكات';
+
+  @override
+  String get financeNotConnected => 'غير متصل';
+
+  @override
+  String get financeSubscriptionLedgerMissing => 'مطلوب سجل الاشتراكات';
+
+  @override
+  String get financeManualExpenses => 'مصروفات يدوية';
+
+  @override
+  String get financeIncludesRecordedExpenses => 'يشمل المصروفات المسجلة';
+
+  @override
+  String get financeRecordedThisMonth => 'مسجل هذا الشهر';
+
+  @override
+  String get financeNoRecordedExpenses => 'لا توجد مصروفات مسجلة';
+
+  @override
+  String get financeExpensesByCategory => 'المصروفات حسب الفئة';
+
+  @override
+  String get financeSpendingInsightsTitle => 'تحليل المصروفات';
+
+  @override
+  String get financeWhereMoneyGoes => 'أين تذهب الأموال';
+
+  @override
+  String get financeRecipientPayouts => 'سجل دفعات المعلمين والإدارة';
+
+  @override
+  String get financeSelectRecipient => 'اختر معلماً أو إدارياً';
+
+  @override
+  String get financeNoSpendingTrend => 'لا توجد بيانات اتجاه المصروفات بعد.';
+
+  @override
+  String get financeNoRecipientPayouts =>
+      'لا توجد سجلات دفعات للمعلمين أو الإدارة بعد.';
+
+  @override
+  String get financeMonthly => 'شهري';
+
+  @override
+  String get financeQuarterly => 'ربع سنوي';
+
+  @override
+  String get financeAuditPayrollSource => 'رواتب من التدقيق';
+
+  @override
+  String get financeTimesheetPayrollSource => 'رواتب من سجلات الوقت';
+
+  @override
+  String get financeRecordedExpenseSource => 'مصروف مسجل';
+
+  @override
+  String get financeCurrentMonthSpend => 'هذا الشهر';
+
+  @override
+  String get financeSixMonthSpend => 'إجمالي 6 أشهر';
+
+  @override
+  String get financeManualExpenseLedgerMissing => 'مطلوب سجل المصروفات';
+
+  @override
+  String get financeRevenueByMethod => 'الإيرادات حسب الطريقة';
+
+  @override
+  String get financeNoRevenueMethods => 'لا توجد مدفوعات مكتملة لهذا الشهر.';
+
+  @override
+  String get financeUnknownMethod => 'طريقة غير معروفة';
+
+  @override
+  String get financeAttentionQueue => 'قائمة الانتباه';
+
+  @override
+  String get financeDueSoonInvoices => 'فواتير مستحقة قريباً';
+
+  @override
+  String get financeDueSoon => 'تستحق خلال 7 أيام';
+
+  @override
+  String get financePendingPayments => 'مدفوعات معلقة';
+
+  @override
+  String get financeFailedPayments => 'مدفوعات فاشلة';
+
+  @override
+  String get financeFailedInvoiceSends => 'فشل إرسال الفواتير';
+
+  @override
+  String get financePendingPayroll => 'رواتب معلقة';
+
+  @override
+  String get financeNeedsReview => 'بحاجة إلى مراجعة';
+
+  @override
+  String get financeNeedsApproval => 'بحاجة إلى موافقة';
+
+  @override
+  String get financeDataGaps => 'نواقص البيانات';
+
+  @override
+  String get financeSomeSourcesUnavailable => 'بعض مصادر المالية غير متاحة';
+
+  @override
+  String get financeNoAttentionItems =>
+      'لا توجد عناصر مالية عاجلة في هذا العرض.';
+
+  @override
+  String get financeRecentActivity => 'النشاط الأخير';
+
+  @override
+  String get financeNoRecentActivity =>
+      'لا يوجد نشاط حديث للفواتير أو المدفوعات.';
+
+  @override
+  String get financeInvoiceCreated => 'تم إنشاء فاتورة';
+
+  @override
+  String get financePaymentCompleted => 'تم إكمال الدفع';
+
+  @override
+  String get financePaymentPending => 'دفع معلق';
+
+  @override
+  String get financeExpenseRecorded => 'تم تسجيل مصروف';
+
+  @override
+  String get financeDataLoadError => 'تعذر تحميل بيانات المالية';
+
+  @override
+  String get financeExpenseInvalidAmount => 'أدخل مبلغ مصروف أكبر من صفر.';
+
+  @override
+  String get financeExpenseOtherRequired => 'أدخل فئة المصروف الأخرى.';
+
+  @override
+  String get financeExpenseAmount => 'المبلغ';
+
+  @override
+  String get financeExpenseCategory => 'فئة المصروف';
+
+  @override
+  String get financeExpenseOtherCategory => 'فئة أخرى';
+
+  @override
+  String get financeExpenseVendor => 'المورد أو المستفيد';
+
+  @override
+  String get financeExpenseTeacherRecipient => 'المعلم / المستفيد';
+
+  @override
+  String get financeExpenseLeadershipRecipient => 'القائد / المستفيد';
+
+  @override
+  String get financeExpenseRecipientManual => 'إدخال مستفيد آخر';
+
+  @override
+  String get financeExpenseSubcategory => 'نوع المصروف';
+
+  @override
+  String get financeExpenseMethod => 'طريقة الدفع';
+
+  @override
+  String get financeExpenseMethodCard => 'بطاقة';
+
+  @override
+  String get financeExpenseDate => 'تاريخ المصروف';
+
+  @override
+  String get financeExpenseNotes => 'ملاحظات';
+
+  @override
+  String get financeSaveExpense => 'حفظ المصروف';
+
+  @override
+  String get financeGoalInvalidAmount => 'أدخل مبلغ هدف صالحاً.';
+
+  @override
+  String get financeSaveGoal => 'حفظ الهدف';
+
+  @override
+  String get financeExpenseCategoryTeacherPayment => 'دفعة المعلم';
+
+  @override
+  String get financeExpenseCategoryLeadershipCost => 'تكلفة القيادة';
+
+  @override
+  String get financeExpenseCategoryMarketingCost => 'تكلفة التسويق';
+
+  @override
+  String get financeExpenseCategoryResearchDevelopment => 'البحث والتطوير';
+
+  @override
+  String get financeExpenseSubcategorySocialMarketing =>
+      'تسويق عبر وسائل التواصل';
+
+  @override
+  String get financeExpenseSubcategoryNewsletterSubscription =>
+      'اشتراك النشرة البريدية';
+
+  @override
+  String get financeExpenseSubcategoryPaidAds => 'إعلانات مدفوعة';
+
+  @override
+  String get financeExpenseSubcategoryCreativeTools => 'أدوات إبداعية';
+
+  @override
+  String get financeExpenseSubcategoryWebsiteFees => 'رسوم الموقع';
+
+  @override
+  String get financeExpenseSubcategoryRecurringSubscriptions =>
+      'اشتراكات متكررة';
+
+  @override
+  String get financeExpenseSubcategorySoftwareTools => 'أدوات برمجية';
+
+  @override
+  String get financeExpenseSubcategoryResearchTools => 'أدوات بحث';
+
+  @override
+  String get financeExpenseCategorySoftware => 'برامج واشتراكات';
+
+  @override
+  String get financeExpenseCategoryMarketing => 'تسويق وإعلانات';
+
+  @override
+  String get financeExpenseCategoryRentUtilities => 'إيجار ومرافق';
+
+  @override
+  String get financeExpenseCategorySupplies => 'مواد الصف واللوازم';
+
+  @override
+  String get financeExpenseCategoryPaymentFees => 'رسوم بنكية ورسوم الدفع';
+
+  @override
+  String get financeExpenseCategoryInsuranceLegalTaxes =>
+      'تأمين وشؤون قانونية وضرائب';
+
+  @override
+  String get financeExpenseCategoryContractors => 'متعاقدون وخدمات مهنية';
+
+  @override
+  String get financeExpenseCategoryTeacherStaffExtra =>
+      'أجر إضافي للمعلمين والموظفين';
+
+  @override
+  String get financeExpenseCategoryRefundsScholarships => 'مبالغ مستردة ومنح';
+
+  @override
+  String get financeExpenseCategoryInternetPhone => 'إنترنت وهاتف';
+
+  @override
+  String get financeExpenseCategoryTravelEvents => 'سفر وفعاليات';
+
+  @override
+  String get financeRefresh => 'تحديث';
+
+  @override
   String get adminInvoiceDeleteTitle => 'Delete invoice?';
 
   @override
@@ -13538,6 +14132,167 @@ class AppLocalizationsAr extends AppLocalizations {
   String get adminInvoicePrintPdf => 'Print PDF';
 
   @override
+  String get adminInvoiceRecordPayment => 'تسجيل دفعة';
+
+  @override
+  String get adminInvoiceRecordPaymentTitle => 'تسجيل دفعة يدوية';
+
+  @override
+  String get adminInvoicePaymentAmount => 'المبلغ المستلم';
+
+  @override
+  String get adminInvoicePaymentMethod => 'طريقة الدفع';
+
+  @override
+  String get adminInvoicePaymentReference => 'المرجع';
+
+  @override
+  String get adminInvoicePaymentReferenceHint =>
+      'رقم التأكيد أو المرسل أو رقم التحويل';
+
+  @override
+  String get adminInvoicePaymentNote => 'ملاحظة داخلية';
+
+  @override
+  String get adminInvoicePaymentNoteHint => 'ملاحظة إدارية اختيارية';
+
+  @override
+  String get adminInvoicePaymentReceivedDate => 'تاريخ الاستلام';
+
+  @override
+  String get adminInvoicePaymentSuccess => 'تم تسجيل الدفعة وتحديث الفاتورة.';
+
+  @override
+  String get adminInvoicePaymentInvalidAmount =>
+      'أدخل مبلغاً أكبر من صفر ولا يتجاوز الرصيد المستحق.';
+
+  @override
+  String get adminInvoicePaymentMethodZelle => 'Zelle';
+
+  @override
+  String get adminInvoicePaymentMethodCashApp => 'Cash App';
+
+  @override
+  String get adminInvoicePaymentMethodBankTransfer => 'تحويل بنكي';
+
+  @override
+  String get adminInvoicePaymentMethodMoneyGram => 'MoneyGram';
+
+  @override
+  String get adminInvoicePaymentMethodWesternUnion => 'Western Union';
+
+  @override
+  String get adminInvoicePaymentMethodCash => 'نقداً';
+
+  @override
+  String get adminInvoicePaymentMethodCheck => 'شيك';
+
+  @override
+  String get adminInvoicePaymentMethodOther => 'أخرى';
+
+  @override
+  String get adminInvoiceBillingOptionsTitle => 'خيارات الفوترة';
+
+  @override
+  String get adminInvoiceBillingCoverage => 'الأشهر المضمنة';
+
+  @override
+  String adminInvoiceBillingCoveragePreview(Object period) {
+    return 'تغطي الفاتورة $period';
+  }
+
+  @override
+  String get adminInvoiceCoverageOneMonth => 'شهر واحد';
+
+  @override
+  String adminInvoiceCoverageMonths(Object count) {
+    return '$count أشهر';
+  }
+
+  @override
+  String get adminInvoiceRecurringPlan => 'جعلها متكررة';
+
+  @override
+  String adminInvoiceRecurringPlanSubtitle(Object coverage) {
+    return 'ينشئ تلقائياً فاتورة $coverage التالية عند بداية فترة الفوترة ويتتبع فشل الإرسال.';
+  }
+
+  @override
+  String get cutoffTitle => 'إدارة إيقاف الوصول';
+
+  @override
+  String get cutoffSubtitle =>
+      'الطلاب الموقوفون والفواتير المسببة وخيارات التمديد السريع.';
+
+  @override
+  String get cutoffSuspendedStudents => 'موقوفون';
+
+  @override
+  String get cutoffParentGroups => 'مجموعات أولياء الأمور';
+
+  @override
+  String get cutoffStudentsInGroup => 'الطلاب';
+
+  @override
+  String get cutoffBlockingInvoices => 'فواتير مانعة';
+
+  @override
+  String get cutoffTotalPastDue => 'متأخر';
+
+  @override
+  String get cutoffOldestCutoff => 'أقدم إيقاف';
+
+  @override
+  String get cutoffExtendAction => 'تمديد الموعد';
+
+  @override
+  String get cutoffExtendParentAction => 'تمديد الكل';
+
+  @override
+  String get cutoffExtendStudentAction => 'تمديد الطالب';
+
+  @override
+  String get cutoffExtendedSuccess => 'تم تمديد الموعد وإعادة حساب الوصول.';
+
+  @override
+  String get cutoffNoStudents => 'لا يوجد طلاب موقوفون حالياً';
+
+  @override
+  String get cutoffNoStudentsDetail =>
+      'عندما تتجاوز فاتورة غير مدفوعة موعد الإيقاف سيظهر الطالب هنا.';
+
+  @override
+  String get cutoffLoadError => 'تعذر تحميل بيانات الإيقاف';
+
+  @override
+  String get cutoffExtendTitle => 'تمديد موعد الوصول';
+
+  @override
+  String get cutoffExtendParentTitle => 'تمديد مجموعة ولي الأمر';
+
+  @override
+  String cutoffExtendBody(Object name) {
+    return 'اختر موعداً جديداً لـ $name. سيتم نقل الفواتير المانعة إلى هذا الموعد.';
+  }
+
+  @override
+  String cutoffExtendParentBody(Object name) {
+    return 'اختر موعداً جديداً لكل الطلاب الموقوفين تحت $name.';
+  }
+
+  @override
+  String get cutoffExtendBy7 => '+7 أيام';
+
+  @override
+  String get cutoffExtendBy14 => '+14 يوماً';
+
+  @override
+  String get cutoffExtendBy30 => '+30 يوماً';
+
+  @override
+  String get cutoffApplyExtension => 'تطبيق التمديد';
+
+  @override
   String get adminInvoicesTitle => 'Invoices';
 
   @override
@@ -13551,6 +14306,12 @@ class AppLocalizationsAr extends AppLocalizations {
   String adminInvoiceBillingPeriodChip(Object billing) {
     return 'Billing: $billing';
   }
+
+  @override
+  String get adminInvoiceSendFailed => 'فشل الإرسال';
+
+  @override
+  String get adminInvoiceSendPending => 'الإرسال معلق';
 
   @override
   String adminInvoiceBalanceDue(Object amount) {
@@ -14284,6 +15045,9 @@ class AppLocalizationsAr extends AppLocalizations {
   String get realtimeKitProviderSubtitle => 'يُستخدم للحصص المجدولة';
 
   @override
+  String get zoomProviderSubtitle => 'يُستخدم للمعلمين المضافين إلى تجربة Zoom';
+
+  @override
   String get legacyProviderSubtitle => 'مزود قديم للحصص الموجودة';
 
   @override
@@ -14442,4 +15206,349 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get bulkClassRecordingUpdateFailed => 'تعذر تحديث إمكانية التسجيل.';
+
+  @override
+  String get noShowAlertsTitle => 'تنبيهات الغياب';
+
+  @override
+  String get noShowAlertsSubtitle => 'الحصص التي لم يحضرها معلم أو طالب.';
+
+  @override
+  String get noShowTeacher => 'غياب المعلم';
+
+  @override
+  String get noShowStudent => 'غياب الطالب';
+
+  @override
+  String get noShowNeedsReview => 'بحاجة إلى مراجعة';
+
+  @override
+  String get noShowReviewed => 'تمت المراجعة';
+
+  @override
+  String get noShowMarkReviewed => 'وضع علامة كمراجَع';
+
+  @override
+  String get noShowSearchHint => 'ابحث عن معلم أو مُبلِّغ أو حصة';
+
+  @override
+  String get noShowFilterAll => 'الكل';
+
+  @override
+  String get noShowEmpty => 'لا توجد تنبيهات غياب';
+
+  @override
+  String get noShowLoadError => 'تعذّر تحميل تنبيهات الغياب';
+
+  @override
+  String get noShowRetry => 'إعادة المحاولة';
+
+  @override
+  String get noShowStatTotal => 'الإجمالي';
+
+  @override
+  String get noShowStatTeacher => 'غيابات المعلمين';
+
+  @override
+  String get noShowStatStudent => 'غيابات الطلاب';
+
+  @override
+  String get noShowStatPending => 'بحاجة إلى مراجعة';
+
+  @override
+  String get noShowTopAbsent => 'الأكثر غيابًا';
+
+  @override
+  String noShowReportedBy(String name) {
+    return 'أبلغ عنه $name';
+  }
+
+  @override
+  String noShowTeacherLabel(String name) {
+    return 'المعلم: $name';
+  }
+
+  @override
+  String noShowPendingShort(int count) {
+    return '$count قيد الانتظار';
+  }
+
+  @override
+  String get noShowDateAll => 'كل التواريخ';
+
+  @override
+  String get noShowDateToday => 'اليوم';
+
+  @override
+  String get noShowDate7Days => 'آخر 7 أيام';
+
+  @override
+  String get noShowDate30Days => 'آخر 30 يومًا';
+
+  @override
+  String get noShowFromDate => 'من';
+
+  @override
+  String get noShowToDate => 'إلى';
+
+  @override
+  String get noShowAttendanceAll => 'كل الحضور';
+
+  @override
+  String get noShowNeverJoined => 'لم ينضم';
+
+  @override
+  String get noShowJoinedLate => 'انضم متأخرًا';
+
+  @override
+  String get noShowHadPresence => 'حضور مسجّل';
+
+  @override
+  String noShowScheduled(String date) {
+    return 'الموعد: $date';
+  }
+
+  @override
+  String noShowDetectedAfter(int minutes) {
+    return 'تم التنبيه بعد $minutes دقيقة';
+  }
+
+  @override
+  String get noShowRoleTeacher => 'المعلم';
+
+  @override
+  String get noShowRoleStudent => 'الطالب';
+
+  @override
+  String get noShowNoJoinRecorded => 'لا يوجد دخول مسجّل';
+
+  @override
+  String noShowJoinedAt(String time) {
+    return 'انضم في $time';
+  }
+
+  @override
+  String noShowJoinOffsetLate(int minutes) {
+    return 'متأخر $minutes دقيقة';
+  }
+
+  @override
+  String noShowJoinOffsetEarly(int minutes) {
+    return 'مبكر $minutes دقيقة';
+  }
+
+  @override
+  String get noShowJoinOffsetOnTime => 'في الوقت';
+
+  @override
+  String noShowPresentMinutes(int minutes) {
+    return 'حضر $minutes دقيقة';
+  }
+
+  @override
+  String get noShowCopySummary => 'نسخ الملخص';
+
+  @override
+  String get noShowCopied => 'تم نسخ ملخص الغياب';
+
+  @override
+  String get noShowSummaryClass => 'الحصة';
+
+  @override
+  String get noShowSummaryAlert => 'التنبيه';
+
+  @override
+  String get noShowSummaryScheduled => 'الموعد';
+
+  @override
+  String get noShowSummaryDetected => 'الكشف';
+
+  @override
+  String get noShowSummaryStatus => 'الحالة';
+
+  @override
+  String noShowStudentLabel(String name) {
+    return 'الطالب: $name';
+  }
+
+  @override
+  String get noShowReviewTitle => 'مراجعة تنبيه الغياب';
+
+  @override
+  String get noShowReviewActionsPrompt => 'الإجراءات المتخذة';
+
+  @override
+  String get noShowReviewOtherLabel => 'إجراء آخر أو ملاحظة';
+
+  @override
+  String get noShowReviewOtherHint =>
+      'اكتب ما تم فعله إذا لم يكن موجودًا في القائمة';
+
+  @override
+  String get noShowReviewSubmit => 'إرسال المراجعة';
+
+  @override
+  String get noShowReviewActionContactedTeacher => 'تم التواصل مع المعلم';
+
+  @override
+  String get noShowReviewActionContactedStudentParent =>
+      'تم التواصل مع الطالب أو ولي الأمر';
+
+  @override
+  String get noShowReviewActionConfirmedTeacherLate => 'تم تأكيد تأخر المعلم';
+
+  @override
+  String get noShowReviewActionConfirmedStudentLate => 'تم تأكيد تأخر الطالب';
+
+  @override
+  String get noShowReviewActionExcusedAbsence => 'غياب بعذر';
+
+  @override
+  String get noShowReviewActionRescheduledClass => 'تمت إعادة جدولة الحصة';
+
+  @override
+  String get noShowReviewActionTechnicalFollowup => 'متابعة مشكلة تقنية';
+
+  @override
+  String get noShowReviewActionBillingFollowup => 'متابعة الفوترة/الرواتب';
+
+  @override
+  String get noShowReviewActionEscalatedAdmin => 'تم التصعيد للإدارة';
+
+  @override
+  String get noShowReviewActionFalseAlarm => 'تنبيه خاطئ/لا يلزم إجراء';
+
+  @override
+  String noShowReviewedBy(String name) {
+    return 'تمت المراجعة بواسطة $name';
+  }
+
+  @override
+  String noShowReviewActionsLabel(String actions) {
+    return 'الإجراءات: $actions';
+  }
+
+  @override
+  String noShowReviewNoteLabel(String note) {
+    return 'ملاحظة: $note';
+  }
+
+  @override
+  String get zoomHostPickerTitle => 'تعيين مضيف Zoom';
+
+  @override
+  String zoomHostPickerBody(String name) {
+    return 'اختر حساب Zoom المرخّص الذي سيستضيف حصص $name.';
+  }
+
+  @override
+  String get zoomHostPickerCustomLabel => 'أو أدخل بريد حساب المضيف';
+
+  @override
+  String get zoomHostPickerAssign => 'تعيين وتفعيل';
+
+  @override
+  String get zoomScopeTitle => 'أي الحصص؟';
+
+  @override
+  String zoomScopeBody(String name) {
+    return 'نقل جميع حصص $name إلى Zoom، أم فقط حصص الطلاب المحددين؟';
+  }
+
+  @override
+  String get zoomScopeAll => 'جميع الحصص';
+
+  @override
+  String get zoomScopeSelect => 'فقط حصص الطلاب المحددين';
+
+  @override
+  String get zoomScopeNoStudents => 'لا توجد حصص قادمة لهذا المعلم.';
+
+  @override
+  String get shiftLoadingCurrentWeek => 'جارٍ تحميل حصص هذا الأسبوع...';
+
+  @override
+  String shiftLoadingFullHistoryCount(int loaded) {
+    return 'جارٍ تحميل سجل الحصص الكامل: تم تحميل $loaded حصة';
+  }
+
+  @override
+  String shiftLoadingFullHistoryPercent(int percent, int loaded, int total) {
+    return 'جارٍ تحميل سجل الحصص الكامل: $percent% ($loaded/$total)';
+  }
+
+  @override
+  String get leaderWorkCardTitle => 'العمل المجدول';
+
+  @override
+  String get leaderWorkCardSubtitle =>
+      'حالة تسجيل حضورك منذ بداية الشهر للمهام القيادية المسندة إليك.';
+
+  @override
+  String get leaderWorkScheduled => 'مجدول';
+
+  @override
+  String get leaderWorkCompleted => 'مكتمل';
+
+  @override
+  String get leaderWorkAbsences => 'غياب';
+
+  @override
+  String get leaderWorkLateClockIns => 'تأخر الدخول';
+
+  @override
+  String get leaderWorkOpenTimeClock => 'فتح ساعة الدوام';
+
+  @override
+  String get leaderWorkNoUser => 'سجّل الدخول لعرض عملك المجدول.';
+
+  @override
+  String get leaderWorkLoadError => 'تعذر تحميل مؤشرات العمل المجدول.';
+
+  @override
+  String get timeClockEarlyClockOutTitle => 'تسجيل خروج مبكر';
+
+  @override
+  String get timeClockLateClockOutTitle => 'تسجيل خروج متأخر';
+
+  @override
+  String timeClockEarlyClockOutBody(int minutes) {
+    return 'أنت تسجل الخروج قبل نهاية ورديتك المجدولة بـ $minutes دقيقة. يرجى توضيح السبب.';
+  }
+
+  @override
+  String timeClockLateClockOutBody(int minutes) {
+    return 'أنت تسجل الخروج بعد نهاية ورديتك المجدولة بـ $minutes دقيقة. يرجى توضيح السبب.';
+  }
+
+  @override
+  String get timeClockClockOutNoteLabel => 'التوضيح';
+
+  @override
+  String get timeClockClockOutNoteHint =>
+      'اشرح باختصار سبب انتهاء الوردية مبكراً أو متأخراً';
+
+  @override
+  String get timeClockClockOutNoteRequired => 'يرجى إضافة توضيح قصير.';
+
+  @override
+  String get timeClockContinueClockOut => 'متابعة تسجيل الخروج';
+
+  @override
+  String get timeClockClockOutHelpText =>
+      'اضغط على \"تسجيل الخروج\" لإنهاء الوردية وإرسال سجل الوقت';
+
+  @override
+  String get timeClockClockInHelpText =>
+      'اضغط على \"تسجيل الدخول\" لبدء تتبع وقت العمل المجدول';
+
+  @override
+  String timeClockTeachingSessionTitle(String name) {
+    return 'تدريس: $name';
+  }
+
+  @override
+  String timeClockLeadershipSessionTitle(String name) {
+    return 'قيادة: $name';
+  }
 }
