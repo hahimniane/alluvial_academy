@@ -13,6 +13,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Grid2X2,
+  FileCheck2,
   Info,
   List,
   Menu,
@@ -20,6 +21,7 @@ import {
   Settings,
   Shuffle,
   Timer,
+  Video,
   X,
 } from "lucide-react";
 import { auth, db } from "@/lib/firebase";
@@ -50,6 +52,7 @@ type TeacherShift = {
   hourlyRate: number;
   clockInTime: Date | null;
   clockOutTime: Date | null;
+  formResponseId: string;
 };
 
 export function TeacherShiftsPage() {
@@ -684,6 +687,10 @@ function ShiftDetailsDialog({
 }) {
   const action = clockAction(shift);
   const canAct = action.kind !== "disabled";
+  const now = new Date();
+  const joinable = shift.category.toLowerCase() === "teaching" && Boolean(shift.start && shift.end && now >= new Date(shift.start.getTime() - 10 * 60_000) && now <= new Date(shift.end.getTime() + 10 * 60_000));
+  const reportStatus = shift.status.toLowerCase().replace(/[_\s-]+/g, "");
+  const reportRequired = ["completed", "fullycompleted", "partiallycompleted", "missed"].includes(reportStatus) || Boolean(shift.end && shift.end < now);
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/45 px-4">
       <section className="w-full max-w-[560px] rounded-2xl bg-white p-6 shadow-xl">
@@ -704,6 +711,8 @@ function ShiftDetailsDialog({
           <InfoRow label="Status" value={shiftVisualConfig(shift).label} />
         </div>
         <div className="mt-6 flex flex-wrap justify-end gap-3">
+          {joinable ? <Link href={`/teacher/classroom/?shiftId=${encodeURIComponent(shift.id)}`} className="inline-flex items-center gap-2 rounded-xl bg-[#0E72ED] px-4 py-2 text-sm font-bold text-white"><Video size={16} />Join Class</Link> : null}
+          {reportRequired ? shift.formResponseId ? <Link href="/teacher/form-submissions/" className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 px-4 py-2 text-sm font-bold text-emerald-700 hover:bg-emerald-50"><FileCheck2 size={16} />View Class Report</Link> : <Link href={`/teacher/submit-form/?shift=${encodeURIComponent(shift.id)}`} className="inline-flex items-center gap-2 rounded-xl border border-[#BFDBFE] px-4 py-2 text-sm font-bold text-[#0369F6] hover:bg-[#EFF6FF]"><FileCheck2 size={16} />Fill Class Report</Link> : null}
           <button type="button" onClick={onReportIssue} className="inline-flex items-center gap-2 rounded-xl border border-orange-200 px-4 py-2 text-sm font-bold text-orange-700 hover:bg-orange-50">
             <Info size={16} />
             Report Issue
@@ -896,6 +905,7 @@ function normalizeShift(id: string, data: Record<string, unknown>): TeacherShift
     hourlyRate: numberValue(data.hourly_rate ?? data.hourlyRate),
     clockInTime: dateValue(data.clock_in_time ?? data.clockInTime),
     clockOutTime: dateValue(data.clock_out_time ?? data.clockOutTime),
+    formResponseId: stringValue(data.form_response_id ?? data.formResponseId),
   };
 }
 

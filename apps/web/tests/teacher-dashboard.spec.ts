@@ -409,6 +409,20 @@ test.describe("teacher dashboard", () => {
     ]);
   });
 
+  test("my shifts details expose classroom and class-report actions", async ({ page }, testInfo) => {
+    skipUnlessDesktopTeacherE2EEnabled(testInfo.project.name);
+    test.skip(process.env.ALLUWAL_RUN_TEACHER_SHIFT_DETAIL_E2E !== "1", "Enable only with disposable shift detail fixtures.");
+    await signInAsTeacher(page);
+    await page.goto("/teacher/shifts/?shift=codex-shift-detail-live");
+    let dialog = page.getByRole("button", { name: "Close shift details" }).locator("../..");
+    await expect(dialog.getByRole("link", { name: "Join Class" })).toHaveAttribute("href", "/teacher/classroom/?shiftId=codex-shift-detail-live");
+    await dialog.getByRole("button", { name: "Close shift details" }).click();
+    await page.goto("/teacher/shifts/?shift=codex-shift-detail-report");
+    dialog = page.getByRole("button", { name: "Close shift details" }).locator("../..");
+    await expect(dialog.getByRole("link", { name: "Fill Class Report" })).toHaveAttribute("href", "/teacher/submit-form/?shift=codex-shift-detail-report");
+    await expect(dialog.getByRole("button", { name: "Report Issue" })).toBeVisible();
+  });
+
   test("requires a teacher sign-in before rendering time clock", async ({ page, browserName }) => {
     test.skip(browserName === "webkit", "WebKit intermittently hangs before committing teacher module static routes late in the full suite; Chromium and mobile Chrome cover the guard.");
     await gotoTeacherGuard(page, "/teacher/time-clock/");

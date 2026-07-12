@@ -3351,6 +3351,12 @@ render and the native Next authenticated CMS write/upload tests pass against
 - The Next Class card itself now carries the shift ID into My Shifts and opens
   the exact detail dialog, matching Flutter's tappable upcoming-class card
   rather than presenting a dead informational surface.
+- The My Shifts detail dialog now restores Flutter's contextual actions: a
+  10-minute-before/after-window Join Class link into the existing Classroom
+  provider flow, Fill Class Report for completed/missed shifts without a linked
+  response, View Class Report for linked responses, and the existing Report
+  Issue flow. Disposable live and completed shifts verified join/report hrefs
+  and were deleted.
 - The formerly inert desktop bell is now a labelled link to My Report and shows
   the real unread `audit_notifications` count. Opening My Report attempts the
   same teacher-owned read acknowledgement as Flutter. A disposable notification
