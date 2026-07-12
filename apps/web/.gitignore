@@ -5,6 +5,7 @@ public/assets/
 public/favicon.png
 public/logo-192.png
 public/logo-512.png
+public/zoom_meeting.html
 test-results/
 playwright-report/
 tsconfig.tsbuildinfo

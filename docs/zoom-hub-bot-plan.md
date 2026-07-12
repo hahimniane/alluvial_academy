@@ -2313,3 +2313,22 @@ Operational note:
   routing changes without explicit owner approval. For the next live roster
   verification, use a fresh test hub/meeting or wait until this test hub ends
   naturally.
+
+## 36. Next.js Teacher Provider Parity — 2026-07-11
+
+- The Next.js teacher classroom previously requested a RealtimeKit token for
+  every shift, including shifts whose `video_provider` is `zoom`. Provider-aware
+  joining now calls `getZoomJoinInfo` for Zoom-backed shifts and hands the
+  returned role-0 routing payload to the unchanged canonical
+  `web/zoom_meeting.html` page.
+- `apps/web/scripts/prepare-assets.mjs` copies the canonical Zoom meeting page
+  into the Next static export. No Zoom handler, hub-routing rule, meeting
+  lifetime, bot lane, room assignment, or visible Zoom meeting control was
+  changed.
+- Verification completed: Next TypeScript check, production-style static build,
+  Hostinger package generation, cross-browser focused tests confirming the
+  packaged page contains the routing host, and authenticated teacher navigation
+  coverage. No Firebase, Hostinger, VPS, or production deployment was performed.
+- Remaining gate: authenticated `alluwal-dev` teacher join through an active
+  Zoom hub fixture, including routing to the expected private room and return to
+  `/teacher/classes/` after leaving.

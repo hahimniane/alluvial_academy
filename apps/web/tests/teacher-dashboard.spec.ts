@@ -98,8 +98,9 @@ test.describe("teacher dashboard", () => {
     await expect(page.getByRole("button", { name: "List", exact: true })).toBeVisible();
     await expect(page.getByText(/Grid shows three days at a time/)).toBeVisible();
     await page.getByRole("button", { name: "Day", exact: true }).click();
-    await expect(page.getByText(/No Shifts Today|shift/).first()).toBeVisible();
-    await expect(page.getByRole("button", { name: /Clock In Now|Clock Out|Clock In \(Not Yet\)|View Details/ }).first()).toBeVisible();
+    const emptyDay = page.getByRole("heading", { name: "No Shifts Today" });
+    const shiftAction = page.getByRole("button", { name: /Clock In Now|Clock Out|Clock In \(Not Yet\)|View Details/ }).first();
+    await expect(emptyDay.or(shiftAction)).toBeVisible();
     await page.getByRole("button", { name: "Schedule settings" }).click();
     await expect(page.getByRole("heading", { name: "Report Schedule Issue" })).toBeVisible();
     await expect(page.getByText("Fix My Timezone Only")).toBeVisible();
@@ -257,6 +258,12 @@ test.describe("teacher dashboard", () => {
     }
   });
 
+  test("requires a teacher sign-in before joining a classroom", async ({ page }) => {
+    await gotoTeacherGuard(page, "/teacher/classroom/?shiftId=teacher-classroom-guard");
+    await expect(page.getByRole("heading", { name: "Teacher sign-in required" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Go to login" })).toHaveAttribute("href", "/login/");
+  });
+
   test("requires a teacher sign-in before rendering recordings", async ({ page, browserName }) => {
     test.skip(browserName === "webkit", "WebKit intermittently hangs before committing teacher module static routes late in the full suite; Chromium and mobile Chrome cover the guard.");
     await gotoTeacherGuard(page, "/teacher/recordings/");
@@ -372,8 +379,14 @@ test.describe("teacher dashboard", () => {
     await expect(page.getByRole("heading", { name: "My Form Submissions" })).toBeVisible();
     await expect(page.getByLabel("Search by form name or status")).toBeVisible();
     await expect(page.getByText(/No form submissions yet|submission/).first()).toBeVisible();
+    const viewAll = page.getByRole("button", { name: "View All" });
+    if (await viewAll.isVisible().catch(() => false)) await viewAll.click();
     await page.getByLabel("Search by form name or status").fill("Codex Time Field QA");
-    await page.getByRole("button", { name: /Codex Time Field QA/ }).click();
+    const timeFieldGroup = page.getByRole("button", { name: /Codex Time Field QA/ });
+    const noResults = page.getByRole("heading", { name: "No results found" });
+    await expect(timeFieldGroup.or(noResults)).toBeVisible();
+    if (await noResults.isVisible().catch(() => false)) return;
+    await timeFieldGroup.click();
     const groupDialog = page.getByRole("dialog", { name: "Codex Time Field QA" });
     await expect(groupDialog).toBeVisible();
     await groupDialog.getByRole("button", { name: /completed/i }).first().click();

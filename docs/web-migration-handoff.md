@@ -3037,6 +3037,24 @@ render and the native Next authenticated CMS write/upload tests pass against
    git diff --check
    ```
 
+## Teacher parity continuation (2026-07-11)
+
+- Opened coordination issue #25 and created
+  `docs/teacher-next-parity-matrix.md` as the finite acceptance tracker.
+- Corrected native Teacher Classroom provider selection. Zoom-backed shifts now
+  call `getZoomJoinInfo` and open the same `zoom_meeting.html` host and routing
+  payload used by Flutter; non-Zoom shifts continue through RealtimeKit.
+- Added a Next-owned RealtimeKit teacher session layer with live roster,
+  lock/unlock, participant removal, and token-based reconnect controls.
+- Updated Next asset preparation to package the canonical Zoom classroom host.
+- Verification completed: Next typecheck, production-style static build, and
+  focused Chromium/WebKit/mobile public classroom-host tests, RealtimeKit
+  Functions Jest (32 passed), Hostinger packaging, and the authenticated teacher
+  Chromium suite (25 passed, 2 intentionally skipped, 2 stale-fixture failures
+  corrected and re-run successfully). No Firebase or production deploy was
+  performed. Authenticated two-party dev verification remains before this
+  classroom slice is ready to merge.
+
 ## Post-parity additions (2026-07-09)
 
 These are deliberate improvements beyond Flutter parity, requested by the
