@@ -141,6 +141,7 @@ export function TeacherDashboardHome() {
   const [summary, setSummary] = useState<TeacherSummary>({ displayName: "Teacher", firstName: "Teacher", initials: "TE" });
   const [data, setData] = useState<TeacherHomeData>({ shifts: [], tasks: [], timesheets: [] });
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
 
   useEffect(() => {
     let mounted = true;
@@ -155,6 +156,7 @@ export function TeacherDashboardHome() {
 
       setAccess("checking");
       setLoading(true);
+      setLoadError("");
       try {
         const allowed = await isCurrentUserTeacher(nextUser);
         if (!mounted) return;
@@ -168,7 +170,10 @@ export function TeacherDashboardHome() {
         setSummary(summaryForUser(nextUser, userRecord));
         setAccess("allowed");
         const loaded = await loadTeacherHomeData(nextUser.uid);
-        if (mounted) setData(loaded);
+        if (mounted) {
+          setData(loaded.data);
+          setLoadError(homeLoadError(loaded.failed));
+        }
       } catch {
         if (mounted) setAccess("denied");
       } finally {
@@ -179,9 +184,22 @@ export function TeacherDashboardHome() {
 
   if (access !== "allowed") return <TeacherAccessPrompt access={access} />;
 
+  const retryLoad = async () => {
+    if (!user || loading) return;
+    setLoading(true);
+    setLoadError("");
+    try {
+      const loaded = await loadTeacherHomeData(user.uid);
+      setData(loaded.data);
+      setLoadError(homeLoadError(loaded.failed));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <TeacherShell activeLabel="Dashboard" breadcrumb="Overview / Dashboard" summary={summary}>
-      <TeacherHomeContent data={data} loading={loading} summary={summary} user={user} />
+      <TeacherHomeContent data={data} loading={loading} loadError={loadError} onRetry={() => void retryLoad()} summary={summary} user={user} />
     </TeacherShell>
   );
 }
@@ -189,10 +207,14 @@ export function TeacherDashboardHome() {
 function TeacherHomeContent({
   data,
   loading,
+  loadError,
+  onRetry,
   summary,
 }: {
   data: TeacherHomeData;
   loading: boolean;
+  loadError: string;
+  onRetry: () => void;
   summary: TeacherSummary;
   user: User | null;
 }) {
@@ -225,6 +247,13 @@ function TeacherHomeContent({
           <span className="grid h-9 w-9 place-items-center rounded-full bg-[#009688] text-xs font-black text-white">{summary.initials}</span>
         </div>
       </header>
+
+      {loadError ? (
+        <section className="mt-4 flex flex-col gap-3 rounded-2xl border border-[#FCD34D] bg-[#FFFBEB] px-4 py-3 text-sm text-[#92400E] sm:flex-row sm:items-center" role="alert">
+          <p className="min-w-0 flex-1 font-semibold">{loadError}</p>
+          <button type="button" onClick={onRetry} disabled={loading} className="min-h-10 rounded-xl bg-[#92400E] px-4 text-xs font-bold text-white disabled:opacity-60">{loading ? "Retrying..." : "Try again"}</button>
+        </section>
+      ) : null}
 
       <section className="grid grid-cols-3 gap-2 pt-0 lg:gap-3 lg:pt-9">
         <MetricCard icon={Clock3} iconColor="#10B981" value={`${formatNumber(weekHours)}h`} label="This Week" loading={loading} />
@@ -720,13 +749,22 @@ export function TeacherAccessPrompt({ access }: { access: AccessState }) {
   );
 }
 
-async function loadTeacherHomeData(uid: string): Promise<TeacherHomeData> {
-  const [shifts, tasks, timesheets] = await Promise.all([
-    loadTeacherShifts(uid).catch(() => []),
-    loadTeacherTasks(uid).catch(() => []),
-    loadTeacherTimesheets(uid).catch(() => []),
-  ]);
-  return { shifts, tasks, timesheets };
+async function loadTeacherHomeData(uid: string): Promise<{data: TeacherHomeData; failed: string[]}> {
+  const results = await Promise.allSettled([loadTeacherShifts(uid), loadTeacherTasks(uid), loadTeacherTimesheets(uid)]);
+  const labels = ["class schedule", "tasks", "timesheets"];
+  return {
+    data: {
+      shifts: results[0].status === "fulfilled" ? results[0].value : [],
+      tasks: results[1].status === "fulfilled" ? results[1].value : [],
+      timesheets: results[2].status === "fulfilled" ? results[2].value : [],
+    },
+    failed: results.flatMap((result, index) => result.status === "rejected" ? [labels[index]] : []),
+  };
+}
+
+function homeLoadError(failed: string[]) {
+  if (!failed.length) return "";
+  return `Some dashboard data could not be refreshed: ${failed.join(", ")}. Existing values for those sections may be incomplete.`;
 }
 
 async function loadTeacherShifts(uid: string) {

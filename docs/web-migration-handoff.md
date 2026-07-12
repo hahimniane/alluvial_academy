@@ -3305,6 +3305,17 @@ render and the native Next authenticated CMS write/upload tests pass against
   readable field labels and values, while a legacy response with no response
   fields shows `No responses recorded`. Both fixtures were removed afterward.
 
+### Teacher dashboard partial-data resilience (2026-07-12)
+
+- Dashboard shift, task, and timesheet reads now settle independently. A failed
+  section can no longer silently masquerade as a real zero; successful sections
+  still render and a warning names each incomplete metric source with Retry.
+- Metric-read failures are handled after teacher authorization, so they no
+  longer turn an authenticated teacher into a misleading role-denied screen.
+- Existing authenticated coverage verifies account-menu logout, conditional
+  Admin role destination when present, sidebar persistence/reset, the separated
+  scroll columns, mobile drawer navigation, quick actions, and metric rendering.
+
 ## Post-parity additions (2026-07-09)
 
 These are deliberate improvements beyond Flutter parity, requested by the

@@ -91,6 +91,16 @@ test.describe("teacher dashboard", () => {
     if (await adminSwitch.isVisible().catch(() => false)) await expect(adminSwitch).toHaveAttribute("href", "/admin/");
   });
 
+  test("teacher can switch to the existing admin role", async ({ page }, testInfo) => {
+    skipUnlessDesktopTeacherE2EEnabled(testInfo.project.name);
+    await signInAsTeacher(page);
+    await page.getByLabel("Open teacher account menu").click();
+    const adminSwitch = page.getByRole("menu", {name: "Teacher account menu"}).getByRole("menuitem", {name: "Switch to Admin"});
+    test.skip(!(await adminSwitch.isVisible().catch(() => false)), "The dev teacher fixture does not currently include the admin role.");
+    await adminSwitch.click();
+    await expect(page).toHaveURL(/\/admin\/$/);
+  });
+
   test("teacher can log out from the account menu", async ({ page }, testInfo) => {
     skipUnlessDesktopTeacherE2EEnabled(testInfo.project.name);
     await signInAsTeacher(page);
