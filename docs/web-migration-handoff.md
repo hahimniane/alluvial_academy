@@ -3343,6 +3343,12 @@ render and the native Next authenticated CMS write/upload tests pass against
   despite the checked-in rule allowing it, so the badge correctly remained
   unread. No rules were deployed and production was not touched; reconcile the
   dev rules deployment before requiring read-clear acceptance.
+- A teacher-control audit found that the Shuffle icon was decorative in ten
+  mobile headers and the Submit Form back arrow had no action. Every Shuffle
+  control now opens the existing teacher account/navigation drawer (including
+  conditional role switching), and the form back control returns to the teacher
+  dashboard. One mobile Chrome test visits all ten routes, opens/closes each
+  account control, and verifies back navigation.
 
 ### Teacher Zoom provider routing check (2026-07-12)
 

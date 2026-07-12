@@ -74,6 +74,22 @@ test.describe("teacher dashboard", () => {
     await expect(page.getByText("Timesheet status")).toBeVisible();
   });
 
+  test("teacher mobile page headers expose working account options and form back navigation", async ({ page }, testInfo) => {
+    skipUnlessMobileTeacherE2EEnabled(testInfo.project.name);
+    await signInAsTeacher(page);
+    for (const path of ["shifts", "time-clock", "tasks", "job-board", "chat", "classes", "recordings", "surah-podcasts", "curriculum-books", "submit-form"]) {
+      await page.goto(`/teacher/${path}/`);
+      const options = page.getByRole("button", { name: "Open teacher account options" });
+      await expect(options).toBeVisible();
+      await options.click();
+      await expect(page.getByLabel("Teacher mobile menu")).toBeVisible();
+      await page.getByRole("button", { name: "Close teacher menu", exact: true }).click();
+    }
+    await expect(page.getByRole("link", { name: "Back to teacher dashboard" })).toHaveAttribute("href", "/teacher/");
+    await page.getByRole("link", { name: "Back to teacher dashboard" }).click();
+    await expect(page).toHaveURL(/\/teacher\/$/);
+  });
+
   test("teacher dashboard trading quick access opens native job board", async ({ page }, testInfo) => {
     skipUnlessDesktopTeacherE2EEnabled(testInfo.project.name);
     await signInAsTeacher(page);

@@ -497,9 +497,7 @@ export function TeacherSubmitFormPage() {
         <MobileTeacherTopBar summary={summary} />
         <section className="relative overflow-hidden bg-gradient-to-br from-[#6366F1] to-[#8B5CF6] px-5 pb-7 pt-5 text-white lg:min-h-[200px]">
           <div className="flex items-center justify-between">
-            <span className="text-2xl leading-none">
-              <ChevronLeft size={26} />
-            </span>
+            <Link href="/teacher/" aria-label="Back to teacher dashboard" className="grid h-11 w-11 place-items-center rounded-xl text-2xl leading-none hover:bg-white/10"><ChevronLeft size={26} /></Link>
             <Link href="/teacher/form-submissions/" aria-label="My submissions" className="grid h-10 w-10 place-items-center rounded-full text-white hover:bg-white/10">
               <History size={22} />
             </Link>
@@ -577,7 +575,7 @@ function MobileTeacherTopBar({ summary }: { summary: TeacherSummary }) {
       </button>
       <div className="min-w-0 text-center text-base font-bold text-[#111827]">Alluwal Academy</div>
       <div className="flex items-center justify-end gap-3">
-        <Shuffle size={20} className="text-[#111827]" />
+        <button type="button" aria-label="Open teacher account options" onClick={openTeacherMobileMenu} className="grid h-10 w-10 place-items-center rounded-xl text-[#111827]"><Shuffle size={20} /></button>
         <span className="grid h-9 w-9 place-items-center rounded-full bg-[#009688] text-xs font-black text-white">{summary.initials}</span>
       </div>
     </header>
