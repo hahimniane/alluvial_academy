@@ -688,6 +688,12 @@ function TeacherFormSheet({
       const value = values[item.id];
       const empty = isEmptyFormValue(value);
       if (item.required && empty) nextErrors[item.id] = "This question is required";
+      if (!empty && item.type === "email" && typeof value === "string" && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value.trim())) {
+        nextErrors[item.id] = "Please enter a valid email address";
+      }
+      if (!empty && item.type === "phone" && typeof value === "string" && !/^\+?[\d\s-]+$/.test(value.trim())) {
+        nextErrors[item.id] = "Please enter a valid phone number";
+      }
     });
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
@@ -821,11 +827,11 @@ function renderFieldInput(field: TemplateField, value: FormFieldValue | undefine
   const current = Array.isArray(value) ? value.join(", ") : typeof value === "string" ? value : "";
   const inputClasses = "w-full rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] px-4 py-3 text-sm text-[#111827] outline-none placeholder:text-[#9CA3AF] focus:border-[#0386FF]";
   if (field.type === "long_text" || field.type === "multiline" || field.type === "description") {
-    return <textarea value={current} onChange={(event) => onChange(event.target.value)} placeholder={field.placeholder || "Your answer"} rows={4} className={`${inputClasses} min-h-[120px] resize-y leading-6`} />;
+    return <textarea aria-label={field.label} value={current} onChange={(event) => onChange(event.target.value)} placeholder={field.placeholder || "Your answer"} rows={4} className={`${inputClasses} min-h-[120px] resize-y leading-6`} />;
   }
   if (field.type === "dropdown" || field.type === "select") {
     return (
-      <select value={current} onChange={(event) => onChange(event.target.value)} className={inputClasses}>
+      <select aria-label={field.label} value={current} onChange={(event) => onChange(event.target.value)} className={inputClasses}>
         <option value="">{field.placeholder || "Select an option"}</option>
         {field.options.map((option) => (
           <option key={option} value={option}>
@@ -840,7 +846,7 @@ function renderFieldInput(field: TemplateField, value: FormFieldValue | undefine
       <div className="max-h-[220px] overflow-y-auto rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] p-3">
         {field.options.map((option) => (
           <label key={option} className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2 text-sm text-[#111827] hover:bg-white">
-            <input type="radio" name={field.id} value={option} checked={current === option} onChange={() => onChange(option)} className="h-4 w-4 accent-[#0386FF]" />
+            <input aria-label={`${field.label}: ${option}`} type="radio" name={field.id} value={option} checked={current === option} onChange={() => onChange(option)} className="h-4 w-4 accent-[#0386FF]" />
             <span>{option}</span>
           </label>
         ))}
@@ -855,6 +861,7 @@ function renderFieldInput(field: TemplateField, value: FormFieldValue | undefine
           <label key={option} className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2 text-sm text-[#111827] hover:bg-white">
             <input
               type="checkbox"
+              aria-label={`${field.label}: ${option}`}
               checked={selected.includes(option)}
               onChange={(event) => onChange(event.target.checked ? [...selected, option] : selected.filter((item) => item !== option))}
               className="h-4 w-4 rounded accent-[#0386FF]"
@@ -870,7 +877,7 @@ function renderFieldInput(field: TemplateField, value: FormFieldValue | undefine
       <div className="flex gap-6 rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] p-4">
         {["Yes", "No"].map((option) => (
           <label key={option} className="flex cursor-pointer items-center gap-2 text-sm text-[#111827]">
-            <input type="radio" name={field.id} value={option} checked={current === option} onChange={() => onChange(option)} className="h-4 w-4 accent-[#0386FF]" />
+            <input aria-label={`${field.label}: ${option}`} type="radio" name={field.id} value={option} checked={current === option} onChange={() => onChange(option)} className="h-4 w-4 accent-[#0386FF]" />
             {option}
           </label>
         ))}
@@ -880,7 +887,7 @@ function renderFieldInput(field: TemplateField, value: FormFieldValue | undefine
   if (field.type === "image_upload" || field.type === "imageUpload" || field.type === "signature") {
     return <FileFieldInput field={field} value={value} onChange={onChange} />;
   }
-  return <input value={current} type={htmlInputType(field.type)} onChange={(event) => onChange(event.target.value)} placeholder={field.placeholder || "Your answer"} className={inputClasses} />;
+  return <input aria-label={field.label} value={current} type={htmlInputType(field.type)} onChange={(event) => onChange(event.target.value)} placeholder={field.placeholder || "Your answer"} className={inputClasses} />;
 }
 
 function FileFieldInput({ field, value, onChange }: { field: TemplateField; value: FormFieldValue | undefined; onChange: (value: FormFieldValue) => void }) {
