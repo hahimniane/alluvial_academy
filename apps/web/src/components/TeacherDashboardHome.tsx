@@ -390,12 +390,14 @@ export function TeacherShell({
   const [canSwitchToAdmin, setCanSwitchToAdmin] = useState(false);
   const [notificationCount, setNotificationCount] = useState(0);
   const [aiTutorEnabled, setAiTutorEnabled] = useState(false);
+  const [tontineEnabled, setTontineEnabled] = useState(false);
   const normalizedSearch = searchQuery.trim().toLowerCase();
-  const allSidebarItems = useMemo(() => teacherSections.flatMap((section) => section.items), []);
+  const availableSidebarSections = useMemo(() => tontineEnabled ? [...teacherSections, { title: "Savings", items: [{ label: "Circles", icon: Landmark, href: "/teacher/circles/", color: "#0F766E" }] }] : teacherSections, [tontineEnabled]);
+  const allSidebarItems = useMemo(() => availableSidebarSections.flatMap((section) => section.items), [availableSidebarSections]);
   const favoriteSidebarItems = allSidebarItems.filter((item) => favoritedItems.has(item.label));
   const visibleSidebarSections = useMemo(() => {
-    if (!normalizedSearch) return teacherSections;
-    return teacherSections
+    if (!normalizedSearch) return availableSidebarSections;
+    return availableSidebarSections
       .map((section) => {
         const titleMatches = section.title.toLowerCase().includes(normalizedSearch);
         const matchedItems = section.items.filter((item) => item.label.toLowerCase().includes(normalizedSearch));
@@ -403,7 +405,7 @@ export function TeacherShell({
         return { ...section, items: titleMatches ? section.items : matchedItems };
       })
       .filter((section): section is SidebarSection => section !== null);
-  }, [normalizedSearch]);
+  }, [availableSidebarSections, normalizedSearch]);
 
   function toggleSection(title: string) {
     setCollapsedSections((current) => {
@@ -449,6 +451,7 @@ export function TeacherShell({
         const roles = rolesForUserRecord(record);
         setCanSwitchToAdmin(roles.has("admin") || roles.has("super_admin"));
         setAiTutorEnabled(record.ai_tutor_enabled === true);
+        setTontineEnabled(record.tontine_enabled === true);
       });
       void getDocs(query(collection(db, "audit_notifications"), where("teacherId", "==", user.uid), where("read", "==", false), limit(100))).then((snapshot) => setNotificationCount(snapshot.size)).catch(() => setNotificationCount(0));
     }
@@ -581,6 +584,7 @@ export function TeacherShell({
           activeLabel={activeLabel}
           summary={summary}
           canSwitchToAdmin={canSwitchToAdmin}
+          tontineEnabled={tontineEnabled}
           onLogout={() => void logout()}
           onClose={() => setMobileMenuOpen(false)}
         />
@@ -594,12 +598,14 @@ function TeacherMobileMenu({
   activeLabel,
   summary,
   canSwitchToAdmin,
+  tontineEnabled,
   onLogout,
   onClose,
 }: {
   activeLabel: string;
   summary: TeacherSummary;
   canSwitchToAdmin: boolean;
+  tontineEnabled: boolean;
   onLogout: () => void;
   onClose: () => void;
 }) {
@@ -650,6 +656,7 @@ function TeacherMobileMenu({
               </div>
             </div>
           ))}
+          {tontineEnabled ? <div className="mb-5"><p className="mb-2 flex items-center gap-2 px-2 text-[10px] font-black uppercase tracking-[0.14em] text-[#94A3B8]"><Grid3X3 size={14} />Savings</p><Link href="/teacher/circles/" onClick={onClose} className={`flex min-h-12 items-center gap-3 rounded-2xl px-3 text-sm font-bold ${activeLabel === "Circles" ? "bg-[#E6EEF8] text-[#001E4E]" : "text-[#334155] hover:bg-[#F1F4F8]"}`}><span className="grid h-9 w-9 place-items-center rounded-xl bg-[#F8FAFC] text-[#0F766E]"><Landmark size={19} /></span>Circles</Link></div> : null}
         </nav>
         <div className="border-t border-black/10 p-3">
           <Link href="/teacher/profile/" onClick={onClose} className="flex min-h-12 items-center gap-3 rounded-xl px-3 text-sm font-bold text-[#334155] hover:bg-[#F1F5F9]"><CircleUserRound size={19} />View Profile</Link>

@@ -383,6 +383,21 @@ test.describe("teacher dashboard", () => {
     await expect(page.getByRole("heading", {name: "Teacher sign-in required"})).toBeVisible();
   });
 
+  test("requires a teacher sign-in before rendering savings circles", async ({ page }) => {
+    await gotoTeacherGuard(page, "/teacher/circles/");
+    await expect(page.getByRole("heading", {name: "Teacher sign-in required"})).toBeVisible();
+  });
+
+  test("teacher savings circles follows the account enablement flag", async ({ page }, testInfo) => {
+    skipUnlessDesktopTeacherE2EEnabled(testInfo.project.name);
+    await signInAsTeacher(page);
+    await page.goto("/teacher/circles/");
+    await expect(page.getByRole("heading", {name: /Savings Circles/}).first()).toBeVisible();
+    const unavailable = page.getByRole("heading", {name: "Savings Circles unavailable"});
+    if (await unavailable.isVisible().catch(() => false)) await expect(unavailable.locator("..")).toContainText("not been enabled");
+    else await expect(page.getByRole("button", {name: "Create Circle"})).toBeVisible();
+  });
+
   test("teacher AI Tutor follows the account enablement flag and exposes Flutter preferences", async ({ page }, testInfo) => {
     skipUnlessDesktopTeacherE2EEnabled(testInfo.project.name);
     await signInAsTeacher(page);

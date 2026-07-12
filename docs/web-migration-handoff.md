@@ -3587,3 +3587,24 @@ rendering, pixel spacing, or differences a normal user would not notice.
   rejection of unsupported or unconfirmed mutations. These pass alongside
   typecheck and production static export. End-to-end agent delivery remains
   gated by the previously recorded LiveKit proxy 404/CORS failure.
+
+# 2026-07-12 — Native teacher Savings Circles
+
+- Audited Flutter's conditional `tontine_enabled` teacher tab and the `circles`,
+  `circle_members`, `circle_invites`, `circle_cycles`, and
+  `circle_contributions` contracts plus `circle_receipts` Storage paths.
+- Added guarded `/teacher/circles/` with conditional desktop/mobile navigation.
+  Disabled teachers see an explicit access state, matching Flutter's feature
+  flag rather than receiving an inert navigation item.
+- Implemented pending invite acceptance, open teacher-circle joining, created
+  and joined circle lists, creator/member detail dashboards, payout order,
+  circle creation, existing-user email invitation, activation gating, cycle
+  status, receipt submission, contribution confirmation/rejection, and payout
+  completion. Responsive dialogs preserve values and show permission/network
+  failures.
+- Temporarily enabled the dev teacher, created a disposable one-member circle
+  through the browser, verified its detail route, removed its member and circle
+  using dev administrative cleanup, verified zero leftovers, and restored the
+  original disabled feature flag. Production and Functions were untouched.
+- Signed-out and feature-flag browser tests pass. Multi-member invitation and
+  backend-generated cycle acceptance remain listed in the parity matrix.
