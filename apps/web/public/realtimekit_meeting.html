@@ -25,7 +25,20 @@
         const params = new URLSearchParams(location.hash.slice(1));
         const authToken = params.get('token');
         if (!authToken) throw new Error('Missing class access token.');
-        const meeting = await RealtimeKitClient.init({ authToken });
+        const initWithMedia = RealtimeKitClient.init({ authToken });
+        let meeting;
+        try {
+          meeting = await Promise.race([
+            initWithMedia,
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Media initialization timed out.')), 8000)),
+          ]);
+        } catch (initialError) {
+          meeting = await RealtimeKitClient.init({
+            authToken,
+            defaults: { audio: false, video: false },
+          });
+          notifyParent('media-disabled', initialError instanceof Error ? initialError.message : 'Media devices are unavailable.');
+        }
         document.getElementById('meeting').meeting = meeting;
         notifyParent('ready');
       } catch (error) {

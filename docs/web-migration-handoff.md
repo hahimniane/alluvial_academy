@@ -3146,6 +3146,26 @@ render and the native Next authenticated CMS write/upload tests pass against
   `git diff --check` passed. No site, rule, Function, or Firebase deployment was
   performed from the integration branch.
 
+### Teacher live classroom controls acceptance (2026-07-12)
+
+- A disposable `alluwal-dev` RealtimeKit shift was used for a real headed,
+  two-tab teacher/guest session. Both participants joined the same room; the
+  Next roster showed both active peers, locking blocked a new guest with the
+  expected message, removal disconnected the existing guest, unlocking worked,
+  and the teacher reconnected successfully. The shift fixture was deleted.
+- The live run found and fixed two defects. The Next RealtimeKit host now falls
+  back to an audio/video-off initialization when normal media initialization
+  stalls, so a missing/denied device does not leave the class on an infinite
+  connecting screen. The parent message listener is installed before the iframe
+  can report readiness.
+- The participant-removal callable now uses Cloudflare participant UUIDs for
+  meetings configured with `idType: userId`. Presence now reads the active
+  session roster instead of all provisioned meeting participants, so removed or
+  departed users no longer remain in the connected count.
+- `kickRealtimeKitParticipant` and `getRealtimeKitRoomPresence` were deployed
+  only to `alluwal-dev`. No production Firebase, Hostinger, VPS, Zoom routing,
+  meeting lifetime, or Flutter change was made.
+
 ## Post-parity additions (2026-07-09)
 
 These are deliberate improvements beyond Flutter parity, requested by the

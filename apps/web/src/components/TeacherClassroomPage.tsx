@@ -172,7 +172,6 @@ export function TeacherClassroomPage() {
   }, [rosterOpen, shiftId, status]);
 
   useEffect(() => {
-    if (!meetingUrl) return;
     const onMeetingMessage = (event: MessageEvent) => {
       if (event.origin !== window.location.origin || !event.data || event.data.source !== "alluwal-realtimekit") return;
       if (event.data.type === "ready") {
@@ -184,6 +183,11 @@ export function TeacherClassroomPage() {
       }
     };
     window.addEventListener("message", onMeetingMessage);
+    return () => window.removeEventListener("message", onMeetingMessage);
+  }, []);
+
+  useEffect(() => {
+    if (!meetingUrl || status !== "connecting") return;
     const timeout = window.setTimeout(() => {
       setStatus((current) => {
         if (current !== "connecting") return current;
@@ -191,11 +195,8 @@ export function TeacherClassroomPage() {
         return "error";
       });
     }, 20000);
-    return () => {
-      window.removeEventListener("message", onMeetingMessage);
-      window.clearTimeout(timeout);
-    };
-  }, [meetingUrl]);
+    return () => window.clearTimeout(timeout);
+  }, [meetingUrl, status]);
 
   const toggleRoomLock = async () => {
     if (controlBusy) return;
@@ -401,6 +402,7 @@ function classroomErrorMessage(error: unknown) {
 
 function functionErrorMessage(error: unknown, fallback: string) {
   const raw = error instanceof Error ? error.message : String(error || "");
+  if (raw.trim().toLowerCase() === "internal") return fallback;
   return raw.replace(/^Firebase:\s*/i, "").trim() || fallback;
 }
 

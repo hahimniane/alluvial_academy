@@ -29,6 +29,8 @@ test.describe("public route parity smoke", () => {
     expect(source).toContain("alluwal-realtimekit");
     expect(source).toContain("notifyParent('ready')");
     expect(source).toContain("notifyParent('error'");
+    expect(source).toContain("Media initialization timed out.");
+    expect(source).toContain("defaults: { audio: false, video: false }");
   });
 
   for (const [route, heading] of publicRoutes) {
