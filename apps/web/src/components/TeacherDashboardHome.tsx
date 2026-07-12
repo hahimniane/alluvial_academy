@@ -16,12 +16,14 @@ import {
   Clock3,
   DollarSign,
   FileText,
+  ExternalLink,
   Grid3X3,
   GraduationCap,
   LayoutDashboard,
   LogOut,
   Menu,
   MessageSquare,
+  Landmark,
   Podcast,
   RotateCcw,
   Search,
@@ -138,6 +140,16 @@ const quickAccess = [
   { label: "Forms", icon: FileText, href: "/teacher/submit-form/", color: "#F59E0B" },
   { label: "My Form Submissions", icon: RotateCcw, href: "/teacher/form-submissions/", color: "#64748B" },
   { label: "Assignments", icon: ClipboardList, href: "/teacher/assignments/", color: "#8B5CF6" },
+];
+
+const islamicResources = [
+  { label: "Surah Podcasts", icon: Podcast, href: "/teacher/surah-podcasts/", color: "#0E72ED", internal: true },
+  { label: "Quran.com - Recitation & Translation", icon: BookOpen, href: "https://quran.com", color: "#10B981" },
+  { label: "Sunnah.com - Hadith Collections", icon: BookOpen, href: "https://sunnah.com", color: "#3B82F6" },
+  { label: "Islamic Finder - Prayer Times", icon: Clock3, href: "https://www.islamicfinder.org", color: "#EF4444" },
+  { label: "IslamQA.info - Q&A", icon: MessageSquare, href: "https://islamqa.info", color: "#8B5CF6" },
+  { label: "Bayyinah Institute", icon: GraduationCap, href: "https://bayyinah.com", color: "#F59E0B" },
+  { label: "SeekersGuidance - Courses", icon: Video, href: "https://seekersguidance.org", color: "#06B6D4" },
 ];
 
 const TEACHER_MOBILE_MENU_EVENT = "alluwal:open-teacher-mobile-menu";
@@ -336,6 +348,7 @@ function TeacherHomeContent({
           ))}
         </div>
       </section>
+      <section className="mt-6 rounded-2xl border border-[#E2E8F0] bg-white p-5 shadow-sm" aria-labelledby="teacher-islamic-resources"><div className="mb-4 flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-pink-50 text-[#EC4899]"><Landmark size={21} /></span><h2 id="teacher-islamic-resources" className="text-xl font-black text-[#1F2937]">Islamic Resources</h2></div><div className="grid gap-1">{islamicResources.map((resource) => { const Icon = resource.icon; const content = <><span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg" style={{ color: resource.color, backgroundColor: `${resource.color}16` }}><Icon size={18} /></span><span className="min-w-0 flex-1 text-sm font-semibold text-[#374151]">{resource.label}</span>{resource.internal ? <span aria-hidden="true" className="text-[#94A3B8]">›</span> : <ExternalLink size={15} className="text-[#94A3B8]" />}</>; return resource.internal ? <Link key={resource.label} href={resource.href} className="flex min-h-12 items-center gap-3 rounded-xl px-2 hover:bg-[#F8FAFC]">{content}</Link> : <a key={resource.label} href={resource.href} target="_blank" rel="noopener noreferrer" className="flex min-h-12 items-center gap-3 rounded-xl px-2 hover:bg-[#F8FAFC]">{content}</a>; })}</div></section>
       {pendingFormsOpen ? <PendingFormsDialog shifts={pendingFormShifts} onClose={() => setPendingFormsOpen(false)} /> : null}
     </main>
   );

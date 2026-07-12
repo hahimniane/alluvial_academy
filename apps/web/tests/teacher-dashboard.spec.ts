@@ -98,6 +98,26 @@ test.describe("teacher dashboard", () => {
     await expect(page.getByRole("heading", { name: "New Student Opportunities" })).toBeVisible();
   });
 
+  test("teacher dashboard exposes Flutter Islamic resource destinations", async ({ page }, testInfo) => {
+    skipUnlessStableTeacherE2EEnabled(testInfo.project.name);
+    await signInAsTeacher(page);
+    await expect(page.getByRole("heading", { name: "Islamic Resources" })).toBeVisible();
+    await expect(page.getByRole("link", { name: /Surah Podcasts/ }).last()).toHaveAttribute("href", "/teacher/surah-podcasts/");
+    const expected = [
+      ["Quran.com - Recitation & Translation", "https://quran.com"],
+      ["Sunnah.com - Hadith Collections", "https://sunnah.com"],
+      ["Islamic Finder - Prayer Times", "https://www.islamicfinder.org"],
+      ["IslamQA.info - Q&A", "https://islamqa.info"],
+      ["Bayyinah Institute", "https://bayyinah.com"],
+      ["SeekersGuidance - Courses", "https://seekersguidance.org"],
+    ] as const;
+    for (const [name, href] of expected) {
+      const link = page.getByRole("link", { name });
+      await expect(link).toHaveAttribute("href", href);
+      await expect(link).toHaveAttribute("target", "_blank");
+    }
+  });
+
   test("teacher assignments quick access supports create, attachment, edit, details, and delete", async ({ page }, testInfo) => {
     skipUnlessDesktopTeacherE2EEnabled(testInfo.project.name);
     test.skip(process.env.ALLUWAL_RUN_TEACHER_ASSIGNMENTS_E2E !== "1", "Enable only for disposable dev assignment writes.");
