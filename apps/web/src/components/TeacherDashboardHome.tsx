@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { onAuthStateChanged, type User } from "firebase/auth";
+import { onAuthStateChanged, signOut, type User } from "firebase/auth";
 import { collection, getDocs, limit, query, Timestamp, where } from "firebase/firestore";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
@@ -19,11 +19,13 @@ import {
   Grid3X3,
   GraduationCap,
   LayoutDashboard,
+  LogOut,
   Menu,
   MessageSquare,
   Podcast,
   RotateCcw,
   Search,
+  ShieldCheck,
   Star,
   TimerReset,
   Video,
@@ -31,7 +33,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { auth, db } from "@/lib/firebase";
-import { getCurrentUserRecord, isCurrentUserTeacher } from "@/lib/userRoles";
+import { getCurrentUserRecord, isCurrentUserTeacher, rolesForUserRecord } from "@/lib/userRoles";
 
 type AccessState = "checking" | "signedOut" | "allowed" | "denied";
 type UserRecord = Record<string, unknown>;
@@ -285,6 +287,8 @@ export function TeacherShell({
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
   const [favoritedItems, setFavoritedItems] = useState<Set<string>>(new Set());
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [canSwitchToAdmin, setCanSwitchToAdmin] = useState(false);
   const normalizedSearch = searchQuery.trim().toLowerCase();
   const allSidebarItems = useMemo(() => teacherSections.flatMap((section) => section.items), []);
   const favoriteSidebarItems = allSidebarItems.filter((item) => favoritedItems.has(item.label));
@@ -329,6 +333,36 @@ export function TeacherShell({
     window.addEventListener(TEACHER_MOBILE_MENU_EVENT, openMenu);
     return () => window.removeEventListener(TEACHER_MOBILE_MENU_EVENT, openMenu);
   }, []);
+
+  useEffect(() => {
+    try {
+      const collapsed = JSON.parse(window.localStorage.getItem("teacher-sidebar-collapsed") || "[]");
+      const favorites = JSON.parse(window.localStorage.getItem("teacher-sidebar-favorites") || "[]");
+      if (Array.isArray(collapsed)) setCollapsedSections(new Set(collapsed.filter((item): item is string => typeof item === "string")));
+      if (Array.isArray(favorites)) setFavoritedItems(new Set(favorites.filter((item): item is string => typeof item === "string")));
+    } catch {}
+    const user = auth.currentUser;
+    if (user) {
+      void getCurrentUserRecord(user).then((record) => {
+        if (!record) return;
+        const roles = rolesForUserRecord(record);
+        setCanSwitchToAdmin(roles.has("admin") || roles.has("super_admin"));
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem("teacher-sidebar-collapsed", JSON.stringify(Array.from(collapsedSections)));
+  }, [collapsedSections]);
+
+  useEffect(() => {
+    window.localStorage.setItem("teacher-sidebar-favorites", JSON.stringify(Array.from(favoritedItems)));
+  }, [favoritedItems]);
+
+  const logout = async () => {
+    await signOut(auth);
+    window.location.assign("/login/");
+  };
 
   return (
     <main className="min-h-screen bg-[#F5F5F5] text-[#0F172A]">
@@ -420,10 +454,18 @@ export function TeacherShell({
             <div className="flex items-center gap-3">
               <span className="inline-flex min-h-9 items-center rounded-full bg-[#0386FF] px-4 text-xs font-black text-white">Teacher</span>
               <Bell size={20} className="text-[#64748B]" />
-              <span className="max-w-[240px] truncate text-sm font-semibold text-[#2563EB]">{summary.displayName}</span>
-              <span className="grid h-10 w-10 place-items-center rounded-full bg-[#009688] text-sm font-black text-white">
-                {summary.initials}
-              </span>
+              <div className="relative">
+                <button type="button" aria-label="Open teacher account menu" aria-expanded={accountMenuOpen} onClick={() => setAccountMenuOpen((current) => !current)} className="flex min-h-11 items-center gap-3 rounded-xl px-2 hover:bg-[#F8FAFC]">
+                  <span className="max-w-[240px] truncate text-sm font-semibold text-[#2563EB]">{summary.displayName}</span>
+                  <span className="grid h-10 w-10 place-items-center rounded-full bg-[#009688] text-sm font-black text-white">{summary.initials}</span>
+                </button>
+                {accountMenuOpen ? (
+                  <div className="absolute right-0 top-12 z-50 w-56 rounded-2xl border border-[#E2E8F0] bg-white p-2 shadow-xl" role="menu" aria-label="Teacher account menu">
+                    {canSwitchToAdmin ? <Link href="/admin/" role="menuitem" className="flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-bold text-[#334155] hover:bg-[#F1F5F9]"><ShieldCheck size={18} />Switch to Admin</Link> : null}
+                    <button type="button" role="menuitem" onClick={() => void logout()} className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-bold text-[#DC2626] hover:bg-[#FEF2F2]"><LogOut size={18} />Log out</button>
+                  </div>
+                ) : null}
+              </div>
             </div>
           </header>
           {children}
@@ -433,6 +475,8 @@ export function TeacherShell({
         <TeacherMobileMenu
           activeLabel={activeLabel}
           summary={summary}
+          canSwitchToAdmin={canSwitchToAdmin}
+          onLogout={() => void logout()}
           onClose={() => setMobileMenuOpen(false)}
         />
       ) : null}
@@ -443,10 +487,14 @@ export function TeacherShell({
 function TeacherMobileMenu({
   activeLabel,
   summary,
+  canSwitchToAdmin,
+  onLogout,
   onClose,
 }: {
   activeLabel: string;
   summary: TeacherSummary;
+  canSwitchToAdmin: boolean;
+  onLogout: () => void;
   onClose: () => void;
 }) {
   return (
@@ -497,6 +545,10 @@ function TeacherMobileMenu({
             </div>
           ))}
         </nav>
+        <div className="border-t border-black/10 p-3">
+          {canSwitchToAdmin ? <Link href="/admin/" onClick={onClose} className="flex min-h-12 items-center gap-3 rounded-xl px-3 text-sm font-bold text-[#334155] hover:bg-[#F1F5F9]"><ShieldCheck size={19} />Switch to Admin</Link> : null}
+          <button type="button" onClick={onLogout} className="flex min-h-12 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-bold text-[#DC2626] hover:bg-[#FEF2F2]"><LogOut size={19} />Log out</button>
+        </div>
       </aside>
     </section>
   );
