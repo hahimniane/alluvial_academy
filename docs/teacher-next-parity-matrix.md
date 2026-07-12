@@ -20,7 +20,7 @@ This matrix tracks functional parity between the Flutter teacher role and
 | Surah Podcasts | `/teacher/surah-podcasts/` | Native browse, shared assignments, empty selection, offline write preservation, responsive mobile share dialog | No known functional gap; retain in final regression |
 | Curriculum Books | `/teacher/curriculum-books/` | Native content cards; all PDF/PPTX targets resolve with non-empty files and correct open/download destinations | No known functional gap; retain in final regression |
 | Submit Form | `/teacher/submit-form/` | Current dev field inventory covered, shift selection/linking, deterministic duplicate protection, validation, image/signature uploads with orphan cleanup, offline value preservation | No known functional gap; retain in final regression |
-| Form Submissions | `/teacher/form-submissions/` | Native history and hydrated labels | Missing template, legacy response, empty/error states |
+| Form Submissions | `/teacher/form-submissions/` | Native history in TeacherShell, sidebar navigation, hydrated/fallback labels, uploaded files, missing-template legacy and empty-response states, retryable read failure | No known functional gap; retain in final regression |
 
 ## Completion rule
 

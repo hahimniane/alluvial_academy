@@ -910,7 +910,7 @@ test.describe("teacher dashboard", () => {
   test("teacher can open the native my form submissions page", async ({ page }, testInfo) => {
     skipUnlessDesktopTeacherE2EEnabled(testInfo.project.name);
     await signInAsTeacher(page);
-    await page.getByRole("link", { name: /My Form Submissions/ }).click();
+    await page.getByRole("navigation", {name: "Teacher dashboard navigation"}).getByRole("link", {name: "My Form Submissions"}).click();
     await expect(page).toHaveURL(/\/teacher\/form-submissions\/$/);
     await expect(page.getByRole("heading", { name: "My Form Submissions" })).toBeVisible();
     await expect(page.getByLabel("Search by form name or status")).toBeVisible();
@@ -935,7 +935,7 @@ test.describe("teacher dashboard", () => {
     skipUnlessDesktopTeacherE2EEnabled(testInfo.project.name);
     test.skip(process.env.ALLUWAL_RUN_TEACHER_SUBMISSION_FILE_E2E !== "1", "Enable only with the disposable dev response fixture.");
     await signInAsTeacher(page);
-    await page.getByRole("link", {name: /My Form Submissions/}).click();
+    await page.getByRole("navigation", {name: "Teacher dashboard navigation"}).getByRole("link", {name: "My Form Submissions"}).click();
     const group = page.getByRole("button", {name: /Codex Teacher File Response QA/});
     await group.click();
     await page.getByRole("dialog", {name: "Codex Teacher File Response QA"}).getByRole("button").filter({hasText: /completed/i}).click();
@@ -943,6 +943,25 @@ test.describe("teacher dashboard", () => {
     await expect(details.getByText("Session photo")).toBeVisible();
     await expect(details.getByRole("img", {name: "qa-photo.png"})).toBeVisible();
     await expect(details.getByRole("link", {name: "qa-photo.png"})).toBeVisible();
+  });
+
+  test("form submissions render missing-template legacy and empty responses", async ({ page }, testInfo) => {
+    skipUnlessDesktopTeacherE2EEnabled(testInfo.project.name);
+    test.skip(process.env.ALLUWAL_RUN_TEACHER_SUBMISSION_LEGACY_E2E !== "1", "Enable only with disposable dev legacy response fixtures.");
+    await signInAsTeacher(page);
+    await page.getByRole("navigation", {name: "Teacher dashboard navigation"}).getByRole("link", {name: "My Form Submissions"}).click();
+    await page.getByLabel("Search by form name or status").fill("Codex Missing Template QA");
+    await page.getByRole("button", {name: /Codex Missing Template QA/}).click();
+    await page.getByRole("dialog", {name: "Codex Missing Template QA"}).getByRole("button").filter({hasText: /completed/i}).click();
+    const legacyDetails = page.getByRole("dialog", {name: /Codex Missing Template QA details/});
+    await expect(legacyDetails.getByText("Legacy Question")).toBeVisible();
+    await expect(legacyDetails.getByText("Legacy response value")).toBeVisible();
+    await legacyDetails.getByLabel("Close").click();
+
+    await page.getByLabel("Search by form name or status").fill("Codex Empty Legacy QA");
+    await page.getByRole("button", {name: /Codex Empty Legacy QA/}).click();
+    await page.getByRole("dialog", {name: "Codex Empty Legacy QA"}).getByRole("button").filter({hasText: /completed/i}).click();
+    await expect(page.getByRole("dialog", {name: /Codex Empty Legacy QA details/}).getByText("No responses recorded")).toBeVisible();
   });
 });
 

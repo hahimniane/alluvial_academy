@@ -113,7 +113,10 @@ const teacherSections: SidebarSection[] = [
   },
   {
     title: "Forms",
-    items: [{ label: "Submit Form", icon: FileText, href: "/teacher/submit-form/", color: "#EC4899" }],
+    items: [
+      { label: "Submit Form", icon: FileText, href: "/teacher/submit-form/", color: "#EC4899" },
+      { label: "My Form Submissions", icon: RotateCcw, href: "/teacher/form-submissions/", color: "#64748B" },
+    ],
   },
 ];
 

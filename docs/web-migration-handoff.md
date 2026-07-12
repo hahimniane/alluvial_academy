@@ -3297,6 +3297,13 @@ render and the native Next authenticated CMS write/upload tests pass against
   if a later upload or Firestore response write fails, preventing orphaned
   Storage objects. A focused offline browser test confirmed values remain ready
   to retry.
+- `My Form Submissions` is now a first-class Forms sidebar item and the route is
+  wrapped in the same separated TeacherShell instead of rendering as a
+  standalone page. Read failures display a retry action without misclassifying
+  the signed-in teacher as role-denied.
+- Disposable responses verified a deleted/missing template falls back to
+  readable field labels and values, while a legacy response with no response
+  fields shows `No responses recorded`. Both fixtures were removed afterward.
 
 ## Post-parity additions (2026-07-09)
 
