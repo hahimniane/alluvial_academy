@@ -98,6 +98,61 @@ test.describe("teacher dashboard", () => {
     await expect(page.getByRole("heading", { name: "New Student Opportunities" })).toBeVisible();
   });
 
+  test("teacher assignments quick access supports create, attachment, edit, details, and delete", async ({ page }, testInfo) => {
+    skipUnlessDesktopTeacherE2EEnabled(testInfo.project.name);
+    test.skip(process.env.ALLUWAL_RUN_TEACHER_ASSIGNMENTS_E2E !== "1", "Enable only for disposable dev assignment writes.");
+    await signInAsTeacher(page);
+    await page.getByRole("link", { name: "Assignments" }).click();
+    await expect(page).toHaveURL(/\/teacher\/assignments\/$/);
+    await page.getByRole("button", { name: "Create Assignment" }).first().click();
+    const editor = page.getByRole("dialog", { name: "Create assignment" });
+    await editor.getByLabel("Assignment title").fill("Codex Assignment Lifecycle QA");
+    await editor.getByLabel("Assignment description").fill("Disposable assignment created by the teacher parity test.");
+    await editor.getByLabel("Assignment due date").fill("2026-07-20");
+    await editor.locator('input[type="checkbox"]').first().check();
+    await editor.getByLabel("Add assignment file").setInputFiles({ name: "codex-assignment.txt", mimeType: "text/plain", buffer: Buffer.from("assignment attachment parity") });
+    await expect(editor.getByText("codex-assignment.txt")).toBeVisible();
+    await editor.getByRole("button", { name: "Create Assignment" }).click();
+    await expect(page.getByText("Assignment created successfully.")).toBeVisible();
+    const card = page.locator("article").filter({ hasText: "Codex Assignment Lifecycle QA" });
+    await expect(card).toBeVisible();
+    await card.getByRole("button", { name: /Edit Codex Assignment Lifecycle QA/ }).click();
+    const edit = page.getByRole("dialog", { name: "Edit assignment" });
+    await edit.getByLabel("Assignment title").fill("Codex Assignment Lifecycle Updated");
+    await edit.getByRole("button", { name: "Update Assignment" }).click();
+    await expect(page.getByText("Assignment updated successfully.")).toBeVisible();
+    const updated = page.locator("article").filter({ hasText: "Codex Assignment Lifecycle Updated" });
+    await updated.getByRole("button").first().click();
+    const details = page.getByRole("dialog", { name: "Codex Assignment Lifecycle Updated details" });
+    await expect(details.getByText("codex-assignment.txt")).toBeVisible();
+    await details.getByLabel("Close").click();
+    await updated.getByRole("button", { name: /Delete Codex Assignment Lifecycle Updated/ }).click();
+    await page.getByRole("dialog", { name: "Delete Codex Assignment Lifecycle Updated" }).getByRole("button", { name: "Delete" }).click();
+    await expect(page.getByText(/Assignment deleted/)).toBeVisible();
+    await expect(page.getByText("Codex Assignment Lifecycle Updated")).toBeHidden();
+    await page.getByRole("button", { name: "Create Assignment" }).first().click();
+    const cancelled = page.getByRole("dialog", { name: "Create assignment" });
+    await cancelled.getByLabel("Add assignment file").setInputFiles({ name: "codex-cancelled-assignment.txt", mimeType: "text/plain", buffer: Buffer.from("must be cleaned after cancel") });
+    await expect(cancelled.getByText("codex-cancelled-assignment.txt")).toBeVisible();
+    await cancelled.getByRole("button", { name: "Cancel", exact: true }).click();
+    await expect(cancelled).toBeHidden();
+  });
+
+  test("requires a teacher sign-in before rendering assignments", async ({ page }) => {
+    await gotoTeacherGuard(page, "/teacher/assignments/");
+    await expect(page.getByRole("heading", { name: "Teacher sign-in required" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "My Assignments" })).toBeHidden();
+  });
+
+  test("teacher assignments route is usable on mobile", async ({ page }, testInfo) => {
+    skipUnlessMobileTeacherE2EEnabled(testInfo.project.name);
+    await signInAsTeacher(page);
+    await page.goto("/teacher/assignments/");
+    await expect(page.getByRole("heading", { name: "My Assignments" })).toBeVisible();
+    await page.getByRole("button", { name: "Open teacher account options" }).click();
+    await expect(page.getByLabel("Teacher mobile menu")).toBeVisible();
+  });
+
   test("dashboard pending readiness form opens the selected class form", async ({ page }, testInfo) => {
     skipUnlessStableTeacherE2EEnabled(testInfo.project.name);
     test.skip(process.env.ALLUWAL_RUN_TEACHER_PENDING_FORM_E2E !== "1", "Enable only with the disposable completed-shift fixture.");

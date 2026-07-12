@@ -3350,6 +3350,31 @@ render and the native Next authenticated CMS write/upload tests pass against
   dashboard. One mobile Chrome test visits all ten routes, opens/closes each
   account control, and verifies back navigation.
 
+### Teacher Assignments route recovery (2026-07-12)
+
+- Flutter Quick Access opens `TeacherAssignmentsScreen`; Next previously sent
+  the identically labelled shortcut to Tasks, which is a different collection
+  and lifecycle. The shortcut now opens native `/teacher/assignments/`.
+- The route reads teacher-owned `assignments`, preserves Flutter's `title`,
+  `description`, `due_date`, student-name `assigned_to`, teacher identity,
+  attachment objects, active/type flags, and timestamp fields. It supports
+  search, empty/error/retry states, create/edit/details/delete, required student
+  validation, due dates, 50 MB attachment uploads under
+  `assignment_files/{assignmentId}/`, invalid legacy file warnings, and file
+  cleanup attempts when a new upload is removed/cancelled, an existing file is
+  removed during edit, or an assignment is deleted.
+- A real dev lifecycle created an assignment, selected a student, uploaded a
+  text attachment, edited and reopened its details, then deleted the document
+  and attempted file cleanup. Firestore readback found no leftover lifecycle document. Guard and
+  mobile route/account-control coverage also pass; no Flutter or Functions code
+  changed.
+- Storage readback found that client deletes are rejected: the current rule
+  requires `request.resource.size` for all writes, but `request.resource` is
+  absent on delete. Five disposable upload leftovers were removed with dev
+  admin access. The UI now reports partial cleanup instead of silently claiming
+  success. No Storage rule was changed or deployed; attachment cleanup remains
+  an explicit environment blocker for full Assignments acceptance.
+
 ### Teacher Zoom provider routing check (2026-07-12)
 
 - A disposable dev shift with `video_provider: zoom` exercised the Next

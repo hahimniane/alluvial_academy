@@ -137,7 +137,7 @@ const quickAccess = [
   { label: "Trading", icon: CheckCircle2, href: "/teacher/job-board/", color: "#10B981" },
   { label: "Forms", icon: FileText, href: "/teacher/submit-form/", color: "#F59E0B" },
   { label: "My Form Submissions", icon: RotateCcw, href: "/teacher/form-submissions/", color: "#64748B" },
-  { label: "Assignments", icon: ClipboardList, href: "/teacher/tasks/", color: "#8B5CF6" },
+  { label: "Assignments", icon: ClipboardList, href: "/teacher/assignments/", color: "#8B5CF6" },
 ];
 
 const TEACHER_MOBILE_MENU_EVENT = "alluwal:open-teacher-mobile-menu";
