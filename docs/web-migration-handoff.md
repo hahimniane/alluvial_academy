@@ -3535,3 +3535,11 @@ rendering, pixel spacing, or differences a normal user would not notice.
 - A reversible dev test toggled chat notification delivery and restored the
   original value. Focused Chromium write coverage and mobile Chrome viewport
   coverage pass; errors remain actionable and draft choices remain visible.
+
+## Profile photo cleanup follow-up
+
+- Added the Flutter profile-photo removal action to the native teacher profile.
+- A disposable one-pixel PNG was uploaded through the browser to the dev
+  teacher's owner-scoped Storage folder, rendered from the persisted download
+  URL, then removed through the UI. The `users/{uid}.profile_picture_url` field
+  and test object were cleaned up, leaving the fixture in its original state.

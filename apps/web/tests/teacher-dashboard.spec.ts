@@ -313,6 +313,23 @@ test.describe("teacher dashboard", () => {
     await expect(page.getByRole("status")).toContainText("do not match");
   });
 
+  test("teacher profile photo upload and removal clean up the dev fixture", async ({ page }, testInfo) => {
+    skipUnlessDesktopTeacherE2EEnabled(testInfo.project.name);
+    await signInAsTeacher(page);
+    await page.goto("/teacher/profile/");
+    test.skip(await page.getByRole("img", {name: "Teacher profile"}).isVisible().catch(() => false), "Preserve the fixture's existing profile photo.");
+    await page.getByLabel("Change profile photo").setInputFiles({
+      name: "codex-profile-test.png",
+      mimeType: "image/png",
+      buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZQmcAAAAASUVORK5CYII=", "base64"),
+    });
+    await expect(page.getByRole("status")).toContainText("Profile photo updated successfully");
+    await expect(page.getByRole("img", {name: "Teacher profile"})).toBeVisible();
+    await page.getByRole("button", {name: "Remove Photo"}).click();
+    await expect(page.getByRole("status")).toContainText("Profile photo removed successfully");
+    await expect(page.getByRole("img", {name: "Teacher profile"})).toBeHidden();
+  });
+
   test("teacher notification preferences use Flutter-compatible controls and writes", async ({ page }, testInfo) => {
     skipUnlessDesktopTeacherE2EEnabled(testInfo.project.name);
     await signInAsTeacher(page);

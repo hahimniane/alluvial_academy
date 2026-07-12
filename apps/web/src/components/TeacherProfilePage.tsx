@@ -1,9 +1,9 @@
 "use client";
 
 import { onAuthStateChanged, type User } from "firebase/auth";
-import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
+import { deleteField, doc, getDoc, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
 import { deleteObject, getDownloadURL, ref, uploadBytes } from "firebase/storage";
-import { AlertTriangle, Camera, Clock3, Edit3, Mail, Menu, Phone, Save, UserRound, X } from "lucide-react";
+import { AlertTriangle, Camera, Clock3, Edit3, Mail, Menu, Phone, Save, Trash2, UserRound, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { TeacherAccessPrompt, TeacherShell, openTeacherMobileMenu } from "@/components/TeacherDashboardHome";
 import { auth, db, storage } from "@/lib/firebase";
@@ -69,6 +69,19 @@ export function TeacherProfilePage() {
     finally { setBusy(false); }
   }
 
+  async function removePhoto() {
+    if (!user || !text(record.profile_picture_url)) return;
+    setBusy(true); setError(""); setNotice("");
+    const previous = text(record.profile_picture_url);
+    try {
+      await deleteObject(ref(storage, previous));
+      await updateDoc(doc(db, "users", user.uid), { profile_picture_url: deleteField(), profile_picture_updated_at: serverTimestamp() });
+      setRecord((current) => { const next = { ...current }; delete next.profile_picture_url; return next; });
+      setNotice("Profile photo removed successfully.");
+    } catch (cause) { setError(actionError(cause, "Could not remove your profile photo.")); }
+    finally { setBusy(false); }
+  }
+
   return <TeacherShell activeLabel="Profile" breadcrumb="Account / Profile" summary={summary}>
     <div className="min-h-full bg-[#F8FAFC]">
       <MobileHeader title="My Profile" />
@@ -81,7 +94,7 @@ export function TeacherProfilePage() {
               <input type="file" accept="image/*" disabled={busy} className="sr-only" onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadPhoto(file); event.currentTarget.value = ""; }} />
             </label>
             <div className="min-w-0 flex-1 text-center sm:text-left"><h1 className="text-2xl font-black sm:text-3xl">{displayName}</h1><p className="mt-1 text-white/80">{text(profile.professional_title) || "Teacher"}</p><span className="mt-3 inline-flex rounded-full bg-white/20 px-3 py-1 text-xs font-black tracking-wider">TEACHER</span></div>
-            <button type="button" onClick={() => { setEditing(true); setError(""); setNotice(""); }} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-white px-4 font-bold text-[#0E72ED]"><Edit3 size={18} />Edit Profile</button>
+            <div className="flex flex-wrap justify-center gap-2"><button type="button" onClick={() => { setEditing(true); setError(""); setNotice(""); }} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-white px-4 font-bold text-[#0E72ED]"><Edit3 size={18} />Edit Profile</button>{text(record.profile_picture_url) ? <button type="button" disabled={busy} onClick={() => void removePhoto()} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/60 px-4 font-bold text-white disabled:opacity-60"><Trash2 size={18} />Remove Photo</button> : null}</div>
           </div>
         </section>
         {error ? <p role="alert" className="mt-5 flex items-start gap-2 rounded-2xl border border-red-200 bg-red-50 p-4 font-semibold text-red-800"><AlertTriangle size={20} />{error}</p> : null}
