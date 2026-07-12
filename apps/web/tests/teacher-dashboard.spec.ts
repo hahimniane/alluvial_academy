@@ -635,6 +635,37 @@ test.describe("teacher dashboard", () => {
     await expect(page.getByText(/No recordings yet|recording/).first()).toBeVisible();
   });
 
+  test("recordings reports a missing playback URL", async ({ page }, testInfo) => {
+    skipUnlessDesktopTeacherE2EEnabled(testInfo.project.name);
+    await mockTeacherRecordingList(page);
+    await page.route("**/getClassRecordingPlaybackUrl", (route) => route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({result: {success: true, url: ""}}),
+    }));
+    await signInAsTeacher(page);
+    await page.getByRole("link", {name: /Recordings/}).click();
+    await openPlaybackFixture(page);
+    await page.getByRole("button", {name: "Play", exact: true}).click();
+    await expect(page.getByText("Playback URL not available")).toBeVisible();
+  });
+
+  test("recordings reports browser playback failure", async ({ page }, testInfo) => {
+    skipUnlessDesktopTeacherE2EEnabled(testInfo.project.name);
+    await mockTeacherRecordingList(page);
+    await page.route("**/getClassRecordingPlaybackUrl", (route) => route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({result: {success: true, url: "https://recording.invalid/codex-missing.mp4"}}),
+    }));
+    await page.route("https://recording.invalid/**", (route) => route.abort("failed"));
+    await signInAsTeacher(page);
+    await page.getByRole("link", {name: /Recordings/}).click();
+    await openPlaybackFixture(page);
+    await page.getByRole("button", {name: "Play", exact: true}).click();
+    await expect(page.getByText("This recording could not be played. Refresh its playback link and try again.")).toBeVisible();
+  });
+
   test("requires a teacher sign-in before rendering surah podcasts", async ({ page, browserName }) => {
     test.skip(browserName === "webkit", "WebKit intermittently hangs before committing teacher module static routes late in the full suite; Chromium and mobile Chrome cover the guard.");
     await gotoTeacherGuard(page, "/teacher/surah-podcasts/");
@@ -678,6 +709,50 @@ test.describe("teacher dashboard", () => {
     await expect(page.getByText("Codex Surah Share QA")).toBeHidden();
   });
 
+  test("Surah sharing preserves state across offline failures and empty selection", async ({ page, context }, testInfo) => {
+    skipUnlessDesktopTeacherE2EEnabled(testInfo.project.name);
+    test.skip(process.env.ALLUWAL_RUN_TEACHER_SURAH_RESILIENCE_E2E !== "1", "Enable only with disposable dev Surah fixtures.");
+    await signInAsTeacher(page);
+    await page.getByRole("link", {name: /Surah Podcasts/}).click();
+    await page.getByRole("button", {name: /Shared/}).click();
+    await expect(page.getByText("Codex Surah Resilience QA")).toBeVisible();
+    await context.setOffline(true);
+    await page.getByLabel("Remove Codex Surah Resilience QA").click();
+    await expect(page.getByText("You appear to be offline. Reconnect and try again.")).toBeVisible();
+    await expect(page.getByText("Codex Surah Resilience QA")).toBeVisible();
+    await context.setOffline(false);
+
+    await page.getByRole("button", {name: /Library/}).click();
+    await page.getByLabel("Search by surah name or number").fill("Codex Surah Resilience QA");
+    await page.getByRole("button", {name: /113.*Al-Falaq/}).click();
+    await page.getByLabel("Share Codex Surah Resilience QA with students").click();
+    const dialog = page.getByRole("dialog", {name: "Share with Students"});
+    await dialog.getByRole("button", {name: "Codex Surah Resilience Student"}).click();
+    await expect(dialog.getByRole("button", {name: "Share (0)"})).toBeDisabled();
+    await dialog.getByRole("button", {name: "Codex Surah Resilience Student"}).click();
+    await context.setOffline(true);
+    await dialog.getByRole("button", {name: "Share (1)"}).click();
+    await expect(dialog.getByText("You appear to be offline. Reconnect and try again.")).toBeVisible();
+    await expect(dialog.getByText("1 of 1 selected")).toBeVisible();
+    await context.setOffline(false);
+  });
+
+  test("Surah share dialog fits the mobile viewport", async ({ page }, testInfo) => {
+    skipUnlessMobileTeacherE2EEnabled(testInfo.project.name);
+    test.skip(process.env.ALLUWAL_RUN_TEACHER_SURAH_RESILIENCE_E2E !== "1", "Enable only with disposable dev Surah fixtures.");
+    await signInAsTeacher(page);
+    await page.goto("/teacher/surah-podcasts/");
+    await page.getByLabel("Search by surah name or number").fill("Codex Surah Resilience QA");
+    await page.getByRole("button", {name: /113.*Al-Falaq/}).click();
+    await page.getByLabel("Share Codex Surah Resilience QA with students").click();
+    const dialog = page.getByRole("dialog", {name: "Share with Students"});
+    await expect(dialog).toBeVisible();
+    const box = await dialog.locator("section").boundingBox();
+    expect(box).not.toBeNull();
+    expect((box?.y ?? 0) + (box?.height ?? 0)).toBeLessThanOrEqual(testInfo.project.use.viewport?.height ?? 720);
+    await expect(dialog.getByRole("button", {name: /Share \([01]\)/})).toBeVisible();
+  });
+
   test("requires a teacher sign-in before rendering curriculum books", async ({ page, browserName }) => {
     test.skip(browserName === "webkit", "WebKit intermittently hangs before committing teacher module static routes late in the full suite; Chromium and mobile Chrome cover the guard.");
     await gotoTeacherGuard(page, "/teacher/curriculum-books/");
@@ -696,6 +771,23 @@ test.describe("teacher dashboard", () => {
     await expect(page.getByText("PowerPoint files")).toBeVisible();
     await expect(page.getByRole("link", { name: /Open/ }).first()).toBeVisible();
     await expect(page.getByRole("link", { name: /Download/ }).first()).toBeVisible();
+  });
+
+  test("curriculum open and download targets resolve and navigate", async ({ page, request }, testInfo) => {
+    skipUnlessDesktopTeacherE2EEnabled(testInfo.project.name);
+    await signInAsTeacher(page);
+    await page.getByRole("link", {name: /Curriculum Books/}).click();
+    const links = page.getByRole("link", {name: /Open|Download/});
+    await expect(links).toHaveCount(8);
+    const hrefs = await links.evaluateAll((anchors) => anchors.map((anchor) => (anchor as HTMLAnchorElement).href.replace(/#.*$/, "")));
+    for (const href of hrefs) {
+      const response = await request.head(href);
+      expect(response.ok(), `${href} should resolve`).toBe(true);
+      expect(Number(response.headers()["content-length"] ?? 0)).toBeGreaterThan(0);
+    }
+    await expect(page.getByRole("link", {name: "Open"}).first()).toHaveAttribute("href", /alphabet_and_fatha\.pdf#view=Fit$/);
+    await expect(page.getByRole("link", {name: "Open"}).first()).toHaveAttribute("target", "_blank");
+    await expect(page.getByRole("link", {name: "Download"}).first()).toHaveAttribute("href", /alphabet_and_fatha\.pptx$/);
   });
 
   test("requires a teacher sign-in before rendering submit form", async ({ page, browserName }) => {
@@ -799,3 +891,37 @@ test.describe("teacher dashboard", () => {
     await expect(details.getByRole("link", {name: "qa-photo.png"})).toBeVisible();
   });
 });
+
+async function mockTeacherRecordingList(page: Page) {
+  await page.route("**/listClassRecordings", (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify({result: {
+      success: true,
+      recordings: [{
+        recordingId: "codex-recording-playback-qa",
+        shiftId: "codex-recording-shift-qa",
+        shiftName: "Codex Playback QA",
+        subjectName: "Quran",
+        teacherId: "uZyvgk7VBeRrhsZfYAzGfOSRCJo2",
+        teacherName: "Codex CMS Staff",
+        studentIds: [],
+        status: "complete",
+        mergeStatus: "complete",
+        error: "",
+        filePath: "recordings/codex-playback-qa.mp4",
+        startedAtIso: "2026-07-12T03:30:00.000Z",
+        requestedAtIso: "2026-07-12T03:29:00.000Z",
+        updatedAtIso: "2026-07-12T03:31:00.000Z",
+        deleteAfterIso: "2026-08-12T03:30:00.000Z",
+        canPlay: true,
+      }],
+    }}),
+  }));
+}
+
+async function openPlaybackFixture(page: Page) {
+  await page.getByRole("button", {name: /Unknown student/}).click();
+  await page.getByRole("button", {name: /Jul 11, 2026/}).click();
+  await page.getByRole("button", {name: /Codex Playback QA/}).click();
+}

@@ -3243,6 +3243,41 @@ render and the native Next authenticated CMS write/upload tests pass against
   preview server at `http://localhost:3021/teacher/` was rebuilt with this
   checkpoint for owner testing. Flutter and production Firebase were untouched.
 
+### Teacher Recordings failure-state acceptance (2026-07-12)
+
+- Callable-backed fixture tests exercised the complete student → date → shift
+  → fragment navigation without creating or changing Firebase data.
+- A successful playback response with no URL now has explicit coverage for the
+  `Playback URL not available` state. A returned URL whose media request fails
+  has focused coverage for the retryable in-app playback error.
+- Both guarded Chromium scenarios passed. Existing loading, empty, search,
+  refresh, unavailable-fragment, and responsive hierarchy behavior remains in
+  the teacher regression suite. No Flutter or Firebase resource changed.
+
+### Teacher Surah sharing resilience acceptance (2026-07-12)
+
+- Share and remove now reject offline actions immediately and preserve the
+  selected students or existing shared assignment for retry. Firestore
+  permission errors are translated into an actionable message.
+- The share action remains disabled for an empty selection. The mobile dialog
+  now presents as a viewport-contained bottom sheet while retaining the
+  centered desktop dialog.
+- Guarded Chromium and mobile Chrome tests passed against disposable podcast,
+  shift/student, and active-assignment fixtures. Offline remove, empty
+  selection, offline share, retained selection, and viewport bounds all passed;
+  all three fixtures were deleted afterward.
+
+### Teacher Curriculum Books target acceptance (2026-07-12)
+
+- All four PDF and four PPTX targets were checked read-only with HEAD requests;
+  every file returned success with a non-zero content length.
+- Focused Chromium coverage verifies the complete eight-link set, PDF `Open`
+  destination/fit fragment, PPTX `Download` destination, and new-tab behavior.
+  PDF viewer rendering is browser-owned, so acceptance uses the authoritative
+  target response rather than waiting for a browser PDF DOM event.
+- No application code, Flutter source, Storage object, or production resource
+  was changed for this pass.
+
 ## Post-parity additions (2026-07-09)
 
 These are deliberate improvements beyond Flutter parity, requested by the

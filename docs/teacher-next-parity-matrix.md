@@ -16,9 +16,9 @@ This matrix tracks functional parity between the Flutter teacher role and
 | Chat | `/teacher/chat/` | Conversation creation/repair, live latest ordering, unread/read receipts, text/attachment/voice send, failed-send draft recovery, mobile browser-back navigation | No known functional gap; retain in final regression |
 | Classes | `/teacher/classes/` | Schedule, presence, details, guest link, provider-specific RealtimeKit join | Real Zoom hub join verification |
 | Classroom | `/teacher/classroom/` | Live dev teacher/guest join, active roster, lock denial, participant removal, media-denial fallback, and reconnect verified | Real Zoom hub join and return verification |
-| Recordings | `/teacher/recordings/` | Native listing and playback | Expired/missing URL and playback failure pass |
-| Surah Podcasts | `/teacher/surah-podcasts/` | Native browse and assignment sharing | Failed write, empty assignment, responsive dialog pass |
-| Curriculum Books | `/teacher/curriculum-books/` | Native content listing | Broken/missing asset and download/navigation pass |
+| Recordings | `/teacher/recordings/` | Native hierarchy, search, refresh, playback, missing-link and browser playback failure handling | No known functional gap; retain in final regression |
+| Surah Podcasts | `/teacher/surah-podcasts/` | Native browse, shared assignments, empty selection, offline write preservation, responsive mobile share dialog | No known functional gap; retain in final regression |
+| Curriculum Books | `/teacher/curriculum-books/` | Native content cards; all PDF/PPTX targets resolve with non-empty files and correct open/download destinations | No known functional gap; retain in final regression |
 | Submit Form | `/teacher/submit-form/` | Shift selection, saved detection, time/image/signature fields, linked writes | Inventory every live template field type and failure recovery |
 | Form Submissions | `/teacher/form-submissions/` | Native history and hydrated labels | Missing template, legacy response, empty/error states |
 
