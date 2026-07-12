@@ -500,6 +500,56 @@ test.describe("teacher dashboard", () => {
     await expect(page.getByText(message)).toBeVisible();
   });
 
+  test("failed offline chat send restores the teacher draft", async ({ page, context }, testInfo) => {
+    skipUnlessDesktopTeacherE2EEnabled(testInfo.project.name);
+    const message = `Offline draft ${Date.now()}`;
+    await signInAsTeacher(page);
+    await page.getByRole("link", {name: /Chat/}).click();
+    await page.getByRole("button", {name: "My Contacts"}).click();
+    await page.getByRole("button", {name: /Admin Support/}).click();
+    await context.setOffline(true);
+    await page.getByLabel("Type a message").fill(message);
+    await page.getByLabel("Send message").click();
+    await expect(page.getByText("Message could not be sent. Please try again.")).toBeVisible();
+    await expect(page.getByLabel("Type a message")).toHaveValue(message);
+    await context.setOffline(false);
+  });
+
+  test("recent chats reorder live after the latest message changes", async ({ page }, testInfo) => {
+    skipUnlessDesktopTeacherE2EEnabled(testInfo.project.name);
+    test.skip(process.env.ALLUWAL_RUN_TEACHER_CHAT_ORDERING_E2E !== "1", "Enable only with disposable dev ordering fixtures.");
+    await signInAsTeacher(page);
+    await page.getByRole("link", {name: /Chat/}).click();
+    const older = page.getByRole("button", {name: /Codex Chat Older Contact.*Older preview/i});
+    const newer = page.getByRole("button", {name: /Codex Chat Newer Contact/i});
+    await Promise.all([expect(older).toBeVisible(), expect(newer).toBeVisible()]);
+    const before = await page.locator("section button").filter({hasText: /Codex Chat (Older|Newer) Contact/}).allTextContents();
+    expect(before[0]).toContain("Codex Chat Newer Contact");
+    await older.click();
+    await page.getByLabel("Type a message").fill("Promoted preview");
+    await page.getByLabel("Send message").click();
+    await page.getByLabel("Back to chats").click();
+    const promoted = page.getByRole("button", {name: /Codex Chat Older Contact.*Promoted preview/i});
+    await expect(promoted).toBeVisible();
+    await expect.poll(async () => {
+      const after = await page.locator("section button").filter({hasText: /Codex Chat (Older|Newer) Contact/}).allTextContents();
+      return after[0] ?? "";
+    }).toContain("Codex Chat Older Contact");
+  });
+
+  test("mobile browser back returns from a conversation to the chat list", async ({ page }, testInfo) => {
+    skipUnlessMobileTeacherE2EEnabled(testInfo.project.name);
+    await signInAsTeacher(page);
+    await page.goto("/teacher/chat/");
+    await page.getByRole("button", {name: "My Contacts"}).click();
+    await page.getByRole("button", {name: /Admin Support/}).click();
+    await expect(page.getByRole("heading", {name: "Admin Support"})).toBeVisible();
+    await page.goBack();
+    await expect(page.getByRole("heading", {name: "Admin Support"})).toBeHidden();
+    await expect(page.getByRole("button", {name: "Recent Chats"})).toBeVisible();
+    await expect(page).toHaveURL(/\/teacher\/chat\/$/);
+  });
+
   test("opening a conversation clears incoming unread messages", async ({ page }, testInfo) => {
     skipUnlessDesktopTeacherE2EEnabled(testInfo.project.name);
     test.skip(process.env.ALLUWAL_RUN_TEACHER_CHAT_READ_E2E !== "1", "Enable only with the disposable dev chat fixture.");

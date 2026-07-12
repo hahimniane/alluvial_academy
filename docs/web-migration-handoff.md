@@ -3226,6 +3226,23 @@ render and the native Next authenticated CMS write/upload tests pass against
 - Previously verified withdraw/rebroadcast behavior remains covered by its
   guarded mutation test. No Flutter or production Firebase change occurred.
 
+### Teacher Chat live-state acceptance (2026-07-12)
+
+- Recent conversations now stay subscribed to parent chat changes and re-sort
+  by the latest message while the page remains open. Revision guards prevent a
+  slower unread-count refresh from replacing newer list data.
+- Opening a conversation pushes an in-page history entry. The visible Back
+  control and mobile browser Back now return to the Chat list at
+  `/teacher/chat/` instead of navigating away from the module.
+- Offline text sends fail immediately, keep the unsent draft in the composer,
+  and show a retryable error. Existing unread-message clearing,
+  `last_read_by`, conversation repair, and media attachment coverage remain in
+  place.
+- Focused Chromium checks passed for offline draft recovery and live preview
+  promotion; mobile Chrome passed browser-back conversation navigation. The
+  preview server at `http://localhost:3021/teacher/` was rebuilt with this
+  checkpoint for owner testing. Flutter and production Firebase were untouched.
+
 ## Post-parity additions (2026-07-09)
 
 These are deliberate improvements beyond Flutter parity, requested by the

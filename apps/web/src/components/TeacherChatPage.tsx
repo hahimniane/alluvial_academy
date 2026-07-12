@@ -123,6 +123,23 @@ export function TeacherChatPage() {
   }, []);
 
   useEffect(() => {
+    if (access !== "allowed" || !user) return undefined;
+    return subscribeTeacherChats(user.uid, setChats);
+  }, [access, user]);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      if (!conversation) return;
+      setConversation(null);
+      setMessages([]);
+      setDraft("");
+      setSendError("");
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [conversation]);
+
+  useEffect(() => {
     if (!conversation) return undefined;
     setMessagesLoading(true);
     setSendError("");
@@ -174,7 +191,7 @@ export function TeacherChatPage() {
 
   const openChat = async (chat: ChatPreview) => {
     setSendError("");
-    setConversation({
+    openConversation({
       id: chat.id,
       displayName: chat.displayName,
       email: chat.email,
@@ -193,7 +210,7 @@ export function TeacherChatPage() {
     setSendError("");
     const chatId = directChatId(user.uid, contact.id);
     await ensureChat(chatId, [user.uid, contact.id], "individual");
-    setConversation({
+    openConversation({
       id: chatId,
       displayName: contact.displayName,
       email: contact.email,
@@ -209,7 +226,7 @@ export function TeacherChatPage() {
     setSendError("");
     const chatId = directChatId(user.uid, adminSupportId);
     await ensureChat(chatId, [user.uid, adminSupportId], "admin_support");
-    setConversation({
+    openConversation({
       id: chatId,
       displayName: "Admin Support",
       email: "",
@@ -218,6 +235,11 @@ export function TeacherChatPage() {
       participants: [user.uid, adminSupportId],
     });
     await markChatRead(chatId, user.uid).catch(() => undefined);
+  };
+
+  const openConversation = (nextConversation: Conversation) => {
+    if (!conversation) window.history.pushState({teacherChatConversation: true}, "", window.location.href);
+    setConversation(nextConversation);
   };
 
   const sendMessage = async () => {
@@ -328,12 +350,7 @@ export function TeacherChatPage() {
             error={sendError}
             attachmentSending={attachmentSending}
             onDraftChange={setDraft}
-            onClose={() => {
-              setConversation(null);
-              setMessages([]);
-              setDraft("");
-              setSendError("");
-            }}
+            onClose={() => window.history.back()}
             onSend={sendMessage}
             onAttachment={sendAttachment}
           />
@@ -678,6 +695,22 @@ async function loadTeacherChats(uid: string) {
   return withUnread.sort((a, b) => (b.lastMessageTime?.getTime() ?? 0) - (a.lastMessageTime?.getTime() ?? 0));
 }
 
+function subscribeTeacherChats(uid: string, onChange: (chats: ChatPreview[]) => void) {
+  let revision = 0;
+  return onSnapshot(
+    query(collection(db, "chats"), where("participants", "array-contains", uid), limit(80)),
+    async (snapshot) => {
+      const currentRevision = ++revision;
+      const rows = snapshot.docs
+        .map((entry) => normalizeChat(entry.id, entry.data() as Record<string, unknown>, uid))
+        .filter((chat): chat is ChatPreview => chat !== null);
+      const withUnread = await Promise.all(rows.map(async (chat) => ({...chat, unreadCount: await loadUnreadCount(chat.id, uid)})));
+      if (currentRevision !== revision) return;
+      onChange(withUnread.sort((a, b) => (b.lastMessageTime?.getTime() ?? 0) - (a.lastMessageTime?.getTime() ?? 0)));
+    },
+  );
+}
+
 async function loadUnreadCount(chatId: string, uid: string) {
   const unread = await getDocs(query(collection(db, "chats", chatId, "messages"), where("is_read", "==", false), limit(100))).catch(() => null);
   return unread?.docs.filter((entry) => {
@@ -794,6 +827,7 @@ async function sendChatMessage({
   messageType?: string;
   metadata?: Record<string, unknown> | null;
 }) {
+  if (!navigator.onLine) throw new Error("You appear to be offline. Reconnect and try again.");
   const chatRef = doc(db, "chats", chatId);
   const messageData = {
     sender_id: currentUser.uid,
