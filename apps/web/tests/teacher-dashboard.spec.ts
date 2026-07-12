@@ -277,6 +277,35 @@ test.describe("teacher dashboard", () => {
     await expect(page.getByText(message)).toBeVisible();
   });
 
+  test("opening a conversation clears incoming unread messages", async ({ page }, testInfo) => {
+    skipUnlessDesktopTeacherE2EEnabled(testInfo.project.name);
+    test.skip(process.env.ALLUWAL_RUN_TEACHER_CHAT_READ_E2E !== "1", "Enable only with the disposable dev chat fixture.");
+    await signInAsTeacher(page);
+    await page.getByRole("link", {name: /Chat/}).click();
+    const chat = page.getByRole("button", {name: /codex_chat_sender_qa.*Unread fixture message/i});
+    await expect(chat.getByText("1", {exact: true})).toBeVisible();
+    await chat.click();
+    await expect(page.getByRole("paragraph").filter({hasText: "Unread fixture message"})).toBeVisible();
+    await page.getByLabel("Back to chats").click();
+    await expect(chat.getByText("1", {exact: true})).toBeHidden();
+  });
+
+  test("teacher can send an image attachment in chat", async ({ page }, testInfo) => {
+    skipUnlessDesktopTeacherE2EEnabled(testInfo.project.name);
+    test.skip(process.env.ALLUWAL_RUN_TEACHER_CHAT_ATTACHMENT_E2E !== "1", "Enable only for disposable dev chat uploads.");
+    await signInAsTeacher(page);
+    await page.getByRole("link", {name: /Chat/}).click();
+    await page.getByRole("button", {name: "My Contacts"}).click();
+    await page.getByRole("button", {name: /Admin Support/}).click();
+    await page.locator("input[type=file]").setInputFiles({
+      name: "codex-chat-attachment-qa.png",
+      mimeType: "image/png",
+      buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=", "base64"),
+    });
+    await expect(page.getByText("📷 Photo").last()).toBeVisible();
+    await expect(page.getByRole("img", {name: "📷 Photo"})).toBeVisible();
+  });
+
   test("requires a teacher sign-in before rendering classes", async ({ page, browserName }) => {
     test.skip(browserName === "webkit", "WebKit intermittently hangs before committing teacher module static routes late in the full suite; Chromium and mobile Chrome cover the guard.");
     await gotoTeacherGuard(page, "/teacher/classes/");
@@ -414,6 +443,20 @@ test.describe("teacher dashboard", () => {
     expect(browserAlertShown).toBe(false);
   });
 
+  test("teacher form validates email and phone fields like Flutter", async ({ page }, testInfo) => {
+    skipUnlessDesktopTeacherE2EEnabled(testInfo.project.name);
+    test.skip(process.env.ALLUWAL_RUN_TEACHER_FORM_VALIDATION_E2E !== "1", "Enable only with the disposable dev form template.");
+    await signInAsTeacher(page);
+    await page.getByRole("link", {name: /Submit Form/}).click();
+    await page.getByLabel("Search forms").fill("Codex Teacher Validation QA");
+    await page.getByRole("button", {name: /Codex Teacher Validation QA/}).click();
+    await page.getByLabel("Contact email").fill("invalid-email");
+    await page.getByLabel("Contact phone").fill("invalid phone!");
+    await page.getByRole("button", {name: "Submit Form", exact: true}).click();
+    await expect(page.getByText("Please enter a valid email address")).toBeVisible();
+    await expect(page.getByText("Please enter a valid phone number")).toBeVisible();
+  });
+
   test("requires a teacher sign-in before rendering my form submissions", async ({ page, browserName }) => {
     test.skip(browserName === "webkit", "WebKit intermittently hangs before committing teacher module static routes late in the full suite; Chromium and mobile Chrome cover the guard.");
     await gotoTeacherGuard(page, "/teacher/form-submissions/");
@@ -444,5 +487,19 @@ test.describe("teacher dashboard", () => {
     await expect(page.getByRole("dialog", { name: /Codex Time Field QA details/ })).toBeVisible();
     await expect(page.getByText("What time should the makeup class start?")).toBeVisible();
     await expect(page.getByText("Class Start Time")).toBeHidden();
+  });
+
+  test("teacher submission details render uploaded files", async ({ page }, testInfo) => {
+    skipUnlessDesktopTeacherE2EEnabled(testInfo.project.name);
+    test.skip(process.env.ALLUWAL_RUN_TEACHER_SUBMISSION_FILE_E2E !== "1", "Enable only with the disposable dev response fixture.");
+    await signInAsTeacher(page);
+    await page.getByRole("link", {name: /My Form Submissions/}).click();
+    const group = page.getByRole("button", {name: /Codex Teacher File Response QA/});
+    await group.click();
+    await page.getByRole("dialog", {name: "Codex Teacher File Response QA"}).getByRole("button").filter({hasText: /completed/i}).click();
+    const details = page.getByRole("dialog", {name: /Codex Teacher File Response QA details/});
+    await expect(details.getByText("Session photo")).toBeVisible();
+    await expect(details.getByRole("img", {name: "qa-photo.png"})).toBeVisible();
+    await expect(details.getByRole("link", {name: "qa-photo.png"})).toBeVisible();
   });
 });

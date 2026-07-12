@@ -383,7 +383,7 @@ function SubmissionDetail({ submission, onClose }: { submission: SubmissionRecor
             entries.map(([field, value]) => (
               <div key={field} className="mb-4 rounded-xl border border-[#E2E8F0] p-4">
                 <p className="text-sm font-semibold text-[#64748B]">{submission.fieldLabels[field] || formatFieldLabel(field)}</p>
-                <p className="mt-2 whitespace-pre-wrap text-base text-[#1E293B]">{formatFieldValue(value)}</p>
+                <SubmissionResponseValue value={value} />
               </div>
             ))
           )}
@@ -391,6 +391,25 @@ function SubmissionDetail({ submission, onClose }: { submission: SubmissionRecor
       </div>
     </div>
   );
+}
+
+function SubmissionResponseValue({ value }: { value: unknown }) {
+  const file = objectValue(value);
+  const fileUrl = stringValue(file.downloadURL ?? file.url ?? file.file_url);
+  const fileName = stringValue(file.fileName ?? file.file_name) || "Uploaded file";
+  const fileType = stringValue(file.type ?? file.contentType ?? file.mime_type).toLowerCase();
+  if (fileUrl) {
+    const isImage = fileType.includes("image") || /\.(png|jpe?g|gif|webp)$/i.test(fileName);
+    return (
+      <div className="mt-3">
+        {isImage ? <img src={fileUrl} alt={fileName} className="mb-3 max-h-72 rounded-xl border border-[#E2E8F0] object-contain" /> : null}
+        <a href={fileUrl} target="_blank" rel="noreferrer" className="inline-flex min-h-10 items-center rounded-xl bg-[#EFF6FF] px-4 text-sm font-bold text-[#0369A1] underline">
+          {fileName}
+        </a>
+      </div>
+    );
+  }
+  return <p className="mt-2 whitespace-pre-wrap text-base text-[#1E293B]">{formatFieldValue(value)}</p>;
 }
 
 async function loadSubmissions(user: User) {
