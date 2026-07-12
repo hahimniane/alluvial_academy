@@ -70,7 +70,7 @@ export function SiteHeader() {
 
   return (
     <header className="site-header sticky top-0 z-50 bg-white shadow-[0_2px_10px_rgba(0,0,0,0.02)]">
-      <div className="bg-[linear-gradient(90deg,#0B1B3A_0%,#1D4ED8_48%,#F59E0B_120%)] text-white">
+      <div className="border-b border-[#F59E0B]/60 bg-[linear-gradient(90deg,#0B1B3A_0%,#16337F_55%,#1D4ED8_100%)] text-white">
         <div className="flex items-center gap-3 px-3 py-[3px] md:px-5 md:py-[5px]">
           <Link
             href="/enroll/"
@@ -94,15 +94,15 @@ export function SiteHeader() {
               className="h-8 w-[124px] object-contain lg:h-9 lg:w-[158px]"
             />
             <div className="hidden leading-tight lg:block">
-              <div className="text-lg font-black tracking-normal text-[#111827]">Alluwal</div>
-              <div className="text-[9px] font-semibold uppercase tracking-[1.5px] text-[#3B82F6]">Education Hub</div>
+              <div className="font-display text-lg font-bold tracking-normal text-[#0B1B3A]">Alluwal</div>
+              <div className="text-[9px] font-semibold uppercase tracking-[1.5px] text-[#1D4ED8]">Education Hub</div>
             </div>
           </Link>
 
           <nav className="ml-3 hidden items-center gap-3 xl:flex" aria-label="Primary navigation">
             <Link
               href="/"
-              className="text-[13.5px] font-semibold text-[#111827] transition hover:text-[#0386FF]"
+              className="link-underline text-[13.5px] font-semibold text-[#111827] transition hover:text-[#1D4ED8]"
               onClick={closeAll}
             >
               Home
@@ -183,8 +183,8 @@ export function SiteHeader() {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`text-[13.5px] font-semibold transition hover:text-[#0386FF] ${
-                    active ? "text-[#0386FF]" : "text-[#111827]"
+                  className={`link-underline text-[13.5px] font-semibold transition hover:text-[#1D4ED8] ${
+                    active ? "text-[#1D4ED8]" : "text-[#111827]"
                   }`}
                   onClick={closeAll}
                 >

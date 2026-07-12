@@ -11,12 +11,18 @@ import {
   GraduationCap,
   Grid3X3,
   Eye,
+  Hand,
   Languages,
+  MessageSquare,
+  Mic,
+  MicOff,
   MoonStar,
   Rocket,
   Search,
   School,
+  Star,
   UsersRound,
+  Video,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent } from "react";
 import { Reveal } from "@/components/Reveal";
@@ -39,6 +45,7 @@ const courseColumns = [
   {
     title: "Islamic & AfroLanguages",
     color: "#2563EB",
+    gradient: "linear-gradient(120deg, #1E3A8A 0%, #2563EB 100%)",
     items: [
       {
         title: "Islamic Studies",
@@ -57,6 +64,7 @@ const courseColumns = [
   {
     title: "Academic & tutoring",
     color: "#F59E0B",
+    gradient: "linear-gradient(120deg, #B45309 0%, #F59E0B 100%)",
     items: [
       {
         title: "Math Classes",
@@ -113,6 +121,34 @@ const pricingTracks = [
   },
 ];
 
+const communityStats = [
+  { value: 200, suffix: "+", label: "students learning with us" },
+  { value: 40, suffix: "+", label: "expert teachers" },
+  { value: 15, suffix: "+", label: "countries represented" },
+  { value: 200, suffix: "+", label: "live classes every week" },
+];
+
+const communityVoices = [
+  {
+    quote:
+      "Allah directed me to Alluwal — one of the best Arabic learning institutions, with qualified teachers and leaders of true integrity.",
+    name: "Abdulai Diallo",
+    role: "Ustaz · Kenema, Sierra Leone",
+  },
+  {
+    quote:
+      "Alluwal is professional and well-organized — exactly the kind of environment where meaningful education can thrive.",
+    name: "Mamadou Saidou Diallo",
+    role: "Teacher · Morocco",
+  },
+  {
+    quote:
+      "I chose Alluwal because of its strong educational values, supportive leadership, and genuine commitment to student success.",
+    name: "Zainab Sall",
+    role: "Teacher · Turkey",
+  },
+];
+
 const aboutCards = [
   {
     title: "Our Mission",
@@ -145,11 +181,7 @@ export function MarketingHome() {
     };
   }, []);
 
-  const landing = bundle?.landing;
   const pricing = bundle?.pricing ?? fallbackPricing;
-  const heroMain = landing?.heroMainImageUrl || "/assets/background_images/smiling_student.jpg";
-  const heroLeft = landing?.heroLeftImageUrl || "/assets/teachers/elham_shifa.jpg";
-  const heroRight = landing?.heroRightImageUrl || "/assets/teachers/mohammed_kosiah.jpg";
 
   const suggestions = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -212,10 +244,10 @@ export function MarketingHome() {
               Live online classes with real tutors
             </div>
             <h1
-              className="hero-enter max-w-3xl text-[38px] font-black leading-[1.05] tracking-normal text-[#0B1B3A] md:text-[60px] md:leading-[0.98]"
+              className="hero-enter font-display max-w-3xl text-[40px] font-bold leading-[1.08] text-[#0B1B3A] md:text-[62px] md:leading-[1.04]"
               style={enterDelay(90)}
             >
-              Learn with tutors who know your child by name.
+              Learn with tutors who know your child <span className="headline-accent">by name.</span>
             </h1>
             <p
               className="hero-enter mt-5 max-w-2xl text-[16px] leading-[1.7] text-[#475569] md:text-[18px]"
@@ -301,46 +333,77 @@ export function MarketingHome() {
           </div>
 
           <div
-            className="hero-enter relative mx-auto h-[285px] w-full max-w-[500px] lg:-top-2 lg:mx-0 lg:h-[430px] lg:max-w-none"
+            className="hero-enter relative mx-auto h-[420px] w-full max-w-[500px] lg:-top-2 lg:mx-0 lg:h-[460px] lg:max-w-none"
             style={enterDelay(320)}
           >
             <div className="hero-collage-float relative h-full w-full">
               <LearningPathMotion />
-              <div className="hero-photo-card absolute right-5 top-2 z-10 h-[220px] w-[78%] overflow-hidden rounded-[30px] bg-white p-3 shadow-[0_30px_90px_rgba(15,23,42,0.18)] lg:top-8 lg:h-[310px] lg:w-[420px]">
-                <div className="h-full overflow-hidden rounded-[24px]">
-                  <img src={heroMain} alt="Smiling student learning online" className="h-full w-full object-cover" />
-                </div>
-              </div>
-              <div className="hero-badge-float absolute left-1 top-[18px] z-20 rounded-3xl border border-white bg-white/86 p-3 shadow-[0_20px_50px_rgba(15,23,42,0.12)] backdrop-blur md:left-0 lg:top-[42px] lg:p-4">
-                <div className="flex items-center gap-3">
-                  <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-[#DBEAFE] text-[#2563EB]">
-                    <MoonStar size={23} />
+              <LiveClassCard />
+              <div className="hero-badge-float absolute left-0 top-1 z-30 rounded-2xl border border-white bg-white/90 px-3.5 py-2.5 shadow-[0_20px_50px_rgba(15,23,42,0.14)] backdrop-blur lg:top-4">
+                <div className="flex items-center gap-2.5">
+                  <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-[#DBEAFE] text-[#1D4ED8]">
+                    <MoonStar size={19} />
                   </span>
                   <span>
-                    <span className="block text-sm font-black text-[#0B1B3A]">Quran + academics</span>
-                    <span className="block text-xs font-semibold text-[#64748B]">One trusted place</span>
+                    <span className="block text-[13px] font-black text-[#0B1B3A]">Quran + academics</span>
+                    <span className="block text-[11px] font-semibold text-[#64748B]">One trusted place</span>
                   </span>
                 </div>
               </div>
-              <div className="absolute bottom-[54px] left-0 z-20 h-[110px] w-[110px] overflow-hidden rounded-[28px] border-[5px] border-white bg-[#EFF6FF] shadow-[0_22px_60px_rgba(15,23,42,0.16)] md:h-[132px] md:w-[132px] lg:bottom-[92px] lg:h-40 lg:w-40">
-                <img src={heroLeft} alt="Teacher profile" className="h-full w-full object-cover" />
+              <div className="hero-badge-float absolute bottom-[74px] left-0 z-30 w-[196px] rounded-2xl border border-white bg-white/94 p-3.5 shadow-[0_22px_60px_rgba(15,23,42,0.16)] backdrop-blur lg:bottom-[96px] lg:w-[212px]">
+                <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-[0.08em] text-[#64748B]">
+                  Memorization
+                  <BookOpen size={14} className="text-[#1D4ED8]" />
+                </div>
+                <div className="mt-1.5 text-sm font-black text-[#0B1B3A]">Surah Al-Mulk</div>
+                <div className="mt-2 h-2 overflow-hidden rounded-full bg-[#E2E8F0]">
+                  <div className="hero-progress-fill h-full rounded-full bg-[linear-gradient(90deg,#1D4ED8,#F59E0B)]" />
+                </div>
+                <div className="mt-1.5 text-[11px] font-semibold text-[#64748B]">19 of 30 ayat mastered</div>
               </div>
-              <div className="absolute bottom-8 right-2 z-20 h-[104px] w-[104px] overflow-hidden rounded-full border-[5px] border-white bg-[#FEF3C7] shadow-[0_22px_60px_rgba(15,23,42,0.16)] md:h-[122px] md:w-[122px] lg:h-[148px] lg:w-[148px]">
-                <img src={heroRight} alt="Teacher profile" className="h-full w-full object-cover" />
+              <div className="hero-badge-float absolute bottom-[8px] left-[26px] z-30 flex items-center gap-2.5 rounded-2xl border border-white bg-white/94 px-3.5 py-2.5 shadow-[0_22px_60px_rgba(15,23,42,0.16)] backdrop-blur lg:bottom-[18px] lg:left-[40px]">
+                <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#FEF3C7] text-[#B45309]">
+                  <Star size={16} fill="currentColor" />
+                </span>
+                <span>
+                  <span className="block text-[13px] font-black text-[#0B1B3A]">“MashaAllah, perfect tajweed!”</span>
+                  <span className="block text-[11px] font-semibold text-[#64748B]">Ustadha Mariama · just now</span>
+                </span>
               </div>
-              <div className="hero-badge-float absolute bottom-0 left-[92px] z-30 rounded-3xl border border-white bg-[#0B1B3A] px-4 py-3 text-white shadow-[0_24px_70px_rgba(15,23,42,0.22)] md:left-[126px] lg:px-5 lg:py-4">
-                <div className="text-[28px] font-black leading-none">5★</div>
-                <div className="mt-1 text-xs font-bold text-white/72">family-rated classes</div>
+              <div className="hero-badge-float absolute bottom-0 right-2 z-30 rounded-2xl border border-white bg-[#0B1B3A] px-4 py-3 text-white shadow-[0_24px_70px_rgba(15,23,42,0.22)] lg:right-4">
+                <div className="flex items-center gap-1 text-[22px] font-black leading-none">
+                  5<Star size={17} className="text-[#FBBF24]" fill="currentColor" />
+                </div>
+                <div className="mt-1 text-[11px] font-bold text-white/72">family-rated classes</div>
               </div>
             </div>
           </div>
         </div>
       </section>
 
+      <section className="border-y border-slate-100 bg-white py-9 md:py-11" aria-label="Alluwal community at a glance">
+        <div className="container-shell">
+          <Reveal>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-7 md:grid-cols-4">
+              {communityStats.map(({ value, suffix, label }) => (
+                <div key={label} className="text-center">
+                  <div className="font-display text-[34px] font-bold leading-none text-[#0B1B3A] md:text-[42px]">
+                    <CountUp target={value} />
+                    <span className="text-[#F59E0B]">{suffix}</span>
+                  </div>
+                  <div className="mx-auto mt-2 max-w-[170px] text-[13px] font-semibold leading-snug text-[#64748B]">{label}</div>
+                </div>
+              ))}
+            </div>
+          </Reveal>
+        </div>
+      </section>
+
       <section id="programs" className="bg-[#F8FAFC] py-14 md:py-16">
         <div className="container-shell text-center">
           <Reveal>
-            <h2 className="text-[26px] font-bold text-[#1e3a5f] md:text-[32px]">Explore Our Main Courses</h2>
+            <span className="section-eyebrow">Programs</span>
+            <h2 className="font-display mt-4 text-[30px] font-bold text-[#0B1B3A] md:text-[40px]">Explore Our Main Courses</h2>
             <p className="mx-auto mt-3 max-w-[700px] text-base leading-[1.6] text-[#6b7280]">
               Discover comprehensive learning paths designed for non-Arabic speakers to master the Quran, Islamic Studies, and Arabic language.
             </p>
@@ -350,7 +413,7 @@ export function MarketingHome() {
             {courseColumns.map((column, columnIndex) => (
               <Reveal key={column.title} delay={columnIndex * 140}>
                 <div className="hover-lift overflow-hidden rounded-2xl border border-[#e5e7eb] bg-white shadow-[0_4px_12px_rgba(0,0,0,0.06)]">
-                  <div className="px-5 py-4 text-base font-bold text-white" style={{ backgroundColor: column.color }}>
+                  <div className="px-5 py-4 text-base font-bold text-white" style={{ background: column.gradient }}>
                     {column.title}
                   </div>
                   <div>
@@ -388,7 +451,8 @@ export function MarketingHome() {
       <section id="pricing" className="bg-[#F7F5F2] py-12 md:py-[52px]">
         <div className="container-shell text-center">
           <Reveal>
-            <h2 className="text-[26px] font-bold text-[#1a1a1a] md:text-[32px]">Transparent & Affordable Rates</h2>
+            <span className="section-eyebrow">Pricing</span>
+            <h2 className="font-display mt-4 text-[30px] font-bold text-[#0B1B3A] md:text-[40px]">Transparent & Affordable Rates</h2>
             <p className="mx-auto mt-3 max-w-[700px] text-base leading-[1.6] text-[#6b6560]">
               Choose the plan that fits your schedule. All prices are informational - contact us to enroll.
             </p>
@@ -403,8 +467,8 @@ export function MarketingHome() {
                   type="button"
                   className={`rounded-full border px-3.5 py-2 text-sm font-semibold transition ${
                     selected
-                      ? "border-[#1e88e5] bg-[#1e88e5] text-white"
-                      : "border-slate-300 bg-white text-slate-700 hover:border-[#1e88e5]"
+                      ? "border-[#1D4ED8] bg-[#1D4ED8] text-white shadow-[0_10px_24px_rgba(29,78,216,0.28)]"
+                      : "border-slate-300 bg-white text-slate-700 hover:border-[#1D4ED8] hover:text-[#1D4ED8]"
                   }`}
                   onClick={() => setHoursPerWeek(hour)}
                 >
@@ -416,7 +480,7 @@ export function MarketingHome() {
 
           <div className="mt-7 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {pricingTracks.map((track, index) => (
-              <Reveal key={track.id} delay={index * 120}>
+              <Reveal key={track.id} delay={index * 120} className="h-full">
                 <PricingCard
                   track={track}
                   hoursPerWeek={hoursPerWeek}
@@ -427,16 +491,21 @@ export function MarketingHome() {
           </div>
 
           <Reveal>
-          <div className="mx-auto mt-10 max-w-4xl rounded-xl border border-[#ffc107] bg-[#fff3cd] p-5">
-            <p className="text-[15px] font-bold text-[#c62828]">
-              Payment must be made at the beginning of each month, not at the end.
-            </p>
-            <p className="mt-2 text-sm leading-[1.5] text-[#374151]">
-              Payment methods: Zelle (646-338-1286), MoneyGram, Bank Transfer, CashApp, or Western Union.
-            </p>
+          <div className="mx-auto mt-10 flex max-w-4xl items-start gap-4 rounded-2xl border border-[#FDE68A] bg-[#FFFBEB] p-5 text-left shadow-[0_10px_30px_rgba(245,158,11,0.08)]">
+            <span className="mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#FEF3C7] text-[#B45309]">
+              <CheckCircle2 size={22} />
+            </span>
+            <div>
+              <p className="text-[15px] font-extrabold text-[#92400E]">
+                Payment is due at the beginning of each month, not at the end.
+              </p>
+              <p className="mt-1.5 text-sm leading-[1.6] text-[#78350F]/80">
+                Payment methods: Zelle (646-338-1286), MoneyGram, Bank Transfer, CashApp, or Western Union.
+              </p>
+            </div>
           </div>
 
-          <div className="mt-4 inline-flex rounded-full bg-[#dbeafe] px-5 py-2.5 text-[13px] font-semibold text-[#1e40af]">
+          <div className="mt-4 inline-flex rounded-full border border-[#BFDBFE] bg-[#EFF6FF] px-5 py-2.5 text-[13px] font-semibold text-[#1e40af]">
             WhatsApp: (+1) 646-872-8590 | alluwalacademy@gmail.com
           </div>
 
@@ -459,10 +528,39 @@ export function MarketingHome() {
         </div>
       </section>
 
+      <section className="bg-white py-14 md:py-16" aria-label="Voices from our community">
+        <div className="container-shell text-center">
+          <Reveal>
+            <span className="section-eyebrow">Community</span>
+            <h2 className="font-display mt-4 text-[30px] font-bold text-[#0B1B3A] md:text-[40px]">Voices from our community</h2>
+            <p className="mx-auto mt-3 max-w-[700px] text-base leading-[1.6] text-[#6b7280]">
+              Real words from the teachers and mentors who show up for your children every day.
+            </p>
+          </Reveal>
+          <div className="mt-9 grid gap-5 text-left md:grid-cols-3">
+            {communityVoices.map(({ quote, name, role }, index) => (
+              <Reveal key={name} delay={index * 130} className="h-full">
+                <figure className="hover-lift flex h-full flex-col rounded-2xl border border-[#E5E7EB] bg-[#F8FAFC] p-6">
+                  <span className="font-display text-[44px] font-bold leading-none text-[#F59E0B]" aria-hidden="true">
+                    “
+                  </span>
+                  <blockquote className="mt-1 flex-1 text-[15px] leading-[1.7] text-[#334155]">{quote}</blockquote>
+                  <figcaption className="mt-5 border-t border-slate-200 pt-4">
+                    <div className="text-sm font-black text-[#0B1B3A]">{name}</div>
+                    <div className="mt-0.5 text-xs font-semibold text-[#64748B]">{role}</div>
+                  </figcaption>
+                </figure>
+              </Reveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
       <section id="about" className="bg-white px-6 py-14">
         <div className="mx-auto max-w-[1200px] text-center">
           <Reveal>
-            <h2 className="text-[32px] font-extrabold leading-tight text-[#111827] md:text-[42px]">
+            <span className="section-eyebrow">Who We Are</span>
+            <h2 className="font-display mt-4 text-[32px] font-bold leading-tight text-[#0B1B3A] md:text-[42px]">
               About Alluwal Education Hub
             </h2>
             <p className="mx-auto mt-4 max-w-[700px] text-[18px] leading-[1.6] text-[#6B7280]">
@@ -480,7 +578,7 @@ export function MarketingHome() {
                   >
                     <Icon size={34} />
                   </span>
-                  <h3 className="mt-7 text-2xl font-extrabold text-[#111827]">{title}</h3>
+                  <h3 className="font-display mt-7 text-2xl font-bold text-[#0B1B3A]">{title}</h3>
                   <p className="mt-4 text-[16px] leading-[1.7] text-[#6B7280]">{body}</p>
                 </article>
               </Reveal>
@@ -502,7 +600,7 @@ export function MarketingHome() {
         <div className="hero-blob right-[-120px] top-[-120px] h-[300px] w-[300px] bg-[#0386ff]/30" aria-hidden="true" />
         <div className="container-shell relative grid gap-6 md:grid-cols-[1fr_auto] md:items-center">
           <Reveal>
-            <h2 className="text-[32px] font-extrabold leading-tight md:text-[42px]">Ready to start learning?</h2>
+            <h2 className="font-display text-[32px] font-bold leading-tight md:text-[42px]">Ready to start learning?</h2>
             <p className="mt-4 max-w-3xl text-lg leading-8 text-white/82">
               Explore our programs and get in touch when you are ready to enroll.
             </p>
@@ -515,6 +613,127 @@ export function MarketingHome() {
         </div>
       </section>
     </>
+  );
+}
+
+function CountUp({ target }: { target: number }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const [value, setValue] = useState(0);
+
+  useEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+    if (
+      typeof IntersectionObserver === "undefined" ||
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    ) {
+      setValue(target);
+      return;
+    }
+    let frame = 0;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting) return;
+        observer.disconnect();
+        const startedAt = performance.now();
+        const durationMs = 1400;
+        const tick = (now: number) => {
+          const progress = Math.min((now - startedAt) / durationMs, 1);
+          const eased = 1 - Math.pow(1 - progress, 3);
+          setValue(Math.round(target * eased));
+          if (progress < 1) frame = requestAnimationFrame(tick);
+        };
+        frame = requestAnimationFrame(tick);
+      },
+      { threshold: 0.4 },
+    );
+    observer.observe(node);
+    return () => {
+      observer.disconnect();
+      cancelAnimationFrame(frame);
+    };
+  }, [target]);
+
+  return <span ref={ref}>{value}</span>;
+}
+
+const classmates = [
+  { initials: "AY", name: "Amina", tint: "linear-gradient(135deg, #F59E0B, #E11D48)", raisedHand: true, muted: false },
+  { initials: "YB", name: "Yusuf", tint: "linear-gradient(135deg, #0EA5E9, #4F46E5)", raisedHand: false, muted: false },
+  { initials: "FD", name: "Fatou", tint: "linear-gradient(135deg, #10B981, #0F766E)", raisedHand: false, muted: true },
+];
+
+function LiveClassCard() {
+  return (
+    <div className="hero-photo-card absolute right-0 top-3 z-20 w-[88%] max-w-[430px] rounded-[26px] border border-white/70 bg-white/85 p-2 shadow-[0_30px_90px_rgba(15,23,42,0.2)] backdrop-blur lg:top-5">
+      <div className="overflow-hidden rounded-[20px] bg-[#0B1B3A]">
+        <div className="flex items-center justify-between border-b border-white/10 px-4 py-2.5">
+          <div className="flex items-center gap-2 text-[12px] font-extrabold tracking-wide text-white">
+            <span className="live-dot" aria-hidden="true" />
+            LIVE · Quran Recitation
+          </div>
+          <span className="text-[11px] font-semibold text-white/60">Level 2 · 4 in class</span>
+        </div>
+
+        <div className="relative mx-3 mt-3 flex h-[128px] items-center justify-center overflow-hidden rounded-2xl bg-[linear-gradient(135deg,#1E3A8A_0%,#1D4ED8_58%,#312E81_100%)] lg:h-[150px]">
+          <div
+            className="absolute inset-0 opacity-40"
+            style={{ background: "radial-gradient(circle at 30% 20%, rgba(255,255,255,0.18), transparent 44%)" }}
+            aria-hidden="true"
+          />
+          <div className="relative">
+            <span className="speaking-ring" aria-hidden="true" />
+            <span className="speaking-ring speaking-ring-two" aria-hidden="true" />
+            <span className="relative flex h-16 w-16 items-center justify-center rounded-full border-2 border-white/70 bg-white/14 text-lg font-black text-white backdrop-blur lg:h-[72px] lg:w-[72px]">
+              UI
+            </span>
+          </div>
+          <div className="absolute bottom-2.5 left-2.5 flex items-center gap-2 rounded-full bg-[#0B1B3A]/70 py-1 pl-2.5 pr-3 backdrop-blur">
+            <span className="flex h-3.5 items-end gap-[2.5px]" aria-hidden="true">
+              <span className="eq-bar h-full" />
+              <span className="eq-bar h-full" />
+              <span className="eq-bar h-full" />
+              <span className="eq-bar h-full" />
+            </span>
+            <span className="text-[11px] font-bold text-white">Ustadh Ibrahim</span>
+          </div>
+          <span className="absolute right-2.5 top-2.5 rounded-full bg-white/16 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.08em] text-white/90 backdrop-blur">
+            Teacher
+          </span>
+        </div>
+
+        <div className="mx-3 mt-2 grid grid-cols-3 gap-2">
+          {classmates.map(({ initials, name, tint, raisedHand, muted }) => (
+            <div key={name} className="relative flex h-[58px] items-center justify-center overflow-hidden rounded-xl lg:h-[64px]" style={{ background: tint }}>
+              <span className="text-sm font-black text-white/95">{initials}</span>
+              <span className="absolute bottom-1 left-1.5 text-[9.5px] font-bold text-white/85">{name}</span>
+              <span className="absolute bottom-1 right-1.5 text-white/80" aria-hidden="true">
+                {muted ? <MicOff size={11} /> : <Mic size={11} />}
+              </span>
+              {raisedHand ? (
+                <span className="absolute right-1 top-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-[#FBBF24] text-[#78350F] shadow">
+                  <Hand size={12} className="hand-wiggle" />
+                </span>
+              ) : null}
+            </div>
+          ))}
+        </div>
+
+        <div className="flex items-center justify-center gap-2.5 px-3 py-3">
+          {[Mic, Video, Hand, MessageSquare].map((Icon, index) => (
+            <span
+              key={index}
+              className={`inline-flex h-9 w-9 items-center justify-center rounded-full ${
+                index === 2 ? "bg-[#FBBF24] text-[#78350F]" : "bg-white/10 text-white/85"
+              }`}
+              aria-hidden="true"
+            >
+              <Icon size={16} />
+            </span>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -576,11 +795,11 @@ function PricingCard({
   );
 
   return (
-    <div className="hover-lift mx-auto flex h-[448px] w-full max-w-[390px] flex-col overflow-hidden rounded-[18px] border border-[#ebe8e3] bg-white text-left shadow-[0_4px_14px_rgba(0,0,0,0.06)]">
+    <div className="hover-lift mx-auto flex h-full min-h-[400px] w-full max-w-[390px] flex-col overflow-hidden rounded-[18px] border border-[#ebe8e3] bg-white text-left shadow-[0_4px_14px_rgba(0,0,0,0.06)]">
       <div className="h-2" style={{ backgroundColor: track.accent }} />
       <div className="flex min-h-0 flex-1 flex-col p-4 pb-2">
         <Icon size={24} style={{ color: track.accent }} />
-        <h3 className="mt-2.5 font-serif text-lg font-bold text-[#111827]">{track.title}</h3>
+        <h3 className="font-display mt-2.5 text-lg font-bold text-[#111827]">{track.title}</h3>
         <p className="mt-1 text-xs font-medium text-[#6b7280]">{track.subtitle}</p>
         <div className="mt-2.5 text-[28px] font-extrabold" style={{ color: track.accent }}>
           ${hourly.toFixed(2)}/hr
@@ -602,7 +821,7 @@ function PricingCard({
             </li>
           ))}
         </ul>
-        <div className="mt-auto text-xs font-semibold text-[#374151]">
+        <div className="mt-auto pt-3 text-xs font-semibold text-[#374151]">
           {hoursPerWeek} hrs x ${hourly.toFixed(2)}/hr x {track.id === "group" ? "4.33" : "4"} weeks ≈ ${monthly.toFixed(0)}/mo
         </div>
       </div>

@@ -22,6 +22,13 @@ jest.mock('firebase-functions/v2/scheduler', () => {
   };
 });
 
+jest.mock('firebase-functions/v2/firestore', () => {
+  const unwrap = (...args) => (typeof args[0] === 'function' ? args[0] : args[1]);
+  return {
+    onDocumentWritten: (...args) => unwrap(...args),
+  };
+});
+
 const stores = {};
 
 const makeTimestamp = (date) => ({
@@ -265,6 +272,8 @@ describe('Zoom handler', () => {
     process.env.ZOOM_SDK_KEY = 'sdk_key';
     process.env.ZOOM_SDK_SECRET = 'sdk_secret';
     delete process.env.ZOOM_CLASSROOM_HOST_ACCOUNTS;
+    delete process.env.ZOOM_HUB_MAX_CLASS_DURATION_MINUTES;
+    delete process.env.ZOOM_HUB_BLOCK_BOUNDARIES;
     for (const key of Object.keys(stores)) stores[key].clear();
     stores.users = new Map();
     stores.teaching_shifts = new Map();
@@ -890,7 +899,7 @@ describe('Zoom handler', () => {
     expect(mockZoomClient.getUserZak).not.toHaveBeenCalled();
   });
 
-  test('prepares all same-block hub rooms plus spares before rooms are opened', async () => {
+  test('prepares all same-segment hub rooms plus spares before rooms are opened', async () => {
     process.env.ZOOM_CLASSROOM_HOST_ACCOUNTS = 'host@example.com';
     const now = Date.now();
     stores.users.set('teacher_1', {
@@ -1079,6 +1088,383 @@ describe('Zoom handler', () => {
     expect(mockZoomClient.updateMeeting).toHaveBeenCalledTimes(updateMeetingCallsAfterOpen);
   });
 
+  test('hands a stale hub join to a healthy active hub spare room', async () => {
+    process.env.ZOOM_CLASSROOM_HOST_ACCOUNTS = 'host-one@example.com,host-two@example.com';
+    const now = Date.now();
+    const start = new Date(now - 5 * 60 * 1000);
+    const end = new Date(now + 170 * 60 * 1000);
+    stores.users.set('teacher_billing', { user_type: 'teacher' });
+    stores.users.set('student_billing', { user_type: 'student' });
+
+    const shiftData = {
+      teacher_id: 'teacher_billing',
+      teacher_name: 'Billing Teacher',
+      student_ids: ['student_billing'],
+      student_names: ['Billing Student'],
+      shift_start: makeTimestamp(start),
+      shift_end: makeTimestamp(end),
+      video_provider: 'zoom',
+      category: 'teaching',
+      custom_name: 'Billing Test',
+      zoom_hub_lane_index: 1,
+    };
+    stores.teaching_shifts.set('billing_shift', shiftData);
+
+    const oldMeta = await zoomHandlers.__test__._hubMetaForShift({
+      shiftId: 'billing_shift',
+      shiftData,
+    });
+    stores.hub_meetings.set(oldMeta.hubDocId, {
+      dayKey: oldMeta.dayKey,
+      blockIndex: oldMeta.blockIndex,
+      laneIndex: oldMeta.laneIndex,
+      lane: oldMeta.lane,
+      hostAccount: oldMeta.hostAccount,
+      status: 'roomsOpen',
+      meetingNumber: 'old_stale_meeting',
+      zoom_meeting_id: 'old_stale_meeting',
+      zoom_password: 'old_pass',
+      window_start: makeTimestamp(new Date(now - 30 * 60 * 1000)),
+      window_end: makeTimestamp(new Date(end.getTime() + 15 * 60 * 1000)),
+      heartbeat_at: makeTimestamp(new Date(now - 10 * 60 * 1000)),
+      rooms: [
+        { shiftId: 'billing_shift', name: 'Spare 1', teacherId: 'teacher_billing', studentIds: ['student_billing'], spare: true },
+        { shiftId: '__spare_2', name: 'Spare 2', teacherId: '', studentIds: [], spare: true },
+        { shiftId: '__spare_3', name: 'Spare 3', teacherId: '', studentIds: [], spare: true },
+        { shiftId: '__spare_4', name: 'Spare 4', teacherId: '', studentIds: [], spare: true },
+        { shiftId: '__spare_5', name: 'Spare 5', teacherId: '', studentIds: [], spare: true },
+      ],
+      spares: {
+        'Spare 1': 'billing_shift',
+        'Spare 2': null,
+        'Spare 3': null,
+        'Spare 4': null,
+        'Spare 5': null,
+      },
+    });
+
+    stores.hub_meetings.set('healthy_hub', {
+      dayKey: oldMeta.dayKey,
+      blockIndex: oldMeta.blockIndex + 1,
+      laneIndex: 0,
+      lane: 1,
+      hostAccount: 'host-one@example.com',
+      status: 'roomsOpen',
+      meetingNumber: 'fresh_meeting',
+      zoom_meeting_id: 'fresh_meeting',
+      zoom_password: 'fresh_pass',
+      window_start: makeTimestamp(new Date(now - 30 * 60 * 1000)),
+      window_end: makeTimestamp(new Date(end.getTime() + 30 * 60 * 1000)),
+      heartbeat_at: makeTimestamp(new Date(now - 30 * 1000)),
+      rooms: [
+        { shiftId: 'other_shift', name: 'Other Room', teacherId: 'other_teacher', studentIds: [] },
+        { shiftId: '__spare_1', name: 'Spare 1', teacherId: '', studentIds: [], spare: true },
+        { shiftId: '__spare_2', name: 'Spare 2', teacherId: '', studentIds: [], spare: true },
+        { shiftId: '__spare_3', name: 'Spare 3', teacherId: '', studentIds: [], spare: true },
+        { shiftId: '__spare_4', name: 'Spare 4', teacherId: '', studentIds: [], spare: true },
+        { shiftId: '__spare_5', name: 'Spare 5', teacherId: '', studentIds: [], spare: true },
+      ],
+      spares: {
+        'Spare 1': null,
+        'Spare 2': null,
+        'Spare 3': null,
+        'Spare 4': null,
+        'Spare 5': null,
+      },
+    });
+
+    const result = await zoomHandlers.getZoomJoinInfo({
+      auth: { uid: 'teacher_billing' },
+      data: { shiftId: 'billing_shift' },
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.routingMode).toBe('hub');
+    expect(result.hubMeetingId).toBe('healthy_hub');
+    expect(result.meetingNumber).toBe('fresh_meeting');
+    expect(result.password).toBe('fresh_pass');
+    expect(result.breakoutRoomName).toBe('Spare 1');
+    expect(result.targetBreakoutRoom).toEqual(
+      expect.objectContaining({ shiftId: 'billing_shift', name: 'Spare 1', spare: true }),
+    );
+    expect(stores.hub_meetings.get('healthy_hub').spares['Spare 1'])
+      .toBe('billing_shift');
+    expect(stores.hub_meetings.get('healthy_hub').rooms).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ shiftId: 'billing_shift', name: 'Spare 1', spare: true }),
+      ]),
+    );
+    expect(stores.teaching_shifts.get('billing_shift')).toEqual(
+      expect.objectContaining({
+        hubMeetingId: 'healthy_hub',
+        hub_meeting_id: 'healthy_hub',
+        zoom_meeting_id: 'fresh_meeting',
+        breakoutRoomName: 'Spare 1',
+        zoom_hub_handoff_from: oldMeta.hubDocId,
+      }),
+    );
+    expect(stores[`hub_meetings/healthy_hub/members`].get(result.customerKey)).toEqual(
+      expect.objectContaining({
+        userId: 'teacher_billing',
+        shiftId: 'billing_shift',
+        role: 'teacher',
+      }),
+    );
+    expect(stores.system_alerts.get(`${oldMeta.hubDocId}_billing_shift_stale_handoff`))
+      .toEqual(expect.objectContaining({ reason: 'stale_hub_handoff', severity: 'warning' }));
+  });
+
+  test('blocks and logs an overlong hub-routed shift on direct Firestore write', async () => {
+    const now = Date.now();
+    stores.teaching_shifts.set('too_long_shift', {
+      teacher_id: 'teacher_long',
+      teacher_name: 'Long Teacher',
+      student_ids: ['student_1'],
+      student_names: ['Student One'],
+      shift_start: makeTimestamp(new Date(now + 30 * 60 * 1000)),
+      shift_end: makeTimestamp(new Date(now + 5 * 60 * 60 * 1000)),
+      video_provider: 'zoom',
+      category: 'teaching',
+      custom_name: 'Too Long Zoom Class',
+    });
+
+    await zoomHandlers.onTeachingShiftWritten({
+      params: { shiftId: 'too_long_shift' },
+      data: {
+        before: { exists: false, data: () => ({}) },
+        after: makeDocSnapshot('teaching_shifts', 'too_long_shift'),
+      },
+    });
+
+    expect(stores.teaching_shifts.get('too_long_shift')).toEqual(
+      expect.objectContaining({
+        zoom_hub_guardrail_blocked: true,
+        zoom_hub_guardrail_reason: 'duration_exceeds_limit',
+        zoomRoutingMode: 'blocked',
+        zoom_routing_mode: 'blocked',
+        zoom_disable_hub_routing: true,
+      }),
+    );
+    expect(stores.system_alerts.get('too_long_shift_zoom_hub_guardrail'))
+      .toEqual(expect.objectContaining({
+        reason: 'zoom_hub_shift_guardrail',
+        severity: 'warning',
+        data: expect.objectContaining({
+          shiftId: 'too_long_shift',
+          guardrailReason: 'duration_exceeds_limit',
+        }),
+      }));
+    expect(mockZoomClient.createMeeting).not.toHaveBeenCalled();
+  });
+
+  test('does not route no-student admin clock-in shifts through Zoom hubs', async () => {
+    const now = Date.now();
+    stores.users.set('admin_teacher', { role: 'admin', user_type: 'admin' });
+    stores.teaching_shifts.set('admin_clock_shift', {
+      teacher_id: 'admin_teacher',
+      teacher_name: 'Admin Teacher',
+      student_ids: [],
+      student_names: [],
+      shift_start: makeTimestamp(new Date(now - 5 * 60 * 1000)),
+      shift_end: makeTimestamp(new Date(now + 7 * 60 * 60 * 1000)),
+      video_provider: 'zoom',
+      category: 'teaching',
+      custom_name: 'Admin clock-in shift',
+    });
+
+    await zoomHandlers.onTeachingShiftWritten({
+      params: { shiftId: 'admin_clock_shift' },
+      data: {
+        before: { exists: false, data: () => ({}) },
+        after: makeDocSnapshot('teaching_shifts', 'admin_clock_shift'),
+      },
+    });
+
+    expect(stores.teaching_shifts.get('admin_clock_shift'))
+      .not.toEqual(expect.objectContaining({
+        zoom_hub_guardrail_blocked: true,
+      }));
+    expect(stores.system_alerts.get('admin_clock_shift_zoom_hub_guardrail'))
+      .toBeUndefined();
+    await expect(zoomHandlers.getZoomJoinInfo({
+      auth: { uid: 'admin_teacher', token: { role: 'admin' } },
+      data: { shiftId: 'admin_clock_shift' },
+    })).rejects.toMatchObject({
+      code: 'failed-precondition',
+      message: expect.stringContaining('clock-in/admin work'),
+    });
+    expect(mockZoomClient.createMeeting).not.toHaveBeenCalled();
+  });
+
+  test('records blocked Zoom shift attempts for admin review', async () => {
+    stores.users.set('admin_1', {
+      role: 'admin',
+      user_type: 'admin',
+      first_name: 'Aisha',
+      last_name: 'Admin',
+      'e-mail': 'admin@example.com',
+    });
+
+    const result = await zoomHandlers.recordZoomHubGuardrailAttempt({
+      auth: { uid: 'admin_1', token: {} },
+      data: {
+        operation: 'create_shift',
+        source: 'create_shift_dialog',
+        message: 'This class is too long for Zoom routing.',
+        shiftAttempt: {
+          teacherId: 'teacher_1',
+          teacherName: 'Teacher One',
+          teacherEmail: 'teacher@example.com',
+          studentIds: ['student_1'],
+          studentNames: ['Student One'],
+          shiftStartIso: '2026-07-09T17:00:00.000Z',
+          shiftEndIso: '2026-07-09T22:00:00.000Z',
+          timezone: 'America/New_York',
+          customName: 'Billing Test',
+          notes: 'Admin typed this before save.',
+        },
+      },
+    });
+
+    expect(result).toEqual(expect.objectContaining({
+      success: true,
+      attemptId: expect.stringContaining('zoom_hub_guardrail_attempt_'),
+    }));
+    expect(stores.system_alerts.get(result.attemptId)).toEqual(
+      expect.objectContaining({
+        type: 'zoom_hub_shift_guardrail',
+        severity: 'warning',
+        reason: 'zoom_hub_shift_guardrail',
+        attemptedByUid: 'admin_1',
+        attemptedByEmail: 'admin@example.com',
+        attemptedByName: 'Aisha Admin',
+        guardrailMessage: 'This class is too long for Zoom routing.',
+        shiftAttempt: expect.objectContaining({
+          teacherId: 'teacher_1',
+          teacherName: 'Teacher One',
+          studentNames: ['Student One'],
+          customName: 'Billing Test',
+          notes: 'Admin typed this before save.',
+        }),
+      }),
+    );
+    expect(stores.admin_notifications.get(result.notificationId)).toEqual(
+      expect.objectContaining({
+        type: 'zoom_hub_shift_guardrail',
+        action_required: true,
+        read: false,
+        systemAlertId: result.systemAlertId,
+        attemptedByUid: 'admin_1',
+      }),
+    );
+  });
+
+  test('rejects join attempts for unsafe hub-routed shift times', async () => {
+    const now = Date.now();
+    stores.users.set('teacher_long', { user_type: 'teacher' });
+    stores.teaching_shifts.set('join_too_long_shift', {
+      teacher_id: 'teacher_long',
+      teacher_name: 'Long Teacher',
+      student_ids: ['student_1'],
+      student_names: ['Student One'],
+      shift_start: makeTimestamp(new Date(now - 5 * 60 * 1000)),
+      shift_end: makeTimestamp(new Date(now + 4 * 60 * 60 * 1000)),
+      video_provider: 'zoom',
+      category: 'teaching',
+      custom_name: 'Join Too Long Zoom Class',
+    });
+
+    await expect(zoomHandlers.getZoomJoinInfo({
+      auth: { uid: 'teacher_long', token: {} },
+      data: { shiftId: 'join_too_long_shift' },
+    })).rejects.toMatchObject({
+      code: 'failed-precondition',
+      message: expect.stringContaining('was not created'),
+    });
+
+    expect(stores.teaching_shifts.get('join_too_long_shift'))
+      .toEqual(expect.objectContaining({ zoom_hub_guardrail_blocked: true }));
+    expect(stores.system_alerts.get('join_too_long_shift_zoom_hub_guardrail'))
+      .toEqual(expect.objectContaining({ reason: 'zoom_hub_shift_guardrail' }));
+    expect(mockZoomClient.createMeeting).not.toHaveBeenCalled();
+  });
+
+  test('allows normal classes that cross a soft routing block boundary', () => {
+    const decision = zoomHandlers.__test__._zoomHubShiftGuardrailDecision({
+      shift_start: makeTimestamp(new Date('2026-07-09T20:30:00.000Z')),
+      shift_end: makeTimestamp(new Date('2026-07-09T22:00:00.000Z')),
+    }, {
+      timezone: 'America/New_York',
+      boundaries: [300, 720, 1020],
+      boundaryLabels: ['05:00', '12:00', '17:00'],
+      concurrentMeetingsPerUser: 1,
+    });
+
+    expect(decision.ok).toBe(true);
+    expect(decision.details.crossesSoftHubBlock).toBe(true);
+  });
+
+  test('plans overlapping cross-boundary classes into one rolling hub segment', async () => {
+    process.env.ZOOM_CLASSROOM_HOST_ACCOUNTS = 'host@example.com';
+    const crossBoundaryShift = {
+      teacher_id: 'teacher_cross',
+      teacher_name: 'Cross Teacher',
+      student_ids: ['student_cross'],
+      student_names: ['Cross Student'],
+      shift_start: makeTimestamp(new Date('2026-07-09T20:00:00.000Z')),
+      shift_end: makeTimestamp(new Date('2026-07-09T21:30:00.000Z')),
+      video_provider: 'zoom',
+      category: 'teaching',
+      custom_name: 'Cross Boundary Class',
+      zoom_hub_lane_index: 0,
+    };
+    const nextBlockShift = {
+      teacher_id: 'teacher_next',
+      teacher_name: 'Next Teacher',
+      student_ids: ['student_next'],
+      student_names: ['Next Student'],
+      shift_start: makeTimestamp(new Date('2026-07-09T21:00:00.000Z')),
+      shift_end: makeTimestamp(new Date('2026-07-09T22:00:00.000Z')),
+      video_provider: 'zoom',
+      category: 'teaching',
+      custom_name: 'Next Block Class',
+      zoom_hub_lane_index: 0,
+    };
+    stores.teaching_shifts.set('cross_shift', crossBoundaryShift);
+    stores.teaching_shifts.set('next_shift', nextBlockShift);
+
+    const crossMeta = await zoomHandlers.__test__._hubMetaForShift({
+      shiftId: 'cross_shift',
+      shiftData: crossBoundaryShift,
+    });
+    const nextMeta = await zoomHandlers.__test__._hubMetaForShift({
+      shiftId: 'next_shift',
+      shiftData: nextBlockShift,
+    });
+    const roomPlan = await zoomHandlers.__test__._buildHubRoomsForBlock({
+      meta: crossMeta,
+      targetShiftId: 'cross_shift',
+      targetShiftData: crossBoundaryShift,
+      hubData: {},
+    });
+
+    expect(crossMeta.hubDocId).toBe(nextMeta.hubDocId);
+    expect(crossMeta.rollingSegment).toBe(true);
+    expect(crossMeta.segmentShiftIds).toEqual(['cross_shift', 'next_shift']);
+    expect(crossMeta.segmentLabel).toBe('16:00-18:00');
+    expect(roomPlan.rooms).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ shiftId: 'cross_shift' }),
+        expect.objectContaining({ shiftId: 'next_shift' }),
+        expect.objectContaining({ shiftId: '__spare_1', spare: true }),
+        expect.objectContaining({ shiftId: '__spare_5', spare: true }),
+      ]),
+    );
+    expect(roomPlan.targetRoom).toEqual(
+      expect.objectContaining({ shiftId: 'cross_shift' }),
+    );
+  });
+
   test('falls back to single Zoom when an open hub has no spare rooms left', async () => {
     process.env.ZOOM_CLASSROOM_HOST_ACCOUNTS = 'host@example.com';
     const now = Date.now();
@@ -1248,6 +1634,284 @@ describe('Zoom handler', () => {
     }));
     expect(mockSendEachForMulticast).toHaveBeenCalledWith(expect.objectContaining({
       tokens: ['admin_token'],
+    }));
+  });
+
+  test('scheduler proactively prepares overflow classes on the alternate lane', async () => {
+    process.env.ZOOM_CLASSROOM_HOST_ACCOUNTS = 'host-one@example.com,host-two@example.com';
+    const now = Date.now();
+    const start = new Date(now + 30 * 60 * 1000);
+    const end = new Date(now + 90 * 60 * 1000);
+    stores.users.set('admin_1', {
+      role: 'admin',
+      email: 'admin@example.com',
+    });
+    addHubLoadShifts({
+      count: 44,
+      laneIndex: 0,
+      start,
+      end,
+      idPrefix: 'sched_overflow',
+    });
+    mockZoomClient.createMeeting
+      .mockResolvedValueOnce({
+        id: 'lane_one_sched_hub',
+        password: 'hub_pass',
+        host_email: 'host-one@example.com',
+        join_url: 'https://zoom.us/j/lane_one_sched_hub?pwd=hub_pass',
+      })
+      .mockResolvedValueOnce({
+        id: 'lane_two_sched_hub',
+        password: 'hub_pass',
+        host_email: 'host-two@example.com',
+        join_url: 'https://zoom.us/j/lane_two_sched_hub?pwd=hub_pass',
+      });
+
+    await zoomHandlers.prepareZoomHubs();
+
+    const hubEntries = Array.from(stores.hub_meetings.entries());
+    const laneOneHub = hubEntries.find(([, data]) => data.hostAccount === 'host-one@example.com');
+    const laneTwoHub = hubEntries.find(([, data]) => data.hostAccount === 'host-two@example.com');
+    const overflowShift = stores.teaching_shifts.get('sched_overflow_43');
+
+    expect(laneOneHub).toBeDefined();
+    expect(laneTwoHub).toBeDefined();
+    expect(laneOneHub[1].rooms).toHaveLength(48);
+    expect(laneOneHub[1].rooms.some((room) => room.shiftId === 'sched_overflow_43')).toBe(false);
+    expect(laneTwoHub[1].rooms).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ shiftId: 'sched_overflow_43' }),
+      ]),
+    );
+    expect(overflowShift.zoom_hub_lane_index).toBe(1);
+    expect(overflowShift.zoom_hub_overflow_from_lane).toBe(0);
+    expect(overflowShift.hubMeetingId).toBe(laneTwoHub[0]);
+    expect(stores.system_alerts.get('sched_overflow_43_spilled_to_lane_2'))
+      .toEqual(expect.objectContaining({ reason: 'spilled_to_other_lane' }));
+  });
+
+  test('admin preflight rejects a new Zoom class that would break hub capacity', async () => {
+    process.env.ZOOM_CLASSROOM_HOST_ACCOUNTS = 'host-one@example.com,host-two@example.com';
+    const now = Date.now();
+    const start = new Date(now + 30 * 60 * 1000);
+    const end = new Date(now + 90 * 60 * 1000);
+    stores.users.set('admin_1', {
+      role: 'admin',
+      first_name: 'Hassimiou',
+      last_name: 'Niane',
+      email: 'cto@example.com',
+      fcmToken: 'cto_token',
+    });
+    addHubLoadShifts({
+      count: 43,
+      laneIndex: 0,
+      start,
+      end,
+      idPrefix: 'preflight_lane0_full',
+    });
+    addHubLoadShifts({
+      count: 43,
+      laneIndex: 1,
+      start,
+      end,
+      idPrefix: 'preflight_lane1_full',
+    });
+
+    await expect(zoomHandlers.validateZoomShiftCapacity({
+      auth: { uid: 'admin_1', token: { role: 'admin' } },
+      data: {
+        operation: 'create_shift',
+        source: 'create_shift_dialog',
+        shiftAttempt: {
+          teacherId: 'teacher_capacity',
+          teacherName: 'Capacity Teacher',
+          studentIds: ['student_capacity'],
+          studentNames: ['Capacity Student'],
+          shiftStartIso: start.toISOString(),
+          shiftEndIso: end.toISOString(),
+          category: 'teaching',
+          videoProvider: 'zoom',
+          customName: 'Capacity Breaking Class',
+        },
+      },
+    })).rejects.toMatchObject({
+      code: 'failed-precondition',
+      message: expect.stringContaining('Zoom hub'),
+    });
+
+    const attempts = Array.from(stores.system_alerts.values())
+      .filter((item) =>
+        item.type === 'zoom_hub_shift_guardrail' &&
+        item.reason === 'room_cap_exceeded');
+    expect(attempts).toHaveLength(1);
+    expect(attempts[0]).toEqual(expect.objectContaining({
+      attemptedByName: 'Hassimiou Niane',
+      guardrailMessage: expect.stringContaining('safe limit is 48'),
+    }));
+    expect(mockSendMail).toHaveBeenCalledWith(expect.objectContaining({
+      to: 'cto@example.com',
+      subject: 'Zoom class blocked by routing guardrail',
+    }));
+    expect(mockSendEachForMulticast).toHaveBeenCalledWith(expect.objectContaining({
+      tokens: ['cto_token'],
+    }));
+  });
+
+  test('direct Firestore write of a capacity-breaking Zoom class is quarantined', async () => {
+    process.env.ZOOM_CLASSROOM_HOST_ACCOUNTS = 'host-one@example.com,host-two@example.com';
+    const now = Date.now();
+    const start = new Date(now + 30 * 60 * 1000);
+    const end = new Date(now + 90 * 60 * 1000);
+    stores.users.set('admin_1', { role: 'admin', email: 'admin@example.com' });
+    addHubLoadShifts({
+      count: 43,
+      laneIndex: 0,
+      start,
+      end,
+      idPrefix: 'direct_lane0_full',
+    });
+    addHubLoadShifts({
+      count: 43,
+      laneIndex: 1,
+      start,
+      end,
+      idPrefix: 'direct_lane1_full',
+    });
+    stores.teaching_shifts.set('zz_capacity_breaking_shift', {
+      teacher_id: 'teacher_capacity',
+      teacher_name: 'Capacity Teacher',
+      student_ids: ['student_capacity'],
+      student_names: ['Capacity Student'],
+      shift_start: makeTimestamp(start),
+      shift_end: makeTimestamp(end),
+      video_provider: 'zoom',
+      category: 'teaching',
+      custom_name: 'Direct Capacity Breaking Class',
+    });
+
+    await zoomHandlers.onTeachingShiftWritten({
+      params: { shiftId: 'zz_capacity_breaking_shift' },
+      data: {
+        before: { exists: false, data: () => ({}) },
+        after: makeDocSnapshot('teaching_shifts', 'zz_capacity_breaking_shift'),
+      },
+    });
+
+    expect(stores.teaching_shifts.get('zz_capacity_breaking_shift')).toEqual(
+      expect.objectContaining({
+        zoom_hub_guardrail_blocked: true,
+        zoom_hub_guardrail_reason: 'room_cap_exceeded',
+        zoomRoutingMode: 'blocked',
+        zoom_disable_hub_routing: true,
+      }),
+    );
+    expect(stores.system_alerts.get('zz_capacity_breaking_shift_zoom_hub_guardrail'))
+      .toEqual(expect.objectContaining({
+        reason: 'zoom_hub_shift_guardrail',
+        data: expect.objectContaining({
+          guardrailReason: 'room_cap_exceeded',
+        }),
+      }));
+    expect(mockZoomClient.createMeeting).not.toHaveBeenCalled();
+  });
+
+  test('daily capacity forecast stays hidden when future Zoom schedule is safe', async () => {
+    process.env.ZOOM_CLASSROOM_HOST_ACCOUNTS = 'host-one@example.com,host-two@example.com';
+    const now = Date.now();
+    stores.users.set('admin_1', {
+      role: 'admin',
+      email: 'admin@example.com',
+    });
+    stores.teaching_shifts.set('safe_future_zoom_shift', {
+      teacher_id: 'teacher_safe',
+      teacher_name: 'Safe Teacher',
+      student_ids: ['student_safe'],
+      student_names: ['Safe Student'],
+      shift_start: makeTimestamp(new Date(now + 24 * 60 * 60 * 1000)),
+      shift_end: makeTimestamp(new Date(now + 25 * 60 * 60 * 1000)),
+      video_provider: 'zoom',
+      category: 'teaching',
+      custom_name: 'Safe Future Class',
+      zoom_hub_lane_index: 0,
+    });
+
+    await zoomHandlers.watchZoomHubCapacityForecast();
+
+    expect(stores.admin_notifications.get('zoom_hub_daily_capacity_forecast'))
+      .toEqual(expect.objectContaining({
+        type: 'zoom_hub_capacity_forecast',
+        resolved: true,
+        open: false,
+        read: true,
+      }));
+    expect(mockSendMail).not.toHaveBeenCalled();
+  });
+
+  test('daily capacity forecast writes a notification when future Zoom schedule breaks capacity', async () => {
+    process.env.ZOOM_CLASSROOM_HOST_ACCOUNTS = 'host-one@example.com,host-two@example.com';
+    const now = Date.now();
+    const start = new Date(now + 24 * 60 * 60 * 1000);
+    const end = new Date(now + 25 * 60 * 60 * 1000);
+    stores.users.set('admin_1', {
+      role: 'admin',
+      first_name: 'Hassimiou',
+      last_name: 'Niane',
+      email: 'cto@example.com',
+      fcmToken: 'cto_token',
+    });
+    addHubLoadShifts({
+      count: 43,
+      laneIndex: 0,
+      start,
+      end,
+      idPrefix: 'forecast_lane0_full',
+    });
+    addHubLoadShifts({
+      count: 43,
+      laneIndex: 1,
+      start,
+      end,
+      idPrefix: 'forecast_lane1_full',
+    });
+    stores.teaching_shifts.set('forecast_capacity_breaking_shift', {
+      teacher_id: 'teacher_forecast',
+      teacher_name: 'Forecast Teacher',
+      student_ids: ['student_forecast'],
+      student_names: ['Forecast Student'],
+      shift_start: makeTimestamp(start),
+      shift_end: makeTimestamp(end),
+      video_provider: 'zoom',
+      category: 'teaching',
+      custom_name: 'Forecast Breaking Class',
+      zoom_hub_lane_index: 0,
+    });
+
+    await zoomHandlers.watchZoomHubCapacityForecast();
+
+    const notification = stores.admin_notifications.get('zoom_hub_daily_capacity_forecast');
+    expect(notification).toEqual(expect.objectContaining({
+      type: 'zoom_hub_capacity_forecast',
+      resolved: false,
+      open: true,
+      action_required: true,
+      problemCount: expect.any(Number),
+      title: 'Zoom schedule risk detected',
+    }));
+    expect(notification.problemCount).toBeGreaterThan(0);
+    expect(notification.problems).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: 'unsafe_segment',
+          reasons: expect.arrayContaining(['room_cap_exceeded']),
+        }),
+      ]),
+    );
+    expect(mockSendMail).toHaveBeenCalledWith(expect.objectContaining({
+      to: 'cto@example.com',
+      subject: 'Zoom schedule risk detected',
+    }));
+    expect(mockSendEachForMulticast).toHaveBeenCalledWith(expect.objectContaining({
+      tokens: ['cto_token'],
     }));
   });
 
@@ -1439,6 +2103,17 @@ describe('Zoom handler', () => {
         hubDocId: 'hub_1',
         status: 'roomsOpen',
         boIdByRoomName: { 'Room One': 'bo_1' },
+        liveParticipantsByShift: {
+          shift_1: [
+            {
+              identity: 'student_1',
+              routingUid: 'zh_student_1',
+              zoomUserId: 1234,
+              name: 'Student One',
+              role: 'student',
+            },
+          ],
+        },
         stats: { routedCount: 2 },
       },
       headers: { 'x-bot-key': 'bot-key' },
@@ -1452,6 +2127,28 @@ describe('Zoom handler', () => {
         bot_status: 'roomsOpen',
         boIdByRoomName: { 'Room One': 'bo_1' },
         bo_id_by_room_name: { 'Room One': 'bo_1' },
+        liveParticipantsByShift: {
+          shift_1: [
+            expect.objectContaining({
+              identity: 'student_1',
+              routingUid: 'zh_student_1',
+              name: 'Student One',
+              role: 'student',
+              source: 'zoom_hub_bot',
+            }),
+          ],
+        },
+        live_participants_by_shift: {
+          shift_1: [
+            expect.objectContaining({
+              identity: 'student_1',
+              routing_uid: 'zh_student_1',
+              name: 'Student One',
+              role: 'student',
+              source: 'zoom_hub_bot',
+            }),
+          ],
+        },
         stats: { routedCount: 2 },
       }),
     );
@@ -1582,7 +2279,7 @@ describe('Zoom handler', () => {
       targetMemberCount: 3,
       scheduledClassCount: 1,
       lastRoutingActionCount: 1,
-      openIncidentCount: 1,
+      openIncidentCount: 0,
     }));
     expect(result.hubs).toEqual([
       expect.objectContaining({
@@ -1618,10 +2315,58 @@ describe('Zoom handler', () => {
     expect(result.incidents[0]).toEqual(expect.objectContaining({
       id: 'hub_1_heartbeat_stale',
       reason: 'heartbeat_stale',
-      open: true,
+      open: false,
       hubDocId: 'hub_1',
       lane: 2,
     }));
+    expect(stores.system_alerts.get('hub_1_heartbeat_stale')).toEqual(
+      expect.objectContaining({
+        resolved: true,
+        status: 'resolved',
+        auto_resolved: true,
+        auto_resolved_reason: 'hub_recovered_or_window_closed',
+      }),
+    );
+  });
+
+  test('admin routing status keeps a current unhealthy hub alert open', async () => {
+    const now = Date.now();
+    stores.users.set('admin_1', { role: 'admin', email: 'admin@example.com' });
+    stores.hub_meetings.set('hub_1', {
+      lane: 2,
+      blockIndex: 3,
+      meetingNumber: 'hub_meeting',
+      hostAccount: 'support@example.com',
+      status: 'joined',
+      bot_status: 'joined',
+      window_start: makeTimestamp(new Date(now - 20 * 60 * 1000)),
+      window_end: makeTimestamp(new Date(now + 60 * 60 * 1000)),
+      heartbeat_at: makeTimestamp(new Date(now - 10 * 1000)),
+      rooms: [],
+      stats: {},
+    });
+    stores.system_alerts.set('hub_1_rooms_not_open', {
+      type: 'zoom_hub',
+      severity: 'critical',
+      reason: 'rooms_not_open',
+      title: 'Critical Zoom hub rooms are not open',
+      created_at: makeTimestamp(new Date(now - 5 * 60 * 1000)),
+      data: { hubDocId: 'hub_1', lane: 2 },
+    });
+
+    const result = await zoomHandlers.getZoomHubRoutingStatus({
+      auth: { uid: 'admin_1', token: { role: 'admin' } },
+      data: {},
+    });
+
+    expect(result.totals.openIncidentCount).toBe(1);
+    expect(result.incidents[0]).toEqual(expect.objectContaining({
+      id: 'hub_1_rooms_not_open',
+      reason: 'rooms_not_open',
+      open: true,
+      hubDocId: 'hub_1',
+    }));
+    expect(stores.system_alerts.get('hub_1_rooms_not_open')).not.toHaveProperty('resolved');
   });
 
   test('routing status is admin-only', async () => {
@@ -1675,6 +2420,45 @@ describe('Zoom handler', () => {
     expect(mockSendEachForMulticast).toHaveBeenCalledWith(expect.objectContaining({
       tokens: ['admin_token'],
     }));
+  });
+
+  test('bot watcher auto-resolves recovered hub alerts', async () => {
+    const now = Date.now();
+    stores.hub_meetings.set('recovered_hub', {
+      lane: 1,
+      status: 'roomsOpen',
+      bot_status: 'roomsOpen',
+      meetingNumber: 'hub_meeting',
+      window_start: makeTimestamp(new Date(now - 5 * 60 * 1000)),
+      window_end: makeTimestamp(new Date(now + 55 * 60 * 1000)),
+      heartbeat_at: makeTimestamp(new Date(now - 10 * 1000)),
+      stats: {
+        liveRoomCount: 2,
+        targetMemberCount: 1,
+        inRoomOccupants: 1,
+      },
+    });
+    stores.system_alerts.set('recovered_hub_rooms_not_open', {
+      type: 'zoom_hub',
+      severity: 'critical',
+      reason: 'rooms_not_open',
+      title: 'Critical Zoom hub rooms are not open',
+      created_at: makeTimestamp(new Date(now - 20 * 60 * 1000)),
+      data: { hubDocId: 'recovered_hub', lane: 1 },
+    });
+
+    await zoomHandlers.watchZoomHubBots();
+
+    expect(stores.system_alerts.get('recovered_hub_rooms_not_open')).toEqual(
+      expect.objectContaining({
+        resolved: true,
+        status: 'resolved',
+        auto_resolved: true,
+        auto_resolved_reason: 'hub_recovered_or_window_closed',
+      }),
+    );
+    expect(mockSendMail).not.toHaveBeenCalled();
+    expect(mockSendEachForMulticast).not.toHaveBeenCalled();
   });
 
   test('bot watcher auto-resets a poisoned hub whose live breakout list is empty', async () => {
@@ -2753,7 +3537,7 @@ describe('Zoom handler', () => {
     expect(_hubWindowExceedsSafeZoomLifetime(longWindow)).toBe(true);
   });
 
-  test('isolates an overlong class instead of stretching a shared hub past Zoom lifetime', async () => {
+  test('blocks an overlong class instead of stretching a shared hub past Zoom lifetime', async () => {
     const now = Date.now();
     stores.users.set('long_teacher', {
       user_type: 'teacher',
@@ -2771,22 +3555,18 @@ describe('Zoom handler', () => {
       custom_name: 'Overlong Zoom Class',
     });
 
-    const result = await zoomHandlers.getZoomJoinInfo({
+    await expect(zoomHandlers.getZoomJoinInfo({
       auth: { uid: 'long_teacher', token: {} },
       data: { shiftId: 'long_shift' },
+    })).rejects.toMatchObject({
+      code: 'failed-precondition',
+      message: expect.stringContaining('was not created'),
     });
 
-    expect(result.routingMode).toBe('single');
-    expect(result.hubMeetingId).toBeNull();
     expect(stores.teaching_shifts.get('long_shift').zoom_disable_hub_routing)
       .toBe(true);
-    expect(stores.teaching_shifts.get('long_shift').zoom_hub_fallback_reason)
-      .toBe('hub_window_exceeds_zoom_lifetime');
-    expect(mockZoomClient.createMeeting).toHaveBeenCalledWith(
-      'teacher-host@example.com',
-      expect.objectContaining({
-        topic: 'Overlong Zoom Class',
-      }),
-    );
+    expect(stores.teaching_shifts.get('long_shift').zoom_hub_guardrail_reason)
+      .toBe('duration_exceeds_limit');
+    expect(mockZoomClient.createMeeting).not.toHaveBeenCalled();
   });
 });

@@ -101,3 +101,4 @@ packages/flutter_zoom_meeting_wrapper/ios/Frameworks/*.bundle/
 ios/build/
 
 # Android Studio will place build artifacts here
+releases/

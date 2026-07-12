@@ -55,6 +55,59 @@ const _roomList = (rawRooms) =>
     }))
     .filter((room) => room.name);
 
+const _safeText = (value, maxLength = 160) =>
+  String(value || '').replace(/\s+/g, ' ').trim().slice(0, maxLength);
+
+const _safeNumberOrNull = (value) => {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+};
+
+const _sanitizeLiveParticipantsByShift = (raw) => {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+  const result = {};
+  for (const [rawShiftId, rawParticipants] of Object.entries(raw).slice(0, 120)) {
+    const shiftId = _safeText(rawShiftId, 180);
+    if (!shiftId || !Array.isArray(rawParticipants)) continue;
+    const participants = [];
+    for (const participant of rawParticipants.slice(0, 40)) {
+      if (!participant || typeof participant !== 'object') continue;
+      const identity = _safeText(
+        participant.identity || participant.userId || participant.user_id,
+        180,
+      );
+      const routingUid = _safeText(
+        participant.routingUid || participant.routing_uid || participant.uid,
+        180,
+      );
+      const name = _safeText(
+        participant.name ||
+        participant.displayName ||
+        participant.display_name ||
+        'Participant',
+        120,
+      ) || 'Participant';
+      const role = _safeText(participant.role || 'participant', 40) || 'participant';
+      const zoomUserId = _safeNumberOrNull(
+        participant.zoomUserId || participant.zoom_user_id || participant.zoomParticipantId,
+      );
+      if (!identity && !routingUid && !name) continue;
+      participants.push({
+        identity,
+        routingUid,
+        routing_uid: routingUid,
+        zoomUserId,
+        zoom_user_id: zoomUserId,
+        name,
+        role,
+        source: 'zoom_hub_bot',
+      });
+    }
+    result[shiftId] = participants;
+  }
+  return result;
+};
+
 const _hubIsActive = (hubData, now) => {
   const start = _toDate(hubData.window_start || hubData.windowStart);
   const end = _toDate(hubData.window_end || hubData.windowEnd);
@@ -245,6 +298,9 @@ const zoomHubBotAssignments = onRequest({
           .filter(Boolean);
         return {
           uid: String(data.uid || doc.id || '').trim(),
+          ...(String(data.userId || data.user_id || '').trim()
+            ? { userId: String(data.userId || data.user_id || '').trim() }
+            : {}),
           shiftId: String(data.shiftId || data.shift_id || '').trim(),
           role: String(data.role || '').trim(),
           ...(displayName ? { displayName } : {}),
@@ -307,6 +363,18 @@ const zoomHubBotState = onRequest({
     const hasRoomIds = boIdByRoomName &&
       typeof boIdByRoomName === 'object' &&
       Object.keys(boIdByRoomName).length > 0;
+    const liveParticipantsProvided = Object.prototype.hasOwnProperty.call(
+      req.body || {},
+      'liveParticipantsByShift',
+    ) || Object.prototype.hasOwnProperty.call(
+      req.body || {},
+      'live_participants_by_shift',
+    );
+    const liveParticipantsByShift = liveParticipantsProvided
+      ? _sanitizeLiveParticipantsByShift(
+        req.body?.liveParticipantsByShift || req.body?.live_participants_by_shift,
+      )
+      : null;
     const nextData = {
       status,
       bot_status: status,
@@ -319,6 +387,12 @@ const zoomHubBotState = onRequest({
     if (hasRoomIds) {
       nextData.boIdByRoomName = boIdByRoomName;
       nextData.bo_id_by_room_name = boIdByRoomName;
+    }
+    if (liveParticipantsProvided || status === 'left') {
+      nextData.liveParticipantsByShift = status === 'left' ? {} : liveParticipantsByShift;
+      nextData.live_participants_by_shift = status === 'left' ? {} : liveParticipantsByShift;
+      nextData.liveParticipantsUpdatedAt = admin.firestore.FieldValue.serverTimestamp();
+      nextData.live_participants_updated_at = admin.firestore.FieldValue.serverTimestamp();
     }
     await ref.set({
       ...nextData,
@@ -370,6 +444,7 @@ module.exports = {
     _botAuthorized,
     _hubIsActive,
     _roomList,
+    _sanitizeLiveParticipantsByShift,
     _selectPrimaryActiveHub,
     _hubInRoomOccupants,
   },

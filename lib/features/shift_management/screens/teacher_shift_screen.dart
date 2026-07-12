@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../dashboard/widgets/date_strip_calendar.dart';
 import '../../dashboard/widgets/timeline_shift_card.dart';
 import 'package:alluwalacademyadmin/features/shift_management/models/teaching_shift.dart';
+import 'package:alluwalacademyadmin/features/shift_management/enums/shift_enums.dart';
 import 'package:alluwalacademyadmin/features/shift_management/services/shift_service.dart';
 import 'package:alluwalacademyadmin/features/time_clock/services/shift_timesheet_service.dart';
 import 'package:alluwalacademyadmin/features/shift_management/services/location_service.dart';
@@ -378,6 +379,8 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
         }
       }
 
+      if (!mounted) return;
+
       if (location == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -396,14 +399,21 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
         platform: 'mobile',
       );
 
+      if (!mounted) return;
+
       if (result['success'] == true) {
-        // Clear programmed state on success
-        if (mounted) {
-          setState(() {
-            _programmedShiftId = null;
-            _timeUntilAutoStart = "";
-          });
-        }
+        final now = DateTime.now();
+        final activeShift = shift.copyWith(
+          clockInTime: now,
+          clockOutTime: null,
+          status: ShiftStatus.active,
+        );
+
+        setState(() {
+          _programmedShiftId = null;
+          _timeUntilAutoStart = "";
+          _replaceShift(activeShift);
+        });
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -433,6 +443,7 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
       }
     } catch (e) {
       AppLogger.error('Error clocking in: $e');
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(AppLocalizations.of(context)!.errorE),
@@ -441,12 +452,91 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
       );
 
       // Clear programmed state on error
-      if (mounted) {
-        setState(() {
-          _programmedShiftId = null;
-          _timeUntilAutoStart = "";
-        });
+      setState(() {
+        _programmedShiftId = null;
+        _timeUntilAutoStart = "";
+      });
+    }
+  }
+
+  Future<void> _handleClockOut(TeachingShift shift) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content:
+                Text(AppLocalizations.of(context)!.clockInNotAuthenticated),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
       }
+
+      LocationData? location;
+      try {
+        location = await LocationService.getCurrentLocation()
+            .timeout(const Duration(seconds: 15));
+      } catch (e) {
+        AppLogger.error('Location error during clock-out: $e');
+      }
+
+      if (!mounted) return;
+
+      if (location == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(AppLocalizations.of(context)!.clockInLocationError),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      final result = await ShiftTimesheetService.clockOutFromShift(
+        user.uid,
+        shift.id,
+        location: location,
+        platform: 'mobile',
+      );
+
+      if (!mounted) return;
+
+      if (result['success'] == true) {
+        final now = DateTime.now();
+        setState(() {
+          _replaceShift(shift.copyWith(
+            clockOutTime: now,
+            status: ShiftStatus.active,
+          ));
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result['message'] ??
+                AppLocalizations.of(context)!.clockOutSuccess),
+            backgroundColor: Colors.green,
+          ),
+        );
+        _setupShiftStream();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result['message'] ??
+                AppLocalizations.of(context)!.clockOutFailed),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      AppLogger.error('Error clocking out: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(AppLocalizations.of(context)!.clockOutFailed),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
@@ -461,6 +551,20 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
         },
       ),
     );
+  }
+
+  void _replaceShift(TeachingShift updatedShift) {
+    final allIndex =
+        _allShifts.indexWhere((shift) => shift.id == updatedShift.id);
+    if (allIndex != -1) {
+      _allShifts[allIndex] = updatedShift;
+    }
+
+    final dailyIndex =
+        _dailyShifts.indexWhere((shift) => shift.id == updatedShift.id);
+    if (dailyIndex != -1) {
+      _dailyShifts[dailyIndex] = updatedShift;
+    }
   }
 
   void _showScheduleIssueDialog() {
@@ -802,6 +906,7 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
                           isLast: index == _dailyShifts.length - 1,
                           onTap: () => _showShiftDetails(shift),
                           onClockIn: () => _handleClockIn(shift),
+                          onClockOut: () => _handleClockOut(shift),
                           onCancelProgram: isThisShiftProgrammed
                               ? _cancelProgrammedClockIn
                               : null,

@@ -47,11 +47,13 @@ jest.mock('../services/realtimekit/client', () => mockRealtimeKitClient);
 let mockUsers;
 let mockShifts;
 let mockLivekitSessions;
+let mockHubMeetings;
 
 const mockStoreForCollection = (collectionName) => {
   if (collectionName === 'users') return mockUsers;
   if (collectionName === 'teaching_shifts') return mockShifts;
   if (collectionName === 'livekit_sessions') return mockLivekitSessions;
+  if (collectionName === 'hub_meetings') return mockHubMeetings;
   return {};
 };
 
@@ -209,6 +211,7 @@ describe('RealtimeKit class access', () => {
     };
     mockUsers.student_1.guardian_ids = ['parent_1'];
     mockLivekitSessions = {};
+    mockHubMeetings = {};
     mockShifts = {
       shift_1: {
         teacher_id: 'teacher_1',
@@ -849,6 +852,57 @@ describe('RealtimeKit class access', () => {
     ]));
     expect(result.participants).not.toEqual(expect.arrayContaining([
       expect.objectContaining({ identity: 'zoom_hub_bot_lane_1' }),
+    ]));
+    expect(mockRealtimeKitClient.listMeetingParticipants).not.toHaveBeenCalled();
+  });
+
+  test('presence prefers fresh Zoom hub bot roster over stale webhook sessions', async () => {
+    const joinedAt = {
+      toDate: () => new Date('2026-01-01T00:00:00.000Z'),
+    };
+    mockShifts.shift_1.video_provider = 'zoom';
+    mockShifts.shift_1.zoom_meeting_id = '987654321';
+    mockShifts.shift_1.hub_meeting_id = 'hub_1';
+    mockLivekitSessions = {
+      session_teacher: {
+        shift_id: 'shift_1',
+        user_id: 'teacher_1',
+        role: 'teacher',
+        zoom_participant_name: 'Teacher One',
+        presence_windows: [{ join_at: joinedAt, leave_at: null }],
+      },
+      session_student_closed: {
+        shift_id: 'shift_1',
+        user_id: 'student_1',
+        role: 'student',
+        zoom_participant_name: 'Student One',
+        presence_windows: [{ join_at: joinedAt, leave_at: joinedAt }],
+      },
+    };
+    mockHubMeetings = {
+      hub_1: {
+        status: 'roomsOpen',
+        liveParticipantsUpdatedAt: { toDate: () => new Date() },
+        liveParticipantsByShift: {
+          shift_1: [
+            { identity: 'teacher_1', name: 'Teacher One', role: 'teacher' },
+            { identity: 'student_1', name: 'Student One', role: 'student' },
+          ],
+        },
+      },
+    };
+
+    const result = await getRealtimeKitRoomPresence({
+      auth: { uid: 'admin_1' },
+      data: { shiftId: 'shift_1' },
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.source).toBe('zoom_hub_bot');
+    expect(result.participantCount).toBe(2);
+    expect(result.participants).toEqual(expect.arrayContaining([
+      expect.objectContaining({ identity: 'teacher_1', role: 'teacher' }),
+      expect.objectContaining({ identity: 'student_1', role: 'student' }),
     ]));
     expect(mockRealtimeKitClient.listMeetingParticipants).not.toHaveBeenCalled();
   });

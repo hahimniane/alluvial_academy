@@ -254,6 +254,120 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
         _videoProviderForTeacher(_selectedTeacherFromList(teachers));
   }
 
+  String _employeeName(Employee employee) {
+    final name = '${employee.firstName} ${employee.lastName}'.trim();
+    return name.isNotEmpty ? name : employee.email;
+  }
+
+  Employee? _selectedTeacherRecord() {
+    final selected = _selectedTeacherId?.toLowerCase().trim();
+    if (selected == null || selected.isEmpty) return null;
+    for (final employee in [..._availableTeachers, ..._availableLeaders]) {
+      if (employee.email.toLowerCase().trim() == selected ||
+          employee.documentId.toLowerCase().trim() == selected) {
+        return employee;
+      }
+    }
+    return null;
+  }
+
+  Map<String, dynamic> _zoomHubGuardrailShiftAttempt({
+    required String operation,
+    String? existingShiftId,
+    required String teacherId,
+    required String teacherName,
+    required List<String> studentIds,
+    required List<String> studentNames,
+    required DateTime shiftStart,
+    required DateTime shiftEnd,
+    required DateTime localStart,
+    required DateTime localEnd,
+    Subject? selectedSubject,
+  }) {
+    final teacherRecord = _selectedTeacherRecord();
+    final notes = _notesController.text.trim();
+    final customName = _customNameController.text.trim();
+
+    return {
+      'operation': operation,
+      'source': 'create_shift_dialog',
+      'existingShiftId': existingShiftId,
+      'teacherId': teacherId,
+      'teacherEmail': _selectedTeacherId,
+      'teacherName': teacherName.trim().isNotEmpty ? teacherName.trim() : null,
+      'selectedTeacherName':
+          teacherRecord != null ? _employeeName(teacherRecord) : null,
+      'studentIds': studentIds,
+      'studentNames': studentNames,
+      'shiftStartIso': shiftStart.toUtc().toIso8601String(),
+      'shiftEndIso': shiftEnd.toUtc().toIso8601String(),
+      'localStartIso': localStart.toIso8601String(),
+      'localEndIso': localEnd.toIso8601String(),
+      'timezone': _selectedTimezone,
+      'adminTimezone': _adminTimezone,
+      'category': _selectedCategory.name,
+      'videoProvider': _selectedVideoProvider.name,
+      'subjectId': _selectedSubjectId,
+      'subjectName': selectedSubject?.name,
+      'subjectDisplayName': selectedSubject?.displayName,
+      'customName': _useCustomName && customName.isNotEmpty ? customName : null,
+      'notes': notes.isNotEmpty ? notes : null,
+      'recurrence': _recurrence.name,
+      'enhancedRecurrenceType': _enhancedRecurrence.type.name,
+      'recurrenceEndDateIso': _recurrenceEndDate?.toIso8601String(),
+      'useDifferentTimesPerDay': _useDifferentTimesPerDay,
+      'perDayTimeSlots': _perDayTimeSlots.map(
+        (day, slot) => MapEntry(day.name, slot.toFirestore()),
+      ),
+      'hourlyRate': _customHourlyRate,
+      'leaderRole': _selectedLeaderRole,
+    }..removeWhere((_, value) => value == null);
+  }
+
+  Future<void> _recordAndThrowIfZoomHubGuardrailBlocked({
+    required String operation,
+    String? existingShiftId,
+    required String teacherId,
+    required String teacherName,
+    required List<String> studentIds,
+    required List<String> studentNames,
+    required DateTime shiftStart,
+    required DateTime shiftEnd,
+    required DateTime localStart,
+    required DateTime localEnd,
+    Subject? selectedSubject,
+  }) async {
+    final message = ShiftService.zoomHubShiftTimingGuardrailMessage(
+      shiftStart: shiftStart,
+      shiftEnd: shiftEnd,
+      adminTimezone: _selectedTimezone,
+      category: _selectedCategory,
+      videoProvider: _selectedVideoProvider,
+    );
+    if (message == null) return;
+
+    await ShiftService.recordZoomHubGuardrailAttempt(
+      operation: operation,
+      source: 'create_shift_dialog',
+      existingShiftId: existingShiftId,
+      message: message,
+      shiftAttempt: _zoomHubGuardrailShiftAttempt(
+        operation: operation,
+        existingShiftId: existingShiftId,
+        teacherId: teacherId,
+        teacherName: teacherName,
+        studentIds: studentIds,
+        studentNames: studentNames,
+        shiftStart: shiftStart,
+        shiftEnd: shiftEnd,
+        localStart: localStart,
+        localEnd: localEnd,
+        selectedSubject: selectedSubject,
+      ),
+    );
+    throw ShiftGuardrailException(message);
+  }
+
   Future<void> _loadAvailableUsers() async {
     try {
       AppLogger.debug('CreateShiftDialog: Loading available users...');
@@ -3411,6 +3525,10 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
         }
 
         final teacherUid = teacherSnapshot.docs.first.id;
+        final teacherData = teacherSnapshot.docs.first.data();
+        final teacherName =
+            '${teacherData['first_name'] ?? ''} ${teacherData['last_name'] ?? ''}'
+                .trim();
 
         final studentUids = _selectedCategory == ShiftCategory.teaching
             ? _selectedStudentIds.toList(growable: false)
@@ -3466,6 +3584,19 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                 orElse: () => _availableSubjects.first,
               )
             : null;
+
+        await _recordAndThrowIfZoomHubGuardrailBlocked(
+          operation: 'create_shift',
+          teacherId: teacherUid,
+          teacherName: teacherName,
+          studentIds: studentUids,
+          studentNames: studentNames,
+          shiftStart: shiftStart,
+          shiftEnd: shiftEnd,
+          localStart: naiveStart,
+          localEnd: naiveEnd,
+          selectedSubject: selectedSubject,
+        );
 
         // Create new shift
         await ShiftService.createShift(
@@ -3595,6 +3726,20 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
           teacherName: teacherName,
           subject: _mapSubjectToEnum(selectedSubject?.name ?? 'quran_studies'),
           studentNames: studentNames,
+        );
+
+        await _recordAndThrowIfZoomHubGuardrailBlocked(
+          operation: 'update_shift',
+          existingShiftId: widget.shift!.id,
+          teacherId: teacherUid,
+          teacherName: teacherName,
+          studentIds: studentUids,
+          studentNames: studentNames,
+          shiftStart: shiftStart,
+          shiftEnd: shiftEnd,
+          localStart: naiveStart,
+          localEnd: naiveEnd,
+          selectedSubject: selectedSubject,
         );
 
         final updatedShift = widget.shift!.copyWith(

@@ -607,9 +607,8 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
     // Check if there's an active timesheet entry (has clock-in but no clock-out)
     for (final entry in _allTimesheetEntries) {
       final clockIn = entry['clock_in_time'] ?? entry['clock_in_timestamp'];
-      final clockOut = entry['clock_out_time'] ?? entry['clock_out_timestamp'];
 
-      if (clockIn != null && (clockOut == null || clockOut == '')) {
+      if (clockIn != null && _isOpenTimesheetEntry(entry)) {
         // Found an active entry - start the timer
         if (clockIn is Timestamp) {
           _clockInTime = clockIn.toDate();
@@ -623,6 +622,13 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
         break;
       }
     }
+  }
+
+  bool _isOpenTimesheetEntry(Map<String, dynamic> entry) {
+    final endTime = entry['end_time'];
+    final clockOut = entry['clock_out_time'] ?? entry['clock_out_timestamp'];
+    return (endTime == null || endTime == '') &&
+        (clockOut == null || clockOut == '');
   }
 
   /// Starts the timer that updates elapsed time every second
@@ -1001,9 +1007,8 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
     // Check if ANY entry is currently active (has clock in but no clock out)
     for (final entry in _allTimesheetEntries) {
       final clockIn = entry['clock_in_time'] ?? entry['clock_in_timestamp'];
-      final clockOut = entry['clock_out_time'] ?? entry['clock_out_timestamp'];
 
-      if (clockIn != null && (clockOut == null || clockOut == '')) {
+      if (clockIn != null && _isOpenTimesheetEntry(entry)) {
         return true;
       }
     }
@@ -1065,8 +1070,35 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
       );
 
       if (result['success'] == true) {
-        // Start the elapsed timer
-        _clockInTime = DateTime.now();
+        final now = DateTime.now();
+        final timesheetEntry =
+            result['timesheetEntry'] as Map<String, dynamic>?;
+
+        final activeEntry = <String, dynamic>{
+          if (timesheetEntry != null) ...timesheetEntry,
+          'id': timesheetEntry?['documentId'] ?? timesheetEntry?['id'],
+          'shift_id': widget.shift.id,
+          'clock_in_timestamp':
+              timesheetEntry?['clock_in_timestamp'] ?? Timestamp.fromDate(now),
+          'start_time':
+              timesheetEntry?['start_time'] ?? DateFormat('h:mm a').format(now),
+          'end_time': '',
+          'clock_out_timestamp': null,
+        };
+
+        setState(() {
+          _clockInTime = now;
+          _liveShift = (_liveShift ?? widget.shift).copyWith(
+            clockInTime: now,
+            clockOutTime: null,
+            status: ShiftStatus.active,
+          );
+          _timesheetEntry = activeEntry;
+          _allTimesheetEntries
+              .removeWhere((entry) => entry['id'] == activeEntry['id']);
+          _allTimesheetEntries.insert(0, activeEntry);
+        });
+
         _startElapsedTimer();
 
         if (mounted) {
@@ -1076,8 +1108,8 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
               backgroundColor: Colors.green,
             ),
           );
-          Navigator.pop(context);
           widget.onRefresh?.call();
+          unawaited(_reloadMergedTimesheetsAndForm());
         }
       } else {
         if (mounted) {

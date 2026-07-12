@@ -27,6 +27,14 @@ describe('bot_controller.html', () => {
     expect(html).toContain('inRoomParticipantCount');
   });
 
+  test('reports live participants by shift for the admin presence display', () => {
+    expect(html).toContain('buildLiveParticipantsByShift');
+    expect(html).toContain('liveParticipantsByShift');
+    expect(html).toContain("Object.prototype.hasOwnProperty.call(extra || {}, 'liveParticipantsByShift')");
+    expect(html).toContain('body.liveParticipantsByShift = extra.liveParticipantsByShift || {}');
+    expect(html).toContain("source: 'zoom_hub_bot'");
+  });
+
   test('self-heals an empty breakout room list during the routing loop', () => {
     // A hub whose getBreakoutRooms() reads empty cannot route anyone; the bot
     // must repair it mid-loop, not only at join.

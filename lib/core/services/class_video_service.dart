@@ -235,8 +235,7 @@ class VideoCallService {
       provider == VideoProvider.zoom
           ? Icons.video_camera_front
           : Icons.video_call;
-  static bool hasVideoCall(TeachingShift shift) =>
-      shift.category == ShiftCategory.teaching;
+  static bool hasVideoCall(TeachingShift shift) => shift.hasVideoCall;
   static Uri buildJoinLink(TeachingShift shift) =>
       JoinLinkService.buildGuestJoinUri(shift.id);
   static Future<void> copyJoinLink(BuildContext context, TeachingShift shift) =>
@@ -249,6 +248,8 @@ class ClassVideoService {
   static final FirebaseAuth _auth = FirebaseAuth.instance;
 
   static bool canJoinClass(TeachingShift shift) {
+    if (!shift.hasVideoCall) return false;
+
     final now = DateTime.now().toUtc();
     final joinWindowStart =
         shift.shiftStart.toUtc().subtract(const Duration(minutes: 10));
@@ -258,6 +259,8 @@ class ClassVideoService {
   }
 
   static Duration? getTimeUntilCanJoin(TeachingShift shift) {
+    if (!shift.hasVideoCall) return null;
+
     final now = DateTime.now().toUtc();
     final joinWindowStart =
         shift.shiftStart.toUtc().subtract(const Duration(minutes: 10));
@@ -435,9 +438,21 @@ class ClassVideoService {
     TeachingShift shift, {
     bool isTeacher = false,
   }) async {
+    final l10n = AppLocalizations.of(context)!;
+    if (!shift.hasVideoCall) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(l10n.classVideoJoinUnavailable),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+      return;
+    }
+
     AppLogger.info(
         'ClassVideoService: Joining class ${shift.id} via ${shift.usesZoom ? 'Zoom' : 'RealtimeKit'}');
-    final l10n = AppLocalizations.of(context)!;
 
     final currentUser = _auth.currentUser;
     final uid = currentUser?.uid;

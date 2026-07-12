@@ -30,6 +30,8 @@ const _toDate = (raw) => {
   return Number.isFinite(date.getTime()) ? date : null;
 };
 
+const ZOOM_HUB_LIVE_PRESENCE_STALE_MS = 2 * 60 * 1000;
+
 const _deriveShiftDisplayName = (shiftData) => {
   if (!shiftData) return 'Class';
   const candidates = [
@@ -258,6 +260,11 @@ const isStudentAccessSuspended = async (uid) => {
   return data.access_suspended === true || data.accessSuspended === true;
 };
 
+const _timestampIso = (value) => {
+  const date = _toDate(value);
+  return date ? date.toISOString() : null;
+};
+
 const _normalizeRequestedClassRole = (activeRole) => {
   const role = String(activeRole || '').trim().toLowerCase();
   if (role === 'super_admin' || role === 'admin_teacher') return 'admin';
@@ -421,6 +428,91 @@ const addParticipantForRole = async ({ meetingId, uid, displayName, role, record
   };
 };
 
+const _zoomHubIdForShift = (shiftData) =>
+  String(
+    shiftData.hub_meeting_id ||
+    shiftData.hubMeetingId ||
+    shiftData.zoom_hub_meeting_id ||
+    shiftData.zoomHubMeetingId ||
+    '',
+  ).trim();
+
+const _participantIsHubBot = (raw = {}) => {
+  const identity = String(
+    raw.identity ||
+    raw.userId ||
+    raw.user_id ||
+    raw.routingUid ||
+    raw.routing_uid ||
+    raw.uid ||
+    '',
+  ).trim().toLowerCase();
+  const name = String(raw.name || raw.displayName || raw.display_name || '')
+    .trim()
+    .toLowerCase();
+  return identity.startsWith('zoom_hub_bot_lane_') || name.includes('alluwal hub bot lane');
+};
+
+const _buildParticipantRole = async ({ db, identity, rawRole, teacherId, studentIds }) => {
+  if (identity && identity === teacherId) return 'teacher';
+  if (identity && studentIds.includes(identity)) return 'student';
+  if (identity) return _resolveUserRosterRole(db, identity, rawRole);
+  return String(rawRole || 'participant').trim() || 'participant';
+};
+
+const _buildZoomHubBotPresence = async ({ db, shiftId, shiftData, teacherId, studentIds }) => {
+  const hubMeetingId = _zoomHubIdForShift(shiftData);
+  if (!hubMeetingId) return null;
+
+  const hubDoc = await db.collection('hub_meetings').doc(hubMeetingId).get();
+  if (!hubDoc.exists) return null;
+  const hubData = hubDoc.data() || {};
+  const rawMap = hubData.liveParticipantsByShift || hubData.live_participants_by_shift;
+  if (!rawMap || typeof rawMap !== 'object' || Array.isArray(rawMap)) return null;
+
+  const updatedAt = _toDate(
+    hubData.liveParticipantsUpdatedAt ||
+    hubData.live_participants_updated_at ||
+    hubData.heartbeatAt ||
+    hubData.heartbeat_at,
+  );
+  if (!updatedAt || Date.now() - updatedAt.getTime() > ZOOM_HUB_LIVE_PRESENCE_STALE_MS) {
+    return null;
+  }
+
+  const rawParticipants = Array.isArray(rawMap[shiftId]) ? rawMap[shiftId] : [];
+  const seen = new Set();
+  const participants = [];
+  for (const raw of rawParticipants) {
+    if (!raw || typeof raw !== 'object' || _participantIsHubBot(raw)) continue;
+    const identity = String(raw.identity || raw.userId || raw.user_id || '').trim();
+    const routingUid = String(raw.routingUid || raw.routing_uid || raw.uid || '').trim();
+    const name = String(raw.name || raw.displayName || raw.display_name || identity || 'Participant')
+      .replace(/\s+/g, ' ')
+      .trim() || 'Participant';
+    const key = identity || routingUid || name;
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    const role = await _buildParticipantRole({
+      db,
+      identity,
+      rawRole: raw.role,
+      teacherId,
+      studentIds,
+    });
+    participants.push({
+      identity: identity || routingUid || name,
+      name,
+      role,
+      joinedAtIso: _timestampIso(raw.joinedAt || raw.joined_at),
+      isPublisher: true,
+      source: 'zoom_hub_bot',
+    });
+  }
+
+  return participants;
+};
+
 const syncTeacherRecordingPreset = async ({ meetingId, teacherId, recordingEnabled }) => {
   if (!meetingId || !teacherId) return false;
   const participantsResponse = await realtimeKit.listMeetingParticipants(meetingId);
@@ -577,13 +669,34 @@ const getRealtimeKitGuestJoin = onRequest({
 // RealtimeKit path so the existing "Live Participants" UI works unchanged.
 const buildZoomRoomPresence = async (shiftId, shiftData) => {
   const db = admin.firestore();
+  const teacherId = String(shiftData.teacher_id || shiftData.teacherId || '').trim();
+  const studentIds = _normalizeUidList(shiftData.student_ids || shiftData.studentIds || []);
+
+  const botParticipants = await _buildZoomHubBotPresence({
+    db,
+    shiftId,
+    shiftData,
+    teacherId,
+    studentIds,
+  });
+  if (botParticipants) {
+    return {
+      success: true,
+      roomName: String(shiftData.zoom_meeting_id || shiftData.zoomMeetingId || ''),
+      meetingId: String(shiftData.zoom_meeting_id || shiftData.zoomMeetingId || ''),
+      participantCount: botParticipants.length,
+      participants: botParticipants,
+      inJoinWindow: true,
+      generatedAtIso: new Date().toISOString(),
+      shiftName: _deriveShiftDisplayName(shiftData),
+      source: 'zoom_hub_bot',
+    };
+  }
+
   const snap = await db
     .collection('livekit_sessions')
     .where('shift_id', '==', shiftId)
     .get();
-
-  const teacherId = String(shiftData.teacher_id || shiftData.teacherId || '').trim();
-  const studentIds = _normalizeUidList(shiftData.student_ids || shiftData.studentIds || []);
 
   const openDocs = [];
   snap.forEach((doc) => {

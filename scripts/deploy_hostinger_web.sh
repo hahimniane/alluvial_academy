@@ -44,7 +44,10 @@ echo "Backing up Hostinger web root to $BACKUP_NAME"
 $SSH_COMMAND "$REMOTE" "set -e; cd '$REMOTE_DOMAIN_ROOT'; cp -a public_html '$BACKUP_NAME'; du -sh public_html '$BACKUP_NAME'"
 
 echo "Uploading build/web/ to $REMOTE:$REMOTE_WEB_ROOT/"
-rsync -az --delete --progress --stats -e "$SSH_COMMAND" build/web/ "$REMOTE:$REMOTE_WEB_ROOT/"
+rsync -az --delete \
+  --exclude '/live/***' \
+  --exclude '/ops/***' \
+  --progress --stats -e "$SSH_COMMAND" build/web/ "$REMOTE:$REMOTE_WEB_ROOT/"
 
 echo "Verifying remote files"
 $SSH_COMMAND "$REMOTE" "set -e; cd '$REMOTE_WEB_ROOT'; grep -q 'flutter_bootstrap.js?v=$VERSION' index.html; grep -q 'manifest.json?v=$VERSION' index.html; grep -q 'main.dart.js?v=$VERSION' flutter_bootstrap.js"

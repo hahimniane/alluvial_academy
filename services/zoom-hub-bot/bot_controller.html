@@ -180,22 +180,26 @@
       }
 
       async function postState(status, extra) {
+        const body = {
+          hubDocId: config.hubDocId,
+          status,
+          boIdByRoomName: lastBoIdByRoomName,
+          stats: {
+            lane: config.lane,
+            roomCount: config.rooms.length,
+            roomsOpened,
+            joined,
+            ...(extra && extra.stats ? extra.stats : {}),
+          },
+          error: extra && extra.error ? String(extra.error) : null,
+          error_detail: extra && extra.error ? serializeError(extra.error) : null,
+        };
+        if (Object.prototype.hasOwnProperty.call(extra || {}, 'liveParticipantsByShift')) {
+          body.liveParticipantsByShift = extra.liveParticipantsByShift || {};
+        }
         await botFetch('/zoomHubBotState', {
           method: 'POST',
-          body: JSON.stringify({
-            hubDocId: config.hubDocId,
-            status,
-            boIdByRoomName: lastBoIdByRoomName,
-            stats: {
-              lane: config.lane,
-              roomCount: config.rooms.length,
-              roomsOpened,
-              joined,
-              ...(extra && extra.stats ? extra.stats : {}),
-            },
-            error: extra && extra.error ? String(extra.error) : null,
-            error_detail: extra && extra.error ? serializeError(extra.error) : null,
-          }),
+          body: JSON.stringify(body),
         });
       }
 
@@ -251,6 +255,87 @@
           name: String(participant.userName || participant.user_name || participant.displayName || participant.display_name || '').trim(),
           keys: Object.keys(participant).slice(0, 20),
         };
+      }
+
+      function participantIsHubBot(participant) {
+        const uid = String(routing.zoomCustomerKey(participant) || '').trim().toLowerCase();
+        if (uid.indexOf('zoom_hub_bot') === 0) return true;
+        if (participant && (participant.isHost === true || participant.is_host === true || participant.isBotUser === true || participant.is_bot_user === true)) {
+          return true;
+        }
+        const name = routing.normalizeRoomName(routing.zoomDisplayName(participant));
+        return name.indexOf('hub bot') !== -1 || name.indexOf('alluwal hub') !== -1;
+      }
+
+      function memberAliases(member) {
+        const values = [
+          member && member.displayName,
+          member && member.display_name,
+          member && member.routingDisplayName,
+          member && member.routing_display_name,
+          member && member.name,
+          ...((member && Array.isArray(member.displayNameAliases)) ? member.displayNameAliases : []),
+          ...((member && Array.isArray(member.display_name_aliases)) ? member.display_name_aliases : []),
+        ];
+        return values
+          .map((value) => routing.normalizeRoomName(value))
+          .filter(Boolean);
+      }
+
+      function buildLiveParticipantsByShift(assignments, zoomState) {
+        const rooms = Array.isArray(assignments?.rooms) ? assignments.rooms : [];
+        const members = Array.isArray(assignments?.members) ? assignments.members : [];
+        const shiftByRoomName = new Map();
+        for (const room of rooms) {
+          const shiftId = String(room?.shiftId || room?.shift_id || '').trim();
+          const roomName = routing.normalizeRoomName(room?.name);
+          if (shiftId && roomName) shiftByRoomName.set(roomName, shiftId);
+        }
+
+        const memberByRoutingUid = new Map();
+        const memberByAlias = new Map();
+        for (const member of members) {
+          const uid = String(member?.uid || '').trim();
+          if (uid) memberByRoutingUid.set(uid, member);
+          for (const alias of memberAliases(member)) {
+            if (!memberByAlias.has(alias)) {
+              memberByAlias.set(alias, member);
+            } else {
+              memberByAlias.set(alias, null);
+            }
+          }
+        }
+
+        const liveByShift = {};
+        const seen = new Set();
+        for (const room of Array.isArray(zoomState?.rooms) ? zoomState.rooms : []) {
+          const roomName = routing.normalizeRoomName(routing.roomName(room));
+          const shiftId = shiftByRoomName.get(roomName);
+          if (!shiftId) continue;
+          for (const participant of routing.roomParticipants(room)) {
+            if (participantIsHubBot(participant)) continue;
+            const routingUid = String(routing.zoomCustomerKey(participant) || '').trim();
+            const name = String(routing.zoomDisplayName(participant) || '').trim();
+            const member = (routingUid && memberByRoutingUid.get(routingUid)) ||
+              (name && memberByAlias.get(routing.normalizeRoomName(name))) ||
+              null;
+            const identity = String(member?.userId || member?.user_id || '').trim();
+            const role = String(member?.role || 'participant').trim() || 'participant';
+            const key = `${shiftId}:${identity || routingUid || name || routing.zoomUserId(participant)}`;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            if (!liveByShift[shiftId]) liveByShift[shiftId] = [];
+            liveByShift[shiftId].push({
+              identity,
+              routingUid,
+              zoomUserId: routing.zoomUserId(participant),
+              name: name || String(member?.displayName || member?.display_name || '').trim() || 'Participant',
+              role,
+              source: 'zoom_hub_bot',
+            });
+          }
+        }
+        return liveByShift;
       }
 
       function summarizeBreakoutPayload(payload, normalized) {
@@ -784,6 +869,7 @@
           }
         }
         await postState('roomsOpen', {
+          liveParticipantsByShift: buildLiveParticipantsByShift(assignments, zoomState),
           stats: {
             routedCount: actions.length,
             attendeeCount: zoomState.unassigned.length + zoomState.rooms.reduce((sum, room) => (

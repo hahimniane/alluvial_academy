@@ -33,14 +33,16 @@ class TimelineShiftCard extends StatelessWidget {
   Widget build(BuildContext context) {
     // 1. Snapshot time once for consistency across the entire widget build
     final now = DateTime.now();
-    
+
     // 2. Get visual configuration (colors, text) based on current state
     final config = _getVisualConfig(context, now);
-    
+
     // 3. Pre-calculate time strings
     final startTime = DateFormat('HH:mm').format(shift.shiftStart);
     final endTime = DateFormat('HH:mm').format(shift.shiftEnd);
-    final durationHrs = (shift.shiftEnd.difference(shift.shiftStart).inMinutes / 60).toStringAsFixed(1);
+    final durationHrs =
+        (shift.shiftEnd.difference(shift.shiftStart).inMinutes / 60)
+            .toStringAsFixed(1);
 
     return IntrinsicHeight(
       child: Row(
@@ -63,7 +65,7 @@ class TimelineShiftCard extends StatelessWidget {
                 Text(
                   endTime,
                   style: GoogleFonts.inter(
-                    fontSize: 12, 
+                    fontSize: 12,
                     color: const Color(0xFF94A3B8), // Standardized grey
                   ),
                 ),
@@ -118,7 +120,8 @@ class TimelineShiftCard extends StatelessWidget {
                     ),
                   ],
                   // Left colored border indicating status
-                  border: Border(left: BorderSide(color: config.primaryColor, width: 4)),
+                  border: Border(
+                      left: BorderSide(color: config.primaryColor, width: 4)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -134,7 +137,8 @@ class TimelineShiftCard extends StatelessWidget {
                             children: [
                               // Student Names - Prominently displayed (pre-calculated for performance)
                               Text(
-                                shift.uiStudentNames, // Use pre-calculated value
+                                shift
+                                    .uiStudentNames, // Use pre-calculated value
                                 style: GoogleFonts.inter(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w700,
@@ -144,7 +148,8 @@ class TimelineShiftCard extends StatelessWidget {
                                 overflow: TextOverflow.ellipsis,
                               ),
                               // Subject below student names (smaller, secondary)
-                              if (shift.effectiveSubjectDisplayName.isNotEmpty) ...[
+                              if (shift
+                                  .effectiveSubjectDisplayName.isNotEmpty) ...[
                                 const SizedBox(height: 4),
                                 Text(
                                   shift.effectiveSubjectDisplayName,
@@ -162,15 +167,22 @@ class TimelineShiftCard extends StatelessWidget {
                         _buildStatusBadge(config),
                       ],
                     ),
-                    
+
                     const SizedBox(height: 8),
-                    
+
                     // Info Row: Duration - Use Wrap to prevent overflow
                     Wrap(
                       spacing: 12,
                       runSpacing: 4,
                       children: [
-                        _buildInfoIcon(Icons.timer_outlined, "$durationHrs hrs"),
+                        _buildInfoIcon(
+                            Icons.timer_outlined, "$durationHrs hrs"),
+                        if (shift.isClockedIn)
+                          _buildInfoIcon(
+                            Icons.access_time,
+                            AppLocalizations.of(context)!
+                                .shiftElapsedTime(_activeSessionElapsed(now)),
+                          ),
                       ],
                     ),
 
@@ -209,15 +221,35 @@ class TimelineShiftCard extends StatelessWidget {
 
   Widget _buildInfoIcon(IconData icon, String text) {
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
         Icon(icon, size: 16, color: const Color(0xFF64748B)),
         const SizedBox(width: 4),
         Text(
           text,
-          style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF64748B)),
+          style:
+              GoogleFonts.inter(fontSize: 13, color: const Color(0xFF64748B)),
         ),
       ],
     );
+  }
+
+  String _activeSessionElapsed(DateTime now) {
+    final clockIn = shift.clockInTime ?? shift.shiftStart;
+    final effectiveStart =
+        clockIn.isBefore(shift.shiftStart) ? shift.shiftStart : clockIn;
+    final elapsed = now.isBefore(effectiveStart)
+        ? Duration.zero
+        : now.difference(effectiveStart);
+    return _formatElapsedDuration(elapsed);
+  }
+
+  String _formatElapsedDuration(Duration duration) {
+    String twoDigits(int value) => value.toString().padLeft(2, '0');
+    final hours = twoDigits(duration.inHours);
+    final minutes = twoDigits(duration.inMinutes.remainder(60));
+    final seconds = twoDigits(duration.inSeconds.remainder(60));
+    return '$hours:$minutes:$seconds';
   }
 
   Widget _buildActionButtons(BuildContext context, DateTime now) {
@@ -240,7 +272,7 @@ class TimelineShiftCard extends StatelessWidget {
         onPressed: onClockOut ?? onTap,
       );
     }
-    
+
     // 3. PROGRAMMED State - Show countdown and cancel button
     if (isProgrammed) {
       return Column(
@@ -253,7 +285,8 @@ class TimelineShiftCard extends StatelessWidget {
             decoration: BoxDecoration(
               color: const Color(0xFFEFF6FF),
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: const Color(0xFF3B82F6).withOpacity(0.3)),
+              border:
+                  Border.all(color: const Color(0xFF3B82F6).withOpacity(0.3)),
             ),
             child: Column(
               children: [
@@ -265,18 +298,19 @@ class TimelineShiftCard extends StatelessWidget {
                       height: 16,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF3B82F6)),
+                        valueColor:
+                            AlwaysStoppedAnimation<Color>(Color(0xFF3B82F6)),
                       ),
                     ),
                     const SizedBox(width: 8),
-                Text(
-                  countdownText ?? 'Programmed...',
-                  style: GoogleFonts.inter(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: const Color(0xFF3B82F6),
-                  ),
-                ),
+                    Text(
+                      countdownText ?? 'Programmed...',
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF3B82F6),
+                      ),
+                    ),
                   ],
                 ),
               ],
@@ -291,12 +325,14 @@ class TimelineShiftCard extends StatelessWidget {
               icon: const Icon(Icons.close, size: 16),
               label: Text(
                 AppLocalizations.of(context)!.commonCancel,
-                style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600),
+                style: GoogleFonts.inter(
+                    fontSize: 12, fontWeight: FontWeight.w600),
               ),
               style: OutlinedButton.styleFrom(
                 foregroundColor: const Color(0xFF64748B),
                 padding: const EdgeInsets.symmetric(vertical: 8),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8)),
                 side: const BorderSide(color: Color(0xFFE2E8F0)),
               ),
             ),
@@ -404,22 +440,36 @@ class TimelineShiftCard extends StatelessWidget {
   // NOTE: _formatStudentNames() removed - now using shift.uiStudentNames (pre-calculated)
 
   bool _checkCanClockIn(DateTime now) {
+    if (shift.isClockedIn) {
+      return false;
+    }
+
     // No actual early clock-in - only at exact start time or after
-    return (now.isAtSameMomentAs(shift.shiftStart) || now.isAfter(shift.shiftStart)) &&
+    return (now.isAtSameMomentAs(shift.shiftStart) ||
+            now.isAfter(shift.shiftStart)) &&
         now.isBefore(shift.shiftEnd) &&
-        (shift.status == ShiftStatus.scheduled || shift.status == ShiftStatus.active);
+        (shift.status == ShiftStatus.scheduled ||
+            shift.status == ShiftStatus.active);
   }
 
   bool _checkCanProgramClockIn(DateTime now) {
+    if (shift.isClockedIn) {
+      return false;
+    }
+
     // Can program clock-in in the 1-minute window before start
-    final programmingWindowStart = shift.shiftStart.subtract(const Duration(minutes: 1));
-    return (now.isAfter(programmingWindowStart) || now.isAtSameMomentAs(programmingWindowStart)) &&
+    final programmingWindowStart =
+        shift.shiftStart.subtract(const Duration(minutes: 1));
+    return (now.isAfter(programmingWindowStart) ||
+            now.isAtSameMomentAs(programmingWindowStart)) &&
         now.isBefore(shift.shiftStart) &&
-        (shift.status == ShiftStatus.scheduled || shift.status == ShiftStatus.active);
+        (shift.status == ShiftStatus.scheduled ||
+            shift.status == ShiftStatus.active);
   }
 
   bool _checkIsUpcoming(DateTime now) {
-    return shift.shiftStart.isAfter(now) && shift.status == ShiftStatus.scheduled;
+    return shift.shiftStart.isAfter(now) &&
+        shift.status == ShiftStatus.scheduled;
   }
 
   // --- VISUAL CONFIGURATION ---
@@ -434,7 +484,7 @@ class TimelineShiftCard extends StatelessWidget {
         label: AppLocalizations.of(context)!.timelineShiftProgrammed,
       );
     }
-    
+
     // 1. Force Green if actually clocked in
     if (shift.isClockedIn) {
       return _VisualConfig(
@@ -485,7 +535,8 @@ class TimelineShiftCard extends StatelessWidget {
         );
       default:
         // 3. Handle Scheduled dynamic states (Missed vs Ready vs Upcoming)
-        if (shift.shiftEnd.isBefore(now) && shift.status == ShiftStatus.scheduled) {
+        if (shift.shiftEnd.isBefore(now) &&
+            shift.status == ShiftStatus.scheduled) {
           return _VisualConfig(
             primaryColor: const Color(0xFFEF4444),
             bgColor: const Color(0xFFFEE2E2),

@@ -29,6 +29,9 @@ const ZOOM_HUB_BOT_STALE_MS = 2 * 60 * 1000;
 const ZOOM_HUB_STATUS_LOOKBACK_MS = 24 * 60 * 60 * 1000;
 const ZOOM_HUB_STATUS_LOOKAHEAD_MS = 2 * 60 * 60 * 1000;
 const ZOOM_HUB_CAPACITY_FORECAST_DAYS = 90;
+const ZOOM_HUB_DAILY_CAPACITY_FORECAST_DAYS = Number(
+  process.env.ZOOM_HUB_DAILY_CAPACITY_FORECAST_DAYS || ZOOM_HUB_CAPACITY_FORECAST_DAYS,
+);
 const ZOOM_HUB_CAPACITY_WARNING_RATIO = 0.75;
 const ZOOM_HUB_SEAT_WARNING_RATIO = 0.8;
 const ZOOM_HUB_PARTICIPANT_CAP_PER_LANE = Number(
@@ -48,10 +51,28 @@ const ZOOM_HUB_SPARE_ROOM_COUNT = 5;
 const ZOOM_HUB_MAX_ROOM_COUNT = 48;
 const ZOOM_HUB_DEFAULT_TIMEZONE = 'America/New_York';
 const ZOOM_HUB_DEFAULT_BOUNDARIES = ['05:00', '12:00', '17:00'];
+// Routing guardrail: one teaching class must stay short enough for a hub room.
+// Block boundaries are soft planning hints; rolling hub segments merge connected
+// same-lane classes so nobody is moved mid-class.
+const ZOOM_HUB_MAX_CLASS_DURATION_MINUTES = Number(
+  process.env.ZOOM_HUB_MAX_CLASS_DURATION_MINUTES || 180,
+);
 const DEFAULT_ZOOM_CLASSROOM_HOST_ACCOUNTS = [
   'billing@alluwaleducationhub.org',
   'support@alluwaleducationhub.org',
 ];
+const ZOOM_HUB_AUTO_RESOLVE_ALERT_REASONS = new Set([
+  'rooms_not_open',
+  'heartbeat_stale',
+  'zombie_meeting_forced_rejoin',
+  'breakout_unreadable_poisoned',
+  'stragglers_removed_at_time_limit',
+  'stale_hub_handoff',
+  'stale_hub_on_join',
+]);
+const ZOOM_HUB_STATUS_INCIDENT_REASONS = new Set([
+  ...ZOOM_HUB_AUTO_RESOLVE_ALERT_REASONS,
+]);
 
 const _normalizeUidList = (rawList) => {
   if (!Array.isArray(rawList)) return [];
@@ -376,9 +397,15 @@ const getZoomShiftOrThrow = async (shiftId) => {
   if (provider !== 'zoom') {
     throw new HttpsError('failed-precondition', 'This class is not configured for Zoom');
   }
+  if (!_isZoomTeachingClass(shiftData)) {
+    throw new HttpsError(
+      'failed-precondition',
+      'This shift is for clock-in/admin work, not a Zoom classroom.',
+    );
+  }
 
   const teacherId = String(shiftData.teacher_id || shiftData.teacherId || '').trim();
-  const studentIds = _normalizeUidList(shiftData.student_ids || shiftData.studentIds || []);
+  const studentIds = _shiftStudentIdsForRouting(shiftData);
   const meetingId = String(shiftData.zoom_meeting_id || shiftData.zoomMeetingId || '').trim();
 
   return { shiftRef, shiftData, teacherId, studentIds, meetingId };
@@ -449,11 +476,23 @@ const _shiftCategory = (shiftData) =>
     .trim()
     .toLowerCase();
 
+const _shiftStudentIdsForRouting = (shiftData = {}) =>
+  _normalizeUidList(shiftData.student_ids || shiftData.studentIds || []);
+
+const _isZoomTeachingClass = (shiftData = {}) =>
+  _shiftCategory(shiftData) === 'teaching' &&
+  _shiftStudentIdsForRouting(shiftData).length > 0;
+
 const _usesHubRouting = ({ shiftData, meetingId }) => {
+  if (!_isZoomTeachingClass(shiftData)) return false;
+
   const mode = String(shiftData.zoomRoutingMode || shiftData.zoom_routing_mode || '')
     .trim()
     .toLowerCase();
   if (
+    mode === 'blocked' ||
+    shiftData.zoom_hub_guardrail_blocked === true ||
+    shiftData.zoomHubGuardrailBlocked === true ||
     mode === 'single' ||
     shiftData.zoom_disable_hub_routing === true ||
     shiftData.zoomDisableHubRouting === true
@@ -576,6 +615,111 @@ const _blockForShift = (shiftData, config) => {
   };
 };
 
+const _safeZoomHubMaxClassDurationMinutes = () => {
+  const value = Number(ZOOM_HUB_MAX_CLASS_DURATION_MINUTES);
+  return Number.isFinite(value) && value > 0 ? value : 180;
+};
+
+const _zoomHubShiftGuardrailDecision = (shiftData = {}, config = {}) => {
+  const start = _toDate(shiftData.shift_start || shiftData.shiftStart);
+  const end = _toDate(shiftData.shift_end || shiftData.shiftEnd);
+  const maxDurationMinutes = _safeZoomHubMaxClassDurationMinutes();
+  const timezone = config.timezone || ZOOM_HUB_DEFAULT_TIMEZONE;
+  const block = _blockForShift(shiftData, {
+    ...config,
+    timezone,
+    boundaries: config.boundaries || _normalizeHubBoundaries(ZOOM_HUB_DEFAULT_BOUNDARIES),
+  });
+
+  const details = {
+    maxDurationMinutes,
+    timezone,
+    blockStartIso: block.blockStart.toISOString(),
+    blockEndIso: block.blockEnd.toISOString(),
+    blockLabel: `${DateTime.fromJSDate(block.blockStart).setZone(timezone).toFormat('HH:mm')}-${DateTime.fromJSDate(block.blockEnd).setZone(timezone).toFormat('HH:mm')}`,
+  };
+
+  if (!start || !end) {
+    return {
+      ok: false,
+      reason: 'invalid_shift_time',
+      reasons: ['invalid_shift_time'],
+      message: 'This Zoom class has invalid start or end times and was not routed.',
+      details,
+    };
+  }
+
+  const durationMinutes = Math.ceil((end.getTime() - start.getTime()) / 60000);
+  const nextDetails = {
+    ...details,
+    durationMinutes,
+    shiftStartIso: start.toISOString(),
+    shiftEndIso: end.toISOString(),
+    crossesSoftHubBlock: end.getTime() > block.blockEnd.getTime(),
+  };
+
+  if (durationMinutes <= 0) {
+    return {
+      ok: false,
+      reason: 'invalid_shift_duration',
+      reasons: ['invalid_shift_duration'],
+      message: 'This Zoom class ends before it starts and was not routed.',
+      details: nextDetails,
+    };
+  }
+
+  const reasons = [];
+  if (durationMinutes > maxDurationMinutes) reasons.push('duration_exceeds_limit');
+
+  if (reasons.length === 0) {
+    return { ok: true, reason: '', reasons: [], message: '', details: nextDetails };
+  }
+
+  const readableReasons = [];
+  if (reasons.includes('duration_exceeds_limit')) {
+    readableReasons.push(`it runs ${durationMinutes} minutes; the Zoom hub limit is ${maxDurationMinutes} minutes`);
+  }
+
+  return {
+    ok: false,
+    reason: reasons[0],
+    reasons,
+    message: `This class was not created because ${readableReasons.join(' and ')}. Split it into shorter classes before saving.`,
+    details: nextDetails,
+  };
+};
+
+const _validateZoomHubShiftGuardrail = async (shiftData) => {
+  const config = await _loadZoomHubBlockConfig();
+  return _zoomHubShiftGuardrailDecision(shiftData, config);
+};
+
+const _storedZoomHubGuardrailBlock = (shiftData = {}) => {
+  if (
+    shiftData.zoom_hub_guardrail_blocked !== true &&
+    shiftData.zoomHubGuardrailBlocked !== true
+  ) {
+    return null;
+  }
+  return {
+    ok: false,
+    reason: String(
+      shiftData.zoom_hub_guardrail_reason ||
+      shiftData.zoomHubGuardrailReason ||
+      'zoom_hub_shift_guardrail',
+    ),
+    reasons: Array.isArray(shiftData.zoom_hub_guardrail_reasons)
+      ? shiftData.zoom_hub_guardrail_reasons
+      : [],
+    message: String(
+      shiftData.zoom_hub_guardrail_message ||
+      shiftData.zoomHubGuardrailMessage ||
+      'This Zoom class is blocked by a routing guardrail. Please ask an administrator to review the class time.',
+    ),
+    details: shiftData.zoom_hub_guardrail_details || shiftData.zoomHubGuardrailDetails || {},
+  };
+};
+
 const _truncate = (value, maxLength) => {
   const text = String(value || '').replace(/\s+/g, ' ').trim();
   if (text.length <= maxLength) return text;
@@ -624,6 +768,176 @@ const _laneIndexForShift = ({ shiftId, shiftData }) => {
   return hostAccounts.length > 0 ? _hashString(hashKey) % hostAccounts.length : 0;
 };
 
+const _sortZoomShiftDocs = (docs) =>
+  [...(Array.isArray(docs) ? docs : [])].sort((a, b) => {
+    const aData = a.data() || {};
+    const bData = b.data() || {};
+    const aStart = _toDate(aData.shift_start || aData.shiftStart)?.getTime() || 0;
+    const bStart = _toDate(bData.shift_start || bData.shiftStart)?.getTime() || 0;
+    if (aStart !== bStart) return aStart - bStart;
+    return String(a.id || '').localeCompare(String(b.id || ''));
+  });
+
+const _hubSegmentQueryRangeForBlock = (block, config) => {
+  const zone = config.timezone || block.timezone || ZOOM_HUB_DEFAULT_TIMEZONE;
+  const localDayStart = DateTime.fromISO(block.dayKey, { zone }).startOf('day');
+  return {
+    start: localDayStart.toJSDate(),
+    end: localDayStart.plus({ hours: 48 }).toJSDate(),
+  };
+};
+
+const _hubShiftSegmentRecord = ({ shiftId, shiftData, doc, config }) => {
+  const start = _toDate(shiftData.shift_start || shiftData.shiftStart);
+  const end = _toDate(shiftData.shift_end || shiftData.shiftEnd);
+  if (!shiftId || !start || !end || end.getTime() <= start.getTime()) return null;
+  const block = _blockForShift(shiftData, config);
+  return {
+    id: shiftId,
+    data: shiftData,
+    doc: doc || null,
+    start,
+    end,
+    startMs: start.getTime(),
+    endMs: end.getTime(),
+    paddedStartMs: start.getTime() - ZOOM_HUB_WINDOW_PADDING_MS,
+    paddedEndMs: end.getTime() + ZOOM_HUB_WINDOW_PADDING_MS,
+    block,
+  };
+};
+
+const _queryZoomHubSegmentCandidateDocs = async ({ range, config, laneIndex }) => {
+  const snapshot = await admin.firestore().collection('teaching_shifts')
+    .where('shift_start', '>=', admin.firestore.Timestamp.fromDate(range.start))
+    .where('shift_start', '<', admin.firestore.Timestamp.fromDate(range.end))
+    .get();
+
+  const docs = [];
+  for (const doc of snapshot.docs) {
+    const data = doc.data() || {};
+    const provider = String(data.video_provider || data.videoProvider || '')
+      .trim()
+      .toLowerCase();
+    const meetingId = String(data.zoom_meeting_id || data.zoomMeetingId || '').trim();
+    if (provider !== 'zoom') continue;
+    if (!_usesHubRouting({ shiftData: data, meetingId })) continue;
+    if (!_zoomHubShiftGuardrailDecision(data, config).ok) continue;
+    if (_laneIndexForShift({ shiftId: doc.id, shiftData: data }) !== laneIndex) continue;
+    docs.push(doc);
+  }
+  return _sortZoomShiftDocs(docs);
+};
+
+const _rollingHubSegmentForShift = async ({ shiftId, shiftData, config, laneIndex }) => {
+  const targetBlock = _blockForShift(shiftData, config);
+  const range = _hubSegmentQueryRangeForBlock(targetBlock, config);
+  const docs = await _queryZoomHubSegmentCandidateDocs({ range, config, laneIndex });
+  const recordsById = new Map();
+
+  for (const doc of docs) {
+    const data = doc.data() || {};
+    const record = _hubShiftSegmentRecord({
+      shiftId: doc.id,
+      shiftData: data,
+      doc,
+      config,
+    });
+    if (record) recordsById.set(doc.id, record);
+  }
+
+  const targetRecord = _hubShiftSegmentRecord({
+    shiftId,
+    shiftData,
+    doc: null,
+    config,
+  });
+  if (targetRecord) recordsById.set(shiftId, targetRecord);
+
+  const records = Array.from(recordsById.values()).sort((a, b) => (
+    a.startMs - b.startMs ||
+    a.endMs - b.endMs ||
+    a.id.localeCompare(b.id)
+  ));
+  if (records.length === 0 || !targetRecord) {
+    return {
+      records: [],
+      docs: [],
+      segmentShiftIds: [],
+      segmentStart: _toDate(shiftData.shift_start || shiftData.shiftStart) || targetBlock.blockStart,
+      segmentEnd: _toDate(shiftData.shift_end || shiftData.shiftEnd) || targetBlock.blockEnd,
+      blockStart: targetBlock.blockStart,
+      blockEnd: targetBlock.blockEnd,
+      anchorBlock: targetBlock,
+      hubDocId: `zoom_hub_${targetBlock.dayKey}_${targetBlock.blockIndex}_${laneIndex + 1}`,
+      segmentKey: `${targetBlock.dayKey}_${targetBlock.blockIndex}`,
+      segmentLabel: `${DateTime.fromJSDate(targetBlock.blockStart).setZone(config.timezone).toFormat('HHmm')}-${DateTime.fromJSDate(targetBlock.blockEnd).setZone(config.timezone).toFormat('HHmm')}`,
+      range,
+    };
+  }
+
+  const segments = [];
+  let current = null;
+  for (const record of records) {
+    if (!current || record.paddedStartMs > current.paddedEndMs) {
+      current = {
+        records: [record],
+        paddedStartMs: record.paddedStartMs,
+        paddedEndMs: record.paddedEndMs,
+        startMs: record.startMs,
+        endMs: record.endMs,
+      };
+      segments.push(current);
+      continue;
+    }
+    current.records.push(record);
+    current.paddedStartMs = Math.min(current.paddedStartMs, record.paddedStartMs);
+    current.paddedEndMs = Math.max(current.paddedEndMs, record.paddedEndMs);
+    current.startMs = Math.min(current.startMs, record.startMs);
+    current.endMs = Math.max(current.endMs, record.endMs);
+  }
+
+  const segment = segments.find((item) =>
+    item.records.some((record) => record.id === shiftId)) || {
+    records: [targetRecord],
+    paddedStartMs: targetRecord.paddedStartMs,
+    paddedEndMs: targetRecord.paddedEndMs,
+    startMs: targetRecord.startMs,
+    endMs: targetRecord.endMs,
+  };
+  const segmentRecords = segment.records.sort((a, b) => (
+    a.startMs - b.startMs ||
+    a.endMs - b.endMs ||
+    a.id.localeCompare(b.id)
+  ));
+  const anchorRecord = segmentRecords[0] || targetRecord;
+  const anchorBlock = anchorRecord.block || targetBlock;
+  const blockStartMs = Math.min(...segmentRecords.map((record) => record.block.blockStart.getTime()));
+  const blockEndMs = Math.max(...segmentRecords.map((record) => record.block.blockEnd.getTime()));
+  const segmentStart = new Date(segment.startMs);
+  const segmentEnd = new Date(segment.endMs);
+  const localSegmentStart = DateTime.fromJSDate(segmentStart)
+    .setZone(config.timezone || anchorBlock.timezone || ZOOM_HUB_DEFAULT_TIMEZONE);
+  const localSegmentEnd = DateTime.fromJSDate(segmentEnd)
+    .setZone(config.timezone || anchorBlock.timezone || ZOOM_HUB_DEFAULT_TIMEZONE);
+  const segmentStartLabel = localSegmentStart.toFormat('HHmm');
+  const segmentKey = `${anchorBlock.dayKey}_${anchorBlock.blockIndex}_${segmentStartLabel}`;
+
+  return {
+    records: segmentRecords,
+    docs: _sortZoomShiftDocs(segmentRecords.map((record) => record.doc).filter(Boolean)),
+    segmentShiftIds: segmentRecords.map((record) => record.id),
+    segmentStart,
+    segmentEnd,
+    blockStart: new Date(blockStartMs),
+    blockEnd: new Date(blockEndMs),
+    anchorBlock,
+    hubDocId: `zoom_hub_${segmentKey}_${laneIndex + 1}`,
+    segmentKey,
+    segmentLabel: `${localSegmentStart.toFormat('HH:mm')}-${localSegmentEnd.toFormat('HH:mm')}`,
+    range,
+  };
+};
+
 const _hubMetaForShift = async ({ shiftId, shiftData, forcedLaneIndex = null }) => {
   const config = await _loadZoomHubBlockConfig();
   const hostAccounts = _zoomClassroomHostAccounts();
@@ -632,20 +946,564 @@ const _hubMetaForShift = async ({ shiftId, shiftData, forcedLaneIndex = null }) 
     : _laneIndexForShift({ shiftId, shiftData });
   const hostAccount = hostAccounts[laneIndex] || DEFAULT_ZOOM_CLASSROOM_HOST_ACCOUNTS[0];
   const block = _blockForShift(shiftData, config);
+  const segment = await _rollingHubSegmentForShift({
+    shiftId,
+    shiftData,
+    config,
+    laneIndex,
+  });
   return {
-    dayKey: block.dayKey,
-    blockIndex: block.blockIndex,
-    blockStart: block.blockStart,
-    blockEnd: block.blockEnd,
-    timezone: block.timezone,
+    dayKey: segment.anchorBlock.dayKey || block.dayKey,
+    blockIndex: segment.anchorBlock.blockIndex ?? block.blockIndex,
+    blockStart: segment.blockStart || block.blockStart,
+    blockEnd: segment.blockEnd || block.blockEnd,
+    timezone: segment.anchorBlock.timezone || block.timezone,
     laneIndex,
     lane: laneIndex + 1,
     hostAccount,
     blockBoundaries: config.boundaryLabels,
     concurrentMeetingsPerUser: config.concurrentMeetingsPerUser,
-    hubDocId: `zoom_hub_${block.dayKey}_${block.blockIndex}_${laneIndex + 1}`,
+    hubDocId: segment.hubDocId,
+    hubSegmentKey: segment.segmentKey,
+    hub_segment_key: segment.segmentKey,
+    segmentLabel: segment.segmentLabel,
+    segmentStart: segment.segmentStart,
+    segmentEnd: segment.segmentEnd,
+    segmentShiftIds: segment.segmentShiftIds,
+    segmentShiftDocs: segment.docs,
+    segmentQueryStart: segment.range.start,
+    segmentQueryEnd: segment.range.end,
+    rollingSegment: true,
   };
 };
+
+const _studentCountForCapacityRecord = (shiftData = {}) =>
+  _normalizeUidList(shiftData.student_ids || shiftData.studentIds || []).length;
+
+const _capacityRecordForShift = ({ shiftId, shiftData, config }) => {
+  const record = _hubShiftSegmentRecord({ shiftId, shiftData, config });
+  if (!record) return null;
+  return {
+    ...record,
+    laneIndex: _laneIndexForShift({ shiftId, shiftData }),
+    seats: Math.max(1, 1 + _studentCountForCapacityRecord(shiftData)),
+  };
+};
+
+const _loadZoomHubCapacityRecordsForRange = async ({
+  range,
+  config,
+  excludeShiftId = '',
+}) => {
+  const snapshot = await admin.firestore().collection('teaching_shifts')
+    .where('shift_start', '>=', admin.firestore.Timestamp.fromDate(range.start))
+    .where('shift_start', '<', admin.firestore.Timestamp.fromDate(range.end))
+    .get();
+  const records = [];
+  for (const doc of snapshot.docs) {
+    if (excludeShiftId && doc.id === excludeShiftId) continue;
+    const data = doc.data() || {};
+    const provider = String(data.video_provider || data.videoProvider || '')
+      .trim()
+      .toLowerCase();
+    const meetingId = String(data.zoom_meeting_id || data.zoomMeetingId || '').trim();
+    if (provider !== 'zoom') continue;
+    if (!_usesHubRouting({ shiftData: data, meetingId })) continue;
+    if (!_zoomHubShiftGuardrailDecision(data, config).ok) continue;
+    const record = _capacityRecordForShift({ shiftId: doc.id, shiftData: data, config });
+    if (record) records.push(record);
+  }
+  return records;
+};
+
+const _buildZoomHubCapacitySegments = (records = []) => {
+  const segments = [];
+  const laneIndexes = Array.from(new Set([
+    ..._zoomClassroomHostAccounts().map((_, index) => index),
+    0,
+  ])).sort((a, b) => a - b);
+
+  for (const laneIndex of laneIndexes) {
+    const laneRecords = records
+      .filter((record) => record.laneIndex === laneIndex)
+      .sort((a, b) => (
+        a.startMs - b.startMs ||
+        a.endMs - b.endMs ||
+        a.id.localeCompare(b.id)
+      ));
+    let current = null;
+    for (const record of laneRecords) {
+      if (!current || record.paddedStartMs > current.paddedEndMs) {
+        current = {
+          laneIndex,
+          lane: laneIndex + 1,
+          records: [],
+          paddedStartMs: record.paddedStartMs,
+          paddedEndMs: record.paddedEndMs,
+        };
+        segments.push(current);
+      }
+      current.records.push(record);
+      current.paddedStartMs = Math.min(current.paddedStartMs, record.paddedStartMs);
+      current.paddedEndMs = Math.max(current.paddedEndMs, record.paddedEndMs);
+    }
+  }
+
+  return segments.map((segment) => {
+    const events = [];
+    for (const record of segment.records) {
+      events.push([record.startMs, record.seats]);
+      events.push([record.endMs, -record.seats]);
+    }
+    events.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+    let seats = 0;
+    let peakSeats = 0;
+    let peakAtMs = null;
+    for (const [time, delta] of events) {
+      seats += delta;
+      if (seats > peakSeats) {
+        peakSeats = seats;
+        peakAtMs = time;
+      }
+    }
+    const durationMinutes = Math.ceil((segment.paddedEndMs - segment.paddedStartMs) / 60000);
+    const roomsIncludingSpares = segment.records.length + ZOOM_HUB_SPARE_ROOM_COUNT;
+    const reasons = [];
+    if (roomsIncludingSpares > ZOOM_HUB_MAX_ROOM_COUNT) reasons.push('room_cap_exceeded');
+    if (peakSeats > Math.max(1, ZOOM_HUB_PARTICIPANT_CAP_PER_LANE - ZOOM_HUB_RESERVED_SEATS_PER_LANE)) {
+      reasons.push('seat_cap_exceeded');
+    }
+    if (durationMinutes > ZOOM_HUB_SAFE_MAX_MEETING_MINUTES) {
+      reasons.push('hub_window_exceeds_zoom_lifetime');
+    }
+    return {
+      ...segment,
+      durationMinutes,
+      roomsIncludingSpares,
+      peakSeats,
+      peakAt: peakAtMs ? new Date(peakAtMs) : null,
+      reasons,
+    };
+  }).sort((a, b) => (
+    a.paddedStartMs - b.paddedStartMs ||
+    a.laneIndex - b.laneIndex
+  ));
+};
+
+const _simulateZoomHubCapacitySpillover = (records = []) => {
+  let working = records.map((record) => ({ ...record }));
+  const moved = [];
+  const hostAccounts = _zoomClassroomHostAccounts();
+  const laneIndexes = hostAccounts.map((_, index) => index);
+
+  for (let pass = 0; pass < 12; pass += 1) {
+    const segments = _buildZoomHubCapacitySegments(working);
+    const overflowing = segments.find((segment) =>
+      segment.records.length > ZOOM_HUB_MAX_ROOM_COUNT - ZOOM_HUB_SPARE_ROOM_COUNT);
+    if (!overflowing) {
+      return {
+        records: working,
+        moved,
+        segments,
+        unresolvedSegments: segments.filter((segment) => segment.reasons.length > 0),
+      };
+    }
+    const overflowRecords = overflowing.records
+      .sort((a, b) => (
+        a.startMs - b.startMs ||
+        a.endMs - b.endMs ||
+        a.id.localeCompare(b.id)
+      ))
+      .slice(ZOOM_HUB_MAX_ROOM_COUNT - ZOOM_HUB_SPARE_ROOM_COUNT);
+    if (overflowRecords.length === 0 || laneIndexes.length < 2) break;
+
+    const overflowIds = new Set(overflowRecords.map((record) => record.id));
+    working = working.map((record) => {
+      if (!overflowIds.has(record.id)) return record;
+      const alternateLaneIndex = laneIndexes.find((index) => index !== record.laneIndex);
+      if (!Number.isInteger(alternateLaneIndex)) return record;
+      moved.push({
+        shiftId: record.id,
+        fromLane: record.laneIndex + 1,
+        toLane: alternateLaneIndex + 1,
+      });
+      return {
+        ...record,
+        laneIndex: alternateLaneIndex,
+        spilledFromLaneIndex: record.laneIndex,
+      };
+    });
+  }
+
+  const segments = _buildZoomHubCapacitySegments(working);
+  return {
+    records: working,
+    moved,
+    segments,
+    unresolvedSegments: segments.filter((segment) => segment.reasons.length > 0),
+  };
+};
+
+const _capacitySegmentOverlapsRecord = (segment, record) =>
+  segment.paddedStartMs <= record.paddedEndMs &&
+  segment.paddedEndMs >= record.paddedStartMs;
+
+const _formatCapacityWindow = ({ segment, timezone }) => {
+  const zone = timezone || ZOOM_HUB_DEFAULT_TIMEZONE;
+  const start = DateTime.fromMillis(segment.paddedStartMs).setZone(zone).toFormat('ccc M/d h:mm a');
+  const end = DateTime.fromMillis(segment.paddedEndMs).setZone(zone).toFormat('h:mm a');
+  return `${start}-${end}`;
+};
+
+const _zoomHubCapacityGuardrailDecision = async ({
+  shiftId,
+  shiftData,
+  excludeShiftId = '',
+}) => {
+  const provider = String(shiftData.video_provider || shiftData.videoProvider || '')
+    .trim()
+    .toLowerCase();
+  if (provider !== 'zoom' || !_isZoomTeachingClass(shiftData)) {
+    return { ok: true, reason: '', reasons: [], message: '', details: { ignored: true } };
+  }
+
+  const config = await _loadZoomHubBlockConfig();
+  const timing = _zoomHubShiftGuardrailDecision(shiftData, config);
+  if (!timing.ok) return timing;
+
+  const targetBlock = _blockForShift(shiftData, config);
+  const range = _hubSegmentQueryRangeForBlock(targetBlock, config);
+  const existingRecords = await _loadZoomHubCapacityRecordsForRange({
+    range,
+    config,
+    excludeShiftId,
+  });
+  const proposedRecord = _capacityRecordForShift({ shiftId, shiftData, config });
+  if (!proposedRecord) {
+    return {
+      ok: false,
+      reason: 'invalid_shift_time',
+      reasons: ['invalid_shift_time'],
+      message: 'This Zoom class has invalid start or end times and was not routed.',
+      details: timing.details || {},
+    };
+  }
+
+  const simulation = _simulateZoomHubCapacitySpillover([...existingRecords, proposedRecord]);
+  const impactedSegments = simulation.unresolvedSegments
+    .filter((segment) =>
+      segment.records.some((record) => record.id === shiftId) ||
+      _capacitySegmentOverlapsRecord(segment, proposedRecord));
+  if (impactedSegments.length === 0) {
+    return {
+      ok: true,
+      reason: '',
+      reasons: [],
+      message: '',
+      details: {
+        checkedShiftCount: existingRecords.length + 1,
+        movedShiftCount: simulation.moved.length,
+        segmentCount: simulation.segments.length,
+        timezone: config.timezone,
+      },
+    };
+  }
+
+  const segment = impactedSegments[0];
+  const reasons = Array.from(new Set(impactedSegments.flatMap((item) => item.reasons)));
+  const humanParticipantCapPerLane = Math.max(
+    1,
+    ZOOM_HUB_PARTICIPANT_CAP_PER_LANE - ZOOM_HUB_RESERVED_SEATS_PER_LANE,
+  );
+  const detail = {
+    checkedShiftCount: existingRecords.length + 1,
+    movedShiftCount: simulation.moved.length,
+    segmentCount: simulation.segments.length,
+    lane: segment.lane,
+    window: _formatCapacityWindow({ segment, timezone: config.timezone }),
+    roomsIncludingSpares: segment.roomsIncludingSpares,
+    maxRooms: ZOOM_HUB_MAX_ROOM_COUNT,
+    classRooms: segment.records.length,
+    maxClassRooms: ZOOM_HUB_MAX_ROOM_COUNT - ZOOM_HUB_SPARE_ROOM_COUNT,
+    peakSeats: segment.peakSeats,
+    participantCap: humanParticipantCapPerLane,
+    durationMinutes: segment.durationMinutes,
+    maxDurationMinutes: _safeZoomHubMaxClassDurationMinutes(),
+    safeHubMinutes: ZOOM_HUB_SAFE_MAX_MEETING_MINUTES,
+    shiftStartIso: proposedRecord.start.toISOString(),
+    shiftEndIso: proposedRecord.end.toISOString(),
+    timezone: config.timezone,
+  };
+
+  let readable = `the ${detail.window} Zoom hub on lane ${detail.lane} would exceed safe capacity`;
+  if (reasons.includes('room_cap_exceeded')) {
+    readable = `the ${detail.window} Zoom hub would need ${detail.roomsIncludingSpares} rooms including spares; the safe limit is ${ZOOM_HUB_MAX_ROOM_COUNT}`;
+  } else if (reasons.includes('seat_cap_exceeded')) {
+    readable = `the ${detail.window} Zoom hub would schedule ${detail.peakSeats} people at the same time; the safe limit is ${humanParticipantCapPerLane}`;
+  } else if (reasons.includes('hub_window_exceeds_zoom_lifetime')) {
+    readable = `the ${detail.window} Zoom hub would run ${detail.durationMinutes} minutes; the safe limit is ${ZOOM_HUB_SAFE_MAX_MEETING_MINUTES} minutes`;
+  }
+
+  return {
+    ok: false,
+    reason: reasons[0] || 'zoom_hub_capacity_exceeded',
+    reasons,
+    message: `This class was not created because ${readable}. Choose another time, reduce overlapping classes, or add another Zoom license before saving.`,
+    details: detail,
+  };
+};
+
+const _formatForecastProblemTime = ({ date, timezone }) => {
+  if (!date) return '';
+  return DateTime.fromJSDate(date)
+    .setZone(timezone || ZOOM_HUB_DEFAULT_TIMEZONE)
+    .toFormat('ccc M/d h:mm a');
+};
+
+const _forecastShiftSummary = ({ shiftId, shiftData, guardrail, timezone }) => {
+  const start = _toDate(shiftData.shift_start || shiftData.shiftStart);
+  const end = _toDate(shiftData.shift_end || shiftData.shiftEnd);
+  return {
+    kind: 'unsafe_shift',
+    shiftId,
+    title: _deriveShiftDisplayName(shiftData),
+    teacherName: String(shiftData.teacher_name || shiftData.teacherName || '').trim(),
+    startIso: start ? start.toISOString() : '',
+    endIso: end ? end.toISOString() : '',
+    localWindow: start && end
+      ? `${_formatForecastProblemTime({ date: start, timezone })}-${DateTime.fromJSDate(end).setZone(timezone || ZOOM_HUB_DEFAULT_TIMEZONE).toFormat('h:mm a')}`
+      : '',
+    reason: guardrail.reason || 'zoom_hub_shift_guardrail',
+    reasons: guardrail.reasons || [],
+    message: guardrail.message || 'This future Zoom class is unsafe for hub routing.',
+  };
+};
+
+const _forecastSegmentSummary = ({ segment, timezone }) => {
+  const reasons = Array.isArray(segment.reasons) ? segment.reasons : [];
+  const humanParticipantCapPerLane = Math.max(
+    1,
+    ZOOM_HUB_PARTICIPANT_CAP_PER_LANE - ZOOM_HUB_RESERVED_SEATS_PER_LANE,
+  );
+  const window = _formatCapacityWindow({ segment, timezone });
+  let message = `The ${window} Zoom hub on lane ${segment.lane} would exceed safe capacity.`;
+  if (reasons.includes('room_cap_exceeded')) {
+    message = `The ${window} Zoom hub would need ${segment.roomsIncludingSpares} rooms including spares; the safe limit is ${ZOOM_HUB_MAX_ROOM_COUNT}.`;
+  } else if (reasons.includes('seat_cap_exceeded')) {
+    message = `The ${window} Zoom hub would schedule ${segment.peakSeats} people at the same time; the safe limit is ${humanParticipantCapPerLane}.`;
+  } else if (reasons.includes('hub_window_exceeds_zoom_lifetime')) {
+    message = `The ${window} Zoom hub would run ${segment.durationMinutes} minutes; the safe limit is ${ZOOM_HUB_SAFE_MAX_MEETING_MINUTES} minutes.`;
+  }
+  return {
+    kind: 'unsafe_segment',
+    lane: segment.lane,
+    window,
+    reasons,
+    message,
+    roomsIncludingSpares: segment.roomsIncludingSpares,
+    maxRooms: ZOOM_HUB_MAX_ROOM_COUNT,
+    classRooms: segment.records.length,
+    maxClassRooms: ZOOM_HUB_MAX_ROOM_COUNT - ZOOM_HUB_SPARE_ROOM_COUNT,
+    peakSeats: segment.peakSeats,
+    participantCap: humanParticipantCapPerLane,
+    durationMinutes: segment.durationMinutes,
+    safeHubMinutes: ZOOM_HUB_SAFE_MAX_MEETING_MINUTES,
+    shiftIds: segment.records.map((record) => record.id).slice(0, 80),
+  };
+};
+
+const _buildZoomHubDailyCapacityRiskForecast = async ({
+  now = new Date(),
+  days = ZOOM_HUB_DAILY_CAPACITY_FORECAST_DAYS,
+} = {}) => {
+  const db = admin.firestore();
+  const config = await _loadZoomHubBlockConfig();
+  const timezone = config.timezone || ZOOM_HUB_DEFAULT_TIMEZONE;
+  const horizonDays = Math.max(1, Number(days) || ZOOM_HUB_CAPACITY_FORECAST_DAYS);
+  const start = DateTime.fromJSDate(now).setZone(timezone).startOf('day');
+  const end = start.plus({ days: horizonDays });
+  const snapshot = await db.collection('teaching_shifts')
+    .where('shift_start', '>=', admin.firestore.Timestamp.fromDate(start.toJSDate()))
+    .where('shift_start', '<', admin.firestore.Timestamp.fromDate(end.toJSDate()))
+    .get();
+
+  const records = [];
+  const unsafeShifts = [];
+  let skippedNonZoom = 0;
+  let skippedNonHub = 0;
+  let skippedCancelled = 0;
+  for (const doc of snapshot.docs) {
+    const data = doc.data() || {};
+    const provider = String(data.video_provider || data.videoProvider || '')
+      .trim()
+      .toLowerCase();
+    if (provider !== 'zoom') {
+      skippedNonZoom += 1;
+      continue;
+    }
+    if (_shiftCancelledForCapacity(data)) {
+      skippedCancelled += 1;
+      continue;
+    }
+    const meetingId = String(data.zoom_meeting_id || data.zoomMeetingId || '').trim();
+    if (!_usesHubRouting({ shiftData: data, meetingId })) {
+      skippedNonHub += 1;
+      continue;
+    }
+    const guardrail = _zoomHubShiftGuardrailDecision(data, config);
+    if (!guardrail.ok) {
+      unsafeShifts.push(_forecastShiftSummary({
+        shiftId: doc.id,
+        shiftData: data,
+        guardrail,
+        timezone,
+      }));
+      continue;
+    }
+    const record = _capacityRecordForShift({ shiftId: doc.id, shiftData: data, config });
+    if (record) records.push(record);
+  }
+
+  const simulation = _simulateZoomHubCapacitySpillover(records);
+  const unsafeSegments = simulation.unresolvedSegments.map((segment) =>
+    _forecastSegmentSummary({ segment, timezone }));
+  const problems = [...unsafeShifts, ...unsafeSegments];
+  const fingerprintSource = problems.map((problem) => ({
+    kind: problem.kind,
+    shiftId: problem.shiftId || '',
+    lane: problem.lane || '',
+    window: problem.window || problem.localWindow || '',
+    reasons: problem.reasons || [problem.reason || ''],
+    shiftIds: problem.shiftIds || [],
+  }));
+  const fingerprint = crypto
+    .createHash('sha256')
+    .update(JSON.stringify(fingerprintSource))
+    .digest('hex')
+    .slice(0, 16);
+
+  return {
+    success: true,
+    ok: problems.length === 0,
+    generatedAt: now.toISOString(),
+    horizonStart: start.toISODate(),
+    horizonEnd: end.minus({ days: 1 }).toISODate(),
+    timezone,
+    fingerprint,
+    summary: {
+      scannedShiftDocs: snapshot.docs.length,
+      checkedHubRoutedZoomClasses: records.length + unsafeShifts.length,
+      unsafeShiftCount: unsafeShifts.length,
+      unsafeSegmentCount: unsafeSegments.length,
+      movedShiftCount: simulation.moved.length,
+      skippedNonZoom,
+      skippedNonHub,
+      skippedCancelled,
+    },
+    problems,
+  };
+};
+
+const _writeZoomHubDailyCapacityForecastNotification = async (forecast) => {
+  const db = admin.firestore();
+  const alertId = 'zoom_hub_daily_capacity_forecast';
+  const alertRef = db.collection('admin_notifications').doc(alertId);
+  const systemRef = db.collection('system_alerts').doc(alertId);
+  const nowValue = admin.firestore.FieldValue.serverTimestamp();
+
+  if (forecast.ok) {
+    const resolvedData = {
+      type: 'zoom_hub_capacity_forecast',
+      severity: 'info',
+      title: 'Zoom schedule risk forecast',
+      body: `No Zoom hub capacity problems found through ${forecast.horizonEnd}.`,
+      resolved: true,
+      open: false,
+      read: true,
+      latestForecast: _sanitizeAuditValue(forecast),
+      updated_at: nowValue,
+      resolved_at: nowValue,
+    };
+    await Promise.all([
+      alertRef.set(resolvedData, { merge: true }),
+      systemRef.set(resolvedData, { merge: true }),
+    ]);
+    return { alerted: false, resolved: true, alertId };
+  }
+
+  const firstProblem = forecast.problems[0] || {};
+  const title = 'Zoom schedule risk detected';
+  const body = `${forecast.problems.length} future Zoom routing problem(s) were found through ${forecast.horizonEnd}. ${firstProblem.message || 'Review the schedule before classes start.'}`;
+  const notificationData = {
+    type: 'zoom_hub_capacity_forecast',
+    severity: 'critical',
+    reason: 'daily_capacity_forecast_problem',
+    title,
+    body,
+    resolved: false,
+    open: true,
+    read: false,
+    action_required: true,
+    problemFingerprint: forecast.fingerprint,
+    horizonStart: forecast.horizonStart,
+    horizonEnd: forecast.horizonEnd,
+    timezone: forecast.timezone,
+    problemCount: forecast.problems.length,
+    summary: _sanitizeAuditValue(forecast.summary),
+    problems: _sanitizeAuditValue(forecast.problems),
+    latestForecast: _sanitizeAuditValue(forecast),
+    createdAt: nowValue,
+    created_at: nowValue,
+    updated_at: nowValue,
+  };
+  await Promise.all([
+    alertRef.set({ ...notificationData, systemAlertId: alertId }, { merge: true }),
+    systemRef.set(notificationData, { merge: true }),
+  ]);
+
+  await _sendZoomHubAdminAlert({
+    alertId: `${alertId}_${forecast.fingerprint}`,
+    reason: 'daily_capacity_forecast_problem',
+    title,
+    body,
+    severity: 'critical',
+    data: {
+      horizonStart: forecast.horizonStart,
+      horizonEnd: forecast.horizonEnd,
+      timezone: forecast.timezone,
+      problemCount: forecast.problems.length,
+      firstProblemKind: firstProblem.kind || '',
+      firstProblemWindow: firstProblem.window || firstProblem.localWindow || '',
+      firstProblemReason: Array.isArray(firstProblem.reasons)
+        ? firstProblem.reasons.join(',')
+        : (firstProblem.reason || ''),
+      fingerprint: forecast.fingerprint,
+    },
+  });
+
+  return { alerted: true, resolved: false, alertId };
+};
+
+const watchZoomHubCapacityForecast = onSchedule({
+  schedule: '15 3 * * *',
+  timeZone: ZOOM_HUB_DEFAULT_TIMEZONE,
+  region: 'us-central1',
+}, async () => {
+  const forecast = await _buildZoomHubDailyCapacityRiskForecast();
+  const result = await _writeZoomHubDailyCapacityForecastNotification(forecast);
+  if (forecast.ok) {
+    console.log(
+      `[ZoomHub] Daily capacity forecast OK through ${forecast.horizonEnd}; ` +
+      `${forecast.summary.checkedHubRoutedZoomClasses} hub-routed Zoom classes checked.`,
+    );
+  } else {
+    console.warn(
+      `[ZoomHub] Daily capacity forecast found ${forecast.problems.length} problem(s) ` +
+      `through ${forecast.horizonEnd}; alert=${result.alertId}.`,
+    );
+  }
+  return { success: true, forecast, notification: result };
+});
 
 const _mergeHubRoom = (rooms, room) => {
   const byShiftId = new Map();
@@ -1010,10 +1868,54 @@ const _hubWindowForShiftDocs = (shiftDocs) => {
 const _hubWindowExceedsSafeZoomLifetime = (windowInfo) =>
   Number(windowInfo?.duration || 0) > ZOOM_HUB_SAFE_MAX_MEETING_MINUTES;
 
+const _hubMeetingNumber = (hubData = {}) => String(
+  hubData.meetingNumber ||
+  hubData.meeting_number ||
+  hubData.zoom_meeting_id ||
+  hubData.zoomMeetingId ||
+  '',
+).trim();
+
+const _hubHeartbeatStaleForJoin = (hubData = {}, now = new Date()) => {
+  const heartbeat = _toDate(hubData.heartbeat_at || hubData.heartbeatAt);
+  return Boolean(heartbeat &&
+    heartbeat.getTime() + 2 * ZOOM_HUB_BOT_STALE_MS < now.getTime());
+};
+
+const _hubHeartbeatFresh = (hubData = {}, now = new Date()) => {
+  const heartbeat = _toDate(hubData.heartbeat_at || hubData.heartbeatAt);
+  return Boolean(heartbeat &&
+    heartbeat.getTime() + ZOOM_HUB_BOT_STALE_MS >= now.getTime());
+};
+
+const _hubActiveAt = (hubData = {}, now = new Date()) => {
+  const start = _toDate(hubData.window_start || hubData.windowStart);
+  const end = _toDate(hubData.window_end || hubData.windowEnd);
+  return Boolean(start && end &&
+    start.getTime() <= now.getTime() &&
+    end.getTime() >= now.getTime());
+};
+
+const _hubWindowCoversShift = (hubData = {}, shiftData = {}) => {
+  const hubEnd = _toDate(hubData.window_end || hubData.windowEnd);
+  const shiftEnd = _toDate(shiftData.shift_end || shiftData.shiftEnd);
+  if (!hubEnd || !shiftEnd) return false;
+  return hubEnd.getTime() >= shiftEnd.getTime() + ZOOM_HUB_WINDOW_PADDING_MS;
+};
+
 const _queryZoomShiftDocsForHubBlock = async (meta) => {
+  const guardrailConfig = await _loadZoomHubBlockConfig();
+  if (Array.isArray(meta.segmentShiftDocs) && meta.segmentShiftDocs.length > 0) {
+    return _sortZoomShiftDocs(meta.segmentShiftDocs);
+  }
+  const allowedShiftIds = Array.isArray(meta.segmentShiftIds)
+    ? new Set(meta.segmentShiftIds.map((id) => String(id || '').trim()).filter(Boolean))
+    : null;
+  const queryStart = meta.segmentQueryStart || meta.blockStart;
+  const queryEnd = meta.segmentQueryEnd || meta.blockEnd;
   const snapshot = await admin.firestore().collection('teaching_shifts')
-    .where('shift_start', '>=', admin.firestore.Timestamp.fromDate(meta.blockStart))
-    .where('shift_start', '<', admin.firestore.Timestamp.fromDate(meta.blockEnd))
+    .where('shift_start', '>=', admin.firestore.Timestamp.fromDate(queryStart))
+    .where('shift_start', '<', admin.firestore.Timestamp.fromDate(queryEnd))
     .get();
 
   const docs = [];
@@ -1025,17 +1927,12 @@ const _queryZoomShiftDocsForHubBlock = async (meta) => {
     const meetingId = String(data.zoom_meeting_id || data.zoomMeetingId || '').trim();
     if (provider !== 'zoom') continue;
     if (!_usesHubRouting({ shiftData: data, meetingId })) continue;
+    if (!_zoomHubShiftGuardrailDecision(data, guardrailConfig).ok) continue;
     if (_laneIndexForShift({ shiftId: doc.id, shiftData: data }) !== meta.laneIndex) continue;
+    if (allowedShiftIds && !allowedShiftIds.has(doc.id)) continue;
     docs.push(doc);
   }
-  return docs.sort((a, b) => {
-    const aData = a.data() || {};
-    const bData = b.data() || {};
-    const aStart = _toDate(aData.shift_start || aData.shiftStart)?.getTime() || 0;
-    const bStart = _toDate(bData.shift_start || bData.shiftStart)?.getTime() || 0;
-    if (aStart !== bStart) return aStart - bStart;
-    return a.id.localeCompare(b.id);
-  });
+  return _sortZoomShiftDocs(docs);
 };
 
 const _buildHubRoomsForBlock = async ({ meta, targetShiftId, targetShiftData, hubData }) => {
@@ -1124,20 +2021,129 @@ const _escapeHtml = (value) =>
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
 
+const _truncateAuditText = (value, maxLength = 1000) => {
+  const text = String(value ?? '').trim();
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, maxLength)}...`;
+};
+
+const _sanitizeAuditValue = (value, depth = 0) => {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  if (value instanceof Date) return value.toISOString();
+  if (value?.toDate) {
+    try {
+      return value.toDate().toISOString();
+    } catch (_) {
+      return undefined;
+    }
+  }
+  if (typeof value === 'string') return _truncateAuditText(value, 1200);
+  if (typeof value === 'number') return Number.isFinite(value) ? value : undefined;
+  if (typeof value === 'boolean') return value;
+  if (Array.isArray(value)) {
+    if (depth >= 4) return value.slice(0, 30).map((item) => _truncateAuditText(item, 300));
+    return value
+      .slice(0, 60)
+      .map((item) => _sanitizeAuditValue(item, depth + 1))
+      .filter((item) => item !== undefined);
+  }
+  if (typeof value === 'object') {
+    if (depth >= 4) return _truncateAuditText(JSON.stringify(value), 1000);
+    const entries = Object.entries(value).slice(0, 80);
+    return Object.fromEntries(
+      entries
+        .map(([key, item]) => [_truncateAuditText(key, 120), _sanitizeAuditValue(item, depth + 1)])
+        .filter(([, item]) => item !== undefined),
+    );
+  }
+  return _truncateAuditText(value, 300);
+};
+
+const _displayNameForUserData = (data = {}, token = {}) => {
+  const first = String(data.first_name || data.firstName || token.first_name || token.firstName || '')
+    .trim();
+  const last = String(data.last_name || data.lastName || token.last_name || token.lastName || '')
+    .trim();
+  const fullName = `${first} ${last}`.trim();
+  return fullName ||
+    String(data.displayName || data.name || token.name || token.displayName || '').trim();
+};
+
+const _adminAuditActor = async (uid, token = {}) => {
+  const data = await getUserDataForCaller(uid, token).catch(() => null) || {};
+  return {
+    uid,
+    email: String(data.email || data['e-mail'] || token.email || '').trim(),
+    name: _displayNameForUserData(data, token),
+    role: String(
+      data.role ||
+      data.user_type ||
+      data.userType ||
+      token.role ||
+      token.user_type ||
+      token.userType ||
+      '',
+    ).trim(),
+  };
+};
+
+const _sanitizeGuardrailAttemptPayload = (rawData = {}) => {
+  const data = rawData && typeof rawData === 'object' ? rawData : {};
+  const rawShiftAttempt = data.shiftAttempt && typeof data.shiftAttempt === 'object'
+    ? data.shiftAttempt
+    : {};
+  return {
+    operation: _truncateAuditText(data.operation || 'save_shift', 80) || 'save_shift',
+    source: _truncateAuditText(data.source || 'unknown', 120) || 'unknown',
+    existingShiftId: _truncateAuditText(data.existingShiftId || rawShiftAttempt.existingShiftId || '', 160),
+    guardrailReason: _truncateAuditText(data.guardrailReason || 'zoom_hub_shift_guardrail', 120),
+    message: _truncateAuditText(
+      data.message ||
+        data.guardrailMessage ||
+        'This Zoom class was blocked because it is unsafe for hub routing.',
+      1200,
+    ),
+    shiftAttempt: _sanitizeAuditValue(rawShiftAttempt) || {},
+  };
+};
+
 const _collectZoomAdminNotificationTargets = async () => {
-  const snapshot = await admin.firestore()
+  const db = admin.firestore();
+  const snapshot = await db
     .collection('users')
     .where('role', '==', 'admin')
     .get();
   const emails = [];
   const tokens = [];
-  for (const doc of snapshot.docs) {
-    const data = doc.data() || {};
+
+  const addTarget = (data = {}) => {
     const email = String(data.email || data['e-mail'] || '').trim();
     if (email) emails.push(email);
     const fcmToken = String(data.fcmToken || data.fcm_token || '').trim();
     if (fcmToken) tokens.push(fcmToken);
+  };
+
+  for (const doc of snapshot.docs) addTarget(doc.data() || {});
+
+  try {
+    const allUsersSnapshot = await db.collection('users').get();
+    for (const doc of allUsersSnapshot.docs) {
+      const data = doc.data() || {};
+      const first = String(data.first_name || data.firstName || '').trim().toLowerCase();
+      const last = String(data.last_name || data.lastName || '').trim().toLowerCase();
+      const display = String(data.displayName || data.name || '').trim().toLowerCase();
+      const role = String(data.role || data.user_type || data.userType || '').trim().toLowerCase();
+      const isCto = role === 'cto' ||
+        role === 'chief_technology_officer' ||
+        display === 'hassimiou niane' ||
+        (first === 'hassimiou' && last === 'niane');
+      if (isCto) addTarget(data);
+    }
+  } catch (err) {
+    console.warn('[ZoomHub] Unable to add explicit CTO alert target:', err.message || err);
   }
+
   return {
     emails: Array.from(new Set(emails)),
     tokens: Array.from(new Set(tokens)),
@@ -1216,6 +2222,247 @@ const _sendZoomHubAdminAlert = async ({
   }
 };
 
+const _writeZoomHubGuardrailAttemptRecord = async ({ uid, token = {}, rawData = {} }) => {
+  const db = admin.firestore();
+  const actor = await _adminAuditActor(uid, token);
+  const payload = _sanitizeGuardrailAttemptPayload(rawData || {});
+  const attemptId = `zoom_hub_guardrail_attempt_${Date.now()}_${String(uid).slice(-8)}`;
+  const title = 'Zoom class blocked by routing guardrail';
+  const actorLabel = actor.name || actor.email || actor.uid;
+  const teacherLabel = payload.shiftAttempt.teacherName ||
+    payload.shiftAttempt.teacherEmail ||
+    payload.shiftAttempt.teacherId ||
+    'unknown teacher';
+  const classLabel = payload.shiftAttempt.customName ||
+    payload.shiftAttempt.subjectDisplayName ||
+    payload.shiftAttempt.subjectName ||
+    'Zoom class';
+  const body = `${actorLabel} tried to ${payload.operation} ${classLabel} for ${teacherLabel}. ${payload.message}`;
+
+  const auditRecord = {
+    type: 'zoom_hub_shift_guardrail',
+    severity: 'warning',
+    reason: payload.guardrailReason,
+    title,
+    body,
+    operation: payload.operation,
+    source: payload.source,
+    existingShiftId: payload.existingShiftId,
+    guardrailMessage: payload.message,
+    attemptedByUid: actor.uid,
+    attemptedByEmail: actor.email,
+    attemptedByName: actor.name,
+    attemptedByRole: actor.role,
+    shiftAttempt: payload.shiftAttempt,
+    reviewStatus: 'needs_review',
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    created_at: admin.firestore.FieldValue.serverTimestamp(),
+    updated_at: admin.firestore.FieldValue.serverTimestamp(),
+  };
+
+  await _sendZoomHubAdminAlert({
+    alertId: attemptId,
+    reason: 'zoom_hub_shift_guardrail_attempt',
+    title,
+    body,
+    severity: 'warning',
+    data: {
+      attemptId,
+      operation: payload.operation,
+      source: payload.source,
+      attemptedByUid: actor.uid,
+      attemptedByEmail: actor.email,
+      attemptedByName: actor.name,
+      existingShiftId: payload.existingShiftId,
+      guardrailReason: payload.guardrailReason,
+      guardrailMessage: payload.message,
+      teacherId: payload.shiftAttempt.teacherId || '',
+      teacherName: payload.shiftAttempt.teacherName || '',
+      shiftStartIso: payload.shiftAttempt.shiftStartIso || '',
+      shiftEndIso: payload.shiftAttempt.shiftEndIso || '',
+      timezone: payload.shiftAttempt.timezone || '',
+    },
+  }).catch((err) => {
+    console.error('[ZoomHub] Failed to send guardrail attempt alert:', err);
+  });
+
+  await db.collection('system_alerts').doc(attemptId).set(auditRecord, { merge: true });
+  await db.collection('admin_notifications').doc(attemptId).set({
+    ...auditRecord,
+    systemAlertId: attemptId,
+    read: false,
+    action_required: true,
+  }, { merge: true });
+
+  return { success: true, attemptId, systemAlertId: attemptId, notificationId: attemptId };
+};
+
+const recordZoomHubGuardrailAttempt = onCall({ cors: true }, async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError('unauthenticated', 'Authentication required');
+  const token = request.auth?.token || {};
+  if (!await isUserAdmin(uid, token)) {
+    throw new HttpsError('permission-denied', 'Only admins can record Zoom guardrail attempts');
+  }
+  return _writeZoomHubGuardrailAttemptRecord({
+    uid,
+    token,
+    rawData: request.data || {},
+  });
+});
+
+const _dateFromIsoOrMillis = (value) => {
+  if (!value) return null;
+  if (value instanceof Date) return value;
+  if (value?.toDate) return value.toDate();
+  const raw = typeof value === 'number' ? value : String(value || '').trim();
+  const date = new Date(raw);
+  return Number.isFinite(date.getTime()) ? date : null;
+};
+
+const _zoomShiftDataFromAttempt = (attempt = {}) => {
+  const shiftStart = _dateFromIsoOrMillis(
+    attempt.shiftStartIso ||
+    attempt.shift_start ||
+    attempt.shiftStart ||
+    attempt.start,
+  );
+  const shiftEnd = _dateFromIsoOrMillis(
+    attempt.shiftEndIso ||
+    attempt.shift_end ||
+    attempt.shiftEnd ||
+    attempt.end,
+  );
+  const category = String(
+    attempt.category ||
+    attempt.shiftCategory ||
+    attempt.shift_category ||
+    'teaching',
+  ).trim() || 'teaching';
+  const videoProvider = String(
+    attempt.videoProvider ||
+    attempt.video_provider ||
+    'zoom',
+  ).trim() || 'zoom';
+
+  return {
+    teacher_id: String(attempt.teacherId || attempt.teacher_id || '').trim(),
+    teacher_name: String(attempt.teacherName || attempt.teacher_name || '').trim(),
+    student_ids: _normalizeUidList(attempt.studentIds || attempt.student_ids || []),
+    student_names: Array.isArray(attempt.studentNames || attempt.student_names)
+      ? (attempt.studentNames || attempt.student_names).map((name) => String(name || '').trim()).filter(Boolean)
+      : [],
+    shift_start: shiftStart ? admin.firestore.Timestamp.fromDate(shiftStart) : null,
+    shift_end: shiftEnd ? admin.firestore.Timestamp.fromDate(shiftEnd) : null,
+    category,
+    shift_category: category,
+    video_provider: videoProvider,
+    custom_name: String(attempt.customName || attempt.custom_name || '').trim(),
+    subject: String(attempt.subjectDisplayName || attempt.subjectName || attempt.subject || '').trim(),
+    subjectId: String(attempt.subjectId || attempt.subject_id || '').trim(),
+    admin_timezone: String(attempt.timezone || attempt.adminTimezone || attempt.admin_timezone || '').trim(),
+    ...(Number.isInteger(Number(attempt.zoomHubLaneIndex ?? attempt.zoom_hub_lane_index))
+      ? { zoom_hub_lane_index: Number(attempt.zoomHubLaneIndex ?? attempt.zoom_hub_lane_index) }
+      : {}),
+  };
+};
+
+const validateZoomShiftCapacity = onCall({ cors: true }, async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError('unauthenticated', 'Authentication required');
+  const token = request.auth?.token || {};
+  if (!await isUserAdmin(uid, token)) {
+    throw new HttpsError('permission-denied', 'Only admins can validate Zoom shift capacity');
+  }
+
+  const payload = _sanitizeGuardrailAttemptPayload(request.data || {});
+  const existingShiftId = String(payload.existingShiftId || '').trim();
+  const proposedShiftId = existingShiftId || `preflight_${uid}_${Date.now()}`;
+  const shiftData = _zoomShiftDataFromAttempt(payload.shiftAttempt || {});
+  const decision = await _zoomHubCapacityGuardrailDecision({
+    shiftId: proposedShiftId,
+    shiftData,
+    excludeShiftId: existingShiftId,
+  });
+
+  if (decision.ok) {
+    return {
+      success: true,
+      ok: true,
+      ignored: decision.details?.ignored === true,
+      details: decision.details || {},
+    };
+  }
+
+  await _writeZoomHubGuardrailAttemptRecord({
+    uid,
+    token,
+    rawData: {
+      ...payload,
+      guardrailReason: decision.reason || 'zoom_hub_capacity_guardrail',
+      message: decision.message,
+      shiftAttempt: {
+        ...payload.shiftAttempt,
+        capacityDetails: decision.details || {},
+      },
+    },
+  });
+
+  throw new HttpsError('failed-precondition', decision.message, {
+    reason: decision.reason,
+    reasons: decision.reasons || [],
+    details: decision.details || {},
+  });
+});
+
+const _blockZoomHubShiftForGuardrail = async ({
+  shiftRef,
+  shiftId,
+  shiftData,
+  guardrail,
+  source,
+}) => {
+  const details = guardrail.details || {};
+  await shiftRef.set({
+    zoom_hub_guardrail_blocked: true,
+    zoom_hub_guardrail_reason: guardrail.reason || 'zoom_hub_shift_guardrail',
+    zoom_hub_guardrail_reasons: guardrail.reasons || [],
+    zoom_hub_guardrail_message: guardrail.message,
+    zoom_hub_guardrail_details: details,
+    zoom_hub_guardrail_source: source || '',
+    zoom_hub_guardrail_at: admin.firestore.FieldValue.serverTimestamp(),
+    zoomRoutingMode: 'blocked',
+    zoom_routing_mode: 'blocked',
+    zoom_disable_hub_routing: true,
+    zoom_updated_at: admin.firestore.FieldValue.serverTimestamp(),
+  }, { merge: true });
+
+  await _sendZoomHubAdminAlert({
+    alertId: `${shiftId}_zoom_hub_guardrail`,
+    reason: 'zoom_hub_shift_guardrail',
+    title: 'Zoom class blocked by routing guardrail',
+    body: `${_deriveShiftDisplayName(shiftData)} was not routed. ${guardrail.message}`,
+    severity: 'warning',
+    data: {
+      shiftId,
+      shiftName: _deriveShiftDisplayName(shiftData),
+      teacherId: shiftData.teacher_id || shiftData.teacherId || '',
+      teacherName: shiftData.teacher_name || shiftData.teacherName || '',
+      source: source || '',
+      guardrailReason: guardrail.reason || '',
+      guardrailReasons: Array.isArray(guardrail.reasons) ? guardrail.reasons.join(',') : '',
+      durationMinutes: details.durationMinutes ?? '',
+      maxDurationMinutes: details.maxDurationMinutes ?? '',
+      shiftStartIso: details.shiftStartIso || '',
+      shiftEndIso: details.shiftEndIso || '',
+      blockStartIso: details.blockStartIso || '',
+      blockEndIso: details.blockEndIso || '',
+      blockLabel: details.blockLabel || '',
+      timezone: details.timezone || '',
+    },
+  }).catch(() => {});
+};
+
 const _zoomHubOverflowAlertData = ({ shiftId, shiftData, reason, meta }) => ({
   shiftId,
   shiftName: _deriveShiftDisplayName(shiftData),
@@ -1274,6 +2521,165 @@ const _fallBackToSingleZoomMeeting = async ({
     targetRoom: null,
     fallbackReason: reason,
   };
+};
+
+const _assignShiftToOpenHubSpare = async ({
+  hubRef,
+  shiftRef,
+  shiftData,
+  shiftId,
+  fallbackRouting,
+  staleHubMeetingId,
+}) => {
+  let handoff = null;
+  await admin.firestore().runTransaction(async (tx) => {
+    const hubSnap = await tx.get(hubRef);
+    if (!hubSnap.exists) return;
+    const hubData = hubSnap.data() || {};
+    const now = new Date();
+    if (_hubStatusValue(hubData) !== 'roomsOpen') return;
+    if (!_hubHeartbeatFresh(hubData, now)) return;
+    if (!_hubActiveAt(hubData, now)) return;
+    if (!_hubWindowCoversShift(hubData, shiftData)) return;
+
+    const meetingId = _hubMeetingNumber(hubData);
+    const hostAccount = String(hubData.hostAccount || hubData.host_account || '').trim();
+    if (!meetingId || !hostAccount) return;
+
+    let rooms = _withSpareRooms(Array.isArray(hubData.rooms) ? hubData.rooms : []);
+    const nextSpares = {
+      ...(Object.fromEntries(_spareRoomNames().map((name) => [name, null]))),
+      ...(hubData.spares && typeof hubData.spares === 'object' ? hubData.spares : {}),
+    };
+    let targetRoom = rooms.find((room) =>
+      String(room?.shiftId || room?.shift_id || '').trim() === shiftId) || null;
+    let assignedSpareName = targetRoom ? String(targetRoom.name || '').trim() : '';
+
+    if (!targetRoom) {
+      assignedSpareName = _spareRoomNames().find((name, index) => {
+        const room = rooms.find((item) =>
+          String(item?.name || '').trim().toLowerCase() === name.toLowerCase());
+        const recordedShiftId = String(nextSpares[name] || '').trim();
+        const roomShiftId = String(room?.shiftId || room?.shift_id || '').trim();
+        const placeholderShiftId = `__spare_${index + 1}`;
+        const roomIsFree = !roomShiftId || roomShiftId === placeholderShiftId;
+        const spareIsFree = !recordedShiftId;
+        return roomIsFree && spareIsFree;
+      }) || '';
+      if (!assignedSpareName) return;
+      rooms = rooms.map((room) =>
+        String(room?.name || '').trim().toLowerCase() === assignedSpareName.toLowerCase()
+          ? { ..._roomForShift(shiftId, shiftData, assignedSpareName), spare: true }
+          : room);
+      targetRoom = rooms.find((room) =>
+        String(room?.shiftId || room?.shift_id || '').trim() === shiftId) || null;
+    }
+    if (!targetRoom || !assignedSpareName) return;
+
+    nextSpares[assignedSpareName] = shiftId;
+    tx.set(hubRef, {
+      rooms,
+      room_count: rooms.length,
+      spares: nextSpares,
+      updated_at: admin.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+    tx.set(shiftRef, {
+      hubMeetingId: hubRef.id,
+      hub_meeting_id: hubRef.id,
+      zoomRoutingMode: 'hub',
+      zoom_routing_mode: 'hub',
+      breakoutRoomName: targetRoom.name,
+      breakout_room_name: targetRoom.name,
+      breakoutRoomKey: shiftId,
+      breakout_room_key: shiftId,
+      zoom_meeting_id: meetingId,
+      zoom_meeting_number: meetingId,
+      zoom_host_email: hostAccount,
+      zoom_host_account: hostAccount,
+      zoom_hub_handoff_from: staleHubMeetingId || '',
+      zoom_hub_handoff_at: admin.firestore.FieldValue.serverTimestamp(),
+      zoom_updated_at: admin.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+
+    const windowEnd = _toDate(hubData.window_end || hubData.windowEnd);
+    handoff = {
+      meeting: {
+        id: meetingId,
+        password: hubData.zoom_password || hubData.password || '',
+        join_url: hubData.zoom_join_url || hubData.join_url || hubData.joinUrl || '',
+        host_email: hostAccount,
+      },
+      hostAccount,
+      routingMode: 'hub',
+      hubMeetingId: hubRef.id,
+      breakoutRoomName: targetRoom.name,
+      breakoutRooms: rooms,
+      targetRoom,
+      classEndsAtIso: windowEnd
+        ? windowEnd.toISOString()
+        : fallbackRouting.classEndsAtIso || null,
+      meta: {
+        ...(fallbackRouting.meta || {}),
+        hubDocId: hubRef.id,
+        lane: hubData.lane || fallbackRouting.meta?.lane || '',
+        laneIndex: Number.isInteger(Number(hubData.laneIndex))
+          ? Number(hubData.laneIndex)
+          : fallbackRouting.meta?.laneIndex,
+        hostAccount,
+      },
+    };
+  });
+  return handoff;
+};
+
+const _handoffStaleHubRouting = async ({
+  routing,
+  shiftRef,
+  shiftData,
+  shiftId,
+  staleHubData,
+}) => {
+  const snapshot = await admin.firestore().collection('hub_meetings').get();
+  const now = new Date();
+  const candidates = snapshot.docs
+    .filter((doc) => doc.id !== routing.hubMeetingId)
+    .map((doc) => ({ doc, data: doc.data() || {} }))
+    .filter(({ data }) => _hubStatusValue(data) === 'roomsOpen')
+    .filter(({ data }) => _hubHeartbeatFresh(data, now))
+    .filter(({ data }) => _hubActiveAt(data, now))
+    .filter(({ data }) => _hubWindowCoversShift(data, shiftData))
+    .filter(({ data }) => _withSpareRooms(Array.isArray(data.rooms) ? data.rooms : [])
+      .some((room) => {
+        const name = String(room?.name || '').trim();
+        const spareIndex = _spareRoomNames().indexOf(name);
+        if (spareIndex === -1) return false;
+        const spares = data.spares && typeof data.spares === 'object' ? data.spares : {};
+        const recordedShiftId = String(spares[name] || '').trim();
+        const roomShiftId = String(room?.shiftId || room?.shift_id || '').trim();
+        return (!recordedShiftId || recordedShiftId === shiftId) &&
+          (!roomShiftId || roomShiftId === `__spare_${spareIndex + 1}` || roomShiftId === shiftId);
+      }))
+    .sort((first, second) => {
+      const firstSameLane = Number(first.data.lane) === Number(staleHubData.lane);
+      const secondSameLane = Number(second.data.lane) === Number(staleHubData.lane);
+      if (firstSameLane !== secondSameLane) return firstSameLane ? -1 : 1;
+      const firstEnd = _toDate(first.data.window_end || first.data.windowEnd)?.getTime() || 0;
+      const secondEnd = _toDate(second.data.window_end || second.data.windowEnd)?.getTime() || 0;
+      return secondEnd - firstEnd;
+    });
+
+  for (const { doc } of candidates) {
+    const handoff = await _assignShiftToOpenHubSpare({
+      hubRef: doc.ref,
+      shiftRef,
+      shiftData,
+      shiftId,
+      fallbackRouting: routing,
+      staleHubMeetingId: routing.hubMeetingId,
+    });
+    if (handoff) return handoff;
+  }
+  return null;
 };
 
 const ensureZoomHubMeeting = async ({
@@ -1384,7 +2790,7 @@ const ensureZoomHubMeeting = async ({
     // setting them only at join time is too late for a long-running hub.
     await ensureZoomHostClassroomSettings(meta.hostAccount);
     createdMeeting = await zoomClient.createMeeting(meta.hostAccount, {
-      topic: `Alluwal Classrooms ${meta.dayKey} Block ${meta.blockIndex} Lane ${meta.lane}`,
+      topic: `Alluwal Classrooms ${meta.dayKey} Segment ${meta.segmentLabel || meta.blockIndex} Lane ${meta.lane}`,
       type: 2,
       start_time: windowInfo.windowStart.toISOString(),
       duration: windowInfo.duration,
@@ -1422,6 +2828,14 @@ const ensureZoomHubMeeting = async ({
         blockIndex: meta.blockIndex,
         block_start: admin.firestore.Timestamp.fromDate(meta.blockStart),
         block_end: admin.firestore.Timestamp.fromDate(meta.blockEnd),
+        rollingSegment: true,
+        rolling_segment: true,
+        hubSegmentKey: meta.hubSegmentKey,
+        hub_segment_key: meta.hubSegmentKey,
+        segment_label: meta.segmentLabel || '',
+        segment_start: admin.firestore.Timestamp.fromDate(meta.segmentStart || windowInfo.windowStart),
+        segment_end: admin.firestore.Timestamp.fromDate(meta.segmentEnd || windowInfo.windowEnd),
+        segment_shift_ids: meta.segmentShiftIds || [],
         window_start: admin.firestore.Timestamp.fromDate(windowInfo.windowStart),
         window_end: admin.firestore.Timestamp.fromDate(windowInfo.windowEnd),
         laneIndex: meta.laneIndex,
@@ -1444,6 +2858,14 @@ const ensureZoomHubMeeting = async ({
         blockIndex: meta.blockIndex,
         block_start: admin.firestore.Timestamp.fromDate(meta.blockStart),
         block_end: admin.firestore.Timestamp.fromDate(meta.blockEnd),
+        rollingSegment: true,
+        rolling_segment: true,
+        hubSegmentKey: meta.hubSegmentKey,
+        hub_segment_key: meta.hubSegmentKey,
+        segment_label: meta.segmentLabel || '',
+        segment_start: admin.firestore.Timestamp.fromDate(meta.segmentStart || windowInfo.windowStart),
+        segment_end: admin.firestore.Timestamp.fromDate(meta.segmentEnd || windowInfo.windowEnd),
+        segment_shift_ids: meta.segmentShiftIds || [],
         window_start: admin.firestore.Timestamp.fromDate(windowInfo.windowStart),
         window_end: admin.firestore.Timestamp.fromDate(windowInfo.windowEnd),
         laneIndex: meta.laneIndex,
@@ -1479,6 +2901,14 @@ const ensureZoomHubMeeting = async ({
     blockIndex: meta.blockIndex,
     block_start: admin.firestore.Timestamp.fromDate(meta.blockStart),
     block_end: admin.firestore.Timestamp.fromDate(meta.blockEnd),
+    rollingSegment: true,
+    rolling_segment: true,
+    hubSegmentKey: meta.hubSegmentKey,
+    hub_segment_key: meta.hubSegmentKey,
+    segment_label: meta.segmentLabel || '',
+    segment_start: admin.firestore.Timestamp.fromDate(meta.segmentStart || windowInfo.windowStart),
+    segment_end: admin.firestore.Timestamp.fromDate(meta.segmentEnd || windowInfo.windowEnd),
+    segment_shift_ids: meta.segmentShiftIds || [],
     window_start: admin.firestore.Timestamp.fromDate(windowInfo.windowStart),
     window_end: admin.firestore.Timestamp.fromDate(windowInfo.windowEnd),
     laneIndex: meta.laneIndex,
@@ -1501,6 +2931,8 @@ const ensureZoomHubMeeting = async ({
     batch.set(ref, {
       hubMeetingId: meta.hubDocId,
       hub_meeting_id: meta.hubDocId,
+      zoom_hub_segment_key: meta.hubSegmentKey,
+      zoomHubSegmentKey: meta.hubSegmentKey,
       zoomRoutingMode: 'hub',
       zoom_routing_mode: 'hub',
       breakoutRoomName: room.name,
@@ -1559,6 +2991,7 @@ const ensureZoomHubMeeting = async ({
     breakoutRoomName: roomName,
     breakoutRooms: rooms,
     targetRoom: roomPlan.targetRoom,
+    overflowShiftIds: roomPlan.overflowShiftIds,
     // When everyone is removed (last class + 15 min). Drives the participant
     // "class ends in N minutes" countdown.
     classEndsAtIso: windowInfo.windowEnd.toISOString(),
@@ -2086,12 +3519,91 @@ const _buildZoomHubCapacityForecast = async ({ now = new Date() } = {}) => {
   };
 };
 
+const _zoomHubAlertIsOpen = (data = {}) =>
+  data.resolved !== true && data.status !== 'resolved' && !data.resolved_at;
+
+const _zoomHubAlertHubDocId = (data = {}) => String(
+  data.data?.hubDocId ||
+  data.hubDocId ||
+  data.data?.staleHubDocId ||
+  data.staleHubDocId ||
+  '',
+).trim();
+
+const _hubBreakoutUnreadablePoisoned = (hubData = {}, now = new Date()) => {
+  const stats = (hubData.stats && typeof hubData.stats === 'object') ? hubData.stats : {};
+  const liveRoomCount = Number(stats.liveRoomCount);
+  const targetMemberCount = Number(stats.targetMemberCount || 0);
+  const inRoom = Number(stats.inRoomOccupants || 0);
+  return _hubActiveAt(hubData, now) &&
+    _hubStatusValue(hubData) === 'roomsOpen' &&
+    _hubHeartbeatFresh(hubData, now) &&
+    Number.isFinite(liveRoomCount) &&
+    liveRoomCount === 0 &&
+    targetMemberCount > 0 &&
+    inRoom === 0;
+};
+
+const _zoomHubAlertStillActive = ({ reason, hubData, now }) => {
+  if (!hubData || !_hubActiveAt(hubData, now)) return false;
+  const status = _hubStatusValue(hubData);
+  if (reason === 'rooms_not_open') return status !== 'roomsOpen';
+  if (reason === 'heartbeat_stale') {
+    return status === 'roomsOpen' && !_hubHeartbeatFresh(hubData, now);
+  }
+  if (reason === 'stale_hub_on_join') return _hubHeartbeatStaleForJoin(hubData, now);
+  if (reason === 'breakout_unreadable_poisoned') {
+    return _hubBreakoutUnreadablePoisoned(hubData, now);
+  }
+  return false;
+};
+
+const _resolveStaleZoomHubAlerts = async ({ db, hubDocs = [], now = new Date() }) => {
+  const hubById = new Map(hubDocs.map((doc) => [doc.id, doc.data() || {}]));
+  const snapshot = await db.collection('system_alerts')
+    .where('type', '==', 'zoom_hub')
+    .get();
+  let batch = db.batch();
+  let pending = 0;
+  let resolvedCount = 0;
+  const commitPending = async () => {
+    if (pending === 0) return;
+    await batch.commit();
+    batch = db.batch();
+    pending = 0;
+  };
+
+  for (const doc of snapshot.docs) {
+    const data = doc.data() || {};
+    const reason = String(data.reason || '').trim();
+    if (!_zoomHubAlertIsOpen(data)) continue;
+    if (!ZOOM_HUB_AUTO_RESOLVE_ALERT_REASONS.has(reason)) continue;
+    const hubDocId = _zoomHubAlertHubDocId(data);
+    const hubData = hubDocId ? hubById.get(hubDocId) : null;
+    if (_zoomHubAlertStillActive({ reason, hubData, now })) continue;
+    batch.set(doc.ref, {
+      resolved: true,
+      status: 'resolved',
+      auto_resolved: true,
+      auto_resolved_reason: 'hub_recovered_or_window_closed',
+      resolved_at: admin.firestore.FieldValue.serverTimestamp(),
+      updated_at: admin.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+    pending += 1;
+    resolvedCount += 1;
+    if (pending >= BATCH_WRITE_LIMIT) await commitPending();
+  }
+  await commitPending();
+  return resolvedCount;
+};
+
 const _buildZoomHubRoutingStatus = async ({ now = new Date() } = {}) => {
   const db = admin.firestore();
-  const [hubSnapshot, alertSnapshot] = await Promise.all([
-    db.collection('hub_meetings').get(),
-    db.collection('system_alerts').get(),
-  ]);
+  const hubSnapshot = await db.collection('hub_meetings').get();
+  await _resolveStaleZoomHubAlerts({ db, hubDocs: hubSnapshot.docs, now });
+  const alertSnapshot = await db.collection('system_alerts')
+    .where('type', '==', 'zoom_hub')
+    .get();
 
   const shiftCache = new Map();
   const loadShift = async (shiftId) => {
@@ -2235,7 +3747,8 @@ const _buildZoomHubRoutingStatus = async ({ now = new Date() } = {}) => {
         lane: _numberOrZero(data.data?.lane || data.lane),
       };
     })
-    .filter((incident) => incident.type === 'zoom_hub')
+    .filter((incident) => incident.type === 'zoom_hub' &&
+      ZOOM_HUB_STATUS_INCIDENT_REASONS.has(incident.reason))
     .filter((incident) => (
       incident.open ||
       (incident.createdAt && new Date(incident.createdAt).getTime() >= alertCutoffMs)
@@ -2326,12 +3839,29 @@ const getZoomJoinInfo = onCall({
     studentIds,
     activeRole: request.data?.activeRole,
   });
+  const storedGuardrailBlock = _storedZoomHubGuardrailBlock(shiftData);
+  if (storedGuardrailBlock) {
+    throw new HttpsError('failed-precondition', storedGuardrailBlock.message);
+  }
   const useHubRouting = _usesHubRouting({ shiftData, meetingId });
+  if (useHubRouting) {
+    const guardrail = await _validateZoomHubShiftGuardrail(shiftData);
+    if (!guardrail.ok) {
+      await _blockZoomHubShiftForGuardrail({
+        shiftRef,
+        shiftId,
+        shiftData,
+        guardrail,
+        source: 'getZoomJoinInfo',
+      });
+      throw new HttpsError('failed-precondition', guardrail.message);
+    }
+  }
   const teacherHostAccount = await _getZoomHostAccountForTeacher(teacherId, {
     required: !useHubRouting,
   });
   const isTeacherForShift = uid === teacherId;
-  const routing = useHubRouting
+  let routing = useHubRouting
     ? await ensureZoomHubMeeting({
       shiftRef,
       shiftData,
@@ -2360,20 +3890,42 @@ const getZoomJoinInfo = onCall({
     const hubSnap = await admin.firestore()
       .collection('hub_meetings').doc(routing.hubMeetingId).get();
     const hubInfo = hubSnap.exists ? hubSnap.data() || {} : {};
-    const hb = _toDate(hubInfo.heartbeat_at || hubInfo.heartbeatAt);
-    if (hb && hb.getTime() + 2 * ZOOM_HUB_BOT_STALE_MS < Date.now()) {
-      await _sendZoomHubAdminAlert({
-        alertId: `${routing.hubMeetingId}_stale_on_join`,
-        reason: 'stale_hub_on_join',
-        title: 'Join blocked: hub bot not present',
-        body: `A user tried to join ${_deriveShiftDisplayName(shiftData)} but the bot for ${routing.hubMeetingId} is not present (heartbeat stale). Asked them to retry while the watchdog recovers it.`,
-        severity: 'critical',
-        data: { hubDocId: routing.hubMeetingId, shiftId },
-      }).catch(() => {});
-      throw new HttpsError(
-        'unavailable',
-        'Your class is reconnecting. Please tap Join again in a moment.',
-      );
+    if (_hubHeartbeatStaleForJoin(hubInfo)) {
+      const handoffRouting = await _handoffStaleHubRouting({
+        routing,
+        shiftRef,
+        shiftData,
+        shiftId,
+        staleHubData: hubInfo,
+      });
+      if (handoffRouting) {
+        await _sendZoomHubAdminAlert({
+          alertId: `${routing.hubMeetingId}_${shiftId}_stale_handoff`,
+          reason: 'stale_hub_handoff',
+          title: 'Zoom class moved to a healthy hub',
+          body: `${_deriveShiftDisplayName(shiftData)} was assigned to a spare room in ${handoffRouting.hubMeetingId} because ${routing.hubMeetingId} no longer had a fresh bot heartbeat.`,
+          severity: 'warning',
+          data: {
+            staleHubDocId: routing.hubMeetingId,
+            hubDocId: handoffRouting.hubMeetingId,
+            shiftId,
+          },
+        }).catch(() => {});
+        routing = handoffRouting;
+      } else {
+        await _sendZoomHubAdminAlert({
+          alertId: `${routing.hubMeetingId}_stale_on_join`,
+          reason: 'stale_hub_on_join',
+          title: 'Join blocked: hub bot not present',
+          body: `A user tried to join ${_deriveShiftDisplayName(shiftData)} but the bot for ${routing.hubMeetingId} is not present (heartbeat stale). Asked them to retry while the watchdog recovers it.`,
+          severity: 'critical',
+          data: { hubDocId: routing.hubMeetingId, shiftId },
+        }).catch(() => {});
+        throw new HttpsError(
+          'unavailable',
+          'Your class is reconnecting. Please tap Join again in a moment.',
+        );
+      }
     }
   }
   await ensureZoomHostClassroomSettings(routing.hostAccount);
@@ -2603,7 +4155,7 @@ const _prepareZoomHubForShiftDoc = async (shiftDoc) => {
   const teacherHostAccount = teacherId
     ? await _getZoomHostAccountForTeacher(teacherId, { required: false })
     : '';
-  await ensureZoomHubMeeting({
+  return ensureZoomHubMeeting({
     shiftRef,
     shiftData,
     shiftId: shiftDoc.id,
@@ -2633,11 +4185,30 @@ const prepareZoomHubs = onSchedule({
       .toLowerCase();
     const meetingId = String(data.zoom_meeting_id || data.zoomMeetingId || '').trim();
     if (provider !== 'zoom' || !_usesHubRouting({ shiftData: data, meetingId })) continue;
+    const guardrail = await _validateZoomHubShiftGuardrail(data);
+    if (!guardrail.ok) {
+      await _blockZoomHubShiftForGuardrail({
+        shiftRef: doc.ref,
+        shiftId: doc.id,
+        shiftData: data,
+        guardrail,
+        source: 'prepareZoomHubs',
+      });
+      continue;
+    }
     const meta = await _hubMetaForShift({ shiftId: doc.id, shiftData: data });
     if (prepared.has(meta.hubDocId)) continue;
     prepared.add(meta.hubDocId);
-    await _prepareZoomHubForShiftDoc(doc);
+    const preparedRouting = await _prepareZoomHubForShiftDoc(doc);
     preparedCount += 1;
+    const overflowShiftIds = Array.isArray(preparedRouting?.overflowShiftIds)
+      ? preparedRouting.overflowShiftIds
+      : [];
+    for (const overflowShiftId of overflowShiftIds) {
+      const overflowDoc = await db.collection('teaching_shifts').doc(overflowShiftId).get();
+      if (!overflowDoc.exists) continue;
+      await _prepareZoomHubForShiftDoc(overflowDoc);
+    }
   }
   console.log(`[ZoomHub] Prepared ${preparedCount} hub(s) for ${snapshot.docs.length} upcoming Zoom shift(s).`);
 });
@@ -2700,7 +4271,47 @@ const onTeachingShiftWritten = onDocumentWritten({
     .trim()
     .toLowerCase();
   const meetingId = String(shiftData.zoom_meeting_id || shiftData.zoomMeetingId || '').trim();
-  if (provider !== 'zoom' || !_usesHubRouting({ shiftData, meetingId })) return;
+  if (provider !== 'zoom') return;
+  if (_storedZoomHubGuardrailBlock(shiftData)) return;
+  if (!_usesHubRouting({ shiftData, meetingId })) return;
+
+  const guardrail = await _validateZoomHubShiftGuardrail(shiftData);
+  if (!guardrail.ok) {
+    const shiftRef = afterSnap.ref ||
+      admin.firestore().collection('teaching_shifts').doc(event.params.shiftId);
+    await _blockZoomHubShiftForGuardrail({
+      shiftRef,
+      shiftId: event.params.shiftId,
+      shiftData,
+      guardrail,
+      source: 'onTeachingShiftWritten',
+    });
+    console.warn(
+      `[ZoomHub] Blocked unsafe hub-routed shift ${event.params.shiftId}: ${guardrail.reason}`,
+    );
+    return;
+  }
+
+  const capacityGuardrail = await _zoomHubCapacityGuardrailDecision({
+    shiftId: event.params.shiftId,
+    shiftData,
+    excludeShiftId: event.params.shiftId,
+  });
+  if (!capacityGuardrail.ok) {
+    const shiftRef = afterSnap.ref ||
+      admin.firestore().collection('teaching_shifts').doc(event.params.shiftId);
+    await _blockZoomHubShiftForGuardrail({
+      shiftRef,
+      shiftId: event.params.shiftId,
+      shiftData,
+      guardrail: capacityGuardrail,
+      source: 'onTeachingShiftWritten_capacity',
+    });
+    console.warn(
+      `[ZoomHub] Blocked capacity-breaking hub-routed shift ${event.params.shiftId}: ${capacityGuardrail.reason}`,
+    );
+    return;
+  }
 
   const startMs = _shiftStartMs(shiftData);
   if (startMs == null) return;
@@ -2745,7 +4356,16 @@ const watchZoomHubBots = onSchedule({
   secrets: ZOOM_JOIN_SECRETS,
 }, async () => {
   const now = new Date();
-  const snapshot = await admin.firestore().collection('hub_meetings').get();
+  const db = admin.firestore();
+  const snapshot = await db.collection('hub_meetings').get();
+  const resolvedAlertCount = await _resolveStaleZoomHubAlerts({
+    db,
+    hubDocs: snapshot.docs,
+    now,
+  });
+  if (resolvedAlertCount > 0) {
+    console.log(`[ZoomHub] Auto-resolved ${resolvedAlertCount} stale hub alert(s).`);
+  }
 
   // Precompute, per lane, the newest currently-active block index. A hub is
   // "superseded" when a newer block on the same lane is already active — its
@@ -3420,8 +5040,11 @@ module.exports = {
   getZoomJoinInfo,
   getZoomHubCapacityForecast,
   getZoomHubRoutingStatus,
+  recordZoomHubGuardrailAttempt,
+  validateZoomShiftCapacity,
   setTeacherZoomEnabled,
   prepareZoomHubs,
+  watchZoomHubCapacityForecast,
   watchZoomHubBots,
   onTeachingShiftWritten,
   zoomWebhook,
@@ -3429,12 +5052,15 @@ module.exports = {
     _blockForShift,
     _buildHubRoomsForBlock,
     _buildZoomHubCapacityForecast,
+    _buildZoomHubDailyCapacityRiskForecast,
     _hubMetaForShift,
     _buildZoomHubRoutingStatus,
     _hubWindowExceedsSafeZoomLifetime,
     _hubWindowForShiftDocs,
     _laneIndexForShift,
     _loadZoomHubBlockConfig,
+    _zoomHubCapacityGuardrailDecision,
+    _zoomHubShiftGuardrailDecision,
     _writeZoomHubMember,
     buildZoomWebhookValidationResponse,
     handleZoomPresenceWebhook,

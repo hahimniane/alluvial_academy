@@ -293,8 +293,9 @@ class _AdminClassesScreenState extends State<AdminClassesScreen>
   Widget _buildClassCard(TeachingShift shift) {
     final now = DateTime.now();
     final isActive = shift.status == ShiftStatus.active || shift.isClockedIn;
-    final isUpcoming = shift.shiftStart.isAfter(now);
-    final canJoin = isActive || VideoCallService.canJoinClass(shift);
+    final hasVideoCall = shift.hasVideoCall;
+    final canJoin =
+        hasVideoCall && (isActive || VideoCallService.canJoinClass(shift));
 
     Color statusColor;
     String statusText;
@@ -336,11 +337,11 @@ class _AdminClassesScreenState extends State<AdminClassesScreen>
     }
 
     // Get cached presence data for active classes
-    final presence = isActive ? _presenceCache[shift.id] : null;
+    final presence = isActive && hasVideoCall ? _presenceCache[shift.id] : null;
     final participantCount = presence?.participantCount ?? 0;
 
     // Fetch presence if not cached and class is active
-    if (isActive && presence == null) {
+    if (isActive && hasVideoCall && presence == null) {
       _fetchPresence(shift.id);
     }
 
@@ -770,9 +771,10 @@ class _ClassDetailsSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final now = DateTime.now();
     final isActive = shift.status == ShiftStatus.active || shift.isClockedIn;
-    final canJoin = isActive || VideoCallService.canJoinClass(shift);
+    final hasVideoCall = shift.hasVideoCall;
+    final canJoin =
+        hasVideoCall && (isActive || VideoCallService.canJoinClass(shift));
 
     return DraggableScrollableSheet(
       initialChildSize: 0.6,

@@ -27,7 +27,9 @@ What the script does:
 1. Runs `./build_release.sh`.
 2. Reads the cache-busting version from `web/index.html`.
 3. Creates a timestamped backup of the live `public_html` folder.
-4. Runs rsync with `--delete` from `build/web/` to Hostinger.
+4. Runs rsync with `--delete` from `build/web/` to Hostinger, while preserving
+   Hostinger subdomain folders such as `public_html/live/` and
+   `public_html/ops/`.
 5. Verifies the remote files and public site are serving the new version.
 
 Manual upload command, only when debugging the deploy script:
@@ -35,6 +37,8 @@ Manual upload command, only when debugging the deploy script:
 ```bash
 rsync -az --delete --progress --stats \
   -e "ssh -i \"$HOSTINGER_KEY\" -p \"$HOSTINGER_PORT\" -o StrictHostKeyChecking=accept-new" \
+  --exclude '/live/***' \
+  --exclude '/ops/***' \
   build/web/ \
   "$HOSTINGER_USER@$HOSTINGER_HOST:$REMOTE_DOMAIN_ROOT/public_html/"
 ```

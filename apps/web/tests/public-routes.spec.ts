@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 const publicRoutes = [
-  ["/", "Learn with online tutoring"],
+  ["/", "Learn with tutors who know your child by name"],
   ["/about/", "About Alluwal Education Hub"],
   ["/programs/", "Explore our programs"],
   ["/enroll/", "Who's enrolling"],

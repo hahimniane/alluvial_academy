@@ -45,6 +45,14 @@ hub routing, class presence/rosters, no-show attendance, `web/zoom_meeting.html`
 update it before handoff with changes, tests, deploys, live-class findings,
 and remaining blockers.
 
+Zoom classroom routing is production-critical. Do not make "cleanup",
+"simplification", clock-in, billing-test, shift scheduling, or mobile/web Zoom
+changes that alter hub routing, join payloads, bot lanes, room assignment,
+guardrail rules, or Zoom meeting lifetimes unless the work is explicitly about
+Zoom routing and includes targeted tests plus an update to
+`docs/zoom-hub-bot-plan.md`. When in doubt, leave the routing path untouched and
+ask the owner before changing it.
+
 ---
 
 ## 2. Architecture rules (ENFORCED)

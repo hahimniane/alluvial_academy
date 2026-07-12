@@ -1,7 +1,24 @@
 import type { Metadata, Viewport } from "next";
+import { Fraunces, Inter } from "next/font/google";
 import { Suspense } from "react";
 import { AnalyticsTracker } from "@/components/AnalyticsTracker";
+import { QuranAmbientPlayer } from "@/components/QuranAmbientPlayer";
+import { WhatsAppButton } from "@/components/WhatsAppButton";
 import "./globals.css";
+
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-body",
+  display: "swap",
+});
+
+const fraunces = Fraunces({
+  subsets: ["latin"],
+  variable: "--font-display",
+  display: "swap",
+  style: ["normal", "italic"],
+  axes: ["SOFT", "opsz"],
+});
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://alluwaleducationhub.org"),
@@ -35,12 +52,18 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className={`${inter.variable} ${fraunces.variable}`}>
       <body>
         <Suspense fallback={null}>
           <AnalyticsTracker />
         </Suspense>
         {children}
+        <Suspense fallback={null}>
+          <QuranAmbientPlayer />
+        </Suspense>
+        <Suspense fallback={null}>
+          <WhatsAppButton />
+        </Suspense>
       </body>
     </html>
   );

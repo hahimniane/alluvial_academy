@@ -230,9 +230,10 @@ class TeachingShift {
 
   bool get usesZoom => videoProvider == VideoProvider.zoom;
 
-  // Check if video call is available - only true for teaching shifts.
-  // Leader Duty, meeting, and training shifts are admin/internal and have no video class.
-  bool get hasVideoCall => category == ShiftCategory.teaching;
+  // Only real teacher-student classes have video. Leader/admin clock-in shifts
+  // may belong to users who can also teach, but they are not Zoom classrooms.
+  bool get hasVideoCall =>
+      category == ShiftCategory.teaching && studentIds.isNotEmpty;
 
   // Get the effective room name for legacy LiveKit rooms (generates default if not set)
   String get effectiveLivekitRoomName => livekitRoomName ?? 'shift_$id';
@@ -584,22 +585,22 @@ class TeachingShift {
         parseString(data['zoomRoutingMode'] ?? data['zoom_routing_mode']);
 
     VideoProvider parseVideoProvider() {
+      final rawStudentIds = data['student_ids'] ?? data['studentIds'];
+      final hasStudentIds =
+          rawStudentIds is Iterable && rawStudentIds.isNotEmpty;
+      if (category != ShiftCategory.teaching || !hasStudentIds) {
+        return VideoProvider.realtimekit;
+      }
+
       final rawProvider =
           parseString(data['video_provider'] ?? data['videoProvider']);
       if (rawProvider != null && rawProvider.trim().isNotEmpty) {
         final normalized = rawProvider.trim().toLowerCase();
-        // Preserve 'zoom' for non-teaching shifts (Leader Duty, meeting, training).
-        // This prevents round-trip writes from overwriting 'zoom' → 'livekit' in
-        // Firestore, which would allow the backend to accept LiveKit join requests
-        // for shifts that should not have a video class.
-        // ignore: deprecated_member_use
         if (normalized == 'realtimekit') return VideoProvider.realtimekit;
         if (normalized == 'zoom') return VideoProvider.zoom;
         if (normalized == 'livekit') return VideoProvider.livekit;
       }
-      return category == ShiftCategory.teaching
-          ? VideoProvider.zoom
-          : VideoProvider.realtimekit;
+      return VideoProvider.zoom;
     }
 
     final videoProvider = parseVideoProvider();

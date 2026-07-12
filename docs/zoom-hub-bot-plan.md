@@ -6,6 +6,14 @@
 
 **Agent rule:** any agent touching Zoom classrooms, hub routing, class presence/rosters, no-show attendance, `web/zoom_meeting.html`, `functions/handlers/zoom*.js`, `functions/handlers/realtimekit.js`, `lib/core/services/class_video_service.dart`, `lib/features/zoom/`, or `services/zoom-hub-bot/` must read this file before changing code. Before ending work, update this file with the exact changes made, tests run, deploys attempted/completed, live-class findings, and any remaining blockers. Keep entries dated so the next agent can resume without guessing.
 
+**Guardrail rule:** hub-routed Zoom teaching shifts must not exceed
+`ZOOM_HUB_MAX_CLASS_DURATION_MINUTES` (default 180). The old
+`05:00/12:00/17:00` block boundaries are now soft planning hints, not class
+cutoffs. Connected same-lane classes whose padded windows touch or overlap are
+merged into one rolling hub segment so no class is split or moved mid-session.
+Do not reintroduce a hard block-boundary guard without updating this document,
+the Functions/Dart tests, and the owner-facing handoff notes.
+
 ---
 
 ## 1. Product invariants (the result the owner wants — every one is testable)
@@ -33,6 +41,20 @@
   until a controlled SDK/bot test proves 100 rooms reliably works in this
   hub-routing model. Forecasting reserves 1 seat for the host bot, so the
   scheduled human cap is 99 per lane. Max meeting duration **30 h**.
+- Pricing/account reference, checked on 2026-07-10 from the owner's Zoom
+  billing portal screenshot: production is **Zoom Workplace Pro**, billed
+  monthly at **$16.99/license/month** before applicable taxes. The checkout
+  screenshot showed adding 1 new license to the existing 2 Pro licenses, for a
+  next monthly bill of **$50.97** before taxes. Zoom's official pricing page
+  lists Pro limits as **30 hours** and **100 participants per meeting**.
+  Business is a higher tier and lists **300 participants**, but do not assume
+  Business unless the billing portal/API says so. Do not infer production
+  capacity from price alone: keep using the Zoom API/user-settings result for
+  the actual host capacity. If `billing@`/`support@` return
+  `meetingCapacity: 100` and no Large Meeting add-on, keep the hub seat cap at
+  99 scheduled humans per lane. Sources: owner Zoom billing portal screenshot
+  from 2026-07-10, `https://zoom.us/pricing`,
+  `https://support.zoom.com/hc/en/article?id=zm_kb&sysparm_article=KB0068002`.
 - `openBreakoutRooms` options we require: `isAutoJoinRoom: true` (assigned users get pulled in with no click) and **`isBackToMainSessionEnabled: false`** (participants cannot return to the hub; this replaces a CSS-only defense with a Zoom-enforced one).
 - `assignUserToBreakoutRoom` is for users in the **main session (unassigned)**; `moveUserToBreakoutRoom` is for users **already inside some room**. `userId` is the numeric in-meeting id from `getAttendeeslist` / `getBreakoutRooms`, not our uid; the bridge is `customerKey` (we pass Firebase uid as `customerKey` at join).
 - REST breakout pre-assignment (`breakout_room` meeting settings) does **not** work for web-SDK guests. Ignore it for routing (keep `enable: true` so the feature is on).
@@ -53,7 +75,12 @@ Flutter app ── zoom_meeting.html (role 0,      │ HTTPS + bot secret
 ```
 
 - **Lane** = one licensed account. Lane assignment: unchanged hash of `teacher_id` (`_hubMetaForShift`).
-- **Block** = time slice of a lane's day. One hub meeting per `(day, block, lane)`. Hub doc id: `zoom_hub_<dayKey>_<blockIndex>_<lane>`.
+- **Soft block** = configured time slice of a lane's day, used only as an
+  anchor for hub planning.
+- **Rolling segment** = the actual hub unit. Same-lane classes are sorted by
+  time; if one class's padded window (`start - 15 min` through `end + 15 min`)
+  touches or overlaps the next, they share one hub meeting. Hub doc id:
+  `zoom_hub_<dayKey>_<anchorBlockIndex>_<segmentStartHHmm>_<lane>`.
 - **Bot** = headless Chromium page joining as host (role 1 + ZAK). The bot **never enters a breakout room**; it stays in the main session forever and only routes. No human ever gets role 1.
 
 ## 4. Phase 0 — verification spikes (blocking gates; do these first, ~half a day)
@@ -80,15 +107,25 @@ In `functions/handlers/zoom.js`:
 ### 5.2 Blocks
 - New helper `_blockForShift(shiftData)` → `{blockIndex, blockStart, blockEnd}` from a config doc `system_settings/zoom_hub_blocks` (fallback env `ZOOM_HUB_BLOCK_BOUNDARIES`, default boundaries `05:00,12:00,17:00` in `America/New_York`). A shift belongs to the block containing its **start** time.
 - A hub's Zoom meeting window = `firstShiftStart − 15 min` → `lastShiftEnd + 15 min` (computed from the shifts assigned to it), so a class that crosses a boundary stays in its start block and the hub simply stays open until it ends.
-- If G5 says **Pro (1 concurrent meeting/user)**: adjacent hubs on the same lane may not overlap → the scheduler must verify `prevHub.lastEnd + 15 < nextHub.firstStart − 15`; when violated, merge the two blocks for that day/lane (log a warning). If **Business (2 concurrent)**: overlap is fine, bots run both briefly.
-- **Room cap guard:** a hub gets rooms for its shifts **plus 5 spare rooms** (`Spare 1`…`Spare 5`, see §5.4). If total would exceed **48**, spill the overflow shifts to the other lane's same-block hub; if both are full, alert admins (reuse the no-show admin email path) and fall back to `single` mode for the overflow class.
+- Production guardrail, updated after the Billing Test stale-hub incident:
+  normal admin-created hub classes are blocked if they exceed 180 minutes or
+  have invalid times. Direct Firestore/script writes are quarantined by Cloud
+  Functions with `zoom_hub_guardrail_blocked: true`,
+  `zoomRoutingMode: blocked`, and a `system_alerts` record for owner review.
+- Because production is Zoom Workplace Pro (1 concurrent meeting/user), adjacent
+  same-lane hubs may not overlap. `_hubMetaForShift` now computes a rolling hub
+  segment by scanning nearby same-lane Zoom teaching classes and merging any
+  class whose padded window touches or overlaps the previous one. A 4:00-5:30
+  PM class and 5:00 PM classes therefore share one hub instead of creating two
+  overlapping meetings on the same licensed account.
+- **Room cap guard:** a hub gets rooms for its shifts **plus 5 spare rooms** (`Spare 1`…`Spare 5`, see §5.4). If total would exceed **48**, spill the overflow shifts to the other lane's same rolling segment when possible; if both are full, alert admins (reuse the no-show admin email path) and fall back to `single` mode for the overflow class.
 
 ### 5.3 Hub preparation ahead of time (bots need rooms BEFORE anyone joins)
-- New scheduled function `prepareZoomHubs` (Cloud Scheduler, every 10 min, both projects): scan `teaching_shifts` with `video_provider == 'zoom'` and hub routing enabled starting in the next 60 min; for each `(day, block, lane)`: create the Zoom meeting if missing (reuse the existing transactional create in `ensureZoomHubMeeting`), compute the **full room list for the entire block** (all shifts in that block, not just ones someone tried to join), write the hub doc.
-- `ensureZoomHubMeeting` stays as the lazy fallback for joins that beat the scheduler but must also seed the **whole block's** rooms, not just the joining shift's room.
+- New scheduled function `prepareZoomHubs` (Cloud Scheduler, every 10 min, both projects): scan `teaching_shifts` with `video_provider == 'zoom'` and hub routing enabled starting in the next 60 min; for each rolling `(day, segment, lane)`: create the Zoom meeting if missing (reuse the existing transactional create in `ensureZoomHubMeeting`), compute the **full room list for the entire rolling segment** (all connected shifts in that segment, not just ones someone tried to join), write the hub doc.
+- `ensureZoomHubMeeting` stays as the lazy fallback for joins that beat the scheduler but must also seed the **whole rolling segment's** rooms, not just the joining shift's room.
 
 ### 5.4 Ad-hoc shifts created after the hub opened
-- Rooms can't be added after open. If a shift is created/moved into an already-`open` hub: assign it one of the 5 pre-created **spare rooms** (first unused, tracked on the hub doc: `spares: {"Spare 1": shiftId|null, ...}`) and store that spare name as the shift's `breakoutRoomName`. Room display name is cosmetic (breakout UI is suppressed client-side). If spares are exhausted → `single` mode fallback + admin alert.
+- Rooms can't be added after open. If a shift is created/moved into an already-`open` rolling segment hub: assign it one of the 5 pre-created **spare rooms** (first unused, tracked on the hub doc: `spares: {"Spare 1": shiftId|null, ...}`) and store that spare name as the shift's `breakoutRoomName`. Room display name is cosmetic (breakout UI is suppressed client-side). If spares are exhausted → `single` mode fallback + admin alert.
 
 ### 5.5 Fix the visitor race
 - Replace read-modify-write of `hub_meetings/{id}.rooms[].visitorIds` with per-member docs: `hub_meetings/{hubId}/members/{uid}` = `{shiftId, role: teacher|student|parent|admin, displayName, addedAt}`. `getZoomJoinInfo` writes the caller's member doc (idempotent `set`). The parent/admin-as-visitor semantics from the current local changes are kept.
@@ -197,7 +234,7 @@ Debug instrumentation (participant console, every 2 s): `getBreakoutRoomStatus` 
 - The bot `left` state now asks the backend to end the hub Zoom meeting by REST after the hub window ends.
 - Participant routing now checks `getCurrentBreakoutRoom` and `getUserStatus` before clearing the black routing layer.
 - The VPS bot controller disables audio/video support and join-audio controls for media hygiene.
-- Open hubs now treat the already-created breakout rooms as immutable. A late-added same-block class is assigned to the first unused spare room and persisted back to its shift; if all spare rooms are consumed, it falls back to single Zoom mode and alerts admins.
+- Open hubs now treat the already-created breakout rooms as immutable. A late-added same-segment class is assigned to the first unused spare room and persisted back to its shift; if all spare rooms are consumed, it falls back to single Zoom mode and alerts admins.
 - Deployed 2026-07-03: Zoom functions were deployed to `alluwal-dev` and `alluwal-academy` (`getZoomJoinInfo`, `setTeacherZoomEnabled`, `zoomWebhook`, `prepareZoomHubs`, `watchZoomHubBots`, `zoomHubBotDirectives`, `zoomHubBotAssignments`, `zoomHubBotState`).
 - Deployed 2026-07-03: Hostinger web build `v129` was built through `./build_release.sh` via `./scripts/deploy_hostinger_web.sh` and verified on `https://alluwaleducationhub.org/`.
 - VPS status 2026-07-03: Node 20, Playwright Chromium, bot code, and systemd units are installed on the provisioned Hostinger VPS; `zoom-hub-bot@1` and `zoom-hub-bot@2` are enabled and running. Production bot endpoint smoke check returned `success: true` with zero active directives; unauthenticated access returns `401`.
@@ -1674,3 +1711,605 @@ Not deployed / remaining:
 - No Hostinger web deploy was run in this session. Deploy with
   `./scripts/deploy_hostinger_web.sh` when ready to put this on the live
   website.
+
+## 26. Stale Hub Handoff + Shift-Length Guardrails — 2026-07-10
+
+Live incident:
+- Users reported "Your class is reconnecting. Please try again in a moment" on
+  web and iOS. Production logs showed `getZoomJoinInfo` returning 503s for one
+  class, not a mobile-only issue.
+- Firestore inspection found the problem isolated to the Billing Test class:
+  shift `GJehlwnZn1e3nE7xWKmc`, assigned to stale hub
+  `zoom_hub_2026-07-09_1_2` while the lane-2 bot had moved on. The shift was
+  much longer than a normal class and stretched across hub routing blocks.
+
+Backend hotfix:
+- `getZoomJoinInfo` now detects a stale resolved hub heartbeat and first tries
+  to hand the class to a healthy active hub spare room whose window covers the
+  class. On success it rewrites the shift hub metadata, writes the joining
+  member under the healthy hub, and logs a `stale_hub_handoff` warning in
+  `system_alerts`. If no safe handoff exists, it preserves the reconnect error
+  and logs `stale_hub_on_join`.
+- Production deploy completed for `getZoomJoinInfo` on `alluwal-academy`.
+
+Guardrails added:
+- `functions/handlers/zoom.js` now blocks unsafe hub-routed Zoom teaching
+  shifts before routing: duration over 180 minutes, invalid duration, or
+  invalid time fields. Direct/script writes are quarantined with
+  `zoom_hub_guardrail_blocked: true`, `zoomRoutingMode: blocked`,
+  `zoom_disable_hub_routing: true`, and a `zoom_hub_shift_guardrail`
+  `system_alerts` record for owner review.
+- `functions/handlers/zoom.js` now treats block boundaries as soft routing
+  hints. `_hubMetaForShift` computes a rolling same-lane segment and gives all
+  connected classes the same hub id, so short classes like 11:00 AM-12:30 PM or
+  4:00 PM-5:30 PM can route normally without needing admin reschedules.
+- Zoom classroom routing now requires both `shift_category == teaching` and a
+  non-empty normalized student list. Leader Duty, Meeting, Training,
+  administrator clock-in shifts, and old no-student rows must not create or
+  join Zoom hubs, even when the assigned user also has teacher permissions.
+  Multi-role admins still route through Zoom when the shift was created as a
+  real Teacher Class with students.
+- `prepareZoomHubs` and hub room building also skip/mark unsafe legacy rows so
+  one bad shift cannot stretch an otherwise healthy hub.
+- `ShiftService` now stores `VideoProvider.zoom` only for real teaching shifts
+  with students; admin/internal shifts are normalized to no-video
+  `realtimekit` records. It also blocks normal admin create/update/quick-edit
+  paths before writing unsafe Zoom teaching shifts, with an admin-facing
+  warning. Recurring generated shifts skip any occurrence that violates the
+  same guardrail.
+- `TeachingShift.hasVideoCall` and `ClassVideoService.canJoinClass` now require
+  the same real-class shape, so old no-student admin rows cannot show the Zoom
+  join flow in the app.
+- Admin create/update/quick-edit attempts that hit the app-side guardrail call
+  `recordZoomHubGuardrailAttempt` before blocking. The callable requires admin
+  auth and writes the attempted-by user plus the submitted shift fields to
+  `system_alerts/{attemptId}` and `admin_notifications/{attemptId}` for review.
+- The admin Notifications screen now shows a "Blocked Zoom shift attempts"
+  review panel backed by `admin_notifications`. Selecting an attempt opens the
+  attempted-by admin, warning message, and captured shift fields.
+
+How to test this guardrail:
+- Local backend: run `cd functions && npx jest tests/zoom_handler.test.js
+  --runInBand`. Required cases: stale hub handoff succeeds, direct Firestore
+  overlong shift gets `zoom_hub_guardrail_blocked`, app-side blocked attempts
+  create `system_alerts` and `admin_notifications` records for review, unsafe
+  join rejects with `failed-precondition`, and short cross-boundary classes are
+  grouped into a rolling hub segment.
+- Local app-side validation: run `flutter analyze --no-fatal-warnings
+  --no-fatal-infos lib/features/shift_management/services/shift_service.dart
+  lib/features/shift_management/widgets/create_shift_dialog.dart
+  lib/features/shift_management/widgets/quick_edit_shift_popup.dart`, then use
+  the admin shift form or quick edit to try a Zoom teaching class longer than 3
+  hours. Expected: save is blocked, the warning explains that the class must be
+  split, and an admin review record is written with the attempted teacher,
+  students, times, subject, recurrence/rate/notes, and the admin who tried it.
+- Production-safe check after Functions + Hostinger deploy: use the admin form
+  or quick edit to attempt only a test class, never a real class. Use a shift
+  longer than 180 minutes. Expected: the app blocks save, no bad
+  shift document is created/updated, and `system_alerts/{attemptId}` plus
+  `admin_notifications/{attemptId}` contain the attempted-by admin and entered
+  shift fields.
+- Direct Firestore/script-write check: create only a test document. Expected:
+  the shift document is marked `zoom_hub_guardrail_blocked: true`,
+  `zoomRoutingMode: blocked`, `zoom_disable_hub_routing: true`, and
+  `system_alerts/{shiftId}_zoom_hub_guardrail` exists. Do not expect a hub
+  meeting to be created for that shift.
+- Admin clock-in regression check: create a Leader Duty, Meeting, Training, or
+  no-student administrator clock-in shift for a user who also has teacher/admin
+  roles. Expected: the saved record does not use Zoom for routing, the join
+  button is not available, `prepareZoomHubs` ignores it, and
+  `getZoomJoinInfo` rejects any stale direct call as
+  `This shift is for clock-in/admin work, not a Zoom classroom.`
+- Normal-class regression check: create a test Zoom teaching class inside one
+  block and under 180 minutes. Expected: `getZoomJoinInfo` still returns hub
+  routing, assigns a room/member, and no guardrail alert is written.
+- Short classes that cross a current block boundary, such as 11:00 AM-12:30 PM
+  with the 12:00 PM boundary or 4:00 PM-5:30 PM with the 5:00 PM boundary, are
+  normal if they are 180 minutes or shorter. Expected: the backend groups them
+  with the connected same-lane rolling segment, the hub window covers every
+  connected class, and no `zoom_hub_guardrail_blocked` flag is written.
+
+Verification:
+- `node --check functions/handlers/zoom.js`
+- `node --check functions/index.js`
+- `node --check functions/tests/zoom_handler.test.js`
+- `cd functions && npx jest tests/zoom_handler.test.js --runInBand` — 60
+  passed.
+- `dart format lib/features/shift_management/services/shift_service.dart
+  lib/core/services/class_video_service.dart
+  lib/features/shift_management/models/teaching_shift.dart
+  lib/features/shift_management/widgets/create_shift_dialog.dart
+  lib/features/shift_management/widgets/quick_edit_shift_popup.dart`
+- `flutter analyze --no-fatal-warnings --no-fatal-infos
+  lib/core/services/class_video_service.dart
+  lib/features/shift_management/models/teaching_shift.dart
+  lib/features/shift_management/services/shift_service.dart
+  lib/features/shift_management/widgets/create_shift_dialog.dart
+  lib/features/shift_management/widgets/quick_edit_shift_popup.dart
+  lib/features/zoom/screens/zoom_screen.dart
+  lib/features/shift_management/widgets/shift_details_dialog.dart
+  lib/features/shift_management/screens/admin_classes_screen.dart
+  lib/features/student/screens/student_classes_screen.dart` — completed; the
+  same files still have pre-existing warnings/infos when run without the
+  non-fatal flags.
+- Production Functions deploy completed on `alluwal-academy` for
+  `getZoomJoinInfo`, `prepareZoomHubs`, and `onTeachingShiftWritten`; all
+  three were verified `ACTIVE` after the admin-clock-in/no-student routing
+  update.
+- Production Functions deploy completed on `alluwal-academy` for
+  `recordZoomHubGuardrailAttempt`.
+- Hostinger web deploy completed through `./scripts/deploy_hostinger_web.sh` as
+  cache-busting build `v165`. Public verification confirmed
+  `https://alluwaleducationhub.org/index.html` contains `v=165`,
+  `flutter_bootstrap.js` loads `main.dart.js?v=165`, and the live bundle
+  contains the Zoom guardrail/admin-review/no-video join strings.
+
+Still required:
+- No remaining deploy is required for the web/admin guardrail capture path or
+  the admin-clock-in/no-student Zoom exclusion.
+
+## 27. Rolling Hub Segments — 2026-07-10
+
+Permanent boundary fix:
+- The old hard `crosses_hub_block` failure was removed. A real Zoom teaching
+  class is still blocked if it is over 180 minutes or has invalid times, but a
+  normal 90-minute class may cross 12 PM or 5 PM.
+- `_hubMetaForShift` now scans nearby same-lane Zoom teaching shifts and builds
+  a rolling segment from classes whose padded windows touch/overlap. The hub id
+  is stable from the anchor day/block plus the segment start time, so a later
+  connected class added after rooms open can use an existing spare room instead
+  of creating a second overlapping Pro meeting.
+- `prepareZoomHubs` now proactively prepares overflow classes on the alternate
+  licensed lane when a rolling segment would exceed the conservative 48-room
+  hub cap, instead of waiting for the first person in the overflow class to
+  click Join.
+- Hub docs and shifts now store segment metadata:
+  `rollingSegment`, `hubSegmentKey`, `segment_label`, `segment_start`,
+  `segment_end`, and `segment_shift_ids`.
+- Admin-side shift validation in `ShiftService` no longer blocks a normal Zoom
+  teaching class only because it crosses a soft hub boundary. The app still
+  blocks classes over 180 minutes and records the attempted fields for review.
+
+Verification:
+- `node --check functions/handlers/zoom.js`
+- `cd functions && npx jest tests/zoom_handler.test.js --runInBand` — 60
+  passed, including a rolling 4:00 PM-5:30 PM plus 5:00 PM class segment and
+  proactive scheduler spillover to the alternate lane.
+- `flutter analyze lib/features/shift_management/services/shift_service.dart`
+  was run. It still exits with existing warnings/infos in that large service
+  file; no syntax/build error was introduced by the boundary guard removal.
+- Production read-only scan on 2026-07-10 12:55 AM ET:
+  next 14 days contain 506 real Zoom teaching classes, 0 overlong real classes,
+  and 16 normal short cross-boundary classes. Saturday 2026-07-11 has 65 real
+  Zoom teaching classes across 5 rolling segments and no unsafe segment. Sunday
+  2026-07-12 has one lane-1 rolling segment with 44 class rooms plus 5 spares;
+  `prepareZoomHubs` will now proactively spill
+  `tpl_07946574e2d73cb9_1783895400` (Mamadou Saidou Diallo, 6:30 PM-8:00 PM)
+  to lane 2 when the segment enters the preparation window.
+
+Still required:
+- Production deploy completed on `alluwal-academy` for `getZoomJoinInfo`,
+  `prepareZoomHubs`, and `onTeachingShiftWritten`; all three were verified
+  `ACTIVE` after deploy at 2026-07-10T04:58Z.
+- Hostinger web deploy completed through `./scripts/deploy_hostinger_web.sh`
+  as cache-busting build `v166`, and the public site verification passed.
+
+## 28. Owner Conversation + Weekend Stress Test — 2026-07-10
+
+Saved owner context:
+- Owner explicitly asked for a permanent fix, not manual reschedules or class
+  splits. Students and parents are losing patience, so Zoom class routing must
+  not fail again because a normal class crosses 12 PM or 5 PM.
+- Current production decision: old hub boundaries are soft. Rolling same-lane
+  segments handle normal cross-boundary classes; over-180-minute real teaching
+  classes are blocked and logged; admin/no-student shifts do not route through
+  Zoom; scheduler spillover prepares overflow rooms on the other licensed lane.
+- Future agents must not reintroduce a hard `crosses_hub_block` guard or
+  simplify hub routing without targeted tests and an update to this file.
+
+Focused no-surprises test for Friday 2026-07-10 through Monday 2026-07-13:
+- Production read-only scan at 2026-07-10 01:21 AM ET:
+  211 shift docs scanned, 194 real Zoom teaching classes modeled,
+  16 admin/no-student Zoom rows ignored, 0 invalid real Zoom classes, and
+  0 overlong real Zoom classes.
+- Current schedule is safe after rolling segmentation and scheduler spillover.
+  Friday has 36 classes, Saturday 65, Sunday 66, and Monday 27. Sunday has
+  1 known proactive spillover move; no unresolved hub-capacity issue remains.
+- 1,000 realistic added-class trials per day were run. Added classes sampled
+  that day's existing start/end pattern and used an approximately 50/50 lane
+  split for new teachers. Results:
+  - Friday 2026-07-10: +50 added classes passed 100% of trials; +60 passed 13%.
+  - Saturday 2026-07-11: +25 passed 100%; +30 passed 96.7%; +40 passed 76.7%.
+  - Sunday 2026-07-12: +20 passed 100%; +25 passed 99.7%; +30 passed 93.6%.
+  - Monday 2026-07-13: +60 passed 100%.
+- Deterministic same-window stress was also run. If many new multi-student
+  classes are stacked into the same already-busy window, the first hard break
+  can be the 99-person scheduled-human cap, not only room count. Friday's
+  afternoon/evening window can hit the seat cap around the 31st same-window
+  added class. Saturday/Sunday/Monday same-window room breaks were much higher
+  after spillover, but realistic random additions still show weekend pressure.
+
+Operational weekend rule until another scan is run:
+- Safe without more analysis: up to 20 additional normal Zoom teaching classes
+  on Saturday or Sunday, assuming they follow normal schedule patterns.
+- Re-run the scan before adding more than 20 classes to either weekend day or
+  before stacking many new classes into the same 7:45 AM-8:15 PM Sunday window.
+- If additions are concentrated at one time with multi-student rosters, check
+  the 99 scheduled-human cap, not just the 48-room cap.
+
+Verification:
+- `node --check functions/handlers/zoom.js`
+- `node --check functions/tests/zoom_handler.test.js`
+- `cd functions && npx jest tests/zoom_handler.test.js --runInBand` — 60
+  passed.
+
+## 29. Fast Admin Save-Time Capacity Guardrail — 2026-07-10
+
+Production routing contract:
+- Admins must not be allowed to save a real Zoom teaching class if that class
+  would make the hub system exceed safe capacity. The admin should see the
+  rejection before the shift is written, and the attempted details must be
+  saved for review.
+- This check must stay fast. The normal allowed path only validates the
+  proposed shift's nearby routing window, using a bounded `teaching_shifts`
+  query around that class's hub segment, then runs the room/seat/lifetime
+  simulation in memory. Do not replace it with a full month or full schedule
+  scan in the interactive admin save path.
+- The guardrail runs only for real Zoom teaching classes with students.
+  Admin duty, leader duty, meetings, no-student clock-in shifts, and other
+  non-class shifts must remain outside Zoom routing and outside this preflight.
+- The blocked path writes a review record to `system_alerts` and
+  `admin_notifications`, includes the actor and attempted shift payload, and
+  sends email/push alert targets including explicit CTO/Hassimiou Niane matches.
+  Notification work happens only after a rejection, not on every successful
+  admin save.
+
+Implementation details:
+- `validateZoomShiftCapacity` is a new admin-only callable in
+  `functions/handlers/zoom.js`, exported from `functions/index.js`.
+- `ShiftService.createShift`, `ShiftService.updateShift`, and
+  `ShiftService.updateShiftDirect` call the callable before writing a real Zoom
+  teaching class. A failed preflight throws `ShiftGuardrailException` with the
+  Cloud Function message so the admin sees the reason.
+- `_zoomHubCapacityGuardrailDecision` models the proposed class plus nearby
+  existing hub-routed classes, applies existing spillover behavior across
+  licensed lanes, and blocks unresolved segments that exceed:
+  - 48 total rooms including the 5 spare rooms,
+  - 99 scheduled humans per lane after reserving one bot seat,
+  - 28 hours of safe hub lifetime.
+- `onTeachingShiftWritten` now has the same capacity guardrail as a backstop for
+  scripts, imports, or stale clients that bypass the admin callable. A breaking
+  direct write is quarantined with `zoomRoutingMode: blocked` and
+  `zoom_disable_hub_routing: true`; it does not provision a Zoom hub.
+
+How to test this guardrail:
+- Admin preflight test: fill both licensed lanes to the class-room cap, call
+  `validateZoomShiftCapacity` with one more overlapping real Zoom class, and
+  expect `failed-precondition`, a `zoom_hub_shift_guardrail` review record, and
+  CTO email/push notification calls.
+- Direct write backstop test: write the same breaking class to Firestore and
+  invoke `onTeachingShiftWritten`; expect the shift to be marked blocked and
+  `createMeeting` not to run.
+- Fast allowed-path test expectation: a normal safe class should return
+  `{ ok: true }` from `validateZoomShiftCapacity` without creating a guardrail
+  alert.
+
+Verification before deploy:
+- `node --check functions/handlers/zoom.js`
+- `node --check functions/index.js`
+- `node --check functions/tests/zoom_handler.test.js`
+- `cd functions && npx jest tests/zoom_handler.test.js --runInBand` — 62
+  passed.
+- `cd functions && npm test -- --runInBand` — 23 suites passed, 241 tests
+  passed, 7 existing skipped tests unchanged.
+- `flutter analyze --no-fatal-warnings --no-fatal-infos
+  lib/features/shift_management/services/shift_service.dart` — exited 0 with
+  the same existing warnings/infos in that large service file.
+
+Deploy completed:
+- Production Functions deploy completed on `alluwal-academy` for
+  `validateZoomShiftCapacity` and `onTeachingShiftWritten`. Both were verified
+  `ACTIVE` in `us-central1` at 2026-07-10T05:43Z.
+- Hostinger web deploy completed through `./scripts/deploy_hostinger_web.sh`
+  as cache-busting build `v167`. Public verification confirmed
+  `index.html` references `flutter_bootstrap.js?v=167` and
+  `manifest.json?v=167`, `flutter_bootstrap.js?v=167` loads
+  `main.dart.js?v=167`, and the live bundle contains
+  `validateZoomShiftCapacity` plus the Zoom capacity warning strings.
+
+Production validation:
+- Logged into the live Hostinger app as the CTO/admin account and opened
+  Operations → Shifts → Create Shift.
+- Attempted to create a real Zoom Teacher Class for Ibrahim Bah with one
+  selected student from 2026-07-11 2:00 PM-8:00 PM America/New_York. Expected
+  and observed: the dialog stayed open, `recordZoomHubGuardrailAttempt`
+  returned `200`, and a read-only Firestore check found 0 matching
+  `teaching_shifts` records for 2026-07-11T18:00:00Z-2026-07-12T00:00:00Z.
+- The latest `system_alerts` review record captured attempted-by Hassimiou
+  Niane, operation `create_shift`, teacher Ibrahim Bah, 1 student, category
+  `teaching`, video provider `zoom`, and the warning:
+  `This class is too long for Zoom routing (6 hours). Zoom classes must be 3
+  hours or shorter. Split it into shorter classes before saving.`
+- Opened Communication → Notifications and verified the "Blocked Zoom shift
+  attempts" panel shows the new attempt. Opening the card shows the actor,
+  email, operation, warning, and entered shift information.
+- Direct production callable speed test for `validateZoomShiftCapacity` with a
+  normal one-hour no-write Zoom teaching class returned `{ ok: true }`. The
+  first call took 3603 ms and checked 49 nearby records; the warm call took
+  558 ms and checked the same 49 nearby records. This confirms the interactive
+  path is bounded to the proposed shift window, not a month-long scan.
+
+## 30. Daily Future Capacity Forecast Notification — 2026-07-10
+
+Production routing contract:
+- Admin save-time validation must stay fast and local to the proposed class
+  window. Full future schedule checks run outside the admin save path.
+- `watchZoomHubCapacityForecast` runs daily at 3:15 AM America/New_York. It
+  scans the future Zoom hub schedule over the configured forecast horizon
+  (`ZOOM_HUB_DAILY_CAPACITY_FORECAST_DAYS`, default 90 days), builds the same
+  rolling hub segments used by routing, simulates spillover across licensed
+  lanes, and reports only hard unresolved problems:
+  room cap, scheduled-human seat cap, unsafe hub lifetime, or future hub-routed
+  Zoom shifts that still violate the timing guardrail.
+- If no problem is found, it marks
+  `admin_notifications/zoom_hub_daily_capacity_forecast` resolved/open false,
+  so the Notifications page stays quiet.
+- If a problem is found, it writes
+  `admin_notifications/zoom_hub_daily_capacity_forecast` with type
+  `zoom_hub_capacity_forecast`, `open: true`, `action_required: true`, summary
+  counts, and the problem details. The Notifications page shows a "Zoom
+  schedule risks" panel only when that open record exists.
+- Email/push alerts are fingerprinted by problem set through
+  `system_alerts/zoom_hub_daily_capacity_forecast_<fingerprint>`. The same
+  unchanged risk does not spam admins daily, but a changed/new risk creates a
+  new alert.
+
+Verification:
+- `node --check functions/handlers/zoom.js`
+- `node --check functions/index.js`
+- `node --check functions/tests/zoom_handler.test.js`
+- `cd functions && npx jest tests/zoom_handler.test.js --runInBand` — 64
+  passed, including safe daily forecast hidden/resolved and overloaded future
+  schedule notification cases.
+- `cd functions && npm test -- --runInBand` — 23 suites passed, 243 tests
+  passed, 7 existing skipped tests unchanged.
+- `dart format lib/features/notifications/screens/send_notification_screen.dart`
+- `flutter analyze --no-fatal-warnings --no-fatal-infos
+  lib/features/notifications/screens/send_notification_screen.dart` — exited 0
+  with existing non-fatal deprecation infos.
+
+Deploy completed:
+- Production Functions deploy completed on `alluwal-academy` for
+  `watchZoomHubCapacityForecast`. The Gen 2 function was verified `ACTIVE` in
+  `us-central1` at 2026-07-10T13:36:43Z.
+- Cloud Scheduler job
+  `firebase-schedule-watchZoomHubCapacityForecast-us-central1` is `ENABLED`
+  with schedule `15 3 * * *` in `America/New_York`.
+- Hostinger web deploy completed through `./scripts/deploy_hostinger_web.sh`
+  as cache-busting build `v168`. Public verification confirmed
+  `index.html` references `flutter_bootstrap.js?v=168` and
+  `manifest.json?v=168`, `flutter_bootstrap.js?v=168` loads
+  `main.dart.js?v=168`, and the live bundle contains the
+  `zoom_hub_capacity_forecast` notification UI.
+- Production read-only forecast on 2026-07-10 scanned through 2026-10-07:
+  2,469 future shift documents scanned, 2,219 hub-routed Zoom classes checked,
+  30 non-Zoom shifts skipped, 220 non-hub Zoom shifts skipped, 1 proactive
+  spillover move modeled, and 0 unresolved problems. The daily notification
+  should therefore stay hidden until a real future risk appears.
+- Manual production scheduler trigger on 2026-07-10 completed successfully with
+  log line: `[ZoomHub] Daily capacity forecast OK through 2026-10-07; 2219
+  hub-routed Zoom classes checked.`
+
+## 31. Auto-Resolve Recovered Hub Incident Alerts — 2026-07-10
+
+Production routing contract:
+- Transient hub incident alerts must not stay open forever after the hub has
+  recovered or the hub window has ended. Open incident counts are used for live
+  operational confidence, so old `rooms_not_open`, `heartbeat_stale`,
+  `zombie_meeting_forced_rejoin`, `breakout_unreadable_poisoned`,
+  `stale_hub_on_join`, `stale_hub_handoff`, and
+  `stragglers_removed_at_time_limit` records are auto-resolved once they are no
+  longer the current state.
+- This cleanup does not change join routing, hub assignment, room creation, or
+  meeting lifetimes. It only updates alert records with `resolved: true`,
+  `status: resolved`, `auto_resolved: true`, and
+  `auto_resolved_reason: hub_recovered_or_window_closed`.
+- Shift guardrail/review records are not counted as live hub incidents in
+  `getZoomHubRoutingStatus`. They remain reviewable through the admin
+  Notifications guardrail panel.
+- `watchZoomHubBots` runs the cleanup automatically every 2 minutes before it
+  writes any new current hub alerts. `getZoomHubRoutingStatus` also runs the
+  cleanup before returning counts, so the admin view reflects current risk.
+
+Verification:
+- `node --check functions/handlers/zoom.js`
+- `node --check functions/tests/zoom_handler.test.js`
+- `cd functions && npx jest tests/zoom_handler.test.js --runInBand` — 66
+  passed, including recovered alert auto-resolution and current unhealthy hub
+  alert retention.
+- `cd functions && npm test -- --runInBand` — 23 suites passed, 245 tests
+  passed, 7 existing skipped tests unchanged.
+
+Deploy completed:
+- Production Functions deploy completed on `alluwal-academy` for
+  `watchZoomHubBots` and `getZoomHubRoutingStatus`.
+- Cloud Scheduler job `firebase-schedule-watchZoomHubBots-us-central1` is
+  `ENABLED` with schedule `every 2 minutes`.
+- Manual production scheduler trigger on 2026-07-10 auto-resolved 48 stale hub
+  alerts.
+- Production routing status after cleanup: 2 active hubs, 2 rooms-open hubs, 2
+  online bots, 0 stale bots, 3 scheduled classes right now, and 0 open
+  incidents.
+
+## 32. Hostinger `live.` Subdomain Restore — 2026-07-10
+
+Incident:
+- `https://live.alluwaleducationhub.org/` returned Hostinger's default 404 page
+  after a Flutter Hostinger deploy. The main app deploy uploaded to
+  `public_html/` with `rsync --delete`, which removed the Hostinger subdomain
+  folder `public_html/live/`.
+- The main app at `https://alluwaleducationhub.org/` was healthy; the break was
+  limited to the `live.` subdomain folder.
+
+Fix:
+- Restored `public_html/live/` from the existing legacy live copy
+  `public_html_77/live/`.
+- Restored `public_html/ops/` from backup
+  `public_html_before_v153_20260708_234526/ops/`; public `ops.` DNS still did
+  not resolve at the time of verification, but the Hostinger folder is present.
+- Updated `scripts/deploy_hostinger_web.sh` so future Flutter root deploys
+  preserve `/live/***` and `/ops/***` while still using `--delete` for the
+  Flutter root files.
+- Updated `docs/hostinger-web-deploy.md` with the same preservation rule.
+
+Verification:
+- `bash -n scripts/deploy_hostinger_web.sh`
+- Public `https://live.alluwaleducationhub.org/` returned HTTP 200 and the
+  Alluwal Education Hub page title/content.
+- Public `https://live.alluwaleducationhub.org/admin/routing-control/`
+  returned HTTP 200.
+
+## 33. Zoom Hub Live Presence Display Source — 2026-07-10
+
+Incident:
+- Admin class cards were undercounting live Zoom participants. Example:
+  Sheikh Ahmad Jalloh and student Kadiatou Barry were together in the correct
+  breakout room, but the website showed only the teacher.
+- Production bot logs for hub `zoom_hub_2026-07-10_2_1400_1` showed the room
+  `720800 | Sheikh Ahmad Jallo...` with participant count 2 and attendee list
+  including Kadiatou Barry. Routing was healthy.
+- Firestore `livekit_sessions` for shift
+  `tpl_ZSStwV2uLJjFTFUMiP33_1783720800` had Kadiatou Barry closed at
+  `2026-07-10T22:00:58Z`, so `getRealtimeKitRoomPresence` had no open student
+  presence window to display. This was a display/source-of-truth issue, not a
+  room-routing issue.
+
+Fix:
+- `services/zoom-hub-bot/bot_controller.html` now reports
+  `liveParticipantsByShift` in `zoomHubBotState`, derived from the bot's
+  current breakout-room view. This is read-only reporting; it does not change
+  routing decisions, room creation, joins, or meeting lifetime.
+- `functions/handlers/zoom_hub_bot.js` now validates/sanitizes that live roster
+  and stores it on the hub doc as both `liveParticipantsByShift` and
+  `live_participants_by_shift`, with a server timestamp.
+- `functions/handlers/realtimekit.js` now prefers the fresh bot roster for Zoom
+  hub class presence and falls back to the old `livekit_sessions` webhook
+  windows when the bot roster is missing or stale.
+
+Safety:
+- No routing logic, join payloads, room assignment logic, Zoom meeting reset
+  paths, or Hostinger web bundle were changed.
+- The bot file was copied to the VPS, but `zoom-hub-bot@1` and
+  `zoom-hub-bot@2` were not restarted because both lanes had live occupants
+  (`lane 1: 5`, `lane 2: 3` at 2026-07-10T22:16Z). Existing bot pages will
+  keep using the old reporting code until they naturally reload or are safely
+  restarted with zero in-room occupants.
+
+Verification:
+- `node --check functions/handlers/realtimekit.js`
+- `node --check functions/handlers/zoom_hub_bot.js`
+- Bot controller inline scripts parse with `new Function(...)`.
+- `cd functions && npm test -- --runTestsByPath tests/realtimekit_access.test.js tests/zoom_handler.test.js --runInBand`
+  — 98 passed.
+- `cd services/zoom-hub-bot && npm install && npm test -- --runInBand` — 25
+  passed.
+
+Deploy completed:
+- Production Functions deploy completed on `alluwal-academy` for
+  `getRealtimeKitRoomPresence`, `zoomHubBotAssignments`, and
+  `zoomHubBotState`.
+- VPS `/opt/alluwal/zoom-hub-bot/bot_controller.html` was backed up and
+  replaced with the reporting-only version. `grep` verified
+  `buildLiveParticipantsByShift` and `liveParticipantsByShift` are present.
+- Both VPS services remained active after the file copy. No restart was run.
+
+Remaining operational note:
+- Current live hubs at the time of deployment did not yet have
+  `liveParticipantsByShift` because their bot pages were already loaded. The
+  admin display remains on the old fallback for those in-progress hubs until a
+  safe bot reload occurs. Do not force-restart a bot while `stats.inRoomOccupants`
+  is greater than 0.
+
+## 34. Safe Bot Restart After Empty Evening Window — 2026-07-10
+
+Operational follow-up to §33:
+- At `2026-07-11T02:33Z` (`2026-07-10 10:33 PM ET`), production Firestore
+  showed zero active `hub_meetings` and zero nearby teaching shifts.
+- Both VPS services were restarted with the existing VPS key:
+  `zoom-hub-bot@1.service` and `zoom-hub-bot@2.service`.
+- Post-restart verification showed both services `active/running`, with new
+  main PIDs, and the VPS controller file still contains
+  `buildLiveParticipantsByShift` / `liveParticipantsByShift`.
+- A follow-up Firestore check at `2026-07-11T02:34:59Z` still showed zero
+  active hub meetings.
+- Follow-up tests at about `2026-07-11T02:36Z`:
+  - `node --check functions/handlers/realtimekit.js &&
+    node --check functions/handlers/zoom_hub_bot.js`
+  - `cd functions && npm test -- --runTestsByPath
+    tests/realtimekit_access.test.js tests/zoom_handler.test.js --runInBand`
+    — 98 passed.
+  - `cd services/zoom-hub-bot && npm test -- --runInBand` — 25 passed.
+  - Production `zoomHubBotDirectives` smoke via the VPS bot env returned
+    `success: true` and zero active directives for lanes 1 and 2.
+  - Production `zoomHubBotState` smoke posted a temporary
+    `codex_roster_smoke_*` hub state with `liveParticipantsByShift`, verified
+    both camel/snake roster fields and timestamp were stored, then deleted the
+    temporary hub doc.
+
+No Firebase Functions, Hostinger web, Flutter, routing logic, or Zoom meeting
+lifetime behavior changed in this follow-up. The next hub pages opened by the
+bot should use the bot-roster display source from §33.
+
+## 35. Billing Test Live Roster Regression — 2026-07-10
+
+Live test:
+- Created production test teaching shift
+  `codex_billing_test_20260711024400` for teacher Billing Test and student
+  test student, scheduled `2026-07-10 10:44 PM-11:14 PM ET`.
+- Hub `zoom_hub_2026-07-10_3_2244_2` was prepared on lane 2 with meeting
+  `88477028256`, one class room, and five spare rooms.
+- Hassimiou Niane joined as an administrator. Zoom routing moved the participant
+  into the Billing Test breakout room during the first live check, but the
+  Classes page still showed `In class now: 0`.
+
+Root cause:
+- The bot controller was building `liveParticipantsByShift`, but
+  `postState(status, extra)` only serialized `stats` and `error`.
+- As a result, the backend `zoomHubBotState` handler never received the live
+  roster from a real bot page, even though the backend smoke test could store
+  the field when it was posted directly.
+- This was a display/reporting bug. No room assignment, join payload, bot lane
+  selection, hub scheduling, or Zoom meeting lifetime logic was changed.
+
+Fix:
+- `services/zoom-hub-bot/bot_controller.html` now includes
+  `extra.liveParticipantsByShift` in the `/zoomHubBotState` request body when
+  the routing loop provides it.
+- `services/zoom-hub-bot/tests/bot_controller_html.test.js` now asserts that
+  `postState` preserves the roster field. This is a guardrail against future
+  agents accidentally dropping the production-critical display payload again.
+- VPS `/opt/alluwal/zoom-hub-bot/bot_controller.html` was backed up to
+  `bot_controller.html.bak-20260711024636` and replaced with the patched file.
+
+Verification:
+- `cd services/zoom-hub-bot && npm test -- --runInBand` — 25 passed.
+- `node --check functions/handlers/zoom_hub_bot.js &&
+  node --check functions/handlers/realtimekit.js`
+- VPS `grep` verified the patched `postState` body includes
+  `liveParticipantsByShift`.
+- After a safe lane-2 restart while `inRoomOccupants` was 0, Firestore hub
+  `zoom_hub_2026-07-10_3_2244_2` started receiving
+  `liveParticipantsUpdatedAt`, confirming the patched bot page is posting the
+  roster field.
+
+Operational note:
+- Do not restart a bot inside an active test hub unless the whole Zoom meeting
+  is truly empty and the old host instance has had time to leave. In this test,
+  restarting lane 2 caused a temporary duplicate "Alluwal Hub Bot Lane 2" in
+  the same Zoom meeting, and the test participant then remained in the main
+  session with Zoom returning `user not in a room` on repeated assignment
+  attempts.
+- Current guidance is conservative: no further restarts, resets, deploys, or
+  routing changes without explicit owner approval. For the next live roster
+  verification, use a fresh test hub/meeting or wait until this test hub ends
+  naturally.

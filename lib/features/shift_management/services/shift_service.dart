@@ -49,6 +49,15 @@ class ShiftFetchPage {
   });
 }
 
+class ShiftGuardrailException implements Exception {
+  final String message;
+
+  const ShiftGuardrailException(this.message);
+
+  @override
+  String toString() => message;
+}
+
 class ShiftService {
   /// Service responsible for managing teaching shifts, including creation,
   /// modification, deletion, and status updates (clock-in/out).
@@ -56,10 +65,173 @@ class ShiftService {
   static FirebaseFirestore get _firestore => FirebaseFirestore.instance;
   static final FirebaseAuth _auth = FirebaseAuth.instance;
   static FirebaseFunctions get _functions => FirebaseFunctions.instance;
+  static const int zoomHubMaxClassDurationMinutes = 180;
 
   /// Gen2 HTTPS callables for this project are deployed in `us-central1`.
   static final FirebaseFunctions _functionsUsCentral1 =
       FirebaseFunctions.instanceFor(region: 'us-central1');
+
+  static String _formatDurationForGuardrail(int minutes) {
+    if (minutes % 60 == 0) {
+      final hours = minutes ~/ 60;
+      return '$hours ${hours == 1 ? 'hour' : 'hours'}';
+    }
+    if (minutes > 60) {
+      final hours = minutes ~/ 60;
+      final remaining = minutes % 60;
+      return '$hours hr $remaining min';
+    }
+    return '$minutes min';
+  }
+
+  static String? zoomHubShiftTimingGuardrailMessage({
+    required DateTime shiftStart,
+    required DateTime shiftEnd,
+    required String adminTimezone,
+    required ShiftCategory category,
+    required VideoProvider videoProvider,
+  }) {
+    if (category != ShiftCategory.teaching ||
+        videoProvider != VideoProvider.zoom) {
+      return null;
+    }
+
+    if (!shiftEnd.isAfter(shiftStart)) {
+      return 'Shift end time must be after start time.';
+    }
+
+    final durationMinutes = shiftEnd.difference(shiftStart).inMinutes;
+    if (durationMinutes > zoomHubMaxClassDurationMinutes) {
+      return 'This class is too long for Zoom routing (${_formatDurationForGuardrail(durationMinutes)}). Zoom classes must be ${_formatDurationForGuardrail(zoomHubMaxClassDurationMinutes)} or shorter. Split it into shorter classes before saving.';
+    }
+
+    return null;
+  }
+
+  static VideoProvider _videoProviderForShiftKind({
+    required ShiftCategory category,
+    required List<String> studentIds,
+  }) {
+    if (category == ShiftCategory.teaching && studentIds.isNotEmpty) {
+      return VideoProvider.zoom;
+    }
+    return VideoProvider.realtimekit;
+  }
+
+  static void _throwIfZoomHubShiftTimingBlocked({
+    required DateTime shiftStart,
+    required DateTime shiftEnd,
+    required String adminTimezone,
+    required ShiftCategory category,
+    required VideoProvider videoProvider,
+  }) {
+    final message = zoomHubShiftTimingGuardrailMessage(
+      shiftStart: shiftStart,
+      shiftEnd: shiftEnd,
+      adminTimezone: adminTimezone,
+      category: category,
+      videoProvider: videoProvider,
+    );
+    if (message != null) throw ShiftGuardrailException(message);
+  }
+
+  static Future<void> recordZoomHubGuardrailAttempt({
+    required String operation,
+    required String source,
+    required String message,
+    required Map<String, dynamic> shiftAttempt,
+    String guardrailReason = 'zoom_hub_shift_guardrail',
+    String? existingShiftId,
+  }) async {
+    try {
+      if (_auth.currentUser == null) return;
+
+      final payload = <String, dynamic>{
+        'operation': operation,
+        'source': source,
+        'message': message,
+        'guardrailReason': guardrailReason,
+        'existingShiftId': existingShiftId,
+        'shiftAttempt': shiftAttempt,
+      }..removeWhere((_, value) => value == null);
+
+      final callable =
+          _functionsUsCentral1.httpsCallable('recordZoomHubGuardrailAttempt');
+      await callable.call(payload);
+    } catch (e) {
+      AppLogger.error(
+          'ShiftService: Failed to record Zoom guardrail attempt: $e');
+    }
+  }
+
+  static Map<String, dynamic> _zoomHubShiftAttemptFromShift({
+    required TeachingShift shift,
+    required String operation,
+    required String source,
+    String? existingShiftId,
+  }) {
+    return {
+      'operation': operation,
+      'source': source,
+      'existingShiftId': existingShiftId,
+      'teacherId': shift.teacherId,
+      'teacherName': shift.teacherName,
+      'studentIds': shift.studentIds,
+      'studentNames': shift.studentNames,
+      'shiftStartIso': shift.shiftStart.toUtc().toIso8601String(),
+      'shiftEndIso': shift.shiftEnd.toUtc().toIso8601String(),
+      'timezone': shift.adminTimezone,
+      'adminTimezone': shift.adminTimezone,
+      'category': shift.category.name,
+      'videoProvider': shift.videoProvider.name,
+      'subjectId': shift.subjectId,
+      'subjectDisplayName': shift.subjectDisplayName,
+      'subjectName': shift.subject.name,
+      'customName': shift.customName,
+      'notes': shift.notes,
+    }..removeWhere((_, value) => value == null);
+  }
+
+  static Future<void> _throwIfZoomHubCapacityBlocked({
+    required TeachingShift shift,
+    required String operation,
+    required String source,
+    String? existingShiftId,
+  }) async {
+    if (shift.category != ShiftCategory.teaching ||
+        shift.videoProvider != VideoProvider.zoom ||
+        shift.studentIds.isEmpty) {
+      return;
+    }
+
+    final payload = <String, dynamic>{
+      'operation': operation,
+      'source': source,
+      'existingShiftId': existingShiftId,
+      'shiftAttempt': _zoomHubShiftAttemptFromShift(
+        shift: shift,
+        operation: operation,
+        source: source,
+        existingShiftId: existingShiftId,
+      ),
+    }..removeWhere((_, value) => value == null);
+
+    try {
+      final callable =
+          _functionsUsCentral1.httpsCallable('validateZoomShiftCapacity');
+      await callable.call(payload);
+    } on FirebaseFunctionsException catch (e) {
+      final message = e.message?.trim().isNotEmpty == true
+          ? e.message!.trim()
+          : 'This Zoom class cannot be saved because it would break Zoom classroom routing.';
+      throw ShiftGuardrailException(message);
+    } catch (e) {
+      AppLogger.error('ShiftService: Zoom capacity preflight failed: $e');
+      throw const ShiftGuardrailException(
+        'Unable to verify Zoom classroom capacity right now. Please try again before saving this Zoom class.',
+      );
+    }
+  }
 
   /// Batch get actual payment amounts for shifts from their timesheet entries.
   static Future<Map<String, double>> getActualPaymentsForShifts(
@@ -1273,6 +1445,18 @@ class ShiftService {
         }
       }
 
+      final effectiveVideoProvider = _videoProviderForShiftKind(
+        category: category,
+        studentIds: studentIds,
+      );
+      _throwIfZoomHubShiftTimingBlocked(
+        shiftStart: effectiveShiftStart,
+        shiftEnd: effectiveShiftEnd,
+        adminTimezone: normalizedAdminTimezone,
+        category: category,
+        videoProvider: effectiveVideoProvider,
+      );
+
       // Check for conflicting shifts at the exact same time
       final conflictingShift = await _findFirstConflictingShift(
         teacherId: teacherId,
@@ -1306,9 +1490,6 @@ class ShiftService {
       final teacherName =
           '${teacherData['first_name']} ${teacherData['last_name']}';
       final teacherTimezone = teacherData['timezone'] ?? 'UTC';
-      final effectiveVideoProvider = category == ShiftCategory.teaching
-          ? VideoProvider.zoom
-          : videoProvider;
 
       // Determine hourly rate. Teaching shifts may use subject default wages;
       // non-teaching/admin shifts must use the staff wage system.
@@ -1429,6 +1610,12 @@ class ShiftService {
         throw Exception('Shift end time must be after start time');
       }
 
+      await _throwIfZoomHubCapacityBlocked(
+        shift: shift,
+        operation: 'create_shift',
+        source: 'shift_service_create_shift',
+      );
+
       try {
         await shiftDoc.set(shift.toFirestore());
         await _scheduleShiftLifecycleTasks(shift);
@@ -1466,6 +1653,7 @@ class ShiftService {
       AppLogger.error('Shift created successfully: ${shift.displayName}');
       return shiftDoc.id;
     } catch (e) {
+      if (e is ShiftGuardrailException) rethrow;
       AppLogger.error('Error creating shift: $e');
       throw Exception('Failed to create shift: $e');
     }
@@ -1628,6 +1816,20 @@ class ShiftService {
             createdAt: DateTime.now(),
           );
 
+          try {
+            _throwIfZoomHubShiftTimingBlocked(
+              shiftStart: recurringShift.shiftStart,
+              shiftEnd: recurringShift.shiftEnd,
+              adminTimezone: recurringShift.adminTimezone,
+              category: recurringShift.category,
+              videoProvider: recurringShift.videoProvider,
+            );
+          } on ShiftGuardrailException catch (e) {
+            AppLogger.warning(
+                'Skipping recurring shift blocked by Zoom routing guardrail: $e');
+            continue;
+          }
+
           recurringShifts.add(recurringShift);
         }
       } else {
@@ -1735,6 +1937,22 @@ class ShiftService {
               shiftEnd: nextShiftEnd,
               createdAt: DateTime.now(),
             );
+
+            try {
+              _throwIfZoomHubShiftTimingBlocked(
+                shiftStart: recurringShift.shiftStart,
+                shiftEnd: recurringShift.shiftEnd,
+                adminTimezone: recurringShift.adminTimezone,
+                category: recurringShift.category,
+                videoProvider: recurringShift.videoProvider,
+              );
+            } on ShiftGuardrailException catch (e) {
+              AppLogger.warning(
+                  'Skipping recurring shift blocked by Zoom routing guardrail: $e');
+              currentDate = nextDate;
+              createdCount++;
+              continue;
+            }
 
             recurringShifts.add(recurringShift);
           } else {
@@ -2664,6 +2882,10 @@ class ShiftService {
   /// Helper to check if clock-in is allowed for a shift right now.
   /// Used to unify clock-in rules across the dashboard and shift details.
   static bool canClockInNow(TeachingShift shift) {
+    if (shift.isClockedIn) {
+      return false;
+    }
+
     final now = DateTime.now();
     final shiftStart = shift.shiftStart;
     final shiftEnd = shift.shiftEnd;
@@ -2962,11 +3184,35 @@ class ShiftService {
   }) async {
     final normalizedTimezone =
         TimezoneUtils.normalizeTimezone(shift.adminTimezone, fallback: 'UTC');
-    final normalizedShift = normalizedTimezone == shift.adminTimezone
+    var normalizedShift = normalizedTimezone == shift.adminTimezone
         ? shift
         : shift.copyWith(adminTimezone: normalizedTimezone);
+    final effectiveVideoProvider = _videoProviderForShiftKind(
+      category: normalizedShift.category,
+      studentIds: normalizedShift.studentIds,
+    );
+    if (normalizedShift.videoProvider != effectiveVideoProvider) {
+      normalizedShift = normalizedShift.copyWith(
+        videoProvider: effectiveVideoProvider,
+      );
+    }
+
+    _throwIfZoomHubShiftTimingBlocked(
+      shiftStart: normalizedShift.shiftStart,
+      shiftEnd: normalizedShift.shiftEnd,
+      adminTimezone: normalizedShift.adminTimezone,
+      category: normalizedShift.category,
+      videoProvider: normalizedShift.videoProvider,
+    );
 
     try {
+      await _throwIfZoomHubCapacityBlocked(
+        shift: normalizedShift,
+        operation: 'update_shift',
+        source: 'shift_service_update_shift',
+        existingShiftId: normalizedShift.id,
+      );
+
       TeachingShift? existingShift;
       if (EnvironmentUtils.isShiftTemplateEnabled && !skipTemplateExclusion) {
         final snapshot = await _shiftsCollection.doc(shift.id).get();
@@ -2987,6 +3233,7 @@ class ShiftService {
         await _excludeTemplateDateForShift(existingShift);
       }
     } catch (e) {
+      if (e is ShiftGuardrailException) rethrow;
       AppLogger.error('Error updating shift in Firestore: $e');
       throw Exception('Failed to update shift');
     }
@@ -3010,9 +3257,35 @@ class ShiftService {
   /// Automatically checks if shift should be completed based on new end time
   /// Also recalculates timesheet payment when shift times change
   static Future<void> updateShiftDirect(TeachingShift shift) async {
+    var normalizedShift = shift;
+    final effectiveVideoProvider = _videoProviderForShiftKind(
+      category: normalizedShift.category,
+      studentIds: normalizedShift.studentIds,
+    );
+    if (normalizedShift.videoProvider != effectiveVideoProvider) {
+      normalizedShift = normalizedShift.copyWith(
+        videoProvider: effectiveVideoProvider,
+      );
+    }
+
+    _throwIfZoomHubShiftTimingBlocked(
+      shiftStart: normalizedShift.shiftStart,
+      shiftEnd: normalizedShift.shiftEnd,
+      adminTimezone: normalizedShift.adminTimezone,
+      category: normalizedShift.category,
+      videoProvider: normalizedShift.videoProvider,
+    );
+
     try {
+      await _throwIfZoomHubCapacityBlocked(
+        shift: normalizedShift,
+        operation: 'update_shift_direct',
+        source: 'shift_service_update_shift_direct',
+        existingShiftId: normalizedShift.id,
+      );
+
       final now = DateTime.now();
-      final updateData = shift.toFirestore();
+      final updateData = normalizedShift.toFirestore();
 
       // Get timesheet entries for this shift. Merge both legacy shift id fields
       // so quick edits use the same grouping inputs as audit/payroll.
@@ -3164,6 +3437,7 @@ class ShiftService {
       await _shiftsCollection.doc(shift.id).update(updateData);
       AppLogger.debug('Shift updated directly (quick edit)');
     } catch (e) {
+      if (e is ShiftGuardrailException) rethrow;
       AppLogger.error('Error updating shift directly: $e');
       throw Exception('Failed to update shift');
     }

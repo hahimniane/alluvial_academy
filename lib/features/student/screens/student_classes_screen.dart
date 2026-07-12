@@ -654,6 +654,7 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
   Widget _buildClassCard(TeachingShift shift,
       {required bool isToday, GlobalKey? key}) {
     final canJoin = VideoCallService.canJoinClass(shift);
+    final hasVideoCall = shift.hasVideoCall;
     final now = DateTime.now();
     final timeUntil =
         shift.shiftStart.isAfter(now) ? shift.shiftStart.difference(now) : null;
@@ -664,6 +665,7 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
     // Determine status and styling
     final bool isActive =
         shift.status == ShiftStatus.active || shift.isClockedIn;
+    final bool canOpenClass = hasVideoCall && (canJoin || isActive);
     final bool isStartingSoon = timeUntil != null && timeUntil.inMinutes <= 15;
     final bool isStartingVerySoon =
         timeUntil != null && timeUntil.inMinutes <= 5;
@@ -723,7 +725,7 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
 
     return GestureDetector(
       key: key,
-      onTap: canJoin || isActive ? () => _joinClass(shift) : null,
+      onTap: canOpenClass ? () => _joinClass(shift) : null,
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
@@ -731,7 +733,7 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: (canJoin || isActive)
+              color: canOpenClass
                   ? status.color.withOpacity(0.15)
                   : Colors.black.withOpacity(0.05),
               blurRadius: 12,
@@ -897,7 +899,7 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
             ),
 
             // Join button for active/joinable classes
-            if (canJoin || isActive)
+            if (canOpenClass)
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),

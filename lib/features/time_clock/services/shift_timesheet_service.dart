@@ -1274,9 +1274,22 @@ class ShiftTimesheetService {
         return null;
       }
 
+      DateTime? clockInTime = shift.clockInTime;
+      final clockInTimestamp = openEntry?['clock_in_timestamp'];
+      final createdAt = openEntry?['created_at'];
+      if (clockInTimestamp is Timestamp) {
+        clockInTime = clockInTimestamp.toDate();
+      } else if (createdAt is Timestamp) {
+        clockInTime = createdAt.toDate();
+      }
+
       AppLogger.error(
           'ShiftTimesheetService: Found active shift with open timesheet: ${shift.id}');
-      return shift;
+      return shift.copyWith(
+        clockInTime: clockInTime,
+        clockOutTime: null,
+        status: ShiftStatus.active,
+      );
     } catch (e) {
       AppLogger.error('Error getting active shift: $e');
       return null;
