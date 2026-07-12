@@ -133,6 +133,16 @@ export function TeacherShiftsPage() {
     });
   }, []);
 
+  useEffect(() => {
+    if (!shifts.length || typeof window === "undefined") return;
+    const requestedId = new URLSearchParams(window.location.search).get("shift")?.trim() ?? "";
+    if (!requestedId) return;
+    const requested = shifts.find((shift) => shift.id === requestedId);
+    if (!requested) return;
+    setSelectedShift((current) => current?.id === requestedId ? current : requested);
+    if (requested.start) setAnchorDate(requested.start);
+  }, [shifts]);
+
   const weekStart = useMemo(() => startOfWeekSunday(anchorDate), [anchorDate]);
   const weekDays = useMemo(() => Array.from({ length: 7 }, (_, index) => addDays(weekStart, index)), [weekStart]);
   const weekEnd = useMemo(() => addDays(weekStart, 7), [weekStart]);

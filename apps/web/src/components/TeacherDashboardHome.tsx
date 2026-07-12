@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { onAuthStateChanged, signOut, type User } from "firebase/auth";
-import { collection, getDocs, limit, query, Timestamp, where } from "firebase/firestore";
+import { collection, doc, getDocs, limit, query, runTransaction, serverTimestamp, Timestamp, where } from "firebase/firestore";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   Bell,
@@ -47,6 +47,12 @@ type TeacherShift = {
   end: Date | null;
   status: string;
   isClockedIn: boolean;
+  clockInTime: Date | null;
+  clockOutTime: Date | null;
+  subject: string;
+  category: string;
+  teacherName: string;
+  hourlyRate: number;
 };
 
 type TeacherTask = {
@@ -216,6 +222,7 @@ function TeacherHomeContent({
   loadError,
   onRetry,
   summary,
+  user,
 }: {
   data: TeacherHomeData;
   loading: boolean;
@@ -225,6 +232,8 @@ function TeacherHomeContent({
   user: User | null;
 }) {
   const [pendingFormsOpen, setPendingFormsOpen] = useState(false);
+  const [clockBusy, setClockBusy] = useState(false);
+  const [clockNotice, setClockNotice] = useState("");
   const now = new Date();
   const weekStart = startOfWeek(now);
   const weekEnd = addDays(weekStart, 7);
@@ -245,6 +254,19 @@ function TeacherHomeContent({
   const pendingFormShifts = data.shifts
     .filter((shift) => shift.end && shift.end < now && isFormRequiredStatus(shift.status) && !data.completedFormShiftIds.has(shift.id))
     .sort((a, b) => (b.start?.getTime() ?? 0) - (a.start?.getTime() ?? 0));
+  const activeShift = data.shifts.find(isDashboardClockedIn) ?? data.shifts.filter(canDashboardClockIn).sort((a, b) => (a.start?.getTime() ?? 0) - (b.start?.getTime() ?? 0))[0] ?? null;
+
+  const performClockAction = async () => {
+    if (!activeShift || !user || clockBusy) return;
+    setClockBusy(true); setClockNotice("");
+    try {
+      const location = await getDashboardLocation();
+      const result = isDashboardClockedIn(activeShift) ? await dashboardClockOut(user, activeShift, location) : await dashboardClockIn(user, activeShift, location);
+      setClockNotice(result);
+      onRetry();
+    } catch (cause) { setClockNotice(clockError(cause)); }
+    finally { setClockBusy(false); }
+  };
 
   return (
     <main className="min-h-[calc(100vh-56px)] overflow-y-auto bg-[#F5F5F5] px-5 pb-20 pt-0 text-[#111827] lg:px-5 lg:pb-8">
@@ -282,6 +304,8 @@ function TeacherHomeContent({
 
       {pendingFormShifts.length ? <button type="button" onClick={() => setPendingFormsOpen(true)} className="mt-4 flex min-h-20 w-full items-center gap-4 rounded-2xl bg-gradient-to-br from-[#F59E0B] to-[#EF4444] p-4 text-left text-white shadow-[0_8px_18px_rgba(245,158,11,0.28)]"><span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-white/20"><ClipboardList size={25} /></span><span className="min-w-0 flex-1"><span className="block font-extrabold">{pendingFormShifts.length} Readiness Form{pendingFormShifts.length === 1 ? "" : "s"} Required</span><span className="mt-1 block text-sm text-white/90">Complete a report for each completed or missed class.</span></span><span aria-hidden="true" className="text-2xl">›</span></button> : null}
 
+      {activeShift ? <ActiveSessionCard shift={activeShift} busy={clockBusy} notice={clockNotice} onClockAction={() => void performClockAction()} /> : null}
+
       <section className="mt-5">
         <div className="mb-4 flex items-center justify-between">
           <h1 className="text-[21px] font-black text-[#111827]">Next Class</h1>
@@ -315,6 +339,12 @@ function TeacherHomeContent({
       {pendingFormsOpen ? <PendingFormsDialog shifts={pendingFormShifts} onClose={() => setPendingFormsOpen(false)} /> : null}
     </main>
   );
+}
+
+function ActiveSessionCard({ shift, busy, notice, onClockAction }: { shift: TeacherShift; busy: boolean; notice: string; onClockAction: () => void }) {
+  const clockedIn = isDashboardClockedIn(shift);
+  const elapsed = clockedIn ? elapsedLabel(shift.clockInTime && shift.start && shift.clockInTime < shift.start ? shift.start : shift.clockInTime ?? shift.start) : "";
+  return <section className={`mt-4 rounded-3xl bg-gradient-to-br p-5 text-white shadow-lg ${clockedIn ? "from-[#10B981] to-[#059669]" : "from-[#0E72ED] to-[#0386FF]"}`} aria-label="Active teacher session"><div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-white/20"><Clock3 size={21} /></span><p className="min-w-0 flex-1 text-sm font-bold text-white/90">{clockedIn ? "Active Session" : "Upcoming Session"}</p><span className="rounded-full bg-white/20 px-3 py-1 text-xs font-extrabold">{clockedIn ? "In Progress" : "Ready"}</span></div><h2 className="mt-4 text-xl font-extrabold">{shift.title}</h2><p className="mt-1 text-sm text-white/80">{formatDateTimeRange(shift.start, shift.end)}</p>{elapsed ? <p className="mt-3 rounded-xl border border-white/20 bg-white/15 p-3 font-bold">Elapsed time: {elapsed}</p> : null}<div className="mt-4 grid grid-cols-2 gap-3"><Link href={`/teacher/shifts/?shift=${encodeURIComponent(shift.id)}`} className="flex min-h-11 items-center justify-center rounded-xl border border-white font-bold">View Session</Link><button type="button" disabled={busy} onClick={onClockAction} className={`min-h-11 rounded-xl bg-white font-extrabold disabled:opacity-60 ${clockedIn ? "text-[#EF4444]" : "text-[#0E72ED]"}`}>{busy ? "Working…" : clockedIn ? "Clock Out" : "Clock In"}</button></div>{notice ? <p role="status" className={`mt-3 rounded-xl px-3 py-2 text-sm font-semibold ${/^Successfully/.test(notice) ? "bg-white/15 text-white" : "bg-red-950/25 text-white"}`}>{notice}</p> : null}</section>;
 }
 
 function PendingFormsDialog({ shifts, onClose }: { shifts: TeacherShift[]; onClose: () => void }) {
@@ -828,6 +858,12 @@ function normalizeShift(id: string, data: Record<string, unknown>): TeacherShift
     end: dateValue(data.shift_end ?? data.shiftEnd ?? data.end_time ?? data.endTime),
     status: stringValue(data.status) || "scheduled",
     isClockedIn: data.is_clocked_in === true || data.isClockedIn === true,
+    clockInTime: dateValue(data.clock_in_time ?? data.clockInTime),
+    clockOutTime: dateValue(data.clock_out_time ?? data.clockOutTime),
+    subject: stringValue(data.subject_display_name ?? data.subjectDisplayName ?? data.subject),
+    category: stringValue(data.shift_category ?? data.shiftCategory ?? data.category) || "teaching",
+    teacherName: stringValue(data.teacher_name ?? data.teacherName),
+    hourlyRate: numberValue(data.hourly_rate ?? data.hourlyRate, 0),
   };
 }
 
@@ -926,6 +962,41 @@ function isMissedStatus(status: string) {
 }
 
 function isFormRequiredStatus(status: string) { return isCompletedStatus(status) || isMissedStatus(status); }
+
+function isDashboardClockedIn(shift: TeacherShift) { return Boolean((shift.isClockedIn || shift.status.toLowerCase() === "active") && shift.clockInTime && !shift.clockOutTime); }
+function canDashboardClockIn(shift: TeacherShift) { if (!shift.start || !shift.end || isDashboardClockedIn(shift) || isClosedStatus(shift.status)) return false; const now = new Date(); return now >= new Date(shift.start.getTime() - 60_000) && now <= shift.end; }
+function elapsedLabel(start: Date | null) { const milliseconds = start ? Math.max(0, Date.now() - start.getTime()) : 0; const hours = Math.floor(milliseconds / 3_600_000); const minutes = Math.floor(milliseconds % 3_600_000 / 60_000); return `${hours}h ${String(minutes).padStart(2, "0")}m`; }
+
+type DashboardLocation = { latitude: number; longitude: number; address: string; neighborhood: string };
+async function getDashboardLocation(): Promise<DashboardLocation> { if (!("geolocation" in navigator)) throw new Error("Location access is required to clock in or out."); try { const position = await new Promise<GeolocationPosition>((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 })); const { latitude, longitude } = position.coords; return { latitude, longitude, address: `Location: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`, neighborhood: "GPS coordinates" }; } catch { throw new Error("Location access is required to clock in or out. Allow location access and try again."); } }
+
+async function dashboardClockIn(user: User, shift: TeacherShift, location: DashboardLocation) {
+  if (!canDashboardClockIn(shift)) throw new Error("This shift is not available for clock-in right now.");
+  if (await findDashboardOpenEntry(user.uid, shift.id)) throw new Error("You are already clocked in to this shift.");
+  const now = new Date(); const timesheetRef = doc(collection(db, "timesheet_entries")); const shiftRef = doc(db, "teaching_shifts", shift.id);
+  await runTransaction(db, async (transaction) => {
+    const currentSnap = await transaction.get(shiftRef); if (!currentSnap.exists()) throw new Error("This shift is no longer available.");
+    const current = currentSnap.data() as Record<string, unknown>; if (dateValue(current.clock_in_time ?? current.clockInTime) && !dateValue(current.clock_out_time ?? current.clockOutTime)) throw new Error("You are already clocked in to this shift.");
+    transaction.set(timesheetRef, { teacher_id: user.uid, teacher_email: user.email, teacher_name: shift.teacherName, shift_id: shift.id, shift_category: shift.category, date: dashboardDate(now), student_name: shift.studentNames.join(", ") || shift.title, start_time: dashboardTime(now), end_time: "", total_hours: "00:00", hourly_rate: shift.hourlyRate, pay_rate_source: shift.hourlyRate > 0 ? "teaching_shift_rate" : "timesheet_fallback_rate", is_subject_billable: shift.category === "teaching", description: `Teaching session: ${shift.subject || shift.title} - ${shift.title}`, status: "pending", source: "shift_clock_in", completion_method: "pending", clock_in_timestamp: Timestamp.fromDate(now), clock_in_status: deviationStatus(now, shift.start), clock_in_deviation_minutes: deviationMinutes(now, shift.start), clock_in_platform: "web", clock_in_latitude: location.latitude, clock_in_longitude: location.longitude, clock_in_address: location.address, clock_in_neighborhood: location.neighborhood, shift_title: shift.title, scheduled_start: shift.start ? Timestamp.fromDate(shift.start) : null, scheduled_end: shift.end ? Timestamp.fromDate(shift.end) : null, scheduled_duration_minutes: shift.start && shift.end ? Math.max(0, Math.round((shift.end.getTime() - shift.start.getTime()) / 60_000)) : 0, created_at: serverTimestamp(), updated_at: serverTimestamp() });
+    transaction.update(shiftRef, { last_modified: Timestamp.fromDate(now), status: "active", clock_out_time: null, clock_in_time: Timestamp.fromDate(now), last_clock_in_platform: "web" });
+  });
+  return `Successfully clocked in to ${shift.title}`;
+}
+
+async function dashboardClockOut(user: User, shift: TeacherShift, location: DashboardLocation) {
+  const open = await findDashboardOpenEntry(user.uid, shift.id); if (!open) throw new Error("No active clock-in found for this shift.");
+  const now = new Date(); const clockIn = dateValue(open.data.clock_in_timestamp) ?? shift.clockInTime ?? shift.start ?? now; const effectiveStart = shift.start && clockIn < shift.start ? shift.start : clockIn; const effectiveEnd = shift.end && now > shift.end ? shift.end : now; const duration = Math.max(0, effectiveEnd.getTime() - effectiveStart.getTime()); const hours = duration / 3_600_000; const shiftRef = doc(db, "teaching_shifts", shift.id);
+  await runTransaction(db, async (transaction) => { const entrySnap = await transaction.get(open.ref); if (!entrySnap.exists() || dateValue(entrySnap.data().clock_out_timestamp) || stringValue(entrySnap.data().end_time)) throw new Error("This shift has already been clocked out."); const shiftSnap = await transaction.get(shiftRef); if (!shiftSnap.exists()) throw new Error("This shift is no longer available."); transaction.update(open.ref, { end_time: dashboardTime(effectiveEnd), total_hours: dashboardDuration(duration), clock_out_timestamp: Timestamp.fromDate(now), effective_end_timestamp: Timestamp.fromDate(effectiveEnd), total_pay: hours * shift.hourlyRate, payment_amount: hours * shift.hourlyRate, status: "pending", completion_method: "manual", clock_out_status: deviationStatus(now, shift.end), clock_out_deviation_minutes: deviationMinutes(now, shift.end), clock_out_latitude: location.latitude, clock_out_longitude: location.longitude, clock_out_address: location.address, clock_out_neighborhood: location.neighborhood, clock_out_platform: "web", updated_at: serverTimestamp() }); transaction.update(shiftRef, { last_modified: Timestamp.fromDate(now), clock_out_time: Timestamp.fromDate(now) }); });
+  return `Successfully clocked out from ${shift.title}`;
+}
+
+async function findDashboardOpenEntry(uid: string, shiftId: string) { const base = [where("teacher_id", "==", uid), where("shift_id", "==", shiftId), limit(1)] as const; for (const end of ["", null]) { const snapshot = await getDocs(query(collection(db, "timesheet_entries"), where("end_time", "==", end), ...base)); const first = snapshot.docs[0]; if (first) return { ref: first.ref, data: first.data() as Record<string, unknown> }; } return null; }
+function deviationMinutes(actual: Date, scheduled: Date | null) { return scheduled ? Math.trunc((actual.getTime() - scheduled.getTime()) / 60_000) : 0; }
+function deviationStatus(actual: Date, scheduled: Date | null) { const deviation = deviationMinutes(actual, scheduled); return Math.abs(deviation) <= 5 ? "on_time" : deviation > 5 ? "late" : "early"; }
+function dashboardDate(value: Date) { return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`; }
+function dashboardTime(value: Date) { return `${String(value.getHours()).padStart(2, "0")}:${String(value.getMinutes()).padStart(2, "0")}`; }
+function dashboardDuration(ms: number) { const seconds = Math.floor(ms / 1000); return `${String(Math.floor(seconds / 3600)).padStart(2, "0")}:${String(Math.floor(seconds % 3600 / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`; }
+function clockError(cause: unknown) { const message = cause instanceof Error ? cause.message : "Clock action failed."; return /permission|denied/i.test(message) ? "Clock action failed because your account does not have permission for this shift." : /offline|network|unavailable/i.test(message) ? "Clock action failed. Check your connection and try again." : message; }
 
 function formatNumber(value: number) {
   return value.toFixed(1).replace(/\\.0$/, ".0");

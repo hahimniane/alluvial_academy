@@ -3326,6 +3326,16 @@ render and the native Next authenticated CMS write/upload tests pass against
   dashboard limit was also corrected to merge both Flutter teacher-id field
   variants with a 500-row ceiling, preventing older valid sessions from being
   silently omitted. Active-session parity is the next dashboard checkpoint.
+- The active/imminent dashboard card now follows Flutter's one-minute join
+  window, distinguishes Ready from In Progress, displays elapsed time, opens the
+  exact shift detail, and performs GPS-required clock-in/out directly from the
+  dashboard. Its transaction fields match the native Time Clock workflow,
+  including duplicate protection, scheduled bounds, deviation metadata,
+  platform/GPS fields, completion method, hours, and pay.
+- A disposable live-window dev shift verified location denial followed by a
+  successful clock-in/out lifecycle. Readback confirmed both shift timestamps,
+  one `shift_clock_in` timesheet, web/GPS metadata, and manual completion; the
+  shift and timesheet were deleted. The Dashboard row now has no known gap.
 
 ### Teacher Zoom provider routing check (2026-07-12)
 

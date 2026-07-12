@@ -108,6 +108,24 @@ test.describe("teacher dashboard", () => {
     }
   });
 
+  test("dashboard active session supports the complete clock lifecycle", async ({ page, context }, testInfo) => {
+    skipUnlessDesktopTeacherE2EEnabled(testInfo.project.name);
+    test.skip(process.env.ALLUWAL_RUN_TEACHER_DASHBOARD_CLOCK_E2E !== "1", "Enable only with the disposable active-window shift fixture.");
+    await context.setGeolocation({ latitude: 40.7128, longitude: -74.006 });
+    await signInAsTeacher(page);
+    const session = page.getByLabel("Active teacher session");
+    await expect(session.getByText("Codex Dashboard Active Session")).toBeVisible();
+    await expect(session.getByText("Ready")).toBeVisible();
+    await session.getByRole("button", { name: "Clock In" }).click();
+    await expect(session.getByText(/Location access is required/)).toBeVisible();
+    await context.grantPermissions(["geolocation"]);
+    await session.getByRole("button", { name: "Clock In" }).click();
+    await expect(session.getByText(/Successfully clocked in/)).toBeVisible();
+    await expect(session.getByRole("button", { name: "Clock Out" })).toBeVisible();
+    await session.getByRole("button", { name: "Clock Out" }).click();
+    await expect(session.getByText(/Successfully clocked out/)).toBeVisible();
+  });
+
   test("teacher account menu exposes role switch and logout", async ({ page }, testInfo) => {
     skipUnlessDesktopTeacherE2EEnabled(testInfo.project.name);
     await signInAsTeacher(page);

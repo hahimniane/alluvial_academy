@@ -8,7 +8,7 @@ This matrix tracks functional parity between the Flutter teacher role and
 
 | Area | Native route | Current functional checkpoint | Remaining acceptance work |
 | --- | --- | --- | --- |
-| Dashboard | `/teacher/` | Separated shell, resilient metrics, pending readiness-form detection/dialog/deep-link/completion recovery, quick access, persisted sidebar, mobile drawer, conditional role switch, logout | Active-session card/action parity remains under focused audit |
+| Dashboard | `/teacher/` | Separated shell, resilient metrics, pending forms, Flutter-matching active/imminent session card, direct GPS clock lifecycle, session-detail deep link, quick access, persisted sidebar, role switch/logout | No known functional gap; retain in final regression |
 | My Shifts | `/teacher/shifts/` | Day/week/month, details, issue report, timezone, transactional clock actions, location denial, duplicate-tab protection, reload recovery | No known functional gap; retain in final regression |
 | Time Clock | `/teacher/time-clock/` | Transactional clock actions and draft submission, location/offline errors, duplicate-tab protection, reload recovery, filters, draft edit, desktop/mobile detail views | No known functional gap; retain in final regression |
 | Tasks | `/teacher/tasks/` | Assignee-only list, filters, todo/in-progress/done lifecycle, completion metadata, stale/revoked errors, retryable load failure | No known functional gap; retain in final regression |
