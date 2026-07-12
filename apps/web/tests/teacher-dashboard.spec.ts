@@ -138,6 +138,20 @@ test.describe("teacher dashboard", () => {
     await page.getByRole("button", { name: "Cancel" }).click();
   });
 
+  test("teacher clock lifecycle writes Flutter-compatible metadata", async ({ page, context }, testInfo) => {
+    skipUnlessDesktopTeacherE2EEnabled(testInfo.project.name);
+    test.skip(process.env.ALLUWAL_RUN_TEACHER_CLOCK_WRITE_E2E !== "1", "Enable only with the disposable dev shift fixture.");
+    await context.grantPermissions(["geolocation"]);
+    await context.setGeolocation({latitude: 40.7128, longitude: -74.006});
+    await signInAsTeacher(page);
+    await page.getByRole("link", {name: /Time Clock/}).click();
+    await expect(page.getByText("Codex Teacher Clock Metadata QA")).toBeVisible();
+    await page.getByRole("button", {name: "Clock In Now"}).click();
+    await expect(page.getByText(/Successfully clocked in/)).toBeVisible();
+    await page.getByRole("button", {name: "Clock Out"}).click();
+    await expect(page.getByText(/Successfully clocked out/)).toBeVisible();
+  });
+
   test("requires a teacher sign-in before rendering tasks", async ({ page, browserName }) => {
     test.skip(browserName === "webkit", "WebKit intermittently hangs before committing teacher module static routes late in the full suite; Chromium and mobile Chrome cover the guard.");
     await gotoTeacherGuard(page, "/teacher/tasks/");
@@ -155,6 +169,31 @@ test.describe("teacher dashboard", () => {
     await expect(page.getByLabel("Search tasks")).toBeVisible();
     await expect(page.getByRole("button", { name: "All Tasks" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Show filters" })).toBeVisible();
+    const taskAction = page.getByRole("button", { name: "View and update" }).first();
+    if (await taskAction.isVisible().catch(() => false)) {
+      await taskAction.click();
+      const dialog = page.getByRole("dialog", { name: /details$/ });
+      await expect(dialog).toBeVisible();
+      await expect(dialog.getByRole("heading", { name: "Update status" })).toBeVisible();
+      await expect(dialog.getByRole("button", { name: "To Do" })).toBeVisible();
+      await expect(dialog.getByRole("button", { name: "In Progress" })).toBeVisible();
+      await expect(dialog.getByRole("button", { name: "Done" })).toBeVisible();
+      await page.getByLabel("Close task details").click();
+    }
+  });
+
+  test("assigned teacher can update a task status", async ({ page }, testInfo) => {
+    skipUnlessDesktopTeacherE2EEnabled(testInfo.project.name);
+    test.skip(process.env.ALLUWAL_RUN_TEACHER_TASK_WRITE_E2E !== "1", "Enable only with the disposable dev task fixture.");
+    await signInAsTeacher(page);
+    await page.getByRole("link", { name: /Tasks/ }).click();
+    await page.getByLabel("Search tasks").fill("Codex Teacher Task Status QA");
+    const task = page.locator("article").filter({hasText: "Codex Teacher Task Status QA"});
+    await task.getByRole("button", {name: "View and update"}).click();
+    const dialog = page.getByRole("dialog", {name: /Codex Teacher Task Status QA details/});
+    await dialog.getByRole("button", {name: "In Progress"}).click();
+    await expect(page.getByText("Task status updated")).toBeVisible();
+    await expect(dialog.getByRole("button", {name: "In Progress"})).toBeDisabled();
   });
 
   test("requires a teacher sign-in before rendering job board", async ({ page, browserName }) => {
@@ -190,6 +229,18 @@ test.describe("teacher dashboard", () => {
     await expect(page.getByText("This will re-broadcast the opportunity to other teachers.")).toBeVisible();
     await page.getByRole("button", { name: "Cancel" }).click();
     await expect(page.getByRole("dialog", { name: "Withdraw from this student?" })).toBeHidden();
+  });
+
+  test("teacher can withdraw and rebroadcast an accepted dev job", async ({ page }, testInfo) => {
+    skipUnlessDesktopTeacherE2EEnabled(testInfo.project.name);
+    test.skip(process.env.ALLUWAL_RUN_TEACHER_JOB_WRITE_E2E !== "1", "Enable only with the disposable dev job fixture.");
+    await signInAsTeacher(page);
+    await page.getByRole("link", {name: /Job Board/}).click();
+    const acceptedCard = page.locator("article").filter({hasText: "Codex Teacher Job Lifecycle QA"});
+    await acceptedCard.getByRole("button", {name: "Withdraw & Re-broadcast"}).click();
+    await page.getByRole("dialog", {name: "Withdraw from this student?"}).getByRole("button", {name: "Withdraw", exact: true}).click();
+    await expect(page.getByText("You have withdrawn. The job is now available for other teachers.")).toBeVisible();
+    await expect(acceptedCard.getByRole("button", {name: "Submit availability"})).toBeVisible();
   });
 
   test("requires a teacher sign-in before rendering chat", async ({ page, browserName }) => {
