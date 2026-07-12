@@ -2313,3 +2313,52 @@ Operational note:
   routing changes without explicit owner approval. For the next live roster
   verification, use a fresh test hub/meeting or wait until this test hub ends
   naturally.
+
+## 36. Next.js Teacher Provider Parity — 2026-07-11
+
+- The Next.js teacher classroom previously requested a RealtimeKit token for
+  every shift, including shifts whose `video_provider` is `zoom`. Provider-aware
+  joining now calls `getZoomJoinInfo` for Zoom-backed shifts and hands the
+  returned role-0 routing payload to the unchanged canonical
+  `web/zoom_meeting.html` page.
+- `apps/web/scripts/prepare-assets.mjs` copies the canonical Zoom meeting page
+  into the Next static export. No Zoom handler, hub-routing rule, meeting
+  lifetime, bot lane, room assignment, or visible Zoom meeting control was
+  changed.
+- Verification completed: Next TypeScript check, production-style static build,
+  Hostinger package generation, cross-browser focused tests confirming the
+  packaged page contains the routing host, and authenticated teacher navigation
+  coverage. No Firebase, Hostinger, VPS, or production deployment was performed.
+- Remaining gate: authenticated `alluwal-dev` teacher join through an active
+  Zoom hub fixture, including routing to the expected private room and return to
+  `/teacher/classes/` after leaving.
+
+## 37. Next.js RealtimeKit Live Controls Acceptance — 2026-07-12
+
+- This pass was limited to RealtimeKit-backed classes. It did not change Zoom
+  hub routing, join payloads, bot lanes, room assignment, meeting lifetimes, or
+  the canonical Flutter Zoom host.
+- A disposable `alluwal-dev` teaching shift was joined in a headed browser by
+  the authenticated teacher and a public guest. Live evidence confirmed two
+  peers in the same RealtimeKit room, active roster display, teacher lock and
+  unlock, locked-guest denial, teacher removal of the existing guest, the
+  guest-side removed message, and teacher reconnect.
+- The Next-only `realtimekit_meeting.html` now retries initialization with
+  audio/video disabled when normal media initialization stalls. This fixed a
+  real no-device/permission path where Cloudflare API calls succeeded but the
+  meeting object was never assigned and the parent timed out.
+- `kickRealtimeKitParticipant` now sends Cloudflare `participant_ids` after
+  resolving the participant UUID. The previous `custom_participant_ids` body
+  failed live because the meeting uses `idType: userId`.
+- `getRealtimeKitRoomPresence` now reads the current active session and filters
+  departed peers instead of counting every participant provisioned on the
+  meeting. The post-removal badge and Cloudflare UI both returned to one active
+  teacher.
+- Focused RealtimeKit Jest passed (37 tests). Targeted deploys were made only to
+  `alluwal-dev` for `kickRealtimeKitParticipant` and
+  `getRealtimeKitRoomPresence`. The disposable Firestore shift was deleted and
+  the browser sessions were closed.
+- Remaining classroom gate is unchanged: verify an authenticated Next teacher
+  join through a real dev Zoom hub, private-room routing, and return to
+  `/teacher/classes/` after Leave. Do not modify production routing to create
+  that fixture.

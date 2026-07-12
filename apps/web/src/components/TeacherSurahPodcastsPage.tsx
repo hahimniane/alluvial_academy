@@ -209,7 +209,7 @@ function MobileTeacherTopBar({ summary }: { summary: TeacherSummary }) {
       </button>
       <div className="min-w-0 text-center text-base font-bold text-[#111827]">Alluwal Academy</div>
       <div className="flex items-center justify-end gap-3">
-        <Shuffle size={20} className="text-[#111827]" />
+        <button type="button" aria-label="Open teacher account options" onClick={openTeacherMobileMenu} className="grid h-10 w-10 place-items-center rounded-xl text-[#111827]"><Shuffle size={20} /></button>
         <span className="grid h-9 w-9 place-items-center rounded-full bg-[#009688] text-xs font-black text-white">{summary.initials}</span>
       </div>
     </header>
@@ -557,14 +557,14 @@ function SharePodcastDialog({
       const saved = await assignPodcast(item, teacherId, teacherName, Array.from(selectedIds));
       onSaved(saved);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Failed to save");
+      setMessage(surahActionError(error, "Failed to share this content."));
       setSaving(false);
     }
   }
 
   return (
-    <div className="fixed inset-0 z-40 grid place-items-center bg-black/35 p-4" role="dialog" aria-modal="true" aria-label="Share with Students">
-      <section className="flex max-h-[85vh] w-full max-w-[480px] flex-col rounded-[20px] bg-white p-5 shadow-2xl">
+    <div className="fixed inset-0 z-40 grid place-items-end bg-black/35 sm:place-items-center sm:p-4" role="dialog" aria-modal="true" aria-label="Share with Students">
+      <section className="flex max-h-[90vh] w-full max-w-[480px] flex-col rounded-t-[20px] bg-white p-5 shadow-2xl sm:max-h-[85vh] sm:rounded-[20px]">
         <div className="flex items-center gap-3">
           <span className="grid h-11 w-11 place-items-center rounded-xl bg-[#E7F3FF] text-[#0E72ED]">
             <Share2 size={22} />
@@ -769,6 +769,7 @@ async function loadAssignedStudentIds(podcastId: string, teacherId: string) {
 }
 
 async function assignPodcast(item: PodcastItem, teacherId: string, teacherName: string, studentIds: string[]) {
+  if (!navigator.onLine) throw new Error("You appear to be offline. Reconnect and try again.");
   const existing = await getDocs(query(collection(db, "podcast_assignments"), where("podcastId", "==", item.id), where("teacherId", "==", teacherId), limit(1)));
   if (!existing.empty) {
     const ref = existing.docs[0].ref;
@@ -820,6 +821,10 @@ async function removeAssignment(
   setAssignments: (value: (current: PodcastAssignment[]) => PodcastAssignment[]) => void,
   setMessage: (value: string) => void,
 ) {
+  if (!navigator.onLine) {
+    setMessage("You appear to be offline. Reconnect and try again.");
+    return;
+  }
   try {
     await updateDoc(doc(db, "podcast_assignments", assignment.id), { active: false });
   } catch {
@@ -827,7 +832,7 @@ async function removeAssignment(
       const snap = await getDocs(query(collection(db, "podcast_assignments"), where("teacherId", "==", teacherId), where("podcastId", "==", assignment.podcastId), limit(1)));
       if (!snap.empty) await updateDoc(snap.docs[0].ref, { active: false });
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Failed to remove shared content");
+      setMessage(surahActionError(error, "Failed to remove shared content."));
       return;
     }
   }
@@ -837,6 +842,13 @@ async function removeAssignment(
 function activeOrAllItems(items: PodcastItem[]) {
   const active = items.filter((item) => item.status === "active");
   return active.length || items.length === 0 ? active : items;
+}
+
+function surahActionError(error: unknown, fallback: string) {
+  const message = error instanceof Error ? error.message : String(error || "");
+  if (/permission-denied|insufficient permissions/i.test(message)) return "You do not have permission to change this shared content. Contact an administrator if this continues.";
+  if (/unavailable|network|offline/i.test(message) || !navigator.onLine) return "You appear to be offline. Reconnect and try again.";
+  return message.replace(/^Firebase:\s*/i, "").trim() || fallback;
 }
 
 function upsertAssignment(assignments: PodcastAssignment[], saved: PodcastAssignment) {

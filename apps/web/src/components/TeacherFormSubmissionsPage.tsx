@@ -17,8 +17,8 @@ import {
   X,
 } from "lucide-react";
 import { auth, db } from "@/lib/firebase";
-import { isCurrentUserTeacher } from "@/lib/userRoles";
-import { TeacherAccessPrompt } from "@/components/TeacherDashboardHome";
+import { getCurrentUserRecord, isCurrentUserTeacher } from "@/lib/userRoles";
+import { TeacherAccessPrompt, TeacherShell } from "@/components/TeacherDashboardHome";
 
 type AccessState = "checking" | "signedOut" | "allowed" | "denied";
 type SubmissionRecord = {
@@ -39,10 +39,14 @@ type SubmissionGroup = {
 };
 
 const noFormIdGroup = "__no_form_id__";
+const defaultSummary = {displayName: "Teacher", firstName: "Teacher", initials: "TE"};
 
 export function TeacherFormSubmissionsPage() {
   const [access, setAccess] = useState<AccessState>("checking");
+  const [summary, setSummary] = useState(defaultSummary);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [submissions, setSubmissions] = useState<SubmissionRecord[]>([]);
   const [selectedYearMonth, setSelectedYearMonth] = useState(currentYearMonth());
   const [showAllMonths, setShowAllMonths] = useState(false);
@@ -56,6 +60,7 @@ export function TeacherFormSubmissionsPage() {
     return onAuthStateChanged(auth, async (nextUser) => {
       if (!mounted) return;
       if (!nextUser) {
+        setCurrentUser(null);
         setAccess("signedOut");
         setLoading(false);
         return;
@@ -63,6 +68,7 @@ export function TeacherFormSubmissionsPage() {
 
       setAccess("checking");
       setLoading(true);
+      setLoadError("");
       try {
         const allowed = await isCurrentUserTeacher(nextUser);
         if (!mounted) return;
@@ -71,13 +77,19 @@ export function TeacherFormSubmissionsPage() {
           setLoading(false);
           return;
         }
+        const userRecord = await getCurrentUserRecord(nextUser);
+        if (!mounted) return;
+        setCurrentUser(nextUser);
+        setSummary(summaryForUser(nextUser, userRecord));
         setAccess("allowed");
-        const records = await loadSubmissions(nextUser);
-        if (mounted) setSubmissions(records);
-      } catch {
-        if (mounted) {
-          setAccess("denied");
+        try {
+          const records = await loadSubmissions(nextUser);
+          if (mounted) setSubmissions(records);
+        } catch (error) {
+          if (mounted) setLoadError(submissionLoadError(error));
         }
+      } catch {
+        if (mounted) setAccess("denied");
       } finally {
         if (mounted) setLoading(false);
       }
@@ -121,8 +133,22 @@ export function TeacherFormSubmissionsPage() {
 
   if (access !== "allowed") return <TeacherAccessPrompt access={access} />;
 
+  const retryLoad = async () => {
+    if (!currentUser || loading) return;
+    setLoading(true);
+    setLoadError("");
+    try {
+      setSubmissions(await loadSubmissions(currentUser));
+    } catch (error) {
+      setLoadError(submissionLoadError(error));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <main className="min-h-screen bg-[#F5F7FA] text-[#1E293B]">
+    <TeacherShell activeLabel="My Form Submissions" breadcrumb="Forms / My Form Submissions" summary={summary}>
+    <main className="min-h-full bg-[#F5F7FA] text-[#1E293B]">
       <header className="grid min-h-14 grid-cols-[56px_1fr_minmax(112px,auto)] items-center border-b border-[#E2E8F0] bg-white px-2 max-[700px]:grid-cols-[48px_1fr_44px]">
         <Link href="/teacher/" aria-label="Back" className="grid h-11 w-11 place-items-center rounded-xl text-[#111827] hover:bg-[#F8FAFC]">
           <ArrowLeft size={24} />
@@ -179,6 +205,14 @@ export function TeacherFormSubmissionsPage() {
           <div className="grid min-h-[460px] place-items-center">
             <div className="h-9 w-9 animate-spin rounded-full border-4 border-[#BFDBFE] border-t-[#0386FF]" />
           </div>
+        ) : loadError ? (
+          <div className="grid min-h-[460px] place-items-center px-6 text-center" role="alert">
+            <div className="max-w-md">
+              <h2 className="text-xl font-bold text-[#1E293B]">Could not load submissions</h2>
+              <p className="mt-2 text-sm text-[#64748B]">{loadError}</p>
+              <button type="button" onClick={() => void retryLoad()} className="mt-5 min-h-11 rounded-xl bg-[#0386FF] px-5 text-sm font-bold text-white">Try again</button>
+            </div>
+          </div>
         ) : groupedSubmissions.length === 0 ? (
           <EmptySubmissions search={search} />
         ) : (
@@ -221,6 +255,7 @@ export function TeacherFormSubmissionsPage() {
 
       {activeSubmission ? <SubmissionDetail submission={activeSubmission} onClose={() => setActiveSubmission(null)} /> : null}
     </main>
+    </TeacherShell>
   );
 }
 
@@ -383,7 +418,7 @@ function SubmissionDetail({ submission, onClose }: { submission: SubmissionRecor
             entries.map(([field, value]) => (
               <div key={field} className="mb-4 rounded-xl border border-[#E2E8F0] p-4">
                 <p className="text-sm font-semibold text-[#64748B]">{submission.fieldLabels[field] || formatFieldLabel(field)}</p>
-                <p className="mt-2 whitespace-pre-wrap text-base text-[#1E293B]">{formatFieldValue(value)}</p>
+                <SubmissionResponseValue value={value} />
               </div>
             ))
           )}
@@ -393,19 +428,38 @@ function SubmissionDetail({ submission, onClose }: { submission: SubmissionRecor
   );
 }
 
+function SubmissionResponseValue({ value }: { value: unknown }) {
+  const file = objectValue(value);
+  const fileUrl = stringValue(file.downloadURL ?? file.url ?? file.file_url);
+  const fileName = stringValue(file.fileName ?? file.file_name) || "Uploaded file";
+  const fileType = stringValue(file.type ?? file.contentType ?? file.mime_type).toLowerCase();
+  if (fileUrl) {
+    const isImage = fileType.includes("image") || /\.(png|jpe?g|gif|webp)$/i.test(fileName);
+    return (
+      <div className="mt-3">
+        {isImage ? <img src={fileUrl} alt={fileName} className="mb-3 max-h-72 rounded-xl border border-[#E2E8F0] object-contain" /> : null}
+        <a href={fileUrl} target="_blank" rel="noreferrer" className="inline-flex min-h-10 items-center rounded-xl bg-[#EFF6FF] px-4 text-sm font-bold text-[#0369A1] underline">
+          {fileName}
+        </a>
+      </div>
+    );
+  }
+  return <p className="mt-2 whitespace-pre-wrap text-base text-[#1E293B]">{formatFieldValue(value)}</p>;
+}
+
 async function loadSubmissions(user: User) {
   const byId = new Map<string, SubmissionRecord>();
   const col = collection(db, "form_responses");
 
-  async function pull(field: string) {
-    const snap = await getDocs(query(col, where(field, "==", user.uid), limit(500))).catch(() => null);
-    for (const docSnap of snap?.docs ?? []) {
+  const snapshots = await Promise.all(
+    ["userId", "submittedBy", "teacher_id", "teacherId"].map((field) => getDocs(query(col, where(field, "==", user.uid), limit(500)))),
+  );
+  for (const snap of snapshots) {
+    for (const docSnap of snap.docs) {
       if (byId.has(docSnap.id)) continue;
       byId.set(docSnap.id, normalizeSubmission(docSnap.id, docSnap.data() as Record<string, unknown>));
     }
   }
-
-  await Promise.all(["userId", "submittedBy", "teacher_id", "teacherId"].map(pull));
   const records = Array.from(byId.values()).sort((a, b) => (b.submittedAt?.getTime() ?? 0) - (a.submittedAt?.getTime() ?? 0));
   await hydrateTitles(records);
   return records;
@@ -535,4 +589,23 @@ function dateValue(value: unknown): Date | null {
 
 function stringValue(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function summaryForUser(user: User, data: Record<string, unknown> | null) {
+  const firstName = stringValue(data?.first_name ?? data?.firstName);
+  const lastName = stringValue(data?.last_name ?? data?.lastName);
+  const displayName = [firstName, lastName].filter(Boolean).join(" ") || user.displayName || user.email || "Teacher";
+  const parts = displayName.replace(/@.*/, "").split(/[^a-zA-Z0-9]+/).filter(Boolean);
+  return {
+    displayName,
+    firstName: firstName || parts[0] || "Teacher",
+    initials: parts.slice(0, 2).map((part) => part[0]?.toUpperCase()).join("") || "TE",
+  };
+}
+
+function submissionLoadError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error || "");
+  if (/permission-denied|insufficient permissions/i.test(message)) return "You do not have permission to view these submissions. Contact an administrator if this continues.";
+  if (/unavailable|network|offline/i.test(message) || !navigator.onLine) return "You appear to be offline. Reconnect and try again.";
+  return "Check your connection and try again. If the problem continues, contact an administrator.";
 }

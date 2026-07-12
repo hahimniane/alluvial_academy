@@ -1,7 +1,7 @@
 "use client";
 
 import { onAuthStateChanged, type User } from "firebase/auth";
-import { collection, doc, getDocs, limit, query, serverTimestamp, Timestamp, updateDoc, where, writeBatch } from "firebase/firestore";
+import { collection, doc, getDocs, limit, query, runTransaction, serverTimestamp, Timestamp, updateDoc, where } from "firebase/firestore";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { AlertTriangle, CalendarDays, Clock3, Download, Eye, LogIn, LogOut, MapPin, Menu, Pencil, Send, Shuffle, TimerReset, X } from "lucide-react";
 import { auth, db } from "@/lib/firebase";
@@ -47,6 +47,8 @@ type TeacherShift = {
   end: Date | null;
   status: string;
   subject: string;
+  category: string;
+  leaderRole: string;
   teacherName: string;
   hourlyRate: number;
   clockInTime: Date | null;
@@ -70,6 +72,7 @@ export function TeacherTimeClockPage() {
   const [notice, setNotice] = useState("");
   const [clockBusy, setClockBusy] = useState(false);
   const [submittingDrafts, setSubmittingDrafts] = useState(false);
+  const [submittingEntryId, setSubmittingEntryId] = useState("");
   const [viewingEntry, setViewingEntry] = useState<TimesheetEntry | null>(null);
   const [editingEntry, setEditingEntry] = useState<TimesheetEntry | null>(null);
   const [submitEntry, setSubmitEntry] = useState<TimesheetEntry | null>(null);
@@ -145,7 +148,7 @@ export function TeacherTimeClockPage() {
         showNotice(action.disabledMessage);
         return;
       }
-      const location = await getBrowserLocation(action.kind === "clockIn");
+      const location = await getBrowserLocation();
       const result = action.kind === "clockOut"
         ? await clockOutOfShift(currentUser, activeShift, location)
         : await clockInToShift(currentUser, activeShift, location);
@@ -159,14 +162,18 @@ export function TeacherTimeClockPage() {
   };
 
   const submitDraftEntry = async (entry: TimesheetEntry) => {
-    await updateDoc(doc(db, "timesheet_entries", entry.id), {
-      status: "pending",
-      submitted_at: serverTimestamp(),
-      updated_at: serverTimestamp(),
-    });
-    setEntries((current) => current.map((item) => item.id === entry.id ? { ...item, status: "pending" } : item));
-    setSubmitEntry(null);
-    showNotice("Timesheet submitted for review");
+    if (submittingEntryId) return;
+    setSubmittingEntryId(entry.id);
+    try {
+      await submitDraftEntries([entry]);
+      setEntries((current) => current.map((item) => item.id === entry.id ? { ...item, status: "pending" } : item));
+      setSubmitEntry(null);
+      showNotice("Timesheet submitted for review");
+    } catch (error) {
+      showNotice(writeFailureMessage(error, "Could not submit the timesheet."));
+    } finally {
+      setSubmittingEntryId("");
+    }
   };
 
   const saveEditedEntry = async (entry: TimesheetEntry, values: TimesheetEditValues) => {
@@ -221,19 +228,11 @@ export function TeacherTimeClockPage() {
     if (!confirmed) return;
     setSubmittingDrafts(true);
     try {
-      const batch = writeBatch(db);
-      draftEntries.forEach((entry) => {
-        batch.update(doc(db, "timesheet_entries", entry.id), {
-          status: "pending",
-          submitted_at: serverTimestamp(),
-          updated_at: serverTimestamp(),
-        });
-      });
-      await batch.commit();
+      await submitDraftEntries(draftEntries);
       setEntries((current) => current.map((entry) => entry.status.toLowerCase() === "draft" ? { ...entry, status: "pending" } : entry));
       showNotice(`Submitted ${draftEntries.length} entr${draftEntries.length === 1 ? "y" : "ies"} for review`);
     } catch (error) {
-      showNotice(error instanceof Error ? error.message : "Submission failed");
+      showNotice(writeFailureMessage(error, "Could not submit draft timesheets."));
     } finally {
       setSubmittingDrafts(false);
     }
@@ -291,6 +290,7 @@ export function TeacherTimeClockPage() {
           {submitEntry ? (
             <SubmitTimesheetDialog
               entry={submitEntry}
+              submitting={submittingEntryId === submitEntry.id}
               onClose={() => setSubmitEntry(null)}
               onConfirm={() => submitDraftEntry(submitEntry)}
             />
@@ -309,7 +309,7 @@ function MobileTeacherTopBar({ summary }: { summary: TeacherSummary }) {
       </button>
       <div className="min-w-0 text-center text-[20px] font-black text-[#111827]">Alluwal Academy</div>
       <div className="flex items-center justify-end gap-3">
-        <Shuffle size={24} className="text-[#111827]" />
+        <button type="button" aria-label="Open teacher account options" onClick={openTeacherMobileMenu} className="grid h-11 w-11 place-items-center rounded-xl text-[#111827]"><Shuffle size={24} /></button>
         <span className="grid h-11 w-11 place-items-center rounded-full bg-[#009688] text-base font-black text-white">{summary.initials}</span>
       </div>
     </header>
@@ -809,7 +809,7 @@ function TimesheetEditDialog({
   );
 }
 
-function SubmitTimesheetDialog({ entry, onClose, onConfirm }: { entry: TimesheetEntry; onClose: () => void; onConfirm: () => void }) {
+function SubmitTimesheetDialog({ entry, submitting, onClose, onConfirm }: { entry: TimesheetEntry; submitting: boolean; onClose: () => void; onConfirm: () => void }) {
   return (
     <DialogFrame title="Submit for Review" icon={<Send size={20} />} onClose={onClose}>
       <p className="text-sm text-[#374151]">Submit this timesheet for admin review?</p>
@@ -823,15 +823,45 @@ function SubmitTimesheetDialog({ entry, onClose, onConfirm }: { entry: Timesheet
         Once submitted, this entry moves to pending review.
       </div>
       <div className="mt-5 flex justify-end gap-2">
-        <button type="button" onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-semibold text-[#64748B]">
+        <button type="button" onClick={onClose} disabled={submitting} className="rounded-lg px-4 py-2 text-sm font-semibold text-[#64748B] disabled:opacity-60">
           Cancel
         </button>
-        <button type="button" onClick={onConfirm} className="rounded-lg bg-[#10B981] px-4 py-2 text-sm font-semibold text-white">
-          Submit for Review
+        <button type="button" onClick={onConfirm} disabled={submitting} className="rounded-lg bg-[#10B981] px-4 py-2 text-sm font-semibold text-white disabled:bg-[#94A3B8]">
+          {submitting ? "Submitting..." : "Submit for Review"}
         </button>
       </div>
     </DialogFrame>
   );
+}
+
+async function submitDraftEntries(entries: TimesheetEntry[]) {
+  if (!navigator.onLine) throw new Error("You appear to be offline. Reconnect and try again.");
+  await runTransaction(db, async (transaction) => {
+    const refs = entries.map((entry) => doc(db, "timesheet_entries", entry.id));
+    const snapshots = await Promise.all(refs.map((ref) => transaction.get(ref)));
+    snapshots.forEach((snapshot) => {
+      if (!snapshot.exists()) throw new Error("A draft timesheet is no longer available. Refresh and try again.");
+      if (stringValue(snapshot.data().status).toLowerCase() !== "draft") {
+        throw new Error("This timesheet has already been submitted. Refresh to see its current status.");
+      }
+    });
+    refs.forEach((ref) => {
+      transaction.update(ref, {
+        status: "pending",
+        submitted_at: serverTimestamp(),
+        updated_at: serverTimestamp(),
+      });
+    });
+  });
+}
+
+function writeFailureMessage(error: unknown, fallback: string) {
+  const code = typeof error === "object" && error && "code" in error ? String(error.code) : "";
+  if (!navigator.onLine || code.includes("unavailable") || code.includes("network")) {
+    return "You appear to be offline. Reconnect and try again.";
+  }
+  if (code.includes("permission-denied")) return "You do not have permission to update this timesheet.";
+  return error instanceof Error && error.message ? error.message : fallback;
 }
 
 function DialogFrame({ title, icon, onClose, children }: { title: string; icon: ReactNode; onClose: () => void; children: ReactNode }) {
@@ -946,6 +976,8 @@ function normalizeShift(id: string, data: Record<string, unknown>): TeacherShift
     end: dateValue(data.shift_end ?? data.shiftEnd ?? data.end_time ?? data.endTime),
     status: stringValue(data.status) || "scheduled",
     subject,
+    category: stringValue(data.shift_category ?? data.shiftCategory) || "teaching",
+    leaderRole: stringValue(data.leader_role ?? data.leaderRole),
     teacherName: stringValue(data.teacher_name ?? data.teacherName),
     hourlyRate: numberValue(data.hourly_rate ?? data.hourlyRate),
     clockInTime: dateValue(data.clock_in_time ?? data.clockInTime),
@@ -1045,24 +1077,31 @@ async function clockInToShift(user: User, shift: TeacherShift, location: Browser
   const openEntry = await findOpenTimesheetEntry(user.uid, shift.id);
   if (openEntry) throw new Error("You are already clocked in to this shift");
   const now = new Date();
-  const batch = writeBatch(db);
+  const payRateSource = shift.hourlyRate > 0 ? "teaching_shift_rate" : "timesheet_fallback_rate";
   const timesheetRef = doc(collection(db, "timesheet_entries"));
-  batch.set(timesheetRef, {
+  const shiftRef = doc(db, "teaching_shifts", shift.id);
+  const timesheetData = {
     teacher_id: user.uid,
     teacher_email: user.email,
     teacher_name: shift.teacherName,
     shift_id: shift.id,
+    shift_category: shift.category,
+    leader_role: shift.leaderRole || null,
     date: formatTimesheetDate(now),
-    student_name: shift.studentNames.length ? shift.studentNames.join(", ") : "No students assigned",
+    student_name: shift.category === "teaching" && shift.studentNames.length ? shift.studentNames.join(", ") : shift.title,
     start_time: formatTime(now),
     end_time: "",
     total_hours: "00:00",
     hourly_rate: shift.hourlyRate,
+    pay_rate_source: payRateSource,
+    is_subject_billable: shift.category === "teaching",
     description: `Teaching session: ${shift.subject || shift.title} - ${shift.title}`,
     status: "pending",
     source: "shift_clock_in",
     completion_method: "pending",
     clock_in_timestamp: Timestamp.fromDate(now),
+    clock_in_status: clockDeviationStatus(now, shift.start),
+    clock_in_deviation_minutes: clockDeviationMinutes(now, shift.start),
     clock_in_platform: "web",
     clock_in_latitude: location.latitude,
     clock_in_longitude: location.longitude,
@@ -1081,15 +1120,23 @@ async function clockInToShift(user: User, shift: TeacherShift, location: Browser
     manager_notes: "",
     created_at: serverTimestamp(),
     updated_at: serverTimestamp(),
+  };
+  await runTransaction(db, async (transaction) => {
+    const shiftSnap = await transaction.get(shiftRef);
+    if (!shiftSnap.exists()) throw new Error("This shift is no longer available.");
+    const current = shiftSnap.data() as Record<string, unknown>;
+    const currentClockIn = dateValue(current.clock_in_time ?? current.clockInTime);
+    const currentClockOut = dateValue(current.clock_out_time ?? current.clockOutTime);
+    if (currentClockIn && !currentClockOut) throw new Error("You are already clocked in to this shift");
+    transaction.set(timesheetRef, timesheetData);
+    transaction.update(shiftRef, {
+      last_modified: Timestamp.fromDate(now),
+      status: "active",
+      clock_out_time: null,
+      clock_in_time: Timestamp.fromDate(now),
+      last_clock_in_platform: "web",
+    });
   });
-  batch.update(doc(db, "teaching_shifts", shift.id), {
-    last_modified: Timestamp.fromDate(now),
-    status: "active",
-    clock_out_time: null,
-    clock_in_time: shift.clockInTime ? Timestamp.fromDate(shift.clockInTime) : Timestamp.fromDate(now),
-    last_clock_in_platform: "web",
-  });
-  await batch.commit();
   return { message: `Successfully clocked in to ${shift.title}` };
 }
 
@@ -1105,8 +1152,10 @@ async function clockOutOfShift(user: User, shift: TeacherShift, location: Browse
   const validMs = Math.max(0, Math.min(rawDurationMs, Math.max(0, scheduledMs)));
   const hoursWorked = validMs / 36e5;
   const calculatedPay = hoursWorked * shift.hourlyRate;
-  const batch = writeBatch(db);
-  batch.update(openEntry.ref, {
+  const clockOutStatus = clockDeviationStatus(now, shift.end);
+  const clockOutDeviation = clockDeviationMinutes(now, shift.end);
+  const shiftRef = doc(db, "teaching_shifts", shift.id);
+  const entryUpdate = {
     end_time: formatTime(effectiveEnd),
     total_hours: formatDurationHms(validMs),
     clock_out_timestamp: Timestamp.fromDate(now),
@@ -1114,20 +1163,35 @@ async function clockOutOfShift(user: User, shift: TeacherShift, location: Browse
     total_pay: calculatedPay,
     payment_amount: calculatedPay,
     hourly_rate: shift.hourlyRate,
+    pay_rate_source: shift.hourlyRate > 0 ? "teaching_shift_rate" : "timesheet_fallback_rate",
+    is_subject_billable: shift.category === "teaching",
     status: "pending",
     completion_method: "manual",
+    clock_out_status: clockOutStatus,
+    clock_out_deviation_minutes: clockOutDeviation,
+    requires_clock_out_note: isLeadershipShift(shift) && clockOutStatus !== "on_time",
     clock_out_latitude: location.latitude,
     clock_out_longitude: location.longitude,
     clock_out_address: location.address,
     clock_out_neighborhood: location.neighborhood,
     clock_out_platform: "web",
     updated_at: serverTimestamp(),
+  };
+  await runTransaction(db, async (transaction) => {
+    const entrySnap = await transaction.get(openEntry.ref);
+    if (!entrySnap.exists()) throw new Error("No active clock-in found for this shift.");
+    const entry = entrySnap.data() as Record<string, unknown>;
+    if (dateValue(entry.clock_out_timestamp) || stringValue(entry.end_time)) {
+      throw new Error("This shift has already been clocked out.");
+    }
+    const shiftSnap = await transaction.get(shiftRef);
+    if (!shiftSnap.exists()) throw new Error("This shift is no longer available.");
+    transaction.update(openEntry.ref, entryUpdate);
+    transaction.update(shiftRef, {
+      last_modified: Timestamp.fromDate(now),
+      clock_out_time: Timestamp.fromDate(now),
+    });
   });
-  batch.update(doc(db, "teaching_shifts", shift.id), {
-    last_modified: Timestamp.fromDate(now),
-    clock_out_time: Timestamp.fromDate(now),
-  });
-  await batch.commit();
   return { message: `Successfully clocked out from ${shift.title}` };
 }
 
@@ -1141,10 +1205,9 @@ async function findOpenTimesheetEntry(teacherId: string, shiftId: string) {
   return nullDoc ? { ref: nullDoc.ref, data: nullDoc.data() as Record<string, unknown> } : null;
 }
 
-async function getBrowserLocation(required: boolean): Promise<BrowserLocation> {
+async function getBrowserLocation(): Promise<BrowserLocation> {
   if (!("geolocation" in navigator)) {
-    if (required) throw new Error("Clock-in location error");
-    return fallbackLocation();
+    throw new Error("Location access is required to clock in or out. Enable location services and try again.");
   }
   try {
     const position = await new Promise<GeolocationPosition>((resolve, reject) => {
@@ -1158,18 +1221,23 @@ async function getBrowserLocation(required: boolean): Promise<BrowserLocation> {
       neighborhood: "GPS coordinates",
     };
   } catch {
-    if (required) throw new Error("Clock-in location error");
-    return fallbackLocation();
+    throw new Error("Location access is required to clock in or out. Allow location access and try again.");
   }
 }
 
-function fallbackLocation(): BrowserLocation {
-  return {
-    latitude: 0,
-    longitude: 0,
-    address: "Clock-out location unavailable",
-    neighborhood: "Location unavailable",
-  };
+function isLeadershipShift(shift: TeacherShift) {
+  return ["leadership", "meeting", "training"].includes(shift.category.toLowerCase());
+}
+
+function clockDeviationMinutes(actual: Date, scheduled: Date | null) {
+  return scheduled ? Math.trunc((actual.getTime() - scheduled.getTime()) / 60000) : 0;
+}
+
+function clockDeviationStatus(actual: Date, scheduled: Date | null) {
+  const minutes = clockDeviationMinutes(actual, scheduled);
+  if (minutes < -5) return "early";
+  if (minutes > 5) return "late";
+  return "on_time";
 }
 
 function exportCsv(entries: TimesheetEntry[]) {

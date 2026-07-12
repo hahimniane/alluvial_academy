@@ -51,6 +51,8 @@ test.describe("public forms", () => {
 
   test("enrollment flow reaches review step with required data", async ({ page }) => {
     await page.goto("/enroll/");
+    const quranPlayer = page.getByRole("button", { name: "Hide Quran player" });
+    if (await quranPlayer.isVisible().catch(() => false)) await quranPlayer.click();
     await page.getByRole("button", { name: "Parent" }).click();
     await page.getByRole("button", { name: "Continue" }).click();
 

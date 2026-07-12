@@ -1,0 +1,230 @@
+"use client";
+
+import { onAuthStateChanged, type User } from "firebase/auth";
+import { collection, doc, getDoc, getDocs, query, serverTimestamp, updateDoc, where, writeBatch } from "firebase/firestore";
+import { AlertTriangle, BarChart3, CalendarDays, CheckCircle2, Clock3, Download, FileText, Menu, MessageSquare, RefreshCw, Send } from "lucide-react";
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+import { TeacherAccessPrompt, TeacherShell, openTeacherMobileMenu } from "@/components/TeacherDashboardHome";
+import { auth, db } from "@/lib/firebase";
+import { getCurrentUserRecord, isCurrentUserTeacher } from "@/lib/userRoles";
+
+type AccessState = "checking" | "signedOut" | "allowed" | "denied";
+type AuditData = Record<string, unknown> & { id: string };
+type Tab = "Overview" | "Classes" | "Clock-ins" | "Forms";
+
+export function TeacherReportPage() {
+  const [access, setAccess] = useState<AccessState>("checking");
+  const [user, setUser] = useState<User | null>(null);
+  const [summary, setSummary] = useState({ displayName: "Teacher", firstName: "Teacher", initials: "TE" });
+  const [audits, setAudits] = useState<AuditData[]>([]);
+  const [month, setMonth] = useState(currentMonth());
+  const [tab, setTab] = useState<Tab>("Overview");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [actionMessage, setActionMessage] = useState("");
+  const [actionBusy, setActionBusy] = useState(false);
+
+  useEffect(() => onAuthStateChanged(auth, async (nextUser) => {
+    setUser(nextUser);
+    if (!nextUser) {
+      setAccess("signedOut");
+      setLoading(false);
+      return;
+    }
+    const allowed = await isCurrentUserTeacher(nextUser);
+    if (!allowed) {
+      setAccess("denied");
+      setLoading(false);
+      return;
+    }
+    const record = await getCurrentUserRecord(nextUser);
+    const displayName = stringValue(record?.fullName ?? record?.displayName) || nextUser.displayName || nextUser.email || "Teacher";
+    const words = displayName.trim().split(/\s+/);
+    setSummary({ displayName, firstName: words[0] || "Teacher", initials: words.slice(0, 2).map((word) => word[0]).join("").toUpperCase() || "TE" });
+    setAccess("allowed");
+    await loadAudits(nextUser.uid, setAudits, setMonth, setError, setLoading);
+  }), []);
+
+  const audit = useMemo(() => audits.find((item) => stringValue(item.yearMonth) === month) ?? null, [audits, month]);
+  if (access !== "allowed") return <TeacherAccessPrompt access={access} />;
+
+  return (
+    <TeacherShell activeLabel="My Report" breadcrumb="Reports / My Report" summary={summary}>
+      <div className="min-h-full bg-[#F8FAFC]">
+        <div className="flex items-center gap-3 border-b border-[#E2E8F0] bg-white px-4 py-3 lg:hidden">
+          <button type="button" aria-label="Open teacher menu" onClick={openTeacherMobileMenu} className="grid h-11 w-11 place-items-center rounded-xl"><Menu size={22} /></button>
+          <div><p className="text-sm text-[#64748B]">Reports</p><p className="font-bold text-[#111827]">My Performance Audit</p></div>
+        </div>
+        <div className="mx-auto max-w-7xl p-4 sm:p-6 lg:p-8">
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+            <div><h1 className="text-2xl font-extrabold text-[#111827]">My Performance Audit</h1><p className="mt-1 text-sm text-[#64748B]">Review your monthly classes, punctuality, forms, and performance.</p></div>
+            <div className="flex items-center gap-2">
+              {audits.length ? <select aria-label="Report month" value={month} onChange={(event) => setMonth(event.target.value)} className="h-11 rounded-xl border border-[#CBD5E1] bg-white px-3 font-semibold text-[#334155]">{audits.map((item) => { const value = stringValue(item.yearMonth); return <option key={item.id} value={value}>{monthLabel(value)}</option>; })}</select> : null}
+              <button type="button" aria-label="Refresh report" disabled={loading || !user} onClick={() => user && void loadAudits(user.uid, setAudits, setMonth, setError, setLoading, month)} className="grid h-11 w-11 place-items-center rounded-xl border border-[#CBD5E1] bg-white text-[#0386FF] disabled:opacity-50"><RefreshCw size={18} className={loading ? "animate-spin" : ""} /></button>
+            </div>
+          </div>
+
+          {error ? <div role="alert" className="mb-5 flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-800"><AlertTriangle className="mt-0.5 shrink-0" size={20} /><div><p className="font-bold">Could not load your report</p><p className="text-sm">{error}</p></div></div> : null}
+          {loading ? <div className="grid min-h-72 place-items-center"><RefreshCw className="animate-spin text-[#0386FF]" /></div> : !audit ? <EmptyReport month={month} /> : (
+            <>
+              <div role="tablist" aria-label="Report sections" className="mb-5 grid grid-cols-2 gap-2 rounded-2xl border border-[#E2E8F0] bg-white p-2 sm:grid-cols-4">
+                {(["Overview", "Classes", "Clock-ins", "Forms"] as Tab[]).map((item) => { const Icon = item === "Overview" ? BarChart3 : item === "Classes" ? CalendarDays : item === "Clock-ins" ? Clock3 : FileText; return <button key={item} type="button" role="tab" aria-selected={tab === item} onClick={() => setTab(item)} className={`flex min-h-11 items-center justify-center gap-2 rounded-xl px-3 text-sm font-bold ${tab === item ? "bg-[#EAF4FF] text-[#0386FF]" : "text-[#64748B] hover:bg-[#F8FAFC]"}`}><Icon size={17} />{item}</button>; })}
+              </div>
+              {tab === "Overview" ? <Overview audit={audit} onExport={() => exportAuditCsv(audit)} /> : <DetailTable tab={tab} audit={audit} />}
+              <TeacherReportActions
+                audit={audit}
+                busy={actionBusy}
+                message={actionMessage}
+                onAcknowledge={async () => {
+                  if (!user) return;
+                  setActionBusy(true); setActionMessage("");
+                  try {
+                    await updateDoc(doc(db, "teacher_audits", audit.id), { teacherAcknowledgedAt: serverTimestamp(), lastUpdated: serverTimestamp() });
+                    setActionMessage("Report acknowledged successfully.");
+                    await loadAudits(user.uid, setAudits, setMonth, setError, setLoading, month);
+                  } catch (cause) { setActionMessage(actionError(cause, "Could not acknowledge the report.")); }
+                  finally { setActionBusy(false); }
+                }}
+                onDispute={async (field, reason, suggestedValue) => {
+                  if (!user) return false;
+                  setActionBusy(true); setActionMessage("");
+                  try {
+                    await updateDoc(doc(db, "teacher_audits", audit.id), {
+                      "reviewChain.teacherDispute": { teacherId: user.uid, disputedAt: new Date(), field, reason, suggestedValue, status: "pending", adminResponse: "", auditStatusBeforeDispute: stringValue(audit.status) || "pending" },
+                      status: "disputed", lastUpdated: serverTimestamp(),
+                    });
+                    setActionMessage("Your correction request was sent successfully.");
+                    await loadAudits(user.uid, setAudits, setMonth, setError, setLoading, month);
+                    return true;
+                  } catch (cause) { setActionMessage(actionError(cause, "Could not send your correction request.")); return false; }
+                  finally { setActionBusy(false); }
+                }}
+              />
+            </>
+          )}
+        </div>
+      </div>
+    </TeacherShell>
+  );
+}
+
+function TeacherReportActions({ audit, busy, message, onAcknowledge, onDispute }: { audit: AuditData; busy: boolean; message: string; onAcknowledge: () => Promise<void>; onDispute: (field: string, reason: string, suggestedValue: string) => Promise<boolean> }) {
+  const [field, setField] = useState("");
+  const [reason, setReason] = useState("");
+  const [suggestedValue, setSuggestedValue] = useState("");
+  const [validation, setValidation] = useState("");
+  const acknowledgedAt = dateValue(audit.teacherAcknowledgedAt);
+  const reviewChain = objectValue(audit.reviewChain);
+  const dispute = objectValue(reviewChain.teacherDispute);
+  const coachId = stringValue(objectValue(audit.coachEvaluation).coachId);
+  const canDispute = !Object.keys(dispute).length || stringValue(dispute.status) === "rejected";
+  return <div className="mt-5 space-y-5">
+    <section className="rounded-2xl border border-[#E2E8F0] bg-white p-5"><h2 className="text-lg font-extrabold text-[#111827]">Report Actions</h2>{acknowledgedAt ? <p className="mt-3 flex items-center gap-2 text-sm font-semibold text-emerald-700"><CheckCircle2 size={18} />Acknowledged {new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short" }).format(acknowledgedAt)}</p> : <button type="button" disabled={busy} onClick={() => void onAcknowledge()} className="mt-4 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#0386FF] px-4 font-bold text-white disabled:opacity-50"><CheckCircle2 size={18} />Acknowledge that I have read this report</button>}<Link href={coachId ? `/teacher/chat/?contact=${encodeURIComponent(coachId)}` : "/teacher/chat/"} className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-[#CBD5E1] font-bold text-[#334155]"><MessageSquare size={18} />Open discussion</Link>{message ? <p role="status" className={`mt-3 text-sm font-semibold ${/successfully/i.test(message) ? "text-emerald-700" : "text-red-700"}`}>{message}</p> : null}</section>
+    <section className="rounded-2xl border border-[#E2E8F0] bg-white p-5"><h2 className="text-lg font-extrabold text-[#111827]">Request a Correction</h2><p className="mt-1 text-sm text-[#64748B]">If something is inaccurate, tell the review team what should be corrected.</p>
+      {Object.keys(dispute).length ? <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950"><div className="flex items-center justify-between gap-3"><strong>Existing correction request</strong><span className="rounded-full bg-amber-200 px-2 py-1 text-xs font-bold uppercase">{stringValue(dispute.status) || "pending"}</span></div><p className="mt-2"><strong>Field:</strong> {disputeFieldLabel(stringValue(dispute.field))}</p><p><strong>Reason:</strong> {stringValue(dispute.reason)}</p>{stringValue(dispute.adminResponse) ? <p className="mt-2"><strong>Admin response:</strong> {stringValue(dispute.adminResponse)}</p> : null}</div> : null}
+      {canDispute ? <form className="mt-4 space-y-3" onSubmit={async (event) => { event.preventDefault(); if (!field) { setValidation("Select the field you want corrected."); return; } if (reason.trim().length < 20) { setValidation("Please provide at least 20 characters explaining the correction."); return; } setValidation(""); if (await onDispute(field, reason.trim(), suggestedValue.trim())) { setReason(""); setSuggestedValue(""); } }}><label className="block text-sm font-bold text-[#334155]">Field to correct<select aria-label="Field to correct" value={field} onChange={(event) => setField(event.target.value)} className="mt-1 h-11 w-full rounded-xl border border-[#CBD5E1] bg-white px-3 font-normal"><option value="">Select a field</option>{disputeFields.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><label className="block text-sm font-bold text-[#334155]">Reason<textarea aria-label="Correction reason" value={reason} onChange={(event) => setReason(event.target.value)} rows={4} className="mt-1 w-full rounded-xl border border-[#CBD5E1] p-3 font-normal" placeholder="Explain what is incorrect and why" /></label><label className="block text-sm font-bold text-[#334155]">Suggested value (optional)<input aria-label="Suggested value" value={suggestedValue} onChange={(event) => setSuggestedValue(event.target.value)} className="mt-1 h-11 w-full rounded-xl border border-[#CBD5E1] px-3 font-normal" /></label>{validation ? <p role="alert" className="text-sm font-semibold text-red-700">{validation}</p> : null}<button type="submit" disabled={busy} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#0386FF] px-4 font-bold text-white disabled:opacity-50"><Send size={18} />{busy ? "Sending…" : "Send correction request"}</button></form> : null}
+    </section>
+  </div>;
+}
+
+const disputeFields = [["classes_count", "Classes count"], ["hours_taught", "Hours taught"], ["punctuality_rate", "Punctuality rate"], ["forms_count", "Forms count"], ["payment_amount", "Payment amount"], ["overall_score", "Overall score"], ["other", "Other"]] as const;
+function disputeFieldLabel(value: string) { return disputeFields.find(([id]) => id === value)?.[1] ?? value; }
+function actionError(cause: unknown, fallback: string) { const message = cause instanceof Error ? cause.message : ""; return /permission|denied/i.test(message) ? `${fallback} You do not have permission to update this report.` : /offline|network|unavailable/i.test(message) ? `${fallback} Check your connection and try again.` : `${fallback}${message ? ` ${message}` : ""}`; }
+
+function Overview({ audit, onExport }: { audit: AuditData; onExport: () => void }) {
+  const score = numberValue(audit.overallScore);
+  const tier = stringValue(audit.performanceTier) || (score >= 90 ? "Excellent" : score >= 75 ? "Good" : score >= 60 ? "Fair" : "Needs Improvement");
+  const stats = [
+    ["Classes", `${numberValue(audit.totalClassesCompleted)}/${numberValue(audit.totalClassesScheduled)}`],
+    ["On-Time", `${numberValue(audit.onTimeClockIns)}/${numberValue(audit.totalClockIns)}`],
+    ["Worked hours", numberValue(audit.totalWorkedHours).toFixed(2)],
+    ["Forms", `${numberValue(audit.readinessFormsSubmitted)}/${numberValue(audit.readinessFormsRequired)}`],
+    ["Issues", String(arrayValue(audit.issues).length)],
+    ["Late", String(numberValue(audit.lateClockIns))],
+  ];
+  const payment = objectValue(audit.paymentSummary);
+  return <div className="space-y-5">
+    <section className="rounded-3xl bg-gradient-to-br from-[#0386FF] to-[#0E72ED] p-7 text-center text-white shadow-lg"><p className="text-5xl font-black">{score.toFixed(1)}%</p><p className="mt-2 text-lg font-bold uppercase tracking-[0.2em]">{tier}</p><p className="mt-1 text-sm text-white/75">{monthLabel(stringValue(audit.yearMonth))}</p></section>
+    <section><h2 className="mb-3 text-lg font-extrabold text-[#111827]">Score Breakdown</h2><div className="grid gap-3 sm:grid-cols-3"><RateCard label="Completion" value={numberValue(audit.completionRate)} weight="40%" /><RateCard label="Punctuality" value={numberValue(audit.punctualityRate)} weight="35%" /><RateCard label="Form Compliance" value={numberValue(audit.formComplianceRate)} weight="25%" /></div></section>
+    <section><h2 className="mb-3 text-lg font-extrabold text-[#111827]">Quick Stats</h2><div className="grid grid-cols-2 gap-3 sm:grid-cols-3">{stats.map(([label, value]) => <div key={label} className="rounded-2xl border border-[#E2E8F0] bg-white p-4"><p className="text-sm text-[#64748B]">{label}</p><p className="mt-1 text-xl font-extrabold text-[#111827]">{value}</p></div>)}</div></section>
+    {Object.keys(payment).length ? <section><h2 className="mb-3 text-lg font-extrabold text-[#111827]">Payment Summary</h2><div className="grid gap-3 rounded-2xl border border-[#E2E8F0] bg-white p-5 sm:grid-cols-4"><PaymentStat label="Gross" value={numberValue(payment.totalGrossPayment)} /><PaymentStat label="Penalties" value={-Math.abs(numberValue(payment.totalPenalties))} /><PaymentStat label="Bonuses" value={numberValue(payment.totalBonuses)} /><PaymentStat label="Final Amount" value={numberValue(payment.totalNetPayment)} emphasized /></div></section> : null}
+    {arrayValue(audit.issues).length ? <section><h2 className="mb-3 text-lg font-extrabold text-[#111827]">Issues to Address</h2><div className="space-y-2">{arrayValue(audit.issues).map((raw, index) => { const item = objectValue(raw); return <div key={index} className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">{stringValue(item.description) || "Performance issue"}</div>; })}</div></section> : null}
+    <button type="button" onClick={onExport} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#0E72ED] px-5 font-bold text-white"><Download size={19} />Download My Teaching Data (CSV)</button>
+  </div>;
+}
+
+function PaymentStat({ label, value, emphasized = false }: { label: string; value: number; emphasized?: boolean }) { return <div><p className="text-sm text-[#64748B]">{label}</p><p className={`mt-1 text-xl font-extrabold ${emphasized ? "text-[#0386FF]" : "text-[#111827]"}`}>{value < 0 ? "-" : ""}${Math.abs(value).toFixed(2)}</p></div>; }
+
+function RateCard({ label, value, weight }: { label: string; value: number; weight: string }) {
+  const safe = Math.max(0, Math.min(100, value));
+  return <div className="rounded-2xl border border-[#E2E8F0] bg-white p-4"><div className="flex justify-between"><p className="font-bold text-[#334155]">{label}</p><span className="text-xs text-[#94A3B8]">{weight}</span></div><p className="mt-2 text-2xl font-extrabold text-[#111827]">{safe.toFixed(1)}%</p><div className="mt-3 h-2 overflow-hidden rounded-full bg-[#E2E8F0]"><div className="h-full rounded-full bg-[#0386FF]" style={{ width: `${safe}%` }} /></div></div>;
+}
+
+function DetailTable({ tab, audit }: { tab: Exclude<Tab, "Overview">; audit: AuditData }) {
+  const rows = tab === "Classes" ? arrayValue(audit.detailedShifts) : tab === "Clock-ins" ? arrayValue(audit.detailedTimesheets) : arrayValue(audit.detailedForms);
+  return <section className="overflow-hidden rounded-2xl border border-[#E2E8F0] bg-white"><div className="border-b border-[#E2E8F0] px-5 py-4"><h2 className="font-extrabold text-[#111827]">{tab}</h2></div>{rows.length ? <div className="divide-y divide-[#E2E8F0]">{rows.map((raw, index) => { const row = objectValue(raw); const title = stringValue(row.title ?? row.shift_name ?? row.formTitle ?? row.form_title ?? row.subject) || `${tab.slice(0, -1)} ${index + 1}`; const status = stringValue(row.status ?? row.clock_status) || "Recorded"; const date = dateLabel(row.shift_start ?? row.created_at ?? row.submittedAt ?? row.clock_in_time); return <div key={index} className="flex flex-wrap items-center justify-between gap-3 px-5 py-4"><div><p className="font-bold text-[#334155]">{title}</p><p className="text-sm text-[#64748B]">{date || "Date unavailable"}</p></div><span className="rounded-full bg-[#F1F5F9] px-3 py-1 text-xs font-bold capitalize text-[#475569]">{status}</span></div>; })}</div> : <p className="p-8 text-center text-[#64748B]">No {tab.toLowerCase()} recorded for this month.</p>}</section>;
+}
+
+function EmptyReport({ month }: { month: string }) { return <div className="grid min-h-80 place-items-center rounded-3xl border border-dashed border-[#CBD5E1] bg-white p-8 text-center"><div><BarChart3 className="mx-auto text-[#CBD5E1]" size={60} /><h2 className="mt-4 text-lg font-extrabold text-[#334155]">No audit data for {monthLabel(month)}</h2><p className="mt-2 text-sm text-[#64748B]">Your performance data will appear here when a monthly report is available.</p></div></div>; }
+
+async function loadAudits(uid: string, setAudits: (items: AuditData[]) => void, setMonth: (month: string) => void, setError: (value: string) => void, setLoading: (value: boolean) => void, preferred?: string) {
+  setLoading(true); setError("");
+  try {
+    const [legacy, current, direct] = await Promise.all([
+      getDocs(query(collection(db, "teacher_audits"), where("oderId", "==", uid))),
+      getDocs(query(collection(db, "teacher_audits"), where("userId", "==", uid))),
+      getDoc(doc(db, "teacher_audits", `${uid}_${currentMonth()}`)),
+    ]);
+    const map = new Map<string, AuditData>();
+    [...legacy.docs, ...current.docs].forEach((item) => map.set(item.id, { id: item.id, ...item.data() }));
+    if (direct.exists()) map.set(direct.id, { id: direct.id, ...direct.data() });
+    const items = Array.from(map.values()).sort((a, b) => stringValue(b.yearMonth).localeCompare(stringValue(a.yearMonth)));
+    setAudits(items);
+    const months = items.map((item) => stringValue(item.yearMonth));
+    setMonth(preferred && months.includes(preferred) ? preferred : months.includes(currentMonth()) ? currentMonth() : months[0] || currentMonth());
+    const unread = await getDocs(query(collection(db, "audit_notifications"), where("teacherId", "==", uid), where("read", "==", false))).catch(() => null);
+    if (unread?.docs.length) { const batch = writeBatch(db); unread.docs.forEach((item) => batch.update(item.ref, { read: true })); await batch.commit().catch(() => null); }
+  } catch (cause) { setError(cause instanceof Error ? cause.message : "Please check your connection and try again."); }
+  finally { setLoading(false); }
+}
+
+function exportAuditCsv(audit: AuditData) {
+  const timesheets = arrayValue(audit.detailedTimesheets).map(objectValue);
+  const forms = arrayValue(audit.detailedForms).map(objectValue);
+  const rows: (string | number)[][] = [["Date", "Shift Name", "Status", "Scheduled Hours", "Worked Hours", "Pay", "Has Form"]];
+  for (const raw of arrayValue(audit.detailedShifts)) {
+    const shift = objectValue(raw);
+    const ids = shiftKeys(shift);
+    const shiftTimesheets = timesheets.filter((item) => shiftKeys(item).some((key) => ids.includes(key)));
+    const hasForm = forms.some((item) => shiftKeys(item).some((key) => ids.includes(key)));
+    const workedHours = shiftTimesheets.reduce((sum, item) => sum + timesheetHours(item), 0);
+    if (!shiftTimesheets.length && !hasForm) continue;
+    rows.push([
+      csvDate(shift.shift_start ?? shift.shiftStart ?? shift.start_time),
+      stringValue(shift.title ?? shift.shift_name ?? shift.subject) || "Teaching Session",
+      stringValue(shift.status) || "scheduled",
+      scheduledHours(shift).toFixed(2),
+      workedHours.toFixed(2),
+      shiftTimesheets.reduce((sum, item) => sum + numberValue(item.pay ?? item.payment ?? item.total_pay ?? item.totalPay), 0).toFixed(2),
+      hasForm ? "Yes" : "No",
+    ]);
+  }
+  const csv = rows.map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(",")).join("\n");
+  const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+  const anchor = document.createElement("a"); anchor.href = url; anchor.download = `teacher-report-${stringValue(audit.yearMonth) || "report"}.csv`; anchor.click(); URL.revokeObjectURL(url);
+}
+
+function shiftKeys(value: Record<string, unknown>) { return [value.id, value.shift_id, value.shiftId, value.parent_shift_id, value.parentShiftId].map(stringValue).filter(Boolean); }
+function scheduledHours(shift: Record<string, unknown>) { const explicit = numberValue(shift.scheduled_hours ?? shift.scheduledHours ?? shift.duration_hours); if (explicit > 0) return explicit; const start = dateValue(shift.shift_start ?? shift.shiftStart ?? shift.start_time); const end = dateValue(shift.shift_end ?? shift.shiftEnd ?? shift.end_time); return start && end ? Math.max(0, (end.getTime() - start.getTime()) / 3_600_000) : 0; }
+function timesheetHours(item: Record<string, unknown>) { const explicit = numberValue(item.hours ?? item.total_hours ?? item.totalHours ?? item.worked_hours ?? item.workedHours); if (explicit > 0) return explicit; const start = dateValue(item.clock_in_time ?? item.clockInTime ?? item.start_time); const end = dateValue(item.clock_out_time ?? item.clockOutTime ?? item.end_time); return start && end ? Math.max(0, (end.getTime() - start.getTime()) / 3_600_000) : 0; }
+function csvDate(value: unknown) { const date = dateValue(value); return date ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}` : ""; }
+function dateValue(value: unknown): Date | null { const object = objectValue(value); const raw = typeof object.toDate === "function" ? (object.toDate as () => Date)() : value instanceof Date ? value : typeof value === "string" || typeof value === "number" ? new Date(value) : null; return raw instanceof Date && !Number.isNaN(raw.getTime()) ? raw : null; }
+
+function currentMonth() { const date = new Date(); return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`; }
+function monthLabel(value: string) { const match = /^(\d{4})-(\d{2})$/.exec(value); return match ? new Intl.DateTimeFormat("en", { month: "long", year: "numeric" }).format(new Date(Number(match[1]), Number(match[2]) - 1, 1)) : value || "Selected month"; }
+function stringValue(value: unknown) { return typeof value === "string" ? value.trim() : value == null ? "" : String(value); }
+function numberValue(value: unknown) { const parsed = typeof value === "number" ? value : Number(value); return Number.isFinite(parsed) ? parsed : 0; }
+function arrayValue(value: unknown): unknown[] { return Array.isArray(value) ? value : []; }
+function objectValue(value: unknown): Record<string, unknown> { return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {}; }
+function dateLabel(value: unknown) { const raw = dateValue(value); return raw ? new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short" }).format(raw) : ""; }

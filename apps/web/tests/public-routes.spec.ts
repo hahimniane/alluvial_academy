@@ -14,6 +14,25 @@ const publicRoutes = [
 ] as const;
 
 test.describe("public route parity smoke", () => {
+  test("packages the Zoom classroom host used by provider-aware teacher joins", async ({ request }) => {
+    const response = await request.get("/zoom_meeting.html");
+    expect(response.ok()).toBeTruthy();
+    const source = await response.text();
+    expect(source).toContain("ZoomMtg.join");
+    expect(source).toContain("autoJoinBreakoutRoom");
+  });
+
+  test("RealtimeKit classroom host reports initialization state to its parent", async ({ request }) => {
+    const response = await request.get("/realtimekit_meeting.html");
+    expect(response.ok()).toBeTruthy();
+    const source = await response.text();
+    expect(source).toContain("alluwal-realtimekit");
+    expect(source).toContain("notifyParent('ready')");
+    expect(source).toContain("notifyParent('error'");
+    expect(source).toContain("Media initialization timed out.");
+    expect(source).toContain("defaults: { audio: false, video: false }");
+  });
+
   for (const [route, heading] of publicRoutes) {
     test(`${route} renders without console errors`, async ({ page }) => {
       const errors: string[] = [];
@@ -57,7 +76,7 @@ test.describe("public route parity smoke", () => {
   });
 
   test("team directory filters and profile sheet work", async ({ page }) => {
-    await page.goto("/team/");
+    await page.goto("/team/", { waitUntil: "commit" });
     await expect(page.getByRole("heading", { name: /Meet the people/i })).toBeVisible();
 
     await page.getByRole("button", { name: /^Teachers\s+Global Knowledge Carriers\s+\d+$/ }).click();

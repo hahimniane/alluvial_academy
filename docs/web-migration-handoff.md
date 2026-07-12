@@ -3037,6 +3037,438 @@ render and the native Next authenticated CMS write/upload tests pass against
    git diff --check
    ```
 
+## Teacher parity continuation (2026-07-11)
+
+- Opened coordination issue #25 and created
+  `docs/teacher-next-parity-matrix.md` as the finite acceptance tracker.
+- Corrected native Teacher Classroom provider selection. Zoom-backed shifts now
+  call `getZoomJoinInfo` and open the same `zoom_meeting.html` host and routing
+  payload used by Flutter; non-Zoom shifts continue through RealtimeKit.
+- Added a Next-owned RealtimeKit teacher session layer with live roster,
+  lock/unlock, participant removal, and token-based reconnect controls.
+- Updated Next asset preparation to package the canonical Zoom classroom host.
+- Verification completed: Next typecheck, production-style static build, and
+  focused Chromium/WebKit/mobile public classroom-host tests, RealtimeKit
+  Functions Jest (32 passed), Hostinger packaging, and the authenticated teacher
+  Chromium suite (25 passed, 2 intentionally skipped, 2 stale-fixture failures
+  corrected and re-run successfully). No Firebase or production deploy was
+  performed. Authenticated two-party dev verification remains before this
+  classroom slice is ready to merge.
+
+## Teacher transactional parity continuation (2026-07-11)
+
+- Kept Flutter/Dart and the production `alluwal-academy` Firebase project
+  untouched. Flutter source was read only as the behavioral/data reference.
+- Added assigned-teacher task status actions in Next for To Do, In Progress,
+  and Done. A narrowly validated `updateAssignedTaskStatus` callable enforces
+  assignment ownership and writes Flutter-compatible status/completion fields.
+  The callable and disposable fixture were deployed only to `alluwal-dev`.
+- Added the task details/status sheet on desktop and responsive mobile. A real
+  dev browser write moved the disposable task to In Progress; Firestore
+  verification confirmed the status/updater fields, then removed the fixture.
+- Completed the clock metadata compatibility pass in both native My Shifts and
+  Time Clock: category/leader role, pay-rate source, subject billability,
+  clock-in/out status, deviation minutes, and clock-out-note requirement flags
+  now match Flutter fields. A real dev browser clock-in/out passed and the
+  resulting timesheet fields were verified before cleanup.
+- Corrected Job Board withdrawal resets to satisfy the deployed ownership rules
+  while clearing auxiliary accepted/match fields like Flutter. A real dev
+  accepted-job withdrawal passed, the re-broadcast job/enrollment shapes were
+  verified, and all disposable records/notifications were removed.
+- Verification: Next typecheck and production-style build passed; task callable
+  Jest passed (3 tests); guarded task, clock, and Job Board write E2E passed.
+  No production function, rule, data, Hosting, Flutter, or VPS change occurred.
+
+## Teacher forms and chat parity continuation (2026-07-11)
+
+- Kept Flutter/Dart and production Firebase untouched; Flutter form/chat source
+  was used read-only to enumerate supported behavior and field/message shapes.
+- Submit Form now applies Flutter-equivalent email and phone validation and
+  exposes accessible labels for text, select, radio, checkbox, boolean, and
+  multi-select controls. A disposable dev template verified both validation
+  messages through the browser and was removed afterward.
+- My Form Submissions now renders uploaded image/signature responses as previews
+  and accessible file links instead of raw JSON. A disposable response/template
+  verified the detail flow and was removed afterward.
+- Chat now computes unread counts from unread incoming message documents, marks
+  them read when opening a conversation, and records `last_read_by`. A dev
+  fixture verified both fields in Firestore before cleanup.
+- Chat now supports browser image, video, file, audio, and recorded voice
+  messages using the same Storage folders and message metadata as Flutter.
+  Non-text messages render native image/video/audio/file controls. A real dev
+  image upload/send/render flow passed; its message and Storage object were
+  verified and removed, and the prior chat preview was restored.
+- Verification: Next typecheck and repeated production-style static builds
+  passed; guarded form validation, unread receipt, image attachment, and saved
+  upload rendering E2E passed. No function/rule deployment or production change
+  occurred in this slice.
+
+### Teacher content and shell cutover (2026-07-11)
+
+- Recordings now reports a retryable in-app error when the browser cannot play
+  a selected recording instead of leaving a silent failed player.
+- The teacher shell now persists sidebar favorites and collapsed state, offers
+  Reset Layout, exposes an authenticated account menu, supports the existing
+  Admin role switch when the user record allows it, and signs out to `/login/`
+  from desktop and mobile controls.
+- The Surah share workflow was exercised end-to-end in `alluwal-dev` with
+  disposable podcast, teaching-shift, student, and assignment data. Share,
+  persisted Shared-tab visibility, and removal passed; the assignment and both
+  source fixtures were deleted after verification.
+- All eight production curriculum PDF/PPTX targets were checked read-only and
+  returned HTTP 200. Production Firestore, Functions, rules, and Hosting were
+  not changed. No Flutter source was changed.
+- Focused Chromium checks passed for account-menu role/logout controls, actual
+  logout, sidebar persistence/reset, and Surah share/remove. The full teacher
+  matrix passed on desktop Chromium, mobile Chrome, and WebKit (44 passed, 52
+  intentionally skipped); the fixture-dependent write smoke passed separately.
+  Typecheck, the production-style Next build, Hostinger packaging, and
+  `git diff --check` passed.
+
+### Teacher final integration gate (2026-07-12)
+
+- Combined the classroom, transactional, forms/chat, and content/shell slices
+  on `feature/teacher-final-cutover` without changing Flutter source or any
+  production Firebase resource.
+- Integrated teacher coverage passed across Chromium, mobile Chrome, and
+  WebKit (47 passed, 73 intentionally skipped). RealtimeKit configuration,
+  classroom access, and task status tests passed (39 tests).
+- A repository-wide run exposed a mobile enrollment test whose Continue button
+  was covered by the dismissible Quran player and one isolated WebKit
+  navigation hang. The test now dismisses the player through its public control;
+  both failed cases passed when rerun in isolation. The clean rerun completed
+  144 tests with 203 intentional skips; its sole failure was a different WebKit
+  static-page navigation hang on `/team/`, which passed immediately in
+  isolation after switching the test to committed-document navigation. A final
+  sequential WebKit-only run reached 40 passes before the same non-deterministic
+  navigation hang moved to `/teacher/`; both routes pass in focused runs.
+- Next typecheck, production-style build, Hostinger packaging, and
+  `git diff --check` passed. No site, rule, Function, or Firebase deployment was
+  performed from the integration branch.
+
+### Teacher live classroom controls acceptance (2026-07-12)
+
+- A disposable `alluwal-dev` RealtimeKit shift was used for a real headed,
+  two-tab teacher/guest session. Both participants joined the same room; the
+  Next roster showed both active peers, locking blocked a new guest with the
+  expected message, removal disconnected the existing guest, unlocking worked,
+  and the teacher reconnected successfully. The shift fixture was deleted.
+- The live run found and fixed two defects. The Next RealtimeKit host now falls
+  back to an audio/video-off initialization when normal media initialization
+  stalls, so a missing/denied device does not leave the class on an infinite
+  connecting screen. The parent message listener is installed before the iframe
+  can report readiness.
+- The participant-removal callable now uses Cloudflare participant UUIDs for
+  meetings configured with `idType: userId`. Presence now reads the active
+  session roster instead of all provisioned meeting participants, so removed or
+  departed users no longer remain in the connected count.
+- `kickRealtimeKitParticipant` and `getRealtimeKitRoomPresence` were deployed
+  only to `alluwal-dev`. No production Firebase, Hostinger, VPS, Zoom routing,
+  meeting lifetime, or Flutter change was made.
+
+### Teacher clock resilience acceptance (2026-07-12)
+
+- Flutter clock behavior was inspected read-only and confirmed to require a
+  location for clock-in and clock-out. Native My Shifts and Time Clock now show
+  an actionable location-access error for either action instead of writing a
+  zero-coordinate clock-out.
+- Clock-in and clock-out writes now use Firestore transactions against the
+  shift and timesheet entry. Concurrent browser tabs cannot create duplicate
+  entries or close the same entry twice, and refreshed pages recover the active
+  clock state from Firestore.
+- Guarded Chromium resilience tests passed for both native routes with two
+  authenticated tabs and reloads. The My Shifts run produced exactly one
+  Flutter-compatible `timesheet_entries` document containing scheduled times,
+  clock timestamps, status/deviation, web platform, pay, and real clock-in/out
+  coordinates. The disposable entry and shift were deleted afterward.
+- Next typecheck and the production-style build passed for this implementation
+  checkpoint. Flutter/Dart and production Firebase remained untouched.
+- Single and bulk draft submission now verify `status: draft` inside a
+  transaction before changing an entry to pending. The confirmation action is
+  disabled while submitting, and offline/network and permission failures show
+  actionable in-app messages while keeping the draft available to retry.
+- A second guarded two-tab dev run confirmed that an offline draft remained a
+  draft without `submitted_at`, while concurrent submission of another draft
+  produced one pending transition and one visible already-submitted result.
+  Both disposable drafts were deleted after Firestore verification.
+
+### Teacher task lifecycle acceptance (2026-07-12)
+
+- Flutter task loading was inspected read-only and confirmed that non-admin
+  teachers load tasks assigned to them. Next no longer mixes creator-owned
+  tasks into the teacher list, because those records are not teacher-actionable
+  under the assigned-task callable contract.
+- A failed task query now renders a retryable error instead of the misleading
+  `No Tasks Found` state. Stale task and revoked-assignment callable failures
+  remain inside the details dialog with actionable wording.
+- A disposable assigned task completed the real dev `todo` → `inProgress` →
+  `done` lifecycle through the browser. Firestore verification confirmed
+  `TaskStatus.done`, the teacher `updatedBy`, `completedAt`, and
+  `overdueDaysAtCompletion`. Guarded mocked-callable browser checks covered
+  not-found and permission-denied responses. The task was deleted afterward.
+- No Flutter source, production Firebase resource, rule, or Function was
+  changed or deployed.
+
+### Teacher Job Board resilience acceptance (2026-07-12)
+
+- Flutter Job Board source was inspected read-only. Next now applies the same
+  `targetTeacherIds` visibility rule, so teachers do not see broadcasts aimed
+  only at other teachers.
+- Availability response and withdrawal actions now fail immediately with a
+  retryable offline message and translate Firestore permission failures into an
+  actionable in-app error rather than exposing the raw SDK response.
+- A guarded two-tab dev test submitted full availability concurrently against
+  one disposable open job. Transaction retries produced one response document,
+  one `available` count, and the expected `closed` /
+  `teacher_fully_available` parent state; the losing tab showed an explicit
+  failure. A second targeted job was confirmed hidden. Both jobs and the
+  response were deleted after verification.
+- Previously verified withdraw/rebroadcast behavior remains covered by its
+  guarded mutation test. No Flutter or production Firebase change occurred.
+
+### Teacher Chat live-state acceptance (2026-07-12)
+
+- Recent conversations now stay subscribed to parent chat changes and re-sort
+  by the latest message while the page remains open. Revision guards prevent a
+  slower unread-count refresh from replacing newer list data.
+- Opening a conversation pushes an in-page history entry. The visible Back
+  control and mobile browser Back now return to the Chat list at
+  `/teacher/chat/` instead of navigating away from the module.
+- Offline text sends fail immediately, keep the unsent draft in the composer,
+  and show a retryable error. Existing unread-message clearing,
+  `last_read_by`, conversation repair, and media attachment coverage remain in
+  place.
+- Focused Chromium checks passed for offline draft recovery and live preview
+  promotion; mobile Chrome passed browser-back conversation navigation. The
+  preview server at `http://localhost:3021/teacher/` was rebuilt with this
+  checkpoint for owner testing. Flutter and production Firebase were untouched.
+
+### Teacher Recordings failure-state acceptance (2026-07-12)
+
+- Callable-backed fixture tests exercised the complete student → date → shift
+  → fragment navigation without creating or changing Firebase data.
+- A successful playback response with no URL now has explicit coverage for the
+  `Playback URL not available` state. A returned URL whose media request fails
+  has focused coverage for the retryable in-app playback error.
+- Both guarded Chromium scenarios passed. Existing loading, empty, search,
+  refresh, unavailable-fragment, and responsive hierarchy behavior remains in
+  the teacher regression suite. No Flutter or Firebase resource changed.
+
+### Teacher Surah sharing resilience acceptance (2026-07-12)
+
+- Share and remove now reject offline actions immediately and preserve the
+  selected students or existing shared assignment for retry. Firestore
+  permission errors are translated into an actionable message.
+- The share action remains disabled for an empty selection. The mobile dialog
+  now presents as a viewport-contained bottom sheet while retaining the
+  centered desktop dialog.
+- Guarded Chromium and mobile Chrome tests passed against disposable podcast,
+  shift/student, and active-assignment fixtures. Offline remove, empty
+  selection, offline share, retained selection, and viewport bounds all passed;
+  all three fixtures were deleted afterward.
+
+### Teacher Curriculum Books target acceptance (2026-07-12)
+
+- All four PDF and four PPTX targets were checked read-only with HEAD requests;
+  every file returned success with a non-zero content length.
+- Focused Chromium coverage verifies the complete eight-link set, PDF `Open`
+  destination/fit fragment, PPTX `Download` destination, and new-tab behavior.
+  PDF viewer rendering is browser-owned, so acceptance uses the authoritative
+  target response rather than waiting for a browser PDF DOM event.
+- No application code, Flutter source, Storage object, or production resource
+  was changed for this pass.
+
+### Teacher shell separation and form resilience (2026-07-12)
+
+- Following owner review, the desktop teacher shell now has two structurally
+  separate viewport columns: a fixed-height sidebar with its own navigation
+  scroll, and an independently scrolling header/content column. A focused
+  browser test confirms non-overlap, stationary sidebar position, and zero
+  window-level scroll while page content moves. The live preview on port 3021
+  was rebuilt for review.
+- The current `alluwal-dev` form inventory contains `time`, `long_text`,
+  `email`, `phone`, `image_upload`, and `signature`; all six types have native
+  rendering/validation or upload coverage. No speculative field type was added.
+- Per-session submissions now use a deterministic response ID and create-only
+  Firestore behavior. A real two-tab dev run produced exactly one compatible
+  completed response, linked the shift to that ID, and showed the losing tab an
+  already-submitted message. The response, shift, and template were deleted.
+- Failed submissions preserve entered values. Uploaded form files are deleted
+  if a later upload or Firestore response write fails, preventing orphaned
+  Storage objects. A focused offline browser test confirmed values remain ready
+  to retry.
+- `My Form Submissions` is now a first-class Forms sidebar item and the route is
+  wrapped in the same separated TeacherShell instead of rendering as a
+  standalone page. Read failures display a retry action without misclassifying
+  the signed-in teacher as role-denied.
+- Disposable responses verified a deleted/missing template falls back to
+  readable field labels and values, while a legacy response with no response
+  fields shows `No responses recorded`. Both fixtures were removed afterward.
+
+### Teacher dashboard partial-data resilience (2026-07-12)
+
+- Dashboard shift, task, and timesheet reads now settle independently. A failed
+  section can no longer silently masquerade as a real zero; successful sections
+  still render and a warning names each incomplete metric source with Retry.
+- Metric-read failures are handled after teacher authorization, so they no
+  longer turn an authenticated teacher into a misleading role-denied screen.
+- Existing authenticated coverage verifies account-menu logout, conditional
+  Admin role destination when present, sidebar persistence/reset, the separated
+  scroll columns, mobile drawer navigation, quick actions, and metric rendering.
+- Flutter's pending-readiness workflow is now native on the Next dashboard.
+  Completed and missed shifts without a compatible `form_responses` shift link
+  produce the warning banner and responsive class picker. `Fill Form` carries
+  the shift into `/teacher/submit-form/`, which opens the active per-session
+  template and selected class directly; successful submission removes it from
+  the pending list after reload.
+- Real desktop and mobile Chrome runs completed and removed a disposable shift
+  plus one response each. During the audit the former 100-shift single-field
+  dashboard limit was also corrected to merge both Flutter teacher-id field
+  variants with a 500-row ceiling, preventing older valid sessions from being
+  silently omitted. Active-session parity is the next dashboard checkpoint.
+- The active/imminent dashboard card now follows Flutter's one-minute join
+  window, distinguishes Ready from In Progress, displays elapsed time, opens the
+  exact shift detail, and performs GPS-required clock-in/out directly from the
+  dashboard. Its transaction fields match the native Time Clock workflow,
+  including duplicate protection, scheduled bounds, deviation metadata,
+  platform/GPS fields, completion method, hours, and pay.
+- A disposable live-window dev shift verified location denial followed by a
+  successful clock-in/out lifecycle. Readback confirmed both shift timestamps,
+  one `shift_clock_in` timesheet, web/GPS metadata, and manual completion; the
+  shift and timesheet were deleted. The Dashboard row now has no known gap.
+- Flutter's home-only Islamic Resources card was absent from the earlier matrix.
+  Next now includes the native Surah Podcasts destination plus the exact
+  Quran.com, Sunnah.com, Islamic Finder, IslamQA, Bayyinah, and SeekersGuidance
+  external resources. External destinations are labelled links that open in a
+  separate tab with safe opener isolation. Desktop and mobile Chrome verified
+  every href and target.
+- Flutter also renders up to three recent assigned tasks between Schedule and
+  Quick Access. Next now uses the already-loaded task records for the same
+  section, including status color, due/overdue state, See All, and exact-task
+  deep links. The Tasks route consumes `?task=` and opens the requested detail
+  dialog after authorization/load. A disposable dev task verified the complete
+  dashboard-to-detail path and was deleted.
+- The Next Class card itself now carries the shift ID into My Shifts and opens
+  the exact detail dialog, matching Flutter's tappable upcoming-class card
+  rather than presenting a dead informational surface.
+- The My Shifts detail dialog now restores Flutter's contextual actions: a
+  10-minute-before/after-window Join Class link into the existing Classroom
+  provider flow, Fill Class Report for completed/missed shifts without a linked
+  response, View Class Report for linked responses, and the existing Report
+  Issue flow. Disposable live and completed shifts verified join/report hrefs
+  and were deleted.
+- The formerly inert desktop bell is now a labelled link to My Report and shows
+  the real unread `audit_notifications` count. Opening My Report attempts the
+  same teacher-owned read acknowledgement as Flutter. A disposable notification
+  verified count and navigation; deployed dev rules rejected the read update
+  despite the checked-in rule allowing it, so the badge correctly remained
+  unread. No rules were deployed and production was not touched; reconcile the
+  dev rules deployment before requiring read-clear acceptance.
+- A teacher-control audit found that the Shuffle icon was decorative in ten
+  mobile headers and the Submit Form back arrow had no action. Every Shuffle
+  control now opens the existing teacher account/navigation drawer (including
+  conditional role switching), and the form back control returns to the teacher
+  dashboard. One mobile Chrome test visits all ten routes, opens/closes each
+  account control, and verifies back navigation.
+
+### Teacher Assignments route recovery (2026-07-12)
+
+- Flutter Quick Access opens `TeacherAssignmentsScreen`; Next previously sent
+  the identically labelled shortcut to Tasks, which is a different collection
+  and lifecycle. The shortcut now opens native `/teacher/assignments/`.
+- The route reads teacher-owned `assignments`, preserves Flutter's `title`,
+  `description`, `due_date`, student-name `assigned_to`, teacher identity,
+  attachment objects, active/type flags, and timestamp fields. It supports
+  search, empty/error/retry states, create/edit/details/delete, required student
+  validation, due dates, 50 MB attachment uploads under
+  `assignment_files/{assignmentId}/`, invalid legacy file warnings, and file
+  cleanup attempts when a new upload is removed/cancelled, an existing file is
+  removed during edit, or an assignment is deleted.
+- A real dev lifecycle created an assignment, selected a student, uploaded a
+  text attachment, edited and reopened its details, then deleted the document
+  and attempted file cleanup. Firestore readback found no leftover lifecycle document. Guard and
+  mobile route/account-control coverage also pass; no Flutter or Functions code
+  changed.
+- Storage readback found that client deletes are rejected: the current rule
+  requires `request.resource.size` for all writes, but `request.resource` is
+  absent on delete. Five disposable upload leftovers were removed with dev
+  admin access. The UI now reports partial cleanup instead of silently claiming
+  success. No Storage rule was changed or deployed; attachment cleanup remains
+  an explicit environment blocker for full Assignments acceptance.
+- Follow-up: `storage.rules` now treats `request.resource == null` as a delete
+  while retaining the existing authenticated-user requirement and 50 MB limit
+  for create/update. The Storage rule alone was compiled and deployed to
+  `alluwal-dev` on 2026-07-12; no Functions, Firestore rules, website, Flutter,
+  or production project was deployed. The full browser lifecycle was repeated,
+  and bucket readback found zero lifecycle or cancelled-upload leftovers.
+  Assignments attachment cleanup is no longer blocked in dev; production still
+  requires explicit deployment authorization.
+
+### Teacher Zoom provider routing check (2026-07-12)
+
+- A disposable dev shift with `video_provider: zoom` exercised the Next
+  classroom provider branch. The callable response was mocked at the network
+  boundary to avoid invoking production-critical hub allocation or creating a
+  real Zoom meeting.
+- The browser routed into the existing `/zoom_meeting.html` host with Meeting
+  SDK credentials, customer identity, breakout room name/key, auto-join flag,
+  class-end timestamp, and `/teacher/classes/` return URL intact. Returning to
+  Classes rendered the native schedule again. The shift was deleted afterward.
+- This proves Next payload and return routing without modifying the Zoom hub,
+  bot lanes, meeting lifetimes, Flutter, Functions, or production Firebase. A
+  real dev Zoom meeting/hub session is still not available for destructive live
+  acceptance; production remains read-only.
+
+### Teacher final regression gate (2026-07-12)
+
+- The full Next.js Playwright run completed with 171 passing tests, 237
+  intentionally skipped tests, and no failures across Chromium, mobile Chrome,
+  and WebKit projects. The enabled teacher coverage includes authenticated
+  navigation, workflow reads and mutations, error recovery, and the independent
+  desktop sidebar/content scroll regions.
+- `npm run typecheck`, the production-style `npm run build`, Hostinger packaging,
+  and `git diff --check` all pass. The local review server remains available at
+  `http://localhost:3021/teacher/` against `alluwal-dev`.
+- No Flutter files, Firebase Functions, production Firebase data, Zoom routing,
+  or deployment targets were changed as part of this gate. Real two-party Zoom
+  hub acceptance remains the only external live-session verification item.
+- After the Assignments/dashboard/shift-detail additions, the three-project
+  teacher run completed 63 enabled tests with 154 fixture-gated skips. Its only
+  two failures were selector collisions caused by the restored Islamic resource
+  link and the now-labelled notification bell; both tests were scoped to their
+  owning navigation/content regions and their focused Chromium reruns pass.
+
+### Teacher My Report parity recovery (2026-07-12)
+
+- A fresh Flutter sidebar audit found that the earlier matrix omitted the
+  teacher-only Reports section and `My Report` workflow. Next.js now exposes a
+  stable `/teacher/report/` route in the shared desktop and mobile navigation.
+- The native report reads the same `teacher_audits` documents and legacy
+  `oderId`/current `userId` ownership fields as Flutter. It supports month
+  selection, overview score/rates/stats/issues, Classes, Clock-ins, and Forms
+  detail tabs, visible retry/error and no-data states, and CSV download.
+- A disposable `alluwal-dev` audit verified the populated 88.5% overview, all
+  three detail collections, issue rendering, and downloaded CSV filename. The
+  fixture was deleted immediately afterward. Desktop populated/guard tests and
+  mobile sidebar discovery pass; no Flutter, Functions, or production data was
+  changed.
+- The focused parity-refinement pass added Flutter's gross/penalty/bonus/final
+  payment summary and changed the download from headline metrics to the same
+  session-oriented columns: date, shift, status, scheduled hours, worked hours,
+  pay, and form presence. A second disposable fixture verified a 1.5-hour,
+  $75.00 session and the exact downloaded CSV contents, then was deleted.
+- Re-checking Flutter's actual sidebar route showed it opens the newer
+  `TeacherAuditDetailScreen`. Next now also implements that screen's teacher
+  actions: report acknowledgement, general discussion navigation, correction
+  validation, compatible nested `reviewChain.teacherDispute` submission,
+  top-level `disputed` status, and existing request/admin-response display.
+  Real dev writes confirmed both the allowed acknowledgement field set and the
+  dispute document shape; the transactional audit fixture was then deleted.
+- When an audit contains `coachEvaluation.coachId`, Open discussion now carries
+  that contact into Chat and opens/repairs the direct conversation after the
+  contact list loads. Audits without a coach retain Flutter's general Chat
+  fallback.
+
 ## Post-parity additions (2026-07-09)
 
 These are deliberate improvements beyond Flutter parity, requested by the
@@ -3071,3 +3503,121 @@ For each screen, use at most two focused visual polish passes. Fix
 user-noticeable gaps: missing content, wrong layout structure, wrong copy,
 broken mobile behavior, broken forms, console errors. Do not loop on tiny font
 rendering, pixel spacing, or differences a normal user would not notice.
+# 2026-07-12 — Teacher profile and settings navigation parity
+
+- Audited Flutter's teacher mobile profile sheet and confirmed that Next.js
+  omitted its working View Profile and Settings destinations.
+- Added guarded native routes at `/teacher/profile/` and `/teacher/settings/`
+  and exposed them from both the desktop account menu and mobile drawer.
+- Profile reads/writes the same `users/{uid}` and `teacher_profiles/{uid}`
+  documents and uses the same owner-scoped `profile_pictures/{uid}/...`
+  Storage layout as Flutter. Editing, required-name validation, upload size/type
+  errors, offline/permission errors, and responsive dialogs are implemented.
+- Settings now includes password reauthentication/update, persisted English or
+  French preference, a visible persisted light/dark theme, help/privacy links,
+  profile navigation, and sign-out. Notification preference data parity remains
+  in the matrix rather than being claimed complete.
+- Verification: `npm run typecheck`, production `npm run build`, Hostinger
+  packaging, three focused desktop guard/navigation browser tests, one mobile
+  drawer test, and a live dev profile save plus password mismatch validation.
+  The preview remains available at `http://localhost:3021/teacher/` against
+  `alluwal-dev`. No Flutter or Firebase Functions files were changed.
+
+## Notification preference follow-up
+
+- Added the Flutter teacher preference set to the native Settings route:
+  shift reminders (10/15/20/30 minutes), task reminders (1/2/3/5/7 days),
+  chat messages, and device-local prayer reminders.
+- The first dev browser write showed that the deployed notification callable
+  rejects the authenticated web client. Next now uses the existing owner-only
+  Firestore update permission to write the identical nested
+  `notificationPreferences` fields. No Function source or deployment changed.
+- A reversible dev test toggled chat notification delivery and restored the
+  original value. Focused Chromium write coverage and mobile Chrome viewport
+  coverage pass; errors remain actionable and draft choices remain visible.
+
+## Profile photo cleanup follow-up
+
+- Added the Flutter profile-photo removal action to the native teacher profile.
+- A disposable one-pixel PNG was uploaded through the browser to the dev
+  teacher's owner-scoped Storage folder, rendered from the persisted download
+  URL, then removed through the UI. The `users/{uid}.profile_picture_url` field
+  and test object were cleaned up, leaving the fixture in its original state.
+
+# 2026-07-12 — Teacher AI Tutor native foundation
+
+- Audited Flutter's conditional AI Tutor FAB, stored interaction/voice/background
+  preferences, `getAITutorToken` payload, LiveKit data topics, microphone and
+  disconnect behavior, transcript handling, whiteboard, and teacher-action path.
+- Added the guarded `/teacher/tutor/` route and conditional AI Tutor action when
+  `users/{uid}.ai_tutor_enabled` is true. Disabled users see Flutter's explicit
+  administrator-contact state rather than an inert control.
+- Added `livekit-client@2.20.1`; this dependency is necessary because the
+  deployed callable returns a LiveKit room/token and the browser needs the
+  official SDK for signaling, WebRTC media, data messages, and cleanup.
+- Implemented mode selection, Blake/Jacqueline/Robyn voices, all five background
+  choices, local preference persistence, token payload parity, microphone
+  permission and toggle behavior, tutor agent presence, text data publishing,
+  transcript rendering, failed-draft preservation, preference restart, room
+  disconnect, backend session ending, and failed-connect session cleanup.
+- Temporarily enabled AI Tutor only for the disposable dev teacher and restored
+  its original false value after testing. Token generation succeeded, but the
+  returned `wss://live.alluwaleducationhub.org/rtc/v1` signaling request receives
+  HTTP 404 and its HTTPS validation fallback lacks CORS headers. The same
+  endpoint is used by Flutter, so real room/agent acceptance is externally
+  blocked until that dev LiveKit proxy is corrected. The disposable session was
+  closed. No Function source or deployment changed.
+- Guard and enablement/preference browser tests pass. A gated live-session test
+  records the unresolved signaling acceptance failure. Whiteboard and
+  AI-requested teacher clock-in/reschedule actions remain explicitly open.
+
+## AI Tutor whiteboard and teacher-action follow-up
+
+- Added both Flutter-compatible whiteboard topics (`ai_tutor_whiteboard` and
+  legacy `alluwal_whiteboard`) using the same `{type, payload}` envelope and
+  version-2 project shape. Normalized pen strokes, undo/redo/clear, agent
+  project replay, inbound project display, and inbound drawing permission are
+  implemented on desktop and mobile.
+- Added `ai_tutor_teacher_actions` handling and reliable
+  `ai_tutor_teacher_action_results` responses. Supported actions match Flutter:
+  GPS-backed transactional `clock_in`, `reschedule_shift`, and
+  `reschedule_shift_future`. Rescheduling requires explicit confirmation and a
+  valid single/future scope before calling the existing deployed contracts.
+- Added focused protocol tests for exact Flutter whiteboard normalization and
+  rejection of unsupported or unconfirmed mutations. These pass alongside
+  typecheck and production static export. End-to-end agent delivery remains
+  gated by the previously recorded LiveKit proxy 404/CORS failure.
+
+# 2026-07-12 — Native teacher Savings Circles
+
+- Audited Flutter's conditional `tontine_enabled` teacher tab and the `circles`,
+  `circle_members`, `circle_invites`, `circle_cycles`, and
+  `circle_contributions` contracts plus `circle_receipts` Storage paths.
+- Added guarded `/teacher/circles/` with conditional desktop/mobile navigation.
+  Disabled teachers see an explicit access state, matching Flutter's feature
+  flag rather than receiving an inert navigation item.
+- Implemented pending invite acceptance, open teacher-circle joining, created
+  and joined circle lists, creator/member detail dashboards, payout order,
+  circle creation, existing-user email invitation, activation gating, cycle
+  status, receipt submission, contribution confirmation/rejection, and payout
+  completion. Responsive dialogs preserve values and show permission/network
+  failures.
+- Temporarily enabled the dev teacher, created a disposable one-member circle
+  through the browser, verified its detail route, removed its member and circle
+  using dev administrative cleanup, verified zero leftovers, and restored the
+  original disabled feature flag. Production and Functions were untouched.
+- Signed-out and feature-flag browser tests pass. Multi-member invitation and
+  backend-generated cycle acceptance remain listed in the parity matrix.
+
+## Savings cycle trigger acceptance follow-up
+
+- A second disposable one-member circle was created and activated through the
+  native teacher UI. The circle status write succeeded, but the dev deployment
+  did not produce `circle_cycles` or `circle_contributions` within 20 seconds,
+  indicating that the existing `onCircleActivated` trigger is absent, delayed,
+  or unhealthy in `alluwal-dev`.
+- No Function code or deployment was changed. The UI now exposes a truthful
+  cycle-setup-pending state with an explicit refresh action when a circle is
+  active but no generated cycle exists.
+- The disposable member and circle were administratively deleted from dev and
+  the teacher's `tontine_enabled` flag was restored to false.

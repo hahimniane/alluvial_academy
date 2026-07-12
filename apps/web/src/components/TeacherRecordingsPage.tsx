@@ -184,6 +184,7 @@ export function TeacherRecordingsPage() {
             expandedRecordingId={expandedRecordingId}
             loadingRecordingId={loadingRecordingId}
             onToggle={(recording) => void toggleRecording(recording, playbackUrls, expandedRecordingId, setPlaybackUrls, setExpandedRecordingId, setLoadingRecordingId, setMessage)}
+            onPlaybackError={() => setMessage("This recording could not be played. Refresh its playback link and try again.")}
           />
         )}
       </main>
@@ -199,7 +200,7 @@ function MobileTeacherTopBar({ summary }: { summary: TeacherSummary }) {
       </button>
       <div className="min-w-0 text-center text-base font-bold text-[#111827]">Alluwal Academy</div>
       <div className="flex items-center justify-end gap-3">
-        <Shuffle size={20} className="text-[#111827]" />
+        <button type="button" aria-label="Open teacher account options" onClick={openTeacherMobileMenu} className="grid h-10 w-10 place-items-center rounded-xl text-[#111827]"><Shuffle size={20} /></button>
         <span className="grid h-9 w-9 place-items-center rounded-full bg-[#009688] text-xs font-black text-white">{summary.initials}</span>
       </div>
     </header>
@@ -251,12 +252,14 @@ function FragmentList({
   expandedRecordingId,
   loadingRecordingId,
   onToggle,
+  onPlaybackError,
 }: {
   shift: ShiftBucket | null;
   playbackUrls: Record<string, string>;
   expandedRecordingId: string | null;
   loadingRecordingId: string | null;
   onToggle: (recording: RecordingItem) => void;
+  onPlaybackError: () => void;
 }) {
   if (!shift) return <SearchEmptyCard title="Shift not found" subtitle="Refresh and try again." />;
   return (
@@ -272,7 +275,7 @@ function FragmentList({
           {shift.date ? <p className="mt-2 text-xs text-[#64748B]">{dateTime(shift.date)}</p> : null}
         </article>
         {shift.fragments.map((recording, index) => (
-          <RecordingCard key={recording.recordingId} recording={recording} index={index} total={shift.fragments.length} isExpanded={expandedRecordingId === recording.recordingId} isLoading={loadingRecordingId === recording.recordingId} playbackUrl={playbackUrls[recording.recordingId]} onToggle={() => onToggle(recording)} />
+          <RecordingCard key={recording.recordingId} recording={recording} index={index} total={shift.fragments.length} isExpanded={expandedRecordingId === recording.recordingId} isLoading={loadingRecordingId === recording.recordingId} playbackUrl={playbackUrls[recording.recordingId]} onToggle={() => onToggle(recording)} onPlaybackError={onPlaybackError} />
         ))}
       </div>
     </section>
@@ -309,7 +312,7 @@ function LevelCard({
   );
 }
 
-function RecordingCard({ recording, index, total, isExpanded, isLoading, playbackUrl, onToggle }: { recording: RecordingItem; index: number; total: number; isExpanded: boolean; isLoading: boolean; playbackUrl?: string; onToggle: () => void }) {
+function RecordingCard({ recording, index, total, isExpanded, isLoading, playbackUrl, onToggle, onPlaybackError }: { recording: RecordingItem; index: number; total: number; isExpanded: boolean; isLoading: boolean; playbackUrl?: string; onToggle: () => void; onPlaybackError: () => void }) {
   const status = statusLabel(recording);
   return (
     <article className="rounded-[14px] border border-[#E2E8F0] bg-white p-3.5">
@@ -332,7 +335,7 @@ function RecordingCard({ recording, index, total, isExpanded, isLoading, playbac
       </div>
       {recording.error ? <p className="mt-3 rounded-xl bg-[#FEF2F2] px-3 py-2 text-xs font-semibold text-[#B91C1C]">{recording.error}</p> : null}
       {isExpanded && playbackUrl ? (
-        <video className="mt-4 w-full rounded-xl bg-black" controls preload="metadata" src={playbackUrl} />
+        <video className="mt-4 w-full rounded-xl bg-black" controls preload="metadata" src={playbackUrl} onError={onPlaybackError} />
       ) : null}
     </article>
   );

@@ -5,6 +5,51 @@ const {onSchedule} = require('firebase-functions/v2/scheduler');
 const {sendTaskAssignmentEmail} = require('../services/email/senders');
 const {createTransporter} = require('../services/email/transporter');
 
+const updateAssignedTaskStatus = async (request) => {
+  const uid = request.auth?.uid;
+  const taskId = String(request.data?.taskId || '').trim();
+  const status = String(request.data?.status || '').trim().replace(/^TaskStatus\./, '');
+  if (!uid) {
+    throw new functions.https.HttpsError('unauthenticated', 'Authentication required');
+  }
+  if (!taskId || !['todo', 'inProgress', 'done'].includes(status)) {
+    throw new functions.https.HttpsError('invalid-argument', 'A valid taskId and status are required');
+  }
+
+  const db = admin.firestore();
+  const taskRef = db.collection('tasks').doc(taskId);
+  return db.runTransaction(async (transaction) => {
+    const taskSnap = await transaction.get(taskRef);
+    if (!taskSnap.exists) {
+      throw new functions.https.HttpsError('not-found', 'Task not found');
+    }
+    const task = taskSnap.data() || {};
+    const assignedTo = Array.isArray(task.assignedTo) ? task.assignedTo.map(String) : [];
+    if (!assignedTo.includes(uid)) {
+      throw new functions.https.HttpsError('permission-denied', 'Only assigned users can update this task');
+    }
+
+    const now = admin.firestore.Timestamp.now();
+    const update = {
+      status: `TaskStatus.${status}`,
+      updatedAt: now,
+      updatedBy: uid,
+    };
+    if (status === 'done') {
+      const dueDate = typeof task.dueDate?.toDate === 'function' ? task.dueDate.toDate() : null;
+      update.completedAt = now;
+      update.overdueDaysAtCompletion = dueDate && now.toDate() > dueDate
+        ? Math.floor((now.toDate().getTime() - dueDate.getTime()) / 86400000)
+        : 0;
+    } else {
+      update.completedAt = admin.firestore.FieldValue.delete();
+      update.overdueDaysAtCompletion = admin.firestore.FieldValue.delete();
+    }
+    transaction.update(taskRef, update);
+    return {success: true, taskId, status};
+  });
+};
+
 const sendTaskAssignmentNotification = async (data) => {
   console.log('--- TASK ASSIGNMENT NOTIFICATION ---');
   console.log('Raw data received:', data);
@@ -972,6 +1017,7 @@ function calculateNextOccurrences(enhancedRecurrence, startDate, maxCount) {
 }
 
 module.exports = {
+  updateAssignedTaskStatus,
   sendTaskAssignmentNotification,
   sendTaskStatusUpdateNotification,
   getTaskCommentEmailTemplate,
@@ -981,4 +1027,3 @@ module.exports = {
   sendTaskEditNotification,
   sendRecurringTaskReminders,
 };
-

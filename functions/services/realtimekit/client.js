@@ -64,6 +64,16 @@ const listMeetingParticipants = (meetingId) =>
     'GET',
     `/meetings/${encodeURIComponent(meetingId)}/participants`,
   );
+const getActiveSession = (meetingId) =>
+  realtimeKitRequest(
+    'GET',
+    `/meetings/${encodeURIComponent(meetingId)}/active-session`,
+  );
+const listSessionParticipants = (sessionId) =>
+  realtimeKitRequest(
+    'GET',
+    `/sessions/${encodeURIComponent(sessionId)}/participants?view=raw`,
+  );
 const deleteParticipant = (meetingId, participantId) =>
   realtimeKitRequest(
     'DELETE',
@@ -89,6 +99,8 @@ module.exports = {
   addParticipant,
   updateParticipant,
   listMeetingParticipants,
+  getActiveSession,
+  listSessionParticipants,
   deleteParticipant,
   kickActiveSessionParticipants,
   refreshParticipantToken,
