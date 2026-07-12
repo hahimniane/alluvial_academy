@@ -3608,3 +3608,16 @@ rendering, pixel spacing, or differences a normal user would not notice.
   original disabled feature flag. Production and Functions were untouched.
 - Signed-out and feature-flag browser tests pass. Multi-member invitation and
   backend-generated cycle acceptance remain listed in the parity matrix.
+
+## Savings cycle trigger acceptance follow-up
+
+- A second disposable one-member circle was created and activated through the
+  native teacher UI. The circle status write succeeded, but the dev deployment
+  did not produce `circle_cycles` or `circle_contributions` within 20 seconds,
+  indicating that the existing `onCircleActivated` trigger is absent, delayed,
+  or unhealthy in `alluwal-dev`.
+- No Function code or deployment was changed. The UI now exposes a truthful
+  cycle-setup-pending state with an explicit refresh action when a circle is
+  active but no generated cycle exists.
+- The disposable member and circle were administratively deleted from dev and
+  the teacher's `tontine_enabled` flag was restored to false.

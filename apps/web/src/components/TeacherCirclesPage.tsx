@@ -437,9 +437,18 @@ function CircleDetail({
                 />
               </div>
             ) : (
-              <p className="mt-3 text-[#64748B]">
-                The first cycle begins when the circle is activated.
-              </p>
+              <div className="mt-3 rounded-xl bg-amber-50 p-4 text-amber-900">
+                <p className="font-semibold">
+                  {text(circle.status) === "active"
+                    ? "Cycle setup is still pending. Refresh after the savings service creates the first cycle."
+                    : "The first cycle begins when the circle is activated."}
+                </p>
+                {text(circle.status) === "active" ? (
+                  <button type="button" onClick={() => void load()} className="mt-3 inline-flex min-h-10 items-center gap-2 rounded-xl border border-amber-400 bg-white px-3 text-sm font-bold">
+                    <RefreshCw size={16} /> Refresh Cycle
+                  </button>
+                ) : null}
+              </div>
             )}
           </section>
           <section className="rounded-2xl border border-[#E2E8F0] bg-white p-5">
