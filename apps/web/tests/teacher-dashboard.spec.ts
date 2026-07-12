@@ -169,10 +169,17 @@ test.describe("teacher dashboard", () => {
     await page.getByRole("tab", { name: "Forms" }).click();
     await expect(page.getByText("Codex Readiness Form")).toBeVisible();
     await page.getByRole("tab", { name: "Overview" }).click();
+    await expect(page.getByText("Payment Summary")).toBeVisible();
+    await expect(page.getByText("$225.00")).toBeVisible();
     const downloadPromise = page.waitForEvent("download");
     await page.getByRole("button", { name: "Download My Teaching Data (CSV)" }).click();
     const download = await downloadPromise;
     expect(download.suggestedFilename()).toBe("teacher-report-2026-07.csv");
+    const stream = await download.createReadStream();
+    let csv = "";
+    for await (const chunk of stream) csv += chunk.toString();
+    expect(csv).toContain('"Date","Shift Name","Status","Scheduled Hours","Worked Hours","Pay","Has Form"');
+    expect(csv).toContain('"Codex Quran Class","completed","1.50","1.50","75.00","Yes"');
   });
 
   test("requires a teacher sign-in before rendering my shifts", async ({ page, browserName }) => {

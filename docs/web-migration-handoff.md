@@ -3359,6 +3359,11 @@ render and the native Next authenticated CMS write/upload tests pass against
   fixture was deleted immediately afterward. Desktop populated/guard tests and
   mobile sidebar discovery pass; no Flutter, Functions, or production data was
   changed.
+- The focused parity-refinement pass added Flutter's gross/penalty/bonus/final
+  payment summary and changed the download from headline metrics to the same
+  session-oriented columns: date, shift, status, scheduled hours, worked hours,
+  pay, and form presence. A second disposable fixture verified a 1.5-hour,
+  $75.00 session and the exact downloaded CSV contents, then was deleted.
 
 ## Post-parity additions (2026-07-09)
 

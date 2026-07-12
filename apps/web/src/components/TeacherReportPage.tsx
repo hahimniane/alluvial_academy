@@ -88,14 +88,18 @@ function Overview({ audit, onExport }: { audit: AuditData; onExport: () => void 
     ["Issues", String(arrayValue(audit.issues).length)],
     ["Late", String(numberValue(audit.lateClockIns))],
   ];
+  const payment = objectValue(audit.paymentSummary);
   return <div className="space-y-5">
     <section className="rounded-3xl bg-gradient-to-br from-[#0386FF] to-[#0E72ED] p-7 text-center text-white shadow-lg"><p className="text-5xl font-black">{score.toFixed(1)}%</p><p className="mt-2 text-lg font-bold uppercase tracking-[0.2em]">{tier}</p><p className="mt-1 text-sm text-white/75">{monthLabel(stringValue(audit.yearMonth))}</p></section>
     <section><h2 className="mb-3 text-lg font-extrabold text-[#111827]">Score Breakdown</h2><div className="grid gap-3 sm:grid-cols-3"><RateCard label="Completion" value={numberValue(audit.completionRate)} weight="40%" /><RateCard label="Punctuality" value={numberValue(audit.punctualityRate)} weight="35%" /><RateCard label="Form Compliance" value={numberValue(audit.formComplianceRate)} weight="25%" /></div></section>
     <section><h2 className="mb-3 text-lg font-extrabold text-[#111827]">Quick Stats</h2><div className="grid grid-cols-2 gap-3 sm:grid-cols-3">{stats.map(([label, value]) => <div key={label} className="rounded-2xl border border-[#E2E8F0] bg-white p-4"><p className="text-sm text-[#64748B]">{label}</p><p className="mt-1 text-xl font-extrabold text-[#111827]">{value}</p></div>)}</div></section>
+    {Object.keys(payment).length ? <section><h2 className="mb-3 text-lg font-extrabold text-[#111827]">Payment Summary</h2><div className="grid gap-3 rounded-2xl border border-[#E2E8F0] bg-white p-5 sm:grid-cols-4"><PaymentStat label="Gross" value={numberValue(payment.totalGrossPayment)} /><PaymentStat label="Penalties" value={-Math.abs(numberValue(payment.totalPenalties))} /><PaymentStat label="Bonuses" value={numberValue(payment.totalBonuses)} /><PaymentStat label="Final Amount" value={numberValue(payment.totalNetPayment)} emphasized /></div></section> : null}
     {arrayValue(audit.issues).length ? <section><h2 className="mb-3 text-lg font-extrabold text-[#111827]">Issues to Address</h2><div className="space-y-2">{arrayValue(audit.issues).map((raw, index) => { const item = objectValue(raw); return <div key={index} className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">{stringValue(item.description) || "Performance issue"}</div>; })}</div></section> : null}
     <button type="button" onClick={onExport} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#0E72ED] px-5 font-bold text-white"><Download size={19} />Download My Teaching Data (CSV)</button>
   </div>;
 }
+
+function PaymentStat({ label, value, emphasized = false }: { label: string; value: number; emphasized?: boolean }) { return <div><p className="text-sm text-[#64748B]">{label}</p><p className={`mt-1 text-xl font-extrabold ${emphasized ? "text-[#0386FF]" : "text-[#111827]"}`}>{value < 0 ? "-" : ""}${Math.abs(value).toFixed(2)}</p></div>; }
 
 function RateCard({ label, value, weight }: { label: string; value: number; weight: string }) {
   const safe = Math.max(0, Math.min(100, value));
@@ -129,11 +133,36 @@ async function loadAudits(uid: string, setAudits: (items: AuditData[]) => void, 
 }
 
 function exportAuditCsv(audit: AuditData) {
-  const rows = [["Metric", "Value"], ["Month", stringValue(audit.yearMonth)], ["Overall Score", numberValue(audit.overallScore)], ["Completion Rate", numberValue(audit.completionRate)], ["Punctuality Rate", numberValue(audit.punctualityRate)], ["Form Compliance Rate", numberValue(audit.formComplianceRate)], ["Classes Scheduled", numberValue(audit.totalClassesScheduled)], ["Classes Completed", numberValue(audit.totalClassesCompleted)], ["Worked Hours", numberValue(audit.totalWorkedHours)], ["Late Clock-ins", numberValue(audit.lateClockIns)]];
+  const timesheets = arrayValue(audit.detailedTimesheets).map(objectValue);
+  const forms = arrayValue(audit.detailedForms).map(objectValue);
+  const rows: (string | number)[][] = [["Date", "Shift Name", "Status", "Scheduled Hours", "Worked Hours", "Pay", "Has Form"]];
+  for (const raw of arrayValue(audit.detailedShifts)) {
+    const shift = objectValue(raw);
+    const ids = shiftKeys(shift);
+    const shiftTimesheets = timesheets.filter((item) => shiftKeys(item).some((key) => ids.includes(key)));
+    const hasForm = forms.some((item) => shiftKeys(item).some((key) => ids.includes(key)));
+    const workedHours = shiftTimesheets.reduce((sum, item) => sum + timesheetHours(item), 0);
+    if (!shiftTimesheets.length && !hasForm) continue;
+    rows.push([
+      csvDate(shift.shift_start ?? shift.shiftStart ?? shift.start_time),
+      stringValue(shift.title ?? shift.shift_name ?? shift.subject) || "Teaching Session",
+      stringValue(shift.status) || "scheduled",
+      scheduledHours(shift).toFixed(2),
+      workedHours.toFixed(2),
+      shiftTimesheets.reduce((sum, item) => sum + numberValue(item.pay ?? item.payment ?? item.total_pay ?? item.totalPay), 0).toFixed(2),
+      hasForm ? "Yes" : "No",
+    ]);
+  }
   const csv = rows.map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(",")).join("\n");
   const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
   const anchor = document.createElement("a"); anchor.href = url; anchor.download = `teacher-report-${stringValue(audit.yearMonth) || "report"}.csv`; anchor.click(); URL.revokeObjectURL(url);
 }
+
+function shiftKeys(value: Record<string, unknown>) { return [value.id, value.shift_id, value.shiftId, value.parent_shift_id, value.parentShiftId].map(stringValue).filter(Boolean); }
+function scheduledHours(shift: Record<string, unknown>) { const explicit = numberValue(shift.scheduled_hours ?? shift.scheduledHours ?? shift.duration_hours); if (explicit > 0) return explicit; const start = dateValue(shift.shift_start ?? shift.shiftStart ?? shift.start_time); const end = dateValue(shift.shift_end ?? shift.shiftEnd ?? shift.end_time); return start && end ? Math.max(0, (end.getTime() - start.getTime()) / 3_600_000) : 0; }
+function timesheetHours(item: Record<string, unknown>) { const explicit = numberValue(item.hours ?? item.total_hours ?? item.totalHours ?? item.worked_hours ?? item.workedHours); if (explicit > 0) return explicit; const start = dateValue(item.clock_in_time ?? item.clockInTime ?? item.start_time); const end = dateValue(item.clock_out_time ?? item.clockOutTime ?? item.end_time); return start && end ? Math.max(0, (end.getTime() - start.getTime()) / 3_600_000) : 0; }
+function csvDate(value: unknown) { const date = dateValue(value); return date ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}` : ""; }
+function dateValue(value: unknown): Date | null { const object = objectValue(value); const raw = typeof object.toDate === "function" ? (object.toDate as () => Date)() : value instanceof Date ? value : typeof value === "string" || typeof value === "number" ? new Date(value) : null; return raw instanceof Date && !Number.isNaN(raw.getTime()) ? raw : null; }
 
 function currentMonth() { const date = new Date(); return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`; }
 function monthLabel(value: string) { const match = /^(\d{4})-(\d{2})$/.exec(value); return match ? new Intl.DateTimeFormat("en", { month: "long", year: "numeric" }).format(new Date(Number(match[1]), Number(match[2]) - 1, 1)) : value || "Selected month"; }
@@ -141,4 +170,4 @@ function stringValue(value: unknown) { return typeof value === "string" ? value.
 function numberValue(value: unknown) { const parsed = typeof value === "number" ? value : Number(value); return Number.isFinite(parsed) ? parsed : 0; }
 function arrayValue(value: unknown): unknown[] { return Array.isArray(value) ? value : []; }
 function objectValue(value: unknown): Record<string, unknown> { return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {}; }
-function dateLabel(value: unknown) { const object = objectValue(value); const raw = typeof object.toDate === "function" ? (object.toDate as () => Date)() : value instanceof Date ? value : typeof value === "string" || typeof value === "number" ? new Date(value) : null; return raw instanceof Date && !Number.isNaN(raw.getTime()) ? new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short" }).format(raw) : ""; }
+function dateLabel(value: unknown) { const raw = dateValue(value); return raw ? new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short" }).format(raw) : ""; }
