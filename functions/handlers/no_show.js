@@ -760,6 +760,10 @@ async function sendNoShowPushNotification(tokens, reportData, isTeacherNoShow) {
 module.exports = {
   reportNoShow,
   reportClassTechnicalIssue,
+  // Shared with the scheduled detector in attendance.js so automatic
+  // class-absence alerts honor the same admin recipient picker
+  // (settings/admin: no_show_notify_all_admins / no_show_recipient_admin_ids).
+  resolveNoShowRecipients,
   __test__: {
     buildNoShowReportData,
     buildClassTechnicalIssueReportData,

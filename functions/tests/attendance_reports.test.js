@@ -224,3 +224,31 @@ describe('attendance analytics helpers', () => {
       .toBe('2026-02-24T10:06:00.000Z');
   });
 });
+
+describe('class attendance alert notifications', () => {
+  const shift = {
+    id: 'shift_1',
+    className: 'Quran Studies',
+    teacherName: 'Mama S Diallo',
+  };
+
+  test('teacher missing produces teacher-absent push', () => {
+    const msg = __test__.buildClassAttendanceAlertNotification({ shift, missing: 'teacher' });
+    expect(msg.notification.title).toContain('Teacher absent');
+    expect(msg.notification.body).toContain('Quran Studies');
+    expect(msg.notification.body).toContain('Mama S Diallo');
+    expect(msg.data).toMatchObject({ type: 'class_attendance_alert', shiftId: 'shift_1', missing: 'teacher' });
+  });
+
+  test('students missing produces no-students push', () => {
+    const msg = __test__.buildClassAttendanceAlertNotification({ shift, missing: 'students' });
+    expect(msg.notification.title).toContain('No students');
+    expect(msg.notification.body).toContain('no students have joined');
+  });
+
+  test('both missing produces unattended push and falls back to defaults', () => {
+    const msg = __test__.buildClassAttendanceAlertNotification({ shift: { id: 's2' }, missing: 'both' });
+    expect(msg.notification.title).toContain('Class unattended');
+    expect(msg.notification.body).toContain('Class started but nobody has joined');
+  });
+});

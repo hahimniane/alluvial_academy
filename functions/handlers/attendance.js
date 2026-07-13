@@ -1,6 +1,7 @@
 const admin = require('firebase-admin');
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
+const { resolveNoShowRecipients } = require('./no_show');
 
 const LATE_GRACE_MINUTES = 5;
 const REPORT_COLLECTION = 'student_attendance_reports';
@@ -804,6 +805,52 @@ const buildClassAttendanceAlertData = ({
   };
 };
 
+const buildClassAttendanceAlertNotification = ({ shift, missing }) => {
+  const className = shift.className || shift.subjectName || 'Class';
+  const teacherName = shift.teacherName || 'the teacher';
+  const title = missing === 'teacher'
+    ? '⚠️ Teacher absent from class'
+    : missing === 'students'
+      ? '⚠️ No students in class'
+      : '⚠️ Class unattended';
+  const body = missing === 'teacher'
+    ? `${className}: students are waiting but ${teacherName} has not joined.`
+    : missing === 'students'
+      ? `${className}: ${teacherName} is waiting but no students have joined.`
+      : `${className} started but nobody has joined.`;
+  return {
+    notification: { title, body },
+    data: {
+      type: 'class_attendance_alert',
+      shiftId: shift.id,
+      missing,
+    },
+  };
+};
+
+// Push the alert to the same admins configured for manual no-show reports
+// (settings/admin picker). Only called for newly created alerts so an
+// unresolved absence produces one push, not one every 5-minute scan.
+const notifyAdminsOfClassAttendanceAlert = async ({ shift, missing }) => {
+  try {
+    const { tokens } = await resolveNoShowRecipients();
+    if (!tokens.length) {
+      console.log('[attendance] No admin FCM tokens to notify for alert', shift.id);
+      return;
+    }
+    const message = {
+      ...buildClassAttendanceAlertNotification({ shift, missing }),
+      tokens,
+    };
+    const response = await admin.messaging().sendEachForMulticast(message);
+    console.log(
+      `[attendance] Alert push for ${shift.id}: ${response.successCount} sent, ${response.failureCount} failed`,
+    );
+  } catch (error) {
+    console.error('[attendance] Failed to push class attendance alert:', error);
+  }
+};
+
 const detectClassAttendanceNoShowsForWindow = async ({
   now = new Date(),
   graceMinutes = NO_SHOW_DETECTION_GRACE_MINUTES,
@@ -863,6 +910,9 @@ const detectClassAttendanceNoShowsForWindow = async ({
       data.created_at = admin.firestore.FieldValue.serverTimestamp();
     }
     await alertRef.set(data, { merge: true });
+    if (!existingDoc.exists) {
+      await notifyAdminsOfClassAttendanceAlert({ shift, missing });
+    }
     alertCount += 1;
   }
 
@@ -1069,6 +1119,8 @@ module.exports = {
     normalizeShiftRecord,
     normalizeRawWindows,
     computeParticipantPresenceMetrics,
+    buildClassAttendanceAlertNotification,
+    notifyAdminsOfClassAttendanceAlert,
     calculateOverlapSeconds,
     missingStateForShift,
     buildClassAttendanceAlertData,
