@@ -61,6 +61,10 @@ exports.findUserByEmailOrCode = functions.https.onCall(
 exports.adminSearchDirectoryUsers = functions.https.onCall(
   userHandlers.adminSearchDirectoryUsers
 );
+// Deployed since 2026-05-20 but missing from index.js until 2026-07-13; a full
+// deploy without this export would have deleted it from prod.
+exports.onUserDeletedCleanupPublicTeam =
+  userHandlers.onUserDeletedCleanupPublicTeam;
 exports.syncPublicSiteAdminClaim = adminClaimHandlers.syncPublicSiteAdminClaim;
 exports.createStudentAccount = functions.https.onCall(
   studentHandlers.createStudentAccount
@@ -103,6 +107,9 @@ exports.onShiftUpdated = shiftHandlers.onShiftUpdated;
 exports.onShiftCancelled = shiftHandlers.onShiftCancelled;
 exports.onShiftDeleted = shiftHandlers.onShiftDeleted;
 exports.onTimesheetWritten = shiftHandlers.onTimesheetWritten;
+// Deployed since 2026-05-20 but missing from index.js until 2026-07-13; the
+// app's job-board claim flow calls this callable.
+exports.claimShift = shiftHandlers.claimShift;
 exports.onFormResponseWritten = shiftHandlers.onFormResponseWritten;
 exports.sendScheduledShiftReminders = shiftHandlers.sendScheduledShiftReminders;
 exports.scheduleUpcomingShiftLifecycleTasks =
