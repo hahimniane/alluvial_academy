@@ -123,7 +123,16 @@ class _AdminFinanceOverviewScreenState
                 ),
                 SliverPadding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                  sliver: SliverToBoxAdapter(child: _HealthChip(data: data)),
+                ),
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
                   sliver: SliverToBoxAdapter(child: _FinanceCharts(data: data)),
+                ),
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                  sliver:
+                      SliverToBoxAdapter(child: _WeeklyTrendPanel(data: data)),
                 ),
                 SliverPadding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
@@ -3033,6 +3042,176 @@ enum _RecipientTrendPeriod { monthly, quarterly }
 
 String _money(double amount) {
   return NumberFormat.simpleCurrency(name: 'USD').format(amount);
+}
+
+class _HealthChip extends StatelessWidget {
+  final FinanceOverviewSnapshot data;
+
+  const _HealthChip({required this.data});
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final (Color color, String label) = switch (data.health) {
+      FinanceHealth.healthy => (const Color(0xFF047857), l10n.financeHealthHealthy),
+      FinanceHealth.watch => (const Color(0xFFB45309), l10n.financeHealthWatch),
+      FinanceHealth.needsAttention =>
+        (const Color(0xFFB91C1C), l10n.financeHealthNeedsAttention),
+      FinanceHealth.noData => (const Color(0xFF64748B), l10n.financeHealthNoData),
+    };
+    return _Panel(
+      title: l10n.financeHealthTitle,
+      icon: Icons.favorite_rounded,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.circle, size: 10, color: color),
+                  const SizedBox(width: 8),
+                  Text(
+                    label,
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: color,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                l10n.financeHealthHint,
+                style: GoogleFonts.inter(
+                  fontSize: 11,
+                  color: const Color(0xFF94A3B8),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _WeeklyTrendPanel extends StatelessWidget {
+  final FinanceOverviewSnapshot data;
+
+  const _WeeklyTrendPanel({required this.data});
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final locale = Localizations.localeOf(context).toLanguageTag();
+    final weeks = data.weeklyTrend;
+    final maxValue = weeks.fold<double>(
+      1,
+      (m, w) => math.max(m, math.max(w.revenue, w.expenses)),
+    );
+    final hasData = weeks.any((w) => w.revenue > 0 || w.expenses > 0);
+
+    return _Panel(
+      title: l10n.financeWeeklyTrend,
+      icon: Icons.bar_chart_rounded,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+        child: hasData
+            ? Column(
+                children: [
+                  SizedBox(
+                    height: 96,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: weeks.map((w) {
+                        return Expanded(
+                          child: Padding(
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 3),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    _Bar(
+                                      heightFactor: w.revenue / maxValue,
+                                      color: const Color(0xFF047857),
+                                    ),
+                                    const SizedBox(width: 3),
+                                    _Bar(
+                                      heightFactor: w.expenses / maxValue,
+                                      color: const Color(0xFFB45309),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  DateFormat.Md(locale).format(w.weekStart),
+                                  style: GoogleFonts.inter(
+                                    fontSize: 9,
+                                    color: const Color(0xFF94A3B8),
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      _ChartLegend(
+                        color: const Color(0xFF047857),
+                        label: l10n.financeRevenue,
+                      ),
+                      const SizedBox(width: 14),
+                      _ChartLegend(
+                        color: const Color(0xFFB45309),
+                        label: l10n.financeExpenses,
+                      ),
+                    ],
+                  ),
+                ],
+              )
+            : _EmptyInline(text: l10n.financeNoChartData),
+      ),
+    );
+  }
+}
+
+class _Bar extends StatelessWidget {
+  final double heightFactor;
+  final Color color;
+
+  const _Bar({required this.heightFactor, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 8,
+      height: (heightFactor.clamp(0.0, 1.0)) * 72 + 2,
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(2)),
+      ),
+    );
+  }
 }
 
 String _change(double current, double previous) {

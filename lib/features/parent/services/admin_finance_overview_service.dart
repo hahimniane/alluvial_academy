@@ -339,6 +339,45 @@ class AdminFinanceOverviewService {
         return bd.compareTo(ad);
       });
 
+    // Phase 1: weekly revenue vs expenses for the 8 weeks ending in this month.
+    // Expenses use the same approved-timesheet + manual sources as the P&L.
+    final weekIsCurrentMonth =
+        today.year == monthStart.year && today.month == monthStart.month;
+    final weekAnchor = _startOfWeek(
+      weekIsCurrentMonth
+          ? today
+          : DateTime(monthStart.year, monthStart.month + 1, 0),
+    );
+    final weeklyTrend = List<FinanceWeeklyPoint>.generate(8, (index) {
+      final weekStart = weekAnchor.subtract(Duration(days: 7 * (7 - index)));
+      final weekEnd = weekStart.add(const Duration(days: 7));
+      final weekRevenue = completedPayments
+          .where((p) => _isInRange(_paymentActivityDate(p), weekStart, weekEnd))
+          .fold<double>(0, (total, p) => total + p.amount);
+      final weekPayroll = approvedPayroll
+          .where((e) => _isInRange(e.activityDate, weekStart, weekEnd))
+          .fold<double>(0, (total, e) => total + e.paymentAmount);
+      final weekManual = expenses
+          .where((e) => _isInRange(_expenseActivityDate(e), weekStart, weekEnd))
+          .fold<double>(0, (total, e) => total + e.amount);
+      return FinanceWeeklyPoint(
+        weekStart: weekStart,
+        revenue: weekRevenue,
+        expenses: weekPayroll + weekManual,
+      );
+    });
+
+    // Phase 1: per-staff-member pay trend over 12 months, from approved
+    // timesheet payroll (P&L source of truth), so totals reconcile with net.
+    final payTrendMonths = List<DateTime>.generate(
+      12,
+      (index) => DateTime(month.year, month.month - 11 + index),
+    );
+    final staffPayTrends = _buildStaffPayTrends(
+      approvedPayroll: approvedPayroll,
+      months: payTrendMonths,
+    );
+
     final knownExpenses = staffPayroll + manualExpenses;
     final previousKnownExpenses = previousStaffPayroll + previousManualExpenses;
     final estimatedNet = revenue - knownExpenses;
@@ -395,7 +434,70 @@ class AdminFinanceOverviewService {
       overdueInvoices: overdueInvoices.take(5).toList(),
       recentActivity: recentActivity.take(8).toList(),
       warnings: warnings,
+      weeklyTrend: weeklyTrend,
+      staffPayTrends: staffPayTrends,
     );
+  }
+
+  static DateTime _startOfWeek(DateTime date) {
+    final d = DateTime(date.year, date.month, date.day);
+    return d.subtract(Duration(days: d.weekday - 1)); // Monday
+  }
+
+  static bool _isInRange(DateTime? date, DateTime start, DateTime end) {
+    if (date == null) return false;
+    return !date.isBefore(start) && date.isBefore(end);
+  }
+
+  static List<FinanceStaffPayTrend> _buildStaffPayTrends({
+    required List<FinancePayrollEntry> approvedPayroll,
+    required List<DateTime> months,
+  }) {
+    // key -> (name, month-index -> total)
+    final byRecipient = <String, _StaffPayAccumulator>{};
+    for (final entry in approvedPayroll) {
+      if (entry.paymentAmount <= 0 || entry.activityDate == null) continue;
+      final key = _recipientKey(
+        id: entry.recipientId,
+        email: entry.recipientEmail,
+        name: entry.recipientName,
+      );
+      if (key.isEmpty) continue;
+      final acc = byRecipient.putIfAbsent(
+        key,
+        () => _StaffPayAccumulator(
+          name: _recipientName(entry.recipientName, entry.recipientEmail),
+          monthTotals: List<double>.filled(months.length, 0),
+        ),
+      );
+      for (var i = 0; i < months.length; i++) {
+        final start = months[i];
+        final end = DateTime(start.year, start.month + 1);
+        if (_isInMonth(entry.activityDate, start, end)) {
+          acc.monthTotals[i] += entry.paymentAmount;
+          break;
+        }
+      }
+    }
+
+    final trends = byRecipient.entries
+        .map(
+          (e) => FinanceStaffPayTrend(
+            recipientKey: e.key,
+            recipientName: e.value.name,
+            monthlyPay: [
+              for (var i = 0; i < months.length; i++)
+                FinanceAmountPoint(
+                  period: months[i],
+                  amount: e.value.monthTotals[i],
+                ),
+            ],
+          ),
+        )
+        .where((t) => t.total > 0)
+        .toList()
+      ..sort((a, b) => b.total.compareTo(a.total));
+    return trends;
   }
 
   static DateTime? _invoiceActivityDate(Invoice invoice) {
@@ -463,25 +565,19 @@ class AdminFinanceOverviewService {
 
     for (final trendMonth in trendMonths) {
       final nextMonth = DateTime(trendMonth.year, trendMonth.month + 1);
-      final auditTotal = auditPayments
-          .where(
-              (entry) => _isInMonth(entry.activityDate, trendMonth, nextMonth))
-          .fold<double>(
-            0,
-            (total, entry) =>
-                total +
-                (entry.netPayment > 0 ? entry.netPayment : entry.grossPayment),
-          );
+      // Source of truth for staff pay is approved timesheet payroll (same as
+      // the P&L). Audits are evaluations, not disbursements, so they are not
+      // summed into money totals — this keeps every pay figure reconciled
+      // with net profit.
       final payrollTotal = approvedPayroll
           .where(
               (entry) => _isInMonth(entry.activityDate, trendMonth, nextMonth))
           .fold<double>(0, (total, entry) => total + entry.paymentAmount);
-      final teacherPaymentTotal = auditTotal > 0 ? auditTotal : payrollTotal;
       addSpend(
         categoryKey: 'teacher_payment',
         label: 'Teacher Payment',
         date: trendMonth,
-        amount: teacherPaymentTotal,
+        amount: payrollTotal,
       );
     }
 
@@ -503,27 +599,11 @@ class AdminFinanceOverviewService {
   }) {
     final payouts = <FinanceRecipientPayout>[];
 
-    for (final audit in auditPayments) {
-      final amount =
-          audit.netPayment > 0 ? audit.netPayment : audit.grossPayment;
-      if (amount <= 0) continue;
-      payouts.add(
-        FinanceRecipientPayout(
-          recipientKey: _recipientKey(
-            id: audit.recipientId,
-            email: audit.recipientEmail,
-            name: audit.recipientName,
-          ),
-          recipientName:
-              _recipientName(audit.recipientName, audit.recipientEmail),
-          recipientEmail: audit.recipientEmail,
-          source: 'audit',
-          amount: amount,
-          date: audit.activityDate,
-        ),
-      );
-    }
-
+    // Recipient payouts reflect actual disbursements: approved timesheet
+    // payroll + manually-recorded recipient expenses. Audit evaluations are
+    // intentionally NOT included — summing them alongside timesheets
+    // double-counted the same person's pay and overstated per-recipient
+    // totals. Source of truth = timesheet, consistent with the P&L.
     for (final payroll in approvedPayroll) {
       if (payroll.paymentAmount <= 0) continue;
       payouts.add(
@@ -654,4 +734,10 @@ class _CategoryTrendAccumulator {
       points: points,
     );
   }
+}
+
+class _StaffPayAccumulator {
+  _StaffPayAccumulator({required this.name, required this.monthTotals});
+  final String name;
+  final List<double> monthTotals;
 }

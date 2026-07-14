@@ -13858,6 +13858,28 @@ class AppLocalizationsEn extends AppLocalizations {
   String get financeCashFlowTable => 'Cash flow';
 
   @override
+  String get financeHealthTitle => 'Financial health';
+
+  @override
+  String get financeHealthHealthy => 'Healthy';
+
+  @override
+  String get financeHealthWatch => 'Watch';
+
+  @override
+  String get financeHealthNeedsAttention => 'Needs attention';
+
+  @override
+  String get financeHealthNoData => 'No data';
+
+  @override
+  String get financeHealthHint =>
+      'Healthy: margin ≥ 15% · Watch: 0–15% · Needs attention: losing money';
+
+  @override
+  String get financeWeeklyTrend => 'Weekly trend (last 8 weeks)';
+
+  @override
   String get financeSixMonthTrend => '6-month cash flow';
 
   @override
