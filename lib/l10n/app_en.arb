@@ -2844,6 +2844,33 @@
       }
     }
   },
+  "formReviewStatusNotReviewed": "Not reviewed",
+  "formReviewStatusSeen": "Seen",
+  "formReviewStatusInReview": "In review",
+  "formReviewStatusAccepted": "Accepted",
+  "formReviewStatusRejected": "Rejected",
+  "formDecisionColumn": "Decision / notify",
+  "formDecisionLabel": "Decision",
+  "formNotifyTeacher": "Notify teacher",
+  "formNotifyTeacherAgain": "Notify teacher again",
+  "formDecisionRequiresAcceptedRejected": "Choose Accepted or Rejected before notifying the teacher.",
+  "formDecisionTeacherMissing": "This submission is not linked to a teacher account.",
+  "formDecisionNotificationTitle": "Form decision: {status}",
+  "@formDecisionNotificationTitle": {
+    "placeholders": {
+      "status": {"type": "String"}
+    }
+  },
+  "formDecisionNotificationBody": "Your submission for \"{formTitle}\" was {status}. Open My Form Submissions to view the decision.",
+  "@formDecisionNotificationBody": {
+    "placeholders": {
+      "formTitle": {"type": "String"},
+      "status": {"type": "String"}
+    }
+  },
+  "formDecisionNotificationSent": "Teacher notified. The decision is also visible in My Form Submissions.",
+  "formDecisionVisibleNoPush": "The decision is visible in My Form Submissions, but this teacher has no push-enabled device.",
+  "formDecisionNotificationFailed": "The decision was saved, but the teacher notification could not be sent.",
   "stayOnTrackWithReminders": "Stay On Track With Reminders",
   "stepnumberOfTotalsteps": "Stepnumber Of Totalsteps",
   "stillNoInternetConnectionPleaseTry": "Still No Internet Connection Please Try",
@@ -5730,6 +5757,52 @@
   "sidebarCreateInvoice": "Create Invoice",
   "sidebarAllInvoices": "All Invoices",
   "financeOverviewTab": "Overview",
+  "financeSubscriptionsTab": "Subscriptions",
+  "financeSubscriptionAdd": "Add subscription",
+  "financeSubscriptionEdit": "Edit subscription",
+  "financeSubscriptionName": "Subscription name",
+  "financeSubscriptionNameRequired": "Enter a name",
+  "financeSubscriptionVendor": "Vendor / provider",
+  "financeSubscriptionAmount": "Amount ($)",
+  "financeSubscriptionAmountInvalid": "Enter a valid amount",
+  "financeSubscriptionFrequency": "Billing frequency",
+  "financeSubscriptionCategory": "Category",
+  "financeSubscriptionStatus": "Status",
+  "financeSubscriptionNextDue": "Next payment",
+  "financeSubscriptionNotSet": "Not set",
+  "financeSubscriptionNotes": "Notes",
+  "financeSubscriptionUnnamed": "Unnamed subscription",
+  "financeSubscriptionEmpty": "No subscriptions yet. Add your recurring costs (Zoom, hosting, domains, software).",
+  "financeSubscriptionLoadError": "Could not load subscriptions.",
+  "financeSubscriptionSaveError": "Could not save. Please try again.",
+  "financeSubscriptionMonthlyTotal": "Active recurring cost",
+  "financeSubscriptionActiveCount": "{count} total",
+  "@financeSubscriptionActiveCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "financeSubscriptionDeleteTitle": "Delete subscription?",
+  "financeSubscriptionDeleteMessage": "Remove \"{name}\" from the subscription list? This does not delete past expense records.",
+  "@financeSubscriptionDeleteMessage": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "financeSubscriptionFreqWeekly": "Weekly",
+  "financeSubscriptionFreqMonthly": "Monthly",
+  "financeSubscriptionFreqQuarterly": "Quarterly",
+  "financeSubscriptionFreqYearly": "Yearly",
+  "financeSubscriptionStatusActive": "Active",
+  "financeSubscriptionStatusPaused": "Paused",
+  "financeSubscriptionStatusCancelled": "Cancelled",
+  "financeSubscriptionCategorySubscription": "Subscription",
+  "financeSubscriptionCategoryWebsite": "Website / Hosting",
+  "financeSubscriptionCategorySoftware": "Software",
   "financeCutoffsTab": "Cutoffs",
   "financeOverviewTitle": "Finance Command Center",
   "financeMonthLive": "Live view for {month}. Revenue, invoices, recorded expenses, and approved payroll are reflected here.",
@@ -6472,5 +6545,45 @@
     "placeholders": {
       "name": { "type": "String" }
     }
-  }
+  },
+  "studentAttendanceOverviewNav": "Student Attendance",
+  "studentAttendanceAdminTitle": "Student attendance & class time",
+  "studentAttendanceAdminSubtitle": "Actual time students spent in scheduled classes, based on recorded joins and leaves.",
+  "studentAttendanceWeekly": "Weekly",
+  "studentAttendanceMonthly": "Monthly",
+  "studentAttendancePrevious": "Previous period",
+  "studentAttendanceNext": "Next period",
+  "studentAttendanceRefresh": "Refresh attendance",
+  "studentAttendanceSearchHint": "Search students by name or email",
+  "studentAttendanceStudentsTracked": "{count} students tracked",
+  "@studentAttendanceStudentsTracked": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "studentAttendanceClassTime": "Class time",
+  "studentAttendanceTeacherOverlap": "Time with teacher",
+  "studentAttendanceScheduled": "Scheduled",
+  "studentAttendanceAttended": "Attended",
+  "studentAttendanceMissed": "Missed",
+  "studentAttendanceLate": "Late",
+  "studentAttendanceRate": "Attendance",
+  "studentAttendanceHoursValue": "{hours} h",
+  "@studentAttendanceHoursValue": {
+    "placeholders": {
+      "hours": { "type": "String" }
+    }
+  },
+  "studentAttendancePeriodLabel": "{start} – {end}",
+  "@studentAttendancePeriodLabel": {
+    "placeholders": {
+      "start": { "type": "String" },
+      "end": { "type": "String" }
+    }
+  },
+  "studentAttendanceNoDataTitle": "No attendance data for this period",
+  "studentAttendanceNoDataBody": "Attendance appears after scheduled classes and participant joins are recorded.",
+  "studentAttendanceLoadError": "Could not load student attendance. Try again.",
+  "studentAttendanceStudentClassTime": "Your class time",
+  "studentAttendanceFamilyClassTime": "Family class time"
 }

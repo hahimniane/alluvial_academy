@@ -787,7 +787,11 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String enrollmentSummarySameProgramHouseholdDetail(
-      String program, int hours, String each, String total) {
+    String program,
+    int hours,
+    String each,
+    String total,
+  ) {
     return '$program · $hours س/أسبوع لكل طفل · $each لكل طفل · $total إجمالي الأسرة/شهر';
   }
 
@@ -1630,7 +1634,10 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String adminSubmissionsExportFormSheetProgress(
-      int current, int total, String formName) {
+    int current,
+    int total,
+    String formName,
+  ) {
     return '$current / $total — $formName';
   }
 
@@ -7583,6 +7590,62 @@ class AppLocalizationsAr extends AppLocalizations {
   }
 
   @override
+  String get formReviewStatusNotReviewed => 'لم تتم المراجعة';
+
+  @override
+  String get formReviewStatusSeen => 'تمت المشاهدة';
+
+  @override
+  String get formReviewStatusInReview => 'قيد المراجعة';
+
+  @override
+  String get formReviewStatusAccepted => 'مقبول';
+
+  @override
+  String get formReviewStatusRejected => 'مرفوض';
+
+  @override
+  String get formDecisionColumn => 'القرار / الإشعار';
+
+  @override
+  String get formDecisionLabel => 'القرار';
+
+  @override
+  String get formNotifyTeacher => 'إشعار المعلم';
+
+  @override
+  String get formNotifyTeacherAgain => 'إشعار المعلم مرة أخرى';
+
+  @override
+  String get formDecisionRequiresAcceptedRejected =>
+      'اختر مقبول أو مرفوض قبل إشعار المعلم.';
+
+  @override
+  String get formDecisionTeacherMissing => 'هذا النموذج غير مرتبط بحساب معلم.';
+
+  @override
+  String formDecisionNotificationTitle(String status) {
+    return 'قرار النموذج: $status';
+  }
+
+  @override
+  String formDecisionNotificationBody(String formTitle, String status) {
+    return 'تم تحديد حالة طلبك للنموذج «$formTitle» بأنها $status. افتح صفحة نماذجي المرسلة للاطلاع على القرار.';
+  }
+
+  @override
+  String get formDecisionNotificationSent =>
+      'تم إشعار المعلم. القرار ظاهر أيضًا في صفحة نماذجي المرسلة.';
+
+  @override
+  String get formDecisionVisibleNoPush =>
+      'القرار ظاهر في صفحة نماذجي المرسلة، لكن لا يوجد جهاز مفعّل للإشعارات لهذا المعلم.';
+
+  @override
+  String get formDecisionNotificationFailed =>
+      'تم حفظ القرار، لكن تعذر إرسال الإشعار إلى المعلم.';
+
+  @override
   String get stayOnTrackWithReminders => 'Stay On Track With Reminders';
 
   @override
@@ -9366,7 +9429,12 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String auditMaxPayment(
-      Object subject, Object amount, Object hourly, Object sujet, Object time) {
+    Object subject,
+    Object amount,
+    Object hourly,
+    Object sujet,
+    Object time,
+  ) {
     return 'Maximum payment for $subject is \$$amount (max \$$hourly/hour)';
   }
 
@@ -9605,8 +9673,13 @@ class AppLocalizationsAr extends AppLocalizations {
   }
 
   @override
-  String shiftSelectedTimeRange(Object abbr, Object startDate, Object startTime,
-      Object endDatePart, Object endTime) {
+  String shiftSelectedTimeRange(
+    Object abbr,
+    Object startDate,
+    Object startTime,
+    Object endDatePart,
+    Object endTime,
+  ) {
     return 'Selected ($abbr): $startDate, $startTime - $endDatePart$endTime';
   }
 
@@ -10601,8 +10674,8 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String
-      get formTemplateEvaluatestudentprogressandskillsatenrollmentorsemesterend =>
-          'Evaluate student progress and skills at enrollment or semester end';
+  get formTemplateEvaluatestudentprogressandskillsatenrollmentorsemesterend =>
+      'Evaluate student progress and skills at enrollment or semester end';
 
   @override
   String get formTemplateFeedbackforleaders => 'Feedback for Leaders';
@@ -10618,8 +10691,8 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String
-      get formTemplateMonthlyevaluationofcoachsupervisorperformanceadminonly =>
-          'Monthly evaluation of coach/supervisor performance (Admin only)';
+  get formTemplateMonthlyevaluationofcoachsupervisorperformanceadminonly =>
+      'Monthly evaluation of coach/supervisor performance (Admin only)';
 
   @override
   String get formTemplateMonthlyselfevaluationforadministratorsandcoaches =>
@@ -12469,7 +12542,11 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String pricingMonthlyBreakdown(
-      Object hours, Object rate, Object weeks, Object monthly) {
+    Object hours,
+    Object rate,
+    Object weeks,
+    Object monthly,
+  ) {
     return '$hours ساعة × \$$rate/ساعة × $weeks أسابيع ≈ \$$monthly/شهر';
   }
 
@@ -13382,7 +13459,9 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String unlinkGuardianAdultOverrideBody(
-      String studentName, String guardianName) {
+    String studentName,
+    String guardianName,
+  ) {
     return 'لا يوجد لدى $studentName ولي أمر صالح آخر مرتبط. تابع فقط إذا أكد المسؤول أن هذا الطالب يجب أن يدير حسابه كطالب بالغ بعد إزالة $guardianName.';
   }
 
@@ -13719,6 +13798,107 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get financeOverviewTab => 'نظرة عامة';
+
+  @override
+  String get financeSubscriptionsTab => 'الاشتراكات';
+
+  @override
+  String get financeSubscriptionAdd => 'إضافة اشتراك';
+
+  @override
+  String get financeSubscriptionEdit => 'تعديل الاشتراك';
+
+  @override
+  String get financeSubscriptionName => 'اسم الاشتراك';
+
+  @override
+  String get financeSubscriptionNameRequired => 'أدخل اسماً';
+
+  @override
+  String get financeSubscriptionVendor => 'المزوّد';
+
+  @override
+  String get financeSubscriptionAmount => 'المبلغ (\$)';
+
+  @override
+  String get financeSubscriptionAmountInvalid => 'أدخل مبلغاً صحيحاً';
+
+  @override
+  String get financeSubscriptionFrequency => 'دورة الفوترة';
+
+  @override
+  String get financeSubscriptionCategory => 'الفئة';
+
+  @override
+  String get financeSubscriptionStatus => 'الحالة';
+
+  @override
+  String get financeSubscriptionNextDue => 'الدفعة القادمة';
+
+  @override
+  String get financeSubscriptionNotSet => 'غير محدد';
+
+  @override
+  String get financeSubscriptionNotes => 'ملاحظات';
+
+  @override
+  String get financeSubscriptionUnnamed => 'اشتراك بدون اسم';
+
+  @override
+  String get financeSubscriptionEmpty =>
+      'لا توجد اشتراكات بعد. أضف تكاليفك المتكررة (زوم، الاستضافة، النطاقات، البرامج).';
+
+  @override
+  String get financeSubscriptionLoadError => 'تعذّر تحميل الاشتراكات.';
+
+  @override
+  String get financeSubscriptionSaveError => 'تعذّر الحفظ. حاول مرة أخرى.';
+
+  @override
+  String get financeSubscriptionMonthlyTotal => 'التكلفة المتكررة النشطة';
+
+  @override
+  String financeSubscriptionActiveCount(int count) {
+    return '$count إجمالاً';
+  }
+
+  @override
+  String get financeSubscriptionDeleteTitle => 'حذف الاشتراك؟';
+
+  @override
+  String financeSubscriptionDeleteMessage(String name) {
+    return 'إزالة «$name» من قائمة الاشتراكات؟ لن يؤدي ذلك إلى حذف سجلات المصروفات السابقة.';
+  }
+
+  @override
+  String get financeSubscriptionFreqWeekly => 'أسبوعي';
+
+  @override
+  String get financeSubscriptionFreqMonthly => 'شهري';
+
+  @override
+  String get financeSubscriptionFreqQuarterly => 'ربع سنوي';
+
+  @override
+  String get financeSubscriptionFreqYearly => 'سنوي';
+
+  @override
+  String get financeSubscriptionStatusActive => 'نشط';
+
+  @override
+  String get financeSubscriptionStatusPaused => 'متوقف';
+
+  @override
+  String get financeSubscriptionStatusCancelled => 'ملغى';
+
+  @override
+  String get financeSubscriptionCategorySubscription => 'اشتراك';
+
+  @override
+  String get financeSubscriptionCategoryWebsite => 'الموقع / الاستضافة';
+
+  @override
+  String get financeSubscriptionCategorySoftware => 'برمجيات';
 
   @override
   String get financeCutoffsTab => 'إيقاف الوصول';
@@ -15551,4 +15731,85 @@ class AppLocalizationsAr extends AppLocalizations {
   String timeClockLeadershipSessionTitle(String name) {
     return 'قيادة: $name';
   }
+
+  @override
+  String get studentAttendanceOverviewNav => 'حضور الطلاب';
+
+  @override
+  String get studentAttendanceAdminTitle => 'حضور الطلاب ووقت الصف';
+
+  @override
+  String get studentAttendanceAdminSubtitle =>
+      'الوقت الفعلي الذي قضاه الطلاب في الصفوف المجدولة بناءً على سجلات الدخول والخروج.';
+
+  @override
+  String get studentAttendanceWeekly => 'أسبوعي';
+
+  @override
+  String get studentAttendanceMonthly => 'شهري';
+
+  @override
+  String get studentAttendancePrevious => 'الفترة السابقة';
+
+  @override
+  String get studentAttendanceNext => 'الفترة التالية';
+
+  @override
+  String get studentAttendanceRefresh => 'تحديث الحضور';
+
+  @override
+  String get studentAttendanceSearchHint => 'البحث بالاسم أو البريد الإلكتروني';
+
+  @override
+  String studentAttendanceStudentsTracked(int count) {
+    return 'تم تتبع $count طالبًا';
+  }
+
+  @override
+  String get studentAttendanceClassTime => 'وقت الصف';
+
+  @override
+  String get studentAttendanceTeacherOverlap => 'الوقت مع المعلم';
+
+  @override
+  String get studentAttendanceScheduled => 'مجدولة';
+
+  @override
+  String get studentAttendanceAttended => 'حضرها';
+
+  @override
+  String get studentAttendanceMissed => 'فائتة';
+
+  @override
+  String get studentAttendanceLate => 'متأخر';
+
+  @override
+  String get studentAttendanceRate => 'الحضور';
+
+  @override
+  String studentAttendanceHoursValue(String hours) {
+    return '$hours س';
+  }
+
+  @override
+  String studentAttendancePeriodLabel(String start, String end) {
+    return '$start – $end';
+  }
+
+  @override
+  String get studentAttendanceNoDataTitle => 'لا توجد بيانات حضور لهذه الفترة';
+
+  @override
+  String get studentAttendanceNoDataBody =>
+      'تظهر بيانات الحضور بعد تسجيل الصفوف المجدولة ودخول المشاركين.';
+
+  @override
+  String get studentAttendanceLoadError =>
+      'تعذر تحميل حضور الطلاب. حاول مرة أخرى.';
+
+  @override
+  String get studentAttendanceStudentClassTime => 'وقت صفك';
+
+  @override
+  String get studentAttendanceFamilyClassTime => 'وقت صف العائلة';
 }

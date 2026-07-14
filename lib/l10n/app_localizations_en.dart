@@ -796,7 +796,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String enrollmentSummarySameProgramHouseholdDetail(
-      String program, int hours, String each, String total) {
+    String program,
+    int hours,
+    String each,
+    String total,
+  ) {
     return '$program · $hours hrs/wk each · $each per child · $total household/mo';
   }
 
@@ -1649,7 +1653,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String adminSubmissionsExportFormSheetProgress(
-      int current, int total, String formName) {
+    int current,
+    int total,
+    String formName,
+  ) {
     return '$current / $total — $formName';
   }
 
@@ -7615,6 +7622,63 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get formReviewStatusNotReviewed => 'Not reviewed';
+
+  @override
+  String get formReviewStatusSeen => 'Seen';
+
+  @override
+  String get formReviewStatusInReview => 'In review';
+
+  @override
+  String get formReviewStatusAccepted => 'Accepted';
+
+  @override
+  String get formReviewStatusRejected => 'Rejected';
+
+  @override
+  String get formDecisionColumn => 'Decision / notify';
+
+  @override
+  String get formDecisionLabel => 'Decision';
+
+  @override
+  String get formNotifyTeacher => 'Notify teacher';
+
+  @override
+  String get formNotifyTeacherAgain => 'Notify teacher again';
+
+  @override
+  String get formDecisionRequiresAcceptedRejected =>
+      'Choose Accepted or Rejected before notifying the teacher.';
+
+  @override
+  String get formDecisionTeacherMissing =>
+      'This submission is not linked to a teacher account.';
+
+  @override
+  String formDecisionNotificationTitle(String status) {
+    return 'Form decision: $status';
+  }
+
+  @override
+  String formDecisionNotificationBody(String formTitle, String status) {
+    return 'Your submission for \"$formTitle\" was $status. Open My Form Submissions to view the decision.';
+  }
+
+  @override
+  String get formDecisionNotificationSent =>
+      'Teacher notified. The decision is also visible in My Form Submissions.';
+
+  @override
+  String get formDecisionVisibleNoPush =>
+      'The decision is visible in My Form Submissions, but this teacher has no push-enabled device.';
+
+  @override
+  String get formDecisionNotificationFailed =>
+      'The decision was saved, but the teacher notification could not be sent.';
+
+  @override
   String get stayOnTrackWithReminders => 'Stay On Track With Reminders';
 
   @override
@@ -9399,7 +9463,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String auditMaxPayment(
-      Object subject, Object amount, Object hourly, Object sujet, Object time) {
+    Object subject,
+    Object amount,
+    Object hourly,
+    Object sujet,
+    Object time,
+  ) {
     return 'Maximum payment for $subject is \$$amount (max \$$hourly/hour)';
   }
 
@@ -9638,8 +9707,13 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String shiftSelectedTimeRange(Object abbr, Object startDate, Object startTime,
-      Object endDatePart, Object endTime) {
+  String shiftSelectedTimeRange(
+    Object abbr,
+    Object startDate,
+    Object startTime,
+    Object endDatePart,
+    Object endTime,
+  ) {
     return 'Selected ($abbr): $startDate, $startTime - $endDatePart$endTime';
   }
 
@@ -10634,8 +10708,8 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String
-      get formTemplateEvaluatestudentprogressandskillsatenrollmentorsemesterend =>
-          'Evaluate student progress and skills at enrollment or semester end';
+  get formTemplateEvaluatestudentprogressandskillsatenrollmentorsemesterend =>
+      'Evaluate student progress and skills at enrollment or semester end';
 
   @override
   String get formTemplateFeedbackforleaders => 'Feedback for Leaders';
@@ -10651,8 +10725,8 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String
-      get formTemplateMonthlyevaluationofcoachsupervisorperformanceadminonly =>
-          'Monthly evaluation of coach/supervisor performance (Admin only)';
+  get formTemplateMonthlyevaluationofcoachsupervisorperformanceadminonly =>
+      'Monthly evaluation of coach/supervisor performance (Admin only)';
 
   @override
   String get formTemplateMonthlyselfevaluationforadministratorsandcoaches =>
@@ -12502,7 +12576,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String pricingMonthlyBreakdown(
-      Object hours, Object rate, Object weeks, Object monthly) {
+    Object hours,
+    Object rate,
+    Object weeks,
+    Object monthly,
+  ) {
     return '$hours hrs × \$$rate/hr × $weeks weeks ≈ \$$monthly/mo';
   }
 
@@ -13415,7 +13493,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String unlinkGuardianAdultOverrideBody(
-      String studentName, String guardianName) {
+    String studentName,
+    String guardianName,
+  ) {
     return '$studentName has no other valid linked parent. Only continue if an admin has confirmed this student should manage their own account as an adult after removing $guardianName.';
   }
 
@@ -13753,6 +13833,108 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get financeOverviewTab => 'Overview';
+
+  @override
+  String get financeSubscriptionsTab => 'Subscriptions';
+
+  @override
+  String get financeSubscriptionAdd => 'Add subscription';
+
+  @override
+  String get financeSubscriptionEdit => 'Edit subscription';
+
+  @override
+  String get financeSubscriptionName => 'Subscription name';
+
+  @override
+  String get financeSubscriptionNameRequired => 'Enter a name';
+
+  @override
+  String get financeSubscriptionVendor => 'Vendor / provider';
+
+  @override
+  String get financeSubscriptionAmount => 'Amount (\$)';
+
+  @override
+  String get financeSubscriptionAmountInvalid => 'Enter a valid amount';
+
+  @override
+  String get financeSubscriptionFrequency => 'Billing frequency';
+
+  @override
+  String get financeSubscriptionCategory => 'Category';
+
+  @override
+  String get financeSubscriptionStatus => 'Status';
+
+  @override
+  String get financeSubscriptionNextDue => 'Next payment';
+
+  @override
+  String get financeSubscriptionNotSet => 'Not set';
+
+  @override
+  String get financeSubscriptionNotes => 'Notes';
+
+  @override
+  String get financeSubscriptionUnnamed => 'Unnamed subscription';
+
+  @override
+  String get financeSubscriptionEmpty =>
+      'No subscriptions yet. Add your recurring costs (Zoom, hosting, domains, software).';
+
+  @override
+  String get financeSubscriptionLoadError => 'Could not load subscriptions.';
+
+  @override
+  String get financeSubscriptionSaveError =>
+      'Could not save. Please try again.';
+
+  @override
+  String get financeSubscriptionMonthlyTotal => 'Active recurring cost';
+
+  @override
+  String financeSubscriptionActiveCount(int count) {
+    return '$count total';
+  }
+
+  @override
+  String get financeSubscriptionDeleteTitle => 'Delete subscription?';
+
+  @override
+  String financeSubscriptionDeleteMessage(String name) {
+    return 'Remove \"$name\" from the subscription list? This does not delete past expense records.';
+  }
+
+  @override
+  String get financeSubscriptionFreqWeekly => 'Weekly';
+
+  @override
+  String get financeSubscriptionFreqMonthly => 'Monthly';
+
+  @override
+  String get financeSubscriptionFreqQuarterly => 'Quarterly';
+
+  @override
+  String get financeSubscriptionFreqYearly => 'Yearly';
+
+  @override
+  String get financeSubscriptionStatusActive => 'Active';
+
+  @override
+  String get financeSubscriptionStatusPaused => 'Paused';
+
+  @override
+  String get financeSubscriptionStatusCancelled => 'Cancelled';
+
+  @override
+  String get financeSubscriptionCategorySubscription => 'Subscription';
+
+  @override
+  String get financeSubscriptionCategoryWebsite => 'Website / Hosting';
+
+  @override
+  String get financeSubscriptionCategorySoftware => 'Software';
 
   @override
   String get financeCutoffsTab => 'Cutoffs';
@@ -15597,4 +15779,86 @@ class AppLocalizationsEn extends AppLocalizations {
   String timeClockLeadershipSessionTitle(String name) {
     return 'Leadership: $name';
   }
+
+  @override
+  String get studentAttendanceOverviewNav => 'Student Attendance';
+
+  @override
+  String get studentAttendanceAdminTitle => 'Student attendance & class time';
+
+  @override
+  String get studentAttendanceAdminSubtitle =>
+      'Actual time students spent in scheduled classes, based on recorded joins and leaves.';
+
+  @override
+  String get studentAttendanceWeekly => 'Weekly';
+
+  @override
+  String get studentAttendanceMonthly => 'Monthly';
+
+  @override
+  String get studentAttendancePrevious => 'Previous period';
+
+  @override
+  String get studentAttendanceNext => 'Next period';
+
+  @override
+  String get studentAttendanceRefresh => 'Refresh attendance';
+
+  @override
+  String get studentAttendanceSearchHint => 'Search students by name or email';
+
+  @override
+  String studentAttendanceStudentsTracked(int count) {
+    return '$count students tracked';
+  }
+
+  @override
+  String get studentAttendanceClassTime => 'Class time';
+
+  @override
+  String get studentAttendanceTeacherOverlap => 'Time with teacher';
+
+  @override
+  String get studentAttendanceScheduled => 'Scheduled';
+
+  @override
+  String get studentAttendanceAttended => 'Attended';
+
+  @override
+  String get studentAttendanceMissed => 'Missed';
+
+  @override
+  String get studentAttendanceLate => 'Late';
+
+  @override
+  String get studentAttendanceRate => 'Attendance';
+
+  @override
+  String studentAttendanceHoursValue(String hours) {
+    return '$hours h';
+  }
+
+  @override
+  String studentAttendancePeriodLabel(String start, String end) {
+    return '$start – $end';
+  }
+
+  @override
+  String get studentAttendanceNoDataTitle =>
+      'No attendance data for this period';
+
+  @override
+  String get studentAttendanceNoDataBody =>
+      'Attendance appears after scheduled classes and participant joins are recorded.';
+
+  @override
+  String get studentAttendanceLoadError =>
+      'Could not load student attendance. Try again.';
+
+  @override
+  String get studentAttendanceStudentClassTime => 'Your class time';
+
+  @override
+  String get studentAttendanceFamilyClassTime => 'Family class time';
 }

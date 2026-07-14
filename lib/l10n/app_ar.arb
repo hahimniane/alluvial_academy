@@ -2779,6 +2779,22 @@
       }
     }
   },
+  "formReviewStatusNotReviewed": "لم تتم المراجعة",
+  "formReviewStatusSeen": "تمت المشاهدة",
+  "formReviewStatusInReview": "قيد المراجعة",
+  "formReviewStatusAccepted": "مقبول",
+  "formReviewStatusRejected": "مرفوض",
+  "formDecisionColumn": "القرار / الإشعار",
+  "formDecisionLabel": "القرار",
+  "formNotifyTeacher": "إشعار المعلم",
+  "formNotifyTeacherAgain": "إشعار المعلم مرة أخرى",
+  "formDecisionRequiresAcceptedRejected": "اختر مقبول أو مرفوض قبل إشعار المعلم.",
+  "formDecisionTeacherMissing": "هذا النموذج غير مرتبط بحساب معلم.",
+  "formDecisionNotificationTitle": "قرار النموذج: {status}",
+  "formDecisionNotificationBody": "تم تحديد حالة طلبك للنموذج «{formTitle}» بأنها {status}. افتح صفحة نماذجي المرسلة للاطلاع على القرار.",
+  "formDecisionNotificationSent": "تم إشعار المعلم. القرار ظاهر أيضًا في صفحة نماذجي المرسلة.",
+  "formDecisionVisibleNoPush": "القرار ظاهر في صفحة نماذجي المرسلة، لكن لا يوجد جهاز مفعّل للإشعارات لهذا المعلم.",
+  "formDecisionNotificationFailed": "تم حفظ القرار، لكن تعذر إرسال الإشعار إلى المعلم.",
   "stayOnTrackWithReminders": "Stay On Track With Reminders",
   "stepnumberOfTotalsteps": "Stepnumber Of Totalsteps",
   "stillNoInternetConnectionPleaseTry": "Still No Internet Connection Please Try",
@@ -5830,6 +5846,52 @@
   "shiftLoadingFullHistoryCount": "جارٍ تحميل سجل الحصص الكامل: تم تحميل {loaded} حصة",
   "shiftLoadingFullHistoryPercent": "جارٍ تحميل سجل الحصص الكامل: {percent}% ({loaded}/{total})",
   "financeOverviewTab": "نظرة عامة",
+  "financeSubscriptionsTab": "الاشتراكات",
+  "financeSubscriptionAdd": "إضافة اشتراك",
+  "financeSubscriptionEdit": "تعديل الاشتراك",
+  "financeSubscriptionName": "اسم الاشتراك",
+  "financeSubscriptionNameRequired": "أدخل اسماً",
+  "financeSubscriptionVendor": "المزوّد",
+  "financeSubscriptionAmount": "المبلغ ($)",
+  "financeSubscriptionAmountInvalid": "أدخل مبلغاً صحيحاً",
+  "financeSubscriptionFrequency": "دورة الفوترة",
+  "financeSubscriptionCategory": "الفئة",
+  "financeSubscriptionStatus": "الحالة",
+  "financeSubscriptionNextDue": "الدفعة القادمة",
+  "financeSubscriptionNotSet": "غير محدد",
+  "financeSubscriptionNotes": "ملاحظات",
+  "financeSubscriptionUnnamed": "اشتراك بدون اسم",
+  "financeSubscriptionEmpty": "لا توجد اشتراكات بعد. أضف تكاليفك المتكررة (زوم، الاستضافة، النطاقات، البرامج).",
+  "financeSubscriptionLoadError": "تعذّر تحميل الاشتراكات.",
+  "financeSubscriptionSaveError": "تعذّر الحفظ. حاول مرة أخرى.",
+  "financeSubscriptionMonthlyTotal": "التكلفة المتكررة النشطة",
+  "financeSubscriptionActiveCount": "{count} إجمالاً",
+  "@financeSubscriptionActiveCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "financeSubscriptionDeleteTitle": "حذف الاشتراك؟",
+  "financeSubscriptionDeleteMessage": "إزالة «{name}» من قائمة الاشتراكات؟ لن يؤدي ذلك إلى حذف سجلات المصروفات السابقة.",
+  "@financeSubscriptionDeleteMessage": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "financeSubscriptionFreqWeekly": "أسبوعي",
+  "financeSubscriptionFreqMonthly": "شهري",
+  "financeSubscriptionFreqQuarterly": "ربع سنوي",
+  "financeSubscriptionFreqYearly": "سنوي",
+  "financeSubscriptionStatusActive": "نشط",
+  "financeSubscriptionStatusPaused": "متوقف",
+  "financeSubscriptionStatusCancelled": "ملغى",
+  "financeSubscriptionCategorySubscription": "اشتراك",
+  "financeSubscriptionCategoryWebsite": "الموقع / الاستضافة",
+  "financeSubscriptionCategorySoftware": "برمجيات",
   "financeCutoffsTab": "إيقاف الوصول",
   "financeOverviewTitle": "مركز قيادة المالية",
   "financeMonthLive": "عرض مباشر لشهر {month}. تظهر هنا الإيرادات والفواتير والمصروفات المسجلة والرواتب المعتمدة.",
@@ -6055,5 +6117,45 @@
     "placeholders": {
       "name": { "type": "String" }
     }
-  }
+  },
+  "studentAttendanceOverviewNav": "حضور الطلاب",
+  "studentAttendanceAdminTitle": "حضور الطلاب ووقت الصف",
+  "studentAttendanceAdminSubtitle": "الوقت الفعلي الذي قضاه الطلاب في الصفوف المجدولة بناءً على سجلات الدخول والخروج.",
+  "studentAttendanceWeekly": "أسبوعي",
+  "studentAttendanceMonthly": "شهري",
+  "studentAttendancePrevious": "الفترة السابقة",
+  "studentAttendanceNext": "الفترة التالية",
+  "studentAttendanceRefresh": "تحديث الحضور",
+  "studentAttendanceSearchHint": "البحث بالاسم أو البريد الإلكتروني",
+  "studentAttendanceStudentsTracked": "تم تتبع {count} طالبًا",
+  "@studentAttendanceStudentsTracked": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "studentAttendanceClassTime": "وقت الصف",
+  "studentAttendanceTeacherOverlap": "الوقت مع المعلم",
+  "studentAttendanceScheduled": "مجدولة",
+  "studentAttendanceAttended": "حضرها",
+  "studentAttendanceMissed": "فائتة",
+  "studentAttendanceLate": "متأخر",
+  "studentAttendanceRate": "الحضور",
+  "studentAttendanceHoursValue": "{hours} س",
+  "@studentAttendanceHoursValue": {
+    "placeholders": {
+      "hours": { "type": "String" }
+    }
+  },
+  "studentAttendancePeriodLabel": "{start} – {end}",
+  "@studentAttendancePeriodLabel": {
+    "placeholders": {
+      "start": { "type": "String" },
+      "end": { "type": "String" }
+    }
+  },
+  "studentAttendanceNoDataTitle": "لا توجد بيانات حضور لهذه الفترة",
+  "studentAttendanceNoDataBody": "تظهر بيانات الحضور بعد تسجيل الصفوف المجدولة ودخول المشاركين.",
+  "studentAttendanceLoadError": "تعذر تحميل حضور الطلاب. حاول مرة أخرى.",
+  "studentAttendanceStudentClassTime": "وقت صفك",
+  "studentAttendanceFamilyClassTime": "وقت صف العائلة"
 }
