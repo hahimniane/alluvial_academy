@@ -64,7 +64,7 @@ import 'app_localizations_fr.dart';
 /// property.
 abstract class AppLocalizations {
   AppLocalizations(String locale)
-      : localeName = intl.Intl.canonicalizedLocale(locale.toString());
+    : localeName = intl.Intl.canonicalizedLocale(locale.toString());
 
   final String localeName;
 
@@ -87,17 +87,17 @@ abstract class AppLocalizations {
   /// of delegates is preferred or required.
   static const List<LocalizationsDelegate<dynamic>> localizationsDelegates =
       <LocalizationsDelegate<dynamic>>[
-    delegate,
-    GlobalMaterialLocalizations.delegate,
-    GlobalCupertinoLocalizations.delegate,
-    GlobalWidgetsLocalizations.delegate,
-  ];
+        delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+      ];
 
   /// A list of this localizations delegate's supported locales.
   static const List<Locale> supportedLocales = <Locale>[
     Locale('ar'),
     Locale('en'),
-    Locale('fr')
+    Locale('fr'),
   ];
 
   /// No description provided for @appTitle.
@@ -1563,7 +1563,11 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{program} · {hours} hrs/wk each · {each} per child · {total} household/mo'**
   String enrollmentSummarySameProgramHouseholdDetail(
-      String program, int hours, String each, String total);
+    String program,
+    int hours,
+    String each,
+    String total,
+  );
 
   /// No description provided for @enrollmentCustomTimePickEndTitle.
   ///
@@ -3088,7 +3092,10 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{current} / {total} — {formName}'**
   String adminSubmissionsExportFormSheetProgress(
-      int current, int total, String formName);
+    int current,
+    int total,
+    String formName,
+  );
 
   /// No description provided for @adminSubmissionsSelectToViewDetails.
   ///
@@ -14358,6 +14365,102 @@ abstract class AppLocalizations {
   /// **'Status updated to {status}'**
   String statusUpdatedToStatus(String status);
 
+  /// No description provided for @formReviewStatusNotReviewed.
+  ///
+  /// In en, this message translates to:
+  /// **'Not reviewed'**
+  String get formReviewStatusNotReviewed;
+
+  /// No description provided for @formReviewStatusSeen.
+  ///
+  /// In en, this message translates to:
+  /// **'Seen'**
+  String get formReviewStatusSeen;
+
+  /// No description provided for @formReviewStatusInReview.
+  ///
+  /// In en, this message translates to:
+  /// **'In review'**
+  String get formReviewStatusInReview;
+
+  /// No description provided for @formReviewStatusAccepted.
+  ///
+  /// In en, this message translates to:
+  /// **'Accepted'**
+  String get formReviewStatusAccepted;
+
+  /// No description provided for @formReviewStatusRejected.
+  ///
+  /// In en, this message translates to:
+  /// **'Rejected'**
+  String get formReviewStatusRejected;
+
+  /// No description provided for @formDecisionColumn.
+  ///
+  /// In en, this message translates to:
+  /// **'Decision / notify'**
+  String get formDecisionColumn;
+
+  /// No description provided for @formDecisionLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Decision'**
+  String get formDecisionLabel;
+
+  /// No description provided for @formNotifyTeacher.
+  ///
+  /// In en, this message translates to:
+  /// **'Notify teacher'**
+  String get formNotifyTeacher;
+
+  /// No description provided for @formNotifyTeacherAgain.
+  ///
+  /// In en, this message translates to:
+  /// **'Notify teacher again'**
+  String get formNotifyTeacherAgain;
+
+  /// No description provided for @formDecisionRequiresAcceptedRejected.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose Accepted or Rejected before notifying the teacher.'**
+  String get formDecisionRequiresAcceptedRejected;
+
+  /// No description provided for @formDecisionTeacherMissing.
+  ///
+  /// In en, this message translates to:
+  /// **'This submission is not linked to a teacher account.'**
+  String get formDecisionTeacherMissing;
+
+  /// No description provided for @formDecisionNotificationTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Form decision: {status}'**
+  String formDecisionNotificationTitle(String status);
+
+  /// No description provided for @formDecisionNotificationBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Your submission for \"{formTitle}\" was {status}. Open My Form Submissions to view the decision.'**
+  String formDecisionNotificationBody(String formTitle, String status);
+
+  /// No description provided for @formDecisionNotificationSent.
+  ///
+  /// In en, this message translates to:
+  /// **'Teacher notified. The decision is also visible in My Form Submissions.'**
+  String get formDecisionNotificationSent;
+
+  /// No description provided for @formDecisionVisibleNoPush.
+  ///
+  /// In en, this message translates to:
+  /// **'The decision is visible in My Form Submissions, but this teacher has no push-enabled device.'**
+  String get formDecisionVisibleNoPush;
+
+  /// No description provided for @formDecisionNotificationFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'The decision was saved, but the teacher notification could not be sent.'**
+  String get formDecisionNotificationFailed;
+
   /// No description provided for @stayOnTrackWithReminders.
   ///
   /// In en, this message translates to:
@@ -17447,7 +17550,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Maximum payment for {subject} is \${amount} (max \${hourly}/hour)'**
   String auditMaxPayment(
-      Object subject, Object amount, Object hourly, Object sujet, Object time);
+    Object subject,
+    Object amount,
+    Object hourly,
+    Object sujet,
+    Object time,
+  );
 
   /// No description provided for @auditDayLabel.
   ///
@@ -17741,8 +17849,13 @@ abstract class AppLocalizations {
   ///
   /// In en, this message translates to:
   /// **'Selected ({abbr}): {startDate}, {startTime} - {endDatePart}{endTime}'**
-  String shiftSelectedTimeRange(Object abbr, Object startDate, Object startTime,
-      Object endDatePart, Object endTime);
+  String shiftSelectedTimeRange(
+    Object abbr,
+    Object startDate,
+    Object startTime,
+    Object endDatePart,
+    Object endTime,
+  );
 
   /// No description provided for @shiftSelectedCount.
   ///
@@ -19543,7 +19656,7 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Evaluate student progress and skills at enrollment or semester end'**
   String
-      get formTemplateEvaluatestudentprogressandskillsatenrollmentorsemesterend;
+  get formTemplateEvaluatestudentprogressandskillsatenrollmentorsemesterend;
 
   /// No description provided for @formTemplateFeedbackforleaders.
   ///
@@ -22802,7 +22915,11 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{hours} hrs × \${rate}/hr × {weeks} weeks ≈ \${monthly}/mo'**
   String pricingMonthlyBreakdown(
-      Object hours, Object rate, Object weeks, Object monthly);
+    Object hours,
+    Object rate,
+    Object weeks,
+    Object monthly,
+  );
 
   /// No description provided for @pricingSelectTrack.
   ///
@@ -24495,7 +24612,9 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{studentName} has no other valid linked parent. Only continue if an admin has confirmed this student should manage their own account as an adult after removing {guardianName}.'**
   String unlinkGuardianAdultOverrideBody(
-      String studentName, String guardianName);
+    String studentName,
+    String guardianName,
+  );
 
   /// No description provided for @unlinkGuardianAdultOverrideAction.
   ///
@@ -25126,6 +25245,198 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Overview'**
   String get financeOverviewTab;
+
+  /// No description provided for @financeSubscriptionsTab.
+  ///
+  /// In en, this message translates to:
+  /// **'Subscriptions'**
+  String get financeSubscriptionsTab;
+
+  /// No description provided for @financeSubscriptionAdd.
+  ///
+  /// In en, this message translates to:
+  /// **'Add subscription'**
+  String get financeSubscriptionAdd;
+
+  /// No description provided for @financeSubscriptionEdit.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit subscription'**
+  String get financeSubscriptionEdit;
+
+  /// No description provided for @financeSubscriptionName.
+  ///
+  /// In en, this message translates to:
+  /// **'Subscription name'**
+  String get financeSubscriptionName;
+
+  /// No description provided for @financeSubscriptionNameRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a name'**
+  String get financeSubscriptionNameRequired;
+
+  /// No description provided for @financeSubscriptionVendor.
+  ///
+  /// In en, this message translates to:
+  /// **'Vendor / provider'**
+  String get financeSubscriptionVendor;
+
+  /// No description provided for @financeSubscriptionAmount.
+  ///
+  /// In en, this message translates to:
+  /// **'Amount (\$)'**
+  String get financeSubscriptionAmount;
+
+  /// No description provided for @financeSubscriptionAmountInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a valid amount'**
+  String get financeSubscriptionAmountInvalid;
+
+  /// No description provided for @financeSubscriptionFrequency.
+  ///
+  /// In en, this message translates to:
+  /// **'Billing frequency'**
+  String get financeSubscriptionFrequency;
+
+  /// No description provided for @financeSubscriptionCategory.
+  ///
+  /// In en, this message translates to:
+  /// **'Category'**
+  String get financeSubscriptionCategory;
+
+  /// No description provided for @financeSubscriptionStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Status'**
+  String get financeSubscriptionStatus;
+
+  /// No description provided for @financeSubscriptionNextDue.
+  ///
+  /// In en, this message translates to:
+  /// **'Next payment'**
+  String get financeSubscriptionNextDue;
+
+  /// No description provided for @financeSubscriptionNotSet.
+  ///
+  /// In en, this message translates to:
+  /// **'Not set'**
+  String get financeSubscriptionNotSet;
+
+  /// No description provided for @financeSubscriptionNotes.
+  ///
+  /// In en, this message translates to:
+  /// **'Notes'**
+  String get financeSubscriptionNotes;
+
+  /// No description provided for @financeSubscriptionUnnamed.
+  ///
+  /// In en, this message translates to:
+  /// **'Unnamed subscription'**
+  String get financeSubscriptionUnnamed;
+
+  /// No description provided for @financeSubscriptionEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No subscriptions yet. Add your recurring costs (Zoom, hosting, domains, software).'**
+  String get financeSubscriptionEmpty;
+
+  /// No description provided for @financeSubscriptionLoadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load subscriptions.'**
+  String get financeSubscriptionLoadError;
+
+  /// No description provided for @financeSubscriptionSaveError.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not save. Please try again.'**
+  String get financeSubscriptionSaveError;
+
+  /// No description provided for @financeSubscriptionMonthlyTotal.
+  ///
+  /// In en, this message translates to:
+  /// **'Active recurring cost'**
+  String get financeSubscriptionMonthlyTotal;
+
+  /// No description provided for @financeSubscriptionActiveCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} total'**
+  String financeSubscriptionActiveCount(int count);
+
+  /// No description provided for @financeSubscriptionDeleteTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete subscription?'**
+  String get financeSubscriptionDeleteTitle;
+
+  /// No description provided for @financeSubscriptionDeleteMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove \"{name}\" from the subscription list? This does not delete past expense records.'**
+  String financeSubscriptionDeleteMessage(String name);
+
+  /// No description provided for @financeSubscriptionFreqWeekly.
+  ///
+  /// In en, this message translates to:
+  /// **'Weekly'**
+  String get financeSubscriptionFreqWeekly;
+
+  /// No description provided for @financeSubscriptionFreqMonthly.
+  ///
+  /// In en, this message translates to:
+  /// **'Monthly'**
+  String get financeSubscriptionFreqMonthly;
+
+  /// No description provided for @financeSubscriptionFreqQuarterly.
+  ///
+  /// In en, this message translates to:
+  /// **'Quarterly'**
+  String get financeSubscriptionFreqQuarterly;
+
+  /// No description provided for @financeSubscriptionFreqYearly.
+  ///
+  /// In en, this message translates to:
+  /// **'Yearly'**
+  String get financeSubscriptionFreqYearly;
+
+  /// No description provided for @financeSubscriptionStatusActive.
+  ///
+  /// In en, this message translates to:
+  /// **'Active'**
+  String get financeSubscriptionStatusActive;
+
+  /// No description provided for @financeSubscriptionStatusPaused.
+  ///
+  /// In en, this message translates to:
+  /// **'Paused'**
+  String get financeSubscriptionStatusPaused;
+
+  /// No description provided for @financeSubscriptionStatusCancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancelled'**
+  String get financeSubscriptionStatusCancelled;
+
+  /// No description provided for @financeSubscriptionCategorySubscription.
+  ///
+  /// In en, this message translates to:
+  /// **'Subscription'**
+  String get financeSubscriptionCategorySubscription;
+
+  /// No description provided for @financeSubscriptionCategoryWebsite.
+  ///
+  /// In en, this message translates to:
+  /// **'Website / Hosting'**
+  String get financeSubscriptionCategoryWebsite;
+
+  /// No description provided for @financeSubscriptionCategorySoftware.
+  ///
+  /// In en, this message translates to:
+  /// **'Software'**
+  String get financeSubscriptionCategorySoftware;
 
   /// No description provided for @financeCutoffsTab.
   ///
@@ -28438,6 +28749,150 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Leadership: {name}'**
   String timeClockLeadershipSessionTitle(String name);
+
+  /// No description provided for @studentAttendanceOverviewNav.
+  ///
+  /// In en, this message translates to:
+  /// **'Student Attendance'**
+  String get studentAttendanceOverviewNav;
+
+  /// No description provided for @studentAttendanceAdminTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Student attendance & class time'**
+  String get studentAttendanceAdminTitle;
+
+  /// No description provided for @studentAttendanceAdminSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Actual time students spent in scheduled classes, based on recorded joins and leaves.'**
+  String get studentAttendanceAdminSubtitle;
+
+  /// No description provided for @studentAttendanceWeekly.
+  ///
+  /// In en, this message translates to:
+  /// **'Weekly'**
+  String get studentAttendanceWeekly;
+
+  /// No description provided for @studentAttendanceMonthly.
+  ///
+  /// In en, this message translates to:
+  /// **'Monthly'**
+  String get studentAttendanceMonthly;
+
+  /// No description provided for @studentAttendancePrevious.
+  ///
+  /// In en, this message translates to:
+  /// **'Previous period'**
+  String get studentAttendancePrevious;
+
+  /// No description provided for @studentAttendanceNext.
+  ///
+  /// In en, this message translates to:
+  /// **'Next period'**
+  String get studentAttendanceNext;
+
+  /// No description provided for @studentAttendanceRefresh.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh attendance'**
+  String get studentAttendanceRefresh;
+
+  /// No description provided for @studentAttendanceSearchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search students by name or email'**
+  String get studentAttendanceSearchHint;
+
+  /// No description provided for @studentAttendanceStudentsTracked.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} students tracked'**
+  String studentAttendanceStudentsTracked(int count);
+
+  /// No description provided for @studentAttendanceClassTime.
+  ///
+  /// In en, this message translates to:
+  /// **'Class time'**
+  String get studentAttendanceClassTime;
+
+  /// No description provided for @studentAttendanceTeacherOverlap.
+  ///
+  /// In en, this message translates to:
+  /// **'Time with teacher'**
+  String get studentAttendanceTeacherOverlap;
+
+  /// No description provided for @studentAttendanceScheduled.
+  ///
+  /// In en, this message translates to:
+  /// **'Scheduled'**
+  String get studentAttendanceScheduled;
+
+  /// No description provided for @studentAttendanceAttended.
+  ///
+  /// In en, this message translates to:
+  /// **'Attended'**
+  String get studentAttendanceAttended;
+
+  /// No description provided for @studentAttendanceMissed.
+  ///
+  /// In en, this message translates to:
+  /// **'Missed'**
+  String get studentAttendanceMissed;
+
+  /// No description provided for @studentAttendanceLate.
+  ///
+  /// In en, this message translates to:
+  /// **'Late'**
+  String get studentAttendanceLate;
+
+  /// No description provided for @studentAttendanceRate.
+  ///
+  /// In en, this message translates to:
+  /// **'Attendance'**
+  String get studentAttendanceRate;
+
+  /// No description provided for @studentAttendanceHoursValue.
+  ///
+  /// In en, this message translates to:
+  /// **'{hours} h'**
+  String studentAttendanceHoursValue(String hours);
+
+  /// No description provided for @studentAttendancePeriodLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'{start} – {end}'**
+  String studentAttendancePeriodLabel(String start, String end);
+
+  /// No description provided for @studentAttendanceNoDataTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No attendance data for this period'**
+  String get studentAttendanceNoDataTitle;
+
+  /// No description provided for @studentAttendanceNoDataBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Attendance appears after scheduled classes and participant joins are recorded.'**
+  String get studentAttendanceNoDataBody;
+
+  /// No description provided for @studentAttendanceLoadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load student attendance. Try again.'**
+  String get studentAttendanceLoadError;
+
+  /// No description provided for @studentAttendanceStudentClassTime.
+  ///
+  /// In en, this message translates to:
+  /// **'Your class time'**
+  String get studentAttendanceStudentClassTime;
+
+  /// No description provided for @studentAttendanceFamilyClassTime.
+  ///
+  /// In en, this message translates to:
+  /// **'Family class time'**
+  String get studentAttendanceFamilyClassTime;
 }
 
 class _AppLocalizationsDelegate
@@ -28469,8 +28924,9 @@ AppLocalizations lookupAppLocalizations(Locale locale) {
   }
 
   throw FlutterError(
-      'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
-      'an issue with the localizations generation tool. Please file an issue '
-      'on GitHub with a reproducible sample app and the gen-l10n configuration '
-      'that was used.');
+    'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
+    'an issue with the localizations generation tool. Please file an issue '
+    'on GitHub with a reproducible sample app and the gen-l10n configuration '
+    'that was used.',
+  );
 }

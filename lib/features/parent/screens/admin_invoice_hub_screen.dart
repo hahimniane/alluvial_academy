@@ -5,6 +5,7 @@ import 'package:alluwalacademyadmin/features/parent/screens/admin_cutoff_managem
 import 'package:alluwalacademyadmin/features/parent/screens/admin_create_invoice_screen.dart';
 import 'package:alluwalacademyadmin/features/parent/screens/admin_finance_overview_screen.dart';
 import 'package:alluwalacademyadmin/features/parent/screens/admin_invoices_screen.dart';
+import 'package:alluwalacademyadmin/features/parent/screens/admin_subscriptions_screen.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 /// Unified finance hub: overview + invoice creation + all invoices.
@@ -26,9 +27,9 @@ class _AdminInvoiceHubScreenState extends State<AdminInvoiceHubScreen>
   void initState() {
     super.initState();
     _tabController = TabController(
-      length: 4,
+      length: 5,
       vsync: this,
-      initialIndex: widget.initialTab.clamp(0, 3),
+      initialIndex: widget.initialTab.clamp(0, 4),
     );
   }
 
@@ -79,6 +80,10 @@ class _AdminInvoiceHubScreenState extends State<AdminInvoiceHubScreen>
                 icon: const Icon(Icons.folder_special_outlined, size: 20),
                 text: l10n.sidebarAllInvoices,
               ),
+              Tab(
+                icon: const Icon(Icons.autorenew_rounded, size: 20),
+                text: l10n.financeSubscriptionsTab,
+              ),
             ],
           ),
         ),
@@ -93,6 +98,7 @@ class _AdminInvoiceHubScreenState extends State<AdminInvoiceHubScreen>
               const AdminCutoffManagementScreen(),
               const AdminCreateInvoiceScreen(),
               const AdminInvoicesScreen(),
+              const AdminSubscriptionsScreen(),
             ],
           ),
         ),

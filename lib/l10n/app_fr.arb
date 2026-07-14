@@ -2585,6 +2585,22 @@
   "statusStatus": "État d ' avancement",
   "statusUpdatedToNewstatus": "État mis à jour vers {newStatus}",
   "statusUpdatedToStatus": "État mis à jour vers {status}",
+  "formReviewStatusNotReviewed": "Non examiné",
+  "formReviewStatusSeen": "Vu",
+  "formReviewStatusInReview": "En cours d'examen",
+  "formReviewStatusAccepted": "Accepté",
+  "formReviewStatusRejected": "Rejeté",
+  "formDecisionColumn": "Décision / notification",
+  "formDecisionLabel": "Décision",
+  "formNotifyTeacher": "Notifier l'enseignant",
+  "formNotifyTeacherAgain": "Notifier à nouveau l'enseignant",
+  "formDecisionRequiresAcceptedRejected": "Choisissez Accepté ou Rejeté avant de notifier l'enseignant.",
+  "formDecisionTeacherMissing": "Cette soumission n'est pas liée à un compte enseignant.",
+  "formDecisionNotificationTitle": "Décision du formulaire : {status}",
+  "formDecisionNotificationBody": "Votre soumission pour « {formTitle} » a été marquée {status}. Ouvrez Mes soumissions de formulaires pour voir la décision.",
+  "formDecisionNotificationSent": "L'enseignant a été notifié. La décision est également visible dans Mes soumissions de formulaires.",
+  "formDecisionVisibleNoPush": "La décision est visible dans Mes soumissions de formulaires, mais cet enseignant n'a aucun appareil configuré pour les notifications.",
+  "formDecisionNotificationFailed": "La décision a été enregistrée, mais la notification n'a pas pu être envoyée à l'enseignant.",
   "stayOnTrackWithReminders": "Restez sur la bonne voie avec les rappels",
   "stepnumberOfTotalsteps": "Nombre d'étapes",
   "stillNoInternetConnectionPleaseTry": "Toujours aucune connexion Internet Veuillez essayer",
@@ -5768,6 +5784,52 @@
   "shiftLoadingFullHistoryCount": "Chargement de tout l'historique : {loaded} cours chargés",
   "shiftLoadingFullHistoryPercent": "Chargement de tout l'historique : {percent}% ({loaded}/{total})",
   "financeOverviewTab": "Aperçu",
+  "financeSubscriptionsTab": "Abonnements",
+  "financeSubscriptionAdd": "Ajouter un abonnement",
+  "financeSubscriptionEdit": "Modifier l'abonnement",
+  "financeSubscriptionName": "Nom de l'abonnement",
+  "financeSubscriptionNameRequired": "Saisissez un nom",
+  "financeSubscriptionVendor": "Fournisseur",
+  "financeSubscriptionAmount": "Montant ($)",
+  "financeSubscriptionAmountInvalid": "Saisissez un montant valide",
+  "financeSubscriptionFrequency": "Fréquence de facturation",
+  "financeSubscriptionCategory": "Catégorie",
+  "financeSubscriptionStatus": "Statut",
+  "financeSubscriptionNextDue": "Prochain paiement",
+  "financeSubscriptionNotSet": "Non défini",
+  "financeSubscriptionNotes": "Notes",
+  "financeSubscriptionUnnamed": "Abonnement sans nom",
+  "financeSubscriptionEmpty": "Aucun abonnement. Ajoutez vos coûts récurrents (Zoom, hébergement, domaines, logiciels).",
+  "financeSubscriptionLoadError": "Impossible de charger les abonnements.",
+  "financeSubscriptionSaveError": "Échec de l'enregistrement. Réessayez.",
+  "financeSubscriptionMonthlyTotal": "Coût récurrent actif",
+  "financeSubscriptionActiveCount": "{count} au total",
+  "@financeSubscriptionActiveCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "financeSubscriptionDeleteTitle": "Supprimer l'abonnement ?",
+  "financeSubscriptionDeleteMessage": "Retirer « {name} » de la liste des abonnements ? Cela ne supprime pas les dépenses passées.",
+  "@financeSubscriptionDeleteMessage": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "financeSubscriptionFreqWeekly": "Hebdomadaire",
+  "financeSubscriptionFreqMonthly": "Mensuel",
+  "financeSubscriptionFreqQuarterly": "Trimestriel",
+  "financeSubscriptionFreqYearly": "Annuel",
+  "financeSubscriptionStatusActive": "Actif",
+  "financeSubscriptionStatusPaused": "Suspendu",
+  "financeSubscriptionStatusCancelled": "Annulé",
+  "financeSubscriptionCategorySubscription": "Abonnement",
+  "financeSubscriptionCategoryWebsite": "Site web / Hébergement",
+  "financeSubscriptionCategorySoftware": "Logiciel",
   "financeCutoffsTab": "Coupures",
   "financeOverviewTitle": "Centre de commande finance",
   "financeMonthLive": "Vue en direct pour {month}. Les revenus, factures, dépenses enregistrées et paie approuvée sont reflétés ici.",
@@ -5993,5 +6055,45 @@
     "placeholders": {
       "name": { "type": "String" }
     }
-  }
+  },
+  "studentAttendanceOverviewNav": "Présence des élèves",
+  "studentAttendanceAdminTitle": "Présence et temps de classe des élèves",
+  "studentAttendanceAdminSubtitle": "Temps réel passé par les élèves dans les cours planifiés, selon les entrées et sorties enregistrées.",
+  "studentAttendanceWeekly": "Hebdomadaire",
+  "studentAttendanceMonthly": "Mensuel",
+  "studentAttendancePrevious": "Période précédente",
+  "studentAttendanceNext": "Période suivante",
+  "studentAttendanceRefresh": "Actualiser la présence",
+  "studentAttendanceSearchHint": "Rechercher par nom ou courriel",
+  "studentAttendanceStudentsTracked": "{count} élèves suivis",
+  "@studentAttendanceStudentsTracked": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "studentAttendanceClassTime": "Temps de classe",
+  "studentAttendanceTeacherOverlap": "Temps avec l'enseignant",
+  "studentAttendanceScheduled": "Planifiés",
+  "studentAttendanceAttended": "Suivis",
+  "studentAttendanceMissed": "Manqués",
+  "studentAttendanceLate": "Retards",
+  "studentAttendanceRate": "Présence",
+  "studentAttendanceHoursValue": "{hours} h",
+  "@studentAttendanceHoursValue": {
+    "placeholders": {
+      "hours": { "type": "String" }
+    }
+  },
+  "studentAttendancePeriodLabel": "{start} – {end}",
+  "@studentAttendancePeriodLabel": {
+    "placeholders": {
+      "start": { "type": "String" },
+      "end": { "type": "String" }
+    }
+  },
+  "studentAttendanceNoDataTitle": "Aucune donnée de présence pour cette période",
+  "studentAttendanceNoDataBody": "Les données apparaissent après l'enregistrement des cours planifiés et des connexions.",
+  "studentAttendanceLoadError": "Impossible de charger la présence des élèves. Réessayez.",
+  "studentAttendanceStudentClassTime": "Votre temps de classe",
+  "studentAttendanceFamilyClassTime": "Temps de classe familial"
 }
