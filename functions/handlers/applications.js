@@ -18,7 +18,7 @@ const sendLeadershipApplicationConfirmation = async (applicationData) => {
   const mailOptions = {
     from: 'Alluwal Education Hub <support@alluwaleducationhub.org>',
     to: email,
-    subject: '🎯 Leadership Application Received - Alluwal Academy',
+    subject: '🎯 Leadership Application Received - Alluwal Education Hub',
     html: `
       <!DOCTYPE html>
       <html>
@@ -43,7 +43,7 @@ const sendLeadershipApplicationConfirmation = async (applicationData) => {
         <div class="container">
           <div class="header">
             <h1>🎯 Leadership Application Received</h1>
-            <p>Thank you for your interest in leadership at Alluwal Academy</p>
+            <p>Thank you for your interest in leadership at Alluwal Education Hub</p>
           </div>
           
           <div class="content">
@@ -93,12 +93,12 @@ const sendLeadershipApplicationConfirmation = async (applicationData) => {
             <p>If you have any questions or need to update your application information, please don't hesitate to contact us at <a href="mailto:support@alluwaleducationhub.org">support@alluwaleducationhub.org</a>.</p>
             
             <p>Best regards,<br>
-            <strong>The Alluwal Academy Team</strong></p>
+            <strong>The Alluwal Education Hub Team</strong></p>
           </div>
           
           <div class="footer">
             <p>This is an automated confirmation. For questions, please contact our support team.</p>
-            <p>Alluwal Academy - Excellence in Islamic Education</p>
+            <p>Alluwal Education Hub - Excellence in Islamic Education</p>
           </div>
         </div>
       </body>
@@ -135,7 +135,7 @@ const sendTeacherApplicationConfirmation = async (applicationData) => {
   const mailOptions = {
     from: 'Alluwal Education Hub <support@alluwaleducationhub.org>',
     to: email,
-    subject: '👨‍🏫 Teacher Application Received - Alluwal Academy',
+    subject: '👨‍🏫 Teacher Application Received - Alluwal Education Hub',
     html: `
       <!DOCTYPE html>
       <html>
@@ -160,7 +160,7 @@ const sendTeacherApplicationConfirmation = async (applicationData) => {
         <div class="container">
           <div class="header">
             <h1>👨‍🏫 Teacher Application Received</h1>
-            <p>Thank you for your interest in teaching at Alluwal Academy</p>
+            <p>Thank you for your interest in teaching at Alluwal Education Hub</p>
           </div>
           
           <div class="content">
@@ -216,12 +216,12 @@ const sendTeacherApplicationConfirmation = async (applicationData) => {
             <p>If you have any questions or need to update your application information, please don't hesitate to contact us at <a href="mailto:support@alluwaleducationhub.org">support@alluwaleducationhub.org</a>.</p>
             
             <p>Best regards,<br>
-            <strong>The Alluwal Academy Team</strong></p>
+            <strong>The Alluwal Education Hub Team</strong></p>
           </div>
           
           <div class="footer">
             <p>This is an automated confirmation. For questions, please contact our support team.</p>
-            <p>Alluwal Academy - Excellence in Islamic Education</p>
+            <p>Alluwal Education Hub - Excellence in Islamic Education</p>
           </div>
         </div>
       </body>
@@ -326,7 +326,7 @@ const sendAdminLeadershipNotification = async (applicationData, applicationId) =
           </div>
           
           <div class="footer">
-            <p>This is an automated notification from Alluwal Academy</p>
+            <p>This is an automated notification from Alluwal Education Hub</p>
           </div>
         </div>
       </body>
@@ -425,7 +425,7 @@ const sendAdminTeacherNotification = async (applicationData, applicationId) => {
           </div>
           
           <div class="footer">
-            <p>This is an automated notification from Alluwal Academy</p>
+            <p>This is an automated notification from Alluwal Education Hub</p>
           </div>
         </div>
       </body>

@@ -1,6 +1,7 @@
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const {createTransporter} = require('../services/email/transporter');
+const {sleep} = require('../services/email/bulk_send');
 
 const logTokenDetails = (tokens) => {
   tokens.forEach((tokenData, idx) => {
@@ -252,10 +253,10 @@ const sendAdminNotification = async (data) => {
                         <p style="margin: 0; white-space: pre-wrap;">${notificationBody}</p>
                       </div>
                       
-                      <p>This notification was sent by the Alluwal Academy administration. If you have any questions, please contact us.</p>
+                      <p>This notification was sent by the Alluwal Education Hub administration. If you have any questions, please contact us.</p>
                       
                       <p>Best regards,<br>
-                      Alluwal Academy Team</p>
+                      Alluwal Education Hub Team</p>
                     </div>
                     
                     <div class="footer">
@@ -277,6 +278,8 @@ const sendAdminNotification = async (data) => {
             recipientResult.errors.push(`Email error: ${emailError.message}`);
             results.emailsFailed += 1;
           }
+          // Pace sequential sends so a large broadcast doesn't burst-open many SMTP connections at once.
+          await sleep(300);
         }
       } catch (error) {
         console.error(`Error processing recipient ${userId}:`, error);

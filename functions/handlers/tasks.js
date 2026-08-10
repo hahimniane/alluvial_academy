@@ -4,6 +4,7 @@ const {onDocumentCreated} = require('firebase-functions/v2/firestore');
 const {onSchedule} = require('firebase-functions/v2/scheduler');
 const {sendTaskAssignmentEmail} = require('../services/email/senders');
 const {createTransporter} = require('../services/email/transporter');
+const {sleep} = require('../services/email/bulk_send');
 
 const updateAssignedTaskStatus = async (request) => {
   const uid = request.auth?.uid;
@@ -137,6 +138,8 @@ const sendTaskAssignmentNotification = async (data) => {
           error: error.message,
         });
       }
+      // Pace sequential sends so we don't burst-open many SMTP connections at once.
+      if (assignedUserIds.length > 1) await sleep(300);
     }
 
     return {
@@ -352,7 +355,7 @@ const getTaskCommentEmailTemplate = (data) => {
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>New Task Comment - Alluwal Academy</title>
+        <title>New Task Comment - Alluwal Education Hub</title>
         <style>
             body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 0; background-color: #f8fafc; }
             .container { max-width: 600px; margin: 0 auto; background-color: white; }
@@ -405,7 +408,7 @@ const getTaskCommentEmailTemplate = (data) => {
 
                 <p style="margin-top: 30px; font-size: 15px; color: #374151;">
                     You're receiving this notification because you're either assigned to this task or created it. 
-                    Log into your Alluwal Academy dashboard to view the full conversation and respond.
+                    Log into your Alluwal Education Hub dashboard to view the full conversation and respond.
                 </p>
             </div>
             
@@ -898,6 +901,8 @@ const sendRecurringTaskReminders = onSchedule('every 24 hours', async () => {
                 } catch (error) {
                   console.error(`Error sending reminder to user ${userId}:`, error);
                 }
+                // Pace sequential sends across this cron run to avoid SMTP bursts.
+                await sleep(300);
               }
 
               // Mark reminder as sent

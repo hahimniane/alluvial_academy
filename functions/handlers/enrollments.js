@@ -69,7 +69,7 @@ const sendEnrollmentConfirmationEmail = async (enrollmentData) => {
   const mailOptions = {
     from: 'Alluwal Education Hub <support@alluwaleducationhub.org>',
     to: email,
-    subject: '🎓 Enrollment Request Received - Alluwal Academy',
+    subject: '🎓 Enrollment Request Received - Alluwal Education Hub',
     html: `
       <!DOCTYPE html>
       <html>
@@ -94,13 +94,13 @@ const sendEnrollmentConfirmationEmail = async (enrollmentData) => {
         <div class="container">
           <div class="header">
             <h1>🎓 Enrollment Request Received</h1>
-            <p>Thank you for choosing Alluwal Academy</p>
+            <p>Thank you for choosing Alluwal Education Hub</p>
           </div>
           
           <div class="content">
             <h2>Dear ${recipientName},</h2>
             ${isAdultStudent
-              ? `<p>We're excited to inform you that we've received your enrollment request for <strong>${programName}</strong> at Alluwal Academy!</p>`
+              ? `<p>We're excited to inform you that we've received your enrollment request for <strong>${programName}</strong> at Alluwal Education Hub!</p>`
               : `<p>We're excited to inform you that we've received your enrollment request for <strong>${studentName}</strong> in <strong>${programName}</strong>!</p>`
             }
 
@@ -183,12 +183,12 @@ const sendEnrollmentConfirmationEmail = async (enrollmentData) => {
             <p>If you have any questions or need to update your enrollment information, please don't hesitate to contact us at <a href="mailto:support@alluwaleducationhub.org">support@alluwaleducationhub.org</a>.</p>
             
             <p>Best regards,<br>
-            <strong>The Alluwal Academy Team</strong></p>
+            <strong>The Alluwal Education Hub Team</strong></p>
           </div>
           
           <div class="footer">
             <p>This is an automated confirmation. For questions, please contact our support team.</p>
-            <p>Alluwal Academy - Excellence in Islamic Education</p>
+            <p>Alluwal Education Hub - Excellence in Islamic Education</p>
           </div>
         </div>
       </body>
@@ -299,7 +299,7 @@ const sendMultiStudentEnrollmentEmail = async (allEnrollments) => {
   const mailOptions = {
     from: 'Alluwal Education Hub <support@alluwaleducationhub.org>',
     to: email,
-    subject: `🎓 Enrollment Request Received - ${studentCount} Student${studentCount > 1 ? 's' : ''} - Alluwal Academy`,
+    subject: `🎓 Enrollment Request Received - ${studentCount} Student${studentCount > 1 ? 's' : ''} - Alluwal Education Hub`,
     html: `
       <!DOCTYPE html>
       <html>
@@ -327,7 +327,7 @@ const sendMultiStudentEnrollmentEmail = async (allEnrollments) => {
         <div class="container">
           <div class="header">
             <h1>🎓 Enrollment Request Received</h1>
-            <p>Thank you for choosing Alluwal Academy</p>
+            <p>Thank you for choosing Alluwal Education Hub</p>
           </div>
           
           <div class="content">
@@ -389,12 +389,12 @@ const sendMultiStudentEnrollmentEmail = async (allEnrollments) => {
             <p>If you have any questions or need to update your enrollment information, please don't hesitate to contact us at <a href="mailto:support@alluwaleducationhub.org">support@alluwaleducationhub.org</a>.</p>
             
             <p>Best regards,<br>
-            <strong>The Alluwal Academy Team</strong></p>
+            <strong>The Alluwal Education Hub Team</strong></p>
           </div>
           
           <div class="footer">
             <p>This is an automated confirmation. For questions, please contact our support team.</p>
-            <p>Alluwal Academy - Excellence in Islamic Education</p>
+            <p>Alluwal Education Hub - Excellence in Islamic Education</p>
           </div>
         </div>
       </body>
@@ -611,7 +611,7 @@ const sendAdminEnrollmentNotification = async (enrollmentData, enrollmentId) => 
           </div>
           
           <div class="footer">
-            <p>This is an automated notification from Alluwal Academy</p>
+            <p>This is an automated notification from Alluwal Education Hub</p>
           </div>
         </div>
       </body>
@@ -1100,12 +1100,12 @@ const inviteParentForEnrollment = async (request) => {
     try {
       const link = await admin.auth().generatePasswordResetLink(email);
       const transporter = await createTransporter();
-      const from = `"Alluwal Academy" <no-reply@alluwaleducationhub.org>`;
-      const subject = `Set up your Alluwal Academy parent account`;
+      const from = `"Alluwal Education Hub" <no-reply@alluwaleducationhub.org>`;
+      const subject = `Set up your Alluwal Education Hub parent account`;
       const html = `
         <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #0f172a;">
           <p>As-salamu alaykum ${escapeHtml(firstName || '')},</p>
-          <p>An administrator has linked you as the parent of a newly enrolled student at Alluwal Academy.</p>
+          <p>An administrator has linked you as the parent of a newly enrolled student at Alluwal Education Hub.</p>
           <p>Please click the link below to set your password and access your parent dashboard:</p>
           <p><a href="${link}" style="background:#3b82f6;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none;display:inline-block;">Set your password</a></p>
           <p>If the button does not work, copy this URL into your browser:<br/>
