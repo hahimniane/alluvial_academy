@@ -6,9 +6,9 @@ const MARGIN = 40;
 
 const COMPANY_INFO = {
   name: 'Alluwal Education Hub',
-  fullAddress: 'Lacey, Lacey, Washington State, United States of America',
+  fullAddress: '11 McKeever Pl, Brooklyn, NY 11225, United States',
   phone: '+1646-338-1286',
-  email: 'alluwhalacademy@gmail.com',
+  email: 'billing@alluwaleducationhub.org',
 };
 
 const ADMIN_INFO = {

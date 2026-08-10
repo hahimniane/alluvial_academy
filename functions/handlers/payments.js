@@ -5,21 +5,35 @@ const { onDocumentCreated } = require('firebase-functions/v2/firestore');
 
 const { createPayoneerClient } = require('../services/payoneer/client');
 const stripeCheckout = require('../services/stripe/checkout');
+const payLinks = require('../services/payment_links');
 const { generateInvoiceFromShifts } = require('../utils/invoice_generator');
 const { generateInvoicePdfBuffer } = require('../utils/invoice_pdf');
 const {
   sendInvoiceCreatedEmail,
   sendPaymentConfirmationEmail
 } = require('../services/email/senders');
+const {
+  applyDecisionAuditWrites,
+  buildDecisionAuditWrites,
+  resolveDecisionActor
+} = require('../services/decision_audit');
 
 const _isAdminRole = (data) => {
   if (!data) return false;
+  const role = (data.role || '').toString().trim().toLowerCase();
+  const userType = (data.user_type || data.userType || '')
+    .toString()
+    .trim()
+    .toLowerCase();
   return (
-    data.role === 'admin' ||
-    data.user_type === 'admin' ||
-    data.userType === 'admin' ||
+    role === 'admin' ||
+    role === 'super_admin' ||
+    userType === 'admin' ||
+    userType === 'super_admin' ||
     data.is_admin === true ||
     data.isAdmin === true ||
+    data.is_super_admin === true ||
+    data.isSuperAdmin === true ||
     data.is_admin_teacher === true
   );
 };
@@ -342,15 +356,73 @@ const _notifyPaymentCompleted = async (db, paymentId, paymentInfo) => {
     return { success: false, reason: 'recipient_has_no_email', payerId };
   }
 
-  await sendPaymentConfirmationEmail({
-    email,
-    displayName: _displayNameForUser(userData),
-    invoiceNumber: paymentInfo.invoiceNumber,
-    amountPaid: _formatMoney(paymentInfo.amount, paymentInfo.currency),
-    paymentDate: _formatDueDate(new Date()),
-    paymentMethod: _paymentMethodLabel(paymentInfo.paymentMethod),
-    appUrl: _appUrl()
-  });
+  // Attach the invoice as it now stands — the PDF renders "Paid" and
+  // "Remaining Balance", so post-payment it is effectively a paid-invoice
+  // receipt. Built separately and guarded: the receipt matters more than the
+  // attachment, so a PDF problem must never stop the email going out.
+  let receiptAttachments = [];
+  try {
+    const invoiceSnap = await db
+      .collection('invoices')
+      .doc(paymentInfo.invoiceId)
+      .get();
+    if (invoiceSnap.exists) {
+      const invoice = invoiceSnap.data() || {};
+      receiptAttachments = [
+        _invoicePdfAttachment({
+          invoiceNumber: paymentInfo.invoiceNumber,
+          invoice: {...invoice, id: invoiceSnap.id},
+          parentName: parentId ? await _displayNameById(db, parentId) : null,
+          studentName: studentId ? await _displayNameById(db, studentId) : null
+        })
+      ];
+    }
+  } catch (error) {
+    console.error(
+      `[payments] Could not build receipt PDF for ${paymentId}; sending receipt without it:`,
+      error
+    );
+  }
+
+  // A receipt that fails must not vanish. Previously a throw here escaped to the
+  // caller before any record was written, so a captured payment could leave no
+  // trace of the missing receipt except a log line — which is exactly how the
+  // Hostinger mailbox block went unnoticed.
+  let emailError = null;
+  try {
+    await sendPaymentConfirmationEmail({
+      email,
+      displayName: _displayNameForUser(userData),
+      invoiceNumber: paymentInfo.invoiceNumber,
+      amountPaid: _formatMoney(paymentInfo.amount, paymentInfo.currency),
+      paymentDate: _formatDueDate(new Date()),
+      paymentMethod: _paymentMethodLabel(paymentInfo.paymentMethod),
+      appUrl: _appUrl(),
+      attachments: receiptAttachments
+    });
+  } catch (error) {
+    emailError = error.message || String(error);
+    console.error(
+      `[payments] Payment ${paymentId} was captured but its receipt to ${email} failed:`,
+      error
+    );
+    try {
+      await db.collection('payments').doc(paymentId).set(
+        {
+          receipt_email_status: 'failed',
+          receipt_email_error: emailError,
+          receipt_email_to: email,
+          receipt_email_failed_at: admin.firestore.FieldValue.serverTimestamp()
+        },
+        {merge: true}
+      );
+    } catch (markError) {
+      console.error(
+        `[payments] Could not flag receipt failure on payment ${paymentId}:`,
+        markError
+      );
+    }
+  }
 
   try {
     await db.collection('notification_history').add({
@@ -371,15 +443,26 @@ const _notifyPaymentCompleted = async (db, paymentId, paymentInfo) => {
         totalRecipients: 1,
         fcmSuccess: 0,
         fcmFailed: 0,
-        emailsSent: 1,
-        emailsFailed: 0
-      }
+        emailsSent: emailError ? 0 : 1,
+        emailsFailed: emailError ? 1 : 0
+      },
+      ...(emailError ? {error: emailError} : {})
     });
   } catch (error) {
     console.error(
       `[payments] Failed to save payment confirmation history for ${paymentId}:`,
       error
     );
+  }
+
+  if (emailError) {
+    return {
+      success: false,
+      reason: 'receipt_email_failed',
+      error: emailError,
+      payerId,
+      emailSent: false
+    };
   }
 
   return { success: true, payerId, emailSent: true };
@@ -537,6 +620,25 @@ const _notifyInvoiceRecipient = async (db, invoiceId, invoice) => {
     invoice.access_cutoff_date || invoice.accessCutoffDate
   );
 
+  // Every invoice email carries a pay-now link. Invoices created before
+  // payment links existed get a token minted here on first send.
+  let payLinkUrl = '';
+  try {
+    const linkStatus = (invoice.pay_link_status || payLinks.PAY_LINK_ACTIVE)
+      .toString()
+      .trim()
+      .toLowerCase();
+    if (linkStatus !== payLinks.PAY_LINK_CANCELLED) {
+      const token = await payLinks.ensurePayLinkToken(db, invoiceId, invoice);
+      payLinkUrl = payLinks.buildPayLinkUrl(token);
+    }
+  } catch (error) {
+    console.error(
+      `[payments] Failed to resolve payment link for ${invoiceId}:`,
+      error
+    );
+  }
+
   const result = {
     success: true,
     payerId,
@@ -561,6 +663,7 @@ const _notifyInvoiceRecipient = async (db, invoiceId, invoice) => {
         dueDate,
         accessCutoffDate,
         appUrl: _appUrl(),
+        payLinkUrl,
         attachments: [attachment]
       });
       result.emailSent = true;
@@ -810,6 +913,7 @@ const createInvoice = async (request) => {
   }
 
   const db = admin.firestore();
+  const creator = await resolveDecisionActor(db, uid);
   const invoiceRef = db.collection('invoices').doc();
   const recurringPlanRef = shouldCreateRecurringPlan
     ? db.collection('recurring_billing_plans').doc()
@@ -858,12 +962,16 @@ const createInvoice = async (request) => {
       created_at: admin.firestore.FieldValue.serverTimestamp(),
       updated_at: admin.firestore.FieldValue.serverTimestamp(),
       created_by: uid,
+      created_by_name: creator.name,
+      created_by_email: creator.email,
+      created_by_kind: creator.kind,
       period: invoicePayload.period || null,
       period_start: invoicePayload.period_start || null,
       period_end: invoicePayload.period_end || null,
       billing_months: invoicePayload.billing_months || 1,
       notification_status: 'pending',
-      recurring_plan_id: recurringPlanRef ? recurringPlanRef.id : null
+      recurring_plan_id: recurringPlanRef ? recurringPlanRef.id : null,
+      ...payLinks.newPayLinkFields(uid)
     };
 
     tx.set(invoiceRef, invoiceData);
@@ -897,6 +1005,9 @@ const createInvoice = async (request) => {
         created_at: admin.firestore.FieldValue.serverTimestamp(),
         updated_at: admin.firestore.FieldValue.serverTimestamp(),
         created_by: uid,
+        created_by_name: creator.name,
+        created_by_email: creator.email,
+        created_by_kind: creator.kind,
         last_error: null
       });
     }
@@ -1030,7 +1141,14 @@ const applyPaymentStatusInTransaction = async (
   }
 
   if (normalized === 'completed') {
-    const newPaid = Number((currentPaid + amount).toFixed(2));
+    // Clamp to what is actually outstanding. Two checkout sessions can be open
+    // at once (two tabs, or a manual payment recorded while a session is live),
+    // and each is minted for the full balance — without this, both completing
+    // would credit the invoice twice.
+    const remaining = Number((total - currentPaid).toFixed(2));
+    const appliedAmount = Math.max(0, Math.min(amount, Math.max(0, remaining)));
+    const overpaidAmount = Number((amount - appliedAmount).toFixed(2));
+    const newPaid = Number((currentPaid + appliedAmount).toFixed(2));
     const invoiceStatus =
       newPaid >= total
         ? 'paid'
@@ -1038,11 +1156,27 @@ const applyPaymentStatusInTransaction = async (
           ? 'overdue'
           : 'pending';
 
+    if (overpaidAmount > 0) {
+      console.warn(
+        `[payments] Payment ${paymentRef.id} exceeds the balance on invoice ` +
+          `${invoiceId} by ${overpaidAmount}. Applied ${appliedAmount}; the ` +
+          'excess needs a refund in Stripe.'
+      );
+    }
+    const paymentActorUid = (
+      payment.recorded_by_uid ||
+      payment.created_by ||
+      payment.payer_id ||
+      ''
+    ).toString();
+
     tx.set(
       paymentRef,
       {
         status: 'completed',
         ...extraPaymentFields,
+        applied_amount: appliedAmount,
+        ...(overpaidAmount > 0 ? { overpaid_amount: overpaidAmount } : {}),
         completed_at: admin.firestore.FieldValue.serverTimestamp(),
         updated_at: admin.firestore.FieldValue.serverTimestamp()
       },
@@ -1054,6 +1188,17 @@ const applyPaymentStatusInTransaction = async (
       {
         paid_amount: newPaid,
         status: invoiceStatus,
+        last_payment_at: admin.firestore.FieldValue.serverTimestamp(),
+        last_payment_by_uid: paymentActorUid || null,
+        ...(overpaidAmount > 0
+          ? {
+              overpaid_amount:
+                admin.firestore.FieldValue.increment(overpaidAmount)
+            }
+          : {}),
+        // The balance changed, so any session minted for the old balance is
+        // stale. Clearing this forces the next link visit to mint a fresh one.
+        pay_link_pending: admin.firestore.FieldValue.delete(),
         updated_at: admin.firestore.FieldValue.serverTimestamp()
       },
       { merge: true }
@@ -1063,6 +1208,8 @@ const applyPaymentStatusInTransaction = async (
       updated: true,
       invoiceStatus,
       newPaid,
+      appliedAmount,
+      overpaidAmount,
       paymentCompleted: true,
       paymentId: paymentRef.id,
       paymentInfo: {
@@ -1079,7 +1226,10 @@ const applyPaymentStatusInTransaction = async (
           ''
         ).toString(),
         studentId: (invoice.student_id || invoice.studentId || '').toString(),
+        // What the card was charged — this is what the receipt must show, even
+        // if only part of it could be applied to the balance.
         amount,
+        appliedAmount,
         currency: (invoice.currency || 'USD').toString(),
         paymentMethod: (
           payment.payment_method ||
@@ -1195,6 +1345,7 @@ const recordManualPayment = async (request) => {
   const db = admin.firestore();
   const invoiceRef = db.collection('invoices').doc(invoiceId);
   const paymentRef = db.collection('payments').doc();
+  const recorder = await resolveDecisionActor(db, request.auth.uid);
 
   const result = await db.runTransaction(async (tx) => {
     const invoiceSnap = await tx.get(invoiceRef);
@@ -1253,7 +1404,12 @@ const recordManualPayment = async (request) => {
       completed_at: receivedTimestamp,
       created_at: admin.firestore.FieldValue.serverTimestamp(),
       updated_at: admin.firestore.FieldValue.serverTimestamp(),
-      created_by: request.auth.uid
+      created_by: request.auth.uid,
+      created_by_name: recorder.name,
+      created_by_email: recorder.email,
+      recorded_by_uid: request.auth.uid,
+      recorded_by_name: recorder.name,
+      recorded_by_email: recorder.email
     });
 
     tx.set(
@@ -1262,6 +1418,9 @@ const recordManualPayment = async (request) => {
         paid_amount: newPaid,
         status: invoiceStatus,
         last_payment_at: receivedTimestamp,
+        last_payment_by_uid: request.auth.uid,
+        last_payment_by_name: recorder.name,
+        last_payment_by_email: recorder.email,
         updated_at: admin.firestore.FieldValue.serverTimestamp()
       },
       { merge: true }
@@ -1291,6 +1450,145 @@ const recordManualPayment = async (request) => {
 
   const resultWithEmail = await _sendPaymentCompletedEmailIfNeeded(db, result);
   return { success: true, ...resultWithEmail };
+};
+
+const _invoiceDeletionBlockReason = ({invoice = {}, payments = []}) => {
+  const status = (invoice.status || '').toString().trim().toLowerCase();
+  const paidAmount = _toNumber(invoice.paid_amount ?? invoice.paidAmount);
+  const hasCompletedPayment = payments.some((payment) => {
+    const paymentStatus = (payment.status || '')
+      .toString()
+      .trim()
+      .toLowerCase();
+    return paymentStatus === 'completed' ||
+      _toNumber(payment.applied_amount ?? payment.appliedAmount) > 0;
+  });
+
+  if (status === 'paid' || paidAmount > 0 || hasCompletedPayment) {
+    return 'paid_invoice';
+  }
+
+  const hasPaymentInProgress = payments.some((payment) => {
+    const paymentStatus = (payment.status || '')
+      .toString()
+      .trim()
+      .toLowerCase();
+    return paymentStatus === 'pending' || paymentStatus === 'processing';
+  });
+  if (hasPaymentInProgress) return 'payment_in_progress';
+  if (payments.length > 0) return 'payment_history';
+  return null;
+};
+
+const _invoiceDeletionMessage = (reason) => {
+  if (reason === 'paid_invoice') {
+    return 'Paid or partially paid invoices cannot be deleted';
+  }
+  if (reason === 'payment_in_progress') {
+    return 'Invoice cannot be deleted while a payment is pending or processing';
+  }
+  return 'Invoice with payment history cannot be deleted';
+};
+
+const deleteInvoice = async (request) => {
+  if (!request.auth) {
+    throw new functions.https.HttpsError(
+      'unauthenticated',
+      'Authentication required'
+    );
+  }
+
+  const isAdmin = await _isAdminUid(request.auth.uid);
+  if (!isAdmin) {
+    throw new functions.https.HttpsError(
+      'permission-denied',
+      'Admin access required'
+    );
+  }
+
+  const data = request.data || {};
+  const invoiceId = (data.invoiceId || data.invoice_id || '').toString().trim();
+  if (!invoiceId) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'Missing invoiceId'
+    );
+  }
+
+  const db = admin.firestore();
+  const invoiceRef = db.collection('invoices').doc(invoiceId);
+  const paymentsQuery = db
+    .collection('payments')
+    .where('invoice_id', '==', invoiceId);
+  const auditRef = db.collection('invoice_deletion_audits').doc();
+  const deletionActor = await resolveDecisionActor(db, request.auth.uid);
+
+  const result = await db.runTransaction(async (tx) => {
+    const invoiceSnap = await tx.get(invoiceRef);
+    if (!invoiceSnap.exists) {
+      throw new functions.https.HttpsError('not-found', 'Invoice not found');
+    }
+
+    const paymentsSnap = await tx.get(paymentsQuery);
+    const payments = paymentsSnap.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+    const blockReason = _invoiceDeletionBlockReason({
+      invoice: invoiceSnap.data(),
+      payments
+    });
+    if (blockReason) {
+      throw new functions.https.HttpsError(
+        'failed-precondition',
+        _invoiceDeletionMessage(blockReason),
+        { reason: blockReason }
+      );
+    }
+
+    const invoice = invoiceSnap.data();
+    tx.set(auditRef, {
+      invoice_id: invoiceId,
+      invoice_number: (
+        invoice.invoice_number ||
+        invoice.invoiceNumber ||
+        invoiceId
+      ).toString(),
+      parent_id: (invoice.parent_id || invoice.parentId || '').toString(),
+      student_id: (invoice.student_id || invoice.studentId || '').toString(),
+      deleted_by: request.auth.uid,
+      deleted_at: admin.firestore.FieldValue.serverTimestamp(),
+      invoice_snapshot: invoice
+    });
+    const decisionWrites = buildDecisionAuditWrites({
+      db,
+      entityType: 'invoice',
+      entityId: invoiceId,
+      entityLabel: (
+        invoice.invoice_number ||
+        invoice.invoiceNumber ||
+        invoiceId
+      ).toString(),
+      action: 'invoice.deleted',
+      actor: deletionActor,
+      source: 'deleteInvoice',
+      metadata: {
+        deletion_audit_id: auditRef.id,
+        parent_id: (invoice.parent_id || invoice.parentId || '').toString(),
+        student_id: (invoice.student_id || invoice.studentId || '').toString()
+      },
+      eventId: `invoice_deleted_${auditRef.id}`
+    });
+    applyDecisionAuditWrites(tx, decisionWrites);
+    tx.delete(invoiceRef);
+
+    return {
+      invoiceId,
+      auditId: auditRef.id
+    };
+  });
+
+  return {success: true, ...result};
 };
 
 const getPaymentHistory = async (request) => {
@@ -1795,12 +2093,18 @@ const handleStripeWebhook = async (req, res) => {
       }
       const paymentRef = db.collection('payments').doc(paymentId);
       const intentId = paymentIntentIdFromSession(session);
+      // Payment-link payers are not signed in, so Stripe's record of who paid
+      // is the only identity we get.
+      const payerEmail = (session.customer_details?.email || '')
+        .toString()
+        .trim();
       const result = await db.runTransaction(async (tx) => {
         return applyPaymentStatusInTransaction(tx, db, paymentRef, {
           status: 'completed',
           extraPaymentFields: {
             stripe_checkout_session_id: session.id,
-            ...(intentId ? { stripe_payment_intent_id: intentId } : {})
+            ...(intentId ? { stripe_payment_intent_id: intentId } : {}),
+            ...(payerEmail ? { paid_by_email: payerEmail } : {})
           }
         });
       });
@@ -1980,7 +2284,14 @@ const _createRecurringInvoiceForPeriod = async ({
         notification_status: 'pending',
         created_at: admin.firestore.FieldValue.serverTimestamp(),
         updated_at: admin.firestore.FieldValue.serverTimestamp(),
-        created_by: plan.created_by || 'system'
+        created_by: 'system',
+        created_by_name: 'System automation',
+        created_by_email: '',
+        created_by_kind: 'system',
+        ...payLinks.newPayLinkFields('system'),
+        initiated_by_uid: plan.created_by || null,
+        initiated_by_name: plan.created_by_name || null,
+        initiated_by_email: plan.created_by_email || null
       });
 
       tx.set(
@@ -2097,6 +2408,7 @@ module.exports = {
   createPaymentSession,
   createPaymentIntent,
   recordManualPayment,
+  deleteInvoice,
   handlePayoneerWebhook,
   handleStripeWebhook,
   getPaymentHistory,
@@ -2105,5 +2417,7 @@ module.exports = {
   _notifyPaymentCompleted,
   _invoiceNotificationUpdate,
   _runRecurringInvoiceGeneration,
-  _canUserPayInvoice
+  _canUserPayInvoice,
+  _invoiceDeletionBlockReason,
+  applyPaymentStatusInTransaction
 };

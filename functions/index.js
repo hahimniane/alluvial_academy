@@ -23,6 +23,7 @@ const testLivekitHandlers = require('./handlers/test_livekit');
 const migrationLivekitHandlers = require('./handlers/migration_livekit');
 const passwordHandlers = require('./handlers/password');
 const paymentHandlers = require('./handlers/payments');
+const paymentLinkHandlers = require('./handlers/payment_links');
 const invoiceAccessHandlers = require('./handlers/invoice_access');
 const noShowHandlers = require('./handlers/no_show');
 const chatHandlers = require('./handlers/chat');
@@ -31,8 +32,12 @@ const aiTutorHandlers = require('./handlers/ai_tutor');
 const attendanceHandlers = require('./handlers/attendance');
 const circleHandlers = require('./handlers/circles');
 const githubReportingHandlers = require('./handlers/github_reporting');
+const quizGenerationHandlers = require('./handlers/quiz_generation');
+const quizCompetitionHandlers = require('./handlers/quiz_competition');
+const quizReviewHandlers = require('./handlers/quiz_review');
 const publicSitePublicReadHandlers = require('./handlers/public_site_public_read');
 const adminClaimHandlers = require('./handlers/admin_claims');
+const decisionAuditHandlers = require('./handlers/decision_audits');
 // Temporarily commented out to allow deployment
 // const { fixDecemberForms } = require('./fix_december_forms');
 const newImplementation = require('./new_implementation');
@@ -131,6 +136,31 @@ exports.fixTimesheetsPayAndStatus = shiftHandlers.fixTimesheetsPayAndStatus;
 // Parent billing (invoices & payments)
 exports.createInvoice = onCall(paymentHandlers.createInvoice);
 exports.onInvoiceCreated = paymentHandlers.onInvoiceCreated;
+exports.onUserDecisionWritten = decisionAuditHandlers.onUserDecisionWritten;
+exports.onShiftDecisionWritten = decisionAuditHandlers.onShiftDecisionWritten;
+exports.onInvoiceDecisionWritten =
+  decisionAuditHandlers.onInvoiceDecisionWritten;
+exports.onPaymentDecisionWritten =
+  decisionAuditHandlers.onPaymentDecisionWritten;
+exports.onTimesheetDecisionWritten =
+  decisionAuditHandlers.onTimesheetDecisionWritten;
+exports.onTeacherApplicationDecisionWritten =
+  decisionAuditHandlers.onTeacherApplicationDecisionWritten;
+exports.onTaskDecisionWritten = decisionAuditHandlers.onTaskDecisionWritten;
+exports.onFormResponseDecisionWritten =
+  decisionAuditHandlers.onFormResponseDecisionWritten;
+exports.onNoShowDecisionWritten =
+  decisionAuditHandlers.onNoShowDecisionWritten;
+exports.onClassAttendanceAlertDecisionWritten =
+  decisionAuditHandlers.onClassAttendanceAlertDecisionWritten;
+exports.onEnrollmentDecisionWritten =
+  decisionAuditHandlers.onEnrollmentDecisionWritten;
+exports.onTeacherAuditDecisionWritten =
+  decisionAuditHandlers.onTeacherAuditDecisionWritten;
+exports.onAdminAuditDecisionWritten =
+  decisionAuditHandlers.onAdminAuditDecisionWritten;
+exports.onSettingDecisionWritten =
+  decisionAuditHandlers.onSettingDecisionWritten;
 
 // Invoice access control (student suspension)
 exports.onInvoiceWrite = invoiceAccessHandlers.onInvoiceWrite;
@@ -142,12 +172,23 @@ exports.getParentInvoices = onCall(paymentHandlers.getParentInvoices);
 exports.createPaymentSession = onCall(paymentHandlers.createPaymentSession);
 exports.createPaymentIntent = onCall(paymentHandlers.createPaymentIntent);
 exports.recordManualPayment = onCall(paymentHandlers.recordManualPayment);
+exports.deleteInvoice = onCall(paymentHandlers.deleteInvoice);
 exports.getPaymentHistory = onCall(paymentHandlers.getPaymentHistory);
 exports.handlePayoneerWebhook = functions.https.onRequest(
   paymentHandlers.handlePayoneerWebhook
 );
 exports.handleStripeWebhook = functions.https.onRequest(
   paymentHandlers.handleStripeWebhook
+);
+// Public, unauthenticated: /pay/:token — see firebase.json hosting rewrites.
+exports.handlePaymentLink = functions.https.onRequest(
+  paymentLinkHandlers.handlePaymentLink
+);
+exports.getInvoicePaymentLink = onCall(
+  paymentLinkHandlers.getInvoicePaymentLink
+);
+exports.cancelInvoicePaymentLink = onCall(
+  paymentLinkHandlers.cancelInvoicePaymentLink
 );
 exports.generateInvoicesForPeriod = paymentHandlers.generateInvoicesForPeriod;
 exports.onCircleActivated = circleHandlers.onCircleActivated;
@@ -174,6 +215,36 @@ exports.runCtoWeeklyReportNow = functions.https.onRequest(
 exports.generateWeeklyCtoReport =
   githubReportingHandlers.generateWeeklyCtoReport;
 
+// AI quiz question generation (admin-reviewed before students see them)
+exports.generateQuizQuestionsWeekly =
+  quizGenerationHandlers.generateQuizQuestionsWeekly;
+exports.generateQuizQuestionsNow =
+  quizGenerationHandlers.generateQuizQuestionsNow;
+exports.recordQuizCompetitionAnswer =
+  quizCompetitionHandlers.recordQuizCompetitionAnswer;
+exports.getQuizCompetitionLeaderboard =
+  quizCompetitionHandlers.getQuizCompetitionLeaderboard;
+exports.finalizeQuizCompetition =
+  quizCompetitionHandlers.finalizeQuizCompetition;
+exports.setQuizCompetitionWindow =
+  quizCompetitionHandlers.setQuizCompetitionWindow;
+exports.setQuizCompetitionDivision =
+  quizCompetitionHandlers.setQuizCompetitionDivision;
+exports.setOwnQuizCompetitionAge =
+  quizCompetitionHandlers.setOwnQuizCompetitionAge;
+exports.onQuizQuestionApproved =
+  quizCompetitionHandlers.onQuizQuestionApproved;
+exports.getQuizReviewQueue = quizReviewHandlers.getQuizReviewQueue;
+exports.reviewQuizQuestion = quizReviewHandlers.reviewQuizQuestion;
+exports.setQuizReviewers = quizReviewHandlers.setQuizReviewers;
+exports.sendQuizReviewBatchNow = quizReviewHandlers.sendQuizReviewBatchNow;
+exports.sendQuizStudentApprovalBatchNow =
+  quizReviewHandlers.sendQuizStudentApprovalBatchNow;
+exports.sendQuizReviewBatchesHourly =
+  quizReviewHandlers.sendQuizReviewBatchesHourly;
+exports.sendQuizStudentApprovalBatchesHourly =
+  quizReviewHandlers.sendQuizStudentApprovalBatchesHourly;
+
 // Timezone management functions
 exports.updateUserTimezone = timezoneHandlers.updateUserTimezone;
 exports.updateNotificationPreferences =
@@ -191,6 +262,8 @@ exports.generateMonthlyStudentAttendanceReports =
   attendanceHandlers.generateMonthlyStudentAttendanceReports;
 exports.getStudentAttendanceReport =
   attendanceHandlers.getStudentAttendanceReport;
+exports.getAdminStudentAttendanceOverview =
+  attendanceHandlers.getAdminStudentAttendanceOverview;
 exports.getPublicSiteMarketingBundle =
   publicSitePublicReadHandlers.getPublicSiteMarketingBundle;
 exports.getPublicSiteMarketingBundleHttp =

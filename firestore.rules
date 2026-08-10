@@ -907,21 +907,90 @@ service cloud.firestore {
 
     // Invoices - parents can read their own, admins can read/write all
     match /invoices/{invoiceId} {
+      function hasRecordedInvoicePayment() {
+        return resource.data.get('status', '') == 'paid' ||
+          (resource.data.get('paid_amount', 0) is number &&
+            resource.data.get('paid_amount', 0) > 0) ||
+          (resource.data.get('paidAmount', 0) is number &&
+            resource.data.get('paidAmount', 0) > 0);
+      }
+
+      // Payment-link fields are minted and revoked by Cloud Functions only.
+      // A client that could write pay_link_token could point a live link at
+      // an invoice of its choosing, or duplicate an existing token so that
+      // link resolution lands on the wrong invoice.
+      function paymentLinkFields() {
+        return [
+          'pay_link_token',
+          'pay_link_status',
+          'pay_link_created_at',
+          'pay_link_created_by',
+          'pay_link_cancelled_at',
+          'pay_link_cancelled_by',
+          'pay_link_reactivated_at',
+          'pay_link_reactivated_by',
+          'pay_link_pending',
+          'overpaid_amount'
+        ];
+      }
+
+      function preservesPaymentLinkFields() {
+        return !request.resource.data.diff(resource.data)
+          .changedKeys().hasAny(paymentLinkFields());
+      }
+
+      // Client-created invoices carry no link; createInvoice (and the
+      // getInvoicePaymentLink callable) mint the token server-side.
+      function omitsPaymentLinkFields() {
+        return !request.resource.data.keys().hasAny(paymentLinkFields());
+      }
+
+      function preservesInvoiceFinancialRecord() {
+        let changed =
+          request.resource.data.diff(resource.data).changedKeys();
+        return
+          preservesPaymentLinkFields() &&
+          !changed.hasAny(['paid_amount', 'paidAmount']) &&
+          (
+            !hasRecordedInvoicePayment() ||
+            !changed.hasAny([
+              'status',
+              'total_amount',
+              'totalAmount',
+              'currency',
+              'parent_id',
+              'parentId',
+              'student_id',
+              'studentId',
+              'payer_id',
+              'payerId',
+              'invoice_number',
+              'invoiceNumber'
+            ])
+          ) &&
+          (
+            resource.data.get('status', '') == 'paid' ||
+            request.resource.data.get('status', '') != 'paid'
+          );
+      }
+
       allow read: if isSignedIn() && 
                      (resource.data.parent_id == request.auth.uid ||
                       resource.data.student_id == request.auth.uid ||
                       resource.data.payer_id == request.auth.uid ||
                       isAdmin());
       
-      allow create: if isAdmin();
-      
-      allow update: if isAdmin() || 
+      allow create: if isAdmin() && omitsPaymentLinkFields();
+
+      allow update: if (isAdmin() && preservesInvoiceFinancialRecord()) ||
                        (isSignedIn() && 
                         resource.data.parent_id == request.auth.uid &&
                         // Parents can only update payment_method_id field
                         request.resource.data.diff(resource.data).changedKeys().hasOnly(['payment_method_id']));
       
-      allow delete: if isAdmin();
+      // Invoice deletion is callable-only so payment history and paid state
+      // are checked transactionally and an audit snapshot is retained.
+      allow delete: if false;
     }
 
     // Payments - parents can read their own, only Cloud Functions create/update
@@ -935,7 +1004,32 @@ service cloud.firestore {
       // Only Cloud Functions can create/update payments (client-side blocked)
       allow create, update: if false;
       
-      allow delete: if isAdmin();
+      // Financial payment records are immutable from clients.
+      allow delete: if false;
+    }
+
+    // Audit snapshots are written by the invoice deletion Cloud Function.
+    match /invoice_deletion_audits/{auditId} {
+      allow read: if isAdmin();
+      allow create, update, delete: if false;
+    }
+
+    // Immutable, server-authored history for critical decisions across users,
+    // shifts, invoices, and payments. The actor snapshot is retained even when
+    // the actor or target record is later deleted.
+    match /decision_audits/{auditId} {
+      allow read: if isAdmin();
+      allow create, update, delete: if false;
+
+      match /events/{eventId} {
+        allow read: if isAdmin();
+        allow create, update, delete: if false;
+      }
+    }
+
+    match /decision_audit_events/{eventId} {
+      allow read: if isAdmin();
+      allow create, update, delete: if false;
     }
 
     // Payment methods - parents manage their own subcollection
@@ -953,6 +1047,54 @@ service cloud.firestore {
     match /surah_podcasts/{podcastId} {
       allow read: if isSignedIn();
       allow create, update, delete: if isSignedIn() && isAdmin();
+    }
+
+    // Quiz question bank (AI-generated + reviewer-approved).
+    // Review writes are callable-only so reviewer identity and notification
+    // batches cannot be forged by a client.
+    match /quiz_questions/{questionId} {
+      allow read: if isSignedIn() &&
+        (resource.data.status == 'approved' || isAdmin());
+      allow create, update, delete: if false;
+    }
+
+    // Per-student quiz progress (seen questions, difficulty tier)
+    match /quiz_progress/{userId} {
+      allow read, write: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Monthly Bayannah competition totals are written only by Cloud Functions.
+    // Students receive privacy-trimmed leaderboard data through a callable.
+    match /quiz_competitions/{monthKey} {
+      allow read: if isSignedIn() && isAdmin();
+      allow write: if false;
+
+      match /students/{studentId} {
+        allow read: if isSignedIn() &&
+          (request.auth.uid == studentId || isAdmin());
+        allow write: if false;
+
+        match /answers/{answerId} {
+          allow read: if isSignedIn() &&
+            (request.auth.uid == studentId || isAdmin());
+          allow write: if false;
+        }
+      }
+
+      match /finalization_history/{revisionId} {
+        allow read: if isSignedIn() && isAdmin();
+        allow write: if false;
+      }
+
+      match /division_assignment_history/{revisionId} {
+        allow read: if isSignedIn() && isAdmin();
+        allow write: if false;
+      }
+
+      match /age_declaration_history/{revisionId} {
+        allow read: if isSignedIn() && isAdmin();
+        allow write: if false;
+      }
     }
 
     // Savings circles - authenticated reads, creator/admin writes

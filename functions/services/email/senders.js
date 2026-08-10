@@ -16,20 +16,22 @@ const sendInvoiceCreatedEmail = async ({
   dueDate = '',
   accessCutoffDate = '',
   appUrl = 'https://alluwaleducationhub.org',
+  payLinkUrl = '',
   attachments = [],
 }) => {
-  const transporter = createTransporter();
+  const transporter = createTransporter('billing');
   const safeName = _escapeHtml(displayName);
   const safeInvoiceNumber = _escapeHtml(invoiceNumber);
   const safeAmountDue = _escapeHtml(amountDue);
   const safeDueDate = _escapeHtml(dueDate);
   const safeAccessCutoffDate = _escapeHtml(accessCutoffDate);
   const safeAppUrl = _escapeHtml(appUrl);
+  const safePayLinkUrl = _escapeHtml(payLinkUrl);
 
   const mailOptions = {
-    from: 'Alluwal Education Hub <support@alluwaleducationhub.org>',
+    from: 'Alluwal Education Hub Billing <billing@alluwaleducationhub.org>',
     to: email,
-    subject: `New invoice from Alluwal Academy${invoiceNumber ? `: ${invoiceNumber}` : ''}`,
+    subject: `New invoice from Alluwal Education Hub${invoiceNumber ? `: ${invoiceNumber}` : ''}`,
     html: `
       <!DOCTYPE html>
       <html>
@@ -41,7 +43,7 @@ const sendInvoiceCreatedEmail = async ({
         <div style="max-width: 600px; margin: 0 auto; background: #ffffff;">
           <div style="background: #0386FF; color: white; padding: 28px 24px; text-align: center;">
             <h1 style="margin: 0; font-size: 26px;">New Invoice</h1>
-            <p style="margin: 8px 0 0;">Alluwal Academy</p>
+            <p style="margin: 8px 0 0;">Alluwal Education Hub</p>
           </div>
           <div style="padding: 28px 24px;">
             <p>Assalamu Alaikum ${safeName},</p>
@@ -57,12 +59,23 @@ const sendInvoiceCreatedEmail = async ({
               <p style="margin: 0; color: #9a3412;"><strong>Important:</strong> Please pay this invoice before ${safeAccessCutoffDate}. If it remains unpaid after that date, student platform access may be temporarily suspended until payment is completed.</p>
             </div>
             ` : ''}
+            ${safePayLinkUrl ? `
+            <table role="presentation" cellpadding="0" cellspacing="0" style="margin: 26px auto;">
+              <tr>
+                <td style="border-radius: 8px; background: #0386FF;">
+                  <a href="${safePayLinkUrl}" style="display: inline-block; padding: 15px 38px; font-size: 16px; font-weight: bold; color: #ffffff; text-decoration: none; border-radius: 8px;">Pay ${safeAmountDue || 'now'}</a>
+                </td>
+              </tr>
+            </table>
+            <p style="text-align: center; font-size: 13px; color: #64748b; margin: -10px 0 4px;">No account or sign-in needed — pay securely by card.</p>
+            ` : ''}
             <h2 style="font-size: 18px; margin: 24px 0 12px;">How to pay</h2>
+            ${safePayLinkUrl ? `<p><strong>From this email:</strong> tap <strong>Pay ${safeAmountDue || 'now'}</strong> above. It opens a secure Stripe checkout for the full balance — no sign-in required, and you can forward the link to whoever is paying. If the button doesn't work, use this address: <a href="${safePayLinkUrl}" style="color: #0386FF;">${safePayLinkUrl}</a></p>` : ''}
             <p><strong>Through the mobile app:</strong> Open the Alluwal app, sign in, go to <strong>Invoices</strong>, select ${safeInvoiceNumber}, then tap <strong>Pay Invoice</strong> or <strong>Continue to Secure Checkout</strong>. The app uses Stripe's secure Payment Sheet.</p>
             <p><strong>Through the website:</strong> Go to <a href="${safeAppUrl}" style="color: #0386FF;">${safeAppUrl}</a>, sign in, open your parent dashboard, choose <strong>Invoices</strong>, select ${safeInvoiceNumber}, then continue to secure checkout. On the website, the app opens Stripe Checkout in your browser.</p>
             <p>A PDF copy of the invoice is attached to this email for your records. You can also download the invoice PDF from the invoice detail screen in the app or website.</p>
             <p>If you have any questions, contact us at <a href="mailto:support@alluwaleducationhub.org" style="color: #0386FF;">support@alluwaleducationhub.org</a>.</p>
-            <p>Best regards,<br>Alluwal Academy Team</p>
+            <p>Best regards,<br>Alluwal Education Hub Team</p>
           </div>
           <div style="background: #f8fafc; padding: 18px 24px; text-align: center; color: #64748b; font-size: 13px;">
             <p style="margin: 0;">This is an automated billing notification.</p>
@@ -86,8 +99,9 @@ const sendPaymentConfirmationEmail = async ({
   paymentDate = '',
   paymentMethod = '',
   appUrl = 'https://alluwaleducationhub.org',
+  attachments = [],
 }) => {
-  const transporter = createTransporter();
+  const transporter = createTransporter('billing');
   const safeName = _escapeHtml(displayName);
   const safeInvoiceNumber = _escapeHtml(invoiceNumber);
   const safeAmountPaid = _escapeHtml(amountPaid);
@@ -96,7 +110,7 @@ const sendPaymentConfirmationEmail = async ({
   const safeAppUrl = _escapeHtml(appUrl);
 
   const mailOptions = {
-    from: 'Alluwal Education Hub <support@alluwaleducationhub.org>',
+    from: 'Alluwal Education Hub Billing <billing@alluwaleducationhub.org>',
     to: email,
     subject: `Payment received${invoiceNumber ? `: ${invoiceNumber}` : ''}`,
     html: `
@@ -110,7 +124,7 @@ const sendPaymentConfirmationEmail = async ({
         <div style="max-width: 600px; margin: 0 auto; background: #ffffff;">
           <div style="background: #059669; color: white; padding: 28px 24px; text-align: center;">
             <h1 style="margin: 0; font-size: 26px;">Payment Received</h1>
-            <p style="margin: 8px 0 0;">Alluwal Academy</p>
+            <p style="margin: 8px 0 0;">Alluwal Education Hub</p>
           </div>
           <div style="padding: 28px 24px;">
             <p>Assalamu Alaikum ${safeName},</p>
@@ -121,10 +135,10 @@ const sendPaymentConfirmationEmail = async ({
               ${safePaymentDate ? `<p style="margin: 0 0 8px;"><strong>Payment date:</strong> ${safePaymentDate}</p>` : ''}
               ${safePaymentMethod ? `<p style="margin: 0;"><strong>Payment method:</strong> ${safePaymentMethod}</p>` : ''}
             </div>
-            <p>We appreciate you being with us and trusting Alluwal Academy with your family&apos;s learning journey.</p>
+            <p>We appreciate you being with us and trusting Alluwal Education Hub with your family&apos;s learning journey.</p>
             <p>You can review this payment any time in your parent dashboard under <strong>Payments</strong> at <a href="${safeAppUrl}" style="color: #0386FF;">${safeAppUrl}</a>.</p>
             <p>If you have any questions, contact us at <a href="mailto:support@alluwaleducationhub.org" style="color: #0386FF;">support@alluwaleducationhub.org</a>.</p>
-            <p>Best regards,<br>Alluwal Academy Team</p>
+            <p>Best regards,<br>Alluwal Education Hub Team</p>
           </div>
           <div style="background: #f8fafc; padding: 18px 24px; text-align: center; color: #64748b; font-size: 13px;">
             <p style="margin: 0;">This is an automated payment confirmation.</p>
@@ -133,6 +147,7 @@ const sendPaymentConfirmationEmail = async ({
       </body>
       </html>
     `,
+    attachments,
   };
 
   await transporter.sendMail(mailOptions);
@@ -145,18 +160,18 @@ const sendPasswordResetEmail = async (email, resetLink, displayName = '') => {
   const mailOptions = {
     from: 'support@alluwaleducationhub.org',
     to: email,
-    subject: 'Reset Your Alluwal Academy Password',
+    subject: 'Reset Your Alluwal Education Hub Password',
     html: `
       <!DOCTYPE html>
       <html>
       <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Password Reset - Alluwal Academy</title>
+        <title>Password Reset - Alluwal Education Hub</title>
       </head>
       <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
         <div style="background: linear-gradient(135deg, #0386FF 0%, #0693e3 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-          <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 700;">Alluwal Academy</h1>
+          <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 700;">Alluwal Education Hub</h1>
           <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0; font-size: 16px;">Password Reset Request</p>
         </div>
         
@@ -164,7 +179,7 @@ const sendPasswordResetEmail = async (email, resetLink, displayName = '') => {
           <h2 style="color: #2D3748; margin: 0 0 20px 0; font-size: 24px;">Hello${displayName ? ` ${displayName}` : ''},</h2>
           
           <p style="margin: 0 0 20px 0; font-size: 16px; color: #4A5568;">
-            You requested to reset your password for your Alluwal Academy account. Click the secure link below to create a new password:
+            You requested to reset your password for your Alluwal Education Hub account. Click the secure link below to create a new password:
           </p>
           
           <div style="text-align: center; margin: 30px 0;">
@@ -194,7 +209,7 @@ const sendPasswordResetEmail = async (email, resetLink, displayName = '') => {
             </p>
             <p style="margin: 10px 0 0 0; font-size: 14px; color: #718096;">
               Best regards,<br>
-              <strong>The Alluwal Academy Team</strong>
+              <strong>The Alluwal Education Hub Team</strong>
             </p>
           </div>
         </div>
@@ -213,7 +228,7 @@ const sendWelcomeEmail = async (email, firstName, lastName, password, userType, 
   const mailOptions = {
     from: 'support@alluwaleducationhub.org',
     to: email,
-    subject: 'Welcome to Alluwal Academy - Your Account Details',
+    subject: 'Welcome to Alluwal Education Hub - Your Account Details',
     html: `
       <!DOCTYPE html>
       <html>
@@ -231,11 +246,11 @@ const sendWelcomeEmail = async (email, firstName, lastName, password, userType, 
       <body>
         <div class="container">
           <div class="header">
-            <h1>Welcome to Alluwal Academy</h1>
+            <h1>Welcome to Alluwal Education Hub</h1>
           </div>
           <div class="content">
             <h2>Hello ${firstName} ${lastName},</h2>
-            <p>Your account has been created successfully! You can now access the Alluwal Academy system with the credentials below.</p>
+            <p>Your account has been created successfully! You can now access the Alluwal Education Hub system with the credentials below.</p>
             
             <div class="credentials">
               <h3>Your Login Credentials:</h3>
@@ -261,7 +276,7 @@ const sendWelcomeEmail = async (email, firstName, lastName, password, userType, 
             
             <p>If you have any questions or need assistance, please contact the system administrator.</p>
             
-            <p>Best regards,<br>Alluwal Academy Team</p>
+            <p>Best regards,<br>Alluwal Education Hub Team</p>
           </div>
           <div class="footer">
             <p>This is an automated message. Please do not reply to this email.</p>
@@ -316,7 +331,7 @@ const sendStudentNotificationEmail = async (parentEmail, parentName, studentData
           
           <div class="content">
             <h2>Dear ${parentName},</h2>
-            <p>We're pleased to inform you that a student account has been successfully created for your child at Alluwal Academy.</p>
+            <p>We're pleased to inform you that a student account has been successfully created for your child at Alluwal Education Hub.</p>
             
             <div class="student-info-box">
               <h3>📋 Student Information</h3>
@@ -361,15 +376,15 @@ const sendStudentNotificationEmail = async (parentEmail, parentName, studentData
               </ul>
             </div>
             
-            <p>We look forward to working with you and ${studentData.firstName} throughout their educational journey at Alluwal Academy.</p>
+            <p>We look forward to working with you and ${studentData.firstName} throughout their educational journey at Alluwal Education Hub.</p>
             
             <p>Best regards,<br>
-            Alluwal Academy Administration Team</p>
+            Alluwal Education Hub Administration Team</p>
           </div>
           
           <div class="footer">
             <p>This is an automated notification. For questions, please contact the school office.</p>
-            <p>Alluwal Academy - Excellence in Islamic Education</p>
+            <p>Alluwal Education Hub - Excellence in Islamic Education</p>
           </div>
         </div>
       </body>
@@ -513,8 +528,8 @@ const sendTaskAssignmentEmail = async (
 const sendTestEmail = async ({to, subject, message}) => {
   const transporter = createTransporter();
   const recipient = to || 'hassimiou.niane@maine.edu';
-  const emailSubject = subject || 'Test Email from Alluwal Academy';
-  const emailMessage = message || 'This is a test email from Alluwal Academy system.';
+  const emailSubject = subject || 'Test Email from Alluwal Education Hub';
+  const emailMessage = message || 'This is a test email from Alluwal Education Hub system.';
 
   const mailOptions = {
     from: 'support@alluwaleducationhub.org',
@@ -534,13 +549,13 @@ const sendTestEmail = async ({to, subject, message}) => {
       <body>
         <div class="container">
           <div class="header">
-            <h1>🧪 Test Email from Alluwal Academy</h1>
+            <h1>🧪 Test Email from Alluwal Education Hub</h1>
           </div>
           <div class="content">
             <h2>Email Test Successful!</h2>
             <p>${emailMessage}</p>
             <hr>
-            <p><strong>From:</strong> Alluwal Academy Debug System</p>
+            <p><strong>From:</strong> Alluwal Education Hub Debug System</p>
             <p><strong>Method:</strong> Firebase Cloud Function → Hostinger SMTP</p>
             <p><strong>Server:</strong> smtp.hostinger.com:465 (SSL)</p>
             <p><strong>Timestamp:</strong> ${new Date().toISOString()}</p>
@@ -645,8 +660,8 @@ const sendDailyShiftGenerationReport = async ({
           </div>
           
           <div class="footer">
-            <p>This is an automated report from the Alluwal Academy scheduling system.</p>
-            <p>Alluwal Academy - Excellence in Islamic Education</p>
+            <p>This is an automated report from the Alluwal Education Hub scheduling system.</p>
+            <p>Alluwal Education Hub - Excellence in Islamic Education</p>
           </div>
         </div>
       </body>

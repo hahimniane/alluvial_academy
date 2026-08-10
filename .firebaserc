@@ -3,5 +3,17 @@
     "default": "alluwal-dev",
     "prod": "alluwal-academy",
     "dev": "alluwal-dev"
+  },
+  "targets": {
+    "alluwal-academy": {
+      "hosting": {
+        "app": [
+          "alluwal-academy"
+        ],
+        "pay": [
+          "alluwal-pay"
+        ]
+      }
+    }
   }
 }

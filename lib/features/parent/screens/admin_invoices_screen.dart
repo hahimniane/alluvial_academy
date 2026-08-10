@@ -1,13 +1,14 @@
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:printing/printing.dart';
 
+import 'package:alluwalacademyadmin/core/utils/app_search.dart';
 import 'package:alluwalacademyadmin/features/parent/models/invoice.dart';
 import 'package:alluwalacademyadmin/features/parent/utils/invoice_printing.dart';
 import 'package:alluwalacademyadmin/features/parent/screens/invoice_detail_screen.dart';
@@ -83,8 +84,8 @@ class _AdminInvoicesScreenState extends State<AdminInvoicesScreen> {
     });
   }
 
-  Future<String> _invoiceSearchText(Invoice invoice) async {
-    final parts = <String>[
+  Future<bool> _invoiceMatchesSearch(Invoice invoice, String query) async {
+    final generalValues = <String>[
       invoice.id,
       invoice.invoiceNumber,
       invoice.parentId,
@@ -99,41 +100,49 @@ class _AdminInvoicesScreenState extends State<AdminInvoicesScreen> {
       invoice.displayBillingPeriod ?? '',
     ];
 
-    final parent = await _resolveUserSearchData(invoice.parentId);
-    if (parent != null) {
-      parts.addAll(parent.searchTerms);
-      for (final childId in parent.childrenIds.take(30)) {
-        final child = await _resolveUserSearchData(childId);
-        if (child != null) parts.addAll(child.searchTerms);
-      }
-    }
+    final users = await Future.wait([
+      _resolveUserSearchData(invoice.parentId),
+      _resolveUserSearchData(invoice.studentId),
+    ]);
+    final parent = users[0];
+    final student = users[1];
+    if (parent != null) generalValues.addAll(parent.nonNameSearchTerms);
+    if (student != null) generalValues.addAll(student.nonNameSearchTerms);
 
-    final student = await _resolveUserSearchData(invoice.studentId);
-    if (student != null) parts.addAll(student.searchTerms);
-
-    return parts.join(' ').toLowerCase();
+    return AppSearch.matches(
+      query: query,
+      names: [
+        if (parent != null) parent.name,
+        if (student != null) student.name,
+      ],
+      emails: [
+        if (parent != null) parent.email,
+        if (student != null) student.email,
+      ],
+      phones: [
+        ...?parent?.phoneNumbers,
+        ...?student?.phoneNumbers,
+      ],
+      ids: [
+        invoice.id,
+        invoice.parentId,
+        invoice.studentId,
+        if (parent != null) parent.id,
+        if (student != null) student.id,
+      ],
+      additionalValues: generalValues,
+      nameMode: SearchNameMode.exact,
+    );
   }
 
   Future<List<Invoice>> _filterInvoicesForSearch(
     List<Invoice> invoices,
     String query,
   ) async {
-    final normalizedQuery = query.trim().toLowerCase();
-    if (normalizedQuery.isEmpty) return invoices;
+    if (query.trim().isEmpty) return invoices;
 
-    final terms = normalizedQuery
-        .split(RegExp(r'\s+'))
-        .where((term) => term.trim().isNotEmpty)
-        .toList();
-    final queryDigits = _digitsOnly(normalizedQuery);
     final matches = await Future.wait(invoices.map((invoice) async {
-      final text = await _invoiceSearchText(invoice);
-      final textDigits = _digitsOnly(text);
-      final textMatch = terms.every(text.contains);
-      final phoneMatch = queryDigits.length >= 3 &&
-          textDigits.isNotEmpty &&
-          textDigits.contains(queryDigits);
-      return textMatch || phoneMatch;
+      return _invoiceMatchesSearch(invoice, query);
     }));
 
     return [
@@ -141,9 +150,6 @@ class _AdminInvoicesScreenState extends State<AdminInvoicesScreen> {
         if (matches[i]) invoices[i],
     ];
   }
-
-  static String _digitsOnly(String value) =>
-      value.replaceAll(RegExp(r'[^0-9]'), '');
 
   Stream<List<Invoice>> _invoiceStream({bool expanded = false}) {
     Query query = _firestore.collection('invoices');
@@ -162,6 +168,16 @@ class _AdminInvoicesScreenState extends State<AdminInvoicesScreen> {
 
   Future<void> _deleteInvoice(Invoice invoice) async {
     final l10n = AppLocalizations.of(context)!;
+    if (invoice.status == InvoiceStatus.paid || invoice.paidAmount > 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(l10n.adminInvoiceDeleteBlockedPaid),
+          backgroundColor: const Color(0xFFDC2626),
+        ),
+      );
+      return;
+    }
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -199,13 +215,34 @@ class _AdminInvoicesScreenState extends State<AdminInvoicesScreen> {
 
     if (confirmed == true) {
       try {
-        await _firestore.collection('invoices').doc(invoice.id).delete();
+        final callable =
+            FirebaseFunctions.instance.httpsCallable('deleteInvoice');
+        await callable.call({'invoiceId': invoice.id});
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content:
-                  Text('${l10n.adminInvoiceDelete}: ${invoice.invoiceNumber}'),
+              content: Text(l10n.adminInvoiceDeleteSuccess),
               backgroundColor: const Color(0xFF16A34A),
+            ),
+          );
+        }
+      } on FirebaseFunctionsException catch (e) {
+        if (mounted) {
+          final details = e.details is Map
+              ? Map<String, dynamic>.from(e.details as Map)
+              : null;
+          final reason = details?['reason']?.toString();
+          final message = switch (reason) {
+            'paid_invoice' => l10n.adminInvoiceDeleteBlockedPaid,
+            'payment_in_progress' =>
+              l10n.adminInvoiceDeleteBlockedPaymentInProgress,
+            'payment_history' => l10n.adminInvoiceDeleteBlockedPaymentHistory,
+            _ => e.message ?? l10n.error,
+          };
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(message),
+              backgroundColor: const Color(0xFFDC2626),
             ),
           );
         }
@@ -240,6 +277,101 @@ class _AdminInvoicesScreenState extends State<AdminInvoicesScreen> {
         SnackBar(
           content: Text(l10n.adminInvoicePaymentSuccess),
           backgroundColor: const Color(0xFF16A34A),
+        ),
+      );
+    }
+  }
+
+  /// Fetches (minting if needed) the public payment link and offers to copy it.
+  Future<void> _sharePaymentLink(Invoice invoice) async {
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    String? url;
+    String? error;
+    try {
+      final callable =
+          FirebaseFunctions.instance.httpsCallable('getInvoicePaymentLink');
+      final result = await callable.call<Map<String, dynamic>>({
+        'invoiceId': invoice.id,
+      });
+      url = (result.data['url'] ?? '').toString();
+      if (url.isEmpty) error = 'No link was returned.';
+    } on FirebaseFunctionsException catch (e) {
+      AppLogger.error('getInvoicePaymentLink failed: ${e.code} ${e.message}');
+      error = e.message ?? e.code;
+    } catch (e) {
+      error = e.toString();
+    }
+
+    if (!mounted) return;
+    Navigator.of(context, rootNavigator: true).pop();
+
+    if (url == null || url.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not create the payment link: $error'),
+          backgroundColor: const Color(0xFFDC2626),
+        ),
+      );
+      return;
+    }
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => _PaymentLinkDialog(invoice: invoice, url: url!),
+    );
+  }
+
+  Future<void> _cancelPaymentLink(Invoice invoice) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Cancel payment link?'),
+        content: Text(
+          'Anyone who already has the link for ${invoice.invoiceNumber} will '
+          'see a "no longer active" page. The invoice itself is unchanged, and '
+          'you can generate a new link at any time.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Keep it'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFFDC2626),
+            ),
+            child: const Text('Cancel link'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    try {
+      final callable =
+          FirebaseFunctions.instance.httpsCallable('cancelInvoicePaymentLink');
+      await callable.call<Map<String, dynamic>>({'invoiceId': invoice.id});
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Payment link cancelled'),
+          backgroundColor: Color(0xFF16A34A),
+        ),
+      );
+    } on FirebaseFunctionsException catch (e) {
+      AppLogger.error('cancelInvoicePaymentLink failed: ${e.code} ${e.message}');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not cancel the link: ${e.message ?? e.code}'),
+          backgroundColor: const Color(0xFFDC2626),
         ),
       );
     }
@@ -587,10 +719,27 @@ class _AdminInvoicesScreenState extends State<AdminInvoicesScreen> {
     final notificationStatus =
         (invoice.notificationStatus ?? '').toLowerCase().trim();
 
-    return FutureBuilder<String>(
-      future: _resolveName(invoice.parentId),
-      builder: (context, parentSnap) {
-        final parentName = parentSnap.data ?? '...';
+    final creatorSnapshot = invoice.createdByKind == 'system'
+        ? l10n.decisionSystemAutomation
+        : invoice.createdByName.trim();
+    final creatorFuture = creatorSnapshot.isNotEmpty
+        ? Future.value(creatorSnapshot)
+        : invoice.createdByUid.trim().isNotEmpty
+            ? _resolveName(invoice.createdByUid.trim())
+            : Future.value('');
+
+    return FutureBuilder<List<String>>(
+      future: Future.wait([
+        _resolveName(invoice.parentId),
+        creatorFuture,
+      ]),
+      builder: (context, namesSnapshot) {
+        final names = namesSnapshot.data;
+        final parentName = names == null ? '...' : names[0];
+        final resolvedCreator = names == null ? '' : names[1].trim();
+        final creatorName = resolvedCreator == invoice.createdByUid.trim()
+            ? ''
+            : resolvedCreator;
         return Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
@@ -701,6 +850,12 @@ class _AdminInvoicesScreenState extends State<AdminInvoicesScreen> {
                               l10n.adminInvoiceBillingPeriodChip(billing),
                               color: const Color(0xFF0369A1),
                             ),
+                          if (creatorName.isNotEmpty)
+                            _infoTag(
+                              Icons.person_add_alt_1_outlined,
+                              '${l10n.createdBy}: $creatorName',
+                              color: const Color(0xFF475569),
+                            ),
                           if (notificationStatus == 'failed')
                             _infoTag(
                               Icons.mark_email_unread_rounded,
@@ -751,6 +906,22 @@ class _AdminInvoicesScreenState extends State<AdminInvoicesScreen> {
                         color: const Color(0xFF047857),
                         onTap: () => _recordPayment(invoice),
                       ),
+                      const SizedBox(width: 8),
+                      _actionButton(
+                        icon: Icons.link_rounded,
+                        label: 'Payment link',
+                        color: const Color(0xFF0386FF),
+                        onTap: () => _sharePaymentLink(invoice),
+                      ),
+                      if (invoice.hasActivePayLink) ...[
+                        const SizedBox(width: 8),
+                        _actionButton(
+                          icon: Icons.link_off_rounded,
+                          label: 'Cancel link',
+                          color: const Color(0xFFB45309),
+                          onTap: () => _cancelPaymentLink(invoice),
+                        ),
+                      ],
                     ],
                     const SizedBox(width: 8),
                     _actionButton(
@@ -758,13 +929,16 @@ class _AdminInvoicesScreenState extends State<AdminInvoicesScreen> {
                       label: l10n.adminInvoiceEdit,
                       onTap: () => _editInvoice(invoice),
                     ),
-                    const SizedBox(width: 8),
-                    _actionButton(
-                      icon: Icons.delete_outline_rounded,
-                      label: l10n.adminInvoiceDelete,
-                      color: const Color(0xFFDC2626),
-                      onTap: () => _deleteInvoice(invoice),
-                    ),
+                    if (invoice.status != InvoiceStatus.paid &&
+                        invoice.paidAmount <= 0) ...[
+                      const SizedBox(width: 8),
+                      _actionButton(
+                        icon: Icons.delete_outline_rounded,
+                        label: l10n.adminInvoiceDelete,
+                        color: const Color(0xFFDC2626),
+                        onTap: () => _deleteInvoice(invoice),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -850,23 +1024,95 @@ class _AdminInvoicesScreenState extends State<AdminInvoicesScreen> {
   }
 }
 
+/// Shows the public payment link so an admin can copy it into an SMS or email.
+class _PaymentLinkDialog extends StatelessWidget {
+  const _PaymentLinkDialog({required this.invoice, required this.url});
+
+  final Invoice invoice;
+  final String url;
+
+  @override
+  Widget build(BuildContext context) {
+    final money = NumberFormat.currency(symbol: '\$');
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: Text(
+        'Payment link',
+        style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 18),
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Anyone with this link can pay ${invoice.invoiceNumber} in full '
+            '(${money.format(invoice.remainingBalance)}) without signing in. '
+            'The payment shows up on the account exactly as an in-app payment '
+            'does.',
+            style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF475569), height: 1.5),
+          ),
+          const SizedBox(height: 16),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
+            child: SelectableText(
+              url,
+              style: GoogleFonts.robotoMono(fontSize: 12, height: 1.4),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'The link stays valid until the invoice is paid or you cancel it. '
+            'The amount always reflects the current balance.',
+            style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF64748B), height: 1.5),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Close'),
+        ),
+        FilledButton.icon(
+          onPressed: () async {
+            await Clipboard.setData(ClipboardData(text: url));
+            if (!context.mounted) return;
+            Navigator.pop(context);
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Payment link copied'),
+                backgroundColor: Color(0xFF16A34A),
+              ),
+            );
+          },
+          icon: const Icon(Icons.copy_rounded, size: 18),
+          label: const Text('Copy link'),
+        ),
+      ],
+    );
+  }
+}
+
 class _InvoiceUserSearchData {
   final String id;
   final String name;
   final String email;
-  final String phone;
+  final List<String> phoneNumbers;
   final String studentCode;
   final String kioskCode;
-  final List<String> childrenIds;
 
   const _InvoiceUserSearchData({
     required this.id,
     this.name = '',
     this.email = '',
-    this.phone = '',
+    this.phoneNumbers = const [],
     this.studentCode = '',
     this.kioskCode = '',
-    this.childrenIds = const [],
   });
 
   factory _InvoiceUserSearchData.fromMap(
@@ -878,45 +1124,52 @@ class _InvoiceUserSearchData {
     final displayName =
         (data['displayName'] ?? data['name'] ?? '').toString().trim();
     final name = ('$first $last').trim();
-    final countryCode =
-        (data['country_code'] ?? data['countryCode'] ?? '').toString().trim();
-    final phone = (data['phone_number'] ??
-            data['mobile_phone'] ??
-            data['phone'] ??
-            data['mobilePhone'] ??
-            '')
-        .toString()
-        .trim();
+    final countryCodes = {
+      data['country_code'],
+      data['countryCode'],
+    }.map((value) => (value ?? '').toString().trim()).where((value) {
+      return value.isNotEmpty;
+    }).toList();
+    final rawPhones = {
+      data['phone_number'],
+      data['mobile_phone'],
+      data['phone'],
+      data['mobilePhone'],
+      data['phoneNumber'],
+    }.map((value) => (value ?? '').toString().trim()).where((value) {
+      return value.isNotEmpty;
+    }).toList();
+    final phoneNumbers = <String>{...rawPhones};
+    for (final countryCode in countryCodes) {
+      for (final phone in rawPhones) {
+        final countryDigits = _digitsOnly(countryCode);
+        final phoneDigits = _digitsOnly(phone);
+        if (countryDigits.isNotEmpty &&
+            phoneDigits.isNotEmpty &&
+            !phoneDigits.startsWith(countryDigits)) {
+          phoneNumbers.add('$countryCode $phone');
+        }
+      }
+    }
     return _InvoiceUserSearchData(
       id: id,
       name: name.isNotEmpty ? name : displayName,
       email: (data['e-mail'] ?? data['email'] ?? '').toString(),
-      phone: [countryCode, phone]
-          .where((part) => part.trim().isNotEmpty)
-          .join(' '),
+      phoneNumbers: phoneNumbers.toList(),
       studentCode: (data['student_code'] ??
               data['studentCode'] ??
               data['student_id'] ??
               '')
           .toString(),
       kioskCode: (data['kiosk_code'] ?? data['kiosqueCode'] ?? '').toString(),
-      childrenIds: {
-        ...((data['children_ids'] as List?)?.map((e) => e.toString()) ??
-            const <String>[]),
-        ...((data['childrenIds'] as List?)?.map((e) => e.toString()) ??
-            const <String>[]),
-      }.where((id) => id.trim().isNotEmpty).toList(),
     );
   }
 
-  List<String> get searchTerms => [
+  List<String> get nonNameSearchTerms => [
         id,
-        name,
         email,
-        phone,
         studentCode,
         kioskCode,
-        _digitsOnly(phone),
       ].where((term) => term.trim().isNotEmpty).toList();
 
   static String _digitsOnly(String value) =>
@@ -1323,6 +1576,10 @@ class _EditInvoiceDialogState extends State<_EditInvoiceDialog> {
   bool _isSaving = false;
   String? _error;
 
+  bool get _financiallyLocked =>
+      widget.invoice.status == InvoiceStatus.paid ||
+      widget.invoice.paidAmount > 0;
+
   @override
   void initState() {
     super.initState();
@@ -1455,23 +1712,36 @@ class _EditInvoiceDialogState extends State<_EditInvoiceDialog> {
                     isExpanded: true,
                     style: GoogleFonts.inter(
                         fontSize: 14, color: const Color(0xFF0F172A)),
-                    items: InvoiceStatus.values
+                    items: (_financiallyLocked
+                            ? [_status]
+                            : InvoiceStatus.values.where(
+                                (status) => status != InvoiceStatus.paid))
                         .map((s) => DropdownMenuItem(
                             value: s,
                             child: Text(s.name.toUpperCase(),
                                 style: GoogleFonts.inter(
                                     fontWeight: FontWeight.w600))))
                         .toList(),
-                    onChanged: (v) {
-                      if (v != null) setState(() => _status = v);
-                    },
+                    onChanged: _financiallyLocked
+                        ? null
+                        : (v) {
+                            if (v != null) setState(() => _status = v);
+                          },
                   ),
                 ),
               ),
               const SizedBox(height: 16),
-              _field('${l10n.total} ($cur)', _totalController),
+              _field(
+                '${l10n.total} ($cur)',
+                _totalController,
+                readOnly: _financiallyLocked,
+              ),
               const SizedBox(height: 12),
-              _field('${l10n.parentInvoicesPaid} ($cur)', _paidController),
+              _field(
+                '${l10n.parentInvoicesPaid} ($cur)',
+                _paidController,
+                readOnly: true,
+              ),
               const SizedBox(height: 16),
               Text(l10n.adminInvoiceEditBillingPeriodLabel,
                   style: GoogleFonts.inter(
@@ -1663,7 +1933,11 @@ class _EditInvoiceDialogState extends State<_EditInvoiceDialog> {
     );
   }
 
-  Widget _field(String label, TextEditingController controller) {
+  Widget _field(
+    String label,
+    TextEditingController controller, {
+    bool readOnly = false,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1675,6 +1949,7 @@ class _EditInvoiceDialogState extends State<_EditInvoiceDialog> {
         const SizedBox(height: 6),
         TextField(
           controller: controller,
+          readOnly: readOnly,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600),
           decoration: InputDecoration(
