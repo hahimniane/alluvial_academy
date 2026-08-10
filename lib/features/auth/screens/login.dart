@@ -80,7 +80,7 @@ class LoginScreen extends StatelessWidget {
           contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         ),
       ),
-      title: 'Alluwal Academy',
+      title: 'Alluwal Education Hub',
       logo: const AssetImage('assets/LOGO.png'),
       onLogin: _authUser,
       // onSignup: _signupUser,

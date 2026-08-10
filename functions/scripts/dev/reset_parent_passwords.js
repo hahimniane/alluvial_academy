@@ -14,8 +14,9 @@
  * Run from project root. Requires serviceAccountKey.json in functions/.
  */
 
+require('dotenv').config({ path: require('path').join(__dirname, '../../.env') });
 const admin = require('firebase-admin');
-const nodemailer = require('nodemailer');
+const { createTransporter } = require('../../services/email/transporter');
 
 // ---------------------------------------------------------------------------
 // Firebase init
@@ -39,20 +40,6 @@ const NEW_PASSWORD = '123456';
 const IS_LIVE = process.argv.includes('--live');
 
 // ---------------------------------------------------------------------------
-// Email transporter (same config as production)
-// ---------------------------------------------------------------------------
-const createTransporter = () =>
-  nodemailer.createTransport({
-    host: 'smtp.hostinger.com',
-    port: 465,
-    secure: true,
-    auth: {
-      user: 'support@alluwaleducationhub.org',
-      pass: 'Kilopatra2025.',
-    },
-  });
-
-// ---------------------------------------------------------------------------
 // Email HTML builder
 // ---------------------------------------------------------------------------
 const buildEmailHtml = (displayName, email) => `<!DOCTYPE html>
@@ -60,11 +47,11 @@ const buildEmailHtml = (displayName, email) => `<!DOCTYPE html>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Password Update - Alluwal Academy</title>
+  <title>Password Update - Alluwal Education Hub</title>
 </head>
 <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
   <div style="background: linear-gradient(135deg, #0386FF 0%, #0693e3 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-    <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 700;">Alluwal Academy</h1>
+    <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 700;">Alluwal Education Hub</h1>
     <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0; font-size: 16px;">Parent Account Update</p>
   </div>
 
@@ -123,7 +110,7 @@ const buildEmailHtml = (displayName, email) => `<!DOCTYPE html>
       </p>
       <p style="margin: 10px 0 0 0; font-size: 14px; color: #718096;">
         Best regards,<br>
-        <strong>The Alluwal Academy Team</strong>
+        <strong>The Alluwal Education Hub Team</strong>
       </p>
     </div>
   </div>
@@ -223,7 +210,7 @@ async function main() {
         await transporter.sendMail({
           from: 'Alluwal Education Hub <support@alluwaleducationhub.org>',
           to: email,
-          subject: 'Your Alluwal Academy Password Has Been Updated',
+          subject: 'Your Alluwal Education Hub Password Has Been Updated',
           html: buildEmailHtml(displayName, email),
         });
         console.log('  Email sent.');

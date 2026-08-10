@@ -475,7 +475,7 @@ function mdEscape(s) {
 
 function buildMarkdown(ctx) {
   const lines = [];
-  lines.push('# Alluvial Academy — forms context for AI');
+  lines.push('# Alluwal Education Hub — forms context for AI');
   lines.push('');
   lines.push(`Generated: ${ctx.generatedAt}`);
   lines.push(`Project: ${ctx.projectId}`);

@@ -439,7 +439,7 @@ class VersionService {
       return packageInfo.appName;
     } catch (e) {
       AppLogger.error('Error getting app name: $e');
-      return 'Alluwal Academy';
+      return 'Alluwal Education Hub';
     }
   }
 

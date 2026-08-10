@@ -5,12 +5,12 @@ class MockCompanyService {
   static CompanyInfo getCompanyInfo() {
     return const CompanyInfo(
       name: 'Alluwal Education Hub',
-      address: 'Lacey',
-      city: 'Lacey',
-      state: 'Washington State',
-      country: 'United States of America',
+      address: '11 McKeever Pl',
+      city: 'Brooklyn',
+      state: 'NY 11225',
+      country: 'United States',
       phone: '+1646-338-1286',
-      email: 'alluwhalacademy@gmail.com',
+      email: 'billing@alluwaleducationhub.org',
     );
   }
 

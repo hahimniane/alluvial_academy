@@ -2,7 +2,7 @@
 
 ## READ THIS FIRST
 
-You have full access to the Alluvial Academy codebase. **Read the code before writing anything.** The original feature spec was written by someone without full codebase access, so some assumptions are wrong. This prompt corrects those and tells you what to actually build, reusing existing patterns.
+You have full access to the Alluwal Education Hub codebase. **Read the code before writing anything.** The original feature spec was written by someone without full codebase access, so some assumptions are wrong. This prompt corrects those and tells you what to actually build, reusing existing patterns.
 
 **Use your best judgement.** When something in this prompt conflicts with what you see in the code, trust the code. When two parts of this prompt conflict, prefer the simpler approach. The goal is a working feature that doesn't break anything, not perfection on day one.
 

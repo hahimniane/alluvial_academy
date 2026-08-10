@@ -159,7 +159,7 @@ export function ShiftsAdmin() {
               <span className="-mt-5 h-0.5 w-4 bg-current" />
             </button>
             <div className="min-w-0 text-center">
-              <div className="truncate text-sm font-black">Alluwal Academy</div>
+              <div className="truncate text-sm font-black">Alluwal Education Hub</div>
             </div>
             <span className="grid h-8 w-8 place-items-center rounded-full bg-[#009688] text-[11px] font-black text-white">
               {initialsFor(user)}

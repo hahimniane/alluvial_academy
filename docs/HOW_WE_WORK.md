@@ -1,4 +1,4 @@
-# How We Work on Alluvial Academy
+# How We Work on Alluwal Education Hub
 
 **Read this first.** This is the friendly, example-heavy guide to how work
 gets done on this project. If you're joining the team (human or working

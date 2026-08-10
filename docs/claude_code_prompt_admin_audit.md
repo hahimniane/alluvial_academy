@@ -10,7 +10,7 @@
 
 ---
 
-**MISSION — Audit des admins Alluvial Academy (découverte + proposition)**
+**MISSION — Audit des admins Alluwal Education Hub (découverte + proposition)**
 
 Tu travailles sur le dépôt Flutter/Firestore **alluvial_academy**. Ne pas supposer : lire le code et les données exportées.
 

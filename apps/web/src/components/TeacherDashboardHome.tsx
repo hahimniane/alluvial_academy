@@ -291,7 +291,7 @@ function TeacherHomeContent({
           <button type="button" aria-label="Open teacher menu" onClick={openTeacherMobileMenu} className="grid h-11 w-11 place-items-center rounded-xl">
             <Menu size={22} />
           </button>
-          <div className="min-w-0 text-center text-base font-bold">Alluwal Academy</div>
+          <div className="min-w-0 text-center text-base font-bold">Alluwal Education Hub</div>
           <span className="grid h-9 w-9 place-items-center rounded-full bg-[#009688] text-xs font-black text-white">{summary.initials}</span>
         </div>
       </header>

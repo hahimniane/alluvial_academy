@@ -58,7 +58,7 @@ Form field data: `forms_ai_export/forms_ai_context.json`
 ## Copy: `CLAUDE.md`
 
 ```md
-# Alluvial Academy — Claude Code Project Instructions
+# Alluwal Education Hub — Claude Code Project Instructions
 
 ## Project
 Flutter web app for Islamic education management. Firestore backend, deployed on Hostinger.

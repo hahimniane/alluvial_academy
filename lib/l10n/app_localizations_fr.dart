@@ -477,7 +477,7 @@ class AppLocalizationsFr extends AppLocalizations {
       'Soutien scolaire et alphabetisation';
 
   @override
-  String get landingEnrollNow => 'S\'inscrire Maintenant';
+  String get landingEnrollNow => 'S\'inscrire maintenant';
 
   @override
   String get landingPricingEnrollMultipleStudents =>
@@ -2130,6 +2130,15 @@ class AppLocalizationsFr extends AppLocalizations {
   String get userKioskCode => 'Code kiosque';
 
   @override
+  String get userParentName => 'Parent';
+
+  @override
+  String get userTeacherName => 'Enseignant';
+
+  @override
+  String get userWeeklyHours => 'Heures hebdomadaires';
+
+  @override
   String get userJobTitle => 'Titre du poste';
 
   @override
@@ -2692,7 +2701,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get alluwalAcademyIsAQuranEducation =>
-      'Alluwal Academy est AQuran Education';
+      'Alluwal Education Hub est AQuran Education';
 
   @override
   String get alluwalEducationHub => 'Alluwal Education Hub';
@@ -2745,7 +2754,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get applyToRole => 'Appliquer au rôle';
 
   @override
-  String get applyToTeach => 'Appliquer pour enseigner';
+  String get applyToTeach => 'Postuler pour enseigner';
 
   @override
   String get applyWageChangesToRecords =>
@@ -3147,7 +3156,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get checkOurFrequentlyAskedQuestionsFor =>
-      'Consultez notre foire aux questions';
+      'Consultez notre foire aux questions pour obtenir des réponses rapides, ou envoyez-nous un message.';
 
   @override
   String get checkPaymentStatus => 'Vérifier l\'état du paiement';
@@ -3618,6 +3627,281 @@ class AppLocalizationsFr extends AppLocalizations {
   String get decision => 'Décision';
 
   @override
+  String get decisionHistory => 'Historique des décisions';
+
+  @override
+  String get decisionHistoryDescription =>
+      'Consultez qui a effectué les changements importants dans l’administration, les cours, les finances, les examens et les opérations.';
+
+  @override
+  String get decisionHistorySearchHint =>
+      'Rechercher par personne, e-mail, identifiant, dossier ou action';
+
+  @override
+  String get decisionHistoryAll => 'Toutes les décisions';
+
+  @override
+  String get decisionEntityUsers => 'Utilisateurs';
+
+  @override
+  String get decisionEntityShifts => 'Cours';
+
+  @override
+  String get decisionEntityInvoices => 'Factures';
+
+  @override
+  String get decisionEntityTimesheets => 'Feuilles de temps';
+
+  @override
+  String get decisionEntityApplications => 'Candidatures';
+
+  @override
+  String get decisionEntityTasks => 'Tâches';
+
+  @override
+  String get decisionEntityForms => 'Formulaires';
+
+  @override
+  String get decisionEntityNoShows => 'Examens des absences';
+
+  @override
+  String get decisionEntityEnrollments => 'Inscriptions';
+
+  @override
+  String get decisionEntityAudits => 'Audits';
+
+  @override
+  String get decisionEntitySettings => 'Paramètres';
+
+  @override
+  String get decisionHistoryLoadError =>
+      'Impossible de charger l\'historique des décisions.';
+
+  @override
+  String get decisionHistoryEmpty => 'Aucune décision correspondante trouvée.';
+
+  @override
+  String decisionMadeBy(String actor) {
+    return 'Par $actor';
+  }
+
+  @override
+  String get decisionActorUnknown => 'Personne inconnue';
+
+  @override
+  String get decisionSystemAutomation => 'Automatisation du système';
+
+  @override
+  String get decisionTechnicalDetails => 'Détails techniques';
+
+  @override
+  String get decisionActionUserCreated => 'Utilisateur créé';
+
+  @override
+  String get decisionActionUserArchived => 'Utilisateur archivé';
+
+  @override
+  String get decisionActionUserRestored => 'Utilisateur restauré';
+
+  @override
+  String get decisionActionUserDeleted => 'Utilisateur supprimé définitivement';
+
+  @override
+  String get decisionActionUserRoleChanged => 'Rôle de l\'utilisateur modifié';
+
+  @override
+  String get decisionActionUserGuardianLinksChanged =>
+      'Liens parent ou tuteur modifiés';
+
+  @override
+  String get decisionActionShiftCreated => 'Cours créé';
+
+  @override
+  String get decisionActionShiftDeleted => 'Cours supprimé';
+
+  @override
+  String get decisionActionShiftCancelled => 'Cours annulé';
+
+  @override
+  String get decisionActionShiftPublished => 'Cours publié';
+
+  @override
+  String get decisionActionShiftUnpublished => 'Cours retiré de la publication';
+
+  @override
+  String get decisionActionShiftRescheduled => 'Cours reprogrammé';
+
+  @override
+  String get decisionActionShiftTeacherChanged => 'Enseignant assigné modifié';
+
+  @override
+  String get decisionActionShiftStudentsChanged => 'Élèves assignés modifiés';
+
+  @override
+  String get decisionActionShiftRecordingPermissionChanged =>
+      'Autorisation d\'enregistrement modifiée';
+
+  @override
+  String get decisionActionInvoiceCreated => 'Facture créée';
+
+  @override
+  String get decisionActionInvoiceDeleted => 'Facture supprimée';
+
+  @override
+  String get decisionActionInvoicePaid => 'Facture marquée comme payée';
+
+  @override
+  String get decisionActionInvoiceCancelled => 'Facture annulée';
+
+  @override
+  String get decisionActionInvoiceReopened => 'Facture rouverte';
+
+  @override
+  String get decisionActionInvoiceAmountChanged =>
+      'Montant de la facture modifié';
+
+  @override
+  String get decisionActionInvoiceDueDateChanged =>
+      'Échéance de la facture modifiée';
+
+  @override
+  String get decisionActionInvoiceCutoffChanged =>
+      'Date de suspension modifiée';
+
+  @override
+  String get decisionActionInvoicePaymentRecorded => 'Paiement enregistré';
+
+  @override
+  String get decisionActionTimesheetDeleted => 'Feuille de temps supprimée';
+
+  @override
+  String get decisionActionTimesheetApproved => 'Feuille de temps approuvée';
+
+  @override
+  String get decisionActionTimesheetRejected => 'Feuille de temps rejetée';
+
+  @override
+  String get decisionActionTimesheetReopened => 'Feuille de temps rouverte';
+
+  @override
+  String get decisionActionTimesheetEditApproved =>
+      'Modification de feuille de temps approuvée';
+
+  @override
+  String get decisionActionTimesheetEditRejected =>
+      'Modification de feuille de temps rejetée';
+
+  @override
+  String get decisionActionTimesheetPaymentChanged =>
+      'Paiement de feuille de temps modifié';
+
+  @override
+  String get decisionActionApplicationDeleted => 'Candidature supprimée';
+
+  @override
+  String get decisionActionApplicationApproved => 'Candidature approuvée';
+
+  @override
+  String get decisionActionApplicationRejected => 'Candidature rejetée';
+
+  @override
+  String get decisionActionApplicationStatusChanged =>
+      'Statut de candidature modifié';
+
+  @override
+  String get decisionActionTaskCreated => 'Tâche créée';
+
+  @override
+  String get decisionActionTaskDeleted => 'Tâche supprimée';
+
+  @override
+  String get decisionActionTaskArchived => 'Tâche archivée';
+
+  @override
+  String get decisionActionTaskRestored => 'Tâche restaurée';
+
+  @override
+  String get decisionActionTaskAssigneesChanged =>
+      'Responsables de tâche modifiés';
+
+  @override
+  String get decisionActionTaskDueDateChanged => 'Échéance de tâche modifiée';
+
+  @override
+  String get decisionActionTaskStatusChanged => 'Statut de tâche modifié';
+
+  @override
+  String get decisionActionFormResponseDeleted =>
+      'Réponse au formulaire supprimée';
+
+  @override
+  String get decisionActionFormResponseAccepted =>
+      'Réponse au formulaire acceptée';
+
+  @override
+  String get decisionActionFormResponseRejected =>
+      'Réponse au formulaire rejetée';
+
+  @override
+  String get decisionActionFormResponseReviewReset =>
+      'Examen du formulaire réinitialisé';
+
+  @override
+  String get decisionActionFormResponseReviewChanged =>
+      'Statut d’examen du formulaire modifié';
+
+  @override
+  String get decisionActionNoShowDeleted => 'Rapport d’absence supprimé';
+
+  @override
+  String get decisionActionNoShowReviewed => 'Alerte d’absence examinée';
+
+  @override
+  String get decisionActionNoShowReopened => 'Alerte d’absence rouverte';
+
+  @override
+  String get decisionActionEnrollmentDeleted => 'Inscription supprimée';
+
+  @override
+  String get decisionActionEnrollmentArchived => 'Inscription archivée';
+
+  @override
+  String get decisionActionEnrollmentRestored => 'Inscription restaurée';
+
+  @override
+  String get decisionActionEnrollmentMatched =>
+      'Inscription mise en correspondance';
+
+  @override
+  String get decisionActionEnrollmentStatusChanged =>
+      'Statut d’inscription modifié';
+
+  @override
+  String get decisionActionEnrollmentParentLinkChanged => 'Parent lié modifié';
+
+  @override
+  String get decisionActionAuditDeleted => 'Audit supprimé';
+
+  @override
+  String get decisionActionAuditStatusChanged => 'Statut d’audit modifié';
+
+  @override
+  String get decisionActionAuditReviewChanged => 'Examen d’audit modifié';
+
+  @override
+  String get decisionActionAuditCompensationChanged =>
+      'Rémunération d’audit modifiée';
+
+  @override
+  String get decisionActionSettingCreated => 'Paramètre système créé';
+
+  @override
+  String get decisionActionSettingDeleted => 'Paramètre système supprimé';
+
+  @override
+  String get decisionActionSettingChanged => 'Paramètre système modifié';
+
+  @override
   String get defaultTemplatesCreated => 'Modèles par défaut créés';
 
   @override
@@ -3681,6 +3965,35 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get deleteThisShift => 'Supprimer ce déplacement';
+
+  @override
+  String deleteThisAndFuture(int count) {
+    return 'Supprimer celui-ci et les suivants ($count)';
+  }
+
+  @override
+  String deleteShiftConfirm(String name) {
+    return 'Voulez-vous vraiment supprimer \"$name\" ? Cette action est irréversible.';
+  }
+
+  @override
+  String deleteShiftSeriesOptionsHint(int count) {
+    return 'Ce cours fait partie d\'une série. Vous pouvez supprimer uniquement celui-ci, ou celui-ci et tous les cours planifiés à venir ($count).\n\nLes cours terminés/actifs ne sont pas supprimés.';
+  }
+
+  @override
+  String get deletingShift => 'Suppression du cours...';
+
+  @override
+  String get deletingFutureShifts =>
+      'Suppression de celui-ci et des suivants...';
+
+  @override
+  String get shiftDeletedSuccessfully => 'Cours supprimé avec succès';
+
+  @override
+  String get futureShiftsDeletedSuccessfully =>
+      'Celui-ci et les cours suivants ont été supprimés';
 
   @override
   String get description => 'Désignation des marchandises';
@@ -4400,7 +4713,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get fallBack1Hour => 'Retour 1heure';
 
   @override
-  String get faqs => 'Faqs';
+  String get faqs => 'Questions fréquentes';
 
   @override
   String get feature => 'Fonctionnalité';
@@ -5616,6 +5929,27 @@ class AppLocalizationsFr extends AppLocalizations {
   String get leaderDuty => 'Chef de file';
 
   @override
+  String get shiftRoleAdministration => 'Administration';
+
+  @override
+  String get shiftRoleCoordination => 'Coordination';
+
+  @override
+  String get shiftRoleLeadership => 'Leadership';
+
+  @override
+  String get shiftRoleTraining => 'Formation du personnel';
+
+  @override
+  String get shiftRolePlanning => 'Planification du programme';
+
+  @override
+  String get shiftRoleOutreach => 'Engagement communautaire';
+
+  @override
+  String get shiftRoleGeneral => 'Général';
+
+  @override
   String get leadersOnly => 'Leaders seulement';
 
   @override
@@ -5630,7 +5964,7 @@ class AppLocalizationsFr extends AppLocalizations {
       'Apprendre des chercheurs Nislamiques certifiés';
 
   @override
-  String get learnLeadThrive => 'Apprendre le plomb Thrive';
+  String get learnLeadThrive => 'Apprendre • Diriger • S\'épanouir';
 
   @override
   String get learnMore => 'En savoir plus';
@@ -6498,7 +6832,7 @@ class AppLocalizationsFr extends AppLocalizations {
       'Nos programmes linguistiques sont conçus pour';
 
   @override
-  String get ourLeadership => 'Notre leadership';
+  String get ourLeadership => 'Notre équipe dirigeante';
 
   @override
   String get ourMission => 'Notre mission';
@@ -7332,10 +7666,12 @@ class AppLocalizationsFr extends AppLocalizations {
   String get searchByFormOrCreator => 'Recherche par forme ou par créateur';
 
   @override
-  String get searchByNameEmailOrRole => 'Recherche par nom Courriel ou rôle';
+  String get searchByNameEmailOrRole =>
+      'Rechercher par nom, e-mail, téléphone, identifiant ou rôle';
 
   @override
-  String get searchByNameOrEmail => 'Recherche par nom ou par courriel';
+  String get searchByNameOrEmail =>
+      'Rechercher par nom, e-mail, téléphone ou identifiant';
 
   @override
   String get searchByNameOrNumber => 'Recherche par nom ou numéro';
@@ -7363,7 +7699,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get searchParentsByNameOrEmail =>
-      'Rechercher les parents Par nom ou par courriel';
+      'Rechercher les parents par nom, e-mail, téléphone ou identifiant';
 
   @override
   String get searchStudents => 'Rechercher les étudiants';
@@ -7375,7 +7711,8 @@ class AppLocalizationsFr extends AppLocalizations {
   String get searchTasks => 'Tâches de recherche';
 
   @override
-  String get searchTeacher => 'Rechercher par nom ou email';
+  String get searchTeacher =>
+      'Rechercher par nom, e-mail, téléphone ou identifiant';
 
   @override
   String get periodOneMonth => 'Un mois';
@@ -7409,7 +7746,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get searchUsersByNameOrEmail =>
-      'Utilisateurs de recherche par nom ou par courriel';
+      'Rechercher les utilisateurs par nom, e-mail, téléphone ou identifiant';
 
   @override
   String get searchUsersOrShifts => 'Rechercher des utilisateurs ou des postes';
@@ -8072,7 +8409,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get teacherApplicants => 'Candidats enseignants';
 
   @override
-  String get teacherApplication => 'Application pour les enseignants';
+  String get teacherApplication => 'Candidature d\'enseignant';
 
   @override
   String get teacherArrived => 'Professeur arrivé';
@@ -8219,7 +8556,8 @@ class AppLocalizationsFr extends AppLocalizations {
   String get text9 => ' • ';
 
   @override
-  String get thankYouForYourInterestIn => 'Merci de votre intérêt pour';
+  String get thankYouForYourInterestIn =>
+      'Merci de votre intérêt à rejoindre Alluwal Education Hub.';
 
   @override
   String get thankYouForYourInterestIn2 => 'Merci de votre intérêt pour In2';
@@ -8238,7 +8576,8 @@ class AppLocalizationsFr extends AppLocalizations {
   String get thankYouForYourInterestWe => 'Merci de votre intérêt';
 
   @override
-  String get theBestOfPeopleAreThose => 'Le meilleur des gens sont ceux';
+  String get theBestOfPeopleAreThose =>
+      'Les meilleurs d\'entre vous sont ceux qui apprennent le Coran et l\'enseignent.';
 
   @override
   String get theDailySchedulerWillGenerateNew =>
@@ -9041,7 +9380,8 @@ class AppLocalizationsFr extends AppLocalizations {
       'Nous nous engageons à protéger les enfants';
 
   @override
-  String get weAreFosteringAWorldWhere => 'Nous encourageons un monde où';
+  String get weAreFosteringAWorldWhere =>
+      'Nous bâtissons un monde où les savoirs islamiques, africains et occidentaux se rencontrent afin de préparer les élèves à un avenir mondialisé.';
 
   @override
   String get weCollectInformationYouProvideDirectly =>
@@ -9121,7 +9461,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get whereEducationTranscendsBoundaries =>
-      'Où l\'éducation transcend les limites';
+      'Là où l\'éducation dépasse les frontières';
 
   @override
   String get whyChooseOurEnglishProgram =>
@@ -12641,7 +12981,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get publicSiteCmsPickLinkedUserSearchHint =>
-      'Saisissez au moins 2 caractères';
+      'Nom, e-mail, téléphone ou identifiant (2 caractères minimum)';
 
   @override
   String get publicSiteCmsPickLinkedUserEmpty =>
@@ -14453,6 +14793,21 @@ class AppLocalizationsFr extends AppLocalizations {
   String get adminInvoiceDelete => 'Delete Invoice';
 
   @override
+  String get adminInvoiceDeleteSuccess => 'Facture supprimée.';
+
+  @override
+  String get adminInvoiceDeleteBlockedPaid =>
+      'Les factures payées ou partiellement payées ne peuvent pas être supprimées. Conservez-les pour les registres financiers.';
+
+  @override
+  String get adminInvoiceDeleteBlockedPaymentInProgress =>
+      'Cette facture ne peut pas être supprimée tant qu’un paiement est en attente ou en cours de traitement.';
+
+  @override
+  String get adminInvoiceDeleteBlockedPaymentHistory =>
+      'Cette facture contient un historique de paiement et ne peut pas être supprimée. Annulez-la plutôt.';
+
+  @override
   String get adminInvoiceDownloadPdf => 'Download PDF';
 
   @override
@@ -15854,6 +16209,50 @@ class AppLocalizationsFr extends AppLocalizations {
       'Impossible de charger les indicateurs de travail planifié.';
 
   @override
+  String get leaderAttendanceOverviewTitle => 'Présence des responsables';
+
+  @override
+  String get leaderAttendanceOverviewSubtitle =>
+      'État en direct et présence mensuelle de tous les responsables.';
+
+  @override
+  String get leaderAttendanceLoadError =>
+      'Impossible de charger la présence des responsables.';
+
+  @override
+  String get leaderAttendanceEmpty =>
+      'Aucune responsabilité de leadership n’est planifiée ce mois-ci.';
+
+  @override
+  String get leaderAttendanceWorking => 'Au travail';
+
+  @override
+  String get leaderAttendanceLateNow => 'En retard';
+
+  @override
+  String get leaderAttendanceAwaitingClockIn => 'Pointage attendu';
+
+  @override
+  String get leaderAttendanceScheduledLater => 'Planifié plus tard';
+
+  @override
+  String get leaderAttendanceOffDuty => 'Hors service';
+
+  @override
+  String leaderAttendanceUntil(String time) {
+    return 'Planifié jusqu’à $time';
+  }
+
+  @override
+  String leaderAttendanceShiftAt(String time) {
+    return 'Service actuel/suivant : $time';
+  }
+
+  @override
+  String get leaderAttendanceNoUpcomingShift =>
+      'Aucun autre service ce mois-ci';
+
+  @override
   String get timeClockEarlyClockOutTitle => 'Pointage de sortie anticipé';
 
   @override
@@ -15899,4 +16298,1515 @@ class AppLocalizationsFr extends AppLocalizations {
   String timeClockLeadershipSessionTitle(String name) {
     return 'Leadership : $name';
   }
+
+  @override
+  String get studentAttendanceOverviewNav => 'Présence des élèves';
+
+  @override
+  String get studentAttendanceAdminTitle =>
+      'Présence et temps de classe des élèves';
+
+  @override
+  String get studentAttendanceAdminSubtitle =>
+      'Temps réel passé par les élèves dans les cours planifiés, selon les heures d’arrivée et de départ enregistrées.';
+
+  @override
+  String get studentAttendanceWeekly => 'Hebdomadaire';
+
+  @override
+  String get studentAttendanceMonthly => 'Mensuel';
+
+  @override
+  String get studentAttendancePrevious => 'Période précédente';
+
+  @override
+  String get studentAttendanceNext => 'Période suivante';
+
+  @override
+  String get studentAttendanceRefresh => 'Actualiser la présence';
+
+  @override
+  String get studentAttendanceSearchHint =>
+      'Rechercher par nom, e-mail, téléphone ou identifiant';
+
+  @override
+  String studentAttendanceStudentsTracked(int count) {
+    return '$count élèves suivis';
+  }
+
+  @override
+  String get studentAttendanceClassTime => 'Temps de classe';
+
+  @override
+  String get studentAttendanceAttended => 'Présences';
+
+  @override
+  String get studentAttendanceMissed => 'Absences';
+
+  @override
+  String get studentAttendanceLate => 'Retards';
+
+  @override
+  String get studentAttendanceRate => 'Présence';
+
+  @override
+  String studentAttendanceHoursValue(String hours) {
+    return '$hours h';
+  }
+
+  @override
+  String studentAttendancePeriodLabel(String start, String end) {
+    return '$start – $end';
+  }
+
+  @override
+  String get studentAttendanceNoDataTitle => 'Aucune donnée de présence';
+
+  @override
+  String get studentAttendanceNoDataBody =>
+      'La présence apparaîtra après le traitement des cours planifiés.';
+
+  @override
+  String get studentAttendanceLoadError =>
+      'Impossible de charger la présence des élèves. Réessayez.';
+
+  @override
+  String get studentAttendanceStudentClassTime => 'Votre temps de classe';
+
+  @override
+  String get studentAttendanceFamilyClassTime => 'Temps de classe familial';
+
+  @override
+  String get formReviewStatusSeen => 'Vu';
+
+  @override
+  String get formReviewStatusInReview => 'En cours d’examen';
+
+  @override
+  String get formReviewStatusAccepted => 'Accepté';
+
+  @override
+  String get formReviewStatusRejected => 'Refusé';
+
+  @override
+  String get formReviewStatusNotReviewed => 'Non examiné';
+
+  @override
+  String get formDecisionColumn => 'Décision';
+
+  @override
+  String get formDecisionLabel => 'Décision';
+
+  @override
+  String get formDecisionRequiresAcceptedRejected =>
+      'Choisissez Accepté ou Refusé avant d’aviser l’enseignant.';
+
+  @override
+  String get formDecisionTeacherMissing =>
+      'L’enseignant ayant soumis le formulaire n’a pas pu être identifié.';
+
+  @override
+  String formDecisionNotificationTitle(String status) {
+    return 'Décision du formulaire : $status';
+  }
+
+  @override
+  String formDecisionNotificationBody(String formTitle, String status) {
+    return 'Votre demande $formTitle a été marquée comme $status. Ouvrez Mes soumissions de formulaires pour plus de détails.';
+  }
+
+  @override
+  String get formDecisionNotificationSent =>
+      'Décision enregistrée et enseignant avisé.';
+
+  @override
+  String get formDecisionVisibleNoPush =>
+      'Décision enregistrée. Elle est maintenant visible par l’enseignant.';
+
+  @override
+  String get formDecisionNotificationFailed =>
+      'La décision a été enregistrée, mais la notification n’a pas pu être envoyée.';
+
+  @override
+  String get formNotifyTeacher => 'Aviser l’enseignant';
+
+  @override
+  String get formNotifyTeacherAgain => 'Aviser de nouveau';
+
+  @override
+  String get publicLandingSubjectIslamic =>
+      'Programme islamique (arabe, Coran, etc.)';
+
+  @override
+  String get publicLandingSubjectAfroLanguages =>
+      'Langues africaines (pular, mandingue, swahili, wolof, etc.)';
+
+  @override
+  String get publicLandingSubjectAfterSchool =>
+      'Soutien scolaire (mathématiques, sciences, physique, etc.)';
+
+  @override
+  String get publicLandingSubjectAdultLiteracy =>
+      'Alphabétisation des adultes (lecture et écriture en anglais et en français, etc.)';
+
+  @override
+  String get publicLandingSubjectCoding => 'Programmation';
+
+  @override
+  String get publicLandingSubjectEntrepreneurship => 'Entrepreneuriat';
+
+  @override
+  String get publicCategoryIslamicStudies => 'Études islamiques';
+
+  @override
+  String get publicCategoryLanguages => 'Langues';
+
+  @override
+  String get publicCategoryAdultLiteracy => 'Alphabétisation des adultes';
+
+  @override
+  String get publicCategoryAfterSchool => 'Soutien scolaire';
+
+  @override
+  String get publicCategoryMath => 'Mathématiques';
+
+  @override
+  String get publicCategoryProgramming => 'Programmation';
+
+  @override
+  String get publicCategoryEnglishStudents => 'Anglais (élèves)';
+
+  @override
+  String get publicHeroFeatureTrial =>
+      'Rencontrez le professeur. Essayez gratuitement';
+
+  @override
+  String get publicHeroFeatureIslamic =>
+      'Obtenez de l’aide en Coran et en études islamiques';
+
+  @override
+  String get publicHeroFeatureTechnology =>
+      'Obtenez de l’aide de nos ingénieurs et programmeurs';
+
+  @override
+  String get publicHeroExcellent => 'Excellent';
+
+  @override
+  String get publicHeroTrusted =>
+      'La confiance des familles musulmanes du monde entier';
+
+  @override
+  String get publicPricingIslamicFeatureOne =>
+      'Cours individuels de Coran, d’arabe et d’AdLaM';
+
+  @override
+  String get publicPricingIslamicFeatureTwo => 'Horaires flexibles en semaine';
+
+  @override
+  String get publicPricingDiscountFeature =>
+      'Réduction dès 4 heures par semaine';
+
+  @override
+  String get publicPricingTutoringFeatureOne =>
+      'Soutien en mathématiques, sciences et alphabétisation';
+
+  @override
+  String get publicPricingTutoringFeatureTwo =>
+      'Accompagnement individuel personnalisé';
+
+  @override
+  String get publicPricingGroupFeatureOne => 'Cours collectifs le week-end';
+
+  @override
+  String get publicPricingGroupFeatureTwo => 'Tarif horaire fixe';
+
+  @override
+  String get publicPricingGroupFeatureThree => 'Apprentissage en communauté';
+
+  @override
+  String publicPricingFormula(
+      int hours, String rate, String weeks, String monthly) {
+    return '$hours h × $rate/h × $weeks semaines ≈ $monthly/mois';
+  }
+
+  @override
+  String get publicAboutTitle => 'À propos d’Alluwal Education Hub';
+
+  @override
+  String get publicAboutBody =>
+      'Nous bâtissons un monde où les savoirs islamiques, africains et occidentaux se rencontrent afin de préparer les élèves à un avenir mondialisé.';
+
+  @override
+  String get publicAboutMissionTitle => 'Notre mission';
+
+  @override
+  String get publicAboutMissionBody =>
+      'Intégrer les éducations islamique, africaine et occidentale dans un programme complet qui prépare les élèves à évoluer et à réussir dans un monde diversifié.';
+
+  @override
+  String get publicAboutVisionTitle => 'Notre vision';
+
+  @override
+  String get publicAboutVisionBody =>
+      'Créer un environnement inclusif et stimulant qui encourage les élèves à devenir des leaders dans leur communauté.';
+
+  @override
+  String get publicAboutLearnMore => 'En savoir plus sur nous';
+
+  @override
+  String get publicTooltipIslamic =>
+      'Coran, hadith, arabe, tawhid, tafsir et plus encore';
+
+  @override
+  String get publicTooltipLanguages =>
+      'Anglais, français et langues africaines enseignés par des locuteurs natifs';
+
+  @override
+  String get publicTooltipAdultLiteracy =>
+      'Lecture, écriture et expression orale pour la vie quotidienne et professionnelle des adultes';
+
+  @override
+  String get publicTooltipAfterSchool =>
+      'Soutien en mathématiques, sciences, programmation, histoire et anglais';
+
+  @override
+  String get publicTooltipMath =>
+      'Soutien en mathématiques du primaire au calcul avancé';
+
+  @override
+  String get publicTooltipProgramming =>
+      'Développement web, mobile et logiciel pour les élèves';
+
+  @override
+  String get publicTooltipEnglish =>
+      'Soutien en anglais dans le cadre du programme de soutien scolaire';
+
+  @override
+  String get publicCopyright => '© 2024 Alluwal Education Hub';
+
+  @override
+  String get publicAboutLeadershipLabel => 'NOTRE DIRECTION';
+
+  @override
+  String get publicAboutLeadershipBody =>
+      'Des professionnels engagés qui portent notre mission de rendre une éducation de qualité accessible partout dans le monde.';
+
+  @override
+  String get publicAboutMeetTeam => 'Découvrir toute notre équipe';
+
+  @override
+  String get publicAboutHappyStudents => 'Élèves satisfaits';
+
+  @override
+  String get publicAboutQualifiedTeachers => 'Enseignants qualifiés';
+
+  @override
+  String get publicAboutCountriesServed => 'Pays desservis';
+
+  @override
+  String get publicAboutSatisfactionRate => 'Taux de satisfaction';
+
+  @override
+  String get publicContactName => 'Nom';
+
+  @override
+  String get publicContactNameHint => 'Votre nom complet';
+
+  @override
+  String get publicContactNameRequired => 'Le nom est obligatoire';
+
+  @override
+  String get publicContactEmailHint => 'vous@exemple.com';
+
+  @override
+  String get publicContactEmailRequired => 'L’adresse courriel est obligatoire';
+
+  @override
+  String get publicContactEmailInvalid =>
+      'Saisissez une adresse courriel valide';
+
+  @override
+  String get publicContactMessageHint => 'Comment pouvons-nous vous aider ?';
+
+  @override
+  String get publicContactMessageRequired => 'Le message est obligatoire';
+
+  @override
+  String get publicContactPhone => 'Téléphone';
+
+  @override
+  String get publicContactLocation => 'Emplacement';
+
+  @override
+  String get publicContactGlobalPlatform => 'Plateforme mondiale en ligne';
+
+  @override
+  String get publicCurrentLocation => 'Emplacement actuel (pays et ville)';
+
+  @override
+  String get publicGender => 'Genre';
+
+  @override
+  String get publicMale => 'Homme';
+
+  @override
+  String get publicFemale => 'Femme';
+
+  @override
+  String get publicNationality => 'Nationalité';
+
+  @override
+  String get publicCurrentStatus => 'Je suis actuellement…';
+
+  @override
+  String get publicProfessional => 'Professionnel(le)';
+
+  @override
+  String get publicPleaseSpecify => 'Veuillez préciser';
+
+  @override
+  String get publicSpecifyAvailability =>
+      'Veuillez préciser votre disponibilité';
+
+  @override
+  String get publicRequiredField => 'Ce champ est obligatoire';
+
+  @override
+  String get publicSelectOption => 'Veuillez sélectionner une option';
+
+  @override
+  String get publicLeadershipInterestPrompt =>
+      'Pourquoi souhaitez-vous occuper un rôle de direction ?';
+
+  @override
+  String get publicLeadershipExperiencePrompt =>
+      'Expérience pertinente en direction ou en gestion (facultatif)';
+
+  @override
+  String get publicAvailabilityPrompt => 'Quand pouvez-vous commencer ?';
+
+  @override
+  String get publicAvailabilityOneWeek => 'Dans une semaine';
+
+  @override
+  String get publicAvailabilityTwoWeeks => 'Dans deux semaines';
+
+  @override
+  String get publicAvailabilityThreeWeeks => 'Dans trois semaines';
+
+  @override
+  String get publicAvailabilityOneMonth => 'Dans un mois';
+
+  @override
+  String get publicApplicationSubmitFailed =>
+      'Impossible d’envoyer votre candidature. Veuillez réessayer.';
+
+  @override
+  String publicTeacherStepProgress(int current, int total) {
+    return 'Étape $current sur $total';
+  }
+
+  @override
+  String get publicTeacherPersonalInfo => 'Renseignements personnels';
+
+  @override
+  String get publicTeacherWhatsApp => 'Numéro WhatsApp';
+
+  @override
+  String get publicTeacherTeachingPrograms => 'Programmes d’enseignement';
+
+  @override
+  String get publicTeacherProgramAfterSchool =>
+      'Soutien scolaire (parcours anglais)';
+
+  @override
+  String get publicTeacherProgramIslamic =>
+      'Programme islamique (Coran, arabe, hadith, fiqh)';
+
+  @override
+  String get publicTeacherProgramAdultLiteracy =>
+      'Alphabétisation des adultes (lecture et écriture en anglais et en français)';
+
+  @override
+  String get publicTeacherProgramAdlam => 'AdLaM (lecture et écriture)';
+
+  @override
+  String get publicTeacherOtherProgram =>
+      'Veuillez préciser un autre programme';
+
+  @override
+  String get publicTeacherSubjectsPrompt =>
+      'Pour le parcours anglais du soutien scolaire, indiquez les matières que vous pouvez enseigner';
+
+  @override
+  String get publicTeacherSubjectsHint =>
+      'Lecture, écriture, grammaire, vocabulaire…';
+
+  @override
+  String get publicTeacherIslamicQualifications =>
+      'Qualifications en études islamiques';
+
+  @override
+  String get publicTeacherTajwidPrompt =>
+      'Maîtrisez-vous parfaitement les règles du tajwid ?';
+
+  @override
+  String get publicTeacherQuranLevelPrompt =>
+      'Quel est votre niveau de mémorisation du Coran ?';
+
+  @override
+  String get publicTeacherQuranHafiz => '100 % — Je suis hafiz';
+
+  @override
+  String get publicTeacherQuranHalf => 'Environ 50 % ou plus';
+
+  @override
+  String get publicTeacherQuranThird => 'Environ 35 % ou moins';
+
+  @override
+  String get publicTeacherQuranJuzu => 'J’ai mémorisé moins que Juz Amma';
+
+  @override
+  String get publicTeacherArabicPrompt =>
+      'Quel est votre niveau de lecture et d’écriture en arabe ?';
+
+  @override
+  String get publicTeacherFluentLanguages =>
+      'Langues que vous parlez couramment';
+
+  @override
+  String get publicTeacherExperienceCommitment => 'Expérience et engagement';
+
+  @override
+  String get publicTeacherTimeDisciplinePrompt =>
+      'À quel point êtes-vous ponctuel, surtout lorsque vous travaillez tard le soir ?';
+
+  @override
+  String get publicTeacherBalancePrompt =>
+      'Comment conciliez-vous vos études ou votre vie personnelle avec l’enseignement (6 heures par semaine requises) ?';
+
+  @override
+  String get publicTeacherInterestPrompt =>
+      'Pourquoi souhaitez-vous postuler à un poste d’enseignant chez nous ? (100 à 400 mots)';
+
+  @override
+  String get publicTeacherInterestHint => 'Décrivez votre motivation…';
+
+  @override
+  String get publicTeacherInterestRequired =>
+      'Veuillez expliquer votre intérêt';
+
+  @override
+  String publicTeacherMinWords(int minimum, int current) {
+    return 'Veuillez écrire au moins $minimum mots (actuellement : $current)';
+  }
+
+  @override
+  String publicTeacherMaxWords(int maximum, int current) {
+    return 'Veuillez limiter votre réponse à $maximum mots (actuellement : $current)';
+  }
+
+  @override
+  String get publicTeacherElectricityPrompt =>
+      'À quelle fréquence avez-vous de l’électricité chez vous ?';
+
+  @override
+  String get publicTeacherComfortPrompt =>
+      'Dans quelle mesure êtes-vous à l’aise pour enseigner en ligne aux adolescents, aux adultes et aux enfants ?';
+
+  @override
+  String get publicTeacherSafetyPrompt =>
+      'Garantissez-vous des interactions responsables, légales et respectueuses avec les élèves, en particulier les mineurs ?';
+
+  @override
+  String get publicTeacherStartPrompt =>
+      'Quand pouvez-vous commencer à enseigner ?';
+
+  @override
+  String get publicTeacherTechnicalRequirements => 'Exigences techniques';
+
+  @override
+  String get publicTeacherDevicePrompt =>
+      'Quel appareil comptez-vous utiliser pour enseigner ?';
+
+  @override
+  String get publicTeacherInternetPrompt =>
+      'À quelle fréquence avez-vous accès à Internet ?';
+
+  @override
+  String get publicTeacherScenarios => 'Mises en situation pédagogiques';
+
+  @override
+  String get publicTeacherScenarioPrompt =>
+      'Que feriez-vous si un enfant refusait de participer ou de lire pendant le cours ? (100 à 300 mots)';
+
+  @override
+  String get publicTeacherScenarioHint => 'Décrivez votre approche…';
+
+  @override
+  String get publicTeacherScenarioRequired => 'Veuillez décrire votre approche';
+
+  @override
+  String get publicTeacherFeedback => 'Commentaires';
+
+  @override
+  String get publicTeacherFeedbackPrompt =>
+      'Avez-vous des commentaires sur ce formulaire de candidature ? (Facultatif)';
+
+  @override
+  String get publicTeacherFeedbackHint =>
+      'Vos commentaires nous aident à nous améliorer…';
+
+  @override
+  String get publicSelectAnOption => 'Sélectionnez une option';
+
+  @override
+  String get publicNext => 'Suivant';
+
+  @override
+  String get publicSubmitApplication => 'Envoyer la candidature';
+
+  @override
+  String get publicResetInstructions =>
+      'Saisissez votre adresse courriel et nous vous enverrons un lien pour réinitialiser votre mot de passe.';
+
+  @override
+  String get publicResetSent =>
+      'Courriel de réinitialisation envoyé. Consultez votre boîte de réception.';
+
+  @override
+  String get publicResetNoAccount =>
+      'Aucun compte ne correspond à cette adresse courriel.';
+
+  @override
+  String get publicResetFailed =>
+      'Impossible d’envoyer le courriel de réinitialisation. Veuillez réessayer.';
+
+  @override
+  String get publicSendResetLink => 'Envoyer le lien';
+
+  @override
+  String get publicSignInWithPhone => 'Se connecter par téléphone';
+
+  @override
+  String get publicPhoneSearchCountry => 'Rechercher un pays…';
+
+  @override
+  String get publicPhoneEnterNumber => 'Veuillez saisir un numéro de téléphone';
+
+  @override
+  String get publicPhoneInvalidNumber =>
+      'Veuillez saisir un numéro de téléphone valide';
+
+  @override
+  String get publicPhoneAutomaticFailed => 'La connexion automatique a échoué';
+
+  @override
+  String get publicPhoneFormatInvalid =>
+      'Le format du numéro est invalide. Vérifiez-le et réessayez.';
+
+  @override
+  String get publicPhoneTooManyAttempts =>
+      'Trop de tentatives. Attendez quelques minutes puis réessayez.';
+
+  @override
+  String get publicPhoneQuotaExceeded =>
+      'Le quota de SMS est atteint. Veuillez réessayer plus tard.';
+
+  @override
+  String get publicPhoneVerificationFailed =>
+      'La vérification a échoué. Veuillez réessayer.';
+
+  @override
+  String get publicPhoneSendFailed =>
+      'Impossible d’envoyer le code de vérification. Veuillez réessayer.';
+
+  @override
+  String get publicPhoneEnterCode => 'Veuillez saisir le code reçu par SMS';
+
+  @override
+  String get publicPhoneEnterFullCode =>
+      'Veuillez saisir les 6 chiffres du code';
+
+  @override
+  String get publicPhoneIncorrectCode =>
+      'Le code est incorrect. Veuillez réessayer.';
+
+  @override
+  String get publicPhoneExpiredCode =>
+      'Le code a expiré. Demandez-en un nouveau.';
+
+  @override
+  String get publicPhoneCodeTitle => 'Saisir le code SMS';
+
+  @override
+  String publicPhoneCodeSent(String phone) {
+    return 'Nous avons envoyé un code de vérification au $phone';
+  }
+
+  @override
+  String get publicPhoneInstructions =>
+      'Saisissez votre numéro pour recevoir un code de vérification';
+
+  @override
+  String get publicPhoneSendCode => 'Envoyer le code';
+
+  @override
+  String get publicPhoneVerify => 'Vérifier et se connecter';
+
+  @override
+  String get publicPhoneChangeNumber => 'Changer de numéro';
+
+  @override
+  String get publicJourney2020Title => 'Naissance de la vision';
+
+  @override
+  String get publicJourney2020Body => 'La graine d’Alluwal a été plantée.';
+
+  @override
+  String get publicJourney2021Title => 'Premiers enseignants';
+
+  @override
+  String get publicJourney2021Body =>
+      'Des éducateurs passionnés nous ont rejoints.';
+
+  @override
+  String get publicJourney2022Title => 'Lancement de la plateforme';
+
+  @override
+  String get publicJourney2022Body =>
+      'Nous avons officiellement ouvert nos portes virtuelles.';
+
+  @override
+  String get publicJourney2023Title => 'Expansion mondiale';
+
+  @override
+  String get publicJourney2023Body =>
+      'Nous avons rejoint des élèves dans plus de 20 pays.';
+
+  @override
+  String get publicJourney2024Title => 'Croissance';
+
+  @override
+  String get publicJourney2024Body =>
+      'De nouveaux cours et plus de 5 000 élèves accompagnés.';
+
+  @override
+  String get publicLocationHint => 'États-Unis, New York';
+
+  @override
+  String get publicNationalityHint => 'Votre nationalité';
+
+  @override
+  String get publicStatusHint => 'Votre situation actuelle';
+
+  @override
+  String get publicProgramHint => 'Votre programme';
+
+  @override
+  String get publicAvailabilityHint => 'Votre disponibilité';
+
+  @override
+  String get publicTeacherDisciplineAlways =>
+      '100 % — Le sommeil ne me fera jamais manquer un cours';
+
+  @override
+  String get publicTeacherDisciplineSometimes =>
+      '50 % — Le sommeil et mes engagements personnels peuvent m’affecter';
+
+  @override
+  String get publicTeacherDisciplineDifficult =>
+      'Moins de 30 % — Résister au sommeil et anticiper est difficile';
+
+  @override
+  String get publicTeacherDisciplineDay =>
+      'Pas du tout — Je préfère travailler le jour';
+
+  @override
+  String get publicTeacherBalanceAlways =>
+      '100 % — Je maîtrise toujours mon organisation';
+
+  @override
+  String get publicTeacherBalanceSometimes =>
+      '50 % — J’essaie souvent de garder un bon équilibre';
+
+  @override
+  String get publicTeacherBalanceDifficult =>
+      'Moins de 30 % — L’équilibre de vie n’est pas l’un de mes points forts';
+
+  @override
+  String get publicLanguageSpanish => 'Espagnol';
+
+  @override
+  String get publicLanguageMandingo => 'Mandingue';
+
+  @override
+  String get publicLanguagePular => 'Pular';
+
+  @override
+  String get publicLanguageTurkish => 'Turc';
+
+  @override
+  String get publicLanguageUrdu => 'Ourdou';
+
+  @override
+  String get publicLanguageBengali => 'Bengali';
+
+  @override
+  String get publicLanguageIndonesian => 'Indonésien';
+
+  @override
+  String get publicLanguageMalay => 'Malais';
+
+  @override
+  String get publicEnterEmailFirst =>
+      'Saisissez d’abord votre adresse courriel.';
+
+  @override
+  String get publicResetTitle => 'Courriel de réinitialisation envoyé';
+
+  @override
+  String publicResetBody(String email) {
+    return 'Un lien de réinitialisation a été envoyé à $email. Consultez votre boîte de réception et suivez les instructions.';
+  }
+
+  @override
+  String get publicResetTooMany =>
+      'Trop de demandes de réinitialisation. Attendez quelques minutes puis réessayez.';
+
+  @override
+  String get publicNetworkError =>
+      'Vérifiez votre connexion Internet puis réessayez.';
+
+  @override
+  String get publicShowPassword => 'Afficher le mot de passe';
+
+  @override
+  String get publicHidePassword => 'Masquer le mot de passe';
+
+  @override
+  String get publicGoogleNoAccount =>
+      'Aucun compte ne correspond à cette adresse Google. Contactez d’abord un administrateur.';
+
+  @override
+  String get publicGoogleDifferentMethod =>
+      'Cette adresse utilise une autre méthode de connexion. Connectez-vous avec votre adresse courriel et votre mot de passe.';
+
+  @override
+  String get publicGoogleFailed =>
+      'La connexion avec Google a échoué. Veuillez réessayer.';
+
+  @override
+  String get enrollmentStudentNameRequired =>
+      'Veuillez saisir le nom de l’élève';
+
+  @override
+  String enrollmentStudentNumberNameRequired(int studentNumber) {
+    return 'Veuillez saisir le nom de l’élève $studentNumber';
+  }
+
+  @override
+  String enrollmentStudentProgramRequired(int studentNumber) {
+    return 'Veuillez sélectionner un programme pour l’élève $studentNumber';
+  }
+
+  @override
+  String enrollmentStudentLanguageRequired(int studentNumber) {
+    return 'Veuillez sélectionner une langue précise pour l’élève $studentNumber';
+  }
+
+  @override
+  String enrollmentStudentLevelRequired(int studentNumber) {
+    return 'Veuillez sélectionner un niveau pour l’élève $studentNumber';
+  }
+
+  @override
+  String enrollmentStudentClassTypeRequired(int studentNumber) {
+    return 'Veuillez sélectionner un type de cours pour l’élève $studentNumber';
+  }
+
+  @override
+  String get enrollmentAllProgramsRequired =>
+      'Veuillez sélectionner un programme pour tous les enfants';
+
+  @override
+  String get enrollmentSpecificLanguageRequired =>
+      'Veuillez sélectionner une langue précise';
+
+  @override
+  String get enrollmentAllLevelsRequired =>
+      'Veuillez sélectionner un niveau pour tous les enfants';
+
+  @override
+  String get enrollmentAllClassTypesRequired =>
+      'Veuillez sélectionner un type de cours pour tous les enfants';
+
+  @override
+  String get enrollmentPreferredDayRequired =>
+      'Veuillez sélectionner au moins un jour préféré';
+
+  @override
+  String get enrollmentRoleRequired =>
+      'Veuillez indiquer si vous êtes élève, parent ou tuteur';
+
+  @override
+  String get enrollmentRequiredFields =>
+      'Veuillez remplir tous les champs obligatoires';
+
+  @override
+  String get enrollmentSameSchedule => 'Identique';
+
+  @override
+  String get enrollmentCustomSchedule => 'Personnalisé';
+
+  @override
+  String get enrollmentImportantSchedulingNotes =>
+      'Notes importantes sur les horaires';
+
+  @override
+  String get enrollmentReviewDetails => 'Détails de l’inscription';
+
+  @override
+  String get enrollmentReviewLevel => 'Niveau';
+
+  @override
+  String get enrollmentReviewFormat => 'Format';
+
+  @override
+  String get enrollmentReviewHours => 'Heures/semaine';
+
+  @override
+  String get enrollmentReviewDays => 'Jours';
+
+  @override
+  String get enrollmentReviewTimeSlots => 'Créneaux horaires';
+
+  @override
+  String get enrollmentReviewTimePreference => 'Préférence horaire';
+
+  @override
+  String enrollmentStudentNumber(int studentNumber) {
+    return 'Élève $studentNumber';
+  }
+
+  @override
+  String get enrollmentStudentNameLabel => 'Nom de l’élève';
+
+  @override
+  String get enrollmentStudentNameHint => 'Saisissez le nom complet';
+
+  @override
+  String get enrollmentAgeLabel => 'Âge';
+
+  @override
+  String get enrollmentAgeHint => 'Années';
+
+  @override
+  String get enrollmentAgeInvalid => 'Saisissez un âge valide (1 à 99 ans)';
+
+  @override
+  String get enrollmentElementarySchool => 'École primaire';
+
+  @override
+  String get enrollmentMiddleSchool => 'Collège';
+
+  @override
+  String get enrollmentHighSchool => 'Lycée';
+
+  @override
+  String get enrollmentUniversity => 'Université';
+
+  @override
+  String get enrollmentMorning => 'Matin';
+
+  @override
+  String get enrollmentAfternoon => 'Après-midi';
+
+  @override
+  String get enrollmentEvening => 'Soir';
+
+  @override
+  String get enrollmentFlexible => 'Flexible';
+
+  @override
+  String enrollmentSelectField(String field) {
+    return 'Sélectionnez $field';
+  }
+
+  @override
+  String get enrollmentDayMon => 'Lun';
+
+  @override
+  String get enrollmentDayTue => 'Mar';
+
+  @override
+  String get enrollmentDayWed => 'Mer';
+
+  @override
+  String get enrollmentDayThu => 'Jeu';
+
+  @override
+  String get enrollmentDayFri => 'Ven';
+
+  @override
+  String get enrollmentDaySat => 'Sam';
+
+  @override
+  String get enrollmentDaySun => 'Dim';
+
+  @override
+  String get countryUnitedStates => 'États-Unis';
+
+  @override
+  String get countryCanada => 'Canada';
+
+  @override
+  String get countryUnitedKingdom => 'Royaume-Uni';
+
+  @override
+  String get countryFrance => 'France';
+
+  @override
+  String get countrySenegal => 'Sénégal';
+
+  @override
+  String get countryGuinea => 'Guinée';
+
+  @override
+  String get countryMali => 'Mali';
+
+  @override
+  String get countryIvoryCoast => 'Côte d’Ivoire';
+
+  @override
+  String get countryGambia => 'Gambie';
+
+  @override
+  String get countryMauritania => 'Mauritanie';
+
+  @override
+  String get countryBurkinaFaso => 'Burkina Faso';
+
+  @override
+  String get countryNiger => 'Niger';
+
+  @override
+  String get countryNigeria => 'Nigéria';
+
+  @override
+  String get countryGhana => 'Ghana';
+
+  @override
+  String get countryCameroon => 'Cameroun';
+
+  @override
+  String get countryChad => 'Tchad';
+
+  @override
+  String get countryMorocco => 'Maroc';
+
+  @override
+  String get countryAlgeria => 'Algérie';
+
+  @override
+  String get countryTunisia => 'Tunisie';
+
+  @override
+  String get countryEgypt => 'Égypte';
+
+  @override
+  String get countrySaudiArabia => 'Arabie saoudite';
+
+  @override
+  String get countryUae => 'Émirats arabes unis';
+
+  @override
+  String get countryQatar => 'Qatar';
+
+  @override
+  String get countryKuwait => 'Koweït';
+
+  @override
+  String get countryTurkey => 'Turquie';
+
+  @override
+  String get countryGermany => 'Allemagne';
+
+  @override
+  String get countryItaly => 'Italie';
+
+  @override
+  String get countrySpain => 'Espagne';
+
+  @override
+  String get countryBelgium => 'Belgique';
+
+  @override
+  String get countryNetherlands => 'Pays-Bas';
+
+  @override
+  String get countrySwitzerland => 'Suisse';
+
+  @override
+  String enrollmentFooterStudentHours(int count, int hours) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count élèves',
+      one: '1 élève',
+    );
+    return '$_temp0 · $hours h/sem';
+  }
+
+  @override
+  String get teamRoleFounder => 'Fondateur';
+
+  @override
+  String get teamRoleTechnologyOfficer => 'Directeur de la technologie';
+
+  @override
+  String get teamRoleExecutiveOfficer => 'Directeur général';
+
+  @override
+  String get teamRoleAccountant => 'Responsable comptable';
+
+  @override
+  String get teamRoleCoordinator =>
+      'Coordination des enseignants et des élèves';
+
+  @override
+  String get teamRoleSocialMedia => 'Responsable des réseaux sociaux';
+
+  @override
+  String get teamRoleTeacher => 'Enseignant';
+
+  @override
+  String get teamRoleQuranTeacher => 'Enseignant du Coran';
+
+  @override
+  String get teamRoleUstaz => 'Oustaz';
+
+  @override
+  String get teamRoleEngineerTeacherDeveloper =>
+      'Ingénieur d’État | Enseignant et développeur';
+
+  @override
+  String get teamEducationSummary =>
+      'Formation universitaire et professionnelle';
+
+  @override
+  String get sidebarQuizReview => 'Révision des quiz';
+
+  @override
+  String get quizReviewTitle => 'Révision des questions de quiz IA';
+
+  @override
+  String get quizReviewEmpty => 'Aucune question en attente de révision.';
+
+  @override
+  String get quizReviewAccessRequired =>
+      'Votre administrateur doit vous ajouter comme réviseur de quiz avant que vous puissiez réviser des questions.';
+
+  @override
+  String get quizReviewApprove => 'Approuver';
+
+  @override
+  String get quizReviewReject => 'Rejeter';
+
+  @override
+  String get quizReviewGenerate => 'Générer des questions';
+
+  @override
+  String get quizReviewGenerateStarted =>
+      'Génération de nouvelles questions… elles apparaîtront ici dans une minute.';
+
+  @override
+  String quizReviewActionFailed(String error) {
+    return 'Échec de l\'action : $error';
+  }
+
+  @override
+  String get quizReviewApprovedSnack => 'Question approuvée';
+
+  @override
+  String get quizReviewRejectedSnack => 'Question rejetée';
+
+  @override
+  String get quizReviewRejectionReasonTitle =>
+      'Pourquoi rejeter cette question ?';
+
+  @override
+  String get quizReviewRejectionReasonLabel => 'Motif du rejet';
+
+  @override
+  String get quizReviewRejectionReasonHint =>
+      'Par exemple : doublon, erreur ou manque de clarté';
+
+  @override
+  String get quizReviewRejectionReasonRequired =>
+      'Veuillez donner un motif avant de rejeter.';
+
+  @override
+  String get quizReviewConfirmRejection => 'Rejeter la question';
+
+  @override
+  String quizReviewPendingCount(int count) {
+    return '$count en attente';
+  }
+
+  @override
+  String get quizReviewSendStudentBatch => 'Envoyer le lot élèves';
+
+  @override
+  String get quizReviewStudentBatchSent =>
+      'Le lot de questions approuvées a été envoyé aux élèves.';
+
+  @override
+  String get quizReviewManageReviewers => 'Enseignants réviseurs';
+
+  @override
+  String get quizReviewSaveReviewers => 'Enregistrer les réviseurs';
+
+  @override
+  String get quizReviewReviewersSaved =>
+      'Les enseignants réviseurs ont été enregistrés et avertis du lot en attente.';
+
+  @override
+  String get quizReviewRecentDecisions => 'Décisions récentes';
+
+  @override
+  String quizReviewDecisionBy(String status, String name, String role) {
+    return '$status par $name ($role)';
+  }
+
+  @override
+  String get quizCompetitionStudentTitle => 'Défi Bayannah mensuel';
+
+  @override
+  String get quizCompetitionAdminTitle => 'Concours Bayannah';
+
+  @override
+  String quizCompetitionMonth(String month) {
+    return 'Mois du concours : $month';
+  }
+
+  @override
+  String quizCompetitionRules(int questions, int days) {
+    return 'Réponds à des questions uniques pendant tout le mois. Pour te qualifier, réponds à au moins $questions questions sur $days jours différents. Le plus grand nombre de réponses uniques gagne ; les égalités sont départagées par les bonnes réponses, la précision, les jours actifs, puis l\'heure du score final.';
+  }
+
+  @override
+  String get quizCompetitionQuestions => 'Questions';
+
+  @override
+  String get quizCompetitionActiveDays => 'Jours actifs';
+
+  @override
+  String get quizCompetitionRank => 'Rang';
+
+  @override
+  String get quizCompetitionRetry => 'Réessayer le statut du concours';
+
+  @override
+  String get quizCompetitionNoWinner =>
+      'Aucun élève n\'a atteint le minimum de participation ce mois-ci.';
+
+  @override
+  String quizCompetitionWinner(String name) {
+    return 'Gagnant(e) : $name';
+  }
+
+  @override
+  String quizCompetitionAnswered(int count) {
+    return '$count questions uniques répondues';
+  }
+
+  @override
+  String get quizCompetitionLeaderboard => 'Classement';
+
+  @override
+  String get quizCompetitionNoParticipants =>
+      'Aucun élève n\'a encore répondu à une question du concours.';
+
+  @override
+  String quizCompetitionEntryStats(int answered, int correct, int days) {
+    return '$answered réponses · $correct correctes · $days jours actifs';
+  }
+
+  @override
+  String get quizCompetitionChooseMonth => 'Choisir le mois';
+
+  @override
+  String get quizCompetitionFinalizeTitle => 'Finaliser ce concours ?';
+
+  @override
+  String get quizCompetitionFinalizeBody =>
+      'Chaque tranche d\'âge ayant assez d\'élèves admissibles aura un gagnant ou des co-gagnants en cas d\'égalité exacte. Une clôture anticipée ou une correction exige un motif écrit.';
+
+  @override
+  String get quizCompetitionFinalizeReason =>
+      'Motif (requis pour une clôture anticipée ou une correction)';
+
+  @override
+  String get quizCompetitionFinalize => 'Finaliser le gagnant';
+
+  @override
+  String get quizCompetitionFinalized => 'Résultat du concours finalisé.';
+
+  @override
+  String get quizCompetitionRefinalize => 'Corriger le résultat finalisé';
+
+  @override
+  String get quizCompetitionCancel => 'Annuler';
+
+  @override
+  String get quizCompetitionAnswerNotCounted =>
+      'Cette réponse n\'a pas pu être ajoutée au concours mensuel. Vérifie ta connexion et essaie une autre question.';
+
+  @override
+  String quizCompetitionFairRules(
+      int questions, int days, int accuracy, int participants) {
+    return 'Tu concoures uniquement dans ta tranche d\'âge. Pour te qualifier : $questions questions uniques sur $days jours et au moins $accuracy % de bonnes réponses. Il faut $participants élèves admissibles par tranche. Une égalité exacte donne des co-gagnants.';
+  }
+
+  @override
+  String quizCompetitionCategoryProgress(int attempted, int required) {
+    return 'Pour te qualifier, explore chaque catégorie : $attempted/$required terminées.';
+  }
+
+  @override
+  String get quizCompetitionNearbyRanks =>
+      'Rangs les plus proches dans ta tranche';
+
+  @override
+  String quizCompetitionNearbyAhead(int rank, String name) {
+    return 'Devant · n°$rank $name';
+  }
+
+  @override
+  String quizCompetitionNearbyBehind(int rank, String name) {
+    return 'Derrière · n°$rank $name';
+  }
+
+  @override
+  String quizCompetitionCountingWindow(String start, String end) {
+    return 'Les réponses comptent du $start au $end.';
+  }
+
+  @override
+  String get quizCompetitionSetWindow => 'Définir la période';
+
+  @override
+  String get quizCompetitionCountingStart => 'Premier jour comptabilisé';
+
+  @override
+  String get quizCompetitionCountingEnd => 'Dernier jour comptabilisé';
+
+  @override
+  String get quizCompetitionWindowSaved => 'Période de comptage enregistrée.';
+
+  @override
+  String quizCompetitionLifetimeWins(int count) {
+    return 'Victoires au total : $count';
+  }
+
+  @override
+  String get quizCompetitionCategoryGuidance => 'Conseils par catégorie';
+
+  @override
+  String quizCompetitionCategoryInsight(int correct, int answered) {
+    return '$correct/$answered correctes';
+  }
+
+  @override
+  String get quizCompetitionCategoryStart => 'Commence ici';
+
+  @override
+  String get quizCompetitionCategoryPractice => 'À revoir';
+
+  @override
+  String get quizCompetitionCategoryStrong => 'Bon progrès';
+
+  @override
+  String quizCompetitionDivision(String division) {
+    return 'Tranche : $division';
+  }
+
+  @override
+  String get quizCompetitionDivisionEarlyLearners =>
+      'Petits apprenants (moins de 8 ans)';
+
+  @override
+  String get quizCompetitionDivisionJuniors => 'Juniors (8–11 ans)';
+
+  @override
+  String get quizCompetitionDivisionYouth => 'Jeunes (12–17 ans)';
+
+  @override
+  String get quizCompetitionDivisionAdults => 'Adultes (18 ans et plus)';
+
+  @override
+  String get quizCompetitionDivisionUnassigned => 'Tranche d\'âge à confirmer';
+
+  @override
+  String get quizCompetitionDivisionNeeded =>
+      'Tes réponses sont enregistrées, mais tu ne seras pas classé tant que ta tranche d\'âge n\'est pas définie.';
+
+  @override
+  String quizCompetitionCoWinners(String names) {
+    return 'Co-gagnants : $names';
+  }
+
+  @override
+  String quizCompetitionDivisionSummary(int participants, int eligible) {
+    return '$participants participants · $eligible admissibles';
+  }
+
+  @override
+  String get quizCompetitionAssignDivision => 'Attribuer une tranche';
+
+  @override
+  String get quizCompetitionAssignDivisionTitle =>
+      'Attribuer la tranche d\'âge';
+
+  @override
+  String get quizCompetitionAssignDivisionReason =>
+      'Motif ou âge vérifié (obligatoire)';
+
+  @override
+  String get quizCompetitionAssignDivisionSaved => 'Tranche d\'âge attribuée.';
+
+  @override
+  String get quizCompetitionAgeSetupTitle => 'Définis ta tranche d\'âge';
+
+  @override
+  String get quizCompetitionAgeSetupBody =>
+      'Choisis ton mois et ton année de naissance afin de concourir avec des élèves proches de ton âge. Nous n\'enregistrons pas ta date de naissance exacte. Demande l\'aide d\'un parent ou tuteur si nécessaire.';
+
+  @override
+  String get quizCompetitionBirthMonth => 'Mois de naissance';
+
+  @override
+  String get quizCompetitionBirthYear => 'Année de naissance';
+
+  @override
+  String get quizCompetitionAgeSetupSave => 'Enregistrer la tranche';
+
+  @override
+  String get quizCompetitionAgeSetupLater => 'Plus tard';
+
+  @override
+  String get quizCompetitionAgeSetupRequired =>
+      'Choisis le mois et l\'année de naissance.';
+
+  @override
+  String get quizCompetitionAgeSetupSaved => 'Ta tranche d\'âge est prête.';
+
+  @override
+  String get quizCompetitionParticipationTitle => 'Participation des élèves';
+
+  @override
+  String get quizCompetitionParticipationEmpty =>
+      'Aucun élève actif n\'est affecté à cette tranche d\'âge.';
+
+  @override
+  String get quizCompetitionStatusNotStarted => 'Pas commencé';
+
+  @override
+  String get quizCompetitionStatusNeedsEncouragement => 'À encourager';
+
+  @override
+  String get quizCompetitionStatusParticipating => 'Participe';
+
+  @override
+  String get quizCompetitionStatusQualified => 'Admissible';
+
+  @override
+  String quizCategoryCount(int categories, int questions) {
+    return '$categories catégories • $questions+ questions';
+  }
+
+  @override
+  String get parentFormsTitle => 'Formulaires familiaux';
+
+  @override
+  String get parentFormsSubtitle =>
+      'Envoyez une demande d\'excuse ou partagez vos commentaires avec les responsables de l\'école.';
+
+  @override
+  String get parentExcuseFormTitle =>
+      'Demande d\'excuse d\'absence de l\'élève';
+
+  @override
+  String get parentExcuseFormDescription =>
+      'Informez l\'école de la raison pour laquelle votre enfant manquera ou a manqué un cours.';
+
+  @override
+  String get parentExcuseStudentName => 'Nom complet de l\'enfant';
+
+  @override
+  String get parentExcuseClassOrTeacher => 'Cours ou enseignant (facultatif)';
+
+  @override
+  String get parentExcuseAbsenceDate => 'Date du cours manqué';
+
+  @override
+  String get parentExcuseReason => 'Motif de l\'absence';
+
+  @override
+  String get parentExcuseReasonIllness => 'Maladie';
+
+  @override
+  String get parentExcuseReasonAppointment => 'Rendez-vous';
+
+  @override
+  String get parentExcuseReasonFamilyEmergency => 'Urgence familiale';
+
+  @override
+  String get parentExcuseReasonTechnicalIssue => 'Problème technique';
+
+  @override
+  String get parentExcuseDetails => 'Veuillez expliquer l\'absence';
+
+  @override
+  String get parentExcusePreferredContact =>
+      'Mode de suivi préféré (facultatif)';
+
+  @override
+  String get parentExcuseContactInApp => 'Chat dans l\'application';
+
+  @override
+  String get parentExcuseContactEmail => 'E-mail';
+
+  @override
+  String get parentExcuseContactPhone => 'Téléphone';
+
+  @override
+  String classRosterAssignedStudents(int count) {
+    return 'Élèves inscrits ($count)';
+  }
+
+  @override
+  String classRosterStudentId(String id) {
+    return 'ID élève : $id';
+  }
+
+  @override
+  String classRosterParentName(String name) {
+    return 'Parent : $name';
+  }
+
+  @override
+  String classRosterPhone(String phone) {
+    return 'Téléphone : $phone';
+  }
+
+  @override
+  String get classRosterNoParentLinked => 'Aucun parent associé';
+
+  @override
+  String get classRosterNoPhoneNumber => 'Aucun numéro de téléphone';
+
+  @override
+  String get classRosterContactsUnavailable => 'Coordonnées indisponibles';
 }

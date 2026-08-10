@@ -1,4 +1,4 @@
-# Contributing to Alluvial Academy
+# Contributing to Alluwal Education Hub
 
 This guide is how we work together without stepping on each other's toes.
 Read it once before your first PR. If anything is unclear, open an issue.

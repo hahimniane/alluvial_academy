@@ -2,7 +2,7 @@
 
 You are building a complete standalone mobile app called **Wouri** using React Native (Expo) with its own Firebase backend. Wouri is a tontine app — a rotating savings circle where a group of people each contribute a fixed amount every cycle, and each cycle the full pot goes to one member in a fixed order until everyone has received once.
 
-**This app is standalone** — it has its own Firebase project, its own auth, its own Firestore. However, it connects to an external platform called "Alluvial Academy" via a REST API to pull teacher and parent data for admin-created circles. Build the entire app end-to-end. Do not ask any questions. Make all reasonable design decisions yourself.
+**This app is standalone** — it has its own Firebase project, its own auth, its own Firestore. However, it connects to an external platform called "Alluwal Education Hub" via a REST API to pull teacher and parent data for admin-created circles. Build the entire app end-to-end. Do not ask any questions. Make all reasonable design decisions yourself.
 
 ---
 
@@ -33,19 +33,19 @@ A **circle** is a savings group. Members each contribute a fixed amount every cy
 
 **Three circle types:**
 1. **Open (`type: "open"`)** — Any Wouri user creates a circle. They become the tontine head. They invite members by email or phone. Payments are manual (members upload receipt photos, head confirms/rejects).
-2. **Teacher (`type: "teacher"`)** — Created by a Wouri admin. Members are teachers fetched from the Alluvial Academy API. Can use "manual selection" (admin picks specific teachers) or "open enrollment" (teachers who meet eligibility rules can self-join). Contributions tracked as "payroll deduction" (admin deducts from teacher payouts externally).
-3. **Parent (`type: "parent"`)** — Created by a Wouri admin. Members are parents fetched from the Alluvial Academy API. Manual selection only. Receipt-based payments like open circles.
+2. **Teacher (`type: "teacher"`)** — Created by a Wouri admin. Members are teachers fetched from the Alluwal Education Hub API. Can use "manual selection" (admin picks specific teachers) or "open enrollment" (teachers who meet eligibility rules can self-join). Contributions tracked as "payroll deduction" (admin deducts from teacher payouts externally).
+3. **Parent (`type: "parent"`)** — Created by a Wouri admin. Members are parents fetched from the Alluwal Education Hub API. Manual selection only. Receipt-based payments like open circles.
 
 ---
 
-## Alluvial Academy Integration API
+## Alluwal Education Hub Integration API
 
-Wouri does NOT have direct access to Alluvial Academy's database. Instead, you must build a simple REST API (as Firebase Cloud Functions HTTP endpoints in Wouri's own backend) that proxies requests to Alluvial Academy. For now, build the Wouri side of the integration assuming the following API contract exists. Create placeholder/mock implementations that return realistic data so the app is functional, with clear TODO comments marking where real API calls will go.
+Wouri does NOT have direct access to Alluwal Education Hub's database. Instead, you must build a simple REST API (as Firebase Cloud Functions HTTP endpoints in Wouri's own backend) that proxies requests to Alluwal Education Hub. For now, build the Wouri side of the integration assuming the following API contract exists. Create placeholder/mock implementations that return realistic data so the app is functional, with clear TODO comments marking where real API calls will go.
 
 ### API Endpoints to Build (on Wouri's Cloud Functions)
 
 **`GET /api/alluvial/teachers`**
-Returns a list of active teachers from Alluvial Academy.
+Returns a list of active teachers from Alluwal Education Hub.
 ```json
 {
   "teachers": [
@@ -73,7 +73,7 @@ Returns shift count and total hours for a teacher in the last N days (for eligib
 ```
 
 **`GET /api/alluvial/parents`**
-Returns a list of active parents from Alluvial Academy.
+Returns a list of active parents from Alluwal Education Hub.
 ```json
 {
   "parents": [
@@ -101,7 +101,7 @@ Returns pre-computed eligibility data for a teacher.
 }
 ```
 
-When the Alluvial Academy team is ready, they will expose matching endpoints on their side. For now, use mock data with 10-15 realistic teacher records and 5-10 parent records. Include a mix of names from West African cultures (Wolof, Mandinka, Fula, Diola names) and some generic names.
+When the Alluwal Education Hub team is ready, they will expose matching endpoints on their side. For now, use mock data with 10-15 realistic teacher records and 5-10 parent records. Include a mix of names from West African cultures (Wolof, Mandinka, Fula, Diola names) and some generic names.
 
 ### How Integration Works in the App
 
@@ -615,7 +615,7 @@ When a new member joins an open enrollment circle:
 **`GET /api/alluvial/teachers/:userId/eligibility`** — returns mock eligibility data
 **`GET /api/alluvial/parents`** — returns mock parent data
 
-Mark all with `// TODO: Replace with real Alluvial Academy API calls` comments.
+Mark all with `// TODO: Replace with real Alluwal Education Hub API calls` comments.
 
 ---
 
