@@ -97,6 +97,31 @@ const _studentFirstName = async (db, studentId) => {
   }
 };
 
+/**
+ * Names of the children this invoice bills. An invoice can cover several
+ * siblings, and its single student_id is only the first of them — showing that
+ * alone made a multi-child invoice look like it was for one student.
+ */
+const _billedStudentNames = async (db, invoice = {}) => {
+  const ids = [];
+  const add = (value) => {
+    const id = (value || '').toString().trim();
+    if (id && !ids.includes(id)) ids.push(id);
+  };
+  (invoice.student_ids || invoice.studentIds || []).forEach(add);
+  if (Array.isArray(invoice.items)) {
+    invoice.items.forEach((item) => add(item && (item.student_id || item.studentId)));
+  }
+  if (ids.length === 0) add(invoice.student_id || invoice.studentId);
+
+  const names = [];
+  for (const id of ids.slice(0, 6)) {
+    const name = await _studentFirstName(db, id);
+    if (name) names.push(name);
+  }
+  return names;
+};
+
 // ── Page shell ───────────────────────────────────────────────────────────────
 
 const _page = ({title, body, statusCode = 200}) => ({
@@ -235,7 +260,7 @@ const _notFoundPage = () =>
     ],
   });
 
-const _payPage = ({resolved, studentName, actionUrl}) => {
+const _payPage = ({resolved, studentNames = [], actionUrl}) => {
   const {invoice, invoiceNumber, remaining, currency, paid} = resolved;
   const amount = _formatMoney(remaining, currency);
   const dueDate = _formatDate(invoice.due_date || invoice.dueDate);
@@ -243,7 +268,12 @@ const _payPage = ({resolved, studentName, actionUrl}) => {
 
   const rows = [
     ['Invoice', _escapeHtml(invoiceNumber)],
-    studentName ? ['Student', _escapeHtml(studentName)] : null,
+    studentNames.length
+      ? [
+        studentNames.length > 1 ? 'Students' : 'Student',
+        _escapeHtml(studentNames.join(', ')),
+      ]
+      : null,
     dueDate ? ['Due date', _escapeHtml(dueDate)] : null,
     partiallyPaid
       ? ['Already paid', _escapeHtml(_formatMoney(paid, currency))]
@@ -297,12 +327,12 @@ const _send = (res, {statusCode, html}) => {
     .send(html);
 };
 
-const _pageForState = (resolved, {studentName, token}) => {
+const _pageForState = (resolved, {studentNames = [], token}) => {
   switch (resolved.state) {
     case 'payable':
       return _payPage({
         resolved,
-        studentName,
+        studentNames,
         actionUrl: `${payLinks.payLinkBase()}/${encodeURIComponent(token)}/checkout`,
       });
 
@@ -487,11 +517,8 @@ const handlePaymentLink = async (req, res) => {
       }
 
       if (resolved.state !== 'payable') {
-        const studentName = await _studentFirstName(
-          db,
-          resolved.invoice?.student_id || resolved.invoice?.studentId
-        );
-        _send(res, _pageForState(resolved, {studentName, token}));
+        const studentName = await _billedStudentNames(db, resolved.invoice || {});
+        _send(res, _pageForState(resolved, {studentNames: studentName, token}));
         return;
       }
 
@@ -503,11 +530,8 @@ const handlePaymentLink = async (req, res) => {
       return;
     }
 
-    const studentName = await _studentFirstName(
-      db,
-      resolved.invoice?.student_id || resolved.invoice?.studentId
-    );
-    _send(res, _pageForState(resolved, {studentName, token}));
+    const studentName = await _billedStudentNames(db, resolved.invoice || {});
+    _send(res, _pageForState(resolved, {studentNames: studentName, token}));
   } catch (err) {
     console.error('[payment_links] handlePaymentLink error:', err);
     _send(

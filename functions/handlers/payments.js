@@ -98,16 +98,31 @@ const _normalizeInvoiceItems = (rawItems) => {
     const unitPrice = _toNumber(i.unit_price ?? i.unitPrice);
     const explicitTotal = _toNumber(i.total);
     const total = explicitTotal || Number((quantity * unitPrice).toFixed(2));
+    // student_id says which child this line bills. Without it an invoice can
+    // only be attributed to the family as a whole, which is why a sibling's
+    // unpaid balance used to suspend every child.
+    const studentId = (i.student_id ?? i.studentId ?? '').toString().trim();
     return {
       description: (i.description || '').toString(),
       quantity,
       unit_price: unitPrice,
       total,
+      ...(studentId ? {student_id: studentId} : {}),
       shift_ids: Array.isArray(i.shift_ids || i.shiftIds)
         ? i.shift_ids || i.shiftIds
         : []
     };
   });
+};
+
+/** The distinct children billed by these line items, in first-seen order. */
+const _billedStudentIds = (items) => {
+  const seen = [];
+  for (const item of items || []) {
+    const id = (item.student_id ?? item.studentId ?? '').toString().trim();
+    if (id && !seen.includes(id)) seen.push(id);
+  }
+  return seen;
 };
 
 const _normalizePeriod = (value) => {
@@ -887,9 +902,15 @@ const createInvoice = async (request) => {
         : admin.firestore.Timestamp.fromDate(parsed);
     }
 
+    // Attribute the invoice to the children actually billed. When no line
+    // carries a student_id (older clients), student_ids is omitted and the
+    // invoice is treated family-wide, exactly as before.
+    const billedStudentIds = _billedStudentIds(items);
+
     invoicePayload = {
       parent_id: parentId,
-      student_id: studentId,
+      student_id: billedStudentIds[0] || studentId,
+      ...(billedStudentIds.length ? {student_ids: billedStudentIds} : {}),
       status: 'pending',
       total_amount: totalAmount,
       paid_amount: 0,
@@ -949,6 +970,10 @@ const createInvoice = async (request) => {
       invoice_number: invoiceNumber,
       parent_id: invoicePayload.parent_id,
       student_id: invoicePayload.student_id,
+      ...(Array.isArray(invoicePayload.student_ids) &&
+      invoicePayload.student_ids.length
+        ? {student_ids: invoicePayload.student_ids}
+        : {}),
       status: invoicePayload.status,
       total_amount: invoicePayload.total_amount,
       paid_amount: invoicePayload.paid_amount,
@@ -2265,7 +2290,10 @@ const _createRecurringInvoiceForPeriod = async ({
       tx.set(invoiceRef, {
         invoice_number: invoiceNumber,
         parent_id: plan.parent_id || null,
-        student_id: plan.student_id || null,
+        student_id: _billedStudentIds(items)[0] || plan.student_id || null,
+        ...(_billedStudentIds(items).length
+          ? {student_ids: _billedStudentIds(items)}
+          : {}),
         status: 'pending',
         total_amount: totalAmount,
         paid_amount: 0,

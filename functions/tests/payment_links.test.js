@@ -250,7 +250,7 @@ describe('payment link pages', () => {
 
   test('the payable page shows the balance and posts to checkout', () => {
     const page = _pageForState(resolved('payable'), {
-      studentName: 'Aisha',
+      studentNames: ['Aisha'],
       token: 'tok',
     });
     expect(page.statusCode).toBe(200);
@@ -278,7 +278,7 @@ describe('payment link pages', () => {
   test('escapes invoice and student values into inert text', () => {
     const page = _pageForState(
       resolved('payable', {invoiceNumber: '<script>alert(1)</script>'}),
-      {studentName: '"><img src=x onerror=alert(1)>', token: 'tok'}
+      {studentNames: ['"><img src=x onerror=alert(1)>'], token: 'tok'}
     );
     expect(page.html).not.toContain('<script>alert(1)</script>');
     expect(page.html).not.toContain('<img');

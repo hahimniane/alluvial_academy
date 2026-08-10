@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+import 'package:alluwalacademyadmin/core/utils/app_search.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 /// Admin screen to create invoices for parents (with children) or adult students.
@@ -100,18 +101,19 @@ class _AdminCreateInvoiceScreenState extends State<AdminCreateInvoiceScreen> {
   }
 
   void _onSearchChanged() {
-    final query = _searchController.text.trim().toLowerCase();
+    final query = _searchController.text.trim();
     setState(() {
       _showSearchResults = true;
       if (query.isEmpty) {
         _filteredUsers = _allUsers;
         return;
       }
-      _filteredUsers = _allUsers.where((user) {
-        final name = '${user['first_name']} ${user['last_name']}'.toLowerCase();
-        final email = (user['email'] ?? '').toString().toLowerCase();
-        return name.contains(query) || email.contains(query);
-      }).toList();
+      _filteredUsers = _allUsers
+          .where((user) => AppSearch.matchesMap(
+                query: query,
+                data: user,
+              ))
+          .toList();
     });
   }
 
@@ -135,7 +137,18 @@ class _AdminCreateInvoiceScreenState extends State<AdminCreateInvoiceScreen> {
           'id': doc.id,
           'first_name': (data['first_name'] ?? '').toString(),
           'last_name': (data['last_name'] ?? '').toString(),
-          'email': (data['e-mail'] ?? '').toString(),
+          'email': (data['e-mail'] ?? data['email'] ?? '').toString(),
+          'phone': (data['phone_number'] ??
+                  data['phoneNumber'] ??
+                  data['mobile_phone'] ??
+                  data['mobilePhone'] ??
+                  data['phone'] ??
+                  '')
+              .toString(),
+          'studentCode':
+              (data['student_code'] ?? data['studentCode'] ?? '').toString(),
+          'kioskCode':
+              (data['kiosk_code'] ?? data['kioskCode'] ?? '').toString(),
           'user_type': (data['user_type'] ?? '').toString(),
           'children_ids': List<String>.from(data['children_ids'] ?? []),
           'is_adult_student': data['is_adult_student'] == true,
@@ -262,10 +275,13 @@ class _AdminCreateInvoiceScreenState extends State<AdminCreateInvoiceScreen> {
 
       if (amountText.isEmpty) continue;
 
+      // 0 is allowed — a scholarship, waiver or make-good line still belongs on
+      // the invoice as a record. Only negative amounts are rejected.
       final amount = double.tryParse(amountText);
-      if (amount == null || amount <= 0) {
+      if (amount == null || amount < 0) {
         setState(() => _error =
-            'Invalid amount for ${child['first_name']} ${child['last_name']}');
+            'Enter a valid amount for ${child['first_name']} ${child['last_name']}, '
+            'or clear the field to leave them off this invoice');
         return;
       }
 
@@ -275,6 +291,9 @@ class _AdminCreateInvoiceScreenState extends State<AdminCreateInvoiceScreen> {
         'quantity': 1,
         'unit_price': amount,
         'total': amount,
+        // Attribute the line to the child. Without this the invoice can only be
+        // read family-wide, and an unpaid balance suspends every sibling.
+        'student_id': childId,
       });
     }
 
@@ -290,7 +309,16 @@ class _AdminCreateInvoiceScreenState extends State<AdminCreateInvoiceScreen> {
     });
 
     try {
-      final firstChildId = _children.first['id'] as String;
+      // The invoice belongs to the children actually billed, not to whoever
+      // happens to be first in the family list. Using the first child made an
+      // invoice display a sibling's name — often the very child left off it.
+      final billedChildIds = items
+          .map((item) => item['student_id'] as String)
+          .toSet()
+          .toList(growable: false);
+      final firstChildId = billedChildIds.isNotEmpty
+          ? billedChildIds.first
+          : _children.first['id'] as String;
       final parentId = _selectedUserId!;
 
       final period = DateFormat('yyyy-MM').format(_selectedMonth);
@@ -560,7 +588,7 @@ class _AdminCreateInvoiceScreenState extends State<AdminCreateInvoiceScreen> {
             focusNode: _searchFocusNode,
             style: GoogleFonts.inter(fontSize: 14),
             decoration: InputDecoration(
-              hintText: 'Search by name or email...',
+              hintText: AppLocalizations.of(context)!.searchByNameOrEmail,
               hintStyle: GoogleFonts.inter(
                   color: const Color(0xFF94A3B8), fontSize: 14),
               prefixIcon:
@@ -962,10 +990,37 @@ class _AdminCreateInvoiceScreenState extends State<AdminCreateInvoiceScreen> {
                 borderSide:
                     const BorderSide(color: Color(0xFF0386FF), width: 1.5),
               ),
+              // Blank has always excluded a student from the invoice, but
+              // nothing said so — so a child who isn't taking classes looked
+              // like it needed a number. Spell it out.
+              helperText: 'Leave blank if this student is not being billed',
+              helperStyle: GoogleFonts.inter(
+                fontSize: 11,
+                color: const Color(0xFF94A3B8),
+              ),
               contentPadding:
                   const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
             ),
+            onChanged: (_) => setState(() {}),
           ),
+          if ((_amountControllers[childId]?.text.trim() ?? '').isEmpty) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Icon(Icons.remove_circle_outline_rounded,
+                    size: 14, color: Color(0xFF94A3B8)),
+                const SizedBox(width: 6),
+                Text(
+                  'Not on this invoice',
+                  style: GoogleFonts.inter(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFF94A3B8),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
