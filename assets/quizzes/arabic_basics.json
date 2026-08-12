@@ -8,7 +8,12 @@
       "category": "arabic_basics",
       "difficulty": "easy",
       "question": "What is the first letter of the Arabic alphabet?",
-      "options": ["Ba", "Alif", "Ta", "Jim"],
+      "options": [
+        "Ba",
+        "Alif",
+        "Ta",
+        "Jim"
+      ],
       "correctAnswer": 1,
       "explanation": "Alif (أ) is the first letter of the Arabic alphabet."
     },
@@ -17,7 +22,12 @@
       "category": "arabic_basics",
       "difficulty": "easy",
       "question": "How many letters are in the Arabic alphabet?",
-      "options": ["24", "26", "28", "30"],
+      "options": [
+        "24",
+        "26",
+        "28",
+        "30"
+      ],
       "correctAnswer": 2,
       "explanation": "The Arabic alphabet has 28 letters."
     },
@@ -26,7 +36,12 @@
       "category": "arabic_basics",
       "difficulty": "easy",
       "question": "What does 'Allah' mean?",
-      "options": ["Prophet", "God", "Angel", "Book"],
+      "options": [
+        "Prophet",
+        "God",
+        "Angel",
+        "Book"
+      ],
       "correctAnswer": 1,
       "explanation": "Allah is the Arabic word for God."
     },
@@ -35,7 +50,12 @@
       "category": "arabic_basics",
       "difficulty": "easy",
       "question": "In which direction do you read Arabic?",
-      "options": ["Left to right", "Right to left", "Top to bottom", "Bottom to top"],
+      "options": [
+        "Left to right",
+        "Right to left",
+        "Top to bottom",
+        "Bottom to top"
+      ],
       "correctAnswer": 1,
       "explanation": "Arabic is read from right to left."
     },
@@ -44,7 +64,12 @@
       "category": "arabic_basics",
       "difficulty": "easy",
       "question": "What does 'Shukran' mean?",
-      "options": ["Hello", "Goodbye", "Thank you", "Please"],
+      "options": [
+        "Hello",
+        "Goodbye",
+        "Thank you",
+        "Please"
+      ],
       "correctAnswer": 2,
       "explanation": "Shukran means 'Thank you' in Arabic."
     },
@@ -53,7 +78,12 @@
       "category": "arabic_basics",
       "difficulty": "easy",
       "question": "What does 'Marhaba' mean?",
-      "options": ["Hello/Welcome", "Goodbye", "Thank you", "Sorry"],
+      "options": [
+        "Hello/Welcome",
+        "Goodbye",
+        "Thank you",
+        "Sorry"
+      ],
       "correctAnswer": 0,
       "explanation": "Marhaba means 'Hello' or 'Welcome' in Arabic."
     },
@@ -62,7 +92,12 @@
       "category": "arabic_basics",
       "difficulty": "easy",
       "question": "What is 'water' in Arabic?",
-      "options": ["Khubz", "Maa", "Laban", "Samak"],
+      "options": [
+        "Khubz",
+        "Maa",
+        "Laban",
+        "Samak"
+      ],
       "correctAnswer": 1,
       "explanation": "Maa (ماء) means 'water' in Arabic."
     },
@@ -71,7 +106,12 @@
       "category": "arabic_basics",
       "difficulty": "easy",
       "question": "What does 'Naam' mean?",
-      "options": ["No", "Yes", "Maybe", "Please"],
+      "options": [
+        "No",
+        "Yes",
+        "Maybe",
+        "Please"
+      ],
       "correctAnswer": 1,
       "explanation": "Naam (نعم) means 'Yes' in Arabic."
     },
@@ -80,7 +120,12 @@
       "category": "arabic_basics",
       "difficulty": "easy",
       "question": "What is 'book' in Arabic?",
-      "options": ["Qalam", "Kitab", "Kursi", "Bayt"],
+      "options": [
+        "Qalam",
+        "Kitab",
+        "Kursi",
+        "Bayt"
+      ],
       "correctAnswer": 1,
       "explanation": "Kitab (كتاب) means 'book' in Arabic."
     },
@@ -89,9 +134,434 @@
       "category": "arabic_basics",
       "difficulty": "medium",
       "question": "What letter comes after 'Alif' in Arabic?",
-      "options": ["Jim", "Ba", "Ta", "Tha"],
+      "options": [
+        "Jim",
+        "Ba",
+        "Ta",
+        "Tha"
+      ],
       "correctAnswer": 1,
       "explanation": "Ba (ب) is the second letter of the Arabic alphabet, coming after Alif."
+    },
+    {
+      "difficulty": "easy",
+      "question": "What is the last letter of the Arabic alphabet?",
+      "options": [
+        "Nun",
+        "Ha",
+        "Waw",
+        "Ya"
+      ],
+      "correctAnswer": 3,
+      "explanation": "Ya (ي) is the last letter of the Arabic alphabet.",
+      "id": "ab_011",
+      "category": "arabic_basics"
+    },
+    {
+      "difficulty": "easy",
+      "question": "What does 'kitab' (كتاب) mean?",
+      "options": [
+        "Book",
+        "Door",
+        "House",
+        "Pen"
+      ],
+      "correctAnswer": 0,
+      "explanation": "Kitab means 'book' in Arabic.",
+      "id": "ab_012",
+      "category": "arabic_basics"
+    },
+    {
+      "difficulty": "easy",
+      "question": "What does 'qalam' (قلم) mean?",
+      "options": [
+        "Pen",
+        "Desk",
+        "Paper",
+        "Book"
+      ],
+      "correctAnswer": 0,
+      "explanation": "Qalam means 'pen' in Arabic.",
+      "id": "ab_013",
+      "category": "arabic_basics"
+    },
+    {
+      "difficulty": "easy",
+      "question": "What does 'bayt' (بيت) mean?",
+      "options": [
+        "House",
+        "Mosque",
+        "Car",
+        "School"
+      ],
+      "correctAnswer": 0,
+      "explanation": "Bayt means 'house' in Arabic.",
+      "id": "ab_014",
+      "category": "arabic_basics"
+    },
+    {
+      "difficulty": "easy",
+      "question": "What does 'umm' (أم) mean?",
+      "options": [
+        "Mother",
+        "Sister",
+        "Brother",
+        "Father"
+      ],
+      "correctAnswer": 0,
+      "explanation": "Umm means 'mother' in Arabic.",
+      "id": "ab_015",
+      "category": "arabic_basics"
+    },
+    {
+      "difficulty": "easy",
+      "question": "What does 'ab' (أب) mean?",
+      "options": [
+        "Uncle",
+        "Father",
+        "Son",
+        "Grandfather"
+      ],
+      "correctAnswer": 1,
+      "explanation": "Ab means 'father' in Arabic.",
+      "id": "ab_016",
+      "category": "arabic_basics"
+    },
+    {
+      "difficulty": "easy",
+      "question": "How do you say 'one' in Arabic?",
+      "options": [
+        "Ithnan",
+        "Wahid",
+        "Arba'a",
+        "Thalatha"
+      ],
+      "correctAnswer": 1,
+      "explanation": "Wahid means 'one' in Arabic.",
+      "id": "ab_017",
+      "category": "arabic_basics"
+    },
+    {
+      "difficulty": "easy",
+      "question": "What does 'shams' (شمس) mean?",
+      "options": [
+        "Sky",
+        "Moon",
+        "Sun",
+        "Star"
+      ],
+      "correctAnswer": 2,
+      "explanation": "Shams means 'sun' in Arabic.",
+      "id": "ab_018",
+      "category": "arabic_basics"
+    },
+    {
+      "difficulty": "easy",
+      "question": "What does 'qamar' (قمر) mean?",
+      "options": [
+        "Rain",
+        "Cloud",
+        "Moon",
+        "Sun"
+      ],
+      "correctAnswer": 2,
+      "explanation": "Qamar means 'moon' in Arabic.",
+      "id": "ab_019",
+      "category": "arabic_basics"
+    },
+    {
+      "difficulty": "easy",
+      "question": "What does 'masjid' (مسجد) mean?",
+      "options": [
+        "Mosque",
+        "Garden",
+        "Market",
+        "School"
+      ],
+      "correctAnswer": 0,
+      "explanation": "Masjid means 'mosque', the place where Muslims pray.",
+      "id": "ab_020",
+      "category": "arabic_basics"
+    },
+    {
+      "difficulty": "medium",
+      "question": "How do you say 'two' in Arabic?",
+      "options": [
+        "Wahid",
+        "Thalatha",
+        "Ithnan",
+        "Sitta"
+      ],
+      "correctAnswer": 2,
+      "explanation": "Ithnan means 'two' in Arabic.",
+      "id": "ab_021",
+      "category": "arabic_basics"
+    },
+    {
+      "difficulty": "medium",
+      "question": "How do you say 'three' in Arabic?",
+      "options": [
+        "Thalatha",
+        "Tis'a",
+        "Khamsa",
+        "Arba'a"
+      ],
+      "correctAnswer": 0,
+      "explanation": "Thalatha means 'three' in Arabic.",
+      "id": "ab_022",
+      "category": "arabic_basics"
+    },
+    {
+      "difficulty": "medium",
+      "question": "What does 'akh' (أخ) mean?",
+      "options": [
+        "Friend",
+        "Brother",
+        "Cousin",
+        "Sister"
+      ],
+      "correctAnswer": 1,
+      "explanation": "Akh means 'brother'; ukht means 'sister'.",
+      "id": "ab_023",
+      "category": "arabic_basics"
+    },
+    {
+      "difficulty": "medium",
+      "question": "What does 'ukht' (أخت) mean?",
+      "options": [
+        "Aunt",
+        "Sister",
+        "Mother",
+        "Daughter"
+      ],
+      "correctAnswer": 1,
+      "explanation": "Ukht means 'sister' in Arabic.",
+      "id": "ab_024",
+      "category": "arabic_basics"
+    },
+    {
+      "difficulty": "medium",
+      "question": "What is the short vowel mark that makes an 'a' sound?",
+      "options": [
+        "Sukun",
+        "Damma",
+        "Kasra",
+        "Fatha"
+      ],
+      "correctAnswer": 3,
+      "explanation": "The fatha is a small line above a letter that makes an 'a' sound.",
+      "id": "ab_025",
+      "category": "arabic_basics"
+    },
+    {
+      "difficulty": "medium",
+      "question": "What is the short vowel mark that makes an 'i' sound?",
+      "options": [
+        "Damma",
+        "Shadda",
+        "Kasra",
+        "Fatha"
+      ],
+      "correctAnswer": 2,
+      "explanation": "The kasra is a small line below a letter that makes an 'i' sound.",
+      "id": "ab_026",
+      "category": "arabic_basics"
+    },
+    {
+      "difficulty": "medium",
+      "question": "What is the short vowel mark that makes a 'u' sound?",
+      "options": [
+        "Damma",
+        "Kasra",
+        "Sukun",
+        "Fatha"
+      ],
+      "correctAnswer": 0,
+      "explanation": "The damma looks like a tiny waw above a letter and makes a 'u' sound.",
+      "id": "ab_027",
+      "category": "arabic_basics"
+    },
+    {
+      "difficulty": "medium",
+      "question": "What does 'madrasa' (مدرسة) mean?",
+      "options": [
+        "Mosque",
+        "School",
+        "Library",
+        "Hospital"
+      ],
+      "correctAnswer": 1,
+      "explanation": "Madrasa means 'school' in Arabic.",
+      "id": "ab_028",
+      "category": "arabic_basics"
+    },
+    {
+      "difficulty": "medium",
+      "question": "What does 'maa' (ماء) mean?",
+      "options": [
+        "Juice",
+        "Bread",
+        "Water",
+        "Milk"
+      ],
+      "correctAnswer": 2,
+      "explanation": "Maa means 'water' in Arabic.",
+      "id": "ab_029",
+      "category": "arabic_basics"
+    },
+    {
+      "difficulty": "medium",
+      "question": "How do you say 'yes' in Arabic?",
+      "options": [
+        "Afwan",
+        "Shukran",
+        "La",
+        "Na'am"
+      ],
+      "correctAnswer": 3,
+      "explanation": "Na'am means 'yes' and la means 'no' in Arabic.",
+      "id": "ab_030",
+      "category": "arabic_basics"
+    },
+    {
+      "difficulty": "hard",
+      "question": "What is the mark that shows a letter has no vowel sound?",
+      "options": [
+        "Sukun",
+        "Kasra",
+        "Fatha",
+        "Damma"
+      ],
+      "correctAnswer": 0,
+      "explanation": "The sukun is a small circle above a letter showing it has no vowel.",
+      "id": "ab_031",
+      "category": "arabic_basics"
+    },
+    {
+      "difficulty": "hard",
+      "question": "What is the mark that doubles a letter's sound?",
+      "options": [
+        "Sukun",
+        "Madda",
+        "Tanwin",
+        "Shadda"
+      ],
+      "correctAnswer": 3,
+      "explanation": "The shadda looks like a small 'w' and doubles the letter's sound.",
+      "id": "ab_032",
+      "category": "arabic_basics"
+    },
+    {
+      "difficulty": "hard",
+      "question": "What does 'ahmar' (أحمر) mean?",
+      "options": [
+        "Green",
+        "Yellow",
+        "Blue",
+        "Red"
+      ],
+      "correctAnswer": 3,
+      "explanation": "Ahmar means 'red' in Arabic.",
+      "id": "ab_033",
+      "category": "arabic_basics"
+    },
+    {
+      "difficulty": "hard",
+      "question": "What does 'abyad' (أبيض) mean?",
+      "options": [
+        "White",
+        "Brown",
+        "Black",
+        "Purple"
+      ],
+      "correctAnswer": 0,
+      "explanation": "Abyad means 'white' and aswad means 'black'.",
+      "id": "ab_034",
+      "category": "arabic_basics"
+    },
+    {
+      "difficulty": "hard",
+      "question": "What does 'akhdar' (أخضر) mean?",
+      "options": [
+        "Orange",
+        "Green",
+        "Grey",
+        "Pink"
+      ],
+      "correctAnswer": 1,
+      "explanation": "Akhdar means 'green' in Arabic.",
+      "id": "ab_035",
+      "category": "arabic_basics"
+    },
+    {
+      "difficulty": "hard",
+      "question": "How do you say 'five' in Arabic?",
+      "options": [
+        "Sab'a",
+        "Sitta",
+        "Arba'a",
+        "Khamsa"
+      ],
+      "correctAnswer": 3,
+      "explanation": "Khamsa means 'five' in Arabic.",
+      "id": "ab_036",
+      "category": "arabic_basics"
+    },
+    {
+      "difficulty": "hard",
+      "question": "What does 'yawm' (يوم) mean?",
+      "options": [
+        "Week",
+        "Night",
+        "Day",
+        "Month"
+      ],
+      "correctAnswer": 2,
+      "explanation": "Yawm means 'day', like Yawm al-Jumu'ah (Friday).",
+      "id": "ab_037",
+      "category": "arabic_basics"
+    },
+    {
+      "difficulty": "hard",
+      "question": "What is 'Yawm al-Jumu'ah'?",
+      "options": [
+        "Sunday",
+        "Saturday",
+        "Monday",
+        "Friday"
+      ],
+      "correctAnswer": 3,
+      "explanation": "Yawm al-Jumu'ah means Friday, the day of the weekly congregational prayer.",
+      "id": "ab_038",
+      "category": "arabic_basics"
+    },
+    {
+      "difficulty": "hard",
+      "question": "Which Arabic letter makes the 'b' sound?",
+      "options": [
+        "Ta (ت)",
+        "Tha (ث)",
+        "Ba (ب)",
+        "Nun (ن)"
+      ],
+      "correctAnswer": 2,
+      "explanation": "The letter Ba (ب) makes the 'b' sound, with one dot below.",
+      "id": "ab_039",
+      "category": "arabic_basics"
+    },
+    {
+      "difficulty": "hard",
+      "question": "What does 'salaam' (سلام) mean by itself?",
+      "options": [
+        "Light",
+        "Peace",
+        "Food",
+        "War"
+      ],
+      "correctAnswer": 1,
+      "explanation": "Salaam means 'peace', which is why the Islamic greeting means 'Peace be upon you'.",
+      "id": "ab_040",
+      "category": "arabic_basics"
     }
   ]
 }

@@ -14,6 +14,7 @@ import 'package:alluwalacademyadmin/core/services/web_app_stability_service.dart
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/core/utils/post_sign_out.dart';
 
 /// Check if running on native mobile platform
 bool get _isNativeMobile {
@@ -449,8 +450,7 @@ class _RoleBasedDashboardState extends State<RoleBasedDashboard>
               onPressed: () async {
                 await FirebaseAuth.instance.signOut();
                 if (context.mounted) {
-                  Navigator.of(context)
-                      .pushNamedAndRemoveUntil('/', (route) => false);
+                  await leaveToPublicSiteAfterSignOut(context);
                 }
               },
               style: ElevatedButton.styleFrom(
@@ -525,8 +525,7 @@ class _RoleBasedDashboardState extends State<RoleBasedDashboard>
                     UserRoleService.clearCache();
                     await FirebaseAuth.instance.signOut();
                     if (context.mounted) {
-                      Navigator.of(context)
-                          .pushNamedAndRemoveUntil('/', (route) => false);
+                      await leaveToPublicSiteAfterSignOut(context);
                     }
                   },
                   style: ElevatedButton.styleFrom(
@@ -580,8 +579,7 @@ class _RoleBasedDashboardState extends State<RoleBasedDashboard>
               onPressed: () async {
                 await FirebaseAuth.instance.signOut();
                 if (context.mounted) {
-                  Navigator.of(context)
-                      .pushNamedAndRemoveUntil('/', (route) => false);
+                  await leaveToPublicSiteAfterSignOut(context);
                 }
               },
               style: ElevatedButton.styleFrom(

@@ -19,6 +19,8 @@ describe('bot_controller.html', () => {
     expect(html).toContain('isBackToMainSessionEnabled: false');
     expect(html).toContain('needCountDown: false');
     expect(html).toContain("zoomCall('openBreakoutRooms', { options: desiredRoomOptions })");
+    expect(html).toContain('A successful open response does not prove Zoom applied auto-join');
+    expect(html).toContain('attempt === 0 && await closeRoomsIfStale(breakoutState)');
   });
 
   test('reports live room count and in-room occupancy for the backend watcher', () => {
@@ -61,6 +63,27 @@ describe('bot_controller.html', () => {
     expect(html).toContain("postState('resetMeeting'");
     expect(html).toContain('resetRequested');
     expect(html).toContain("triggerRejoin('self_heal_exhausted')");
+  });
+
+  test('detects assignments that never result in room entry and safely recovers', () => {
+    expect(html).toContain('trackAssignedNotJoined');
+    expect(html).toContain('assignedNotJoinedThresholdMs');
+    expect(html).toContain('assignedNotJoinedRepairAttempts');
+    expect(html).toContain('oldestAssignedNotJoinedMs');
+    expect(html).toContain("triggerRejoin('assigned_not_joined')");
+    expect(html).toContain('inRoom === 0 && lastKnownInRoomCount === 0');
+    expect(html).toContain('function participantRoutingKey(participant)');
+    expect(html).toContain('const roomsClosed = await waitForRoomsClosed(15000)');
+    expect(html).toContain('requestAssignedNotJoinedReset');
+  });
+
+  test('reports attempts separately from confirmed room occupancy', () => {
+    expect(html).toContain("controllerVersion = '2026-07-22-assigned-arrival-v1'");
+    expect(html).toContain('controllerVersion,');
+    expect(html).toContain('routeAttemptCount: actions.length');
+    expect(html).toContain('confirmedInRoomCount: inRoomParticipantCount(zoomState)');
+    expect(html).toContain('breakoutUnassignedCount');
+    expect(html).toContain('assignedNotJoinedCount');
   });
 
   test('reloads to rejoin on a backend force-rejoin signal, capped against loops', () => {

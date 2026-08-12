@@ -136,7 +136,8 @@ class AdminEmployeeDataSource extends DataGridSource {
                     icon: Icons.remove_moderator,
                     color: Colors.red,
                     onTap: () => onRevokeAdmin(employee),
-                    tooltip: AppLocalizations.of(context)!.revokeAdminPrivileges,
+                    tooltip:
+                        AppLocalizations.of(context)!.revokeAdminPrivileges,
                   ),
                 // Archive/Restore buttons
                 if (employee.isActive)
@@ -158,7 +159,8 @@ class AdminEmployeeDataSource extends DataGridSource {
                     icon: Icons.delete_outline,
                     color: Colors.red,
                     onTap: () => onDeleteUser(employee),
-                    tooltip: AppLocalizations.of(context)!.archivePermanentlyDelete,
+                    tooltip:
+                        AppLocalizations.of(context)!.archivePermanentlyDelete,
                     isDestructive: true,
                   ),
                 if (!employee.isActive)
@@ -166,7 +168,8 @@ class AdminEmployeeDataSource extends DataGridSource {
                     icon: Icons.delete_forever,
                     color: Colors.red,
                     onTap: () => onDeleteUser(employee),
-                    tooltip: AppLocalizations.of(context)!.permanentlyDeleteUser,
+                    tooltip:
+                        AppLocalizations.of(context)!.permanentlyDeleteUser,
                     isDestructive: true,
                   ),
                 if (!employee.isAdminTeacher)
@@ -194,7 +197,7 @@ class AdminEmployeeDataSource extends DataGridSource {
                     : Colors.blue.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Text(
+              child: SelectableText(
                 value,
                 style: GoogleFonts.inter(
                   fontSize: 11,
@@ -210,7 +213,7 @@ class AdminEmployeeDataSource extends DataGridSource {
           return Container(
             alignment: Alignment.center,
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-            child: Text(
+            child: SelectableText(
               dataGridCell.value.toString(),
               style: GoogleFonts.inter(
                 fontSize: 12,
@@ -261,4 +264,5 @@ class AdminEmployeeDataSource extends DataGridSource {
       ),
     );
   }
+
 }

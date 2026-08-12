@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 import '../enrollment_flow_models.dart';
 
@@ -19,11 +20,15 @@ class EnrollmentReviewSummaryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     if (sections.isEmpty) return const SizedBox.shrink();
     return Column(
-      children: sections.map((section) => _buildSection(section)).toList(),
+      children:
+          sections.map((section) => _buildSection(context, section)).toList(),
     );
   }
 
-  Widget _buildSection(EnrollmentReviewSection section) {
+  Widget _buildSection(
+    BuildContext context,
+    EnrollmentReviewSection section,
+  ) {
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.only(bottom: 6),
@@ -65,7 +70,7 @@ class EnrollmentReviewSummaryCard extends StatelessWidget {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     child: Text(
-                      'Edit',
+                      AppLocalizations.of(context)!.commonEdit,
                       style: GoogleFonts.inter(
                         fontSize: 10,
                         fontWeight: FontWeight.w600,

@@ -8,6 +8,7 @@ import 'package:alluwalacademyadmin/features/shift_management/enums/shift_enums.
 import 'shift_block.dart';
 import 'empty_cell_hover_indicator.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
+import '../../../core/utils/app_search.dart';
 
 /// ConnectTeam-inspired weekly schedule grid view
 /// Shows users as rows, days as columns, with shift blocks
@@ -21,6 +22,7 @@ class WeeklyScheduleGrid extends StatefulWidget {
   final Function(String) onSearchChanged; // Callback when search changes
   final Function(TeachingShift) onShiftTap;
   final Function(TeachingShift)? onEditShift; // Edit shift callback
+  final Function(TeachingShift)? onDeleteShift; // Delete shift callback
   final Function(String userId, DateTime date, TimeOfDay time) onCreateShift;
   final Function(String) onUserTap;
   final Function(DateTime)? onWeekChanged; // Week navigation callback
@@ -39,6 +41,7 @@ class WeeklyScheduleGrid extends StatefulWidget {
     required this.onSearchChanged,
     required this.onShiftTap,
     this.onEditShift,
+    this.onDeleteShift,
     required this.onCreateShift,
     required this.onUserTap,
     this.onWeekChanged,
@@ -107,11 +110,13 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
   @override
   void didUpdateWidget(WeeklyScheduleGrid oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.searchQuery != widget.searchQuery && _searchController.text != widget.searchQuery) {
+    if (oldWidget.searchQuery != widget.searchQuery &&
+        _searchController.text != widget.searchQuery) {
       _searchController.text = widget.searchQuery;
     }
     // Invalidate shift cache when shifts or week changes
-    if (oldWidget.shifts != widget.shifts || oldWidget.weekStart != widget.weekStart) {
+    if (oldWidget.shifts != widget.shifts ||
+        oldWidget.weekStart != widget.weekStart) {
       _invalidateShiftCache();
       _loadStudentTimezones(widget.shifts);
     }
@@ -128,39 +133,45 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
     final weekDays = _getWeekDays();
     final filteredUsers = _getFilteredUsers();
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        // Calculate responsive column widths
-        final availableWidth = constraints.maxWidth;
-        final userColumnWidth = (availableWidth * 0.18).clamp(120.0, 180.0);
-        final weekNavWidth = widget.onWeekChanged != null ? 80.0 : 0.0;
-        final dayColumnWidth = ((availableWidth - userColumnWidth - weekNavWidth) / 7).clamp(40.0, double.infinity);
+    return ScrollNotificationObserver(
+      child: SelectionArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            // Calculate responsive column widths
+            final availableWidth = constraints.maxWidth;
+            final userColumnWidth = (availableWidth * 0.18).clamp(120.0, 180.0);
+            final weekNavWidth = widget.onWeekChanged != null ? 80.0 : 0.0;
+            final dayColumnWidth =
+                ((availableWidth - userColumnWidth - weekNavWidth) / 7)
+                    .clamp(40.0, double.infinity);
 
-        // Pre-compute grouped list once, not per-row
-        final groupedItems = _buildGroupedUserList(filteredUsers);
+            // Pre-compute grouped list once, not per-row
+            final groupedItems = _buildGroupedUserList(filteredUsers);
 
-        return Column(
-          children: [
-            // Header Row with Days - compact
-            _buildDayHeaderRow(weekDays, userColumnWidth, dayColumnWidth),
-            const Divider(height: 1, thickness: 1),
-            // Scrollable User Rows
-            Expanded(
-              child: ListView.builder(
-                itemCount: groupedItems.length,
-                itemBuilder: (context, index) {
-                  final item = groupedItems[index];
-                  if (item.isHeader) {
-                    return _buildSectionHeader(item);
-                  }
-                  return _buildUserShiftRow(
-                      item.user!, weekDays, userColumnWidth, dayColumnWidth, weekNavWidth);
-                },
-              ),
-            ),
-          ],
-        );
-      },
+            return Column(
+              children: [
+                // Header Row with Days - compact
+                _buildDayHeaderRow(weekDays, userColumnWidth, dayColumnWidth),
+                const Divider(height: 1, thickness: 1),
+                // Scrollable User Rows
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: groupedItems.length,
+                    itemBuilder: (context, index) {
+                      final item = groupedItems[index];
+                      if (item.isHeader) {
+                        return _buildSectionHeader(item);
+                      }
+                      return _buildUserShiftRow(item.user!, weekDays,
+                          userColumnWidth, dayColumnWidth, weekNavWidth);
+                    },
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
     );
   }
 
@@ -172,21 +183,37 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
 
   List<Employee> _getFilteredUsers() {
     List<Employee> users = [];
-    
-    if (widget.scheduleTypeFilter == 'all' || widget.scheduleTypeFilter == 'teachers') {
+
+    if (widget.scheduleTypeFilter == 'all' ||
+        widget.scheduleTypeFilter == 'teachers') {
       users.addAll(widget.teachers);
     }
-    if (widget.scheduleTypeFilter == 'all' || widget.scheduleTypeFilter == 'leaders') {
+    if (widget.scheduleTypeFilter == 'all' ||
+        widget.scheduleTypeFilter == 'leaders') {
       users.addAll(widget.leaders);
     }
 
     // Apply search filter
     if (widget.searchQuery.isNotEmpty) {
-      final query = widget.searchQuery.toLowerCase();
-      users = users.where((user) {
-        final fullName = '${user.firstName} ${user.lastName}'.toLowerCase();
-        return fullName.contains(query) || user.email.toLowerCase().contains(query);
-      }).toList();
+      users = users
+          .where((user) => AppSearch.matches(
+                query: widget.searchQuery,
+                names: [
+                  '${user.firstName} ${user.lastName}',
+                  '${user.lastName} ${user.firstName}',
+                ],
+                emails: [user.email],
+                phones: [
+                  user.mobilePhone,
+                  '${user.countryCode}${user.mobilePhone}',
+                ],
+                ids: [
+                  user.documentId,
+                  user.studentCode,
+                  user.kioskCode,
+                ],
+              ))
+          .toList();
     }
 
     // Sort by name
@@ -202,15 +229,18 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
   List<_GroupedItem> _buildGroupedUserList(List<Employee> users) {
     final l10n = AppLocalizations.of(context)!;
     final items = <_GroupedItem>[];
-    
+
     // Separate teachers and leaders
-    final teachersList = users.where((u) => 
-      u.userType == 'teacher' && !(u.isAdminTeacher)).toList();
-    final leadersList = users.where((u) => 
-      u.userType == 'admin' || u.isAdminTeacher).toList();
+    final teachersList = users
+        .where((u) => u.userType == 'teacher' && !(u.isAdminTeacher))
+        .toList();
+    final leadersList =
+        users.where((u) => u.userType == 'admin' || u.isAdminTeacher).toList();
 
     // Add teachers section
-    if (teachersList.isNotEmpty && (widget.scheduleTypeFilter == 'all' || widget.scheduleTypeFilter == 'teachers')) {
+    if (teachersList.isNotEmpty &&
+        (widget.scheduleTypeFilter == 'all' ||
+            widget.scheduleTypeFilter == 'teachers')) {
       items.add(
         _GroupedItem(
           isHeader: true,
@@ -224,7 +254,9 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
     }
 
     // Add leaders section
-    if (leadersList.isNotEmpty && (widget.scheduleTypeFilter == 'all' || widget.scheduleTypeFilter == 'leaders')) {
+    if (leadersList.isNotEmpty &&
+        (widget.scheduleTypeFilter == 'all' ||
+            widget.scheduleTypeFilter == 'leaders')) {
       items.add(
         _GroupedItem(
           isHeader: true,
@@ -240,13 +272,14 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
     return items;
   }
 
-  Widget _buildDayHeaderRow(List<DateTime> weekDays, double userColumnWidth, double dayColumnWidth) {
+  Widget _buildDayHeaderRow(
+      List<DateTime> weekDays, double userColumnWidth, double dayColumnWidth) {
     final l10n = AppLocalizations.of(context)!;
     final today = DateTime.now();
     final weekEnd = weekDays.last;
     final rangeStart = DateFormat('EEE M/d').format(weekDays.first);
     final rangeEnd = DateFormat('EEE M/d').format(weekEnd);
-    
+
     return Container(
       height: 56, // Compact header height
       color: const Color(0xffFAFAFA),
@@ -290,7 +323,8 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
                   Container(
                     width: 80,
                     decoration: const BoxDecoration(
-                      border: Border(right: BorderSide(color: Color(0xffE2E8F0))),
+                      border:
+                          Border(right: BorderSide(color: Color(0xffE2E8F0))),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -302,7 +336,8 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
                           constraints: const BoxConstraints(),
                           tooltip: AppLocalizations.of(context)!.previousWeek,
                           onPressed: () {
-                            widget.onWeekChanged!(widget.weekStart.subtract(const Duration(days: 7)));
+                            widget.onWeekChanged!(widget.weekStart
+                                .subtract(const Duration(days: 7)));
                           },
                         ),
                         Expanded(
@@ -325,7 +360,8 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
                           constraints: const BoxConstraints(),
                           tooltip: AppLocalizations.of(context)!.nextWeek,
                           onPressed: () {
-                            widget.onWeekChanged!(widget.weekStart.add(const Duration(days: 7)));
+                            widget.onWeekChanged!(
+                                widget.weekStart.add(const Duration(days: 7)));
                           },
                         ),
                       ],
@@ -333,16 +369,19 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
                   ),
                 // Day columns
                 ...weekDays.map((day) {
-                  final isToday = day.year == today.year && 
-                                 day.month == today.month && 
-                                 day.day == today.day;
+                  final isToday = day.year == today.year &&
+                      day.month == today.month &&
+                      day.day == today.day;
                   final stats = _calculateDayStats(_getShiftsForDay(day));
-                  
+
                   return Container(
                     width: dayColumnWidth > 0 ? dayColumnWidth : 40.0,
                     decoration: BoxDecoration(
-                      border: const Border(right: BorderSide(color: Color(0xffE2E8F0))),
-                      color: isToday ? const Color(0xff0386FF).withOpacity(0.05) : null,
+                      border: const Border(
+                          right: BorderSide(color: Color(0xffE2E8F0))),
+                      color: isToday
+                          ? const Color(0xff0386FF).withOpacity(0.05)
+                          : null,
                     ),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -353,14 +392,18 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
                           style: GoogleFonts.inter(
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
-                            color: isToday ? const Color(0xff0386FF) : const Color(0xff374151),
+                            color: isToday
+                                ? const Color(0xff0386FF)
+                                : const Color(0xff374151),
                           ),
                         ),
                         Text(
                           DateFormat('M/d').format(day),
                           style: GoogleFonts.inter(
                             fontSize: 10,
-                            color: isToday ? const Color(0xff0386FF) : const Color(0xff6B7280),
+                            color: isToday
+                                ? const Color(0xff0386FF)
+                                : const Color(0xff6B7280),
                           ),
                         ),
                         const SizedBox(height: 2),
@@ -369,18 +412,22 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.access_time, size: 10, color: const Color(0xff9CA3AF)),
+                            Icon(Icons.access_time,
+                                size: 10, color: const Color(0xff9CA3AF)),
                             const SizedBox(width: 2),
                             Text(
                               stats.totalHours,
-                              style: GoogleFonts.inter(fontSize: 9, color: const Color(0xff9CA3AF)),
+                              style: GoogleFonts.inter(
+                                  fontSize: 9, color: const Color(0xff9CA3AF)),
                             ),
                             const SizedBox(width: 4),
-                            Icon(Icons.assignment, size: 10, color: const Color(0xff9CA3AF)),
+                            Icon(Icons.assignment,
+                                size: 10, color: const Color(0xff9CA3AF)),
                             const SizedBox(width: 2),
                             Text(
                               '${stats.shiftCount}',
-                              style: GoogleFonts.inter(fontSize: 9, color: const Color(0xff9CA3AF)),
+                              style: GoogleFonts.inter(
+                                  fontSize: 9, color: const Color(0xff9CA3AF)),
                             ),
                           ],
                         ),
@@ -427,9 +474,8 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
   }
 
   // FIX: Update signature to accept weekNavWidth
-  Widget _buildUserShiftRow(Employee user, List<DateTime> weekDays, 
+  Widget _buildUserShiftRow(Employee user, List<DateTime> weekDays,
       double userColumnWidth, double dayColumnWidth, double weekNavWidth) {
-    
     // 1. Calculate the maximum number of shifts this user has on any single day this week
     int maxShifts = 0;
     for (var day in weekDays) {
@@ -440,12 +486,14 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
     }
 
     // 2. Define heights
-    const double singleShiftHeight = 36.0; // Increased from 22 to 36 so text fits!
+    const double singleShiftHeight =
+        36.0; // Increased from 22 to 36 so text fits!
     const double gap = 4.0;
-    
+
     // 3. Calculate dynamic height based on the busiest day
     // Minimum height is 80 (for aesthetics), otherwise grow to fit all shifts
-    double contentHeight = (maxShifts * (singleShiftHeight + gap)) + 16.0; // 16 for padding
+    double contentHeight =
+        (maxShifts * (singleShiftHeight + gap)) + 16.0; // 16 for padding
     double rowHeight = contentHeight < 80.0 ? 80.0 : contentHeight;
 
     return Container(
@@ -454,7 +502,8 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
         border: Border(bottom: BorderSide(color: Color(0xffE2E8F0))),
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch, // Stretch to fill height
+        crossAxisAlignment:
+            CrossAxisAlignment.stretch, // Stretch to fill height
         children: [
           // User info column (responsive width)
           Container(
@@ -465,70 +514,74 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
             ),
             child: InkWell(
               onTap: () => widget.onUserTap(user.email),
-              child: Row(
-                children: [
-                  // Avatar - compact
-                  CircleAvatar(
-                    radius: 14,
-                    backgroundColor: const Color(0xff0386FF).withOpacity(0.1),
-                    child: Text(
-                      '${user.firstName.isNotEmpty ? user.firstName[0] : ''}${user.lastName.isNotEmpty ? user.lastName[0] : ''}',
-                      style: GoogleFonts.inter(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xff0386FF),
+              child: SelectionArea(
+                child: Row(
+                  children: [
+                    // Avatar - compact
+                    CircleAvatar(
+                      radius: 14,
+                      backgroundColor: const Color(0xff0386FF).withOpacity(0.1),
+                      child: Text(
+                        '${user.firstName.isNotEmpty ? user.firstName[0] : ''}${user.lastName.isNotEmpty ? user.lastName[0] : ''}',
+                        style: GoogleFonts.inter(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xff0386FF),
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          '${user.firstName} ${user.lastName}',
-                          style: GoogleFonts.inter(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            color: const Color(0xff111827),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            '${user.firstName} ${user.lastName}',
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: const Color(0xff111827),
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
                           ),
-                          overflow: TextOverflow.ellipsis,
-                          maxLines: 1,
-                        ),
-                        const SizedBox(height: 2),
-                        Row(
-                          children: [
-                            Icon(Icons.access_time, size: 10, color: const Color(0xff9CA3AF)),
-                            const SizedBox(width: 2),
-                            Text(
-                              _getUserTotalHours(user),
-                              style: GoogleFonts.inter(
-                                fontSize: 10,
-                                color: const Color(0xff9CA3AF),
+                          const SizedBox(height: 2),
+                          Row(
+                            children: [
+                              Icon(Icons.access_time,
+                                  size: 10, color: const Color(0xff9CA3AF)),
+                              const SizedBox(width: 2),
+                              Text(
+                                _getUserTotalHours(user),
+                                style: GoogleFonts.inter(
+                                  fontSize: 10,
+                                  color: const Color(0xff9CA3AF),
+                                ),
                               ),
-                            ),
-                            const SizedBox(width: 4),
-                            Icon(Icons.assignment, size: 10, color: const Color(0xff9CA3AF)),
-                            const SizedBox(width: 2),
-                            Text(
-                              '${_getUserShiftCount(user)}',
-                              style: GoogleFonts.inter(
-                                fontSize: 10,
-                                color: const Color(0xff9CA3AF),
+                              const SizedBox(width: 4),
+                              Icon(Icons.assignment,
+                                  size: 10, color: const Color(0xff9CA3AF)),
+                              const SizedBox(width: 2),
+                              Text(
+                                '${_getUserShiftCount(user)}',
+                                style: GoogleFonts.inter(
+                                  fontSize: 10,
+                                  color: const Color(0xff9CA3AF),
+                                ),
                               ),
-                            ),
-                          ],
-                        ),
-                      ],
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
-          
+
           // FIX: Add this Spacer to align rows with the header
           if (weekNavWidth > 0)
             Container(
@@ -542,12 +595,14 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
           ...weekDays.map((day) {
             final now = DateTime.now();
             final dayStart = DateTime(day.year, day.month, day.day);
-            final isPastDate = dayStart.isBefore(DateTime(now.year, now.month, now.day));
-            
+            final isPastDate =
+                dayStart.isBefore(DateTime(now.year, now.month, now.day));
+
             return SizedBox(
               width: dayColumnWidth > 0 ? dayColumnWidth : 40.0,
               height: rowHeight, // Pass the dynamic height down
-              child: _buildDayCell(user, day, isPastDate, singleShiftHeight, rowHeight),
+              child: _buildDayCell(
+                  user, day, isPastDate, singleShiftHeight, rowHeight),
             );
           }).toList(),
         ],
@@ -555,9 +610,10 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
     );
   }
 
-  Widget _buildDayCell(Employee user, DateTime day, bool isPastDate, double shiftHeight, double rowHeight) {
+  Widget _buildDayCell(Employee user, DateTime day, bool isPastDate,
+      double shiftHeight, double rowHeight) {
     final userShifts = _getUserShiftsForDay(user, day);
-    
+
     return Container(
       height: rowHeight, // Use the row height from parent
       width: double.infinity, // Ensure full width
@@ -565,7 +621,7 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
       decoration: BoxDecoration(
         border: const Border(right: BorderSide(color: Color(0xffE2E8F0))),
         // Color-code past date cells with shifts
-        color: isPastDate && userShifts.isNotEmpty 
+        color: isPastDate && userShifts.isNotEmpty
             ? _getPastDateBackgroundColor(userShifts.first)
             : null,
       ),
@@ -584,31 +640,40 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
                       onEdit: widget.onEditShift != null && !isPastDate
                           ? () => widget.onEditShift!(userShifts.first)
                           : null,
+                      onDelete: widget.onDeleteShift != null && !isPastDate
+                          ? () => widget.onDeleteShift!(userShifts.first)
+                          : null,
                       onAddShift: !isPastDate
-                          ? () => widget.onCreateShift(user.email, day, const TimeOfDay(hour: 14, minute: 0))
+                          ? () => widget.onCreateShift(user.email, day,
+                              const TimeOfDay(hour: 14, minute: 0))
                           : null,
                       teacherEmail: user.email,
                       compact: true,
                       isPastDate: isPastDate,
-                      isSelected: widget.selectedShiftIds.contains(userShifts.first.id),
+                      isSelected:
+                          widget.selectedShiftIds.contains(userShifts.first.id),
                       onSelectionChanged: widget.onShiftSelectionChanged != null
-                          ? (selected) => widget.onShiftSelectionChanged!(userShifts.first.id, selected)
+                          ? (selected) => widget.onShiftSelectionChanged!(
+                              userShifts.first.id, selected)
                           : null,
                       isSelectionMode: widget.isSelectionMode,
                       studentTimezone: userShifts.first.studentIds.isNotEmpty
-                          ? _studentTimezoneCache[userShifts.first.studentIds.first]
+                          ? _studentTimezoneCache[
+                              userShifts.first.studentIds.first]
                           : null,
                     ),
                   )
                 // Multiple shifts - show grouped view with better hover actions
-                : _buildMultipleShiftsCell(user, day, userShifts, isPastDate, shiftHeight),
+                : _buildMultipleShiftsCell(
+                    user, day, userShifts, isPastDate, shiftHeight),
       ),
     );
   }
 
-  Widget _buildMultipleShiftsCell(Employee user, DateTime day, List<TeachingShift> shifts, bool isPastDate, double shiftHeight) {
+  Widget _buildMultipleShiftsCell(Employee user, DateTime day,
+      List<TeachingShift> shifts, bool isPastDate, double shiftHeight) {
     const double spacing = 4.0; // More breathing room
-    
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -617,7 +682,8 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
         final shift = entry.value;
         return Container(
           height: shiftHeight, // Use the taller height (36.0)
-          margin: EdgeInsets.only(bottom: index < shifts.length - 1 ? spacing : 0),
+          margin:
+              EdgeInsets.only(bottom: index < shifts.length - 1 ? spacing : 0),
           child: ShiftBlock(
             shift: shift,
             onTap: () => widget.onShiftTap(shift),
@@ -625,15 +691,20 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
             onEdit: widget.onEditShift != null && !isPastDate
                 ? () => widget.onEditShift!(shift)
                 : null,
+            onDelete: widget.onDeleteShift != null && !isPastDate
+                ? () => widget.onDeleteShift!(shift)
+                : null,
             onAddShift: !isPastDate
-                ? () => widget.onCreateShift(user.email, day, const TimeOfDay(hour: 14, minute: 0))
+                ? () => widget.onCreateShift(
+                    user.email, day, const TimeOfDay(hour: 14, minute: 0))
                 : null,
             teacherEmail: user.email,
             compact: true,
             isPastDate: isPastDate,
             isSelected: widget.selectedShiftIds.contains(shift.id),
             onSelectionChanged: widget.onShiftSelectionChanged != null
-                ? (selected) => widget.onShiftSelectionChanged!(shift.id, selected)
+                ? (selected) =>
+                    widget.onShiftSelectionChanged!(shift.id, selected)
                 : null,
             isSelectionMode: widget.isSelectionMode,
             showMultipleShiftsIndicator: true,
@@ -648,7 +719,8 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
     );
   }
 
-  void _showMultipleShiftsMenu(Employee user, DateTime day, List<TeachingShift> shifts) {
+  void _showMultipleShiftsMenu(
+      Employee user, DateTime day, List<TeachingShift> shifts) {
     final l10n = AppLocalizations.of(context)!;
     showDialog(
       context: context,
@@ -698,10 +770,25 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
                             if (widget.onEditShift != null)
                               TextButton.icon(
                                 icon: const Icon(Icons.edit, size: 16),
-                                label: Text(AppLocalizations.of(context)!.commonEdit),
+                                label: Text(
+                                    AppLocalizations.of(context)!.commonEdit),
                                 onPressed: () {
                                   Navigator.pop(context);
                                   widget.onEditShift!(shift);
+                                },
+                              ),
+                            if (widget.onDeleteShift != null)
+                              TextButton.icon(
+                                icon: const Icon(Icons.delete_outline,
+                                    size: 16, color: Color(0xffDC2626)),
+                                label: Text(
+                                  AppLocalizations.of(context)!.commonDelete,
+                                  style: const TextStyle(
+                                      color: Color(0xffDC2626)),
+                                ),
+                                onPressed: () {
+                                  Navigator.pop(context);
+                                  widget.onDeleteShift!(shift);
                                 },
                               ),
                           ],
@@ -731,7 +818,8 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
                     label: Text(AppLocalizations.of(context)!.addAnotherShift),
                     onPressed: () {
                       Navigator.pop(context);
-                      widget.onCreateShift(user.email, day, const TimeOfDay(hour: 14, minute: 0));
+                      widget.onCreateShift(user.email, day,
+                          const TimeOfDay(hour: 14, minute: 0));
                     },
                   ),
                 ),
@@ -774,7 +862,8 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
     }
   }
 
-  Widget _buildEmptyCell(Employee user, DateTime day, bool isPastDate, double cellHeight) {
+  Widget _buildEmptyCell(
+      Employee user, DateTime day, bool isPastDate, double cellHeight) {
     // Past dates: show blank, non-clickable cell
     if (isPastDate) {
       return Container(
@@ -783,19 +872,21 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
         color: Colors.transparent,
       );
     }
-    
+
     // Future dates: show hover indicator with add button
     return InkWell(
       onTap: () {
         // Create shift at default time (2 PM)
-        widget.onCreateShift(user.email, day, const TimeOfDay(hour: 14, minute: 0));
+        widget.onCreateShift(
+            user.email, day, const TimeOfDay(hour: 14, minute: 0));
       },
       child: Container(
         height: cellHeight,
         width: double.infinity, // Fill entire cell width
         alignment: Alignment.center,
         child: EmptyCellHoverIndicator(
-          onTap: () => widget.onCreateShift(user.email, day, const TimeOfDay(hour: 14, minute: 0)),
+          onTap: () => widget.onCreateShift(
+              user.email, day, const TimeOfDay(hour: 14, minute: 0)),
         ),
       ),
     );
@@ -804,7 +895,7 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
   List<TeachingShift> _getShiftsForDay(DateTime day) {
     final dayStart = DateTime(day.year, day.month, day.day);
     final dayEnd = dayStart.add(const Duration(days: 1));
-    
+
     return widget.shifts.where((shift) {
       final shiftDate = DateTime(
         shift.shiftStart.year,
@@ -835,7 +926,8 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
     if (_shiftsByTeacherAndDay != null) return _shiftsByTeacherAndDay!;
     _shiftsByTeacherAndDay = <String, Map<String, List<TeachingShift>>>{};
     for (final shift in widget.shifts) {
-      final dk = _dayKey(DateTime(shift.shiftStart.year, shift.shiftStart.month, shift.shiftStart.day));
+      final dk = _dayKey(DateTime(
+          shift.shiftStart.year, shift.shiftStart.month, shift.shiftStart.day));
       _shiftsByTeacherAndDay!
           .putIfAbsent(shift.teacherId, () => {})
           .putIfAbsent(dk, () => [])
@@ -858,13 +950,13 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
   _DayStats _calculateDayStats(List<TeachingShift> dayShifts) {
     double totalHours = 0;
     final uniqueUsers = <String>{};
-    
+
     for (var shift in dayShifts) {
       final duration = shift.shiftEnd.difference(shift.shiftStart);
       totalHours += duration.inHours + (duration.inMinutes % 60) / 60.0;
       uniqueUsers.add(shift.teacherId);
     }
-    
+
     return _DayStats(
       totalHours: totalHours.toStringAsFixed(1),
       shiftCount: dayShifts.length,

@@ -170,6 +170,9 @@ owner so history can be rewritten.
 done. Don't explain what the code does — names already do that.
 - **Use `AppLocalizations`** for every user-facing string. Hardcoded
 English is a bug.
+- **Keep cards compact.** Cards must be sized to their content or a deliberate
+  small maximum; do not use a few stretched cards to fill a large desktop
+  area. Use responsive grids that add columns as space increases.
 - **Match existing style.** Don't reformat files you didn't meaningfully
 change. Don't rename things just because you'd pick a different name.
 
@@ -303,3 +306,5 @@ told to.
 - `docs/HOW_WE_WORK.md` — friendly developer guide with real examples.
 - `docs/ci-setup.md` — CI and branch-protection setup.
 - `docs/tech-debt.md` — known pre-existing issues; what CI does *not* enforce.
+- `docs/browser-test-accounts.md` — designated browser-test identities,
+  credential environment variables, production safeguards, and fixture cleanup.

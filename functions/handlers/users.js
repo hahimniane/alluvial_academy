@@ -4,8 +4,13 @@ const admin = require('firebase-admin');
 const {generateRandomPassword} = require('../utils/password');
 const {sendWelcomeEmail} = require('../services/email/senders');
 const studentHandlers = require('./students');
+const {
+  applyDecisionAuditWrites,
+  buildDecisionAuditWrites,
+  resolveDecisionActor,
+} = require('../services/decision_audit');
 
-const createUserWithEmail = async (data) => {
+const createUserWithEmail = async (data, context) => {
   console.log('--- NEW INVOCATION (v4) ---');
   try {
     if (!data || typeof data !== 'object') {
@@ -89,6 +94,7 @@ const createUserWithEmail = async (data) => {
       email_verified: false,
       uid: userRecord.uid,
       created_by_admin: true,
+      created_by_uid: context?.auth?.uid || userData.createdByUid || null,
       password_reset_required: true,
     };
 
@@ -111,7 +117,7 @@ const createUserWithEmail = async (data) => {
   }
 };
 
-const createMultipleUsers = async (data) => {
+const createMultipleUsers = async (data, context) => {
   console.log('Creating multiple users:', JSON.stringify(data, null, 2));
 
   try {
@@ -188,6 +194,7 @@ const createMultipleUsers = async (data) => {
             lastName,
             phoneNumber,
             isAdultStudent: resolvedIsAdult,
+            createdByUid: context?.auth?.uid || null,
           };
           if (hasEmail) studentPayload.email = email;
           if (resolvedGuardianIds.length > 0) studentPayload.guardianIds = resolvedGuardianIds;
@@ -236,6 +243,7 @@ const createMultipleUsers = async (data) => {
           email_verified: false,
           uid: userRecord.uid,
           created_by_admin: true,
+          created_by_uid: context?.auth?.uid || null,
           password_reset_required: true,
         };
 
@@ -282,7 +290,7 @@ const createMultipleUsers = async (data) => {
   }
 };
 
-const createUser = async (data) => {
+const createUser = async (data, context) => {
   // Support both callable shapes:
   // - v1: (data, context) where `data` is the payload
   // - v2-style wrapper sometimes passed through as `{ data: payload }`
@@ -362,6 +370,7 @@ const createUser = async (data) => {
       user_type: String(requestData.userType || 'teacher'),
       uid: userRecord.uid,
       is_active: true,
+      created_by_uid: context?.auth?.uid || requestData.createdByUid || null,
     };
 
     try {
@@ -977,6 +986,34 @@ const deleteUserAccount = async (data, context) => {
     const userIdsToPurge = Array.from(new Set([userId, canonicalUserId].filter(Boolean)));
 
     const batch = admin.firestore().batch();
+    const deletionActor = await resolveDecisionActor(
+      admin.firestore(),
+      callerUid,
+      {actor_email: effectiveAdminEmail}
+    );
+    const decisionWrites = buildDecisionAuditWrites({
+      db: admin.firestore(),
+      entityType: 'user',
+      entityId: userId,
+      entityLabel:
+        `${userData.first_name || ''} ${userData.last_name || ''}`.trim() ||
+        email,
+      action: 'user.deleted',
+      actor: deletionActor,
+      source: 'deleteUserAccount',
+      metadata: {
+        deleted_user_email: email.toLowerCase(),
+        deleted_user_type: (
+          userData.user_type ||
+          userData.userType ||
+          userData.role ||
+          ''
+        ).toString(),
+        delete_associated_classes: deleteClasses,
+      },
+      eventId: `user_deleted_${userId}_${Date.now()}`,
+    });
+    applyDecisionAuditWrites(batch, decisionWrites);
     batch.delete(userDoc.ref);
     // In case this project has duplicate user docs (legacy schemas), also delete the canonical UID doc.
     if (canonicalUserId && canonicalUserId !== userId) {
@@ -1233,62 +1270,62 @@ const findUserByEmailOrCode = async (data, context) => {
     const db = admin.firestore();
     const usersRef = db.collection('users');
 
-    // 1. Try finding by email (lowercase)
-    let snapshot = await usersRef.where('e-mail', '==', identifierLower).limit(1).get();
-    
-    // 2. Try finding by kiosk_code (ACTUAL field name in database - exact match first)
-    if (snapshot.empty) {
-      snapshot = await usersRef.where('kiosk_code', '==', rawIdentifier).limit(1).get();
-    }
-    if (snapshot.empty && rawIdentifier !== identifierLower) {
-      snapshot = await usersRef.where('kiosk_code', '==', identifierLower).limit(1).get();
+    // Families share an email: a parent enrolling a child often puts their own
+    // address on the child's account too, so one identifier can match several
+    // user docs. Firestore returns equality matches in document-ID order, so
+    // taking the first one linked whoever happened to sort first — usually the
+    // child, which then failed the parent check below. Search every match.
+    const codeValues = rawIdentifier === identifierLower
+      ? [rawIdentifier]
+      : [rawIdentifier, identifierLower];
+    const lookups = [
+      ['e-mail', [identifierLower]],
+      ['kiosk_code', codeValues],
+      ['student_code', codeValues],
+      ['kiosque_code', codeValues],
+      ['family_code', [rawIdentifier]],
+    ];
+
+    let doc = null;
+    let matchedAnyUser = false;
+
+    for (const [field, values] of lookups) {
+      for (const value of values) {
+        const snapshot = await usersRef.where(field, '==', value).limit(10).get();
+        if (snapshot.empty) continue;
+        matchedAnyUser = true;
+
+        doc = snapshot.docs.find((candidate) => {
+          const candidateData = candidate.data();
+          const childrenIds = candidateData.children_ids;
+          return (candidateData.user_type || '') === 'parent' &&
+            Array.isArray(childrenIds) &&
+            childrenIds.length > 0;
+        }) || null;
+
+        if (doc) break;
+
+        console.log(
+          `↷ ${snapshot.size} match(es) on ${field}, none a parent with children`
+        );
+      }
+      if (doc) break;
     }
 
-    // 3. Try finding by student_code (try exact match first, then lowercase)
-    if (snapshot.empty) {
-      snapshot = await usersRef.where('student_code', '==', rawIdentifier).limit(1).get();
-    }
-    if (snapshot.empty && rawIdentifier !== identifierLower) {
-      snapshot = await usersRef.where('student_code', '==', identifierLower).limit(1).get();
-    }
-
-    // 4. Try finding by kiosque_code (alternate spelling - try exact match first, then lowercase)
-    if (snapshot.empty) {
-      snapshot = await usersRef.where('kiosque_code', '==', rawIdentifier).limit(1).get();
-    }
-    if (snapshot.empty && rawIdentifier !== identifierLower) {
-      snapshot = await usersRef.where('kiosque_code', '==', identifierLower).limit(1).get();
-    }
-
-    // 5. Try finding by family_code (legacy field name)
-    if (snapshot.empty) {
-      snapshot = await usersRef.where('family_code', '==', rawIdentifier).limit(1).get();
-    }
-
-    if (snapshot.empty) {
-      console.log(`❌ No user found for identifier: ${rawIdentifier}`);
+    if (!doc) {
+      console.log(
+        matchedAnyUser
+          ? `❌ Matched a user for '${rawIdentifier}' but no linkable parent account`
+          : `❌ No user found for identifier: ${rawIdentifier}`
+      );
       return { found: false };
     }
 
-    const doc = snapshot.docs[0];
     const userData = doc.data();
-    const userType = userData.user_type || '';
-    const childrenIds = userData.children_ids || [];
-
-    console.log(`✅ Found user: ${userData.first_name || ''} ${userData.last_name || ''} (${userType})`);
-
-    // Only allow linking to parents who have enrolled children
-    if (userType !== 'parent') {
-      console.log(`❌ User is not a parent (${userType}), cannot link`);
-      return { found: false };
-    }
-
-    if (!childrenIds || childrenIds.length === 0) {
-      console.log(`❌ Parent has no children (${childrenIds.length}), cannot link`);
-      return { found: false };
-    }
-
-    console.log(`✅ Valid parent with ${childrenIds.length} children - allowing link`);
+    console.log(
+      `✅ Linking parent ${userData.first_name || ''} ${userData.last_name || ''} ` +
+      `with ${userData.children_ids.length} children`
+    );
 
     return {
       found: true,

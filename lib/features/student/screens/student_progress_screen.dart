@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'package:alluwalacademyadmin/features/parent/services/parent_service.dart';
 import '../../../core/services/user_role_service.dart';
+import '../../../l10n/app_localizations.dart';
 
 class StudentProgressScreen extends StatefulWidget {
   final String? studentId;
@@ -201,10 +202,12 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF0F4F8),
-      body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: _refreshAnalytics,
-          child: SingleChildScrollView(
+      body: ScrollNotificationObserver(
+        child: SelectionArea(
+          child: SafeArea(
+            child: RefreshIndicator(
+              onRefresh: _refreshAnalytics,
+              child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -251,6 +254,8 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
                   },
                 ),
               ],
+            ),
+              ),
             ),
           ),
         ),
@@ -353,29 +358,57 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
   }
 
   Widget _buildTopMetrics(_StudentAttendanceAnalytics analytics) {
-    return Row(
-      children: [
-        Expanded(
-          child: _metricCard(
-            label: 'Attendance',
-            value: '${(analytics.attendanceRate * 100).round()}%',
-            helper:
-                '${analytics.attendedClasses}/${analytics.scheduledClasses} classes',
-            color: const Color(0xFF0E72ED),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _metricCard(
-            label: 'On Time',
-            value: '${(analytics.punctualityRate * 100).round()}%',
-            helper:
-                '${analytics.onTimeClasses}/${analytics.attendedClasses} attended',
-            color: const Color(0xFF16A34A),
-          ),
-        ),
-      ],
+    final l10n = AppLocalizations.of(context)!;
+    final cards = [
+      _metricCard(
+        label: l10n.studentAttendanceStudentClassTime,
+        value: _formatClassHours(l10n, analytics.totalPresenceMinutes),
+        helper: _period == _AttendancePeriod.weekly
+            ? l10n.studentAttendanceWeekly
+            : l10n.studentAttendanceMonthly,
+        color: const Color(0xFF7C3AED),
+      ),
+      _metricCard(
+        label: l10n.studentAttendanceRate,
+        value: '${(analytics.attendanceRate * 100).round()}%',
+        helper:
+            '${analytics.attendedClasses}/${analytics.scheduledClasses} classes',
+        color: const Color(0xFF0E72ED),
+      ),
+      _metricCard(
+        label: 'On Time',
+        value: '${(analytics.punctualityRate * 100).round()}%',
+        helper:
+            '${analytics.onTimeClasses}/${analytics.attendedClasses} attended',
+        color: const Color(0xFF16A34A),
+      ),
+    ];
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 560) {
+          return Column(
+            children: [
+              for (var index = 0; index < cards.length; index++) ...[
+                cards[index],
+                if (index < cards.length - 1) const SizedBox(height: 10),
+              ],
+            ],
+          );
+        }
+        return Row(
+          children: [
+            for (var index = 0; index < cards.length; index++) ...[
+              Expanded(child: cards[index]),
+              if (index < cards.length - 1) const SizedBox(width: 10),
+            ],
+          ],
+        );
+      },
     );
+  }
+
+  String _formatClassHours(AppLocalizations l10n, double minutes) {
+    return l10n.studentAttendanceHoursValue((minutes / 60).toStringAsFixed(1));
   }
 
   Widget _buildStatusBreakdown(_StudentAttendanceAnalytics analytics) {

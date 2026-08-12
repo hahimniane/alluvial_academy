@@ -1257,6 +1257,175 @@ describe('Zoom handler', () => {
     expect(mockZoomClient.createMeeting).not.toHaveBeenCalled();
   });
 
+  test('clears a stale duration guardrail and provisions the hub after the class is corrected', async () => {
+    const now = Date.now();
+    const shiftStart = new Date(now + 30 * 60 * 1000);
+    stores.teaching_shifts.set('corrected_shift', {
+      teacher_id: 'teacher_corrected',
+      teacher_name: 'Corrected Teacher',
+      student_ids: ['student_corrected'],
+      student_names: ['Corrected Student'],
+      shift_start: makeTimestamp(shiftStart),
+      shift_end: makeTimestamp(new Date(shiftStart.getTime() + 13 * 60 * 60 * 1000)),
+      video_provider: 'zoom',
+      category: 'teaching',
+      custom_name: 'Corrected Zoom Class',
+    });
+
+    await zoomHandlers.onTeachingShiftWritten({
+      params: { shiftId: 'corrected_shift' },
+      data: {
+        before: { exists: false, data: () => ({}) },
+        after: makeDocSnapshot('teaching_shifts', 'corrected_shift'),
+      },
+    });
+
+    const blockedShift = clone(stores.teaching_shifts.get('corrected_shift'));
+    expect(blockedShift.zoom_hub_guardrail_blocked).toBe(true);
+    expect(blockedShift.zoom_hub_guardrail_details.durationMinutes).toBe(780);
+
+    stores.teaching_shifts.set('corrected_shift', {
+      ...blockedShift,
+      shift_end: makeTimestamp(new Date(shiftStart.getTime() + 60 * 60 * 1000)),
+    });
+
+    await zoomHandlers.onTeachingShiftWritten({
+      params: { shiftId: 'corrected_shift' },
+      data: {
+        before: { exists: true, data: () => clone(blockedShift) },
+        after: makeDocSnapshot('teaching_shifts', 'corrected_shift'),
+      },
+    });
+
+    const correctedShift = stores.teaching_shifts.get('corrected_shift');
+    expect(correctedShift).toEqual(expect.objectContaining({
+      zoom_hub_guardrail_blocked: false,
+      zoomRoutingMode: 'hub',
+      zoom_routing_mode: 'hub',
+      zoom_disable_hub_routing: false,
+      zoom_hub_guardrail_message: null,
+      zoom_hub_guardrail_details: null,
+    }));
+    expect(correctedShift.hubMeetingId).toBeTruthy();
+    expect(correctedShift.breakoutRoomName).toContain('Corrected Teacher');
+    expect(stores.system_alerts.get('corrected_shift_zoom_hub_guardrail')).toEqual(
+      expect.objectContaining({
+        status: 'resolved',
+        open: false,
+        resolved: true,
+        resolution_reason: 'class_schedule_corrected',
+      }),
+    );
+    expect(mockZoomClient.createMeeting).toHaveBeenCalledTimes(1);
+  });
+
+  test('self-heals a corrected stale guardrail when a participant joins', async () => {
+    const now = Date.now();
+    const shiftStart = new Date(now - 5 * 60 * 1000);
+    stores.users.set('teacher_corrected', { user_type: 'teacher' });
+    stores.users.set('student_corrected', { user_type: 'student' });
+    stores.teaching_shifts.set('corrected_join_shift', {
+      teacher_id: 'teacher_corrected',
+      teacher_name: 'Corrected Teacher',
+      student_ids: ['student_corrected'],
+      student_names: ['Corrected Student'],
+      shift_start: makeTimestamp(shiftStart),
+      shift_end: makeTimestamp(new Date(shiftStart.getTime() + 13 * 60 * 60 * 1000)),
+      video_provider: 'zoom',
+      category: 'teaching',
+      custom_name: 'Corrected Join Class',
+    });
+
+    await zoomHandlers.onTeachingShiftWritten({
+      params: { shiftId: 'corrected_join_shift' },
+      data: {
+        before: { exists: false, data: () => ({}) },
+        after: makeDocSnapshot('teaching_shifts', 'corrected_join_shift'),
+      },
+    });
+
+    const blockedShift = clone(stores.teaching_shifts.get('corrected_join_shift'));
+    stores.teaching_shifts.set('corrected_join_shift', {
+      ...blockedShift,
+      shift_end: makeTimestamp(new Date(shiftStart.getTime() + 60 * 60 * 1000)),
+    });
+
+    const result = await zoomHandlers.getZoomJoinInfo({
+      auth: { uid: 'student_corrected' },
+      data: { shiftId: 'corrected_join_shift' },
+    });
+
+    const correctedShift = stores.teaching_shifts.get('corrected_join_shift');
+    expect(result).toEqual(expect.objectContaining({
+      success: true,
+      routingMode: 'hub',
+      autoJoinBreakoutRoom: true,
+      userRole: 'student',
+    }));
+    expect(correctedShift).toEqual(expect.objectContaining({
+      zoom_hub_guardrail_blocked: false,
+      zoomRoutingMode: 'hub',
+      zoom_disable_hub_routing: false,
+      zoom_hub_guardrail_message: null,
+      zoom_hub_guardrail_details: null,
+    }));
+    expect(stores.system_alerts.get('corrected_join_shift_zoom_hub_guardrail')).toEqual(
+      expect.objectContaining({
+        status: 'resolved',
+        resolved: true,
+        resolution_reason: 'class_schedule_corrected',
+      }),
+    );
+  });
+
+  test('keeps a class blocked when an edit is still over the safe duration', async () => {
+    const now = Date.now();
+    const shiftStart = new Date(now + 30 * 60 * 1000);
+    stores.teaching_shifts.set('still_unsafe_shift', {
+      teacher_id: 'teacher_unsafe',
+      teacher_name: 'Unsafe Teacher',
+      student_ids: ['student_unsafe'],
+      student_names: ['Unsafe Student'],
+      shift_start: makeTimestamp(shiftStart),
+      shift_end: makeTimestamp(new Date(shiftStart.getTime() + 13 * 60 * 60 * 1000)),
+      video_provider: 'zoom',
+      category: 'teaching',
+      custom_name: 'Still Unsafe Zoom Class',
+    });
+
+    await zoomHandlers.onTeachingShiftWritten({
+      params: { shiftId: 'still_unsafe_shift' },
+      data: {
+        before: { exists: false, data: () => ({}) },
+        after: makeDocSnapshot('teaching_shifts', 'still_unsafe_shift'),
+      },
+    });
+
+    const firstBlockedShift = clone(stores.teaching_shifts.get('still_unsafe_shift'));
+    stores.teaching_shifts.set('still_unsafe_shift', {
+      ...firstBlockedShift,
+      shift_end: makeTimestamp(new Date(shiftStart.getTime() + 4 * 60 * 60 * 1000)),
+    });
+
+    await zoomHandlers.onTeachingShiftWritten({
+      params: { shiftId: 'still_unsafe_shift' },
+      data: {
+        before: { exists: true, data: () => clone(firstBlockedShift) },
+        after: makeDocSnapshot('teaching_shifts', 'still_unsafe_shift'),
+      },
+    });
+
+    const stillBlockedShift = stores.teaching_shifts.get('still_unsafe_shift');
+    expect(stillBlockedShift).toEqual(expect.objectContaining({
+      zoom_hub_guardrail_blocked: true,
+      zoomRoutingMode: 'blocked',
+      zoom_disable_hub_routing: true,
+    }));
+    expect(stillBlockedShift.zoom_hub_guardrail_details.durationMinutes).toBe(240);
+    expect(stillBlockedShift.zoom_hub_guardrail_message).toContain('240 minutes');
+    expect(mockZoomClient.createMeeting).not.toHaveBeenCalled();
+  });
+
   test('does not route no-student admin clock-in shifts through Zoom hubs', async () => {
     const now = Date.now();
     stores.users.set('admin_teacher', { role: 'admin', user_type: 'admin' });
@@ -2505,6 +2674,75 @@ describe('Zoom handler', () => {
     expect(stores.hub_meetings.get('poison_hub_new').poison_streak).toBe(1);
   });
 
+  test('bot watcher immediately replaces an empty hub when assignments do not result in room entry', async () => {
+    const now = Date.now();
+    mockZoomClient.endMeeting.mockClear();
+    stores.hub_meetings.set('assigned_not_joined_hub', {
+      lane: 2,
+      status: 'roomsOpen',
+      bot_status: 'roomsOpen',
+      meetingNumber: 'assigned_not_joined_meeting',
+      window_start: makeTimestamp(new Date(now - 5 * 60 * 1000)),
+      window_end: makeTimestamp(new Date(now + 55 * 60 * 1000)),
+      heartbeat_at: makeTimestamp(new Date(now - 10 * 1000)),
+      stats: {
+        liveRoomCount: 10,
+        targetMemberCount: 4,
+        inRoomOccupants: 0,
+        breakoutUnassignedCount: 2,
+        assignedNotJoinedCount: 2,
+        oldestAssignedNotJoinedMs: 45 * 1000,
+      },
+    });
+
+    await zoomHandlers.watchZoomHubBots();
+
+    expect(mockZoomClient.endMeeting).toHaveBeenCalledWith('assigned_not_joined_meeting');
+    expect(stores.hub_meetings.get('assigned_not_joined_hub')).toEqual(expect.objectContaining({
+      poison_streak: 0,
+      last_poison_reset_meeting: 'assigned_not_joined_meeting',
+      last_poison_reason: 'assigned_not_joined_poisoned',
+    }));
+    expect(stores.system_alerts.get('assigned_not_joined_hub_assigned_not_joined_poisoned')).toEqual(
+      expect.objectContaining({
+        reason: 'assigned_not_joined_poisoned',
+        title: 'Critical Zoom hub assignments are not moving participants',
+      }),
+    );
+  });
+
+  test('bot watcher does not replace a hub for a brief assignment transition', async () => {
+    const now = Date.now();
+    mockZoomClient.endMeeting.mockClear();
+    mockZoomClient.getMeeting.mockResolvedValueOnce({
+      id: 'assignment_transition_meeting',
+      status: 'started',
+    });
+    stores.hub_meetings.set('assignment_transition_hub', {
+      lane: 2,
+      status: 'roomsOpen',
+      bot_status: 'roomsOpen',
+      meetingNumber: 'assignment_transition_meeting',
+      window_start: makeTimestamp(new Date(now - 5 * 60 * 1000)),
+      window_end: makeTimestamp(new Date(now + 55 * 60 * 1000)),
+      heartbeat_at: makeTimestamp(new Date(now - 10 * 1000)),
+      stats: {
+        liveRoomCount: 10,
+        targetMemberCount: 2,
+        inRoomOccupants: 0,
+        assignedNotJoinedCount: 1,
+        oldestAssignedNotJoinedMs: 10 * 1000,
+      },
+    });
+
+    await zoomHandlers.watchZoomHubBots();
+
+    expect(mockZoomClient.endMeeting).not.toHaveBeenCalled();
+    expect(stores.system_alerts.has(
+      'assignment_transition_hub_assigned_not_joined_poisoned',
+    )).toBe(false);
+  });
+
   test('bot watcher never resets a poisoned hub with participants inside rooms', async () => {
     const now = Date.now();
     mockZoomClient.endMeeting.mockClear();
@@ -2662,6 +2900,200 @@ describe('Zoom handler', () => {
     expect(mockZoomClient.endMeeting).toHaveBeenCalledWith('old_meeting');
     expect(mockZoomClient.endMeeting).not.toHaveBeenCalledWith('new_meeting');
     expect(stores.hub_meetings.get('old_block').ended_at).toBeDefined();
+  });
+
+  const zombieHub = (now, overrides = {}) => ({
+    lane: 2,
+    blockIndex: 2,
+    status: 'roomsOpen',
+    bot_status: 'roomsOpen',
+    meetingNumber: 'zombie_meeting_number',
+    created_at: makeTimestamp(new Date(now - 90 * 60 * 1000)),
+    window_start: makeTimestamp(new Date(now - 3 * 60 * 60 * 1000)),
+    window_end: makeTimestamp(new Date(now + 2 * 60 * 60 * 1000)),
+    heartbeat_at: makeTimestamp(new Date(now - 10 * 1000)),
+    stats: { liveRoomCount: 12, targetMemberCount: 0, inRoomOccupants: 0 },
+    ...overrides,
+  });
+
+  test('bot watcher frees the shared host from a zombie hub that owns no classes', async () => {
+    const now = Date.now();
+    mockZoomClient.endMeeting.mockClear();
+    // Reproduces 2026-07-28: a reschedule re-split lane 2's rolling chain, so every
+    // class moved to other hub ids while this hub kept an active window and kept
+    // hosting on the shared account. Zoom lets one account host one meeting, so the
+    // hubs that DID own the due classes could never start and joiners saw "The host
+    // has another meeting in progress".
+    mockZoomClient.getMeeting.mockResolvedValue({ id: 'real_meeting', status: 'waiting' });
+    stores.hub_meetings.set('hub_zombie', zombieHub(now));
+    stores.teaching_shifts.set('live_class', {
+      hub_meeting_id: 'hub_real',
+      shift_end: makeTimestamp(new Date(now + 45 * 60 * 1000)),
+    });
+
+    await zoomHandlers.watchZoomHubBots();
+
+    expect(mockZoomClient.endMeeting).toHaveBeenCalledWith('zombie_meeting_number');
+    const released = stores.hub_meetings.get('hub_zombie');
+    expect(released.ended_at).toBeDefined();
+    expect(released.retired_reason).toBe('zombie_hub_released_shared_host');
+    // Window must be closed too, or the bot is directed straight back in.
+    expect(released.status).toBe('left');
+    expect(getComparable(released.window_end)).toBeLessThanOrEqual(now + 1000);
+    expect(stores.system_alerts.get('hub_zombie_duplicate_lane_hub_released')).toEqual(
+      expect.objectContaining({ reason: 'duplicate_lane_hub_released' }),
+    );
+  });
+
+  test('bot watcher frees a zombie even when it is the highest-ranked hub on its lane', async () => {
+    const now = Date.now();
+    mockZoomClient.endMeeting.mockClear();
+    // The 2026-07-28 noon failure: the zombie outranked the hub that owned the due
+    // classes (higher blockIndex, later window start), so a rank-based rule would
+    // have left it holding the account. Owning no work is what matters.
+    mockZoomClient.getMeeting.mockResolvedValue({ id: 'older_real_meeting', status: 'waiting' });
+    stores.hub_meetings.set('hub_zombie', zombieHub(now, {
+      blockIndex: 2,
+      window_start: makeTimestamp(new Date(now - 30 * 60 * 1000)),
+    }));
+    stores.hub_meetings.set('hub_owns_noon_classes', {
+      lane: 2, blockIndex: 1,
+      status: 'scheduled', meetingNumber: 'older_real_meeting',
+      created_at: makeTimestamp(new Date(now - 60 * 60 * 1000)),
+      window_start: makeTimestamp(new Date(now - 90 * 60 * 1000)),
+      window_end: makeTimestamp(new Date(now + 60 * 60 * 1000)),
+    });
+    stores.teaching_shifts.set('noon_class', {
+      hub_meeting_id: 'hub_owns_noon_classes',
+      shift_end: makeTimestamp(new Date(now + 40 * 60 * 1000)),
+    });
+
+    await zoomHandlers.watchZoomHubBots();
+
+    expect(mockZoomClient.endMeeting).toHaveBeenCalledWith('zombie_meeting_number');
+    expect(mockZoomClient.endMeeting).not.toHaveBeenCalledWith('older_real_meeting');
+  });
+
+  test('bot watcher keeps a hub that still has a class assigned to it', async () => {
+    const now = Date.now();
+    mockZoomClient.endMeeting.mockClear();
+    mockZoomClient.getMeeting.mockResolvedValue({ id: 'zombie_meeting_number', status: 'started' });
+    stores.hub_meetings.set('hub_zombie', zombieHub(now, {
+      stats: { liveRoomCount: 12, targetMemberCount: 1, inRoomOccupants: 0 },
+    }));
+    stores.teaching_shifts.set('still_running_class', {
+      hub_meeting_id: 'hub_zombie',
+      shift_end: makeTimestamp(new Date(now + 30 * 60 * 1000)),
+    });
+
+    await zoomHandlers.watchZoomHubBots();
+
+    expect(mockZoomClient.endMeeting).not.toHaveBeenCalled();
+  });
+
+  test('bot watcher never frees a hub with someone inside a classroom', async () => {
+    const now = Date.now();
+    mockZoomClient.endMeeting.mockClear();
+    mockZoomClient.getMeeting.mockResolvedValue({ id: 'zombie_meeting_number', status: 'started' });
+    stores.hub_meetings.set('hub_zombie', zombieHub(now, {
+      stats: { liveRoomCount: 12, targetMemberCount: 1, inRoomOccupants: 1 },
+    }));
+
+    await zoomHandlers.watchZoomHubBots();
+
+    expect(mockZoomClient.endMeeting).not.toHaveBeenCalled();
+  });
+
+  test('bot watcher does not judge a freshly provisioned hub as a zombie', async () => {
+    const now = Date.now();
+    mockZoomClient.endMeeting.mockClear();
+    mockZoomClient.getMeeting.mockResolvedValue({ id: 'zombie_meeting_number', status: 'started' });
+    // Provisioning writes the hub before it points classes at it; a hub created
+    // moments ago must never be mistaken for one whose classes left.
+    stores.hub_meetings.set('hub_zombie', zombieHub(now, {
+      created_at: makeTimestamp(new Date(now - 60 * 1000)),
+    }));
+
+    await zoomHandlers.watchZoomHubBots();
+
+    expect(mockZoomClient.endMeeting).not.toHaveBeenCalled();
+  });
+
+  test('bot watcher still retires a zombie whose hub doc carries a stale ended_at', async () => {
+    const now = Date.now();
+    mockZoomClient.endMeeting.mockClear();
+    // Provisioning can restart a retired hub doc on a fresh Zoom meeting while the
+    // old `ended_at` stamp survives. That stale flag must not permanently disable
+    // the zombie release, and Zoom rejecting the call must not block retirement.
+    mockZoomClient.getMeeting.mockResolvedValue({ id: 'zombie_meeting_number', status: 'waiting' });
+    mockZoomClient.endMeeting.mockRejectedValueOnce(new Error('Meeting is not live'));
+    stores.hub_meetings.set('hub_zombie', zombieHub(now, {
+      ended_at: makeTimestamp(new Date(now - 45 * 60 * 1000)),
+      ended_meeting_number: 'a_previous_meeting',
+    }));
+
+    await zoomHandlers.watchZoomHubBots();
+
+    expect(mockZoomClient.endMeeting).toHaveBeenCalledWith('zombie_meeting_number');
+    const released = stores.hub_meetings.get('hub_zombie');
+    expect(released.retired_reason).toBe('zombie_hub_released_shared_host');
+    expect(released.ended_meeting_number).toBe('zombie_meeting_number');
+    expect(getComparable(released.window_end)).toBeLessThanOrEqual(now + 1000);
+  });
+
+  test('bot watcher does not re-end historical hubs whose window is already over', async () => {
+    const now = Date.now();
+    mockZoomClient.endMeeting.mockClear();
+    stores.hub_meetings.set('hub_yesterday', {
+      lane: 2, blockIndex: 2, status: 'left', meetingNumber: 'old_meeting',
+      created_at: makeTimestamp(new Date(now - 30 * 60 * 60 * 1000)),
+      window_start: makeTimestamp(new Date(now - 28 * 60 * 60 * 1000)),
+      window_end: makeTimestamp(new Date(now - 24 * 60 * 60 * 1000)),
+      ended_at: makeTimestamp(new Date(now - 24 * 60 * 60 * 1000)),
+      stats: { inRoomOccupants: 0 },
+    });
+
+    await zoomHandlers.watchZoomHubBots();
+
+    expect(mockZoomClient.endMeeting).not.toHaveBeenCalled();
+  });
+
+  test('zombie detection requires no work, an empty hub, an occupying bot, and age', () => {
+    const { _zoomHubIsHostHoldingZombie } = zoomHandlers.__test__;
+    const now = new Date();
+    const old = new Date(now.getTime() - 90 * 60 * 1000);
+    const base = {
+      status: 'roomsOpen',
+      created_at: makeTimestamp(old),
+      stats: { inRoomOccupants: 0 },
+    };
+
+    expect(_zoomHubIsHostHoldingZombie({
+      hubData: base, hasRemainingAssignedClasses: false, now,
+    })).toBe(true);
+    expect(_zoomHubIsHostHoldingZombie({
+      hubData: base, hasRemainingAssignedClasses: true, now,
+    })).toBe(false);
+    expect(_zoomHubIsHostHoldingZombie({
+      hubData: { ...base, stats: { inRoomOccupants: 1 } },
+      hasRemainingAssignedClasses: false,
+      now,
+    })).toBe(false);
+    // A hub the bot does not occupy is not holding the shared account.
+    expect(_zoomHubIsHostHoldingZombie({
+      hubData: { ...base, status: 'scheduled' }, hasRemainingAssignedClasses: false, now,
+    })).toBe(false);
+    expect(_zoomHubIsHostHoldingZombie({
+      hubData: { ...base, created_at: makeTimestamp(new Date(now.getTime() - 60 * 1000)) },
+      hasRemainingAssignedClasses: false,
+      now,
+    })).toBe(false);
+    // Missing created_at is unknowable, so never act on it.
+    expect(_zoomHubIsHostHoldingZombie({
+      hubData: { status: 'roomsOpen', stats: { inRoomOccupants: 0 } },
+      hasRemainingAssignedClasses: false,
+      now,
+    })).toBe(false);
   });
 
   test('bot watcher force-ends a lingering hub past the hard grace even with stragglers', async () => {
@@ -3138,6 +3570,14 @@ describe('Zoom handler', () => {
         .createHmac('sha256', 'webhook_secret')
         .update('plain_token_123')
         .digest('hex'),
+    });
+  });
+
+  test('keeps a warm webhook instance so Zoom never waits past its 3s deadline', () => {
+    expect(zoomHandlers.__test__.ZOOM_WEBHOOK_RUNTIME_OPTIONS).toEqual({
+      cors: true,
+      secrets: ['ZOOM_WEBHOOK_SECRET_TOKEN'],
+      minInstances: 1,
     });
   });
 

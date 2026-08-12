@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:alluwalacademyadmin/features/shift_management/services/wage_management_service.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+import 'package:alluwalacademyadmin/core/utils/app_search.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class SystemSettingsScreen extends StatefulWidget {
@@ -1383,12 +1384,12 @@ class _IndividualWageDialogState extends State<_IndividualWageDialog> {
   List<Map<String, dynamic>> get _filteredTeachers {
     if (_searchQuery.isEmpty) return _teachers;
 
-    final query = _searchQuery.toLowerCase();
-    return _teachers.where((teacher) {
-      final name = teacher['name'].toString().toLowerCase();
-      final email = teacher['email'].toString().toLowerCase();
-      return name.contains(query) || email.contains(query);
-    }).toList();
+    return _teachers
+        .where((teacher) => AppSearch.matchesMap(
+              query: _searchQuery,
+              data: teacher,
+            ))
+        .toList();
   }
 
   @override
@@ -1654,15 +1655,13 @@ class _EnhancedIndividualWageDialogState
   List<Map<String, dynamic>> get _filteredUsers {
     if (_searchQuery.isEmpty) return _allUsers;
 
-    final query = _searchQuery.toLowerCase();
-    return _allUsers.where((user) {
-      final name = user['name'].toString().toLowerCase();
-      final email = user['email'].toString().toLowerCase();
-      final role = user['role'].toString().toLowerCase();
-      return name.contains(query) ||
-          email.contains(query) ||
-          role.contains(query);
-    }).toList();
+    return _allUsers
+        .where((user) => AppSearch.matchesMap(
+              query: _searchQuery,
+              data: user,
+              additionalValues: [(user['role'] ?? '').toString()],
+            ))
+        .toList();
   }
 
   @override

@@ -33,10 +33,12 @@ class _PublicSiteCmsScaffoldContent extends StatefulWidget {
   const _PublicSiteCmsScaffoldContent();
 
   @override
-  State<_PublicSiteCmsScaffoldContent> createState() => _PublicSiteCmsScaffoldContentState();
+  State<_PublicSiteCmsScaffoldContent> createState() =>
+      _PublicSiteCmsScaffoldContentState();
 }
 
-class _PublicSiteCmsScaffoldContentState extends State<_PublicSiteCmsScaffoldContent>
+class _PublicSiteCmsScaffoldContentState
+    extends State<_PublicSiteCmsScaffoldContent>
     with SingleTickerProviderStateMixin {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   bool _scaffoldKeyAttached = false;
@@ -155,23 +157,26 @@ class _PublicSiteCmsScaffoldContentState extends State<_PublicSiteCmsScaffoldCon
         final p = doc.plans[id] ?? const PublicSitePlanPricing();
         _bulletsCtrls[id] = TextEditingController(text: p.bullets.join('\n'));
         if (id == PricingPlanIds.islamic) {
-          _v2IslamicBase[id] = TextEditingController(text: p.islamicBaseUsd?.toString() ?? '');
-          _v2IslamicDiscount[id] =
-              TextEditingController(text: p.islamicDiscountUsd?.toString() ?? '');
+          _v2IslamicBase[id] =
+              TextEditingController(text: p.islamicBaseUsd?.toString() ?? '');
+          _v2IslamicDiscount[id] = TextEditingController(
+              text: p.islamicDiscountUsd?.toString() ?? '');
           _v2IslamicThreshold[id] = TextEditingController(
             text: (p.islamicDiscountThreshold ?? 4).toString(),
           );
         }
         if (id == PricingPlanIds.tutoring) {
-          _v2TutoringBase[id] = TextEditingController(text: p.tutoringBaseUsd?.toString() ?? '');
-          _v2TutoringDiscount[id] =
-              TextEditingController(text: p.tutoringDiscountUsd?.toString() ?? '');
+          _v2TutoringBase[id] =
+              TextEditingController(text: p.tutoringBaseUsd?.toString() ?? '');
+          _v2TutoringDiscount[id] = TextEditingController(
+              text: p.tutoringDiscountUsd?.toString() ?? '');
           _v2TutoringThreshold[id] = TextEditingController(
             text: (p.tutoringDiscountThreshold ?? 4).toString(),
           );
         }
         if (id == PricingPlanIds.group) {
-          _v2GroupHourly[id] = TextEditingController(text: p.groupHourlyUsd?.toString() ?? '');
+          _v2GroupHourly[id] =
+              TextEditingController(text: p.groupHourlyUsd?.toString() ?? '');
         }
       }
       if (mounted) {
@@ -237,13 +242,15 @@ class _PublicSiteCmsScaffoldContentState extends State<_PublicSiteCmsScaffoldCon
           bullets: bullets,
         );
       }
-      await PublicSiteCmsService.savePricingDoc(PublicSiteCmsPricingDoc(plans: plans));
+      await PublicSiteCmsService.savePricingDoc(
+          PublicSiteCmsPricingDoc(plans: plans));
       if (mounted) {
         final messenger = ScaffoldMessenger.of(context);
         messenger.clearSnackBars();
         final msg = planIdForMessage == null
             ? l10n.publicSiteCmsPricingSaved
-            : l10n.publicSiteCmsPricingSavedThisTrack(_planTitle(l10n, planIdForMessage));
+            : l10n.publicSiteCmsPricingSavedThisTrack(
+                _planTitle(l10n, planIdForMessage));
         messenger.showSnackBar(
           SnackBar(
             content: Text(msg),
@@ -288,28 +295,33 @@ class _PublicSiteCmsScaffoldContentState extends State<_PublicSiteCmsScaffoldCon
         groupAlignment: -1,
         leading: Padding(
           padding: const EdgeInsets.only(bottom: 8),
-          child: Icon(Icons.public, color: PublicSiteCmsTheme.accentNavy, size: 22),
+          child: Icon(Icons.public,
+              color: PublicSiteCmsTheme.accentNavy, size: 22),
         ),
         destinations: [
           NavigationRailDestination(
             icon: const Icon(Icons.attach_money_outlined),
             selectedIcon: const Icon(Icons.attach_money),
-            label: Text(l.publicSiteCmsTabPricing, style: GoogleFonts.inter(fontSize: 12)),
+            label: Text(l.publicSiteCmsTabPricing,
+                style: GoogleFonts.inter(fontSize: 12)),
           ),
           NavigationRailDestination(
             icon: const Icon(Icons.groups_outlined),
             selectedIcon: const Icon(Icons.groups),
-            label: Text(l.publicSiteCmsTabTeam, style: GoogleFonts.inter(fontSize: 12)),
+            label: Text(l.publicSiteCmsTabTeam,
+                style: GoogleFonts.inter(fontSize: 12)),
           ),
           NavigationRailDestination(
             icon: const Icon(Icons.share_outlined),
             selectedIcon: const Icon(Icons.share),
-            label: Text(l.publicSiteCmsTabSocial, style: GoogleFonts.inter(fontSize: 12)),
+            label: Text(l.publicSiteCmsTabSocial,
+                style: GoogleFonts.inter(fontSize: 12)),
           ),
           NavigationRailDestination(
             icon: const Icon(Icons.landscape_outlined),
             selectedIcon: const Icon(Icons.landscape),
-            label: Text(l.publicSiteCmsTabLanding, style: GoogleFonts.inter(fontSize: 12)),
+            label: Text(l.publicSiteCmsTabLanding,
+                style: GoogleFonts.inter(fontSize: 12)),
           ),
         ],
       ),
@@ -372,7 +384,8 @@ class _PublicSiteCmsScaffoldContentState extends State<_PublicSiteCmsScaffoldCon
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: PublicSiteCmsTheme.contentMaxW),
+                constraints: const BoxConstraints(
+                    maxWidth: PublicSiteCmsTheme.contentMaxW),
                 child: CmsSectionHeader(
                   index: _tabController.index,
                   showProductLine: useRail,
@@ -382,7 +395,8 @@ class _PublicSiteCmsScaffoldContentState extends State<_PublicSiteCmsScaffoldCon
             Expanded(
               child: Center(
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: PublicSiteCmsTheme.contentMaxW),
+                  constraints: const BoxConstraints(
+                      maxWidth: PublicSiteCmsTheme.contentMaxW),
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
                     child: TabBarView(
@@ -403,7 +417,8 @@ class _PublicSiteCmsScaffoldContentState extends State<_PublicSiteCmsScaffoldCon
                           v2GroupHourly: _v2GroupHourly,
                           onRetryLoad: _loadPricingDraft,
                           onSaveAll: () => _savePricing(),
-                          onSaveThisTrack: (id) => _savePricing(planIdForMessage: id),
+                          onSaveThisTrack: (id) =>
+                              _savePricing(planIdForMessage: id),
                         ),
                         const PublicSiteTeamTab(),
                         const PublicSiteSocialTab(),
@@ -432,7 +447,8 @@ class _PublicSiteCmsScaffoldContentState extends State<_PublicSiteCmsScaffoldCon
           : Drawer(
               width: math.min(520, w * 0.9),
               child: TeamMemberSideSheet(
-                key: ValueKey('${team.editing?.id ?? "new"}-${team.drawerNonce}'),
+                key: ValueKey(
+                    '${team.editing?.id ?? "new"}-${team.drawerNonce}'),
                 existing: team.editing,
               ),
             ),
@@ -452,16 +468,24 @@ class _PublicSiteCmsScaffoldContentState extends State<_PublicSiteCmsScaffoldCon
                 ),
               ),
             ),
-      body: useRail
-          ? Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _buildNavigationRail(l),
-                const VerticalDivider(width: 1, thickness: 1, color: PublicSiteCmsTheme.border),
-                Expanded(child: bodyContent),
-              ],
-            )
-          : bodyContent,
+      body: ScrollNotificationObserver(
+        child: SelectionArea(
+          child: useRail
+              ? Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _buildNavigationRail(l),
+                    const VerticalDivider(
+                      width: 1,
+                      thickness: 1,
+                      color: PublicSiteCmsTheme.border,
+                    ),
+                    Expanded(child: bodyContent),
+                  ],
+                )
+              : bodyContent,
+        ),
+      ),
       bottomNavigationBar: useRail ? null : _buildBottomBar(l),
     );
   }

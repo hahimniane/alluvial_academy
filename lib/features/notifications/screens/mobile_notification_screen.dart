@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/models/employee_model.dart';
 
+import 'package:alluwalacademyadmin/core/utils/app_search.dart';
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
@@ -303,9 +304,23 @@ class _MobileNotificationScreenState extends State<MobileNotificationScreen> {
                           _filteredUsers = _allUsers;
                         } else {
                           _filteredUsers = _allUsers.where((user) {
-                            return user.firstName.toLowerCase().contains(_searchQuery) ||
-                                user.lastName.toLowerCase().contains(_searchQuery) ||
-                                user.email.toLowerCase().contains(_searchQuery);
+                            return AppSearch.matches(
+                              query: _searchQuery,
+                              names: [
+                                '${user.firstName} ${user.lastName}',
+                                '${user.lastName} ${user.firstName}',
+                              ],
+                              emails: [user.email],
+                              phones: [
+                                user.mobilePhone,
+                                '${user.countryCode}${user.mobilePhone}',
+                              ],
+                              ids: [
+                                user.documentId,
+                                user.studentCode,
+                                user.kioskCode,
+                              ],
+                            );
                           }).toList();
                         }
                       });

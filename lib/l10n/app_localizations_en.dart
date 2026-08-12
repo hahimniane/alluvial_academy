@@ -2320,7 +2320,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aComputer => 'A Computer';
 
   @override
-  String get aNewVersionOfAlluvialAcademy => 'A New Version Of Alluwal Education Hub';
+  String get aNewVersionOfAlluvialAcademy =>
+      'A New Version Of Alluwal Education Hub';
 
   @override
   String get aNewVersionOfAlluvialAcademy2 =>

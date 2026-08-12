@@ -17,13 +17,31 @@ export async function isCurrentUserTeacher(user: User) {
   return availableRoles(data).has("teacher");
 }
 
+export async function isCurrentUserStudent(user: User) {
+  const data = await getUserRecord(user);
+  if (!data) return false;
+  return availableRoles(data).has("student");
+}
+
+/**
+ * Adult students pay their own tuition, so they get the Finance section a
+ * parent would. Minors never see it — their parent handles billing.
+ */
+export function isAdultStudentRecord(data: UserRecord | null) {
+  return data?.is_adult_student === true;
+}
+
 export async function dashboardPathForUser(user: User) {
   const data = await getUserRecord(user);
-  if (!data) return "/app/#/login";
+  // Roles without a ported dashboard (parents, circle members) still land in the
+  // Flutter app, but at /app/ rather than its login screen — they are already
+  // authenticated by the time this runs, so the login route would just bounce.
+  if (!data) return "/app/";
   const roles = availableRoles(data);
   if (roles.has("admin") || roles.has("super_admin")) return "/admin/";
   if (roles.has("teacher")) return "/teacher/";
-  return "/app/#/login";
+  if (roles.has("student")) return "/student/";
+  return "/app/";
 }
 
 export async function getCurrentUserRecord(user: User): Promise<UserRecord | null> {

@@ -18,6 +18,15 @@ const ZOOM_JOIN_SECRETS = [
 ];
 
 const ZOOM_WEBHOOK_SECRETS = ['ZOOM_WEBHOOK_SECRET_TOKEN'];
+// Zoom treats any delivery it cannot get a response for within 3 seconds as
+// failed, and disables the subscription after repeated failures. Without a warm
+// instance, cold starts answered in 3-7s and Zoom flagged the endpoint as
+// unresponsive on 2026-07-28, which would have silently stopped class presence.
+const ZOOM_WEBHOOK_RUNTIME_OPTIONS = {
+  cors: true,
+  secrets: ZOOM_WEBHOOK_SECRETS,
+  minInstances: 1,
+};
 const BATCH_WRITE_LIMIT = 400;
 const LATE_GRACE_MINUTES = 5;
 const JOIN_WINDOW_BEFORE_MS = 10 * 60 * 1000;
@@ -44,6 +53,7 @@ const ZOOM_HUB_RESERVED_SEATS_PER_LANE = 1;
 // checks, end the meeting so the bot rejoins a clean instance. Never triggered
 // for a healthy hub (its live room count is > 0).
 const ZOOM_HUB_POISON_RESET_STREAK = 2;
+const ZOOM_HUB_ASSIGNED_NOT_JOINED_MS = 30 * 1000;
 // Zoom meetings have a hard maximum runtime. Keep hub windows well below it
 // so one shared classroom hub never expires while unrelated classes are live.
 const ZOOM_HUB_SAFE_MAX_MEETING_MINUTES = 28 * 60;
@@ -66,7 +76,9 @@ const ZOOM_HUB_AUTO_RESOLVE_ALERT_REASONS = new Set([
   'heartbeat_stale',
   'zombie_meeting_forced_rejoin',
   'breakout_unreadable_poisoned',
+  'assigned_not_joined_poisoned',
   'stragglers_removed_at_time_limit',
+  'duplicate_lane_hub_released',
   'stale_hub_handoff',
   'stale_hub_on_join',
 ]);
@@ -1868,6 +1880,35 @@ const _hubWindowForShiftDocs = (shiftDocs) => {
 const _hubWindowExceedsSafeZoomLifetime = (windowInfo) =>
   Number(windowInfo?.duration || 0) > ZOOM_HUB_SAFE_MAX_MEETING_MINUTES;
 
+// One lane = one licensed Zoom host account, and Zoom lets that account host only
+// one meeting at a time. `hubDocId` is derived from the earliest class in the
+// padded chain, so rescheduling, deleting, or adding a class re-splits the chain
+// and silently moves classes to a different hub id. Nothing shrinks the hub they
+// left, so it keeps an active window and keeps hosting on the shared account — a
+// zombie that starves every real hub on its lane ("The host has another meeting in
+// progress"). Rank on the lane is not the discriminator: a zombie is often the
+// highest-ranked active hub. Owning no work at all is the discriminator.
+const ZOOM_HUB_ZOMBIE_MIN_AGE_MS = 10 * 60 * 1000;
+
+const _zoomHubIsHostHoldingZombie = ({
+  hubData = {},
+  hasRemainingAssignedClasses = true,
+  now = new Date(),
+} = {}) => {
+  // Only a hub the bot actually occupies can be holding the host account.
+  const status = String(hubData.status || hubData.bot_status || '').trim();
+  if (status !== 'joined' && status !== 'roomsOpen') return false;
+  const stats = (hubData.stats && typeof hubData.stats === 'object') ? hubData.stats : {};
+  if (Number(stats.inRoomOccupants || 0) > 0) return false;
+  // Provisioning writes the hub before it points classes at it; never judge a hub
+  // that is young enough to still be mid-provisioning.
+  const createdAt = _toDate(hubData.created_at || hubData.createdAt);
+  if (!createdAt || createdAt.getTime() + ZOOM_HUB_ZOMBIE_MIN_AGE_MS > now.getTime()) {
+    return false;
+  }
+  return !hasRemainingAssignedClasses;
+};
+
 const _hubMeetingNumber = (hubData = {}) => String(
   hubData.meetingNumber ||
   hubData.meeting_number ||
@@ -2461,6 +2502,102 @@ const _blockZoomHubShiftForGuardrail = async ({
       timezone: details.timezone || '',
     },
   }).catch(() => {});
+};
+
+const _revalidateStoredZoomHubGuardrail = async ({
+  shiftRef,
+  shiftId,
+  shiftData,
+  source,
+}) => {
+  const storedGuardrail = _storedZoomHubGuardrailBlock(shiftData);
+  if (!storedGuardrail) {
+    return {
+      ok: true,
+      cleared: false,
+      shiftData,
+      guardrail: null,
+    };
+  }
+
+  const currentGuardrail = await _zoomHubCapacityGuardrailDecision({
+    shiftId,
+    shiftData,
+    excludeShiftId: shiftId,
+  });
+  if (!currentGuardrail.ok) {
+    if (
+      currentGuardrail.reason !== storedGuardrail.reason ||
+      currentGuardrail.message !== storedGuardrail.message
+    ) {
+      await _blockZoomHubShiftForGuardrail({
+        shiftRef,
+        shiftId,
+        shiftData,
+        guardrail: currentGuardrail,
+        source: `${source}_revalidated`,
+      });
+    }
+    return {
+      ok: false,
+      cleared: false,
+      shiftData,
+      guardrail: currentGuardrail,
+    };
+  }
+
+  const clearedShiftData = {
+    ...shiftData,
+    zoom_hub_guardrail_blocked: false,
+    zoomHubGuardrailBlocked: false,
+    zoom_hub_guardrail_reason: null,
+    zoom_hub_guardrail_reasons: [],
+    zoom_hub_guardrail_message: null,
+    zoom_hub_guardrail_details: null,
+    zoom_hub_guardrail_source: null,
+    zoom_hub_guardrail_at: null,
+    zoomRoutingMode: 'hub',
+    zoom_routing_mode: 'hub',
+    zoom_disable_hub_routing: false,
+    zoomDisableHubRouting: false,
+  };
+  await shiftRef.set({
+    zoom_hub_guardrail_blocked: false,
+    zoomHubGuardrailBlocked: false,
+    zoom_hub_guardrail_reason: null,
+    zoom_hub_guardrail_reasons: [],
+    zoom_hub_guardrail_message: null,
+    zoom_hub_guardrail_details: null,
+    zoom_hub_guardrail_source: null,
+    zoom_hub_guardrail_at: null,
+    zoomRoutingMode: 'hub',
+    zoom_routing_mode: 'hub',
+    zoom_disable_hub_routing: false,
+    zoomDisableHubRouting: false,
+    zoom_updated_at: admin.firestore.FieldValue.serverTimestamp(),
+  }, { merge: true });
+
+  const alertRef = admin.firestore()
+    .collection('system_alerts')
+    .doc(`${shiftId}_zoom_hub_guardrail`);
+  const alertSnap = await alertRef.get();
+  if (alertSnap.exists) {
+    await alertRef.set({
+      status: 'resolved',
+      open: false,
+      resolved: true,
+      resolved_at: admin.firestore.FieldValue.serverTimestamp(),
+      updated_at: admin.firestore.FieldValue.serverTimestamp(),
+      resolution_reason: 'class_schedule_corrected',
+    }, { merge: true });
+  }
+
+  return {
+    ok: true,
+    cleared: true,
+    shiftData: clearedShiftData,
+    guardrail: null,
+  };
 };
 
 const _zoomHubOverflowAlertData = ({ shiftId, shiftData, reason, meta }) => ({
@@ -3544,6 +3681,19 @@ const _hubBreakoutUnreadablePoisoned = (hubData = {}, now = new Date()) => {
     inRoom === 0;
 };
 
+const _hubAssignedNotJoinedPoisoned = (hubData = {}, now = new Date()) => {
+  const stats = (hubData.stats && typeof hubData.stats === 'object') ? hubData.stats : {};
+  const assignedNotJoinedCount = Number(stats.assignedNotJoinedCount || 0);
+  const oldestAssignedNotJoinedMs = Number(stats.oldestAssignedNotJoinedMs || 0);
+  const inRoom = Number(stats.inRoomOccupants || 0);
+  return _hubActiveAt(hubData, now) &&
+    _hubStatusValue(hubData) === 'roomsOpen' &&
+    _hubHeartbeatFresh(hubData, now) &&
+    assignedNotJoinedCount > 0 &&
+    oldestAssignedNotJoinedMs >= ZOOM_HUB_ASSIGNED_NOT_JOINED_MS &&
+    inRoom === 0;
+};
+
 const _zoomHubAlertStillActive = ({ reason, hubData, now }) => {
   if (!hubData || !_hubActiveAt(hubData, now)) return false;
   const status = _hubStatusValue(hubData);
@@ -3554,6 +3704,9 @@ const _zoomHubAlertStillActive = ({ reason, hubData, now }) => {
   if (reason === 'stale_hub_on_join') return _hubHeartbeatStaleForJoin(hubData, now);
   if (reason === 'breakout_unreadable_poisoned') {
     return _hubBreakoutUnreadablePoisoned(hubData, now);
+  }
+  if (reason === 'assigned_not_joined_poisoned') {
+    return _hubAssignedNotJoinedPoisoned(hubData, now);
   }
   return false;
 };
@@ -3708,6 +3861,10 @@ const _buildZoomHubRoutingStatus = async ({ now = new Date() } = {}) => {
       classRoomCount: rooms.filter((room) => !room.spare).length,
       liveRoomCount: _numberOrZero(stats.liveRoomCount),
       inRoomOccupants: _numberOrZero(stats.inRoomOccupants),
+      confirmedInRoomCount: _numberOrZero(stats.confirmedInRoomCount),
+      breakoutUnassignedCount: _numberOrZero(stats.breakoutUnassignedCount),
+      assignedNotJoinedCount: _numberOrZero(stats.assignedNotJoinedCount),
+      oldestAssignedNotJoinedMs: _numberOrZero(stats.oldestAssignedNotJoinedMs),
       attendeeCount: _numberOrZero(stats.attendeeCount),
       customerKeyCount: _numberOrZero(stats.customerKeyCount),
       routableRoomCount: _numberOrZero(stats.routableRoomCount),
@@ -3829,8 +3986,9 @@ const getZoomJoinInfo = onCall({
     throw new HttpsError('unavailable', 'Zoom Meeting SDK is not configured');
   }
 
-  const { shiftRef, shiftData, teacherId, studentIds, meetingId } =
-    await getZoomShiftOrThrow(shiftId);
+  const zoomShift = await getZoomShiftOrThrow(shiftId);
+  const { shiftRef, teacherId, studentIds, meetingId } = zoomShift;
+  let shiftData = zoomShift.shiftData;
   const joinWindow = assertJoinWindowOrThrow(shiftData);
   const role = await getAccessForUser({
     uid,
@@ -3839,10 +3997,19 @@ const getZoomJoinInfo = onCall({
     studentIds,
     activeRole: request.data?.activeRole,
   });
-  const storedGuardrailBlock = _storedZoomHubGuardrailBlock(shiftData);
-  if (storedGuardrailBlock) {
-    throw new HttpsError('failed-precondition', storedGuardrailBlock.message);
+  const storedGuardrailResult = await _revalidateStoredZoomHubGuardrail({
+    shiftRef,
+    shiftId,
+    shiftData,
+    source: 'getZoomJoinInfo',
+  });
+  if (!storedGuardrailResult.ok) {
+    throw new HttpsError(
+      'failed-precondition',
+      storedGuardrailResult.guardrail.message,
+    );
   }
+  shiftData = storedGuardrailResult.shiftData;
   const useHubRouting = _usesHubRouting({ shiftData, meetingId });
   if (useHubRouting) {
     const guardrail = await _validateZoomHubShiftGuardrail(shiftData);
@@ -4266,76 +4433,123 @@ const onTeachingShiftWritten = onDocumentWritten({
   const before = event.data.before && event.data.before.exists
     ? event.data.before.data()
     : null;
+  const shiftRef = afterSnap.ref ||
+    admin.firestore().collection('teaching_shifts').doc(event.params.shiftId);
 
   const provider = String(shiftData.video_provider || shiftData.videoProvider || '')
     .trim()
     .toLowerCase();
   const meetingId = String(shiftData.zoom_meeting_id || shiftData.zoomMeetingId || '').trim();
   if (provider !== 'zoom') return;
-  if (_storedZoomHubGuardrailBlock(shiftData)) return;
-  if (!_usesHubRouting({ shiftData, meetingId })) return;
-
-  const guardrail = await _validateZoomHubShiftGuardrail(shiftData);
-  if (!guardrail.ok) {
-    const shiftRef = afterSnap.ref ||
-      admin.firestore().collection('teaching_shifts').doc(event.params.shiftId);
-    await _blockZoomHubShiftForGuardrail({
-      shiftRef,
-      shiftId: event.params.shiftId,
-      shiftData,
-      guardrail,
-      source: 'onTeachingShiftWritten',
-    });
-    console.warn(
-      `[ZoomHub] Blocked unsafe hub-routed shift ${event.params.shiftId}: ${guardrail.reason}`,
-    );
-    return;
-  }
-
-  const capacityGuardrail = await _zoomHubCapacityGuardrailDecision({
+  let effectiveShiftData = shiftData;
+  const storedGuardrailResult = await _revalidateStoredZoomHubGuardrail({
+    shiftRef,
     shiftId: event.params.shiftId,
     shiftData,
-    excludeShiftId: event.params.shiftId,
+    source: 'onTeachingShiftWritten',
   });
-  if (!capacityGuardrail.ok) {
-    const shiftRef = afterSnap.ref ||
-      admin.firestore().collection('teaching_shifts').doc(event.params.shiftId);
-    await _blockZoomHubShiftForGuardrail({
-      shiftRef,
-      shiftId: event.params.shiftId,
-      shiftData,
-      guardrail: capacityGuardrail,
-      source: 'onTeachingShiftWritten_capacity',
-    });
+  if (!storedGuardrailResult.ok) {
     console.warn(
-      `[ZoomHub] Blocked capacity-breaking hub-routed shift ${event.params.shiftId}: ${capacityGuardrail.reason}`,
+      `[ZoomHub] Shift ${event.params.shiftId} remains blocked after guardrail revalidation: ` +
+      storedGuardrailResult.guardrail.reason,
     );
     return;
   }
+  effectiveShiftData = storedGuardrailResult.shiftData;
+  if (!_usesHubRouting({ shiftData: effectiveShiftData, meetingId })) return;
 
-  const startMs = _shiftStartMs(shiftData);
+  if (!storedGuardrailResult.cleared) {
+    const guardrail = await _validateZoomHubShiftGuardrail(effectiveShiftData);
+    if (!guardrail.ok) {
+      await _blockZoomHubShiftForGuardrail({
+        shiftRef,
+        shiftId: event.params.shiftId,
+        shiftData: effectiveShiftData,
+        guardrail,
+        source: 'onTeachingShiftWritten',
+      });
+      console.warn(
+        `[ZoomHub] Blocked unsafe hub-routed shift ${event.params.shiftId}: ${guardrail.reason}`,
+      );
+      return;
+    }
+
+    const capacityGuardrail = await _zoomHubCapacityGuardrailDecision({
+      shiftId: event.params.shiftId,
+      shiftData: effectiveShiftData,
+      excludeShiftId: event.params.shiftId,
+    });
+    if (!capacityGuardrail.ok) {
+      await _blockZoomHubShiftForGuardrail({
+        shiftRef,
+        shiftId: event.params.shiftId,
+        shiftData: effectiveShiftData,
+        guardrail: capacityGuardrail,
+        source: 'onTeachingShiftWritten_capacity',
+      });
+      console.warn(
+        `[ZoomHub] Blocked capacity-breaking hub-routed shift ${event.params.shiftId}: ` +
+        capacityGuardrail.reason,
+      );
+      return;
+    }
+  }
+
+  const startMs = _shiftStartMs(effectiveShiftData);
   if (startMs == null) return;
   const now = Date.now();
   if (startMs < now - ZOOM_HUB_WINDOW_PADDING_MS) return; // already past its window
   if (startMs > now + ZOOM_HUB_PREP_LOOKAHEAD_MS) return; // too far out; prepareZoomHubs handles it
 
-  if (!_provisioningRelevantChange(before, shiftData)) return; // avoid self-trigger loops
+  if (
+    !storedGuardrailResult.cleared &&
+    !_provisioningRelevantChange(before, effectiveShiftData)
+  ) {
+    return; // avoid self-trigger loops
+  }
 
   try {
-    await _prepareZoomHubForShiftDoc(afterSnap);
+    const provisioningSnap = storedGuardrailResult.cleared
+      ? await shiftRef.get()
+      : afterSnap;
+    await _prepareZoomHubForShiftDoc(provisioningSnap);
     console.log(`[ZoomHub] Eagerly provisioned hub for imminent shift ${event.params.shiftId}`);
   } catch (err) {
     console.error(`[ZoomHub] Eager provision failed for shift ${event.params.shiftId}:`, err);
   }
 });
 
+// Equality-only queries so this needs no composite index; a hub holds at most
+// ZOOM_HUB_MAX_ROOM_COUNT classes, so the end-time filter is cheap in memory.
+const _hubHasRemainingAssignedClasses = async ({ db, hubDocId, now }) => {
+  for (const field of ['hub_meeting_id', 'hubMeetingId']) {
+    const snapshot = await db.collection('teaching_shifts')
+      .where(field, '==', hubDocId)
+      .get();
+    for (const doc of snapshot.docs) {
+      const data = doc.data() || {};
+      const end = _toDate(data.shift_end || data.shiftEnd);
+      if (end && end.getTime() >= now.getTime()) return true;
+    }
+  }
+  return false;
+};
+
 const _writeZoomHubBotAlert = async ({ hubDocId, hubData, reason }) => {
   const title = reason === 'heartbeat_stale'
     ? 'Critical Zoom hub bot heartbeat is stale'
-    : 'Critical Zoom hub rooms are not open';
+    : reason === 'assigned_not_joined_poisoned'
+      ? 'Critical Zoom hub assignments are not moving participants'
+      : reason === 'duplicate_lane_hub_released'
+        ? 'Zoom hub released the shared host account to a newer segment'
+        : 'Critical Zoom hub rooms are not open';
   const body = reason === 'heartbeat_stale'
     ? `Zoom hub ${hubDocId} is inside its class window but the bot heartbeat is stale.`
-    : `Zoom hub ${hubDocId} is inside its class window but rooms are not open.`;
+    : reason === 'assigned_not_joined_poisoned'
+      ? `Zoom hub ${hubDocId} is assigning participants, but Zoom is leaving them in the main session.`
+      : reason === 'duplicate_lane_hub_released'
+        ? `Zoom hub ${hubDocId} had no classes left to serve while a newer segment on the same lane needed the host account, so its meeting was ended.`
+        : `Zoom hub ${hubDocId} is inside its class window but rooms are not open.`;
   await _sendZoomHubAdminAlert({
     alertId: `${hubDocId}_${reason}`,
     reason,
@@ -4414,34 +4628,94 @@ const watchZoomHubBots = onSchedule({
     //    own real classes are over (hand the shared account over early).
     // This guarantees a forgotten participant can never hold the account or push
     // the meeting toward Zoom's 30h cap.
+    // Zombie hub: the bot is hosting it on the shared account but every class has
+    // moved to a different hub id, so it can only starve the hubs that do own the
+    // classes that are due. Cheap checks first; only pay for the shift lookup when
+    // the hub already looks like a zombie.
+    const hubStatus = String(data.status || data.bot_status || '').trim();
+    const zombieCandidate = inRoom === 0 &&
+      (hubStatus === 'joined' || hubStatus === 'roomsOpen') &&
+      _zoomHubIsHostHoldingZombie({
+        hubData: data,
+        hasRemainingAssignedClasses: false,
+        now,
+      });
+    const releasesSharedHost = zombieCandidate &&
+      _zoomHubIsHostHoldingZombie({
+        hubData: data,
+        hasRemainingAssignedClasses: await _hubHasRemainingAssignedClasses({
+          db,
+          hubDocId: doc.id,
+          now,
+        }),
+        now,
+      });
+
     const shouldEndMeeting =
       (now.getTime() >= windowEnd.getTime()) ||
-      (superseded && classesOver);
+      (superseded && classesOver) ||
+      releasesSharedHost;
 
     if (shouldEndMeeting) {
-      if (!data.ended_at && meetingNumber && typeof zoomClient.endMeeting === 'function') {
+      // `ended_at` alone cannot be trusted while a hub is still inside its window:
+      // provisioning can restart a retired hub doc on a fresh Zoom meeting, and the
+      // stale flag would then permanently disable both the 15-minute limit and the
+      // zombie release for it. Outside the window, keep honouring `ended_at` so a
+      // full scan never re-fires dead Zoom calls across historical hubs.
+      const endedThisMeeting = !!data.ended_at && (
+        String(data.ended_meeting_number || '') === meetingNumber ||
+        now.getTime() >= windowEnd.getTime()
+      );
+      if (!endedThisMeeting && meetingNumber && typeof zoomClient.endMeeting === 'function') {
+        let endedNow = true;
         try {
           await zoomClient.endMeeting(meetingNumber);
-          await doc.ref.set({
-            ended_at: admin.firestore.FieldValue.serverTimestamp(),
-          }, { merge: true });
-          const why = (now.getTime() >= windowEnd.getTime())
-            ? (inRoom > 0 ? 'reached 15-min limit with stragglers' : 'reached 15-min limit, empty')
-            : 'superseded by newer block';
-          console.warn(`[ZoomHub] Ended hub meeting ${meetingNumber} (${doc.id}) to free the account (${why}).`);
-          if (inRoom > 0) {
-            await _writeZoomHubBotAlert({
-              hubDocId: doc.id, hubData: data, reason: 'stragglers_removed_at_time_limit',
-            });
-            alertCount += 1;
-          }
         } catch (err) {
+          endedNow = false;
           console.warn(`[ZoomHub] Failed to end hub meeting ${meetingNumber}:`, err.message || err);
+        }
+        // Retire a zombie even when Zoom reports the meeting is already gone,
+        // otherwise its stale window keeps it eligible on every later cycle.
+        if (endedNow || releasesSharedHost) {
+          try {
+            await doc.ref.set({
+              ended_at: admin.firestore.FieldValue.serverTimestamp(),
+              ended_meeting_number: meetingNumber,
+              // A zombie's window is stale by definition. Close it, or the bot is
+              // directed straight back in and we end it again next cycle.
+              ...(releasesSharedHost ? {
+                status: 'left',
+                bot_status: 'left',
+                window_end: admin.firestore.Timestamp.fromDate(now),
+                retired_reason: 'zombie_hub_released_shared_host',
+              } : {}),
+            }, { merge: true });
+            const why = (now.getTime() >= windowEnd.getTime())
+              ? (inRoom > 0 ? 'reached 15-min limit with stragglers' : 'reached 15-min limit, empty')
+              : releasesSharedHost
+                ? 'zombie hub, no classes left to serve'
+                : 'superseded by newer block';
+            console.warn(`[ZoomHub] Ended hub meeting ${meetingNumber} (${doc.id}) to free the account (${why}).`);
+            if (releasesSharedHost) {
+              await _writeZoomHubBotAlert({
+                hubDocId: doc.id, hubData: data, reason: 'duplicate_lane_hub_released',
+              });
+              alertCount += 1;
+            }
+            if (endedNow && inRoom > 0) {
+              await _writeZoomHubBotAlert({
+                hubDocId: doc.id, hubData: data, reason: 'stragglers_removed_at_time_limit',
+              });
+              alertCount += 1;
+            }
+          } catch (err) {
+            console.warn(`[ZoomHub] Failed to retire hub ${doc.id}:`, err.message || err);
+          }
         }
       }
       continue;
     }
-    const status = String(data.status || data.bot_status || '').trim();
+    const status = hubStatus;
     const heartbeat = _toDate(data.heartbeat_at || data.heartbeatAt);
     const staleHeartbeat = !heartbeat ||
       heartbeat.getTime() + ZOOM_HUB_BOT_STALE_MS < now.getTime();
@@ -4452,11 +4726,16 @@ const watchZoomHubBots = onSchedule({
     // class is never interrupted.
     const liveRoomCount = Number(stats.liveRoomCount);
     const targetMemberCount = Number(stats.targetMemberCount || 0);
-    const isPoisoned = status === 'roomsOpen' &&
+    const breakoutUnreadablePoisoned = status === 'roomsOpen' &&
       !staleHeartbeat &&
       Number.isFinite(liveRoomCount) && liveRoomCount === 0 &&
       targetMemberCount > 0 &&
       inRoom === 0;
+    const assignedNotJoinedPoisoned = _hubAssignedNotJoinedPoisoned(data, now);
+    const isPoisoned = breakoutUnreadablePoisoned || assignedNotJoinedPoisoned;
+    const poisonReason = assignedNotJoinedPoisoned
+      ? 'assigned_not_joined_poisoned'
+      : 'breakout_unreadable_poisoned';
 
     if (status === 'roomsOpen' && !staleHeartbeat && !isPoisoned) {
       // Zombie check: the bot claims a healthy, open meeting, but the meeting may
@@ -4501,7 +4780,8 @@ const watchZoomHubBots = onSchedule({
 
     if (isPoisoned) {
       const streak = (Number(data.poison_streak) || 0) + 1;
-      if (streak >= ZOOM_HUB_POISON_RESET_STREAK &&
+      const resetStreak = assignedNotJoinedPoisoned ? 1 : ZOOM_HUB_POISON_RESET_STREAK;
+      if (streak >= resetStreak &&
         meetingNumber &&
         typeof zoomClient.endMeeting === 'function') {
         try {
@@ -4510,6 +4790,7 @@ const watchZoomHubBots = onSchedule({
             poison_streak: 0,
             poison_reset_at: admin.firestore.FieldValue.serverTimestamp(),
             last_poison_reset_meeting: meetingNumber,
+            last_poison_reason: poisonReason,
           }, { merge: true });
           console.warn(`[ZoomHub] Auto-reset poisoned hub ${doc.id} (ended meeting ${meetingNumber}); bot will rejoin a clean instance.`);
         } catch (err) {
@@ -4525,7 +4806,7 @@ const watchZoomHubBots = onSchedule({
       await _writeZoomHubBotAlert({
         hubDocId: doc.id,
         hubData: data,
-        reason: 'breakout_unreadable_poisoned',
+        reason: poisonReason,
       });
       alertCount += 1;
       continue;
@@ -4992,10 +5273,7 @@ const handleZoomPresenceWebhook = async (body) => {
   return { success: true, ignored: true, reason: 'unsupported_event' };
 };
 
-const zoomWebhook = onRequest({
-  cors: true,
-  secrets: ZOOM_WEBHOOK_SECRETS,
-}, async (req, res) => {
+const zoomWebhook = onRequest(ZOOM_WEBHOOK_RUNTIME_OPTIONS, async (req, res) => {
   res.set('Cache-Control', 'no-store');
   if (req.method === 'OPTIONS') {
     res.status(204).send('');
@@ -5049,6 +5327,7 @@ module.exports = {
   onTeachingShiftWritten,
   zoomWebhook,
   __test__: {
+    ZOOM_WEBHOOK_RUNTIME_OPTIONS,
     _blockForShift,
     _buildHubRoomsForBlock,
     _buildZoomHubCapacityForecast,
@@ -5057,6 +5336,8 @@ module.exports = {
     _buildZoomHubRoutingStatus,
     _hubWindowExceedsSafeZoomLifetime,
     _hubWindowForShiftDocs,
+    _zoomHubIsHostHoldingZombie,
+    _hubHasRemainingAssignedClasses,
     _laneIndexForShift,
     _loadZoomHubBlockConfig,
     _zoomHubCapacityGuardrailDecision,

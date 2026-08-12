@@ -77,6 +77,31 @@ class HeaderWidget extends StatelessWidget {
                     ),
                   ),
                   PopupMenuItem<String>(
+                    value: 'minor_student',
+                    child: Row(
+                      children: [
+                        const SizedBox(width: 20),
+                        Icon(Icons.child_care,
+                            color: Color(0xff00d084), size: 18),
+                        SizedBox(width: 8),
+                        Text(AppLocalizations.of(context)!.userMinorStudent,
+                            style: TextStyle(color: Color(0xff2D3748))),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem<String>(
+                    value: 'adult_student',
+                    child: Row(
+                      children: [
+                        const SizedBox(width: 20),
+                        Icon(Icons.badge, color: Color(0xff00d084), size: 18),
+                        SizedBox(width: 8),
+                        Text(AppLocalizations.of(context)!.userAdultStudent,
+                            style: TextStyle(color: Color(0xff2D3748))),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem<String>(
                     value: 'admin',
                     child: Row(
                       children: [

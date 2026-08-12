@@ -22,9 +22,11 @@ class TeacherJobBoardScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[50],
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+      body: ScrollNotificationObserver(
+        child: SelectionArea(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
           Container(
             padding: const EdgeInsets.all(24),
             color: Colors.white,
@@ -120,7 +122,9 @@ class TeacherJobBoardScreen extends StatelessWidget {
               },
             ),
           ),
-        ],
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -2005,4 +2009,3 @@ class _TimeSelectionDialogState extends State<_TimeSelectionDialog> {
     );
   }
 }
-

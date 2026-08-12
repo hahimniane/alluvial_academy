@@ -173,10 +173,8 @@ class _TimeClockScreenState extends State<TimeClockScreen>
   /// Returns true if running on Android or iOS (false for web or desktop)
   /// Used to determine which UI layout to show (mobile vs desktop)
   bool get _isMobile {
-    // Check if we're on web first
-    if (kIsWeb) {
-      return false;
-    }
+    if (MediaQuery.sizeOf(context).width < 700) return true;
+    if (kIsWeb) return false;
     // Check platform
     final platform = defaultTargetPlatform;
     final isMobile =
@@ -2041,8 +2039,10 @@ class _TimeClockScreenState extends State<TimeClockScreen>
 
     return Scaffold(
       backgroundColor: const Color(0xffF8FAFC),
-      body: Column(
-        children: [
+      body: ScrollNotificationObserver(
+        child: SelectionArea(
+          child: Column(
+            children: [
           // Header section with clock status
           Container(
             decoration: BoxDecoration(
@@ -2388,7 +2388,9 @@ class _TimeClockScreenState extends State<TimeClockScreen>
               ),
             ),
           ),
-        ],
+            ],
+          ),
+        ),
       ),
       // Floating Action Button - always visible when clock in/out is available
       floatingActionButton: showActionButton

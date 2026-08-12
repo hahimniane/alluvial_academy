@@ -188,11 +188,13 @@ class _TeacherAuditDetailScreenState extends State<TeacherAuditDetailScreen> {
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: _blue))
-          : _audit == null
-              ? _buildEmptyState()
-              : Column(
+      body: ScrollNotificationObserver(
+        child: SelectionArea(
+          child: _isLoading
+              ? const Center(child: CircularProgressIndicator(color: _blue))
+              : _audit == null
+                  ? _buildEmptyState()
+                  : Column(
                   children: [
                     // Audit status updated banner
                     if (_unreadNotifications > 0)
@@ -266,6 +268,8 @@ class _TeacherAuditDetailScreenState extends State<TeacherAuditDetailScreen> {
                     ),
                   ],
                 ),
+        ),
+      ),
     );
   }
 

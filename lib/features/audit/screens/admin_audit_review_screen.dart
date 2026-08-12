@@ -2,14 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'package:alluwalacademyadmin/features/audit/models/teacher_audit_full.dart';
+import 'package:alluwalacademyadmin/core/utils/app_search.dart';
 import '../widgets/audit_detail_panel.dart';
 import '../widgets/teacher_dispute_resolution_dialog.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class AdminAuditReviewScreen extends StatefulWidget {
   final List<TeacherAuditFull> audits;
+  final Map<String, Map<String, dynamic>> teacherSearchData;
 
-  const AdminAuditReviewScreen({super.key, required this.audits});
+  const AdminAuditReviewScreen({
+    super.key,
+    required this.audits,
+    this.teacherSearchData = const {},
+  });
 
   @override
   State<AdminAuditReviewScreen> createState() => _AdminAuditReviewScreenState();
@@ -271,11 +277,18 @@ class _AdminAuditReviewScreenState extends State<AdminAuditReviewScreen> {
   }
 
   List<TeacherAuditFull> _filteredAudits() {
-    final q = _search.trim().toLowerCase();
     final rows = widget.audits.where((a) {
-      final matchesSearch = q.isEmpty ||
-          a.teacherName.toLowerCase().contains(q) ||
-          a.teacherEmail.toLowerCase().contains(q);
+      final personData = <String, dynamic>{
+        ...?widget.teacherSearchData[a.oderId],
+        'name': a.teacherName,
+        'email': a.teacherEmail,
+        'userId': a.oderId,
+      };
+      final matchesSearch = AppSearch.matchesMap(
+        query: _search,
+        data: personData,
+        documentId: a.id,
+      );
       if (!matchesSearch) return false;
       if (_filter == 'all') return true;
       if (_filter == 'pending')

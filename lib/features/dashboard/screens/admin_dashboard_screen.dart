@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../../../core/services/teacher_metrics_service.dart';
 import '../../../core/services/user_role_service.dart';
 import 'package:alluwalacademyadmin/features/settings/screens/system_settings_screen.dart';
 
@@ -29,6 +28,7 @@ import '../widgets/date_strip_calendar.dart';
 import '../widgets/timeline_shift_card.dart';
 import '../widgets/admin_cards/admin_action_cards.dart';
 import '../widgets/admin_cards/public_website_tools_card.dart';
+import '../services/leader_attendance_service.dart';
 
 class AdminDashboard extends StatefulWidget {
   final int? refreshTrigger;
@@ -49,7 +49,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
   Map<String, dynamic>? userData;
   Map<String, dynamic> stats = {};
   Map<String, dynamic> teacherStats = {};
-  Future<TeacherBasicMetrics?>? _leaderWorkMetricsFuture;
+  Future<List<LeaderAttendanceSummary>>? _leaderAttendanceFuture;
   int _profileCompletionTrigger = 0; // Trigger to refresh profile completion
 
   // Platform detection for responsive layouts - check screen width instead
@@ -81,7 +81,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
       setState(() {
         userRole = role;
         userData = data;
-        _leaderWorkMetricsFuture = isAdmin ? _loadLeaderWorkMetrics() : null;
+        _leaderAttendanceFuture =
+            isAdmin ? LeaderAttendanceService.loadMonthly() : null;
       });
 
       // Load teacher-specific stats if user is a teacher
@@ -95,18 +96,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
         _loadStats();
       }
     }
-  }
-
-  Future<TeacherBasicMetrics?> _loadLeaderWorkMetrics() async {
-    final currentUser = FirebaseAuth.instance.currentUser;
-    if (currentUser == null) return null;
-
-    final now = DateTime.now();
-    return TeacherMetricsService.aggregate(
-      teacherId: currentUser.uid,
-      start: DateTime(now.year, now.month),
-      end: DateTime(now.year, now.month + 1, 0, 23, 59, 59),
-    );
   }
 
   Future<void> _loadTeacherStats() async {
@@ -461,7 +450,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
     // On mobile, don't show the welcome header (only show it on desktop)
     if (_isMobile) {
-      return _buildDashboardContent();
+      return _buildSelectableDashboardContent();
     }
 
     return NestedScrollView(
@@ -478,9 +467,13 @@ class _AdminDashboardState extends State<AdminDashboard> {
       },
       body: Padding(
         padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-        child: _buildDashboardContent(),
+        child: _buildSelectableDashboardContent(),
       ),
     );
+  }
+
+  Widget _buildSelectableDashboardContent() {
+    return SelectionArea(child: _buildDashboardContent());
   }
 
   Widget _buildWelcomeHeader() {
@@ -569,7 +562,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final future = _leaderWorkMetricsFuture;
+    final future = _leaderAttendanceFuture;
 
     return Container(
       width: double.infinity,
@@ -664,7 +657,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
               ),
             )
           else
-            FutureBuilder<TeacherBasicMetrics?>(
+            FutureBuilder<List<LeaderAttendanceSummary>>(
               future: future,
               builder: (context, snapshot) {
                 if (snapshot.connectionState != ConnectionState.done) {
@@ -680,8 +673,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   );
                 }
 
-                final metrics = snapshot.data;
-                if (metrics == null) {
+                final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+                if (currentUserId == null) {
                   return Text(
                     l10n.leaderWorkNoUser,
                     style: GoogleFonts.inter(
@@ -691,6 +684,24 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     ),
                   );
                 }
+                LeaderAttendanceSummary? metrics;
+                for (final summary in snapshot.data ?? const []) {
+                  if (summary.leaderId == currentUserId) {
+                    metrics = summary;
+                    break;
+                  }
+                }
+                final currentMetrics = metrics ??
+                    LeaderAttendanceSummary(
+                      leaderId: currentUserId,
+                      leaderName:
+                          FirebaseAuth.instance.currentUser?.displayName ?? '',
+                      scheduledShifts: 0,
+                      completedShifts: 0,
+                      absences: 0,
+                      lateClockIns: 0,
+                      liveState: LeaderLiveAttendanceState.offDuty,
+                    );
 
                 return LayoutBuilder(
                   builder: (context, constraints) {
@@ -705,28 +716,28 @@ class _AdminDashboardState extends State<AdminDashboard> {
                         _buildLeaderWorkMetricTile(
                           width: tileWidth,
                           label: l10n.leaderWorkScheduled,
-                          value: metrics.scheduledClasses.toString(),
+                          value: currentMetrics.scheduledShifts.toString(),
                           icon: Icons.calendar_month_outlined,
                           color: const Color(0xff0386FF),
                         ),
                         _buildLeaderWorkMetricTile(
                           width: tileWidth,
                           label: l10n.leaderWorkCompleted,
-                          value: metrics.completedClasses.toString(),
+                          value: currentMetrics.completedShifts.toString(),
                           icon: Icons.check_circle_outline,
                           color: const Color(0xff10B981),
                         ),
                         _buildLeaderWorkMetricTile(
                           width: tileWidth,
                           label: l10n.leaderWorkAbsences,
-                          value: metrics.missedClasses.toString(),
+                          value: currentMetrics.absences.toString(),
                           icon: Icons.event_busy_outlined,
                           color: const Color(0xffEF4444),
                         ),
                         _buildLeaderWorkMetricTile(
                           width: tileWidth,
                           label: l10n.leaderWorkLateClockIns,
-                          value: metrics.lateClockIns.toString(),
+                          value: currentMetrics.lateClockIns.toString(),
                           icon: Icons.schedule_outlined,
                           color: const Color(0xffF59E0B),
                         ),
@@ -795,6 +806,324 @@ class _AdminDashboardState extends State<AdminDashboard> {
     );
   }
 
+  Widget _buildLeaderAttendanceOverviewCard() {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? theme.colorScheme.surface : Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: theme.colorScheme.outline.withValues(alpha: 0.12),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.18 : 0.05),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xff7C3AED).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.groups_rounded,
+                  color: Color(0xff7C3AED),
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l10n.leaderAttendanceOverviewTitle,
+                      style: GoogleFonts.inter(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                        color: theme.textTheme.titleMedium?.color,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      l10n.leaderAttendanceOverviewSubtitle,
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        color: theme.textTheme.bodySmall?.color
+                            ?.withValues(alpha: 0.7),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                tooltip: l10n.commonRefresh,
+                onPressed: () {
+                  setState(() {
+                    _leaderAttendanceFuture =
+                        LeaderAttendanceService.loadMonthly();
+                  });
+                },
+                icon: const Icon(Icons.refresh_rounded),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          FutureBuilder<List<LeaderAttendanceSummary>>(
+            future: _leaderAttendanceFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState != ConnectionState.done) {
+                return const LinearProgressIndicator(minHeight: 3);
+              }
+              if (snapshot.hasError) {
+                return Text(
+                  l10n.leaderAttendanceLoadError,
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    color: theme.colorScheme.error,
+                  ),
+                );
+              }
+
+              final summaries = snapshot.data ?? const [];
+              if (summaries.isEmpty) {
+                return Text(
+                  l10n.leaderAttendanceEmpty,
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    color: theme.textTheme.bodySmall?.color
+                        ?.withValues(alpha: 0.72),
+                  ),
+                );
+              }
+
+              return Column(
+                children: [
+                  for (var index = 0; index < summaries.length; index++) ...[
+                    _buildLeaderAttendanceRow(summaries[index]),
+                    if (index < summaries.length - 1)
+                      Divider(
+                        height: 24,
+                        color: theme.dividerColor.withValues(alpha: 0.35),
+                      ),
+                  ],
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLeaderAttendanceRow(LeaderAttendanceSummary summary) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final statusColor = _leaderLiveStateColor(summary.liveState);
+    final statusLabel = _leaderLiveStateLabel(l10n, summary.liveState);
+    final start = summary.relevantShiftStart;
+    final end = summary.relevantShiftEnd;
+    final scheduleText =
+        summary.liveState == LeaderLiveAttendanceState.working && end != null
+            ? l10n.leaderAttendanceUntil(DateFormat('h:mm a').format(end))
+            : start != null
+                ? l10n.leaderAttendanceShiftAt(
+                    DateFormat('MMM d, h:mm a').format(start),
+                  )
+                : l10n.leaderAttendanceNoUpcomingShift;
+
+    final details = Wrap(
+      spacing: 18,
+      runSpacing: 8,
+      children: [
+        _buildLeaderAttendanceCount(
+          l10n.leaderWorkScheduled,
+          summary.scheduledShifts,
+          const Color(0xff0386FF),
+        ),
+        _buildLeaderAttendanceCount(
+          l10n.leaderWorkLateClockIns,
+          summary.lateClockIns,
+          const Color(0xffF59E0B),
+        ),
+        _buildLeaderAttendanceCount(
+          l10n.leaderWorkAbsences,
+          summary.absences,
+          const Color(0xffEF4444),
+        ),
+      ],
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final narrow = constraints.maxWidth < 640;
+        final identity = Row(
+          children: [
+            CircleAvatar(
+              radius: 20,
+              backgroundColor: statusColor.withValues(alpha: 0.12),
+              child: Text(
+                _initials(summary.leaderName),
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: statusColor,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    summary.leaderName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: theme.textTheme.titleMedium?.color,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    scheduleText,
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      color: theme.textTheme.bodySmall?.color
+                          ?.withValues(alpha: 0.7),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: statusColor.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Text(
+                statusLabel,
+                style: GoogleFonts.inter(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: statusColor,
+                ),
+              ),
+            ),
+          ],
+        );
+
+        if (narrow) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              identity,
+              const SizedBox(height: 12),
+              details,
+            ],
+          );
+        }
+
+        return Row(
+          children: [
+            Expanded(flex: 3, child: identity),
+            const SizedBox(width: 24),
+            Expanded(flex: 2, child: details),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildLeaderAttendanceCount(String label, int value, Color color) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          value.toString(),
+          style: GoogleFonts.inter(
+            fontSize: 14,
+            fontWeight: FontWeight.w800,
+            color: color,
+          ),
+        ),
+        const SizedBox(width: 5),
+        Text(
+          label,
+          style: GoogleFonts.inter(
+            fontSize: 11,
+            color: Theme.of(context)
+                .textTheme
+                .bodySmall
+                ?.color
+                ?.withValues(alpha: 0.72),
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _leaderLiveStateLabel(
+    AppLocalizations l10n,
+    LeaderLiveAttendanceState state,
+  ) {
+    switch (state) {
+      case LeaderLiveAttendanceState.working:
+        return l10n.leaderAttendanceWorking;
+      case LeaderLiveAttendanceState.lateNow:
+        return l10n.leaderAttendanceLateNow;
+      case LeaderLiveAttendanceState.awaitingClockIn:
+        return l10n.leaderAttendanceAwaitingClockIn;
+      case LeaderLiveAttendanceState.scheduledLater:
+        return l10n.leaderAttendanceScheduledLater;
+      case LeaderLiveAttendanceState.offDuty:
+        return l10n.leaderAttendanceOffDuty;
+    }
+  }
+
+  Color _leaderLiveStateColor(LeaderLiveAttendanceState state) {
+    switch (state) {
+      case LeaderLiveAttendanceState.working:
+        return const Color(0xff10B981);
+      case LeaderLiveAttendanceState.lateNow:
+        return const Color(0xffEF4444);
+      case LeaderLiveAttendanceState.awaitingClockIn:
+        return const Color(0xffF59E0B);
+      case LeaderLiveAttendanceState.scheduledLater:
+        return const Color(0xff0386FF);
+      case LeaderLiveAttendanceState.offDuty:
+        return const Color(0xff6B7280);
+    }
+  }
+
+  String _initials(String name) {
+    final parts = name
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((part) => part.isNotEmpty)
+        .toList();
+    if (parts.isEmpty) return '?';
+    if (parts.length == 1) return parts.first[0].toUpperCase();
+    return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
+  }
+
   Widget _buildAdminDashboard() {
     // Mobile-optimized layout for admins
     if (_isMobile) {
@@ -850,6 +1179,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 const SizedBox(height: 24),
                 _buildLeaderWorkSummaryCard(),
                 const SizedBox(height: 24),
+                _buildLeaderAttendanceOverviewCard(),
+                const SizedBox(height: 24),
                 ApplicantsToReviewCard(
                   onNavigate: widget.onNavigate,
                 ),
@@ -900,6 +1231,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
               ),
               const SizedBox(height: 16),
               _buildLeaderWorkSummaryCard(),
+              const SizedBox(height: 16),
+              _buildLeaderAttendanceOverviewCard(),
               const SizedBox(height: 16),
               ApplicantsToReviewCard(
                 onNavigate: widget.onNavigate,

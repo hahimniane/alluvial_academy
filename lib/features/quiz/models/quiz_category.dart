@@ -86,5 +86,32 @@ class QuizCategory {
       color: const Color(0xFF00BCD4), // Cyan
       assetPath: 'assets/quizzes/arabic_basics.json',
     ),
+    QuizCategory(
+      id: 'seerah',
+      name: 'Life of the Prophet',
+      nameAr: 'السيرة النبوية',
+      description: 'The life story of Prophet Muhammad ﷺ',
+      icon: Icons.star_rounded,
+      color: const Color(0xFF009688), // Teal
+      assetPath: 'assets/quizzes/seerah.json',
+    ),
+    QuizCategory(
+      id: 'sahaba',
+      name: 'The Companions',
+      nameAr: 'الصحابة',
+      description: 'The companions of the Prophet ﷺ',
+      icon: Icons.groups_rounded,
+      color: const Color(0xFF3F51B5), // Indigo
+      assetPath: 'assets/quizzes/sahaba.json',
+    ),
+    QuizCategory(
+      id: 'islamic_manners',
+      name: 'Islamic Manners',
+      nameAr: 'الآداب الإسلامية',
+      description: 'Good manners and character (adab)',
+      icon: Icons.volunteer_activism_rounded,
+      color: const Color(0xFFE91E63), // Pink
+      assetPath: 'assets/quizzes/islamic_manners.json',
+    ),
   ];
 }

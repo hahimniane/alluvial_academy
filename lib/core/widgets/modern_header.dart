@@ -15,6 +15,7 @@ import '../../screens/unified_programs_page.dart';
 import '../models/program_catalog.dart';
 import '../models/public_site_cms_models.dart';
 import '../services/public_site_cms_service.dart';
+import 'language_switcher.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class ModernHeader extends StatefulWidget {
@@ -65,8 +66,8 @@ class _ModernHeaderState extends State<ModernHeader> {
                       width: double.infinity,
                       decoration: BoxDecoration(
                         color: Colors.white,
-                        border:
-                            Border(bottom: BorderSide(color: Colors.grey.shade100)),
+                        border: Border(
+                            bottom: BorderSide(color: Colors.grey.shade100)),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withOpacity(0.02),
@@ -176,7 +177,8 @@ class _ModernHeaderState extends State<ModernHeader> {
                                 ),
                                 const SizedBox(width: 4),
                                 IconButton(
-                                  icon: const Icon(Icons.menu_rounded, size: 26),
+                                  icon:
+                                      const Icon(Icons.menu_rounded, size: 26),
                                   onPressed: () => _showMobileMenu(context),
                                 ),
                               ],
@@ -325,6 +327,11 @@ class _ModernHeaderState extends State<ModernHeader> {
                   children: children,
                 );
               },
+            ),
+            const SizedBox(width: 8),
+            const LanguageSwitcher(
+              foregroundColor: Colors.white,
+              backgroundColor: Color(0x1FFFFFFF),
             ),
           ],
         ),
@@ -857,8 +864,8 @@ class _ModernHeaderState extends State<ModernHeader> {
                                 ),
                               ),
                               Padding(
-                                padding: const EdgeInsets.fromLTRB(
-                                    20, 18, 8, 4),
+                                padding:
+                                    const EdgeInsets.fromLTRB(20, 18, 8, 4),
                                 child: Row(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
@@ -975,8 +982,7 @@ class _ModernHeaderState extends State<ModernHeader> {
                                         Navigator.push(
                                           outerContext,
                                           MaterialPageRoute(
-                                            builder: (_) =>
-                                                const ContactPage(),
+                                            builder: (_) => const ContactPage(),
                                           ),
                                         );
                                       },
@@ -1006,8 +1012,7 @@ class _ModernHeaderState extends State<ModernHeader> {
                                     child: Container(
                                       decoration: BoxDecoration(
                                         color: const Color(0xffEFF6FF),
-                                        borderRadius:
-                                            BorderRadius.circular(10),
+                                        borderRadius: BorderRadius.circular(10),
                                       ),
                                       child: _mobileMenuTile(
                                         label: l.unifiedProgramsTitle,
@@ -1095,8 +1100,8 @@ class _ModernHeaderState extends State<ModernHeader> {
                                             Navigator.push(
                                               outerContext,
                                               UnifiedProgramsPageRoutes.fade(
-                                                initialCategory:
-                                                    ProgramCatalog.catProgramming,
+                                                initialCategory: ProgramCatalog
+                                                    .catProgramming,
                                               ),
                                             );
                                           },
@@ -1110,8 +1115,8 @@ class _ModernHeaderState extends State<ModernHeader> {
                                             Navigator.push(
                                               outerContext,
                                               UnifiedProgramsPageRoutes.fade(
-                                                initialCategory:
-                                                    ProgramCatalog.catAfterSchool,
+                                                initialCategory: ProgramCatalog
+                                                    .catAfterSchool,
                                               ),
                                             );
                                           },

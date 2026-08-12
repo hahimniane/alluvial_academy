@@ -5,7 +5,7 @@ import { isPublicMarketingPath } from "@/lib/publicRoutes";
 
 const whatsappHref =
   "https://wa.me/16468728590?text=" +
-  encodeURIComponent("Assalamu alaikum! I'd like to learn more about classes at Alluwal Education Hub.");
+  encodeURIComponent("Hello! I'd like to learn more about classes at Alluwal Education Hub.");
 
 export function WhatsAppButton() {
   const pathname = usePathname();

@@ -152,7 +152,7 @@ const createCheckoutSession = async ({
           unit_amount: unitAmount,
           product_data: {
             name: invoiceNumber ? `Invoice ${invoiceNumber}` : 'Invoice payment',
-            description: 'Alluvial Academy — tuition / fees',
+            description: 'Alluwal Education Hub — tuition / fees',
             metadata: {
               invoice_id: invoiceId,
               payment_id: paymentId,

@@ -29,6 +29,13 @@ await Promise.all([
     join(repoRoot, "assets", "background_images"),
     join(assetsDir, "background_images"),
   ),
+  // Quiz question banks. Shared with the Flutter app, which loads the same
+  // JSON files as bundled assets; the student quiz fetches them from
+  // /assets/quizzes/ so both clients ask the same questions.
+  copyFileOrDir(
+    join(repoRoot, "assets", "quizzes"),
+    join(assetsDir, "quizzes"),
+  ),
   copyFileOrDir(
     join(repoRoot, "assets", "teachers"),
     join(assetsDir, "teachers"),

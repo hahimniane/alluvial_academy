@@ -17,11 +17,14 @@ import '../../../core/models/employee_model.dart';
 import '../../../core/models/admin_employee_datasource.dart';
 import '../../../core/models/user_employee_datasource.dart';
 import 'package:alluwalacademyadmin/core/utils/export_helpers.dart';
+import 'package:alluwalacademyadmin/core/utils/app_search.dart';
+import 'package:alluwalacademyadmin/core/utils/shift_session_aggregator.dart';
 import '../../../core/services/user_role_service.dart';
 import '../../shift_management/widgets/create_shift_dialog.dart'
     show EmployeeSelectionDialog;
 import 'edit_user_screen.dart';
 import '../widgets/manage_guardians_dialog.dart';
+import '../utils/parent_search.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
@@ -74,13 +77,11 @@ class _ParentSearchDialogState extends State<_ParentSearchDialog> {
   }
 
   void _filterParents() {
-    final query = _searchController.text.toLowerCase();
+    final query = _searchController.text;
     setState(() {
-      _filteredParents = widget.parents.where((parent) {
-        final name = (parent['name'] ?? '').toString().toLowerCase();
-        final email = (parent['email'] ?? '').toString().toLowerCase();
-        return name.contains(query) || email.contains(query);
-      }).toList();
+      _filteredParents = widget.parents
+          .where((parent) => matchesParentSearch(parent, query))
+          .toList();
     });
   }
 
@@ -545,10 +546,19 @@ class _UserManagementScreenState extends State<UserManagementScreen>
   String? _currentFilterType;
   String? _currentStatusFilter;
   String? _currentParentFilter; // For filtering by parent
+  String?
+      _currentStudentAgeFilter; // 'minor_student' or 'adult_student', students only
   final Map<String, List<String>> _parentStudentMap =
       {}; // parent ID -> list of student IDs
   final Map<String, String> _studentParentMap =
       {}; // student ID -> parent ID (for display)
+  final Map<String, String> _studentParentNameMap =
+      {}; // student ID -> parent display name
+  final Map<String, String> _studentTeacherNamesMap =
+      {}; // student ID -> joined teacher name(s) this week
+  final Map<String, double> _studentWeeklyHoursMap =
+      {}; // student ID -> total scheduled hours this week
+  DateTime? _lastScheduleInfoLoad;
 
   int numberOfUsers = 0;
   int numberOfAdmins = 0;
@@ -595,7 +605,12 @@ class _UserManagementScreenState extends State<UserManagementScreen>
             _isLoading = false;
           });
         }
-        _loadParentStudentRelationships();
+        _loadParentStudentRelationships().then((_) {
+          if (mounted) _applyFilters();
+        });
+        _loadStudentScheduleInfo().then((_) {
+          if (mounted) _applyFilters();
+        });
         _applyFilters();
       }
     });
@@ -655,8 +670,10 @@ class _UserManagementScreenState extends State<UserManagementScreen>
       _currentFilterType = null;
       _currentStatusFilter = null;
       _currentParentFilter = null;
+      _currentStudentAgeFilter = null;
 
-      // Determine if it's a user type, status filter, or parent filter
+      // Determine if it's a user type, status filter, parent filter, or
+      // student age (minor/adult) filter
       if (filterValue == 'active' ||
           filterValue == 'archived' ||
           filterValue == 'never_logged_in') {
@@ -666,6 +683,9 @@ class _UserManagementScreenState extends State<UserManagementScreen>
             filterValue?.substring(7); // Remove 'parent_' prefix
         // } else if (filterValue == 'shared_parents') {
         //   _currentStatusFilter = 'shared_parents';
+      } else if (filterValue == 'minor_student' ||
+          filterValue == 'adult_student') {
+        _currentStudentAgeFilter = filterValue;
       } else {
         _currentFilterType = filterValue;
       }
@@ -682,43 +702,27 @@ class _UserManagementScreenState extends State<UserManagementScreen>
   /// - Phone number (phone_number)
   /// - Document ID (Firebase UID)
   bool _matchesSearchTerm(Employee employee, String searchTerm) {
-    final term = searchTerm.toLowerCase().trim();
-    if (term.isEmpty) return true;
-
-    // Check individual fields
-    final firstName = employee.firstName.toLowerCase();
-    final lastName = employee.lastName.toLowerCase();
-    final email = employee.email.toLowerCase();
-    final studentCode = employee.studentCode.toLowerCase();
-    final mobilePhone = employee.mobilePhone.toLowerCase();
-    final countryCode = employee.countryCode.toLowerCase();
-    final documentId = employee.documentId.toLowerCase();
-
-    // Build full name variations
-    final fullName = '$firstName $lastName';
-    final fullNameReversed = '$lastName $firstName';
-    final fullPhone = '$countryCode$mobilePhone';
-
-    String normalizePhone(String value) {
-      return value.replaceAll(RegExp(r'[^0-9]'), '');
-    }
-
-    final termDigits = normalizePhone(term);
-    final phoneDigits = normalizePhone(mobilePhone);
-    final fullPhoneDigits = normalizePhone(fullPhone);
-
-    // Match against all fields
-    return firstName.contains(term) ||
-        lastName.contains(term) ||
-        email.contains(term) ||
-        studentCode.contains(term) ||
-        mobilePhone.contains(term) ||
-        (termDigits.isNotEmpty &&
-            (phoneDigits.contains(termDigits) ||
-                fullPhoneDigits.contains(termDigits))) ||
-        documentId.contains(term) ||
-        fullName.contains(term) ||
-        fullNameReversed.contains(term);
+    return AppSearch.matches(
+      query: searchTerm,
+      names: [
+        '${employee.firstName} ${employee.lastName}',
+        '${employee.lastName} ${employee.firstName}',
+      ],
+      emails: [employee.email],
+      phones: [
+        employee.mobilePhone,
+        '${employee.countryCode}${employee.mobilePhone}',
+      ],
+      ids: [
+        employee.documentId,
+        employee.studentCode,
+        employee.kioskCode,
+      ],
+      additionalValues: [
+        employee.userType,
+        employee.title,
+      ],
+    );
   }
 
   Future<void> _loadParentStudentRelationships() async {
@@ -731,6 +735,10 @@ class _UserManagementScreenState extends State<UserManagementScreen>
 
       final newParentStudentMap = <String, List<String>>{};
       final newStudentParentMap = <String, String>{};
+      final newStudentParentNameMap = <String, String>{};
+      final employeesById = {
+        for (final e in _snapshotEmployees) e.documentId: e,
+      };
 
       for (var doc in studentsSnapshot.docs) {
         final data = doc.data();
@@ -753,6 +761,10 @@ class _UserManagementScreenState extends State<UserManagementScreen>
             // Store the first parent for display purposes
             if (!newStudentParentMap.containsKey(studentId)) {
               newStudentParentMap[studentId] = parentId;
+              final parentEmployee = employeesById[parentId];
+              newStudentParentNameMap[studentId] = parentEmployee != null
+                  ? _displayNameForEmployee(parentEmployee)
+                  : '';
             }
           }
         }
@@ -763,6 +775,8 @@ class _UserManagementScreenState extends State<UserManagementScreen>
         _parentStudentMap.addAll(newParentStudentMap);
         _studentParentMap.clear();
         _studentParentMap.addAll(newStudentParentMap);
+        _studentParentNameMap.clear();
+        _studentParentNameMap.addAll(newStudentParentNameMap);
       }
 
       AppLogger.debug('=== Parent-Student Mapping Debug ===');
@@ -780,6 +794,90 @@ class _UserManagementScreenState extends State<UserManagementScreen>
         stackTrace: stackTrace,
       );
     }
+  }
+
+  /// Total scheduled hours this week (Mon-Sun) and the teacher(s) assigned,
+  /// per student. One range query over `teaching_shifts` instead of a
+  /// per-student query, to avoid N+1 reads across the whole student list.
+  Future<void> _loadStudentScheduleInfo({bool force = false}) async {
+    final now = DateTime.now();
+    if (!force &&
+        _lastScheduleInfoLoad != null &&
+        now.difference(_lastScheduleInfoLoad!) < const Duration(seconds: 30)) {
+      return;
+    }
+    _lastScheduleInfoLoad = now;
+
+    try {
+      final today = DateTime(now.year, now.month, now.day);
+      final weekStart = today.subtract(Duration(days: now.weekday - 1));
+      final weekEnd = weekStart.add(const Duration(days: 7));
+
+      final snap = await FirebaseFirestore.instance
+          .collection('teaching_shifts')
+          .where('shift_start',
+              isGreaterThanOrEqualTo: Timestamp.fromDate(weekStart))
+          .where('shift_start', isLessThan: Timestamp.fromDate(weekEnd))
+          .get();
+
+      final hoursByStudent = <String, double>{};
+      final teacherNamesByStudent = <String, Set<String>>{};
+
+      for (final doc in snap.docs) {
+        final data = doc.data();
+        final category =
+            (data['category'] ?? data['shift_category'] ?? 'teaching')
+                .toString()
+                .toLowerCase();
+        if (category != 'teaching') continue;
+        final status = (data['status'] ?? '').toString().toLowerCase();
+        if (status == 'cancelled') continue;
+
+        final studentIds = (data['student_ids'] as List?) ?? const [];
+        if (studentIds.isEmpty) continue;
+
+        final teacherName = (data['teacher_name'] ?? '').toString().trim();
+        final hours = ShiftSessionAggregator.getScheduledHours(data);
+        if (hours <= 0) continue;
+
+        for (final rawId in studentIds) {
+          final studentId = rawId.toString().trim();
+          if (studentId.isEmpty) continue;
+          hoursByStudent.update(studentId, (v) => v + hours,
+              ifAbsent: () => hours);
+          if (teacherName.isNotEmpty) {
+            teacherNamesByStudent
+                .putIfAbsent(studentId, () => <String>{})
+                .add(teacherName);
+          }
+        }
+      }
+
+      if (!mounted) return;
+      _studentWeeklyHoursMap
+        ..clear()
+        ..addAll(hoursByStudent);
+      _studentTeacherNamesMap
+        ..clear()
+        ..addAll({
+          for (final entry in teacherNamesByStudent.entries)
+            entry.key: (entry.value.toList()..sort()).join(', '),
+        });
+    } catch (e, stackTrace) {
+      AppLogger.error(
+        'Error loading student schedule info: $e',
+        error: e,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
+  String _formatWeeklyHours(double hours) {
+    final rounded = (hours * 10).round() / 10;
+    final isWhole = rounded == rounded.roundToDouble();
+    final text =
+        isWhole ? rounded.toStringAsFixed(0) : rounded.toStringAsFixed(1);
+    return '$text ${AppLocalizations.of(context)!.shiftHrs}';
   }
 
   List<String> _extractStringList(dynamic value) {
@@ -1063,6 +1161,15 @@ class _UserManagementScreenState extends State<UserManagementScreen>
       }).toList();
     }
 
+    // Apply student age filter (minor vs adult student)
+    if (_currentStudentAgeFilter != null) {
+      final wantAdult = _currentStudentAgeFilter == 'adult_student';
+      regularUsers = regularUsers.where((emp) {
+        if (emp.userType.toLowerCase() != 'student') return false;
+        return emp.isAdultStudent == wantAdult;
+      }).toList();
+    }
+
     // Apply search filter to both lists
     if (_currentSearchTerm.isNotEmpty) {
       regularUsers = regularUsers.where((employee) {
@@ -1074,6 +1181,8 @@ class _UserManagementScreenState extends State<UserManagementScreen>
       }).toList();
     }
 
+    regularUsers = _enrichWithScheduleInfo(regularUsers);
+
     // Update the state with the filtered lists
     setState(() {
       _allEmployees = regularUsers;
@@ -1081,6 +1190,22 @@ class _UserManagementScreenState extends State<UserManagementScreen>
       _employeeDataSource?.updateDataSource(_allEmployees);
       _adminDataSource?.updateDataSource(_adminUsers);
     });
+  }
+
+  /// Attaches guardian name / teacher name(s) / weekly hours to each student
+  /// row from the maps already loaded by [_loadParentStudentRelationships]
+  /// and [_loadStudentScheduleInfo] — no extra Firestore reads here.
+  List<Employee> _enrichWithScheduleInfo(List<Employee> employees) {
+    return employees.map((emp) {
+      if (emp.userType.toLowerCase() != 'student') return emp;
+      final hours = _studentWeeklyHoursMap[emp.documentId];
+      return emp.copyWithScheduleInfo(
+        parentName: _studentParentNameMap[emp.documentId] ?? '',
+        teacherNames: _studentTeacherNamesMap[emp.documentId] ?? '',
+        weeklyHoursLabel:
+            hours != null && hours > 0 ? _formatWeeklyHours(hours) : '',
+      );
+    }).toList();
   }
 
   bool _hasNeverLoggedIn(Employee employee) {
@@ -2552,49 +2677,52 @@ class _UserManagementScreenState extends State<UserManagementScreen>
   Widget _buildAdminGrid() {
     return _boundedHorizontalScrollGrid(
       minContentWidth: _kAdminsGridMinContentWidth,
-      child: SfDataGrid(
-        source: _adminDataSource!,
-        rowHeight: 48,
-        headerRowHeight: 42,
-        gridLinesVisibility: GridLinesVisibility.horizontal,
-        headerGridLinesVisibility: GridLinesVisibility.horizontal,
-        columnWidthMode: ColumnWidthMode.none,
-        columns: <GridColumn>[
-          GridColumn(
-            columnName: 'FirstName',
-            width: 110,
-            label:
-                _denseHeaderLabel(AppLocalizations.of(context)!.userFirstName),
-          ),
-          GridColumn(
-            columnName: 'LastName',
-            width: 110,
-            label:
-                _denseHeaderLabel(AppLocalizations.of(context)!.userLastName),
-          ),
-          GridColumn(
-            columnName: 'Email',
-            width: 200,
-            label:
-                _denseHeaderLabel(AppLocalizations.of(context)!.profileEmail),
-          ),
-          GridColumn(
-            columnName: 'UserType',
-            width: 110,
-            label: _denseHeaderLabel(AppLocalizations.of(context)!.roleType),
-          ),
-          GridColumn(
-            columnName: 'AdminType',
-            width: 140,
-            label: _denseHeaderLabel(AppLocalizations.of(context)!.adminType),
-          ),
-          GridColumn(
-            columnName: 'Actions',
-            width: 250,
-            label: _denseHeaderLabel(
-                AppLocalizations.of(context)!.timesheetActions),
-          ),
-        ],
+      child: ScrollNotificationObserver(
+        child: SfDataGrid(
+          source: _adminDataSource!,
+          rowHeight: 48,
+          headerRowHeight: 42,
+          gridLinesVisibility: GridLinesVisibility.horizontal,
+          headerGridLinesVisibility: GridLinesVisibility.horizontal,
+          columnWidthMode: ColumnWidthMode.none,
+          selectionMode: SelectionMode.none,
+          columns: <GridColumn>[
+            GridColumn(
+              columnName: 'FirstName',
+              width: 110,
+              label: _denseHeaderLabel(
+                  AppLocalizations.of(context)!.userFirstName),
+            ),
+            GridColumn(
+              columnName: 'LastName',
+              width: 110,
+              label:
+                  _denseHeaderLabel(AppLocalizations.of(context)!.userLastName),
+            ),
+            GridColumn(
+              columnName: 'Email',
+              width: 200,
+              label:
+                  _denseHeaderLabel(AppLocalizations.of(context)!.profileEmail),
+            ),
+            GridColumn(
+              columnName: 'UserType',
+              width: 110,
+              label: _denseHeaderLabel(AppLocalizations.of(context)!.roleType),
+            ),
+            GridColumn(
+              columnName: 'AdminType',
+              width: 140,
+              label: _denseHeaderLabel(AppLocalizations.of(context)!.adminType),
+            ),
+            GridColumn(
+              columnName: 'Actions',
+              width: 250,
+              label: _denseHeaderLabel(
+                  AppLocalizations.of(context)!.timesheetActions),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -2609,7 +2737,11 @@ class _UserManagementScreenState extends State<UserManagementScreen>
       "Email",
       "Mobile Phone",
       "User Type",
+      "Student ID",
       "Kiosk Code",
+      "Parent",
+      "Teacher",
+      "Weekly Hours",
       "Date Added",
       "Last Login"
     ];
@@ -2621,7 +2753,11 @@ class _UserManagementScreenState extends State<UserManagementScreen>
               e.email,
               e.mobilePhone,
               e.userType,
+              e.studentCode,
               e.kioskCode,
+              e.parentName,
+              e.teacherNames,
+              e.weeklyHoursLabel,
               e.dateAdded,
               e.lastLogin,
             ])
@@ -2649,12 +2785,11 @@ class _UserManagementScreenState extends State<UserManagementScreen>
 
     final parents = parentsSnapshot.docs.map((doc) {
       final data = doc.data();
-      return {
-        'id': doc.id,
-        'name': '${data['first_name']} ${data['last_name']}',
-        'email': data['e-mail'],
-        'studentCount': _parentStudentMap[doc.id]?.length ?? 0,
-      };
+      return buildParentSearchRecord(
+        documentId: doc.id,
+        data: data,
+        studentCount: _parentStudentMap[doc.id]?.length ?? 0,
+      );
     }).toList();
 
     // Sort by student count (descending)
@@ -2808,90 +2943,125 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                   child: _employeeDataSource == null
                                       ? const Center(
                                           child: CircularProgressIndicator())
-                                      : SfDataGrid(
-                                          source: _employeeDataSource!,
-                                          rowHeight: 48,
-                                          headerRowHeight: 42,
-                                          gridLinesVisibility:
-                                              GridLinesVisibility.horizontal,
-                                          headerGridLinesVisibility:
-                                              GridLinesVisibility.horizontal,
-                                          columnWidthMode:
-                                              ColumnWidthMode.lastColumnFill,
-                                          columns: <GridColumn>[
-                                            GridColumn(
-                                              columnName: 'FirstName',
-                                              width: 72,
-                                              label: _denseHeaderLabel(
-                                                AppLocalizations.of(context)!
-                                                    .userFirstName,
+                                      : ScrollNotificationObserver(
+                                          child: SfDataGrid(
+                                            source: _employeeDataSource!,
+                                            rowHeight: 48,
+                                            headerRowHeight: 42,
+                                            gridLinesVisibility:
+                                                GridLinesVisibility.horizontal,
+                                            headerGridLinesVisibility:
+                                                GridLinesVisibility.horizontal,
+                                            columnWidthMode:
+                                                ColumnWidthMode.lastColumnFill,
+                                            selectionMode: SelectionMode.none,
+                                            columns: <GridColumn>[
+                                              GridColumn(
+                                                columnName: 'FirstName',
+                                                width: 72,
+                                                label: _denseHeaderLabel(
+                                                  AppLocalizations.of(context)!
+                                                      .userFirstName,
+                                                ),
                                               ),
-                                            ),
-                                            GridColumn(
-                                              columnName: 'LastName',
-                                              width: 72,
-                                              label: _denseHeaderLabel(
-                                                AppLocalizations.of(context)!
-                                                    .userLastName,
+                                              GridColumn(
+                                                columnName: 'LastName',
+                                                width: 72,
+                                                label: _denseHeaderLabel(
+                                                  AppLocalizations.of(context)!
+                                                      .userLastName,
+                                                ),
                                               ),
-                                            ),
-                                            GridColumn(
-                                              columnName: 'Email',
-                                              width: 140,
-                                              label: _denseHeaderLabel(
-                                                AppLocalizations.of(context)!
-                                                    .profileEmail,
+                                              GridColumn(
+                                                columnName: 'Email',
+                                                width: 140,
+                                                label: _denseHeaderLabel(
+                                                  AppLocalizations.of(context)!
+                                                      .profileEmail,
+                                                ),
                                               ),
-                                            ),
-                                            GridColumn(
-                                              columnName: 'MobilePhone',
-                                              width: 100,
-                                              label: _denseHeaderLabel(
-                                                AppLocalizations.of(context)!
-                                                    .mobilePhone,
+                                              GridColumn(
+                                                columnName: 'MobilePhone',
+                                                width: 100,
+                                                label: _denseHeaderLabel(
+                                                  AppLocalizations.of(context)!
+                                                      .mobilePhone,
+                                                ),
                                               ),
-                                            ),
-                                            GridColumn(
-                                              columnName: 'UserType',
-                                              width: 72,
-                                              label: _denseHeaderLabel(
-                                                AppLocalizations.of(context)!
-                                                    .userUserType,
+                                              GridColumn(
+                                                columnName: 'UserType',
+                                                width: 72,
+                                                label: _denseHeaderLabel(
+                                                  AppLocalizations.of(context)!
+                                                      .userUserType,
+                                                ),
                                               ),
-                                            ),
-                                            GridColumn(
-                                              columnName: 'KioskCode',
-                                              width: 60,
-                                              label: _denseHeaderLabel(
-                                                AppLocalizations.of(context)!
-                                                    .userKioskCode,
+                                              GridColumn(
+                                                columnName: 'StudentId',
+                                                width: 90,
+                                                label: _denseHeaderLabel(
+                                                  AppLocalizations.of(context)!
+                                                      .userStudentId,
+                                                ),
                                               ),
-                                            ),
-                                            GridColumn(
-                                              columnName: 'DateAdded',
-                                              width: 64,
-                                              label: _denseHeaderLabel(
-                                                AppLocalizations.of(context)!
-                                                    .dateAdded,
+                                              GridColumn(
+                                                columnName: 'KioskCode',
+                                                width: 60,
+                                                label: _denseHeaderLabel(
+                                                  AppLocalizations.of(context)!
+                                                      .userKioskCode,
+                                                ),
                                               ),
-                                            ),
-                                            GridColumn(
-                                              columnName: 'LastLogin',
-                                              width: 60,
-                                              label: _denseHeaderLabel(
-                                                AppLocalizations.of(context)!
-                                                    .lastLogin,
+                                              GridColumn(
+                                                columnName: 'ParentName',
+                                                width: 120,
+                                                label: _denseHeaderLabel(
+                                                  AppLocalizations.of(context)!
+                                                      .userParentName,
+                                                ),
                                               ),
-                                            ),
-                                            GridColumn(
-                                              columnName: 'Actions',
-                                              minimumWidth: 300,
-                                              label: _denseHeaderLabel(
-                                                AppLocalizations.of(context)!
-                                                    .timesheetActions,
+                                              GridColumn(
+                                                columnName: 'TeacherName',
+                                                width: 120,
+                                                label: _denseHeaderLabel(
+                                                  AppLocalizations.of(context)!
+                                                      .userTeacherName,
+                                                ),
                                               ),
-                                            ),
-                                          ],
+                                              GridColumn(
+                                                columnName: 'WeeklyHours',
+                                                width: 90,
+                                                label: _denseHeaderLabel(
+                                                  AppLocalizations.of(context)!
+                                                      .userWeeklyHours,
+                                                ),
+                                              ),
+                                              GridColumn(
+                                                columnName: 'DateAdded',
+                                                width: 64,
+                                                label: _denseHeaderLabel(
+                                                  AppLocalizations.of(context)!
+                                                      .dateAdded,
+                                                ),
+                                              ),
+                                              GridColumn(
+                                                columnName: 'LastLogin',
+                                                width: 60,
+                                                label: _denseHeaderLabel(
+                                                  AppLocalizations.of(context)!
+                                                      .lastLogin,
+                                                ),
+                                              ),
+                                              GridColumn(
+                                                columnName: 'Actions',
+                                                minimumWidth: 300,
+                                                label: _denseHeaderLabel(
+                                                  AppLocalizations.of(context)!
+                                                      .timesheetActions,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
                                         ),
                                 ),
                                 // Admins Tab

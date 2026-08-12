@@ -1,39 +1,107 @@
 import 'dart:convert';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/services.dart';
 import '../models/quiz_question.dart';
+import 'quiz_adaptive_session.dart';
+import 'quiz_progress_service.dart';
 
 /// Service for managing quiz data and logic
 class QuizService {
+  QuizService({QuizProgressService? progressService})
+      : _progressService = progressService ?? QuizProgressService();
+
+  final QuizProgressService _progressService;
+
   // Cache loaded questions
   final Map<String, List<QuizQuestion>> _cache = {};
+  final Map<String, QuizCategoryProgress> _sessionProgress = {};
+
+  /// Starts an adaptive quiz session: bundled questions plus any
+  /// admin-approved AI-generated questions, minus what the student
+  /// has already seen, starting at their reached difficulty tier.
+  Future<QuizAdaptiveSession> startSession(String categoryId) async {
+    final questions = await _loadAllQuestions(categoryId);
+    final progress = await _progressService.loadProgress(categoryId);
+    _sessionProgress[categoryId] = progress;
+    return QuizAdaptiveSession(
+      questions: questions,
+      seenQuestionIds: progress.seenQuestionIds,
+      startingDifficulty: progress.skillLevel,
+    );
+  }
+
+  /// Persists seen questions and the difficulty tier reached in a session.
+  Future<void> completeSession(
+      String categoryId, QuizAdaptiveSession session) async {
+    final progress =
+        _sessionProgress[categoryId] ?? const QuizCategoryProgress();
+    final poolSize = (await _loadAllQuestions(categoryId)).length;
+    await _progressService.saveProgress(
+      categoryId: categoryId,
+      previouslySeenIds: progress.seenQuestionIds,
+      newlyAskedIds: session.askedQuestionIds,
+      skillLevel: session.currentDifficulty,
+      totalPoolSize: poolSize,
+    );
+  }
 
   /// Get questions for a specific category
   Future<List<QuizQuestion>> getQuestionsForCategory(String categoryId) async {
-    // Check cache first
+    final questions = await _loadAllQuestions(categoryId);
+    return _shuffleQuestions(questions);
+  }
+
+  Future<List<QuizQuestion>> _loadAllQuestions(String categoryId) async {
     if (_cache.containsKey(categoryId)) {
-      return _shuffleQuestions(_cache[categoryId]!);
+      return _cache[categoryId]!;
     }
 
-    // Load from asset file
-    final assetPath = _getAssetPath(categoryId);
-    
+    List<QuizQuestion> questions;
     try {
-      final jsonString = await rootBundle.loadString(assetPath);
+      final jsonString =
+          await rootBundle.loadString(_getAssetPath(categoryId));
       final jsonData = json.decode(jsonString) as Map<String, dynamic>;
       final questionsJson = jsonData['questions'] as List;
-      
-      final questions = questionsJson
+      questions = questionsJson
           .map((q) => QuizQuestion.fromJson(q as Map<String, dynamic>))
           .toList();
-      
-      // Cache the questions
-      _cache[categoryId] = questions;
-      
-      return _shuffleQuestions(questions);
     } catch (e) {
-      // Return default questions if asset fails to load
-      return _getDefaultQuestions(categoryId);
+      questions = List.of(_getDefaultQuestions(categoryId));
     }
+
+    final merged = _mergeById(questions, await _fetchApprovedQuestions(categoryId));
+    if (merged.isNotEmpty) {
+      _cache[categoryId] = merged;
+    }
+    return merged;
+  }
+
+  /// Admin-approved AI-generated questions from Firestore. Best-effort:
+  /// offline students still get the bundled bank.
+  Future<List<QuizQuestion>> _fetchApprovedQuestions(String categoryId) async {
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('quiz_questions')
+          .where('category', isEqualTo: categoryId)
+          .where('status', isEqualTo: 'approved')
+          .get();
+      return snapshot.docs.map((doc) {
+        final data = doc.data();
+        data['id'] = data['id'] ?? doc.id;
+        return QuizQuestion.fromJson(data);
+      }).toList();
+    } catch (e) {
+      return const [];
+    }
+  }
+
+  List<QuizQuestion> _mergeById(
+      List<QuizQuestion> base, List<QuizQuestion> extra) {
+    final ids = base.map((q) => q.id).toSet();
+    return [
+      ...base,
+      ...extra.where((q) => ids.add(q.id)),
+    ];
   }
 
   String _getAssetPath(String categoryId) {

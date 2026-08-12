@@ -61,8 +61,8 @@ class _TaskCommentsSectionState extends State<TaskCommentsSection> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(_editingCommentId != null 
-                ? 'Comment updated successfully' 
+            content: Text(_editingCommentId != null
+                ? 'Comment updated successfully'
                 : 'Comment added successfully'),
             backgroundColor: Colors.green,
           ),
@@ -74,11 +74,12 @@ class _TaskCommentsSectionState extends State<TaskCommentsSection> {
       if (e is Exception) {
         AppLogger.error('🚨 Exception details: ${e.toString()}');
       }
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(AppLocalizations.of(context)!.commonErrorWithDetails(e.toString())),
+            content: Text(AppLocalizations.of(context)!
+                .commonErrorWithDetails(e.toString())),
             backgroundColor: Colors.red,
           ),
         );
@@ -111,7 +112,8 @@ class _TaskCommentsSectionState extends State<TaskCommentsSection> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text(AppLocalizations.of(context)!.deleteComment),
-        content: Text(AppLocalizations.of(context)!.confirmDeleteCommentMessage),
+        content:
+            Text(AppLocalizations.of(context)!.confirmDeleteCommentMessage),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -132,7 +134,8 @@ class _TaskCommentsSectionState extends State<TaskCommentsSection> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(AppLocalizations.of(context)!.commentDeletedSuccessfully),
+              content: Text(
+                  AppLocalizations.of(context)!.commentDeletedSuccessfully),
               backgroundColor: Colors.green,
             ),
           );
@@ -143,7 +146,7 @@ class _TaskCommentsSectionState extends State<TaskCommentsSection> {
         if (e is Exception) {
           AppLogger.error('🚨 Exception details: ${e.toString()}');
         }
-        
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -159,7 +162,7 @@ class _TaskCommentsSectionState extends State<TaskCommentsSection> {
 
   Widget _buildCommentItem(TaskComment comment) {
     final isAuthor = FirebaseAuth.instance.currentUser?.uid == comment.authorId;
-    
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
@@ -178,7 +181,7 @@ class _TaskCommentsSectionState extends State<TaskCommentsSection> {
                 radius: 16,
                 backgroundColor: const Color(0xff0386FF).withOpacity(0.1),
                 child: Text(
-                  comment.authorName.isNotEmpty 
+                  comment.authorName.isNotEmpty
                       ? comment.authorName[0].toUpperCase()
                       : 'U',
                   style: const TextStyle(
@@ -201,7 +204,8 @@ class _TaskCommentsSectionState extends State<TaskCommentsSection> {
                       ),
                     ),
                     Text(
-                      DateFormat('MMM dd, yyyy • hh:mm a').format(comment.createdAt),
+                      DateFormat('MMM dd, yyyy • hh:mm a')
+                          .format(comment.createdAt),
                       style: TextStyle(
                         color: Colors.grey[600],
                         fontSize: 12,
@@ -245,7 +249,8 @@ class _TaskCommentsSectionState extends State<TaskCommentsSection> {
                         children: [
                           Icon(Icons.delete, size: 16, color: Colors.red),
                           SizedBox(width: 8),
-                          Text(AppLocalizations.of(context)!.commonDelete, style: TextStyle(color: Colors.red)),
+                          Text(AppLocalizations.of(context)!.commonDelete,
+                              style: TextStyle(color: Colors.red)),
                         ],
                       ),
                     ),
@@ -261,7 +266,7 @@ class _TaskCommentsSectionState extends State<TaskCommentsSection> {
           ),
           const SizedBox(height: 12),
           // Comment text
-          Text(
+          SelectableText(
             comment.comment,
             style: const TextStyle(
               fontSize: 14,
@@ -318,7 +323,7 @@ class _TaskCommentsSectionState extends State<TaskCommentsSection> {
             focusNode: _commentFocusNode,
             maxLines: 3,
             decoration: InputDecoration(
-              hintText: _editingCommentId != null 
+              hintText: _editingCommentId != null
                   ? 'Edit your comment...'
                   : 'Leave a comment...',
               border: OutlineInputBorder(
@@ -331,7 +336,8 @@ class _TaskCommentsSectionState extends State<TaskCommentsSection> {
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: Color(0xff0386FF), width: 2),
+                borderSide:
+                    const BorderSide(color: Color(0xff0386FF), width: 2),
               ),
               contentPadding: const EdgeInsets.all(12),
             ),
@@ -355,10 +361,12 @@ class _TaskCommentsSectionState extends State<TaskCommentsSection> {
                         height: 16,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(Colors.white),
                         ),
                       )
-                    : Text(_editingCommentId != null ? 'Update' : 'Post Comment'),
+                    : Text(
+                        _editingCommentId != null ? 'Update' : 'Post Comment'),
               ),
             ],
           ),
@@ -395,7 +403,8 @@ class _TaskCommentsSectionState extends State<TaskCommentsSection> {
               builder: (context, snapshot) {
                 final commentCount = snapshot.data?.length ?? 0;
                 return Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: const Color(0xff0386FF).withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
@@ -414,11 +423,11 @@ class _TaskCommentsSectionState extends State<TaskCommentsSection> {
           ],
         ),
         const SizedBox(height: 16),
-        
+
         // Comment input
         _buildCommentInput(),
         const SizedBox(height: 20),
-        
+
         // Comments list
         StreamBuilder<List<TaskComment>>(
           stream: TaskCommentService.getTaskComments(widget.task.id),
@@ -431,14 +440,16 @@ class _TaskCommentsSectionState extends State<TaskCommentsSection> {
 
             if (snapshot.hasError) {
               // Log error to console for debugging
-              AppLogger.error('🚨 TaskCommentsSection StreamBuilder Error: ${snapshot.error}');
+              AppLogger.error(
+                  '🚨 TaskCommentsSection StreamBuilder Error: ${snapshot.error}');
               if (snapshot.error is Exception) {
-                AppLogger.error('🚨 Exception details: ${snapshot.error.toString()}');
+                AppLogger.error(
+                    '🚨 Exception details: ${snapshot.error.toString()}');
               }
               if (snapshot.stackTrace != null) {
                 AppLogger.debug('🚨 Stack trace: ${snapshot.stackTrace}');
               }
-              
+
               return Center(
                 child: Text(
                   'Error loading comments: ${snapshot.error}',

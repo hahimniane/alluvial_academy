@@ -1,9 +1,14 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:alluwalacademyadmin/core/utils/app_search.dart';
 import 'package:alluwalacademyadmin/core/utils/export_helpers.dart';
 import '../../../core/utils/performance_logger.dart';
 import '../utils/form_date_range_utils.dart';
+import '../utils/form_review_status.dart';
+import 'form_review_status_badge.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class FormSubmissionsDialog extends StatefulWidget {
@@ -38,6 +43,7 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
   final ScrollController _verticalScrollController = ScrollController();
   int _rowsPerPage = 10;
   int _currentPage = 0;
+  final Set<String> _notifyingSubmissionIds = {};
 
   @override
   void initState() {
@@ -337,23 +343,35 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
     }
   }
 
-  Future<void> _saveStatus(String docId, String status) async {
+  Future<bool> _saveStatus(String docId, String status) async {
     try {
+      final reviewerId = FirebaseAuth.instance.currentUser?.uid;
       await FirebaseFirestore.instance
           .collection('form_responses')
           .doc(docId)
-          .update({'reviewStatus': status});
+          .update({
+        'reviewStatus': status.isEmpty ? FieldValue.delete() : status,
+        'reviewedAt':
+            status.isEmpty ? FieldValue.delete() : FieldValue.serverTimestamp(),
+        'reviewedBy': status.isEmpty || reviewerId == null
+            ? FieldValue.delete()
+            : reviewerId,
+        'reviewNotifiedAt': FieldValue.delete(),
+        'reviewNotifiedBy': FieldValue.delete(),
+        'reviewNotifiedStatus': FieldValue.delete(),
+      });
 
       if (mounted) {
+        final l10n = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-                AppLocalizations.of(context)!.statusUpdatedToStatus(status)),
+            content: Text(l10n.statusUpdatedToStatus(_statusLabel(status))),
             backgroundColor: const Color(0xFF059669),
             duration: const Duration(seconds: 2),
           ),
         );
       }
+      return true;
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -362,6 +380,102 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
             backgroundColor: Colors.red,
           ),
         );
+      }
+      return false;
+    }
+  }
+
+  Future<void> _notifyTeacher(
+    String docId,
+    Map<String, dynamic> submission,
+  ) async {
+    final l10n = AppLocalizations.of(context)!;
+    final status = FormReviewStatus.normalize(submission['reviewStatus']);
+    if (status != FormReviewStatus.accepted &&
+        status != FormReviewStatus.rejected) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.formDecisionRequiresAcceptedRejected)),
+      );
+      return;
+    }
+
+    final teacherId = (submission['userId'] ??
+            submission['submittedBy'] ??
+            submission['teacherId'] ??
+            submission['teacher_id'])
+        ?.toString()
+        .trim();
+    final adminId = FirebaseAuth.instance.currentUser?.uid;
+    if (teacherId == null || teacherId.isEmpty || adminId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.formDecisionTeacherMissing)),
+      );
+      return;
+    }
+
+    setState(() => _notifyingSubmissionIds.add(docId));
+    try {
+      final statusLabel = FormReviewStatusBadge.labelFor(context, status);
+      final callable =
+          FirebaseFunctions.instance.httpsCallable('sendAdminNotification');
+      final result = await callable.call<Map<String, dynamic>>({
+        'recipientType': 'selected',
+        'recipientIds': [teacherId],
+        'notificationTitle': l10n.formDecisionNotificationTitle(statusLabel),
+        'notificationBody': l10n.formDecisionNotificationBody(
+          widget.formTitle,
+          statusLabel,
+        ),
+        'notificationData': {
+          'type': 'form_decision',
+          'formResponseId': docId,
+          'formId': (submission['formId'] ?? widget.formId).toString(),
+          'reviewStatus': status,
+          'yearMonth': (submission['yearMonth'] ?? '').toString(),
+        },
+        'sendEmail': false,
+        'adminId': adminId,
+      });
+
+      final resultData = result.data;
+      final deliveryResults = resultData['results'] as Map?;
+      final pushDelivered = (deliveryResults?['fcmSuccess'] as num? ?? 0) > 0;
+
+      await FirebaseFirestore.instance
+          .collection('form_responses')
+          .doc(docId)
+          .update({
+        'reviewNotificationAttemptedAt': FieldValue.serverTimestamp(),
+        'reviewNotifiedStatus': status,
+        if (pushDelivered) ...{
+          'reviewNotifiedAt': FieldValue.serverTimestamp(),
+          'reviewNotifiedBy': adminId,
+        },
+      });
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(pushDelivered
+              ? l10n.formDecisionNotificationSent
+              : l10n.formDecisionVisibleNoPush),
+          backgroundColor:
+              pushDelivered ? const Color(0xFF059669) : Colors.orange,
+        ),
+      );
+      await _load();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(l10n.formDecisionNotificationFailed),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _notifyingSubmissionIds.remove(docId));
       }
     }
   }
@@ -384,18 +498,18 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
 
     return _submissions.where((doc) {
       final data = doc.data() as Map<String, dynamic>;
-      final name =
-          '${data['firstName'] ?? ''} ${data['lastName'] ?? ''}'.trim();
-      final email = (data['userEmail'] ?? '').toString();
       final responses =
           (data['responses'] as Map?)?.cast<String, dynamic>() ?? {};
 
-      return name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          email.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          responses.values.any((value) => value
-              .toString()
-              .toLowerCase()
-              .contains(_searchQuery.toLowerCase()));
+      return AppSearch.matchesMap(
+        query: _searchQuery,
+        data: data,
+        documentId: doc.id,
+        additionalValues: [
+          ...responses.values.map((value) => value.toString()),
+          widget.formId,
+        ],
+      );
     }).toList();
   }
 
@@ -474,7 +588,10 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
         }
 
         // Add status and admin notes
-        row.add(_capitalizeStatus((data['reviewStatus'] ?? 'seen').toString()));
+        row.add(FormReviewStatusBadge.labelFor(
+          context,
+          FormReviewStatus.normalize(data['reviewStatus']),
+        ));
         row.add((data['adminNote'] ?? '').toString());
 
         return row;
@@ -506,35 +623,31 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
   }
 
   Widget _buildStatusDropdown(String docId, String currentStatus) {
-    const statusOptions = ['seen', 'in review', 'accepted', 'rejected'];
-    final normalizedCurrentStatus = currentStatus.toLowerCase().isEmpty
-        ? 'seen'
-        : currentStatus.toLowerCase();
+    final normalizedCurrentStatus = FormReviewStatus.normalize(currentStatus);
 
     return Container(
       width: 130,
       height: 32,
       padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
-        color: _getStatusColor(normalizedCurrentStatus).withValues(alpha: 0.1),
+        color: FormReviewStatusBadge.colorFor(normalizedCurrentStatus)
+            .withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(6),
         border: Border.all(
-            color: _getStatusColor(normalizedCurrentStatus)
+            color: FormReviewStatusBadge.colorFor(normalizedCurrentStatus)
                 .withValues(alpha: 0.3)),
       ),
       child: DropdownButton<String>(
-        value: statusOptions.contains(normalizedCurrentStatus)
-            ? normalizedCurrentStatus
-            : 'seen',
+        value: normalizedCurrentStatus,
         isExpanded: true,
         underline: const SizedBox(),
         style: GoogleFonts.inter(
           fontSize: 12,
           fontWeight: FontWeight.w500,
-          color: _getStatusColor(normalizedCurrentStatus),
+          color: FormReviewStatusBadge.colorFor(normalizedCurrentStatus),
         ),
         dropdownColor: Colors.white,
-        items: statusOptions.map((String status) {
+        items: FormReviewStatus.options.map((String status) {
           return DropdownMenuItem<String>(
             value: status,
             child: Row(
@@ -543,52 +656,78 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
                   width: 8,
                   height: 8,
                   decoration: BoxDecoration(
-                    color: _getStatusColor(status),
+                    color: FormReviewStatusBadge.colorFor(status),
                     shape: BoxShape.circle,
                   ),
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  _capitalizeStatus(status),
+                  FormReviewStatusBadge.labelFor(context, status),
                   style: GoogleFonts.inter(
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
-                    color: _getStatusColor(status),
+                    color: FormReviewStatusBadge.colorFor(status),
                   ),
                 ),
               ],
             ),
           );
         }).toList(),
-        onChanged: (String? newStatus) {
+        onChanged: (String? newStatus) async {
           if (newStatus != null && newStatus != normalizedCurrentStatus) {
-            _saveStatus(docId, newStatus);
-            // Reload data to reflect the change
-            _load();
+            final saved = await _saveStatus(docId, newStatus);
+            if (saved && mounted) await _load();
           }
         },
       ),
     );
   }
 
-  Color _getStatusColor(String status) {
-    switch (status.toLowerCase()) {
-      case 'seen':
-        return const Color(0xFF6B7280); // Gray
-      case 'in review':
-        return const Color(0xFFF59E0B); // Amber
-      case 'accepted':
-        return const Color(0xFF059669); // Green
-      case 'rejected':
-        return const Color(0xFFDC2626); // Red
-      default:
-        return const Color(0xFF6B7280);
-    }
+  Widget _buildNotifyTeacherButton(
+    String docId,
+    Map<String, dynamic> submission,
+  ) {
+    final l10n = AppLocalizations.of(context)!;
+    final status = FormReviewStatus.normalize(submission['reviewStatus']);
+    final canNotify = status == FormReviewStatus.accepted ||
+        status == FormReviewStatus.rejected;
+    final isNotifying = _notifyingSubmissionIds.contains(docId);
+    final wasNotified = submission['reviewNotifiedAt'] != null &&
+        submission['reviewNotifiedStatus'] == status;
+
+    return Tooltip(
+      message:
+          wasNotified ? l10n.formNotifyTeacherAgain : l10n.formNotifyTeacher,
+      child: IconButton(
+        onPressed: canNotify && !isNotifying
+            ? () => _notifyTeacher(docId, submission)
+            : null,
+        visualDensity: VisualDensity.compact,
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints.tightFor(width: 36, height: 32),
+        icon: isNotifying
+            ? const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : Icon(
+                wasNotified
+                    ? Icons.notifications_active
+                    : Icons.notification_add_outlined,
+                size: 19,
+                color: canNotify
+                    ? (wasNotified
+                        ? const Color(0xFF059669)
+                        : const Color(0xFF2563EB))
+                    : const Color(0xFFD1D5DB),
+              ),
+      ),
+    );
   }
 
-  String _capitalizeStatus(String status) {
-    if (status == 'in review') return 'In Review';
-    return status[0].toUpperCase() + status.substring(1);
+  String _statusLabel(String status) {
+    return FormReviewStatusBadge.labelFor(context, status);
   }
 
   Widget _buildFieldValueWidget(String fieldId, dynamic value, double width) {
@@ -875,10 +1014,9 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
-                  Row(
-                    children: [
-                      // Date range selector
-                      InkWell(
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final dateSelector = InkWell(
                         onTap: _selectDateRange,
                         child: Container(
                           padding: const EdgeInsets.symmetric(
@@ -888,15 +1026,19 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Row(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
                               const Icon(Icons.calendar_today_outlined,
                                   color: Color(0xFF6B7280), size: 16),
                               const SizedBox(width: 8),
-                              Text(
-                                _dateRangeText,
-                                style: GoogleFonts.inter(
-                                  fontSize: 13,
-                                  color: const Color(0xFF374151),
+                              Flexible(
+                                child: Text(
+                                  _dateRangeText,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.inter(
+                                    fontSize: 13,
+                                    color: const Color(0xFF374151),
+                                  ),
                                 ),
                               ),
                               const SizedBox(width: 8),
@@ -905,11 +1047,8 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
                             ],
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 16),
-
-                      // Submissions count
-                      Container(
+                      );
+                      final submissionCount = Container(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
@@ -924,13 +1063,9 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
                             color: const Color(0xFF2563EB),
                           ),
                         ),
-                      ),
-
-                      const Spacer(),
-
-                      // Search field
-                      Container(
-                        width: 300,
+                      );
+                      final searchField = Container(
+                        width: constraints.maxWidth < 700 ? null : 300,
                         height: 36,
                         decoration: BoxDecoration(
                           color: const Color(0xFFF9FAFB),
@@ -943,8 +1078,7 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
                             if (mounted) {
                               setState(() {
                                 _searchQuery = value;
-                                _currentPage =
-                                    0; // Reset to first page on search
+                                _currentPage = 0;
                               });
                             }
                           },
@@ -963,8 +1097,34 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
                                 horizontal: 12, vertical: 8),
                           ),
                         ),
-                      ),
-                    ],
+                      );
+
+                      if (constraints.maxWidth < 700) {
+                        return Column(
+                          children: [
+                            Row(
+                              children: [
+                                Flexible(child: dateSelector),
+                                const SizedBox(width: 12),
+                                submissionCount,
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            searchField,
+                          ],
+                        );
+                      }
+
+                      return Row(
+                        children: [
+                          dateSelector,
+                          const SizedBox(width: 16),
+                          submissionCount,
+                          const Spacer(),
+                          searchField,
+                        ],
+                      );
+                    },
                   ),
                 ],
               ),
@@ -1119,7 +1279,7 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
   }
 
   double _calculateTableWidth(List<String> fieldIds) {
-    // Calculate total width: checkbox(48) + #(60) + user(220) + dynamic fields + status(140) + notes(200) + padding(16)
+    // Calculate total width: checkbox(48) + #(60) + user(220) + dynamic fields + decision(190) + notes(200) + padding(16)
     double width = 48 + 60 + 220 + 16; // checkbox + number + user + padding
 
     // Add separators: 5 base separators (after checkbox, #, user, status, notes) + 1 per field
@@ -1139,7 +1299,7 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
       }
     }
 
-    width += 140; // Status column
+    width += 190; // Decision and notification column
     width += 200; // Notes column
 
     // Ensure minimum width for bottom sheet (account for padding)
@@ -1234,11 +1394,11 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
             ];
           }),
 
-          // Status Column
+          // Decision Column
           SizedBox(
-            width: 140,
+            width: 190,
             child: Text(
-              AppLocalizations.of(context)!.userStatus,
+              AppLocalizations.of(context)!.formDecisionColumn,
               style: GoogleFonts.inter(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
@@ -1389,11 +1549,19 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
                 ];
               }),
 
-              // Status field
+              // Decision and teacher notification
               SizedBox(
-                width: 140,
-                child: _buildStatusDropdown(
-                    docId, (data['reviewStatus'] ?? '').toString()),
+                width: 190,
+                child: Row(
+                  children: [
+                    _buildStatusDropdown(
+                      docId,
+                      (data['reviewStatus'] ?? '').toString(),
+                    ),
+                    const SizedBox(width: 4),
+                    _buildNotifyTeacherButton(docId, data),
+                  ],
+                ),
               ),
 
               _buildColumnSeparator(),

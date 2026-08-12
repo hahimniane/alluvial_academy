@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../services/chat_service.dart';
 import '../models/chat_user.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/core/utils/app_search.dart';
 
 class GroupCreationScreen extends StatefulWidget {
   const GroupCreationScreen({super.key});
@@ -464,10 +465,14 @@ class _GroupCreationScreenState extends State<GroupCreationScreen> {
         final filteredUsers = _searchQuery.isEmpty
             ? users
             : users
-                .where((user) =>
-                    user.displayName.toLowerCase().contains(_searchQuery) ||
-                    user.email.toLowerCase().contains(_searchQuery) ||
-                    (user.role?.toLowerCase().contains(_searchQuery) ?? false))
+                .where((user) => AppSearch.matches(
+                      query: _searchQuery,
+                      names: [user.displayName],
+                      emails: [user.email],
+                      phones: [user.phone],
+                      ids: [user.id],
+                      additionalValues: [user.role ?? ''],
+                    ))
                 .toList();
 
         if (filteredUsers.isEmpty) {

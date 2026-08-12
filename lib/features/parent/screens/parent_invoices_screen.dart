@@ -71,8 +71,10 @@ class _ParentInvoicesScreenState extends State<ParentInvoicesScreen> {
           style: GoogleFonts.inter(fontWeight: FontWeight.w800),
         ),
       ),
-      body: Column(
-        children: [
+      body: ScrollNotificationObserver(
+        child: SelectionArea(
+          child: Column(
+            children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
             child: Column(
@@ -165,7 +167,9 @@ class _ParentInvoicesScreenState extends State<ParentInvoicesScreen> {
               },
             ),
           ),
-        ],
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -253,4 +257,3 @@ class _ParentInvoicesScreenState extends State<ParentInvoicesScreen> {
     );
   }
 }
-

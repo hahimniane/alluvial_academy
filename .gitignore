@@ -102,3 +102,10 @@ ios/build/
 
 # Android Studio will place build artifacts here
 releases/
+
+# Local verification/test artifacts (screenshots, CLI caches, firebase cache)
+/.playwright-cli/
+/output/
+/.firebase/
+/*.png
+.claude/worktrees/

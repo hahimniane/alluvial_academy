@@ -1,0 +1,511 @@
+{
+  "category": "islamic_manners",
+  "name": "Islamic Manners",
+  "description": "Good manners and character (adab and akhlaq)",
+  "questions": [
+    {
+      "id": "im_001",
+      "category": "islamic_manners",
+      "difficulty": "easy",
+      "question": "What should we say when we meet another Muslim?",
+      "options": [
+        "As-salamu alaykum",
+        "Good morning only",
+        "Hello",
+        "Nothing"
+      ],
+      "correctAnswer": 0,
+      "explanation": "We greet with 'As-salamu alaykum' — peace be upon you — and it spreads love between us."
+    },
+    {
+      "id": "im_002",
+      "category": "islamic_manners",
+      "difficulty": "easy",
+      "question": "Which hand should we eat with?",
+      "options": [
+        "Left hand",
+        "Right hand",
+        "Either one",
+        "Both"
+      ],
+      "correctAnswer": 1,
+      "explanation": "The Prophet taught us to eat and drink with the right hand."
+    },
+    {
+      "id": "im_003",
+      "category": "islamic_manners",
+      "difficulty": "easy",
+      "question": "What do we say before we start eating?",
+      "options": [
+        "Bismillah",
+        "Alhamdulillah",
+        "Ameen",
+        "Shukran"
+      ],
+      "correctAnswer": 0,
+      "explanation": "We say Bismillah before eating so our meal is blessed."
+    },
+    {
+      "id": "im_004",
+      "category": "islamic_manners",
+      "difficulty": "easy",
+      "question": "How should we treat our parents?",
+      "options": [
+        "Argue with them",
+        "Only obey sometimes",
+        "Ignore them",
+        "With respect and kindness"
+      ],
+      "correctAnswer": 3,
+      "explanation": "Islam teaches us to be kind and respectful to our parents at all times."
+    },
+    {
+      "id": "im_005",
+      "category": "islamic_manners",
+      "difficulty": "easy",
+      "question": "What did the Prophet say about smiling at others?",
+      "options": [
+        "Smiling is not important",
+        "It is a charity",
+        "It is a waste of time",
+        "Only smile at friends"
+      ],
+      "correctAnswer": 1,
+      "explanation": "The Prophet said that smiling at your brother is a form of charity (sadaqah)."
+    },
+    {
+      "id": "im_006",
+      "category": "islamic_manners",
+      "difficulty": "easy",
+      "question": "What should we do when someone is talking to us?",
+      "options": [
+        "Walk away",
+        "Look at our phone",
+        "Interrupt them",
+        "Listen politely"
+      ],
+      "correctAnswer": 3,
+      "explanation": "Good manners means listening carefully and not interrupting others."
+    },
+    {
+      "id": "im_007",
+      "category": "islamic_manners",
+      "difficulty": "easy",
+      "question": "Should a Muslim tell lies?",
+      "options": [
+        "Only to friends",
+        "Only small lies",
+        "Never",
+        "Only when losing a game"
+      ],
+      "correctAnswer": 2,
+      "explanation": "A Muslim always tells the truth. The Prophet was called Al-Amin, the Trustworthy."
+    },
+    {
+      "id": "im_008",
+      "category": "islamic_manners",
+      "difficulty": "easy",
+      "question": "What should we do with our food if we don't want to finish it?",
+      "options": [
+        "Throw it away",
+        "Hide it",
+        "Play with it",
+        "Not waste it"
+      ],
+      "correctAnswer": 3,
+      "explanation": "Islam teaches us never to waste food or water — wasting is disliked by Allah."
+    },
+    {
+      "id": "im_009",
+      "category": "islamic_manners",
+      "difficulty": "easy",
+      "question": "How should we speak to our teachers?",
+      "options": [
+        "Loudly",
+        "However we want",
+        "By shouting",
+        "With respect"
+      ],
+      "correctAnswer": 3,
+      "explanation": "Respecting teachers is part of Islamic manners because they give us knowledge."
+    },
+    {
+      "id": "im_010",
+      "category": "islamic_manners",
+      "difficulty": "easy",
+      "question": "What should we do when we make a promise?",
+      "options": [
+        "Forget it",
+        "Keep it",
+        "Break it if busy",
+        "Only keep it with family"
+      ],
+      "correctAnswer": 1,
+      "explanation": "A Muslim keeps promises. Breaking promises is a sign of weak character."
+    },
+    {
+      "id": "im_011",
+      "category": "islamic_manners",
+      "difficulty": "easy",
+      "question": "What should we do if we hurt someone's feelings?",
+      "options": [
+        "Say sorry and make it right",
+        "Laugh at them",
+        "Pretend nothing happened",
+        "Run away"
+      ],
+      "correctAnswer": 0,
+      "explanation": "We apologize and ask forgiveness — from the person and from Allah."
+    },
+    {
+      "id": "im_012",
+      "category": "islamic_manners",
+      "difficulty": "easy",
+      "question": "How should we treat animals?",
+      "options": [
+        "Ignore hungry animals",
+        "With kindness",
+        "Chase them",
+        "Scare them"
+      ],
+      "correctAnswer": 1,
+      "explanation": "The Prophet taught mercy to animals — even giving water to a thirsty dog brings reward."
+    },
+    {
+      "id": "im_013",
+      "category": "islamic_manners",
+      "difficulty": "medium",
+      "question": "The Prophet said cleanliness is what part of faith?",
+      "options": [
+        "Not related to faith",
+        "Half of faith",
+        "One tenth of faith",
+        "A quarter of faith"
+      ],
+      "correctAnswer": 1,
+      "explanation": "The Prophet said 'Cleanliness is half of faith', so Muslims keep themselves and their places clean."
+    },
+    {
+      "id": "im_014",
+      "category": "islamic_manners",
+      "difficulty": "medium",
+      "question": "What is 'gheebah' (backbiting)?",
+      "options": [
+        "Talking loudly",
+        "Giving advice kindly",
+        "Talking badly about someone who is not there",
+        "Helping a friend"
+      ],
+      "correctAnswer": 2,
+      "explanation": "Gheebah is saying bad things about someone behind their back — a big sin in Islam."
+    },
+    {
+      "id": "im_015",
+      "category": "islamic_manners",
+      "difficulty": "medium",
+      "question": "What should we do when we feel very angry?",
+      "options": [
+        "Stay calm and seek refuge in Allah",
+        "Break something",
+        "Hit someone",
+        "Shout at everyone"
+      ],
+      "correctAnswer": 0,
+      "explanation": "The Prophet taught us to control anger, say A'udhu billah, and even sit down or make wudu."
+    },
+    {
+      "id": "im_016",
+      "category": "islamic_manners",
+      "difficulty": "medium",
+      "question": "What did the Prophet say about the strong person?",
+      "options": [
+        "The one who wins fights",
+        "The one who lifts heavy things",
+        "The one who controls himself when angry",
+        "The one who shouts loudest"
+      ],
+      "correctAnswer": 2,
+      "explanation": "The Prophet said the truly strong person is the one who controls himself when angry."
+    },
+    {
+      "id": "im_017",
+      "category": "islamic_manners",
+      "difficulty": "medium",
+      "question": "What should we do when we visit someone's home?",
+      "options": [
+        "Look through their things",
+        "Walk right in",
+        "Ask permission before entering",
+        "Stay as long as we want"
+      ],
+      "correctAnswer": 2,
+      "explanation": "Islam teaches us to seek permission and greet before entering someone's home."
+    },
+    {
+      "id": "im_018",
+      "category": "islamic_manners",
+      "difficulty": "medium",
+      "question": "What is a good deed we can do when someone is sick?",
+      "options": [
+        "Tell everyone their secrets",
+        "Laugh at them",
+        "Stay away",
+        "Visit them and make dua for them"
+      ],
+      "correctAnswer": 3,
+      "explanation": "Visiting the sick is a beloved deed in Islam and brings great reward."
+    },
+    {
+      "id": "im_019",
+      "category": "islamic_manners",
+      "difficulty": "medium",
+      "question": "What should we cover when we yawn?",
+      "options": [
+        "Our eyes",
+        "Our mouth",
+        "Our ears",
+        "Nothing"
+      ],
+      "correctAnswer": 1,
+      "explanation": "The Prophet taught us to cover our mouth when yawning."
+    },
+    {
+      "id": "im_020",
+      "category": "islamic_manners",
+      "difficulty": "medium",
+      "question": "How should we treat our neighbors?",
+      "options": [
+        "Ignore them",
+        "Be kind and never harm them",
+        "Make loud noise",
+        "Only greet rich neighbors"
+      ],
+      "correctAnswer": 1,
+      "explanation": "The Prophet said whoever believes in Allah and the Last Day should honor his neighbor."
+    },
+    {
+      "id": "im_021",
+      "category": "islamic_manners",
+      "difficulty": "medium",
+      "question": "What manners should we have at the dinner table?",
+      "options": [
+        "Grab food from far away",
+        "Complain about the food",
+        "Eat from what is closest to us",
+        "Eat as fast as possible"
+      ],
+      "correctAnswer": 2,
+      "explanation": "The Prophet taught: say Bismillah, eat with the right hand, and eat from what is near you."
+    },
+    {
+      "id": "im_022",
+      "category": "islamic_manners",
+      "difficulty": "medium",
+      "question": "What did the Prophet teach about complaining about food?",
+      "options": [
+        "Always complain",
+        "He never complained about food",
+        "Complain quietly",
+        "Only eat favorite foods"
+      ],
+      "correctAnswer": 1,
+      "explanation": "The Prophet never criticized food — if he liked it he ate it, if not he simply left it."
+    },
+    {
+      "id": "im_023",
+      "category": "islamic_manners",
+      "difficulty": "medium",
+      "question": "Who should we greet with salam?",
+      "options": [
+        "Only our friends",
+        "Only family",
+        "Only adults",
+        "Those we know and those we don't know"
+      ],
+      "correctAnswer": 3,
+      "explanation": "The Prophet taught us to spread salam to everyone, known and unknown."
+    },
+    {
+      "id": "im_024",
+      "category": "islamic_manners",
+      "difficulty": "medium",
+      "question": "What is 'sadaqah'?",
+      "options": [
+        "A holiday",
+        "A prayer time",
+        "Voluntary charity and kindness",
+        "A type of food"
+      ],
+      "correctAnswer": 2,
+      "explanation": "Sadaqah is any voluntary act of giving or kindness — even a smile counts."
+    },
+    {
+      "id": "im_025",
+      "category": "islamic_manners",
+      "difficulty": "hard",
+      "question": "What does 'akhlaq' mean?",
+      "options": [
+        "Food rules",
+        "Prayer times",
+        "Character and manners",
+        "Travel rules"
+      ],
+      "correctAnswer": 2,
+      "explanation": "Akhlaq means our character and behavior. The Prophet came to perfect good akhlaq."
+    },
+    {
+      "id": "im_026",
+      "category": "islamic_manners",
+      "difficulty": "hard",
+      "question": "The Prophet said the best among you are those who are best to whom?",
+      "options": [
+        "Rich people",
+        "Strangers only",
+        "Their bosses",
+        "Their families"
+      ],
+      "correctAnswer": 3,
+      "explanation": "The Prophet said: 'The best of you are those who are best to their families.'"
+    },
+    {
+      "id": "im_027",
+      "category": "islamic_manners",
+      "difficulty": "hard",
+      "question": "What will be the heaviest thing on the scale of deeds on the Day of Judgment?",
+      "options": [
+        "Books",
+        "Strength",
+        "Good character",
+        "Gold"
+      ],
+      "correctAnswer": 2,
+      "explanation": "The Prophet said nothing is heavier on the scale than good character."
+    },
+    {
+      "id": "im_028",
+      "category": "islamic_manners",
+      "difficulty": "hard",
+      "question": "What is 'birrul-walidayn'?",
+      "options": [
+        "Kindness to parents",
+        "Giving Zakat",
+        "Reading Quran",
+        "Fasting on Mondays"
+      ],
+      "correctAnswer": 0,
+      "explanation": "Birrul-walidayn means being dutiful and kind to parents — one of the greatest deeds in Islam."
+    },
+    {
+      "id": "im_029",
+      "category": "islamic_manners",
+      "difficulty": "hard",
+      "question": "In the Quran, Allah says do not even say what word to your parents?",
+      "options": [
+        "'Uff' (a word of annoyance)",
+        "'No'",
+        "'Maybe'",
+        "'Later'"
+      ],
+      "correctAnswer": 0,
+      "explanation": "Allah teaches us not to say even 'uff' to our parents — no word of disrespect at all."
+    },
+    {
+      "id": "im_030",
+      "category": "islamic_manners",
+      "difficulty": "hard",
+      "question": "What is the Islamic teaching about keeping secrets (amanah)?",
+      "options": [
+        "A trust must be kept faithfully",
+        "Secrets don't matter",
+        "Only keep family secrets",
+        "Share secrets with best friends"
+      ],
+      "correctAnswer": 0,
+      "explanation": "An amanah (trust) — like a secret or borrowed item — must be guarded faithfully."
+    },
+    {
+      "id": "im_031",
+      "category": "islamic_manners",
+      "difficulty": "hard",
+      "question": "What did the Prophet say about a person who does not thank people?",
+      "options": [
+        "He is still thankful",
+        "He does not thank Allah",
+        "Only thank teachers",
+        "Thanking is optional"
+      ],
+      "correctAnswer": 1,
+      "explanation": "The Prophet said whoever does not thank people has not thanked Allah."
+    },
+    {
+      "id": "im_032",
+      "category": "islamic_manners",
+      "difficulty": "hard",
+      "question": "What is 'husn adh-dhann'?",
+      "options": [
+        "Eating well",
+        "Thinking good of others",
+        "Talking a lot",
+        "Being suspicious"
+      ],
+      "correctAnswer": 1,
+      "explanation": "Husn adh-dhann means having a good opinion of others instead of assuming the worst."
+    },
+    {
+      "id": "im_033",
+      "category": "islamic_manners",
+      "difficulty": "hard",
+      "question": "What should we do before sleeping, according to the Sunnah?",
+      "options": [
+        "Watch TV",
+        "Nothing special",
+        "Make wudu and say the sleeping duas",
+        "Eat a big meal"
+      ],
+      "correctAnswer": 2,
+      "explanation": "The Sunnah includes making wudu, reciting protective surahs, and sleeping on the right side."
+    },
+    {
+      "id": "im_034",
+      "category": "islamic_manners",
+      "difficulty": "hard",
+      "question": "Why should we lower our voice when speaking?",
+      "options": [
+        "So no one hears us",
+        "The Quran praises a gentle, humble voice",
+        "It doesn't matter",
+        "Loud voices are always better"
+      ],
+      "correctAnswer": 1,
+      "explanation": "In the Quran, Luqman advised his son to lower his voice — humility is beautiful."
+    },
+    {
+      "id": "im_035",
+      "category": "islamic_manners",
+      "difficulty": "hard",
+      "question": "What is the reward for removing something harmful from the road?",
+      "options": [
+        "Only exercise",
+        "It is a charity and brings reward",
+        "People's praise",
+        "Nothing"
+      ],
+      "correctAnswer": 1,
+      "explanation": "The Prophet taught that removing harm from people's path is a branch of faith and a charity."
+    },
+    {
+      "id": "im_036",
+      "category": "islamic_manners",
+      "difficulty": "hard",
+      "question": "The Prophet said: 'I was only sent to perfect...' what?",
+      "options": [
+        "Armies",
+        "Good character",
+        "Trade",
+        "Buildings"
+      ],
+      "correctAnswer": 1,
+      "explanation": "The Prophet said he was sent to perfect noble character (makarim al-akhlaq)."
+    }
+  ]
+}

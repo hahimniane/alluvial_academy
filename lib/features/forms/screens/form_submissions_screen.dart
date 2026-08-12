@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:alluwalacademyadmin/core/utils/app_search.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class FormSubmissionsScreen extends StatefulWidget {
@@ -43,10 +44,12 @@ class _FormSubmissionsScreenState extends State<FormSubmissionsScreen> {
     final filtered = _submissions.where((doc) {
       if (_search.isEmpty) return true;
       final m = doc.data() as Map<String, dynamic>;
-      final user = (m['userEmail'] ?? '').toString().toLowerCase();
-      final first = (m['firstName'] ?? '').toString().toLowerCase();
-      final last = (m['lastName'] ?? '').toString().toLowerCase();
-      return user.contains(_search) || ('$first $last').contains(_search);
+      return AppSearch.matchesMap(
+        query: _search,
+        data: m,
+        documentId: doc.id,
+        additionalValues: [widget.formId, widget.formTitle],
+      );
     }).toList();
 
     return Scaffold(

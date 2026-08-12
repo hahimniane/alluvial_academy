@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+import 'package:alluwalacademyadmin/core/utils/app_search.dart';
 import 'package:alluwalacademyadmin/features/shift_management/models/teaching_shift.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 import '../utils/form_submission_view_mode.dart';
@@ -203,6 +204,13 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
           'uid': doc.id,
           'name': name,
           'email': (data['email'] ?? data['e-mail'] ?? '').toString(),
+          'phone': (data['phone_number'] ??
+                  data['phoneNumber'] ??
+                  data['mobile_phone'] ??
+                  data['mobilePhone'] ??
+                  data['phone'] ??
+                  '')
+              .toString(),
           'photoURL': data['photoURL'],
         };
         teacherIds.add(doc.id);
@@ -886,6 +894,13 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
               'uid': chunk[j],
               'name': name,
               'email': (d['email'] ?? d['e-mail'] ?? '').toString(),
+              'phone': (d['phone_number'] ??
+                      d['phoneNumber'] ??
+                      d['mobile_phone'] ??
+                      d['mobilePhone'] ??
+                      d['phone'] ??
+                      '')
+                  .toString(),
               'photoURL': d['photoURL'],
             };
           }
@@ -1025,6 +1040,13 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
                 'uid': chunk[j],
                 'name': name,
                 'email': (d['email'] ?? d['e-mail'] ?? '').toString(),
+                'phone': (d['phone_number'] ??
+                        d['phoneNumber'] ??
+                        d['mobile_phone'] ??
+                        d['mobilePhone'] ??
+                        d['phone'] ??
+                        '')
+                    .toString(),
                 'photoURL': d['photoURL'],
               };
             }
@@ -1114,7 +1136,6 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
     final filterStatus = _selectedStatus != null;
     final filterForm = _selectedFormKeys.isNotEmpty;
     final filterSearch = _searchQuery.isNotEmpty;
-    final q = filterSearch ? _searchQuery.toLowerCase() : '';
     final targetMonth = filterMonth ? _selectedYearMonth! : '';
     final targetStatus = filterStatus ? _selectedStatus!.toLowerCase() : '';
     final result = <QueryDocumentSnapshot>[];
@@ -1144,13 +1165,20 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
       if (filterSearch) {
         final userId = data['userId'] as String?;
         final formId = data['formId'] as String?;
-        final teacherName =
-            (userId != null ? (_teachersData[userId]?['name'] ?? '') : '')
-                .toString()
-                .toLowerCase();
         final formTitle =
-            (formId != null ? (_formTitles[formId] ?? '') : '').toLowerCase();
-        if (!teacherName.contains(q) && !formTitle.contains(q)) continue;
+            (formId != null ? (_formTitles[formId] ?? '') : '').toString();
+        final personData = <String, dynamic>{
+          ...data,
+          if (userId != null) ...?_teachersData[userId],
+        };
+        if (!AppSearch.matchesMap(
+          query: _searchQuery,
+          data: personData,
+          documentId: doc.id,
+          additionalValues: [formId ?? '', formTitle],
+        )) {
+          continue;
+        }
       }
       result.add(doc);
     }
@@ -1168,7 +1196,6 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
     final filterMonth = !_showAllMonths && _selectedYearMonth != null;
     final filterStatus = _selectedStatus != null;
     final filterSearch = _searchQuery.isNotEmpty;
-    final q = filterSearch ? _searchQuery.toLowerCase() : '';
     final targetMonth = filterMonth ? _selectedYearMonth! : '';
     final targetStatus = filterStatus ? _selectedStatus!.toLowerCase() : '';
     final keys = <String>{};
@@ -1194,13 +1221,20 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
       if (filterSearch) {
         final userId = data['userId'] as String?;
         final formId = data['formId'] as String?;
-        final teacherName =
-            (userId != null ? (_teachersData[userId]?['name'] ?? '') : '')
-                .toString()
-                .toLowerCase();
         final formTitle =
-            (formId != null ? (_formTitles[formId] ?? '') : '').toLowerCase();
-        if (!teacherName.contains(q) && !formTitle.contains(q)) continue;
+            (formId != null ? (_formTitles[formId] ?? '') : '').toString();
+        final personData = <String, dynamic>{
+          ...data,
+          if (userId != null) ...?_teachersData[userId],
+        };
+        if (!AppSearch.matchesMap(
+          query: _searchQuery,
+          data: personData,
+          documentId: doc.id,
+          additionalValues: [formId ?? '', formTitle],
+        )) {
+          continue;
+        }
       }
       final key = _formKeyForDoc(data);
       if (key != null) keys.add(key);
@@ -2002,14 +2036,16 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
         minChildSize: 0.4,
         expand: false,
         builder: (context, scrollController) {
-          final q = _teacherPickerSearchQuery.trim().toLowerCase();
-          var filteredIds = q.isEmpty
+          final query = _teacherPickerSearchQuery.trim();
+          var filteredIds = query.isEmpty
               ? List<String>.from(_allTeacherIds)
               : _allTeacherIds.where((id) {
                   final info = _teachersData[id];
-                  final name = (info?['name'] ?? '').toString().toLowerCase();
-                  final email = (info?['email'] ?? '').toString().toLowerCase();
-                  return name.contains(q) || email.contains(q);
+                  return AppSearch.matchesMap(
+                    query: query,
+                    data: info ?? const <String, dynamic>{},
+                    documentId: id,
+                  );
                 }).toList();
           filteredIds = filteredIds
             ..sort((a, b) {

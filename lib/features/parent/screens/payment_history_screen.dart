@@ -23,8 +23,10 @@ class PaymentHistoryScreen extends StatelessWidget {
         elevation: 0,
         title: Text(AppLocalizations.of(context)!.paymentHistory, style: GoogleFonts.inter(fontWeight: FontWeight.w800)),
       ),
-      body: StreamBuilder<List<Payment>>(
-        stream: PaymentService.getPaymentHistory(parentId, limit: 100),
+      body: ScrollNotificationObserver(
+        child: SelectionArea(
+          child: StreamBuilder<List<Payment>>(
+            stream: PaymentService.getPaymentHistory(parentId, limit: 100),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -98,7 +100,9 @@ class PaymentHistoryScreen extends StatelessWidget {
             separatorBuilder: (_, __) => const SizedBox(height: 12),
             itemCount: payments.length,
           );
-        },
+          },
+          ),
+        ),
       ),
     );
   }
@@ -129,4 +133,3 @@ class PaymentHistoryScreen extends StatelessWidget {
     }
   }
 }
-

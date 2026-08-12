@@ -654,6 +654,106 @@ const canAccessStudentReport = async ({ uid, studentId, authToken }) => {
   return Array.isArray(guardianIds) && guardianIds.includes(uid);
 };
 
+const isAdminRequester = async ({ uid, authToken }) => {
+  if (!uid) return false;
+  if (hasAdminClaims(authToken)) return true;
+
+  const requesterDoc = await admin.firestore().collection('users').doc(uid).get();
+  return requesterDoc.exists && isAdminUser(requesterDoc.data() || {});
+};
+
+const asFiniteNumber = (value) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const studentDisplayName = (studentId, data = {}) => {
+  const displayName = `${data.displayName || data.display_name || ''}`.trim();
+  if (displayName) return displayName;
+
+  const firstName = `${data.first_name || data.firstName || ''}`.trim();
+  const lastName = `${data.last_name || data.lastName || ''}`.trim();
+  const fullName = `${firstName} ${lastName}`.trim();
+  if (fullName) return fullName;
+
+  const email = `${data['e-mail'] || data.email || ''}`.trim();
+  if (email) return email.split('@')[0];
+  return studentId;
+};
+
+const buildAdminStudentAttendanceOverview = ({
+  reports,
+  studentDataById = new Map(),
+}) => {
+  const students = (Array.isArray(reports) ? reports : []).map((report) => {
+    const studentId = `${report.student_id || ''}`.trim();
+    const userData = studentDataById.get(studentId) || {};
+    const metrics = report.metrics || {};
+    const rates = report.rates || {};
+    return {
+      student_id: studentId,
+      student_name: studentDisplayName(studentId, userData),
+      student_email: `${userData['e-mail'] || userData.email || ''}`.trim(),
+      student_phone: `${
+        userData.phone_number ||
+        userData.phoneNumber ||
+        userData.mobile_phone ||
+        userData.mobilePhone ||
+        userData.phone ||
+        ''
+      }`.trim(),
+      total_presence_minutes:
+        asFiniteNumber(metrics.total_student_presence_minutes),
+      total_teacher_overlap_minutes:
+        asFiniteNumber(metrics.total_teacher_overlap_minutes),
+      scheduled_classes: asFiniteNumber(metrics.scheduled_classes),
+      attended_classes: asFiniteNumber(metrics.attended_classes),
+      absent_classes: asFiniteNumber(metrics.absent_classes),
+      late_classes: asFiniteNumber(metrics.late_classes),
+      attendance_rate: asFiniteNumber(rates.attendance_rate),
+      punctuality_rate: asFiniteNumber(rates.punctuality_rate),
+    };
+  });
+
+  students.sort((a, b) => {
+    const timeCompare = b.total_presence_minutes - a.total_presence_minutes;
+    if (timeCompare !== 0) return timeCompare;
+    return a.student_name.localeCompare(b.student_name);
+  });
+
+  const totals = students.reduce(
+    (sum, student) => ({
+      total_presence_minutes:
+        sum.total_presence_minutes + student.total_presence_minutes,
+      total_teacher_overlap_minutes:
+        sum.total_teacher_overlap_minutes +
+        student.total_teacher_overlap_minutes,
+      scheduled_classes: sum.scheduled_classes + student.scheduled_classes,
+      attended_classes: sum.attended_classes + student.attended_classes,
+      absent_classes: sum.absent_classes + student.absent_classes,
+      late_classes: sum.late_classes + student.late_classes,
+    }),
+    {
+      total_presence_minutes: 0,
+      total_teacher_overlap_minutes: 0,
+      scheduled_classes: 0,
+      attended_classes: 0,
+      absent_classes: 0,
+      late_classes: 0,
+    },
+  );
+
+  return {
+    students,
+    totals: {
+      ...totals,
+      attendance_rate: totals.scheduled_classes > 0
+        ? Number((totals.attended_classes / totals.scheduled_classes).toFixed(4))
+        : 0,
+    },
+  };
+};
+
 const loadShiftsForPeriod = async ({ periodStart, periodEnd }) => {
   const db = admin.firestore();
   const shiftsSnapshot = await db
@@ -1053,11 +1153,96 @@ const getStudentAttendanceReport = onCall(async (request) => {
   };
 });
 
+const getAdminStudentAttendanceOverview = onCall(async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) {
+    throw new HttpsError('unauthenticated', 'Authentication required');
+  }
+
+  const adminAllowed = await isAdminRequester({
+    uid,
+    authToken: request.auth?.token,
+  });
+  if (!adminAllowed) {
+    throw new HttpsError(
+      'permission-denied',
+      'Only administrators can view the student attendance overview',
+    );
+  }
+
+  const { periodType, periodStart, periodEnd } = parseRequestedPeriod({
+    periodTypeRaw: request.data?.periodType,
+    referenceDateRaw: request.data?.referenceDate,
+  });
+  const periodKey = buildPeriodKey(periodType, periodStart);
+  const forceRefresh = request.data?.forceRefresh === true;
+  const db = admin.firestore();
+  let generated = false;
+
+  if (forceRefresh) {
+    await generateStudentAttendanceReportsForPeriod({
+      periodType,
+      periodStart,
+      periodEnd,
+    });
+    generated = true;
+  }
+
+  let reportsSnapshot = await db
+    .collection(REPORT_COLLECTION)
+    .where('period_key', '==', periodKey)
+    .get();
+
+  if (reportsSnapshot.empty && !generated) {
+    await generateStudentAttendanceReportsForPeriod({
+      periodType,
+      periodStart,
+      periodEnd,
+    });
+    generated = true;
+    reportsSnapshot = await db
+      .collection(REPORT_COLLECTION)
+      .where('period_key', '==', periodKey)
+      .get();
+  }
+
+  const reports = reportsSnapshot.docs.map((doc) => doc.data() || {});
+  const studentIds = [...new Set(
+    reports.map((report) => `${report.student_id || ''}`.trim()).filter(Boolean),
+  )];
+  const studentDataById = new Map();
+  if (studentIds.length > 0) {
+    const studentDocs = await db.getAll(
+      ...studentIds.map((studentId) => db.collection('users').doc(studentId)),
+    );
+    for (const studentDoc of studentDocs) {
+      if (studentDoc.exists) {
+        studentDataById.set(studentDoc.id, studentDoc.data() || {});
+      }
+    }
+  }
+
+  const overview = buildAdminStudentAttendanceOverview({
+    reports,
+    studentDataById,
+  });
+  return {
+    success: true,
+    generated,
+    period_type: periodType,
+    period_key: periodKey,
+    period_start: periodStart.toISOString(),
+    period_end: periodEnd.toISOString(),
+    ...overview,
+  };
+});
+
 module.exports = {
   detectClassAttendanceNoShows,
   generateWeeklyStudentAttendanceReports,
   generateMonthlyStudentAttendanceReports,
   getStudentAttendanceReport,
+  getAdminStudentAttendanceOverview,
   __test__: {
     toDate,
     getWeeklyPeriodForDate,
@@ -1074,5 +1259,6 @@ module.exports = {
     buildClassAttendanceAlertData,
     detectClassAttendanceNoShowsForWindow,
     computeStudentAttendanceReport,
+    buildAdminStudentAttendanceOverview,
   },
 };

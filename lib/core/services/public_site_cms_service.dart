@@ -15,6 +15,7 @@ import '../constants/pricing_plan_ids.dart';
 import '../models/employee_model.dart';
 import '../models/public_site_cms_models.dart';
 import '../utils/app_logger.dart';
+import '../utils/app_search.dart';
 import '../../features/shift_management/services/shift_service.dart';
 
 /// Thrown when [saveTeamMember] validation fails (caller maps to localized UI).
@@ -30,6 +31,7 @@ class PublicSiteDirectoryUser {
   final String uid;
   final String docId;
   final String email;
+  final String phone;
   final String displayName;
   final String userType;
 
@@ -37,6 +39,7 @@ class PublicSiteDirectoryUser {
     required this.uid,
     required this.docId,
     required this.email,
+    this.phone = '',
     required this.displayName,
     required this.userType,
   });
@@ -46,6 +49,7 @@ class PublicSiteDirectoryUser {
       uid: '${map['uid'] ?? ''}',
       docId: '${map['docId'] ?? ''}',
       email: '${map['email'] ?? ''}',
+      phone: '${map['phone'] ?? ''}',
       displayName: '${map['displayName'] ?? ''}',
       userType: '${map['userType'] ?? ''}',
     );
@@ -779,6 +783,13 @@ abstract final class PublicSiteCmsService {
           ? d['uid'].toString().trim()
           : doc.id;
       final email = (d['e-mail'] ?? d['email'] ?? '').toString();
+      final phone = (d['phone_number'] ??
+              d['phoneNumber'] ??
+              d['mobile_phone'] ??
+              d['mobilePhone'] ??
+              d['phone'] ??
+              '')
+          .toString();
       final fn = (d['first_name'] ?? d['first-name'] ?? '').toString();
       final ln = (d['last_name'] ?? d['last-name'] ?? '').toString();
       final displayName = '${fn.trim()} ${ln.trim()}'.trim().isNotEmpty
@@ -790,14 +801,20 @@ abstract final class PublicSiteCmsService {
         uid: uidField,
         docId: doc.id,
         email: email,
+        phone: phone,
         displayName: displayName,
         userType: userType,
       );
     }
 
     bool matchesQuery(PublicSiteDirectoryUser u) {
-      final hay = '${u.displayName} ${u.email} ${u.uid}'.toLowerCase();
-      return hay.contains(qLower);
+      return AppSearch.matches(
+        query: raw,
+        names: [u.displayName],
+        emails: [u.email],
+        phones: [u.phone],
+        ids: [u.uid, u.docId],
+      );
     }
 
     if (raw.length >= 20) {
@@ -867,6 +884,7 @@ abstract final class PublicSiteCmsService {
             uid: e.documentId,
             docId: e.documentId,
             email: e.email,
+            phone: '${e.countryCode}${e.mobilePhone}',
             displayName: display,
             userType: e.userType,
           );

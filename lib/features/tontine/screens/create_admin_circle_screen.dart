@@ -5,6 +5,7 @@ import 'package:alluwalacademyadmin/features/tontine/config/tontine_ui.dart';
 import 'package:alluwalacademyadmin/features/tontine/models/circle.dart';
 import 'package:alluwalacademyadmin/features/tontine/services/tontine_service.dart';
 import 'package:alluwalacademyadmin/features/tontine/screens/circle_dashboard_screen.dart';
+import 'package:alluwalacademyadmin/core/utils/app_search.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class CreateAdminCircleScreen extends StatefulWidget {
@@ -645,20 +646,11 @@ class _CreateAdminCircleScreenState extends State<CreateAdminCircleScreen> {
                   docs = docs.where((doc) {
                     final data =
                         doc.data() as Map<String, dynamic>;
-                    final fn = (data['first_name'] ?? '')
-                        .toString()
-                        .toLowerCase();
-                    final ln = (data['last_name'] ?? '')
-                        .toString()
-                        .toLowerCase();
-                    final em = (data['email'] ??
-                            data['e-mail'] ??
-                            '')
-                        .toString()
-                        .toLowerCase();
-                    return fn.contains(_searchQuery) ||
-                        ln.contains(_searchQuery) ||
-                        em.contains(_searchQuery);
+                    return AppSearch.matchesMap(
+                      query: _searchQuery,
+                      data: data,
+                      documentId: doc.id,
+                    );
                   }).toList();
                 }
 

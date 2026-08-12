@@ -183,6 +183,8 @@ class TimesheetAdminRepository {
             status: groupStatus,
             teacherId: first.teacherId,
             teacherName: first.teacherName,
+            teacherEmail: first.teacherEmail,
+            teacherPhone: first.teacherPhone,
             hourlyRate: first.hourlyRate,
             paymentAmount: totalPayment,
             shiftTitle: first.shiftTitle,
@@ -345,6 +347,15 @@ class TimesheetAdminRepository {
             (data['status'] ?? 'draft').toString()),
         teacherId: data['teacher_id'] ?? '',
         teacherName: userName,
+        teacherEmail:
+            (userData?['email'] ?? userData?['e-mail'] ?? '').toString(),
+        teacherPhone: (userData?['phone_number'] ??
+                userData?['phoneNumber'] ??
+                userData?['mobile_phone'] ??
+                userData?['mobilePhone'] ??
+                userData?['phone'] ??
+                '')
+            .toString(),
         hourlyRate: hourlyRate,
         createdAt: data['created_at'] as Timestamp?,
         submittedAt: data['submitted_at'] as Timestamp?,

@@ -801,7 +801,11 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
           ),
         ],
       ),
-      body: _viewMode == 'day' ? _buildDayView() : _buildCalendarView(),
+      body: ScrollNotificationObserver(
+        child: SelectionArea(
+          child: _viewMode == 'day' ? _buildDayView() : _buildCalendarView(),
+        ),
+      ),
     );
   }
 

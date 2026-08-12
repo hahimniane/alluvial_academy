@@ -72,11 +72,13 @@ class _ParentClassesScreenState extends State<ParentClassesScreen> {
           ),
         ],
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _children.isEmpty
-              ? _buildEmpty()
-              : RefreshIndicator(
+      body: ScrollNotificationObserver(
+        child: SelectionArea(
+          child: _loading
+              ? const Center(child: CircularProgressIndicator())
+              : _children.isEmpty
+                  ? _buildEmpty()
+                  : RefreshIndicator(
                   onRefresh: _loadChildren,
                   child: ListView(
                     padding: const EdgeInsets.all(16),
@@ -85,6 +87,8 @@ class _ParentClassesScreenState extends State<ParentClassesScreen> {
                     ],
                   ),
                 ),
+        ),
+      ),
     );
   }
 
@@ -530,9 +534,10 @@ class _ParentClassesListState extends State<_ParentClassesList> {
         borderRadius: BorderRadius.circular(16),
         onTap: canJoin ? () => _joinClass(shift) : null,
         onLongPress: () => _showClassDetails(shift),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
+        child: SelectionArea(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // ── Status + participant count + time ───────────────────────
@@ -850,6 +855,7 @@ class _ParentClassesListState extends State<_ParentClassesList> {
                 ),
               ],
             ],
+            ),
           ),
         ),
       ),

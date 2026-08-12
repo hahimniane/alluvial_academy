@@ -51,6 +51,13 @@ class SidebarConfig {
             colorValue: 0xff10B981,
           ),
           const SidebarItem(
+            id: 'student_attendance',
+            label: 'Student Attendance',
+            icon: Icons.insights_rounded,
+            screenIndex: 34,
+            colorValue: 0xff2563EB,
+          ),
+          const SidebarItem(
             id: 'enrollment',
             label: 'Student Applicants',
             icon: Icons.school,
@@ -113,6 +120,13 @@ class SidebarConfig {
             colorValue: 0xffDC2626,
           ),
           const SidebarItem(
+            id: 'decision_history',
+            label: 'Decision History',
+            icon: Icons.fact_check_outlined,
+            screenIndex: 37,
+            colorValue: 0xff4F46E5,
+          ),
+          const SidebarItem(
             id: 'no_show_alerts',
             label: 'No-Show Alerts',
             icon: Icons.event_busy,
@@ -161,6 +175,13 @@ class SidebarConfig {
             colorValue: 0xff0F766E,
           ),
           const SidebarItem(
+            id: 'quiz_review',
+            label: 'Quiz Review',
+            icon: Icons.quiz_rounded,
+            screenIndex: 35,
+            colorValue: 0xff6366F1,
+          ),
+          const SidebarItem(
             id: 'notifications',
             label: 'Notifications',
             icon: Icons.notifications,
@@ -179,6 +200,13 @@ class SidebarConfig {
             icon: Icons.build,
             screenIndex: 10,
             colorValue: 0xffF97316,
+          ),
+          const SidebarItem(
+            id: 'form_responses',
+            label: 'Form Responses',
+            icon: Icons.fact_check_outlined,
+            screenIndex: 9,
+            colorValue: 0xff8B5CF6,
           ),
           const SidebarItem(
             id: 'all_submissions',
@@ -362,6 +390,13 @@ class SidebarConfig {
             screenIndex: 30,
             colorValue: 0xff0F766E,
           ),
+          const SidebarItem(
+            id: 'quiz_review',
+            label: 'Quiz Review',
+            icon: Icons.quiz_rounded,
+            screenIndex: 35,
+            colorValue: 0xff6366F1,
+          ),
         ],
       ),
       SidebarSection(
@@ -420,6 +455,19 @@ class SidebarConfig {
             icon: Icons.dashboard,
             screenIndex: 0,
             colorValue: 0xff0386FF,
+          ),
+        ],
+      ),
+      SidebarSection(
+        id: 'communication',
+        title: 'Communication',
+        items: [
+          const SidebarItem(
+            id: 'chat',
+            label: 'Chat',
+            icon: Icons.chat,
+            screenIndex: 10,
+            colorValue: 0xffA646F2,
           ),
         ],
       ),
@@ -578,6 +626,13 @@ class SidebarConfig {
             icon: Icons.task_alt,
             screenIndex: 11,
             colorValue: 0xff14B8A6,
+          ),
+          const SidebarItem(
+            id: 'quiz',
+            label: 'Quiz',
+            icon: Icons.quiz_rounded,
+            screenIndex: 36,
+            colorValue: 0xff8B5CF6,
           ),
           const SidebarItem(
             id: 'progress',

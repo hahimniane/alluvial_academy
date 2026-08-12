@@ -58,8 +58,8 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
       final availableRoles = await UserRoleService.getAvailableRoles();
       final lower = role?.toLowerCase();
       final isAdminByRole = lower == 'admin' || lower == 'super_admin';
-      final hasAdminAvailable = availableRoles
-          .any((r) => r.toLowerCase() == 'admin' || r.toLowerCase() == 'super_admin');
+      final hasAdminAvailable = availableRoles.any((r) =>
+          r.toLowerCase() == 'admin' || r.toLowerCase() == 'super_admin');
       final isAdmin = isAdminByRole || hasAdminAvailable;
 
       if (!mounted) return;
@@ -81,7 +81,8 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
         final freshRoles = await UserRoleService.getAvailableRoles();
         final freshAdmin = freshRole?.toLowerCase() == 'admin' ||
             freshRole?.toLowerCase() == 'super_admin' ||
-            freshRoles.any((r) => r.toLowerCase() == 'admin' || r.toLowerCase() == 'super_admin');
+            freshRoles.any((r) =>
+                r.toLowerCase() == 'admin' || r.toLowerCase() == 'super_admin');
         if (freshAdmin && mounted) {
           setState(() => _hasAccess = true);
           await _loadSettings();
@@ -129,7 +130,9 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppLocalizations.of(context)!.errorLoadingSettingsE)),
+          SnackBar(
+              content:
+                  Text(AppLocalizations.of(context)!.errorLoadingSettingsE)),
         );
       }
     } finally {
@@ -145,10 +148,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
 
     setState(() => _isSaving = true);
     try {
-      await FirebaseFirestore.instance
-          .collection('settings')
-          .doc('admin')
-          .set({
+      await FirebaseFirestore.instance.collection('settings').doc('admin').set({
         'notification_email': _notificationEmailController.text.trim(),
         'updated_at': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
@@ -156,7 +156,8 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(AppLocalizations.of(context)!.settingsSavedSuccessfully),
+            content:
+                Text(AppLocalizations.of(context)!.settingsSavedSuccessfully),
             backgroundColor: Colors.green,
           ),
         );
@@ -295,85 +296,97 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
 
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildHeader(),
-          Expanded(
-            child: _isLoading
-                ? Center(child: CircularProgressIndicator())
-                : SingleChildScrollView(
-                    padding: const EdgeInsets.all(24),
-                    child: Form(
-                      key: _formKey,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildSectionTitle('Notification Settings'),
-                          const SizedBox(height: 16),
-                          _buildTextField(
-                            label: AppLocalizations.of(context)!.adminSettingsNotificationemail,
-                            hint: 'email@example.com',
-                            controller: _notificationEmailController,
-                            helperText: AppLocalizations.of(context)!.thisEmailWillReceiveNotificationsFor,
-                            validator: (value) {
-                              if (value != null && value.isNotEmpty) {
-                                final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
-                                if (!emailRegex.hasMatch(value)) {
-                                  return 'Please enter a valid email address';
-                                }
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 32),
-                          SizedBox(
-                            width: 200,
-                            child: ElevatedButton(
-                              onPressed: _isSaving ? null : _saveSettings,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xff0386FF),
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 16),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
+      body: ScrollNotificationObserver(
+        child: SelectionArea(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildHeader(),
+              Expanded(
+                child: _isLoading
+                    ? Center(child: CircularProgressIndicator())
+                    : SingleChildScrollView(
+                        padding: const EdgeInsets.all(24),
+                        child: Form(
+                          key: _formKey,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildSectionTitle('Notification Settings'),
+                              const SizedBox(height: 16),
+                              _buildTextField(
+                                label: AppLocalizations.of(context)!
+                                    .adminSettingsNotificationemail,
+                                hint: 'email@example.com',
+                                controller: _notificationEmailController,
+                                helperText: AppLocalizations.of(context)!
+                                    .thisEmailWillReceiveNotificationsFor,
+                                validator: (value) {
+                                  if (value != null && value.isNotEmpty) {
+                                    final emailRegex = RegExp(
+                                        r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+                                    if (!emailRegex.hasMatch(value)) {
+                                      return 'Please enter a valid email address';
+                                    }
+                                  }
+                                  return null;
+                                },
+                              ),
+                              const SizedBox(height: 32),
+                              SizedBox(
+                                width: 200,
+                                child: ElevatedButton(
+                                  onPressed: _isSaving ? null : _saveSettings,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xff0386FF),
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 16),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                  ),
+                                  child: _isSaving
+                                      ? const SizedBox(
+                                          width: 20,
+                                          height: 20,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            valueColor:
+                                                AlwaysStoppedAnimation<Color>(
+                                                    Colors.white),
+                                          ),
+                                        )
+                                      : Text(
+                                          AppLocalizations.of(context)!
+                                              .timesheetSaveChanges,
+                                          style: GoogleFonts.inter(
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
                                 ),
                               ),
-                              child: _isSaving
-                                  ? const SizedBox(
-                                      width: 20,
-                                      height: 20,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                      ),
-                                    )
-                                  : Text(
-                                      AppLocalizations.of(context)!.timesheetSaveChanges,
-                                      style: GoogleFonts.inter(
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                            ),
+                              const SizedBox(height: 48),
+                              _buildSectionTitle(AppLocalizations.of(context)!
+                                  .noShowSettingsTitle),
+                              const SizedBox(height: 16),
+                              _buildNoShowRecipientsCard(),
+                              const SizedBox(height: 48),
+                              _buildSectionTitle('Mobile Classes'),
+                              const SizedBox(height: 16),
+                              _buildMobileClassesCard(),
+                              const SizedBox(height: 48),
+                              _buildSectionTitle('About'),
+                              const SizedBox(height: 16),
+                              _buildVersionCard(),
+                            ],
                           ),
-                          const SizedBox(height: 48),
-                          _buildSectionTitle(AppLocalizations.of(context)!.noShowSettingsTitle),
-                          const SizedBox(height: 16),
-                          _buildNoShowRecipientsCard(),
-                          const SizedBox(height: 48),
-                          _buildSectionTitle('Mobile Classes'),
-                          const SizedBox(height: 16),
-                          _buildMobileClassesCard(),
-                          const SizedBox(height: 48),
-                          _buildSectionTitle('About'),
-                          const SizedBox(height: 16),
-                          _buildVersionCard(),
-                        ],
+                        ),
                       ),
-                    ),
-                  ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

@@ -41,6 +41,7 @@ import {
   type EnrollmentDraftPayload,
 } from "@/lib/enrollmentDrafts";
 import { checkParentIdentity, submitEnrollment } from "@/lib/forms";
+import { MAX_HOURS_PER_WEEK, MIN_HOURS_PER_WEEK, clampHoursPerWeek } from "@/lib/enrollmentHours";
 import {
   fallbackPricing,
   loadPublicMarketingBundle,
@@ -77,9 +78,9 @@ type PricingPlans = Record<string, PublicSitePlanPricing>;
 const subjectOptions = [
   {
     id: "islamic",
-    subject: "Islamic Program (Arabic, Quran, etc...)",
-    label: "Islamic Program",
-    shortLabel: "Islamic Studies",
+    subject: "Religious Studies (Quran, Arabic, etc...)",
+    label: "Religious Studies",
+    shortLabel: "Religious Studies",
     body: "Arabic, Quran, Tawhid, Hadith, Tafsir",
     icon: MoonStar,
     trackId: "islamic",
@@ -191,7 +192,7 @@ const roles = [
   { value: "Guardian", title: "Guardian", subtitle: "I'm responsible for a learner's enrollment.", icon: UserRound },
 ] as const;
 const trackOptions = [
-  { id: "islamic", title: "Islamic & AdLam", icon: MoonStar },
+  { id: "islamic", title: "Religious Studies & AdLam", icon: MoonStar },
   { id: "tutoring", title: "Tutoring & Literacy", icon: School },
   { id: "group", title: "Group Classes", icon: UsersRound },
 ] as const;
@@ -224,7 +225,7 @@ export function ProgramsOverview() {
   const initialSubjectName = searchParams.get("subject") ?? "";
   const requestedHours = Number(searchParams.get("hours") ?? 1);
   const initialSubject = resolveInitialSubject(initialCategory, initialSubjectName, initialTrack);
-  const initialHours = Number.isFinite(requestedHours) ? Math.min(Math.max(requestedHours, 1), 8) : 1;
+  const initialHours = Number.isFinite(requestedHours) ? clampHoursPerWeek(requestedHours) : MIN_HOURS_PER_WEEK;
   const initialStudentCount = searchParams.get("students") === "multiple" ? 2 : 1;
 
   const [step, setStep] = useState(0);
@@ -321,9 +322,10 @@ export function ProgramsOverview() {
     const subject = subjectFor(student.subjectId);
     return {
       title: student.name.trim() || `Student ${index + 1}`,
+      // Program and hours only — the monthly figure is settled with the family.
       detail: subject
-        ? `${subject.shortLabel} · ${student.hoursPerWeek} hrs/wk · ${monthlyEstimate(subject.trackId, student.hoursPerWeek, pricing.plans)}`
-        : `— · ${student.hoursPerWeek} hrs/wk · —`,
+        ? `${subject.shortLabel} · ${student.hoursPerWeek} hrs/wk`
+        : `— · ${student.hoursPerWeek} hrs/wk`,
     };
   });
   const totalHours = students.reduce((sum, student) => sum + student.hoursPerWeek, 0);
@@ -438,7 +440,7 @@ export function ProgramsOverview() {
   };
 
   const updateHours = (studentIndex: number, hours: number) => {
-    const bounded = Math.min(Math.max(hours, 1), 8);
+    const bounded = clampHoursPerWeek(hours);
     const patch = { hoursPerWeek: bounded, sessionDuration: durationFromHours(bounded), preferredTimeSlots: [] };
     if (studentIndex === 0 && applyProgramToAll) {
       updatePrimaryProgram(patch);
@@ -1292,18 +1294,21 @@ function HoursStepper({
       <div className="flex items-center justify-between gap-3">
         <span className="text-[11px] font-bold text-slate-700">Select hours per week</span>
         <span className="inline-flex items-center rounded-lg border border-slate-200 bg-white">
-          <button type="button" aria-label="Decrease hours" className="inline-flex h-8 w-8 items-center justify-center text-[#3B82F6] disabled:text-slate-300" disabled={hours <= 1} onClick={() => onHoursChange(hours - 1)}>
+          <button type="button" aria-label="Decrease hours" className="inline-flex h-8 w-8 items-center justify-center text-[#3B82F6] disabled:text-slate-300" disabled={hours <= MIN_HOURS_PER_WEEK} onClick={() => onHoursChange(hours - 1)}>
             <MinusCircle size={18} />
           </button>
           <span className="w-8 text-center text-sm font-black text-slate-900">{hours}</span>
-          <button type="button" aria-label="Increase hours" className="inline-flex h-8 w-8 items-center justify-center text-[#3B82F6] disabled:text-slate-300" disabled={hours >= 8} onClick={() => onHoursChange(hours + 1)}>
+          <button type="button" aria-label="Increase hours" className="inline-flex h-8 w-8 items-center justify-center text-[#3B82F6] disabled:text-slate-300" disabled={hours >= MAX_HOURS_PER_WEEK} onClick={() => onHoursChange(hours + 1)}>
             <PlusCircle size={18} />
           </button>
         </span>
       </div>
       {trackId ? (
-        <p className="mt-2 rounded-md border border-emerald-100 bg-emerald-50 px-2 py-1.5 text-[10px] font-semibold text-emerald-700">
-          {hours} hrs/wk x ${hourlyRate(trackId, hours, pricingPlans).toFixed(2)}/hr x {trackId === "group" ? "4.33" : "4"} weeks = ${monthlyEstimateRaw(trackId, hours, pricingPlans).toFixed(2)}/mo
+        // No monthly total here. Rates are negotiated with the family, and a
+        // hard number at this step reads as a bill and puts people off before
+        // anyone has spoken to them.
+        <p className="mt-2 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-[10px] font-semibold text-slate-600">
+          We&rsquo;ll confirm pricing with you after this — schedules and rates are flexible.
         </p>
       ) : null}
     </div>
@@ -1332,7 +1337,7 @@ function TrackSelector({
     <div className="flex flex-wrap gap-1.5">
       {trackOptions.map(({ id, title, icon: Icon }) => {
         const selected = selectedTrackId === id;
-        const accessibleLabel = id === "islamic" ? "Islamic Program Islamic & AdLam" : title;
+        const accessibleLabel = id === "islamic" ? "Religious Studies" : title;
         return (
           <button
             key={id}

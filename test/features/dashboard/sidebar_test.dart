@@ -9,6 +9,25 @@ void main() {
       final sections = SidebarConfig.getStructureForRole('admin');
       expect(sections.any((s) => s.id == 'people'), isTrue);
       expect(sections.any((s) => s.id == 'system'), isTrue);
+      expect(
+        sections.expand((section) => section.items).any(
+              (item) => item.id == 'form_responses' && item.screenIndex == 9,
+            ),
+        isTrue,
+      );
+      expect(
+        sections.expand((section) => section.items).any(
+              (item) =>
+                  item.id == 'student_attendance' && item.screenIndex == 34,
+            ),
+        isTrue,
+      );
+      expect(
+        sections.expand((section) => section.items).any(
+              (item) => item.id == 'decision_history' && item.screenIndex == 37,
+            ),
+        isTrue,
+      );
     });
 
     test('getStructureForRole returns teacher structure for teacher role', () {
@@ -22,6 +41,25 @@ void main() {
       final sections = SidebarConfig.getStructureForRole('student');
       expect(sections.any((s) => s.id == 'learning'), isTrue);
       expect(sections.any((s) => s.id == 'operations'), isFalse);
+      expect(
+        sections.expand((section) => section.items).map((item) => item.id),
+        contains('quiz'),
+      );
+    });
+
+    test('parent structure exposes chat and forms', () {
+      final items = SidebarConfig.getStructureForRole('parent')
+          .expand((section) => section.items)
+          .toList();
+
+      expect(
+        items.any((item) => item.id == 'chat' && item.screenIndex == 10),
+        isTrue,
+      );
+      expect(
+        items.any((item) => item.id == 'forms' && item.screenIndex == 3),
+        isTrue,
+      );
     });
 
     test('getStructureForRole defaults to student structure for null role', () {

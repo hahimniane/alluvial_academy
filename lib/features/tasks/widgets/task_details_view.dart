@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:alluwalacademyadmin/features/tasks/enums/task_enums.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
@@ -18,6 +19,8 @@ import 'package:alluwalacademyadmin/features/shift_management/models/enhanced_re
 import 'package:alluwalacademyadmin/features/shift_management/enums/shift_enums.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+import 'package:alluwalacademyadmin/core/models/decision_audit_event.dart';
+import 'package:alluwalacademyadmin/core/widgets/decision_history_card.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class TaskDetailsView extends StatefulWidget {
@@ -260,12 +263,10 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
       _assignedToNames = [];
       return;
     }
-    _assignedToNames = ids
-        .map((id) {
-          final v = _lookupCachedName(id);
-          return v ?? '';
-        })
-        .toList();
+    _assignedToNames = ids.map((id) {
+      final v = _lookupCachedName(id);
+      return v ?? '';
+    }).toList();
   }
 
   /// Resolves a user reference (UID, email, or legacy doc id) to a display string.
@@ -279,8 +280,10 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
     try {
       DocumentSnapshot<Map<String, dynamic>>? doc;
 
-      final direct =
-          await FirebaseFirestore.instance.collection('users').doc(userRef).get();
+      final direct = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userRef)
+          .get();
       if (direct.exists) {
         doc = direct;
       } else {
@@ -296,8 +299,10 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
 
       final emailLower = userRef.trim().toLowerCase();
       if (doc == null && userRef.contains('@')) {
-        final byEmailId =
-            await FirebaseFirestore.instance.collection('users').doc(emailLower).get();
+        final byEmailId = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(emailLower)
+            .get();
         if (byEmailId.exists) {
           doc = byEmailId;
         }
@@ -328,7 +333,8 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
         if (email.contains('@')) {
           final emailParts = email.split('@')[0].split('.');
           return emailParts
-              .map((s) => s.isEmpty ? '' : '${s[0].toUpperCase()}${s.substring(1)}')
+              .map((s) =>
+                  s.isEmpty ? '' : '${s[0].toUpperCase()}${s.substring(1)}')
               .join(' ');
         }
         return email;
@@ -621,7 +627,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: Text(
+                child: SelectableText(
                   widget.task.title,
                   style: GoogleFonts.inter(
                     fontSize: 15,
@@ -630,7 +636,6 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
                     color: Colors.white,
                   ),
                   maxLines: 4,
-                  overflow: TextOverflow.ellipsis,
                 ),
               ),
               IconButton(
@@ -648,8 +653,10 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
                     widget.onTaskUpdated();
                   });
                 },
-                icon: const Icon(Icons.edit_outlined, color: Colors.white, size: 20),
-                tooltip: widget.task.isDraft ? 'Edit & Publish Draft' : 'Edit Task',
+                icon: const Icon(Icons.edit_outlined,
+                    color: Colors.white, size: 20),
+                tooltip:
+                    widget.task.isDraft ? 'Edit & Publish Draft' : 'Edit Task',
               ),
               IconButton(
                 visualDensity: VisualDensity.compact,
@@ -669,7 +676,8 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
               _buildStatusChip(_currentStatus),
               _buildPriorityChip(widget.task.priority),
               if (widget.task.isRecurring &&
-                  widget.task.enhancedRecurrence.type != EnhancedRecurrenceType.none)
+                  widget.task.enhancedRecurrence.type !=
+                      EnhancedRecurrenceType.none)
                 Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -725,6 +733,19 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
             ],
             const SizedBox(height: 20),
             TaskCommentsSection(task: _currentTask),
+            const SizedBox(height: 14),
+            DecisionHistoryCard(
+              entityType: 'task',
+              entityId: _currentTask.id,
+              entityLabel: _currentTask.title,
+              fallbackEvents: [
+                DecisionAuditFallback(
+                  action: 'task.created',
+                  actorUid: _currentTask.createdBy,
+                  occurredAt: _currentTask.createdAt.toDate(),
+                ),
+              ],
+            ),
           ],
         ),
       ),
@@ -765,7 +786,8 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
             DateFormat('MMM dd, yyyy').format(widget.task.createdAt.toDate()),
           ),
           if (widget.task.isRecurring &&
-              widget.task.enhancedRecurrence.type != EnhancedRecurrenceType.none) ...[
+              widget.task.enhancedRecurrence.type !=
+                  EnhancedRecurrenceType.none) ...[
             const SizedBox(height: 10),
             const Divider(height: 1, color: Color(0xffE2E8F0)),
             const SizedBox(height: 10),
@@ -778,8 +800,9 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
 
   Widget _buildRecurrenceSection() {
     final recurrence = widget.task.enhancedRecurrence;
-    final nextOccurrences = _getNextOccurrences(recurrence, widget.task.dueDate);
-    
+    final nextOccurrences =
+        _getNextOccurrences(recurrence, widget.task.dueDate);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -869,7 +892,8 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
     );
   }
 
-  List<DateTime> _getNextOccurrences(EnhancedRecurrence recurrence, DateTime startDate) {
+  List<DateTime> _getNextOccurrences(
+      EnhancedRecurrence recurrence, DateTime startDate) {
     if (recurrence.type == EnhancedRecurrenceType.none) {
       return [];
     }
@@ -877,7 +901,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
     // Get next 5 occurrences starting from today
     final now = DateTime.now();
     final startFrom = now.isAfter(startDate) ? now : startDate;
-    
+
     // Generate occurrences (up to 5)
     final occurrences = recurrence.generateOccurrences(
       startFrom,
@@ -888,7 +912,8 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
     // Filter out past dates and respect end date
     final validOccurrences = occurrences.where((date) {
       if (date.isBefore(now)) return false;
-      if (recurrence.endDate != null && date.isAfter(recurrence.endDate!)) return false;
+      if (recurrence.endDate != null && date.isAfter(recurrence.endDate!))
+        return false;
       return true;
     }).toList();
 
@@ -916,14 +941,15 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
     return _buildAttributeRow(
       icon: icon,
       label: label,
-      child: Text(
+      child: SelectableText(
         value,
         style: ConnecteamStyle.cellText.copyWith(fontSize: 13, height: 1.35),
       ),
     );
   }
 
-  Widget _buildAttributeRow({required IconData icon, required String label, required Widget child}) {
+  Widget _buildAttributeRow(
+      {required IconData icon, required String label, required Widget child}) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -946,16 +972,30 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
   }
 
   Widget _buildDescriptionSection() {
+    final l10n = AppLocalizations.of(context)!;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          AppLocalizations.of(context)!.description,
-          style: GoogleFonts.inter(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: const Color(0xff1E293B),
-          ),
+        Row(
+          children: [
+            Text(
+              l10n.description,
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xff1E293B),
+              ),
+            ),
+            const Spacer(),
+            IconButton(
+              tooltip: l10n.commonCopy,
+              visualDensity: VisualDensity.compact,
+              onPressed: widget.task.description.isEmpty
+                  ? null
+                  : () => _copyTaskText(widget.task.description),
+              icon: const Icon(Icons.copy_outlined, size: 18),
+            ),
+          ],
         ),
         const SizedBox(height: 8),
         Container(
@@ -966,7 +1006,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: const Color(0xffE2E8F0)),
           ),
-          child: Text(
+          child: SelectableText(
             widget.task.description.isNotEmpty
                 ? widget.task.description
                 : 'No description provided',
@@ -980,6 +1020,14 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
           ),
         ),
       ],
+    );
+  }
+
+  Future<void> _copyTaskText(String text) async {
+    await Clipboard.setData(ClipboardData(text: text));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(AppLocalizations.of(context)!.commonCopied)),
     );
   }
 
@@ -1308,9 +1356,8 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
 
   Widget _buildActions() {
     final hasChanges = _currentStatus != widget.task.status;
-    final allowUpdate = hasChanges &&
-        !_isUpdating &&
-        !_isNoMatchApplicationTask;
+    final allowUpdate =
+        hasChanges && !_isUpdating && !_isNoMatchApplicationTask;
 
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
@@ -1352,47 +1399,48 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
                   : '',
               child: ElevatedButton(
                 onPressed: allowUpdate ? _updateTask : null,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: allowUpdate
-                    ? _getStatusColor(_currentStatus)
-                    : const Color(0xffE2E8F0),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: allowUpdate
+                      ? _getStatusColor(_currentStatus)
+                      : const Color(0xffE2E8F0),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  elevation: allowUpdate ? 4 : 0,
                 ),
-                elevation: allowUpdate ? 4 : 0,
-              ),
-              child: _isUpdating
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                      ),
-                    )
-                  : Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          _currentStatus == TaskStatus.done
-                              ? Icons.check_circle
-                              : Icons.update,
-                          size: 20,
+                child: _isUpdating
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(Colors.white),
                         ),
-                        const SizedBox(width: 8),
-                        Text(
-                          _currentStatus == TaskStatus.done
-                              ? 'Submit Task'
-                              : 'Update Status',
-                          style: GoogleFonts.inter(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
+                      )
+                    : Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            _currentStatus == TaskStatus.done
+                                ? Icons.check_circle
+                                : Icons.update,
+                            size: 20,
                           ),
-                        ),
-                      ],
-                    ),
+                          const SizedBox(width: 8),
+                          Text(
+                            _currentStatus == TaskStatus.done
+                                ? 'Submit Task'
+                                : 'Update Status',
+                            style: GoogleFonts.inter(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
               ),
             ),
           ),
@@ -1648,7 +1696,8 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
                 const Icon(Icons.check_circle, color: Colors.white),
                 const SizedBox(width: 8),
                 Text(
-                  AppLocalizations.of(context)!.successfuluploadsFileSUploadedSuccessfully,
+                  AppLocalizations.of(context)!
+                      .successfuluploadsFileSUploadedSuccessfully,
                   style: GoogleFonts.inter(
                     fontWeight: FontWeight.w600,
                     color: Colors.white,
@@ -1695,8 +1744,8 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(AppLocalizations.of(context)!
-                .taskDownloadFailed(e.toString())),
+            content: Text(
+                AppLocalizations.of(context)!.taskDownloadFailed(e.toString())),
             backgroundColor: Colors.red,
           ),
         );

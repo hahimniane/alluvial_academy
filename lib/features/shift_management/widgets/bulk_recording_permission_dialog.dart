@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
 import 'package:alluwalacademyadmin/core/models/employee_model.dart';
+import 'package:alluwalacademyadmin/core/utils/app_search.dart';
 import 'package:alluwalacademyadmin/features/shift_management/models/teaching_shift.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
@@ -661,15 +662,24 @@ class _BulkRecordingPermissionDialogState
     required ValueChanged<String> onSearchChanged,
     required ValueChanged<Employee> onSelected,
   }) {
-    final normalized = search.trim().toLowerCase();
     final filtered = people
-        .where((person) {
-          final name = '${person.firstName} ${person.lastName}'.toLowerCase();
-          final email = person.email.toLowerCase();
-          return normalized.isEmpty ||
-              name.contains(normalized) ||
-              email.contains(normalized);
-        })
+        .where((person) => AppSearch.matches(
+              query: search,
+              names: [
+                '${person.firstName} ${person.lastName}',
+                '${person.lastName} ${person.firstName}',
+              ],
+              emails: [person.email],
+              phones: [
+                person.mobilePhone,
+                '${person.countryCode}${person.mobilePhone}',
+              ],
+              ids: [
+                person.documentId,
+                person.studentCode,
+                person.kioskCode,
+              ],
+            ))
         .take(8)
         .toList();
 

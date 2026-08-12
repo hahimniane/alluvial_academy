@@ -11,13 +11,15 @@ class LeadershipApplicationScreen extends StatefulWidget {
   const LeadershipApplicationScreen({super.key});
 
   @override
-  State<LeadershipApplicationScreen> createState() => _LeadershipApplicationScreenState();
+  State<LeadershipApplicationScreen> createState() =>
+      _LeadershipApplicationScreenState();
 }
 
-class _LeadershipApplicationScreenState extends State<LeadershipApplicationScreen> {
+class _LeadershipApplicationScreenState
+    extends State<LeadershipApplicationScreen> {
   final _formKey = GlobalKey<FormState>();
   bool _isSubmitting = false;
-  
+
   // Controllers
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();
@@ -29,7 +31,7 @@ class _LeadershipApplicationScreenState extends State<LeadershipApplicationScree
   final _experienceController = TextEditingController();
   final _currentStatusOtherController = TextEditingController();
   final _availabilityOtherController = TextEditingController();
-  
+
   // State variables
   String _phoneNumber = '';
   String _countryCode = 'US';
@@ -150,6 +152,7 @@ class _LeadershipApplicationScreenState extends State<LeadershipApplicationScree
   }
 
   Widget _buildPersonalInfoSection() {
+    final l = AppLocalizations.of(context)!;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -165,28 +168,32 @@ class _LeadershipApplicationScreenState extends State<LeadershipApplicationScree
         Row(
           children: [
             Expanded(
-              child: _buildTextField('First Name', _firstNameController, required: true),
+              child: _buildTextField(l.firstName, _firstNameController,
+                  required: true),
             ),
             const SizedBox(width: 16),
             Expanded(
-              child: _buildTextField('Last Name', _lastNameController, required: true),
+              child: _buildTextField(l.lastName, _lastNameController,
+                  required: true),
             ),
           ],
         ),
         const SizedBox(height: 16),
-        _buildTextField('Email', _emailController, required: true, keyboardType: TextInputType.emailAddress),
+        _buildTextField(l.loginEmail, _emailController,
+            required: true, keyboardType: TextInputType.emailAddress),
         const SizedBox(height: 16),
-        _buildTextField('Current Location (Country and City)', _locationController, required: true),
+        _buildTextField(l.publicCurrentLocation, _locationController,
+            required: true),
         const SizedBox(height: 16),
         Row(
           children: [
             Expanded(
               flex: 2,
               child: _buildDropdownField(
-                'Gender *',
+                '${l.publicGender} *',
                 _gender,
                 ['male', 'female'],
-                ['Male', 'Female'],
+                [l.publicMale, l.publicFemale],
                 (v) => setState(() => _gender = v),
               ),
             ),
@@ -209,7 +216,8 @@ class _LeadershipApplicationScreenState extends State<LeadershipApplicationScree
                     controller: _phoneController,
                     decoration: InputDecoration(
                       hintText: AppLocalizations.of(context)!.userPhone,
-                      hintStyle: GoogleFonts.inter(color: const Color(0xff9CA3AF)),
+                      hintStyle:
+                          GoogleFonts.inter(color: const Color(0xff9CA3AF)),
                       filled: true,
                       fillColor: const Color(0xffFAFAFA),
                       border: OutlineInputBorder(
@@ -222,9 +230,11 @@ class _LeadershipApplicationScreenState extends State<LeadershipApplicationScree
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16),
-                        borderSide: const BorderSide(color: Color(0xff10B981), width: 2),
+                        borderSide: const BorderSide(
+                            color: Color(0xff10B981), width: 2),
                       ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 16),
                     ),
                     initialCountryCode: _countryCode,
                     disableLengthCheck: true,
@@ -249,24 +259,37 @@ class _LeadershipApplicationScreenState extends State<LeadershipApplicationScree
           ],
         ),
         const SizedBox(height: 16),
-        _buildTextField('Nationality', _nationalityController, required: true),
+        _buildTextField(l.publicNationality, _nationalityController,
+            required: true),
         const SizedBox(height: 16),
         _buildDropdownField(
-          'I am currently a... *',
+          '${l.publicCurrentStatus} *',
           _currentStatus,
-          ['university_student', 'university_graduate', 'professional', 'other'],
-          ['University Student', 'University Graduate', 'Professional', 'Other'],
+          [
+            'university_student',
+            'university_graduate',
+            'professional',
+            'other'
+          ],
+          [
+            l.universityStudent,
+            l.universityGraduate,
+            l.publicProfessional,
+            l.other
+          ],
           (v) => setState(() => _currentStatus = v),
         ),
         if (_currentStatus == 'other') ...[
           const SizedBox(height: 16),
-          _buildTextField('Please specify', _currentStatusOtherController, required: true),
+          _buildTextField(l.publicPleaseSpecify, _currentStatusOtherController,
+              required: true),
         ],
       ],
     );
   }
 
   Widget _buildLeadershipSection() {
+    final l = AppLocalizations.of(context)!;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -280,34 +303,43 @@ class _LeadershipApplicationScreenState extends State<LeadershipApplicationScree
         ),
         const SizedBox(height: 24),
         _buildTextField(
-          'Why are you interested in a leadership role? *',
+          '${l.publicLeadershipInterestPrompt} *',
           _interestReasonController,
           required: true,
           maxLines: 4,
         ),
         const SizedBox(height: 16),
         _buildTextField(
-          'Relevant Leadership/Management Experience (Optional)',
+          l.publicLeadershipExperiencePrompt,
           _experienceController,
           maxLines: 4,
         ),
         const SizedBox(height: 16),
         _buildDropdownField(
-          'How soon are you available to start? *',
+          '${l.publicAvailabilityPrompt} *',
           _availabilityStart,
           ['one_week', 'two_weeks', 'three_weeks', 'one_month', 'other'],
-          ['In One Week', 'In Two Weeks', 'In Three Weeks', 'In a Month', 'Other'],
+          [
+            l.publicAvailabilityOneWeek,
+            l.publicAvailabilityTwoWeeks,
+            l.publicAvailabilityThreeWeeks,
+            l.publicAvailabilityOneMonth,
+            l.other,
+          ],
           (v) => setState(() => _availabilityStart = v),
         ),
         if (_availabilityStart == 'other') ...[
           const SizedBox(height: 16),
-          _buildTextField('Please specify availability', _availabilityOtherController, required: true),
+          _buildTextField(
+              l.publicSpecifyAvailability, _availabilityOtherController,
+              required: true),
         ],
       ],
     );
   }
 
-  Widget _buildTextField(String label, TextEditingController controller, {bool required = false, TextInputType? keyboardType, int maxLines = 1}) {
+  Widget _buildTextField(String label, TextEditingController controller,
+      {bool required = false, TextInputType? keyboardType, int maxLines = 1}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -324,7 +356,8 @@ class _LeadershipApplicationScreenState extends State<LeadershipApplicationScree
               ),
             ),
             if (required)
-              Text(AppLocalizations.of(context)!.commonRequired, style: TextStyle(color: Colors.red, fontSize: 15)),
+              Text(AppLocalizations.of(context)!.commonRequired,
+                  style: TextStyle(color: Colors.red, fontSize: 15)),
           ],
         ),
         const SizedBox(height: 12),
@@ -349,10 +382,13 @@ class _LeadershipApplicationScreenState extends State<LeadershipApplicationScree
               borderRadius: BorderRadius.circular(16),
               borderSide: const BorderSide(color: Color(0xff10B981), width: 2),
             ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           ),
           validator: required
-              ? (value) => value == null || value.trim().isEmpty ? 'This field is required' : null
+              ? (value) => value == null || value.trim().isEmpty
+                  ? AppLocalizations.of(context)!.publicRequiredField
+                  : null
               : null,
         ),
       ],
@@ -398,7 +434,8 @@ class _LeadershipApplicationScreenState extends State<LeadershipApplicationScree
               borderRadius: BorderRadius.circular(16),
               borderSide: const BorderSide(color: Color(0xff10B981), width: 2),
             ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           ),
           items: List.generate(values.length, (index) {
             return DropdownMenuItem(
@@ -407,7 +444,9 @@ class _LeadershipApplicationScreenState extends State<LeadershipApplicationScree
             );
           }),
           onChanged: onChanged,
-          validator: (value) => value == null ? 'Please select an option' : null,
+          validator: (value) => value == null
+              ? AppLocalizations.of(context)!.publicSelectOption
+              : null,
         ),
       ],
     );
@@ -426,11 +465,13 @@ class _LeadershipApplicationScreenState extends State<LeadershipApplicationScree
           ? const SizedBox(
               width: 20,
               height: 20,
-              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+              child: CircularProgressIndicator(
+                  strokeWidth: 2, color: Colors.white),
             )
           : Text(
               AppLocalizations.of(context)!.submitApplication,
-              style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 16),
+              style:
+                  GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 16),
             ),
     );
   }
@@ -453,11 +494,17 @@ class _LeadershipApplicationScreenState extends State<LeadershipApplicationScree
         countryCode: _countryCode,
         nationality: _nationalityController.text.trim(),
         currentStatus: _currentStatus!,
-        currentStatusOther: _currentStatus == 'other' ? _currentStatusOtherController.text.trim() : null,
+        currentStatusOther: _currentStatus == 'other'
+            ? _currentStatusOtherController.text.trim()
+            : null,
         interestReason: _interestReasonController.text.trim(),
-        relevantExperience: _experienceController.text.trim().isNotEmpty ? _experienceController.text.trim() : null,
+        relevantExperience: _experienceController.text.trim().isNotEmpty
+            ? _experienceController.text.trim()
+            : null,
         availabilityStart: _availabilityStart!,
-        availabilityStartOther: _availabilityStart == 'other' ? _availabilityOtherController.text.trim() : null,
+        availabilityStartOther: _availabilityStart == 'other'
+            ? _availabilityOtherController.text.trim()
+            : null,
         submittedAt: DateTime.now(),
       );
 
@@ -472,7 +519,11 @@ class _LeadershipApplicationScreenState extends State<LeadershipApplicationScree
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to submit application: ${e.toString()}')),
+          SnackBar(
+            content: Text(
+              AppLocalizations.of(context)!.publicApplicationSubmitFailed,
+            ),
+          ),
         );
       }
     } finally {
@@ -507,7 +558,8 @@ class _LeadershipApplicationScreenState extends State<LeadershipApplicationScree
                 color: Color(0xff10B981),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.check_rounded, color: Colors.white, size: 32),
+              child: const Icon(Icons.check_rounded,
+                  color: Colors.white, size: 32),
             ),
             const SizedBox(height: 24),
             Text(
@@ -539,11 +591,13 @@ class _LeadershipApplicationScreenState extends State<LeadershipApplicationScree
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xff10B981),
                   padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
                 ),
                 child: Text(
                   AppLocalizations.of(context)!.returnHome,
-                  style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w600),
+                  style: GoogleFonts.inter(
+                      fontSize: 16, fontWeight: FontWeight.w600),
                 ),
               ),
             ),

@@ -68,6 +68,7 @@ import '../constants/dashboard_constants.dart';
 import '../../../core/services/notification_service.dart';
 import '../../audit/services/teacher_audit_service.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/core/utils/post_sign_out.dart';
 
 /// Main Dashboard widget that serves as the app's primary navigation interface
 class DashboardPage extends StatefulWidget {
@@ -538,6 +539,12 @@ class _DashboardPageState extends State<DashboardPage> {
       // Now sign out from Firebase Auth
       PublicSiteCmsService.invalidatePublicCmsFirestoreBroadcastCaches();
       await FirebaseAuth.instance.signOut();
+
+      // On web, leave the Flutter app entirely. Flutter is mounted under /app/
+      // and its landing page is a stale copy of the public Next site, so
+      // staying here looks like being dumped on the wrong website. No-op on
+      // mobile, where the in-app landing page is the real one.
+      await leaveToPublicSite();
 
       print('Sign out completed successfully');
     } catch (e) {

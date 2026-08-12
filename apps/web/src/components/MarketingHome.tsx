@@ -11,50 +11,47 @@ import {
   GraduationCap,
   Grid3X3,
   Eye,
-  Hand,
   Languages,
-  MessageSquare,
-  Mic,
-  MicOff,
   MoonStar,
   Rocket,
   Search,
+  Sparkles,
   School,
   Star,
   UsersRound,
-  Video,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent } from "react";
 import { Reveal } from "@/components/Reveal";
 import { fallbackPricing, loadPublicMarketingBundle, type PublicSiteMarketingBundle } from "@/lib/publicSiteCms";
+import { PRICING_HOUR_OPTIONS } from "@/lib/enrollmentHours";
 
 function enterDelay(ms: number) {
   return { "--enter-delay": `${ms}ms` } as CSSProperties;
 }
 
 const subjects = [
-  "Islamic Program (Arabic, Quran, etc...)",
-  "AfroLanguages (Pular, Mandingo, Swahili, Wolof, etc...)",
   "After School Tutoring (Math, Science, Physics, etc...)",
-  "Adult Literacy (Reading and Writing English & French, etc...)",
-  "Coding",
+  "African Languages (Pular, Mandingo, Swahili, Wolof, etc...)",
   "Entrepreneurship",
+  "Coding",
+  "Adult Literacy (Reading and Writing English & French, etc...)",
+  "Religious Studies (Quran, Arabic, etc...)",
 ];
 
 const courseColumns = [
   {
-    title: "Islamic & AfroLanguages",
+    title: "Languages & Religious Studies",
     color: "#2563EB",
     gradient: "linear-gradient(120deg, #1E3A8A 0%, #2563EB 100%)",
     items: [
       {
-        title: "Islamic Studies",
+        title: "Religious Studies",
         subtitle: "Quran, Arabic, Tawhid, Hadith, Tafsir",
         href: "/programs/?category=islamic",
         icon: MoonStar,
       },
       {
-        title: "AfroLanguages & AdLam",
+        title: "African Languages & AdLam",
         subtitle: "Pular, Mandingo, Swahili, Wolof, Yoruba",
         href: "/programs/?category=languages",
         icon: Languages,
@@ -97,7 +94,7 @@ const courseColumns = [
 const pricingTracks = [
   {
     id: "islamic",
-    title: "Islamic & AdLam",
+    title: "Religious Studies & AdLam",
     subtitle: "30 min and 1 hour sessions",
     accent: "#2563EB",
     icon: MoonStar,
@@ -152,7 +149,7 @@ const communityVoices = [
 const aboutCards = [
   {
     title: "Our Mission",
-    body: "To integrate Islamic, African, and Western education, offering a holistic curriculum that prepares students to navigate and succeed in a diverse world.",
+    body: "To bring together African, Western, and faith-based education in one holistic curriculum that prepares students to navigate and succeed in a diverse world.",
     color: "#3B82F6",
     icon: Rocket,
   },
@@ -253,7 +250,7 @@ export function MarketingHome() {
               className="hero-enter mt-5 max-w-2xl text-[16px] leading-[1.7] text-[#475569] md:text-[18px]"
               style={enterDelay(180)}
             >
-              Quran, languages, math, coding, and literacy support in one warm online learning space for families around the world.
+              Tutoring, languages, math, coding, enterprise, and faith studies in one warm online learning space for families around the world.
             </p>
 
             <div className="hero-enter mt-8 flex flex-col gap-3 sm:flex-row" style={enterDelay(280)}>
@@ -325,7 +322,7 @@ export function MarketingHome() {
             </Link>
 
             <div className="hero-enter mt-5 flex flex-wrap items-center gap-2 text-sm font-bold text-[#64748B]" style={enterDelay(540)}>
-              <span className="inline-flex items-center rounded-full bg-white/70 px-3 py-1.5 shadow-[0_10px_24px_rgba(15,23,42,0.06)]">Quran</span>
+              <span className="inline-flex items-center rounded-full bg-white/70 px-3 py-1.5 shadow-[0_10px_24px_rgba(15,23,42,0.06)]">Tutoring</span>
               <span className="inline-flex items-center rounded-full bg-white/70 px-3 py-1.5 shadow-[0_10px_24px_rgba(15,23,42,0.06)]">Math</span>
               <span className="inline-flex items-center rounded-full bg-white/70 px-3 py-1.5 shadow-[0_10px_24px_rgba(15,23,42,0.06)]">Languages</span>
               <span className="inline-flex items-center rounded-full bg-white/70 px-3 py-1.5 shadow-[0_10px_24px_rgba(15,23,42,0.06)]">Coding</span>
@@ -333,41 +330,32 @@ export function MarketingHome() {
           </div>
 
           <div
-            className="hero-enter relative mx-auto h-[420px] w-full max-w-[500px] lg:-top-2 lg:mx-0 lg:h-[460px] lg:max-w-none"
+            // Tall enough that the floating badges clear the schedule board
+            // instead of covering its last rows.
+            className="hero-enter relative mx-auto h-[470px] w-full max-w-[500px] lg:-top-2 lg:mx-0 lg:h-[524px] lg:max-w-none"
             style={enterDelay(320)}
           >
             <div className="hero-collage-float relative h-full w-full">
               <LearningPathMotion />
-              <LiveClassCard />
+              <LiveScheduleBoard />
               <div className="hero-badge-float absolute left-0 top-1 z-30 rounded-2xl border border-white bg-white/90 px-3.5 py-2.5 shadow-[0_20px_50px_rgba(15,23,42,0.14)] backdrop-blur lg:top-4">
                 <div className="flex items-center gap-2.5">
                   <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-[#DBEAFE] text-[#1D4ED8]">
-                    <MoonStar size={19} />
+                    <Sparkles size={19} />
                   </span>
                   <span>
-                    <span className="block text-[13px] font-black text-[#0B1B3A]">Quran + academics</span>
+                    <span className="block text-[13px] font-black text-[#0B1B3A]">Six subjects</span>
                     <span className="block text-[11px] font-semibold text-[#64748B]">One trusted place</span>
                   </span>
                 </div>
-              </div>
-              <div className="hero-badge-float absolute bottom-[74px] left-0 z-30 w-[196px] rounded-2xl border border-white bg-white/94 p-3.5 shadow-[0_22px_60px_rgba(15,23,42,0.16)] backdrop-blur lg:bottom-[96px] lg:w-[212px]">
-                <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-[0.08em] text-[#64748B]">
-                  Memorization
-                  <BookOpen size={14} className="text-[#1D4ED8]" />
-                </div>
-                <div className="mt-1.5 text-sm font-black text-[#0B1B3A]">Surah Al-Mulk</div>
-                <div className="mt-2 h-2 overflow-hidden rounded-full bg-[#E2E8F0]">
-                  <div className="hero-progress-fill h-full rounded-full bg-[linear-gradient(90deg,#1D4ED8,#F59E0B)]" />
-                </div>
-                <div className="mt-1.5 text-[11px] font-semibold text-[#64748B]">19 of 30 ayat mastered</div>
               </div>
               <div className="hero-badge-float absolute bottom-[8px] left-[26px] z-30 flex items-center gap-2.5 rounded-2xl border border-white bg-white/94 px-3.5 py-2.5 shadow-[0_22px_60px_rgba(15,23,42,0.16)] backdrop-blur lg:bottom-[18px] lg:left-[40px]">
                 <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#FEF3C7] text-[#B45309]">
                   <Star size={16} fill="currentColor" />
                 </span>
                 <span>
-                  <span className="block text-[13px] font-black text-[#0B1B3A]">“MashaAllah, perfect tajweed!”</span>
-                  <span className="block text-[11px] font-semibold text-[#64748B]">Ustadha Mariama · just now</span>
+                  <span className="block text-[13px] font-black text-[#0B1B3A]">“She nailed it today.”</span>
+                  <span className="block text-[11px] font-semibold text-[#64748B]">Mariama, tutor · just now</span>
                 </span>
               </div>
               <div className="hero-badge-float absolute bottom-0 right-2 z-30 rounded-2xl border border-white bg-[#0B1B3A] px-4 py-3 text-white shadow-[0_24px_70px_rgba(15,23,42,0.22)] lg:right-4">
@@ -405,7 +393,7 @@ export function MarketingHome() {
             <span className="section-eyebrow">Programs</span>
             <h2 className="font-display mt-4 text-[30px] font-bold text-[#0B1B3A] md:text-[40px]">Explore Our Main Courses</h2>
             <p className="mx-auto mt-3 max-w-[700px] text-base leading-[1.6] text-[#6b7280]">
-              Discover comprehensive learning paths designed for non-Arabic speakers to master the Quran, Islamic Studies, and Arabic language.
+              Discover comprehensive learning paths across tutoring, languages, enterprise, and faith studies — built for learners of every background.
             </p>
           </Reveal>
 
@@ -459,7 +447,7 @@ export function MarketingHome() {
           </Reveal>
 
           <div className="mt-7 flex flex-wrap justify-center gap-2">
-            {Array.from({ length: 8 }, (_, index) => index + 1).map((hour) => {
+            {PRICING_HOUR_OPTIONS.map((hour) => {
               const selected = hour === hoursPerWeek;
               return (
                 <button
@@ -564,7 +552,7 @@ export function MarketingHome() {
               About Alluwal Education Hub
             </h2>
             <p className="mx-auto mt-4 max-w-[700px] text-[18px] leading-[1.6] text-[#6B7280]">
-              We are fostering a world where diverse knowledge—Islamic, African, and Western—comes together to prepare students for a globalized future.
+              We are fostering a world where diverse knowledge—African, Western, and faith traditions—comes together to prepare students for a globalized future.
             </p>
           </Reveal>
 
@@ -663,75 +651,65 @@ const classmates = [
   { initials: "FD", name: "Fatou", tint: "linear-gradient(135deg, #10B981, #0F766E)", raisedHand: false, muted: true },
 ];
 
-function LiveClassCard() {
+/**
+ * Today's live classes.
+ *
+ * The hero used to mock up a single lesson, which forced the whole homepage to
+ * pick one subject — and it picked Quran recitation. A schedule shows the
+ * breadth instead of claiming it: six subjects side by side, each with its own
+ * accent, faith studies among them rather than ahead of them.
+ */
+const todaysClasses = [
+  { time: "09:00", subject: "Algebra II", track: "Tutoring", initials: "AB", tint: "#2563EB" },
+  { time: "10:30", subject: "Pular", track: "Languages", initials: "MD", tint: "#0D9488" },
+  { time: "12:00", subject: "Python", track: "Coding", initials: "SK", tint: "#7C3AED" },
+  { time: "14:00", subject: "Pitch practice", track: "Enterprise", initials: "FT", tint: "#EA580C" },
+  { time: "16:00", subject: "Quran", track: "Faith", initials: "IB", tint: "#0F766E" },
+  { time: "17:30", subject: "Reading", track: "Literacy", initials: "NJ", tint: "#DB2777" },
+];
+
+function LiveScheduleBoard() {
   return (
-    <div className="hero-photo-card absolute right-0 top-3 z-20 w-[88%] max-w-[430px] rounded-[26px] border border-white/70 bg-white/85 p-2 shadow-[0_30px_90px_rgba(15,23,42,0.2)] backdrop-blur lg:top-5">
+    // Sits below the floating badge above it so the board's own header stays legible.
+    <div className="hero-photo-card absolute right-0 top-[52px] z-20 w-[88%] max-w-[420px] rounded-[26px] border border-white/70 bg-white/85 p-2 shadow-[0_30px_90px_rgba(15,23,42,0.2)] backdrop-blur lg:top-[58px]">
       <div className="overflow-hidden rounded-[20px] bg-[#0B1B3A]">
         <div className="flex items-center justify-between border-b border-white/10 px-4 py-2.5">
           <div className="flex items-center gap-2 text-[12px] font-extrabold tracking-wide text-white">
             <span className="live-dot" aria-hidden="true" />
-            LIVE · Quran Recitation
+            TODAY&rsquo;S CLASSES
           </div>
-          <span className="text-[11px] font-semibold text-white/60">Level 2 · 4 in class</span>
+          <span className="text-[11px] font-semibold text-white/60">6 subjects</span>
         </div>
 
-        <div className="relative mx-3 mt-3 flex h-[128px] items-center justify-center overflow-hidden rounded-2xl bg-[linear-gradient(135deg,#1E3A8A_0%,#1D4ED8_58%,#312E81_100%)] lg:h-[150px]">
-          <div
-            className="absolute inset-0 opacity-40"
-            style={{ background: "radial-gradient(circle at 30% 20%, rgba(255,255,255,0.18), transparent 44%)" }}
-            aria-hidden="true"
-          />
-          <div className="relative">
-            <span className="speaking-ring" aria-hidden="true" />
-            <span className="speaking-ring speaking-ring-two" aria-hidden="true" />
-            <span className="relative flex h-16 w-16 items-center justify-center rounded-full border-2 border-white/70 bg-white/14 text-lg font-black text-white backdrop-blur lg:h-[72px] lg:w-[72px]">
-              UI
-            </span>
-          </div>
-          <div className="absolute bottom-2.5 left-2.5 flex items-center gap-2 rounded-full bg-[#0B1B3A]/70 py-1 pl-2.5 pr-3 backdrop-blur">
-            <span className="flex h-3.5 items-end gap-[2.5px]" aria-hidden="true">
-              <span className="eq-bar h-full" />
-              <span className="eq-bar h-full" />
-              <span className="eq-bar h-full" />
-              <span className="eq-bar h-full" />
-            </span>
-            <span className="text-[11px] font-bold text-white">Ustadh Ibrahim</span>
-          </div>
-          <span className="absolute right-2.5 top-2.5 rounded-full bg-white/16 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.08em] text-white/90 backdrop-blur">
-            Teacher
-          </span>
-        </div>
-
-        <div className="mx-3 mt-2 grid grid-cols-3 gap-2">
-          {classmates.map(({ initials, name, tint, raisedHand, muted }) => (
-            <div key={name} className="relative flex h-[58px] items-center justify-center overflow-hidden rounded-xl lg:h-[64px]" style={{ background: tint }}>
-              <span className="text-sm font-black text-white/95">{initials}</span>
-              <span className="absolute bottom-1 left-1.5 text-[9.5px] font-bold text-white/85">{name}</span>
-              <span className="absolute bottom-1 right-1.5 text-white/80" aria-hidden="true">
-                {muted ? <MicOff size={11} /> : <Mic size={11} />}
-              </span>
-              {raisedHand ? (
-                <span className="absolute right-1 top-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-[#FBBF24] text-[#78350F] shadow">
-                  <Hand size={12} className="hand-wiggle" />
-                </span>
-              ) : null}
-            </div>
-          ))}
-        </div>
-
-        <div className="flex items-center justify-center gap-2.5 px-3 py-3">
-          {[Mic, Video, Hand, MessageSquare].map((Icon, index) => (
-            <span
-              key={index}
-              className={`inline-flex h-9 w-9 items-center justify-center rounded-full ${
-                index === 2 ? "bg-[#FBBF24] text-[#78350F]" : "bg-white/10 text-white/85"
-              }`}
-              aria-hidden="true"
+        <ul className="m-0 list-none p-2">
+          {todaysClasses.map(({ time, subject, track, initials, tint }, index) => (
+            <li
+              key={subject}
+              className="schedule-row flex items-center gap-3 rounded-xl px-2 py-[7px]"
+              style={{ "--row-index": index } as CSSProperties}
             >
-              <Icon size={16} />
-            </span>
+              <span className="w-[38px] shrink-0 font-mono text-[11px] font-semibold tabular-nums text-white/55">
+                {time}
+              </span>
+              <span
+                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[11px] font-black text-white"
+                style={{ background: tint }}
+                aria-hidden="true"
+              >
+                {initials}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[13px] font-bold leading-tight text-white">{subject}</span>
+                <span className="block text-[10.5px] font-semibold uppercase tracking-[0.07em]" style={{ color: tint }}>
+                  {track}
+                </span>
+              </span>
+              <span className="schedule-live shrink-0 rounded-full bg-[#22C55E]/15 px-2 py-[3px] text-[9.5px] font-black uppercase tracking-[0.08em] text-[#4ADE80]">
+                Live
+              </span>
+            </li>
           ))}
-        </div>
+        </ul>
       </div>
     </div>
   );
@@ -822,7 +800,9 @@ function PricingCard({
           ))}
         </ul>
         <div className="mt-auto pt-3 text-xs font-semibold text-[#374151]">
-          {hoursPerWeek} hrs x ${hourly.toFixed(2)}/hr x {track.id === "group" ? "4.33" : "4"} weeks ≈ ${monthly.toFixed(0)}/mo
+          {/* Hourly rate only. Projecting it to a monthly total made the plan
+              look like a bill, and rates are negotiated with each family. */}
+          {hoursPerWeek} hrs/week · rates are flexible
         </div>
       </div>
       <div className="p-3.5 pt-0">

@@ -12,6 +12,7 @@ import 'package:alluwalacademyadmin/core/constants/app_constants.dart';
 import 'package:alluwalacademyadmin/core/widgets/header_widget.dart';
 import 'package:alluwalacademyadmin/core/models/employee_model.dart';
 import 'package:alluwalacademyadmin/core/utils/export_helpers.dart';
+import 'package:alluwalacademyadmin/core/utils/app_search.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
@@ -94,11 +95,25 @@ class _UserManagementScreenState extends State<UserManagementScreen>
       if (searchTerm.isEmpty) {
         _filteredEmployees = _allEmployees;
       } else {
-        _filteredEmployees = _allEmployees.where((employee) {
-          return employee.firstName
-              .toLowerCase()
-              .contains(searchTerm.toLowerCase());
-        }).toList();
+        _filteredEmployees = _allEmployees
+            .where((employee) => AppSearch.matches(
+                  query: searchTerm,
+                  names: [
+                    '${employee.firstName} ${employee.lastName}',
+                    '${employee.lastName} ${employee.firstName}',
+                  ],
+                  emails: [employee.email],
+                  phones: [
+                    employee.mobilePhone,
+                    '${employee.countryCode}${employee.mobilePhone}',
+                  ],
+                  ids: [
+                    employee.documentId,
+                    employee.studentCode,
+                    employee.kioskCode,
+                  ],
+                ))
+            .toList();
       }
       _employeeDataSource!.updateDataSource(_filteredEmployees);
     });

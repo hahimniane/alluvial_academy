@@ -14,6 +14,8 @@ import 'package:alluwalacademyadmin/features/parent/screens/payment_screen.dart'
 import 'package:alluwalacademyadmin/features/parent/widgets/beautiful_invoice_widget.dart';
 import 'package:alluwalacademyadmin/features/parent/utils/invoice_printing.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/core/models/decision_audit_event.dart';
+import 'package:alluwalacademyadmin/core/widgets/decision_history_card.dart';
 
 class InvoiceDetailScreen extends StatelessWidget {
   final String invoiceId;
@@ -33,187 +35,244 @@ class InvoiceDetailScreen extends StatelessWidget {
           style: GoogleFonts.inter(fontWeight: FontWeight.w800),
         ),
       ),
-      body: FutureBuilder<Invoice>(
-        future: InvoiceService.getInvoice(invoiceId),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snapshot.hasError) {
-            return _errorState(context, '${snapshot.error}');
-          }
-          final invoice = snapshot.data;
-          if (invoice == null) {
-            return _errorState(context, 'Invoice not found');
-          }
+      body: ScrollNotificationObserver(
+        child: SelectionArea(
+          child: FutureBuilder<Invoice>(
+            future: InvoiceService.getInvoice(invoiceId),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (snapshot.hasError) {
+                return _errorState(context, '${snapshot.error}');
+              }
+              final invoice = snapshot.data;
+              if (invoice == null) {
+                return _errorState(context, 'Invoice not found');
+              }
 
-          final statusLabel = invoice.isOverdue ? 'OVERDUE' : invoice.status.name.toUpperCase();
-          final statusColor = _statusColor(invoice);
-          final money = NumberFormat.simpleCurrency(name: invoice.currency);
+              final statusLabel = invoice.isOverdue
+                  ? 'OVERDUE'
+                  : invoice.status.name.toUpperCase();
+              final statusColor = _statusColor(invoice);
+              final money = NumberFormat.simpleCurrency(name: invoice.currency);
 
-          return SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(0, 16, 0, 32),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Action Buttons
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: invoice.isFullyPaid || invoice.status == InvoiceStatus.cancelled
-                              ? null
-                              : () {
-                                  Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                      builder: (_) => PaymentScreen(invoiceId: invoice.id),
-                                    ),
-                                  );
-                                },
-                          icon: const Icon(Icons.credit_card_rounded, size: 18),
-                          label: Text(
-                            invoice.isFullyPaid
-                                ? AppLocalizations.of(context)!.parentInvoicesPaid
-                                : AppLocalizations.of(context)!.payInvoice,
-                            style: GoogleFonts.inter(fontWeight: FontWeight.w800),
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF0386FF),
-                            foregroundColor: Colors.white,
-                            disabledBackgroundColor: const Color(0xFFE5E7EB),
-                            disabledForegroundColor: const Color(0xFF9CA3AF),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () => _downloadInvoicePDF(context, invoice),
-                          icon: const Icon(Icons.picture_as_pdf_rounded, size: 18),
-                          label: Text(
-                            AppLocalizations.of(context)!.downloadPdf,
-                            style: GoogleFonts.inter(fontWeight: FontWeight.w700),
-                          ),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFF111827),
-                            side: const BorderSide(color: Color(0xFFE5E7EB)),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-                // Status Badge
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: statusColor.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Text(
-                      statusLabel,
-                      style: GoogleFonts.inter(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w800,
-                        color: statusColor,
-                        letterSpacing: 0.3,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                // Beautiful Invoice Widget
-                BeautifulInvoiceWidget(invoice: invoice),
-                const SizedBox(height: 18),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        AppLocalizations.of(context)!.payments,
-                        style: GoogleFonts.inter(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w800,
-                          color: const Color(0xFF111827),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      StreamBuilder<QuerySnapshot<Object?>>(
-                        stream: PaymentService.watchPaymentsForInvoiceSnapshots(invoice),
-                        builder: (context, snap) {
-                          if (snap.connectionState == ConnectionState.waiting) {
-                            return const Center(
-                              child: Padding(
-                                padding: EdgeInsets.all(12),
-                                child: CircularProgressIndicator(),
+              return SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(0, 16, 0, 32),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Action Buttons
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: invoice.isFullyPaid ||
+                                      invoice.status == InvoiceStatus.cancelled
+                                  ? null
+                                  : () {
+                                      Navigator.of(context).push(
+                                        MaterialPageRoute(
+                                          builder: (_) => PaymentScreen(
+                                              invoiceId: invoice.id),
+                                        ),
+                                      );
+                                    },
+                              icon: const Icon(Icons.credit_card_rounded,
+                                  size: 18),
+                              label: Text(
+                                invoice.isFullyPaid
+                                    ? AppLocalizations.of(context)!
+                                        .parentInvoicesPaid
+                                    : AppLocalizations.of(context)!.payInvoice,
+                                style: GoogleFonts.inter(
+                                    fontWeight: FontWeight.w800),
                               ),
-                            );
-                          }
-                          if (snap.hasError) {
-                            return _inlineError('Failed to load payments: ${snap.error}');
-                          }
-                          final docs = snap.data?.docs ?? const [];
-                          final payments = docs
-                              .map((d) => Payment.fromFirestore(d))
-                              .toList()
-                            ..sort((a, b) {
-                              final aTime = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-                              final bTime = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-                              return bTime.compareTo(aTime);
-                            });
-
-                          if (payments.isEmpty) {
-                            return _inlineEmpty('No payments for this invoice yet.');
-                          }
-
-                          return Container(
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: const Color(0xFFE5E7EB)),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF0386FF),
+                                foregroundColor: Colors.white,
+                                disabledBackgroundColor:
+                                    const Color(0xFFE5E7EB),
+                                disabledForegroundColor:
+                                    const Color(0xFF9CA3AF),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12)),
+                              ),
                             ),
-                            child: Column(
-                              children: payments.map((p) {
-                                final date =
-                                    p.createdAt == null ? '' : DateFormat.yMMMd().format(p.createdAt!);
-                                return ListTile(
-                                  leading: _statusDot(p.status),
-                                  title: Text(
-                                    money.format(p.amount),
-                                    style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w800),
-                                  ),
-                                  subtitle: Text(
-                                    '${p.status.name.toUpperCase()}${date.isEmpty ? '' : ' • $date'}',
-                                    style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF6B7280)),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () =>
+                                  _downloadInvoicePDF(context, invoice),
+                              icon: const Icon(Icons.picture_as_pdf_rounded,
+                                  size: 18),
+                              label: Text(
+                                AppLocalizations.of(context)!.downloadPdf,
+                                style: GoogleFonts.inter(
+                                    fontWeight: FontWeight.w700),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: const Color(0xFF111827),
+                                side:
+                                    const BorderSide(color: Color(0xFFE5E7EB)),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12)),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    // Status Badge
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: statusColor.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          statusLabel,
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            color: statusColor,
+                            letterSpacing: 0.3,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    // Beautiful Invoice Widget
+                    BeautifulInvoiceWidget(invoice: invoice),
+                    const SizedBox(height: 18),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: DecisionHistoryCard(
+                        entityType: 'invoice',
+                        entityId: invoice.id,
+                        entityLabel: invoice.invoiceNumber,
+                        fallbackEvents: [
+                          if (invoice.createdByUid.isNotEmpty ||
+                              invoice.createdByName.isNotEmpty)
+                            DecisionAuditFallback(
+                              action: 'invoice.created',
+                              actorUid: invoice.createdByUid,
+                              actorName: invoice.createdByName,
+                              actorEmail: invoice.createdByEmail,
+                              occurredAt: invoice.createdAt,
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            AppLocalizations.of(context)!.payments,
+                            style: GoogleFonts.inter(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                              color: const Color(0xFF111827),
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          StreamBuilder<QuerySnapshot<Object?>>(
+                            stream:
+                                PaymentService.watchPaymentsForInvoiceSnapshots(
+                                    invoice),
+                            builder: (context, snap) {
+                              if (snap.connectionState ==
+                                  ConnectionState.waiting) {
+                                return const Center(
+                                  child: Padding(
+                                    padding: EdgeInsets.all(12),
+                                    child: CircularProgressIndicator(),
                                   ),
                                 );
-                              }).toList(),
-                            ),
-                          );
-                        },
+                              }
+                              if (snap.hasError) {
+                                return _inlineError(
+                                    'Failed to load payments: ${snap.error}');
+                              }
+                              final docs = snap.data?.docs ?? const [];
+                              final payments = docs
+                                  .map((d) => Payment.fromFirestore(d))
+                                  .toList()
+                                ..sort((a, b) {
+                                  final aTime = a.createdAt ??
+                                      DateTime.fromMillisecondsSinceEpoch(0);
+                                  final bTime = b.createdAt ??
+                                      DateTime.fromMillisecondsSinceEpoch(0);
+                                  return bTime.compareTo(aTime);
+                                });
+
+                              if (payments.isEmpty) {
+                                return _inlineEmpty(
+                                    'No payments for this invoice yet.');
+                              }
+
+                              return Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(
+                                      color: const Color(0xFFE5E7EB)),
+                                ),
+                                child: Column(
+                                  children: payments.map((p) {
+                                    final date = p.createdAt == null
+                                        ? ''
+                                        : DateFormat.yMMMd()
+                                            .format(p.createdAt!);
+                                    return ListTile(
+                                      leading: _statusDot(p.status),
+                                      title: Text(
+                                        money.format(p.amount),
+                                        style: GoogleFonts.inter(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w800),
+                                      ),
+                                      subtitle: Text(
+                                        '${p.status.name.toUpperCase()}${date.isEmpty ? '' : ' • $date'}',
+                                        style: GoogleFonts.inter(
+                                            fontSize: 12,
+                                            color: const Color(0xFF6B7280)),
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
+                              );
+                            },
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          );
-        },
+              );
+            },
+          ),
+        ),
       ),
     );
   }
 
-  Future<void> _downloadInvoicePDF(BuildContext context, Invoice invoice) async {
+  Future<void> _downloadInvoicePDF(
+      BuildContext context, Invoice invoice) async {
     try {
       // Show loading indicator
       if (!context.mounted) return;
@@ -226,7 +285,8 @@ class InvoiceDetailScreen extends StatelessWidget {
       );
 
       // Generate PDF (bounded wait — Firestore lookups can stall on poor networks)
-      final pdfBytes = await InvoicePdfService.generateInvoicePDF(invoice).timeout(
+      final pdfBytes =
+          await InvoicePdfService.generateInvoicePDF(invoice).timeout(
         const Duration(seconds: 45),
         onTimeout: () => throw TimeoutException('invoice_pdf'),
       );
@@ -247,7 +307,8 @@ class InvoiceDetailScreen extends StatelessWidget {
       Navigator.of(context).pop(); // Close loading dialog if still open
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(AppLocalizations.of(context)!.failedToGeneratePdfE, style: GoogleFonts.inter()),
+          content: Text(AppLocalizations.of(context)!.failedToGeneratePdfE,
+              style: GoogleFonts.inter()),
           backgroundColor: Colors.red,
         ),
       );
@@ -261,7 +322,8 @@ class InvoiceDetailScreen extends StatelessWidget {
         child: Text(
           AppLocalizations.of(context)!.failedToLoadInvoiceNMessage,
           textAlign: TextAlign.center,
-          style: GoogleFonts.inter(color: const Color(0xFF6B7280), fontWeight: FontWeight.w600),
+          style: GoogleFonts.inter(
+              color: const Color(0xFF6B7280), fontWeight: FontWeight.w600),
         ),
       ),
     );
@@ -279,7 +341,11 @@ class InvoiceDetailScreen extends StatelessWidget {
         children: [
           const Icon(Icons.info_outline, color: Color(0xFF6B7280)),
           const SizedBox(width: 10),
-          Expanded(child: Text(message, style: GoogleFonts.inter(color: const Color(0xFF6B7280), fontWeight: FontWeight.w600))),
+          Expanded(
+              child: Text(message,
+                  style: GoogleFonts.inter(
+                      color: const Color(0xFF6B7280),
+                      fontWeight: FontWeight.w600))),
         ],
       ),
     );
@@ -297,7 +363,11 @@ class InvoiceDetailScreen extends StatelessWidget {
         children: [
           const Icon(Icons.error_outline, color: Color(0xFFDC2626)),
           const SizedBox(width: 10),
-          Expanded(child: Text(message, style: GoogleFonts.inter(color: const Color(0xFF7F1D1D), fontWeight: FontWeight.w600))),
+          Expanded(
+              child: Text(message,
+                  style: GoogleFonts.inter(
+                      color: const Color(0xFF7F1D1D),
+                      fontWeight: FontWeight.w600))),
         ],
       ),
     );
@@ -319,7 +389,10 @@ class InvoiceDetailScreen extends StatelessWidget {
         color = const Color(0xFFF59E0B);
         break;
     }
-    return Container(width: 10, height: 10, decoration: BoxDecoration(color: color, shape: BoxShape.circle));
+    return Container(
+        width: 10,
+        height: 10,
+        decoration: BoxDecoration(color: color, shape: BoxShape.circle));
   }
 
   Color _statusColor(Invoice invoice) {
@@ -335,4 +408,3 @@ class InvoiceDetailScreen extends StatelessWidget {
     }
   }
 }
-

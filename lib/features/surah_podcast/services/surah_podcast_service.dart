@@ -632,9 +632,31 @@ class SurahPodcastService {
         }
       }
 
-      return studentMap.entries
-          .map((e) => {'id': e.key, 'name': e.value})
-          .toList()
+      final entries = studentMap.entries.toList();
+      final userDocuments = await Future.wait(
+        entries.map((entry) => _firestore.collection('users').doc(entry.key).get()),
+      );
+
+      return List.generate(entries.length, (index) {
+        final entry = entries[index];
+        final data = userDocuments[index].data() ?? const <String, dynamic>{};
+        return {
+          'id': entry.key,
+          'name': entry.value,
+          'email': (data['email'] ?? data['e-mail'] ?? '').toString(),
+          'phone': (data['phone_number'] ??
+                  data['phoneNumber'] ??
+                  data['mobile_phone'] ??
+                  data['mobilePhone'] ??
+                  data['phone'] ??
+                  '')
+              .toString(),
+          'studentCode':
+              (data['student_code'] ?? data['studentCode'] ?? '').toString(),
+          'kioskCode':
+              (data['kiosk_code'] ?? data['kioskCode'] ?? '').toString(),
+        };
+      })
         ..sort((a, b) => (a['name'] ?? '').compareTo(b['name'] ?? ''));
     } catch (e) {
       AppLogger.error('Error getting students for teacher', error: e);

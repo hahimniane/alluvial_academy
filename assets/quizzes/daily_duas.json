@@ -8,7 +8,12 @@
       "category": "daily_duas",
       "difficulty": "easy",
       "question": "What do we say before eating?",
-      "options": ["Alhamdulillah", "Bismillah", "SubhanAllah", "Astaghfirullah"],
+      "options": [
+        "Alhamdulillah",
+        "Bismillah",
+        "SubhanAllah",
+        "Astaghfirullah"
+      ],
       "correctAnswer": 1,
       "explanation": "We say 'Bismillah' (In the name of Allah) before eating."
     },
@@ -17,7 +22,12 @@
       "category": "daily_duas",
       "difficulty": "easy",
       "question": "What do we say after eating?",
-      "options": ["Bismillah", "Alhamdulillah", "MashaAllah", "InshaAllah"],
+      "options": [
+        "Bismillah",
+        "Alhamdulillah",
+        "MashaAllah",
+        "InshaAllah"
+      ],
       "correctAnswer": 1,
       "explanation": "We say 'Alhamdulillah' (All praise is due to Allah) after eating."
     },
@@ -26,7 +36,12 @@
       "category": "daily_duas",
       "difficulty": "easy",
       "question": "What does 'As-salamu Alaykum' mean?",
-      "options": ["Goodbye", "Peace be upon you", "Thank you", "Please"],
+      "options": [
+        "Goodbye",
+        "Peace be upon you",
+        "Thank you",
+        "Please"
+      ],
       "correctAnswer": 1,
       "explanation": "'As-salamu Alaykum' means 'Peace be upon you' and is the Islamic greeting."
     },
@@ -35,7 +50,12 @@
       "category": "daily_duas",
       "difficulty": "easy",
       "question": "What do we say when we sneeze?",
-      "options": ["SubhanAllah", "Alhamdulillah", "Allahu Akbar", "Astaghfirullah"],
+      "options": [
+        "SubhanAllah",
+        "Alhamdulillah",
+        "Allahu Akbar",
+        "Astaghfirullah"
+      ],
       "correctAnswer": 1,
       "explanation": "We say 'Alhamdulillah' when we sneeze, thanking Allah."
     },
@@ -44,7 +64,12 @@
       "category": "daily_duas",
       "difficulty": "easy",
       "question": "What do we say to someone who sneezes?",
-      "options": ["Bismillah", "Yarhamukallah", "InshaAllah", "SubhanAllah"],
+      "options": [
+        "Bismillah",
+        "Yarhamukallah",
+        "InshaAllah",
+        "SubhanAllah"
+      ],
       "correctAnswer": 1,
       "explanation": "We say 'Yarhamukallah' (May Allah have mercy on you) to someone who sneezes."
     },
@@ -53,7 +78,12 @@
       "category": "daily_duas",
       "difficulty": "easy",
       "question": "What does 'InshaAllah' mean?",
-      "options": ["Thank you", "If Allah wills", "God is great", "I seek forgiveness"],
+      "options": [
+        "Thank you",
+        "If Allah wills",
+        "God is great",
+        "I seek forgiveness"
+      ],
       "correctAnswer": 1,
       "explanation": "'InshaAllah' means 'If Allah wills' and is said when planning to do something."
     },
@@ -62,7 +92,12 @@
       "category": "daily_duas",
       "difficulty": "easy",
       "question": "What does 'MashaAllah' mean?",
-      "options": ["God willing", "What Allah has willed", "Thank God", "God is great"],
+      "options": [
+        "God willing",
+        "What Allah has willed",
+        "Thank God",
+        "God is great"
+      ],
       "correctAnswer": 1,
       "explanation": "'MashaAllah' means 'What Allah has willed' and is said to express appreciation."
     },
@@ -71,7 +106,12 @@
       "category": "daily_duas",
       "difficulty": "easy",
       "question": "What do we say when entering the bathroom?",
-      "options": ["Bismillah", "Allahumma inni a'udhu bika", "Alhamdulillah", "SubhanAllah"],
+      "options": [
+        "Bismillah",
+        "Allahumma inni a'udhu bika",
+        "Alhamdulillah",
+        "SubhanAllah"
+      ],
       "correctAnswer": 1,
       "explanation": "We seek Allah's protection before entering the bathroom."
     },
@@ -80,7 +120,12 @@
       "category": "daily_duas",
       "difficulty": "medium",
       "question": "What do we say when waking up?",
-      "options": ["Bismillah", "Alhamdulillah", "Allahu Akbar", "SubhanAllah"],
+      "options": [
+        "Bismillah",
+        "Alhamdulillah",
+        "Allahu Akbar",
+        "SubhanAllah"
+      ],
       "correctAnswer": 1,
       "explanation": "We thank Allah with 'Alhamdulillah' for waking us up."
     },
@@ -89,9 +134,434 @@
       "category": "daily_duas",
       "difficulty": "easy",
       "question": "What does 'SubhanAllah' mean?",
-      "options": ["God is great", "Glory be to Allah", "Thank God", "God willing"],
+      "options": [
+        "God is great",
+        "Glory be to Allah",
+        "Thank God",
+        "God willing"
+      ],
       "correctAnswer": 1,
       "explanation": "'SubhanAllah' means 'Glory be to Allah' and is said to praise Him."
+    },
+    {
+      "difficulty": "easy",
+      "question": "What does 'Alhamdulillah' mean?",
+      "options": [
+        "Allah is the Greatest",
+        "I seek forgiveness from Allah",
+        "Glory be to Allah",
+        "All praise is for Allah"
+      ],
+      "correctAnswer": 3,
+      "explanation": "Alhamdulillah means 'All praise is for Allah'. We say it to thank Allah.",
+      "id": "dd_011",
+      "category": "daily_duas"
+    },
+    {
+      "difficulty": "easy",
+      "question": "What does 'Allahu Akbar' mean?",
+      "options": [
+        "Allah is the Greatest",
+        "Peace be upon you",
+        "If Allah wills",
+        "Thank you"
+      ],
+      "correctAnswer": 0,
+      "explanation": "Allahu Akbar means 'Allah is the Greatest'.",
+      "id": "dd_012",
+      "category": "daily_duas"
+    },
+    {
+      "difficulty": "easy",
+      "question": "What do we say when we plan to do something in the future?",
+      "options": [
+        "MashaAllah",
+        "SubhanAllah",
+        "Astaghfirullah",
+        "InshaAllah"
+      ],
+      "correctAnswer": 3,
+      "explanation": "InshaAllah means 'If Allah wills'. We say it when talking about future plans.",
+      "id": "dd_013",
+      "category": "daily_duas"
+    },
+    {
+      "difficulty": "easy",
+      "question": "What do we say when we see something beautiful or amazing?",
+      "options": [
+        "Astaghfirullah",
+        "MashaAllah",
+        "InshaAllah",
+        "Wa alaykum assalam"
+      ],
+      "correctAnswer": 1,
+      "explanation": "MashaAllah means 'What Allah has willed'. We say it when we admire something.",
+      "id": "dd_014",
+      "category": "daily_duas"
+    },
+    {
+      "difficulty": "easy",
+      "question": "How do we reply when someone says 'As-salamu alaykum'?",
+      "options": [
+        "Bismillah",
+        "Alhamdulillah",
+        "Shukran",
+        "Wa alaykum assalam"
+      ],
+      "correctAnswer": 3,
+      "explanation": "We reply 'Wa alaykum assalam', which means 'And peace be upon you too'.",
+      "id": "dd_015",
+      "category": "daily_duas"
+    },
+    {
+      "difficulty": "easy",
+      "question": "What do we say when we make a mistake and want Allah's forgiveness?",
+      "options": [
+        "InshaAllah",
+        "MashaAllah",
+        "Allahu Akbar",
+        "Astaghfirullah"
+      ],
+      "correctAnswer": 3,
+      "explanation": "Astaghfirullah means 'I seek forgiveness from Allah'.",
+      "id": "dd_016",
+      "category": "daily_duas"
+    },
+    {
+      "difficulty": "easy",
+      "question": "Which hand should we use to eat and drink?",
+      "options": [
+        "Both hands",
+        "Right hand",
+        "Left hand",
+        "Either hand"
+      ],
+      "correctAnswer": 1,
+      "explanation": "The Prophet (peace be upon him) taught us to eat and drink with the right hand.",
+      "id": "dd_017",
+      "category": "daily_duas"
+    },
+    {
+      "difficulty": "easy",
+      "question": "When is it a good time to say 'SubhanAllah'?",
+      "options": [
+        "Before starting a meal",
+        "When asking for forgiveness",
+        "When greeting someone",
+        "When amazed by Allah's creation"
+      ],
+      "correctAnswer": 3,
+      "explanation": "We can say SubhanAllah when we are amazed by Allah's beautiful creation.",
+      "id": "dd_018",
+      "category": "daily_duas"
+    },
+    {
+      "difficulty": "easy",
+      "question": "What should we say to someone who sneezes and says 'Alhamdulillah'?",
+      "options": [
+        "Shukran",
+        "Yarhamukallah",
+        "As-salamu alaykum",
+        "InshaAllah"
+      ],
+      "correctAnswer": 1,
+      "explanation": "We reply 'Yarhamukallah', which means 'May Allah have mercy on you'.",
+      "id": "dd_019",
+      "category": "daily_duas"
+    },
+    {
+      "difficulty": "easy",
+      "question": "What do we say to thank someone in an Islamic way?",
+      "options": [
+        "Astaghfirullah",
+        "Jazakallahu khayran",
+        "La ilaha illallah",
+        "Allahu Akbar"
+      ],
+      "correctAnswer": 1,
+      "explanation": "Jazakallahu khayran means 'May Allah reward you with good'.",
+      "id": "dd_020",
+      "category": "daily_duas"
+    },
+    {
+      "difficulty": "medium",
+      "question": "Which foot should we enter the mosque with?",
+      "options": [
+        "Right foot",
+        "Left foot",
+        "Both feet together",
+        "It doesn't matter"
+      ],
+      "correctAnswer": 0,
+      "explanation": "We enter the mosque with the right foot and leave with the left foot.",
+      "id": "dd_021",
+      "category": "daily_duas"
+    },
+    {
+      "difficulty": "medium",
+      "question": "Which foot should we enter the bathroom with?",
+      "options": [
+        "Left foot",
+        "Jump in",
+        "Both feet",
+        "Right foot"
+      ],
+      "correctAnswer": 0,
+      "explanation": "We enter the bathroom with the left foot and leave with the right foot.",
+      "id": "dd_022",
+      "category": "daily_duas"
+    },
+    {
+      "difficulty": "medium",
+      "question": "When should we say 'Bismillah'?",
+      "options": [
+        "Only before eating",
+        "Only in the mosque",
+        "Only before sleeping",
+        "Before starting anything good"
+      ],
+      "correctAnswer": 3,
+      "explanation": "We say Bismillah (In the name of Allah) before starting any good action, like eating, drinking, or entering our home.",
+      "id": "dd_023",
+      "category": "daily_duas"
+    },
+    {
+      "difficulty": "medium",
+      "question": "What do we say when we hear that someone has died?",
+      "options": [
+        "InshaAllah",
+        "MashaAllah",
+        "Inna lillahi wa inna ilayhi raji'un",
+        "Shukran"
+      ],
+      "correctAnswer": 2,
+      "explanation": "It means 'To Allah we belong and to Him we shall return'.",
+      "id": "dd_024",
+      "category": "daily_duas"
+    },
+    {
+      "difficulty": "medium",
+      "question": "If we forget to say Bismillah before eating, what should we say when we remember?",
+      "options": [
+        "Alhamdulillah twice",
+        "Bismillahi awwalahu wa akhirahu",
+        "Nothing, it is too late",
+        "Start the meal again"
+      ],
+      "correctAnswer": 1,
+      "explanation": "We say 'Bismillahi awwalahu wa akhirahu' (In the name of Allah at its beginning and end).",
+      "id": "dd_025",
+      "category": "daily_duas"
+    },
+    {
+      "difficulty": "medium",
+      "question": "What dua do we make for our parents?",
+      "options": [
+        "Rabbi irhamhuma kama rabbayani saghira",
+        "Rabbi zidni ilma",
+        "A'udhu billah",
+        "Rabbana atina fid-dunya hasanah"
+      ],
+      "correctAnswer": 0,
+      "explanation": "This dua means 'My Lord, have mercy on them as they raised me when I was small'.",
+      "id": "dd_026",
+      "category": "daily_duas"
+    },
+    {
+      "difficulty": "medium",
+      "question": "What is the dua for increasing knowledge?",
+      "options": [
+        "Allahumma barik",
+        "Astaghfirullah",
+        "Rabbi zidni ilma",
+        "Bismillah"
+      ],
+      "correctAnswer": 2,
+      "explanation": "'Rabbi zidni ilma' means 'My Lord, increase me in knowledge'.",
+      "id": "dd_027",
+      "category": "daily_duas"
+    },
+    {
+      "difficulty": "medium",
+      "question": "What do we say when getting into a car or on a bus (dua of travel)?",
+      "options": [
+        "Jazakallahu khayran",
+        "Wa alaykum assalam",
+        "Yarhamukallah",
+        "Subhanalladhi sakhkhara lana hadha"
+      ],
+      "correctAnswer": 3,
+      "explanation": "The travel dua starts 'Subhanalladhi sakhkhara lana hadha' — Glory to the One who made this ready for us.",
+      "id": "dd_028",
+      "category": "daily_duas"
+    },
+    {
+      "difficulty": "medium",
+      "question": "What should we say when we wake up in the morning?",
+      "options": [
+        "The travel dua",
+        "Allahu Akbar three times",
+        "Bismillah only",
+        "Alhamdulillahilladhi ahyana ba'da ma amatana"
+      ],
+      "correctAnswer": 3,
+      "explanation": "When waking up we praise Allah who gave us life after sleep, and to Him is the return.",
+      "id": "dd_029",
+      "category": "daily_duas"
+    },
+    {
+      "difficulty": "medium",
+      "question": "What does 'La ilaha illallah' mean?",
+      "options": [
+        "There is no god but Allah",
+        "Allah is the Greatest",
+        "Glory be to Allah",
+        "All praise is for Allah"
+      ],
+      "correctAnswer": 0,
+      "explanation": "'La ilaha illallah' means 'There is no god worthy of worship except Allah'. It is the heart of the Shahada.",
+      "id": "dd_030",
+      "category": "daily_duas"
+    },
+    {
+      "difficulty": "hard",
+      "question": "After prayer, many Muslims say SubhanAllah 33 times, Alhamdulillah 33 times, and Allahu Akbar how many times?",
+      "options": [
+        "33",
+        "34",
+        "44",
+        "100"
+      ],
+      "correctAnswer": 1,
+      "explanation": "A common dhikr after prayer is 33 SubhanAllah, 33 Alhamdulillah, and 34 Allahu Akbar, making 100.",
+      "id": "dd_031",
+      "category": "daily_duas"
+    },
+    {
+      "difficulty": "hard",
+      "question": "What is the remembrance of Allah called?",
+      "options": [
+        "Seerah",
+        "Tafsir",
+        "Fiqh",
+        "Dhikr"
+      ],
+      "correctAnswer": 3,
+      "explanation": "Dhikr means remembering Allah with words like SubhanAllah, Alhamdulillah, and Allahu Akbar.",
+      "id": "dd_032",
+      "category": "daily_duas"
+    },
+    {
+      "difficulty": "hard",
+      "question": "Which dua did Prophet Yunus say inside the whale?",
+      "options": [
+        "Rabbana taqabbal minna",
+        "Bismillahi tawakkaltu ala Allah",
+        "Rabbi zidni ilma",
+        "La ilaha illa anta subhanaka inni kuntu minaz-zalimin"
+      ],
+      "correctAnswer": 3,
+      "explanation": "Prophet Yunus called out: 'There is no god but You, glory be to You, indeed I was among the wrongdoers.'",
+      "id": "dd_033",
+      "category": "daily_duas"
+    },
+    {
+      "difficulty": "hard",
+      "question": "What do we say when leaving the house, putting our trust in Allah?",
+      "options": [
+        "Wa alaykum assalam",
+        "Taqabbalallahu minna",
+        "Yarhamukallah",
+        "Bismillahi tawakkaltu alallah"
+      ],
+      "correctAnswer": 3,
+      "explanation": "When leaving home we say 'Bismillahi tawakkaltu alallah' — In the name of Allah, I put my trust in Allah.",
+      "id": "dd_034",
+      "category": "daily_duas"
+    },
+    {
+      "difficulty": "hard",
+      "question": "Which two Surahs (with Al-Ikhlas) do many Muslims recite before sleeping for protection?",
+      "options": [
+        "Ya-Sin and Al-Kahf",
+        "Al-Falaq and An-Nas",
+        "Al-Fatiha and Al-Baqarah",
+        "Al-Asr and Al-Fil"
+      ],
+      "correctAnswer": 1,
+      "explanation": "Before sleeping, it is Sunnah to recite Al-Ikhlas, Al-Falaq, and An-Nas.",
+      "id": "dd_035",
+      "category": "daily_duas"
+    },
+    {
+      "difficulty": "hard",
+      "question": "What is a personal prayer where we ask Allah for anything called?",
+      "options": [
+        "Khutbah",
+        "Salah",
+        "Dua",
+        "Sawm"
+      ],
+      "correctAnswer": 2,
+      "explanation": "Dua is when we talk to Allah and ask Him for what we need, at any time.",
+      "id": "dd_036",
+      "category": "daily_duas"
+    },
+    {
+      "difficulty": "hard",
+      "question": "When someone says 'Jazakallahu khayran' to you, a good reply is:",
+      "options": [
+        "Astaghfirullah",
+        "Allahu Akbar",
+        "Wa iyyakum",
+        "MashaAllah"
+      ],
+      "correctAnswer": 2,
+      "explanation": "'Wa iyyakum' means 'And to you as well', wishing them the same reward.",
+      "id": "dd_037",
+      "category": "daily_duas"
+    },
+    {
+      "difficulty": "hard",
+      "question": "What is the famous dua asking for good in this world and the next?",
+      "options": [
+        "Bismillahi majreha",
+        "Hasbunallahu wa ni'mal wakil",
+        "Rabbana atina fid-dunya hasanah wa fil-akhirati hasanah",
+        "Rabbi zidni ilma"
+      ],
+      "correctAnswer": 2,
+      "explanation": "This dua from the Quran asks Allah for good in this world, good in the Hereafter, and protection from the Fire.",
+      "id": "dd_038",
+      "category": "daily_duas"
+    },
+    {
+      "difficulty": "hard",
+      "question": "What does 'Tabarakallah' mean?",
+      "options": [
+        "Allah is One",
+        "Peace be upon you",
+        "Blessed is Allah",
+        "Allah forgive me"
+      ],
+      "correctAnswer": 2,
+      "explanation": "Tabarakallah means 'Blessed is Allah', said when admiring something, like MashaAllah.",
+      "id": "dd_039",
+      "category": "daily_duas"
+    },
+    {
+      "difficulty": "hard",
+      "question": "On which day is it especially recommended to send salawat (blessings) on the Prophet?",
+      "options": [
+        "Friday",
+        "Every Eid only",
+        "Saturday",
+        "Monday"
+      ],
+      "correctAnswer": 0,
+      "explanation": "Friday is a special day for sending many salawat upon Prophet Muhammad (peace be upon him).",
+      "id": "dd_040",
+      "category": "daily_duas"
     }
   ]
 }

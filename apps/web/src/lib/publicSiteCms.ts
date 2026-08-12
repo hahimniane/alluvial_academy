@@ -86,7 +86,7 @@ export const fallbackPricing: PublicSitePricingDoc = {
       islamicBaseUsd: 8.5,
       islamicDiscountUsd: 6.99,
       islamicDiscountThreshold: 4,
-      bullets: ["Quran recitation", "Islamic studies", "Flexible 1-on-1 scheduling"],
+      bullets: ["Quran recitation", "Religious studies", "Flexible 1-on-1 scheduling"],
     },
     tutoring: {
       tutoringBaseUsd: 11.99,

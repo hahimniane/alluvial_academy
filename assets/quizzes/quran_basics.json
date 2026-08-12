@@ -8,7 +8,12 @@
       "category": "quran_basics",
       "difficulty": "easy",
       "question": "How many chapters (Surahs) are in the Quran?",
-      "options": ["100", "114", "120", "150"],
+      "options": [
+        "100",
+        "114",
+        "120",
+        "150"
+      ],
       "correctAnswer": 1,
       "explanation": "The Quran has 114 Surahs (chapters)."
     },
@@ -17,7 +22,12 @@
       "category": "quran_basics",
       "difficulty": "easy",
       "question": "What is the first Surah of the Quran?",
-      "options": ["Al-Baqarah", "Al-Fatiha", "Al-Ikhlas", "An-Nas"],
+      "options": [
+        "Al-Baqarah",
+        "Al-Fatiha",
+        "Al-Ikhlas",
+        "An-Nas"
+      ],
       "correctAnswer": 1,
       "explanation": "Al-Fatiha is the opening chapter of the Quran."
     },
@@ -26,7 +36,12 @@
       "category": "quran_basics",
       "difficulty": "easy",
       "question": "In which month was the Quran revealed?",
-      "options": ["Shawwal", "Ramadan", "Muharram", "Rajab"],
+      "options": [
+        "Shawwal",
+        "Ramadan",
+        "Muharram",
+        "Rajab"
+      ],
       "correctAnswer": 1,
       "explanation": "The Quran was first revealed to Prophet Muhammad in the month of Ramadan."
     },
@@ -35,7 +50,12 @@
       "category": "quran_basics",
       "difficulty": "medium",
       "question": "Who brought the Quran to Prophet Muhammad?",
-      "options": ["Angel Mikail", "Angel Jibril", "Angel Israfil", "Angel Azrael"],
+      "options": [
+        "Angel Mikail",
+        "Angel Jibril",
+        "Angel Israfil",
+        "Angel Azrael"
+      ],
       "correctAnswer": 1,
       "explanation": "Angel Jibril (Gabriel) brought the revelation of the Quran to Prophet Muhammad."
     },
@@ -44,7 +64,12 @@
       "category": "quran_basics",
       "difficulty": "easy",
       "question": "What is the longest Surah in the Quran?",
-      "options": ["Al-Fatiha", "Al-Baqarah", "Al-Imran", "An-Nisa"],
+      "options": [
+        "Al-Fatiha",
+        "Al-Baqarah",
+        "Al-Imran",
+        "An-Nisa"
+      ],
       "correctAnswer": 1,
       "explanation": "Al-Baqarah (The Cow) is the longest Surah with 286 verses."
     },
@@ -53,7 +78,12 @@
       "category": "quran_basics",
       "difficulty": "easy",
       "question": "What is the shortest Surah in the Quran?",
-      "options": ["Al-Fatiha", "Al-Ikhlas", "Al-Kawthar", "An-Nas"],
+      "options": [
+        "Al-Fatiha",
+        "Al-Ikhlas",
+        "Al-Kawthar",
+        "An-Nas"
+      ],
       "correctAnswer": 2,
       "explanation": "Al-Kawthar is the shortest Surah with only 3 verses."
     },
@@ -62,7 +92,12 @@
       "category": "quran_basics",
       "difficulty": "medium",
       "question": "How many verses are in Al-Fatiha?",
-      "options": ["5", "6", "7", "8"],
+      "options": [
+        "5",
+        "6",
+        "7",
+        "8"
+      ],
       "correctAnswer": 2,
       "explanation": "Al-Fatiha has 7 verses and is recited in every prayer."
     },
@@ -71,7 +106,12 @@
       "category": "quran_basics",
       "difficulty": "medium",
       "question": "What does 'Quran' mean?",
-      "options": ["The Book", "The Reading/Recitation", "The Truth", "The Light"],
+      "options": [
+        "The Book",
+        "The Reading/Recitation",
+        "The Truth",
+        "The Light"
+      ],
       "correctAnswer": 1,
       "explanation": "Quran means 'The Reading' or 'The Recitation'."
     },
@@ -80,7 +120,12 @@
       "category": "quran_basics",
       "difficulty": "easy",
       "question": "In which language was the Quran revealed?",
-      "options": ["Hebrew", "English", "Arabic", "Urdu"],
+      "options": [
+        "Hebrew",
+        "English",
+        "Arabic",
+        "Urdu"
+      ],
       "correctAnswer": 2,
       "explanation": "The Quran was revealed in Arabic."
     },
@@ -89,9 +134,434 @@
       "category": "quran_basics",
       "difficulty": "medium",
       "question": "How many parts (Juz) is the Quran divided into?",
-      "options": ["20", "25", "30", "40"],
+      "options": [
+        "20",
+        "25",
+        "30",
+        "40"
+      ],
       "correctAnswer": 2,
       "explanation": "The Quran is divided into 30 Juz (parts) for easier reading."
+    },
+    {
+      "difficulty": "easy",
+      "question": "How many verses (ayahs) are in Surah Al-Fatiha?",
+      "options": [
+        "5",
+        "6",
+        "7",
+        "8"
+      ],
+      "correctAnswer": 2,
+      "explanation": "Surah Al-Fatiha, the opening of the Quran, has 7 verses.",
+      "id": "qb_011",
+      "category": "quran_basics"
+    },
+    {
+      "difficulty": "easy",
+      "question": "What is the last Surah of the Quran?",
+      "options": [
+        "Al-Fatiha",
+        "Al-Falaq",
+        "An-Nas",
+        "Al-Ikhlas"
+      ],
+      "correctAnswer": 2,
+      "explanation": "Surah An-Nas is Surah number 114, the last Surah of the Quran.",
+      "id": "qb_012",
+      "category": "quran_basics"
+    },
+    {
+      "difficulty": "easy",
+      "question": "What does the word 'Quran' mean?",
+      "options": [
+        "The recitation",
+        "The book",
+        "The prayer",
+        "The mosque"
+      ],
+      "correctAnswer": 0,
+      "explanation": "Quran comes from an Arabic word meaning recitation or reading aloud.",
+      "id": "qb_013",
+      "category": "quran_basics"
+    },
+    {
+      "difficulty": "easy",
+      "question": "What do we call a person who has memorized the whole Quran?",
+      "options": [
+        "Imam",
+        "Muezzin",
+        "Hafiz",
+        "Qari"
+      ],
+      "correctAnswer": 2,
+      "explanation": "A Hafiz is someone who has memorized the entire Quran by heart.",
+      "id": "qb_014",
+      "category": "quran_basics"
+    },
+    {
+      "difficulty": "easy",
+      "question": "What do we say before starting to read the Quran?",
+      "options": [
+        "Allahu Akbar",
+        "SubhanAllah",
+        "Alhamdulillah",
+        "A'udhu billahi minash-shaytanir-rajim"
+      ],
+      "correctAnswer": 3,
+      "explanation": "Before reading the Quran, we seek protection from shaytan by saying A'udhu billah, then Bismillah.",
+      "id": "qb_015",
+      "category": "quran_basics"
+    },
+    {
+      "difficulty": "easy",
+      "question": "To whom was the Quran revealed?",
+      "options": [
+        "Prophet Musa",
+        "Prophet Ibrahim",
+        "Prophet Muhammad",
+        "Prophet Isa"
+      ],
+      "correctAnswer": 2,
+      "explanation": "The Quran was revealed to Prophet Muhammad (peace be upon him) through Angel Jibril.",
+      "id": "qb_016",
+      "category": "quran_basics"
+    },
+    {
+      "difficulty": "easy",
+      "question": "What is the printed book of the Quran called?",
+      "options": [
+        "Mushaf",
+        "Seerah",
+        "Tafsir",
+        "Hadith"
+      ],
+      "correctAnswer": 0,
+      "explanation": "A Mushaf is the written or printed copy of the Quran.",
+      "id": "qb_017",
+      "category": "quran_basics"
+    },
+    {
+      "difficulty": "easy",
+      "question": "How should we treat the Quran?",
+      "options": [
+        "With respect and clean hands",
+        "Only look at the pictures",
+        "Leave it on the floor",
+        "Like any other book"
+      ],
+      "correctAnswer": 0,
+      "explanation": "We treat the Quran with great respect because it is the word of Allah.",
+      "id": "qb_018",
+      "category": "quran_basics"
+    },
+    {
+      "difficulty": "easy",
+      "question": "Which night is better than a thousand months, according to the Quran?",
+      "options": [
+        "Eid night",
+        "Friday night",
+        "Laylat al-Qadr",
+        "The first night of Ramadan"
+      ],
+      "correctAnswer": 2,
+      "explanation": "Laylat al-Qadr (the Night of Power) in Ramadan is better than a thousand months.",
+      "id": "qb_019",
+      "category": "quran_basics"
+    },
+    {
+      "difficulty": "easy",
+      "question": "What was the first word of the Quran revealed to Prophet Muhammad?",
+      "options": [
+        "Alhamdulillah",
+        "Qul (Say)",
+        "Bismillah",
+        "Iqra (Read)"
+      ],
+      "correctAnswer": 3,
+      "explanation": "The first revelation began with 'Iqra' which means 'Read', in Surah Al-Alaq.",
+      "id": "qb_020",
+      "category": "quran_basics"
+    },
+    {
+      "difficulty": "medium",
+      "question": "Which part of the Quran is often called Juz Amma?",
+      "options": [
+        "The 10th juz",
+        "The 30th juz",
+        "The 20th juz",
+        "The first juz"
+      ],
+      "correctAnswer": 1,
+      "explanation": "Juz Amma is the 30th juz and includes many short surahs.",
+      "id": "qb_021",
+      "category": "quran_basics"
+    },
+    {
+      "difficulty": "medium",
+      "question": "Which famous verse of protection is verse 255 of Surah Al-Baqarah?",
+      "options": [
+        "Surah Ya-Sin",
+        "Al-Fatiha",
+        "The last verse of the Quran",
+        "Ayat al-Kursi"
+      ],
+      "correctAnswer": 3,
+      "explanation": "Ayat al-Kursi (the Verse of the Throne) is verse 255 of Surah Al-Baqarah.",
+      "id": "qb_022",
+      "category": "quran_basics"
+    },
+    {
+      "difficulty": "medium",
+      "question": "How many verses does Surah Al-Kawthar have?",
+      "options": [
+        "3",
+        "5",
+        "7",
+        "10"
+      ],
+      "correctAnswer": 0,
+      "explanation": "Surah Al-Kawthar has three verses.",
+      "id": "qb_023",
+      "category": "quran_basics"
+    },
+    {
+      "difficulty": "medium",
+      "question": "How many verses are in Surah Al-Ikhlas?",
+      "options": [
+        "3",
+        "4",
+        "5",
+        "6"
+      ],
+      "correctAnswer": 1,
+      "explanation": "Surah Al-Ikhlas has 4 verses and describes the Oneness of Allah.",
+      "id": "qb_024",
+      "category": "quran_basics"
+    },
+    {
+      "difficulty": "medium",
+      "question": "Over how many years was the Quran revealed?",
+      "options": [
+        "23 years",
+        "40 years",
+        "63 years",
+        "10 years"
+      ],
+      "correctAnswer": 0,
+      "explanation": "The Quran was revealed gradually over about 23 years.",
+      "id": "qb_025",
+      "category": "quran_basics"
+    },
+    {
+      "difficulty": "medium",
+      "question": "What are the rules for reading the Quran beautifully and correctly called?",
+      "options": [
+        "Tafsir",
+        "Hifz",
+        "Tajweed",
+        "Tarteel only"
+      ],
+      "correctAnswer": 2,
+      "explanation": "Tajweed is the set of rules for pronouncing the Quran correctly and beautifully.",
+      "id": "qb_026",
+      "category": "quran_basics"
+    },
+    {
+      "difficulty": "medium",
+      "question": "Surahs revealed in Mecca are called what?",
+      "options": [
+        "Long Surahs",
+        "Makki Surahs",
+        "Madani Surahs",
+        "First Surahs"
+      ],
+      "correctAnswer": 1,
+      "explanation": "Surahs revealed before the Hijrah in Mecca are called Makki Surahs.",
+      "id": "qb_027",
+      "category": "quran_basics"
+    },
+    {
+      "difficulty": "medium",
+      "question": "Which Surah do Muslims recite in every rakat of prayer?",
+      "options": [
+        "An-Nas",
+        "Al-Kawthar",
+        "Al-Ikhlas",
+        "Al-Fatiha"
+      ],
+      "correctAnswer": 3,
+      "explanation": "Surah Al-Fatiha is recited in every rakat of every prayer.",
+      "id": "qb_028",
+      "category": "quran_basics"
+    },
+    {
+      "difficulty": "medium",
+      "question": "What is the explanation of the Quran's meaning called?",
+      "options": [
+        "Adhan",
+        "Tajweed",
+        "Tafsir",
+        "Fiqh"
+      ],
+      "correctAnswer": 2,
+      "explanation": "Tafsir is the scholarly explanation of the meanings of the Quran.",
+      "id": "qb_029",
+      "category": "quran_basics"
+    },
+    {
+      "difficulty": "medium",
+      "question": "Which two short Surahs are recited for protection and are called 'Al-Mu'awwidhatayn'?",
+      "options": [
+        "Al-Falaq and An-Nas",
+        "Al-Asr and Al-Fil",
+        "Al-Ikhlas and Al-Kawthar",
+        "Al-Fatiha and Al-Baqarah"
+      ],
+      "correctAnswer": 0,
+      "explanation": "Surah Al-Falaq and Surah An-Nas are the two Surahs of seeking protection with Allah.",
+      "id": "qb_030",
+      "category": "quran_basics"
+    },
+    {
+      "difficulty": "hard",
+      "question": "How many verses are in Surah Al-Baqarah, the longest Surah?",
+      "options": [
+        "200",
+        "255",
+        "286",
+        "300"
+      ],
+      "correctAnswer": 2,
+      "explanation": "Surah Al-Baqarah has 286 verses, making it the longest Surah in the Quran.",
+      "id": "qb_031",
+      "category": "quran_basics"
+    },
+    {
+      "difficulty": "hard",
+      "question": "Which Surah does NOT begin with Bismillah?",
+      "options": [
+        "Surah At-Tawbah",
+        "Surah Al-Fatiha",
+        "Surah An-Nas",
+        "Surah Ya-Sin"
+      ],
+      "correctAnswer": 0,
+      "explanation": "Surah At-Tawbah (Surah 9) is the only Surah that does not begin with Bismillah.",
+      "id": "qb_032",
+      "category": "quran_basics"
+    },
+    {
+      "difficulty": "hard",
+      "question": "In which Surah is Ayat al-Kursi found, and in which juz?",
+      "options": [
+        "Al-Fatiha, juz 1",
+        "Al-Imran, juz 4",
+        "An-Nisa, juz 5",
+        "Al-Baqarah, juz 3"
+      ],
+      "correctAnswer": 3,
+      "explanation": "Ayat al-Kursi is verse 2:255 in Surah Al-Baqarah, located in juz 3.",
+      "id": "qb_033",
+      "category": "quran_basics"
+    },
+    {
+      "difficulty": "hard",
+      "question": "How many verses does Surah Ya-Sin have?",
+      "options": [
+        "73",
+        "83",
+        "93",
+        "103"
+      ],
+      "correctAnswer": 1,
+      "explanation": "Surah Ya-Sin, Surah 36 of the Quran, has 83 verses.",
+      "id": "qb_034",
+      "category": "quran_basics"
+    },
+    {
+      "difficulty": "hard",
+      "question": "In which cave did Prophet Muhammad receive the first revelation?",
+      "options": [
+        "Cave Uhud",
+        "Cave Thawr",
+        "Cave Badr",
+        "Cave Hira"
+      ],
+      "correctAnswer": 3,
+      "explanation": "Angel Jibril brought the first revelation to Prophet Muhammad in Cave Hira on Jabal an-Nur.",
+      "id": "qb_035",
+      "category": "quran_basics"
+    },
+    {
+      "difficulty": "hard",
+      "question": "Which Surah is named after a woman?",
+      "options": [
+        "Surah Fatimah",
+        "Surah Aisha",
+        "Surah Khadijah",
+        "Surah Maryam"
+      ],
+      "correctAnswer": 3,
+      "explanation": "Surah Maryam (Surah 19) is named after Maryam, the mother of Prophet Isa.",
+      "id": "qb_036",
+      "category": "quran_basics"
+    },
+    {
+      "difficulty": "hard",
+      "question": "Surahs revealed after the Hijrah to Medina are called what?",
+      "options": [
+        "Makki Surahs",
+        "Qudsi Surahs",
+        "Madani Surahs",
+        "Hijri Surahs"
+      ],
+      "correctAnswer": 2,
+      "explanation": "Surahs revealed after the migration to Medina are called Madani Surahs.",
+      "id": "qb_037",
+      "category": "quran_basics"
+    },
+    {
+      "difficulty": "hard",
+      "question": "During which month do many Muslims try to finish reading the whole Quran?",
+      "options": [
+        "Rajab",
+        "Muharram",
+        "Dhul Hijjah",
+        "Ramadan"
+      ],
+      "correctAnswer": 3,
+      "explanation": "In Ramadan, the month the Quran was revealed, many Muslims read one juz each day to finish all 30.",
+      "id": "qb_038",
+      "category": "quran_basics"
+    },
+    {
+      "difficulty": "hard",
+      "question": "What is Surah Al-Ikhlas mainly about?",
+      "options": [
+        "Rules of fasting",
+        "The story of Prophet Yusuf",
+        "The Day of Judgment",
+        "The Oneness of Allah"
+      ],
+      "correctAnswer": 3,
+      "explanation": "Surah Al-Ikhlas declares that Allah is One, eternal, and nothing is like Him.",
+      "id": "qb_039",
+      "category": "quran_basics"
+    },
+    {
+      "difficulty": "hard",
+      "question": "Reciting Surah Al-Ikhlas is said to equal how much of the Quran in reward?",
+      "options": [
+        "One quarter",
+        "One half",
+        "The whole Quran",
+        "One third"
+      ],
+      "correctAnswer": 3,
+      "explanation": "Prophet Muhammad taught that Surah Al-Ikhlas is equal to one third of the Quran in reward.",
+      "id": "qb_040",
+      "category": "quran_basics"
     }
   ]
 }

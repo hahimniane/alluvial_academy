@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'package:alluwalacademyadmin/core/utils/app_search.dart';
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
@@ -56,6 +57,16 @@ class _UserSelectionDialogState extends State<UserSelectionDialog> {
                   'email': doc.data()['email'] ?? '',
                   'firstName': doc.data()['first_name'] ?? '',
                   'lastName': doc.data()['last_name'] ?? '',
+                  'phone': doc.data()['phone_number'] ??
+                      doc.data()['phoneNumber'] ??
+                      doc.data()['mobile_phone'] ??
+                      doc.data()['mobilePhone'] ??
+                      doc.data()['phone'] ??
+                      '',
+                  'studentCode':
+                      doc.data()['student_code'] ?? doc.data()['studentCode'] ?? '',
+                  'kioskCode':
+                      doc.data()['kiosk_code'] ?? doc.data()['kioskCode'] ?? '',
                   'role': doc.data()['role'] ?? '',
                 })
             .toList();
@@ -69,15 +80,22 @@ class _UserSelectionDialogState extends State<UserSelectionDialog> {
 
   List<Map<String, dynamic>> get _filteredUsers {
     if (_searchTerm.isEmpty) return _users;
-    final term = _searchTerm.toLowerCase();
     return _users.where((user) {
-      final firstName = user['firstName'].toString().toLowerCase();
-      final lastName = user['lastName'].toString().toLowerCase();
-      final email = user['email'].toString().toLowerCase();
-      return firstName.contains(term) ||
-          lastName.contains(term) ||
-          email.contains(term) ||
-          '$firstName $lastName'.contains(term);
+      return AppSearch.matches(
+        query: _searchTerm,
+        names: [
+          '${user['firstName'] ?? ''} ${user['lastName'] ?? ''}',
+          '${user['lastName'] ?? ''} ${user['firstName'] ?? ''}',
+        ],
+        emails: [(user['email'] ?? '').toString()],
+        phones: [(user['phone'] ?? '').toString()],
+        ids: [
+          (user['id'] ?? '').toString(),
+          (user['studentCode'] ?? '').toString(),
+          (user['kioskCode'] ?? '').toString(),
+        ],
+        additionalValues: [(user['role'] ?? '').toString()],
+      );
     }).toList();
   }
 

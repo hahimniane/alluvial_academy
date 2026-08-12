@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:alluwalacademyadmin/core/utils/app_search.dart';
 
 import 'package:alluwalacademyadmin/features/recordings/services/class_recording_service.dart';
 import 'package:alluwalacademyadmin/features/surah_podcast/widgets/video_player_widget.dart';
@@ -110,6 +111,7 @@ class ClassRecordingsScreen extends StatefulWidget {
 class _ClassRecordingsScreenState extends State<ClassRecordingsScreen> {
   final List<ClassRecordingItem> _recordings = [];
   final Map<String, String> _nameCache = {};
+  final Map<String, ClassRecordingUserSearchData> _userSearchCache = {};
 
   bool _isLoading = true;
   String? _error;
@@ -168,7 +170,7 @@ class _ClassRecordingsScreenState extends State<ClassRecordingsScreen> {
       return;
     }
 
-    final names = await _resolveNames(result.recordings);
+    final people = await _resolvePeople(result.recordings);
     if (!mounted) return;
 
     setState(() {
@@ -179,7 +181,10 @@ class _ClassRecordingsScreenState extends State<ClassRecordingsScreen> {
         ..addAll(result.recordings);
       _nameCache
         ..clear()
-        ..addAll(names);
+        ..addAll(people.map((id, person) => MapEntry(id, person.name)));
+      _userSearchCache
+        ..clear()
+        ..addAll(people);
 
       _selectedTeacherKey = null;
       _selectedStudentId = null;
@@ -193,7 +198,7 @@ class _ClassRecordingsScreenState extends State<ClassRecordingsScreen> {
     });
   }
 
-  Future<Map<String, String>> _resolveNames(
+  Future<Map<String, ClassRecordingUserSearchData>> _resolvePeople(
     List<ClassRecordingItem> items,
   ) async {
     final ids = <String>{};
@@ -209,7 +214,7 @@ class _ClassRecordingsScreenState extends State<ClassRecordingsScreen> {
         }
       }
     }
-    return ClassRecordingService.getUserNamesByIds(ids);
+    return ClassRecordingService.getUserSearchDataByIds(ids);
   }
 
   void _goBackOneLevel() {
@@ -329,9 +334,16 @@ class _ClassRecordingsScreenState extends State<ClassRecordingsScreen> {
         .toList();
 
     if (_searchQuery.trim().isNotEmpty) {
-      final query = _searchQuery.trim().toLowerCase();
-      buckets =
-          buckets.where((b) => b.name.toLowerCase().contains(query)).toList();
+      buckets = buckets.where((bucket) {
+        final person = _userSearchCache[bucket.key];
+        return AppSearch.matches(
+          query: _searchQuery,
+          names: [bucket.name],
+          emails: [person?.email ?? ''],
+          phones: [person?.phone ?? ''],
+          ids: [bucket.key, person?.id ?? ''],
+        );
+      }).toList();
     }
 
     buckets.sort((a, b) {
@@ -391,9 +403,16 @@ class _ClassRecordingsScreenState extends State<ClassRecordingsScreen> {
         .toList();
 
     if (_searchQuery.trim().isNotEmpty) {
-      final query = _searchQuery.trim().toLowerCase();
-      buckets =
-          buckets.where((b) => b.name.toLowerCase().contains(query)).toList();
+      buckets = buckets.where((bucket) {
+        final person = _userSearchCache[bucket.id];
+        return AppSearch.matches(
+          query: _searchQuery,
+          names: [bucket.name],
+          emails: [person?.email ?? ''],
+          phones: [person?.phone ?? ''],
+          ids: [bucket.id, person?.id ?? ''],
+        );
+      }).toList();
     }
 
     buckets.sort((a, b) {
@@ -514,12 +533,17 @@ class _ClassRecordingsScreenState extends State<ClassRecordingsScreen> {
     }).toList();
 
     if (_searchQuery.trim().isNotEmpty) {
-      final query = _searchQuery.trim().toLowerCase();
       buckets = buckets.where((bucket) {
-        if (bucket.shiftName.toLowerCase().contains(query)) return true;
-        if (bucket.subjectName.toLowerCase().contains(query)) return true;
-        if (bucket.teacherName.toLowerCase().contains(query)) return true;
-        return false;
+        final teacherId = bucket.fragments.first.teacherId?.trim() ?? '';
+        final teacher = _userSearchCache[teacherId];
+        return AppSearch.matches(
+          query: _searchQuery,
+          names: [bucket.teacherName],
+          emails: [teacher?.email ?? ''],
+          phones: [teacher?.phone ?? ''],
+          ids: [bucket.shiftId, teacherId],
+          additionalValues: [bucket.shiftName, bucket.subjectName],
+        );
       }).toList();
     }
 

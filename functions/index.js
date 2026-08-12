@@ -60,6 +60,11 @@ exports.createUser = functions.https.onCall(userHandlers.createUser);
 exports.deleteUserAccount = functions.https.onCall(
   userHandlers.deleteUserAccount
 );
+// Keeps a device push token owned by exactly one account, so a phone stops
+// receiving notifications for accounts that previously signed in on it.
+exports.syncFcmTokenOwnership =
+  require('./handlers/fcm_token_ownership').syncFcmTokenOwnership;
+
 exports.findUserByEmailOrCode = functions.https.onCall(
   userHandlers.findUserByEmailOrCode
 );

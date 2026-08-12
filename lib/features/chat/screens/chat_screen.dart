@@ -17,6 +17,7 @@ import '../models/chat_message.dart';
 import '../widgets/message_bubble.dart';
 import 'media_preview_screen.dart';
 import '../../../core/utils/app_logger.dart';
+import '../../../core/utils/app_search.dart';
 import 'package:alluwalacademyadmin/features/livekit/services/livekit_service.dart';
 import '../../../core/services/notification_service.dart';
 import '../../../l10n/app_localizations.dart';
@@ -369,8 +370,10 @@ class _ChatScreenState extends State<ChatScreen> {
     return Scaffold(
       backgroundColor: const Color(0xffF8FAFC),
       appBar: _buildAppBar(),
-      body: Column(
-        children: [
+      body: ScrollNotificationObserver(
+        child: SelectionArea(
+          child: Column(
+            children: [
           // Messages
           Expanded(
             child: _buildMessagesList(),
@@ -382,7 +385,9 @@ class _ChatScreenState extends State<ChatScreen> {
 
           // Message input
           _buildMessageInput(),
-        ],
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -2922,11 +2927,14 @@ class _AddMembersDialogState extends State<_AddMembersDialog> {
     }
 
     if (_searchQuery.isNotEmpty) {
-      final q = _searchQuery.toLowerCase();
       filtered = filtered
-          .where((u) =>
-              u.displayName.toLowerCase().contains(q) ||
-              (u.email.toLowerCase().contains(q)))
+          .where((u) => AppSearch.matches(
+                query: _searchQuery,
+                names: [u.displayName],
+                emails: [u.email],
+                phones: [u.phone],
+                ids: [u.id],
+              ))
           .toList();
     }
 

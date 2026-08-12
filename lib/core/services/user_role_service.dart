@@ -55,7 +55,8 @@ class UserRoleService {
       }
 
       // Include secondary roles (e.g., a parent who is also a teacher/student)
-      final secondaryRoles = List<String>.from(userData['secondary_roles'] ?? []);
+      final secondaryRoles =
+          List<String>.from(userData['secondary_roles'] ?? []);
       for (final r in secondaryRoles) {
         final trimmed = r.trim().toLowerCase();
         if (trimmed.isNotEmpty) roles.add(trimmed);
@@ -164,10 +165,8 @@ class UserRoleService {
       }
 
       // First try to get user document by UID (most reliable)
-      final userDocByUid = await _firestore
-          .collection('users')
-          .doc(currentUser.uid)
-          .get();
+      final userDocByUid =
+          await _firestore.collection('users').doc(currentUser.uid).get();
 
       Map<String, dynamic>? userData;
 
@@ -214,7 +213,7 @@ class UserRoleService {
               .where('phone_number', isEqualTo: currentUser.phoneNumber)
               .limit(1)
               .get();
-              
+
           if (phoneQuery.docs.isNotEmpty) {
             userData = phoneQuery.docs.first.data() as Map<String, dynamic>;
           }
@@ -480,6 +479,12 @@ class UserRoleService {
   /// Activate a user account
   static Future<bool> activateUser(String userEmail) async {
     try {
+      final actor = _auth.currentUser;
+      if (actor == null) {
+        AppLogger.debug('UserRoleService: No authenticated user found');
+        return false;
+      }
+
       final QuerySnapshot userQuery = await _firestore
           .collection('users')
           .where('e-mail', isEqualTo: userEmail.toLowerCase())
@@ -495,8 +500,12 @@ class UserRoleService {
       await docRef.update({
         'is_active': true,
         'activated_at': FieldValue.serverTimestamp(),
+        'activated_by_uid': actor.uid,
+        'activated_by_email': actor.email?.toLowerCase(),
         'updated_at': FieldValue.serverTimestamp(),
         'deactivated_at': FieldValue.delete(), // Remove deactivation timestamp
+        'deactivated_by_uid': FieldValue.delete(),
+        'deactivated_by_email': FieldValue.delete(),
       });
 
       AppLogger.error('Successfully activated user: $userEmail');
@@ -513,10 +522,8 @@ class UserRoleService {
       // First try to get user by UID if we have currentUser
       final User? currentUser = _auth.currentUser;
       if (currentUser != null) {
-        final userDocByUid = await _firestore
-            .collection('users')
-            .doc(currentUser.uid)
-            .get();
+        final userDocByUid =
+            await _firestore.collection('users').doc(currentUser.uid).get();
 
         if (userDocByUid.exists) {
           final userData = userDocByUid.data() as Map<String, dynamic>;
@@ -538,7 +545,8 @@ class UserRoleService {
       if (userQuery.docs.isEmpty) {
         // If not found by email, return true (default to active)
         // This prevents students with alias emails from being blocked
-        AppLogger.debug('User not found by email in isUserActive, defaulting to active');
+        AppLogger.debug(
+            'User not found by email in isUserActive, defaulting to active');
         return true;
       }
 
@@ -555,7 +563,8 @@ class UserRoleService {
   ///
   /// If `deleteClasses` is true and the user is a teacher or student, the backend will also
   /// delete/detach the user's classes (teaching shifts) safely.
-  static Future<bool> deleteUser(String userEmail, {bool deleteClasses = false}) async {
+  static Future<bool> deleteUser(String userEmail,
+      {bool deleteClasses = false}) async {
     try {
       AppLogger.debug(
           'UserRoleService: Calling cloud function to delete user: $userEmail');
@@ -572,12 +581,13 @@ class UserRoleService {
       try {
         idToken = await currentUser.getIdToken(true);
       } catch (e) {
-        AppLogger.debug('UserRoleService: Failed to refresh ID token before deleteUser: $e');
+        AppLogger.debug(
+            'UserRoleService: Failed to refresh ID token before deleteUser: $e');
       }
 
       // Call the cloud function to handle deletion
-      final callable =
-          FirebaseFunctions.instanceFor(region: 'us-central1').httpsCallable('deleteUserAccount');
+      final callable = FirebaseFunctions.instanceFor(region: 'us-central1')
+          .httpsCallable('deleteUserAccount');
       final payload = <String, dynamic>{
         'email': userEmail.trim(),
         'deleteClasses': deleteClasses,
@@ -596,12 +606,14 @@ class UserRoleService {
       if (data['success'] == true) {
         AppLogger.info(
             'UserRoleService: Successfully deleted user via cloud function: $userEmail');
-        AppLogger.info('UserRoleService: Deleted from Auth: ${data['deletedFromAuth']}');
+        AppLogger.info(
+            'UserRoleService: Deleted from Auth: ${data['deletedFromAuth']}');
         AppLogger.info(
             'UserRoleService: Deleted from Firestore: ${data['deletedFromFirestore']}');
         return true;
       } else {
-        AppLogger.error('UserRoleService: Cloud function returned unsuccessful result');
+        AppLogger.error(
+            'UserRoleService: Cloud function returned unsuccessful result');
         return false;
       }
     } on FirebaseFunctionsException catch (e) {
@@ -619,17 +631,21 @@ class UserRoleService {
         case 'not-found':
           throw Exception(e.message ?? 'User not found in the system');
         default:
-          throw Exception(e.message ?? 'Failed to delete user (code=${e.code})');
+          throw Exception(
+              e.message ?? 'Failed to delete user (code=${e.code})');
       }
     } catch (e) {
-      AppLogger.error('UserRoleService: Error calling delete user cloud function: $e');
+      AppLogger.error(
+          'UserRoleService: Error calling delete user cloud function: $e');
 
       // Check if this is a Firebase Functions error with more details
       if (e.toString().contains('failed-precondition')) {
-        AppLogger.debug('UserRoleService: User must be deactivated before deletion');
+        AppLogger.debug(
+            'UserRoleService: User must be deactivated before deletion');
         throw Exception('User must be archived before permanent deletion');
       } else if (e.toString().contains('permission-denied')) {
-        AppLogger.debug('UserRoleService: Permission denied - user is not an admin');
+        AppLogger.debug(
+            'UserRoleService: Permission denied - user is not an admin');
         throw Exception('Only administrators can delete users');
       } else if (e.toString().contains('not-found')) {
         AppLogger.debug('UserRoleService: User not found');

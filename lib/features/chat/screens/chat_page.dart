@@ -12,6 +12,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../../l10n/app_localizations.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+import 'package:alluwalacademyadmin/core/utils/app_search.dart';
 
 class ChatPage extends StatefulWidget {
   const ChatPage({super.key});
@@ -88,8 +89,10 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      body: SafeArea(
-        child: Column(
+      body: ScrollNotificationObserver(
+        child: SelectionArea(
+          child: SafeArea(
+            child: Column(
           children: [
             // Compact tab bar at top
             _buildCompactTabBar(),
@@ -108,6 +111,8 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
               ),
             ),
           ],
+            ),
+          ),
         ),
       ),
 
@@ -280,19 +285,11 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       List<ChatUser> normalChats, List<ChatUser> supportChats) {
     final filteredNormal = _searchQuery.isEmpty
         ? normalChats
-        : normalChats
-            .where((chat) =>
-                chat.displayName.toLowerCase().contains(_searchQuery) ||
-                chat.email.toLowerCase().contains(_searchQuery))
-            .toList();
+        : normalChats.where(_matchesUserSearch).toList();
 
     final filteredSupport = _searchQuery.isEmpty
         ? supportChats
-        : supportChats
-            .where((chat) =>
-                chat.displayName.toLowerCase().contains(_searchQuery) ||
-                chat.email.toLowerCase().contains(_searchQuery))
-            .toList();
+        : supportChats.where(_matchesUserSearch).toList();
 
     if (filteredNormal.isEmpty && filteredSupport.isEmpty) {
       final l10n = AppLocalizations.of(context);
@@ -450,11 +447,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     for (final entry in _groupedContacts.entries) {
       final filteredUsers = _searchQuery.isEmpty
           ? entry.value
-          : entry.value
-              .where((user) =>
-                  user.displayName.toLowerCase().contains(_searchQuery) ||
-                  user.email.toLowerCase().contains(_searchQuery))
-              .toList();
+          : entry.value.where(_matchesUserSearch).toList();
       if (filteredUsers.isNotEmpty) {
         filteredGroups[entry.key] = filteredUsers;
       }
@@ -568,6 +561,16 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
           }),
         ],
       ),
+    );
+  }
+
+  bool _matchesUserSearch(ChatUser user) {
+    return AppSearch.matches(
+      query: _searchQuery,
+      names: [user.displayName],
+      emails: [user.email],
+      phones: [user.phone],
+      ids: [user.id],
     );
   }
 

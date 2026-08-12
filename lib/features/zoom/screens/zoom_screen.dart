@@ -12,6 +12,8 @@ import 'package:alluwalacademyadmin/features/shift_management/services/shift_ser
 import 'package:alluwalacademyadmin/features/livekit/services/video_call_service.dart';
 import 'package:alluwalacademyadmin/features/livekit/services/livekit_service.dart';
 import '../../../core/services/user_role_service.dart';
+import '../services/class_roster_contact_service.dart';
+import '../widgets/admin_class_roster_contacts.dart';
 import '../../shift_management/widgets/create_shift_dialog.dart';
 import '../../recordings/screens/class_recordings_screen.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
@@ -59,6 +61,10 @@ class _ZoomScreenState extends State<ZoomScreen> with WidgetsBindingObserver {
   String? _userRole;
   bool _isLoadingRole = true;
   final Map<String, Future<LiveKitRoomPresenceResult>> _liveKitPresenceFutures =
+      {};
+  final ClassRosterContactService _rosterContactService =
+      ClassRosterContactService();
+  final Map<String, Future<List<ClassStudentContact>>> _rosterContactFutures =
       {};
 
   final TextEditingController _searchController = TextEditingController();
@@ -176,6 +182,21 @@ class _ZoomScreenState extends State<ZoomScreen> with WidgetsBindingObserver {
     return _liveKitPresenceFutures.putIfAbsent(
       shiftId,
       () => LiveKitService.getRoomPresence(shiftId),
+    );
+  }
+
+  Future<List<ClassStudentContact>> _getRosterContacts(TeachingShift shift) {
+    final cacheKey = [
+      ...shift.studentIds,
+      '|',
+      ...shift.studentNames,
+    ].join('\u0001');
+    return _rosterContactFutures.putIfAbsent(
+      cacheKey,
+      () => _rosterContactService.loadContacts(
+        studentIds: shift.studentIds,
+        studentNames: shift.studentNames,
+      ),
     );
   }
 
@@ -777,6 +798,11 @@ class _ZoomScreenState extends State<ZoomScreen> with WidgetsBindingObserver {
               shift: shift,
               isTeacher: !isStudent,
               isAdmin: isAdmin,
+              rosterContacts: isAdmin &&
+                      (shift.studentIds.isNotEmpty ||
+                          shift.studentNames.isNotEmpty)
+                  ? _getRosterContacts(shift)
+                  : null,
               liveKitPresenceFuture: isAdmin &&
                       (shift.usesLiveKit || shift.usesZoom) &&
                       VideoCallService.canJoinClass(shift)
@@ -827,36 +853,41 @@ class _ZoomScreenState extends State<ZoomScreen> with WidgetsBindingObserver {
           ),
         ],
       ),
-      body: user == null
-          ? _UnauthenticatedState()
-          : _isLoadingRole
-              ? const Center(child: CircularProgressIndicator())
-              : StreamBuilder<List<TeachingShift>>(
-                  stream: _getShiftsStream(user.uid),
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting &&
-                        !snapshot.hasData) {
-                      return const Center(child: CircularProgressIndicator());
-                    }
+      body: ScrollNotificationObserver(
+        child: SelectionArea(
+          child: user == null
+              ? _UnauthenticatedState()
+              : _isLoadingRole
+                  ? const Center(child: CircularProgressIndicator())
+                  : StreamBuilder<List<TeachingShift>>(
+                      stream: _getShiftsStream(user.uid),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState ==
+                                ConnectionState.waiting &&
+                            !snapshot.hasData) {
+                          return const Center(
+                              child: CircularProgressIndicator());
+                        }
 
-                    if (snapshot.hasError) {
-                      return _ErrorState(message: '${snapshot.error}');
-                    }
+                        if (snapshot.hasError) {
+                          return _ErrorState(message: '${snapshot.error}');
+                        }
 
-                    final allShifts = snapshot.data ?? const <TeachingShift>[];
-                    final nowUtc = DateTime.now().toUtc();
-                    final toUtc = nowUtc.add(_futureLookahead);
+                        final allShifts =
+                            snapshot.data ?? const <TeachingShift>[];
+                        final nowUtc = DateTime.now().toUtc();
+                        final toUtc = nowUtc.add(_futureLookahead);
 
-                    // FIX: Only show future classes - hide classes that have already passed
-                    // We still show Zoom shifts even if a meeting hasn't been created yet, so teachers can see their schedule.
-                    final windowShifts = allShifts
-                        .where((s) => s.shiftEnd.toUtc().isAfter(
-                            nowUtc)) // Only show if class hasn't ended yet
-                        .where((s) => s.shiftStart.toUtc().isBefore(toUtc))
-                        .toList();
+                        // FIX: Only show future classes - hide classes that have already passed
+                        // We still show Zoom shifts even if a meeting hasn't been created yet, so teachers can see their schedule.
+                        final windowShifts = allShifts
+                            .where((s) => s.shiftEnd.toUtc().isAfter(
+                                nowUtc)) // Only show if class hasn't ended yet
+                            .where((s) => s.shiftStart.toUtc().isBefore(toUtc))
+                            .toList();
 
-                    final zoomShifts =
-                        _applySearchAndFilters(windowShifts, nowUtc, isAdmin)
+                        final zoomShifts = _applySearchAndFilters(
+                            windowShifts, nowUtc, isAdmin)
                           ..sort((a, b) {
                             final aCanJoin = VideoCallService.canJoinClass(a);
                             final bCanJoin = VideoCallService.canJoinClass(b);
@@ -888,229 +919,243 @@ class _ZoomScreenState extends State<ZoomScreen> with WidgetsBindingObserver {
                             return a.shiftStart.compareTo(b.shiftStart);
                           });
 
-                    if (isAdmin) {
-                      _autoRefreshPresenceShiftIds = zoomShifts
-                          .where((s) =>
-                              (s.usesLiveKit || s.usesZoom) &&
-                              VideoCallService.canJoinClass(s))
-                          .take(25)
-                          .map((s) => s.id)
-                          .toSet();
-                    } else {
-                      _autoRefreshPresenceShiftIds = <String>{};
-                    }
+                        if (isAdmin) {
+                          _autoRefreshPresenceShiftIds = zoomShifts
+                              .where((s) =>
+                                  (s.usesLiveKit || s.usesZoom) &&
+                                  VideoCallService.canJoinClass(s))
+                              .take(25)
+                              .map((s) => s.id)
+                              .toSet();
+                        } else {
+                          _autoRefreshPresenceShiftIds = <String>{};
+                        }
 
-                    if (zoomShifts.isEmpty) {
-                      if (!isAdmin) return const _NoZoomShiftsState();
+                        if (zoomShifts.isEmpty) {
+                          if (!isAdmin) return const _NoZoomShiftsState();
 
-                      final filterCount = _activeFilterCount();
-                      final hasActiveSearchOrFilters =
-                          filterCount > 0 || _searchQuery.trim().isNotEmpty;
+                          final filterCount = _activeFilterCount();
+                          final hasActiveSearchOrFilters =
+                              filterCount > 0 || _searchQuery.trim().isNotEmpty;
 
-                      return ListView(
-                        padding: const EdgeInsets.all(16),
-                        children: [
-                          Row(
+                          return ListView(
+                            padding: const EdgeInsets.all(16),
                             children: [
-                              Expanded(
-                                child: TextField(
-                                  controller: _searchController,
-                                  decoration: InputDecoration(
-                                    hintText: AppLocalizations.of(context)!
-                                        .searchClassesTeacherStudentSubject,
-                                    prefixIcon: const Icon(Icons.search),
-                                    suffixIcon: _searchQuery.trim().isEmpty
-                                        ? null
-                                        : IconButton(
-                                            onPressed: () {
-                                              _searchController.clear();
-                                            },
-                                            icon: const Icon(Icons.close),
-                                            tooltip:
-                                                AppLocalizations.of(context)!
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: TextField(
+                                      controller: _searchController,
+                                      decoration: InputDecoration(
+                                        hintText: AppLocalizations.of(context)!
+                                            .searchClassesTeacherStudentSubject,
+                                        prefixIcon: const Icon(Icons.search),
+                                        suffixIcon: _searchQuery.trim().isEmpty
+                                            ? null
+                                            : IconButton(
+                                                onPressed: () {
+                                                  _searchController.clear();
+                                                },
+                                                icon: const Icon(Icons.close),
+                                                tooltip: AppLocalizations.of(
+                                                        context)!
                                                     .clearSearch,
-                                          ),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(14),
+                                              ),
+                                        border: OutlineInputBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(14),
+                                        ),
+                                        isDense: true,
+                                      ),
                                     ),
-                                    isDense: true,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  SizedBox(
+                                    height: 44,
+                                    child: OutlinedButton.icon(
+                                      onPressed: () => _openFiltersSheet(
+                                          context,
+                                          isAdmin: isAdmin),
+                                      icon: const Icon(Icons.tune, size: 18),
+                                      label: Text(
+                                        filterCount == 0
+                                            ? AppLocalizations.of(context)!
+                                                .filters
+                                            : AppLocalizations.of(context)!
+                                                .filtersCount(filterCount),
+                                        style: GoogleFonts.inter(
+                                            fontWeight: FontWeight.w700),
+                                      ),
+                                      style: OutlinedButton.styleFrom(
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(14),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  if (hasActiveSearchOrFilters) ...[
+                                    const SizedBox(width: 8),
+                                    SizedBox(
+                                      height: 44,
+                                      child: TextButton(
+                                        onPressed: _clearFilters,
+                                        child: Text(
+                                          AppLocalizations.of(context)!
+                                              .commonClear,
+                                          style: GoogleFonts.inter(
+                                              fontWeight: FontWeight.w700),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              Align(
+                                alignment: Alignment.centerLeft,
+                                child: Text(
+                                  AppLocalizations.of(context)!.zeroResults,
+                                  style: GoogleFonts.inter(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: const Color(0xFF64748B),
                                   ),
                                 ),
                               ),
-                              const SizedBox(width: 12),
+                              const SizedBox(height: 12),
+                              const _HeaderCard(),
+                              const SizedBox(height: 12),
+                              _NoClassResultsCard(
+                                hasAnyClassesInWindow: windowShifts.isNotEmpty,
+                                showClearButton: hasActiveSearchOrFilters,
+                                title: hasActiveSearchOrFilters
+                                    ? null
+                                    : AppLocalizations.of(context)!
+                                        .classesNoActiveClassesNow,
+                                subtitle: hasActiveSearchOrFilters
+                                    ? null
+                                    : AppLocalizations.of(context)!
+                                        .classesSwitchTimeFilter,
+                                onClear: _clearFilters,
+                              ),
                               SizedBox(
-                                height: 44,
-                                child: OutlinedButton.icon(
-                                  onPressed: () => _openFiltersSheet(context,
-                                      isAdmin: isAdmin),
-                                  icon: const Icon(Icons.tune, size: 18),
-                                  label: Text(
-                                    filterCount == 0
-                                        ? AppLocalizations.of(context)!.filters
-                                        : AppLocalizations.of(context)!
-                                            .filtersCount(filterCount),
-                                    style: GoogleFonts.inter(
-                                        fontWeight: FontWeight.w700),
-                                  ),
-                                  style: OutlinedButton.styleFrom(
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(14),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              if (hasActiveSearchOrFilters) ...[
-                                const SizedBox(width: 8),
-                                SizedBox(
-                                  height: 44,
-                                  child: TextButton(
-                                    onPressed: _clearFilters,
-                                    child: Text(
-                                      AppLocalizations.of(context)!.commonClear,
-                                      style: GoogleFonts.inter(
-                                          fontWeight: FontWeight.w700),
-                                    ),
-                                  ),
-                                ),
-                              ],
+                                  height:
+                                      MediaQuery.of(context).padding.bottom),
                             ],
-                          ),
-                          const SizedBox(height: 12),
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text(
-                              AppLocalizations.of(context)!.zeroResults,
-                              style: GoogleFonts.inter(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: const Color(0xFF64748B),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          const _HeaderCard(),
-                          const SizedBox(height: 12),
-                          _NoClassResultsCard(
-                            hasAnyClassesInWindow: windowShifts.isNotEmpty,
-                            showClearButton: hasActiveSearchOrFilters,
-                            title: hasActiveSearchOrFilters
-                                ? null
-                                : AppLocalizations.of(context)!
-                                    .classesNoActiveClassesNow,
-                            subtitle: hasActiveSearchOrFilters
-                                ? null
-                                : AppLocalizations.of(context)!
-                                    .classesSwitchTimeFilter,
-                            onClear: _clearFilters,
-                          ),
-                          SizedBox(
-                              height: MediaQuery.of(context).padding.bottom),
-                        ],
-                      );
-                    }
+                          );
+                        }
 
-                    final isStudent = _userRole == 'student';
-                    final filterCount = _activeFilterCount();
-                    final hasActiveSearchOrFilters =
-                        filterCount > 0 || _searchQuery.trim().isNotEmpty;
+                        final isStudent = _userRole == 'student';
+                        final filterCount = _activeFilterCount();
+                        final hasActiveSearchOrFilters =
+                            filterCount > 0 || _searchQuery.trim().isNotEmpty;
 
-                    return ListView(
-                      padding: const EdgeInsets.all(16),
-                      children: [
-                        if (isAdmin) ...[
-                          Row(
-                            children: [
-                              Expanded(
-                                child: TextField(
-                                  controller: _searchController,
-                                  decoration: InputDecoration(
-                                    hintText: AppLocalizations.of(context)!
-                                        .searchClassesTeacherStudentSubject,
-                                    prefixIcon: const Icon(Icons.search),
-                                    suffixIcon: _searchQuery.trim().isEmpty
-                                        ? null
-                                        : IconButton(
-                                            onPressed: () {
-                                              _searchController.clear();
-                                            },
-                                            icon: const Icon(Icons.close),
-                                            tooltip:
-                                                AppLocalizations.of(context)!
+                        return ListView(
+                          padding: const EdgeInsets.all(16),
+                          children: [
+                            if (isAdmin) ...[
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: TextField(
+                                      controller: _searchController,
+                                      decoration: InputDecoration(
+                                        hintText: AppLocalizations.of(context)!
+                                            .searchClassesTeacherStudentSubject,
+                                        prefixIcon: const Icon(Icons.search),
+                                        suffixIcon: _searchQuery.trim().isEmpty
+                                            ? null
+                                            : IconButton(
+                                                onPressed: () {
+                                                  _searchController.clear();
+                                                },
+                                                icon: const Icon(Icons.close),
+                                                tooltip: AppLocalizations.of(
+                                                        context)!
                                                     .clearSearch,
-                                          ),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(14),
+                                              ),
+                                        border: OutlineInputBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(14),
+                                        ),
+                                        isDense: true,
+                                      ),
                                     ),
-                                    isDense: true,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  SizedBox(
+                                    height: 44,
+                                    child: OutlinedButton.icon(
+                                      onPressed: () => _openFiltersSheet(
+                                          context,
+                                          isAdmin: isAdmin),
+                                      icon: const Icon(Icons.tune, size: 18),
+                                      label: Text(
+                                        filterCount == 0
+                                            ? AppLocalizations.of(context)!
+                                                .filters
+                                            : AppLocalizations.of(context)!
+                                                .filtersCount(filterCount),
+                                        style: GoogleFonts.inter(
+                                            fontWeight: FontWeight.w700),
+                                      ),
+                                      style: OutlinedButton.styleFrom(
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(14),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  if (hasActiveSearchOrFilters) ...[
+                                    const SizedBox(width: 8),
+                                    SizedBox(
+                                      height: 44,
+                                      child: TextButton(
+                                        onPressed: _clearFilters,
+                                        child: Text(
+                                          AppLocalizations.of(context)!
+                                              .commonClear,
+                                          style: GoogleFonts.inter(
+                                              fontWeight: FontWeight.w700),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              Align(
+                                alignment: Alignment.centerLeft,
+                                child: Text(
+                                  AppLocalizations.of(context)!
+                                      .classesResultsCount(zoomShifts.length),
+                                  style: GoogleFonts.inter(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: const Color(0xFF64748B),
                                   ),
                                 ),
                               ),
-                              const SizedBox(width: 12),
-                              SizedBox(
-                                height: 44,
-                                child: OutlinedButton.icon(
-                                  onPressed: () => _openFiltersSheet(context,
-                                      isAdmin: isAdmin),
-                                  icon: const Icon(Icons.tune, size: 18),
-                                  label: Text(
-                                    filterCount == 0
-                                        ? AppLocalizations.of(context)!.filters
-                                        : AppLocalizations.of(context)!
-                                            .filtersCount(filterCount),
-                                    style: GoogleFonts.inter(
-                                        fontWeight: FontWeight.w700),
-                                  ),
-                                  style: OutlinedButton.styleFrom(
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(14),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              if (hasActiveSearchOrFilters) ...[
-                                const SizedBox(width: 8),
-                                SizedBox(
-                                  height: 44,
-                                  child: TextButton(
-                                    onPressed: _clearFilters,
-                                    child: Text(
-                                      AppLocalizations.of(context)!.commonClear,
-                                      style: GoogleFonts.inter(
-                                          fontWeight: FontWeight.w700),
-                                    ),
-                                  ),
-                                ),
-                              ],
+                              const SizedBox(height: 12),
                             ],
-                          ),
-                          const SizedBox(height: 12),
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text(
-                              AppLocalizations.of(context)!
-                                  .classesResultsCount(zoomShifts.length),
-                              style: GoogleFonts.inter(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: const Color(0xFF64748B),
-                              ),
+                            const _HeaderCard(),
+                            const SizedBox(height: 12),
+                            // FIX: Group classes by date for better organization
+                            ..._buildGroupedClasses(
+                              zoomShifts,
+                              isStudent: isStudent,
+                              isAdmin: isAdmin,
                             ),
-                          ),
-                          const SizedBox(height: 12),
-                        ],
-                        const _HeaderCard(),
-                        const SizedBox(height: 12),
-                        // FIX: Group classes by date for better organization
-                        ..._buildGroupedClasses(
-                          zoomShifts,
-                          isStudent: isStudent,
-                          isAdmin: isAdmin,
-                        ),
-                        SizedBox(height: MediaQuery.of(context).padding.bottom),
-                      ],
-                    );
-                  },
-                ),
+                            SizedBox(
+                                height: MediaQuery.of(context).padding.bottom),
+                          ],
+                        );
+                      },
+                    ),
+        ),
+      ),
     );
   }
 }
@@ -1203,6 +1248,7 @@ class _ZoomShiftCard extends StatelessWidget {
   final TeachingShift shift;
   final bool isTeacher;
   final bool isAdmin;
+  final Future<List<ClassStudentContact>>? rosterContacts;
   final Future<LiveKitRoomPresenceResult>? liveKitPresenceFuture;
   final VoidCallback? onRefreshLiveKitPresence;
 
@@ -1210,6 +1256,7 @@ class _ZoomShiftCard extends StatelessWidget {
     required this.shift,
     this.isTeacher = true,
     this.isAdmin = false,
+    this.rosterContacts,
     this.liveKitPresenceFuture,
     this.onRefreshLiveKitPresence,
   });
@@ -1386,7 +1433,8 @@ class _ZoomShiftCard extends StatelessWidget {
                               ),
                               const SizedBox(width: 3),
                               Text(
-                                AppLocalizations.of(context)!.classControllerBot(
+                                AppLocalizations.of(context)!
+                                    .classControllerBot(
                                   zoomHubControllerLane(shift.teacherId),
                                 ),
                                 style: GoogleFonts.inter(
@@ -1446,6 +1494,10 @@ class _ZoomShiftCard extends StatelessWidget {
                     ),
                   ],
                 ),
+                if (rosterContacts != null) ...[
+                  const SizedBox(height: 7),
+                  AdminClassRosterContacts(contacts: rosterContacts!),
+                ],
                 const SizedBox(height: 4),
                 Row(
                   children: [

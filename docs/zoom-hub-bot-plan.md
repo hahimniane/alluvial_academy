@@ -2362,3 +2362,566 @@ Operational note:
   join through a real dev Zoom hub, private-room routing, and return to
   `/teacher/classes/` after Leave. Do not modify production routing to create
   that fixture.
+
+## 38. Web Text Selection Boundary — 2026-07-14
+
+- The Flutter desktop Dashboard → Classes destination is
+  `lib/features/zoom/screens/zoom_screen.dart`. Its class list, including the
+  student-facing class cards, did not receive the dashboard's existing text
+  selection boundary.
+- Added only a local `ScrollNotificationObserver` and `SelectionArea` around
+  the screen body. No Zoom join payload, routing mode, hub/bot lane, room
+  assignment, class filtering, meeting lifetime, or control behavior changed.
+- Verification: `dart analyze lib/features/zoom/screens/zoom_screen.dart`,
+  `./scripts/ci/check_architecture.sh`, and `git diff --check` passed.
+- Deployed through the required Hostinger release script as web version 200.
+  Production browser testing as the designated student account confirmed that
+  a continuous mouse drag visibly selects the `Your classes` card text. No
+  joins, messages, or production data mutations were performed.
+
+## 39. Corrected-Class Stale Guardrail Recovery — 2026-07-18
+
+Production incident:
+- Chernor Ahmadu Jalloh / Elias Kouyateh on Friday 2026-07-17 was displayed as
+  a normal 7:00-8:00 PM one-hour class, but Join returned the old
+  `780 minutes` guardrail error.
+- The shift modification history showed that the occurrence was first changed
+  to 7:00 PM-8:00 AM on 2026-07-10 and correctly blocked. It was corrected to
+  7:00-8:00 PM on 2026-07-16, but the stored
+  `zoom_hub_guardrail_blocked` fields and `zoomRoutingMode: blocked` remained.
+- `onTeachingShiftWritten` returned immediately whenever it found a stored
+  guardrail, so it never revalidated the corrected duration.
+  `getZoomJoinInfo` also returned the stored message before evaluating the
+  current one-hour schedule.
+- The teacher clocked in and completed the timesheet/form, but the shift had no
+  hub/room and no `livekit_sessions` Zoom presence. The scheduled presence
+  detector recorded `missing: both`. The original guardrail alert email also
+  recorded an hPanel-disabled delivery failure.
+
+Targeted fix:
+- Stored Zoom guardrails are now revalidated against both the current duration
+  rules and current two-lane capacity before any block can be removed.
+- A corrected safe class clears only its guardrail fields, restores hub routing,
+  and resolves the matching system alert. An imminent corrected class is then
+  eagerly provisioned using a fresh shift snapshot.
+- `getZoomJoinInfo` has the same revalidation as a last-resort self-heal, so a
+  corrected safe class cannot remain stuck solely because its earlier edit
+  trigger was missed.
+- A class that is still unsafe remains blocked. If the current unsafe reason or
+  message changed, the stored guardrail is refreshed instead of cleared.
+- No bot lane selection, rolling segment calculation, room assignment,
+  breakout routing, join payload, meeting lifetime, participant UI, or web
+  meeting behavior changed.
+
+Verification:
+- `node --check functions/handlers/zoom.js` and
+  `node --check functions/tests/zoom_handler.test.js` passed.
+- `git diff --check -- functions/handlers/zoom.js
+  functions/tests/zoom_handler.test.js` passed.
+- `./scripts/ci/check_architecture.sh` passed.
+- Focused Jest passed:
+  `npx jest tests/zoom_handler.test.js tests/zoom_signature.test.js
+  tests/zoom_meeting_html.test.js --runInBand` — 94 passed.
+- New regressions cover: 780-minute block corrected to 60 minutes and eagerly
+  provisioned; participant Join self-heals the same stale block; and a class
+  corrected only to 240 minutes remains blocked with no meeting creation.
+- Full Functions Jest reached 290 passed and 7 existing skipped tests, but the
+  run remains red on 23 unrelated failures in the uncommitted quiz competition
+  work (`tests/quiz_competition.test.js`, missing helper exports and changed
+  ranking/eligibility behavior). No quiz files were changed for this fix.
+
+Deploy and live evidence:
+- Targeted development deploy completed for only `getZoomJoinInfo` and
+  `onTeachingShiftWritten`.
+- A far-future `alluwal-dev` fixture with a safe one-hour schedule plus a stale
+  780-minute stored block auto-cleared to `zoomRoutingMode: hub`, resolved its
+  alert with `class_schedule_corrected`, and did not create a hub meeting. The
+  fixture shift and alert were deleted; cleanup confirmed neither remained.
+- Targeted production deploy completed for only `getZoomJoinInfo` and
+  `onTeachingShiftWritten`; both reported `ACTIVE` with update time
+  2026-07-18T12:27Z. Their latest Cloud Run revisions reported Ready, and
+  neither service had an error-severity log after the rollout.
+- Post-deploy production checks found the active lane hub still `roomsOpen`,
+  heartbeat age two seconds, no bot error, and zero future
+  `zoom_hub_guardrail_blocked` shifts. The unauthenticated Join endpoint probe
+  returned the expected `401 Authentication required`.
+- No Hostinger web deploy, VPS bot restart, live class join, synthetic
+  production shift, or production hub mutation was performed. The ended
+  Chernor/Elias shift was left unchanged as historical incident evidence.
+
+## 40. Admin Classes Roster Contact Display — 2026-07-18
+
+Production finding:
+- The admin screenshot showed that Communication → Classes is rendered by
+  `lib/features/zoom/screens/zoom_screen.dart`, not the older
+  `admin_classes_screen.dart`. The first roster-contact implementation had
+  therefore been added to a screen that was not the production destination.
+- The unused-screen additions were removed and the resolver was relocated
+  inside the Zoom feature so the production card is the only changed display
+  path.
+
+Source change:
+- Admin and super-admin class cards now show each assigned student's visible
+  student ID, linked parent/guardian name, and phone number below the existing
+  student-name row.
+- Student ID resolution prefers `student_code`, `studentCode`, `student_id`,
+  or `studentId`, then falls back to the user's Firestore document ID.
+- Parent links support `guardian_ids`, `guardianIds`, scalar legacy
+  guardian/parent fields, and reverse `children_ids` / `childrenIds` links.
+  Multiple linked parents are displayed. Missing links, missing phone numbers,
+  and failed lookups have distinct localized fallback messages.
+- Contact futures are cached per roster while the Classes screen is open to
+  avoid repeating the same user reads on the ten-second UI tick.
+- The contact block is not constructed for teacher or student role views, so
+  parent contact information remains admin-only.
+
+Routing safety:
+- No Join button logic, class timing/join window, presence polling, Bot lane
+  badge, Zoom join payload, hub/lane selection, room assignment, bot service,
+  meeting lifetime, Functions handler, or `web/zoom_meeting.html` behavior was
+  changed.
+- No Firebase Functions deploy or VPS bot restart was needed or performed.
+
+Verification:
+- Focused resolver and widget tests passed: 7 tests. Widget coverage asserts
+  the exact student ID, parent name, and phone text plus missing-parent
+  fallback behavior.
+- Full Flutter suite passed: 282 tests, with the existing one skipped smoke
+  test unchanged.
+- Targeted Flutter analysis with non-fatal warnings/infos enabled completed
+  with `No issues found`.
+- `./scripts/ci/check_architecture.sh` and targeted `git diff --check` passed.
+
+Deploy:
+- Hostinger release deployed through `./scripts/deploy_hostinger_web.sh` as
+  cache-busting build `v249`.
+- Backup created:
+  `public_html_before_v249_20260718_101941`.
+- Public verification returned HTTP 200, the index references
+  `flutter_bootstrap.js?v=249`, the bootstrap loads `main.dart.js?v=249`, and
+  the public bundle contains the roster fallback/Student ID strings.
+
+Remaining live check:
+- No class was joined and no production class data was mutated for this
+  display-only change.
+- Automated inspection of the owner's existing signed-in Chrome tab was not
+  available because the Chrome extension connection was unavailable. The
+  owner should hard-refresh Communication → Classes and visually confirm the
+  new admin-only roster block on an assigned class.
+
+## 41. Lane-2 Assigned-But-Not-Joined Incident — 2026-07-22
+
+Production symptom:
+- Students stayed behind the black connecting layer while teachers could see
+  themselves in the hub with the host bot instead of entering the private
+  classroom.
+- The incident was isolated to hub `zoom_hub_2026-07-22_2_1300_2` on lane 2.
+  Lane 1 continued routing participants into private rooms normally.
+
+Live findings:
+- Both systemd bot services were active with zero automatic restarts.
+- Lane 2 had a healthy heartbeat and a readable ten-room breakout list, so this
+  was not the earlier empty-room-list poison signature.
+- From 1:02 PM through 2:14 PM America/New_York, multiple lane-2 web and native
+  participants remained in Zoom's `breakoutUnassigned` pool. The bot resolved
+  the correct target room and issued `assignUserToBreakoutRoom`, but the
+  follow-up move repeatedly returned `user not in a room`. Individual affected
+  joins accumulated between 54 and 188 failed retries.
+- Lane 1 provided the control case: the same assign flow returned `user already
+  in the target room`, `breakoutUnassigned` drained, and the room participant
+  counts increased.
+- The affected lane-2 meeting had therefore opened with ineffective auto-join
+  behavior even though the bot requested `isAutoJoinRoom: true`. The current
+  controller verifies room options for inherited/already-open rooms, but does
+  not verify `getBreakoutRoomOptions()` after a successful fresh open.
+- Monitoring did not reset the meeting because `liveRoomCount` stayed healthy
+  and `routedCount` counts planned actions rather than confirmed arrivals. A
+  growing `breakoutUnassigned` pool with repeated `user not in a room` errors is
+  currently a watchdog blind spot.
+
+Recovery performed:
+- Immediately before recovery at 2:21 PM ET, a fresh routing snapshot confirmed
+  ten readable rooms, zero private-room occupants, no waiting participant still
+  connected, and only the lane-2 host bot in the meeting.
+- Posted the authenticated `resetMeeting` state for only the affected hub, which
+  ended the bad Zoom meeting instance. The controller remained as a Zoom zombie
+  after the REST end, so only `zoom-hub-bot@2` was restarted. Lane 1 and its live
+  classes were not touched.
+- Lane 2 rejoined at 2:22 PM ET, created and opened ten rooms with new room IDs,
+  and resumed fresh heartbeats.
+- Live recovery proof at 2:23 PM ET: the next participant retry was assigned to
+  the expected class room, the host-side follow-up returned `user already in the
+  target room`, `breakoutUnassigned` drained, and the room remained at one
+  participant in subsequent snapshots. No one remained beside the bot.
+
+Deploys and verification:
+- No Firebase Functions, Hostinger web, Flutter, or VPS code deployment was
+  performed. The only production mutations were the guarded empty-lane meeting
+  reset and restart of `zoom-hub-bot@2`.
+- No source tests were run because no application or bot source changed.
+
+Durable follow-up:
+- Verify `getBreakoutRoomOptions()` after every fresh successful room open and
+  safely close/reopen immediately when auto-join is not effective and occupancy
+  is zero.
+- Report attempted and confirmed routing separately. Add a watcher signature
+  for a non-empty `breakoutUnassigned` pool or repeated assigned-not-joined
+  failures so this condition self-recovers without waiting for a report.
+
+### Root-cause conclusion and hardening deployed — 2026-07-22
+
+Root-cause conclusion:
+- The evidence supports a Zoom per-meeting breakout-state failure: the affected
+  instance accepted `openBreakoutRooms`, exposed all ten expected rooms, and
+  accepted the correct participant/room assignment, but did not perform the
+  requested automatic move. Resetting only that meeting instance made the same
+  deployed code work immediately with new room IDs.
+- This was not a room mapping error, a bot outage, a participant timing race,
+  the empty-room-list failure, or a web-only/native-only problem. The bad
+  meeting had been open for minutes before the first failed join; both web and
+  native users failed; lane 1 routed normally; and the lane-2 bot consistently
+  selected the correct target.
+- Zoom does not expose enough server-side diagnostics to name the internal
+  defect more narrowly. The conclusion above is therefore a high-confidence
+  inference from the controlled before/after meeting reset, not a claim about
+  Zoom's private backend implementation.
+- The VPS still uses the older `file://` launcher and logs SDK cache/socket
+  warnings. Those warnings also occur on healthy lane 1, so they were not the
+  incident trigger. Reconcile the launcher during a separate empty-lane
+  maintenance window rather than mixing it into this live routing repair.
+
+Safeguards implemented:
+- `bot_controller.html` now reads back the effective breakout options after
+  every first open, including a successful fresh open. A mismatch or unreadable
+  option response causes one guarded close/reopen only when rooms are empty.
+- The routing loop tracks users who remain in Zoom's `breakoutUnassigned` pool
+  after a valid assignment. At 20 seconds it performs one empty-room
+  close/reopen. If the same failure persists for another 20 seconds, it posts
+  `resetMeeting` and reloads into a clean meeting instance. Tracking uses the
+  per-meeting Zoom participant ID, so it also covers native clients that do not
+  expose a customer key. A close that remains stuck for 15 seconds skips
+  directly to the clean-meeting reset instead of delaying a class for the
+  general 90-second close timeout.
+- Every destructive recovery is gated by both the current room snapshot and the
+  last known occupancy. If anyone is inside a private room, the bot refuses to
+  reset and reports the error instead.
+- Bot stats now distinguish `routeAttemptCount`, `confirmedInRoomCount`,
+  `breakoutUnassignedCount`, `assignedNotJoinedCount`, and
+  `oldestAssignedNotJoinedMs`. The legacy `routedCount` action field remains for
+  dashboard compatibility and is no longer the only health signal. Heartbeats
+  also report controller version `2026-07-22-assigned-arrival-v1` for rollout
+  verification.
+- `watchZoomHubBots` now treats at least one assigned-but-not-joined participant
+  aged 30 seconds as a poisoned empty meeting. It ends that meeting on the next
+  two-minute watcher run so the bot rejoins cleanly. The watcher never performs
+  this reset when `inRoomOccupants` is nonzero. This is the server-side backstop
+  if the browser-side recovery stalls.
+
+Tests and production rollout:
+- Local bot tests: `tests/bot_controller_html.test.js` plus `tests/routing.test.js`
+  passed, 27/27.
+- Functions test: `tests/zoom_handler.test.js` passed, 71/71, including immediate
+  assigned-not-joined recovery, brief-transition protection, occupied-room
+  protection, and the existing empty-room poison cases. Total focused checks:
+  98/98. `git diff --check` passed for the touched routing files.
+- The full Functions Jest run passed 28 suites / 315 tests and failed only the
+  unrelated, already-uncommitted `quiz_competition.test.js` work (23 failures
+  for missing/in-progress quiz helper exports and expectations). The Zoom
+  handler suite remained 71/71 green; no quiz files were changed for this
+  incident.
+- The controller was backed up on the VPS as
+  `bot_controller.html.bak_20260722_assigned_not_joined`, installed with SHA-256
+  `7bd14a6370f6fe4a1f3da2c98a1bbfc9d12038c3e0e84202e2edb50a6d10c8d5`, and
+  passed the remote inline-script test.
+- The production `watchZoomHubBots` revision became `ACTIVE` at
+  `2026-07-22T18:35:16Z`; its Cloud Scheduler job remains `ENABLED` every two
+  minutes.
+- Lane 1 was confirmed empty, then its meeting was reset and only
+  `zoom-hub-bot@1` was restarted. The fresh controller read back
+  `isAutoJoinRoom: true` and `isBackToMainSessionEnabled: false`, opened twelve
+  readable rooms, and reported zero waiting users. During final rollout
+  verification, one fresh instance briefly retained the older empty-room poison
+  signature. The deployed controller detected it, exhausted two guarded
+  close/reopen attempts, posted `resetMeeting`, and reloaded itself without a
+  systemd restart. The replacement instance stabilized at twelve readable
+  rooms, zero occupants, zero waiters, and zero actions. This was live proof of
+  the existing clean-instance recovery path, not only a unit test.
+- Lane 2 had two people actively inside a classroom, so it was intentionally not
+  restarted. It remained healthy with ten readable rooms, two in-room
+  occupants, zero `breakoutUnassigned`, and zero routing actions. The new
+  controller is already installed on disk and loads on its next normal page
+  transition; no live participant was interrupted.
+- No Flutter, Hostinger web, Zoom participant client, or unrelated Firebase
+  Function was deployed for this repair.
+
+## 42. Zoom "Webhook Endpoint Is Not Responsive" Warning — 2026-07-28
+
+Zoom App Marketplace emailed support@alluwal that the `classroom presence`
+subscription on the "Alluwal Classroom Backend" app had an unresponsive
+notification URL,
+`https://us-central1-alluwal-academy.cloudfunctions.net/zoomWebhook`.
+
+Investigation findings:
+- The endpoint itself was healthy. A live `endpoint.url_validation` POST returned
+  `200` with a correct `plainToken`/`encryptedToken` pair in about 100 ms, and
+  `gcloud functions describe` showed `zoomWebhook` `ACTIVE` (last updated
+  `2026-07-14T13:01:01Z`).
+- Cloud Logging had zero `4xx`/`5xx` responses across seven days. The webhook
+  secret and signature verification were never the problem.
+- The real cause was latency. Zoom marks any delivery it cannot get a response
+  for within 3 seconds as failed. Over the last 2000 POST deliveries: p50
+  `0.32s`, p90 `1.39s`, p95 `2.04s`, p99 `3.91s`, max `7.48s`, with 78 of 2000
+  (`3.9%`) exceeding 3 seconds.
+- Every slow response matched a `Default STARTUP TCP probe succeeded ... container
+  "worker"` log within a few seconds, so all of them were cold starts. The
+  service ran with no `minScale` annotation, 256Mi, and `maxScale: 20`, so idle
+  gaps between classes let Cloud Run scale to zero.
+- The rate was structural rather than a regression: 8–19 over-3s deliveries per
+  day, every day from 2026-07-14 through 2026-07-28.
+
+Class impact assessed at the time of the warning:
+- No presence data was lost. The handler completes its Firestore write before
+  responding, so Zoom giving up on the response does not roll back the write.
+  Production `livekit_sessions` showed correct join/leave pairs for that day's
+  classes.
+- Zoom retries are safe. `_recordZoomParticipantJoin` does not open a second
+  window while one is open, and a retried leave adds no presence seconds because
+  the window is already closed. Only `leave_count` can inflate.
+- The risk was forward-looking: if Zoom disabled the subscription,
+  `livekit_sessions` would stop receiving presence, and
+  `functions/handlers/attendance.js` (`loadSessionsByShift`) has no fallback, so
+  attended classes would be reported absent. Live roster is partly insulated
+  because `buildZoomRoomPresence` prefers the hub bot roster.
+
+Fix applied:
+- `functions/handlers/zoom.js` now declares `ZOOM_WEBHOOK_RUNTIME_OPTIONS` with
+  `minInstances: 1` and passes it to `onRequest`, keeping one warm instance so
+  cold starts stay out of the presence path. The constant is exported through
+  `__test__` so the deploy setting is assertable.
+- `functions/tests/zoom_handler.test.js` adds `keeps a warm webhook instance so
+  Zoom never waits past its 3s deadline`.
+- No routing, join payload, bot lane, room assignment, guardrail, or meeting
+  lifetime behavior was touched.
+
+## 43. Duplicate Same-Block Lane Hub — "The host has another meeting in progress" — 2026-07-28
+
+Symptom reported live: joining habibu barry's 15:00–16:00 ET class (lane 2) showed
+Zoom's "The host has another meeting in progress." with a spinner, on a meeting
+titled `Alluwal Classrooms 2026-07-28 Segment 1…` and a nonsense `Scheduled:
+5:45 PM`.
+
+Diagnosis (production data at 19:14Z):
+- Lane 2 had **two** hubs whose windows were both active, both owned by
+  `support@alluwaleducationhub.org`:
+  - `zoom_hub_2026-07-28_2_1200_2`, meeting `89359283138`, created 11:08 ET,
+    window 11:45–17:15, `roomsOpen` with a fresh bot heartbeat. Zoom REST:
+    `status=started`.
+  - `zoom_hub_2026-07-28_2_1400_2`, meeting `86875289793`, created 13:08 ET,
+    window 13:45–17:15, `status=scheduled`, no heartbeat, bot never joined.
+    Zoom REST: `status=waiting`.
+- The four afternoon lane-2 classes (both habibu classes, `teacher test`, and
+  Ibrahim Bah 16:00) had already been reassigned to the `1400` hub, so their join
+  payloads pointed at `86875289793`. A Zoom user can host only one meeting at a
+  time, and the account was busy hosting `89359283138`, so `86875289793` could
+  never start — every joiner sat on Zoom's host-busy screen. The odd
+  `Scheduled: 5:45 PM` was that unstarted meeting's `start_time` (21:45Z).
+
+Trigger: habibu's 13:00 class was rescheduled to 11:00. That class was the bridge
+in the padded rolling chain, so `_rollingHubSegmentForShift` re-split the day into
+`11:00–13:00` and `14:00–17:00`. The afternoon group's anchor moved from 12:00 to
+14:00, producing a different `hubDocId`, and `prepareZoomHubs` created a brand-new
+meeting on the lane's already-busy host account. This is the block-boundary
+one-hub-per-lane gap listed as "not yet live-tested" in §22.
+
+Why existing protection missed it: `watchZoomHubBots` already hands the shared
+account from an older block to a newer one, but it ranked hubs by `blockIndex`
+alone. Both hubs had `blockIndex: 2` — they differed only by rolling segment
+start — so `superseded` was false. The older hub's `window_end` (17:15) also still
+looked live because it had been built to cover classes that had since moved away,
+making `classesOver` false.
+
+Live recovery (no code deploy, nothing interrupted — verified `inRoomOccupants: 0`,
+`attendeeCount: 1` bot-only, and zero open `livekit_sessions` presence windows
+first):
+1. Paused `firebase-schedule-prepareZoomHubs-us-central1` so it could not
+   re-point shifts mid-repair.
+2. Restored `zoom_hub_2026-07-28_2_1400_2` to `scheduled` with its real window and
+   pointed the four classes at it (this is the hub the routing code derives, so
+   the state is stable).
+3. Closed `zoom_hub_2026-07-28_2_1200_2`'s window and set `status: left`, so the
+   lane-2 bot stopped being directed into it.
+4. `zoomClient.endMeeting('89359283138')` to free the host account.
+5. Bot joined `86875289793` and opened 9 rooms within ~20s; all four classes
+   verified `READY` with their room live. Resumed the scheduler.
+
+Fix applied (`functions/handlers/zoom.js`):
+- `_zoomHubLaneOrderKey` / `_zoomHubLaneOrderIsNewer` rank lane hubs by
+  `(blockIndex, window_start)` so two hubs sharing a block index are separable.
+- `_zoomHubShouldReleaseSharedHost` decides whether an outranked hub may release
+  the shared host account. It requires **both** guards: `inRoomOccupants === 0`
+  and no remaining assigned class, so a live class can never be cut off.
+- `_hubHasRemainingAssignedClasses` queries `teaching_shifts` by
+  `hub_meeting_id`/`hubMeetingId` with `shift_end >= now`; it only runs for hubs
+  already outranked and empty, so it adds no cost in the normal case.
+- `watchZoomHubBots` builds `laneNewestActiveOrderKey` alongside the existing
+  block map and adds `releasesSharedHost` to `shouldEndMeeting`, emitting a
+  `duplicate_lane_hub_released` alert (added to the auto-resolve reason list).
+- Existing block-supersede and 15-minute-limit behavior is unchanged.
+
+Tests (`functions/tests/zoom_handler.test.js`, 76 pass):
+- `bot watcher frees the shared host from a duplicate same-block segment hub`
+  reproduces this incident end to end.
+- `bot watcher keeps a duplicate-segment hub that still has a class assigned`.
+- `bot watcher never frees a duplicate-segment hub with someone inside a
+  classroom`.
+- `lane ordering separates two hubs that share a block index`.
+- The 23 failures in `functions/tests/quiz_competition.test.js` are pre-existing
+  and unrelated (they fail with these changes stashed).
+
+Deployed `watchZoomHubBots` to `alluwal-academy`. Post-deploy production check:
+lane 2 has exactly one active hub (`..._1400_2`, `zoom=started`, 9 rooms, fresh
+heartbeat) serving habibu 15:00–16:00 and Ibrahim Bah 16:00–17:00.
+
+Remaining consideration: the watchdog repairs the condition within one 2-minute
+cycle but does not prevent the duplicate meeting from being created. Preventing it
+would mean having `ensureZoomHubMeeting` adopt a lane's already-live hub instead
+of provisioning a second meeting on a busy host account. That is a larger change
+to the join path and needs an owner decision.
+
+### 43.1 Deeper audit — the real invariant is "zombie hubs", not block ordering
+
+Follow-up investigation on 2026-07-28 (183 hub docs scanned, 2026-07-04 onward)
+found the §43 fix addresses only part of the problem. Findings:
+
+**Every same-block window overlap in history is this bug.** Of 15 same-lane
+overlapping window pairs, 12 are benign legacy cross-block overlaps (all show a
+bot heartbeat and were ended by the existing supersede path). The 3 same-block
+overlaps are all the duplicate-hub defect:
+- `2026-07-15` lane 2: `..._1_1100_2` never got a heartbeat (1 class, later
+  re-pointed to the live hub and attended).
+- `2026-07-17` lane 1: `..._1_1030_1` never got a heartbeat (1 class, Abdullah
+  Baldee / Nafisatou Bah, no-show; that shift still points at the dead hub).
+- `2026-07-28` lane 2: this incident.
+Only 2 hubs in the entire history never received a heartbeat, and both are the
+July 15 / July 17 duplicates — "no heartbeat ever" is a reliable fingerprint.
+
+**Today actually had three hubs on lane 2, not two.** The 13:00 → 11:00 reschedule
+orphaned the hub created at 11:08:
+| hub | blockIndex | window ET | classes still assigned |
+| --- | --- | --- | --- |
+| `..._1_1100_2` | 1 | 10:45–13:15 | habibu 11:00, Thierno ×2 12:00 |
+| `..._2_1200_2` | 2 | 11:45–17:15 (stale) | **none — all migrated away** |
+| `..._2_1400_2` | 2 | 13:45–17:15 | habibu ×2, teacher test, Ibrahim Bah |
+
+`..._2_1200_2` was a **zombie**: every class had moved to the 1100 or 1400 hub,
+but nothing shrinks or retires a hub whose classes leave, so it kept an active
+window and kept the shared host account from 11:45 to 15:20 — starving both real
+hubs. Five classes were unjoinable: Thierno ×2 at 12:00 (0 joiners), habibu
+14:00 + teacher test 14:00 (0 joiners), habibu 15:00 (only the admin, who
+reported it).
+
+**Why the lane bot latched onto the zombie.**
+`_selectPrimaryActiveHub` (`functions/handlers/zoom_hub_bot.js`) protects a hub
+only when `inRoomOccupants > 0` with a fresh heartbeat inside its real class
+window; otherwise it sorts by `blockIndex` **descending** and serves the single
+highest one. Consequences:
+- It never considers whether a hub owns a class that is *due*. At the start of a
+  class nobody is inside yet, so a starting class cannot pull the bot — a
+  chicken-and-egg: you cannot get in because the bot is absent, and the bot will
+  not come because nobody is in.
+- Equal `blockIndex` compares to 0, and `Array.sort` is stable, so ties resolve by
+  Firestore document order (ascending doc id). Today `..._2_1200_2` beat
+  `..._2_1400_2` purely because `1200` sorts before `1400`.
+Reproduced against production: at 11:50 ET with the 1100 and 1200 hubs both
+active, `_selectPrimaryActiveHub` returns only `..._2_1200_2`, abandoning the hub
+that owned the noon classes.
+
+**Honest limit of the §43 fix.** It requires the releasing hub to be *outranked*
+on its lane. Between 11:45 and 13:45 the zombie was the highest-ranked active hub
+on lane 2, so the watchdog would not have released it and the noon Thierno classes
+would still have failed. It would have auto-recovered the 14:00 and 15:00 classes
+within ~2 minutes of 13:45, when `..._1400_2` became the newest.
+
+**Fix shipped (2026-07-28, `watchZoomHubBots` only).** The rank-based release from
+§43 was replaced by a zombie rule, because rank is not the discriminator — the
+zombie was the highest-ranked active hub on its lane between 11:45 and 13:45, so
+the §43 rule would have left the noon classes broken.
+`_zoomHubIsHostHoldingZombie` now releases the shared host account when **all** of
+these hold, with no reference to lane rank:
+- the bot occupies the hub (`status` is `joined` or `roomsOpen`) — only then can it
+  be holding the account;
+- `stats.inRoomOccupants === 0`, so no live class is ever interrupted;
+- no class assigned to the hub still ends in the future
+  (`_hubHasRemainingAssignedClasses`, checked on both `hub_meeting_id` and
+  `hubMeetingId`);
+- the hub is older than `ZOOM_HUB_ZOMBIE_MIN_AGE_MS` (10 min), so a hub that is
+  still mid-provisioning is never mistaken for one whose classes left.
+On release the hub's window is also closed (`status: 'left'`, `window_end = now`,
+`retired_reason: 'zombie_hub_released_shared_host'`); without that the bot is
+directed straight back in and the hub is re-ended every cycle.
+
+Two defects found while implementing it, both fixed in the same change:
+- `_hubHasRemainingAssignedClasses` (added in §43) used
+  `where(field,'==',hub).where('shift_end','>=',now)`, which needs a composite
+  index that does not exist in production — it would have thrown and taken down the
+  whole watcher invocation the first time it ran. It is now an equality-only query
+  with the end-time filter applied in memory (a hub holds at most
+  `ZOOM_HUB_MAX_ROOM_COUNT` classes), so no index is required.
+- The ending path was gated on `!data.ended_at`. Provisioning restarts a retired
+  hub doc on a fresh Zoom meeting **without clearing `ended_at`** (observed live:
+  `..._2_1200_2` was `started` with `ended_at` still set from 15:22), so that stale
+  flag permanently disabled both the 15-minute straggler limit and the zombie
+  release for any re-provisioned hub. The guard now compares
+  `ended_meeting_number` against the current meeting number, and only honours a
+  bare `ended_at` once the window is over — which keeps a full-collection scan from
+  re-firing dead Zoom calls across all 183 historical hubs. Retirement also
+  proceeds when Zoom rejects `endMeeting` (meeting already gone), or a zombie with
+  an already-dead meeting could never be cleaned up.
+
+Verified in production at 16:18 ET: the leftover `..._2_1400_2` (bot-occupied,
+dead meeting, window to 17:15, owning no classes, carrying a stale `ended_at`) was
+retired automatically, while `..._2_1200_2` — which owned 7 classes including a
+live one — was left untouched and joinable. Lane 2 returned to exactly one active
+hub.
+
+**Not a bug: the afternoon re-merge.** At 15:53 an admin rescheduled habibu's class
+from 11:00 back to 13:00 (`decision_audits` records `shift.rescheduled` by an admin
+actor, and `admin_modified: true` was set correctly — the shift-revert fix works).
+That re-merged the padded chain, moved the anchor back to 12:00, and
+`prepareZoomHubs` re-provisioned `..._2_1200_2` and re-pointed all seven lane-2
+classes at it. The system self-healed because the anchor returned to a hub doc that
+already existed. It is worth noting how sensitive routing is to a single reschedule:
+two admin edits to one class rewrote the hub assignment of seven classes.
+
+**Still open (needs owner decision).**
+1. *Residual exposure window.* The watcher runs every 2 minutes, so a zombie can
+   still hold the account for up to ~2 minutes plus the bot's rejoin time before
+   self-healing. Only prevention in the join/provisioning path removes that.
+2. *Keep hub windows truthful.* When classes are reassigned away, recompute the
+   losing hub's `window_end` from the classes that remain. Because rolling
+   segments only split on gaps wider than `2 × ZOOM_HUB_WINDOW_PADDING_MS`,
+   distinct segments can never overlap by construction — so truthful windows make
+   "two active hubs on one lane" structurally impossible, and the bot's choice
+   becomes unambiguous. Provisioning should also clear `ended_at` when it restarts a
+   retired hub doc, rather than relying on the `ended_meeting_number` comparison
+   above.
+3. *Rank by work, not by block.* `_selectPrimaryActiveHub` should prefer the hub
+   that owns a class due now (start − padding ≤ now ≤ end) before falling back to
+   occupancy and block index, so a starting class can pull the bot.
+4. *Never provision onto a busy host.* `ensureZoomHubMeeting` should adopt a
+   lane's already-live hub rather than create a second meeting the account cannot
+   start.
+
+**Edge cases that mutate a hub id for already-provisioned classes.** `hubDocId` is
+derived from the anchor (earliest) class of the padded chain, so it is
+content-addressed on a mutable set. Any of these re-splits or re-merges the chain
+and silently moves classes to a different hub id: rescheduling a class (this
+incident), deleting a bridging class, adding a bridging class (merges chains and
+moves the anchor *earlier*), a class becoming guardrail-blocked or capacity-blocked
+(excluded at `_queryZoomHubSegmentCandidateDocs`), `video_provider` leaving `zoom`,
+a teacher change or `zoom_hub_lane_index` override moving the class to another lane
+(`_laneIndexForShift` hashes `teacher_id`), and overflow spill to the other lane.
+Attendance context: daily attendance runs 42–68% normally, so a single broken
+lane is not visible in the daily rate — today read 6/17 (35%) against a 50–60%
+baseline. These incidents will not surface in aggregate metrics; the reliable
+signals are "hub never received a heartbeat" and "two active hubs on one lane".

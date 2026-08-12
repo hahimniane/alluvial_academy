@@ -9,6 +9,7 @@ import 'dart:math' as math;
 import '../../../core/utils/timezone_utils.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+import 'package:alluwalacademyadmin/core/utils/app_search.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class AddUsersScreen extends StatefulWidget {
@@ -641,7 +642,16 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
             'id': doc.id,
             'name':
                 '${data['first_name'] ?? ''} ${data['last_name'] ?? ''}'.trim(),
-            'email': data['e-mail'] ?? '',
+            'email': data['e-mail'] ?? data['email'] ?? '',
+            'phone': data['phone_number'] ??
+                data['phoneNumber'] ??
+                data['mobile_phone'] ??
+                data['mobilePhone'] ??
+                data['phone'] ??
+                '',
+            'studentCode':
+                data['student_code'] ?? data['studentCode'] ?? '',
+            'kioskCode': data['kiosk_code'] ?? data['kioskCode'] ?? '',
           };
         }).toList();
       });
@@ -1083,7 +1093,16 @@ class _UserInputRowState extends State<UserInputRow> {
               'id': doc.id,
               'name': '${data['first_name'] ?? ''} ${data['last_name'] ?? ''}'
                   .trim(),
-              'email': data['e-mail'] ?? '',
+              'email': data['e-mail'] ?? data['email'] ?? '',
+              'phone': data['phone_number'] ??
+                  data['phoneNumber'] ??
+                  data['mobile_phone'] ??
+                  data['mobilePhone'] ??
+                  data['phone'] ??
+                  '',
+              'studentCode':
+                  data['student_code'] ?? data['studentCode'] ?? '',
+              'kioskCode': data['kiosk_code'] ?? data['kioskCode'] ?? '',
             };
           }).toList();
         });
@@ -1918,12 +1937,12 @@ class _ParentSelectionDialogState extends State<ParentSelectionDialog> {
 
   List<Map<String, dynamic>> get _filteredParents {
     if (_searchTerm.isEmpty) return widget.availableParents;
-    final term = _searchTerm.toLowerCase();
-    return widget.availableParents.where((parent) {
-      final name = parent['name'].toString().toLowerCase();
-      final email = parent['email'].toString().toLowerCase();
-      return name.contains(term) || email.contains(term);
-    }).toList();
+    return widget.availableParents
+        .where((parent) => AppSearch.matchesMap(
+              query: _searchTerm,
+              data: parent,
+            ))
+        .toList();
   }
 
   @override

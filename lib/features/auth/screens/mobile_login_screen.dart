@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../../core/services/auth_service.dart';
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../../core/widgets/language_switcher.dart';
 import 'mobile_phone_login_screen.dart';
 
 /// Beautiful mobile-optimized login screen
@@ -14,7 +15,8 @@ class MobileLoginScreen extends StatefulWidget {
   State<MobileLoginScreen> createState() => _MobileLoginScreenState();
 }
 
-class _MobileLoginScreenState extends State<MobileLoginScreen> with SingleTickerProviderStateMixin {
+class _MobileLoginScreenState extends State<MobileLoginScreen>
+    with SingleTickerProviderStateMixin {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
@@ -83,7 +85,7 @@ class _MobileLoginScreenState extends State<MobileLoginScreen> with SingleTicker
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Enter your email and we\'ll send you a link to reset your password.',
+                      l10n.publicResetInstructions,
                       style: GoogleFonts.inter(
                         fontSize: 14,
                         color: const Color(0xff6B7280),
@@ -127,17 +129,17 @@ class _MobileLoginScreenState extends State<MobileLoginScreen> with SingleTicker
                       : () async {
                           if (!formKey.currentState!.validate()) return;
                           setDialogState(() => sending = true);
+                          final messenger = ScaffoldMessenger.of(context);
                           try {
-                            await FirebaseAuth.instance
-                                .sendPasswordResetEmail(
+                            await FirebaseAuth.instance.sendPasswordResetEmail(
                               email: emailController.text.trim(),
                             );
                             if (ctx.mounted) Navigator.pop(ctx);
                             if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
+                              messenger.showSnackBar(
                                 SnackBar(
                                   content: Text(
-                                    'Password reset email sent. Check your inbox.',
+                                    l10n.publicResetSent,
                                     style: GoogleFonts.inter(
                                         fontWeight: FontWeight.w600),
                                   ),
@@ -148,8 +150,8 @@ class _MobileLoginScreenState extends State<MobileLoginScreen> with SingleTicker
                           } on FirebaseAuthException catch (e) {
                             setDialogState(() => sending = false);
                             final msg = e.code == 'user-not-found'
-                                ? 'No account found with this email.'
-                                : 'Failed to send reset email. Try again.';
+                                ? l10n.publicResetNoAccount
+                                : l10n.publicResetFailed;
                             if (ctx.mounted) {
                               ScaffoldMessenger.of(ctx).showSnackBar(
                                 SnackBar(
@@ -181,9 +183,8 @@ class _MobileLoginScreenState extends State<MobileLoginScreen> with SingleTicker
                           ),
                         )
                       : Text(
-                          'Send Reset Link',
-                          style:
-                              GoogleFonts.inter(fontWeight: FontWeight.w600),
+                          l10n.publicSendResetLink,
+                          style: GoogleFonts.inter(fontWeight: FontWeight.w600),
                         ),
                 ),
               ],
@@ -227,7 +228,9 @@ class _MobileLoginScreenState extends State<MobileLoginScreen> with SingleTicker
             errorMessage = l10n.loginAccountArchived;
             break;
           case 'user-not-found':
-            errorMessage = _useStudentIdLogin ? l10n.loginNoAccountStudentId : l10n.loginNoAccountEmail;
+            errorMessage = _useStudentIdLogin
+                ? l10n.loginNoAccountStudentId
+                : l10n.loginNoAccountEmail;
             break;
           case 'wrong-password':
           case 'invalid-credential':
@@ -294,60 +297,65 @@ class _MobileLoginScreenState extends State<MobileLoginScreen> with SingleTicker
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
+                    const Align(
+                      alignment: Alignment.centerRight,
+                      child: LanguageSwitcher(),
+                    ),
                     // Logo Section (minimal height so form fits without scrolling)
                     if (!keyboardVisible) ...[
-                        Hero(
-                          tag: 'app_logo',
-                          child: Container(
-                            width: 36,
-                            height: 36,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(10),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: const Color(0xff0386FF).withOpacity(0.1),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 1),
-                                ),
-                              ],
-                            ),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(10),
-                              child: Image.asset(
-                                'assets/Alluwal_Education_Hub_Logo.png',
-                                fit: BoxFit.contain,
+                      Hero(
+                        tag: 'app_logo',
+                        child: Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(10),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xff0386FF).withOpacity(0.1),
+                                blurRadius: 8,
+                                offset: const Offset(0, 1),
                               ),
+                            ],
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(10),
+                            child: Image.asset(
+                              'assets/Alluwal_Education_Hub_Logo.png',
+                              fit: BoxFit.contain,
                             ),
                           ),
                         ),
-                        const SizedBox(height: 6),
-                        Text(
-                          l10n.loginWelcomeBack,
-                          style: GoogleFonts.inter(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                            color: const Color(0xff111827),
-                            letterSpacing: -0.5,
-                          ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        l10n.loginWelcomeBack,
+                        style: GoogleFonts.inter(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xff111827),
+                          letterSpacing: -0.5,
                         ),
-                        const SizedBox(height: 0),
-                        Text(
-                          l10n.loginSignInContinue,
-                          style: GoogleFonts.inter(
-                            fontSize: 12,
-                            color: const Color(0xff6B7280),
-                            fontWeight: FontWeight.w400,
-                          ),
+                      ),
+                      const SizedBox(height: 0),
+                      Text(
+                        l10n.loginSignInContinue,
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: const Color(0xff6B7280),
+                          fontWeight: FontWeight.w400,
                         ),
-                        const SizedBox(height: 8),
+                      ),
+                      const SizedBox(height: 8),
                     ] else ...[
                       const SizedBox(height: 6),
                     ],
 
                     // Login Form Card
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 12),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(24),
@@ -404,7 +412,9 @@ class _MobileLoginScreenState extends State<MobileLoginScreen> with SingleTicker
 
                             // Email/Student ID Field
                             Text(
-                              _useStudentIdLogin ? l10n.loginStudentId : l10n.loginEmail,
+                              _useStudentIdLogin
+                                  ? l10n.loginStudentId
+                                  : l10n.loginEmail,
                               style: GoogleFonts.inter(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
@@ -461,7 +471,9 @@ class _MobileLoginScreenState extends State<MobileLoginScreen> with SingleTicker
                                   vertical: 10,
                                 ),
                                 prefixIcon: Icon(
-                                  _useStudentIdLogin ? Icons.badge : Icons.email,
+                                  _useStudentIdLogin
+                                      ? Icons.badge
+                                      : Icons.email,
                                   color: const Color(0xff6B7280),
                                 ),
                               ),
@@ -625,16 +637,19 @@ class _MobileLoginScreenState extends State<MobileLoginScreen> with SingleTicker
                             SizedBox(
                               height: 44,
                               child: OutlinedButton.icon(
-                                onPressed: _isLoading ? null : () {
-                                  Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                      builder: (_) => const MobilePhoneLoginScreen(),
-                                    ),
-                                  );
-                                },
+                                onPressed: _isLoading
+                                    ? null
+                                    : () {
+                                        Navigator.of(context).push(
+                                          MaterialPageRoute(
+                                            builder: (_) =>
+                                                const MobilePhoneLoginScreen(),
+                                          ),
+                                        );
+                                      },
                                 icon: const Icon(Icons.phone_android, size: 20),
                                 label: Text(
-                                  'Sign in with Phone',
+                                  l10n.publicSignInWithPhone,
                                   style: GoogleFonts.inter(
                                     fontSize: 15,
                                     fontWeight: FontWeight.w600,
@@ -642,7 +657,8 @@ class _MobileLoginScreenState extends State<MobileLoginScreen> with SingleTicker
                                 ),
                                 style: OutlinedButton.styleFrom(
                                   foregroundColor: const Color(0xff111827),
-                                  side: const BorderSide(color: Color(0xffE5E7EB)),
+                                  side: const BorderSide(
+                                      color: Color(0xffE5E7EB)),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12),
                                   ),
@@ -676,7 +692,8 @@ class _MobileLoginScreenState extends State<MobileLoginScreen> with SingleTicker
     );
   }
 
-  Widget _buildLoginModeButton(String label, bool isActive, VoidCallback onTap) {
+  Widget _buildLoginModeButton(
+      String label, bool isActive, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(

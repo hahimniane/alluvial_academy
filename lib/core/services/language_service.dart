@@ -26,6 +26,14 @@ class LanguageService extends ChangeNotifier {
     _loadLocale();
   }
 
+  User? get _currentUser {
+    try {
+      return FirebaseAuth.instance.currentUser;
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<void> _loadLocale() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -36,7 +44,7 @@ class LanguageService extends ChangeNotifier {
         return;
       }
 
-      final user = FirebaseAuth.instance.currentUser;
+      final user = _currentUser;
       if (user != null) {
         final doc = await FirebaseFirestore.instance
             .collection('users')
@@ -72,7 +80,7 @@ class LanguageService extends ChangeNotifier {
       AppLogger.error('Error saving language preference: $e');
     }
 
-    final user = FirebaseAuth.instance.currentUser;
+    final user = _currentUser;
     if (user != null) {
       try {
         await FirebaseFirestore.instance

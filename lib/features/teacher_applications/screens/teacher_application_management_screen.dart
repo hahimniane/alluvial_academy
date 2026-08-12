@@ -652,7 +652,7 @@ class ApplicationDataSource extends DataGridSource {
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: statusColor.withOpacity(0.3)),
               ),
-              child: Text(
+              child: SelectableText(
                 app.status,
                 style: GoogleFonts.inter(
                   fontSize: 12,
@@ -666,7 +666,7 @@ class ApplicationDataSource extends DataGridSource {
           return Container(
             padding: const EdgeInsets.all(12),
             alignment: Alignment.centerLeft,
-            child: Text(
+            child: SelectableText(
               DateFormat('MMM d, yyyy').format(cell.value as DateTime),
               style: GoogleFonts.inter(fontSize: 13, color: const Color(0xff374151)),
             ),
@@ -705,10 +705,10 @@ class ApplicationDataSource extends DataGridSource {
           return Container(
             padding: const EdgeInsets.all(12),
             alignment: Alignment.centerLeft,
-            child: Text(
+            child: SelectableText(
               cell.value.toString(),
               style: GoogleFonts.inter(fontSize: 13, color: const Color(0xff374151)),
-              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
             ),
           );
         }

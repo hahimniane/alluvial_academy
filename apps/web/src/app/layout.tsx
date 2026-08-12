@@ -2,7 +2,6 @@ import type { Metadata, Viewport } from "next";
 import { Fraunces, Inter } from "next/font/google";
 import { Suspense } from "react";
 import { AnalyticsTracker } from "@/components/AnalyticsTracker";
-import { QuranAmbientPlayer } from "@/components/QuranAmbientPlayer";
 import { WhatsAppButton } from "@/components/WhatsAppButton";
 import "./globals.css";
 
@@ -24,7 +23,7 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://alluwaleducationhub.org"),
   title: "Alluwal Education Hub",
   description:
-    "Online Islamic studies, tutoring, languages, and student support from Alluwal Education Hub.",
+    "Online tutoring, languages, entrepreneurship, and faith studies from Alluwal Education Hub.",
   icons: {
     icon: "/favicon.png",
     apple: "/logo-192.png",
@@ -32,7 +31,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Alluwal Education Hub",
     description:
-      "Personalized learning, Islamic education, tutoring, and community-centered student support.",
+      "Personalized learning, tutoring, languages, enterprise, and community-centered student support.",
     url: "https://alluwaleducationhub.org",
     siteName: "Alluwal Education Hub",
     images: [{ url: "/logo-512.png", width: 512, height: 512 }],
@@ -59,7 +58,6 @@ export default function RootLayout({
         </Suspense>
         {children}
         <Suspense fallback={null}>
-          <QuranAmbientPlayer />
         </Suspense>
         <Suspense fallback={null}>
           <WhatsAppButton />

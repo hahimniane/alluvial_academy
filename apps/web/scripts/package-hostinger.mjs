@@ -22,6 +22,30 @@ if (!(await exists(nextOut))) {
   throw new Error("apps/web/out is missing. Run `cd apps/web && npm run build` first.");
 }
 
+// The public site's enrollment, contact and teacher-application forms write
+// straight to Firestore, so a bundle built against the dev project drops real
+// submissions into alluwal-dev where nobody reads them. With
+// NEXT_PUBLIC_FIREBASE_ENV=prod the config ternary folds at build time and the
+// dev config disappears from the output — so its presence means the env var
+// went missing and this build must not ship.
+async function assertBuiltAgainstProd(dir) {
+  for (const entry of await readdir(dir, { withFileTypes: true })) {
+    const path = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      await assertBuiltAgainstProd(path);
+    } else if (entry.name.endsWith(".js")) {
+      if ((await readFile(path, "utf8")).includes("alluwal-dev")) {
+        throw new Error(
+          `Refusing to package: ${path} still references the dev Firebase project.\n` +
+          "Build with NEXT_PUBLIC_FIREBASE_ENV=prod (apps/web/.env.production sets it) and rebuild."
+        );
+      }
+    }
+  }
+}
+
+await assertBuiltAgainstProd(join(nextOut, "_next"));
+
 await rm(packageOut, { recursive: true, force: true });
 await mkdir(packageOut, { recursive: true });
 await cp(nextOut, packageOut, { recursive: true, force: true });
@@ -55,7 +79,15 @@ async function rewriteFlutterBridgeHtaccess(htaccessPath) {
   const htaccess = await readFile(htaccessPath, "utf8");
   const updated = htaccess
     .replace(/RewriteBase \/\s*$/m, "RewriteBase /app/")
-    .replace(/RewriteRule \. \/index\.html \[L\]/, "RewriteRule . /app/index.html [L]");
+    .replace(/RewriteRule \. \/index\.html \[L\]/, "RewriteRule . /app/index.html [L]")
+    // Rewrite targets are absolute from the domain root, so anything left
+    // pointing at / escapes the bridge and lands on the Next site. Without
+    // this, /app/privacy-policy served the root policy page instead of the
+    // Flutter one.
+    .replace(
+      /RewriteRule \^privacy-policy\/\?\$ \/privacy-policy\.html \[L\]/,
+      "RewriteRule ^privacy-policy/?$ /app/privacy-policy.html [L]",
+    );
   await writeFile(htaccessPath, updated);
 }
 

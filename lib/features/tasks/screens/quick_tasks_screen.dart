@@ -43,17 +43,20 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
   Stream<List<Task>>? _taskStream;
   bool _isLoading = true;
   final TextEditingController _searchController = TextEditingController();
-  
+
   // NEW: Tab navigation and view mode
   late TabController _tabController;
-  String _viewMode = 'list'; // 'grid' or 'list' - default to list for ConnectTeam style
-  String _groupBy = 'assignee'; // 'none' or 'assignee' - default to assignee for ConnectTeam style
+  String _viewMode =
+      'list'; // 'grid' or 'list' - default to list for ConnectTeam style
+  String _groupBy =
+      'assignee'; // 'none' or 'assignee' - default to assignee for ConnectTeam style
   String _selectedTab = 'all'; // 'created_by_me', 'my_tasks', 'all', 'archived'
-  
+
   // Bulk selection
   Set<String> _selectedTaskIds = {};
   bool _isBulkMode = false;
-  bool? _filterRecurring; // null = all, true = recurring only, false = non-recurring only
+  bool?
+      _filterRecurring; // null = all, true = recurring only, false = non-recurring only
   List<String> _filterLabels = []; // Filter by labels/tags
 
   /// When false, filter chips are hidden so the task list starts higher on screen.
@@ -67,7 +70,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
       vsync: this,
     );
     _fabAnimationController.forward();
-    
+
     // NEW: Initialize tab controller (5 tabs: created_by_me, my_tasks, all, archived, drafts)
     _tabController = TabController(length: 5, vsync: this);
     _tabController.addListener(() {
@@ -83,7 +86,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
     _listenToAuthState();
     _listenToRoleChanges();
   }
-  
+
   String _getTabKey(int index) {
     switch (index) {
       case 0:
@@ -200,8 +203,10 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: ConnecteamStyle.background,
-      body: SafeArea(
-        child: Column(
+      body: ScrollNotificationObserver(
+        child: SelectionArea(
+          child: SafeArea(
+            child: Column(
           children: [
             _buildTasksChrome(),
             // Bulk Actions Bar (when tasks are selected)
@@ -217,88 +222,100 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
                 child: StreamBuilder<List<Task>>(
                   stream: _taskStream,
                   builder: (context, snapshot) {
-                if (_isLoading) {
-                  return const Center(child: CircularProgressIndicator());
-                }
+                    if (_isLoading) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
 
-                if (snapshot.hasError) {
-                  return Center(
-                    child: Text(AppLocalizations.of(context)!.commonErrorWithDetails(snapshot.error ?? 'Unknown error')),
-                  );
-                }
+                    if (snapshot.hasError) {
+                      return Center(
+                        child: Text(AppLocalizations.of(context)!
+                            .commonErrorWithDetails(
+                                snapshot.error ?? 'Unknown error')),
+                      );
+                    }
 
-                if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                  return _buildNoResultsState();
-                }
+                    if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                      return _buildNoResultsState();
+                    }
 
-                var tasks = _filterTasks(snapshot.data!);
-                tasks = _applyTabFilter(tasks);
-                
-                // Pre-fetch all user names for assignees
-                _prefetchUserNamesForTasks(tasks);
+                    var tasks = _filterTasks(snapshot.data!);
+                    tasks = _applyTabFilter(tasks);
 
-                if (tasks.isEmpty) {
-                  return _buildNoResultsState();
-                }
+                    // Pre-fetch all user names for assignees
+                    _prefetchUserNamesForTasks(tasks);
 
-                // Calculate task summary statistics
-                final totalTasks = tasks.length;
-                final openTasks = tasks.where((t) => t.status == TaskStatus.todo || t.status == TaskStatus.inProgress).length;
-                final doneTasks = tasks.where((t) => t.status == TaskStatus.done).length;
+                    if (tasks.isEmpty) {
+                      return _buildNoResultsState();
+                    }
 
-                // Switch between grid and list view
-                return Column(
-                  children: [
-                    _buildTaskSummarySlim(totalTasks, openTasks, doneTasks),
-                    const SizedBox(height: 6),
-                    // Task list
-                    Expanded(
-                      child: _viewMode == 'list'
-                          ? _buildGroupedTaskList(tasks)
-                          : _buildTaskGridView(tasks),
-                    ),
-                    // Bulk Mode Toggle Button
-                    if (_isAdmin)
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(0, 6, 0, 4),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            TextButton.icon(
-                              onPressed: () {
-                                setState(() {
-                                  _isBulkMode = !_isBulkMode;
-                                  if (!_isBulkMode) {
-                                    _selectedTaskIds.clear();
-                                  }
-                                });
-                              },
-                              icon: Icon(_isBulkMode ? Icons.check_box : Icons.check_box_outline_blank),
-                              label: Text(
-                                _isBulkMode
-                                    ? AppLocalizations.of(context)!.taskExitSelection
-                                    : AppLocalizations.of(context)!.taskSelectMultiple,
-                              ),
-                              style: TextButton.styleFrom(
-                                foregroundColor: ConnecteamStyle.primaryBlue,
-                              ),
-                            ),
-                          ],
+                    // Calculate task summary statistics
+                    final totalTasks = tasks.length;
+                    final openTasks = tasks
+                        .where((t) =>
+                            t.status == TaskStatus.todo ||
+                            t.status == TaskStatus.inProgress)
+                        .length;
+                    final doneTasks =
+                        tasks.where((t) => t.status == TaskStatus.done).length;
+
+                    // Switch between grid and list view
+                    return Column(
+                      children: [
+                        _buildTaskSummarySlim(totalTasks, openTasks, doneTasks),
+                        const SizedBox(height: 6),
+                        // Task list
+                        Expanded(
+                          child: _viewMode == 'list'
+                              ? _buildGroupedTaskList(tasks)
+                              : _buildTaskGridView(tasks),
                         ),
-                      ),
-                  ],
-                );
+                        // Bulk Mode Toggle Button
+                        if (_isAdmin)
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(0, 6, 0, 4),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                TextButton.icon(
+                                  onPressed: () {
+                                    setState(() {
+                                      _isBulkMode = !_isBulkMode;
+                                      if (!_isBulkMode) {
+                                        _selectedTaskIds.clear();
+                                      }
+                                    });
+                                  },
+                                  icon: Icon(_isBulkMode
+                                      ? Icons.check_box
+                                      : Icons.check_box_outline_blank),
+                                  label: Text(
+                                    _isBulkMode
+                                        ? AppLocalizations.of(context)!
+                                            .taskExitSelection
+                                        : AppLocalizations.of(context)!
+                                            .taskSelectMultiple,
+                                  ),
+                                  style: TextButton.styleFrom(
+                                    foregroundColor:
+                                        ConnecteamStyle.primaryBlue,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    );
                   },
                 ),
               ),
             ),
           ],
+            ),
+          ),
         ),
       ),
       // Floating action button with dropdown menu
-      floatingActionButton: _isAdmin
-          ? _buildAddTaskButton()
-          : null,
+      floatingActionButton: _isAdmin ? _buildAddTaskButton() : null,
     );
   }
 
@@ -373,8 +390,8 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
                       style: GoogleFonts.inter(fontSize: 14),
                       decoration: InputDecoration(
                         hintText: l10n.searchTasks,
-                        prefixIcon:
-                            Icon(Icons.search, size: 20, color: Colors.grey[600]),
+                        prefixIcon: Icon(Icons.search,
+                            size: 20, color: Colors.grey[600]),
                         border: InputBorder.none,
                         isDense: true,
                         contentPadding: const EdgeInsets.symmetric(vertical: 8),
@@ -391,12 +408,15 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
               scrollDirection: Axis.horizontal,
               child: Row(
                 children: [
-                  _buildTabItem("All Tasks", 'all', isActive: _selectedTab == 'all'),
-                  _buildTabItem(
-                      "My Tasks", 'my_tasks', isActive: _selectedTab == 'my_tasks'),
-                  _buildTabItem("Today", 'today', isActive: _selectedTab == 'today'),
+                  _buildTabItem("All Tasks", 'all',
+                      isActive: _selectedTab == 'all'),
+                  _buildTabItem("My Tasks", 'my_tasks',
+                      isActive: _selectedTab == 'my_tasks'),
+                  _buildTabItem("Today", 'today',
+                      isActive: _selectedTab == 'today'),
                   if (_isAdmin)
-                    _buildTabItem("Drafts", 'drafts', isActive: _selectedTab == 'drafts'),
+                    _buildTabItem("Drafts", 'drafts',
+                        isActive: _selectedTab == 'drafts'),
                 ],
               ),
             ),
@@ -535,7 +555,9 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
             icon: Icons.flag_outlined,
             isActive: _selectedStatus != null,
             onTap: () => _showStatusFilter(),
-            activeLabel: _selectedStatus != null ? _getStatusLabel(_selectedStatus!) : null,
+            activeLabel: _selectedStatus != null
+                ? _getStatusLabel(_selectedStatus!)
+                : null,
           ),
           // Priority Filter
           _buildFilterChip(
@@ -543,7 +565,9 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
             icon: Icons.priority_high,
             isActive: _selectedPriority != null,
             onTap: () => _showPriorityFilter(),
-            activeLabel: _selectedPriority != null ? _getPriorityLabel(_selectedPriority!) : null,
+            activeLabel: _selectedPriority != null
+                ? _getPriorityLabel(_selectedPriority!)
+                : null,
           ),
           // Assigned To Filter
           _buildFilterChip(
@@ -551,8 +575,8 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
             icon: Icons.person_outline,
             isActive: _filterAssignedToUserIds.isNotEmpty,
             onTap: () => _showAssignedToFilter(),
-            activeLabel: _filterAssignedToUserIds.isNotEmpty 
-                ? '${_filterAssignedToUserIds.length} selected' 
+            activeLabel: _filterAssignedToUserIds.isNotEmpty
+                ? '${_filterAssignedToUserIds.length} selected'
                 : null,
           ),
           // Assigned By Filter (Admin only)
@@ -562,7 +586,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
               icon: Icons.person_add_outlined,
               isActive: _filterAssignedByUserId != null,
               onTap: () => _showAssignedByFilter(),
-              activeLabel: _filterAssignedByUserId != null 
+              activeLabel: _filterAssignedByUserId != null
                   ? _userIdToName[_filterAssignedByUserId] ??
                       AppLocalizations.of(context)!.commonUnknown
                   : null,
@@ -583,9 +607,9 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
             icon: Icons.repeat,
             isActive: _filterRecurring != null,
             onTap: () => _showRecurringFilter(),
-            activeLabel: _filterRecurring == true 
+            activeLabel: _filterRecurring == true
                 ? 'Recurring Only'
-                : _filterRecurring == false 
+                : _filterRecurring == false
                     ? 'One-time Only'
                     : null,
           ),
@@ -595,7 +619,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
             icon: Icons.label_outline,
             isActive: _filterLabels.isNotEmpty,
             onTap: () => _showLabelsFilter(),
-            activeLabel: _filterLabels.isNotEmpty 
+            activeLabel: _filterLabels.isNotEmpty
                 ? '${_filterLabels.length} label${_filterLabels.length == 1 ? '' : 's'}'
                 : null,
           ),
@@ -605,7 +629,8 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
               onTap: _clearAllFilters,
               borderRadius: BorderRadius.circular(8),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
                   color: Colors.red.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
@@ -644,14 +669,15 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), // Reduced padding
+        padding: const EdgeInsets.symmetric(
+            horizontal: 10, vertical: 6), // Reduced padding
         decoration: BoxDecoration(
-          color: isActive 
+          color: isActive
               ? ConnecteamStyle.primaryBlue.withOpacity(0.1)
               : ConnecteamStyle.background,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: isActive 
+            color: isActive
                 ? ConnecteamStyle.primaryBlue
                 : ConnecteamStyle.borderColor,
           ),
@@ -662,7 +688,9 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
             Icon(
               icon,
               size: 14, // Smaller icon
-              color: isActive ? ConnecteamStyle.primaryBlue : ConnecteamStyle.textGrey,
+              color: isActive
+                  ? ConnecteamStyle.primaryBlue
+                  : ConnecteamStyle.textGrey,
             ),
             const SizedBox(width: 5), // Reduced spacing
             Text(
@@ -670,7 +698,9 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
               style: GoogleFonts.inter(
                 fontSize: 12, // Smaller font
                 fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
-                color: isActive ? ConnecteamStyle.primaryBlue : ConnecteamStyle.textGrey,
+                color: isActive
+                    ? ConnecteamStyle.primaryBlue
+                    : ConnecteamStyle.textGrey,
               ),
             ),
             if (isActive) ...[
@@ -800,7 +830,8 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
               color: const Color(0xff0386FF).withOpacity(0.1),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: const Icon(Icons.task_alt, color: Color(0xff0386FF), size: 22),
+            child:
+                const Icon(Icons.task_alt, color: Color(0xff0386FF), size: 22),
           ),
           const SizedBox(width: 12),
           Text(
@@ -845,7 +876,9 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
         margin: const EdgeInsets.only(right: 8),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xff0386FF).withOpacity(0.1) : Colors.transparent,
+          color: isSelected
+              ? const Color(0xff0386FF).withOpacity(0.1)
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
           border: Border(
             bottom: BorderSide(
@@ -857,7 +890,8 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
         child: Text(
           label,
           style: GoogleFonts.inter(
-            color: isSelected ? const Color(0xff0386FF) : const Color(0xff6B7280),
+            color:
+                isSelected ? const Color(0xff0386FF) : const Color(0xff6B7280),
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
             fontSize: 14,
           ),
@@ -925,8 +959,10 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
               onChanged: (value) => setState(() => _searchQuery = value),
               decoration: InputDecoration(
                 hintText: AppLocalizations.of(context)!.commonSearch,
-                hintStyle: GoogleFonts.inter(color: const Color(0xff9CA3AF), fontSize: 13),
-                prefixIcon: const Icon(Icons.search, color: Color(0xff9CA3AF), size: 18),
+                hintStyle: GoogleFonts.inter(
+                    color: const Color(0xff9CA3AF), fontSize: 13),
+                prefixIcon: const Icon(Icons.search,
+                    color: Color(0xff9CA3AF), size: 18),
                 border: InputBorder.none,
                 contentPadding: const EdgeInsets.symmetric(vertical: 10),
               ),
@@ -942,12 +978,15 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
             ElevatedButton.icon(
               onPressed: () => _showAddEditTaskDialog(),
               icon: const Icon(Icons.add, size: 18),
-              label: Text(AppLocalizations.of(context)!.addTask, style: GoogleFonts.inter(fontWeight: FontWeight.w500)),
+              label: Text(AppLocalizations.of(context)!.addTask,
+                  style: GoogleFonts.inter(fontWeight: FontWeight.w500)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xff0386FF),
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8)),
               ),
             ),
         ],
@@ -969,22 +1008,35 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
           children: [
             Text(
               AppLocalizations.of(context)!.groupBy,
-              style: GoogleFonts.inter(fontSize: 13, color: const Color(0xff6B7280)),
+              style: GoogleFonts.inter(
+                  fontSize: 13, color: const Color(0xff6B7280)),
             ),
             SizedBox(width: 4),
             Text(
-              _groupBy == 'none' ? 'None' : (_groupBy == 'assignee' ? 'Assigned to' : _groupBy),
-              style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w500),
+              _groupBy == 'none'
+                  ? 'None'
+                  : (_groupBy == 'assignee' ? 'Assigned to' : _groupBy),
+              style:
+                  GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w500),
             ),
-            const Icon(Icons.arrow_drop_down, size: 18, color: Color(0xff6B7280)),
+            const Icon(Icons.arrow_drop_down,
+                size: 18, color: Color(0xff6B7280)),
           ],
         ),
       ),
       itemBuilder: (context) => [
-        PopupMenuItem(value: 'none', child: Text(AppLocalizations.of(context)!.commonNone)),
-        PopupMenuItem(value: 'assignee', child: Text(AppLocalizations.of(context)!.assignedTo)),
-        PopupMenuItem(value: 'status', child: Text(AppLocalizations.of(context)!.userStatus)),
-        PopupMenuItem(value: 'priority', child: Text(AppLocalizations.of(context)!.priority)),
+        PopupMenuItem(
+            value: 'none',
+            child: Text(AppLocalizations.of(context)!.commonNone)),
+        PopupMenuItem(
+            value: 'assignee',
+            child: Text(AppLocalizations.of(context)!.assignedTo)),
+        PopupMenuItem(
+            value: 'status',
+            child: Text(AppLocalizations.of(context)!.userStatus)),
+        PopupMenuItem(
+            value: 'priority',
+            child: Text(AppLocalizations.of(context)!.priority)),
       ],
     );
   }
@@ -1012,20 +1064,23 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.calendar_today, size: 16, color: Color(0xff6B7280)),
+            const Icon(Icons.calendar_today,
+                size: 16, color: Color(0xff6B7280)),
             const SizedBox(width: 8),
             Text(
               _dueDateRange != null
                   ? '${DateFormat('M/d').format(_dueDateRange!.start)} to ${DateFormat('M/d').format(_dueDateRange!.end)}'
                   : 'Dates',
-              style: GoogleFonts.inter(fontSize: 13, color: const Color(0xff374151)),
+              style: GoogleFonts.inter(
+                  fontSize: 13, color: const Color(0xff374151)),
             ),
             if (_dueDateRange != null)
               Padding(
                 padding: const EdgeInsets.only(left: 4),
                 child: InkWell(
                   onTap: () => setState(() => _dueDateRange = null),
-                  child: const Icon(Icons.close, size: 16, color: Color(0xff9CA3AF)),
+                  child: const Icon(Icons.close,
+                      size: 16, color: Color(0xff9CA3AF)),
                 ),
               ),
           ],
@@ -1054,13 +1109,16 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: _viewMode == 'list' ? const Color(0xff0386FF) : Colors.transparent,
+                color: _viewMode == 'list'
+                    ? const Color(0xff0386FF)
+                    : Colors.transparent,
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Icon(
                 Icons.view_list,
                 size: 18,
-                color: _viewMode == 'list' ? Colors.white : Colors.grey.shade600,
+                color:
+                    _viewMode == 'list' ? Colors.white : Colors.grey.shade600,
               ),
             ),
           ),
@@ -1069,13 +1127,16 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: _viewMode == 'grid' ? const Color(0xff0386FF) : Colors.transparent,
+                color: _viewMode == 'grid'
+                    ? const Color(0xff0386FF)
+                    : Colors.transparent,
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Icon(
                 Icons.grid_view,
                 size: 18,
-                color: _viewMode == 'grid' ? Colors.white : Colors.grey.shade600,
+                color:
+                    _viewMode == 'grid' ? Colors.white : Colors.grey.shade600,
               ),
             ),
           ),
@@ -1089,14 +1150,14 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
       stream: _taskStream,
       builder: (context, snapshot) {
         if (!snapshot.hasData) return const SizedBox.shrink();
-        
+
         final overdueTasks = snapshot.data!.where((task) {
           if (task.isArchived || task.status == TaskStatus.done) return false;
           return task.dueDate != null && task.dueDate!.isBefore(DateTime.now());
         }).length;
-        
+
         if (overdueTasks == 0) return const SizedBox.shrink();
-        
+
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
@@ -1106,7 +1167,8 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.warning_amber_rounded, size: 16, color: Colors.red.shade700),
+              Icon(Icons.warning_amber_rounded,
+                  size: 16, color: Colors.red.shade700),
               const SizedBox(width: 4),
               Text(
                 AppLocalizations.of(context)!.overduetasksOverdue,
@@ -1128,7 +1190,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
     if (tasks.isEmpty) {
       return _buildNoResultsState();
     }
-    
+
     return GridView.builder(
       padding: EdgeInsets.only(
         left: 16,
@@ -1617,11 +1679,11 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
         userIds.add(task.createdBy);
       }
     }
-    
+
     // Fetch names for IDs we don't have yet
     for (final userId in userIds) {
-      if (userId.isNotEmpty && 
-          !_userIdToName.containsKey(userId) && 
+      if (userId.isNotEmpty &&
+          !_userIdToName.containsKey(userId) &&
           !_fetchingUserIds.contains(userId)) {
         _fetchUserNameIfMissing(userId);
       }
@@ -1646,7 +1708,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
             '${(d['first_name'] ?? '').toString().trim()} ${(d['last_name'] ?? '').toString().trim()}'
                 .trim();
         final email = d['e-mail'] ?? d['email'] ?? '';
-        
+
         // Use full name, or email username, or user ID as last resort
         String displayName;
         if (fullName.isNotEmpty) {
@@ -1654,19 +1716,21 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
         } else if (email.isNotEmpty && email.contains('@')) {
           // Extract name from email (e.g., john.doe@email.com -> John Doe)
           final emailParts = email.split('@')[0].split('.');
-          displayName = emailParts.map((s) => s.isEmpty ? '' : s[0].toUpperCase() + s.substring(1)).join(' ');
+          displayName = emailParts
+              .map((s) => s.isEmpty ? '' : s[0].toUpperCase() + s.substring(1))
+              .join(' ');
         } else {
           displayName = 'User ${userId.substring(0, 6)}...';
         }
-        
+
         if (mounted) {
           setState(() => _userIdToName[userId] = displayName);
         }
       } else {
         // User document doesn't exist, use a fallback
         if (mounted) {
-          setState(() =>
-              _userIdToName[userId] = AppLocalizations.of(context)!.commonUnknownUser);
+          setState(() => _userIdToName[userId] =
+              AppLocalizations.of(context)!.commonUnknownUser);
         }
       }
     } catch (e) {
@@ -1715,7 +1779,8 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
         context: context,
         builder: (_) => task_filters.UserSelectionDialog(
           title: AppLocalizations.of(context)!.selectAssignedBy,
-          subtitle: AppLocalizations.of(context)!.chooseAnAdminOrPromotedTeacher,
+          subtitle:
+              AppLocalizations.of(context)!.chooseAnAdminOrPromotedTeacher,
           availableUsers: options,
           selectedUserIds:
               _filterAssignedByUserId != null ? [_filterAssignedByUserId!] : [],
@@ -1898,7 +1963,8 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
                           AlwaysStoppedAnimation<Color>(Color(0xff0386FF)),
                     ),
                     SizedBox(height: 16),
-                    Text(AppLocalizations.of(context)!.connectingToTaskDatabase),
+                    Text(
+                        AppLocalizations.of(context)!.connectingToTaskDatabase),
                   ],
                 ),
               ),
@@ -1988,15 +2054,17 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
 
     switch (_selectedTab) {
       case 'created_by_me':
-        return tasks.where((t) => 
-            t.createdBy == currentUser.uid && 
-            !t.isArchived && 
-            !t.isDraft).toList();
+        return tasks
+            .where((t) =>
+                t.createdBy == currentUser.uid && !t.isArchived && !t.isDraft)
+            .toList();
       case 'my_tasks':
-        return tasks.where((t) => 
-            t.assignedTo.contains(currentUser.uid) && 
-            !t.isArchived &&
-            !t.isDraft).toList();
+        return tasks
+            .where((t) =>
+                t.assignedTo.contains(currentUser.uid) &&
+                !t.isArchived &&
+                !t.isDraft)
+            .toList();
       case 'today':
         // Filter tasks due today (same date, ignoring time)
         final now = DateTime.now();
@@ -2010,10 +2078,10 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
       case 'archived':
         return tasks.where((t) => t.isArchived).toList();
       case 'drafts':
-        return tasks.where((t) => 
-            t.isDraft && 
-            !t.isArchived &&
-            t.createdBy == currentUser.uid).toList(); // Only show drafts created by current user
+        return tasks
+            .where((t) =>
+                t.isDraft && !t.isArchived && t.createdBy == currentUser.uid)
+            .toList(); // Only show drafts created by current user
       case 'all':
       default:
         return tasks.where((t) => !t.isArchived && !t.isDraft).toList();
@@ -2203,15 +2271,18 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
         }
       },
       itemBuilder: (context) => [
-        PopupMenuItem(value: 'edit', child: Text(AppLocalizations.of(context)!.editTask)),
+        PopupMenuItem(
+            value: 'edit', child: Text(AppLocalizations.of(context)!.editTask)),
         if (canDelete)
-          PopupMenuItem(value: 'delete', child: Text(AppLocalizations.of(context)!.deleteTask)),
+          PopupMenuItem(
+              value: 'delete',
+              child: Text(AppLocalizations.of(context)!.deleteTask)),
       ],
     );
   }
 
   Widget _buildTaskTitle(Task task) {
-    return Text(
+    return SelectableText(
       task.title,
       style: const TextStyle(
         fontSize: 16,
@@ -2219,12 +2290,11 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
         color: Color(0xFF1A202C),
       ),
       maxLines: 3,
-      overflow: TextOverflow.ellipsis,
     );
   }
 
   Widget _buildTaskDescription(Task task) {
-    return Text(
+    return SelectableText(
       task.description,
       style: TextStyle(
         fontSize: 14,
@@ -2232,7 +2302,6 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
         height: 1.4,
       ),
       maxLines: 2,
-      overflow: TextOverflow.ellipsis,
     );
   }
 
@@ -2310,7 +2379,8 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
               runSpacing: 6,
               children: task.labels.map((label) {
                 return Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: const Color(0xff0386FF).withOpacity(0.1),
                     borderRadius: BorderRadius.circular(6),
@@ -2322,7 +2392,8 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.label, size: 12, color: const Color(0xff0386FF)),
+                      Icon(Icons.label,
+                          size: 12, color: const Color(0xff0386FF)),
                       const SizedBox(width: 4),
                       Text(
                         label,
@@ -2491,7 +2562,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
             final displayChar = (name != null && name.isNotEmpty)
                 ? name.substring(0, 1).toUpperCase()
                 : (id.isNotEmpty ? id.substring(0, 1).toUpperCase() : '?');
-            
+
             return Padding(
               padding: const EdgeInsets.only(right: 2),
               child: CircleAvatar(
@@ -2513,15 +2584,20 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
           if (assigneeIds.length == 1)
             Text(
               _userIdToName[assigneeIds.first] ?? 'Loading...',
-              style: GoogleFonts.inter(fontSize: 11, color: Colors.grey.shade700),
+              style:
+                  GoogleFonts.inter(fontSize: 11, color: Colors.grey.shade700),
               overflow: TextOverflow.ellipsis,
             )
           else
             Text(
               assigneeIds.length <= 2
-                  ? assigneeIds.map((id) => (_userIdToName[id] ?? '...').split(' ').first).join(', ')
+                  ? assigneeIds
+                      .map(
+                          (id) => (_userIdToName[id] ?? '...').split(' ').first)
+                      .join(', ')
                   : '${(_userIdToName[assigneeIds.first] ?? '...').split(' ').first} +${assigneeIds.length - 1}',
-              style: GoogleFonts.inter(fontSize: 11, color: Colors.grey.shade700),
+              style:
+                  GoogleFonts.inter(fontSize: 11, color: Colors.grey.shade700),
               overflow: TextOverflow.ellipsis,
             ),
         ],
@@ -2550,7 +2626,8 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
             mainAxisSize: MainAxisSize.min,
             children: assigneeIds.map((id) {
               final name = _userIdToName[id] ?? 'Loading...';
-              final displayChar = name.isNotEmpty ? name.substring(0, 1).toUpperCase() : '?';
+              final displayChar =
+                  name.isNotEmpty ? name.substring(0, 1).toUpperCase() : '?';
               return ListTile(
                 leading: CircleAvatar(
                   radius: 18,
@@ -2737,7 +2814,8 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
                 ),
                 Text('·', style: muted),
                 InkWell(
-                  onTap: () => setState(() => _selectedStatus = TaskStatus.todo),
+                  onTap: () =>
+                      setState(() => _selectedStatus = TaskStatus.todo),
                   borderRadius: BorderRadius.circular(4),
                   child: Padding(
                     padding:
@@ -2754,7 +2832,8 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
                 ),
                 Text('·', style: muted),
                 InkWell(
-                  onTap: () => setState(() => _selectedStatus = TaskStatus.done),
+                  onTap: () =>
+                      setState(() => _selectedStatus = TaskStatus.done),
                   borderRadius: BorderRadius.circular(4),
                   child: Padding(
                     padding:
@@ -2782,17 +2861,20 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
     return ListView.separated(
       padding: const EdgeInsets.only(bottom: 72), // Space for FAB
       itemCount: tasks.length,
-      separatorBuilder: (context, index) => const Divider(height: 1, color: Color(0xFFE2E8F0)),
+      separatorBuilder: (context, index) =>
+          const Divider(height: 1, color: Color(0xFFE2E8F0)),
       itemBuilder: (context, index) {
         final task = tasks[index];
         final isSelected = _selectedTaskIds.contains(task.id);
 
         return InkWell(
-          onTap: _isBulkMode 
+          onTap: _isBulkMode
               ? () => _toggleTaskSelection(task.id)
               : () => _showTaskDetailsDialog(task),
           child: Container(
-            color: isSelected ? ConnecteamStyle.primaryBlue.withOpacity(0.05) : Colors.white,
+            color: isSelected
+                ? ConnecteamStyle.primaryBlue.withOpacity(0.05)
+                : Colors.white,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -2802,37 +2884,42 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
                   Padding(
                     padding: const EdgeInsets.only(right: 12, top: 2),
                     child: Icon(
-                      isSelected ? Icons.check_box : Icons.check_box_outline_blank,
-                      color: isSelected ? ConnecteamStyle.primaryBlue : Colors.grey,
+                      isSelected
+                          ? Icons.check_box
+                          : Icons.check_box_outline_blank,
+                      color: isSelected
+                          ? ConnecteamStyle.primaryBlue
+                          : Colors.grey,
                     ),
                   )
                 else
                   Padding(
                     padding: const EdgeInsets.only(right: 12, top: 2),
                     child: InkWell(
-                      onTap: () => _toggleTaskStatus(task, task.status != TaskStatus.done),
+                      onTap: () => _toggleTaskStatus(
+                          task, task.status != TaskStatus.done),
                       child: Container(
                         width: 20,
                         height: 20,
                         decoration: BoxDecoration(
                           border: Border.all(
-                            color: task.status == TaskStatus.done 
-                                ? ConnecteamStyle.statusDoneText 
-                                : Colors.grey.shade400,
-                            width: 2
-                          ),
+                              color: task.status == TaskStatus.done
+                                  ? ConnecteamStyle.statusDoneText
+                                  : Colors.grey.shade400,
+                              width: 2),
                           borderRadius: BorderRadius.circular(4),
-                          color: task.status == TaskStatus.done 
-                              ? ConnecteamStyle.statusDoneText 
+                          color: task.status == TaskStatus.done
+                              ? ConnecteamStyle.statusDoneText
                               : Colors.transparent,
                         ),
                         child: task.status == TaskStatus.done
-                            ? const Icon(Icons.check, size: 14, color: Colors.white)
+                            ? const Icon(Icons.check,
+                                size: 14, color: Colors.white)
                             : null,
                       ),
                     ),
                   ),
-                
+
                 // Task Content
                 Expanded(
                   child: Column(
@@ -2847,28 +2934,33 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
                               style: GoogleFonts.inter(
                                 fontSize: 15,
                                 fontWeight: FontWeight.w600,
-                                decoration: task.status == TaskStatus.done 
-                                    ? TextDecoration.lineThrough 
+                                decoration: task.status == TaskStatus.done
+                                    ? TextDecoration.lineThrough
                                     : null,
-                                color: task.status == TaskStatus.done 
-                                    ? Colors.grey 
+                                color: task.status == TaskStatus.done
+                                    ? Colors.grey
                                     : const Color(0xFF1E293B),
                               ),
                               maxLines: 1,
-                              overflow: TextOverflow.ellipsis, // Stops it from pushing right side out
+                              overflow: TextOverflow
+                                  .ellipsis, // Stops it from pushing right side out
                             ),
                           ),
                           const SizedBox(width: 8),
                           if (task.priority == TaskPriority.high)
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
                                 color: Colors.red.withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
                                 AppLocalizations.of(context)!.high,
-                                style: GoogleFonts.inter(fontSize: 10, color: Colors.red, fontWeight: FontWeight.bold),
+                                style: GoogleFonts.inter(
+                                    fontSize: 10,
+                                    color: Colors.red,
+                                    fontWeight: FontWeight.bold),
                               ),
                             ),
                         ],
@@ -2878,16 +2970,20 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
                       Row(
                         children: [
                           if (task.dueDate != null) ...[
-                            Icon(Icons.calendar_today, size: 12, color: Colors.grey.shade500),
+                            Icon(Icons.calendar_today,
+                                size: 12, color: Colors.grey.shade500),
                             const SizedBox(width: 4),
                             Flexible(
                               child: Text(
-                                DateFormat('MMM d, h:mm a').format(task.dueDate!),
+                                DateFormat('MMM d, h:mm a')
+                                    .format(task.dueDate!),
                                 style: GoogleFonts.inter(
                                   fontSize: 12,
-                                  color: task.dueDate!.isBefore(DateTime.now()) && task.status != TaskStatus.done
-                                      ? Colors.red 
-                                      : Colors.grey.shade600,
+                                  color:
+                                      task.dueDate!.isBefore(DateTime.now()) &&
+                                              task.status != TaskStatus.done
+                                          ? Colors.red
+                                          : Colors.grey.shade600,
                                 ),
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -2941,8 +3037,9 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
       itemBuilder: (context, index) {
         final assigneeId = grouped.keys.elementAt(index);
         final assigneeTasks = grouped[assigneeId]!;
-        final completedCount = assigneeTasks.where((t) => t.status == TaskStatus.done).length;
-        
+        final completedCount =
+            assigneeTasks.where((t) => t.status == TaskStatus.done).length;
+
         return _buildAssigneeGroup(
           assigneeId: assigneeId,
           tasks: assigneeTasks,
@@ -2965,7 +3062,8 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
           color: const Color(0xffF9FAFB),
           child: Row(
             children: [
-              Checkbox(value: false, onChanged: null), // Multi-select placeholder
+              Checkbox(
+                  value: false, onChanged: null), // Multi-select placeholder
               const SizedBox(width: 8),
               _buildUserAvatar(assigneeId),
               const SizedBox(width: 12),
@@ -2973,7 +3071,10 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
                 future: _getUserName(assigneeId),
                 builder: (context, snapshot) {
                   return Text(
-                    snapshot.data ?? (assigneeId == 'unassigned' ? 'Unassigned' : 'Loading...'),
+                    snapshot.data ??
+                        (assigneeId == 'unassigned'
+                            ? 'Unassigned'
+                            : 'Loading...'),
                     style: const TextStyle(fontWeight: FontWeight.w600),
                   );
                 },
@@ -2989,7 +3090,8 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
                 ),
                 child: Text(
                   '⟳ $completedCount/${tasks.length} Done',
-                  style: const TextStyle(fontSize: 12, color: Color(0xff6B7280)),
+                  style:
+                      const TextStyle(fontSize: 12, color: Color(0xff6B7280)),
                 ),
               ),
               const Spacer(),
@@ -3018,15 +3120,15 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
         child: Icon(Icons.person_outline, size: 20, color: Color(0xff6B7280)),
       );
     }
-    
+
     return FutureBuilder<String>(
       future: _getUserName(userId),
       builder: (context, snapshot) {
         final name = snapshot.data ?? '';
-        final initials = name.isNotEmpty 
+        final initials = name.isNotEmpty
             ? name.split(' ').map((n) => n[0]).take(2).join().toUpperCase()
             : userId.substring(0, 2).toUpperCase();
-        
+
         return CircleAvatar(
           radius: 20,
           backgroundColor: const Color(0xff0386FF).withOpacity(0.1),
@@ -3048,13 +3150,13 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
     if (_userIdToName.containsKey(userId)) {
       return _userIdToName[userId]!;
     }
-    
+
     try {
       final userDoc = await FirebaseFirestore.instance
           .collection('users')
           .doc(userId)
           .get();
-      
+
       if (userDoc.exists) {
         final data = userDoc.data()!;
         final firstName = data['first_name'] ?? '';
@@ -3066,7 +3168,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
     } catch (e) {
       AppLogger.error('Error fetching user name: $e');
     }
-    
+
     return userId;
   }
 
@@ -3085,9 +3187,9 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
   }
 
   Widget _buildTaskRow(Task task) {
-    final isOverdue = task.dueDate.isBefore(DateTime.now()) && 
-                      task.status != TaskStatus.done;
-    
+    final isOverdue =
+        task.dueDate.isBefore(DateTime.now()) && task.status != TaskStatus.done;
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: const BoxDecoration(
@@ -3131,7 +3233,8 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
                     ),
                     // Status badge
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: _getStatusColor(task.status).withOpacity(0.1),
                         borderRadius: BorderRadius.circular(12),
@@ -3154,10 +3257,12 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
                   runSpacing: 6,
                   children: [
                     // Chat icon
-                    Icon(Icons.chat_bubble_outline, size: 14, color: Colors.grey[400]),
+                    Icon(Icons.chat_bubble_outline,
+                        size: 14, color: Colors.grey[400]),
                     // Status
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
                         color: _getStatusColor(task.status).withOpacity(0.1),
                         borderRadius: BorderRadius.circular(4),
@@ -3173,45 +3278,50 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
                     ),
                     // Sub-tasks count
                     Text(
-                      AppLocalizations.of(context)!.taskSubtasksCount(task.subTaskIds.length),
+                      AppLocalizations.of(context)!
+                          .taskSubtasksCount(task.subTaskIds.length),
                       style: TextStyle(fontSize: 12, color: Color(0xff6B7280)),
                     ),
                     // Labels display
                     if (task.labels.isNotEmpty)
                       ...task.labels.take(2).map((label) => Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: const Color(0xff0386FF).withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(
-                            color: const Color(0xff0386FF).withOpacity(0.3),
-                            width: 1,
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.label, size: 10, color: const Color(0xff0386FF)),
-                            const SizedBox(width: 3),
-                            Text(
-                              label,
-                              style: const TextStyle(
-                                fontSize: 10,
-                                color: Color(0xff0386FF),
-                                fontWeight: FontWeight.w500,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xff0386FF).withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(
+                                color: const Color(0xff0386FF).withOpacity(0.3),
+                                width: 1,
                               ),
                             ),
-                          ],
-                        ),
-                      )),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.label,
+                                    size: 10, color: const Color(0xff0386FF)),
+                                const SizedBox(width: 3),
+                                Text(
+                                  label,
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    color: Color(0xff0386FF),
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )),
                     // Start date → Due date
                     if (task.startDate != null)
                       Text(
                         '${DateFormat('M/d').format(task.startDate!)} → ${DateFormat('M/d').format(task.dueDate)}',
                         style: TextStyle(
                           fontSize: 12,
-                          color: isOverdue ? Colors.red : const Color(0xff6B7280),
-                          fontWeight: isOverdue ? FontWeight.w600 : FontWeight.normal,
+                          color:
+                              isOverdue ? Colors.red : const Color(0xff6B7280),
+                          fontWeight:
+                              isOverdue ? FontWeight.w600 : FontWeight.normal,
                         ),
                       )
                     else
@@ -3219,8 +3329,10 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
                         DateFormat('M/d').format(task.dueDate),
                         style: TextStyle(
                           fontSize: 12,
-                          color: isOverdue ? Colors.red : const Color(0xff6B7280),
-                          fontWeight: isOverdue ? FontWeight.w600 : FontWeight.normal,
+                          color:
+                              isOverdue ? Colors.red : const Color(0xff6B7280),
+                          fontWeight:
+                              isOverdue ? FontWeight.w600 : FontWeight.normal,
                         ),
                       ),
                     // Assignees with avatars (ConnectTeam style)
@@ -3243,7 +3355,8 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
         decoration: const BoxDecoration(
           border: Border(bottom: BorderSide(color: Color(0xffE2E8F0))),
         ),
-        child: Row(children: [
+        child: Row(
+          children: [
             Icon(Icons.add_circle_outline, color: Color(0xff0386FF)),
             SizedBox(width: 8),
             Text(
@@ -3301,7 +3414,8 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
       AppLogger.error('Error toggling task status: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppLocalizations.of(context)!.errorUpdatingTaskE)),
+          SnackBar(
+              content: Text(AppLocalizations.of(context)!.errorUpdatingTaskE)),
         );
       }
     }
@@ -3319,7 +3433,8 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
       AppLogger.error('Error archiving task: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppLocalizations.of(context)!.errorArchivingTaskE)),
+          SnackBar(
+              content: Text(AppLocalizations.of(context)!.errorArchivingTaskE)),
         );
       }
     }
@@ -3337,7 +3452,9 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
       AppLogger.error('Error unarchiving task: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppLocalizations.of(context)!.errorUnarchivingTaskE)),
+          SnackBar(
+              content:
+                  Text(AppLocalizations.of(context)!.errorUnarchivingTaskE)),
         );
       }
     }
@@ -3400,11 +3517,12 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
       setState(() => _selectedStatus = null);
       return;
     }
-    
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(AppLocalizations.of(context)!.filterByStatus, style: ConnecteamStyle.headerTitle.copyWith(fontSize: 18)),
+        title: Text(AppLocalizations.of(context)!.filterByStatus,
+            style: ConnecteamStyle.headerTitle.copyWith(fontSize: 18)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -3420,16 +3538,16 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
               ),
             ),
             ...TaskStatus.values.map((status) => ListTile(
-              title: Text(_getStatusLabel(status)),
-              leading: Radio<TaskStatus>(
-                value: status,
-                groupValue: _selectedStatus,
-                onChanged: (value) {
-                  setState(() => _selectedStatus = value);
-                  Navigator.pop(context);
-                },
-              ),
-            )),
+                  title: Text(_getStatusLabel(status)),
+                  leading: Radio<TaskStatus>(
+                    value: status,
+                    groupValue: _selectedStatus,
+                    onChanged: (value) {
+                      setState(() => _selectedStatus = value);
+                      Navigator.pop(context);
+                    },
+                  ),
+                )),
           ],
         ),
       ),
@@ -3442,11 +3560,12 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
       setState(() => _selectedPriority = null);
       return;
     }
-    
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(AppLocalizations.of(context)!.filterByPriority, style: ConnecteamStyle.headerTitle.copyWith(fontSize: 18)),
+        title: Text(AppLocalizations.of(context)!.filterByPriority,
+            style: ConnecteamStyle.headerTitle.copyWith(fontSize: 18)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -3462,16 +3581,16 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
               ),
             ),
             ...TaskPriority.values.map((priority) => ListTile(
-              title: Text(_getPriorityLabel(priority)),
-              leading: Radio<TaskPriority>(
-                value: priority,
-                groupValue: _selectedPriority,
-                onChanged: (value) {
-                  setState(() => _selectedPriority = value);
-                  Navigator.pop(context);
-                },
-              ),
-            )),
+                  title: Text(_getPriorityLabel(priority)),
+                  leading: Radio<TaskPriority>(
+                    value: priority,
+                    groupValue: _selectedPriority,
+                    onChanged: (value) {
+                      setState(() => _selectedPriority = value);
+                      Navigator.pop(context);
+                    },
+                  ),
+                )),
           ],
         ),
       ),
@@ -3484,20 +3603,22 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
       setState(() => _filterAssignedToUserIds = []);
       return;
     }
-    
+
     final users = await _getAllUsers();
     final selectedIds = List<String>.from(_filterAssignedToUserIds);
-    
+
     await showDialog(
       context: context,
       builder: (context) => task_filters.UserSelectionDialog(
         title: AppLocalizations.of(context)!.filterByAssignedTo,
         subtitle: AppLocalizations.of(context)!.selectUsersToFilterTasks,
-        availableUsers: users.map<Map<String, dynamic>>((u) => {
-          'id': u.id,
-          'name': u.name,
-          'email': u.email,
-        }).toList(),
+        availableUsers: users
+            .map<Map<String, dynamic>>((u) => {
+                  'id': u.id,
+                  'name': u.name,
+                  'email': u.email,
+                })
+            .toList(),
         selectedUserIds: selectedIds,
         allowMultiple: true,
         onUsersSelected: (ids) {
@@ -3513,24 +3634,27 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
       setState(() => _filterAssignedByUserId = null);
       return;
     }
-    
+
     final users = await _getAllUsers();
     final currentSelected = _filterAssignedByUserId;
-    
+
     await showDialog(
       context: context,
       builder: (context) => task_filters.UserSelectionDialog(
         title: AppLocalizations.of(context)!.filterByAssignedBy,
         subtitle: AppLocalizations.of(context)!.selectUserWhoCreatedTheTasks,
-        availableUsers: users.map<Map<String, dynamic>>((u) => {
-          'id': u.id,
-          'name': u.name,
-          'email': u.email,
-        }).toList(),
+        availableUsers: users
+            .map<Map<String, dynamic>>((u) => {
+                  'id': u.id,
+                  'name': u.name,
+                  'email': u.email,
+                })
+            .toList(),
         selectedUserIds: currentSelected != null ? [currentSelected] : [],
         allowMultiple: false,
         onUsersSelected: (ids) {
-          setState(() => _filterAssignedByUserId = ids.isNotEmpty ? ids.first : null);
+          setState(() =>
+              _filterAssignedByUserId = ids.isNotEmpty ? ids.first : null);
         },
       ),
     );
@@ -3542,7 +3666,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
       setState(() => _dueDateRange = null);
       return;
     }
-    
+
     final now = DateTime.now();
     final range = await showDateRangePicker(
       context: context,
@@ -3563,23 +3687,24 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
       setState(() => _filterLabels.clear());
       return;
     }
-    
+
     // Get all unique labels from tasks
     if (_taskStream == null) return;
-    
+
     final snapshot = await _taskStream!.first;
     final allLabels = <String>{};
     for (var task in snapshot) {
       allLabels.addAll(task.labels);
     }
-    
+
     final selectedLabels = List<String>.from(_filterLabels);
-    
+
     await showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: Text(AppLocalizations.of(context)!.filterByLabels, style: ConnecteamStyle.headerTitle.copyWith(fontSize: 18)),
+          title: Text(AppLocalizations.of(context)!.filterByLabels,
+              style: ConnecteamStyle.headerTitle.copyWith(fontSize: 18)),
           content: SizedBox(
             width: double.maxFinite,
             child: allLabels.isEmpty
@@ -3630,11 +3755,12 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
       setState(() => _filterRecurring = null);
       return;
     }
-    
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(AppLocalizations.of(context)!.filterRecurringTasks, style: ConnecteamStyle.headerTitle.copyWith(fontSize: 18)),
+        title: Text(AppLocalizations.of(context)!.filterRecurringTasks,
+            style: ConnecteamStyle.headerTitle.copyWith(fontSize: 18)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -3679,7 +3805,8 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
 
   Future<List<AppUser>> _getAllUsers() async {
     try {
-      final snapshot = await FirebaseFirestore.instance.collection('users').get();
+      final snapshot =
+          await FirebaseFirestore.instance.collection('users').get();
       return snapshot.docs
           .map((doc) => AppUser.fromFirestore(doc))
           .where((user) => user.isActive)
@@ -3695,18 +3822,21 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(AppLocalizations.of(context)!
-            .taskBulkChangeStatus(_selectedTaskIds.length),
+        title: Text(
+            AppLocalizations.of(context)!
+                .taskBulkChangeStatus(_selectedTaskIds.length),
             style: ConnecteamStyle.headerTitle.copyWith(fontSize: 18)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
-          children: TaskStatus.values.map((status) => ListTile(
-            title: Text(_getStatusLabel(status)),
-            onTap: () async {
-              Navigator.pop(context);
-              await _bulkChangeStatus(status);
-            },
-          )).toList(),
+          children: TaskStatus.values
+              .map((status) => ListTile(
+                    title: Text(_getStatusLabel(status)),
+                    onTap: () async {
+                      Navigator.pop(context);
+                      await _bulkChangeStatus(status);
+                    },
+                  ))
+              .toList(),
         ),
       ),
     );
@@ -3716,18 +3846,21 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(AppLocalizations.of(context)!
-            .taskBulkChangePriority(_selectedTaskIds.length),
+        title: Text(
+            AppLocalizations.of(context)!
+                .taskBulkChangePriority(_selectedTaskIds.length),
             style: ConnecteamStyle.headerTitle.copyWith(fontSize: 18)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
-          children: TaskPriority.values.map((priority) => ListTile(
-            title: Text(_getPriorityLabel(priority)),
-            onTap: () async {
-              Navigator.pop(context);
-              await _bulkChangePriority(priority);
-            },
-          )).toList(),
+          children: TaskPriority.values
+              .map((priority) => ListTile(
+                    title: Text(_getPriorityLabel(priority)),
+                    onTap: () async {
+                      Navigator.pop(context);
+                      await _bulkChangePriority(priority);
+                    },
+                  ))
+              .toList(),
         ),
       ),
     );
@@ -3764,11 +3897,12 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
       // Get tasks from Firestore and update them
       final batch = FirebaseFirestore.instance.batch();
       for (final taskId in _selectedTaskIds) {
-        final taskRef = FirebaseFirestore.instance.collection('tasks').doc(taskId);
+        final taskRef =
+            FirebaseFirestore.instance.collection('tasks').doc(taskId);
         batch.update(taskRef, {'status': status.name});
       }
       await batch.commit();
-      
+
       setState(() {
         _selectedTaskIds.clear();
         _isBulkMode = false;
@@ -3783,7 +3917,8 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
       AppLogger.error('Error bulk changing status: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppLocalizations.of(context)!.errorUpdatingTasksE)),
+          SnackBar(
+              content: Text(AppLocalizations.of(context)!.errorUpdatingTasksE)),
         );
       }
     }
@@ -3795,11 +3930,12 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
       // Get tasks from Firestore and update them
       final batch = FirebaseFirestore.instance.batch();
       for (final taskId in _selectedTaskIds) {
-        final taskRef = FirebaseFirestore.instance.collection('tasks').doc(taskId);
+        final taskRef =
+            FirebaseFirestore.instance.collection('tasks').doc(taskId);
         batch.update(taskRef, {'priority': priority.name});
       }
       await batch.commit();
-      
+
       setState(() {
         _selectedTaskIds.clear();
         _isBulkMode = false;
@@ -3814,7 +3950,8 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
       AppLogger.error('Error bulk changing priority: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppLocalizations.of(context)!.errorUpdatingTasksE)),
+          SnackBar(
+              content: Text(AppLocalizations.of(context)!.errorUpdatingTasksE)),
         );
       }
     }
@@ -3941,7 +4078,8 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
             children: [
               const Icon(Icons.add_task, size: 20),
               const SizedBox(width: 12),
-              Text(AppLocalizations.of(context)!.addSingleTask, style: GoogleFonts.inter()),
+              Text(AppLocalizations.of(context)!.addSingleTask,
+                  style: GoogleFonts.inter()),
             ],
           ),
         ),
@@ -3951,7 +4089,8 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
             children: [
               const Icon(Icons.post_add, size: 20),
               const SizedBox(width: 12),
-              Text(AppLocalizations.of(context)!.addMultipleTasks, style: GoogleFonts.inter()),
+              Text(AppLocalizations.of(context)!.addMultipleTasks,
+                  style: GoogleFonts.inter()),
             ],
           ),
         ),
@@ -4006,17 +4145,18 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
   void _showDeleteConfirmation(Task task) {
     final currentUser = FirebaseAuth.instance.currentUser;
     final canDelete = currentUser != null && task.createdBy == currentUser.uid;
-    
+
     if (!canDelete) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(AppLocalizations.of(context)!.onlyTheTaskCreatorCanDelete),
+          content:
+              Text(AppLocalizations.of(context)!.onlyTheTaskCreatorCanDelete),
           backgroundColor: Colors.red,
         ),
       );
       return;
     }
-    
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -4037,7 +4177,8 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
                   Navigator.of(context).pop();
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text(AppLocalizations.of(context)!.taskDeletedSuccessfully),
+                      content: Text(AppLocalizations.of(context)!
+                          .taskDeletedSuccessfully),
                       backgroundColor: Colors.green,
                     ),
                   );

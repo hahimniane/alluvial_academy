@@ -108,7 +108,11 @@ class _DirectoryUserPickerDialogState extends State<DirectoryUserPickerDialog> {
                         return ListTile(
                           title: Text(u.displayName, overflow: TextOverflow.ellipsis),
                           subtitle: Text(
-                            '${u.email}\n${u.uid}',
+                            [
+                              u.email,
+                              if (u.phone.isNotEmpty) u.phone,
+                              u.uid,
+                            ].join('\n'),
                             maxLines: 3,
                             style: const TextStyle(fontSize: 12),
                           ),

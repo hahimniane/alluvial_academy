@@ -55,6 +55,12 @@ class ChatService {
             name:
                 '${data['first_name'] ?? ''} ${data['last_name'] ?? ''}'.trim(),
             email: data['email'] ?? data['e-mail'] ?? '',
+            phone: data['phone_number'] ??
+                data['phoneNumber'] ??
+                data['mobile_phone'] ??
+                data['mobilePhone'] ??
+                data['phone'] ??
+                '',
             profilePicture:
                 data['profile_picture_url'] ?? data['profile_picture'],
             role: data['user_type'],
@@ -263,6 +269,12 @@ class ChatService {
       name: '${userData['first_name'] ?? ''} ${userData['last_name'] ?? ''}'
           .trim(),
       email: userData['email'] ?? userData['e-mail'] ?? '',
+      phone: userData['phone_number'] ??
+          userData['phoneNumber'] ??
+          userData['mobile_phone'] ??
+          userData['mobilePhone'] ??
+          userData['phone'] ??
+          '',
       profilePicture:
           userData['profile_picture_url'] ?? userData['profile_picture'],
       role: userData['user_type'],
@@ -391,6 +403,12 @@ class ChatService {
       name: '${userData['first_name'] ?? ''} ${userData['last_name'] ?? ''}'
           .trim(),
       email: userData['email'] ?? userData['e-mail'] ?? '',
+      phone: userData['phone_number'] ??
+          userData['phoneNumber'] ??
+          userData['mobile_phone'] ??
+          userData['mobilePhone'] ??
+          userData['phone'] ??
+          '',
       profilePicture:
           userData['profile_picture_url'] ?? userData['profile_picture'],
       role: userData['user_type'],

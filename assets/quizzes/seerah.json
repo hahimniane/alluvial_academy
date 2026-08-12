@@ -1,0 +1,511 @@
+{
+  "category": "seerah",
+  "name": "Life of the Prophet",
+  "description": "The life story of Prophet Muhammad (peace be upon him)",
+  "questions": [
+    {
+      "id": "sr_001",
+      "category": "seerah",
+      "difficulty": "easy",
+      "question": "In which city was Prophet Muhammad born?",
+      "options": [
+        "Jerusalem",
+        "Medina",
+        "Taif",
+        "Mecca"
+      ],
+      "correctAnswer": 3,
+      "explanation": "Prophet Muhammad (peace be upon him) was born in Mecca."
+    },
+    {
+      "id": "sr_002",
+      "category": "seerah",
+      "difficulty": "easy",
+      "question": "What was the name of the Prophet's mother?",
+      "options": [
+        "Fatimah",
+        "Khadijah",
+        "Aminah",
+        "Halimah"
+      ],
+      "correctAnswer": 2,
+      "explanation": "The Prophet's mother was Aminah bint Wahb."
+    },
+    {
+      "id": "sr_003",
+      "category": "seerah",
+      "difficulty": "easy",
+      "question": "What was the name of the Prophet's father?",
+      "options": [
+        "Abdullah",
+        "Hamza",
+        "Abu Talib",
+        "Abdul-Muttalib"
+      ],
+      "correctAnswer": 0,
+      "explanation": "His father was Abdullah, who passed away before the Prophet was born."
+    },
+    {
+      "id": "sr_004",
+      "category": "seerah",
+      "difficulty": "easy",
+      "question": "What nickname did the people of Mecca give young Muhammad for his honesty?",
+      "options": [
+        "Al-Hakim",
+        "Al-Qawi",
+        "Al-Amin",
+        "Al-Karim"
+      ],
+      "correctAnswer": 2,
+      "explanation": "He was called Al-Amin, meaning 'the Trustworthy', because he never lied."
+    },
+    {
+      "id": "sr_005",
+      "category": "seerah",
+      "difficulty": "easy",
+      "question": "Who was the first person to believe in the Prophet's message?",
+      "options": [
+        "Bilal",
+        "Ali",
+        "Abu Bakr",
+        "Khadijah"
+      ],
+      "correctAnswer": 3,
+      "explanation": "His wife Khadijah was the first person to accept Islam."
+    },
+    {
+      "id": "sr_006",
+      "category": "seerah",
+      "difficulty": "easy",
+      "question": "Which angel brought the revelation to Prophet Muhammad?",
+      "options": [
+        "Angel Jibril",
+        "Angel Israfil",
+        "Angel Mikail",
+        "Angel Ridwan"
+      ],
+      "correctAnswer": 0,
+      "explanation": "Angel Jibril (Gabriel) brought Allah's words to the Prophet."
+    },
+    {
+      "id": "sr_007",
+      "category": "seerah",
+      "difficulty": "easy",
+      "question": "How did the Prophet treat children?",
+      "options": [
+        "With kindness and love",
+        "He avoided them",
+        "He was strict with them",
+        "He ignored them"
+      ],
+      "correctAnswer": 0,
+      "explanation": "The Prophet was gentle and loving with children, greeting them and playing with them."
+    },
+    {
+      "id": "sr_008",
+      "category": "seerah",
+      "difficulty": "easy",
+      "question": "What did the Prophet teach about telling the truth?",
+      "options": [
+        "Only tell the truth sometimes",
+        "Always tell the truth",
+        "Only adults must be truthful",
+        "Truth is not important"
+      ],
+      "correctAnswer": 1,
+      "explanation": "The Prophet taught that truthfulness leads to goodness and Paradise."
+    },
+    {
+      "id": "sr_009",
+      "category": "seerah",
+      "difficulty": "easy",
+      "question": "To which city did the Prophet migrate with the Muslims?",
+      "options": [
+        "Taif",
+        "Medina",
+        "Baghdad",
+        "Damascus"
+      ],
+      "correctAnswer": 1,
+      "explanation": "The Prophet and the Muslims migrated to Medina. This is called the Hijrah."
+    },
+    {
+      "id": "sr_010",
+      "category": "seerah",
+      "difficulty": "easy",
+      "question": "How did the Prophet treat animals?",
+      "options": [
+        "He didn't care about them",
+        "With mercy and care",
+        "He kept away from them",
+        "He was afraid of them"
+      ],
+      "correctAnswer": 1,
+      "explanation": "The Prophet taught Muslims to be merciful to animals and never harm them."
+    },
+    {
+      "id": "sr_011",
+      "category": "seerah",
+      "difficulty": "easy",
+      "question": "What was the job of Prophet Muhammad as a young man?",
+      "options": [
+        "Soldier",
+        "Fisherman",
+        "Builder",
+        "Shepherd and merchant"
+      ],
+      "correctAnswer": 3,
+      "explanation": "As a young man he looked after sheep and later became an honest merchant."
+    },
+    {
+      "id": "sr_012",
+      "category": "seerah",
+      "difficulty": "easy",
+      "question": "Who was the Prophet's beloved daughter, married to Ali?",
+      "options": [
+        "Umm Kulthum",
+        "Zaynab",
+        "Ruqayyah",
+        "Fatimah"
+      ],
+      "correctAnswer": 3,
+      "explanation": "Fatimah (may Allah be pleased with her) was the Prophet's daughter who married Ali."
+    },
+    {
+      "id": "sr_013",
+      "category": "seerah",
+      "difficulty": "medium",
+      "question": "In which year was Prophet Muhammad born?",
+      "options": [
+        "The Year of the Hijrah",
+        "The Year of Victory",
+        "The Year of the Elephant",
+        "The Year of Sorrow"
+      ],
+      "correctAnswer": 2,
+      "explanation": "He was born in the Year of the Elephant, around 570 CE."
+    },
+    {
+      "id": "sr_014",
+      "category": "seerah",
+      "difficulty": "medium",
+      "question": "Who was the Prophet's grandfather who cared for him?",
+      "options": [
+        "Abdul-Muttalib",
+        "Abdullah",
+        "Abbas",
+        "Abu Talib"
+      ],
+      "correctAnswer": 0,
+      "explanation": "His grandfather Abdul-Muttalib cared for him after his mother passed away."
+    },
+    {
+      "id": "sr_015",
+      "category": "seerah",
+      "difficulty": "medium",
+      "question": "Which uncle raised the Prophet after his grandfather passed away?",
+      "options": [
+        "Abu Lahab",
+        "Hamza",
+        "Abu Talib",
+        "Abbas"
+      ],
+      "correctAnswer": 2,
+      "explanation": "His uncle Abu Talib raised him and protected him for many years."
+    },
+    {
+      "id": "sr_016",
+      "category": "seerah",
+      "difficulty": "medium",
+      "question": "Who was the wet nurse who cared for baby Muhammad in the desert?",
+      "options": [
+        "Halimah as-Sa'diyyah",
+        "Khadijah",
+        "Aminah",
+        "Sumayyah"
+      ],
+      "correctAnswer": 0,
+      "explanation": "Halimah as-Sa'diyyah nursed him as a baby, as was the custom in Mecca."
+    },
+    {
+      "id": "sr_017",
+      "category": "seerah",
+      "difficulty": "medium",
+      "question": "How old was the Prophet when he received the first revelation?",
+      "options": [
+        "25 years old",
+        "30 years old",
+        "40 years old",
+        "50 years old"
+      ],
+      "correctAnswer": 2,
+      "explanation": "He was 40 years old when Angel Jibril came to him in Cave Hira."
+    },
+    {
+      "id": "sr_018",
+      "category": "seerah",
+      "difficulty": "medium",
+      "question": "In which cave did the Prophet like to think quietly before becoming a Prophet?",
+      "options": [
+        "Cave Mina",
+        "Cave Uhud",
+        "Cave Hira",
+        "Cave Thawr"
+      ],
+      "correctAnswer": 2,
+      "explanation": "He would go to Cave Hira on the Mountain of Light (Jabal an-Nur) to reflect."
+    },
+    {
+      "id": "sr_019",
+      "category": "seerah",
+      "difficulty": "medium",
+      "question": "How old was the Prophet when he married Khadijah?",
+      "options": [
+        "20",
+        "25",
+        "35",
+        "40"
+      ],
+      "correctAnswer": 1,
+      "explanation": "He was 25 years old when he married Khadijah, who admired his honesty."
+    },
+    {
+      "id": "sr_020",
+      "category": "seerah",
+      "difficulty": "medium",
+      "question": "What was the 'Year of Sorrow'?",
+      "options": [
+        "The year of a big flood",
+        "The year the Prophet was born",
+        "The year of the first battle",
+        "The year Khadijah and Abu Talib passed away"
+      ],
+      "correctAnswer": 3,
+      "explanation": "In one sad year, the Prophet lost both his wife Khadijah and his uncle Abu Talib."
+    },
+    {
+      "id": "sr_021",
+      "category": "seerah",
+      "difficulty": "medium",
+      "question": "Who traveled with the Prophet during the Hijrah to Medina?",
+      "options": [
+        "Umar",
+        "Ali",
+        "Abu Bakr",
+        "Uthman"
+      ],
+      "correctAnswer": 2,
+      "explanation": "His close friend Abu Bakr accompanied him on the journey to Medina."
+    },
+    {
+      "id": "sr_022",
+      "category": "seerah",
+      "difficulty": "medium",
+      "question": "Who slept in the Prophet's bed on the night of the Hijrah to keep him safe?",
+      "options": [
+        "Zayd",
+        "Hamza",
+        "Ali",
+        "Abu Bakr"
+      ],
+      "correctAnswer": 2,
+      "explanation": "Young Ali bravely slept in the Prophet's bed so the Quraysh would not know he had left."
+    },
+    {
+      "id": "sr_023",
+      "category": "seerah",
+      "difficulty": "medium",
+      "question": "What did the Prophet build first when he arrived in Medina?",
+      "options": [
+        "A wall",
+        "A house",
+        "A market",
+        "A mosque"
+      ],
+      "correctAnswer": 3,
+      "explanation": "The first thing built was the mosque, Masjid an-Nabawi, the center of the community."
+    },
+    {
+      "id": "sr_024",
+      "category": "seerah",
+      "difficulty": "medium",
+      "question": "What animal did the Prophet ride into Medina?",
+      "options": [
+        "A camel",
+        "A mule",
+        "A donkey",
+        "A horse"
+      ],
+      "correctAnswer": 0,
+      "explanation": "He arrived on his camel, Qaswa, and let her choose where to stop — that spot became the mosque."
+    },
+    {
+      "id": "sr_025",
+      "category": "seerah",
+      "difficulty": "hard",
+      "question": "What agreement did the Prophet make between the Muhajirun and the Ansar in Medina?",
+      "options": [
+        "He divided the city",
+        "He sent them away",
+        "He made them brothers",
+        "He made them compete"
+      ],
+      "correctAnswer": 2,
+      "explanation": "The Prophet paired each migrant (Muhajir) with a helper (Ansari) as brothers who shared what they had."
+    },
+    {
+      "id": "sr_026",
+      "category": "seerah",
+      "difficulty": "hard",
+      "question": "What was the treaty the Prophet signed with the Quraysh at Hudaybiyyah?",
+      "options": [
+        "A peace treaty",
+        "A trade agreement",
+        "A wedding contract",
+        "A land purchase"
+      ],
+      "correctAnswer": 0,
+      "explanation": "The Treaty of Hudaybiyyah was a peace agreement that later opened the way for Islam to spread."
+    },
+    {
+      "id": "sr_027",
+      "category": "seerah",
+      "difficulty": "hard",
+      "question": "What did the Prophet do to the people of Mecca when he entered the city victorious?",
+      "options": [
+        "He punished them",
+        "He forgave them",
+        "He made them leave",
+        "He took their houses"
+      ],
+      "correctAnswer": 1,
+      "explanation": "The Prophet forgave the people of Mecca, saying 'Go, for you are free.'"
+    },
+    {
+      "id": "sr_028",
+      "category": "seerah",
+      "difficulty": "hard",
+      "question": "How many times is Prophet Muhammad mentioned by the name 'Muhammad' in the Quran?",
+      "options": [
+        "4 times",
+        "114 times",
+        "1 time",
+        "25 times"
+      ],
+      "correctAnswer": 0,
+      "explanation": "The name Muhammad appears 4 times in the Quran; he is also called Ahmad once."
+    },
+    {
+      "id": "sr_029",
+      "category": "seerah",
+      "difficulty": "hard",
+      "question": "Which son of the Prophet passed away as a baby in Medina?",
+      "options": [
+        "Ibrahim",
+        "Abdullah",
+        "Qasim",
+        "Tayyib"
+      ],
+      "correctAnswer": 0,
+      "explanation": "His son Ibrahim passed away as a baby, and the Prophet was very sad but patient."
+    },
+    {
+      "id": "sr_030",
+      "category": "seerah",
+      "difficulty": "hard",
+      "question": "Where did the Prophet give his Farewell Sermon?",
+      "options": [
+        "In Cave Hira",
+        "In Taif",
+        "In Medina",
+        "At Mount Arafah"
+      ],
+      "correctAnswer": 3,
+      "explanation": "During his final Hajj, the Prophet gave the Farewell Sermon at Arafah."
+    },
+    {
+      "id": "sr_031",
+      "category": "seerah",
+      "difficulty": "hard",
+      "question": "How old was the Prophet when he passed away?",
+      "options": [
+        "60",
+        "63",
+        "65",
+        "70"
+      ],
+      "correctAnswer": 1,
+      "explanation": "The Prophet passed away at 63 years old in Medina."
+    },
+    {
+      "id": "sr_032",
+      "category": "seerah",
+      "difficulty": "hard",
+      "question": "In whose room was the Prophet buried?",
+      "options": [
+        "Khadijah's room",
+        "Hafsa's room",
+        "Aisha's room",
+        "Fatimah's room"
+      ],
+      "correctAnswer": 2,
+      "explanation": "He was buried in the room of his wife Aisha, where he passed away."
+    },
+    {
+      "id": "sr_033",
+      "category": "seerah",
+      "difficulty": "hard",
+      "question": "What was the name of the Prophet's adopted son, mentioned in the Quran?",
+      "options": [
+        "Zayd ibn Harithah",
+        "Bilal ibn Rabah",
+        "Anas ibn Malik",
+        "Usama ibn Zayd"
+      ],
+      "correctAnswer": 0,
+      "explanation": "Zayd ibn Harithah is the only companion mentioned by name in the Quran."
+    },
+    {
+      "id": "sr_034",
+      "category": "seerah",
+      "difficulty": "hard",
+      "question": "What miracle happened on the night of Isra and Mi'raj?",
+      "options": [
+        "The Prophet traveled to Jerusalem and the heavens in one night",
+        "The Kaaba moved",
+        "It rained for 40 days",
+        "The moon disappeared"
+      ],
+      "correctAnswer": 0,
+      "explanation": "Allah took His Messenger from Mecca to Jerusalem and up through the heavens in a single night."
+    },
+    {
+      "id": "sr_035",
+      "category": "seerah",
+      "difficulty": "hard",
+      "question": "What did the Prophet say about a Muslim's neighbor?",
+      "options": [
+        "Only Muslim neighbors matter",
+        "Neighbors are not important",
+        "Avoid your neighbors",
+        "Be good to your neighbor"
+      ],
+      "correctAnswer": 3,
+      "explanation": "The Prophet taught so much kindness to neighbors that companions thought neighbors might inherit."
+    },
+    {
+      "id": "sr_036",
+      "category": "seerah",
+      "difficulty": "hard",
+      "question": "Which title describes the Prophet as a mercy to all creation?",
+      "options": [
+        "Al-Amin only",
+        "Khalilullah",
+        "Kalimullah",
+        "Rahmatan lil-'Alamin"
+      ],
+      "correctAnswer": 3,
+      "explanation": "The Quran describes the Prophet as Rahmatan lil-'Alamin — a mercy to all the worlds."
+    }
+  ]
+}

@@ -47,6 +47,29 @@ void main() {
       );
     });
 
+    test('export review status is neutral when it has not been set', () {
+      expect(
+        AdminSubmissionsExportService.debugResolveReviewStatusForExport({}),
+        'not reviewed',
+      );
+      expect(
+        AdminSubmissionsExportService.debugResolveReviewStatusForExport({
+          'status': 'completed',
+        }),
+        'not reviewed',
+      );
+    });
+
+    test('export uses a manually assigned review status', () {
+      expect(
+        AdminSubmissionsExportService.debugResolveReviewStatusForExport({
+          'reviewStatus': 'accepted',
+          'status': 'completed',
+        }),
+        'accepted',
+      );
+    });
+
     test('formatSubmissionValue flattens nested maps', () {
       final s = AdminSubmissionsExportService.debugFormatSubmissionValue({
         'a': 1,

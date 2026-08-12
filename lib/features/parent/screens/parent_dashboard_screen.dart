@@ -67,8 +67,9 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
       _parentId = parentId;
       _parentFirstName = (userData?['first_name'] ?? '').toString().trim();
       _childrenFuture = childrenFuture;
-      _summaryStream =
-          parentId == null ? null : ParentService.watchFinancialSummary(parentId);
+      _summaryStream = parentId == null
+          ? null
+          : ParentService.watchFinancialSummary(parentId);
       _suspendedChildrenStream =
           parentId == null ? null : _watchSuspendedChildren(parentId);
       _progressOverviewFuture =
@@ -135,363 +136,378 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
-      body: RefreshIndicator(
-        onRefresh: _refresh,
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _parentFirstName == null || _parentFirstName!.isEmpty
-                      ? 'Parent Dashboard'
-                      : 'Welcome, $_parentFirstName',
-                  style: GoogleFonts.inter(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                    color: const Color(0xFF111827),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                // Suspension alert banner — shown when any child is suspended
-                StreamBuilder<List<String>>(
-                  stream: _suspendedChildrenStream,
-                  builder: (context, snapshot) {
-                    final suspended = snapshot.data ?? [];
-                    if (suspended.isEmpty) return const SizedBox.shrink();
-                    final names = suspended.join(', ');
-                    final count = suspended.length;
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 16),
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFEF2F2),
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: const Color(0xFFFECACA)),
+      body: ScrollNotificationObserver(
+        child: SelectionArea(
+          child: RefreshIndicator(
+            onRefresh: _refresh,
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _parentFirstName == null || _parentFirstName!.isEmpty
+                          ? 'Parent Dashboard'
+                          : 'Welcome, $_parentFirstName',
+                      style: GoogleFonts.inter(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        color: const Color(0xFF111827),
                       ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Icon(Icons.lock_outline_rounded,
-                              color: Color(0xFFDC2626), size: 22),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  count == 1
-                                      ? 'Platform access suspended'
-                                      : '$count students have been suspended',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w800,
-                                    color: const Color(0xFF991B1B),
-                                  ),
+                    ),
+                    const SizedBox(height: 16),
+                    // Suspension alert banner — shown when any child is suspended
+                    StreamBuilder<List<String>>(
+                      stream: _suspendedChildrenStream,
+                      builder: (context, snapshot) {
+                        final suspended = snapshot.data ?? [];
+                        if (suspended.isEmpty) return const SizedBox.shrink();
+                        final names = suspended.join(', ');
+                        final count = suspended.length;
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 16),
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFEF2F2),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: const Color(0xFFFECACA)),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Icon(Icons.lock_outline_rounded,
+                                  color: Color(0xFFDC2626), size: 22),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      count == 1
+                                          ? 'Platform access suspended'
+                                          : '$count students have been suspended',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w800,
+                                        color: const Color(0xFF991B1B),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      '$names ${count == 1 ? 'has' : 'have'} lost platform access due to an unpaid invoice. Pay now to restore access immediately.',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 13,
+                                        color: const Color(0xFFB91C1C),
+                                        height: 1.5,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    GestureDetector(
+                                      onTap: () => Navigator.of(context).push(
+                                        MaterialPageRoute(
+                                          builder: (_) => ParentInvoicesScreen(
+                                            parentId: parentId,
+                                            initialStatus:
+                                                InvoiceStatus.pending,
+                                          ),
+                                        ),
+                                      ),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 14, vertical: 8),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFDC2626),
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                        ),
+                                        child: Text(
+                                          'View & pay invoices',
+                                          style: GoogleFonts.inter(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w700,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  '$names ${count == 1 ? 'has' : 'have'} lost platform access due to an unpaid invoice. Pay now to restore access immediately.',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 13,
-                                    color: const Color(0xFFB91C1C),
-                                    height: 1.5,
-                                  ),
-                                ),
-                                const SizedBox(height: 10),
-                                GestureDetector(
-                                  onTap: () => Navigator.of(context).push(
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                    StreamBuilder<Map<String, double>>(
+                      stream: _summaryStream,
+                      builder: (context, snapshot) {
+                        final data = snapshot.data;
+                        final outstanding =
+                            (data?['outstanding'] ?? 0).toDouble();
+                        final overdue = (data?['overdue'] ?? 0).toDouble();
+                        final paid = (data?['paid'] ?? 0).toDouble();
+                        return FinancialSummaryCard(
+                          outstanding: outstanding,
+                          overdue: overdue,
+                          paid: paid,
+                          onPayNow: outstanding > 0
+                              ? () {
+                                  Navigator.of(context).push(
                                     MaterialPageRoute(
                                       builder: (_) => ParentInvoicesScreen(
                                         parentId: parentId,
                                         initialStatus: InvoiceStatus.pending,
                                       ),
                                     ),
-                                  ),
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 14, vertical: 8),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFDC2626),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Text(
-                                      'View & pay invoices',
-                                      style: GoogleFonts.inter(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w700,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-                StreamBuilder<Map<String, double>>(
-                  stream: _summaryStream,
-                  builder: (context, snapshot) {
-                    final data = snapshot.data;
-                    final outstanding = (data?['outstanding'] ?? 0).toDouble();
-                    final overdue = (data?['overdue'] ?? 0).toDouble();
-                    final paid = (data?['paid'] ?? 0).toDouble();
-                    return FinancialSummaryCard(
-                      outstanding: outstanding,
-                      overdue: overdue,
-                      paid: paid,
-                      onPayNow: outstanding > 0
-                          ? () {
+                                  );
+                                }
+                              : null,
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _quickAction(
+                            icon: Icons.receipt_long_rounded,
+                            title: AppLocalizations.of(context)!.invoices,
+                            subtitle: AppLocalizations.of(context)!.viewAndPay,
+                            onTap: () {
                               Navigator.of(context).push(
                                 MaterialPageRoute(
-                                  builder: (_) => ParentInvoicesScreen(
-                                    parentId: parentId,
-                                    initialStatus: InvoiceStatus.pending,
-                                  ),
+                                  builder: (_) =>
+                                      ParentInvoicesScreen(parentId: parentId),
                                 ),
                               );
-                            }
-                          : null,
-                    );
-                  },
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _quickAction(
-                        icon: Icons.receipt_long_rounded,
-                        title: AppLocalizations.of(context)!.invoices,
-                        subtitle: AppLocalizations.of(context)!.viewAndPay,
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) =>
-                                  ParentInvoicesScreen(parentId: parentId),
-                            ),
-                          );
-                        },
-                      ),
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _quickAction(
+                            icon: Icons.payments_rounded,
+                            title: AppLocalizations.of(context)!.payments,
+                            subtitle: AppLocalizations.of(context)!.history,
+                            onTap: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      PaymentHistoryScreen(parentId: parentId),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _quickAction(
-                        icon: Icons.payments_rounded,
-                        title: AppLocalizations.of(context)!.payments,
-                        subtitle: AppLocalizations.of(context)!.history,
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) =>
-                                  PaymentHistoryScreen(parentId: parentId),
-                            ),
+                    const SizedBox(height: 16),
+                    FutureBuilder<_ParentProgressOverview>(
+                      future: _progressOverviewFuture,
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return _buildProgressLoadingCard();
+                        }
+
+                        if (snapshot.hasError) {
+                          return _errorCard(
+                              'Failed to load progress insights: ${snapshot.error}');
+                        }
+
+                        final overview = snapshot.data;
+                        if (overview == null || overview.children.isEmpty) {
+                          return _emptyCard(
+                            icon: Icons.insights_rounded,
+                            title: 'Progress insights will appear here',
+                            subtitle:
+                                'Once classes are scheduled, you will see weekly and child-level progress charts.',
                           );
-                        },
-                      ),
+                        }
+
+                        return _buildProgressOverviewSection(overview);
+                      },
                     ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                FutureBuilder<_ParentProgressOverview>(
-                  future: _progressOverviewFuture,
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return _buildProgressLoadingCard();
-                    }
+                    const SizedBox(height: 16),
+                    FutureBuilder<_ParentAttendanceAnalyticsOverview>(
+                      future: _attendanceAnalyticsFuture,
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return _buildAttendanceAnalyticsLoadingCard();
+                        }
 
-                    if (snapshot.hasError) {
-                      return _errorCard(
-                          'Failed to load progress insights: ${snapshot.error}');
-                    }
+                        if (snapshot.hasError) {
+                          return _errorCard(
+                            'Failed to load attendance analytics: ${snapshot.error}',
+                          );
+                        }
 
-                    final overview = snapshot.data;
-                    if (overview == null || overview.children.isEmpty) {
-                      return _emptyCard(
-                        icon: Icons.insights_rounded,
-                        title: 'Progress insights will appear here',
-                        subtitle:
-                            'Once classes are scheduled, you will see weekly and child-level progress charts.',
-                      );
-                    }
+                        final overview = snapshot.data;
+                        if (overview == null || overview.children.isEmpty) {
+                          return _emptyCard(
+                            icon: Icons.analytics_rounded,
+                            title: 'Attendance analytics will appear here',
+                            subtitle:
+                                'Weekly and monthly attendance insights will show once classes and joins are recorded.',
+                          );
+                        }
 
-                    return _buildProgressOverviewSection(overview);
-                  },
-                ),
-                const SizedBox(height: 16),
-                FutureBuilder<_ParentAttendanceAnalyticsOverview>(
-                  future: _attendanceAnalyticsFuture,
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return _buildAttendanceAnalyticsLoadingCard();
-                    }
-
-                    if (snapshot.hasError) {
-                      return _errorCard(
-                        'Failed to load attendance analytics: ${snapshot.error}',
-                      );
-                    }
-
-                    final overview = snapshot.data;
-                    if (overview == null || overview.children.isEmpty) {
-                      return _emptyCard(
-                        icon: Icons.analytics_rounded,
-                        title: 'Attendance analytics will appear here',
-                        subtitle:
-                            'Weekly and monthly attendance insights will show once classes and joins are recorded.',
-                      );
-                    }
-
-                    return _buildAttendanceAnalyticsSection(overview);
-                  },
-                ),
-                const SizedBox(height: 16),
-                FutureBuilder<List<Map<String, dynamic>>>(
-                  future: _childrenFuture,
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Center(
-                          child: Padding(
-                              padding: EdgeInsets.all(12),
-                              child: CircularProgressIndicator()));
-                    }
-                    if (snapshot.hasError) {
-                      return _errorCard(
-                          'Failed to load children: ${snapshot.error}');
-                    }
-                    final children =
-                        snapshot.data ?? const <Map<String, dynamic>>[];
-                    return ChildrenListWidget(
-                      children: children,
-                      onChildTap: (child) {
+                        return _buildAttendanceAnalyticsSection(overview);
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    FutureBuilder<List<Map<String, dynamic>>>(
+                      future: _childrenFuture,
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return const Center(
+                              child: Padding(
+                                  padding: EdgeInsets.all(12),
+                                  child: CircularProgressIndicator()));
+                        }
+                        if (snapshot.hasError) {
+                          return _errorCard(
+                              'Failed to load children: ${snapshot.error}');
+                        }
+                        final children =
+                            snapshot.data ?? const <Map<String, dynamic>>[];
+                        return ChildrenListWidget(
+                          children: children,
+                          onChildTap: (child) {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => StudentDetailScreen(
+                                  studentId: child['id'] as String,
+                                  studentName: child['name'] as String,
+                                  parentId: parentId,
+                                ),
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 20),
+                    _sectionHeader(
+                      title: AppLocalizations.of(context)!.recentInvoices,
+                      actionLabel: 'See all',
+                      onAction: () {
                         Navigator.of(context).push(
                           MaterialPageRoute(
-                            builder: (_) => StudentDetailScreen(
-                              studentId: child['id'] as String,
-                              studentName: child['name'] as String,
-                              parentId: parentId,
-                            ),
+                            builder: (_) =>
+                                ParentInvoicesScreen(parentId: parentId),
                           ),
                         );
                       },
-                    );
-                  },
+                    ),
+                    const SizedBox(height: 10),
+                    StreamBuilder<List<Invoice>>(
+                      stream:
+                          InvoiceService.getParentInvoices(parentId, limit: 5),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return const Center(
+                              child: Padding(
+                                  padding: EdgeInsets.all(12),
+                                  child: CircularProgressIndicator()));
+                        }
+                        if (snapshot.hasError) {
+                          return _errorCard(
+                              'Failed to load invoices: ${snapshot.error}');
+                        }
+                        final invoices = snapshot.data ?? const <Invoice>[];
+                        if (invoices.isEmpty) {
+                          return _emptyCard(
+                            icon: Icons.receipt_long_rounded,
+                            title: AppLocalizations.of(context)!.noInvoicesYet,
+                            subtitle: AppLocalizations.of(context)!
+                                .whenInvoicesAreCreatedTheyWill,
+                          );
+                        }
+                        return Column(
+                          children: invoices
+                              .map(
+                                (inv) => Padding(
+                                  padding: const EdgeInsets.only(bottom: 12),
+                                  child: InvoiceCard(
+                                    invoice: inv,
+                                    onTap: () {
+                                      Navigator.of(context).push(
+                                        MaterialPageRoute(
+                                          builder: (_) => InvoiceDetailScreen(
+                                              invoiceId: inv.id),
+                                        ),
+                                      );
+                                    },
+                                    onPayNow: inv.isFullyPaid ||
+                                            inv.status ==
+                                                InvoiceStatus.cancelled
+                                        ? null
+                                        : () {
+                                            Navigator.of(context).push(
+                                              MaterialPageRoute(
+                                                builder: (_) => PaymentScreen(
+                                                    invoiceId: inv.id),
+                                              ),
+                                            );
+                                          },
+                                  ),
+                                ),
+                              )
+                              .toList(),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 20),
+                    _sectionHeader(
+                      title: AppLocalizations.of(context)!.recentPayments,
+                      actionLabel: 'See all',
+                      onAction: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                PaymentHistoryScreen(parentId: parentId),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 10),
+                    StreamBuilder<List<Payment>>(
+                      stream:
+                          PaymentService.getPaymentHistory(parentId, limit: 5),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return const Center(
+                              child: Padding(
+                                  padding: EdgeInsets.all(12),
+                                  child: CircularProgressIndicator()));
+                        }
+                        if (snapshot.hasError) {
+                          return _errorCard(
+                              'Failed to load payments: ${snapshot.error}');
+                        }
+                        final payments = snapshot.data ?? const <Payment>[];
+                        if (payments.isEmpty) {
+                          return _emptyCard(
+                            icon: Icons.payments_rounded,
+                            title: AppLocalizations.of(context)!.noPaymentsYet,
+                            subtitle: AppLocalizations.of(context)!
+                                .paymentHistoryWillAppearOnceYou,
+                          );
+                        }
+                        return _paymentsList(payments);
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                  ],
                 ),
-                const SizedBox(height: 20),
-                _sectionHeader(
-                  title: AppLocalizations.of(context)!.recentInvoices,
-                  actionLabel: 'See all',
-                  onAction: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) =>
-                            ParentInvoicesScreen(parentId: parentId),
-                      ),
-                    );
-                  },
-                ),
-                const SizedBox(height: 10),
-                StreamBuilder<List<Invoice>>(
-                  stream: InvoiceService.getParentInvoices(parentId, limit: 5),
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Center(
-                          child: Padding(
-                              padding: EdgeInsets.all(12),
-                              child: CircularProgressIndicator()));
-                    }
-                    if (snapshot.hasError) {
-                      return _errorCard(
-                          'Failed to load invoices: ${snapshot.error}');
-                    }
-                    final invoices = snapshot.data ?? const <Invoice>[];
-                    if (invoices.isEmpty) {
-                      return _emptyCard(
-                        icon: Icons.receipt_long_rounded,
-                        title: AppLocalizations.of(context)!.noInvoicesYet,
-                        subtitle: AppLocalizations.of(context)!
-                            .whenInvoicesAreCreatedTheyWill,
-                      );
-                    }
-                    return Column(
-                      children: invoices
-                          .map(
-                            (inv) => Padding(
-                              padding: const EdgeInsets.only(bottom: 12),
-                              child: InvoiceCard(
-                                invoice: inv,
-                                onTap: () {
-                                  Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                      builder: (_) => InvoiceDetailScreen(
-                                          invoiceId: inv.id),
-                                    ),
-                                  );
-                                },
-                                onPayNow: inv.isFullyPaid ||
-                                        inv.status == InvoiceStatus.cancelled
-                                    ? null
-                                    : () {
-                                        Navigator.of(context).push(
-                                          MaterialPageRoute(
-                                            builder: (_) => PaymentScreen(
-                                                invoiceId: inv.id),
-                                          ),
-                                        );
-                                      },
-                              ),
-                            ),
-                          )
-                          .toList(),
-                    );
-                  },
-                ),
-                const SizedBox(height: 20),
-                _sectionHeader(
-                  title: AppLocalizations.of(context)!.recentPayments,
-                  actionLabel: 'See all',
-                  onAction: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) =>
-                            PaymentHistoryScreen(parentId: parentId),
-                      ),
-                    );
-                  },
-                ),
-                const SizedBox(height: 10),
-                StreamBuilder<List<Payment>>(
-                  stream: PaymentService.getPaymentHistory(parentId, limit: 5),
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Center(
-                          child: Padding(
-                              padding: EdgeInsets.all(12),
-                              child: CircularProgressIndicator()));
-                    }
-                    if (snapshot.hasError) {
-                      return _errorCard(
-                          'Failed to load payments: ${snapshot.error}');
-                    }
-                    final payments = snapshot.data ?? const <Payment>[];
-                    if (payments.isEmpty) {
-                      return _emptyCard(
-                        icon: Icons.payments_rounded,
-                        title: AppLocalizations.of(context)!.noPaymentsYet,
-                        subtitle: AppLocalizations.of(context)!
-                            .paymentHistoryWillAppearOnceYou,
-                      );
-                    }
-                    return _paymentsList(payments);
-                  },
-                ),
-                const SizedBox(height: 16),
-              ],
+              ),
             ),
           ),
         ),
@@ -598,6 +614,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
         totalLateClasses: 0,
         totalTeacherAbsentIncidents: 0,
         totalJoinsBeforeStartEvents: 0,
+        totalPresenceMinutes: 0,
       );
     }
 
@@ -625,6 +642,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
     int totalLateClasses = 0;
     int totalTeacherAbsentIncidents = 0;
     int totalJoinsBeforeStartEvents = 0;
+    double totalPresenceMinutes = 0;
 
     for (final child in sortedChildren) {
       totalScheduledClasses += child.scheduledClasses;
@@ -632,6 +650,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
       totalLateClasses += child.lateClasses;
       totalTeacherAbsentIncidents += child.teacherAbsentClasses;
       totalJoinsBeforeStartEvents += child.joinsBeforeStartEvents;
+      totalPresenceMinutes += child.totalPresenceMinutes;
 
       if (child.scheduledClasses > 0) {
         totalAttendance += child.attendanceRate;
@@ -653,6 +672,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
       totalLateClasses: totalLateClasses,
       totalTeacherAbsentIncidents: totalTeacherAbsentIncidents,
       totalJoinsBeforeStartEvents: totalJoinsBeforeStartEvents,
+      totalPresenceMinutes: totalPresenceMinutes,
     );
   }
 
@@ -976,6 +996,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
 
   Widget _buildAttendanceAnalyticsSection(
       _ParentAttendanceAnalyticsOverview overview) {
+    final l10n = AppLocalizations.of(context)!;
     final periodLabel = overview.period == _AttendanceReportPeriod.weekly
         ? 'Weekly'
         : 'Monthly';
@@ -1054,6 +1075,14 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
           LayoutBuilder(
             builder: (context, constraints) {
               final cards = [
+                _buildAttendanceMetricCard(
+                  icon: Icons.schedule_rounded,
+                  label: l10n.studentAttendanceFamilyClassTime,
+                  value: l10n.studentAttendanceHoursValue(
+                    (overview.totalPresenceMinutes / 60).toStringAsFixed(1),
+                  ),
+                  accent: const Color(0xFF7C3AED),
+                ),
                 _buildAttendanceMetricCard(
                   icon: Icons.fact_check_rounded,
                   label: 'Attendance Avg',
@@ -1212,6 +1241,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
 
   Widget _buildChildAttendanceAnalyticsCard(
       _ChildAttendanceAnalyticsSnapshot child) {
+    final l10n = AppLocalizations.of(context)!;
     final attendancePercent = (child.attendanceRate * 100).round();
     final latePercent = (child.lateRate * 100).round();
 
@@ -1283,7 +1313,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Avg join offset: ${_formatJoinOffset(child.averageJoinOffsetMinutes)}  •  Presence: ${child.totalPresenceMinutes.toStringAsFixed(1)}m  •  Overlap: ${child.totalOverlapMinutes.toStringAsFixed(1)}m',
+            'Avg join offset: ${_formatJoinOffset(child.averageJoinOffsetMinutes)}  •  ${l10n.studentAttendanceClassTime}: ${l10n.studentAttendanceHoursValue((child.totalPresenceMinutes / 60).toStringAsFixed(1))}  •  Overlap: ${child.totalOverlapMinutes.toStringAsFixed(1)}m',
             style: GoogleFonts.inter(
               fontSize: 10.8,
               fontWeight: FontWeight.w600,
@@ -2369,6 +2399,7 @@ class _ParentAttendanceAnalyticsOverview {
     required this.totalLateClasses,
     required this.totalTeacherAbsentIncidents,
     required this.totalJoinsBeforeStartEvents,
+    required this.totalPresenceMinutes,
   });
 
   final _AttendanceReportPeriod period;
@@ -2380,6 +2411,7 @@ class _ParentAttendanceAnalyticsOverview {
   final int totalLateClasses;
   final int totalTeacherAbsentIncidents;
   final int totalJoinsBeforeStartEvents;
+  final double totalPresenceMinutes;
 }
 
 class _ChildAttendanceAnalyticsSnapshot {

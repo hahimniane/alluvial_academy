@@ -137,6 +137,56 @@ describe('attendance analytics helpers', () => {
     expect(report.rates.late_rate).toBeCloseTo(1.0, 5);
   });
 
+  test('buildAdminStudentAttendanceOverview totals and sorts student class time', () => {
+    const overview = __test__.buildAdminStudentAttendanceOverview({
+      reports: [
+        {
+          student_id: 'student_1',
+          metrics: {
+            total_student_presence_minutes: 75,
+            total_teacher_overlap_minutes: 60,
+            scheduled_classes: 2,
+            attended_classes: 2,
+            absent_classes: 0,
+            late_classes: 1,
+          },
+          rates: { attendance_rate: 1, punctuality_rate: 0.5 },
+        },
+        {
+          student_id: 'student_2',
+          metrics: {
+            total_student_presence_minutes: 30,
+            total_teacher_overlap_minutes: 25,
+            scheduled_classes: 2,
+            attended_classes: 1,
+            absent_classes: 1,
+            late_classes: 0,
+          },
+          rates: { attendance_rate: 0.5, punctuality_rate: 1 },
+        },
+      ],
+      studentDataById: new Map([
+        ['student_1', {
+          first_name: 'Amina',
+          last_name: 'Bah',
+          mobile_phone: '+224 622 123 456',
+        }],
+        ['student_2', { displayName: 'Musa Diallo' }],
+      ]),
+    });
+
+    expect(overview.students.map((student) => student.student_name))
+      .toEqual(['Amina Bah', 'Musa Diallo']);
+    expect(overview.students[0].student_phone).toBe('+224 622 123 456');
+    expect(overview.totals.total_presence_minutes).toBe(105);
+    expect(overview.totals.total_teacher_overlap_minutes).toBe(85);
+    expect(overview.totals.scheduled_classes).toBe(4);
+    expect(overview.totals.attended_classes).toBe(3);
+    expect(overview.totals.absent_classes).toBe(1);
+    expect(overview.totals.late_classes).toBe(1);
+    expect(overview.totals.attendance_rate).toBe(0.75);
+  });
+
   test('missingStateForShift detects teacher, student, and both no-shows', () => {
     const shift = {
       id: 'shift_1',

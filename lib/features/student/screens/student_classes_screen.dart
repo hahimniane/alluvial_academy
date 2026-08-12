@@ -213,11 +213,15 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
         '  todayClasses: ${_todayClasses.length}, upcomingClasses: ${_upcomingClasses.length}');
     return Scaffold(
       backgroundColor: const Color(0xFFF0F4F8),
-      body: SafeArea(
-        child: RefreshIndicator(
+      body: ScrollNotificationObserver(
+        child: SelectionArea(
+          child: SafeArea(
+            child: RefreshIndicator(
           onRefresh: _loadClasses,
-          child: CustomScrollView(
-            slivers: [
+          child: ScrollNotificationObserver(
+            child: SelectionArea(
+              child: CustomScrollView(
+                slivers: [
               // Header
               SliverToBoxAdapter(
                 child: _buildHeader(),
@@ -297,7 +301,11 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
                     ),
                   ),
                 ),
-            ],
+                ],
+              ),
+            ),
+          ),
+            ),
           ),
         ),
       ),

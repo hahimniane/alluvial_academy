@@ -8,7 +8,12 @@
       "category": "five_pillars",
       "difficulty": "easy",
       "question": "How many pillars of Islam are there?",
-      "options": ["3", "4", "5", "6"],
+      "options": [
+        "3",
+        "4",
+        "5",
+        "6"
+      ],
       "correctAnswer": 2,
       "explanation": "There are 5 pillars of Islam: Shahada, Salah, Zakat, Sawm, and Hajj."
     },
@@ -17,7 +22,12 @@
       "category": "five_pillars",
       "difficulty": "easy",
       "question": "What is the first pillar of Islam?",
-      "options": ["Salah (Prayer)", "Shahada (Declaration of Faith)", "Zakat (Charity)", "Sawm (Fasting)"],
+      "options": [
+        "Salah (Prayer)",
+        "Shahada (Declaration of Faith)",
+        "Zakat (Charity)",
+        "Sawm (Fasting)"
+      ],
       "correctAnswer": 1,
       "explanation": "Shahada is the declaration that there is no god but Allah and Muhammad is His messenger."
     },
@@ -26,7 +36,12 @@
       "category": "five_pillars",
       "difficulty": "easy",
       "question": "How many times a day do Muslims pray?",
-      "options": ["3 times", "4 times", "5 times", "7 times"],
+      "options": [
+        "3 times",
+        "4 times",
+        "5 times",
+        "7 times"
+      ],
       "correctAnswer": 2,
       "explanation": "Muslims pray 5 times a day: Fajr, Dhuhr, Asr, Maghrib, and Isha."
     },
@@ -35,7 +50,12 @@
       "category": "five_pillars",
       "difficulty": "easy",
       "question": "What is Zakat?",
-      "options": ["Fasting", "Prayer", "Charity", "Pilgrimage"],
+      "options": [
+        "Fasting",
+        "Prayer",
+        "Charity",
+        "Pilgrimage"
+      ],
       "correctAnswer": 2,
       "explanation": "Zakat is the obligatory charity that Muslims give to help those in need."
     },
@@ -44,7 +64,12 @@
       "category": "five_pillars",
       "difficulty": "easy",
       "question": "During which month do Muslims fast?",
-      "options": ["Muharram", "Ramadan", "Shawwal", "Dhul Hijjah"],
+      "options": [
+        "Muharram",
+        "Ramadan",
+        "Shawwal",
+        "Dhul Hijjah"
+      ],
       "correctAnswer": 1,
       "explanation": "Ramadan is the holy month during which Muslims fast from dawn to sunset."
     },
@@ -53,7 +78,12 @@
       "category": "five_pillars",
       "difficulty": "medium",
       "question": "What is the pilgrimage to Mecca called?",
-      "options": ["Umrah", "Hajj", "Salah", "Tawaf"],
+      "options": [
+        "Umrah",
+        "Hajj",
+        "Salah",
+        "Tawaf"
+      ],
       "correctAnswer": 1,
       "explanation": "Hajj is the annual pilgrimage to Mecca that every able Muslim should perform at least once."
     },
@@ -62,7 +92,12 @@
       "category": "five_pillars",
       "difficulty": "medium",
       "question": "Which prayer is performed before sunrise?",
-      "options": ["Dhuhr", "Asr", "Fajr", "Isha"],
+      "options": [
+        "Dhuhr",
+        "Asr",
+        "Fajr",
+        "Isha"
+      ],
       "correctAnswer": 2,
       "explanation": "Fajr is the dawn prayer performed before sunrise."
     },
@@ -71,7 +106,12 @@
       "category": "five_pillars",
       "difficulty": "easy",
       "question": "What do Muslims do during Sawm (fasting)?",
-      "options": ["Pray extra prayers", "Give charity", "Not eat or drink from dawn to sunset", "Visit Mecca"],
+      "options": [
+        "Pray extra prayers",
+        "Give charity",
+        "Not eat or drink from dawn to sunset",
+        "Visit Mecca"
+      ],
       "correctAnswer": 2,
       "explanation": "During Sawm, Muslims abstain from food and drink from dawn until sunset."
     },
@@ -80,7 +120,12 @@
       "category": "five_pillars",
       "difficulty": "medium",
       "question": "What percentage of savings should be given as Zakat?",
-      "options": ["1%", "2.5%", "5%", "10%"],
+      "options": [
+        "1%",
+        "2.5%",
+        "5%",
+        "10%"
+      ],
       "correctAnswer": 1,
       "explanation": "Muslims give 2.5% of their savings as Zakat each year."
     },
@@ -89,7 +134,12 @@
       "category": "five_pillars",
       "difficulty": "easy",
       "question": "What is the meaning of Shahada?",
-      "options": ["Prayer", "Testimony of Faith", "Fasting", "Charity"],
+      "options": [
+        "Prayer",
+        "Testimony of Faith",
+        "Fasting",
+        "Charity"
+      ],
       "correctAnswer": 1,
       "explanation": "Shahada is the testimony that there is no god but Allah and Muhammad is His messenger."
     },
@@ -98,7 +148,12 @@
       "category": "five_pillars",
       "difficulty": "medium",
       "question": "Which prayer is performed at noon?",
-      "options": ["Fajr", "Dhuhr", "Asr", "Maghrib"],
+      "options": [
+        "Fajr",
+        "Dhuhr",
+        "Asr",
+        "Maghrib"
+      ],
       "correctAnswer": 1,
       "explanation": "Dhuhr is the noon prayer performed when the sun starts to decline."
     },
@@ -107,9 +162,434 @@
       "category": "five_pillars",
       "difficulty": "easy",
       "question": "When is the last day of Hajj?",
-      "options": ["8th Dhul Hijjah", "9th Dhul Hijjah", "10th Dhul Hijjah", "12th Dhul Hijjah"],
+      "options": [
+        "8th Dhul Hijjah",
+        "9th Dhul Hijjah",
+        "10th Dhul Hijjah",
+        "12th Dhul Hijjah"
+      ],
       "correctAnswer": 3,
       "explanation": "Hajj ends on the 12th of Dhul Hijjah."
+    },
+    {
+      "difficulty": "easy",
+      "question": "What is the Shahada?",
+      "options": [
+        "A type of charity",
+        "The morning prayer",
+        "A festival",
+        "The declaration of faith"
+      ],
+      "correctAnswer": 3,
+      "explanation": "The Shahada is the declaration that there is no god but Allah and Muhammad is His messenger.",
+      "id": "fp_013",
+      "category": "five_pillars"
+    },
+    {
+      "difficulty": "easy",
+      "question": "Which pillar of Islam is about giving money to help the poor?",
+      "options": [
+        "Hajj",
+        "Shahada",
+        "Zakat",
+        "Salah"
+      ],
+      "correctAnswer": 2,
+      "explanation": "Zakat is the pillar of giving a share of our wealth to those in need.",
+      "id": "fp_014",
+      "category": "five_pillars"
+    },
+    {
+      "difficulty": "easy",
+      "question": "Which building do Muslims face when they pray?",
+      "options": [
+        "The Kaaba",
+        "Al-Aqsa Mosque",
+        "Masjid an-Nabawi",
+        "Their local mosque"
+      ],
+      "correctAnswer": 0,
+      "explanation": "Muslims all over the world face the Kaaba in Mecca when they pray.",
+      "id": "fp_015",
+      "category": "five_pillars"
+    },
+    {
+      "difficulty": "easy",
+      "question": "What is the call to prayer called?",
+      "options": [
+        "Adhan",
+        "Dua",
+        "Iqamah",
+        "Takbir"
+      ],
+      "correctAnswer": 0,
+      "explanation": "The Adhan is the call to prayer announced before each of the five daily prayers.",
+      "id": "fp_016",
+      "category": "five_pillars"
+    },
+    {
+      "difficulty": "easy",
+      "question": "What do Muslims do to get clean before praying?",
+      "options": [
+        "Sawm",
+        "Tawaf",
+        "Zakat",
+        "Wudu"
+      ],
+      "correctAnswer": 3,
+      "explanation": "Wudu is the special washing Muslims perform before prayer.",
+      "id": "fp_017",
+      "category": "five_pillars"
+    },
+    {
+      "difficulty": "easy",
+      "question": "What is the early morning meal before fasting called?",
+      "options": [
+        "Dinner",
+        "Suhoor",
+        "Eid",
+        "Iftar"
+      ],
+      "correctAnswer": 1,
+      "explanation": "Suhoor is the meal eaten before dawn when fasting in Ramadan.",
+      "id": "fp_018",
+      "category": "five_pillars"
+    },
+    {
+      "difficulty": "easy",
+      "question": "What is the meal that breaks the fast at sunset called?",
+      "options": [
+        "Iftar",
+        "Suhoor",
+        "Aqiqah",
+        "Lunch"
+      ],
+      "correctAnswer": 0,
+      "explanation": "Iftar is the meal Muslims eat at sunset to end their fast.",
+      "id": "fp_019",
+      "category": "five_pillars"
+    },
+    {
+      "difficulty": "easy",
+      "question": "Which pillar of Islam is a special journey to Mecca?",
+      "options": [
+        "Salah",
+        "Hajj",
+        "Sawm",
+        "Zakat"
+      ],
+      "correctAnswer": 1,
+      "explanation": "Hajj is the pilgrimage to Mecca that Muslims make once in their lifetime if they are able.",
+      "id": "fp_020",
+      "category": "five_pillars"
+    },
+    {
+      "difficulty": "easy",
+      "question": "On which day do Muslims gather for a special weekly prayer?",
+      "options": [
+        "Monday",
+        "Sunday",
+        "Saturday",
+        "Friday"
+      ],
+      "correctAnswer": 3,
+      "explanation": "Muslims gather every Friday for the Jumu'ah prayer at the mosque.",
+      "id": "fp_021",
+      "category": "five_pillars"
+    },
+    {
+      "difficulty": "easy",
+      "question": "Which prayer do Muslims pray at sunset?",
+      "options": [
+        "Isha",
+        "Maghrib",
+        "Dhuhr",
+        "Fajr"
+      ],
+      "correctAnswer": 1,
+      "explanation": "Maghrib is the prayer performed just after the sun sets.",
+      "id": "fp_022",
+      "category": "five_pillars"
+    },
+    {
+      "difficulty": "medium",
+      "question": "How many rakats (units) are in the Fajr prayer?",
+      "options": [
+        "2",
+        "3",
+        "4",
+        "5"
+      ],
+      "correctAnswer": 0,
+      "explanation": "Fajr has 2 rakats and is prayed before sunrise.",
+      "id": "fp_023",
+      "category": "five_pillars"
+    },
+    {
+      "difficulty": "medium",
+      "question": "How many rakats are in the Maghrib prayer?",
+      "options": [
+        "2",
+        "3",
+        "4",
+        "5"
+      ],
+      "correctAnswer": 1,
+      "explanation": "Maghrib, the sunset prayer, has 3 rakats.",
+      "id": "fp_024",
+      "category": "five_pillars"
+    },
+    {
+      "difficulty": "medium",
+      "question": "What is the direction of prayer called?",
+      "options": [
+        "Mihrab",
+        "Musalla",
+        "Qibla",
+        "Minaret"
+      ],
+      "correctAnswer": 2,
+      "explanation": "The Qibla is the direction of the Kaaba in Mecca, which Muslims face in prayer.",
+      "id": "fp_025",
+      "category": "five_pillars"
+    },
+    {
+      "difficulty": "medium",
+      "question": "What is the person who calls the Adhan called?",
+      "options": [
+        "Muezzin",
+        "Khalifa",
+        "Hafiz",
+        "Imam"
+      ],
+      "correctAnswer": 0,
+      "explanation": "The muezzin is the person who calls the Adhan to announce prayer time.",
+      "id": "fp_026",
+      "category": "five_pillars"
+    },
+    {
+      "difficulty": "medium",
+      "question": "How much of their yearly savings do Muslims usually give as Zakat?",
+      "options": [
+        "1%",
+        "2.5%",
+        "10%",
+        "25%"
+      ],
+      "correctAnswer": 1,
+      "explanation": "Muslims give 2.5% of their saved wealth each year as Zakat.",
+      "id": "fp_027",
+      "category": "five_pillars"
+    },
+    {
+      "difficulty": "medium",
+      "question": "In which Islamic month does Hajj take place?",
+      "options": [
+        "Muharram",
+        "Shawwal",
+        "Ramadan",
+        "Dhul Hijjah"
+      ],
+      "correctAnswer": 3,
+      "explanation": "Hajj takes place in Dhul Hijjah, the last month of the Islamic calendar.",
+      "id": "fp_028",
+      "category": "five_pillars"
+    },
+    {
+      "difficulty": "medium",
+      "question": "What are the two Eid festivals called?",
+      "options": [
+        "Eid Ramadan and Eid Shawwal",
+        "Eid al-Nur and Eid al-Fitr",
+        "Eid al-Hajj and Eid al-Sawm",
+        "Eid al-Fitr and Eid al-Adha"
+      ],
+      "correctAnswer": 3,
+      "explanation": "Muslims celebrate Eid al-Fitr after Ramadan and Eid al-Adha during Hajj season.",
+      "id": "fp_029",
+      "category": "five_pillars"
+    },
+    {
+      "difficulty": "medium",
+      "question": "What are the special night prayers during Ramadan called?",
+      "options": [
+        "Duha",
+        "Witr",
+        "Tahajjud",
+        "Taraweeh"
+      ],
+      "correctAnswer": 3,
+      "explanation": "Taraweeh prayers are extra prayers performed at night during Ramadan.",
+      "id": "fp_030",
+      "category": "five_pillars"
+    },
+    {
+      "difficulty": "medium",
+      "question": "What is the Friday congregational prayer called?",
+      "options": [
+        "Istikhara",
+        "Jumu'ah",
+        "Eid",
+        "Janazah"
+      ],
+      "correctAnswer": 1,
+      "explanation": "Jumu'ah is the Friday prayer that replaces Dhuhr and includes a sermon (khutbah).",
+      "id": "fp_031",
+      "category": "five_pillars"
+    },
+    {
+      "difficulty": "medium",
+      "question": "The Shahada says: there is no god but Allah, and Muhammad is His ___",
+      "options": [
+        "Angel",
+        "Servant only",
+        "Messenger",
+        "Helper"
+      ],
+      "correctAnswer": 2,
+      "explanation": "The Shahada declares that Muhammad (peace be upon him) is the Messenger of Allah.",
+      "id": "fp_032",
+      "category": "five_pillars"
+    },
+    {
+      "difficulty": "hard",
+      "question": "How many rakats is the fard (obligatory) part of the Isha prayer?",
+      "options": [
+        "2",
+        "3",
+        "4",
+        "6"
+      ],
+      "correctAnswer": 2,
+      "explanation": "The fard part of Isha is 4 rakats.",
+      "id": "fp_033",
+      "category": "five_pillars"
+    },
+    {
+      "difficulty": "hard",
+      "question": "How many fard rakats do Muslims pray in total each day?",
+      "options": [
+        "15",
+        "17",
+        "19",
+        "20"
+      ],
+      "correctAnswer": 1,
+      "explanation": "The five daily prayers have 17 fard rakats in total: 2 + 4 + 4 + 3 + 4.",
+      "id": "fp_034",
+      "category": "five_pillars"
+    },
+    {
+      "difficulty": "hard",
+      "question": "Standing on the plain of Arafah is an important part of which pillar?",
+      "options": [
+        "Sawm",
+        "Salah",
+        "Hajj",
+        "Zakat"
+      ],
+      "correctAnswer": 2,
+      "explanation": "Standing at Arafah on the 9th of Dhul Hijjah is one of the most important parts of Hajj.",
+      "id": "fp_035",
+      "category": "five_pillars"
+    },
+    {
+      "difficulty": "hard",
+      "question": "What is walking between the hills of Safa and Marwah called?",
+      "options": [
+        "Ihram",
+        "Sa'i",
+        "Tawaf",
+        "Rami"
+      ],
+      "correctAnswer": 1,
+      "explanation": "Sa'i is walking seven times between Safa and Marwah, remembering Hajar's search for water.",
+      "id": "fp_036",
+      "category": "five_pillars"
+    },
+    {
+      "difficulty": "hard",
+      "question": "What is circling the Kaaba seven times called?",
+      "options": [
+        "Talbiyah",
+        "Wuquf",
+        "Sa'i",
+        "Tawaf"
+      ],
+      "correctAnswer": 3,
+      "explanation": "Tawaf is circling the Kaaba seven times during Hajj or Umrah.",
+      "id": "fp_037",
+      "category": "five_pillars"
+    },
+    {
+      "difficulty": "hard",
+      "question": "What is the special white clothing worn by pilgrims during Hajj called?",
+      "options": [
+        "Keffiyeh",
+        "Ihram",
+        "Abaya",
+        "Thobe"
+      ],
+      "correctAnswer": 1,
+      "explanation": "Ihram is the simple white clothing pilgrims wear, showing everyone is equal before Allah.",
+      "id": "fp_038",
+      "category": "five_pillars"
+    },
+    {
+      "difficulty": "hard",
+      "question": "What is the minimum amount of wealth a Muslim must have before Zakat is due?",
+      "options": [
+        "Riba",
+        "Nisab",
+        "Khums",
+        "Sadaqah"
+      ],
+      "correctAnswer": 1,
+      "explanation": "Nisab is the minimum amount of wealth someone must own before they must pay Zakat.",
+      "id": "fp_039",
+      "category": "five_pillars"
+    },
+    {
+      "difficulty": "hard",
+      "question": "What special charity is given at the end of Ramadan before Eid prayer?",
+      "options": [
+        "Zakat al-Fitr",
+        "Zakat al-Mal",
+        "Waqf",
+        "Sadaqah Jariyah"
+      ],
+      "correctAnswer": 0,
+      "explanation": "Zakat al-Fitr is given before the Eid prayer so everyone can enjoy Eid.",
+      "id": "fp_040",
+      "category": "five_pillars"
+    },
+    {
+      "difficulty": "hard",
+      "question": "Which group of people is NOT required to fast in Ramadan?",
+      "options": [
+        "Teachers",
+        "Young children",
+        "Healthy adults",
+        "Parents"
+      ],
+      "correctAnswer": 1,
+      "explanation": "Young children are not required to fast; fasting becomes a duty when a person matures.",
+      "id": "fp_041",
+      "category": "five_pillars"
+    },
+    {
+      "difficulty": "hard",
+      "question": "What is the shorter pilgrimage to Mecca that can be done any time of year?",
+      "options": [
+        "Umrah",
+        "Tawaf",
+        "Hajj",
+        "Ziyarah"
+      ],
+      "correctAnswer": 0,
+      "explanation": "Umrah is the shorter pilgrimage that can be performed at any time of the year.",
+      "id": "fp_042",
+      "category": "five_pillars"
     }
   ]
 }

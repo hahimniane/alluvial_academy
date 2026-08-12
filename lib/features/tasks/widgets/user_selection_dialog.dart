@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:alluwalacademyadmin/core/utils/app_search.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class UserSelectionDialog extends StatefulWidget {
@@ -43,11 +44,33 @@ class _UserSelectionDialogState extends State<UserSelectionDialog> {
 
   List<Map<String, dynamic>> get _filteredUsers {
     if (_searchTerm.isEmpty) return widget.availableUsers;
-    final term = _searchTerm.toLowerCase();
     return widget.availableUsers.where((user) {
-      final name = user['name'].toString().toLowerCase();
-      final email = user['email'].toString().toLowerCase();
-      return name.contains(term) || email.contains(term);
+      return AppSearch.matches(
+        query: _searchTerm,
+        names: [
+          (user['name'] ?? '').toString(),
+          '${user['first_name'] ?? user['firstName'] ?? ''} '
+              '${user['last_name'] ?? user['lastName'] ?? ''}',
+        ],
+        emails: [(user['email'] ?? user['e-mail'] ?? '').toString()],
+        phones: [
+          (user['phone_number'] ??
+                  user['phoneNumber'] ??
+                  user['mobile_phone'] ??
+                  user['mobilePhone'] ??
+                  user['phone'] ??
+                  '')
+              .toString(),
+        ],
+        ids: [
+          (user['id'] ?? user['documentId'] ?? '').toString(),
+          (user['student_code'] ?? user['studentCode'] ?? '').toString(),
+          (user['kiosk_code'] ?? user['kioskCode'] ?? '').toString(),
+        ],
+        additionalValues: [
+          (user['role'] ?? user['user_type'] ?? '').toString(),
+        ],
+      );
     }).toList();
   }
 

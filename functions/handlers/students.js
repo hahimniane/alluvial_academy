@@ -15,7 +15,7 @@ const generateStudentCode = (firstName, lastName) => {
   return `${firstNormalized}.${lastNormalized}`;
 };
 
-const createStudentAccount = async (data) => {
+const createStudentAccount = async (data, context) => {
   console.log('--- CREATE STUDENT ACCOUNT ---');
   console.log('Raw data received:', data);
 
@@ -148,6 +148,8 @@ const createStudentAccount = async (data) => {
       email_verified: false,
       uid: authUserId,
       created_by_admin: true,
+      created_by_uid:
+        context?.auth?.uid || studentData.createdByUid || null,
       password_reset_required: true,
       temp_password: tempPassword,
     };
@@ -331,4 +333,3 @@ const createStudentAccount = async (data) => {
 module.exports = {
   createStudentAccount,
 };
-

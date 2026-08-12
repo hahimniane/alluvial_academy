@@ -38,6 +38,7 @@ import 'core/services/prayer_notification_service.dart';
 import 'core/theme/app_theme.dart';
 import 'core/services/version_service.dart';
 import 'core/widgets/version_check_wrapper.dart';
+import 'core/widgets/language_switcher.dart';
 import 'core/utils/app_logger.dart';
 import 'core/widgets/web_app_stability_banner.dart';
 import 'package:alluwalacademyadmin/core/services/join_link_service.dart';
@@ -287,8 +288,8 @@ Future<void> main() async {
     // Filter out known framework issues
     if (details.exception.toString().contains('PointerDeviceKind.trackpad') ||
         details.exception.toString().contains(
-          '!identical(kind, PointerDeviceKind.trackpad)',
-        )) {
+              '!identical(kind, PointerDeviceKind.trackpad)',
+            )) {
       if (kDebugMode) {
         AppLogger.debug(
           'Ignoring trackpad gesture assertion: ${details.exception}',
@@ -442,15 +443,18 @@ class MyApp extends StatelessWidget {
       return const AuthenticationWrapper();
     }
 
-    // WEB: Start on the public landing page across mobile and desktop.
+    // WEB: the public site is the Next.js app at the domain root; this Flutter
+    // build is mounted under /app/. Its own LandingPage is a leftover duplicate
+    // of that homepage, so nothing on the web should land here — signing in and
+    // pressing the browser Back button used to show it.
     // Auth pages remain available via explicit routes like /login.
     final platformLabel = defaultTargetPlatform.toString();
     final isMobileLayout = _isMobileLayout(context);
     AppLogger.debug(
       '=== Web platform check: $platformLabel, isMobile=$isMobileLayout ===',
     );
-    AppLogger.debug('=== Returning LandingPage for web (mobile/desktop) ===');
-    return const LandingPage();
+    AppLogger.debug('=== Returning WebRootScreen for web (mobile/desktop) ===');
+    return const WebRootScreen();
   }
 
   // This widget is the root of your application.
@@ -460,8 +464,7 @@ class MyApp extends StatelessWidget {
       builder: (context, themeService, languageService, child) {
         final previewLocale = DevicePreview.locale(context);
         // Ensure we always have a valid supported locale
-        final appLocale =
-            languageService.locale ??
+        final appLocale = languageService.locale ??
             (previewLocale != null &&
                     LanguageService.supportedLocales.any(
                       (l) => l.languageCode == previewLocale.languageCode,
@@ -492,12 +495,6 @@ class MyApp extends StatelessWidget {
           builder: (context, child) {
             final built = DevicePreview.appBuilder(context, child);
 
-            // Removing the app-wide SelectionArea because it caused a Flutter Web
-            // crash: the root SelectableRegion's _flushAdditions microtask fires
-            // before newly navigated-to widgets are laid out, triggering a
-            // NEEDS-LAYOUT assertion in _compareScreenOrder. Individual screens
-            // that need selectable text use SelectableText directly instead.
-            //
             // [WebAppStabilityBanner] is no-op on non-web; on web it surfaces a
             // floating "page is stuck" banner with Recover / Reload actions
             // when a screen reports being stuck.
@@ -586,13 +583,13 @@ class MyApp extends StatelessWidget {
 class AppScrollBehavior extends MaterialScrollBehavior {
   @override
   Set<PointerDeviceKind> get dragDevices => {
-    // Enable drag scrolling for all common input devices on web/mobile
-    PointerDeviceKind.touch,
-    PointerDeviceKind.mouse,
-    PointerDeviceKind.trackpad,
-    PointerDeviceKind.stylus,
-    PointerDeviceKind.unknown,
-  };
+        // Keep touch-based drag scrolling available across web and mobile.
+        PointerDeviceKind.touch,
+        // Keep mouse drags for SelectionArea. Flutter documents that making
+        // scrollables accept mouse drags prevents text selection.
+        PointerDeviceKind.trackpad,
+        PointerDeviceKind.stylus,
+      };
 }
 
 class FirebaseInitializer extends StatefulWidget {
@@ -664,7 +661,8 @@ class _FirebaseInitializerState extends State<FirebaseInitializer> {
               Text(
                 AppLocalizations.of(
                   context,
-                )!.pleaseCheckYourInternetConnectionAnd,
+                )!
+                    .pleaseCheckYourInternetConnectionAnd,
                 style: GoogleFonts.inter(
                   fontSize: 14,
                   color: const Color(0xff6B7280),
@@ -792,8 +790,7 @@ class _WebWatchdogAuthBindingState extends State<_WebWatchdogAuthBinding> {
 
   void _sync(AsyncSnapshot<User?> s) {
     if (!kIsWeb) return;
-    final paused =
-        s.connectionState == ConnectionState.waiting ||
+    final paused = s.connectionState == ConnectionState.waiting ||
         !s.hasData ||
         s.data == null;
     WebAppStabilityService.instance.setWatchdogPaused(paused);
@@ -801,6 +798,27 @@ class _WebWatchdogAuthBindingState extends State<_WebWatchdogAuthBinding> {
 
   @override
   Widget build(BuildContext context) => widget.child;
+}
+
+
+/// What the web app shows at `/`.
+///
+/// The public site is the Next.js app at the domain root; this Flutter build is
+/// mounted under `/app/`, and its own [LandingPage] is a leftover duplicate of
+/// that homepage. Signing in and pressing the browser Back button landed there,
+/// so `/` now resolves by auth state — signed in goes to the dashboard, signed
+/// out gets the sign-in screen.
+///
+/// It deliberately does NOT navigate anywhere itself. Flutter builds the `/`
+/// route during startup even when the URL asks for `/login`, so redirecting
+/// from here fires before the requested route resolves and throws people off
+/// the sign-in page. Deferring entirely to [AuthenticationWrapper] keeps `/`
+/// and `/login` behaving identically and leaves the browser history alone.
+class WebRootScreen extends StatelessWidget {
+  const WebRootScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) => const AuthenticationWrapper();
 }
 
 class AuthenticationWrapper extends StatefulWidget {
@@ -1109,12 +1127,13 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
 
   // Handle forgot password
   Future<void> _handleForgotPassword() async {
+    final l = AppLocalizations.of(context)!;
     String email = emailAddressController.text.trim();
 
     // Check if email is provided
     if (email.isEmpty) {
       if (mounted) {
-        _showErrorDialog('Please enter your email address first.');
+        _showErrorDialog(l.publicEnterEmailFirst);
       }
       return;
     }
@@ -1122,7 +1141,7 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
     // Basic email validation
     if (!email.contains('@') || !email.contains('.')) {
       if (mounted) {
-        _showErrorDialog('Please enter a valid email address.');
+        _showErrorDialog(l.loginInvalidEmailFormat);
       }
       return;
     }
@@ -1134,32 +1153,27 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
       // Show success message
       if (mounted) {
         _showSuccessDialog(
-          'Password Reset Email Sent',
-          'A password reset link has been sent to $email. Please check your inbox and follow the instructions to reset your password.',
+          l.publicResetTitle,
+          l.publicResetBody(email),
         );
       }
     } on FirebaseAuthException catch (e) {
       String errorMessage;
       switch (e.code) {
         case 'user-not-found':
-          errorMessage =
-              'No account found with this email address. Please check your email or contact an administrator.';
+          errorMessage = l.loginNoAccountEmail;
           break;
         case 'invalid-email':
-          errorMessage = 'Please enter a valid email address.';
+          errorMessage = l.loginInvalidEmailFormat;
           break;
         case 'too-many-requests':
-          errorMessage =
-              'Too many password reset requests. Please wait a few minutes before trying again.';
+          errorMessage = l.publicResetTooMany;
           break;
         case 'network-request-failed':
-          errorMessage =
-              'Network connection failed. Please check your internet connection and try again.';
+          errorMessage = l.publicNetworkError;
           break;
         default:
-          errorMessage =
-              e.message ??
-              'Unable to send password reset email. Please try again later.';
+          errorMessage = l.publicResetFailed;
       }
       if (mounted) {
         _showErrorDialog(errorMessage);
@@ -1167,7 +1181,7 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
     } catch (e) {
       if (mounted) {
         _showErrorDialog(
-          'An unexpected error occurred. Please try again later.',
+          l.loginUnexpectedError,
         );
       }
     }
@@ -1175,6 +1189,7 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
 
   // Handle sign-in process
   Future<void> _handleSignIn() async {
+    final l = AppLocalizations.of(context)!;
     AuthService authService = AuthService();
     try {
       String emailOrId = emailAddressController.text.trim();
@@ -1201,45 +1216,35 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
       String errorMessage;
       switch (e.code) {
         case 'user-deactivated':
-          errorMessage =
-              'Your account has been archived. Please contact an administrator for assistance.';
+          errorMessage = l.loginAccountArchived;
           break;
         case 'user-not-found':
-          errorMessage =
-              'No account found with this email address. Please check your email or contact an administrator.';
+          errorMessage = l.loginNoAccountEmail;
           break;
         case 'wrong-password':
         case 'invalid-credential':
-          errorMessage =
-              'Incorrect password. Please try again or use "Forgot Password" if needed.';
+          errorMessage = l.loginIncorrectPassword;
           break;
         case 'keychain-error':
-          errorMessage =
-              'macOS could not access the sign-in keychain. Rebuild the app and try again.';
+          errorMessage = l.loginFailed;
           break;
         case 'invalid-email':
-          errorMessage = 'Please enter a valid email address.';
+          errorMessage = l.loginInvalidEmailFormat;
           break;
         case 'user-disabled':
-          errorMessage =
-              'This account has been disabled. Please contact an administrator for assistance.';
+          errorMessage = l.loginAccountDisabled;
           break;
         case 'too-many-requests':
-          errorMessage =
-              'Too many failed login attempts. Please wait a few minutes before trying again.';
+          errorMessage = l.loginTooManyAttempts;
           break;
         case 'network-request-failed':
-          errorMessage =
-              'Network connection failed. Please check your internet connection and try again.';
+          errorMessage = l.publicNetworkError;
           break;
         case 'unknown-error':
-          errorMessage =
-              e.message ??
-              'An unexpected error occurred. Please try again later.';
+          errorMessage = l.loginUnexpectedError;
           break;
         default:
-          errorMessage =
-              'Login failed. Please check your credentials and try again.';
+          errorMessage = l.loginFailed;
       }
       if (mounted) {
         _showErrorDialog(errorMessage);
@@ -1247,7 +1252,7 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
     } catch (e) {
       if (mounted) {
         _showErrorDialog(
-          'An unexpected error occurred. Please try again later.',
+          l.loginUnexpectedError,
         );
       }
     }
@@ -1262,6 +1267,7 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
 
   // Handle Google Sign-In
   Future<void> _handleGoogleSignIn() async {
+    final l = AppLocalizations.of(context)!;
     AuthService authService = AuthService();
     try {
       User? user = await authService.signInWithGoogle();
@@ -1274,30 +1280,26 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
       String errorMessage;
       switch (e.code) {
         case 'user-not-registered':
-          errorMessage =
-              'No account found with this Google email. Please contact an administrator to create your account first.';
+          errorMessage = l.publicGoogleNoAccount;
           break;
         case 'user-deactivated':
-          errorMessage =
-              'Your account has been archived. Please contact an administrator for assistance.';
+          errorMessage = l.loginAccountArchived;
           break;
         case 'account-exists-with-different-credential':
-          errorMessage =
-              'An account already exists with this email but uses a different sign-in method. Please use your email and password to sign in.';
+          errorMessage = l.publicGoogleDifferentMethod;
           break;
         case 'google-signin-failed':
-          errorMessage = 'Google sign-in failed. Please try again.';
+          errorMessage = l.publicGoogleFailed;
           break;
         default:
-          errorMessage =
-              'Sign-in failed. Please check your account and try again.';
+          errorMessage = l.loginFailed;
       }
       if (mounted) {
         _showErrorDialog(errorMessage);
       }
     } catch (e) {
       if (mounted) {
-        _showErrorDialog('An unexpected error occurred. Please try again.');
+        _showErrorDialog(l.loginUnexpectedError);
       }
     }
   }
@@ -1330,6 +1332,10 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  const Align(
+                    alignment: Alignment.centerRight,
+                    child: LanguageSwitcher(),
+                  ),
                   // Logo and Title
                   Column(
                     children: [
@@ -1413,7 +1419,9 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        _useStudentIdLogin ? 'Student ID' : 'Email',
+                        _useStudentIdLogin
+                            ? AppLocalizations.of(context)!.loginStudentId
+                            : AppLocalizations.of(context)!.loginEmail,
                         style: GoogleFonts.inter(
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
@@ -1431,8 +1439,9 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
                         ),
                         decoration: InputDecoration(
                           hintText: _useStudentIdLogin
-                              ? 'Enter your Student ID (e.g., A7Q4-MZ2N)'
-                              : 'Enter your email address',
+                              ? AppLocalizations.of(context)!
+                                  .loginEnterStudentId
+                              : AppLocalizations.of(context)!.loginEnterEmail,
                           hintStyle: GoogleFonts.inter(
                             color: const Color(0xff9CA3AF),
                             fontSize: 16,
@@ -1494,7 +1503,8 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
                         decoration: InputDecoration(
                           hintText: AppLocalizations.of(
                             context,
-                          )!.loginEnterPassword,
+                          )!
+                              .loginEnterPassword,
                           hintStyle: GoogleFonts.inter(
                             color: const Color(0xff9CA3AF),
                             fontSize: 16,
@@ -1512,8 +1522,10 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
                               });
                             },
                             tooltip: _obscurePassword
-                                ? 'Show password'
-                                : 'Hide password',
+                                ? AppLocalizations.of(context)!
+                                    .publicShowPassword
+                                : AppLocalizations.of(context)!
+                                    .publicHidePassword,
                           ),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),

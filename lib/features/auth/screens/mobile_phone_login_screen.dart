@@ -4,6 +4,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import '../../../core/services/auth_service.dart';
+import '../../../core/widgets/language_switcher.dart';
+import '../../../l10n/app_localizations.dart';
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 
 class _CountryCode {
@@ -92,85 +94,98 @@ class _MobilePhoneLoginScreenState extends State<MobilePhoneLoginScreen> {
         String query = '';
         return StatefulBuilder(
           builder: (ctx, setModalState) {
+            final l = AppLocalizations.of(ctx)!;
             final filtered = query.isEmpty
                 ? _countryCodes
                 : _countryCodes
                     .where((c) =>
-                        c.name.toLowerCase().contains(query.toLowerCase()) ||
+                        _countryName(c, l)
+                            .toLowerCase()
+                            .contains(query.toLowerCase()) ||
                         c.dialCode.contains(query))
                     .toList();
 
-            return Container(
-              height: MediaQuery.of(ctx).size.height * 0.7,
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-              ),
-              child: Column(
-                children: [
-                  Container(
-                    margin: const EdgeInsets.only(top: 12, bottom: 8),
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFD1D5DB),
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    child: TextField(
-                      autofocus: true,
-                      decoration: InputDecoration(
-                        hintText: 'Search country...',
-                        prefixIcon: const Icon(Icons.search, color: Color(0xFF9CA3AF)),
-                        filled: true,
-                        fillColor: const Color(0xFFF3F4F6),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(vertical: 12),
+            return Material(
+              color: Colors.white,
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(20)),
+              clipBehavior: Clip.antiAlias,
+              child: SizedBox(
+                height: MediaQuery.of(ctx).size.height * 0.7,
+                child: Column(
+                  children: [
+                    Container(
+                      margin: const EdgeInsets.only(top: 12, bottom: 8),
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFD1D5DB),
+                        borderRadius: BorderRadius.circular(2),
                       ),
-                      onChanged: (v) => setModalState(() => query = v),
                     ),
-                  ),
-                  Expanded(
-                    child: ListView.builder(
-                      itemCount: filtered.length,
-                      itemBuilder: (ctx, i) {
-                        final c = filtered[i];
-                        final isSelected = c.dialCode == _selectedCountry.dialCode &&
-                            c.name == _selectedCountry.name;
-                        return ListTile(
-                          leading: Text(c.flag, style: const TextStyle(fontSize: 28)),
-                          title: Text(
-                            c.name,
-                            style: GoogleFonts.inter(
-                              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                            ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
+                      child: TextField(
+                        autofocus: true,
+                        decoration: InputDecoration(
+                          hintText: AppLocalizations.of(context)!
+                              .publicPhoneSearchCountry,
+                          prefixIcon: const Icon(Icons.search,
+                              color: Color(0xFF9CA3AF)),
+                          filled: true,
+                          fillColor: const Color(0xFFF3F4F6),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
                           ),
-                          trailing: Text(
-                            c.dialCode,
-                            style: GoogleFonts.inter(
-                              color: const Color(0xFF6B7280),
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          selected: isSelected,
-                          selectedTileColor: const Color(0xFFEFF6FF),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          onTap: () {
-                            setState(() => _selectedCountry = c);
-                            Navigator.pop(ctx);
-                          },
-                        );
-                      },
+                          contentPadding:
+                              const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                        onChanged: (v) => setModalState(() => query = v),
+                      ),
                     ),
-                  ),
-                ],
+                    Expanded(
+                      child: ListView.builder(
+                        itemCount: filtered.length,
+                        itemBuilder: (ctx, i) {
+                          final c = filtered[i];
+                          final isSelected =
+                              c.dialCode == _selectedCountry.dialCode &&
+                                  c.name == _selectedCountry.name;
+                          return ListTile(
+                            leading: Text(c.flag,
+                                style: const TextStyle(fontSize: 28)),
+                            title: Text(
+                              _countryName(c, l),
+                              style: GoogleFonts.inter(
+                                fontWeight: isSelected
+                                    ? FontWeight.w700
+                                    : FontWeight.w500,
+                              ),
+                            ),
+                            trailing: Text(
+                              c.dialCode,
+                              style: GoogleFonts.inter(
+                                color: const Color(0xFF6B7280),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            selected: isSelected,
+                            selectedTileColor: const Color(0xFFEFF6FF),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            onTap: () {
+                              setState(() => _selectedCountry = c);
+                              Navigator.pop(ctx);
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
               ),
             );
           },
@@ -180,7 +195,8 @@ class _MobilePhoneLoginScreenState extends State<MobilePhoneLoginScreen> {
   }
 
   String get _fullPhoneNumber {
-    var digits = _phoneController.text.trim().replaceAll(RegExp(r'[\s\-\(\)]'), '');
+    var digits =
+        _phoneController.text.trim().replaceAll(RegExp(r'[\s\-\(\)]'), '');
     if (digits.startsWith('0')) {
       digits = digits.substring(1);
     }
@@ -190,13 +206,14 @@ class _MobilePhoneLoginScreenState extends State<MobilePhoneLoginScreen> {
   Future<void> _sendCode() async {
     final rawPhone = _phoneController.text.trim();
     if (rawPhone.isEmpty) {
-      _showErrorSnackBar('Please enter a phone number');
+      _showErrorSnackBar(AppLocalizations.of(context)!.publicPhoneEnterNumber);
       return;
     }
 
     final digits = rawPhone.replaceAll(RegExp(r'[^\d]'), '');
     if (digits.length < 6) {
-      _showErrorSnackBar('Please enter a valid phone number');
+      _showErrorSnackBar(
+          AppLocalizations.of(context)!.publicPhoneInvalidNumber);
       return;
     }
 
@@ -228,7 +245,11 @@ class _MobilePhoneLoginScreenState extends State<MobilePhoneLoginScreen> {
               }
             } catch (e) {
               AppLogger.error('Auto-retrieval login failed: $e');
-              if (mounted) _showErrorSnackBar('Failed to login automatically');
+              if (mounted) {
+                _showErrorSnackBar(
+                  AppLocalizations.of(context)!.publicPhoneAutomaticFailed,
+                );
+              }
             }
           },
           verificationFailed: (FirebaseAuthException e) {
@@ -238,16 +259,18 @@ class _MobilePhoneLoginScreenState extends State<MobilePhoneLoginScreen> {
               String msg;
               switch (e.code) {
                 case 'invalid-phone-number':
-                  msg = 'The phone number format is invalid. Please check and try again.';
+                  msg = AppLocalizations.of(context)!.publicPhoneFormatInvalid;
                   break;
                 case 'too-many-requests':
-                  msg = 'Too many attempts. Please wait a few minutes and try again.';
+                  msg =
+                      AppLocalizations.of(context)!.publicPhoneTooManyAttempts;
                   break;
                 case 'quota-exceeded':
-                  msg = 'SMS quota exceeded. Please try again later.';
+                  msg = AppLocalizations.of(context)!.publicPhoneQuotaExceeded;
                   break;
                 default:
-                  msg = e.message ?? 'Verification failed. Please try again.';
+                  msg = AppLocalizations.of(context)!
+                      .publicPhoneVerificationFailed;
               }
               _showErrorSnackBar(msg);
             }
@@ -270,7 +293,7 @@ class _MobilePhoneLoginScreenState extends State<MobilePhoneLoginScreen> {
       AppLogger.error('Error sending code: $e');
       if (mounted) {
         setState(() => _isLoading = false);
-        _showErrorSnackBar('Failed to send verification code. Please try again.');
+        _showErrorSnackBar(AppLocalizations.of(context)!.publicPhoneSendFailed);
       }
     }
   }
@@ -278,11 +301,12 @@ class _MobilePhoneLoginScreenState extends State<MobilePhoneLoginScreen> {
   Future<void> _verifyCode() async {
     final code = _codeController.text.trim();
     if (code.isEmpty) {
-      _showErrorSnackBar('Please enter the SMS code');
+      _showErrorSnackBar(AppLocalizations.of(context)!.publicPhoneEnterCode);
       return;
     }
     if (code.length < 6) {
-      _showErrorSnackBar('Please enter the full 6-digit code');
+      _showErrorSnackBar(
+          AppLocalizations.of(context)!.publicPhoneEnterFullCode);
       return;
     }
 
@@ -317,13 +341,13 @@ class _MobilePhoneLoginScreenState extends State<MobilePhoneLoginScreen> {
         String msg;
         switch (e.code) {
           case 'invalid-verification-code':
-            msg = 'The code you entered is incorrect. Please try again.';
+            msg = AppLocalizations.of(context)!.publicPhoneIncorrectCode;
             break;
           case 'session-expired':
-            msg = 'The code has expired. Please request a new one.';
+            msg = AppLocalizations.of(context)!.publicPhoneExpiredCode;
             break;
           default:
-            msg = e.message ?? 'Verification failed. Please try again.';
+            msg = AppLocalizations.of(context)!.publicPhoneVerificationFailed;
         }
         _showErrorSnackBar(msg);
       }
@@ -331,19 +355,28 @@ class _MobilePhoneLoginScreenState extends State<MobilePhoneLoginScreen> {
       AppLogger.error('Phone verification failed: $e');
       if (mounted) {
         setState(() => _isLoading = false);
-        _showErrorSnackBar('Verification failed. Please try again.');
+        _showErrorSnackBar(
+          AppLocalizations.of(context)!.publicPhoneVerificationFailed,
+        );
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     return Scaffold(
       backgroundColor: const Color(0xffF8FAFC),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: const BackButton(color: Color(0xff111827)),
+        actions: const [
+          Padding(
+            padding: EdgeInsets.only(right: 12),
+            child: Center(child: LanguageSwitcher()),
+          ),
+        ],
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -369,7 +402,7 @@ class _MobilePhoneLoginScreenState extends State<MobilePhoneLoginScreen> {
               ),
               const SizedBox(height: 24),
               Text(
-                _codeSent ? 'Enter SMS Code' : 'Sign in with Phone',
+                _codeSent ? l.publicPhoneCodeTitle : l.publicSignInWithPhone,
                 textAlign: TextAlign.center,
                 style: GoogleFonts.inter(
                   fontSize: 24,
@@ -380,8 +413,8 @@ class _MobilePhoneLoginScreenState extends State<MobilePhoneLoginScreen> {
               const SizedBox(height: 8),
               Text(
                 _codeSent
-                    ? 'We sent a verification code to $_fullPhoneNumber'
-                    : 'Enter your phone number to receive a verification code',
+                    ? l.publicPhoneCodeSent(_fullPhoneNumber)
+                    : l.publicPhoneInstructions,
                 textAlign: TextAlign.center,
                 style: GoogleFonts.inter(
                   fontSize: 14,
@@ -435,25 +468,30 @@ class _MobilePhoneLoginScreenState extends State<MobilePhoneLoginScreen> {
                         controller: _phoneController,
                         keyboardType: TextInputType.phone,
                         inputFormatters: [
-                          FilteringTextInputFormatter.allow(RegExp(r'[\d\s\-]')),
+                          FilteringTextInputFormatter.allow(
+                              RegExp(r'[\d\s\-]')),
                         ],
                         style: GoogleFonts.inter(fontSize: 16),
                         decoration: InputDecoration(
                           hintText: '234 567 8900',
-                          hintStyle: GoogleFonts.inter(color: const Color(0xFFBBBBBB)),
+                          hintStyle:
+                              GoogleFonts.inter(color: const Color(0xFFBBBBBB)),
                           filled: true,
                           fillColor: Colors.white,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: Color(0xffE5E7EB)),
+                            borderSide:
+                                const BorderSide(color: Color(0xffE5E7EB)),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: Color(0xffE5E7EB)),
+                            borderSide:
+                                const BorderSide(color: Color(0xffE5E7EB)),
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: Color(0xff0386FF)),
+                            borderSide:
+                                const BorderSide(color: Color(0xff0386FF)),
                           ),
                           contentPadding: const EdgeInsets.symmetric(
                             horizontal: 16,
@@ -487,7 +525,7 @@ class _MobilePhoneLoginScreenState extends State<MobilePhoneLoginScreen> {
                             ),
                           )
                         : Text(
-                            'Send Code',
+                            l.publicPhoneSendCode,
                             style: GoogleFonts.inter(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
@@ -555,7 +593,7 @@ class _MobilePhoneLoginScreenState extends State<MobilePhoneLoginScreen> {
                             ),
                           )
                         : Text(
-                            'Verify & Sign In',
+                            l.publicPhoneVerify,
                             style: GoogleFonts.inter(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
@@ -574,7 +612,7 @@ class _MobilePhoneLoginScreenState extends State<MobilePhoneLoginScreen> {
                           });
                         },
                   child: Text(
-                    'Change Phone Number',
+                    l.publicPhoneChangeNumber,
                     style: GoogleFonts.inter(
                       color: const Color(0xff6B7280),
                     ),
@@ -587,4 +625,72 @@ class _MobilePhoneLoginScreenState extends State<MobilePhoneLoginScreen> {
       ),
     );
   }
+}
+
+String _countryName(_CountryCode country, AppLocalizations l) {
+  switch (country.name) {
+    case 'United States':
+      return l.countryUnitedStates;
+    case 'Canada':
+      return l.countryCanada;
+    case 'United Kingdom':
+      return l.countryUnitedKingdom;
+    case 'France':
+      return l.countryFrance;
+    case 'Senegal':
+      return l.countrySenegal;
+    case 'Guinea':
+      return l.countryGuinea;
+    case 'Mali':
+      return l.countryMali;
+    case "Côte d'Ivoire":
+      return l.countryIvoryCoast;
+    case 'Gambia':
+      return l.countryGambia;
+    case 'Mauritania':
+      return l.countryMauritania;
+    case 'Burkina Faso':
+      return l.countryBurkinaFaso;
+    case 'Niger':
+      return l.countryNiger;
+    case 'Nigeria':
+      return l.countryNigeria;
+    case 'Ghana':
+      return l.countryGhana;
+    case 'Cameroon':
+      return l.countryCameroon;
+    case 'Chad':
+      return l.countryChad;
+    case 'Morocco':
+      return l.countryMorocco;
+    case 'Algeria':
+      return l.countryAlgeria;
+    case 'Tunisia':
+      return l.countryTunisia;
+    case 'Egypt':
+      return l.countryEgypt;
+    case 'Saudi Arabia':
+      return l.countrySaudiArabia;
+    case 'UAE':
+      return l.countryUae;
+    case 'Qatar':
+      return l.countryQatar;
+    case 'Kuwait':
+      return l.countryKuwait;
+    case 'Turkey':
+      return l.countryTurkey;
+    case 'Germany':
+      return l.countryGermany;
+    case 'Italy':
+      return l.countryItaly;
+    case 'Spain':
+      return l.countrySpain;
+    case 'Belgium':
+      return l.countryBelgium;
+    case 'Netherlands':
+      return l.countryNetherlands;
+    case 'Switzerland':
+      return l.countrySwitzerland;
+  }
+  return country.name;
 }
