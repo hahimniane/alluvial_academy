@@ -1,0 +1,87 @@
+name: Zoom Hub On-Call Responder
+
+# Watches the live Zoom classroom hubs and, when something is wrong, diagnoses
+# it and applies a recovery action from a fixed allow-list. It never changes
+# code and never deploys. Anything it is not allowed to fix is pushed to the
+# admins' phones with a plain-English explanation.
+#
+# Runs on GitHub's machines rather than a laptop so it is awake at 3am, which
+# is when the outage it was built for happened.
+
+on:
+  schedule:
+    # Every 10 minutes. The in-product watchdog handles the fast paths within
+    # 2 minutes; this is the layer that thinks about what the watchdog could
+    # not fix on its own.
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Decide but change nothing'
+        type: boolean
+        default: true
+  repository_dispatch:
+    # Lets a Cloud Function wake this immediately instead of waiting for the
+    # schedule. Send: {"event_type":"zoom_hub_alert"}
+    types: [zoom_hub_alert]
+
+concurrency:
+  # Two responders acting on the same hub at once is exactly the ghost-host
+  # situation that corrupts a meeting. Never run two.
+  group: zoom-hub-oncall
+  cancel-in-progress: false
+
+jobs:
+  respond:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SSH_KEY_FILE: ${{ runner.temp }}/zoom_bot_key
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install responder dependencies
+        working-directory: scripts/oncall
+        run: npm install --no-audit --no-fund
+
+      - name: Verify the guardrails still hold
+        # If the allow-list or its guardrails are broken, the responder does
+        # not run at all. A responder with no working brakes is worse than none.
+        working-directory: scripts/oncall
+        run: npm test
+
+      - name: Prepare bot VPS key
+        env:
+          ZOOM_BOT_SSH_KEY: ${{ secrets.ZOOM_BOT_SSH_KEY }}
+        run: |
+          if [ -n "$ZOOM_BOT_SSH_KEY" ]; then
+            printf '%s\n' "$ZOOM_BOT_SSH_KEY" > "$SSH_KEY_FILE"
+            chmod 600 "$SSH_KEY_FILE"
+            echo "Bot VPS key installed; lane restarts are available."
+          else
+            echo "No ZOOM_BOT_SSH_KEY set: lane restarts will be reported instead of applied."
+          fi
+
+      - name: Respond
+        working-directory: scripts/oncall
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_ALLUWAL }}
+          # Both optional. With neither set the responder reads the existing
+          # GEMINI_API_KEY out of Secret Manager with the same service account,
+          # so no AI key has to be copied into GitHub at all.
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          ZOOM_BOT_VPS_HOST: ${{ secrets.ZOOM_BOT_VPS_HOST }}
+          ZOOM_BOT_VPS_USER: ${{ secrets.ZOOM_BOT_VPS_USER }}
+          ZOOM_BOT_SSH_KEY_PATH: ${{ runner.temp }}/zoom_bot_key
+          DRY_RUN_INPUT: ${{ inputs.dry_run }}
+        run: |
+          if [ "$DRY_RUN_INPUT" = "true" ]; then
+            node respond.mjs --dry-run
+          else
+            node respond.mjs
+          fi

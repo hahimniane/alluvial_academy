@@ -1,0 +1,16 @@
+{
+  "name": "alluwal-oncall-responder",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Zoom hub on-call responder: diagnoses hub faults and applies whitelisted recovery actions.",
+  "scripts": {
+    "test": "node --test __tests__/*.test.mjs",
+    "respond": "node respond.mjs",
+    "dry-run": "node respond.mjs --dry-run"
+  },
+  "dependencies": {
+    "firebase-admin": "^13.0.0",
+    "google-auth-library": "^11.0.2"
+  }
+}
