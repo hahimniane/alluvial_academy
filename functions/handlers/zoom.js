@@ -35,6 +35,12 @@ const ZOOM_HOST_CONFLICT_LOOKBACK_MS = 24 * 60 * 60 * 1000;
 const ZOOM_HUB_WINDOW_PADDING_MS = 15 * 60 * 1000;
 const ZOOM_HUB_PREP_LOOKAHEAD_MS = 60 * 60 * 1000;
 const ZOOM_HUB_BOT_STALE_MS = 2 * 60 * 1000;
+// How long a bot may stay silent before we stop believing it is serving its
+// rooms. Long enough to ride out a restart (stop -> 150s ghost wait -> start),
+// short enough that a dead lane is routed around within one class slot.
+const ZOOM_HUB_BOT_DEAD_MS = 6 * 60 * 1000;
+// Never re-ask a bot to rejoin before it has had time to reload.
+const ZOOM_HUB_FORCE_REJOIN_THROTTLE_MS = 3 * 60 * 1000;
 const ZOOM_HUB_STATUS_LOOKBACK_MS = 24 * 60 * 60 * 1000;
 const ZOOM_HUB_STATUS_LOOKAHEAD_MS = 2 * 60 * 60 * 1000;
 const ZOOM_HUB_CAPACITY_FORECAST_DAYS = 90;
@@ -1877,6 +1883,32 @@ const _hubWindowForShiftDocs = (shiftDocs) => {
   return { windowStart, windowEnd, duration };
 };
 
+const _hubAssignedClassFields = (shiftDocs) => {
+  const starts = [];
+  const ends = [];
+  for (const doc of Array.isArray(shiftDocs) ? shiftDocs : []) {
+    const data = doc && (doc.data ? doc.data() || {} : doc.data || {});
+    const start = _toDate(data.shift_start || data.shiftStart);
+    const end = _toDate(data.shift_end || data.shiftEnd);
+    if (start) starts.push(start);
+    if (end) ends.push(end);
+  }
+  const fields = {};
+  if (starts.length) {
+    const assignedClassStart = starts.reduce((earliest, start) =>
+      (start.getTime() < earliest.getTime() ? start : earliest));
+    fields.assigned_class_start = admin.firestore.Timestamp.fromDate(assignedClassStart);
+    fields.assignedClassStart = fields.assigned_class_start;
+  }
+  if (ends.length) {
+    const assignedClassEnd = ends.reduce((latest, end) =>
+      (end.getTime() > latest.getTime() ? end : latest));
+    fields.assigned_class_end = admin.firestore.Timestamp.fromDate(assignedClassEnd);
+    fields.assignedClassEnd = fields.assigned_class_end;
+  }
+  return fields;
+};
+
 const _hubWindowExceedsSafeZoomLifetime = (windowInfo) =>
   Number(windowInfo?.duration || 0) > ZOOM_HUB_SAFE_MAX_MEETING_MINUTES;
 
@@ -1927,6 +1959,60 @@ const _hubHeartbeatFresh = (hubData = {}, now = new Date()) => {
   const heartbeat = _toDate(hubData.heartbeat_at || hubData.heartbeatAt);
   return Boolean(heartbeat &&
     heartbeat.getTime() + ZOOM_HUB_BOT_STALE_MS >= now.getTime());
+};
+
+/**
+ * True once the watcher has given up on a hub's bot. Deliberately keyed on the
+ * flag the watcher sets after ZOOM_HUB_BOT_DEAD_MS rather than on raw
+ * staleness, so a bot restart (or one missed beat) never stampedes every class
+ * onto the other lane.
+ */
+const _hubBotUnavailable = (hubData = {}) =>
+  hubData.bot_unavailable === true || hubData.botUnavailable === true;
+
+const _hubIsLiveForJoin = (hubData = {}, now = new Date()) =>
+  String(hubData.status || hubData.bot_status || '').trim() === 'roomsOpen' &&
+  _hubHeartbeatFresh(hubData, now);
+
+const _hubSameLane = (first = {}, second = {}) => {
+  const firstLane = Number(first.lane);
+  const secondLane = Number(second.lane);
+  if (Number.isInteger(firstLane) && firstLane > 0 && firstLane === secondLane) {
+    return true;
+  }
+  const firstIndex = Number(first.laneIndex ?? first.lane_index);
+  const secondIndex = Number(second.laneIndex ?? second.lane_index);
+  if (Number.isInteger(firstIndex) && Number.isInteger(secondIndex) &&
+    firstIndex === secondIndex) {
+    return true;
+  }
+  const firstHost = String(first.hostAccount || first.host_account || '')
+    .trim()
+    .toLowerCase();
+  const secondHost = String(second.hostAccount || second.host_account || '')
+    .trim()
+    .toLowerCase();
+  return Boolean(firstHost && firstHost === secondHost);
+};
+
+const _hubHasAcceptableRoomForShift = (hubData = {}, shiftId = '') => {
+  const normalizedShiftId = String(shiftId || '').trim();
+  if (!normalizedShiftId) return false;
+  const rooms = _withSpareRooms(Array.isArray(hubData.rooms) ? hubData.rooms : []);
+  if (rooms.some((room) =>
+    String(room?.shiftId || room?.shift_id || '').trim() === normalizedShiftId)) {
+    return true;
+  }
+  const spares = hubData.spares && typeof hubData.spares === 'object' ? hubData.spares : {};
+  return _spareRoomNames().some((name, index) => {
+    const room = rooms.find((item) =>
+      String(item?.name || '').trim().toLowerCase() === name.toLowerCase());
+    const recordedShiftId = String(spares[name] || '').trim();
+    const roomShiftId = String(room?.shiftId || room?.shift_id || '').trim();
+    const placeholderShiftId = `__spare_${index + 1}`;
+    return (!recordedShiftId || recordedShiftId === normalizedShiftId) &&
+      (!roomShiftId || roomShiftId === placeholderShiftId || roomShiftId === normalizedShiftId);
+  });
 };
 
 const _hubActiveAt = (hubData = {}, now = new Date()) => {
@@ -1989,6 +2075,54 @@ const _buildHubRoomsForBlock = async ({ meta, targetShiftId, targetShiftData, hu
     const targetRoom = rooms.find((room) => room.shiftId === targetShiftId) || null;
     if (targetShiftId && targetShiftData && !targetRoom) {
       const spares = hubData?.spares && typeof hubData.spares === 'object' ? hubData.spares : {};
+      const liveByShift = hubData?.live_participants_by_shift ||
+        hubData?.liveParticipantsByShift || {};
+      const nowMs = Date.now();
+      // Once a hub's rooms are open the bot has physically created them in
+      // Zoom, so a late-added class can only take a spare — and a rolling
+      // segment gets 5 spares for its whole 20-hour life. Without recycling,
+      // late classes are refused with "hub is full" while spares sit on classes
+      // that finished hours ago (2026-08-31: four classes turned away that
+      // way). A spare whose class is over is dead capacity, so reclaim it.
+      const spareHolders = new Set();
+      for (const [name, holder] of Object.entries(spares)) {
+        const id = String(holder || '').trim();
+        if (id) spareHolders.add(id);
+        const room = rooms.find((item) =>
+          String(item?.name || '').trim().toLowerCase() === String(name).trim().toLowerCase());
+        const roomId = String(room?.shiftId || room?.shift_id || '').trim();
+        if (roomId && !roomId.startsWith('__spare_')) spareHolders.add(roomId);
+      }
+      const finishedSpareShiftIds = new Set();
+      for (const holderId of spareHolders) {
+        if (holderId === targetShiftId) continue;
+        const occupants = liveByShift[holderId];
+        // Somebody is still in that room — it is in use whatever the clock says.
+        if (Array.isArray(occupants) && occupants.length > 0) continue;
+        let data = byShiftId.get(holderId) || null;
+        if (!data) {
+          // The class is outside this block's query (that is exactly the case
+          // that matters: it ran hours ago). Read it rather than give up.
+          try {
+            const snap = await admin.firestore()
+              .collection('teaching_shifts').doc(holderId).get();
+            // Only ever reclaim a room we can positively prove is finished. A
+            // missing or unreadable class is left alone: leaking one spare
+            // costs capacity, stealing a live room ejects a class mid-lesson.
+            if (!snap.exists) continue;
+            data = snap.data() || null;
+          } catch (err) {
+            // Could not prove it is finished, so leave the room alone.
+            continue;
+          }
+        }
+        const end = data ? _toDate(data.shift_end || data.shiftEnd) : null;
+        if (end && end.getTime() + ZOOM_HUB_WINDOW_PADDING_MS < nowMs) {
+          finishedSpareShiftIds.add(holderId);
+        }
+      }
+      const spareClassIsFinished = (shiftId) =>
+        Boolean(shiftId) && finishedSpareShiftIds.has(shiftId);
       const spareName = _spareRoomNames().find((name, index) => {
         const room = rooms.find((item) =>
           String(item?.name || '').trim().toLowerCase() === name.toLowerCase());
@@ -1996,8 +2130,10 @@ const _buildHubRoomsForBlock = async ({ meta, targetShiftId, targetShiftData, hu
         const recordedShiftId = String(spares[name] || '').trim();
         const roomShiftId = String(room.shiftId || room.shift_id || '').trim();
         const placeholderShiftId = `__spare_${index + 1}`;
-        const roomIsFree = !roomShiftId || roomShiftId === placeholderShiftId || roomShiftId === targetShiftId;
-        const spareIsFree = !recordedShiftId || recordedShiftId === targetShiftId;
+        const roomIsFree = !roomShiftId || roomShiftId === placeholderShiftId ||
+          roomShiftId === targetShiftId || spareClassIsFinished(roomShiftId);
+        const spareIsFree = !recordedShiftId || recordedShiftId === targetShiftId ||
+          spareClassIsFinished(recordedShiftId);
         return roomIsFree && spareIsFree;
       });
       if (spareName) {
@@ -2151,21 +2287,37 @@ const _sanitizeGuardrailAttemptPayload = (rawData = {}) => {
 
 const _collectZoomAdminNotificationTargets = async () => {
   const db = admin.firestore();
-  const snapshot = await db
-    .collection('users')
-    .where('role', '==', 'admin')
-    .get();
+  // Admins are identified by `user_type` in this database; only one of the 12
+  // admin accounts also carries a `role` field, so querying `role` alone found
+  // almost nobody.
+  const [byRole, byUserType] = await Promise.all([
+    db.collection('users').where('role', '==', 'admin').get(),
+    db.collection('users').where('user_type', '==', 'admin').get(),
+  ]);
   const emails = [];
   const tokens = [];
+  const seenDocIds = new Set();
 
   const addTarget = (data = {}) => {
     const email = String(data.email || data['e-mail'] || '').trim();
     if (email) emails.push(email);
-    const fcmToken = String(data.fcmToken || data.fcm_token || '').trim();
-    if (fcmToken) tokens.push(fcmToken);
+    // The app stores device tokens as `fcmTokens: [{token, platform, ...}]`.
+    // Reading only the legacy scalar field meant this alert had ZERO push
+    // targets, so with the mailbox disabled it reached nobody at all.
+    const tokenArray = Array.isArray(data.fcmTokens) ? data.fcmTokens : [];
+    for (const entry of tokenArray) {
+      const value = String(entry?.token || '').trim();
+      if (value) tokens.push(value);
+    }
+    const legacyToken = String(data.fcmToken || data.fcm_token || '').trim();
+    if (legacyToken) tokens.push(legacyToken);
   };
 
-  for (const doc of snapshot.docs) addTarget(doc.data() || {});
+  for (const doc of [...byRole.docs, ...byUserType.docs]) {
+    if (seenDocIds.has(doc.id)) continue;
+    seenDocIds.add(doc.id);
+    addTarget(doc.data() || {});
+  }
 
   try {
     const allUsersSnapshot = await db.collection('users').get();
@@ -2220,11 +2372,19 @@ const _sendZoomHubAdminAlert = async ({
 
   if (existing.notification_sent_at) return;
 
+  // Each channel is sent independently. They used to share one try block with
+  // email first, so when the sending mailbox was disabled in hPanel
+  // (554 5.7.1) the thrown error skipped the push send entirely — one dead
+  // channel silently took the other down with it, and a 2h38m Zoom outage on
+  // 2026-08-30 reached nobody at all.
+  const deliveries = [];
+  const failures = [];
   try {
     const targets = await _collectZoomAdminNotificationTargets();
     if (targets.emails.length > 0) {
-      const transporter = createTransporter();
-      await transporter.sendMail({
+      try {
+        const transporter = createTransporter();
+        await transporter.sendMail({
         from: 'Alluwal Education Hub <support@alluwaleducationhub.org>',
         to: targets.emails.join(', '),
         subject: title,
@@ -2237,24 +2397,50 @@ const _sendZoomHubAdminAlert = async ({
             </ul>
           </div>
         `,
-      });
+        });
+        deliveries.push('email');
+      } catch (err) {
+        failures.push(`email: ${err.message || err}`);
+        console.error('[ZoomHub] Admin alert email failed:', err.message || err);
+      }
     }
     if (targets.tokens.length > 0 && admin.messaging) {
-      await admin.messaging().sendEachForMulticast({
-        notification: { title, body },
-        data: Object.fromEntries(
-          Object.entries({
-            type: 'zoom_hub_alert',
-            reason,
-            ...data,
-          }).map(([key, value]) => [key, String(value ?? '')]),
-        ),
-        tokens: targets.tokens,
-      });
+      try {
+        await admin.messaging().sendEachForMulticast({
+          notification: { title, body },
+          data: Object.fromEntries(
+            Object.entries({
+              type: 'zoom_hub_alert',
+              reason,
+              ...data,
+            }).map(([key, value]) => [key, String(value ?? '')]),
+          ),
+          tokens: targets.tokens,
+        });
+        deliveries.push('push');
+      } catch (err) {
+        failures.push(`push: ${err.message || err}`);
+        console.error('[ZoomHub] Admin alert push failed:', err.message || err);
+      }
     }
-    await alertRef.set({
-      notification_sent_at: admin.firestore.FieldValue.serverTimestamp(),
-    }, { merge: true });
+    // Only count the alert as delivered when a channel actually carried it,
+    // so a alert that reached nobody is retried instead of marked done.
+    if (deliveries.length > 0) {
+      await alertRef.set({
+        notification_sent_at: admin.firestore.FieldValue.serverTimestamp(),
+        notification_channels: deliveries,
+        notification_error: failures.length > 0 ? failures.join('; ') : null,
+      }, { merge: true });
+    } else {
+      await alertRef.set({
+        notification_error: failures.length > 0
+          ? failures.join('; ')
+          : 'no admin email or device token to notify',
+      }, { merge: true });
+      console.error(
+        `[ZoomHub] Alert "${title}" reached NOBODY: ${failures.join('; ') || 'no targets'}`,
+      );
+    }
   } catch (err) {
     console.error('[ZoomHub] Failed to send admin alert:', err);
     await alertRef.set({
@@ -2612,6 +2798,14 @@ const _zoomHubOverflowAlertData = ({ shiftId, shiftData, reason, meta }) => ({
   dayKey: meta?.dayKey || '',
 });
 
+const _isReservedZoomHubHost = (email) => {
+  const normalized = String(email || '').trim().toLowerCase();
+  if (!normalized) return false;
+  return _zoomClassroomHostAccounts().some(
+    (host) => String(host || '').trim().toLowerCase() === normalized,
+  );
+};
+
 const _fallBackToSingleZoomMeeting = async ({
   shiftRef,
   shiftData,
@@ -2629,7 +2823,7 @@ const _fallBackToSingleZoomMeeting = async ({
     body: `${_deriveShiftDisplayName(shiftData)} could not fit in the Zoom hub and was moved to single Zoom mode.`,
     data: _zoomHubOverflowAlertData({ shiftId, shiftData, reason, meta }),
   });
-  if (!hostAccount) {
+  if (!hostAccount || _isReservedZoomHubHost(hostAccount)) {
     throw new HttpsError(
       'resource-exhausted',
       'This Zoom hub is full and this teacher has no single Zoom host account configured.',
@@ -2660,6 +2854,51 @@ const _fallBackToSingleZoomMeeting = async ({
   };
 };
 
+const _hubWindowExtensionForShift = (hubData = {}, shiftData = {}) => {
+  const shiftStart = _toDate(shiftData.shift_start || shiftData.shiftStart);
+  const shiftEnd = _toDate(shiftData.shift_end || shiftData.shiftEnd);
+  const updates = {};
+  if (shiftEnd) {
+    const neededEnd = new Date(shiftEnd.getTime() + ZOOM_HUB_WINDOW_PADDING_MS);
+    const currentEnd = _toDate(hubData.window_end || hubData.windowEnd);
+    if (!currentEnd || neededEnd.getTime() > currentEnd.getTime()) {
+      updates.window_end = admin.firestore.Timestamp.fromDate(neededEnd);
+      updates.windowEnd = updates.window_end;
+    }
+    const currentAssignedEnd = _toDate(
+      hubData.assigned_class_end || hubData.assignedClassEnd,
+    );
+    if (!currentAssignedEnd || shiftEnd.getTime() > currentAssignedEnd.getTime()) {
+      updates.assigned_class_end = admin.firestore.Timestamp.fromDate(shiftEnd);
+      updates.assignedClassEnd = updates.assigned_class_end;
+    }
+  }
+  if (shiftStart) {
+    const currentAssignedStart = _toDate(
+      hubData.assigned_class_start || hubData.assignedClassStart,
+    );
+    if (!currentAssignedStart ||
+      shiftStart.getTime() < currentAssignedStart.getTime()) {
+      updates.assigned_class_start = admin.firestore.Timestamp.fromDate(shiftStart);
+      updates.assignedClassStart = updates.assigned_class_start;
+    }
+  }
+  return updates;
+};
+
+const _hubExtendedWindowExceedsSafeLifetime = (hubData = {}, shiftData = {}) => {
+  if (_hubWindowCoversShift(hubData, shiftData)) return false;
+  const windowStart = _toDate(hubData.window_start || hubData.windowStart);
+  const updates = _hubWindowExtensionForShift(hubData, shiftData);
+  const windowEnd = _toDate(updates.window_end || hubData.window_end || hubData.windowEnd);
+  if (!windowStart || !windowEnd) return false;
+  const duration = Math.max(
+    1,
+    Math.ceil((windowEnd.getTime() - windowStart.getTime()) / 60000),
+  );
+  return _hubWindowExceedsSafeZoomLifetime({ duration });
+};
+
 const _assignShiftToOpenHubSpare = async ({
   hubRef,
   shiftRef,
@@ -2667,6 +2906,7 @@ const _assignShiftToOpenHubSpare = async ({
   shiftId,
   fallbackRouting,
   staleHubMeetingId,
+  extendWindow = false,
 }) => {
   let handoff = null;
   await admin.firestore().runTransaction(async (tx) => {
@@ -2676,8 +2916,11 @@ const _assignShiftToOpenHubSpare = async ({
     const now = new Date();
     if (_hubStatusValue(hubData) !== 'roomsOpen') return;
     if (!_hubHeartbeatFresh(hubData, now)) return;
-    if (!_hubActiveAt(hubData, now)) return;
-    if (!_hubWindowCoversShift(hubData, shiftData)) return;
+    if (!extendWindow) {
+      if (!_hubActiveAt(hubData, now)) return;
+      if (!_hubWindowCoversShift(hubData, shiftData)) return;
+    }
+    if (_hubExtendedWindowExceedsSafeLifetime(hubData, shiftData)) return;
 
     const meetingId = _hubMeetingNumber(hubData);
     const hostAccount = String(hubData.hostAccount || hubData.host_account || '').trim();
@@ -2713,11 +2956,17 @@ const _assignShiftToOpenHubSpare = async ({
     }
     if (!targetRoom || !assignedSpareName) return;
 
-    nextSpares[assignedSpareName] = shiftId;
+    if (_spareRoomNames().includes(assignedSpareName)) {
+      nextSpares[assignedSpareName] = shiftId;
+    }
+    const windowUpdates = (extendWindow || !_hubWindowCoversShift(hubData, shiftData))
+      ? _hubWindowExtensionForShift(hubData, shiftData)
+      : {};
     tx.set(hubRef, {
       rooms,
       room_count: rooms.length,
       spares: nextSpares,
+      ...windowUpdates,
       updated_at: admin.firestore.FieldValue.serverTimestamp(),
     }, { merge: true });
     tx.set(shiftRef, {
@@ -2738,7 +2987,9 @@ const _assignShiftToOpenHubSpare = async ({
       zoom_updated_at: admin.firestore.FieldValue.serverTimestamp(),
     }, { merge: true });
 
-    const windowEnd = _toDate(hubData.window_end || hubData.windowEnd);
+    const windowEnd = _toDate(
+      windowUpdates.window_end || hubData.window_end || hubData.windowEnd,
+    );
     handoff = {
       meeting: {
         id: meetingId,
@@ -2769,6 +3020,16 @@ const _assignShiftToOpenHubSpare = async ({
   return handoff;
 };
 
+const _findLiveSameLaneHubs = async ({ laneHint = {}, excludeHubId = '' }) => {
+  const snapshot = await admin.firestore().collection('hub_meetings').get();
+  const now = new Date();
+  return snapshot.docs
+    .filter((doc) => doc.id !== excludeHubId)
+    .map((doc) => ({ doc, data: doc.data() || {} }))
+    .filter(({ data }) => _hubIsLiveForJoin(data, now))
+    .filter(({ data }) => _hubSameLane(data, laneHint));
+};
+
 const _handoffStaleHubRouting = async ({
   routing,
   shiftRef,
@@ -2781,31 +3042,31 @@ const _handoffStaleHubRouting = async ({
   const candidates = snapshot.docs
     .filter((doc) => doc.id !== routing.hubMeetingId)
     .map((doc) => ({ doc, data: doc.data() || {} }))
-    .filter(({ data }) => _hubStatusValue(data) === 'roomsOpen')
-    .filter(({ data }) => _hubHeartbeatFresh(data, now))
-    .filter(({ data }) => _hubActiveAt(data, now))
-    .filter(({ data }) => _hubWindowCoversShift(data, shiftData))
-    .filter(({ data }) => _withSpareRooms(Array.isArray(data.rooms) ? data.rooms : [])
-      .some((room) => {
-        const name = String(room?.name || '').trim();
-        const spareIndex = _spareRoomNames().indexOf(name);
-        if (spareIndex === -1) return false;
-        const spares = data.spares && typeof data.spares === 'object' ? data.spares : {};
-        const recordedShiftId = String(spares[name] || '').trim();
-        const roomShiftId = String(room?.shiftId || room?.shift_id || '').trim();
-        return (!recordedShiftId || recordedShiftId === shiftId) &&
-          (!roomShiftId || roomShiftId === `__spare_${spareIndex + 1}` || roomShiftId === shiftId);
-      }))
+    .filter(({ data }) => _hubIsLiveForJoin(data, now))
+    .map((item) => ({
+      ...item,
+      sameLane: _hubSameLane(item.data, staleHubData),
+      covers: _hubWindowCoversShift(item.data, shiftData),
+      active: _hubActiveAt(item.data, now),
+    }))
+    .filter(({ data, sameLane, covers, active }) => {
+      if (sameLane) return _hubHasAcceptableRoomForShift(data, shiftId);
+      // Cross-lane is only for recovering a hub that already existed and died.
+      // A brand-new lane must still get its own meeting if its host is free.
+      const staleHadMeeting = Boolean(_hubMeetingNumber(staleHubData));
+      return staleHadMeeting &&
+        active &&
+        covers &&
+        _hubHasAcceptableRoomForShift(data, shiftId);
+    })
     .sort((first, second) => {
-      const firstSameLane = Number(first.data.lane) === Number(staleHubData.lane);
-      const secondSameLane = Number(second.data.lane) === Number(staleHubData.lane);
-      if (firstSameLane !== secondSameLane) return firstSameLane ? -1 : 1;
+      if (first.sameLane !== second.sameLane) return first.sameLane ? -1 : 1;
       const firstEnd = _toDate(first.data.window_end || first.data.windowEnd)?.getTime() || 0;
       const secondEnd = _toDate(second.data.window_end || second.data.windowEnd)?.getTime() || 0;
       return secondEnd - firstEnd;
     });
 
-  for (const { doc } of candidates) {
+  for (const { doc, sameLane } of candidates) {
     const handoff = await _assignShiftToOpenHubSpare({
       hubRef: doc.ref,
       shiftRef,
@@ -2813,10 +3074,125 @@ const _handoffStaleHubRouting = async ({
       shiftId,
       fallbackRouting: routing,
       staleHubMeetingId: routing.hubMeetingId,
+      extendWindow: sameLane,
     });
     if (handoff) return handoff;
   }
   return null;
+};
+
+const _adoptLiveSameLaneHub = async ({
+  routing,
+  shiftRef,
+  shiftData,
+  shiftId,
+  laneHint,
+}) => {
+  const peers = await _findLiveSameLaneHubs({
+    laneHint,
+    excludeHubId: routing.hubMeetingId,
+  });
+  for (const { doc } of peers) {
+    const handoff = await _assignShiftToOpenHubSpare({
+      hubRef: doc.ref,
+      shiftRef,
+      shiftData,
+      shiftId,
+      fallbackRouting: routing,
+      staleHubMeetingId: routing.hubMeetingId,
+      extendWindow: true,
+    });
+    if (handoff) return handoff;
+  }
+  return null;
+};
+
+const _spillZoomHubToAlternateLane = async ({
+  shiftRef,
+  shiftData,
+  shiftId,
+  meta,
+}) => {
+  const hostAccounts = _zoomClassroomHostAccounts();
+  if (hostAccounts.length <= 1) return null;
+  const alternateLaneIndexes = hostAccounts
+    .map((_, index) => index)
+    .filter((index) => index !== meta.laneIndex);
+  for (const alternateLaneIndex of alternateLaneIndexes) {
+    try {
+      const spilled = await ensureZoomHubMeeting({
+        shiftRef,
+        shiftData: {
+          ...shiftData,
+          zoom_hub_lane_index: alternateLaneIndex,
+          zoomHubLaneIndex: alternateLaneIndex,
+        },
+        shiftId,
+        forcedLaneIndex: alternateLaneIndex,
+        allowOverflowSpill: false,
+      });
+      if (spilled.routingMode !== 'hub') return spilled;
+      await shiftRef.set({
+        zoom_hub_lane_index: alternateLaneIndex,
+        zoomHubLaneIndex: alternateLaneIndex,
+        zoom_hub_overflow_from_lane: meta.laneIndex,
+        zoom_hub_overflow_at: admin.firestore.FieldValue.serverTimestamp(),
+      }, { merge: true });
+      await _sendZoomHubAdminAlert({
+        alertId: `${shiftId}_spilled_to_lane_${alternateLaneIndex + 1}`,
+        reason: 'spilled_to_other_lane',
+        title: 'Zoom hub class moved to another lane',
+        body: `${_deriveShiftDisplayName(shiftData)} overflowed lane ${meta.lane} and was routed to lane ${alternateLaneIndex + 1}.`,
+        severity: 'warning',
+        data: {
+          ..._zoomHubOverflowAlertData({
+            shiftId,
+            shiftData,
+            reason: 'spilled_to_other_lane',
+            meta,
+          }),
+          targetLane: alternateLaneIndex + 1,
+        },
+      });
+      return spilled;
+    } catch (err) {
+      if (err instanceof HttpsError &&
+        err.code !== 'resource-exhausted' &&
+        err.code !== 'unavailable') {
+        throw err;
+      }
+      if (!(err instanceof HttpsError)) {
+        console.warn('[ZoomHub] Alternate lane spill failed:', err);
+      }
+    }
+  }
+  return null;
+};
+
+const _routeWhenSameLaneHostBusy = async ({
+  shiftRef,
+  shiftData,
+  shiftId,
+  meta,
+  allowOverflowSpill,
+}) => {
+  if (allowOverflowSpill) {
+    const spilled = await _spillZoomHubToAlternateLane({
+      shiftRef,
+      shiftData,
+      shiftId,
+      meta,
+    });
+    if (spilled) return spilled;
+  }
+  return _fallBackToSingleZoomMeeting({
+    shiftRef,
+    shiftData,
+    shiftId,
+    meetingId: String(shiftData.zoom_meeting_id || shiftData.zoomMeetingId || '').trim(),
+    reason: 'live_hub_cannot_accept_class',
+    meta,
+  });
 };
 
 const ensureZoomHubMeeting = async ({
@@ -2832,6 +3208,19 @@ const ensureZoomHubMeeting = async ({
 
   let hubDoc = await hubRef.get();
   let hubData = hubDoc.exists ? hubDoc.data() || {} : {};
+  // A hub whose bot has been declared dead still lists every one of its rooms,
+  // so without this the router keeps filling a dark lane and the class only
+  // discovers the problem when someone fails to join. Send it to a lane that is
+  // actually being served instead.
+  if (allowOverflowSpill && _hubBotUnavailable(hubData)) {
+    const spilled = await _spillZoomHubToAlternateLane({
+      shiftRef,
+      shiftData,
+      shiftId,
+      meta,
+    });
+    if (spilled) return spilled;
+  }
   const roomPlan = await _buildHubRoomsForBlock({
     meta,
     targetShiftId: shiftId,
@@ -2839,53 +3228,14 @@ const ensureZoomHubMeeting = async ({
     hubData,
   });
   if (!roomPlan.targetRoom) {
-    const hostAccounts = _zoomClassroomHostAccounts();
-    if (allowOverflowSpill && hostAccounts.length > 1) {
-      const alternateLaneIndexes = hostAccounts
-        .map((_, index) => index)
-        .filter((index) => index !== meta.laneIndex);
-      for (const alternateLaneIndex of alternateLaneIndexes) {
-        try {
-          const spilled = await ensureZoomHubMeeting({
-            shiftRef,
-            shiftData: {
-              ...shiftData,
-              zoom_hub_lane_index: alternateLaneIndex,
-              zoomHubLaneIndex: alternateLaneIndex,
-            },
-            shiftId,
-            forcedLaneIndex: alternateLaneIndex,
-            allowOverflowSpill: false,
-          });
-          if (spilled.routingMode !== 'hub') return spilled;
-          await shiftRef.set({
-            zoom_hub_lane_index: alternateLaneIndex,
-            zoomHubLaneIndex: alternateLaneIndex,
-            zoom_hub_overflow_from_lane: meta.laneIndex,
-            zoom_hub_overflow_at: admin.firestore.FieldValue.serverTimestamp(),
-          }, { merge: true });
-          await _sendZoomHubAdminAlert({
-            alertId: `${shiftId}_spilled_to_lane_${alternateLaneIndex + 1}`,
-            reason: 'spilled_to_other_lane',
-            title: 'Zoom hub class moved to another lane',
-            body: `${_deriveShiftDisplayName(shiftData)} overflowed lane ${meta.lane} and was routed to lane ${alternateLaneIndex + 1}.`,
-            severity: 'warning',
-            data: {
-              ..._zoomHubOverflowAlertData({
-                shiftId,
-                shiftData,
-                reason: 'spilled_to_other_lane',
-                meta,
-              }),
-              targetLane: alternateLaneIndex + 1,
-            },
-          });
-          return spilled;
-        } catch (err) {
-          if (err instanceof HttpsError && err.code !== 'resource-exhausted') throw err;
-          if (!(err instanceof HttpsError)) console.warn('[ZoomHub] Alternate lane spill failed:', err);
-        }
-      }
+    if (allowOverflowSpill) {
+      const spilled = await _spillZoomHubToAlternateLane({
+        shiftRef,
+        shiftData,
+        shiftId,
+        meta,
+      });
+      if (spilled) return spilled;
     }
     return _fallBackToSingleZoomMeeting({
       shiftRef,
@@ -2902,6 +3252,10 @@ const ensureZoomHubMeeting = async ({
     ...roomPlan.shiftDocs,
     { id: shiftId, data: () => shiftData },
   ]);
+  const assignedClassFields = _hubAssignedClassFields([
+    ...roomPlan.shiftDocs,
+    { id: shiftId, data: () => shiftData },
+  ]);
   if (_hubWindowExceedsSafeZoomLifetime(windowInfo)) {
     return _fallBackToSingleZoomMeeting({
       shiftRef,
@@ -2912,6 +3266,53 @@ const ensureZoomHubMeeting = async ({
       meta,
     });
   }
+  // A Zoom Pro host can run only one meeting. If this class's natural hub is
+  // not the live one on its lane (a reschedule/split created a second hub
+  // doc), adopt the hub the bot is already in instead of provisioning a
+  // meeting the account cannot start.
+  const laneHint = {
+    lane: hubData.lane || meta.lane,
+    laneIndex: Number.isInteger(Number(hubData.laneIndex ?? hubData.lane_index))
+      ? Number(hubData.laneIndex ?? hubData.lane_index)
+      : meta.laneIndex,
+    hostAccount: hubData.hostAccount || hubData.host_account || meta.hostAccount,
+  };
+  const adoptionRouting = {
+    hubMeetingId: meta.hubDocId,
+    classEndsAtIso: windowInfo.windowEnd.toISOString(),
+    meta,
+  };
+  const returnAdoptedHub = async (adopted) => {
+    await _sendZoomHubAdminAlert({
+      alertId: `${meta.hubDocId}_${shiftId}_stale_handoff`,
+      reason: 'stale_hub_handoff',
+      title: 'Zoom class moved to a healthy hub',
+      body: `${_deriveShiftDisplayName(shiftData)} was assigned to ${adopted.hubMeetingId} because ${meta.hubDocId} did not have a live bot.`,
+      severity: 'warning',
+      data: {
+        staleHubDocId: meta.hubDocId,
+        hubDocId: adopted.hubMeetingId,
+        shiftId,
+      },
+    }).catch(() => {});
+    return adopted;
+  };
+  if (!_hubIsLiveForJoin(hubData)) {
+    const adopted = await _handoffStaleHubRouting({
+      routing: adoptionRouting,
+      shiftRef,
+      shiftData,
+      shiftId,
+      staleHubData: { ...hubData, ...laneHint },
+    }) || await _adoptLiveSameLaneHub({
+      routing: adoptionRouting,
+      shiftRef,
+      shiftData,
+      shiftId,
+      laneHint,
+    });
+    if (adopted) return returnAdoptedHub(adopted);
+  }
   let meetingId = String(
     hubData.zoom_meeting_id ||
     hubData.zoomMeetingId ||
@@ -2920,6 +3321,30 @@ const ensureZoomHubMeeting = async ({
     '',
   ).trim();
   let createdMeeting = null;
+
+  if (!meetingId || !_hubIsLiveForJoin(hubData)) {
+    const livePeers = await _findLiveSameLaneHubs({
+      laneHint,
+      excludeHubId: meta.hubDocId,
+    });
+    if (livePeers.length > 0) {
+      const adopted = await _adoptLiveSameLaneHub({
+        routing: adoptionRouting,
+        shiftRef,
+        shiftData,
+        shiftId,
+        laneHint,
+      });
+      if (adopted) return returnAdoptedHub(adopted);
+      return _routeWhenSameLaneHostBusy({
+        shiftRef,
+        shiftData,
+        shiftId,
+        meta,
+        allowOverflowSpill,
+      });
+    }
+  }
 
   if (!meetingId) {
     // Enforce "everyone can share their screen" on the host account BEFORE the
@@ -2975,6 +3400,7 @@ const ensureZoomHubMeeting = async ({
         segment_shift_ids: meta.segmentShiftIds || [],
         window_start: admin.firestore.Timestamp.fromDate(windowInfo.windowStart),
         window_end: admin.firestore.Timestamp.fromDate(windowInfo.windowEnd),
+        ...assignedClassFields,
         laneIndex: meta.laneIndex,
         lane: meta.lane,
         hostAccount: meta.hostAccount,
@@ -3005,6 +3431,7 @@ const ensureZoomHubMeeting = async ({
         segment_shift_ids: meta.segmentShiftIds || [],
         window_start: admin.firestore.Timestamp.fromDate(windowInfo.windowStart),
         window_end: admin.firestore.Timestamp.fromDate(windowInfo.windowEnd),
+        ...assignedClassFields,
         laneIndex: meta.laneIndex,
         lane: meta.lane,
         hostAccount: meta.hostAccount,
@@ -3048,6 +3475,7 @@ const ensureZoomHubMeeting = async ({
     segment_shift_ids: meta.segmentShiftIds || [],
     window_start: admin.firestore.Timestamp.fromDate(windowInfo.windowStart),
     window_end: admin.firestore.Timestamp.fromDate(windowInfo.windowEnd),
+    ...assignedClassFields,
     laneIndex: meta.laneIndex,
     lane: meta.lane,
     hostAccount: meta.hostAccount,
@@ -4057,20 +4485,31 @@ const getZoomJoinInfo = onCall({
     const hubSnap = await admin.firestore()
       .collection('hub_meetings').doc(routing.hubMeetingId).get();
     const hubInfo = hubSnap.exists ? hubSnap.data() || {} : {};
-    if (_hubHeartbeatStaleForJoin(hubInfo)) {
-      const handoffRouting = await _handoffStaleHubRouting({
+    if (!_hubIsLiveForJoin(hubInfo)) {
+      const sameLaneHandoff = await _adoptLiveSameLaneHub({
         routing,
         shiftRef,
         shiftData,
         shiftId,
-        staleHubData: hubInfo,
+        laneHint: hubInfo,
       });
+      const handoffRouting = sameLaneHandoff || (
+        _hubHeartbeatStaleForJoin(hubInfo)
+          ? await _handoffStaleHubRouting({
+            routing,
+            shiftRef,
+            shiftData,
+            shiftId,
+            staleHubData: hubInfo,
+          })
+          : null
+      );
       if (handoffRouting) {
         await _sendZoomHubAdminAlert({
           alertId: `${routing.hubMeetingId}_${shiftId}_stale_handoff`,
           reason: 'stale_hub_handoff',
           title: 'Zoom class moved to a healthy hub',
-          body: `${_deriveShiftDisplayName(shiftData)} was assigned to a spare room in ${handoffRouting.hubMeetingId} because ${routing.hubMeetingId} no longer had a fresh bot heartbeat.`,
+          body: `${_deriveShiftDisplayName(shiftData)} was assigned to a spare room in ${handoffRouting.hubMeetingId} because ${routing.hubMeetingId} no longer had a live bot.`,
           severity: 'warning',
           data: {
             staleHubDocId: routing.hubMeetingId,
@@ -4079,7 +4518,7 @@ const getZoomJoinInfo = onCall({
           },
         }).catch(() => {});
         routing = handoffRouting;
-      } else {
+      } else if (_hubHeartbeatStaleForJoin(hubInfo)) {
         await _sendZoomHubAdminAlert({
           alertId: `${routing.hubMeetingId}_stale_on_join`,
           reason: 'stale_hub_on_join',
@@ -4142,9 +4581,47 @@ const getZoomJoinInfo = onCall({
   const customerKey = routing.routingMode === 'hub'
     ? hubCustomerKey
     : uid;
+
+  // Record attendance the moment an authenticated participant joins. This is
+  // the reliable signal the Zoom webhooks can't give us: the uid and shift are
+  // known for certain here, so there is no participant-matching to fail. The
+  // classroom heartbeats extend this window; the Zoom meeting.ended webhook
+  // closes any that are still open. Best-effort — never block the join on it.
+  // Only the class's own teacher or enrolled students count for attendance;
+  // admins or others opening the room are not recorded.
+  const isClassMember = uid === teacherId ||
+    (Array.isArray(studentIds) && studentIds.includes(uid));
+  if (isClassMember) {
+    try {
+      await _recordClientPresence({
+        shiftDoc: { id: shiftId, data: () => shiftData },
+        userId: uid,
+        event: 'join',
+        at: new Date(),
+      });
+    } catch (presenceError) {
+      console.error(
+        'getZoomJoinInfo: failed to record join presence',
+        presenceError && presenceError.message ? presenceError.message : presenceError,
+      );
+    }
+  }
+
+  // Token the meeting page uses to heartbeat/leave without Firebase. Valid until
+  // an hour past class end so it covers the whole session; only for members.
+  const { sdkSecret } = getZoomConfig();
+  const presenceShiftEnd = _toDate(shiftData.shift_end || shiftData.shiftEnd);
+  const presenceExpMs =
+    (presenceShiftEnd ? presenceShiftEnd.getTime() : Date.now() + 3 * 60 * 60 * 1000) +
+    60 * 60 * 1000;
+  const presenceToken = isClassMember && sdkSecret
+    ? _signPresenceToken({ uid, shiftId, expMs: presenceExpMs, secret: sdkSecret })
+    : '';
+
   return {
     success: true,
     provider: 'zoom',
+    presenceToken,
     meetingNumber,
     password: meeting.password || shiftData.zoom_password || '',
     signature,
@@ -4366,8 +4843,14 @@ const prepareZoomHubs = onSchedule({
     const meta = await _hubMetaForShift({ shiftId: doc.id, shiftData: data });
     if (prepared.has(meta.hubDocId)) continue;
     prepared.add(meta.hubDocId);
-    const preparedRouting = await _prepareZoomHubForShiftDoc(doc);
-    preparedCount += 1;
+    let preparedRouting = null;
+    try {
+      preparedRouting = await _prepareZoomHubForShiftDoc(doc);
+      preparedCount += 1;
+    } catch (err) {
+      console.warn(`[ZoomHub] Failed to prepare ${doc.id}:`, err.message || err);
+      continue;
+    }
     const overflowShiftIds = Array.isArray(preparedRouting?.overflowShiftIds)
       ? preparedRouting.overflowShiftIds
       : [];
@@ -4772,8 +5255,17 @@ const watchZoomHubBots = onSchedule({
           continue;
         }
       }
-      if (Number(data.poison_streak) > 0) {
-        await doc.ref.set({ poison_streak: 0 }, { merge: true });
+      const healthyPatch = {};
+      if (Number(data.poison_streak) > 0) healthyPatch.poison_streak = 0;
+      // The bot is reporting again: let it take classes once more, or every
+      // class would spill to the other lane forever.
+      if (data.bot_unavailable === true) {
+        healthyPatch.bot_unavailable = false;
+        healthyPatch.bot_recovered_at = admin.firestore.FieldValue.serverTimestamp();
+      }
+      if (data.bot_stale_since) healthyPatch.bot_stale_since = null;
+      if (Object.keys(healthyPatch).length > 0) {
+        await doc.ref.set(healthyPatch, { merge: true });
       }
       continue;
     }
@@ -4810,6 +5302,60 @@ const watchZoomHubBots = onSchedule({
       });
       alertCount += 1;
       continue;
+    }
+
+    // A stale heartbeat means the bot stopped reporting. Its process can still
+    // look healthy to systemd while the Zoom socket underneath it is dead, so
+    // nothing on the VPS restarts it: on 2026-08-30 one lane carried 45 rooms
+    // and served nobody for 2h38m while this branch did nothing but write
+    // alerts. Escalate instead — ask the bot to rejoin, then end the meeting so
+    // it comes back on a clean instance, and mark the hub unavailable so new
+    // classes are routed to a lane that actually works.
+    // Only escalate a bot that HAS reported and then went quiet. A hub the bot
+    // has never joined is the assigned-not-joined case handled above; ending
+    // its meeting here would kill a room set that is still being built.
+    if (staleHeartbeat && heartbeat && now.getTime() < windowEnd.getTime()) {
+      const staleSince = _toDate(data.bot_stale_since || data.botStaleSince) || now;
+      const staleMs = now.getTime() - staleSince.getTime();
+      const declaredDead = staleMs >= ZOOM_HUB_BOT_DEAD_MS;
+      const lastForceRejoin = _toDate(data.force_rejoin_at || data.forceRejoinAt);
+      const recentlyForced = Boolean(lastForceRejoin) &&
+        lastForceRejoin.getTime() + ZOOM_HUB_FORCE_REJOIN_THROTTLE_MS > now.getTime();
+
+      const patch = { bot_stale_since: admin.firestore.Timestamp.fromDate(staleSince) };
+      if (declaredDead && data.bot_unavailable !== true) {
+        patch.bot_unavailable = true;
+        patch.bot_unavailable_since = admin.firestore.FieldValue.serverTimestamp();
+      }
+      if (!recentlyForced) {
+        patch.force_rejoin_at = admin.firestore.FieldValue.serverTimestamp();
+      }
+      await doc.ref.set(patch, { merge: true });
+      if (!recentlyForced) {
+        console.warn(
+          `[ZoomHub] Hub ${doc.id} silent for ${Math.round(staleMs / 1000)}s; asked the bot to rejoin.`,
+        );
+      }
+
+      // Rejoining did not bring it back. End the meeting so the bot lands on a
+      // fresh instance — never while somebody is inside a room.
+      if (declaredDead && !recentlyForced && inRoom === 0 && meetingNumber &&
+        typeof zoomClient.endMeeting === 'function') {
+        try {
+          await zoomClient.endMeeting(meetingNumber);
+          await doc.ref.set({
+            bot_dead_reset_at: admin.firestore.FieldValue.serverTimestamp(),
+            last_bot_dead_reset_meeting: meetingNumber,
+          }, { merge: true });
+          console.warn(
+            `[ZoomHub] Ended meeting ${meetingNumber} for unresponsive hub ${doc.id}; bot will rejoin fresh.`,
+          );
+        } catch (err) {
+          console.warn(
+            `[ZoomHub] Failed to reset unresponsive hub ${doc.id}:`, err.message || err,
+          );
+        }
+      }
     }
 
     await _writeZoomHubBotAlert({
@@ -5189,6 +5735,269 @@ const _closeOpenSessionsForMeeting = async ({ shiftDoc, at }) => {
   }
 };
 
+// A heartbeat gap larger than this starts a fresh presence window (the student
+// rejoined) rather than extending the previous one. Sized well above the
+// client's ~45s heartbeat so ordinary jitter never splits a window.
+const CLIENT_PRESENCE_STALE_GAP_MS = 150 * 1000;
+
+/**
+ * Record presence straight from the authenticated client (join / heartbeat /
+ * leave), instead of reconstructing it from Zoom webhooks. The caller's uid and
+ * shiftId are known for certain here, so there is no participant-matching step
+ * to fail — this is what makes attendance reliable. It writes the same
+ * livekit_sessions schema the attendance report already reads, so nothing
+ * downstream changes. Windows are always stored closed (leave_at = last seen),
+ * so a student who closes their laptop without a leave event is credited only
+ * up to their last heartbeat, never to the end of the class.
+ */
+const _recordClientPresence = async ({ shiftDoc, userId, event, at }) => {
+  const db = admin.firestore();
+  const shiftData = shiftDoc.data() || {};
+  const nowDate = at || new Date();
+  const nowTimestamp = admin.firestore.Timestamp.fromDate(nowDate);
+  const shiftStart = _toDate(shiftData.shift_start || shiftData.shiftStart);
+  const shiftEnd = _toDate(shiftData.shift_end || shiftData.shiftEnd);
+  const docRef = db.collection('livekit_sessions').doc(`${shiftDoc.id}_${userId}`);
+  const role = _roleForUserInShift({ userId, shiftData });
+
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(docRef);
+    const existing = snap.exists ? snap.data() || {} : {};
+    const windows = _normalizeWindows(existing.presence_windows);
+
+    // The active window is the most recent one whose last-seen is within the
+    // stale gap; join/heartbeat extend it, a larger gap opens a new one.
+    let activeIdx = -1;
+    if (windows.length > 0) {
+      const last = windows[windows.length - 1];
+      const lastSeen = _toDate(last.leave_at) || _toDate(last.join_at);
+      if (lastSeen && nowDate.getTime() - lastSeen.getTime() <= CLIENT_PRESENCE_STALE_GAP_MS) {
+        activeIdx = windows.length - 1;
+      }
+    }
+
+    let openedNewWindow = false;
+    if (event === 'leave') {
+      if (activeIdx !== -1) {
+        windows[activeIdx] = { join_at: windows[activeIdx].join_at, leave_at: nowTimestamp };
+      }
+    } else if (activeIdx !== -1) {
+      windows[activeIdx] = { join_at: windows[activeIdx].join_at, leave_at: nowTimestamp };
+    } else {
+      windows.push({ join_at: nowTimestamp, leave_at: nowTimestamp });
+      openedNewWindow = true;
+    }
+
+    let totalPresenceSeconds = 0;
+    for (const w of windows) {
+      totalPresenceSeconds += _clampedPresenceSeconds({
+        start: _toDate(w.join_at),
+        end: _toDate(w.leave_at) || nowDate,
+        shiftStart,
+        shiftEnd,
+      });
+    }
+
+    const firstJoinDate = _toDate(existing.first_joined_at) ||
+      _toDate(windows[0] && windows[0].join_at) || nowDate;
+    const lateBoundary = shiftStart
+      ? new Date(shiftStart.getTime() + LATE_GRACE_MINUTES * 60 * 1000)
+      : null;
+    const firstJoinOffsetMinutes = shiftStart
+      ? Math.round((firstJoinDate.getTime() - shiftStart.getTime()) / 60000)
+      : null;
+
+    const base = {
+      shift_id: shiftDoc.id,
+      user_id: userId,
+      role,
+      last_event: event,
+      platform: existing.platform || 'zoom',
+      source: 'client_beacon',
+      room_name: String(shiftData.zoom_meeting_id || existing.room_name || ''),
+      updated_at: admin.firestore.FieldValue.serverTimestamp(),
+      last_seen_at: nowTimestamp,
+      presence_windows: windows,
+      total_presence_seconds: totalPresenceSeconds,
+      session_schema_version: 2,
+      teacher_id: String(shiftData.teacher_id || shiftData.teacherId || ''),
+      student_ids: _normalizeUidList(shiftData.student_ids || shiftData.studentIds || []),
+    };
+    if (shiftStart) base.shift_start = admin.firestore.Timestamp.fromDate(shiftStart);
+    if (shiftEnd) base.shift_end = admin.firestore.Timestamp.fromDate(shiftEnd);
+
+    if (event === 'leave') {
+      base.left_at = nowTimestamp;
+      base.open_presence_since = null;
+      base.leave_count = admin.firestore.FieldValue.increment(1);
+    } else {
+      base.left_at = null;
+      base.open_presence_since = windows[windows.length - 1].join_at;
+    }
+
+    if (!snap.exists) {
+      base.created_at = admin.firestore.FieldValue.serverTimestamp();
+      base.first_joined_at = nowTimestamp;
+      base.join_count = event === 'leave' ? 0 : 1;
+      base.joins_before_start_count = shiftStart && nowDate < shiftStart ? 1 : 0;
+      base.joins_late_count = lateBoundary && nowDate > lateBoundary ? 1 : 0;
+      if (firstJoinOffsetMinutes != null) base.first_join_offset_minutes = firstJoinOffsetMinutes;
+      if (shiftStart) base.first_join_before_start = nowDate < shiftStart;
+      tx.set(docRef, base);
+      return;
+    }
+
+    if (existing.first_joined_at == null && event !== 'leave') {
+      base.first_joined_at = nowTimestamp;
+      if (firstJoinOffsetMinutes != null) base.first_join_offset_minutes = firstJoinOffsetMinutes;
+      if (shiftStart) base.first_join_before_start = nowDate < shiftStart;
+    }
+    if (openedNewWindow && event !== 'leave') {
+      base.join_count = admin.firestore.FieldValue.increment(1);
+    }
+    tx.set(docRef, base, { merge: true });
+  });
+};
+
+/**
+ * Callable the classroom pings on join, on a ~45s heartbeat, and on leave. This
+ * is the reliable source of attendance: presence is recorded for the
+ * authenticated participant of a known shift, so it does not depend on Zoom
+ * webhooks firing or on matching an anonymous Zoom participant to a user.
+ */
+const recordClassPresence = onCall({ cors: true }, async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError('unauthenticated', 'Authentication required');
+  const shiftId = String(request.data?.shiftId || request.data?.shift_id || '').trim();
+  const event = String(request.data?.event || 'heartbeat').trim().toLowerCase();
+  if (!shiftId) throw new HttpsError('invalid-argument', 'Missing shiftId');
+  if (!['join', 'heartbeat', 'leave'].includes(event)) {
+    throw new HttpsError('invalid-argument', 'event must be join, heartbeat, or leave');
+  }
+
+  const shiftDoc = await admin.firestore().collection('teaching_shifts').doc(shiftId).get();
+  if (!shiftDoc.exists) throw new HttpsError('not-found', 'Shift not found');
+  const shiftData = shiftDoc.data() || {};
+  const teacherId = String(shiftData.teacher_id || shiftData.teacherId || '').trim();
+  const studentIds = _normalizeUidList(shiftData.student_ids || shiftData.studentIds || []);
+  if (uid !== teacherId && !studentIds.includes(uid)) {
+    throw new HttpsError('permission-denied', 'Not a participant of this class');
+  }
+
+  // Ignore pings well outside class time so a tab left open on another day
+  // cannot inflate presence. Generous enough to keep legitimate early/late joins.
+  const now = new Date();
+  const shiftStart = _toDate(shiftData.shift_start || shiftData.shiftStart);
+  const shiftEnd = _toDate(shiftData.shift_end || shiftData.shiftEnd);
+  if (shiftStart && now.getTime() < shiftStart.getTime() - 60 * 60 * 1000) {
+    return { success: true, ignored: 'too_early' };
+  }
+  if (shiftEnd && now.getTime() > shiftEnd.getTime() + 60 * 60 * 1000) {
+    return { success: true, ignored: 'too_late' };
+  }
+
+  await _recordClientPresence({ shiftDoc, userId: uid, event, at: now });
+  return { success: true, event, role: _roleForUserInShift({ userId: uid, shiftData }) };
+});
+
+// The Zoom meeting page (zoom_meeting.html) runs the Zoom Web SDK and has no
+// Firebase, so it can't call the authenticated callable. Instead getZoomJoinInfo
+// hands it a short-lived token signed with the Zoom SDK secret and scoped to
+// exactly {uid, shiftId}; the page posts it here to record heartbeats and leave.
+// A leaked token can only mark its own owner present in its own class, so the
+// blast radius is nil — and it lets the page use navigator.sendBeacon on unload.
+const _b64url = (buf) =>
+  Buffer.from(buf).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+const _b64urlToBuf = (str) =>
+  Buffer.from(String(str).replace(/-/g, '+').replace(/_/g, '/'), 'base64');
+
+const _signPresenceToken = ({ uid, shiftId, expMs, secret }) => {
+  const payload = _b64url(JSON.stringify({ u: uid, s: shiftId, e: expMs }));
+  const sig = _b64url(crypto.createHmac('sha256', secret).update(payload).digest());
+  return `${payload}.${sig}`;
+};
+
+const _verifyPresenceToken = (token, secret) => {
+  if (!token || typeof token !== 'string' || !secret) return null;
+  const dot = token.indexOf('.');
+  if (dot <= 0) return null;
+  const payload = token.slice(0, dot);
+  const expected = _b64url(crypto.createHmac('sha256', secret).update(payload).digest());
+  const sigBuf = Buffer.from(token.slice(dot + 1));
+  const expBuf = Buffer.from(expected);
+  if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) return null;
+  let data;
+  try {
+    data = JSON.parse(_b64urlToBuf(payload).toString('utf8'));
+  } catch (err) {
+    return null;
+  }
+  if (!data || !data.u || !data.s) return null;
+  if (typeof data.e === 'number' && Date.now() > data.e) return null;
+  return { uid: String(data.u), shiftId: String(data.s) };
+};
+
+const PRESENCE_BEACON_RUNTIME_OPTIONS = {
+  cors: true,
+  secrets: ['ZOOM_SDK_SECRET'],
+};
+
+const recordClassPresenceBeacon = onRequest(PRESENCE_BEACON_RUNTIME_OPTIONS, async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.set('Access-Control-Allow-Origin', '*');
+  if (req.method === 'OPTIONS') {
+    res.set('Access-Control-Allow-Methods', 'POST');
+    res.set('Access-Control-Allow-Headers', 'Content-Type');
+    res.status(204).send('');
+    return;
+  }
+  if (req.method !== 'POST') {
+    res.status(405).send('Method not allowed');
+    return;
+  }
+  try {
+    let body = req.body;
+    if (typeof body === 'string') {
+      try { body = JSON.parse(body); } catch (err) { body = {}; }
+    } else if (!body || typeof body !== 'object') {
+      try { body = JSON.parse((req.rawBody && req.rawBody.toString('utf8')) || '{}'); } catch (err) { body = {}; }
+    }
+    const token = String(body.token || '');
+    const event = String(body.event || 'heartbeat').trim().toLowerCase();
+    if (!['join', 'heartbeat', 'leave'].includes(event)) {
+      res.status(400).send('bad event');
+      return;
+    }
+    const { sdkSecret } = getZoomConfig();
+    const claim = _verifyPresenceToken(token, sdkSecret);
+    if (!claim) {
+      res.status(401).send('invalid token');
+      return;
+    }
+
+    const shiftDoc = await admin.firestore().collection('teaching_shifts').doc(claim.shiftId).get();
+    // Silently accept-and-ignore anything unrecordable: this is a fire-and-forget
+    // beacon and the page can't act on an error anyway.
+    if (!shiftDoc.exists) { res.status(204).send(''); return; }
+    const shiftData = shiftDoc.data() || {};
+    const teacherId = String(shiftData.teacher_id || shiftData.teacherId || '').trim();
+    const studentIds = _normalizeUidList(shiftData.student_ids || shiftData.studentIds || []);
+    if (claim.uid !== teacherId && !studentIds.includes(claim.uid)) { res.status(204).send(''); return; }
+
+    const now = new Date();
+    const shiftStart = _toDate(shiftData.shift_start || shiftData.shiftStart);
+    const shiftEnd = _toDate(shiftData.shift_end || shiftData.shiftEnd);
+    if (shiftStart && now.getTime() < shiftStart.getTime() - 60 * 60 * 1000) { res.status(204).send(''); return; }
+    if (shiftEnd && now.getTime() > shiftEnd.getTime() + 60 * 60 * 1000) { res.status(204).send(''); return; }
+
+    await _recordClientPresence({ shiftDoc, userId: claim.uid, event, at: now });
+    res.status(204).send('');
+  } catch (err) {
+    console.error('recordClassPresenceBeacon error:', err && err.message ? err.message : err);
+    res.status(204).send('');
+  }
+});
+
 const _eventDate = (body, participant) => (
   _toDate(participant?.join_time) ||
   _toDate(participant?.leave_time) ||
@@ -5316,6 +6125,8 @@ const zoomWebhook = onRequest(ZOOM_WEBHOOK_RUNTIME_OPTIONS, async (req, res) => 
 
 module.exports = {
   getZoomJoinInfo,
+  recordClassPresence,
+  recordClassPresenceBeacon,
   getZoomHubCapacityForecast,
   getZoomHubRoutingStatus,
   recordZoomHubGuardrailAttempt,
@@ -5335,6 +6146,7 @@ module.exports = {
     _hubMetaForShift,
     _buildZoomHubRoutingStatus,
     _hubWindowExceedsSafeZoomLifetime,
+    _hubExtendedWindowExceedsSafeLifetime,
     _hubWindowForShiftDocs,
     _zoomHubIsHostHoldingZombie,
     _hubHasRemainingAssignedClasses,
@@ -5345,6 +6157,9 @@ module.exports = {
     _writeZoomHubMember,
     buildZoomWebhookValidationResponse,
     handleZoomPresenceWebhook,
+    _recordClientPresence,
+    _signPresenceToken,
+    _verifyPresenceToken,
     verifyZoomWebhookSignature,
     generateMeetingSdkSignature,
   },
