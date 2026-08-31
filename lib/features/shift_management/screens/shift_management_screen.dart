@@ -18,6 +18,7 @@ import 'package:alluwalacademyadmin/features/shift_management/services/subject_s
 import '../../../core/services/user_role_service.dart';
 import '../../../core/services/web_app_stability_service.dart';
 import '../../../core/utils/performance_logger.dart';
+import '../../../core/utils/app_search.dart';
 import '../../../core/utils/timezone_utils.dart';
 import '../widgets/create_shift_dialog.dart';
 import '../widgets/teacher_shift_calendar.dart';
@@ -38,7 +39,7 @@ import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 enum _DeleteShiftScope {
   single,
-  seriesScheduled,
+  thisAndFuture,
 }
 
 class ShiftManagementScreen extends StatefulWidget {
@@ -389,8 +390,11 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
   }
 
   void _handleShiftTabChanged() {
-    if (_tabController.indexIsChanging || _viewMode != 'list') return;
-    _queueCurrentViewPaymentRefresh('tab_changed');
+    if (_tabController.indexIsChanging || !mounted) return;
+    setState(() {});
+    if (_viewMode == 'list') {
+      _queueCurrentViewPaymentRefresh('tab_changed');
+    }
   }
 
   Map<String, dynamic> _buildShiftStatsFromLoadedShifts() {
@@ -1017,14 +1021,45 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
     return count;
   }
 
-  bool _matchesSearch(TeachingShift shift, String query) {
-    final haystack = [
-      shift.teacherName,
-      shift.studentNames.join(', '),
-      shift.effectiveSubjectDisplayName,
-      shift.displayName,
-    ].join(' ').toLowerCase();
-    return haystack.contains(query);
+  bool _matchesSearch(
+    TeachingShift shift,
+    String query,
+    Set<String> matchingPersonIds,
+  ) {
+    if (matchingPersonIds.contains(shift.teacherId) ||
+        shift.studentIds.any(matchingPersonIds.contains)) {
+      return true;
+    }
+
+    return AppSearch.matches(
+      query: query,
+      names: [shift.teacherName, ...shift.studentNames],
+      ids: [shift.id, shift.teacherId, ...shift.studentIds],
+      additionalValues: [
+        shift.effectiveSubjectDisplayName,
+        shift.displayName,
+      ],
+    );
+  }
+
+  bool _matchesEmployeeSearch(Employee employee, String query) {
+    return AppSearch.matches(
+      query: query,
+      names: [
+        '${employee.firstName} ${employee.lastName}',
+        '${employee.lastName} ${employee.firstName}',
+      ],
+      emails: [employee.email],
+      phones: [
+        employee.mobilePhone,
+        '${employee.countryCode}${employee.mobilePhone}',
+      ],
+      ids: [
+        employee.documentId,
+        employee.studentCode,
+        employee.kioskCode,
+      ],
+    );
   }
 
   bool _isShiftStartInTimeRange(
@@ -1048,6 +1083,16 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
 
   List<TeachingShift> _applySearchAndFilters(List<TeachingShift> shifts) {
     final query = _searchQuery.trim().toLowerCase();
+    final matchingPersonIds = query.isEmpty
+        ? const <String>{}
+        : [
+            ..._availableTeachers,
+            ..._availableLeaders,
+            ..._availableStudents,
+          ]
+            .where((employee) => _matchesEmployeeSearch(employee, query))
+            .map((employee) => employee.documentId)
+            .toSet();
 
     String? selectedSubjectName;
     if (_selectedSubjectFilter != null && _selectedSubjectFilter!.isNotEmpty) {
@@ -1079,7 +1124,10 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
     }
 
     return shifts.where((shift) {
-      if (query.isNotEmpty && !_matchesSearch(shift, query)) return false;
+      if (query.isNotEmpty &&
+          !_matchesSearch(shift, query, matchingPersonIds)) {
+        return false;
+      }
 
       if (_selectedTeacherFilter != null &&
           _selectedTeacherFilter!.isNotEmpty) {
@@ -1150,29 +1198,33 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
 
     return Scaffold(
       backgroundColor: const Color(0xffF8FAFC),
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final viewportHeight = constraints.maxHeight;
-          return Scrollbar(
-            controller: _pageScrollController,
-            thumbVisibility: true,
-            interactive: true,
-            child: SingleChildScrollView(
-              controller: _pageScrollController,
-              padding: EdgeInsets.zero,
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: viewportHeight),
-                child: Column(
-                  children: [
-                    _buildHeader(),
-                    _buildStatsCards(),
-                    _buildTabContentScrollable(context, viewportHeight),
-                  ],
+      body: ScrollNotificationObserver(
+        child: SelectionArea(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final viewportHeight = constraints.maxHeight;
+              return Scrollbar(
+                controller: _pageScrollController,
+                thumbVisibility: true,
+                interactive: true,
+                child: SingleChildScrollView(
+                  controller: _pageScrollController,
+                  padding: EdgeInsets.zero,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(minHeight: viewportHeight),
+                    child: Column(
+                      children: [
+                        _buildHeader(),
+                        _buildStatsCards(),
+                        _buildTabContentScrollable(context, viewportHeight),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
-            ),
-          );
-        },
+              );
+            },
+          ),
+        ),
       ),
     );
   }
@@ -1447,14 +1499,10 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
           // Tab contents - fixed, scrollable region
           SizedBox(
             height: tabViewHeight,
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                _buildShiftView(_filteredAllShifts),
-                _buildShiftView(_filteredTodayShifts),
-                _buildShiftView(_filteredUpcomingShifts),
-                _buildShiftView(_filteredActiveShifts),
-              ],
+            child: AnimatedBuilder(
+              animation: _tabController,
+              builder: (context, child) =>
+                  _buildShiftView(_currentFilteredShiftsForPayments()),
             ),
           ),
         ],
@@ -2356,9 +2404,8 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
       AppLogger.debug('ShiftManagement: Rendering Calendar');
       return _buildShiftCalendar(filteredShifts);
     } else {
-      AppLogger.debug('ShiftManagement: Rendering DataGrid (list view)');
-      // Default to list view
-      return _buildShiftDataGrid(filteredShifts);
+      AppLogger.debug('ShiftManagement: Rendering selectable list view');
+      return _buildSelectableShiftList(filteredShifts);
     }
   }
 
@@ -2416,6 +2463,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
       },
       onShiftTap: _showShiftDetails,
       onEditShift: _isAdmin ? _editShift : null,
+      onDeleteShift: _isAdmin ? _deleteShift : null,
       onCreateShift: (userId, date, time) {
         // Open create shift dialog with pre-filled teacher
         _showCreateShiftDialogWithPrefill(
@@ -2538,6 +2586,300 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
     );
   }
 
+  Widget _buildSelectableShiftList(List<TeachingShift> shifts) {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (shifts.isEmpty) {
+      return Center(
+        child: Text(
+          AppLocalizations.of(context)!.formNoResults,
+          style: GoogleFonts.inter(
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+            color: const Color(0xff6B7280),
+          ),
+        ),
+      );
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SizedBox(
+          width: constraints.maxWidth,
+          child: Column(
+            children: [
+              _buildSelectableShiftListHeader(),
+              const Divider(height: 1, color: Color(0xffE2E8F0)),
+              Expanded(
+                child: ListView.separated(
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: shifts.length,
+                  itemBuilder: (context, index) =>
+                      _buildSelectableShiftListRow(shifts[index]),
+                  separatorBuilder: (context, index) =>
+                      const Divider(height: 1, color: Color(0xffE2E8F0)),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildSelectableShiftListHeader() {
+    final l10n = AppLocalizations.of(context)!;
+
+    return Container(
+      color: const Color(0xffF8FAFC),
+      height: 52,
+      child: Row(
+        children: [
+          _buildSelectableShiftCell(l10n.shiftName, width: 220, isHeader: true),
+          _buildSelectableShiftCell(l10n.roleTeacher,
+              width: 150, isHeader: true),
+          _buildSelectableShiftCell(l10n.shiftSubject,
+              width: 130, isHeader: true),
+          _buildSelectableShiftCell(l10n.shiftStudents,
+              width: 180, isHeader: true),
+          _buildSelectableShiftCell(l10n.shiftSchedule,
+              width: 205, isHeader: true),
+          _buildSelectableShiftCell(l10n.userStatus,
+              width: 110, isHeader: true, textAlign: TextAlign.center),
+          _buildSelectableShiftCell(l10n.payment,
+              width: 95, isHeader: true, textAlign: TextAlign.end),
+          _buildSelectableShiftCell(l10n.timesheetActions,
+              width: 150, isHeader: true, textAlign: TextAlign.center),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSelectableShiftListRow(TeachingShift shift) {
+    final isRecurring =
+        (shift.recurrenceSeriesId?.trim().isNotEmpty ?? false) ||
+            shift.recurrence != RecurrencePattern.none ||
+            shift.enhancedRecurrence.type != EnhancedRecurrenceType.none;
+
+    return SizedBox(
+      height: 64,
+      child: Row(
+        children: [
+          SizedBox(
+            width: 220,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SelectableText(
+                          shift.displayName,
+                          maxLines: 1,
+                          style: GoogleFonts.inter(
+                            color: const Color(0xff374151),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        if (shift.createdByName.trim().isNotEmpty)
+                          SelectableText(
+                            '${AppLocalizations.of(context)!.createdBy}: ${shift.createdByName.trim()}',
+                            maxLines: 1,
+                            style: GoogleFonts.inter(
+                              color: const Color(0xff64748B),
+                              fontSize: 10,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  if (isRecurring)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 6),
+                      child: SelectableText(
+                        AppLocalizations.of(context)!.series,
+                        style: GoogleFonts.inter(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xff7C3AED),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          _buildSelectableShiftCell(shift.teacherName, width: 150),
+          _buildSelectableShiftCell(_formatShiftSubjectOrRole(shift),
+              width: 130),
+          _buildSelectableShiftCell(_formatShiftStudentsOrRole(shift),
+              width: 180),
+          _buildSelectableShiftCell(_formatShiftSchedule(shift), width: 205),
+          _buildSelectableShiftStatusCell(shift.status.name),
+          _buildSelectableShiftCell(
+            '\$${(_shiftPayments[shift.id] ?? shift.totalPayment).toStringAsFixed(2)}',
+            width: 95,
+            textAlign: TextAlign.end,
+            color: const Color(0xff059669),
+            fontWeight: FontWeight.w600,
+          ),
+          SizedBox(
+            width: 150,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  onPressed: () => _showShiftDetails(shift),
+                  icon: const Icon(Icons.visibility, size: 20),
+                  color: const Color(0xff0386FF),
+                  tooltip: AppLocalizations.of(context)!.shiftViewDetails,
+                ),
+                if (_isAdmin && shift.status == ShiftStatus.scheduled)
+                  IconButton(
+                    onPressed: () => _editShift(shift),
+                    icon: const Icon(Icons.edit, size: 20),
+                    color: const Color(0xffF59E0B),
+                    tooltip: AppLocalizations.of(context)!.editShift,
+                  ),
+                if (_isAdmin)
+                  IconButton(
+                    onPressed: () => _deleteShift(shift),
+                    icon: const Icon(Icons.delete, size: 20),
+                    color: const Color(0xffEF4444),
+                    tooltip: AppLocalizations.of(context)!.deleteShift,
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSelectableShiftCell(
+    String value, {
+    required double width,
+    bool isHeader = false,
+    TextAlign textAlign = TextAlign.start,
+    Color? color,
+    FontWeight? fontWeight,
+  }) {
+    return SizedBox(
+      width: width,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: Align(
+          alignment: textAlign == TextAlign.end
+              ? Alignment.centerRight
+              : textAlign == TextAlign.center
+                  ? Alignment.center
+                  : Alignment.centerLeft,
+          child: SelectableText(
+            value,
+            maxLines: 1,
+            textAlign: textAlign,
+            style: GoogleFonts.inter(
+              fontSize: isHeader ? 12 : 13,
+              fontWeight:
+                  fontWeight ?? (isHeader ? FontWeight.w600 : FontWeight.w400),
+              color: color ?? const Color(0xff374151),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSelectableShiftStatusCell(String status) {
+    Color color;
+    switch (status.toLowerCase()) {
+      case 'scheduled':
+        color = const Color(0xff0386FF);
+        break;
+      case 'active':
+        color = const Color(0xff10B981);
+        break;
+      case 'missed':
+        color = const Color(0xffEF4444);
+        break;
+      case 'cancelled':
+        color = const Color(0xffF59E0B);
+        break;
+      default:
+        color = const Color(0xff6B7280);
+    }
+
+    return _buildSelectableShiftCell(
+      status.toUpperCase(),
+      width: 110,
+      textAlign: TextAlign.center,
+      color: color,
+      fontWeight: FontWeight.w600,
+    );
+  }
+
+  String _formatShiftSchedule(TeachingShift shift) {
+    final start = shift.shiftStart;
+    final end = shift.shiftEnd;
+    return '${start.day}/${start.month}/${start.year} ${start.hour.toString().padLeft(2, '0')}:${start.minute.toString().padLeft(2, '0')} - ${end.hour.toString().padLeft(2, '0')}:${end.minute.toString().padLeft(2, '0')}';
+  }
+
+  String _formatShiftSubjectOrRole(TeachingShift shift) {
+    if (shift.category == ShiftCategory.teaching) {
+      return shift.subjectDisplayName ??
+          AppLocalizations.of(context)!.shiftRoleGeneral;
+    }
+
+    final l10n = AppLocalizations.of(context)!;
+    const roleKeys = <String, String>{
+      'admin': 'administration',
+      'coordination': 'coordination',
+      'meeting': 'meeting',
+      'training': 'training',
+      'planning': 'planning',
+      'outreach': 'outreach',
+    };
+    switch (roleKeys[shift.leaderRole]) {
+      case 'administration':
+        return l10n.shiftRoleAdministration;
+      case 'coordination':
+        return l10n.shiftRoleCoordination;
+      case 'meeting':
+        return l10n.meeting;
+      case 'training':
+        return l10n.shiftRoleTraining;
+      case 'planning':
+        return l10n.shiftRolePlanning;
+      case 'outreach':
+        return l10n.shiftRoleOutreach;
+      default:
+        return l10n.leaderDuty;
+    }
+  }
+
+  String _formatShiftStudentsOrRole(TeachingShift shift) {
+    if (shift.category == ShiftCategory.teaching) {
+      return shift.studentNames.join(', ');
+    }
+
+    switch (shift.category) {
+      case ShiftCategory.leadership:
+        return AppLocalizations.of(context)!.shiftRoleLeadership;
+      case ShiftCategory.meeting:
+        return AppLocalizations.of(context)!.meeting;
+      case ShiftCategory.training:
+        return AppLocalizations.of(context)!.shiftRoleTraining;
+      case ShiftCategory.teaching:
+        return AppLocalizations.of(context)!.shiftTeacher;
+    }
+  }
+
   Widget _buildShiftDataGrid(List<TeachingShift> shifts) {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
@@ -2620,7 +2962,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
             label: Container(
               padding: const EdgeInsets.all(16),
               alignment: Alignment.centerLeft,
-              child: Text(
+              child: SelectableText(
                 AppLocalizations.of(context)!.shiftName,
                 style: GoogleFonts.inter(
                   fontWeight: FontWeight.w600,
@@ -2634,7 +2976,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
             label: Container(
               padding: const EdgeInsets.all(16),
               alignment: Alignment.centerLeft,
-              child: Text(
+              child: SelectableText(
                 AppLocalizations.of(context)!.roleTeacher,
                 style: GoogleFonts.inter(
                   fontWeight: FontWeight.w600,
@@ -2648,7 +2990,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
             label: Container(
               padding: const EdgeInsets.all(16),
               alignment: Alignment.centerLeft,
-              child: Text(
+              child: SelectableText(
                 AppLocalizations.of(context)!.shiftSubject,
                 style: GoogleFonts.inter(
                   fontWeight: FontWeight.w600,
@@ -2662,7 +3004,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
             label: Container(
               padding: const EdgeInsets.all(16),
               alignment: Alignment.centerLeft,
-              child: Text(
+              child: SelectableText(
                 AppLocalizations.of(context)!.shiftStudents,
                 style: GoogleFonts.inter(
                   fontWeight: FontWeight.w600,
@@ -2676,7 +3018,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
             label: Container(
               padding: const EdgeInsets.all(16),
               alignment: Alignment.centerLeft,
-              child: Text(
+              child: SelectableText(
                 AppLocalizations.of(context)!.shiftSchedule,
                 style: GoogleFonts.inter(
                   fontWeight: FontWeight.w600,
@@ -2690,7 +3032,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
             label: Container(
               padding: const EdgeInsets.all(16),
               alignment: Alignment.center,
-              child: Text(
+              child: SelectableText(
                 AppLocalizations.of(context)!.userStatus,
                 style: GoogleFonts.inter(
                   fontWeight: FontWeight.w600,
@@ -2704,7 +3046,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
             label: Container(
               padding: const EdgeInsets.all(16),
               alignment: Alignment.centerRight,
-              child: Text(
+              child: SelectableText(
                 AppLocalizations.of(context)!.payment,
                 style: GoogleFonts.inter(
                   fontWeight: FontWeight.w600,
@@ -2718,7 +3060,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
             label: Container(
               padding: const EdgeInsets.all(16),
               alignment: Alignment.center,
-              child: Text(
+              child: SelectableText(
                 AppLocalizations.of(context)!.timesheetActions,
                 style: GoogleFonts.inter(
                   fontWeight: FontWeight.w600,
@@ -2733,6 +3075,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
         gridLinesVisibility: GridLinesVisibility.both,
         headerGridLinesVisibility: GridLinesVisibility.both,
         columnWidthMode: ColumnWidthMode.fill,
+        selectionMode: SelectionMode.none,
       ),
     );
   }
@@ -3002,8 +3345,10 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
   }
 
   void _deleteShift(TeachingShift shift) async {
-    final isPossiblyRecurring = shift.recurrenceSeriesId != null &&
-            shift.recurrenceSeriesId!.trim().isNotEmpty ||
+    final isPossiblyRecurring = (shift.recurrenceSeriesId != null &&
+            shift.recurrenceSeriesId!.trim().isNotEmpty) ||
+        shift.templateId != null ||
+        shift.generatedFromTemplate ||
         shift.recurrence != RecurrencePattern.none ||
         shift.enhancedRecurrence.type != EnhancedRecurrenceType.none;
 
@@ -3018,7 +3363,8 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
             style: GoogleFonts.inter(fontWeight: FontWeight.w600),
           ),
           content: Text(
-            'Are you sure you want to delete "${shift.displayName}"? This action cannot be undone.',
+            AppLocalizations.of(context)!
+                .deleteShiftConfirm(shift.displayName),
             style: GoogleFonts.inter(),
           ),
           actions: [
@@ -3048,16 +3394,16 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
       scope = await showDialog<_DeleteShiftScope>(
         context: context,
         builder: (context) =>
-            FutureBuilder<({String seriesId, List<TeachingShift> shifts})?>(
-          future: ShiftService.getRecurringSeriesByShift(shift.id),
+            FutureBuilder<List<TeachingShift>>(
+          future: ShiftService.getRelatedShiftsForDelete(shift),
           builder: (context, snapshot) {
-            final series = snapshot.data;
-            final seriesScheduled = series?.shifts
-                    .where((s) => s.status == ShiftStatus.scheduled)
-                    .toList() ??
-                const <TeachingShift>[];
-
-            final canDeleteSeries = seriesScheduled.length > 1;
+            final related = snapshot.data ?? const <TeachingShift>[];
+            final futureScheduled = related
+                .where((s) =>
+                    s.status == ShiftStatus.scheduled &&
+                    !s.shiftStart.isBefore(shift.shiftStart))
+                .toList();
+            final canDeleteFuture = futureScheduled.length > 1;
 
             return AlertDialog(
               title: Text(
@@ -3069,7 +3415,8 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Delete "${shift.displayName}"?',
+                    AppLocalizations.of(context)!
+                        .deleteShiftConfirm(shift.displayName),
                     style: GoogleFonts.inter(),
                   ),
                   const SizedBox(height: 10),
@@ -3094,9 +3441,11 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                         ),
                       ],
                     )
-                  else if (canDeleteSeries)
+                  else if (canDeleteFuture)
                     Text(
-                      'This shift is part of a series. You can delete just this shift, or delete all scheduled shifts in this series (${seriesScheduled.length}).\n\nCompleted/active shifts are not deleted.',
+                      AppLocalizations.of(context)!
+                          .deleteShiftSeriesOptionsHint(
+                              futureScheduled.length),
                       style: GoogleFonts.inter(
                         fontSize: 12,
                         color: const Color(0xff6B7280),
@@ -3131,18 +3480,19 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                     ),
                   ),
                 ),
-                if (canDeleteSeries)
+                if (canDeleteFuture)
                   ElevatedButton(
                     onPressed: () => Navigator.pop(
                       context,
-                      _DeleteShiftScope.seriesScheduled,
+                      _DeleteShiftScope.thisAndFuture,
                     ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.red,
                       foregroundColor: Colors.white,
                     ),
                     child: Text(
-                      'Delete series (${seriesScheduled.length})',
+                      AppLocalizations.of(context)!
+                          .deleteThisAndFuture(futureScheduled.length),
                       style: GoogleFonts.inter(fontWeight: FontWeight.w700),
                     ),
                   ),
@@ -3160,9 +3510,9 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            scope == _DeleteShiftScope.seriesScheduled
-                ? 'Deleting series shifts...'
-                : 'Deleting shift...',
+            scope == _DeleteShiftScope.thisAndFuture
+                ? AppLocalizations.of(context)!.deletingFutureShifts
+                : AppLocalizations.of(context)!.deletingShift,
           ),
           backgroundColor: Colors.orange,
           duration: const Duration(seconds: 2),
@@ -3172,9 +3522,11 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
       if (scope == _DeleteShiftScope.single) {
         await ShiftService.deleteShift(shift.id);
       } else {
-        final series = await ShiftService.getRecurringSeriesByShift(shift.id);
-        final ids = (series?.shifts ?? const <TeachingShift>[])
-            .where((s) => s.status == ShiftStatus.scheduled)
+        final related = await ShiftService.getRelatedShiftsForDelete(shift);
+        final ids = related
+            .where((s) =>
+                s.status == ShiftStatus.scheduled &&
+                !s.shiftStart.isBefore(shift.shiftStart))
             .map((s) => s.id)
             .toList();
         if (ids.isEmpty) {
@@ -3189,12 +3541,17 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
           return;
         }
         await ShiftService.deleteMultipleShifts(ids);
-        final templateId = (series?.shifts ?? const <TeachingShift>[])
+        final templateId = related
                 .map((s) => s.templateId)
                 .firstWhere((id) => id != null && id.trim().isNotEmpty,
                     orElse: () => null) ??
-            shift.id;
-        await ShiftService.deactivateShiftTemplate(templateId);
+            shift.templateId;
+        if (templateId != null && templateId.trim().isNotEmpty) {
+          await ShiftService.deactivateShiftTemplate(
+            templateId,
+            reason: 'this_and_future_deleted',
+          );
+        }
       }
 
       await ShiftService.cleanupOrphanedTimesheets(deleteOrphans: true);
@@ -3203,9 +3560,9 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            scope == _DeleteShiftScope.seriesScheduled
-                ? 'Series deleted successfully'
-                : 'Shift deleted successfully',
+            scope == _DeleteShiftScope.thisAndFuture
+                ? AppLocalizations.of(context)!.futureShiftsDeletedSuccessfully
+                : AppLocalizations.of(context)!.shiftDeletedSuccessfully,
           ),
           backgroundColor: Colors.green,
         ),
@@ -4474,13 +4831,28 @@ class ShiftDataSource extends DataGridSource {
             child: Row(
               children: [
                 Expanded(
-                  child: Text(
-                    cell.value.toString(),
-                    style: GoogleFonts.inter(
-                      color: const Color(0xff374151),
-                      fontWeight: FontWeight.w600,
-                    ),
-                    overflow: TextOverflow.ellipsis,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SelectableText(
+                        cell.value.toString(),
+                        style: GoogleFonts.inter(
+                          color: const Color(0xff374151),
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 1,
+                      ),
+                      if (shift?.createdByName.trim().isNotEmpty == true)
+                        SelectableText(
+                          '${AppLocalizations.of(context)!.createdBy}: ${shift!.createdByName.trim()}',
+                          style: GoogleFonts.inter(
+                            color: const Color(0xff64748B),
+                            fontSize: 10,
+                          ),
+                          maxLines: 1,
+                        ),
+                    ],
                   ),
                 ),
                 if (isRecurring) ...[
@@ -4514,7 +4886,7 @@ class ShiftDataSource extends DataGridSource {
           return Container(
             alignment: Alignment.centerRight,
             padding: const EdgeInsets.all(16),
-            child: Text(
+            child: SelectableText(
               '\$${(cell.value as double).toStringAsFixed(2)}',
               style: GoogleFonts.inter(
                 fontWeight: FontWeight.w600,
@@ -4528,12 +4900,12 @@ class ShiftDataSource extends DataGridSource {
           return Container(
             alignment: Alignment.centerLeft,
             padding: const EdgeInsets.all(16),
-            child: Text(
+            child: SelectableText(
               cell.value.toString(),
               style: GoogleFonts.inter(
                 color: const Color(0xff374151),
               ),
-              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
             ),
           );
         }
@@ -4580,7 +4952,7 @@ class ShiftDataSource extends DataGridSource {
           color: backgroundColor,
           borderRadius: BorderRadius.circular(20),
         ),
-        child: Text(
+        child: SelectableText(
           status.toUpperCase(),
           style: GoogleFonts.inter(
             fontSize: 12,
@@ -4689,14 +5061,26 @@ class _TeacherSearchDialogState extends State<_TeacherSearchDialog> {
   }
 
   void _filterTeachers() {
-    final query = _searchController.text.toLowerCase();
     setState(() {
-      _filteredTeachers = widget.teachers.where((teacher) {
-        final fullName =
-            '${teacher.firstName} ${teacher.lastName}'.toLowerCase();
-        final email = teacher.email.toLowerCase();
-        return fullName.contains(query) || email.contains(query);
-      }).toList();
+      _filteredTeachers = widget.teachers
+          .where((teacher) => AppSearch.matches(
+                query: _searchController.text,
+                names: [
+                  '${teacher.firstName} ${teacher.lastName}',
+                  '${teacher.lastName} ${teacher.firstName}',
+                ],
+                emails: [teacher.email],
+                phones: [
+                  teacher.mobilePhone,
+                  '${teacher.countryCode}${teacher.mobilePhone}',
+                ],
+                ids: [
+                  teacher.documentId,
+                  teacher.studentCode,
+                  teacher.kioskCode,
+                ],
+              ))
+          .toList();
     });
   }
 

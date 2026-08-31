@@ -279,8 +279,10 @@ class _SurahPodcastScreenState extends State<SurahPodcastScreen>
   Widget _buildTeacherView() {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
-      body: SafeArea(
-        child: Column(
+      body: ScrollNotificationObserver(
+        child: SelectionArea(
+          child: SafeArea(
+            child: Column(
           children: [
             _buildPageHeader(
               'Surah Content',
@@ -321,6 +323,8 @@ class _SurahPodcastScreenState extends State<SurahPodcastScreen>
             ),
           ),
         ],
+            ),
+          ),
         ),
       ),
     );
@@ -594,8 +598,9 @@ class _SurahPodcastScreenState extends State<SurahPodcastScreen>
 
     return GestureDetector(
       onTap: () => _openSurahDetail(surahNumber),
-      child: Container(
-        decoration: BoxDecoration(
+      child: SelectionArea(
+        child: Container(
+          decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: const Color(0xFFE2E8F0)),
@@ -607,7 +612,7 @@ class _SurahPodcastScreenState extends State<SurahPodcastScreen>
             ),
           ],
         ),
-        child: Padding(
+          child: Padding(
           padding: const EdgeInsets.all(14),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -671,6 +676,7 @@ class _SurahPodcastScreenState extends State<SurahPodcastScreen>
                 ],
               ),
             ],
+          ),
           ),
         ),
       ),

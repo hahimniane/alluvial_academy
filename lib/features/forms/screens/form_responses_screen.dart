@@ -128,13 +128,13 @@ class _FormResponsesScreenState extends State<FormResponsesScreen>
       for (final form in _formTemplates.values) {
         final d = form.data() as Map<String, dynamic>;
         final createdBy = (d['createdBy'] ?? '').toString();
-        if (createdBy.isNotEmpty) uidsToFetch.add(createdBy);
+        if (_isValidUserDocumentId(createdBy)) uidsToFetch.add(createdBy);
         final permissions = d['permissions'] as Map<String, dynamic>?;
         final users = permissions?['users'] as List<dynamic>?;
         if (users != null) {
           for (final u in users) {
             final id = u.toString();
-            if (id.isNotEmpty) uidsToFetch.add(id);
+            if (_isValidUserDocumentId(id)) uidsToFetch.add(id);
           }
         }
       }
@@ -220,6 +220,11 @@ class _FormResponsesScreenState extends State<FormResponsesScreen>
         if (caughtError != null) 'error': caughtError.toString(),
       });
     }
+  }
+
+  bool _isValidUserDocumentId(String value) {
+    final id = value.trim();
+    return id.isNotEmpty && !id.contains('/');
   }
 
   void _filterForms() {

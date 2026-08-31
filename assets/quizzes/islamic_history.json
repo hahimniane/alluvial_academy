@@ -8,7 +8,12 @@
       "category": "islamic_history",
       "difficulty": "easy",
       "question": "What is the Hijrah?",
-      "options": ["A prayer", "Migration from Mecca to Medina", "A battle", "A festival"],
+      "options": [
+        "A prayer",
+        "Migration from Mecca to Medina",
+        "A battle",
+        "A festival"
+      ],
       "correctAnswer": 1,
       "explanation": "The Hijrah was Prophet Muhammad's migration from Mecca to Medina in 622 CE."
     },
@@ -17,7 +22,12 @@
       "category": "islamic_history",
       "difficulty": "easy",
       "question": "Which city is known as the birthplace of Prophet Muhammad?",
-      "options": ["Medina", "Jerusalem", "Mecca", "Damascus"],
+      "options": [
+        "Medina",
+        "Jerusalem",
+        "Mecca",
+        "Damascus"
+      ],
       "correctAnswer": 2,
       "explanation": "Prophet Muhammad was born in Mecca, Saudi Arabia."
     },
@@ -26,7 +36,12 @@
       "category": "islamic_history",
       "difficulty": "easy",
       "question": "What is Eid al-Fitr?",
-      "options": ["Day of sacrifice", "Festival after Ramadan", "Friday prayer", "Night of Power"],
+      "options": [
+        "Day of sacrifice",
+        "Festival after Ramadan",
+        "Friday prayer",
+        "Night of Power"
+      ],
       "correctAnswer": 1,
       "explanation": "Eid al-Fitr is the festival celebrating the end of Ramadan."
     },
@@ -35,7 +50,12 @@
       "category": "islamic_history",
       "difficulty": "medium",
       "question": "What is Eid al-Adha?",
-      "options": ["End of Ramadan", "Festival of Sacrifice", "New Year", "Prophet's birthday"],
+      "options": [
+        "End of Ramadan",
+        "Festival of Sacrifice",
+        "New Year",
+        "Prophet's birthday"
+      ],
       "correctAnswer": 1,
       "explanation": "Eid al-Adha is the Festival of Sacrifice, commemorating Prophet Ibrahim's willingness to sacrifice his son."
     },
@@ -44,7 +64,12 @@
       "category": "islamic_history",
       "difficulty": "medium",
       "question": "What is Laylat al-Qadr?",
-      "options": ["First day of Ramadan", "Night of Power", "Day of Arafah", "Last day of Hajj"],
+      "options": [
+        "First day of Ramadan",
+        "Night of Power",
+        "Day of Arafah",
+        "Last day of Hajj"
+      ],
       "correctAnswer": 1,
       "explanation": "Laylat al-Qadr (Night of Power) is the night when the Quran was first revealed."
     },
@@ -53,7 +78,12 @@
       "category": "islamic_history",
       "difficulty": "easy",
       "question": "What is the holiest city in Islam?",
-      "options": ["Medina", "Jerusalem", "Mecca", "Cairo"],
+      "options": [
+        "Medina",
+        "Jerusalem",
+        "Mecca",
+        "Cairo"
+      ],
       "correctAnswer": 2,
       "explanation": "Mecca is the holiest city in Islam, home to the Kaaba."
     },
@@ -62,7 +92,12 @@
       "category": "islamic_history",
       "difficulty": "medium",
       "question": "What year did Prophet Muhammad migrate to Medina?",
-      "options": ["610 CE", "622 CE", "632 CE", "650 CE"],
+      "options": [
+        "610 CE",
+        "622 CE",
+        "632 CE",
+        "650 CE"
+      ],
       "correctAnswer": 1,
       "explanation": "The Hijrah to Medina happened in 622 CE, which marks the start of the Islamic calendar."
     },
@@ -71,7 +106,12 @@
       "category": "islamic_history",
       "difficulty": "easy",
       "question": "What is the name of the cube-shaped building in Mecca?",
-      "options": ["Masjid al-Nabawi", "Al-Aqsa", "The Kaaba", "The Dome"],
+      "options": [
+        "Masjid al-Nabawi",
+        "Al-Aqsa",
+        "The Kaaba",
+        "The Dome"
+      ],
       "correctAnswer": 2,
       "explanation": "The Kaaba is the cube-shaped building that Muslims face during prayer."
     },
@@ -80,7 +120,12 @@
       "category": "islamic_history",
       "difficulty": "medium",
       "question": "Who was the first Muezzin (caller to prayer)?",
-      "options": ["Abu Bakr", "Umar", "Bilal", "Uthman"],
+      "options": [
+        "Abu Bakr",
+        "Umar",
+        "Bilal",
+        "Uthman"
+      ],
       "correctAnswer": 2,
       "explanation": "Bilal ibn Rabah was the first Muezzin in Islam, chosen by Prophet Muhammad."
     },
@@ -89,9 +134,434 @@
       "category": "islamic_history",
       "difficulty": "easy",
       "question": "What is the first month of the Islamic calendar?",
-      "options": ["Ramadan", "Muharram", "Shawwal", "Dhul Hijjah"],
+      "options": [
+        "Ramadan",
+        "Muharram",
+        "Shawwal",
+        "Dhul Hijjah"
+      ],
       "correctAnswer": 1,
       "explanation": "Muharram is the first month of the Islamic (Hijri) calendar."
+    },
+    {
+      "difficulty": "easy",
+      "question": "In which city was the Kaaba built?",
+      "options": [
+        "Cairo",
+        "Mecca",
+        "Jerusalem",
+        "Medina"
+      ],
+      "correctAnswer": 1,
+      "explanation": "The Kaaba is in Mecca. It was built by Prophet Ibrahim and his son Ismail.",
+      "id": "ih_011",
+      "category": "islamic_history"
+    },
+    {
+      "difficulty": "easy",
+      "question": "To which city did Prophet Muhammad migrate during the Hijrah?",
+      "options": [
+        "Medina",
+        "Abyssinia",
+        "Taif",
+        "Jerusalem"
+      ],
+      "correctAnswer": 0,
+      "explanation": "The Prophet migrated from Mecca to Medina, and this journey is called the Hijrah.",
+      "id": "ih_012",
+      "category": "islamic_history"
+    },
+    {
+      "difficulty": "easy",
+      "question": "Who was the first wife of Prophet Muhammad?",
+      "options": [
+        "Zaynab",
+        "Khadijah",
+        "Aisha",
+        "Hafsa"
+      ],
+      "correctAnswer": 1,
+      "explanation": "Khadijah (may Allah be pleased with her) was the Prophet's first wife and the first believer.",
+      "id": "ih_013",
+      "category": "islamic_history"
+    },
+    {
+      "difficulty": "easy",
+      "question": "What was Prophet Muhammad called because he was so honest?",
+      "options": [
+        "Al-Kabir (the Great)",
+        "Al-Qawi (the Strong)",
+        "Al-Ghani (the Rich)",
+        "Al-Amin (the Trustworthy)"
+      ],
+      "correctAnswer": 3,
+      "explanation": "Even before Islam, the people of Mecca called him Al-Amin, the Trustworthy.",
+      "id": "ih_014",
+      "category": "islamic_history"
+    },
+    {
+      "difficulty": "easy",
+      "question": "Which companion was known for his beautiful call to prayer?",
+      "options": [
+        "Bilal",
+        "Ali",
+        "Umar",
+        "Abu Bakr"
+      ],
+      "correctAnswer": 0,
+      "explanation": "Bilal ibn Rabah was known for his beautiful adhan and was chosen to call Muslims to prayer.",
+      "id": "ih_015",
+      "category": "islamic_history"
+    },
+    {
+      "difficulty": "easy",
+      "question": "What is the Islamic calendar based on?",
+      "options": [
+        "The moon",
+        "The seasons",
+        "The sun",
+        "The stars"
+      ],
+      "correctAnswer": 0,
+      "explanation": "The Islamic (Hijri) calendar follows the phases of the moon.",
+      "id": "ih_016",
+      "category": "islamic_history"
+    },
+    {
+      "difficulty": "easy",
+      "question": "Which mosque in Medina did Prophet Muhammad help build?",
+      "options": [
+        "Masjid al-Haram",
+        "Al-Aqsa Mosque",
+        "Masjid an-Nabawi",
+        "Blue Mosque"
+      ],
+      "correctAnswer": 2,
+      "explanation": "Masjid an-Nabawi (the Prophet's Mosque) was built in Medina after the Hijrah.",
+      "id": "ih_017",
+      "category": "islamic_history"
+    },
+    {
+      "difficulty": "easy",
+      "question": "How many months are in one Islamic year?",
+      "options": [
+        "10",
+        "11",
+        "12",
+        "13"
+      ],
+      "correctAnswer": 2,
+      "explanation": "Like the Gregorian calendar, the Islamic calendar has 12 months.",
+      "id": "ih_018",
+      "category": "islamic_history"
+    },
+    {
+      "difficulty": "easy",
+      "question": "Where do Muslims go for Hajj?",
+      "options": [
+        "Istanbul",
+        "Jerusalem",
+        "Medina",
+        "Mecca"
+      ],
+      "correctAnswer": 3,
+      "explanation": "Muslims travel to Mecca to perform Hajj around the Kaaba.",
+      "id": "ih_019",
+      "category": "islamic_history"
+    },
+    {
+      "difficulty": "easy",
+      "question": "Who brought the revelations from Allah to the Prophets?",
+      "options": [
+        "Angel Mikail",
+        "Angel Malik",
+        "Angel Jibril",
+        "Angel Israfil"
+      ],
+      "correctAnswer": 2,
+      "explanation": "Angel Jibril (Gabriel) is the angel of revelation.",
+      "id": "ih_020",
+      "category": "islamic_history"
+    },
+    {
+      "difficulty": "medium",
+      "question": "In which year did the Hijrah take place?",
+      "options": [
+        "570 CE",
+        "610 CE",
+        "622 CE",
+        "632 CE"
+      ],
+      "correctAnswer": 2,
+      "explanation": "The Hijrah happened in 622 CE, and the Islamic calendar starts from that year.",
+      "id": "ih_021",
+      "category": "islamic_history"
+    },
+    {
+      "difficulty": "medium",
+      "question": "Who was the first Caliph after Prophet Muhammad passed away?",
+      "options": [
+        "Uthman ibn Affan",
+        "Abu Bakr as-Siddiq",
+        "Umar ibn al-Khattab",
+        "Ali ibn Abi Talib"
+      ],
+      "correctAnswer": 1,
+      "explanation": "Abu Bakr as-Siddiq, the Prophet's closest friend, became the first Caliph.",
+      "id": "ih_022",
+      "category": "islamic_history"
+    },
+    {
+      "difficulty": "medium",
+      "question": "In which cave did the Prophet and Abu Bakr hide during the Hijrah?",
+      "options": [
+        "Cave Hira",
+        "Cave Thawr",
+        "Cave Arafah",
+        "Cave Uhud"
+      ],
+      "correctAnswer": 1,
+      "explanation": "They hid in Cave Thawr while the Quraysh searched for them, and Allah protected them.",
+      "id": "ih_023",
+      "category": "islamic_history"
+    },
+    {
+      "difficulty": "medium",
+      "question": "What was the first mosque built in Islam?",
+      "options": [
+        "Masjid al-Qiblatayn",
+        "Masjid al-Haram",
+        "Masjid an-Nabawi",
+        "Masjid Quba"
+      ],
+      "correctAnswer": 3,
+      "explanation": "Masjid Quba, just outside Medina, was the first mosque built by the Prophet and his companions.",
+      "id": "ih_024",
+      "category": "islamic_history"
+    },
+    {
+      "difficulty": "medium",
+      "question": "The year Prophet Muhammad was born is known as the Year of the ___",
+      "options": [
+        "Lion",
+        "Camel",
+        "Elephant",
+        "Eagle"
+      ],
+      "correctAnswer": 2,
+      "explanation": "He was born in the Year of the Elephant, when an army with elephants tried to attack the Kaaba and failed.",
+      "id": "ih_025",
+      "category": "islamic_history"
+    },
+    {
+      "difficulty": "medium",
+      "question": "What was the first battle between the Muslims and the Quraysh?",
+      "options": [
+        "Battle of Khandaq",
+        "Battle of Uhud",
+        "Battle of Badr",
+        "Battle of Hunayn"
+      ],
+      "correctAnswer": 2,
+      "explanation": "The Battle of Badr was the first major battle, where the small Muslim army was victorious.",
+      "id": "ih_026",
+      "category": "islamic_history"
+    },
+    {
+      "difficulty": "medium",
+      "question": "Which night journey took the Prophet from Mecca to Jerusalem and up to the heavens?",
+      "options": [
+        "The Hijrah",
+        "Umrah",
+        "Isra and Mi'raj",
+        "Hajj"
+      ],
+      "correctAnswer": 2,
+      "explanation": "During Isra and Mi'raj, the Prophet traveled to Jerusalem and then up through the heavens in one night.",
+      "id": "ih_027",
+      "category": "islamic_history"
+    },
+    {
+      "difficulty": "medium",
+      "question": "What gift did Muslims receive during the Mi'raj?",
+      "options": [
+        "Zakat rules",
+        "The month of Ramadan",
+        "The five daily prayers",
+        "The Quran"
+      ],
+      "correctAnswer": 2,
+      "explanation": "The command of the five daily prayers was given to the Prophet during the Mi'raj.",
+      "id": "ih_028",
+      "category": "islamic_history"
+    },
+    {
+      "difficulty": "medium",
+      "question": "Which country did some early Muslims migrate to for safety, ruled by a just king?",
+      "options": [
+        "Abyssinia (Ethiopia)",
+        "Rome",
+        "Egypt",
+        "Persia"
+      ],
+      "correctAnswer": 0,
+      "explanation": "Early Muslims migrated to Abyssinia, where the just Christian king Najashi protected them.",
+      "id": "ih_029",
+      "category": "islamic_history"
+    },
+    {
+      "difficulty": "medium",
+      "question": "How old was Prophet Muhammad when he received the first revelation?",
+      "options": [
+        "25",
+        "40",
+        "50",
+        "63"
+      ],
+      "correctAnswer": 1,
+      "explanation": "He was 40 years old when Angel Jibril came to him in Cave Hira.",
+      "id": "ih_030",
+      "category": "islamic_history"
+    },
+    {
+      "difficulty": "hard",
+      "question": "What was the first Qibla (prayer direction) of the Muslims before the Kaaba?",
+      "options": [
+        "Al-Aqsa Mosque in Jerusalem",
+        "Masjid an-Nabawi",
+        "Mount Arafah",
+        "Masjid Quba"
+      ],
+      "correctAnswer": 0,
+      "explanation": "Muslims first prayed toward Al-Aqsa in Jerusalem before Allah commanded the change to the Kaaba.",
+      "id": "ih_031",
+      "category": "islamic_history"
+    },
+    {
+      "difficulty": "hard",
+      "question": "Which battle was fought by digging a trench around Medina?",
+      "options": [
+        "Battle of Badr",
+        "Battle of Tabuk",
+        "Battle of Khandaq",
+        "Battle of Uhud"
+      ],
+      "correctAnswer": 2,
+      "explanation": "In the Battle of Khandaq (the Trench), Muslims dug a trench to defend Medina, an idea from Salman al-Farisi.",
+      "id": "ih_032",
+      "category": "islamic_history"
+    },
+    {
+      "difficulty": "hard",
+      "question": "In which year did the Muslims peacefully enter and open Mecca?",
+      "options": [
+        "2 AH",
+        "6 AH",
+        "8 AH",
+        "10 AH"
+      ],
+      "correctAnswer": 2,
+      "explanation": "The Conquest of Mecca happened in 8 AH (630 CE), and the Prophet forgave the people of Mecca.",
+      "id": "ih_033",
+      "category": "islamic_history"
+    },
+    {
+      "difficulty": "hard",
+      "question": "What did the Prophet do to the idols around the Kaaba after entering Mecca?",
+      "options": [
+        "Removed them",
+        "Hid them",
+        "Left them there",
+        "Sold them"
+      ],
+      "correctAnswer": 0,
+      "explanation": "The idols were removed, and the Kaaba was returned to the worship of Allah alone.",
+      "id": "ih_034",
+      "category": "islamic_history"
+    },
+    {
+      "difficulty": "hard",
+      "question": "What is the correct order of the four rightly-guided Caliphs?",
+      "options": [
+        "Abu Bakr, Umar, Uthman, Ali",
+        "Abu Bakr, Uthman, Umar, Ali",
+        "Ali, Uthman, Umar, Abu Bakr",
+        "Umar, Abu Bakr, Ali, Uthman"
+      ],
+      "correctAnswer": 0,
+      "explanation": "The four Caliphs in order: Abu Bakr, Umar, Uthman, then Ali (may Allah be pleased with them).",
+      "id": "ih_035",
+      "category": "islamic_history"
+    },
+    {
+      "difficulty": "hard",
+      "question": "What was the Prophet's final sermon during his last Hajj called?",
+      "options": [
+        "The Eid Sermon",
+        "The Friday Khutbah",
+        "The Medina Speech",
+        "The Farewell Sermon"
+      ],
+      "correctAnswer": 3,
+      "explanation": "In the Farewell Sermon, the Prophet reminded Muslims to treat each other justly and hold on to the Quran and Sunnah.",
+      "id": "ih_036",
+      "category": "islamic_history"
+    },
+    {
+      "difficulty": "hard",
+      "question": "How old was Prophet Muhammad when he passed away?",
+      "options": [
+        "40",
+        "53",
+        "63",
+        "73"
+      ],
+      "correctAnswer": 2,
+      "explanation": "The Prophet passed away at the age of 63 in Medina.",
+      "id": "ih_037",
+      "category": "islamic_history"
+    },
+    {
+      "difficulty": "hard",
+      "question": "Where is Prophet Muhammad buried?",
+      "options": [
+        "Taif",
+        "Mecca",
+        "Jerusalem",
+        "Medina"
+      ],
+      "correctAnswer": 3,
+      "explanation": "He is buried in Medina, where Masjid an-Nabawi stands today.",
+      "id": "ih_038",
+      "category": "islamic_history"
+    },
+    {
+      "difficulty": "hard",
+      "question": "Which city did the Prophet visit to invite its people to Islam, and they treated him badly, yet he prayed for them?",
+      "options": [
+        "Jericho",
+        "Medina",
+        "Taif",
+        "Damascus"
+      ],
+      "correctAnswer": 2,
+      "explanation": "The people of Taif rejected the Prophet harshly, but he chose mercy and prayed for their children to believe.",
+      "id": "ih_039",
+      "category": "islamic_history"
+    },
+    {
+      "difficulty": "hard",
+      "question": "What does 'AH' mean in Islamic dates like '8 AH'?",
+      "options": [
+        "After Hajj",
+        "Allah's Help",
+        "After Hijrah",
+        "Arabian History"
+      ],
+      "correctAnswer": 2,
+      "explanation": "AH stands for 'After Hijrah' — the Islamic calendar counts years from the migration to Medina.",
+      "id": "ih_040",
+      "category": "islamic_history"
     }
   ]
 }

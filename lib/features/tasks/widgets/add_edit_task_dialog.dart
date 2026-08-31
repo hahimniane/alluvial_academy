@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../core/models/user.dart';
+import 'package:alluwalacademyadmin/core/utils/app_search.dart';
 import 'package:alluwalacademyadmin/features/shift_management/models/enhanced_recurrence.dart';
 import 'package:alluwalacademyadmin/features/shift_management/enums/shift_enums.dart';
 import 'package:alluwalacademyadmin/features/tasks/enums/task_enums.dart';
@@ -1179,10 +1180,14 @@ class _UserSelectionDialogState extends State<UserSelectionDialog> {
   List<AppUser> get _filteredUsers {
     if (_searchQuery.isEmpty) return widget.users;
     return widget.users.where((user) {
-      final name = user.name?.toLowerCase() ?? '';
-      final role = user.role?.toLowerCase() ?? '';
-      final query = _searchQuery.toLowerCase();
-      return name.contains(query) || role.contains(query);
+      return AppSearch.matches(
+        query: _searchQuery,
+        names: [user.name ?? ''],
+        emails: [user.email ?? ''],
+        phones: [user.phone ?? ''],
+        ids: [user.id, user.kiosqueCode ?? ''],
+        additionalValues: [user.role ?? ''],
+      );
     }).toList();
   }
 

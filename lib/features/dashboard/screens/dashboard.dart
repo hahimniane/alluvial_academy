@@ -25,6 +25,7 @@ import '../../forms/screens/forms_list_screen.dart';
 import '../../settings/screens/test_role_system.dart';
 import '../../settings/screens/firestore_debug_screen.dart';
 import '../../tasks/screens/quick_tasks_screen.dart';
+import '../../shift_management/screens/admin_shifts_web_frame.dart';
 import '../../shift_management/screens/shift_management_screen.dart';
 import '../../shift_management/screens/teacher_shift_screen.dart';
 import '../../website_management/public_site_cms/public_site_cms_screen.dart';
@@ -34,6 +35,7 @@ import '../../enrollment_management/screens/enrollment_management_screen.dart';
 import '../../teacher_applications/screens/teacher_application_management_screen.dart';
 import '../../settings/screens/admin_settings_screen.dart';
 import '../../audit/screens/admin_audit_screen.dart';
+import '../../audit/screens/decision_history_screen.dart';
 import '../../no_show/screens/no_show_alerts_screen.dart';
 import '../../audit/screens/teacher_audit_screen.dart';
 import '../../audit/screens/teacher_audit_detail_screen.dart';
@@ -46,12 +48,16 @@ import '../../profile/services/profile_picture_service.dart';
 import '../../profile/screens/teacher_profile_screen.dart';
 import '../../settings/screens/mobile_settings_screen.dart';
 import '../../student/screens/student_progress_screen.dart';
+import '../../student/screens/admin_student_attendance_screen.dart';
 import '../../recordings/screens/class_recordings_screen.dart';
 import '../../surah_podcast/screens/surah_podcast_screen.dart';
 import '../../curriculum/screens/curriculum_books_screen.dart';
 import '../../parent/screens/admin_invoice_hub_screen.dart';
 import '../../parent/screens/parent_invoices_screen.dart';
 import '../../parent/screens/payment_history_screen.dart';
+import '../../quiz/screens/admin_quiz_review_screen.dart';
+import '../../quiz/screens/bayanah_admin_screen.dart';
+import '../../quiz/screens/quiz_home_screen.dart';
 
 import '../widgets/custom_sidebar.dart';
 import '../services/sidebar_service.dart';
@@ -64,6 +70,7 @@ import '../constants/dashboard_constants.dart';
 import '../../../core/services/notification_service.dart';
 import '../../audit/services/teacher_audit_service.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/core/utils/post_sign_out.dart';
 
 /// Main Dashboard widget that serves as the app's primary navigation interface
 class DashboardPage extends StatefulWidget {
@@ -94,7 +101,6 @@ class _DashboardPageState extends State<DashboardPage> {
   // Cache for lazy screen construction.
   // Only screens that were visited are stored here, which avoids building all screens up-front.
   final Map<int, Widget> _lazyScreensCache = <int, Widget>{};
-  static const int _screenCount = 34;
 
   /// Adult students manage their own tuition and so get the Finance screens
   /// (invoices/payments) that are otherwise parent-only.
@@ -110,7 +116,8 @@ class _DashboardPageState extends State<DashboardPage> {
 
   Future<void> _showCommandPalette() async {
     final allowedIndexes = _allowedScreenIndexes(_userRole);
-    final structure = SidebarConfig.getStructureForRole(_userRole, isAdultStudent: _isAdultStudent);
+    final structure = SidebarConfig.getStructureForRole(_userRole,
+        isAdultStudent: _isAdultStudent);
 
     final items = <CommandPaletteItem>[];
     for (final section in structure) {
@@ -291,6 +298,12 @@ class _DashboardPageState extends State<DashboardPage> {
         // so stale navigation state doesn't land on a 404.
         return const PublicSiteCmsScreen();
       case 3:
+        // On web the shift schedule is the Next.js screen embedded in this
+        // dashboard's content area — the Flutter sidebar and top bar stay.
+        // The native app keeps the Flutter screen.
+        if (kIsWeb) {
+          return const AdminShiftsWebFrame();
+        }
         return const ShiftManagementScreen();
       case 4:
         return const TeacherShiftScreen();
@@ -354,6 +367,16 @@ class _DashboardPageState extends State<DashboardPage> {
       case 33:
         // Adult-student payment history.
         return PaymentHistoryScreen(parentId: _currentUserId);
+      case 34:
+        return const AdminStudentAttendanceScreen();
+      case 35:
+        return const AdminQuizReviewScreen();
+      case 36:
+        return const QuizHomeScreen();
+      case 37:
+        return const DecisionHistoryScreen();
+      case 38:
+        return const BayanahAdminScreen();
       default:
         return const SizedBox.shrink();
     }
@@ -412,12 +435,6 @@ class _DashboardPageState extends State<DashboardPage> {
       if (!allowedIndexes.contains(index)) {
         _showErrorSnackBar(
             'This section is not available for your current role.');
-        return;
-      }
-      // Validate index is within bounds
-      if (index < 0 || index >= _screenCount) {
-        AppLogger.error(
-            'Invalid screen index: $index (max: ${_screenCount - 1})');
         return;
       }
       setState(() {
@@ -532,6 +549,12 @@ class _DashboardPageState extends State<DashboardPage> {
       // Now sign out from Firebase Auth
       PublicSiteCmsService.invalidatePublicCmsFirestoreBroadcastCaches();
       await FirebaseAuth.instance.signOut();
+
+      // On web, leave the Flutter app entirely. Flutter is mounted under /app/
+      // and its landing page is a stale copy of the public Next site, so
+      // staying here looks like being dumped on the wrong website. No-op on
+      // mobile, where the in-app landing page is the real one.
+      await leaveToPublicSite();
 
       print('Sign out completed successfully');
     } catch (e) {
@@ -1320,7 +1343,9 @@ class _DashboardPageState extends State<DashboardPage> {
 
     // On mobile, hide sidebar completely
     if (isMobile) {
-      return _buildLazyIndexedStack();
+      return ScrollNotificationObserver(
+        child: SelectionArea(child: _buildLazyIndexedStack()),
+      );
     }
 
     // On desktop, show sidebar
@@ -1334,7 +1359,9 @@ class _DashboardPageState extends State<DashboardPage> {
               _buildBreadcrumbBar(),
               const SizedBox(height: 8),
               Expanded(
-                child: _buildLazyIndexedStack(),
+                child: ScrollNotificationObserver(
+                  child: SelectionArea(child: _buildLazyIndexedStack()),
+                ),
               ),
             ],
           ),
@@ -1344,7 +1371,8 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Widget _buildBreadcrumbBar() {
-    final structure = SidebarConfig.getStructureForRole(_userRole, isAdultStudent: _isAdultStudent);
+    final structure = SidebarConfig.getStructureForRole(_userRole,
+        isAdultStudent: _isAdultStudent);
     String? sectionLabel;
     String? itemLabel;
 
@@ -1402,7 +1430,7 @@ class _DashboardPageState extends State<DashboardPage> {
             if (isMobile)
               Expanded(
                 child: Text(
-                  'Alluwal Academy',
+                  'Alluwal Education Hub',
                   style: GoogleFonts.inter(
                     fontSize: 14, // Smaller font to fit full text
                     fontWeight: FontWeight.w600,

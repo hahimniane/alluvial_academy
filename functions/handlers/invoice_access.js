@@ -37,6 +37,27 @@ const _collectString = (target, value) => {
   if (normalized) target.add(normalized);
 };
 
+const _collectStrings = (target, values) => {
+  if (!Array.isArray(values)) return;
+  values.forEach((value) => _collectString(target, value));
+};
+
+/**
+ * The children an invoice bills. Prefers the explicit student_ids array, then
+ * per-line student_id, and returns [] when the invoice predates per-child
+ * attribution — callers treat that as "applies to the whole family".
+ */
+const _invoiceStudentIds = (invoice = {}) => {
+  const ids = new Set();
+  _collectStrings(ids, invoice.student_ids || invoice.studentIds);
+  if (Array.isArray(invoice.items)) {
+    invoice.items.forEach((item) =>
+      _collectString(ids, item && (item.student_id || item.studentId))
+    );
+  }
+  return Array.from(ids);
+};
+
 const _throwCallableError = (code, message, details) => {
   throw new HttpsError(code, message, details);
 };
@@ -74,7 +95,7 @@ const _isBlockingInvoice = (invoice, now = new Date()) => {
 
   const totalAmount = _toNumber(invoice.total_amount, invoice.totalAmount);
   const paidAmount = _toNumber(invoice.paid_amount, invoice.paidAmount);
-  if (totalAmount > 0 && paidAmount >= totalAmount) return false;
+  if (totalAmount <= 0 || paidAmount >= totalAmount) return false;
 
   const cutoffDate = _getEffectiveAccessCutoffDate(invoice);
   return !!cutoffDate && cutoffDate <= now;
@@ -113,27 +134,28 @@ const _recomputeStudentAccess = async (db, parentId) => {
   addInvoiceDocs(camelParentSnap);
 
   const now = new Date();
-  let shouldSuspend = false;
   const invoiceStudentIds = new Set();
+
+  // Suspension is decided per child. An invoice that names the children it
+  // bills (student_ids) suspends only those; a sibling who is not on it keeps
+  // access. Invoices created before per-child attribution existed carry no
+  // student_ids, so they still suspend the whole family — deploying this
+  // changes nobody's access until new invoices are raised.
+  const blockedStudentIds = new Set();
+  let blocksWholeFamily = false;
 
   for (const doc of invoiceDocsById.values()) {
     const invoice = doc.data();
     _collectString(invoiceStudentIds, invoice.student_id || invoice.studentId);
+    _collectStrings(invoiceStudentIds, invoice.student_ids || invoice.studentIds);
 
-    const status = _normalizeStatus(invoice.status);
+    if (!_isBlockingInvoice(invoice, now)) continue;
 
-    if (status === 'paid' || status === 'cancelled') continue;
-
-    const totalAmount = _toNumber(invoice.total_amount, invoice.totalAmount);
-    const paidAmount = _toNumber(invoice.paid_amount, invoice.paidAmount);
-    if (totalAmount > 0 && paidAmount >= totalAmount) continue;
-
-    const cutoffDate = _getEffectiveAccessCutoffDate(invoice);
-    if (!cutoffDate) continue;
-
-    if (cutoffDate <= now) {
-      shouldSuspend = true;
-      break;
+    const billed = _invoiceStudentIds(invoice);
+    if (billed.length === 0) {
+      blocksWholeFamily = true;
+    } else {
+      billed.forEach((id) => blockedStudentIds.add(id));
     }
   }
 
@@ -166,13 +188,16 @@ const _recomputeStudentAccess = async (db, parentId) => {
 
   const studentIdsArr = Array.from(studentIds);
 
+  const suspendedIds = [];
   for (let i = 0; i < studentIdsArr.length; i += BATCH_SIZE) {
     const batch = db.batch();
     const chunk = studentIdsArr.slice(i, i + BATCH_SIZE);
     for (const studentId of chunk) {
+      const suspend = blocksWholeFamily || blockedStudentIds.has(studentId);
+      if (suspend) suspendedIds.push(studentId);
       const studentRef = db.collection('users').doc(studentId);
       batch.set(studentRef, {
-        access_suspended: shouldSuspend,
+        access_suspended: suspend,
         access_suspension_updated_at: admin.firestore.FieldValue.serverTimestamp(),
       }, {merge: true});
     }
@@ -180,8 +205,10 @@ const _recomputeStudentAccess = async (db, parentId) => {
   }
 
   console.log(
-    `[invoice_access] parent=${parentId}: shouldSuspend=${shouldSuspend}, ` +
-      `affected students: ${studentIdsArr.join(', ')}`
+    `[invoice_access] parent=${parentId}: ` +
+      `wholeFamily=${blocksWholeFamily}, ` +
+      `suspended: ${suspendedIds.join(', ') || 'none'}, ` +
+      `evaluated: ${studentIdsArr.join(', ')}`
   );
 };
 
@@ -267,7 +294,7 @@ const checkAccessCutoffs = onSchedule('every 60 minutes', async () => {
 
     const totalAmount = _toNumber(invoice.total_amount, invoice.totalAmount);
     const paidAmount = _toNumber(invoice.paid_amount, invoice.paidAmount);
-    if (totalAmount > 0 && paidAmount >= totalAmount) continue;
+    if (totalAmount <= 0 || paidAmount >= totalAmount) continue;
 
     const parentId = (invoice.parent_id || '').toString().trim();
     if (parentId) parentIds.add(parentId);
@@ -292,7 +319,7 @@ const checkAccessCutoffs = onSchedule('every 60 minutes', async () => {
 
     const totalAmount = _toNumber(invoice.total_amount, invoice.totalAmount);
     const paidAmount = _toNumber(invoice.paid_amount, invoice.paidAmount);
-    if (totalAmount > 0 && paidAmount >= totalAmount) continue;
+    if (totalAmount <= 0 || paidAmount >= totalAmount) continue;
 
     const parentId = (invoice.parent_id || invoice.parentId || '').toString().trim();
     if (parentId) parentIds.add(parentId);
@@ -466,4 +493,5 @@ module.exports = {
   _recomputeStudentAccess,
   _getEffectiveAccessCutoffDate,
   _isBlockingInvoice,
+  _invoiceStudentIds,
 };

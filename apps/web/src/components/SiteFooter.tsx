@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { flutterLoginUrl } from "@/lib/flutterApp";
 
 const exploreLinks = [
   { href: "/programs/", label: "Programs" },
@@ -11,7 +12,7 @@ const exploreLinks = [
 const applyLinks = [
   { href: "/teacher-application/", label: "Teacher application" },
   { href: "/leadership-application/", label: "Leadership application" },
-  { href: "/login/", label: "Staff login" },
+  { href: flutterLoginUrl, label: "Staff login", external: true },
 ];
 
 export function SiteFooter() {
@@ -27,11 +28,11 @@ export function SiteFooter() {
             <img src="/assets/Alluwal_Education_Hub_Logo.png" alt="" className="h-12 w-12 rounded-xl bg-white object-contain p-1" />
             <div>
               <div className="font-display text-xl font-bold">Alluwal Education Hub</div>
-              <div className="text-sm text-blue-200/90">Learning with faith, identity, and excellence.</div>
+              <div className="text-sm text-blue-200/90">Learning with identity, excellence, and purpose.</div>
             </div>
           </div>
           <p className="mt-5 max-w-md text-sm leading-7 text-blue-100/85">
-            Online education for Islamic studies, academic tutoring, languages, and student growth — taught live by
+            Online education for tutoring, languages, entrepreneurship, and faith studies — taught live by
             tutors who know every student by name.
           </p>
         </div>
@@ -48,11 +49,19 @@ export function SiteFooter() {
         <div>
           <div className="mb-4 text-xs font-black uppercase tracking-[0.16em] text-[#FBBF24]">Apply</div>
           <div className="grid gap-2.5 text-sm">
-            {applyLinks.map(({ href, label }) => (
-              <Link key={href} href={href} className="w-fit text-blue-100/85 transition hover:text-white">
-                {label}
-              </Link>
-            ))}
+            {applyLinks.map(({ href, label, external }) =>
+              external ? (
+                // Login lives in the Flutter app on the main domain, so this
+                // leaves the Next site rather than routing within it.
+                <a key={href} href={href} className="w-fit text-blue-100/85 transition hover:text-white">
+                  {label}
+                </a>
+              ) : (
+                <Link key={href} href={href} className="w-fit text-blue-100/85 transition hover:text-white">
+                  {label}
+                </Link>
+              )
+            )}
           </div>
         </div>
         <div>
@@ -76,7 +85,7 @@ export function SiteFooter() {
       <div className="border-t border-white/10 py-5">
         <div className="container-shell flex flex-wrap items-center justify-between gap-3 text-sm text-blue-100/75">
           <span>© {new Date().getFullYear()} Alluwal Education Hub. All rights reserved.</span>
-          <span className="text-blue-100/60">Quran · Languages · Math · Coding · Literacy</span>
+          <span className="text-blue-100/60">Tutoring · Languages · Math · Coding · Enterprise · Faith</span>
         </div>
       </div>
     </footer>

@@ -3,7 +3,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:alluwalacademyadmin/core/widgets/modern_header.dart';
-import 'package:alluwalacademyadmin/core/widgets/fade_in_slide.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class ContactPage extends StatefulWidget {
@@ -45,7 +44,8 @@ class _ContactPageState extends State<ContactPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(AppLocalizations.of(context)!.messageSentSuccessfullyWeWillContact),
+            content: Text(AppLocalizations.of(context)!
+                .messageSentSuccessfullyWeWillContact),
             backgroundColor: Colors.green,
           ),
         );
@@ -66,7 +66,7 @@ class _ContactPageState extends State<ContactPage> {
       if (mounted) setState(() => _isSubmitting = false);
     }
   }
-  
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -152,6 +152,7 @@ class _ContactPageState extends State<ContactPage> {
   }
 
   Widget _buildContactForm() {
+    final l = AppLocalizations.of(context)!;
     return Container(
       padding: const EdgeInsets.all(40),
       decoration: BoxDecoration(
@@ -181,26 +182,29 @@ class _ContactPageState extends State<ContactPage> {
             ),
             const SizedBox(height: 32),
             _buildTextField(
-              label: 'Name',
-              hint: 'Your full name',
+              label: l.publicContactName,
+              hint: l.publicContactNameHint,
               controller: _nameController,
-              validator: (v) => v?.isEmpty ?? true ? 'Name is required' : null,
-            ),
-            const SizedBox(height: 24),
-            _buildTextField(
-              label: 'Email',
-              hint: 'you@example.com',
-              controller: _emailController,
               validator: (v) =>
-                  v?.contains('@') ?? false ? null : 'Valid email required',
+                  v?.isEmpty ?? true ? l.publicContactNameRequired : null,
             ),
             const SizedBox(height: 24),
             _buildTextField(
-              label: 'Message',
-              hint: 'How can we help you?',
+              label: l.loginEmail,
+              hint: l.publicContactEmailHint,
+              controller: _emailController,
+              validator: (v) => v?.contains('@') ?? false
+                  ? null
+                  : l.publicContactEmailInvalid,
+            ),
+            const SizedBox(height: 24),
+            _buildTextField(
+              label: l.message,
+              hint: l.publicContactMessageHint,
               maxLines: 4,
               controller: _messageController,
-              validator: (v) => v?.isEmpty ?? true ? 'Message is required' : null,
+              validator: (v) =>
+                  v?.isEmpty ?? true ? l.publicContactMessageRequired : null,
             ),
             const SizedBox(height: 32),
             SizedBox(
@@ -265,7 +269,8 @@ class _ContactPageState extends State<ContactPage> {
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide.none,
             ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           ),
         ),
       ],
@@ -273,6 +278,7 @@ class _ContactPageState extends State<ContactPage> {
   }
 
   Widget _buildContactInfo() {
+    final l = AppLocalizations.of(context)!;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -285,11 +291,16 @@ class _ContactPageState extends State<ContactPage> {
           ),
         ),
         const SizedBox(height: 32),
-        _buildInfoItem(Icons.email_outlined, 'Email', 'support@alluwaleducationhub.org'),
+        _buildInfoItem(Icons.email_outlined, l.loginEmail,
+            'support@alluwaleducationhub.org',
+            isEmail: true),
         const SizedBox(height: 24),
-        _buildInfoItem(Icons.phone_outlined, 'Phone', '+1 (555) 123-4567'),
+        _buildInfoItem(
+            Icons.phone_outlined, l.publicContactPhone, '+1 (555) 123-4567',
+            isPhone: true),
         const SizedBox(height: 24),
-        _buildInfoItem(Icons.location_on_outlined, 'Location', 'Global Online Platform'),
+        _buildInfoItem(Icons.location_on_outlined, l.publicContactLocation,
+            l.publicContactGlobalPlatform),
         const SizedBox(height: 48),
         Container(
           padding: const EdgeInsets.all(24),
@@ -310,7 +321,8 @@ class _ContactPageState extends State<ContactPage> {
               ),
               const SizedBox(height: 16),
               Text(
-                AppLocalizations.of(context)!.checkOurFrequentlyAskedQuestionsFor,
+                AppLocalizations.of(context)!
+                    .checkOurFrequentlyAskedQuestionsFor,
                 style: GoogleFonts.inter(
                   color: const Color(0xff1E3A8A),
                   height: 1.5,
@@ -323,10 +335,13 @@ class _ContactPageState extends State<ContactPage> {
     );
   }
 
-  Widget _buildInfoItem(IconData icon, String label, String value) {
-    final bool isEmail = label == 'Email';
-    final bool isPhone = label == 'Phone';
-    
+  Widget _buildInfoItem(
+    IconData icon,
+    String label,
+    String value, {
+    bool isEmail = false,
+    bool isPhone = false,
+  }) {
     return InkWell(
       onTap: () async {
         if (isEmail) {
@@ -361,26 +376,34 @@ class _ContactPageState extends State<ContactPage> {
             child: Icon(icon, color: const Color(0xff3B82F6)),
           ),
           const SizedBox(width: 16),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  color: const Color(0xff6B7280),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    color: const Color(0xff6B7280),
+                  ),
                 ),
-              ),
-              Text(
-                value,
-                style: GoogleFonts.inter(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: isEmail || isPhone ? const Color(0xff3B82F6) : const Color(0xff111827),
-                  decoration: isEmail || isPhone ? TextDecoration.underline : TextDecoration.none,
+                Text(
+                  value,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.inter(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: isEmail || isPhone
+                        ? const Color(0xff3B82F6)
+                        : const Color(0xff111827),
+                    decoration: isEmail || isPhone
+                        ? TextDecoration.underline
+                        : TextDecoration.none,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),

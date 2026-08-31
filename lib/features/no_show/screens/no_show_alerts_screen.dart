@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
 import 'package:alluwalacademyadmin/core/models/employee_model.dart';
+import 'package:alluwalacademyadmin/core/utils/app_search.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 import '../models/no_show_report.dart';
 import '../services/no_show_service.dart';
@@ -275,7 +276,15 @@ class _NoShowAlertsScreenState extends State<NoShowAlertsScreen> {
   }
 
   List<NoShowReport> _filtered() {
-    final q = _search.trim().toLowerCase();
+    final matchingPersonIds = {
+      ..._teachers,
+      ..._students,
+    }
+        .where((employee) => _employeeMatchesSearch(employee, _search))
+        .map((employee) => employee.documentId)
+        .where((id) => id.isNotEmpty)
+        .toSet();
+
     return _reports.where((r) {
       if (!_matchesDateFilter(r)) return false;
       if (!_matchesPersonFilters(r)) return false;
@@ -284,12 +293,50 @@ class _NoShowAlertsScreenState extends State<NoShowAlertsScreen> {
       if (_typeFilter == 'student' && !r.isStudentNoShow) return false;
       if (_statusFilter == 'pending' && r.isReviewed) return false;
       if (_statusFilter == 'reviewed' && !r.isReviewed) return false;
-      if (q.isEmpty) return true;
-      return r.teacherName.toLowerCase().contains(q) ||
-          r.reporterName.toLowerCase().contains(q) ||
-          r.shiftName.toLowerCase().contains(q) ||
-          r.studentNames.any((s) => s.toLowerCase().contains(q));
+      if (_search.trim().isEmpty) return true;
+      if (r.teacherId != null && matchingPersonIds.contains(r.teacherId)) {
+        return true;
+      }
+      if (matchingPersonIds.contains(r.reportedBy) ||
+          r.studentPresences
+              .any((presence) => matchingPersonIds.contains(presence.userId))) {
+        return true;
+      }
+      return AppSearch.matches(
+        query: _search,
+        names: [r.teacherName, r.reporterName, ...r.studentNames],
+        emails: [r.reviewedByEmail ?? ''],
+        ids: [
+          r.id,
+          r.shiftId,
+          r.reportedBy,
+          r.teacherId ?? '',
+          r.reviewedBy ?? '',
+          ...r.studentPresences.map((presence) => presence.userId ?? ''),
+        ],
+        additionalValues: [r.shiftName],
+      );
     }).toList();
+  }
+
+  bool _employeeMatchesSearch(Employee employee, String query) {
+    return AppSearch.matches(
+      query: query,
+      names: [
+        '${employee.firstName} ${employee.lastName}',
+        '${employee.lastName} ${employee.firstName}',
+      ],
+      emails: [employee.email],
+      phones: [
+        employee.mobilePhone,
+        '${employee.countryCode}${employee.mobilePhone}',
+      ],
+      ids: [
+        employee.documentId,
+        employee.studentCode,
+        employee.kioskCode,
+      ],
+    );
   }
 
   bool _matchesPersonFilters(NoShowReport r) {
@@ -1432,16 +1479,25 @@ class _NoShowEmployeeSelectionDialogState
   }
 
   List<Employee> get _filteredEmployees {
-    final query = _searchQuery.trim().toLowerCase();
-    if (query.isEmpty) return widget.employees;
-    return widget.employees.where((employee) {
-      return employee.firstName.toLowerCase().contains(query) ||
-          employee.lastName.toLowerCase().contains(query) ||
-          employee.email.toLowerCase().contains(query) ||
-          employee.studentCode.toLowerCase().contains(query) ||
-          employee.kioskCode.toLowerCase().contains(query) ||
-          employee.documentId.toLowerCase().contains(query);
-    }).toList(growable: false);
+    return widget.employees
+        .where((employee) => AppSearch.matches(
+              query: _searchQuery,
+              names: [
+                '${employee.firstName} ${employee.lastName}',
+                '${employee.lastName} ${employee.firstName}',
+              ],
+              emails: [employee.email],
+              phones: [
+                employee.mobilePhone,
+                '${employee.countryCode}${employee.mobilePhone}',
+              ],
+              ids: [
+                employee.documentId,
+                employee.studentCode,
+                employee.kioskCode,
+              ],
+            ))
+        .toList(growable: false);
   }
 
   @override

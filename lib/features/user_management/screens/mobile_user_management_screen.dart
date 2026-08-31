@@ -5,16 +5,19 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/models/employee_model.dart';
 import '../../../core/services/user_role_service.dart';
+import 'package:alluwalacademyadmin/core/utils/app_search.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class MobileUserManagementScreen extends StatefulWidget {
   const MobileUserManagementScreen({super.key});
 
   @override
-  State<MobileUserManagementScreen> createState() => _MobileUserManagementScreenState();
+  State<MobileUserManagementScreen> createState() =>
+      _MobileUserManagementScreenState();
 }
 
-class _MobileUserManagementScreenState extends State<MobileUserManagementScreen> {
+class _MobileUserManagementScreenState
+    extends State<MobileUserManagementScreen> {
   List<Employee> _users = [];
   List<Employee> _filteredUsers = [];
   bool _isLoading = true;
@@ -32,9 +35,8 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
     setState(() => _isLoading = true);
 
     try {
-      final snapshot = await FirebaseFirestore.instance
-          .collection('users')
-          .get();
+      final snapshot =
+          await FirebaseFirestore.instance.collection('users').get();
 
       final users = snapshot.docs.map((doc) {
         final data = doc.data();
@@ -56,7 +58,8 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
         );
       }).toList();
 
-      users.sort((a, b) => '${a.firstName} ${a.lastName}'.compareTo('${b.firstName} ${b.lastName}'));
+      users.sort((a, b) => '${a.firstName} ${a.lastName}'
+          .compareTo('${b.firstName} ${b.lastName}'));
 
       setState(() {
         _users = users;
@@ -67,7 +70,8 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
       setState(() => _isLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppLocalizations.of(context)!.errorLoadingUsersE)),
+          SnackBar(
+              content: Text(AppLocalizations.of(context)!.errorLoadingUsersE)),
         );
       }
     }
@@ -87,7 +91,8 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
             (roleFilter == 'admin' && userType == 'super_admin');
 
         // Active status filter
-        final matchesActive = _activeFilter == null || user.isActive == _activeFilter;
+        final matchesActive =
+            _activeFilter == null || user.isActive == _activeFilter;
 
         return matchesSearch && matchesRole && matchesActive;
       }).toList();
@@ -101,30 +106,20 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
   /// - Student ID (student_code)
   /// - Document ID (Firebase UID)
   bool _matchesSearchTerm(Employee user, String searchQuery) {
-    if (searchQuery.isEmpty) return true;
-    
-    final term = searchQuery.toLowerCase().trim();
-    if (term.isEmpty) return true;
-
-    // Check individual fields
-    final firstName = user.firstName.toLowerCase();
-    final lastName = user.lastName.toLowerCase();
-    final email = user.email.toLowerCase();
-    final studentCode = user.studentCode.toLowerCase();
-    final documentId = user.documentId.toLowerCase();
-
-    // Build full name variations
-    final fullName = '$firstName $lastName';
-    final fullNameReversed = '$lastName $firstName';
-
-    // Match against all fields
-    return firstName.contains(term) ||
-        lastName.contains(term) ||
-        email.contains(term) ||
-        studentCode.contains(term) ||
-        documentId.contains(term) ||
-        fullName.contains(term) ||
-        fullNameReversed.contains(term);
+    return AppSearch.matches(
+      query: searchQuery,
+      names: [
+        '${user.firstName} ${user.lastName}',
+        '${user.lastName} ${user.firstName}',
+      ],
+      emails: [user.email],
+      phones: [
+        user.mobilePhone,
+        '${user.countryCode}${user.mobilePhone}',
+      ],
+      ids: [user.documentId, user.studentCode, user.kioskCode],
+      additionalValues: [user.userType, user.title],
+    );
   }
 
   void _showFilterOptions() {
@@ -187,8 +182,10 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
                     label: Text(AppLocalizations.of(context)!.admin),
                     selected: _selectedRoleFilter == 'admin',
                     onSelected: (selected) {
-                      setModalState(() => _selectedRoleFilter = selected ? 'admin' : null);
-                      setState(() => _selectedRoleFilter = selected ? 'admin' : null);
+                      setModalState(() =>
+                          _selectedRoleFilter = selected ? 'admin' : null);
+                      setState(() =>
+                          _selectedRoleFilter = selected ? 'admin' : null);
                       _filterUsers();
                     },
                   ),
@@ -196,8 +193,10 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
                     label: Text(AppLocalizations.of(context)!.roleTeacher),
                     selected: _selectedRoleFilter == 'teacher',
                     onSelected: (selected) {
-                      setModalState(() => _selectedRoleFilter = selected ? 'teacher' : null);
-                      setState(() => _selectedRoleFilter = selected ? 'teacher' : null);
+                      setModalState(() =>
+                          _selectedRoleFilter = selected ? 'teacher' : null);
+                      setState(() =>
+                          _selectedRoleFilter = selected ? 'teacher' : null);
                       _filterUsers();
                     },
                   ),
@@ -205,8 +204,10 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
                     label: Text(AppLocalizations.of(context)!.roleStudent),
                     selected: _selectedRoleFilter == 'student',
                     onSelected: (selected) {
-                      setModalState(() => _selectedRoleFilter = selected ? 'student' : null);
-                      setState(() => _selectedRoleFilter = selected ? 'student' : null);
+                      setModalState(() =>
+                          _selectedRoleFilter = selected ? 'student' : null);
+                      setState(() =>
+                          _selectedRoleFilter = selected ? 'student' : null);
                       _filterUsers();
                     },
                   ),
@@ -214,8 +215,10 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
                     label: Text(AppLocalizations.of(context)!.roleParent),
                     selected: _selectedRoleFilter == 'parent',
                     onSelected: (selected) {
-                      setModalState(() => _selectedRoleFilter = selected ? 'parent' : null);
-                      setState(() => _selectedRoleFilter = selected ? 'parent' : null);
+                      setModalState(() =>
+                          _selectedRoleFilter = selected ? 'parent' : null);
+                      setState(() =>
+                          _selectedRoleFilter = selected ? 'parent' : null);
                       _filterUsers();
                     },
                   ),
@@ -249,7 +252,8 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
                     label: Text(AppLocalizations.of(context)!.shiftActive),
                     selected: _activeFilter == true,
                     onSelected: (selected) {
-                      setModalState(() => _activeFilter = selected ? true : null);
+                      setModalState(
+                          () => _activeFilter = selected ? true : null);
                       setState(() => _activeFilter = selected ? true : null);
                       _filterUsers();
                     },
@@ -258,7 +262,8 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
                     label: Text(AppLocalizations.of(context)!.userInactive),
                     selected: _activeFilter == false,
                     onSelected: (selected) {
-                      setModalState(() => _activeFilter = selected ? false : null);
+                      setModalState(
+                          () => _activeFilter = selected ? false : null);
                       setState(() => _activeFilter = selected ? false : null);
                       _filterUsers();
                     },
@@ -351,7 +356,9 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
                   CircleAvatar(
                     backgroundColor: _getRoleColor(user.userType),
                     child: Text(
-                      user.firstName.isNotEmpty ? user.firstName[0].toUpperCase() : '?',
+                      user.firstName.isNotEmpty
+                          ? user.firstName[0].toUpperCase()
+                          : '?',
                       style: const TextStyle(color: Colors.white),
                     ),
                   ),
@@ -387,7 +394,8 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
               ListTile(
                 leading: Icon(Icons.key, color: Color(0xff06B6D4)),
                 title: Text(AppLocalizations.of(context)!.userViewCredentials),
-                subtitle: Text(AppLocalizations.of(context)!.userStudentIdPassword),
+                subtitle:
+                    Text(AppLocalizations.of(context)!.userStudentIdPassword),
                 onTap: () {
                   Navigator.pop(context);
                   _showStudentCredentials(user);
@@ -508,7 +516,8 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.info_outline, color: Colors.amber, size: 20),
+                    const Icon(Icons.info_outline,
+                        color: Colors.amber, size: 20),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -548,7 +557,8 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(AppLocalizations.of(context)!.errorLoadingCredentialsE),
+            content:
+                Text(AppLocalizations.of(context)!.errorLoadingCredentialsE),
             backgroundColor: Colors.red,
           ),
         );
@@ -579,15 +589,15 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
                 const SizedBox(height: 4),
                 Text(
                   value,
-                  style: canCopy 
-                    ? GoogleFonts.sourceCodePro(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      )
-                    : GoogleFonts.inter(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
+                  style: canCopy
+                      ? GoogleFonts.sourceCodePro(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        )
+                      : GoogleFonts.inter(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
                 ),
               ],
             ),
@@ -614,7 +624,8 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
   }
 
   /// Show reset password confirmation dialog
-  Future<void> _showResetPasswordDialog(Employee user, String studentCode) async {
+  Future<void> _showResetPasswordDialog(
+      Employee user, String studentCode) async {
     final customPassword = await showDialog<String?>(
       context: context,
       builder: (context) {
@@ -635,8 +646,10 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
                 ),
                 SizedBox(height: 6),
                 Text(
-                  AppLocalizations.of(context)!.studentIdStudentcode(studentCode),
-                  style: GoogleFonts.inter(fontSize: 13, color: Colors.grey[700]),
+                  AppLocalizations.of(context)!
+                      .studentIdStudentcode(studentCode),
+                  style:
+                      GoogleFonts.inter(fontSize: 13, color: Colors.grey[700]),
                 ),
                 const SizedBox(height: 12),
                 TextField(
@@ -644,13 +657,18 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
                   obscureText: obscurePassword,
                   decoration: InputDecoration(
                     labelText: AppLocalizations.of(context)!.userCustomPassword,
-                    hintText: AppLocalizations.of(context)!.userLeaveBlankGenerate,
-                    helperText: AppLocalizations.of(context)!.userPasswordMinChars,
+                    hintText:
+                        AppLocalizations.of(context)!.userLeaveBlankGenerate,
+                    helperText:
+                        AppLocalizations.of(context)!.userPasswordMinChars,
                     errorText: errorText,
                     prefixIcon: const Icon(Icons.lock_outline),
                     suffixIcon: IconButton(
-                      icon: Icon(obscurePassword ? Icons.visibility_off : Icons.visibility),
-                      onPressed: () => setState(() => obscurePassword = !obscurePassword),
+                      icon: Icon(obscurePassword
+                          ? Icons.visibility_off
+                          : Icons.visibility),
+                      onPressed: () =>
+                          setState(() => obscurePassword = !obscurePassword),
                     ),
                   ),
                 ),
@@ -685,15 +703,18 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
                     return;
                   }
                   if (value != value.trim()) {
-                    setState(() => errorText = 'Password cannot start or end with spaces');
+                    setState(() =>
+                        errorText = 'Password cannot start or end with spaces');
                     return;
                   }
                   if (value.length < 6) {
-                    setState(() => errorText = 'Password must be at least 6 characters');
+                    setState(() =>
+                        errorText = 'Password must be at least 6 characters');
                     return;
                   }
                   if (value.length > 128) {
-                    setState(() => errorText = 'Password must be 128 characters or less');
+                    setState(() =>
+                        errorText = 'Password must be 128 characters or less');
                     return;
                   }
                   Navigator.pop(context, value);
@@ -741,7 +762,8 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
       );
 
       // Call Cloud Function to reset password (updates both Firebase Auth and Firestore)
-      final callable = FirebaseFunctions.instance.httpsCallable('resetStudentPassword');
+      final callable =
+          FirebaseFunctions.instance.httpsCallable('resetStudentPassword');
       final payload = <String, dynamic>{
         'studentId': user.documentId,
         'sendEmailToParent': true,
@@ -761,7 +783,8 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
-          title: Row(children: [
+          title: Row(
+            children: [
               Icon(Icons.check_circle, color: Colors.green),
               SizedBox(width: 8),
               Text(AppLocalizations.of(context)!.userPasswordReset),
@@ -839,7 +862,8 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
         Navigator.pop(context); // Close loading dialog if open
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(AppLocalizations.of(context)!.errorResettingPasswordE),
+            content:
+                Text(AppLocalizations.of(context)!.errorResettingPasswordE),
             backgroundColor: Colors.red,
           ),
         );
@@ -874,7 +898,11 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
           updates['deactivated_by_email'] = actor?.email?.toLowerCase();
         } else {
           updates['activated_at'] = FieldValue.serverTimestamp();
+          updates['activated_by_uid'] = actor?.uid;
+          updates['activated_by_email'] = actor?.email?.toLowerCase();
           updates['deactivated_at'] = FieldValue.delete();
+          updates['deactivated_by_uid'] = FieldValue.delete();
+          updates['deactivated_by_email'] = FieldValue.delete();
         }
 
         updates.removeWhere((_, value) => value == null);
@@ -911,8 +939,8 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
       context: context,
       builder: (context) => AlertDialog(
         title: Text(AppLocalizations.of(context)!.userPromoteToAdmin),
-        content: Text(AppLocalizations.of(context)!.userPromoteConfirm(
-            '${user.firstName} ${user.lastName}')),
+        content: Text(AppLocalizations.of(context)!
+            .userPromoteConfirm('${user.firstName} ${user.lastName}')),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -920,8 +948,10 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xff3B82F6)),
-            child: Text(AppLocalizations.of(context)!.userPromote, style: TextStyle(color: Colors.white)),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xff3B82F6)),
+            child: Text(AppLocalizations.of(context)!.userPromote,
+                style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -961,7 +991,9 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
     if (currentUser != null) {
       final currentEmail = currentUser.email?.trim().toLowerCase();
       final targetEmail = user.email.trim().toLowerCase();
-      if ((currentEmail != null && currentEmail.isNotEmpty && currentEmail == targetEmail) ||
+      if ((currentEmail != null &&
+              currentEmail.isNotEmpty &&
+              currentEmail == targetEmail) ||
           currentUser.uid == user.documentId) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -984,7 +1016,9 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           title: Text(
-            user.isActive ? 'Archive & Permanently Delete' : 'Permanently Delete User',
+            user.isActive
+                ? 'Archive & Permanently Delete'
+                : 'Permanently Delete User',
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -1009,7 +1043,8 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
                     style: const TextStyle(fontWeight: FontWeight.w600),
                   ),
                   subtitle: userType == 'student'
-                      ? Text(AppLocalizations.of(context)!.userGroupClassesRemain)
+                      ? Text(
+                          AppLocalizations.of(context)!.userGroupClassesRemain)
                       : null,
                   controlAffinity: ListTileControlAffinity.leading,
                 ),
@@ -1038,7 +1073,8 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
       try {
         final email = user.email.trim();
         if (email.isEmpty) {
-          throw Exception('Cannot delete this user because no email is set on their profile.');
+          throw Exception(
+              'Cannot delete this user because no email is set on their profile.');
         }
 
         // The backend delete function requires the user to be archived first.
@@ -1125,10 +1161,18 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
                   border: OutlineInputBorder(),
                 ),
                 items: [
-                  DropdownMenuItem(value: 'admin', child: Text(AppLocalizations.of(context)!.admin)),
-                  DropdownMenuItem(value: 'teacher', child: Text(AppLocalizations.of(context)!.roleTeacher)),
-                  DropdownMenuItem(value: 'student', child: Text(AppLocalizations.of(context)!.roleStudent)),
-                  DropdownMenuItem(value: 'parent', child: Text(AppLocalizations.of(context)!.roleParent)),
+                  DropdownMenuItem(
+                      value: 'admin',
+                      child: Text(AppLocalizations.of(context)!.admin)),
+                  DropdownMenuItem(
+                      value: 'teacher',
+                      child: Text(AppLocalizations.of(context)!.roleTeacher)),
+                  DropdownMenuItem(
+                      value: 'student',
+                      child: Text(AppLocalizations.of(context)!.roleStudent)),
+                  DropdownMenuItem(
+                      value: 'parent',
+                      child: Text(AppLocalizations.of(context)!.roleParent)),
                 ],
                 onChanged: (value) {
                   selectedRole = value!;
@@ -1158,7 +1202,8 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text(AppLocalizations.of(context)!.userUpdatedSuccessfully),
+                      content: Text(AppLocalizations.of(context)!
+                          .userUpdatedSuccessfully),
                       backgroundColor: Colors.green,
                     ),
                   );
@@ -1168,15 +1213,18 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text(AppLocalizations.of(context)!.errorUpdatingUserE),
+                      content: Text(
+                          AppLocalizations.of(context)!.errorUpdatingUserE),
                       backgroundColor: Colors.red,
                     ),
                   );
                 }
               }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xff3B82F6)),
-            child: Text(AppLocalizations.of(context)!.commonSave, style: TextStyle(color: Colors.white)),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xff3B82F6)),
+            child: Text(AppLocalizations.of(context)!.commonSave,
+                style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -1234,7 +1282,8 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               ),
               onChanged: (value) {
                 setState(() => _searchQuery = value);
@@ -1277,7 +1326,8 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.people_outline, size: 64, color: Colors.grey[400]),
+                            Icon(Icons.people_outline,
+                                size: 64, color: Colors.grey[400]),
                             const SizedBox(height: 16),
                             Text(
                               AppLocalizations.of(context)!.userNoUsersFound,
@@ -1296,17 +1346,20 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
                           itemBuilder: (context, index) {
                             final user = _filteredUsers[index];
                             return Card(
-                              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                              margin: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 4),
                               child: ListTile(
                                 leading: Stack(
                                   children: [
                                     CircleAvatar(
-                                      backgroundColor: _getRoleColor(user.userType),
+                                      backgroundColor:
+                                          _getRoleColor(user.userType),
                                       child: Text(
                                         user.firstName.isNotEmpty
                                             ? user.firstName[0].toUpperCase()
                                             : '?',
-                                        style: const TextStyle(color: Colors.white),
+                                        style: const TextStyle(
+                                            color: Colors.white),
                                       ),
                                     ),
                                     if (!user.isActive)
@@ -1319,7 +1372,8 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
                                           decoration: BoxDecoration(
                                             color: Colors.grey,
                                             shape: BoxShape.circle,
-                                            border: Border.all(color: Colors.white, width: 2),
+                                            border: Border.all(
+                                                color: Colors.white, width: 2),
                                           ),
                                         ),
                                       ),
@@ -1348,14 +1402,17 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
                                             vertical: 2,
                                           ),
                                           decoration: BoxDecoration(
-                                            color: _getRoleColor(user.userType).withAlpha(25),
-                                            borderRadius: BorderRadius.circular(4),
+                                            color: _getRoleColor(user.userType)
+                                                .withAlpha(25),
+                                            borderRadius:
+                                                BorderRadius.circular(4),
                                           ),
                                           child: Text(
                                             _getRoleName(user.userType),
                                             style: GoogleFonts.inter(
                                               fontSize: 10,
-                                              color: _getRoleColor(user.userType),
+                                              color:
+                                                  _getRoleColor(user.userType),
                                               fontWeight: FontWeight.w500,
                                             ),
                                           ),
@@ -1369,10 +1426,12 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
                                             ),
                                             decoration: BoxDecoration(
                                               color: Colors.grey.withAlpha(25),
-                                              borderRadius: BorderRadius.circular(4),
+                                              borderRadius:
+                                                  BorderRadius.circular(4),
                                             ),
                                             child: Text(
-                                              AppLocalizations.of(context)!.userInactive,
+                                              AppLocalizations.of(context)!
+                                                  .userInactive,
                                               style: GoogleFonts.inter(
                                                 fontSize: 10,
                                                 color: Colors.grey,

@@ -780,8 +780,30 @@ const getRealtimeKitRoomPresence = onCall({
     };
   }
 
-  const response = await realtimeKit.listMeetingParticipants(meetingId);
-  const participants = Array.isArray(response?.data) ? response.data : [];
+  let activeSession;
+  try {
+    activeSession = await realtimeKit.getActiveSession(meetingId);
+  } catch (error) {
+    if (error?.status === 404) {
+      return {
+        success: true,
+        roomName: meetingId,
+        meetingId,
+        participantCount: 0,
+        participants: [],
+        inJoinWindow: true,
+        generatedAtIso: new Date().toISOString(),
+        shiftName: _deriveShiftDisplayName(shiftData),
+      };
+    }
+    throw error;
+  }
+  const sessionId = activeSession?.data?.id;
+  if (!sessionId) throw new Error('RealtimeKit active session did not return an id');
+  const response = await realtimeKit.listSessionParticipants(sessionId);
+  const participants = (Array.isArray(response?.data?.participants)
+    ? response.data.participants
+    : []).filter((participant) => !participant.left_at && participant.status !== 'LEFT');
   return {
     success: true,
     roomName: meetingId,
@@ -789,9 +811,13 @@ const getRealtimeKitRoomPresence = onCall({
     participantCount: participants.length,
     participants: participants.map((participant) => ({
       identity: participant.custom_participant_id || participant.id || '',
-      name: participant.name || participant.custom_participant_id || 'Participant',
-      role: participant.preset_name || null,
-      joinedAtIso: participant.created_at || null,
+      name: participant.display_name || participant.name || participant.custom_participant_id || 'Participant',
+      role: participant.custom_participant_id === teacherId
+        ? 'teacher'
+        : studentIds.includes(participant.custom_participant_id)
+          ? 'student'
+          : participant.preset_name || 'student',
+      joinedAtIso: participant.joined_at || participant.created_at || null,
       isPublisher: true,
     })),
     inJoinWindow: true,
@@ -923,9 +949,9 @@ const kickRealtimeKitParticipant = onCall({
   const response = await realtimeKit.listMeetingParticipants(meetingId);
   const participant = (Array.isArray(response?.data) ? response.data : [])
     .find((item) => item.custom_participant_id === identity || item.id === identity);
-  if (!participant?.id && !identity) return { success: true, removed: false };
+  if (!participant?.id) return { success: true, removed: false };
   await realtimeKit.kickActiveSessionParticipants(meetingId, {
-    custom_participant_ids: [participant?.custom_participant_id || identity],
+    participant_ids: [participant.id],
   });
   return { success: true, removed: true };
 });

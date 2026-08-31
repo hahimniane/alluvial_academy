@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { onAuthStateChanged, type User } from "firebase/auth";
-import { collection, getDocs, limit, query, Timestamp, where } from "firebase/firestore";
+import { onAuthStateChanged, signOut, type User } from "firebase/auth";
+import { collection, doc, getDocs, limit, query, runTransaction, serverTimestamp, Timestamp, where } from "firebase/firestore";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   Bell,
+  Bot,
+  CircleUserRound,
   BookOpen,
   Briefcase,
   CalendarCheck,
@@ -16,14 +18,20 @@ import {
   Clock3,
   DollarSign,
   FileText,
+  ExternalLink,
   Grid3X3,
   GraduationCap,
   LayoutDashboard,
+  LogOut,
   Menu,
   MessageSquare,
+  Landmark,
   Podcast,
   RotateCcw,
   Search,
+  Settings,
+  ShieldCheck,
+  BarChart3,
   Star,
   TimerReset,
   Video,
@@ -31,7 +39,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { auth, db } from "@/lib/firebase";
-import { getCurrentUserRecord, isCurrentUserTeacher } from "@/lib/userRoles";
+import { getCurrentUserRecord, isCurrentUserTeacher, rolesForUserRecord } from "@/lib/userRoles";
 
 type AccessState = "checking" | "signedOut" | "allowed" | "denied";
 type UserRecord = Record<string, unknown>;
@@ -44,6 +52,12 @@ type TeacherShift = {
   end: Date | null;
   status: string;
   isClockedIn: boolean;
+  clockInTime: Date | null;
+  clockOutTime: Date | null;
+  subject: string;
+  category: string;
+  teacherName: string;
+  hourlyRate: number;
 };
 
 type TeacherTask = {
@@ -65,6 +79,7 @@ type TeacherHomeData = {
   shifts: TeacherShift[];
   tasks: TeacherTask[];
   timesheets: TeacherTimesheet[];
+  completedFormShiftIds: Set<string>;
 };
 
 type TeacherSummary = {
@@ -111,7 +126,14 @@ const teacherSections: SidebarSection[] = [
   },
   {
     title: "Forms",
-    items: [{ label: "Submit Form", icon: FileText, href: "/teacher/submit-form/", color: "#EC4899" }],
+    items: [
+      { label: "Submit Form", icon: FileText, href: "/teacher/submit-form/", color: "#EC4899" },
+      { label: "My Form Submissions", icon: RotateCcw, href: "/teacher/form-submissions/", color: "#64748B" },
+    ],
+  },
+  {
+    title: "Reports",
+    items: [{ label: "My Report", icon: BarChart3, href: "/teacher/report/", color: "#DC2626" }],
   },
 ];
 
@@ -120,7 +142,17 @@ const quickAccess = [
   { label: "Trading", icon: CheckCircle2, href: "/teacher/job-board/", color: "#10B981" },
   { label: "Forms", icon: FileText, href: "/teacher/submit-form/", color: "#F59E0B" },
   { label: "My Form Submissions", icon: RotateCcw, href: "/teacher/form-submissions/", color: "#64748B" },
-  { label: "Assignments", icon: ClipboardList, href: "/teacher/tasks/", color: "#8B5CF6" },
+  { label: "Assignments", icon: ClipboardList, href: "/teacher/assignments/", color: "#8B5CF6" },
+];
+
+const islamicResources = [
+  { label: "Surah Podcasts", icon: Podcast, href: "/teacher/surah-podcasts/", color: "#0E72ED", internal: true },
+  { label: "Quran.com - Recitation & Translation", icon: BookOpen, href: "https://quran.com", color: "#10B981" },
+  { label: "Sunnah.com - Hadith Collections", icon: BookOpen, href: "https://sunnah.com", color: "#3B82F6" },
+  { label: "Islamic Finder - Prayer Times", icon: Clock3, href: "https://www.islamicfinder.org", color: "#EF4444" },
+  { label: "IslamQA.info - Q&A", icon: MessageSquare, href: "https://islamqa.info", color: "#8B5CF6" },
+  { label: "Bayyinah Institute", icon: GraduationCap, href: "https://bayyinah.com", color: "#F59E0B" },
+  { label: "SeekersGuidance - Courses", icon: Video, href: "https://seekersguidance.org", color: "#06B6D4" },
 ];
 
 const TEACHER_MOBILE_MENU_EVENT = "alluwal:open-teacher-mobile-menu";
@@ -134,8 +166,9 @@ export function TeacherDashboardHome() {
   const [access, setAccess] = useState<AccessState>("checking");
   const [user, setUser] = useState<User | null>(null);
   const [summary, setSummary] = useState<TeacherSummary>({ displayName: "Teacher", firstName: "Teacher", initials: "TE" });
-  const [data, setData] = useState<TeacherHomeData>({ shifts: [], tasks: [], timesheets: [] });
+  const [data, setData] = useState<TeacherHomeData>({ shifts: [], tasks: [], timesheets: [], completedFormShiftIds: new Set() });
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
 
   useEffect(() => {
     let mounted = true;
@@ -150,6 +183,7 @@ export function TeacherDashboardHome() {
 
       setAccess("checking");
       setLoading(true);
+      setLoadError("");
       try {
         const allowed = await isCurrentUserTeacher(nextUser);
         if (!mounted) return;
@@ -163,7 +197,10 @@ export function TeacherDashboardHome() {
         setSummary(summaryForUser(nextUser, userRecord));
         setAccess("allowed");
         const loaded = await loadTeacherHomeData(nextUser.uid);
-        if (mounted) setData(loaded);
+        if (mounted) {
+          setData(loaded.data);
+          setLoadError(homeLoadError(loaded.failed));
+        }
       } catch {
         if (mounted) setAccess("denied");
       } finally {
@@ -174,9 +211,22 @@ export function TeacherDashboardHome() {
 
   if (access !== "allowed") return <TeacherAccessPrompt access={access} />;
 
+  const retryLoad = async () => {
+    if (!user || loading) return;
+    setLoading(true);
+    setLoadError("");
+    try {
+      const loaded = await loadTeacherHomeData(user.uid);
+      setData(loaded.data);
+      setLoadError(homeLoadError(loaded.failed));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <TeacherShell activeLabel="Dashboard" breadcrumb="Overview / Dashboard" summary={summary}>
-      <TeacherHomeContent data={data} loading={loading} summary={summary} user={user} />
+      <TeacherHomeContent data={data} loading={loading} loadError={loadError} onRetry={() => void retryLoad()} summary={summary} user={user} />
     </TeacherShell>
   );
 }
@@ -184,13 +234,21 @@ export function TeacherDashboardHome() {
 function TeacherHomeContent({
   data,
   loading,
+  loadError,
+  onRetry,
   summary,
+  user,
 }: {
   data: TeacherHomeData;
   loading: boolean;
+  loadError: string;
+  onRetry: () => void;
   summary: TeacherSummary;
   user: User | null;
 }) {
+  const [pendingFormsOpen, setPendingFormsOpen] = useState(false);
+  const [clockBusy, setClockBusy] = useState(false);
+  const [clockNotice, setClockNotice] = useState("");
   const now = new Date();
   const weekStart = startOfWeek(now);
   const weekEnd = addDays(weekStart, 7);
@@ -208,6 +266,23 @@ function TeacherHomeContent({
   const monthAbsences = data.shifts.filter((shift) => shift.start && shift.start >= monthStart && isMissedStatus(shift.status)).length;
   const monthLate = data.timesheets.filter((entry) => entry.date && entry.date >= monthStart && entry.status.includes("late")).length;
   const openAssignments = data.tasks.filter((task) => task.status !== "done").length;
+  const recentTasks = [...data.tasks].sort((a, b) => (a.dueDate?.getTime() ?? Number.MAX_SAFE_INTEGER) - (b.dueDate?.getTime() ?? Number.MAX_SAFE_INTEGER)).slice(0, 3);
+  const pendingFormShifts = data.shifts
+    .filter((shift) => shift.end && shift.end < now && isFormRequiredStatus(shift.status) && !data.completedFormShiftIds.has(shift.id))
+    .sort((a, b) => (b.start?.getTime() ?? 0) - (a.start?.getTime() ?? 0));
+  const activeShift = data.shifts.find(isDashboardClockedIn) ?? data.shifts.filter(canDashboardClockIn).sort((a, b) => (a.start?.getTime() ?? 0) - (b.start?.getTime() ?? 0))[0] ?? null;
+
+  const performClockAction = async () => {
+    if (!activeShift || !user || clockBusy) return;
+    setClockBusy(true); setClockNotice("");
+    try {
+      const location = await getDashboardLocation();
+      const result = isDashboardClockedIn(activeShift) ? await dashboardClockOut(user, activeShift, location) : await dashboardClockIn(user, activeShift, location);
+      setClockNotice(result);
+      onRetry();
+    } catch (cause) { setClockNotice(clockError(cause)); }
+    finally { setClockBusy(false); }
+  };
 
   return (
     <main className="min-h-[calc(100vh-56px)] overflow-y-auto bg-[#F5F5F5] px-5 pb-20 pt-0 text-[#111827] lg:px-5 lg:pb-8">
@@ -216,10 +291,17 @@ function TeacherHomeContent({
           <button type="button" aria-label="Open teacher menu" onClick={openTeacherMobileMenu} className="grid h-11 w-11 place-items-center rounded-xl">
             <Menu size={22} />
           </button>
-          <div className="min-w-0 text-center text-base font-bold">Alluwal Academy</div>
+          <div className="min-w-0 text-center text-base font-bold">Alluwal Education Hub</div>
           <span className="grid h-9 w-9 place-items-center rounded-full bg-[#009688] text-xs font-black text-white">{summary.initials}</span>
         </div>
       </header>
+
+      {loadError ? (
+        <section className="mt-4 flex flex-col gap-3 rounded-2xl border border-[#FCD34D] bg-[#FFFBEB] px-4 py-3 text-sm text-[#92400E] sm:flex-row sm:items-center" role="alert">
+          <p className="min-w-0 flex-1 font-semibold">{loadError}</p>
+          <button type="button" onClick={onRetry} disabled={loading} className="min-h-10 rounded-xl bg-[#92400E] px-4 text-xs font-bold text-white disabled:opacity-60">{loading ? "Retrying..." : "Try again"}</button>
+        </section>
+      ) : null}
 
       <section className="grid grid-cols-3 gap-2 pt-0 lg:gap-3 lg:pt-9">
         <MetricCard icon={Clock3} iconColor="#10B981" value={`${formatNumber(weekHours)}h`} label="This Week" loading={loading} />
@@ -235,6 +317,10 @@ function TeacherHomeContent({
         <EarningCell label="Week" value={money(weekPay)} />
         <EarningCell label="Month" value={money(monthPay)} />
       </section>
+
+      {pendingFormShifts.length ? <button type="button" onClick={() => setPendingFormsOpen(true)} className="mt-4 flex min-h-20 w-full items-center gap-4 rounded-2xl bg-gradient-to-br from-[#F59E0B] to-[#EF4444] p-4 text-left text-white shadow-[0_8px_18px_rgba(245,158,11,0.28)]"><span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-white/20"><ClipboardList size={25} /></span><span className="min-w-0 flex-1"><span className="block font-extrabold">{pendingFormShifts.length} Readiness Form{pendingFormShifts.length === 1 ? "" : "s"} Required</span><span className="mt-1 block text-sm text-white/90">Complete a report for each completed or missed class.</span></span><span aria-hidden="true" className="text-2xl">›</span></button> : null}
+
+      {activeShift ? <ActiveSessionCard shift={activeShift} busy={clockBusy} notice={clockNotice} onClockAction={() => void performClockAction()} /> : null}
 
       <section className="mt-5">
         <div className="mb-4 flex items-center justify-between">
@@ -254,6 +340,7 @@ function TeacherHomeContent({
       </section>
 
       <section className="mt-6">
+        {recentTasks.length ? <div className="mb-6" aria-labelledby="teacher-recent-tasks"><div className="mb-3 flex items-center justify-between"><div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-red-50 text-[#EF4444]"><CheckCircle2 size={20} /></span><h2 id="teacher-recent-tasks" className="text-xl font-black text-[#1F2937]">My Tasks</h2></div><Link href="/teacher/tasks/" className="text-sm font-bold text-[#0386FF]">See All</Link></div><div className="grid gap-3">{recentTasks.map((task) => <DashboardTaskCard key={task.id} task={task} />)}</div></div> : null}
         <div className="mb-4 flex items-center gap-3">
           <span className="grid h-10 w-10 place-items-center rounded-xl bg-[#DBEAFE] text-[#0386FF]">
             <Grid3X3 size={21} />
@@ -266,8 +353,22 @@ function TeacherHomeContent({
           ))}
         </div>
       </section>
+      <section className="mt-6 rounded-2xl border border-[#E2E8F0] bg-white p-5 shadow-sm" aria-labelledby="teacher-islamic-resources"><div className="mb-4 flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-pink-50 text-[#EC4899]"><Landmark size={21} /></span><h2 id="teacher-islamic-resources" className="text-xl font-black text-[#1F2937]">Islamic Resources</h2></div><div className="grid gap-1">{islamicResources.map((resource) => { const Icon = resource.icon; const content = <><span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg" style={{ color: resource.color, backgroundColor: `${resource.color}16` }}><Icon size={18} /></span><span className="min-w-0 flex-1 text-sm font-semibold text-[#374151]">{resource.label}</span>{resource.internal ? <span aria-hidden="true" className="text-[#94A3B8]">›</span> : <ExternalLink size={15} className="text-[#94A3B8]" />}</>; return resource.internal ? <Link key={resource.label} href={resource.href} className="flex min-h-12 items-center gap-3 rounded-xl px-2 hover:bg-[#F8FAFC]">{content}</Link> : <a key={resource.label} href={resource.href} target="_blank" rel="noopener noreferrer" className="flex min-h-12 items-center gap-3 rounded-xl px-2 hover:bg-[#F8FAFC]">{content}</a>; })}</div></section>
+      {pendingFormsOpen ? <PendingFormsDialog shifts={pendingFormShifts} onClose={() => setPendingFormsOpen(false)} /> : null}
     </main>
   );
+}
+
+function DashboardTaskCard({ task }: { task: TeacherTask }) { const normalized = task.status.toLowerCase().replace(/[_\s-]+/g, ""); const done = normalized === "done" || normalized === "completed"; const inProgress = normalized === "inprogress"; const overdue = Boolean(task.dueDate && task.dueDate < new Date() && !done); return <Link href={`/teacher/tasks/?task=${encodeURIComponent(task.id)}`} className={`flex min-h-16 items-center gap-3 rounded-xl border bg-white p-4 shadow-sm ${overdue ? "border-red-200" : "border-[#E2E8F0]"}`}><span className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg ${done ? "bg-emerald-50 text-emerald-600" : inProgress ? "bg-amber-50 text-amber-600" : "bg-blue-50 text-[#0386FF]"}`}><CheckCircle2 size={19} /></span><span className="min-w-0 flex-1"><span className="block truncate text-sm font-bold text-[#1E293B]">{task.title}</span><span className={`mt-1 block text-xs ${overdue ? "font-bold text-red-600" : "text-[#64748B]"}`}>{task.dueDate ? `Due ${new Intl.DateTimeFormat("en", { month: "short", day: "numeric" }).format(task.dueDate)}` : "No due date"}</span></span><span aria-hidden="true" className="text-[#94A3B8]">›</span></Link>; }
+
+function ActiveSessionCard({ shift, busy, notice, onClockAction }: { shift: TeacherShift; busy: boolean; notice: string; onClockAction: () => void }) {
+  const clockedIn = isDashboardClockedIn(shift);
+  const elapsed = clockedIn ? elapsedLabel(shift.clockInTime && shift.start && shift.clockInTime < shift.start ? shift.start : shift.clockInTime ?? shift.start) : "";
+  return <section className={`mt-4 rounded-3xl bg-gradient-to-br p-5 text-white shadow-lg ${clockedIn ? "from-[#10B981] to-[#059669]" : "from-[#0E72ED] to-[#0386FF]"}`} aria-label="Active teacher session"><div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-white/20"><Clock3 size={21} /></span><p className="min-w-0 flex-1 text-sm font-bold text-white/90">{clockedIn ? "Active Session" : "Upcoming Session"}</p><span className="rounded-full bg-white/20 px-3 py-1 text-xs font-extrabold">{clockedIn ? "In Progress" : "Ready"}</span></div><h2 className="mt-4 text-xl font-extrabold">{shift.title}</h2><p className="mt-1 text-sm text-white/80">{formatDateTimeRange(shift.start, shift.end)}</p>{elapsed ? <p className="mt-3 rounded-xl border border-white/20 bg-white/15 p-3 font-bold">Elapsed time: {elapsed}</p> : null}<div className="mt-4 grid grid-cols-2 gap-3"><Link href={`/teacher/shifts/?shift=${encodeURIComponent(shift.id)}`} className="flex min-h-11 items-center justify-center rounded-xl border border-white font-bold">View Session</Link><button type="button" disabled={busy} onClick={onClockAction} className={`min-h-11 rounded-xl bg-white font-extrabold disabled:opacity-60 ${clockedIn ? "text-[#EF4444]" : "text-[#0E72ED]"}`}>{busy ? "Working…" : clockedIn ? "Clock Out" : "Clock In"}</button></div>{notice ? <p role="status" className={`mt-3 rounded-xl px-3 py-2 text-sm font-semibold ${/^Successfully/.test(notice) ? "bg-white/15 text-white" : "bg-red-950/25 text-white"}`}>{notice}</p> : null}</section>;
+}
+
+function PendingFormsDialog({ shifts, onClose }: { shifts: TeacherShift[]; onClose: () => void }) {
+  return <section className="fixed inset-0 z-[90] grid items-end bg-black/45 sm:place-items-center" role="dialog" aria-modal="true" aria-label="Pending readiness forms"><div className="max-h-[78vh] w-full overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:max-w-xl sm:rounded-3xl"><header className="flex items-center gap-3 border-b border-[#E2E8F0] p-5"><span className="grid h-11 w-11 place-items-center rounded-xl bg-amber-100 text-amber-600"><ClipboardList size={22} /></span><div className="min-w-0 flex-1"><h2 className="text-lg font-extrabold text-[#111827]">Pending Readiness Forms</h2><p className="text-sm text-[#64748B]">Select a class to complete its report.</p></div><button type="button" aria-label="Close pending forms" onClick={onClose} className="grid h-10 w-10 place-items-center rounded-xl text-[#64748B] hover:bg-[#F1F5F9]"><X size={20} /></button></header><div className="max-h-[calc(78vh-84px)] divide-y divide-[#E2E8F0] overflow-y-auto">{shifts.map((shift) => <div key={shift.id} className="flex flex-wrap items-center gap-3 p-5"><div className="min-w-0 flex-1"><p className="truncate font-bold text-[#334155]">{shift.title}</p><p className="mt-1 text-sm text-[#64748B]">{formatDateTimeRange(shift.start, shift.end)}</p><span className={`mt-2 inline-flex rounded-full px-2 py-1 text-xs font-bold ${isMissedStatus(shift.status) ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800"}`}>{isMissedStatus(shift.status) ? "Missed" : "Completed"}</span></div><Link href={`/teacher/submit-form/?shift=${encodeURIComponent(shift.id)}`} className="inline-flex min-h-11 items-center justify-center rounded-xl bg-[#0386FF] px-4 text-sm font-bold text-white">Fill Form</Link></div>)}</div></div></section>;
 }
 
 export function TeacherShell({
@@ -285,12 +386,18 @@ export function TeacherShell({
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
   const [favoritedItems, setFavoritedItems] = useState<Set<string>>(new Set());
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [canSwitchToAdmin, setCanSwitchToAdmin] = useState(false);
+  const [notificationCount, setNotificationCount] = useState(0);
+  const [aiTutorEnabled, setAiTutorEnabled] = useState(false);
+  const [tontineEnabled, setTontineEnabled] = useState(false);
   const normalizedSearch = searchQuery.trim().toLowerCase();
-  const allSidebarItems = useMemo(() => teacherSections.flatMap((section) => section.items), []);
+  const availableSidebarSections = useMemo(() => tontineEnabled ? [...teacherSections, { title: "Savings", items: [{ label: "Circles", icon: Landmark, href: "/teacher/circles/", color: "#0F766E" }] }] : teacherSections, [tontineEnabled]);
+  const allSidebarItems = useMemo(() => availableSidebarSections.flatMap((section) => section.items), [availableSidebarSections]);
   const favoriteSidebarItems = allSidebarItems.filter((item) => favoritedItems.has(item.label));
   const visibleSidebarSections = useMemo(() => {
-    if (!normalizedSearch) return teacherSections;
-    return teacherSections
+    if (!normalizedSearch) return availableSidebarSections;
+    return availableSidebarSections
       .map((section) => {
         const titleMatches = section.title.toLowerCase().includes(normalizedSearch);
         const matchedItems = section.items.filter((item) => item.label.toLowerCase().includes(normalizedSearch));
@@ -298,7 +405,7 @@ export function TeacherShell({
         return { ...section, items: titleMatches ? section.items : matchedItems };
       })
       .filter((section): section is SidebarSection => section !== null);
-  }, [normalizedSearch]);
+  }, [availableSidebarSections, normalizedSearch]);
 
   function toggleSection(title: string) {
     setCollapsedSections((current) => {
@@ -330,10 +437,43 @@ export function TeacherShell({
     return () => window.removeEventListener(TEACHER_MOBILE_MENU_EVENT, openMenu);
   }, []);
 
+  useEffect(() => {
+    try {
+      const collapsed = JSON.parse(window.localStorage.getItem("teacher-sidebar-collapsed") || "[]");
+      const favorites = JSON.parse(window.localStorage.getItem("teacher-sidebar-favorites") || "[]");
+      if (Array.isArray(collapsed)) setCollapsedSections(new Set(collapsed.filter((item): item is string => typeof item === "string")));
+      if (Array.isArray(favorites)) setFavoritedItems(new Set(favorites.filter((item): item is string => typeof item === "string")));
+    } catch {}
+    const user = auth.currentUser;
+    if (user) {
+      void getCurrentUserRecord(user).then((record) => {
+        if (!record) return;
+        const roles = rolesForUserRecord(record);
+        setCanSwitchToAdmin(roles.has("admin") || roles.has("super_admin"));
+        setAiTutorEnabled(record.ai_tutor_enabled === true);
+        setTontineEnabled(record.tontine_enabled === true);
+      });
+      void getDocs(query(collection(db, "audit_notifications"), where("teacherId", "==", user.uid), where("read", "==", false), limit(100))).then((snapshot) => setNotificationCount(snapshot.size)).catch(() => setNotificationCount(0));
+    }
+  }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem("teacher-sidebar-collapsed", JSON.stringify(Array.from(collapsedSections)));
+  }, [collapsedSections]);
+
+  useEffect(() => {
+    window.localStorage.setItem("teacher-sidebar-favorites", JSON.stringify(Array.from(favoritedItems)));
+  }, [favoritedItems]);
+
+  const logout = async () => {
+    await signOut(auth);
+    window.location.assign("/login/");
+  };
+
   return (
-    <main className="min-h-screen bg-[#F5F5F5] text-[#0F172A]">
-      <div className="flex min-h-screen">
-        <aside className="hidden w-[260px] shrink-0 flex-col border-r border-black/10 bg-white lg:flex">
+    <main className={`h-screen overflow-hidden bg-[#F5F5F5] text-[#0F172A] ${activeLabel === "Settings" ? "teacher-settings" : ""}`}>
+      <div className="flex h-screen overflow-hidden">
+        <aside className="hidden h-screen w-[260px] shrink-0 flex-col border-r border-[#D7DEE8] bg-white shadow-[4px_0_18px_rgba(15,23,42,0.04)] lg:flex">
           <div className="flex min-h-14 items-center justify-center border-b border-black/5 px-4">
             <img src="/assets/Alluwal_Education_Hub_Logo.png" alt="Alluwal Education Hub" className="h-12 w-auto object-contain" />
           </div>
@@ -414,28 +554,42 @@ export function TeacherShell({
           </div>
         </aside>
 
-        <section className="min-w-0 flex-1">
-          <header className="hidden min-h-14 items-center justify-between border-b border-black/5 bg-white px-4 lg:flex">
+        <section className="flex h-screen min-w-0 flex-1 flex-col overflow-hidden">
+          <header className="hidden min-h-14 shrink-0 items-center justify-between border-b border-black/5 bg-white px-4 lg:flex">
             <p className="text-sm font-bold text-[#64748B]">{breadcrumb}</p>
             <div className="flex items-center gap-3">
               <span className="inline-flex min-h-9 items-center rounded-full bg-[#0386FF] px-4 text-xs font-black text-white">Teacher</span>
-              <Bell size={20} className="text-[#64748B]" />
-              <span className="max-w-[240px] truncate text-sm font-semibold text-[#2563EB]">{summary.displayName}</span>
-              <span className="grid h-10 w-10 place-items-center rounded-full bg-[#009688] text-sm font-black text-white">
-                {summary.initials}
-              </span>
+              <Link href="/teacher/report/" aria-label={notificationCount ? `${notificationCount} unread report notification${notificationCount === 1 ? "" : "s"}` : "Open report notifications"} className="relative grid h-11 w-11 place-items-center rounded-xl text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#0386FF]"><Bell size={20} />{notificationCount ? <span className="absolute right-1 top-1 grid min-h-4 min-w-4 place-items-center rounded-full bg-red-500 px-1 text-[9px] font-black text-white">{notificationCount > 99 ? "99+" : notificationCount}</span> : null}</Link>
+              <div className="relative">
+                <button type="button" aria-label="Open teacher account menu" aria-expanded={accountMenuOpen} onClick={() => setAccountMenuOpen((current) => !current)} className="flex min-h-11 items-center gap-3 rounded-xl px-2 hover:bg-[#F8FAFC]">
+                  <span className="max-w-[240px] truncate text-sm font-semibold text-[#2563EB]">{summary.displayName}</span>
+                  <span className="grid h-10 w-10 place-items-center rounded-full bg-[#009688] text-sm font-black text-white">{summary.initials}</span>
+                </button>
+                {accountMenuOpen ? (
+                  <div className="absolute right-0 top-12 z-50 w-56 rounded-2xl border border-[#E2E8F0] bg-white p-2 shadow-xl" role="menu" aria-label="Teacher account menu">
+                    <Link href="/teacher/profile/" role="menuitem" className="flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-bold text-[#334155] hover:bg-[#F1F5F9]"><CircleUserRound size={18} />View Profile</Link>
+                    <Link href="/teacher/settings/" role="menuitem" className="flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-bold text-[#334155] hover:bg-[#F1F5F9]"><Settings size={18} />Settings</Link>
+                    {canSwitchToAdmin ? <Link href="/admin/" role="menuitem" className="flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-bold text-[#334155] hover:bg-[#F1F5F9]"><ShieldCheck size={18} />Switch to Admin</Link> : null}
+                    <button type="button" role="menuitem" onClick={() => void logout()} className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-bold text-[#DC2626] hover:bg-[#FEF2F2]"><LogOut size={18} />Log out</button>
+                  </div>
+                ) : null}
+              </div>
             </div>
           </header>
-          {children}
+          <div className="min-h-0 flex-1 overflow-y-auto" aria-label="Teacher page content">{children}</div>
         </section>
       </div>
       {mobileMenuOpen ? (
         <TeacherMobileMenu
           activeLabel={activeLabel}
           summary={summary}
+          canSwitchToAdmin={canSwitchToAdmin}
+          tontineEnabled={tontineEnabled}
+          onLogout={() => void logout()}
           onClose={() => setMobileMenuOpen(false)}
         />
       ) : null}
+      {aiTutorEnabled ? <Link href="/teacher/tutor/" aria-label="Open AI Tutor" className="fixed bottom-5 right-5 z-40 inline-flex min-h-12 items-center gap-2 rounded-full bg-[#0E72ED] px-5 font-extrabold text-white shadow-xl hover:bg-[#075FC9]"><Bot size={20} />AI Tutor</Link> : null}
     </main>
   );
 }
@@ -443,10 +597,16 @@ export function TeacherShell({
 function TeacherMobileMenu({
   activeLabel,
   summary,
+  canSwitchToAdmin,
+  tontineEnabled,
+  onLogout,
   onClose,
 }: {
   activeLabel: string;
   summary: TeacherSummary;
+  canSwitchToAdmin: boolean;
+  tontineEnabled: boolean;
+  onLogout: () => void;
   onClose: () => void;
 }) {
   return (
@@ -496,7 +656,14 @@ function TeacherMobileMenu({
               </div>
             </div>
           ))}
+          {tontineEnabled ? <div className="mb-5"><p className="mb-2 flex items-center gap-2 px-2 text-[10px] font-black uppercase tracking-[0.14em] text-[#94A3B8]"><Grid3X3 size={14} />Savings</p><Link href="/teacher/circles/" onClick={onClose} className={`flex min-h-12 items-center gap-3 rounded-2xl px-3 text-sm font-bold ${activeLabel === "Circles" ? "bg-[#E6EEF8] text-[#001E4E]" : "text-[#334155] hover:bg-[#F1F4F8]"}`}><span className="grid h-9 w-9 place-items-center rounded-xl bg-[#F8FAFC] text-[#0F766E]"><Landmark size={19} /></span>Circles</Link></div> : null}
         </nav>
+        <div className="border-t border-black/10 p-3">
+          <Link href="/teacher/profile/" onClick={onClose} className="flex min-h-12 items-center gap-3 rounded-xl px-3 text-sm font-bold text-[#334155] hover:bg-[#F1F5F9]"><CircleUserRound size={19} />View Profile</Link>
+          <Link href="/teacher/settings/" onClick={onClose} className="flex min-h-12 items-center gap-3 rounded-xl px-3 text-sm font-bold text-[#334155] hover:bg-[#F1F5F9]"><Settings size={19} />Settings</Link>
+          {canSwitchToAdmin ? <Link href="/admin/" onClick={onClose} className="flex min-h-12 items-center gap-3 rounded-xl px-3 text-sm font-bold text-[#334155] hover:bg-[#F1F5F9]"><ShieldCheck size={19} />Switch to Admin</Link> : null}
+          <button type="button" onClick={onLogout} className="flex min-h-12 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-bold text-[#DC2626] hover:bg-[#FEF2F2]"><LogOut size={19} />Log out</button>
+        </div>
       </aside>
     </section>
   );
@@ -553,12 +720,12 @@ function EmptyNextClass() {
 
 function NextClassCard({ shift }: { shift: TeacherShift }) {
   return (
-    <div className="w-full max-w-[420px] rounded-xl border border-[#BFDBFE] bg-white p-5 shadow-sm">
+    <Link href={`/teacher/shifts/?shift=${encodeURIComponent(shift.id)}`} aria-label={`View ${shift.title} session details`} className="block w-full max-w-[420px] rounded-xl border border-[#BFDBFE] bg-white p-5 shadow-sm hover:border-[#0386FF] hover:shadow-md">
       <p className="text-xs font-bold uppercase tracking-[0.08em] text-[#0386FF]">Upcoming class</p>
       <h2 className="mt-2 text-lg font-black text-[#111827]">{shift.title}</h2>
       <p className="mt-2 text-sm font-semibold text-[#64748B]">{shift.studentNames.join(", ") || "Students"}</p>
       <p className="mt-3 text-sm font-medium text-[#334155]">{formatDateTimeRange(shift.start, shift.end)}</p>
-    </div>
+    </Link>
   );
 }
 
@@ -665,18 +832,41 @@ export function TeacherAccessPrompt({ access }: { access: AccessState }) {
   );
 }
 
-async function loadTeacherHomeData(uid: string): Promise<TeacherHomeData> {
-  const [shifts, tasks, timesheets] = await Promise.all([
-    loadTeacherShifts(uid).catch(() => []),
-    loadTeacherTasks(uid).catch(() => []),
-    loadTeacherTimesheets(uid).catch(() => []),
-  ]);
-  return { shifts, tasks, timesheets };
+async function loadTeacherHomeData(uid: string): Promise<{data: TeacherHomeData; failed: string[]}> {
+  const results = await Promise.allSettled([loadTeacherShifts(uid), loadTeacherTasks(uid), loadTeacherTimesheets(uid), loadTeacherFormShiftIds(uid)]);
+  const labels = ["class schedule", "tasks", "timesheets", "form status"];
+  return {
+    data: {
+      shifts: results[0].status === "fulfilled" ? results[0].value : [],
+      tasks: results[1].status === "fulfilled" ? results[1].value : [],
+      timesheets: results[2].status === "fulfilled" ? results[2].value : [],
+      completedFormShiftIds: results[3].status === "fulfilled" ? results[3].value : new Set(),
+    },
+    failed: results.flatMap((result, index) => result.status === "rejected" ? [labels[index]] : []),
+  };
+}
+
+async function loadTeacherFormShiftIds(uid: string) {
+  const snapshots = await Promise.all(["userId", "submittedBy", "submitted_by"].map((field) => getDocs(query(collection(db, "form_responses"), where(field, "==", uid), limit(200))).catch(() => null)));
+  const ids = new Set<string>();
+  snapshots.flatMap((snapshot) => snapshot?.docs ?? []).forEach((entry) => {
+    const data = entry.data() as Record<string, unknown>;
+    const shiftId = stringValue(data.shiftId ?? data.shift_id ?? data.linked_shift_id);
+    if (shiftId) ids.add(shiftId);
+  });
+  return ids;
+}
+
+function homeLoadError(failed: string[]) {
+  if (!failed.length) return "";
+  return `Some dashboard data could not be refreshed: ${failed.join(", ")}. Existing values for those sections may be incomplete.`;
 }
 
 async function loadTeacherShifts(uid: string) {
-  const snap = await getDocs(query(collection(db, "teaching_shifts"), where("teacher_id", "==", uid), limit(100)));
-  return snap.docs.map((entry) => normalizeShift(entry.id, entry.data() as Record<string, unknown>));
+  const snapshots = await Promise.all(["teacher_id", "teacherId"].map((field) => getDocs(query(collection(db, "teaching_shifts"), where(field, "==", uid), limit(500))).catch(() => null)));
+  const byId = new Map<string, TeacherShift>();
+  snapshots.flatMap((snapshot) => snapshot?.docs ?? []).forEach((entry) => byId.set(entry.id, normalizeShift(entry.id, entry.data() as Record<string, unknown>)));
+  return Array.from(byId.values());
 }
 
 async function loadTeacherTasks(uid: string) {
@@ -704,6 +894,12 @@ function normalizeShift(id: string, data: Record<string, unknown>): TeacherShift
     end: dateValue(data.shift_end ?? data.shiftEnd ?? data.end_time ?? data.endTime),
     status: stringValue(data.status) || "scheduled",
     isClockedIn: data.is_clocked_in === true || data.isClockedIn === true,
+    clockInTime: dateValue(data.clock_in_time ?? data.clockInTime),
+    clockOutTime: dateValue(data.clock_out_time ?? data.clockOutTime),
+    subject: stringValue(data.subject_display_name ?? data.subjectDisplayName ?? data.subject),
+    category: stringValue(data.shift_category ?? data.shiftCategory ?? data.category) || "teaching",
+    teacherName: stringValue(data.teacher_name ?? data.teacherName),
+    hourlyRate: numberValue(data.hourly_rate ?? data.hourlyRate, 0),
   };
 }
 
@@ -800,6 +996,43 @@ function isCompletedStatus(status: string) {
 function isMissedStatus(status: string) {
   return ["missed", "no_show", "noshow"].includes(status.toLowerCase().replace(/\s+/g, ""));
 }
+
+function isFormRequiredStatus(status: string) { return isCompletedStatus(status) || isMissedStatus(status); }
+
+function isDashboardClockedIn(shift: TeacherShift) { return Boolean((shift.isClockedIn || shift.status.toLowerCase() === "active") && shift.clockInTime && !shift.clockOutTime); }
+function canDashboardClockIn(shift: TeacherShift) { if (!shift.start || !shift.end || isDashboardClockedIn(shift) || isClosedStatus(shift.status)) return false; const now = new Date(); return now >= new Date(shift.start.getTime() - 60_000) && now <= shift.end; }
+function elapsedLabel(start: Date | null) { const milliseconds = start ? Math.max(0, Date.now() - start.getTime()) : 0; const hours = Math.floor(milliseconds / 3_600_000); const minutes = Math.floor(milliseconds % 3_600_000 / 60_000); return `${hours}h ${String(minutes).padStart(2, "0")}m`; }
+
+type DashboardLocation = { latitude: number; longitude: number; address: string; neighborhood: string };
+async function getDashboardLocation(): Promise<DashboardLocation> { if (!("geolocation" in navigator)) throw new Error("Location access is required to clock in or out."); try { const position = await new Promise<GeolocationPosition>((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 })); const { latitude, longitude } = position.coords; return { latitude, longitude, address: `Location: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`, neighborhood: "GPS coordinates" }; } catch { throw new Error("Location access is required to clock in or out. Allow location access and try again."); } }
+
+async function dashboardClockIn(user: User, shift: TeacherShift, location: DashboardLocation) {
+  if (!canDashboardClockIn(shift)) throw new Error("This shift is not available for clock-in right now.");
+  if (await findDashboardOpenEntry(user.uid, shift.id)) throw new Error("You are already clocked in to this shift.");
+  const now = new Date(); const timesheetRef = doc(collection(db, "timesheet_entries")); const shiftRef = doc(db, "teaching_shifts", shift.id);
+  await runTransaction(db, async (transaction) => {
+    const currentSnap = await transaction.get(shiftRef); if (!currentSnap.exists()) throw new Error("This shift is no longer available.");
+    const current = currentSnap.data() as Record<string, unknown>; if (dateValue(current.clock_in_time ?? current.clockInTime) && !dateValue(current.clock_out_time ?? current.clockOutTime)) throw new Error("You are already clocked in to this shift.");
+    transaction.set(timesheetRef, { teacher_id: user.uid, teacher_email: user.email, teacher_name: shift.teacherName, shift_id: shift.id, shift_category: shift.category, date: dashboardDate(now), student_name: shift.studentNames.join(", ") || shift.title, start_time: dashboardTime(now), end_time: "", total_hours: "00:00", hourly_rate: shift.hourlyRate, pay_rate_source: shift.hourlyRate > 0 ? "teaching_shift_rate" : "timesheet_fallback_rate", is_subject_billable: shift.category === "teaching", description: `Teaching session: ${shift.subject || shift.title} - ${shift.title}`, status: "pending", source: "shift_clock_in", completion_method: "pending", clock_in_timestamp: Timestamp.fromDate(now), clock_in_status: deviationStatus(now, shift.start), clock_in_deviation_minutes: deviationMinutes(now, shift.start), clock_in_platform: "web", clock_in_latitude: location.latitude, clock_in_longitude: location.longitude, clock_in_address: location.address, clock_in_neighborhood: location.neighborhood, shift_title: shift.title, scheduled_start: shift.start ? Timestamp.fromDate(shift.start) : null, scheduled_end: shift.end ? Timestamp.fromDate(shift.end) : null, scheduled_duration_minutes: shift.start && shift.end ? Math.max(0, Math.round((shift.end.getTime() - shift.start.getTime()) / 60_000)) : 0, created_at: serverTimestamp(), updated_at: serverTimestamp() });
+    transaction.update(shiftRef, { last_modified: Timestamp.fromDate(now), status: "active", clock_out_time: null, clock_in_time: Timestamp.fromDate(now), last_clock_in_platform: "web" });
+  });
+  return `Successfully clocked in to ${shift.title}`;
+}
+
+async function dashboardClockOut(user: User, shift: TeacherShift, location: DashboardLocation) {
+  const open = await findDashboardOpenEntry(user.uid, shift.id); if (!open) throw new Error("No active clock-in found for this shift.");
+  const now = new Date(); const clockIn = dateValue(open.data.clock_in_timestamp) ?? shift.clockInTime ?? shift.start ?? now; const effectiveStart = shift.start && clockIn < shift.start ? shift.start : clockIn; const effectiveEnd = shift.end && now > shift.end ? shift.end : now; const duration = Math.max(0, effectiveEnd.getTime() - effectiveStart.getTime()); const hours = duration / 3_600_000; const shiftRef = doc(db, "teaching_shifts", shift.id);
+  await runTransaction(db, async (transaction) => { const entrySnap = await transaction.get(open.ref); if (!entrySnap.exists() || dateValue(entrySnap.data().clock_out_timestamp) || stringValue(entrySnap.data().end_time)) throw new Error("This shift has already been clocked out."); const shiftSnap = await transaction.get(shiftRef); if (!shiftSnap.exists()) throw new Error("This shift is no longer available."); transaction.update(open.ref, { end_time: dashboardTime(effectiveEnd), total_hours: dashboardDuration(duration), clock_out_timestamp: Timestamp.fromDate(now), effective_end_timestamp: Timestamp.fromDate(effectiveEnd), total_pay: hours * shift.hourlyRate, payment_amount: hours * shift.hourlyRate, status: "pending", completion_method: "manual", clock_out_status: deviationStatus(now, shift.end), clock_out_deviation_minutes: deviationMinutes(now, shift.end), clock_out_latitude: location.latitude, clock_out_longitude: location.longitude, clock_out_address: location.address, clock_out_neighborhood: location.neighborhood, clock_out_platform: "web", updated_at: serverTimestamp() }); transaction.update(shiftRef, { last_modified: Timestamp.fromDate(now), clock_out_time: Timestamp.fromDate(now) }); });
+  return `Successfully clocked out from ${shift.title}`;
+}
+
+async function findDashboardOpenEntry(uid: string, shiftId: string) { const base = [where("teacher_id", "==", uid), where("shift_id", "==", shiftId), limit(1)] as const; for (const end of ["", null]) { const snapshot = await getDocs(query(collection(db, "timesheet_entries"), where("end_time", "==", end), ...base)); const first = snapshot.docs[0]; if (first) return { ref: first.ref, data: first.data() as Record<string, unknown> }; } return null; }
+function deviationMinutes(actual: Date, scheduled: Date | null) { return scheduled ? Math.trunc((actual.getTime() - scheduled.getTime()) / 60_000) : 0; }
+function deviationStatus(actual: Date, scheduled: Date | null) { const deviation = deviationMinutes(actual, scheduled); return Math.abs(deviation) <= 5 ? "on_time" : deviation > 5 ? "late" : "early"; }
+function dashboardDate(value: Date) { return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`; }
+function dashboardTime(value: Date) { return `${String(value.getHours()).padStart(2, "0")}:${String(value.getMinutes()).padStart(2, "0")}`; }
+function dashboardDuration(ms: number) { const seconds = Math.floor(ms / 1000); return `${String(Math.floor(seconds / 3600)).padStart(2, "0")}:${String(Math.floor(seconds % 3600 / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`; }
+function clockError(cause: unknown) { const message = cause instanceof Error ? cause.message : "Clock action failed."; return /permission|denied/i.test(message) ? "Clock action failed because your account does not have permission for this shift." : /offline|network|unavailable/i.test(message) ? "Clock action failed. Check your connection and try again." : message; }
 
 function formatNumber(value: number) {
   return value.toFixed(1).replace(/\\.0$/, ".0");

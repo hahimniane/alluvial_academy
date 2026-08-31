@@ -10,6 +10,7 @@ import '../widgets/teacher_profile_edit_dialog.dart';
 import '../../settings/screens/mobile_settings_screen.dart';
 import '../../onboarding/services/student_feature_tour.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/core/utils/post_sign_out.dart';
 
 class TeacherProfileScreen extends StatefulWidget {
   const TeacherProfileScreen({super.key});
@@ -949,7 +950,7 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
               Navigator.pop(context);
               await FirebaseAuth.instance.signOut();
               if (context.mounted) {
-                Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+                await leaveToPublicSiteAfterSignOut(context);
               }
             },
             style: ElevatedButton.styleFrom(

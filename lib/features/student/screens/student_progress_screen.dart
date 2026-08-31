@@ -1,9 +1,11 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 
 import 'package:alluwalacademyadmin/features/parent/services/parent_service.dart';
 import '../../../core/services/user_role_service.dart';
+import '../../../l10n/app_localizations.dart';
 
 class StudentProgressScreen extends StatefulWidget {
   final String? studentId;
@@ -122,8 +124,64 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
     final averageJoinOffsetMinutes =
         _asDouble(averages['average_join_offset_minutes']) ?? 0.0;
 
+    final rawBreakdown = report['shift_breakdown'];
+    final classes = <_ClassAttendance>[];
+    if (rawBreakdown is List) {
+      for (final entry in rawBreakdown) {
+        final item = _asMap(entry);
+        final cancelled =
+            item['cancelled'] == true || item['status'] == 'cancelled';
+        final attended = item['attended'] == true;
+        final late = item['late'] == true;
+        final presenceMinutes = _asDouble(item['student_presence_minutes']) ?? 0.0;
+        final joinEvents = _asInt(item['join_events']);
+        final joinedAtAll = presenceMinutes > 0 ||
+            joinEvents > 0 ||
+            _asDouble(item['first_join_offset_minutes']) != null;
+        final _ClassStatus status = cancelled
+            ? _ClassStatus.cancelled
+            : attended
+                ? (late ? _ClassStatus.late : _ClassStatus.attended)
+                : joinedAtAll
+                    ? _ClassStatus.leftEarly
+                    : _ClassStatus.missed;
+        final sessions = <_ClassSession>[];
+        final rawSessions = item['sessions'];
+        if (rawSessions is List) {
+          for (final s in rawSessions) {
+            final sm = _asMap(s);
+            sessions.add(_ClassSession(
+              join: _parseDate(sm['join_iso']),
+              leave: _parseDate(sm['leave_iso']),
+              minutes: _asDouble(sm['minutes']) ?? 0.0,
+            ));
+          }
+        }
+        classes.add(_ClassAttendance(
+          shiftId: (item['shift_id'] ?? '').toString(),
+          start: _parseDate(item['shift_start_iso']),
+          end: _parseDate(item['shift_end_iso']),
+          subject: (item['subject'] ?? '').toString(),
+          status: status,
+          joinOffsetMinutes: _asDouble(item['first_join_offset_minutes']),
+          presenceMinutes: presenceMinutes,
+          teacherOverlapMinutes: _asDouble(item['teacher_overlap_minutes']) ?? 0.0,
+          teacherPresent: item['teacher_present'] == true,
+          joinCount: joinEvents,
+          firstJoin: _parseDate(item['first_join_iso']),
+          lastLeave: _parseDate(item['last_leave_iso']),
+          sessions: sessions,
+          teacherAbsent: item['student_present_teacher_absent'] == true,
+        ));
+      }
+      classes.sort((a, b) =>
+          (b.start?.millisecondsSinceEpoch ?? 0) -
+          (a.start?.millisecondsSinceEpoch ?? 0));
+    }
+
     return _StudentAttendanceAnalytics(
       hasReport: true,
+      classes: classes,
       scheduledClasses: scheduledClasses,
       attendedClasses: attendedClasses,
       absentClasses: absentClasses,
@@ -165,6 +223,13 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
     return null;
   }
 
+  DateTime? _parseDate(dynamic value) {
+    if (value is String && value.trim().isNotEmpty) {
+      return DateTime.tryParse(value)?.toLocal();
+    }
+    return null;
+  }
+
   void _setPeriod(_AttendancePeriod nextPeriod) {
     if (_period == nextPeriod || _studentId.isEmpty) return;
     setState(() {
@@ -201,10 +266,12 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF0F4F8),
-      body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: _refreshAnalytics,
-          child: SingleChildScrollView(
+      body: ScrollNotificationObserver(
+        child: SelectionArea(
+          child: SafeArea(
+            child: RefreshIndicator(
+              onRefresh: _refreshAnalytics,
+              child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -243,6 +310,8 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
                       children: [
                         _buildTopMetrics(analytics),
                         const SizedBox(height: 12),
+                        _buildClassByClass(analytics),
+                        const SizedBox(height: 12),
                         _buildStatusBreakdown(analytics),
                         const SizedBox(height: 12),
                         _buildAdvancedMetrics(analytics),
@@ -251,6 +320,8 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
                   },
                 ),
               ],
+            ),
+              ),
             ),
           ),
         ),
@@ -353,29 +424,62 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
   }
 
   Widget _buildTopMetrics(_StudentAttendanceAnalytics analytics) {
-    return Row(
-      children: [
-        Expanded(
-          child: _metricCard(
-            label: 'Attendance',
-            value: '${(analytics.attendanceRate * 100).round()}%',
-            helper:
-                '${analytics.attendedClasses}/${analytics.scheduledClasses} classes',
-            color: const Color(0xFF0E72ED),
+    final l10n = AppLocalizations.of(context)!;
+    final cards = [
+      _metricCard(
+        label: l10n.studentAttendanceStudentClassTime,
+        value: _formatClassHours(l10n, analytics.totalPresenceMinutes),
+        helper: _period == _AttendancePeriod.weekly
+            ? l10n.studentAttendanceWeekly
+            : l10n.studentAttendanceMonthly,
+        color: const Color(0xFF7C3AED),
+      ),
+      _metricCard(
+        label: l10n.studentAttendanceRate,
+        value: '${(analytics.attendanceRate * 100).round()}%',
+        helper:
+            '${analytics.attendedClasses}/${analytics.scheduledClasses} classes',
+        color: const Color(0xFF0E72ED),
+      ),
+      _metricCard(
+        label: 'On Time',
+        value: '${(analytics.punctualityRate * 100).round()}%',
+        helper:
+            '${analytics.onTimeClasses}/${analytics.attendedClasses} attended',
+        color: const Color(0xFF16A34A),
+      ),
+    ];
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Three compact tiles side by side — phones included. Only collapse to
+        // a column on truly tiny widths where three-across can't breathe.
+        if (constraints.maxWidth < 300) {
+          return Column(
+            children: [
+              for (var index = 0; index < cards.length; index++) ...[
+                SizedBox(width: double.infinity, child: cards[index]),
+                if (index < cards.length - 1) const SizedBox(height: 10),
+              ],
+            ],
+          );
+        }
+        return IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (var index = 0; index < cards.length; index++) ...[
+                Expanded(child: cards[index]),
+                if (index < cards.length - 1) const SizedBox(width: 8),
+              ],
+            ],
           ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _metricCard(
-            label: 'On Time',
-            value: '${(analytics.punctualityRate * 100).round()}%',
-            helper:
-                '${analytics.onTimeClasses}/${analytics.attendedClasses} attended',
-            color: const Color(0xFF16A34A),
-          ),
-        ),
-      ],
+        );
+      },
     );
+  }
+
+  String _formatClassHours(AppLocalizations l10n, double minutes) {
+    return l10n.studentAttendanceHoursValue((minutes / 60).toStringAsFixed(1));
   }
 
   Widget _buildStatusBreakdown(_StudentAttendanceAnalytics analytics) {
@@ -430,6 +534,369 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
                 ),
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildClassByClass(_StudentAttendanceAnalytics analytics) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Class by class',
+            style: GoogleFonts.inter(
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+              color: const Color(0xFF111827),
+            ),
+          ),
+          const SizedBox(height: 10),
+          if (analytics.classes.isEmpty)
+            Text(
+              'No class history in this period yet.',
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF94A3B8),
+              ),
+            )
+          else
+            ...analytics.classes.map(
+              (c) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: _classRow(c),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _classRow(_ClassAttendance c) {
+    final s = _statusStyle(c.status);
+    final when = c.start != null
+        ? '${DateFormat('EEE, MMM d').format(c.start!)} · ${DateFormat.jm().format(c.start!)}'
+        : '';
+    final detail = _classDetailLine(c);
+    final subtitle = [when, if (detail.isNotEmpty) detail].join(' · ');
+    return InkWell(
+      onTap: () => _showClassDetail(c),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFE5E7EB)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 10,
+              height: 10,
+              decoration: BoxDecoration(color: s.dot, shape: BoxShape.circle),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    c.subject.isEmpty ? 'Class' : c.subject,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: const Color(0xFF0F172A),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF64748B),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: s.bg,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                s.label,
+                style: GoogleFonts.inter(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  color: s.fg,
+                ),
+              ),
+            ),
+            const Icon(Icons.chevron_right, size: 18, color: Color(0xFFCBD5E1)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  _StatusStyle _statusStyle(_ClassStatus status) {
+    switch (status) {
+      case _ClassStatus.attended:
+        return const _StatusStyle('Attended', Color(0xFFDCFCE7),
+            Color(0xFF166534), Color(0xFF16A34A));
+      case _ClassStatus.late:
+        return const _StatusStyle('Late', Color(0xFFFEF3C7),
+            Color(0xFF92400E), Color(0xFFF59E0B));
+      case _ClassStatus.leftEarly:
+        return const _StatusStyle('Left early', Color(0xFFFEF3C7),
+            Color(0xFF92400E), Color(0xFFF97316));
+      case _ClassStatus.missed:
+        return const _StatusStyle('Missed', Color(0xFFFEE2E2),
+            Color(0xFFB91C1C), Color(0xFFEF4444));
+      case _ClassStatus.cancelled:
+        return const _StatusStyle('Cancelled', Color(0xFFF1F5F9),
+            Color(0xFF64748B), Color(0xFF94A3B8));
+    }
+  }
+
+  String _classDetailLine(_ClassAttendance c) {
+    switch (c.status) {
+      case _ClassStatus.attended:
+      case _ClassStatus.late:
+        final off = c.joinOffsetMinutes;
+        if (off == null) return 'Joined';
+        final m = off.round();
+        if (m > 0) return 'Joined $m min late';
+        if (m < 0) return 'Joined ${m.abs()} min early';
+        return 'Joined on time';
+      case _ClassStatus.leftEarly:
+        final m = c.presenceMinutes.round();
+        return 'Joined ${m < 1 ? 1 : m} min, left early';
+      case _ClassStatus.missed:
+        return 'Did not join';
+      case _ClassStatus.cancelled:
+        return '';
+    }
+  }
+
+  String _fmtMins(double minutes) {
+    final total = minutes.round() < 0 ? 0 : minutes.round();
+    if (total < 60) return '$total min';
+    final h = total ~/ 60;
+    final min = total % 60;
+    return min == 0 ? '$h h' : '$h h $min min';
+  }
+
+  void _showClassDetail(_ClassAttendance c) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _classDetailSheet(c),
+    );
+  }
+
+  Widget _classDetailSheet(_ClassAttendance c) {
+    String tm(DateTime? d) => d != null ? DateFormat.jm().format(d) : '—';
+    final header = c.start != null
+        ? '${DateFormat('EEEE, MMMM d').format(c.start!)} · ${tm(c.start)}${c.end != null ? ' – ${tm(c.end)}' : ''}'
+        : '';
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE2E8F0),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            Text(
+              c.subject.isEmpty ? 'Class' : c.subject,
+              style: GoogleFonts.inter(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: const Color(0xFF0F172A),
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              header,
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF64748B),
+              ),
+            ),
+            const SizedBox(height: 14),
+            Row(children: [
+              Expanded(child: _statTile('First joined', tm(c.firstJoin))),
+              const SizedBox(width: 8),
+              Expanded(child: _statTile('Last left', tm(c.lastLeave))),
+            ]),
+            const SizedBox(height: 8),
+            Row(children: [
+              Expanded(child: _statTile('Time in class', _fmtMins(c.presenceMinutes))),
+              const SizedBox(width: 8),
+              Expanded(
+                  child: _statTile(
+                      'Time with teacher', _fmtMins(c.teacherOverlapMinutes))),
+            ]),
+            const SizedBox(height: 8),
+            Row(children: [
+              Expanded(child: _statTile('Times joined', c.joinCount.toString())),
+              const SizedBox(width: 8),
+              Expanded(
+                  child: _statTile(
+                      'Teacher present', c.teacherPresent ? 'Yes' : 'No')),
+            ]),
+            const SizedBox(height: 16),
+            Text(
+              'Sessions',
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                fontWeight: FontWeight.w800,
+                color: const Color(0xFF0F172A),
+              ),
+            ),
+            const SizedBox(height: 8),
+            if (c.sessions.isEmpty)
+              Text(
+                'This student never joined this class.',
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF94A3B8),
+                ),
+              )
+            else
+              ...List.generate(c.sessions.length, (i) {
+                final s = c.sessions[i];
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(children: [
+                    Container(
+                      width: 26,
+                      height: 26,
+                      alignment: Alignment.center,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFDBEAFE),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Text(
+                        '${i + 1}',
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          color: const Color(0xFF1D4ED8),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        '${tm(s.join)} → ${tm(s.leave)}',
+                        style: GoogleFonts.inter(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF0F172A),
+                        ),
+                      ),
+                    ),
+                    Text(
+                      _fmtMins(s.minutes),
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        color: const Color(0xFF64748B),
+                      ),
+                    ),
+                  ]),
+                );
+              }),
+            if (c.sessions.length > 1) ...[
+              const SizedBox(height: 4),
+              Text(
+                c.sessions.length == 2
+                    ? 'Left and rejoined once'
+                    : 'Left and rejoined ${c.sessions.length - 1} times',
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF64748B),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _statTile(String label, String value) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label.toUpperCase(),
+            style: GoogleFonts.inter(
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+              color: const Color(0xFF94A3B8),
+              letterSpacing: 0.5,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            style: GoogleFonts.inter(
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+              color: const Color(0xFF0F172A),
+            ),
           ),
         ],
       ),
@@ -689,6 +1156,7 @@ class _StudentAttendanceAnalytics {
   final double presenceCoverageRate;
   final double teacherOverlapRate;
   final double averageJoinOffsetMinutes;
+  final List<_ClassAttendance> classes;
 
   const _StudentAttendanceAnalytics({
     required this.hasReport,
@@ -708,6 +1176,7 @@ class _StudentAttendanceAnalytics {
     required this.presenceCoverageRate,
     required this.teacherOverlapRate,
     required this.averageJoinOffsetMinutes,
+    this.classes = const [],
   });
 
   factory _StudentAttendanceAnalytics.empty() {
@@ -729,6 +1198,59 @@ class _StudentAttendanceAnalytics {
       presenceCoverageRate: 0,
       teacherOverlapRate: 0,
       averageJoinOffsetMinutes: 0,
+      classes: [],
     );
   }
+}
+
+enum _ClassStatus { attended, late, leftEarly, missed, cancelled }
+
+class _StatusStyle {
+  final String label;
+  final Color bg;
+  final Color fg;
+  final Color dot;
+  const _StatusStyle(this.label, this.bg, this.fg, this.dot);
+}
+
+class _ClassSession {
+  final DateTime? join;
+  final DateTime? leave;
+  final double minutes;
+  const _ClassSession({this.join, this.leave, required this.minutes});
+}
+
+/// One class in the class-by-class list: the exact class and what happened.
+class _ClassAttendance {
+  final String shiftId;
+  final DateTime? start;
+  final DateTime? end;
+  final String subject;
+  final _ClassStatus status;
+  final double? joinOffsetMinutes;
+  final double presenceMinutes;
+  final double teacherOverlapMinutes;
+  final bool teacherPresent;
+  final int joinCount;
+  final DateTime? firstJoin;
+  final DateTime? lastLeave;
+  final List<_ClassSession> sessions;
+  final bool teacherAbsent;
+
+  const _ClassAttendance({
+    required this.shiftId,
+    required this.start,
+    required this.end,
+    required this.subject,
+    required this.status,
+    required this.joinOffsetMinutes,
+    required this.presenceMinutes,
+    required this.teacherOverlapMinutes,
+    required this.teacherPresent,
+    required this.joinCount,
+    required this.firstJoin,
+    required this.lastLeave,
+    required this.sessions,
+    required this.teacherAbsent,
+  });
 }

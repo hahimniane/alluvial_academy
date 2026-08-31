@@ -640,7 +640,7 @@ async function sendNoShowEmail(adminEmails, reportData, isTeacherNoShow) {
     <head>
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>No-Show Alert - Alluwal Academy</title>
+      <title>No-Show Alert - Alluwal Education Hub</title>
     </head>
     <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
       <div style="background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
@@ -699,12 +699,12 @@ async function sendNoShowEmail(adminEmails, reportData, isTeacherNoShow) {
         </div>
         
         <p style="margin: 30px 0 0 0; font-size: 14px; color: #718096;">
-          This is an automated notification from Alluwal Academy's attendance monitoring system.
+          This is an automated notification from Alluwal Education Hub's attendance monitoring system.
         </p>
       </div>
       
       <div style="text-align: center; padding: 20px; color: #718096; font-size: 12px;">
-        <p style="margin: 0;">© ${new Date().getFullYear()} Alluwal Academy. All rights reserved.</p>
+        <p style="margin: 0;">© ${new Date().getFullYear()} Alluwal Education Hub. All rights reserved.</p>
         <p style="margin: 5px 0 0 0;">Quran Education Management System</p>
       </div>
     </body>

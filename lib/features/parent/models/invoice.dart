@@ -15,12 +15,16 @@ class InvoiceItem {
   final double total;
   final List<String> shiftIds;
 
+  /// The child this line bills. Empty on lines predating per-child attribution.
+  final String studentId;
+
   const InvoiceItem({
     required this.description,
     required this.quantity,
     required this.unitPrice,
     required this.total,
     this.shiftIds = const [],
+    this.studentId = '',
   });
 
   factory InvoiceItem.fromMap(Map<String, dynamic> data) {
@@ -31,6 +35,7 @@ class InvoiceItem {
       total: _toDouble(data['total']) ?? 0.0,
       shiftIds:
           List<String>.from(data['shift_ids'] ?? data['shiftIds'] ?? const []),
+      studentId: (data['student_id'] ?? data['studentId'] ?? '').toString(),
     );
   }
 
@@ -41,6 +46,7 @@ class InvoiceItem {
       'unit_price': unitPrice,
       'total': total,
       if (shiftIds.isNotEmpty) 'shift_ids': shiftIds,
+      if (studentId.isNotEmpty) 'student_id': studentId,
     };
   }
 
@@ -63,6 +69,10 @@ class Invoice {
   final String invoiceNumber;
   final String parentId;
   final String studentId;
+
+  /// The children this invoice bills. Empty on invoices raised before per-child
+  /// attribution existed — those are treated as covering the whole family.
+  final List<String> studentIds;
   final InvoiceStatus status;
   final double totalAmount;
   final double paidAmount;
@@ -80,16 +90,29 @@ class Invoice {
   final String? notificationStatus;
   final DateTime? createdAt;
   final DateTime? updatedAt;
+  final String createdByUid;
+  final String createdByName;
+  final String createdByEmail;
+  final String createdByKind;
 
   /// Date at which access is suspended if the invoice is still unpaid.
-  /// Null means no cutoff is set (access is never suspended for this invoice).
+  /// Null does NOT mean "never": [effectiveAccessCutoffDate] falls back to
+  /// [dueDate] + 1 day, and the server applies the same fallback.
   final DateTime? accessCutoffDate;
+
+  /// Opaque token for the public payment link, or empty if none is minted.
+  final String payLinkToken;
+
+  /// `active` or `cancelled`. A link stays valid until the invoice is paid in
+  /// full or an admin cancels it — never on a timer.
+  final String payLinkStatus;
 
   const Invoice({
     required this.id,
     required this.invoiceNumber,
     required this.parentId,
     required this.studentId,
+    this.studentIds = const [],
     required this.status,
     required this.totalAmount,
     required this.paidAmount,
@@ -105,7 +128,13 @@ class Invoice {
     this.notificationStatus,
     this.createdAt,
     this.updatedAt,
+    this.createdByUid = '',
+    this.createdByName = '',
+    this.createdByEmail = '',
+    this.createdByKind = '',
     this.accessCutoffDate,
+    this.payLinkToken = '',
+    this.payLinkStatus = 'active',
   });
 
   factory Invoice.fromFirestore(DocumentSnapshot doc) {
@@ -125,6 +154,8 @@ class Invoice {
           (data['invoice_number'] ?? data['invoiceNumber'] ?? '').toString(),
       parentId: (data['parent_id'] ?? data['parentId'] ?? '').toString(),
       studentId: (data['student_id'] ?? data['studentId'] ?? '').toString(),
+      studentIds: List<String>.from(
+          data['student_ids'] ?? data['studentIds'] ?? const []),
       status: _parseStatus(data['status']),
       totalAmount:
           _toDouble(data['total_amount'] ?? data['totalAmount']) ?? 0.0,
@@ -150,8 +181,20 @@ class Invoice {
               ?.toString(),
       createdAt: _parseDateTime(data['created_at'] ?? data['createdAt']),
       updatedAt: _parseDateTime(data['updated_at'] ?? data['updatedAt']),
+      createdByUid: (data['created_by'] ?? data['createdBy'] ?? '').toString(),
+      createdByName:
+          (data['created_by_name'] ?? data['createdByName'] ?? '').toString(),
+      createdByEmail:
+          (data['created_by_email'] ?? data['createdByEmail'] ?? '').toString(),
+      createdByKind:
+          (data['created_by_kind'] ?? data['createdByKind'] ?? '').toString(),
       accessCutoffDate: _parseDateTime(
           data['access_cutoff_date'] ?? data['accessCutoffDate']),
+      payLinkToken:
+          (data['pay_link_token'] ?? data['payLinkToken'] ?? '').toString(),
+      payLinkStatus:
+          (data['pay_link_status'] ?? data['payLinkStatus'] ?? 'active')
+              .toString(),
     );
   }
 
@@ -161,6 +204,7 @@ class Invoice {
       'invoice_number': invoiceNumber,
       'parent_id': parentId,
       'student_id': studentId,
+      if (studentIds.isNotEmpty) 'student_ids': studentIds,
       'status': status.name,
       'total_amount': totalAmount,
       'paid_amount': paidAmount,
@@ -178,6 +222,10 @@ class Invoice {
         'notification_status': notificationStatus,
       if (createdAt != null) 'created_at': Timestamp.fromDate(createdAt!),
       if (updatedAt != null) 'updated_at': Timestamp.fromDate(updatedAt!),
+      if (createdByUid.isNotEmpty) 'created_by': createdByUid,
+      if (createdByName.isNotEmpty) 'created_by_name': createdByName,
+      if (createdByEmail.isNotEmpty) 'created_by_email': createdByEmail,
+      if (createdByKind.isNotEmpty) 'created_by_kind': createdByKind,
       if (accessCutoffDate != null)
         'access_cutoff_date': Timestamp.fromDate(accessCutoffDate!),
     };
@@ -187,7 +235,14 @@ class Invoice {
   DateTime get effectiveAccessCutoffDate =>
       accessCutoffDate ?? dueDate.add(const Duration(days: 1));
 
-  bool get isFullyPaid => paidAmount >= totalAmount && totalAmount > 0;
+  /// Whether a public payment link is currently live for this invoice.
+  bool get hasActivePayLink =>
+      payLinkToken.isNotEmpty && payLinkStatus.toLowerCase() != 'cancelled';
+
+  /// A zero-total invoice (scholarship, waiver) counts as settled: there is
+  /// nothing to collect. Without this it could never be "paid", so it would
+  /// show as owing forever and keep tripping the access cutoff.
+  bool get isFullyPaid => totalAmount <= 0 || paidAmount >= totalAmount;
 
   double get remainingBalance {
     final remaining = totalAmount - paidAmount;

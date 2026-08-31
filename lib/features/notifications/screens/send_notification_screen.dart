@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/models/employee_model.dart';
 
+import 'package:alluwalacademyadmin/core/utils/app_search.dart';
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
@@ -100,10 +101,19 @@ class _SendNotificationScreenState extends State<SendNotificationScreen> {
         _filteredUsers = _allUsers;
       } else {
         _filteredUsers = _allUsers.where((user) {
-          final matchesSearch = _searchQuery.isEmpty ||
-              user.firstName.toLowerCase().contains(_searchQuery) ||
-              user.lastName.toLowerCase().contains(_searchQuery) ||
-              user.email.toLowerCase().contains(_searchQuery);
+          final matchesSearch = AppSearch.matches(
+            query: _searchQuery,
+            names: [
+              '${user.firstName} ${user.lastName}',
+              '${user.lastName} ${user.firstName}',
+            ],
+            emails: [user.email],
+            phones: [
+              user.mobilePhone,
+              '${user.countryCode}${user.mobilePhone}',
+            ],
+            ids: [user.documentId, user.studentCode, user.kioskCode],
+          );
 
           final matchesRole =
               _selectedRole == null || user.userType == _selectedRole;
@@ -759,7 +769,7 @@ class _SendNotificationScreenState extends State<SendNotificationScreen> {
                                                   color: Colors.white),
                                             ),
                                           ),
-                                          title: Text(
+                                          title: SelectableText(
                                             '${user.firstName} ${user.lastName}'
                                                 .trim(),
                                             style: GoogleFonts.inter(
@@ -767,7 +777,7 @@ class _SendNotificationScreenState extends State<SendNotificationScreen> {
                                               fontWeight: FontWeight.w500,
                                             ),
                                           ),
-                                          subtitle: Text(
+                                          subtitle: SelectableText(
                                             '${user.email} • ${_getRoleName(user.userType)}',
                                             style: GoogleFonts.inter(
                                               fontSize: 12,

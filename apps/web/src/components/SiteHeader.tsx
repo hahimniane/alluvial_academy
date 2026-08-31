@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { flutterLoginUrl } from "@/lib/flutterApp";
 import {
   BookOpen,
   ChevronDown,
@@ -9,6 +10,7 @@ import {
   Globe2,
   Landmark,
   Menu,
+  Rocket,
   School,
   Sigma,
   UsersRound,
@@ -26,11 +28,25 @@ const navItems = [
 
 const megaTracks = [
   {
-    href: "/programs/?category=islamic",
-    title: "Islamic & AfroLanguages",
-    subtitle: "Islamic Studies · AfroLanguages & AdLam",
-    icon: Landmark,
+    href: "/programs/?category=languages",
+    title: "African languages",
+    subtitle: "Pular · Mandingo · Swahili · Wolof · AdLam",
+    icon: Globe2,
     tint: "#1D4ED8",
+  },
+  {
+    href: "/programs/?category=entrepreneurship",
+    title: "Entrepreneurship",
+    subtitle: "Business skills · Enterprise projects",
+    icon: Rocket,
+    tint: "#7C3AED",
+  },
+  {
+    href: "/programs/?category=islamic",
+    title: "Religious studies",
+    subtitle: "Quran · Arabic · Tawhid · Hadith · Tafsir",
+    icon: Landmark,
+    tint: "#0F766E",
   },
   {
     href: "/programs/?category=academic",
@@ -50,12 +66,13 @@ const megaTracks = [
 
 const mobileProgramLinks = [
   { href: "/programs/", label: "All Programs", icon: BookOpen },
-  { href: "/programs/?category=islamic", label: "Islamic Studies", icon: Landmark },
-  { href: "/programs/?category=languages", label: "AfroLanguages & AdLam", icon: Globe2 },
+  { href: "/programs/?category=after-school", label: "Tutoring", icon: School },
   { href: "/programs/?category=math", label: "Math Classes", icon: Sigma },
   { href: "/programs/?category=programming", label: "Programming", icon: Code2 },
-  { href: "/programs/?category=after-school", label: "After School Tutoring", icon: School },
+  { href: "/programs/?category=languages", label: "African Languages", icon: Globe2 },
+  { href: "/programs/?category=entrepreneurship", label: "Entrepreneurship", icon: Rocket },
   { href: "/programs/?category=adult-literacy", label: "Adult Literacy", icon: BookOpen },
+  { href: "/programs/?category=islamic", label: "Religious Studies", icon: Landmark },
 ];
 
 export function SiteHeader() {
@@ -79,8 +96,8 @@ export function SiteHeader() {
             Sign Up For New Class
           </Link>
           <div className="ml-auto hidden text-right text-[10px] font-semibold leading-tight text-white/90 xl:block">
-            <div>Faith-centered learning online.</div>
-            <div className="font-medium text-white/75">Islamic, African & academic paths.</div>
+            <div>Live online learning for every family.</div>
+            <div className="font-medium text-white/75">Academic, language, enterprise & faith paths.</div>
           </div>
         </div>
       </div>
@@ -193,23 +210,23 @@ export function SiteHeader() {
               );
             })}
 
-            <Link
-              href="/login/"
+            <a
+              href={flutterLoginUrl}
               className="ml-1 inline-flex min-h-[42px] items-center rounded-[10px] bg-[#111827] px-[18px] text-[13px] font-semibold text-white transition hover:bg-[#0b1220]"
               onClick={closeAll}
             >
               Log In
-            </Link>
+            </a>
           </nav>
 
           <div className="ml-auto flex items-center gap-1 xl:hidden">
-            <Link
-              href="/login/"
+            <a
+              href={flutterLoginUrl}
               className="rounded-md px-2 py-1 text-[13px] font-bold tracking-[0.2px] text-[#111827]"
               onClick={closeAll}
             >
               Log In
-            </Link>
+            </a>
             <button
                 type="button"
                 className="inline-flex h-10 w-10 items-center justify-center rounded-md text-[#111827]"

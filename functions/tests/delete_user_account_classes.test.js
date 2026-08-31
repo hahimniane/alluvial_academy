@@ -25,6 +25,10 @@ class DocRef {
     const data = store[this.collectionName]?.get(this.id);
     return new DocSnap(this, data);
   }
+
+  collection(name) {
+    return new CollectionRef(`${this.path}/${name}`);
+  }
 }
 
 class DocSnap {
@@ -124,18 +128,25 @@ class WriteBatch {
     this.ops.push({ type: 'update', ref, data });
   }
 
+  set(ref, data, options) {
+    this.ops.push({ type: 'set', ref, data, options });
+  }
+
   async commit() {
     for (const op of this.ops) {
       const collection = store[op.ref.collectionName];
-      if (!collection) continue;
+      if (!collection) {
+        store[op.ref.collectionName] = new Map();
+      }
+      const targetCollection = store[op.ref.collectionName];
 
       if (op.type === 'delete') {
-        collection.delete(op.ref.id);
+        targetCollection.delete(op.ref.id);
         continue;
       }
 
       if (op.type === 'update') {
-        const current = collection.get(op.ref.id);
+        const current = targetCollection.get(op.ref.id);
         if (current === undefined) {
           throw new Error(`Cannot update missing doc in test mock: ${op.ref.path}`);
         }
@@ -161,7 +172,21 @@ class WriteBatch {
           }
         }
 
-        collection.set(op.ref.id, next);
+        targetCollection.set(op.ref.id, next);
+        continue;
+      }
+
+      if (op.type === 'set') {
+        const current = op.options?.merge
+          ? targetCollection.get(op.ref.id) || {}
+          : {};
+        const next = {...current};
+        for (const [key, value] of Object.entries(op.data || {})) {
+          next[key] = value && value.__op === 'serverTimestamp'
+            ? new Date()
+            : value;
+        }
+        targetCollection.set(op.ref.id, next);
       }
     }
 

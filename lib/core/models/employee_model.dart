@@ -26,6 +26,16 @@ class Employee {
     this.useZoom = false,
     this.zoomHostAccount = '',
     this.secondaryRoles = const [],
+    this.createdByUid = '',
+    this.createdAt,
+    this.deactivatedByUid = '',
+    this.deactivatedAt,
+    this.activatedByUid = '',
+    this.activatedAt,
+    this.parentName = '',
+    this.teacherNames = '',
+    this.weeklyHoursLabel = '',
+    this.isAdultStudent = false,
   });
 
   final String firstName;
@@ -50,6 +60,62 @@ class Employee {
   final bool useZoom;
   final String zoomHostAccount;
   final List<String> secondaryRoles;
+  final String createdByUid;
+  final DateTime? createdAt;
+  final String deactivatedByUid;
+  final DateTime? deactivatedAt;
+  final String activatedByUid;
+  final DateTime? activatedAt;
+
+  /// True when a student has been marked as an adult student (`is_adult_student`
+  /// on the user doc); false/absent means the student is a minor.
+  final bool isAdultStudent;
+
+  /// Below fields are derived client-side (not stored on the user doc) to
+  /// enrich the admin student grid: guardian display name, the name(s) of
+  /// teacher(s) with a class this week, and total scheduled hours this week.
+  final String parentName;
+  final String teacherNames;
+  final String weeklyHoursLabel;
+
+  Employee copyWithScheduleInfo({
+    String? parentName,
+    String? teacherNames,
+    String? weeklyHoursLabel,
+  }) {
+    return Employee(
+      firstName: firstName,
+      lastName: lastName,
+      email: email,
+      countryCode: countryCode,
+      mobilePhone: mobilePhone,
+      userType: userType,
+      title: title,
+      employmentStartDate: employmentStartDate,
+      kioskCode: kioskCode,
+      studentCode: studentCode,
+      dateAdded: dateAdded,
+      lastLogin: lastLogin,
+      documentId: documentId,
+      isAdminTeacher: isAdminTeacher,
+      isActive: isActive,
+      aiTutorEnabled: aiTutorEnabled,
+      tontineEnabled: tontineEnabled,
+      useZoom: useZoom,
+      zoomHostAccount: zoomHostAccount,
+      secondaryRoles: secondaryRoles,
+      createdByUid: createdByUid,
+      createdAt: createdAt,
+      deactivatedByUid: deactivatedByUid,
+      deactivatedAt: deactivatedAt,
+      activatedByUid: activatedByUid,
+      activatedAt: activatedAt,
+      isAdultStudent: isAdultStudent,
+      parentName: parentName ?? this.parentName,
+      teacherNames: teacherNames ?? this.teacherNames,
+      weeklyHoursLabel: weeklyHoursLabel ?? this.weeklyHoursLabel,
+    );
+  }
 }
 
 class EmployeeDataSource extends DataGridSource {
@@ -165,6 +231,8 @@ class EmployeeDataSource extends DataGridSource {
             true, // Default to active if field doesn't exist
         aiTutorEnabled: data['ai_tutor_enabled'] as bool? ?? false,
         tontineEnabled: data['tontine_enabled'] as bool? ?? false,
+        isAdultStudent: (data['is_adult_student'] ?? data['isAdultStudent']) ==
+            true,
         useZoom: data['use_zoom'] as bool? ?? false,
         zoomHostAccount: (data['zoom_host_account'] ??
                 data['zoomHostAccount'] ??
@@ -172,7 +240,39 @@ class EmployeeDataSource extends DataGridSource {
                 '')
             .toString(),
         secondaryRoles: List<String>.from(data['secondary_roles'] ?? []),
+        createdByUid: (data['created_by_uid'] ??
+                data['created_by'] ??
+                data['createdBy'] ??
+                data['created_by_admin_id'] ??
+                '')
+            .toString(),
+        createdAt: _parseTimestamp(
+          data['date_added'] ?? data['created_at'] ?? data['createdAt'],
+        ),
+        deactivatedByUid: (data['deactivated_by_uid'] ??
+                data['archived_by_uid'] ??
+                data['archivedByUid'] ??
+                '')
+            .toString(),
+        deactivatedAt: _parseTimestamp(
+          data['deactivated_at'] ?? data['archived_at'] ?? data['archivedAt'],
+        ),
+        activatedByUid: (data['activated_by_uid'] ??
+                data['restored_by_uid'] ??
+                data['restoredByUid'] ??
+                '')
+            .toString(),
+        activatedAt: _parseTimestamp(
+          data['activated_at'] ?? data['restored_at'] ?? data['restoredAt'],
+        ),
       );
     }).toList();
+  }
+
+  static DateTime? _parseTimestamp(dynamic value) {
+    if (value is Timestamp) return value.toDate();
+    if (value is DateTime) return value;
+    if (value is String) return DateTime.tryParse(value);
+    return null;
   }
 }

@@ -102,7 +102,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
           paymentIntentClientSecret: clientSecret,
           customerEphemeralKeySecret: ephemeralKey,
           customerId: customerId,
-          merchantDisplayName: 'Alluvial Academy',
+          merchantDisplayName: 'Alluwal Education Hub',
           style: ThemeMode.system,
         ),
       );

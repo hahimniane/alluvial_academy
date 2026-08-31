@@ -4,7 +4,7 @@ import { Eye, Rocket } from "lucide-react";
 const aboutCards = [
   {
     title: "Our Mission",
-    body: "To integrate Islamic, African, and Western education, offering a holistic curriculum that prepares students to navigate and succeed in a diverse world.",
+    body: "To bring together African, Western, and faith-based education in one holistic curriculum that prepares students to navigate and succeed in a diverse world.",
     color: "#3B82F6",
     icon: Rocket,
   },
@@ -25,7 +25,7 @@ export function AboutContent() {
             About Alluwal Education Hub
           </h1>
           <p className="mx-auto mt-4 max-w-[700px] text-[18px] leading-[1.6] text-[#6B7280]">
-            We are fostering a world where diverse knowledge—Islamic, African, and Western—comes together to prepare students for a globalized future.
+            We are fostering a world where diverse knowledge—African, Western, and faith traditions—comes together to prepare students for a globalized future.
           </p>
 
           <div className="mt-12 grid gap-6 lg:grid-cols-2">
@@ -62,7 +62,7 @@ export function AboutContent() {
               Ready to start learning?
             </h2>
             <p className="mt-4 max-w-[640px] text-[17px] leading-8 text-white/90">
-              Many families and learners work with us for Islamic studies, languages, tutoring, and more. Explore our programs and get in touch when you are ready to enroll.
+              Families come to us for tutoring, languages, entrepreneurship, faith studies, and more. Explore our programs and get in touch when you are ready to enroll.
             </p>
             <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:justify-center md:justify-start">
               <Link href="/enroll/" className="inline-flex min-h-[48px] items-center justify-center rounded-xl bg-white px-8 text-base font-semibold text-[#001E4E] shadow-[0_6px_14px_rgba(0,30,78,0.18)]">
@@ -76,7 +76,7 @@ export function AboutContent() {
           <div className="overflow-hidden rounded-[22px] border-4 border-white/80 shadow-[0_18px_45px_rgba(0,30,78,0.22)]">
             <img
               src="/assets/background_images/smiling_student.jpg"
-              alt="Open Quran in a study room"
+              alt="A student smiling during an online lesson"
               className="h-[230px] w-full object-cover md:h-[280px]"
             />
           </div>

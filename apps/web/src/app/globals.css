@@ -710,6 +710,56 @@ textarea {
   }
 }
 
+/*
+ * Today's classes board.
+ *
+ * A "now" marker travels down the schedule instead of every row claiming to be
+ * live at once: one row lights up for two seconds, then the next, so the hero
+ * reads as a day moving through six different subjects. The stagger comes from
+ * --row-index, set per row in MarketingHome. The negative delay offsets each
+ * row into the shared 12s cycle so the sequence starts from the top on load
+ * rather than after a blank first pass.
+ */
+.schedule-row,
+.schedule-live {
+  animation-duration: 12s;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-delay: calc(var(--row-index) * 2s - 12s);
+}
+
+.schedule-row {
+  animation-name: schedule-sweep;
+}
+
+.schedule-live {
+  animation-name: schedule-live-now;
+}
+
+@keyframes schedule-sweep {
+  0%,
+  15% {
+    background-color: rgba(255, 255, 255, 0.09);
+  }
+  22%,
+  100% {
+    background-color: transparent;
+  }
+}
+
+@keyframes schedule-live-now {
+  0%,
+  15% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  22%,
+  100% {
+    opacity: 0.22;
+    transform: scale(0.93);
+  }
+}
+
 .hero-progress-fill {
   width: 63%;
   transform-origin: left;
@@ -909,6 +959,32 @@ textarea {
   transform: scaleX(1);
 }
 
+html.dark .teacher-settings,
+html.dark .teacher-settings [aria-label="Teacher page content"] > div {
+  background: #0f172a !important;
+  color: #f8fafc;
+}
+
+html.dark .teacher-settings section,
+html.dark .teacher-settings header,
+html.dark .teacher-settings select,
+html.dark .teacher-settings [role="dialog"] form {
+  border-color: #334155 !important;
+  background: #1e293b !important;
+}
+
+html.dark .teacher-settings h1,
+html.dark .teacher-settings h2,
+html.dark .teacher-settings strong,
+html.dark .teacher-settings label,
+html.dark .teacher-settings p {
+  color: #f8fafc !important;
+}
+
+html.dark .teacher-settings span {
+  color: #cbd5e1;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .knowledge-ring,
   .knowledge-orbit,
@@ -927,12 +1003,20 @@ textarea {
   .speaking-ring,
   .hand-wiggle,
   .hero-progress-fill,
+  .schedule-row,
+  .schedule-live,
   .menu-pop {
     animation: none;
   }
 
   .hero-progress-fill {
     transform: scaleX(1);
+  }
+
+  /* No travelling marker, so every row reads as a plain schedule entry. */
+  .schedule-live {
+    opacity: 1;
+    transform: none;
   }
 
   .hero-learning-system {

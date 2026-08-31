@@ -17,13 +17,34 @@ export async function isCurrentUserTeacher(user: User) {
   return availableRoles(data).has("teacher");
 }
 
+export async function isCurrentUserStudent(user: User) {
+  const data = await getUserRecord(user);
+  if (!data) return false;
+  return availableRoles(data).has("student");
+}
+
+/**
+ * Adult students pay their own tuition, so they get the Finance section a
+ * parent would. Minors never see it — their parent handles billing.
+ */
+export function isAdultStudentRecord(data: UserRecord | null) {
+  return data?.is_adult_student === true;
+}
+
 export async function dashboardPathForUser(user: User) {
   const data = await getUserRecord(user);
-  if (!data) return "/app/#/login";
+  if (!data) return "/app/";
   const roles = availableRoles(data);
-  if (roles.has("admin") || roles.has("super_admin")) return "/admin/";
-  if (roles.has("teacher")) return "/teacher/";
-  return "/app/#/login";
+  // Only students use the ported Next.js dashboard. Admins, teachers, parents
+  // and everyone else stay on the Flutter app at /app/ — they are already
+  // authenticated by the time this runs, so /app/ (not its login) is correct.
+  // A student who is also an admin/teacher is routed to Flutter with that role.
+  const studentOnly =
+    roles.has("student") &&
+    !roles.has("admin") &&
+    !roles.has("super_admin") &&
+    !roles.has("teacher");
+  return studentOnly ? "/student/" : "/app/";
 }
 
 export async function getCurrentUserRecord(user: User): Promise<UserRecord | null> {

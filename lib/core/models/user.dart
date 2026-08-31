@@ -5,6 +5,7 @@ class AppUser {
   final String? email;
   final String? role;
   final String? name;
+  final String? phone;
   final bool isActive;
   final String? timezone;
   final String? kiosqueCode; // Family/parent identifier code
@@ -15,6 +16,7 @@ class AppUser {
     this.email,
     this.role,
     this.name,
+    this.phone,
     this.isActive = true,
     this.timezone,
     this.kiosqueCode,
@@ -40,6 +42,11 @@ class AppUser {
       email: data['e-mail'] ?? data['email'],
       role: data['user_type'] ?? data['role'],
       name: displayName,
+      phone: data['phone_number'] ??
+          data['phoneNumber'] ??
+          data['mobile_phone'] ??
+          data['mobilePhone'] ??
+          data['phone'],
       isActive: data['is_active'] ?? true,
       timezone: data['timezone'],
       kiosqueCode: data['kiosque_code'] ?? data['family_code'],
@@ -53,6 +60,11 @@ class AppUser {
       email: map['email'] ?? '',
       role: map['role'] ?? '',
       name: map['name'] ?? '',
+      phone: map['phone'] ??
+          map['phone_number'] ??
+          map['phoneNumber'] ??
+          map['mobile_phone'] ??
+          map['mobilePhone'],
       isActive: map['isActive'] ?? true,
       timezone: map['timezone'],
       kiosqueCode: map['kiosqueCode'],
@@ -66,6 +78,7 @@ class AppUser {
       'email': email,
       'role': role,
       'name': name,
+      'phone': phone,
       'isActive': isActive,
       'timezone': timezone,
       'kiosqueCode': kiosqueCode,

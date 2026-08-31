@@ -61,8 +61,10 @@ class CurriculumBooksScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: const Color(0xffF8FAFC),
-      body: SafeArea(
-        child: SingleChildScrollView(
+      body: ScrollNotificationObserver(
+        child: SelectionArea(
+          child: SafeArea(
+            child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: Center(
             child: ConstrainedBox(
@@ -92,6 +94,8 @@ class CurriculumBooksScreen extends StatelessWidget {
                   ),
                 ],
               ),
+            ),
+          ),
             ),
           ),
         ),

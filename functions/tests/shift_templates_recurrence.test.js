@@ -145,4 +145,84 @@ describe('shift_templates helpers', () => {
     expect(t._defaultVideoProviderForCategory('meeting')).toBe('realtimekit');
     expect(data.video_provider).toBe('realtimekit');
   });
+
+  describe('_shouldSkipRegenerationForExistingShift', () => {
+    test('allows regeneration when there is no existing data', () => {
+      expect(t._shouldSkipRegenerationForExistingShift(null)).toBeNull();
+      expect(t._shouldSkipRegenerationForExistingShift({status: 'scheduled'})).toBeNull();
+    });
+
+    test('skips shifts modified by the teacher', () => {
+      expect(
+        t._shouldSkipRegenerationForExistingShift({teacher_modified: true}),
+      ).toBe('teacher_modified');
+      expect(
+        t._shouldSkipRegenerationForExistingShift({teacher_modified_at: global.createMockTimestamp(new Date())}),
+      ).toBe('teacher_modified');
+    });
+
+    test('skips shifts modified by an admin', () => {
+      expect(
+        t._shouldSkipRegenerationForExistingShift({admin_modified: true}),
+      ).toBe('admin_modified');
+      expect(
+        t._shouldSkipRegenerationForExistingShift({admin_modified_at: global.createMockTimestamp(new Date())}),
+      ).toBe('admin_modified');
+    });
+
+    test('skips shifts marked deleted, defense-in-depth against hard-delete races', () => {
+      expect(
+        t._shouldSkipRegenerationForExistingShift({status: 'deleted'}),
+      ).toBe('deleted');
+      expect(
+        t._shouldSkipRegenerationForExistingShift({status: 'Deleted'}),
+      ).toBe('deleted');
+    });
+
+    test('skips shifts already in a terminal or active state', () => {
+      for (const status of ['completed', 'cancelled', 'active', 'missed']) {
+        expect(t._shouldSkipRegenerationForExistingShift({status})).toBe('terminal_state');
+      }
+    });
+
+    test('teacher_modified takes precedence over admin_modified and status', () => {
+      expect(
+        t._shouldSkipRegenerationForExistingShift({
+          teacher_modified: true,
+          admin_modified: true,
+          status: 'deleted',
+        }),
+      ).toBe('teacher_modified');
+    });
+  });
+
+  test('_matchesRecurrence honors excludedDates timestamps in admin timezone', () => {
+    const adminTimezone = 'America/New_York';
+    const day = DateTime.fromISO('2026-09-26', {zone: adminTimezone}).startOf('day'); // Saturday
+    const excluded = DateTime.fromISO('2026-09-26', {zone: adminTimezone}).startOf('day').toJSDate();
+
+    expect(
+      t._matchesRecurrence({
+        day,
+        adminTimezone,
+        recurrence: {
+          type: 'weekly',
+          selectedWeekdays: [6],
+          excludedDates: [excluded],
+        },
+      }),
+    ).toBe(false);
+
+    expect(
+      t._matchesRecurrence({
+        day,
+        adminTimezone,
+        recurrence: {
+          type: 'weekly',
+          selectedWeekdays: [6],
+          excludedDates: [],
+        },
+      }),
+    ).toBe(true);
+  });
 });

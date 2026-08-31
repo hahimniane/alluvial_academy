@@ -63,3 +63,13 @@
 -keepclassmembers,allowobfuscation interface * {
     @retrofit2.http.* <methods>;
 }
+
+# Stripe (flutter_stripe)
+# Required by the plugin's Android requirements. Inert while minifyEnabled is
+# false, but without them enabling minification breaks the payment sheet.
+-dontwarn com.stripe.android.pushProvisioning.PushProvisioningActivity$g
+-dontwarn com.stripe.android.pushProvisioning.PushProvisioningActivityStarter$Args
+-dontwarn com.stripe.android.pushProvisioning.PushProvisioningActivityStarter$Error
+-dontwarn com.stripe.android.pushProvisioning.PushProvisioningActivityStarter
+-dontwarn com.stripe.android.pushProvisioning.PushProvisioningEphemeralKeyProvider
+-dontwarn kotlinx.parcelize.Parcelize

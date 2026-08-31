@@ -68,12 +68,12 @@
 	<string>This app uses Bluetooth for connecting to audio devices during video meetings.</string>
 	<key>NSBluetoothPeripheralUsageDescription</key>
 	<string>This app uses Bluetooth for connecting to audio devices during video meetings.</string>
-	<key>NSCalendarsUsageDescription</key>
-	<string>Alluwal uses calendar access to let you add class sessions and meeting times to your calendar.</string>
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_dartVmService._tcp</string>
 	</array>
+	<key>NSCalendarsUsageDescription</key>
+	<string>Alluwal uses calendar access to let you add class sessions and meeting times to your calendar.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>This app uses your camera for video meetings and capturing profile photos and task attachments.</string>
 	<key>NSContactsUsageDescription</key>
@@ -92,6 +92,8 @@
 	<string>This app may save photos you capture so you keep a copy of attachments you take.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>This app needs access to your photo library so you can attach images to tasks and messages.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Speech recognition follows your Quran recitation live and highlights each word as you recite.</string>
 	<key>NSUserNotificationsUsageDescription</key>
 	<string>This app needs to send you notifications about important updates, schedules, and messages.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>

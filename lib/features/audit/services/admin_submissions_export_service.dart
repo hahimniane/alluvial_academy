@@ -218,8 +218,7 @@ class AdminSubmissionsExportService {
         final teacherEmail = (data['userEmail'] ?? '').toString();
         final submittedAt = _resolveSubmittedAt(data);
         final shiftText = _shiftDisplayText(data, shiftMap);
-        final status =
-            (data['reviewStatus'] ?? data['status'] ?? 'seen').toString();
+        final status = _resolveReviewStatusForExport(data);
         final adminNote = (data['adminNote'] ?? '').toString();
 
         final responses = Map<String, dynamic>.from(
@@ -268,6 +267,11 @@ class AdminSubmissionsExportService {
     } else {
       await saveExportBytes(bytes, '$exportBaseName.xlsx');
     }
+  }
+
+  static String _resolveReviewStatusForExport(Map<String, dynamic> data) {
+    final status = data['reviewStatus']?.toString().trim() ?? '';
+    return status.isEmpty ? 'not reviewed' : status;
   }
 
   static Future<Map<String, Map<String, String>>> _resolveFieldLabelsByFormId(
@@ -741,4 +745,8 @@ class AdminSubmissionsExportService {
   @visibleForTesting
   static String debugResolveShiftIdForExport(Map<String, dynamic> data) =>
       _resolveShiftIdForExport(data);
+
+  @visibleForTesting
+  static String debugResolveReviewStatusForExport(Map<String, dynamic> data) =>
+      _resolveReviewStatusForExport(data);
 }

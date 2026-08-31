@@ -25,6 +25,7 @@ import {
   type PublicSitePlanPricing,
   type PublicSitePricingDoc,
 } from "@/lib/publicSiteCms";
+import { MAX_HOURS_PER_WEEK, MIN_HOURS_PER_WEEK, clampHoursPerWeek } from "@/lib/enrollmentHours";
 
 type CatalogItem = {
   id: string;
@@ -52,20 +53,20 @@ type PricingPlans = Record<string, PublicSitePlanPricing>;
 const categories: CatalogCategory[] = [
   {
     id: "islamic",
-    title: "Islamic studies",
+    title: "Religious studies",
     description: "Quran, Hadith, Arabic Language, Tawhid, Tafsir, and Fiqh",
     color: "#3B82F6",
-    emoji: "🕌",
+    emoji: "⚖️",
     icon: Landmark,
     trackId: "islamic",
-    enrollSubject: "Islamic Program (Arabic, Quran, etc...)",
+    enrollSubject: "Religious Studies (Quran, Arabic, etc...)",
     items: [
       item("islam_quran", "Quran", "Complete Quran learning program including recitation, memorization, and understanding.", "All ages", "📖", "#3B82F6", ["Proper recitation with Tajweed rules", "Memorization techniques for Hifz", "Understanding the meanings"]),
-      item("islam_hadith", "Hadith", "Study the sayings and teachings of Prophet Muhammad (PBUH).", "Ages 10+", "📚", "#10B981", ["Authentic Hadith collections", "Understanding Hadith sciences", "Practical application in daily life"]),
-      item("islam_arabic", "Arabic language", "Learn the language of the Quran from basics to fluency.", "Ages 7+", "🇸🇦", "#F59E0B", ["Arabic alphabet and writing", "Grammar (Nahw) and morphology", "Vocabulary building"]),
-      item("islam_tawhid", "Tawhid", "Understanding the oneness of Allah and core Islamic beliefs.", "Ages 8+", "☪️", "#8B5CF6", ["Fundamentals of Islamic faith", "Understanding Allah's attributes", "Pillars of faith (Iman)"]),
-      item("islam_tafsir", "Tafsir", "Deep understanding and interpretation of the Holy Quran.", "Ages 12+", "📜", "#EF4444", ["Verse by verse explanation", "Historical context", "Practical life applications"]),
-      item("islam_fiqh", "Fiqh", "Understanding Islamic law and practical worship.", "Ages 10+", "🕌", "#06B6D4", ["Rules of prayer and fasting", "Halal and Haram guidelines", "Islamic business ethics"]),
+      item("islam_hadith", "Hadith", "Study the recorded sayings and teachings central to Islamic tradition.", "Ages 10+", "📚", "#10B981", ["Authentic Hadith collections", "Understanding Hadith sciences", "Practical application in daily life"]),
+      item("islam_arabic", "Arabic language", "Learn Arabic from basics to fluency, for study and everyday use.", "Ages 7+", "🔤", "#F59E0B", ["Arabic alphabet and writing", "Grammar (Nahw) and morphology", "Vocabulary building"]),
+      item("islam_tawhid", "Tawhid", "Core theological beliefs and their foundations.", "Ages 8+", "🕊️", "#8B5CF6", ["Fundamentals of Islamic faith", "Understanding Allah's attributes", "Pillars of faith (Iman)"]),
+      item("islam_tafsir", "Tafsir", "Deep reading and interpretation of scripture.", "Ages 12+", "📜", "#EF4444", ["Verse by verse explanation", "Historical context", "Practical life applications"]),
+      item("islam_fiqh", "Fiqh", "Religious law and practical worship.", "Ages 10+", "🕌", "#06B6D4", ["Rules of prayer and fasting", "Halal and Haram guidelines", "Islamic business ethics"]),
     ],
   },
   {
@@ -398,7 +399,7 @@ function CategoryCard({
                   <button
                     type="button"
                     className="inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-600 disabled:text-slate-300"
-                    disabled={hoursPerWeek <= 1}
+                    disabled={hoursPerWeek <= MIN_HOURS_PER_WEEK}
                     onClick={() => onHoursPerWeekChange(Math.max(1, hoursPerWeek - 1))}
                     aria-label="Decrease hours per week"
                   >
@@ -408,8 +409,8 @@ function CategoryCard({
                   <button
                     type="button"
                     className="inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-600 disabled:text-slate-300"
-                    disabled={hoursPerWeek >= 8}
-                    onClick={() => onHoursPerWeekChange(Math.min(8, hoursPerWeek + 1))}
+                    disabled={hoursPerWeek >= MAX_HOURS_PER_WEEK}
+                    onClick={() => onHoursPerWeekChange(clampHoursPerWeek(hoursPerWeek + 1))}
                     aria-label="Increase hours per week"
                   >
                     <PlusCircle size={20} />
@@ -425,7 +426,8 @@ function CategoryCard({
                   <span className="text-[10px] text-slate-400">per hour</span>
                 </div>
                 <p className="mt-1 text-[11px] leading-4 text-slate-600">
-                  {hoursPerWeek} hrs/wk × ${hourly.toFixed(2)}/hr · ≈ ${monthly.toFixed(0)}/mo
+                  {/* No monthly projection — rates are negotiated per family. */}
+                  {hoursPerWeek} hrs/wk · rates are flexible
                 </p>
               </div>
             </div>

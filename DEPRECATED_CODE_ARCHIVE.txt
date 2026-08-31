@@ -959,7 +959,7 @@ class _ContactPageState extends State<ContactPage>
                     Icons.email,
                     'Email Address',
                     [
-                      'alluwhalacademy@gmail.com',
+                      'billing@alluwaleducationhub.org',
                     ],
                     const Color(0xff10B981),
                   ),

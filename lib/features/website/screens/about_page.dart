@@ -26,8 +26,7 @@ class _AboutPageState extends State<AboutPage> {
       final staff = await loadStaffDataWithCmsFallback();
       if (mounted) {
         setState(() {
-          _leadership =
-              staff.where((s) => s.category == 'leadership').toList();
+          _leadership = staff.where((s) => s.category == 'leadership').toList();
         });
       }
     } catch (_) {}
@@ -157,7 +156,8 @@ class _AboutPageState extends State<AboutPage> {
       icon: Icons.rocket_launch_rounded,
       title: AppLocalizations.of(context)!.ourMission,
       color: const Color(0xff3B82F6),
-      content: AppLocalizations.of(context)!.toIntegrateIslamicAfricanAndWestern,
+      content:
+          AppLocalizations.of(context)!.toIntegrateIslamicAfricanAndWestern,
     );
   }
 
@@ -166,7 +166,8 @@ class _AboutPageState extends State<AboutPage> {
       icon: Icons.visibility_rounded,
       title: AppLocalizations.of(context)!.ourVision,
       color: const Color(0xff10B981),
-      content: AppLocalizations.of(context)!.toCreateAnInclusiveInspiringEnvironment,
+      content:
+          AppLocalizations.of(context)!.toCreateAnInclusiveInspiringEnvironment,
     );
   }
 
@@ -193,12 +194,30 @@ class _AboutPageState extends State<AboutPage> {
               runSpacing: 24,
               alignment: WrapAlignment.center,
               children: [
-                _buildValueCard(AppLocalizations.of(context)!.aboutValuesAuthenticity, AppLocalizations.of(context)!.aboutValuesAuthenticityDesc, Icons.verified_rounded),
-                _buildValueCard(AppLocalizations.of(context)!.aboutValuesCompassion, AppLocalizations.of(context)!.aboutValuesCompassionDesc, Icons.volunteer_activism_rounded),
-                _buildValueCard(AppLocalizations.of(context)!.aboutValuesExcellence, AppLocalizations.of(context)!.aboutValuesExcellenceDesc, Icons.star_rounded),
-                _buildValueCard(AppLocalizations.of(context)!.aboutValuesCommunity, AppLocalizations.of(context)!.aboutValuesCommunityDesc, Icons.groups_rounded),
-                _buildValueCard(AppLocalizations.of(context)!.aboutValuesKnowledge, AppLocalizations.of(context)!.aboutValuesKnowledgeDesc, Icons.menu_book_rounded),
-                _buildValueCard(AppLocalizations.of(context)!.aboutValuesAccessibility, AppLocalizations.of(context)!.aboutValuesAccessibilityDesc, Icons.public_rounded),
+                _buildValueCard(
+                    AppLocalizations.of(context)!.aboutValuesAuthenticity,
+                    AppLocalizations.of(context)!.aboutValuesAuthenticityDesc,
+                    Icons.verified_rounded),
+                _buildValueCard(
+                    AppLocalizations.of(context)!.aboutValuesCompassion,
+                    AppLocalizations.of(context)!.aboutValuesCompassionDesc,
+                    Icons.volunteer_activism_rounded),
+                _buildValueCard(
+                    AppLocalizations.of(context)!.aboutValuesExcellence,
+                    AppLocalizations.of(context)!.aboutValuesExcellenceDesc,
+                    Icons.star_rounded),
+                _buildValueCard(
+                    AppLocalizations.of(context)!.aboutValuesCommunity,
+                    AppLocalizations.of(context)!.aboutValuesCommunityDesc,
+                    Icons.groups_rounded),
+                _buildValueCard(
+                    AppLocalizations.of(context)!.aboutValuesKnowledge,
+                    AppLocalizations.of(context)!.aboutValuesKnowledgeDesc,
+                    Icons.menu_book_rounded),
+                _buildValueCard(
+                    AppLocalizations.of(context)!.aboutValuesAccessibility,
+                    AppLocalizations.of(context)!.aboutValuesAccessibilityDesc,
+                    Icons.public_rounded),
               ],
             ),
           ),
@@ -249,6 +268,7 @@ class _AboutPageState extends State<AboutPage> {
   }
 
   Widget _buildJourneyTimeline() {
+    final l = AppLocalizations.of(context)!;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 80),
@@ -267,15 +287,20 @@ class _AboutPageState extends State<AboutPage> {
             constraints: const BoxConstraints(maxWidth: 800),
             child: Column(
               children: [
-                _buildTimelineItem('2020', 'Vision Founded', 'The seed of Alluwal was planted.'),
+                _buildTimelineItem(
+                    '2020', l.publicJourney2020Title, l.publicJourney2020Body),
                 _buildArrow(),
-                _buildTimelineItem('2021', 'First Teachers', 'Recruited passionate educators.'),
+                _buildTimelineItem(
+                    '2021', l.publicJourney2021Title, l.publicJourney2021Body),
                 _buildArrow(),
-                _buildTimelineItem('2022', 'Platform Launch', 'Officially opened our virtual doors.'),
+                _buildTimelineItem(
+                    '2022', l.publicJourney2022Title, l.publicJourney2022Body),
                 _buildArrow(),
-                _buildTimelineItem('2023', 'Global Expansion', 'Reached students in 20+ countries.'),
+                _buildTimelineItem(
+                    '2023', l.publicJourney2023Title, l.publicJourney2023Body),
                 _buildArrow(),
-                _buildTimelineItem('2024', 'Growth', 'New courses & 5,000+ students reached.'),
+                _buildTimelineItem(
+                    '2024', l.publicJourney2024Title, l.publicJourney2024Body),
               ],
             ),
           ),
@@ -336,13 +361,13 @@ class _AboutPageState extends State<AboutPage> {
   Widget _buildArrow() {
     return const Padding(
       padding: EdgeInsets.symmetric(vertical: 16),
-      child: Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xff9CA3AF), size: 32),
+      child: Icon(Icons.keyboard_arrow_down_rounded,
+          color: Color(0xff9CA3AF), size: 32),
     );
   }
 
   Widget _buildTeamSection() {
-    final founder =
-        _leadership.isNotEmpty ? _leadership.first : null;
+    final founder = _leadership.isNotEmpty ? _leadership.first : null;
     final others =
         _leadership.length > 1 ? _leadership.sublist(1) : <StaffMember>[];
 
@@ -358,11 +383,11 @@ class _AboutPageState extends State<AboutPage> {
             decoration: BoxDecoration(
               color: const Color(0xFFC9A84C).withOpacity(0.1),
               borderRadius: BorderRadius.circular(50),
-              border: Border.all(
-                  color: const Color(0xFFC9A84C).withOpacity(0.3)),
+              border:
+                  Border.all(color: const Color(0xFFC9A84C).withOpacity(0.3)),
             ),
             child: Text(
-              'OUR LEADERSHIP',
+              AppLocalizations.of(context)!.publicAboutLeadershipLabel,
               style: GoogleFonts.inter(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
@@ -384,7 +409,7 @@ class _AboutPageState extends State<AboutPage> {
           Container(
             constraints: const BoxConstraints(maxWidth: 560),
             child: Text(
-              'Dedicated professionals driving our mission to make quality education accessible worldwide.',
+              AppLocalizations.of(context)!.publicAboutLeadershipBody,
               textAlign: TextAlign.center,
               style: GoogleFonts.inter(
                 fontSize: 16,
@@ -396,8 +421,7 @@ class _AboutPageState extends State<AboutPage> {
           const SizedBox(height: 56),
           if (_leadership.isEmpty)
             const SizedBox(
-                height: 200,
-                child: Center(child: CircularProgressIndicator()))
+                height: 200, child: Center(child: CircularProgressIndicator()))
           else ...[
             if (founder != null)
               FadeInSlide(
@@ -432,8 +456,8 @@ class _AboutPageState extends State<AboutPage> {
                 MaterialPageRoute(builder: (_) => const TeamPage()),
               ),
               child: Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 32, vertical: 16),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
                 decoration: BoxDecoration(
                   color: const Color(0xff001E4E),
                   borderRadius: BorderRadius.circular(12),
@@ -449,7 +473,7 @@ class _AboutPageState extends State<AboutPage> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      'Meet Our Full Team',
+                      AppLocalizations.of(context)!.publicAboutMeetTeam,
                       style: GoogleFonts.inter(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
@@ -571,10 +595,11 @@ class _AboutPageState extends State<AboutPage> {
                               color: const Color(0xFFC9A84C).withOpacity(0.12),
                               borderRadius: BorderRadius.circular(50),
                               border: Border.all(
-                                  color: const Color(0xFFC9A84C).withOpacity(0.5)),
+                                  color:
+                                      const Color(0xFFC9A84C).withOpacity(0.5)),
                             ),
                             child: Text(
-                              '✦  FOUNDER',
+                              AppLocalizations.of(context)!.teamFounderBadge,
                               style: GoogleFonts.inter(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w800,
@@ -600,7 +625,8 @@ class _AboutPageState extends State<AboutPage> {
                             ),
                             const SizedBox(height: 7),
                             Text(
-                              founder.role.toUpperCase(),
+                              staffRoleDisplayLabel(context, founder)
+                                  .toUpperCase(),
                               style: GoogleFonts.inter(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w700,
@@ -612,8 +638,7 @@ class _AboutPageState extends State<AboutPage> {
                               width: 52,
                               height: 2,
                               decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                    colors: [
+                                gradient: const LinearGradient(colors: [
                                   Color(0xFFC9A84C),
                                   Color(0xFF0D9488),
                                 ]),
@@ -622,7 +647,7 @@ class _AboutPageState extends State<AboutPage> {
                             ),
                             const SizedBox(height: 20),
                             Text(
-                              '"${founder.bio.length > 200 ? '${founder.bio.substring(0, 200)}…' : founder.bio}"',
+                              '"${staffExcerpt(context, founder, 200)}"',
                               style: GoogleFonts.inter(
                                   fontSize: 15,
                                   color: Colors.white.withOpacity(0.78),
@@ -635,12 +660,18 @@ class _AboutPageState extends State<AboutPage> {
                               runSpacing: 8,
                               children: [
                                 _founderChip(
-                                    Icons.location_on_outlined, founder.city),
+                                  Icons.location_on_outlined,
+                                  staffCityDisplayLabel(
+                                    founder,
+                                    AppLocalizations.of(context)!,
+                                  ),
+                                ),
                                 _founderChip(
                                     Icons.school_outlined,
-                                    founder.education.length > 30
-                                        ? '${founder.education.substring(0, 30)}…'
-                                        : founder.education),
+                                    staffEducationDisplayLabel(
+                                      context,
+                                      founder,
+                                    )),
                               ],
                             ),
                           ],
@@ -666,8 +697,7 @@ class _AboutPageState extends State<AboutPage> {
                         child: Container(
                           padding: const EdgeInsets.all(4),
                           decoration: const BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Color(0xff001E4E)),
+                              shape: BoxShape.circle, color: Color(0xff001E4E)),
                           child: StaffAvatar(staff: founder, size: 100),
                         ),
                       ),
@@ -682,7 +712,7 @@ class _AboutPageState extends State<AboutPage> {
                               color: const Color(0xFFC9A84C).withOpacity(0.5)),
                         ),
                         child: Text(
-                          '✦  FOUNDER',
+                          AppLocalizations.of(context)!.teamFounderBadge,
                           style: GoogleFonts.inter(
                               fontSize: 11,
                               fontWeight: FontWeight.w800,
@@ -701,7 +731,7 @@ class _AboutPageState extends State<AboutPage> {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        founder.role.toUpperCase(),
+                        staffRoleDisplayLabel(context, founder).toUpperCase(),
                         style: GoogleFonts.inter(
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
@@ -710,7 +740,7 @@ class _AboutPageState extends State<AboutPage> {
                       ),
                       const SizedBox(height: 14),
                       Text(
-                        '"${founder.bio.length > 140 ? '${founder.bio.substring(0, 140)}…' : founder.bio}"',
+                        '"${staffExcerpt(context, founder, 140)}"',
                         textAlign: TextAlign.center,
                         style: GoogleFonts.inter(
                             fontSize: 14,
@@ -788,7 +818,7 @@ class _AboutPageState extends State<AboutPage> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  member.role.toUpperCase(),
+                  staffRoleDisplayLabel(context, member).toUpperCase(),
                   style: GoogleFonts.inter(
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
@@ -804,12 +834,14 @@ class _AboutPageState extends State<AboutPage> {
                     const SizedBox(width: 4),
                     Expanded(
                       child: Text(
-                        member.city,
+                        staffCityDisplayLabel(
+                          member,
+                          AppLocalizations.of(context)!,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.inter(
-                            fontSize: 12,
-                            color: const Color(0xff6B7280)),
+                            fontSize: 12, color: const Color(0xff6B7280)),
                       ),
                     ),
                   ],
@@ -822,7 +854,7 @@ class _AboutPageState extends State<AboutPage> {
                     const SizedBox(width: 4),
                     Expanded(
                       child: Text(
-                        member.education,
+                        staffEducationDisplayLabel(context, member),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.inter(
@@ -849,10 +881,14 @@ class _AboutPageState extends State<AboutPage> {
         runSpacing: 32,
         alignment: WrapAlignment.center,
         children: [
-          _buildStat('5K+', 'Happy Students'),
-          _buildStat('200+', 'Qualified Teachers'),
-          _buildStat('50+', 'Countries Served'),
-          _buildStat('98%', 'Satisfaction Rate'),
+          _buildStat(
+              '5K+', AppLocalizations.of(context)!.publicAboutHappyStudents),
+          _buildStat('200+',
+              AppLocalizations.of(context)!.publicAboutQualifiedTeachers),
+          _buildStat(
+              '50+', AppLocalizations.of(context)!.publicAboutCountriesServed),
+          _buildStat(
+              '98%', AppLocalizations.of(context)!.publicAboutSatisfactionRate),
         ],
       ),
     );
@@ -888,7 +924,8 @@ class _AboutPageState extends State<AboutPage> {
       color: const Color(0xff111827),
       child: Column(
         children: [
-          const Icon(Icons.format_quote_rounded, color: Colors.white24, size: 48),
+          const Icon(Icons.format_quote_rounded,
+              color: Colors.white24, size: 48),
           const SizedBox(height: 24),
           Text(
             AppLocalizations.of(context)!.theBestOfPeopleAreThose,
@@ -977,4 +1014,3 @@ class _InfoCard extends StatelessWidget {
     );
   }
 }
-

@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/models/enrollment_request.dart';
 import '../../dashboard/services/job_board_service.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/core/utils/app_search.dart';
 
 /// Data collected from the broadcast preparation dialog.
 class BroadcastPrepareResult {
@@ -92,7 +93,18 @@ class _PrepareAndBroadcastDialogState extends State<PrepareAndBroadcastDialog> {
           if (data['is_active'] == false) continue;
           var name = '${data['first_name'] ?? ''} ${data['last_name'] ?? ''}'.trim();
           if (name.isEmpty) name = data['e-mail'] as String? ?? doc.id;
-          byId[doc.id] = _TeacherOption(id: doc.id, name: name);
+          byId[doc.id] = _TeacherOption(
+            id: doc.id,
+            name: name,
+            email: (data['email'] ?? data['e-mail'] ?? '').toString(),
+            phone: (data['phone_number'] ??
+                    data['phoneNumber'] ??
+                    data['mobile_phone'] ??
+                    data['mobilePhone'] ??
+                    data['phone'] ??
+                    '')
+                .toString(),
+          );
         }
       }
       final teachers = byId.values.toList()
@@ -626,7 +638,13 @@ class _PrepareAndBroadcastDialogState extends State<PrepareAndBroadcastDialog> {
     final filtered = _teacherSearch.isEmpty
         ? _teachers
         : _teachers
-            .where((t) => t.name.toLowerCase().contains(_teacherSearch.toLowerCase()))
+            .where((teacher) => AppSearch.matches(
+                  query: _teacherSearch,
+                  names: [teacher.name],
+                  emails: [teacher.email],
+                  phones: [teacher.phone],
+                  ids: [teacher.id],
+                ))
             .toList();
 
     return Column(
@@ -886,6 +904,13 @@ class _PrepareAndBroadcastDialogState extends State<PrepareAndBroadcastDialog> {
 class _TeacherOption {
   final String id;
   final String name;
+  final String email;
+  final String phone;
 
-  const _TeacherOption({required this.id, required this.name});
+  const _TeacherOption({
+    required this.id,
+    required this.name,
+    required this.email,
+    required this.phone,
+  });
 }

@@ -162,76 +162,82 @@ class _AdminCutoffManagementScreenState
     final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
-      body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-        stream: _firestore
-            .collection('users')
-            .where('access_suspended', isEqualTo: true)
-            .limit(100)
-            .snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snapshot.hasError) {
-            return _InlineState(
-              icon: Icons.error_outline_rounded,
-              title: l10n.cutoffLoadError,
-              detail: snapshot.error.toString(),
-            );
-          }
-
-          final docs = snapshot.data?.docs ?? const [];
-          return FutureBuilder<List<_CutoffFamily>>(
-            key: ValueKey(_refreshKey),
-            future: _loadRows(docs),
-            builder: (context, rowsSnapshot) {
-              if (rowsSnapshot.connectionState == ConnectionState.waiting) {
+      body: ScrollNotificationObserver(
+        child: SelectionArea(
+          child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+            stream: _firestore
+                .collection('users')
+                .where('access_suspended', isEqualTo: true)
+                .limit(100)
+                .snapshots(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
               }
-              if (rowsSnapshot.hasError) {
+              if (snapshot.hasError) {
                 return _InlineState(
                   icon: Icons.error_outline_rounded,
                   title: l10n.cutoffLoadError,
-                  detail: rowsSnapshot.error.toString(),
+                  detail: snapshot.error.toString(),
                 );
               }
 
-              final families = rowsSnapshot.data ?? const [];
-              if (families.isEmpty) {
-                return _InlineState(
-                  icon: Icons.verified_user_outlined,
-                  title: l10n.cutoffNoStudents,
-                  detail: l10n.cutoffNoStudentsDetail,
-                );
-              }
+              final docs = snapshot.data?.docs ?? const [];
+              return FutureBuilder<List<_CutoffFamily>>(
+                key: ValueKey(_refreshKey),
+                future: _loadRows(docs),
+                builder: (context, rowsSnapshot) {
+                  if (rowsSnapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (rowsSnapshot.hasError) {
+                    return _InlineState(
+                      icon: Icons.error_outline_rounded,
+                      title: l10n.cutoffLoadError,
+                      detail: rowsSnapshot.error.toString(),
+                    );
+                  }
 
-              return CustomScrollView(
-                slivers: [
-                  SliverToBoxAdapter(child: _CutoffHeader(families: families)),
-                  SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                    sliver: SliverList.separated(
-                      itemCount: families.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 10),
-                      itemBuilder: (context, index) {
-                        final family = families[index];
-                        return _CutoffFamilyTile(
-                          family: family,
-                          onExtendFamily: () => _extendCutoff(
-                            _CutoffExtensionTarget.parent(family),
-                          ),
-                          onExtendStudent: (student) => _extendCutoff(
-                            _CutoffExtensionTarget.student(student),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ],
+                  final families = rowsSnapshot.data ?? const [];
+                  if (families.isEmpty) {
+                    return _InlineState(
+                      icon: Icons.verified_user_outlined,
+                      title: l10n.cutoffNoStudents,
+                      detail: l10n.cutoffNoStudentsDetail,
+                    );
+                  }
+
+                  return CustomScrollView(
+                    slivers: [
+                      SliverToBoxAdapter(
+                          child: _CutoffHeader(families: families)),
+                      SliverPadding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                        sliver: SliverList.separated(
+                          itemCount: families.length,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(height: 10),
+                          itemBuilder: (context, index) {
+                            final family = families[index];
+                            return _CutoffFamilyTile(
+                              family: family,
+                              onExtendFamily: () => _extendCutoff(
+                                _CutoffExtensionTarget.parent(family),
+                              ),
+                              onExtendStudent: (student) => _extendCutoff(
+                                _CutoffExtensionTarget.student(student),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  );
+                },
               );
             },
-          );
-        },
+          ),
+        ),
       ),
     );
   }

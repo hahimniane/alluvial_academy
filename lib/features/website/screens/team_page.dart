@@ -101,6 +101,7 @@ class StaffMember {
   final List<String> languages;
   final String whyAlluwal;
   final String? photoAsset;
+
   /// Network image from admin CMS (takes precedence over [photoAsset] when set).
   final String? imageUrl;
   final String category;
@@ -212,7 +213,115 @@ Future<List<StaffMember>> loadStaffDataWithCmsFallback() async {
 /// Public team card location line (CMS [StaffMember.city] may be empty).
 String staffCityDisplayLabel(StaffMember staff, AppLocalizations l) {
   final c = staff.city.trim();
-  return c.isEmpty ? l.teamLocationTbd : c;
+  if (c.isEmpty) return l.teamLocationTbd;
+  if (!l.localeName.startsWith('fr')) return c;
+  return c
+      .replaceAll('Saudi Arabia', l.countrySaudiArabia)
+      .replaceAll('Sierra Leone', 'Sierra Leone')
+      .replaceAll('Morocco', l.countryMorocco)
+      .replaceAll('Turkey', l.countryTurkey)
+      .replaceAll('Nigeria', l.countryNigeria)
+      .replaceAll('Guinea', l.countryGuinea)
+      .replaceAll('Liberia', 'Libéria')
+      .replaceAll('USA', l.countryUnitedStates);
+}
+
+bool _staffUseFrench(BuildContext context) =>
+    Localizations.localeOf(context).languageCode == 'fr';
+
+String staffRoleDisplayLabel(BuildContext context, StaffMember staff) {
+  if (!_staffUseFrench(context)) return staff.role;
+  final l = AppLocalizations.of(context)!;
+  switch (staff.role.trim().toLowerCase()) {
+    case 'founder':
+      return l.teamRoleFounder;
+    case 'chief technology officer':
+      return l.teamRoleTechnologyOfficer;
+    case 'chief executive officer':
+      return l.teamRoleExecutiveOfficer;
+    case 'chief accountant':
+      return l.teamRoleAccountant;
+    case 'teachers & students coordinator':
+      return l.teamRoleCoordinator;
+    case 'social media manager':
+      return l.teamRoleSocialMedia;
+    case 'teacher':
+      return l.teamRoleTeacher;
+    case 'quran teacher':
+      return l.teamRoleQuranTeacher;
+    case 'ustaz':
+      return l.teamRoleUstaz;
+    case 'state engineer | teacher & developer':
+      return l.teamRoleEngineerTeacherDeveloper;
+  }
+  return l.teamRoleTeacher;
+}
+
+String staffBioDisplayLabel(BuildContext context, StaffMember staff) {
+  if (_staffUseFrench(context)) {
+    return AppLocalizations.of(context)!.teamStaffFallbackBio;
+  }
+  return staff.bio.isNotEmpty
+      ? staff.bio
+      : AppLocalizations.of(context)!.teamStaffFallbackBio;
+}
+
+String staffSnippetDisplayLabel(BuildContext context, StaffMember staff) {
+  if (_staffUseFrench(context)) {
+    return AppLocalizations.of(context)!.teamStaffFallbackSnippet;
+  }
+  return (staff.bio.isNotEmpty || staff.whyAlluwal.isNotEmpty)
+      ? staff.cardSnippet
+      : AppLocalizations.of(context)!.teamStaffFallbackSnippet;
+}
+
+String staffWhyDisplayLabel(BuildContext context, StaffMember staff) {
+  if (_staffUseFrench(context)) {
+    return AppLocalizations.of(context)!.teamStaffFallbackWhyAlluwal;
+  }
+  return staff.whyAlluwal.isNotEmpty
+      ? staff.whyAlluwal
+      : AppLocalizations.of(context)!.teamStaffFallbackWhyAlluwal;
+}
+
+String staffEducationDisplayLabel(BuildContext context, StaffMember staff) {
+  if (_staffUseFrench(context)) {
+    return AppLocalizations.of(context)!.teamEducationSummary;
+  }
+  return staff.education;
+}
+
+String staffLanguageDisplayLabel(BuildContext context, String language) {
+  if (!_staffUseFrench(context)) return language;
+  final l = AppLocalizations.of(context)!;
+  switch (language) {
+    case 'English':
+      return l.languageEnglish;
+    case 'French':
+      return l.languageFrench;
+    case 'Arabic':
+      return l.languageArabic;
+    case 'Spanish':
+      return l.publicLanguageSpanish;
+    case 'Turkish':
+      return l.publicLanguageTurkish;
+    case 'Urdu':
+      return l.publicLanguageUrdu;
+    case 'Wolof':
+      return l.unifiedProgLangWolofTitle;
+    case 'Hausa':
+      return l.unifiedProgLangHausaTitle;
+    case 'Swahili':
+      return l.unifiedProgLangSwahiliTitle;
+    case 'Amharic':
+      return l.unifiedProgLangAmharicTitle;
+  }
+  return language;
+}
+
+String staffExcerpt(BuildContext context, StaffMember staff, int maxLength) {
+  final text = staffBioDisplayLabel(context, staff);
+  return text.length > maxLength ? '${text.substring(0, maxLength)}…' : text;
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -251,8 +360,9 @@ class StaffAvatar extends StatelessWidget {
                   height: size,
                   // Firebase Storage (and similar) often lack CORP; default web decode
                   // fails with statusCode 0. Prefer <img> on web like [LandingPage._heroSlotImage].
-                  webHtmlElementStrategy:
-                      kIsWeb ? WebHtmlElementStrategy.prefer : WebHtmlElementStrategy.never,
+                  webHtmlElementStrategy: kIsWeb
+                      ? WebHtmlElementStrategy.prefer
+                      : WebHtmlElementStrategy.never,
                   errorBuilder: (_, __, ___) => staff.photoAsset != null
                       ? Image.asset(
                           staff.photoAsset!,
@@ -517,8 +627,9 @@ class _TeamPageState extends State<TeamPage> {
                 fit: BoxFit.cover,
                 width: size,
                 height: size,
-                webHtmlElementStrategy:
-                    kIsWeb ? WebHtmlElementStrategy.prefer : WebHtmlElementStrategy.never,
+                webHtmlElementStrategy: kIsWeb
+                    ? WebHtmlElementStrategy.prefer
+                    : WebHtmlElementStrategy.never,
                 errorBuilder: (_, __, ___) => member.photoAsset != null
                     ? Image.asset(
                         member.photoAsset!,
@@ -597,101 +708,101 @@ class _TeamPageState extends State<TeamPage> {
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(minWidth: 168),
                       child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 230),
-                      curve: Curves.easeOutCubic,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 12),
-                      decoration: BoxDecoration(
-                        color: isSelected ? theme.accent : Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: isSelected
-                              ? theme.accent
-                              : const Color(0xffE5E7EB),
-                          width: isSelected ? 1.5 : 1,
+                        duration: const Duration(milliseconds: 230),
+                        curve: Curves.easeOutCubic,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: isSelected ? theme.accent : Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: isSelected
+                                ? theme.accent
+                                : const Color(0xffE5E7EB),
+                            width: isSelected ? 1.5 : 1,
+                          ),
+                          boxShadow: isSelected
+                              ? [
+                                  BoxShadow(
+                                    color: theme.accent.withValues(alpha: 0.25),
+                                    blurRadius: 16,
+                                    offset: const Offset(0, 6),
+                                  )
+                                ]
+                              : [],
                         ),
-                        boxShadow: isSelected
-                            ? [
-                                BoxShadow(
-                                  color: theme.accent.withValues(alpha: 0.25),
-                                  blurRadius: 16,
-                                  offset: const Offset(0, 6),
-                                )
-                              ]
-                            : [],
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          AnimatedContainer(
-                            duration: const Duration(milliseconds: 200),
-                            padding: const EdgeInsets.all(6),
-                            decoration: BoxDecoration(
-                              color: isSelected
-                                  ? Colors.white.withValues(alpha: 0.2)
-                                  : theme.accentLight,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Icon(theme.icon,
-                                size: 15,
-                                color: isSelected ? Colors.white : theme.accent),
-                          ),
-                          const SizedBox(width: 10),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                theme.label,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: GoogleFonts.inter(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
-                                  color: isSelected
-                                      ? Colors.white
-                                      : _kTextPrimary,
-                                ),
-                              ),
-                              Text(
-                                theme.tagline,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: GoogleFonts.inter(
-                                  fontSize: 10,
-                                  height: 1.25,
-                                  color: isSelected
-                                      ? Colors.white.withValues(alpha: 0.82)
-                                      : _kTextSecondary,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(width: 10),
-                          AnimatedContainer(
-                            duration: const Duration(milliseconds: 200),
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 7, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: isSelected
-                                  ? Colors.white.withValues(alpha: 0.22)
-                                  : theme.accentLight,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              '$count',
-                              style: GoogleFonts.inter(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w800,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
                                 color: isSelected
-                                    ? Colors.white
-                                    : theme.accent,
+                                    ? Colors.white.withValues(alpha: 0.2)
+                                    : theme.accentLight,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Icon(theme.icon,
+                                  size: 15,
+                                  color:
+                                      isSelected ? Colors.white : theme.accent),
+                            ),
+                            const SizedBox(width: 10),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  theme.label,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.inter(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    color: isSelected
+                                        ? Colors.white
+                                        : _kTextPrimary,
+                                  ),
+                                ),
+                                Text(
+                                  theme.tagline,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.inter(
+                                    fontSize: 10,
+                                    height: 1.25,
+                                    color: isSelected
+                                        ? Colors.white.withValues(alpha: 0.82)
+                                        : _kTextSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(width: 10),
+                            AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 7, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? Colors.white.withValues(alpha: 0.22)
+                                    : theme.accentLight,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                '$count',
+                                style: GoogleFonts.inter(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w800,
+                                  color:
+                                      isSelected ? Colors.white : theme.accent,
+                                ),
                               ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
                     ),
                   ),
                 ),
@@ -826,8 +937,8 @@ class _TeamPageState extends State<TeamPage> {
                               color: theme.accentLight,
                               borderRadius: BorderRadius.circular(10),
                             ),
-                            child: Icon(theme.icon,
-                                size: 16, color: theme.accent),
+                            child:
+                                Icon(theme.icon, size: 16, color: theme.accent),
                           ),
                           const SizedBox(width: 12),
                           Text(
@@ -891,9 +1002,8 @@ class _TeamPageState extends State<TeamPage> {
       return Center(
         child: Container(
           constraints: const BoxConstraints(maxWidth: 1400),
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-          child: _buildResponsiveGrid(
-              filtered, 0, _selectedCategory),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+          child: _buildResponsiveGrid(filtered, 0, _selectedCategory),
         ),
       );
     }
@@ -1014,8 +1124,8 @@ class _TeamPageState extends State<TeamPage> {
                                       shape: BoxShape.circle,
                                       color: Color(0xff001E4E),
                                     ),
-                                    child: StaffAvatar(
-                                        staff: founder, size: 128),
+                                    child:
+                                        StaffAvatar(staff: founder, size: 128),
                                   ),
                                 ),
                                 const SizedBox(height: 20),
@@ -1029,7 +1139,8 @@ class _TeamPageState extends State<TeamPage> {
                                         color: _kGold.withOpacity(0.5)),
                                   ),
                                   child: Text(
-                                    AppLocalizations.of(context)!.teamFounderBadge,
+                                    AppLocalizations.of(context)!
+                                        .teamFounderBadge,
                                     style: GoogleFonts.inter(
                                       fontSize: 11,
                                       fontWeight: FontWeight.w800,
@@ -1058,7 +1169,8 @@ class _TeamPageState extends State<TeamPage> {
                                   ),
                                   const SizedBox(height: 8),
                                   Text(
-                                    founder.role.toUpperCase(),
+                                    staffRoleDisplayLabel(context, founder)
+                                        .toUpperCase(),
                                     style: GoogleFonts.inter(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w700,
@@ -1078,7 +1190,7 @@ class _TeamPageState extends State<TeamPage> {
                                   ),
                                   const SizedBox(height: 22),
                                   Text(
-                                    '"${founder.bio.length > 200 ? '${founder.bio.substring(0, 200)}…' : founder.bio}"',
+                                    '"${staffExcerpt(context, founder, 200)}"',
                                     style: GoogleFonts.inter(
                                       fontSize: 15,
                                       color: Colors.white.withOpacity(0.78),
@@ -1096,9 +1208,10 @@ class _TeamPageState extends State<TeamPage> {
                                           staffCityDisplayLabel(founder, l)),
                                       _buildFounderChip(
                                           Icons.school_outlined,
-                                          founder.education.length > 32
-                                              ? '${founder.education.substring(0, 32)}…'
-                                              : founder.education),
+                                          staffEducationDisplayLabel(
+                                            context,
+                                            founder,
+                                          )),
                                     ],
                                   ),
                                   const SizedBox(height: 28),
@@ -1107,8 +1220,7 @@ class _TeamPageState extends State<TeamPage> {
                                         horizontal: 26, vertical: 13),
                                     decoration: BoxDecoration(
                                       color: _kGold,
-                                      borderRadius:
-                                          BorderRadius.circular(50),
+                                      borderRadius: BorderRadius.circular(50),
                                       boxShadow: [
                                         BoxShadow(
                                           color: _kGold.withOpacity(0.4),
@@ -1121,7 +1233,8 @@ class _TeamPageState extends State<TeamPage> {
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
                                         Text(
-                                          AppLocalizations.of(context)!.teamViewFullProfile,
+                                          AppLocalizations.of(context)!
+                                              .teamViewFullProfile,
                                           style: GoogleFonts.inter(
                                             fontSize: 14,
                                             fontWeight: FontWeight.w700,
@@ -1129,10 +1242,8 @@ class _TeamPageState extends State<TeamPage> {
                                           ),
                                         ),
                                         const SizedBox(width: 8),
-                                        const Icon(
-                                            Icons.arrow_forward_rounded,
-                                            size: 16,
-                                            color: Color(0xff001E4E)),
+                                        const Icon(Icons.arrow_forward_rounded,
+                                            size: 16, color: Color(0xff001E4E)),
                                       ],
                                     ),
                                   ),
@@ -1149,8 +1260,7 @@ class _TeamPageState extends State<TeamPage> {
                               padding: const EdgeInsets.all(3),
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                gradient: const LinearGradient(
-                                    colors: [
+                                gradient: const LinearGradient(colors: [
                                   _kGold,
                                   Color(0xFFE8C66A),
                                   _kTeal,
@@ -1161,8 +1271,7 @@ class _TeamPageState extends State<TeamPage> {
                                 decoration: const BoxDecoration(
                                     shape: BoxShape.circle,
                                     color: Color(0xff001E4E)),
-                                child: StaffAvatar(
-                                    staff: founder, size: 104),
+                                child: StaffAvatar(staff: founder, size: 104),
                               ),
                             ),
                             const SizedBox(height: 16),
@@ -1197,7 +1306,8 @@ class _TeamPageState extends State<TeamPage> {
                             ),
                             const SizedBox(height: 6),
                             Text(
-                              founder.role.toUpperCase(),
+                              staffRoleDisplayLabel(context, founder)
+                                  .toUpperCase(),
                               style: GoogleFonts.inter(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w700,
@@ -1207,7 +1317,7 @@ class _TeamPageState extends State<TeamPage> {
                             ),
                             const SizedBox(height: 16),
                             Text(
-                              '"${founder.bio.length > 150 ? '${founder.bio.substring(0, 150)}…' : founder.bio}"',
+                              '"${staffExcerpt(context, founder, 150)}"',
                               textAlign: TextAlign.center,
                               style: GoogleFonts.inter(
                                 fontSize: 14,
@@ -1225,7 +1335,8 @@ class _TeamPageState extends State<TeamPage> {
                                 borderRadius: BorderRadius.circular(50),
                               ),
                               child: Text(
-                                AppLocalizations.of(context)!.teamViewFullProfile,
+                                AppLocalizations.of(context)!
+                                    .teamViewFullProfile,
                                 style: GoogleFonts.inter(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w700,
@@ -1370,19 +1481,21 @@ class _TeamPageState extends State<TeamPage> {
           );
         }
         return Column(
-          children: List.generate(members.length, (i) => Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: FadeInSlide(
-              delay: ((startIndex + i) * 0.05).clamp(0.0, 1.2),
-              duration: const Duration(milliseconds: 460),
-              beginOffset: const Offset(0, 0.1),
-              curve: Curves.easeOutCubic,
-              child: _TeacherRosterCard(
-                staff: members[i],
-                onTap: () => _showStaffDetail(members[i]),
-              ),
-            ),
-          )),
+          children: List.generate(
+              members.length,
+              (i) => Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: FadeInSlide(
+                      delay: ((startIndex + i) * 0.05).clamp(0.0, 1.2),
+                      duration: const Duration(milliseconds: 460),
+                      beginOffset: const Offset(0, 0.1),
+                      curve: Curves.easeOutCubic,
+                      child: _TeacherRosterCard(
+                        staff: members[i],
+                        onTap: () => _showStaffDetail(members[i]),
+                      ),
+                    ),
+                  )),
         );
       },
     );
@@ -1518,8 +1631,8 @@ class _StaffCardState extends State<_StaffCard>
     super.initState();
     _ctrl = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 150));
-    _scaleAnim = Tween<double>(begin: 1.0, end: 0.96).animate(
-        CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
+    _scaleAnim = Tween<double>(begin: 1.0, end: 0.96)
+        .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
   }
 
   @override
@@ -1607,7 +1720,8 @@ class _StaffCardState extends State<_StaffCard>
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Text(
-                            widget.staff.role.toUpperCase(),
+                            staffRoleDisplayLabel(context, widget.staff)
+                                .toUpperCase(),
                             textAlign: TextAlign.center,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -1629,8 +1743,8 @@ class _StaffCardState extends State<_StaffCard>
                               const SizedBox(width: 2),
                               Flexible(
                                 child: Text(
-                                  staffCityDisplayLabel(
-                                      widget.staff, AppLocalizations.of(context)!),
+                                  staffCityDisplayLabel(widget.staff,
+                                      AppLocalizations.of(context)!),
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
                                   textAlign: TextAlign.center,
@@ -1649,15 +1763,11 @@ class _StaffCardState extends State<_StaffCard>
                             width: double.infinity,
                             padding: const EdgeInsets.all(9),
                             decoration: BoxDecoration(
-                              color: _hovered
-                                  ? theme.accentLight
-                                  : _kBgLight,
+                              color: _hovered ? theme.accentLight : _kBgLight,
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: Text(
-                              (widget.staff.bio.isNotEmpty || widget.staff.whyAlluwal.isNotEmpty)
-                                  ? widget.staff.cardSnippet
-                                  : AppLocalizations.of(context)!.teamStaffFallbackSnippet,
+                              staffSnippetDisplayLabel(context, widget.staff),
                               maxLines: 3,
                               overflow: TextOverflow.ellipsis,
                               style: GoogleFonts.inter(
@@ -1684,7 +1794,7 @@ class _StaffCardState extends State<_StaffCard>
                                           color: const Color(0xffE5E7EB)),
                                     ),
                                     child: Text(
-                                      lang,
+                                      staffLanguageDisplayLabel(context, lang),
                                       style: GoogleFonts.inter(
                                           fontSize: 9.5,
                                           fontWeight: FontWeight.w600,
@@ -1789,7 +1899,8 @@ class _TeacherRosterCardState extends State<_TeacherRosterCard>
             color: _hovered ? const Color(0xFFF5F5FE) : Colors.white,
             borderRadius: BorderRadius.circular(18),
             border: Border.all(
-              color: _hovered ? accent.withOpacity(0.4) : const Color(0xFFE8E8F8),
+              color:
+                  _hovered ? accent.withOpacity(0.4) : const Color(0xFFE8E8F8),
               width: _hovered ? 1.5 : 1,
             ),
             boxShadow: [
@@ -1850,7 +1961,7 @@ class _TeacherRosterCardState extends State<_TeacherRosterCard>
                                   borderRadius: BorderRadius.circular(20),
                                 ),
                                 child: Text(
-                                  widget.staff.role,
+                                  staffRoleDisplayLabel(context, widget.staff),
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
                                   style: GoogleFonts.inter(
@@ -1915,13 +2026,12 @@ class _TeacherRosterCardState extends State<_TeacherRosterCard>
                         Row(
                           children: [
                             Icon(Icons.location_on_rounded,
-                                size: 11,
-                                color: accent.withValues(alpha: 0.7)),
+                                size: 11, color: accent.withValues(alpha: 0.7)),
                             const SizedBox(width: 3),
                             Expanded(
                               child: Text(
-                                staffCityDisplayLabel(
-                                    widget.staff, AppLocalizations.of(context)!),
+                                staffCityDisplayLabel(widget.staff,
+                                    AppLocalizations.of(context)!),
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                                 style: GoogleFonts.inter(
@@ -1944,12 +2054,15 @@ class _TeacherRosterCardState extends State<_TeacherRosterCard>
                                 color: const Color(0xFFF0FDF4),
                                 borderRadius: BorderRadius.circular(6),
                                 border: Border.all(
-                                    color: const Color(0xFF86EFAC),
-                                    width: 0.8,
+                                  color: const Color(0xFF86EFAC),
+                                  width: 0.8,
                                 ),
                               ),
                               child: Text(
-                                widget.staff.education.split('—').first.trim(),
+                                staffEducationDisplayLabel(
+                                  context,
+                                  widget.staff,
+                                ).split('—').first.trim(),
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                                 style: GoogleFonts.inter(
@@ -1965,10 +2078,7 @@ class _TeacherRosterCardState extends State<_TeacherRosterCard>
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      (widget.staff.bio.isNotEmpty ||
-                              widget.staff.whyAlluwal.isNotEmpty)
-                          ? widget.staff.cardSnippet
-                          : AppLocalizations.of(context)!.teamStaffFallbackSnippet,
+                      staffSnippetDisplayLabel(context, widget.staff),
                       maxLines: 4,
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.inter(
@@ -2004,7 +2114,7 @@ class _TeacherRosterCardState extends State<_TeacherRosterCard>
                                             : _kTextSecondary),
                                     const SizedBox(width: 3),
                                     Text(
-                                      lang,
+                                      staffLanguageDisplayLabel(context, lang),
                                       style: GoogleFonts.inter(
                                           fontSize: 9.5,
                                           fontWeight: FontWeight.w600,
@@ -2061,7 +2171,8 @@ class _StaffDetailSheetState extends State<_StaffDetailSheet>
         .map((c) => CurvedAnimation(parent: c, curve: Curves.easeOut))
         .toList();
     _slides = _cs
-        .map((c) => Tween<Offset>(begin: const Offset(0, 0.16), end: Offset.zero)
+        .map((c) => Tween<Offset>(
+                begin: const Offset(0, 0.16), end: Offset.zero)
             .animate(CurvedAnimation(parent: c, curve: Curves.easeOutCubic)))
         .toList();
     _runSequence();
@@ -2146,7 +2257,7 @@ class _StaffDetailSheetState extends State<_StaffDetailSheet>
                             Icon(theme.icon, size: 13, color: theme.accent),
                             const SizedBox(width: 7),
                             Text(
-                              s.role.toUpperCase(),
+                              staffRoleDisplayLabel(context, s).toUpperCase(),
                               style: GoogleFonts.inter(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w800,
@@ -2169,8 +2280,12 @@ class _StaffDetailSheetState extends State<_StaffDetailSheet>
                     runSpacing: 8,
                     alignment: WrapAlignment.center,
                     children: [
-                      _chip(Icons.location_on_outlined, staffCityDisplayLabel(s, l)),
-                      _chip(Icons.school_outlined, s.education),
+                      _chip(Icons.location_on_outlined,
+                          staffCityDisplayLabel(s, l)),
+                      _chip(
+                        Icons.school_outlined,
+                        staffEducationDisplayLabel(context, s),
+                      ),
                     ],
                   ),
                 )),
@@ -2188,8 +2303,7 @@ class _StaffDetailSheetState extends State<_StaffDetailSheet>
                         margin: const EdgeInsets.symmetric(horizontal: 10),
                         padding: const EdgeInsets.all(6),
                         decoration: BoxDecoration(
-                            color: theme.accentLight,
-                            shape: BoxShape.circle),
+                            color: theme.accentLight, shape: BoxShape.circle),
                         child: Icon(Icons.auto_awesome_rounded,
                             size: 12, color: theme.accent),
                       ),
@@ -2206,8 +2320,9 @@ class _StaffDetailSheetState extends State<_StaffDetailSheet>
                   padding: const EdgeInsets.symmetric(horizontal: 24),
                   child: _section(
                     icon: Icons.person_outline_rounded,
-                    title: AppLocalizations.of(context)!.teamAboutName(s.name.split(' ').first),
-                    content: s.bio.isNotEmpty ? s.bio : AppLocalizations.of(context)!.teamStaffFallbackBio,
+                    title: AppLocalizations.of(context)!
+                        .teamAboutName(s.name.split(' ').first),
+                    content: staffBioDisplayLabel(context, s),
                     accent: theme.accent,
                     light: theme.accentLight,
                   ),
@@ -2220,7 +2335,7 @@ class _StaffDetailSheetState extends State<_StaffDetailSheet>
                   child: _section(
                     icon: Icons.favorite_outline_rounded,
                     title: AppLocalizations.of(context)!.teamWhyAlluwal,
-                    content: s.whyAlluwal.isNotEmpty ? s.whyAlluwal : AppLocalizations.of(context)!.teamStaffFallbackWhyAlluwal,
+                    content: staffWhyDisplayLabel(context, s),
                     accent: _kTeal,
                     light: const Color(0xFFE6F6F5),
                     isQuote: true,
@@ -2262,8 +2377,8 @@ class _StaffDetailSheetState extends State<_StaffDetailSheet>
                                     border: Border.all(
                                         color: theme.accent.withOpacity(0.2)),
                                   ),
-                                    child: Text(
-                                    lang,
+                                  child: Text(
+                                    staffLanguageDisplayLabel(context, lang),
                                     style: GoogleFonts.inter(
                                         fontSize: 12,
                                         fontWeight: FontWeight.w600,
@@ -2279,13 +2394,15 @@ class _StaffDetailSheetState extends State<_StaffDetailSheet>
                           onPressed: () {
                             Navigator.pop(context);
                             final subj = Uri.encodeComponent(
-                                AppLocalizations.of(context)!.teamMessageForName(s.name));
+                                AppLocalizations.of(context)!
+                                    .teamMessageForName(s.name));
                             launchUrl(Uri.parse(
                                 'mailto:support@alluwaleducationhub.org?subject=$subj'));
                           },
                           icon: const Icon(Icons.mail_outline_rounded),
                           label: Text(
-                            AppLocalizations.of(context)!.teamContactName(s.name.split(' ').first),
+                            AppLocalizations.of(context)!
+                                .teamContactName(s.name.split(' ').first),
                             style: GoogleFonts.inter(
                                 fontWeight: FontWeight.w700, fontSize: 15),
                           ),
@@ -2445,9 +2562,7 @@ class _StaffDetailSheetState extends State<_StaffDetailSheet>
             Text(
               content,
               style: GoogleFonts.inter(
-                  fontSize: 12.5,
-                  color: _kTextSecondary,
-                  height: 1.6),
+                  fontSize: 12.5, color: _kTextSecondary, height: 1.6),
             ),
         ],
       ),

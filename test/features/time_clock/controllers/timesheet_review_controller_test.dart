@@ -20,6 +20,8 @@ TimesheetEntry _entry({
   bool isEdited = false,
   bool editApproved = false,
   String? shiftId,
+  String teacherEmail = '',
+  String teacherPhone = '',
 }) {
   return TimesheetEntry(
     documentId: id,
@@ -32,6 +34,8 @@ TimesheetEntry _entry({
     status: status,
     teacherId: teacher,
     teacherName: teacher,
+    teacherEmail: teacherEmail,
+    teacherPhone: teacherPhone,
     source: source,
     formCompleted: formCompleted,
     isEdited: isEdited,
@@ -93,8 +97,7 @@ void main() {
 
     test('presetDateRange thisMonth covers April 2026', () {
       final ref = DateTime(2026, 4, 17);
-      final range =
-          TimesheetReviewController.presetDateRange(
+      final range = TimesheetReviewController.presetDateRange(
         TimesheetDatePreset.thisMonth,
         reference: ref,
       );
@@ -185,6 +188,37 @@ void main() {
         parseEntryDate: parser,
       );
       expect(filtered.length, 1);
+    });
+
+    test('search matches teacher email, normalized phone, and IDs', () {
+      final list = [
+        _entry(
+          id: 'timesheet-2048',
+          teacher: 'teacher-1042',
+          teacherEmail: 'aminata@example.com',
+          teacherPhone: '+224 622 123 456',
+          student: 'Karim',
+          status: TimesheetStatus.pending,
+          date: '2026-04-01',
+        ),
+      ];
+
+      for (final query in [
+        'AMINATA@EXAMPLE',
+        '622123456',
+        'teacher-1042',
+        'timesheet-2048',
+      ]) {
+        final filtered = TimesheetReviewController.applyFilters(
+          all: list,
+          filterState: TimesheetFilterState(
+            statusFilter: 'All',
+            searchQuery: query,
+          ),
+          parseEntryDate: parser,
+        );
+        expect(filtered, hasLength(1), reason: 'query: $query');
+      }
     });
   });
 }

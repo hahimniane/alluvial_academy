@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart'
     show TargetPlatform, defaultTargetPlatform;
 import 'package:flutter_zoom_meeting_wrapper/flutter_zoom_meeting_wrapper.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'package:alluwalacademyadmin/core/services/class_video_service.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 /// Native (Android/iOS) Zoom Meeting SDK classroom.
@@ -13,6 +16,7 @@ import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 /// The native SDK renders its own full-screen meeting UI once joined; this
 /// screen only shows connecting/error state around that.
 class ZoomMeetingScreen extends StatefulWidget {
+  final String shiftId;
   final String sdkKey;
   final String signature;
   final String meetingNumber;
@@ -31,6 +35,7 @@ class ZoomMeetingScreen extends StatefulWidget {
 
   const ZoomMeetingScreen({
     super.key,
+    this.shiftId = '',
     required this.sdkKey,
     required this.signature,
     required this.meetingNumber,
@@ -56,6 +61,13 @@ class _ZoomMeetingScreenState extends State<ZoomMeetingScreen> {
   bool _joining = true;
   String? _error;
 
+  // Attendance: the join is recorded server-side by getZoomJoinInfo; these
+  // heartbeats extend the presence window while the student is in the meeting,
+  // and the leave (on meeting end / screen close) closes it at the exact time.
+  static const Duration _heartbeatInterval = Duration(seconds: 45);
+  Timer? _heartbeatTimer;
+  bool _leaveRecorded = false;
+
   bool get _usesNativeMeetingSdk =>
       defaultTargetPlatform == TargetPlatform.android ||
       defaultTargetPlatform == TargetPlatform.iOS;
@@ -73,7 +85,25 @@ class _ZoomMeetingScreenState extends State<ZoomMeetingScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _openDesktopZoom());
   }
 
+  void _startPresenceHeartbeat() {
+    if (widget.shiftId.trim().isEmpty || _heartbeatTimer != null) return;
+    ClassVideoService.recordClassPresence(widget.shiftId, 'heartbeat');
+    _heartbeatTimer = Timer.periodic(
+      _heartbeatInterval,
+      (_) => ClassVideoService.recordClassPresence(widget.shiftId, 'heartbeat'),
+    );
+  }
+
+  void _recordLeave() {
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = null;
+    if (_leaveRecorded || widget.shiftId.trim().isEmpty) return;
+    _leaveRecorded = true;
+    ClassVideoService.recordClassPresence(widget.shiftId, 'leave');
+  }
+
   void _handleMeetingEnded() {
+    _recordLeave();
     if (!mounted) return;
     final navigator = Navigator.of(context);
     if (navigator.canPop()) {
@@ -83,6 +113,7 @@ class _ZoomMeetingScreenState extends State<ZoomMeetingScreen> {
 
   @override
   void dispose() {
+    _recordLeave();
     if (_usesNativeMeetingSdk &&
         ZoomMeetingWrapper.onMeetingEnded == _handleMeetingEnded) {
       ZoomMeetingWrapper.onMeetingEnded = null;
@@ -180,6 +211,7 @@ class _ZoomMeetingScreenState extends State<ZoomMeetingScreen> {
         autoJoinBreakoutRoom: widget.autoJoinBreakoutRoom,
         classEndsAtIso: widget.classEndsAt?.toUtc().toIso8601String(),
       );
+      if (joined) _startPresenceHeartbeat();
       if (!mounted) return;
       setState(() {
         _joining = false;

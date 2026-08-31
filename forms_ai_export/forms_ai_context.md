@@ -1,4 +1,4 @@
-# Alluvial Academy — forms context for AI
+# Alluwal Education Hub — forms context for AI
 
 Generated: 2026-03-22T18:48:35.597Z
 Project: alluwal-academy

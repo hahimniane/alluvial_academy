@@ -25,7 +25,12 @@ class UserEmployeeDataSource extends DataGridSource {
         DataGridCell<String>(columnName: 'Email', value: e.email),
         DataGridCell<String>(columnName: 'MobilePhone', value: e.mobilePhone),
         DataGridCell<String>(columnName: 'UserType', value: e.userType),
+        DataGridCell<String>(columnName: 'StudentId', value: e.studentCode),
         DataGridCell<String>(columnName: 'KioskCode', value: e.kioskCode),
+        DataGridCell<String>(columnName: 'ParentName', value: e.parentName),
+        DataGridCell<String>(columnName: 'TeacherName', value: e.teacherNames),
+        DataGridCell<String>(
+            columnName: 'WeeklyHours', value: e.weeklyHoursLabel),
         DataGridCell<String>(columnName: 'DateAdded', value: e.dateAdded),
         DataGridCell<String>(columnName: 'LastLogin', value: e.lastLogin),
         DataGridCell<Employee>(columnName: 'Actions', value: e),
@@ -57,7 +62,12 @@ class UserEmployeeDataSource extends DataGridSource {
         DataGridCell<String>(columnName: 'Email', value: e.email),
         DataGridCell<String>(columnName: 'MobilePhone', value: e.mobilePhone),
         DataGridCell<String>(columnName: 'UserType', value: e.userType),
+        DataGridCell<String>(columnName: 'StudentId', value: e.studentCode),
         DataGridCell<String>(columnName: 'KioskCode', value: e.kioskCode),
+        DataGridCell<String>(columnName: 'ParentName', value: e.parentName),
+        DataGridCell<String>(columnName: 'TeacherName', value: e.teacherNames),
+        DataGridCell<String>(
+            columnName: 'WeeklyHours', value: e.weeklyHoursLabel),
         DataGridCell<String>(columnName: 'DateAdded', value: e.dateAdded),
         DataGridCell<String>(columnName: 'LastLogin', value: e.lastLogin),
         DataGridCell<Employee>(columnName: 'Actions', value: e),
@@ -81,7 +91,8 @@ class UserEmployeeDataSource extends DataGridSource {
               runSpacing: 2.0,
               children: [
                 // View Credentials button - only for students
-                if (employee.userType.toLowerCase() == 'student' && onViewCredentials != null)
+                if (employee.userType.toLowerCase() == 'student' &&
+                    onViewCredentials != null)
                   _buildActionButton(
                     icon: Icons.key,
                     color: const Color(0xff06B6D4),
@@ -148,7 +159,8 @@ class UserEmployeeDataSource extends DataGridSource {
                     icon: Icons.admin_panel_settings,
                     color: Colors.orange,
                     onTap: () => onPromoteToAdmin(employee),
-                    tooltip: AppLocalizations.of(context)!.promoteToAdminTeacher,
+                    tooltip:
+                        AppLocalizations.of(context)!.promoteToAdminTeacher,
                   ),
                 // Archive/Restore buttons
                 if (employee.isActive)
@@ -171,7 +183,8 @@ class UserEmployeeDataSource extends DataGridSource {
                     icon: Icons.delete_outline,
                     color: Colors.red,
                     onTap: () => onDeleteUser(employee),
-                    tooltip: AppLocalizations.of(context)!.archivePermanentlyDelete,
+                    tooltip:
+                        AppLocalizations.of(context)!.archivePermanentlyDelete,
                     isDestructive: true,
                   ),
                 if (!employee.isActive)
@@ -179,7 +192,8 @@ class UserEmployeeDataSource extends DataGridSource {
                     icon: Icons.delete_forever,
                     color: Colors.red,
                     onTap: () => onDeleteUser(employee),
-                    tooltip: AppLocalizations.of(context)!.permanentlyDeleteUser,
+                    tooltip:
+                        AppLocalizations.of(context)!.permanentlyDeleteUser,
                     isDestructive: true,
                   ),
                 if (employee.userType.toLowerCase() == 'teacher' &&
@@ -225,7 +239,7 @@ class UserEmployeeDataSource extends DataGridSource {
                 color: bgColor,
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Text(
+              child: SelectableText(
                 value,
                 style: GoogleFonts.inter(
                   fontSize: 11,
@@ -258,7 +272,7 @@ class UserEmployeeDataSource extends DataGridSource {
                       borderRadius: BorderRadius.circular(4),
                       border: Border.all(color: Colors.red.withOpacity(0.3)),
                     ),
-                    child: Text(
+                    child: SelectableText(
                       AppLocalizations.of(context)!.archived,
                       style: GoogleFonts.inter(
                         fontSize: 10,
@@ -270,7 +284,7 @@ class UserEmployeeDataSource extends DataGridSource {
                 Flexible(
                   child: Tooltip(
                     message: dataGridCell.value.toString(),
-                    child: Text(
+                    child: SelectableText(
                       dataGridCell.value.toString(),
                       style: GoogleFonts.inter(
                         fontSize: 12,
@@ -281,7 +295,7 @@ class UserEmployeeDataSource extends DataGridSource {
                             isArchived ? TextDecoration.lineThrough : null,
                       ),
                       textAlign: TextAlign.center,
-                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
                     ),
                   ),
                 ),
@@ -331,4 +345,5 @@ class UserEmployeeDataSource extends DataGridSource {
       ),
     );
   }
+
 }

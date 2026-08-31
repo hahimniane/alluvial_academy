@@ -9,8 +9,10 @@ import '../../shift_management/models/teaching_shift.dart';
 import 'package:alluwalacademyadmin/features/forms/services/form_labels_cache_service.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 import '../utils/form_response_owner_queries.dart';
+import '../utils/form_review_status.dart';
 import '../utils/form_submission_view_mode.dart';
 import '../widgets/form_details_modal.dart';
+import '../widgets/form_review_status_badge.dart';
 
 /// Screen for teachers to view their own form submissions (read-only)
 /// Now supports month filtering for better organization
@@ -171,8 +173,14 @@ class _MySubmissionsScreenState extends State<MySubmissionsScreen> {
         // Check if any submission status matches
         final matchingSubmissions = submissions.where((doc) {
           final data = doc.data() as Map<String, dynamic>;
-          final status = (data['status'] ?? '').toString().toLowerCase();
-          return status.contains(_searchQuery.toLowerCase());
+          final submissionStatus =
+              (data['status'] ?? '').toString().toLowerCase();
+          final reviewStatus = FormReviewStatusBadge.labelFor(
+            context,
+            data['reviewStatus'],
+          ).toLowerCase();
+          return submissionStatus.contains(_searchQuery.toLowerCase()) ||
+              reviewStatus.contains(_searchQuery.toLowerCase());
         }).toList();
 
         if (matchingSubmissions.isNotEmpty) {
@@ -607,10 +615,21 @@ class _MySubmissionsScreenState extends State<MySubmissionsScreen> {
     final latestData = latestSubmission.data() as Map<String, dynamic>;
     final latestDate = (latestData['submittedAt'] as Timestamp?)?.toDate();
 
-    // Count completed submissions
-    final completedCount = submissions.where((doc) {
+    final acceptedCount = submissions.where((doc) {
       final data = doc.data() as Map<String, dynamic>;
-      return (data['status'] ?? '').toString().toLowerCase() == 'completed';
+      return FormReviewStatus.normalize(data['reviewStatus']) ==
+          FormReviewStatus.accepted;
+    }).length;
+    final rejectedCount = submissions.where((doc) {
+      final data = doc.data() as Map<String, dynamic>;
+      return FormReviewStatus.normalize(data['reviewStatus']) ==
+          FormReviewStatus.rejected;
+    }).length;
+    final awaitingDecisionCount = submissions.where((doc) {
+      final data = doc.data() as Map<String, dynamic>;
+      final status = FormReviewStatus.normalize(data['reviewStatus']);
+      return status != FormReviewStatus.accepted &&
+          status != FormReviewStatus.rejected;
     }).length;
 
     return Card(
@@ -692,35 +711,20 @@ class _MySubmissionsScreenState extends State<MySubmissionsScreen> {
                             ],
                           ),
                         ),
-                        if (completedCount > 0)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color(0xffDCFCE7),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(
-                                  Icons.check_circle,
-                                  size: 14,
-                                  color: Color(0xff16A34A),
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  '$completedCount completed',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w500,
-                                    color: Color(0xff16A34A),
-                                  ),
-                                ),
-                              ],
-                            ),
+                        if (acceptedCount > 0)
+                          _buildDecisionCountChip(
+                            FormReviewStatus.accepted,
+                            acceptedCount,
+                          ),
+                        if (rejectedCount > 0)
+                          _buildDecisionCountChip(
+                            FormReviewStatus.rejected,
+                            rejectedCount,
+                          ),
+                        if (awaitingDecisionCount > 0)
+                          _buildDecisionCountChip(
+                            FormReviewStatus.notReviewed,
+                            awaitingDecisionCount,
                           ),
                       ],
                     ),
@@ -746,6 +750,25 @@ class _MySubmissionsScreenState extends State<MySubmissionsScreen> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDecisionCountChip(String status, int count) {
+    final color = FormReviewStatusBadge.colorFor(status);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        '$count ${FormReviewStatusBadge.labelFor(context, status)}',
+        style: GoogleFonts.inter(
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+          color: color,
         ),
       ),
     );
@@ -942,6 +965,25 @@ class _SubmissionDetailViewState extends State<_SubmissionDetailView> {
                               fontSize: 14,
                               color: const Color(0xff64748B),
                             ),
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Text(
+                                '${AppLocalizations.of(context)!.formDecisionLabel}: ',
+                                style: GoogleFonts.inter(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: const Color(0xff475569),
+                                ),
+                              ),
+                              Flexible(
+                                child: FormReviewStatusBadge(
+                                  status: widget.data['reviewStatus'],
+                                  compact: true,
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
@@ -1531,18 +1573,11 @@ class _FormSubmissionsSheetState extends State<_FormSubmissionsSheet> {
                 ],
               ),
             ),
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: const Color(0xffF0F9FF),
-                borderRadius: BorderRadius.circular(8),
-                border:
-                    Border.all(color: const Color(0xffBAE6FD).withOpacity(0.5)),
-              ),
-              child: const Icon(
-                Icons.visibility_outlined,
-                size: 18,
-                color: Color(0xff0284C7),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 120),
+              child: FormReviewStatusBadge(
+                status: data['reviewStatus'],
+                compact: true,
               ),
             ),
           ],
@@ -1590,7 +1625,6 @@ class _FormSubmissionsSheetState extends State<_FormSubmissionsSheet> {
         final doc = list[index];
         final data = doc.data() as Map<String, dynamic>;
         final submittedAt = (data['submittedAt'] as Timestamp?)?.toDate();
-        final status = (data['status'] ?? 'completed').toString();
         final shiftId = (data['shiftId'] ?? data['shift_id'])?.toString();
         final summary = shiftId != null && shiftId.isNotEmpty
             ? _shiftSummaries[shiftId]
@@ -1604,12 +1638,13 @@ class _FormSubmissionsSheetState extends State<_FormSubmissionsSheet> {
         final String subtitleText = submittedAt != null
             ? 'Submitted ${DateFormat('MMM d').format(submittedAt)} at ${DateFormat('h:mm a').format(submittedAt)}'
             : '';
-        return Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
+        return Material(
+          color: Colors.white,
+          shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xffE2E8F0)),
+            side: const BorderSide(color: Color(0xffE2E8F0)),
           ),
+          clipBehavior: Clip.antiAlias,
           child: ListTile(
             onTap: () => widget.onViewDetails(doc.id, widget.formTitle, data),
             contentPadding:
@@ -1642,9 +1677,13 @@ class _FormSubmissionsSheetState extends State<_FormSubmissionsSheet> {
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (status.toLowerCase() == 'completed')
-                  const Icon(Icons.check_circle,
-                      size: 16, color: Color(0xff16A34A)),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 120),
+                  child: FormReviewStatusBadge(
+                    status: data['reviewStatus'],
+                    compact: true,
+                  ),
+                ),
                 const SizedBox(width: 8),
                 const Icon(Icons.arrow_forward_ios,
                     size: 14, color: Color(0xffCBD5E1)),

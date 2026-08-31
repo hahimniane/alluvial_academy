@@ -165,7 +165,30 @@ const _matchesRecurrence = ({day, recurrence, adminTimezone}) => {
   }
 };
 
-const _hasConflictingShift = async ({teacherId, shiftStartUtc, shiftEndUtc}) => {
+
+/**
+ * A template can be paused for a PERIOD (a student travels, a Ramadan break)
+ * instead of switched off entirely. The template stays active — the generator
+ * simply skips days inside the window, so generation resumes by itself the day
+ * after `pause_end` with no cron and no admin action.
+ */
+const _isDayPaused = ({day, template, adminTimezone}) => {
+  const startRaw = _toJsDate(template.pause_start);
+  const endRaw = _toJsDate(template.pause_end);
+  if (!startRaw && !endRaw) return false;
+  const dayKey = _dateKey(day);
+  if (startRaw) {
+    const startKey = _dateKey(DateTime.fromJSDate(startRaw, {zone: adminTimezone}).startOf('day'));
+    if (dayKey < startKey) return false;
+  }
+  if (endRaw) {
+    const endKey = _dateKey(DateTime.fromJSDate(endRaw, {zone: adminTimezone}).startOf('day'));
+    if (dayKey > endKey) return false;
+  }
+  return true;
+};
+
+const _hasConflictingShift = async ({teacherId, shiftStartUtc, shiftEndUtc, ignoreShiftId = null}) => {
   const db = admin.firestore();
 
   const startUtc = DateTime.fromJSDate(shiftStartUtc, {zone: 'utc'});
@@ -191,6 +214,7 @@ const _hasConflictingShift = async ({teacherId, shiftStartUtc, shiftEndUtc}) => 
   }
 
   for (const doc of docs) {
+    if (ignoreShiftId && doc.id === ignoreShiftId) continue;
     const data = doc.data() || {};
     const existingStart = _toJsDate(data.shift_start);
     const existingEnd = _toJsDate(data.shift_end);
@@ -200,6 +224,26 @@ const _hasConflictingShift = async ({teacherId, shiftStartUtc, shiftEndUtc}) => 
     if (overlaps) return true;
   }
   return false;
+};
+
+// Returns a skip reason when an existing generated shift must be left
+// untouched by regeneration, or null when it's safe to overwrite/recreate.
+const _shouldSkipRegenerationForExistingShift = (existingData) => {
+  if (!existingData) return null;
+  if (existingData.teacher_modified || existingData.teacher_modified_at) {
+    return 'teacher_modified';
+  }
+  if (existingData.admin_modified || existingData.admin_modified_at) {
+    return 'admin_modified';
+  }
+  const status = (existingData.status || '').toString().trim().toLowerCase();
+  if (status === 'deleted') {
+    return 'deleted';
+  }
+  if (['completed', 'cancelled', 'active', 'missed'].includes(status)) {
+    return 'terminal_state';
+  }
+  return null;
 };
 
 const _buildGeneratedShiftId = ({templateId, shiftStartUtc}) => {
@@ -272,6 +316,8 @@ const _buildGeneratedShiftData = ({templateId, shiftId, template, shiftStartUtc,
     hourly_rate: template.hourly_rate ?? null,
     status: 'scheduled',
     created_by_admin_id: template.created_by_admin_id || null,
+    created_by_name: template.created_by_name || null,
+    created_by_email: template.created_by_email || null,
     created_at: admin.firestore.Timestamp.now(),
     last_modified: admin.firestore.Timestamp.now(),
     recurrence: template.recurrence || 'none',
@@ -320,10 +366,13 @@ const _generateShiftsForTemplate = async ({templateId, template}) => {
   let created = 0;
   let skippedConflicts = 0;
   let skippedTeacherModified = 0;
+  let skippedAdminModified = 0;
+  let skippedDeleted = 0;
   let skippedTerminalState = 0;
   let skippedNotStarted = 0;
   let skippedOutsideEndDate = 0;
   let skippedNoMatch = 0;
+  let skippedPaused = 0;
 
   let batch = db.batch();
   let pendingWrites = 0;
@@ -343,6 +392,11 @@ const _generateShiftsForTemplate = async ({templateId, template}) => {
 
     if (!_matchesRecurrence({day, recurrence, adminTimezone})) {
       skippedNoMatch += 1;
+      continue;
+    }
+
+    if (_isDayPaused({day, template, adminTimezone})) {
+      skippedPaused += 1;
       continue;
     }
 
@@ -368,35 +422,46 @@ const _generateShiftsForTemplate = async ({templateId, template}) => {
     const shiftStartUtc = shiftStart.toUTC();
     const shiftEndUtc = shiftEnd.toUTC();
 
+    const generatedShiftId = _buildGeneratedShiftId({templateId, shiftStartUtc});
+    const shiftRef = db.collection(SHIFTS_COLLECTION).doc(generatedShiftId);
+
+    // Check the deterministic slot doc first so admin/teacher edits are never
+    // overwritten (and so conflict checks don't mask those skip reasons).
+    const existingShift = await shiftRef.get();
+    if (existingShift.exists) {
+      const existingData = existingShift.data() || {};
+      const skipReason = _shouldSkipRegenerationForExistingShift(existingData);
+      if (skipReason === 'teacher_modified') {
+        console.log(`[shift_templates] Skipping shift ${generatedShiftId}: teacher-modified`);
+        skippedTeacherModified += 1;
+        continue;
+      }
+      if (skipReason === 'admin_modified') {
+        console.log(`[shift_templates] Skipping shift ${generatedShiftId}: admin-modified`);
+        skippedAdminModified += 1;
+        continue;
+      }
+      if (skipReason === 'deleted') {
+        console.log(`[shift_templates] Skipping shift ${generatedShiftId}: marked deleted`);
+        skippedDeleted += 1;
+        continue;
+      }
+      if (skipReason === 'terminal_state') {
+        skippedTerminalState += 1;
+        continue;
+      }
+    }
+
     const hasConflict = await _hasConflictingShift({
       teacherId: template.teacher_id,
       shiftStartUtc: shiftStartUtc.toJSDate(),
       shiftEndUtc: shiftEndUtc.toJSDate(),
+      ignoreShiftId: generatedShiftId,
     });
 
     if (hasConflict) {
       skippedConflicts += 1;
       continue;
-    }
-
-    const generatedShiftId = _buildGeneratedShiftId({templateId, shiftStartUtc});
-    const shiftRef = db.collection(SHIFTS_COLLECTION).doc(generatedShiftId);
-
-    // Check if shift already exists and was modified by teacher - never overwrite teacher modifications
-    const existingShift = await shiftRef.get();
-    if (existingShift.exists) {
-      const existingData = existingShift.data() || {};
-      if (existingData.teacher_modified || existingData.teacher_modified_at) {
-        // Skip regeneration for teacher-modified shifts to preserve their changes
-        console.log(`[shift_templates] Skipping shift ${generatedShiftId}: teacher-modified`);
-        skippedTeacherModified += 1;
-        continue;
-      }
-      // Also skip if shift is already in a terminal or active state
-      if (['completed', 'cancelled', 'active', 'missed'].includes(existingData.status)) {
-        skippedTerminalState += 1;
-        continue;
-      }
     }
 
     const shiftData = _buildGeneratedShiftData({
@@ -438,24 +503,41 @@ const _generateShiftsForTemplate = async ({templateId, template}) => {
       {merge: true},
     );
 
-  return {created, skippedConflicts, skippedTeacherModified, skippedTerminalState, skippedNotStarted, skippedOutsideEndDate, skippedNoMatch};
+  return {created, skippedConflicts, skippedTeacherModified, skippedAdminModified, skippedDeleted, skippedTerminalState, skippedNotStarted, skippedOutsideEndDate, skippedNoMatch, skippedPaused};
 };
 
 // Remove legacy generated shifts so the dev UI doesn't show duplicates.
 // Safe-guard: only deletes docs that were marked `generated_from_template: true`
 // and are still in non-terminal states (scheduled/missed).
+/** Shared predicate: may cleanup delete this generated shift? */
+const _cleanupCandidateFilter = (data, {templateId = null, now = Date.now()} = {}) => {
+  if (!data) return false;
+  if (templateId && (data.template_id || '').toString() !== templateId) return false;
+  const status = (data.status || '').toString().trim().toLowerCase();
+  if (status !== 'scheduled' && status !== 'missed') return false;
+  const start = _toJsDate(data.shift_start);
+  if (!start || start.getTime() <= now) return false;
+  return true;
+};
+
 const _cleanupGeneratedShifts = async ({templateId = null} = {}) => {
   const db = admin.firestore();
-  const snap = await db.collection(SHIFTS_COLLECTION).where('generated_from_template', '==', true).get();
+  // Scope the read to the one template when we have it — an unscoped read
+  // pulls every generated shift in the collection into memory and OOM-kills
+  // the 256MiB container once the collection is large (seen at ~9k shifts).
+  let query = db.collection(SHIFTS_COLLECTION).where('generated_from_template', '==', true);
+  if (templateId) {
+    query = query.where('template_id', '==', templateId);
+  }
+  const snap = await query.get();
   const docs = snap.docs;
 
-  const candidates = docs.filter((doc) => {
-    const data = doc.data() || {};
-    if (templateId && (data.template_id || '').toString() !== templateId) return false;
-    const status = (data.status || '').toString().trim().toLowerCase();
-    if (status !== 'scheduled' && status !== 'missed') return false;
-    return true;
-  });
+  // Cleanup only ever removes classes that have NOT STARTED yet. A class that
+  // already happened is a record — a missed one carries attendance history, a
+  // finished one carries pay — and regeneration/deactivation must never reach
+  // backwards into it.
+  const cutoff = Date.now();
+  const candidates = docs.filter((doc) => _cleanupCandidateFilter(doc.data(), {templateId, now: cutoff}));
 
   if (candidates.length === 0) return {deleted: 0};
 
@@ -473,7 +555,7 @@ const _cleanupGeneratedShifts = async ({templateId = null} = {}) => {
   return {deleted};
 };
 
-const createShiftTemplate = onCall(async (request) => {
+const createShiftTemplate = onCall({memory: '512MiB'}, async (request) => {
   _assertTemplatesEnabledOrThrow();
 
   if (!request.auth) {
@@ -577,6 +659,8 @@ const createShiftTemplate = onCall(async (request) => {
     ).toString().trim().toLowerCase(),
     realtimekit_recording_enabled: data.realtimekit_recording_enabled === true,
     created_by_admin_id: data.created_by_admin_id || uid,
+    created_by_name: data.created_by_name || null,
+    created_by_email: data.created_by_email || null,
     created_at: admin.firestore.FieldValue.serverTimestamp(),
     last_modified: admin.firestore.FieldValue.serverTimestamp(),
     is_active: true,
@@ -724,7 +808,7 @@ const generateDailyShifts = onSchedule({schedule: '0 0 * * *', timeZone: 'Etc/UT
   }
 });
 
-const updateShiftTemplate = onCall(async (request) => {
+const updateShiftTemplate = onCall({memory: '512MiB'}, async (request) => {
   _assertTemplatesEnabledOrThrow();
 
   if (!request.auth) {
@@ -783,6 +867,14 @@ const updateShiftTemplate = onCall(async (request) => {
   if (data.category) updates.category = String(data.category).trim();
   if (data.leader_role !== undefined) updates.leader_role = data.leader_role || null;
   if (data.video_provider) updates.video_provider = String(data.video_provider).trim().toLowerCase();
+  // Timed pause: null clears it and generation resumes immediately.
+  if (data.pause_start !== undefined) {
+    updates.pause_start = data.pause_start === null ? null : _toTimestamp(data.pause_start);
+  }
+  if (data.pause_end !== undefined) {
+    updates.pause_end = data.pause_end === null ? null : _toTimestamp(data.pause_end);
+  }
+
   if (data.is_active !== undefined) {
     const active = Boolean(data.is_active);
     updates.is_active = active;
@@ -831,10 +923,14 @@ const updateShiftTemplate = onCall(async (request) => {
 
   // When recurrence or times change: remove future generated shifts and regenerate from updated template.
   // When template is deactivated: only remove future generated shifts (no regenerate).
+  // A pause window change must rebuild the horizon too: setting one clears the
+  // shifts inside it, clearing one puts them back.
+  const pauseChanged = updates.pause_start !== undefined || updates.pause_end !== undefined;
   const recurrenceOrTimeChanged =
     updates.enhanced_recurrence != null ||
     updates.start_time != null ||
-    updates.end_time != null;
+    updates.end_time != null ||
+    pauseChanged;
   const deactivated = updates.is_active === false;
 
   if (recurrenceOrTimeChanged || deactivated) {
@@ -905,13 +1001,18 @@ const excludeShiftTemplateDate = onCall(async (request) => {
   }
 
   const templateRef = admin.firestore().collection(TEMPLATE_COLLECTION).doc(templateId);
-  await templateRef.set(
-    {
-      'enhanced_recurrence.excludedDates': admin.firestore.FieldValue.arrayUnion(excluded),
-      last_modified: admin.firestore.FieldValue.serverTimestamp(),
-    },
-    {merge: true},
-  );
+  const templateSnap = await templateRef.get();
+  if (!templateSnap.exists) {
+    throw new functions.https.HttpsError('not-found', 'Shift template not found');
+  }
+
+  // IMPORTANT: use update() — set({merge:true}) with dotted-path arrayUnion does NOT
+  // persist nested array writes on existing maps (silent no-op). That bug caused
+  // deleted template shifts to regenerate overnight.
+  await templateRef.update({
+    'enhanced_recurrence.excludedDates': admin.firestore.FieldValue.arrayUnion(excluded),
+    last_modified: admin.firestore.FieldValue.serverTimestamp(),
+  });
 
   return {templateId, excluded_date: excluded.toDate().toISOString().slice(0, 10)};
 });
@@ -960,6 +1061,7 @@ const onTeacherDeleted = onDocumentDeleted('users/{userId}', async (event) => {
 });
 
 module.exports = {
+  __test__: {_isDayPaused, _matchesRecurrence, _cleanupCandidateFilter},
   generateDailyShifts,
   createShiftTemplate,
   generateShiftsForTemplateCallable,
@@ -975,5 +1077,6 @@ module.exports = {
     _matchesRecurrence,
     _normalizeTimezone,
     _parseHHmm,
+    _shouldSkipRegenerationForExistingShift,
   },
 };

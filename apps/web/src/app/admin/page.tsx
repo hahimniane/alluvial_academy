@@ -174,7 +174,7 @@ function AdminHomeContent({ cards, user }: { cards: AdminCard[]; user: User | nu
             <Menu size={22} />
           </button>
           <div className="min-w-0 text-center">
-            <div className="truncate text-sm font-black text-[#0F172A]">Alluwal Academy</div>
+            <div className="truncate text-sm font-black text-[#0F172A]">Alluwal Education Hub</div>
             <div className="truncate text-[10px] font-bold text-[#94A3B8]">Dashboard</div>
           </div>
           <div className="flex items-center justify-end gap-2">

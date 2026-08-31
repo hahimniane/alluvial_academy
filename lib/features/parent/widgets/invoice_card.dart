@@ -64,8 +64,9 @@ class InvoiceCard extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(16),
-        child: Container(
-          decoration: BoxDecoration(
+        child: SelectionArea(
+          child: Container(
+            decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: const Color(0xFFE5E7EB)),
@@ -77,9 +78,9 @@ class InvoiceCard extends StatelessWidget {
               ),
             ],
           ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child: IntrinsicHeight(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: IntrinsicHeight(
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -102,14 +103,13 @@ class InvoiceCard extends StatelessWidget {
                           Row(
                             children: [
                               Expanded(
-                                child: Text(
+                                child: SelectableText(
                                   invNo,
                                   style: GoogleFonts.inter(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w800,
                                     color: const Color(0xFF111827),
                                   ),
-                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                               const SizedBox(width: 8),
@@ -127,7 +127,7 @@ class InvoiceCard extends StatelessWidget {
                                 const Icon(Icons.person_outline_rounded,
                                     size: 13, color: Color(0xFF9CA3AF)),
                                 const SizedBox(width: 4),
-                                Text(
+                                SelectableText(
                                   studentName!.trim(),
                                   style: GoogleFonts.inter(
                                     fontSize: 12,
@@ -147,7 +147,7 @@ class InvoiceCard extends StatelessWidget {
                                 const Icon(Icons.calendar_month_outlined,
                                     size: 13, color: _accent),
                                 const SizedBox(width: 4),
-                                Text(
+                                SelectableText(
                                   invoice.displayBillingPeriod!,
                                   style: GoogleFonts.inter(
                                     fontSize: 12,
@@ -170,7 +170,7 @@ class InvoiceCard extends StatelessWidget {
                                   crossAxisAlignment:
                                       CrossAxisAlignment.start,
                                   children: [
-                                    Text(
+                                    SelectableText(
                                       'Amount due',
                                       style: GoogleFonts.inter(
                                         fontSize: 10,
@@ -180,7 +180,7 @@ class InvoiceCard extends StatelessWidget {
                                       ),
                                     ),
                                     const SizedBox(height: 2),
-                                    Text(
+                                    SelectableText(
                                       money.format(invoice.remainingBalance),
                                       style: GoogleFonts.inter(
                                         fontSize: 20,
@@ -243,6 +243,7 @@ class InvoiceCard extends StatelessWidget {
                     ),
                   ),
                 ],
+              ),
               ),
             ),
           ),

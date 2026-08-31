@@ -14,6 +14,7 @@ import 'form_screen.dart';
 import '../../../core/utils/app_logger.dart';
 import '../widgets/form_details_modal.dart';
 import '../screens/my_submissions_screen.dart';
+import '../utils/parent_form_access_policy.dart';
 import '../../shift_management/widgets/shift_details_dialog.dart';
 import '../../time_clock/widgets/edit_timesheet_dialog.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
@@ -21,7 +22,14 @@ import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 /// New Teacher Forms Screen - Shows all form templates organized by category
 /// Categories: Teaching (daily/weekly/monthly), Feedback, Student Assessment, Administrative
 class TeacherFormsScreen extends StatefulWidget {
-  const TeacherFormsScreen({super.key});
+  final bool parentOnly;
+  final FormTemplate? parentExcuseTemplate;
+
+  const TeacherFormsScreen({
+    super.key,
+    this.parentOnly = false,
+    this.parentExcuseTemplate,
+  });
 
   @override
   State<TeacherFormsScreen> createState() => _TeacherFormsScreenState();
@@ -126,10 +134,13 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
 
   Future<void> _loadAllData({bool forceTemplateRefresh = false}) async {
     await _loadUserRole();
-    await Future.wait([
+    final futures = <Future<void>>[
       _loadTemplates(forceRefresh: forceTemplateRefresh),
-      _loadSubmissionStatus(),
-    ]);
+    ];
+    if (!widget.parentOnly) {
+      futures.add(_loadSubmissionStatus());
+    }
+    await Future.wait(futures);
   }
 
   Future<void> _loadUserRole() async {
@@ -178,6 +189,10 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
       int studentAssessmentTemplatesVisible = 0;
 
       for (var template in latestTemplatesByName.values) {
+        if (widget.parentOnly && !ParentFormAccessPolicy.allows(template)) {
+          continue;
+        }
+
         if (template.category == FormCategory.studentAssessment) {
           studentAssessmentTemplatesFound++;
         }
@@ -192,9 +207,15 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
           displayCategory = FormCategory.teaching;
         }
 
-        // Check role access - strict filtering for teachers
-        if (_userRole != null) {
-          final userRoleLower = _normalizeRoleName(_userRole!);
+        // Check role access - strict filtering for teachers.
+        // SECURITY: this must FAIL CLOSED. A missing user_type (or a failed
+        // role lookup) makes getCurrentUserRole return null, and this used to
+        // skip filtering entirely — showing admin-only forms to everyone.
+        // An unknown role is now treated as the least privileged one, so a
+        // form is only shown when it explicitly allows that role.
+        if (!widget.parentOnly) {
+          final userRoleLower =
+              _userRole == null ? '__unknown__' : _normalizeRoleName(_userRole!);
 
           // Admins and coaches can see all forms
           if (userRoleLower == 'admin' || userRoleLower == 'coach') {
@@ -254,6 +275,27 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
         if (template.category == FormCategory.studentAssessment) {
           studentAssessmentTemplatesVisible++;
         }
+      }
+
+      if (widget.parentOnly) {
+        final parentExcuseTemplate = widget.parentExcuseTemplate;
+        if (parentExcuseTemplate != null) {
+          _templatesByCategory
+              .putIfAbsent(parentExcuseTemplate.category, () => [])
+              .add(parentExcuseTemplate);
+        }
+        final hasFeedbackForm = _templatesByCategory.values
+            .expand((templates) => templates)
+            .any((template) =>
+                template.name.toLowerCase().contains('feedback') ||
+                template.id == 'parent_feedback');
+        if (!hasFeedbackForm) {
+          _templatesByCategory
+              .putIfAbsent(FormCategory.studentAssessment, () => [])
+              .add(FormTemplateService.defaultParentFeedback);
+        }
+        if (mounted) setState(() => _isLoading = false);
+        return;
       }
 
       // Add default templates if none found for teaching category
@@ -327,6 +369,18 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
       if (mounted) setState(() => _isLoading = false);
     } catch (e) {
       debugPrint('Error loading templates: $e');
+      if (widget.parentOnly) {
+        _templatesByCategory = {
+          if (widget.parentExcuseTemplate != null)
+            FormCategory.administrative: [widget.parentExcuseTemplate!],
+          FormCategory.studentAssessment: [
+            FormTemplateService.defaultParentFeedback,
+          ],
+        };
+        if (mounted) setState(() => _isLoading = false);
+        return;
+      }
+
       // On error, use defaults for all categories
       _templatesByCategory = {
         FormCategory.teaching: [
@@ -435,9 +489,11 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
     // On utilise CustomScrollView pour l'effet fluide du header
     return Scaffold(
       backgroundColor: const Color(0xFFF1F5F9), // Slate-100, très doux
-      body: _isLoading
-          ? _buildLoadingState()
-          : RefreshIndicator(
+      body: ScrollNotificationObserver(
+        child: SelectionArea(
+          child: _isLoading
+              ? _buildLoadingState()
+              : RefreshIndicator(
               onRefresh: () => _loadAllData(forceTemplateRefresh: true),
               color: const Color(0xFF6366F1),
               child: CustomScrollView(
@@ -453,13 +509,15 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
                   const SliverPadding(padding: EdgeInsets.only(bottom: 100)),
                 ],
               ),
-            ),
+                ),
+        ),
+      ),
     );
   }
 
   Widget _buildSliverAppBar() {
     return SliverAppBar(
-      expandedHeight: 200.0, // Hauteur étendue
+      expandedHeight: widget.parentOnly ? 145.0 : 200.0,
       floating: false,
       pinned: true, // L'AppBar reste visible en haut
       backgroundColor: const Color(0xFF6366F1),
@@ -482,7 +540,9 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
       flexibleSpace: FlexibleSpaceBar(
         collapseMode: CollapseMode.parallax, // Effet parallaxe
         title: Text(
-          AppLocalizations.of(context)!.formsReports,
+          widget.parentOnly
+              ? AppLocalizations.of(context)!.parentFormsTitle
+              : AppLocalizations.of(context)!.formsReports,
           style: GoogleFonts.plusJakartaSans(
             fontWeight: FontWeight.bold,
             color: Colors.white,
@@ -504,48 +564,52 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    AppLocalizations.of(context)!.submitReportsFeedback,
+                    widget.parentOnly
+                        ? AppLocalizations.of(context)!.parentFormsSubtitle
+                        : AppLocalizations.of(context)!.submitReportsFeedback,
                     style: GoogleFonts.plusJakartaSans(
                       color: Colors.white.withOpacity(0.8),
                       fontSize: 14,
                     ),
                   ),
-                  const SizedBox(height: 20),
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    physics: const BouncingScrollPhysics(),
-                    child: Row(
-                      children: [
-                        _buildQuickStatPill(
-                          'Daily',
-                          _submittedForms['daily'] == true ? 'Done' : 'Due',
-                          _submittedForms['daily'] == true,
-                        ),
-                        const SizedBox(width: 12),
-                        _buildQuickStatPill(
-                          'Weekly',
-                          FormFrequency.weekly.isAvailableToday
-                              ? (_submittedForms['weekly'] == true
-                                  ? 'Done'
-                                  : 'Due')
-                              : 'Sun-Tue',
-                          _submittedForms['weekly'] == true,
-                          isAvailable: FormFrequency.weekly.isAvailableToday,
-                        ),
-                        const SizedBox(width: 12),
-                        _buildQuickStatPill(
-                          'Monthly',
-                          FormFrequency.monthly.isAvailableToday
-                              ? (_submittedForms['monthly'] == true
-                                  ? 'Done'
-                                  : 'Due')
-                              : 'End/Start',
-                          _submittedForms['monthly'] == true,
-                          isAvailable: FormFrequency.monthly.isAvailableToday,
-                        ),
-                      ],
+                  if (!widget.parentOnly) ...[
+                    const SizedBox(height: 20),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      physics: const BouncingScrollPhysics(),
+                      child: Row(
+                        children: [
+                          _buildQuickStatPill(
+                            'Daily',
+                            _submittedForms['daily'] == true ? 'Done' : 'Due',
+                            _submittedForms['daily'] == true,
+                          ),
+                          const SizedBox(width: 12),
+                          _buildQuickStatPill(
+                            'Weekly',
+                            FormFrequency.weekly.isAvailableToday
+                                ? (_submittedForms['weekly'] == true
+                                    ? 'Done'
+                                    : 'Due')
+                                : 'Sun-Tue',
+                            _submittedForms['weekly'] == true,
+                            isAvailable: FormFrequency.weekly.isAvailableToday,
+                          ),
+                          const SizedBox(width: 12),
+                          _buildQuickStatPill(
+                            'Monthly',
+                            FormFrequency.monthly.isAvailableToday
+                                ? (_submittedForms['monthly'] == true
+                                    ? 'Done'
+                                    : 'Due')
+                                : 'End/Start',
+                            _submittedForms['monthly'] == true,
+                            isAvailable: FormFrequency.monthly.isAvailableToday,
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ),

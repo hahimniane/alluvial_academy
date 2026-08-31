@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'package:alluwalacademyadmin/features/shift_management/services/mobile_classes_access_service.dart';
 import 'package:alluwalacademyadmin/core/services/user_role_service.dart';
+import 'package:alluwalacademyadmin/core/utils/app_search.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class MobileClassesAccessScreen extends StatefulWidget {
@@ -152,10 +153,16 @@ class _MobileClassesAccessScreenState extends State<MobileClassesAccessScreen> {
     required String query,
     required String name,
     required String email,
+    required String phone,
+    required String id,
   }) {
-    final q = query.trim().toLowerCase();
-    if (q.isEmpty) return true;
-    return name.toLowerCase().contains(q) || email.toLowerCase().contains(q);
+    return AppSearch.matches(
+      query: query,
+      names: [name],
+      emails: [email],
+      phones: [phone],
+      ids: [id],
+    );
   }
 
   @override
@@ -322,6 +329,14 @@ class _MobileClassesAccessScreenState extends State<MobileClassesAccessScreen> {
                             query: _search,
                             name: name,
                             email: email,
+                            phone: (data['phone_number'] ??
+                                    data['phoneNumber'] ??
+                                    data['mobile_phone'] ??
+                                    data['mobilePhone'] ??
+                                    data['phone'] ??
+                                    '')
+                                .toString(),
+                            id: doc.id,
                           );
                         }).toList();
 

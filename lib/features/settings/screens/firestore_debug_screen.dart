@@ -87,9 +87,9 @@ class _FirestoreDebugScreenState extends State<FirestoreDebugScreen> {
             FirebaseFunctions.instance.httpsCallable('sendTestEmail');
         final result = await callable.call({
           'to': 'hassimiou.niane@maine.edu',
-          'subject': 'Test Email from Alluwal Academy Debug (Web)',
+          'subject': 'Test Email from Alluwal Education Hub Debug (Web)',
           'message':
-              'This test email was sent from the web version of Alluwal Academy.\n\nSent at: ${DateTime.now().toIso8601String()}'
+              'This test email was sent from the web version of Alluwal Education Hub.\n\nSent at: ${DateTime.now().toIso8601String()}'
         });
 
         setState(() {
@@ -97,7 +97,7 @@ class _FirestoreDebugScreenState extends State<FirestoreDebugScreen> {
 
 From: support@alluwaleducationhub.org
 To: hassimiou.niane@maine.edu
-Subject: Test Email from Alluwal Academy Debug (Web)
+Subject: Test Email from Alluwal Education Hub Debug (Web)
 
 Method: Firebase Cloud Function
 Platform: Web Browser

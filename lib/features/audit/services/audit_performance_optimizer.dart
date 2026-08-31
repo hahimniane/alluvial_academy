@@ -300,6 +300,14 @@ class OptimizedTeacherLoader {
         'id': doc.id,
         'name': name.isEmpty ? email.split('@')[0] : name,
         'email': email,
+        'phone': data['phone_number'] ??
+            data['phoneNumber'] ??
+            data['mobile_phone'] ??
+            data['mobilePhone'] ??
+            data['phone'] ??
+            '',
+        'studentCode': data['student_code'] ?? data['studentCode'] ?? '',
+        'kioskCode': data['kiosk_code'] ?? data['kioskCode'] ?? '',
       });
     }
     
@@ -337,4 +345,3 @@ class PerformanceMonitor {
     return result;
   }
 }
-

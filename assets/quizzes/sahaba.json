@@ -1,0 +1,511 @@
+{
+  "category": "sahaba",
+  "name": "The Companions",
+  "description": "The companions of Prophet Muhammad (peace be upon him)",
+  "questions": [
+    {
+      "id": "sh_001",
+      "category": "sahaba",
+      "difficulty": "easy",
+      "question": "What do we call the companions of Prophet Muhammad?",
+      "options": [
+        "Ansar only",
+        "Sahaba",
+        "Tabi'un",
+        "Ulama"
+      ],
+      "correctAnswer": 1,
+      "explanation": "The Sahaba are the blessed companions who knew and believed in the Prophet."
+    },
+    {
+      "id": "sh_002",
+      "category": "sahaba",
+      "difficulty": "easy",
+      "question": "Who was the Prophet's closest friend and the first Caliph?",
+      "options": [
+        "Umar",
+        "Uthman",
+        "Ali",
+        "Abu Bakr"
+      ],
+      "correctAnswer": 3,
+      "explanation": "Abu Bakr as-Siddiq was the Prophet's best friend and became the first Caliph."
+    },
+    {
+      "id": "sh_003",
+      "category": "sahaba",
+      "difficulty": "easy",
+      "question": "Who was the first muezzin of Islam?",
+      "options": [
+        "Anas ibn Malik",
+        "Bilal ibn Rabah",
+        "Abu Hurairah",
+        "Zayd ibn Thabit"
+      ],
+      "correctAnswer": 1,
+      "explanation": "Bilal, known for his beautiful voice, was chosen to call the Adhan."
+    },
+    {
+      "id": "sh_004",
+      "category": "sahaba",
+      "difficulty": "easy",
+      "question": "Which companion was the Prophet's cousin and married his daughter Fatimah?",
+      "options": [
+        "Umar",
+        "Ali",
+        "Uthman",
+        "Talha"
+      ],
+      "correctAnswer": 1,
+      "explanation": "Ali ibn Abi Talib was the Prophet's cousin and married Fatimah."
+    },
+    {
+      "id": "sh_005",
+      "category": "sahaba",
+      "difficulty": "easy",
+      "question": "Who was the first woman to accept Islam?",
+      "options": [
+        "Hafsa",
+        "Aisha",
+        "Fatimah",
+        "Khadijah"
+      ],
+      "correctAnswer": 3,
+      "explanation": "Khadijah, the Prophet's wife, was the first believer in Islam."
+    },
+    {
+      "id": "sh_006",
+      "category": "sahaba",
+      "difficulty": "easy",
+      "question": "What do we say after mentioning a companion's name?",
+      "options": [
+        "Allahu Akbar",
+        "May Allah be pleased with him/her",
+        "Nothing special",
+        "Peace be upon him"
+      ],
+      "correctAnswer": 1,
+      "explanation": "We say 'radiyallahu anhu/anha' — may Allah be pleased with him or her."
+    },
+    {
+      "id": "sh_007",
+      "category": "sahaba",
+      "difficulty": "easy",
+      "question": "Who was the young companion who served the Prophet for ten years?",
+      "options": [
+        "Mu'adh",
+        "Abu Hurairah",
+        "Anas ibn Malik",
+        "Bilal"
+      ],
+      "correctAnswer": 2,
+      "explanation": "Anas ibn Malik served the Prophet from a young age, and the Prophet never scolded him."
+    },
+    {
+      "id": "sh_008",
+      "category": "sahaba",
+      "difficulty": "easy",
+      "question": "The Muslims who migrated from Mecca to Medina are called what?",
+      "options": [
+        "Tabi'un",
+        "Quraysh",
+        "Ansar",
+        "Muhajirun"
+      ],
+      "correctAnswer": 3,
+      "explanation": "The Muhajirun are the migrants who left their homes in Mecca for Allah's sake."
+    },
+    {
+      "id": "sh_009",
+      "category": "sahaba",
+      "difficulty": "easy",
+      "question": "The Muslims of Medina who welcomed and helped the migrants are called what?",
+      "options": [
+        "Ansar",
+        "Bedouins",
+        "Sahaba only",
+        "Muhajirun"
+      ],
+      "correctAnswer": 0,
+      "explanation": "The Ansar ('helpers') of Medina shared their homes and wealth with the migrants."
+    },
+    {
+      "id": "sh_010",
+      "category": "sahaba",
+      "difficulty": "easy",
+      "question": "Which companion was known for narrating the most hadiths?",
+      "options": [
+        "Bilal",
+        "Umar",
+        "Abu Hurairah",
+        "Khalid"
+      ],
+      "correctAnswer": 2,
+      "explanation": "Abu Hurairah loved learning and narrated more hadiths than any other companion."
+    },
+    {
+      "id": "sh_011",
+      "category": "sahaba",
+      "difficulty": "easy",
+      "question": "Who was the brave uncle of the Prophet called the 'Lion of Allah'?",
+      "options": [
+        "Abbas",
+        "Hamza",
+        "Abu Talib",
+        "Abu Lahab"
+      ],
+      "correctAnswer": 1,
+      "explanation": "Hamza ibn Abdul-Muttalib was known for his courage and strength."
+    },
+    {
+      "id": "sh_012",
+      "category": "sahaba",
+      "difficulty": "easy",
+      "question": "Which wife of the Prophet was the daughter of Abu Bakr?",
+      "options": [
+        "Khadijah",
+        "Hafsa",
+        "Zaynab",
+        "Aisha"
+      ],
+      "correctAnswer": 3,
+      "explanation": "Aisha, daughter of Abu Bakr, was a great scholar who taught many Muslims."
+    },
+    {
+      "id": "sh_013",
+      "category": "sahaba",
+      "difficulty": "medium",
+      "question": "What was Abu Bakr's famous title?",
+      "options": [
+        "Dhun-Nurayn",
+        "Sword of Allah",
+        "Al-Faruq",
+        "As-Siddiq (the Truthful)"
+      ],
+      "correctAnswer": 3,
+      "explanation": "Abu Bakr was called As-Siddiq because he always believed the Prophet immediately."
+    },
+    {
+      "id": "sh_014",
+      "category": "sahaba",
+      "difficulty": "medium",
+      "question": "What was Umar ibn al-Khattab's famous title?",
+      "options": [
+        "As-Siddiq",
+        "Al-Faruq (who separates truth from falsehood)",
+        "Al-Amin",
+        "An-Najashi"
+      ],
+      "correctAnswer": 1,
+      "explanation": "Umar was called Al-Faruq because he clearly separated right from wrong."
+    },
+    {
+      "id": "sh_015",
+      "category": "sahaba",
+      "difficulty": "medium",
+      "question": "Which companion was called 'Dhun-Nurayn' (possessor of two lights)?",
+      "options": [
+        "Zubayr",
+        "Ali",
+        "Uthman",
+        "Talha"
+      ],
+      "correctAnswer": 2,
+      "explanation": "Uthman married two of the Prophet's daughters (one after the other), earning this title."
+    },
+    {
+      "id": "sh_016",
+      "category": "sahaba",
+      "difficulty": "medium",
+      "question": "Which companion was known as the 'Sword of Allah'?",
+      "options": [
+        "Sa'd ibn Abi Waqqas",
+        "Khalid ibn al-Walid",
+        "Hamza",
+        "Ali"
+      ],
+      "correctAnswer": 1,
+      "explanation": "Khalid ibn al-Walid was a brilliant military leader called Sayfullah, the Sword of Allah."
+    },
+    {
+      "id": "sh_017",
+      "category": "sahaba",
+      "difficulty": "medium",
+      "question": "Who suggested digging a trench to defend Medina?",
+      "options": [
+        "Ammar",
+        "Abu Dharr",
+        "Salman al-Farisi",
+        "Bilal"
+      ],
+      "correctAnswer": 2,
+      "explanation": "Salman al-Farisi, from Persia, suggested the trench — a new idea in Arabia."
+    },
+    {
+      "id": "sh_018",
+      "category": "sahaba",
+      "difficulty": "medium",
+      "question": "Which companion was sent to Medina as its first teacher of Quran?",
+      "options": [
+        "Mus'ab ibn Umayr",
+        "Abu Hurairah",
+        "Zayd ibn Thabit",
+        "Mu'adh ibn Jabal"
+      ],
+      "correctAnswer": 0,
+      "explanation": "Young Mus'ab ibn Umayr taught the people of Medina about Islam before the Hijrah."
+    },
+    {
+      "id": "sh_019",
+      "category": "sahaba",
+      "difficulty": "medium",
+      "question": "Who was the first martyr (shaheed) in Islam?",
+      "options": [
+        "Sumayyah",
+        "Hamza",
+        "Yasir",
+        "Bilal"
+      ],
+      "correctAnswer": 0,
+      "explanation": "Sumayyah, the mother of Ammar, was the first person to give her life for Islam."
+    },
+    {
+      "id": "sh_020",
+      "category": "sahaba",
+      "difficulty": "medium",
+      "question": "Which companion freed Bilal from slavery?",
+      "options": [
+        "Ali",
+        "Uthman",
+        "Umar",
+        "Abu Bakr"
+      ],
+      "correctAnswer": 3,
+      "explanation": "Abu Bakr bought Bilal's freedom when he was being tortured for his faith."
+    },
+    {
+      "id": "sh_021",
+      "category": "sahaba",
+      "difficulty": "medium",
+      "question": "Which companion collected the Quran into one book during Abu Bakr's caliphate?",
+      "options": [
+        "Abu Hurairah",
+        "Zayd ibn Thabit",
+        "Anas",
+        "Bilal"
+      ],
+      "correctAnswer": 1,
+      "explanation": "Zayd ibn Thabit, a scribe of revelation, led the careful collection of the Quran."
+    },
+    {
+      "id": "sh_022",
+      "category": "sahaba",
+      "difficulty": "medium",
+      "question": "Aisha (may Allah be pleased with her) was famous for what?",
+      "options": [
+        "Building mosques",
+        "Being a warrior",
+        "Her great knowledge and teaching",
+        "Being a merchant"
+      ],
+      "correctAnswer": 2,
+      "explanation": "Aisha was one of the greatest scholars among the companions and taught for decades."
+    },
+    {
+      "id": "sh_023",
+      "category": "sahaba",
+      "difficulty": "medium",
+      "question": "What are the wives of the Prophet called?",
+      "options": [
+        "Mothers of the Believers",
+        "The Tabi'at",
+        "The Ansar",
+        "The Muhajirat"
+      ],
+      "correctAnswer": 0,
+      "explanation": "The Quran calls the Prophet's wives 'Ummahat al-Mu'minin' — Mothers of the Believers."
+    },
+    {
+      "id": "sh_024",
+      "category": "sahaba",
+      "difficulty": "medium",
+      "question": "Which young companion did the Prophet make an army leader as a teenager?",
+      "options": [
+        "Ibn Abbas",
+        "Ibn Umar",
+        "Anas ibn Malik",
+        "Usama ibn Zayd"
+      ],
+      "correctAnswer": 3,
+      "explanation": "Usama ibn Zayd was chosen to lead an army while still very young, showing trust in youth."
+    },
+    {
+      "id": "sh_025",
+      "category": "sahaba",
+      "difficulty": "hard",
+      "question": "How many companions were promised Paradise in one famous hadith?",
+      "options": [
+        "4",
+        "10",
+        "40",
+        "100"
+      ],
+      "correctAnswer": 1,
+      "explanation": "Ten companions were given the good news of Paradise, known as al-Ashara al-Mubashshara."
+    },
+    {
+      "id": "sh_026",
+      "category": "sahaba",
+      "difficulty": "hard",
+      "question": "Which companion's dua for rain was answered when Umar asked him to pray during a drought?",
+      "options": [
+        "Salman",
+        "Abbas, the Prophet's uncle",
+        "Abu Hurairah",
+        "Bilal"
+      ],
+      "correctAnswer": 1,
+      "explanation": "Umar asked Abbas, the Prophet's uncle, to make dua for rain, honoring the Prophet's family."
+    },
+    {
+      "id": "sh_027",
+      "category": "sahaba",
+      "difficulty": "hard",
+      "question": "Which companion is called the scholar of this Ummah for his tafsir knowledge?",
+      "options": [
+        "Suhayb",
+        "Ibn Abbas",
+        "Khalid ibn al-Walid",
+        "Abu Dharr"
+      ],
+      "correctAnswer": 1,
+      "explanation": "The Prophet prayed for Ibn Abbas to understand the Quran, and he became a master of tafsir."
+    },
+    {
+      "id": "sh_028",
+      "category": "sahaba",
+      "difficulty": "hard",
+      "question": "Which companion from Abyssinia (Ethiopia) is honored in Islamic history?",
+      "options": [
+        "Zayd ibn Harithah",
+        "Salman al-Farisi",
+        "Bilal ibn Rabah",
+        "Suhayb ar-Rumi"
+      ],
+      "correctAnswer": 2,
+      "explanation": "Bilal came from Abyssinia; Salman from Persia and Suhayb from Rome — Islam united all peoples."
+    },
+    {
+      "id": "sh_029",
+      "category": "sahaba",
+      "difficulty": "hard",
+      "question": "Who did the Prophet say would be the leader of the women of Paradise?",
+      "options": [
+        "Fatimah",
+        "Umm Salamah",
+        "Aisha",
+        "Hafsa"
+      ],
+      "correctAnswer": 0,
+      "explanation": "The Prophet gave his daughter Fatimah this glad news."
+    },
+    {
+      "id": "sh_030",
+      "category": "sahaba",
+      "difficulty": "hard",
+      "question": "Which two companions are buried next to the Prophet in Medina?",
+      "options": [
+        "Abu Bakr and Umar",
+        "Bilal and Zayd",
+        "Hamza and Abbas",
+        "Uthman and Ali"
+      ],
+      "correctAnswer": 0,
+      "explanation": "Abu Bakr and Umar are buried beside the Prophet in Masjid an-Nabawi."
+    },
+    {
+      "id": "sh_031",
+      "category": "sahaba",
+      "difficulty": "hard",
+      "question": "Which companion led the Muslims in prayer when the Prophet was very ill?",
+      "options": [
+        "Ali",
+        "Umar",
+        "Uthman",
+        "Abu Bakr"
+      ],
+      "correctAnswer": 3,
+      "explanation": "The Prophet asked Abu Bakr to lead the prayers during his final illness."
+    },
+    {
+      "id": "sh_032",
+      "category": "sahaba",
+      "difficulty": "hard",
+      "question": "Under which Caliph was the Quran copied and sent to different Muslim lands?",
+      "options": [
+        "Umar",
+        "Abu Bakr",
+        "Uthman",
+        "Ali"
+      ],
+      "correctAnswer": 2,
+      "explanation": "Uthman had official copies of the Quran made and sent to the major cities."
+    },
+    {
+      "id": "sh_033",
+      "category": "sahaba",
+      "difficulty": "hard",
+      "question": "Which companion was famous for his knowledge of halal and haram?",
+      "options": [
+        "Mu'adh ibn Jabal",
+        "Khalid ibn al-Walid",
+        "Talha",
+        "Zubayr"
+      ],
+      "correctAnswer": 0,
+      "explanation": "The Prophet praised Mu'adh ibn Jabal's knowledge and sent him to teach in Yemen."
+    },
+    {
+      "id": "sh_034",
+      "category": "sahaba",
+      "difficulty": "hard",
+      "question": "What did Abu Bakr do with his wealth for Islam?",
+      "options": [
+        "He buried it",
+        "He saved it all",
+        "He spent nearly all of it for Allah's cause",
+        "He gave it only to family"
+      ],
+      "correctAnswer": 2,
+      "explanation": "Abu Bakr spent his wealth freeing enslaved Muslims and supporting the community."
+    },
+    {
+      "id": "sh_035",
+      "category": "sahaba",
+      "difficulty": "hard",
+      "question": "Which companion stayed loyal at Uhud, shielding the Prophet with his own body?",
+      "options": [
+        "Talha ibn Ubaydillah",
+        "Salman",
+        "Abu Hurairah",
+        "Anas"
+      ],
+      "correctAnswer": 0,
+      "explanation": "Talha protected the Prophet at Uhud and was badly wounded doing so."
+    },
+    {
+      "id": "sh_036",
+      "category": "sahaba",
+      "difficulty": "hard",
+      "question": "What lesson do we learn from the friendship of the Sahaba?",
+      "options": [
+        "Competing for money",
+        "Only family matters",
+        "Living alone is better",
+        "Brotherhood and helping each other for Allah's sake"
+      ],
+      "correctAnswer": 3,
+      "explanation": "The companions showed us true brotherhood, sacrifice, and love for Allah's sake."
+    }
+  ]
+}

@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'package:alluwalacademyadmin/features/surah_podcast/services/surah_podcast_service.dart';
 import 'package:alluwalacademyadmin/core/services/user_role_service.dart';
+import 'package:alluwalacademyadmin/core/utils/app_search.dart';
 
 class AssignPodcastDialog extends StatefulWidget {
   final SurahPodcastItem podcast;
@@ -99,9 +100,11 @@ class _AssignPodcastDialogState extends State<AssignPodcastDialog> {
 
   List<Map<String, String>> get _filteredStudents {
     if (_searchQuery.isEmpty) return _students;
-    final q = _searchQuery.toLowerCase();
     return _students
-        .where((s) => (s['name'] ?? '').toLowerCase().contains(q))
+        .where((student) => AppSearch.matchesMap(
+              query: _searchQuery,
+              data: student,
+            ))
         .toList();
   }
 

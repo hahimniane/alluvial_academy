@@ -302,7 +302,13 @@ class WageManagementService {
           'id': doc.id,
           'name':
               '${data['first_name'] ?? ''} ${data['last_name'] ?? ''}'.trim(),
-          'email': data['email'],
+          'email': data['email'] ?? data['e-mail'] ?? '',
+          'phone': data['phone_number'] ??
+              data['phoneNumber'] ??
+              data['mobile_phone'] ??
+              data['mobilePhone'] ??
+              data['phone'] ??
+              '',
           'role': role,
           'current_wage': data['hourly_rate'] ?? globalWage,
           'has_override': data['wage_override'] != null,

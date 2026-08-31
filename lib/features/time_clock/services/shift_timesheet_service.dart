@@ -831,9 +831,25 @@ class ShiftTimesheetService {
         'updated_at': FieldValue.serverTimestamp(),
       };
 
-      // Save to Firebase
-      final docRef =
-          await _firestore.collection('timesheet_entries').add(entryData);
+      // Save under a DETERMINISTIC id: teacher + shift + session index.
+      //
+      // On a stalled connection a teacher's repeated clock-in taps all queue
+      // up and flush together, and every attempt passes the "already clocked
+      // in?" check before any write lands. With .add() that produced dozens
+      // of identical entries that were each auto-paid at shift end. With a
+      // deterministic id every attempt of the same clock-in computes the same
+      // session index, so all of those writes collapse into ONE document.
+      // A genuine re-clock-in (after a clock-out) sees a higher count and
+      // gets its own id.
+      final priorEntries = await _firestore
+          .collection('timesheet_entries')
+          .where('teacher_id', isEqualTo: user.uid)
+          .where('shift_id', isEqualTo: shift.id)
+          .get();
+      final docRef = _firestore
+          .collection('timesheet_entries')
+          .doc('ts_${user.uid}_${shift.id}_s${priorEntries.docs.length}');
+      await docRef.set(entryData);
 
       AppLogger.error(
           'ShiftTimesheetService: Created timesheet entry ${docRef.id} for shift ${shift.id}');

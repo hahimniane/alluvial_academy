@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 import 'package:syncfusion_flutter_calendar/calendar.dart';
 
 import '../models/teaching_shift.dart';
-import '../enums/shift_enums.dart';
-import '../services/shift_service.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
-/// Calendar view of teacher shifts using Syncfusion SfCalendar
+/// Calendar view of teacher shifts.
 class TeacherShiftCalendar extends StatefulWidget {
   final List<TeachingShift> shifts;
   final void Function(TeachingShift shift)? onSelectShift;
+
   /// Compact clock-in from agenda/grid cells (same predicate as day view / home).
   final void Function(TeachingShift shift)? onClockIn;
   final DateTime? initialDisplayDate;
@@ -30,15 +30,14 @@ class TeacherShiftCalendar extends StatefulWidget {
 }
 
 class _TeacherShiftCalendarState extends State<TeacherShiftCalendar> {
-  late ShiftCalendarDataSource _dataSource;
   final CalendarController _controller = CalendarController();
-  
+
   /// Week tab: list (schedule) by default. Month tab: month grid (not list).
   late bool _isScheduleView;
-  
+
   // Track if we've already scrolled to next session to prevent re-scrolling
   bool _hasScrolledToNextSession = false;
-  
+
   // Store the last next session time to restore position when widget rebuilds
   DateTime? _lastNextSessionTime;
 
@@ -46,7 +45,6 @@ class _TeacherShiftCalendarState extends State<TeacherShiftCalendar> {
   void initState() {
     super.initState();
     _isScheduleView = widget.initialView != CalendarView.month;
-    _dataSource = ShiftCalendarDataSource(widget.shifts);
     _controller.view =
         _isScheduleView ? CalendarView.schedule : widget.initialView;
 
@@ -96,7 +94,7 @@ class _TeacherShiftCalendarState extends State<TeacherShiftCalendar> {
     }
     return latest.shiftStart;
   }
-  
+
   /// Get the exact time of the next upcoming session
   /// Returns null if no upcoming sessions
   DateTime? _getNextSessionTime() {
@@ -104,22 +102,22 @@ class _TeacherShiftCalendarState extends State<TeacherShiftCalendar> {
     final upcomingShifts = widget.shifts
         .where((shift) => shift.shiftEnd.toLocal().isAfter(now))
         .toList();
-    
+
     if (upcomingShifts.isEmpty) return null;
-    
+
     upcomingShifts.sort((a, b) => a.shiftStart.compareTo(b.shiftStart));
     return upcomingShifts.first.shiftStart;
   }
-  
+
   /// Scroll to the next upcoming session's time in week/day view
   /// Uses displayDate with time component to scroll to specific time
   /// Sets the next session at the TOP of the visible area
   void _scrollToNextSession() {
     if (!mounted || _hasScrolledToNextSession) return;
-    
+
     final nextSessionTime = _getNextSessionTime();
     if (nextSessionTime == null) return;
-    
+
     // Scroll to the EXACT time of the next shift so it appears at the top
     // This ensures the next session is visible at the top of the screen
     _controller.displayDate = nextSessionTime;
@@ -132,7 +130,6 @@ class _TeacherShiftCalendarState extends State<TeacherShiftCalendar> {
 
     if (oldWidget.initialView != widget.initialView) {
       setState(() {
-        _dataSource = ShiftCalendarDataSource(widget.shifts);
         _hasScrolledToNextSession = false;
         if (widget.initialView == CalendarView.month) {
           _isScheduleView = false;
@@ -147,9 +144,7 @@ class _TeacherShiftCalendarState extends State<TeacherShiftCalendar> {
         }
       });
     } else if (oldWidget.shifts != widget.shifts) {
-      setState(() {
-        _dataSource = ShiftCalendarDataSource(widget.shifts);
-      });
+      setState(() {});
       if (_controller.view == CalendarView.week ||
           _controller.view == CalendarView.day) {
         _hasScrolledToNextSession = false;
@@ -209,109 +204,9 @@ class _TeacherShiftCalendarState extends State<TeacherShiftCalendar> {
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(16),
-                  child: SfCalendar(
-            controller: _controller,
-            // Switch between Schedule (List), Week (Grid), and Month view
-            view: _isScheduleView 
-                ? CalendarView.schedule 
-                : (widget.initialView == CalendarView.month ? CalendarView.month : CalendarView.week),
-            allowedViews: const [
-              CalendarView.day,
-              CalendarView.week,
-              CalendarView.workWeek,
-              CalendarView.month,
-              CalendarView.schedule,
-              CalendarView.timelineDay,
-              CalendarView.timelineWeek,
-              CalendarView.timelineWorkWeek,
-            ],
-            dataSource: _dataSource,
-            showDatePickerButton: false, // Hide default date picker - we'll use custom
-            showTodayButton: false, // Hide default today button - we have custom one
-            backgroundColor: _calendarSurface,
-            todayHighlightColor: const Color(0xFFE0F2FE),
-            todayTextStyle: GoogleFonts.inter(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: _accent,
-            ),
-            // Optimize time slots - reduce empty space by showing only relevant hours
-            timeSlotViewSettings: _isScheduleView
-                ? TimeSlotViewSettings(
-                    // Schedule view doesn't use numberOfDaysInView
-                    startHour: _getEarliestHour().toDouble(),
-                    endHour: _getLatestHour().toDouble(),
-                    timeInterval: const Duration(minutes: 60),
-                    timeIntervalHeight: 76,
-                    timeIntervalWidth: 56,
-                    timeFormat: 'h a',
-                    dateFormat: 'd',
-                    dayFormat: 'EEE',
-                    timeTextStyle: GoogleFonts.inter(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFF64748B),
-                    ),
-                  )
-                : TimeSlotViewSettings(
-                    // INTELLIGENT FIX: Show 3 days instead of 7 to triple column width
-                    numberOfDaysInView: 3,
-                    startHour: _getEarliestHour().toDouble(),
-                    endHour: _getLatestHour().toDouble(),
-                    timeInterval: const Duration(minutes: 60),
-                    timeIntervalHeight: 76,
-                    timeIntervalWidth: 56,
-                    timeFormat: 'h a',
-                    dateFormat: 'd',
-                    dayFormat: 'EEE',
-                    timeTextStyle: GoogleFonts.inter(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFF64748B),
-                    ),
-                  ),
-            // Schedule view settings (List mode)
-            scheduleViewSettings: const ScheduleViewSettings(
-              appointmentItemHeight: 78,
-              hideEmptyScheduleWeek: true,
-              monthHeaderSettings: MonthHeaderSettings(height: 0),
-            ),
-            cellBorderColor: const Color(0xFFF1F5F9),
-            headerStyle: CalendarHeaderStyle(
-              textStyle: GoogleFonts.inter(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                color: const Color(0xFF0F172A),
-              ),
-            ),
-            viewHeaderStyle: ViewHeaderStyle(
-              backgroundColor: const Color(0xFFF8FAFC),
-              dayTextStyle: GoogleFonts.inter(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.6,
-                color: const Color(0xFF64748B),
-              ),
-              dateTextStyle: GoogleFonts.inter(
-                fontSize: 17,
-                fontWeight: FontWeight.w700,
-                color: const Color(0xFF0F172A),
-              ),
-            ),
-            headerHeight: 0, // Use custom header
-            appointmentBuilder: _appointmentBuilder,
-            onTap: (details) {
-              final hasApps = details.appointments != null &&
-                  details.appointments!.isNotEmpty;
-              final app = hasApps ? details.appointments!.first : null;
-              if (app is ShiftAppointment && widget.onSelectShift != null) {
-                widget.onSelectShift!(app.shift);
-              }
-            },
-            // Don't set initialDisplayDate here - we use controller.displayDate instead
-            // This prevents the calendar from auto-scrolling back to "now"
-            // initialDisplayDate: widget.initialDisplayDate ?? _getSmartInitialDate(),
-                  ),
+                  child: _isScheduleView
+                      ? _buildSelectableScheduleList()
+                      : _buildSelectableGrid(),
                 ),
               ),
             ),
@@ -321,11 +216,416 @@ class _TeacherShiftCalendarState extends State<TeacherShiftCalendar> {
     );
   }
 
+  Widget _buildSelectableGrid() {
+    if (widget.initialView == CalendarView.month) {
+      return _buildSelectableMonthGrid();
+    }
+
+    final anchor = _startOfDay(
+      _controller.displayDate ??
+          widget.initialDisplayDate ??
+          _getSmartInitialDate(),
+    );
+    final days = List<DateTime>.generate(
+      3,
+      (index) => anchor.add(Duration(days: index)),
+    );
+    final startHour = _getEarliestHour();
+    final endHour = _getLatestHour();
+    final hourCount = (endHour - startHour).clamp(1, 24);
+    const hourHeight = 76.0;
+    final gridHeight = hourCount * hourHeight;
+
+    return ScrollNotificationObserver(
+      child: SelectionArea(
+        child: Column(
+          children: [
+            _buildGridDayHeader(days),
+            Expanded(
+              child: SingleChildScrollView(
+                child: SizedBox(
+                  height: gridHeight,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(
+                        width: 56,
+                        child: Column(
+                          children: List<Widget>.generate(hourCount, (index) {
+                            final hour = startHour + index;
+                            return SizedBox(
+                              height: hourHeight,
+                              child: Align(
+                                alignment: Alignment.topCenter,
+                                child: SelectableText(
+                                  _formatGridHour(hour),
+                                  style: GoogleFonts.inter(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: const Color(0xFF64748B),
+                                  ),
+                                ),
+                              ),
+                            );
+                          }),
+                        ),
+                      ),
+                      Expanded(
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            final dayWidth = constraints.maxWidth / days.length;
+                            final shifts = widget.shifts
+                                .where((shift) => days.any(
+                                      (day) => _isSameDay(
+                                        shift.shiftStart.toLocal(),
+                                        day,
+                                      ),
+                                    ))
+                                .toList()
+                              ..sort((a, b) =>
+                                  a.shiftStart.compareTo(b.shiftStart));
+
+                            return Stack(
+                              children: [
+                                Row(
+                                  children: List<Widget>.generate(
+                                    days.length,
+                                    (_) => Expanded(
+                                      child: Column(
+                                        children: List<Widget>.generate(
+                                          hourCount,
+                                          (_) => Container(
+                                            height: hourHeight,
+                                            decoration: const BoxDecoration(
+                                              border: Border(
+                                                left: BorderSide(
+                                                  color: Color(0xFFF1F5F9),
+                                                ),
+                                                bottom: BorderSide(
+                                                  color: Color(0xFFF1F5F9),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                ...shifts.map((shift) {
+                                  final localStart = shift.shiftStart.toLocal();
+                                  final localEnd = shift.shiftEnd.toLocal();
+                                  final dayIndex = days.indexWhere(
+                                      (day) => _isSameDay(localStart, day));
+                                  final startMinutes =
+                                      localStart.hour * 60 + localStart.minute;
+                                  final gridStartMinutes = startHour * 60;
+                                  final top =
+                                      ((startMinutes - gridStartMinutes) / 60) *
+                                          hourHeight;
+                                  final durationMinutes =
+                                      localEnd.difference(localStart).inMinutes;
+                                  final height =
+                                      (durationMinutes / 60) * hourHeight;
+
+                                  return Positioned(
+                                    left: dayIndex * dayWidth + 3,
+                                    top: top.clamp(0.0, gridHeight - 1),
+                                    width: dayWidth - 6,
+                                    height: height < 46 ? 46 : height,
+                                    child: _buildSelectableGridAppointment(
+                                      context,
+                                      shift,
+                                    ),
+                                  );
+                                }),
+                              ],
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGridDayHeader(List<DateTime> days) {
+    final locale = Localizations.localeOf(context).toLanguageTag();
+
+    return Container(
+      height: 60,
+      decoration: const BoxDecoration(
+        color: Color(0xFFF8FAFC),
+        border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
+      ),
+      child: Row(
+        children: [
+          const SizedBox(width: 56),
+          ...days.map(
+            (day) => Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  SelectableText(
+                    DateFormat.E(locale).format(day).toUpperCase(),
+                    style: GoogleFonts.inter(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.6,
+                      color: const Color(0xFF64748B),
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  SelectableText(
+                    '${day.day}',
+                    style: GoogleFonts.inter(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
+                      color: const Color(0xFF0F172A),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSelectableMonthGrid() {
+    final anchor = _controller.displayDate ??
+        widget.initialDisplayDate ??
+        _getSmartInitialDate();
+    final monthStart = DateTime(anchor.year, anchor.month);
+    final gridStart =
+        monthStart.subtract(Duration(days: monthStart.weekday % 7));
+    final nextMonth = DateTime(anchor.year, anchor.month + 1);
+    final totalDays = nextMonth.difference(gridStart).inDays;
+    final cellCount = totalDays <= 35 ? 35 : 42;
+    final locale = Localizations.localeOf(context).toLanguageTag();
+
+    return ScrollNotificationObserver(
+      child: SelectionArea(
+        child: Column(
+          children: [
+            Container(
+              height: 34,
+              color: const Color(0xFFF8FAFC),
+              child: Row(
+                children: List<Widget>.generate(7, (index) {
+                  final day = gridStart.add(Duration(days: index));
+                  return Expanded(
+                    child: Center(
+                      child: SelectableText(
+                        DateFormat.E(locale).format(day).toUpperCase(),
+                        style: GoogleFonts.inter(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF64748B),
+                        ),
+                      ),
+                    ),
+                  );
+                }),
+              ),
+            ),
+            Expanded(
+              child: GridView.builder(
+                padding: EdgeInsets.zero,
+                itemCount: cellCount,
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 7,
+                ),
+                itemBuilder: (context, index) {
+                  final day = gridStart.add(Duration(days: index));
+                  final dayShifts = widget.shifts
+                      .where((shift) =>
+                          _isSameDay(shift.shiftStart.toLocal(), day))
+                      .toList()
+                    ..sort((a, b) => a.shiftStart.compareTo(b.shiftStart));
+                  final inMonth = day.month == monthStart.month;
+
+                  return Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: const BoxDecoration(
+                      border: Border(
+                        right: BorderSide(color: Color(0xFFF1F5F9)),
+                        bottom: BorderSide(color: Color(0xFFF1F5F9)),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SelectableText(
+                          '${day.day}',
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: inMonth
+                                ? const Color(0xFF0F172A)
+                                : const Color(0xFF94A3B8),
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        ...dayShifts.map(
+                          (shift) => Padding(
+                            padding: const EdgeInsets.only(bottom: 2),
+                            child: _buildSelectableMonthAppointment(shift),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSelectableGridAppointment(
+    BuildContext context,
+    TeachingShift shift,
+  ) {
+    final onSelect = widget.onSelectShift == null
+        ? null
+        : () => widget.onSelectShift!(shift);
+
+    return SelectionArea(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onSelect,
+          borderRadius: BorderRadius.circular(10),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(6, 4, 4, 4),
+            decoration: BoxDecoration(
+              color: _gridShiftColor(shift),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.35),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SelectableText(
+                  _timeRange(shift.shiftStart, shift.shiftEnd),
+                  onTap: onSelect,
+                  maxLines: 1,
+                  style: GoogleFonts.inter(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white.withValues(alpha: 0.92),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                SelectableText(
+                  shift.uiStudentNames,
+                  onTap: onSelect,
+                  maxLines: 2,
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    height: 1.15,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                  ),
+                ),
+                if (shift.effectiveSubjectDisplayName.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  SelectableText(
+                    shift.effectiveSubjectDisplayName,
+                    onTap: onSelect,
+                    maxLines: 1,
+                    style: GoogleFonts.inter(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.white.withValues(alpha: 0.92),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSelectableMonthAppointment(TeachingShift shift) {
+    final onSelect = widget.onSelectShift == null
+        ? null
+        : () => widget.onSelectShift!(shift);
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onSelect,
+        borderRadius: BorderRadius.circular(5),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 2),
+          decoration: BoxDecoration(
+            color: _gridShiftColor(shift),
+            borderRadius: BorderRadius.circular(5),
+          ),
+          child: SelectableText(
+            '${_timeRange(shift.shiftStart, shift.shiftEnd)} ${shift.uiStudentNames}',
+            onTap: onSelect,
+            maxLines: 2,
+            style: GoogleFonts.inter(
+              fontSize: 9,
+              height: 1.1,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Color _gridShiftColor(TeachingShift shift) {
+    if (shift.isClockedIn && shift.canClockOut) return const Color(0xff10B981);
+    if (shift.needsAutoLogout) return const Color(0xffEF4444);
+    return shift.uiStatusColor;
+  }
+
+  DateTime _startOfDay(DateTime value) =>
+      DateTime(value.year, value.month, value.day);
+
+  bool _isSameDay(DateTime first, DateTime second) =>
+      first.year == second.year &&
+      first.month == second.month &&
+      first.day == second.day;
+
+  String _formatGridHour(int hour) {
+    final normalizedHour = hour % 24;
+    return MaterialLocalizations.of(context).formatTimeOfDay(
+      TimeOfDay(hour: normalizedHour, minute: 0),
+    );
+  }
+
   Widget _buildHeader(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final title = _isScheduleView
         ? (l10n?.weeklyCalendar ?? 'Agenda')
-        : (l10n?.shiftCalendarThreeDayTitle ?? '3-day schedule');
+        : widget.initialView == CalendarView.month
+            ? MaterialLocalizations.of(context).formatMonthYear(
+                _controller.displayDate ??
+                    widget.initialDisplayDate ??
+                    _getSmartInitialDate(),
+              )
+            : (l10n?.shiftCalendarThreeDayTitle ?? '3-day schedule');
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
@@ -381,12 +681,14 @@ class _TeacherShiftCalendarState extends State<TeacherShiftCalendar> {
                   _navIconButton(
                     context: context,
                     icon: Icons.chevron_left_rounded,
-                    tooltip: _isScheduleView ? 'Previous day' : 'Previous 3 days',
+                    tooltip:
+                        _isScheduleView ? 'Previous day' : 'Previous 3 days',
                     onPressed: () {
                       setState(() {
                         final d = _controller.displayDate ?? DateTime.now();
                         final step = _isScheduleView ? 1 : 3;
-                        _controller.displayDate = d.subtract(Duration(days: step));
+                        _controller.displayDate =
+                            d.subtract(Duration(days: step));
                       });
                     },
                   ),
@@ -502,7 +804,9 @@ class _TeacherShiftCalendarState extends State<TeacherShiftCalendar> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 18, color: selected ? _accent : const Color(0xFF94A3B8)),
+              Icon(icon,
+                  size: 18,
+                  color: selected ? _accent : const Color(0xFF94A3B8)),
               const SizedBox(width: 6),
               Text(
                 label,
@@ -532,7 +836,8 @@ class _TeacherShiftCalendarState extends State<TeacherShiftCalendar> {
         visualDensity: VisualDensity.compact,
         style: IconButton.styleFrom(
           foregroundColor: filled ? _accent : const Color(0xFF475569),
-          backgroundColor: filled ? _accent.withValues(alpha: 0.1) : Colors.transparent,
+          backgroundColor:
+              filled ? _accent.withValues(alpha: 0.1) : Colors.transparent,
         ),
         onPressed: onPressed,
         icon: Icon(icon, size: 26),
@@ -540,132 +845,86 @@ class _TeacherShiftCalendarState extends State<TeacherShiftCalendar> {
     );
   }
 
-  /// Custom appointment widget with improved readability for mobile
-  /// OPTIMIZED: Uses pre-calculated UI fields from model (no recalculation on every build)
-  Widget _appointmentBuilder(
-      BuildContext context, CalendarAppointmentDetails details) {
-    final data = details.appointments.first as ShiftAppointment;
-    final shift = data.shift;
-    
-    // PERFORMANCE: Use pre-calculated values instead of recalculating
-    // BAD (old): final color = _statusColor(shift.status, shift);
-    // BAD (old): final name = _formatStudentNames(shift);
-    // GOOD (new): Read from pre-calculated cache
-    // For real-time updates (e.g., clock-in), check shift.isClockedIn and override color if needed
-    Color statusColor = shift.uiStatusColor;
-    if (shift.isClockedIn && shift.canClockOut) {
-      statusColor = const Color(0xff10B981); // Override to green if actively clocked in
-    } else if (shift.needsAutoLogout) {
-      statusColor = const Color(0xffEF4444); // Override to red if needs logout
-    }
-    
-    // Use abbreviated names for month view, full names for other views
-    final isMonthView = _controller.view == CalendarView.month;
-    final studentNames = isMonthView 
-        ? shift.uiStudentNamesAbbreviated 
-        : shift.uiStudentNames;
+  Widget _buildSelectableScheduleList() {
+    final shifts = List<TeachingShift>.from(widget.shifts)
+      ..sort((a, b) => b.shiftStart.compareTo(a.shiftStart));
 
-    final showTimeChip = !isMonthView && details.bounds.height > 46;
-    final showSubject = !isMonthView &&
-        details.bounds.height > 40 &&
-        shift.effectiveSubjectDisplayName.isNotEmpty;
+    return ListView.separated(
+      padding: const EdgeInsets.all(10),
+      itemCount: shifts.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 8),
+      itemBuilder: (context, index) {
+        final shift = shifts[index];
+        var statusColor = shift.uiStatusColor;
+        if (shift.isClockedIn && shift.canClockOut) {
+          statusColor = const Color(0xff10B981);
+        } else if (shift.needsAutoLogout) {
+          statusColor = const Color(0xffEF4444);
+        }
 
-    final showClockIn = widget.onClockIn != null &&
-        ShiftService.canClockInNow(shift) &&
-        details.bounds.height >= 40;
-
-    final l10n = AppLocalizations.of(context);
-
-    return Container(
-      margin: const EdgeInsets.fromLTRB(2, 1, 2, 1),
-      decoration: BoxDecoration(
-        color: statusColor,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.35),
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.12),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.fromLTRB(6, 4, 4, 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (showTimeChip)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 2),
-                    child: Text(
+        return SelectionArea(
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: widget.onSelectShift == null
+                  ? null
+                  : () => widget.onSelectShift!(shift),
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: statusColor,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SelectableText(
+                      MaterialLocalizations.of(context)
+                          .formatMediumDate(shift.shiftStart),
+                      style: GoogleFonts.inter(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white.withValues(alpha: 0.9),
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    SelectableText(
                       _timeRange(shift.shiftStart, shift.shiftEnd),
                       style: GoogleFonts.inter(
-                        fontSize: 9,
+                        fontSize: 12,
                         fontWeight: FontWeight.w700,
-                        letterSpacing: 0.2,
-                        color: Colors.white.withValues(alpha: 0.92),
+                        color: Colors.white,
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
                     ),
-                  ),
-                Text(
-                  studentNames,
-                  style: GoogleFonts.inter(
-                    fontSize: isMonthView ? 11 : 12,
-                    fontWeight: FontWeight.w800,
-                    height: 1.2,
-                    color: Colors.white,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: isMonthView ? 1 : 2,
-                ),
-                if (showSubject)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 2),
-                    child: Text(
-                      shift.effectiveSubjectDisplayName,
+                    const SizedBox(height: 3),
+                    SelectableText(
+                      shift.uiStudentNames,
                       style: GoogleFonts.inter(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.white.withValues(alpha: 0.92),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
                       ),
-                      overflow: TextOverflow.ellipsis,
-                      maxLines: 1,
                     ),
-                  ),
-              ],
-            ),
-          ),
-          if (showClockIn)
-            Tooltip(
-              message: l10n?.clockInNow ?? 'Clock in',
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: () => widget.onClockIn!(shift),
-                  borderRadius: BorderRadius.circular(8),
-                  child: Padding(
-                    padding: const EdgeInsets.all(2),
-                    child: Icon(
-                      Icons.login_rounded,
-                      size: 18,
-                      color: Colors.white.withValues(alpha: 0.95),
-                    ),
-                  ),
+                    if (shift.effectiveSubjectDisplayName.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      SelectableText(
+                        shift.effectiveSubjectDisplayName,
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.white.withValues(alpha: 0.92),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
             ),
-        ],
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -686,9 +945,9 @@ class _TeacherShiftCalendarState extends State<TeacherShiftCalendar> {
 
     return '${fmt(start)} - ${fmt(end)}';
   }
-  
+
   // NOTE: _formatStudentNames() removed - now using shift.uiStudentNames (pre-calculated for performance)
-  
+
   /// INTELLIGENT FOCUS:
   /// Finds the best time to land the user on - ALWAYS shows upcoming shifts
   /// Returns a DateTime with both date AND time components for proper scrolling
@@ -697,15 +956,13 @@ class _TeacherShiftCalendarState extends State<TeacherShiftCalendar> {
   /// 3. If all shifts are finished, show the very last shift.
   DateTime _getSmartInitialDate() {
     final now = DateTime.now();
-    
+
     // Filter to only upcoming shifts (including today's future shifts)
-    final upcomingShifts = widget.shifts
-        .where((shift) {
-          final shiftEnd = shift.shiftEnd.toLocal();
-          return shiftEnd.isAfter(now);
-        })
-        .toList();
-    
+    final upcomingShifts = widget.shifts.where((shift) {
+      final shiftEnd = shift.shiftEnd.toLocal();
+      return shiftEnd.isAfter(now);
+    }).toList();
+
     // Sort by start time
     upcomingShifts.sort((a, b) => a.shiftStart.compareTo(b.shiftStart));
 
@@ -734,7 +991,7 @@ class _TeacherShiftCalendarState extends State<TeacherShiftCalendar> {
     // This DateTime includes both date and time for scrolling
     return upcomingShifts.first.shiftStart;
   }
-  
+
   /// Get earliest hour from shifts to reduce empty space
   /// Gives breathing room so text isn't cut off at edges
   int _getEarliestHour() {
@@ -746,7 +1003,7 @@ class _TeacherShiftCalendarState extends State<TeacherShiftCalendar> {
     // Subtract 1 hour for padding, but don't go below 0
     return (earliest > 0) ? earliest - 1 : 0;
   }
-  
+
   /// Get latest hour from shifts to reduce empty space
   /// Gives breathing room so text isn't cut off at edges
   int _getLatestHour() {
@@ -757,56 +1014,5 @@ class _TeacherShiftCalendarState extends State<TeacherShiftCalendar> {
     }
     // Add 1 hour for padding, but don't go above 23
     return (latest < 23) ? latest + 1 : 23;
-  }
-}
-
-/// Calendar data source mapping TeachingShift to appointments
-class ShiftCalendarDataSource extends CalendarDataSource {
-  ShiftCalendarDataSource(List<TeachingShift> shifts) {
-    final sorted = List<TeachingShift>.from(shifts)
-      ..sort((a, b) => b.shiftStart.compareTo(a.shiftStart));
-    appointments = sorted.map((s) => ShiftAppointment(s)).toList();
-  }
-
-  @override
-  DateTime getStartTime(int index) =>
-      (appointments![index] as ShiftAppointment).startTime;
-
-  @override
-  DateTime getEndTime(int index) =>
-      (appointments![index] as ShiftAppointment).endTime;
-
-  @override
-  String getSubject(int index) =>
-      (appointments![index] as ShiftAppointment).subject;
-
-  @override
-  Color getColor(int index) => (appointments![index] as ShiftAppointment).color;
-}
-
-class ShiftAppointment {
-  final TeachingShift shift;
-  ShiftAppointment(this.shift);
-
-  DateTime get startTime => shift.shiftStart;
-  DateTime get endTime => shift.shiftEnd;
-  String get subject => shift.displayName;
-  Color get color {
-    switch (shift.status) {
-      case ShiftStatus.scheduled:
-        return const Color(0xffF59E0B);
-      case ShiftStatus.active:
-        return const Color(0xff10B981);
-      case ShiftStatus.partiallyCompleted:
-        return const Color(0xffF97316);
-      case ShiftStatus.fullyCompleted:
-        return const Color(0xff6366F1);
-      case ShiftStatus.completed:
-        return const Color(0xff6366F1);
-      case ShiftStatus.missed:
-        return const Color(0xffEF4444);
-      case ShiftStatus.cancelled:
-        return const Color(0xff9CA3AF);
-    }
   }
 }

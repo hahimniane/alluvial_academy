@@ -33,6 +33,8 @@ const mockRealtimeKitClient = {
     data: { id: 'participant_1', token: 'auth_token_1' },
   })),
   listMeetingParticipants: jest.fn(async () => ({ success: true, data: [] })),
+  getActiveSession: jest.fn(async () => ({ success: true, data: { id: 'session_1' } })),
+  listSessionParticipants: jest.fn(async () => ({ success: true, data: { participants: [] } })),
   refreshParticipantToken: jest.fn(async () => ({
     success: true,
     data: { token: 'refreshed_auth_token_1' },
@@ -760,20 +762,28 @@ describe('RealtimeKit class access', () => {
     expect(result.success).toBe(true);
     expect(result.participantCount).toBe(0);
     expect(result.participants).toEqual([]);
-    expect(mockRealtimeKitClient.listMeetingParticipants).not.toHaveBeenCalled();
+    expect(mockRealtimeKitClient.getActiveSession).not.toHaveBeenCalled();
   });
 
   test('presence lists RealtimeKit participants for authorized users', async () => {
     mockShifts.shift_1.realtimekit_meeting_id = 'meeting_1';
-    mockRealtimeKitClient.listMeetingParticipants.mockResolvedValueOnce({
+    mockRealtimeKitClient.listSessionParticipants.mockResolvedValueOnce({
       success: true,
-      data: [{
-        id: 'participant_student',
-        custom_participant_id: 'student_1',
-        name: 'Student One',
-        preset_name: 'student',
-        created_at: '2026-01-01T00:00:00.000Z',
-      }],
+      data: { participants: [{
+          id: 'participant_student',
+          custom_participant_id: 'student_1',
+          display_name: 'Student One',
+          preset_name: 'student',
+          joined_at: '2026-01-01T00:00:00.000Z',
+          left_at: null,
+          status: 'LIVE',
+        }, {
+          id: 'participant_left',
+          custom_participant_id: 'student_left',
+          display_name: 'Student Left',
+          left_at: '2026-01-01T00:05:00.000Z',
+          status: 'LEFT',
+        }] },
     });
 
     const result = await getRealtimeKitRoomPresence({
@@ -791,6 +801,8 @@ describe('RealtimeKit class access', () => {
         role: 'student',
       }),
     ]);
+    expect(mockRealtimeKitClient.getActiveSession).toHaveBeenCalledWith('meeting_1');
+    expect(mockRealtimeKitClient.listSessionParticipants).toHaveBeenCalledWith('session_1');
   });
 
   test('presence lists Zoom participants with teacher, student, and admin roles', async () => {
@@ -940,7 +952,7 @@ describe('RealtimeKit class access', () => {
     expect(result).toEqual({ success: true, removed: true });
     expect(mockRealtimeKitClient.kickActiveSessionParticipants).toHaveBeenCalledWith(
       'meeting_1',
-      { custom_participant_ids: ['student_1'] },
+      { participant_ids: ['participant_student'] },
     );
     expect(mockRealtimeKitClient.deleteParticipant).not.toHaveBeenCalled();
   });
@@ -964,8 +976,24 @@ describe('RealtimeKit class access', () => {
     expect(result).toEqual({ success: true, removed: true });
     expect(mockRealtimeKitClient.kickActiveSessionParticipants).toHaveBeenCalledWith(
       'meeting_1',
-      { custom_participant_ids: ['student_1'] },
+      { participant_ids: ['participant_student'] },
     );
     expect(mockRealtimeKitClient.deleteParticipant).not.toHaveBeenCalled();
+  });
+
+  test('stale participant identity is ignored without calling the kick API', async () => {
+    mockShifts.shift_1.realtimekit_meeting_id = 'meeting_1';
+    mockRealtimeKitClient.listMeetingParticipants.mockResolvedValueOnce({
+      success: true,
+      data: [],
+    });
+
+    const result = await kickRealtimeKitParticipant({
+      auth: { uid: 'teacher_1' },
+      data: { shiftId: 'shift_1', identity: 'stale_participant' },
+    });
+
+    expect(result).toEqual({ success: true, removed: false });
+    expect(mockRealtimeKitClient.kickActiveSessionParticipants).not.toHaveBeenCalled();
   });
 });

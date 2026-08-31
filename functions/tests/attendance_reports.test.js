@@ -69,6 +69,25 @@ describe('attendance analytics helpers', () => {
     expect(overlapSeconds).toBe(30 * 60);
   });
 
+  test('computeStudentAttendanceReport excludes classes that have not ended yet', () => {
+    const periodStart = new Date('2026-02-23T00:00:00.000Z');
+    const periodEnd = new Date('2026-03-02T00:00:00.000Z');
+    const now = new Date('2026-02-25T09:00:00.000Z'); // after shift_1, before shift_2
+    const shifts = [
+      { id: 'past_shift', teacherId: 't1', studentIds: ['s1'], shiftStart: new Date('2026-02-24T10:00:00.000Z'), shiftEnd: new Date('2026-02-24T11:00:00.000Z'), status: 'scheduled', subjectName: 'Quran' },
+      { id: 'future_shift', teacherId: 't1', studentIds: ['s1'], shiftStart: new Date('2026-02-26T10:00:00.000Z'), shiftEnd: new Date('2026-02-26T11:00:00.000Z'), status: 'scheduled', subjectName: 'Quran' },
+    ];
+    const report = __test__.computeStudentAttendanceReport({
+      studentId: 's1', periodType: 'weekly', periodStart, periodEnd,
+      shifts, participantMetricsByShift: new Map([['past_shift', new Map()], ['future_shift', new Map()]]),
+      now, lateGraceMinutes: 5,
+    });
+    // Only the ended class counts; the future one is neither scheduled nor listed.
+    expect(report.metrics.scheduled_classes).toBe(1);
+    expect(report.metrics.absent_classes).toBe(1);
+    expect(report.shift_breakdown.map((b) => b.shift_id)).toEqual(['past_shift']);
+  });
+
   test('computeStudentAttendanceReport tracks late, absent, and teacher-absent classes', () => {
     const periodStart = new Date('2026-02-23T00:00:00.000Z');
     const periodEnd = new Date('2026-03-02T00:00:00.000Z');
@@ -135,6 +154,56 @@ describe('attendance analytics helpers', () => {
     expect(report.metrics.student_present_teacher_absent_classes).toBe(1);
     expect(report.rates.attendance_rate).toBeCloseTo(0.5, 5);
     expect(report.rates.late_rate).toBeCloseTo(1.0, 5);
+  });
+
+  test('buildAdminStudentAttendanceOverview totals and sorts student class time', () => {
+    const overview = __test__.buildAdminStudentAttendanceOverview({
+      reports: [
+        {
+          student_id: 'student_1',
+          metrics: {
+            total_student_presence_minutes: 75,
+            total_teacher_overlap_minutes: 60,
+            scheduled_classes: 2,
+            attended_classes: 2,
+            absent_classes: 0,
+            late_classes: 1,
+          },
+          rates: { attendance_rate: 1, punctuality_rate: 0.5 },
+        },
+        {
+          student_id: 'student_2',
+          metrics: {
+            total_student_presence_minutes: 30,
+            total_teacher_overlap_minutes: 25,
+            scheduled_classes: 2,
+            attended_classes: 1,
+            absent_classes: 1,
+            late_classes: 0,
+          },
+          rates: { attendance_rate: 0.5, punctuality_rate: 1 },
+        },
+      ],
+      studentDataById: new Map([
+        ['student_1', {
+          first_name: 'Amina',
+          last_name: 'Bah',
+          mobile_phone: '+224 622 123 456',
+        }],
+        ['student_2', { displayName: 'Musa Diallo' }],
+      ]),
+    });
+
+    expect(overview.students.map((student) => student.student_name))
+      .toEqual(['Amina Bah', 'Musa Diallo']);
+    expect(overview.students[0].student_phone).toBe('+224 622 123 456');
+    expect(overview.totals.total_presence_minutes).toBe(105);
+    expect(overview.totals.total_teacher_overlap_minutes).toBe(85);
+    expect(overview.totals.scheduled_classes).toBe(4);
+    expect(overview.totals.attended_classes).toBe(3);
+    expect(overview.totals.absent_classes).toBe(1);
+    expect(overview.totals.late_classes).toBe(1);
+    expect(overview.totals.attendance_rate).toBe(0.75);
   });
 
   test('missingStateForShift detects teacher, student, and both no-shows', () => {

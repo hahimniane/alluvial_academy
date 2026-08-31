@@ -1,5 +1,5 @@
 /**
- * Firebase Migration Script for Alluvial Academy
+ * Firebase Migration Script for Alluwal Education Hub
  * 
  * This script migrates and updates the following collections:
  * 1. form_templates - User-friendly form templates (Daily, Weekly, Monthly)
@@ -497,7 +497,7 @@ async function createAuditSchemaDoc() {
  */
 async function runMigration() {
   console.log('═══════════════════════════════════════════════════════════');
-  console.log('  ALLUVIAL ACADEMY - FIREBASE MIGRATION SCRIPT');
+  console.log('  ALLUWAL EDUCATION HUB - FIREBASE MIGRATION SCRIPT');
   console.log('═══════════════════════════════════════════════════════════\n');
   
   try {

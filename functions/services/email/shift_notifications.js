@@ -6,6 +6,7 @@
 const admin = require('firebase-admin');
 const { DateTime } = require('luxon');
 const { createTransporter } = require('./transporter');
+const { sendEmailBatch } = require('./bulk_send');
 
 const getTeacherEmailFromUserDoc = (userData) =>
   userData?.['e-mail'] || userData?.email || userData?.Email || userData?.mail || null;
@@ -343,11 +344,11 @@ const sendShiftNotificationEmails = async ({ shiftId, shiftData }) => {
             }
           }
 
-          // Send emails to all parents
-          await Promise.all(
-            Array.from(parentEmailMap.entries()).map(([email, name]) =>
+          // Send emails to all parents (batched/throttled to avoid SMTP bursts)
+          await sendEmailBatch(
+            Array.from(parentEmailMap.entries()),
+            ([email, name]) =>
               sendParentShiftNotification(shiftId, shiftData, email, name, studentNames)
-            )
           );
 
           console.log(`[ShiftNotification] Parent emails sent for shift ${shiftId} to ${parentEmails.length} recipient(s)`);
@@ -445,10 +446,10 @@ const sendShiftUpdateNotificationEmails = async ({ shiftId, shiftData, changes }
             }
           }
 
-          await Promise.all(
-            Array.from(parentEmailMap.entries()).map(([email, name]) =>
+          await sendEmailBatch(
+            Array.from(parentEmailMap.entries()),
+            ([email, name]) =>
               sendParentShiftUpdateNotification(shiftId, shiftData, email, name, studentNames, changes)
-            )
           );
 
           console.log(`[ShiftUpdateNotification] Parent update emails sent for shift ${shiftId} to ${parentEmails.length} recipient(s)`);

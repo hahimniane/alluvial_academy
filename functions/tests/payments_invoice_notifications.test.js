@@ -27,6 +27,7 @@ admin.firestore.Timestamp = {
 const buildDb = ({users = {}} = {}) => {
   const historyAdds = [];
   const userSets = [];
+  const paymentSets = [];
 
   const db = {
     collection: jest.fn((name) => {
@@ -48,10 +49,19 @@ const buildDb = ({users = {}} = {}) => {
         };
       }
 
+      if (name === 'payments') {
+        return {
+          doc: (id) => ({
+            set: async (data, options) => paymentSets.push({id, data, options}),
+          }),
+        };
+      }
+
       throw new Error(`Unexpected collection: ${name}`);
     }),
     historyAdds,
     userSets,
+    paymentSets,
   };
 
   return db;
@@ -414,6 +424,10 @@ describe('payments invoice notifications', () => {
       paymentDate: expect.any(String),
       paymentMethod: 'Card / Stripe',
       appUrl: 'https://alluwaleducationhub.org',
+      // Receipts now carry the invoice PDF. Empty here because the test db has
+      // no invoices collection — which also proves a PDF failure still lets the
+      // receipt go out.
+      attachments: [],
     });
     expect(db.historyAdds).toHaveLength(1);
     expect(db.historyAdds[0]).toEqual(
@@ -426,6 +440,60 @@ describe('payments invoice notifications', () => {
         }),
       })
     );
+  });
+
+  test('records the failure when a captured payment\'s receipt cannot be sent', async () => {
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    sendPaymentConfirmationEmail.mockRejectedValueOnce(
+      new Error('Invalid login: 535 5.7.8 Error: authentication failed')
+    );
+
+    const db = buildDb({
+      users: {
+        parent_1: {
+          first_name: 'Amina',
+          last_name: 'Diallo',
+          email: 'parent@example.com',
+        },
+      },
+    });
+    admin.firestore.mockReturnValue(db);
+
+    const {_notifyPaymentCompleted} = require('../handlers/payments');
+    const result = await _notifyPaymentCompleted(db, 'payment_1', {
+      invoiceId: 'invoice_1',
+      invoiceNumber: 'INV-2026-010',
+      parentId: 'parent_1',
+      studentId: 'student_1',
+      amount: 75.5,
+      currency: 'USD',
+      paymentMethod: 'stripe',
+    });
+
+    // The caller must learn the receipt failed, not get a silent success.
+    expect(result.success).toBe(false);
+    expect(result.reason).toBe('receipt_email_failed');
+    expect(result.emailSent).toBe(false);
+
+    // The payment doc carries the failure so it is visible outside the logs.
+    expect(db.paymentSets).toHaveLength(1);
+    expect(db.paymentSets[0]).toEqual(
+      expect.objectContaining({
+        id: 'payment_1',
+        data: expect.objectContaining({
+          receipt_email_status: 'failed',
+          receipt_email_to: 'parent@example.com',
+        }),
+      })
+    );
+
+    // And history records it as a failure rather than a send.
+    expect(db.historyAdds).toHaveLength(1);
+    expect(db.historyAdds[0].results).toEqual(
+      expect.objectContaining({emailsSent: 0, emailsFailed: 1})
+    );
+
+    errorSpy.mockRestore();
   });
 
   test('marks the invoice when notification sending fails', async () => {

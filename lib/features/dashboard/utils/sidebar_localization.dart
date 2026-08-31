@@ -14,6 +14,8 @@ class SidebarLocalization {
         return AppLocalizations.of(context)!.sidebarCommunication;
       case 'Dashboard':
         return AppLocalizations.of(context)!.navDashboard;
+      case 'Decision History':
+        return AppLocalizations.of(context)!.decisionHistory;
       case 'Finance':
         return AppLocalizations.of(context)!.sidebarFinance;
       case 'Create Invoice':
@@ -24,6 +26,8 @@ class SidebarLocalization {
         return AppLocalizations.of(context)!.debug;
       case 'Form Builder':
         return AppLocalizations.of(context)!.sidebarFormbuilder;
+      case 'Form Responses':
+        return AppLocalizations.of(context)!.formResponsesTitle;
       case 'Forms':
         return AppLocalizations.of(context)!.navForms;
       case 'Learning':
@@ -50,6 +54,10 @@ class SidebarLocalization {
         return AppLocalizations.of(context)!.tontineSavings;
       case 'Roles (Test)':
         return AppLocalizations.of(context)!.sidebarRolestest;
+      case 'Quiz Review':
+        return AppLocalizations.of(context)!.sidebarQuizReview;
+      case 'Quiz':
+        return AppLocalizations.of(context)!.navQuiz;
       case 'Admin Circles':
         return AppLocalizations.of(context)!.tontineAdminCircles;
       case 'Circles':
@@ -60,6 +68,8 @@ class SidebarLocalization {
         return AppLocalizations.of(context)!.navShifts;
       case 'Student Applicants':
         return AppLocalizations.of(context)!.studentApplicants;
+      case 'Student Attendance':
+        return AppLocalizations.of(context)!.studentAttendanceOverviewNav;
       case 'Subject Rates':
         return AppLocalizations.of(context)!.sidebarSubjectrates;
       case 'Submit Form':

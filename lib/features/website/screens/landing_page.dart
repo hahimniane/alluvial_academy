@@ -10,8 +10,7 @@ import '../../../core/widgets/fade_in_slide.dart';
 import 'program_selection_page.dart';
 import 'teacher_application_screen.dart';
 import 'team_page.dart';
-import '../../../core/constants/pricing_plan_ids.dart'
-    show PricingPlanIds;
+import '../../../core/constants/pricing_plan_ids.dart' show PricingPlanIds;
 import '../../../core/models/program_catalog.dart';
 import '../../../core/models/public_site_cms_models.dart';
 import '../../../core/services/pricing_quote_service.dart';
@@ -52,7 +51,8 @@ const double _kLandingPricingCardHeight = 448;
 /// Uniform row height for each course link on the landing programs grid.
 const double _kLandingCourseRowHeight = 72;
 
-class _LandingPageState extends State<LandingPage> with SingleTickerProviderStateMixin {
+class _LandingPageState extends State<LandingPage>
+    with SingleTickerProviderStateMixin {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _landingScrollController = ScrollController();
   List<String> _suggestions = [];
@@ -61,15 +61,17 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
   final GlobalKey _aboutSectionKey = GlobalKey();
   final GlobalKey _ctaSectionKey = GlobalKey();
   int _pricingHoursPerWeek = 4;
+
   /// Firestore public pricing (optional); empty map = use hard-coded defaults.
   PublicSiteCmsPricingDoc _publicPricing = const PublicSiteCmsPricingDoc();
+
   /// Landing hero background + optional image URLs (fallback to bundled assets).
   PublicSiteLandingDoc _landing = const PublicSiteLandingDoc();
   late AnimationController _floatController;
   late Animation<double> _floatAnimation;
   StreamSubscription<User?>? _authSubscription;
 
-  final List<String> _allSubjects = [
+  static const List<String> _allSubjects = [
     'Islamic Program (Arabic, Quran, etc...)',
     'AfroLanguages (Pular, Mandingo, Swahili, Wolof, etc...)',
     'After School Tutoring (Math, Science, Physics, etc...)',
@@ -78,15 +80,34 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
     'Entrepreneurship',
   ];
 
+  String _localizedSubject(String subject, AppLocalizations l) {
+    switch (subject) {
+      case 'Islamic Program (Arabic, Quran, etc...)':
+        return l.publicLandingSubjectIslamic;
+      case 'AfroLanguages (Pular, Mandingo, Swahili, Wolof, etc...)':
+        return l.publicLandingSubjectAfroLanguages;
+      case 'After School Tutoring (Math, Science, Physics, etc...)':
+        return l.publicLandingSubjectAfterSchool;
+      case 'Adult Literacy (Reading and Writing English & French, etc...)':
+        return l.publicLandingSubjectAdultLiteracy;
+      case 'Coding':
+        return l.publicLandingSubjectCoding;
+      case 'Entrepreneurship':
+        return l.publicLandingSubjectEntrepreneurship;
+    }
+    return subject;
+  }
+
   @override
   void initState() {
     super.initState();
+
     // Setup floating animation for hero image
     _floatController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 4),
     )..repeat(reverse: true);
-    
+
     _floatAnimation = Tween<double>(begin: -10.0, end: 10.0).animate(
       CurvedAnimation(parent: _floatController, curve: Curves.easeInOutSine),
     );
@@ -105,8 +126,8 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
     });
   }
 
-  Color get _heroBgColor =>
-      Color(PublicSiteLandingDoc.parseHeroBackgroundArgb(_landing.heroBackgroundColorHex));
+  Color get _heroBgColor => Color(PublicSiteLandingDoc.parseHeroBackgroundArgb(
+      _landing.heroBackgroundColorHex));
 
   /// Navy-style border on hero collage; matches background when using default.
   Color get _heroBorderAccent => _heroBgColor;
@@ -144,8 +165,9 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
         fit: fit,
         // Many CDNs (e.g. stock sites) omit CORP headers; default web decode fails
         // with statusCode 0. Prefer <img> on web so the browser loads like a normal page.
-        webHtmlElementStrategy:
-            kIsWeb ? WebHtmlElementStrategy.prefer : WebHtmlElementStrategy.never,
+        webHtmlElementStrategy: kIsWeb
+            ? WebHtmlElementStrategy.prefer
+            : WebHtmlElementStrategy.never,
         loadingBuilder: (context, child, progress) {
           if (progress == null) return child;
           return const Center(
@@ -164,11 +186,16 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
 
   String _fmtUsd(double v) => '\$${v.toStringAsFixed(2)}';
 
-  PublicSitePlanPricing? _cmsPlan(String planId) => _publicPricing.plans[planId];
+  PublicSitePlanPricing? _cmsPlan(String planId) =>
+      _publicPricing.plans[planId];
 
   List<String> _pricingBullets(String planId, List<String> defaults) {
     final b = _cmsPlan(planId)?.bullets;
-    if (b != null && b.isNotEmpty) return b;
+    if (Localizations.localeOf(context).languageCode == 'en' &&
+        b != null &&
+        b.isNotEmpty) {
+      return b;
+    }
     return defaults;
   }
 
@@ -188,8 +215,11 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
     }
 
     setState(() {
+      final l = AppLocalizations.of(context)!;
       _suggestions = _allSubjects
-          .where((subject) => subject.toLowerCase().contains(query.toLowerCase()))
+          .where((subject) => _localizedSubject(subject, l)
+              .toLowerCase()
+              .contains(query.toLowerCase()))
           .toList();
     });
   }
@@ -349,7 +379,7 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
       children: [
         FadeInSlide(
           delay: 0.2,
-          child:           Text(
+          child: Text(
             loc.landingHeroHeadline,
             style: GoogleFonts.inter(
               fontSize: headlineSize,
@@ -484,26 +514,30 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
                       ],
                     ),
                     child: Column(
-                      children: _suggestions.map((subject) => InkWell(
-                        onTap: () => _onSuggestionSelected(subject),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.history, size: 18, color: Color(0xff9CA3AF)),
-                              const SizedBox(width: 12),
-                              Text(
-                                subject,
-                                style: GoogleFonts.inter(
-                                  fontSize: 15, 
-                                  color: const Color(0xff374151),
-                                  fontWeight: FontWeight.w500,
+                      children: _suggestions
+                          .map((subject) => InkWell(
+                                onTap: () => _onSuggestionSelected(subject),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 24, vertical: 12),
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.history,
+                                          size: 18, color: Color(0xff9CA3AF)),
+                                      const SizedBox(width: 12),
+                                      Text(
+                                        _localizedSubject(subject, loc),
+                                        style: GoogleFonts.inter(
+                                          fontSize: 15,
+                                          color: const Color(0xff374151),
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      )).toList(),
+                              ))
+                          .toList(),
                     ),
                   ),
               ],
@@ -539,8 +573,7 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
               foregroundColor: _heroPrimaryTextColor.withValues(alpha: 0.95),
               side: BorderSide(
                   color: _heroPrimaryTextColor.withValues(alpha: 0.4)),
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 16, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(30),
               ),
@@ -557,19 +590,27 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
             spacing: 16,
             runSpacing: 12,
             children: [
-              _TextCategoryLink('Islamic Studies',
-                  categoryType: CategoryType.islamicStudies, idleTextColor: _heroPrimaryTextColor),
-              _TextCategoryLink('Languages',
-                  categoryType: CategoryType.languages, idleTextColor: _heroPrimaryTextColor),
-              _TextCategoryLink('Adult Literacy',
-                  categoryType: CategoryType.adultLiteracy, idleTextColor: _heroPrimaryTextColor),
-              _TextCategoryLink('After School Tutoring',
-                  categoryType: CategoryType.afterSchoolTutoring, idleTextColor: _heroPrimaryTextColor),
-              _TextCategoryLink('Maths', categoryType: CategoryType.math, idleTextColor: _heroPrimaryTextColor),
-              _TextCategoryLink('Programming',
-                  categoryType: CategoryType.programming, idleTextColor: _heroPrimaryTextColor),
-              _TextCategoryLink('English (Students)',
-                  categoryType: CategoryType.english, idleTextColor: _heroPrimaryTextColor),
+              _TextCategoryLink(loc.publicCategoryIslamicStudies,
+                  categoryType: CategoryType.islamicStudies,
+                  idleTextColor: _heroPrimaryTextColor),
+              _TextCategoryLink(loc.publicCategoryLanguages,
+                  categoryType: CategoryType.languages,
+                  idleTextColor: _heroPrimaryTextColor),
+              _TextCategoryLink(loc.publicCategoryAdultLiteracy,
+                  categoryType: CategoryType.adultLiteracy,
+                  idleTextColor: _heroPrimaryTextColor),
+              _TextCategoryLink(loc.publicCategoryAfterSchool,
+                  categoryType: CategoryType.afterSchoolTutoring,
+                  idleTextColor: _heroPrimaryTextColor),
+              _TextCategoryLink(loc.publicCategoryMath,
+                  categoryType: CategoryType.math,
+                  idleTextColor: _heroPrimaryTextColor),
+              _TextCategoryLink(loc.publicCategoryProgramming,
+                  categoryType: CategoryType.programming,
+                  idleTextColor: _heroPrimaryTextColor),
+              _TextCategoryLink(loc.publicCategoryEnglishStudents,
+                  categoryType: CategoryType.english,
+                  idleTextColor: _heroPrimaryTextColor),
             ],
           ),
         ),
@@ -582,11 +623,11 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildFeatureItem('Meet the tutor. Try for free'),
+              _buildFeatureItem(loc.publicHeroFeatureTrial),
               const SizedBox(height: 8),
-              _buildFeatureItem(' Get help with your quran and islamic studies'),
+              _buildFeatureItem(loc.publicHeroFeatureIslamic),
               const SizedBox(height: 8),
-              _buildFeatureItem('Get help from our engineers and programmers'),
+              _buildFeatureItem(loc.publicHeroFeatureTechnology),
             ],
           ),
         ),
@@ -605,7 +646,7 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   Text(
-                    'Excellent',
+                    loc.publicHeroExcellent,
                     style: GoogleFonts.inter(
                       color: _heroPrimaryTextColor,
                       fontWeight: FontWeight.w500,
@@ -614,21 +655,24 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
                   ),
                   Row(
                     mainAxisSize: MainAxisSize.min,
-                    children: List.generate(5, (index) => Container(
-                      margin: const EdgeInsets.only(right: 2),
-                      padding: const EdgeInsets.all(4),
-                      decoration: const BoxDecoration(
-                        color: Color(0xff00B67A), // Trustpilot Green
-                        shape: BoxShape.rectangle,
-                      ),
-                      child: const Icon(Icons.star, color: Colors.white, size: 16),
-                    )),
+                    children: List.generate(
+                        5,
+                        (index) => Container(
+                              margin: const EdgeInsets.only(right: 2),
+                              padding: const EdgeInsets.all(4),
+                              decoration: const BoxDecoration(
+                                color: Color(0xff00B67A), // Trustpilot Green
+                                shape: BoxShape.rectangle,
+                              ),
+                              child: const Icon(Icons.star,
+                                  color: Colors.white, size: 16),
+                            )),
                   ),
                 ],
               ),
               const SizedBox(height: 8),
               Text(
-                'Trusted by Muslim families worldwide',
+                loc.publicHeroTrusted,
                 style: GoogleFonts.inter(
                   color: _heroSecondaryTextColor,
                   fontSize: 12,
@@ -717,7 +761,7 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
                   ),
                 ),
               ),
-              
+
               // Left Circle (Woman)
               Positioned(
                 left: 0,
@@ -784,7 +828,8 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
     return Container(
       key: key,
       width: double.infinity,
-      padding: EdgeInsets.symmetric(horizontal: 24, vertical: isDesktop ? 52 : 44),
+      padding:
+          EdgeInsets.symmetric(horizontal: 24, vertical: isDesktop ? 52 : 44),
       color: Colors.white,
       child: Center(
         child: ConstrainedBox(
@@ -811,7 +856,10 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
                   child: Text(
                     loc.landingProgramsDescription,
                     textAlign: TextAlign.center,
-                    style: GoogleFonts.inter(fontSize: 16, color: const Color(0xff6b7280), height: 1.6),
+                    style: GoogleFonts.inter(
+                        fontSize: 16,
+                        color: const Color(0xff6b7280),
+                        height: 1.6),
                   ),
                 ),
               ),
@@ -827,8 +875,24 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
                               title: loc.navMegaColIslamicAfro,
                               color: const Color(0xff1e88e5),
                               items: [
-                                _CourseItem(loc.navMegaLinkIslamicStudies, loc.landingCourseBlurbIslamic, Icons.mosque_rounded, () => Navigator.push(context, UnifiedProgramsPageRoutes.fade(initialCategory: ProgramCatalog.catIslamic))),
-                                _CourseItem(loc.navMegaLinkAfroLanguages, loc.landingCourseBlurbAfro, Icons.language_rounded, () => Navigator.push(context, UnifiedProgramsPageRoutes.fade(initialCategory: ProgramCatalog.catLanguages))),
+                                _CourseItem(
+                                    loc.navMegaLinkIslamicStudies,
+                                    loc.landingCourseBlurbIslamic,
+                                    Icons.mosque_rounded,
+                                    () => Navigator.push(
+                                        context,
+                                        UnifiedProgramsPageRoutes.fade(
+                                            initialCategory:
+                                                ProgramCatalog.catIslamic))),
+                                _CourseItem(
+                                    loc.navMegaLinkAfroLanguages,
+                                    loc.landingCourseBlurbAfro,
+                                    Icons.language_rounded,
+                                    () => Navigator.push(
+                                        context,
+                                        UnifiedProgramsPageRoutes.fade(
+                                            initialCategory:
+                                                ProgramCatalog.catLanguages))),
                               ],
                             ),
                           ),
@@ -839,10 +903,42 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
                               title: loc.navMegaColAcademic,
                               color: const Color(0xff43a047),
                               items: [
-                                _CourseItem(loc.navMegaLinkMath, loc.landingCourseBlurbMath, Icons.functions_rounded, () => Navigator.push(context, UnifiedProgramsPageRoutes.fade(initialCategory: ProgramCatalog.catMath))),
-                                _CourseItem(loc.navMegaLinkProgramming, loc.landingCourseBlurbProgramming, Icons.code_rounded, () => Navigator.push(context, UnifiedProgramsPageRoutes.fade(initialCategory: ProgramCatalog.catProgramming))),
-                                _CourseItem(loc.navMegaLinkAdultLiteracy, loc.landingCourseBlurbAdultLiteracy, Icons.menu_book_rounded, () => Navigator.push(context, UnifiedProgramsPageRoutes.fade(initialCategory: ProgramCatalog.catEnglish))),
-                                _CourseItem(loc.navMegaLinkAfterSchool, loc.landingCourseBlurbAfterSchool, Icons.school_rounded, () => Navigator.push(context, UnifiedProgramsPageRoutes.fade(initialCategory: ProgramCatalog.catAfterSchool))),
+                                _CourseItem(
+                                    loc.navMegaLinkMath,
+                                    loc.landingCourseBlurbMath,
+                                    Icons.functions_rounded,
+                                    () => Navigator.push(
+                                        context,
+                                        UnifiedProgramsPageRoutes.fade(
+                                            initialCategory:
+                                                ProgramCatalog.catMath))),
+                                _CourseItem(
+                                    loc.navMegaLinkProgramming,
+                                    loc.landingCourseBlurbProgramming,
+                                    Icons.code_rounded,
+                                    () => Navigator.push(
+                                        context,
+                                        UnifiedProgramsPageRoutes.fade(
+                                            initialCategory: ProgramCatalog
+                                                .catProgramming))),
+                                _CourseItem(
+                                    loc.navMegaLinkAdultLiteracy,
+                                    loc.landingCourseBlurbAdultLiteracy,
+                                    Icons.menu_book_rounded,
+                                    () => Navigator.push(
+                                        context,
+                                        UnifiedProgramsPageRoutes.fade(
+                                            initialCategory:
+                                                ProgramCatalog.catEnglish))),
+                                _CourseItem(
+                                    loc.navMegaLinkAfterSchool,
+                                    loc.landingCourseBlurbAfterSchool,
+                                    Icons.school_rounded,
+                                    () => Navigator.push(
+                                        context,
+                                        UnifiedProgramsPageRoutes.fade(
+                                            initialCategory: ProgramCatalog
+                                                .catAfterSchool))),
                               ],
                             ),
                           ),
@@ -856,8 +952,24 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
                           title: loc.navMegaColIslamicAfro,
                           color: const Color(0xff1e88e5),
                           items: [
-                            _CourseItem(loc.navMegaLinkIslamicStudies, loc.landingCourseBlurbIslamic, Icons.mosque_rounded, () => Navigator.push(context, UnifiedProgramsPageRoutes.fade(initialCategory: ProgramCatalog.catIslamic))),
-                            _CourseItem(loc.navMegaLinkAfroLanguages, loc.landingCourseBlurbAfro, Icons.language_rounded, () => Navigator.push(context, UnifiedProgramsPageRoutes.fade(initialCategory: ProgramCatalog.catLanguages))),
+                            _CourseItem(
+                                loc.navMegaLinkIslamicStudies,
+                                loc.landingCourseBlurbIslamic,
+                                Icons.mosque_rounded,
+                                () => Navigator.push(
+                                    context,
+                                    UnifiedProgramsPageRoutes.fade(
+                                        initialCategory:
+                                            ProgramCatalog.catIslamic))),
+                            _CourseItem(
+                                loc.navMegaLinkAfroLanguages,
+                                loc.landingCourseBlurbAfro,
+                                Icons.language_rounded,
+                                () => Navigator.push(
+                                    context,
+                                    UnifiedProgramsPageRoutes.fade(
+                                        initialCategory:
+                                            ProgramCatalog.catLanguages))),
                           ],
                         ),
                         const SizedBox(height: 24),
@@ -866,10 +978,42 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
                           title: loc.navMegaColAcademic,
                           color: const Color(0xff43a047),
                           items: [
-                            _CourseItem(loc.navMegaLinkMath, loc.landingCourseBlurbMath, Icons.functions_rounded, () => Navigator.push(context, UnifiedProgramsPageRoutes.fade(initialCategory: ProgramCatalog.catMath))),
-                            _CourseItem(loc.navMegaLinkProgramming, loc.landingCourseBlurbProgramming, Icons.code_rounded, () => Navigator.push(context, UnifiedProgramsPageRoutes.fade(initialCategory: ProgramCatalog.catProgramming))),
-                            _CourseItem(loc.navMegaLinkAdultLiteracy, loc.landingCourseBlurbAdultLiteracy, Icons.menu_book_rounded, () => Navigator.push(context, UnifiedProgramsPageRoutes.fade(initialCategory: ProgramCatalog.catEnglish))),
-                            _CourseItem(loc.navMegaLinkAfterSchool, loc.landingCourseBlurbAfterSchool, Icons.school_rounded, () => Navigator.push(context, UnifiedProgramsPageRoutes.fade(initialCategory: ProgramCatalog.catAfterSchool))),
+                            _CourseItem(
+                                loc.navMegaLinkMath,
+                                loc.landingCourseBlurbMath,
+                                Icons.functions_rounded,
+                                () => Navigator.push(
+                                    context,
+                                    UnifiedProgramsPageRoutes.fade(
+                                        initialCategory:
+                                            ProgramCatalog.catMath))),
+                            _CourseItem(
+                                loc.navMegaLinkProgramming,
+                                loc.landingCourseBlurbProgramming,
+                                Icons.code_rounded,
+                                () => Navigator.push(
+                                    context,
+                                    UnifiedProgramsPageRoutes.fade(
+                                        initialCategory:
+                                            ProgramCatalog.catProgramming))),
+                            _CourseItem(
+                                loc.navMegaLinkAdultLiteracy,
+                                loc.landingCourseBlurbAdultLiteracy,
+                                Icons.menu_book_rounded,
+                                () => Navigator.push(
+                                    context,
+                                    UnifiedProgramsPageRoutes.fade(
+                                        initialCategory:
+                                            ProgramCatalog.catEnglish))),
+                            _CourseItem(
+                                loc.navMegaLinkAfterSchool,
+                                loc.landingCourseBlurbAfterSchool,
+                                Icons.school_rounded,
+                                () => Navigator.push(
+                                    context,
+                                    UnifiedProgramsPageRoutes.fade(
+                                        initialCategory:
+                                            ProgramCatalog.catAfterSchool))),
                           ],
                         ),
                       ],
@@ -907,7 +1051,10 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xffe5e7eb)),
         boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 12, offset: const Offset(0, 4)),
+          BoxShadow(
+              color: Colors.black.withValues(alpha: 0.06),
+              blurRadius: 12,
+              offset: const Offset(0, 4)),
         ],
       ),
       child: Column(
@@ -918,23 +1065,25 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             decoration: BoxDecoration(
               color: color,
-              borderRadius: const BorderRadius.only(topLeft: Radius.circular(15), topRight: Radius.circular(15)),
+              borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(15), topRight: Radius.circular(15)),
             ),
             child: Text(
               title,
-              style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white),
+              style: GoogleFonts.inter(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white),
             ),
           ),
-          if (stretchBody)
-            Expanded(child: body)
-          else
-            body,
+          if (stretchBody) Expanded(child: body) else body,
         ],
       ),
     );
   }
 
-  Widget _buildCourseRowTile(_CourseItem item, Color color, {required bool showDivider}) {
+  Widget _buildCourseRowTile(_CourseItem item, Color color,
+      {required bool showDivider}) {
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -983,7 +1132,8 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
                   ],
                 ),
               ),
-              Icon(Icons.chevron_right_rounded, size: 20, color: Colors.grey.shade400),
+              Icon(Icons.chevron_right_rounded,
+                  size: 20, color: Colors.grey.shade400),
             ],
           ),
         ),
@@ -1073,7 +1223,8 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
                       const SizedBox(height: 8),
                       if (trackId != PricingPlanIds.group)
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 6),
                           decoration: BoxDecoration(
                             color: discounted
                                 ? const Color(0xffecfdf3)
@@ -1115,7 +1266,12 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
                       ],
                       const Spacer(),
                       Text(
-                        '${_pricingHoursPerWeek} hrs × ${_fmtUsd(hourly)}/hr × ${trackId == PricingPlanIds.group ? '4.33' : '4'} weeks ≈ \$${monthly.toStringAsFixed(0)}/mo',
+                        loc.publicPricingFormula(
+                          _pricingHoursPerWeek,
+                          _fmtUsd(hourly),
+                          trackId == PricingPlanIds.group ? '4.33' : '4',
+                          '\$${monthly.toStringAsFixed(0)}',
+                        ),
                         style: GoogleFonts.inter(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -1198,10 +1354,10 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
           title: loc.pricingTrackIslamicTitle,
           subtitle: loc.pricingTrackIslamicDesc,
           accent: const Color(0xff2563eb),
-          features: _pricingBullets(PricingPlanIds.islamic, const [
-            '1-on-1 Quran, Arabic, and AdLam',
-            'Flexible weekday scheduling',
-            'Discount at 4+ hours/week',
+          features: _pricingBullets(PricingPlanIds.islamic, [
+            loc.publicPricingIslamicFeatureOne,
+            loc.publicPricingIslamicFeatureTwo,
+            loc.publicPricingDiscountFeature,
           ]),
           cardWidth: cardW,
         ),
@@ -1213,10 +1369,10 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
           title: loc.pricingTrackTutoringTitle,
           subtitle: loc.pricingTrackTutoringDesc,
           accent: const Color(0xff16a34a),
-          features: _pricingBullets(PricingPlanIds.tutoring, const [
-            'Math, science, literacy support',
-            'Personalized one-on-one coaching',
-            'Discount at 4+ hours/week',
+          features: _pricingBullets(PricingPlanIds.tutoring, [
+            loc.publicPricingTutoringFeatureOne,
+            loc.publicPricingTutoringFeatureTwo,
+            loc.publicPricingDiscountFeature,
           ]),
           cardWidth: cardW,
         ),
@@ -1228,10 +1384,10 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
           title: loc.pricingTrackGroupTitle,
           subtitle: loc.pricingTrackGroupDesc,
           accent: const Color(0xff7c3aed),
-          features: _pricingBullets(PricingPlanIds.group, const [
-            'Weekend group classes',
-            'Flat hourly rate',
-            'Community learning setting',
+          features: _pricingBullets(PricingPlanIds.group, [
+            loc.publicPricingGroupFeatureOne,
+            loc.publicPricingGroupFeatureTwo,
+            loc.publicPricingGroupFeatureThree,
           ]),
           cardWidth: cardW,
         ),
@@ -1254,7 +1410,8 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
     return Container(
       key: key,
       width: double.infinity,
-      padding: EdgeInsets.symmetric(horizontal: 24, vertical: isDesktop ? 52 : 44),
+      padding:
+          EdgeInsets.symmetric(horizontal: 24, vertical: isDesktop ? 52 : 44),
       color: const Color(0xFFF7F5F2),
       child: Center(
         child: ConstrainedBox(
@@ -1285,7 +1442,10 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
                   child: Text(
                     loc.landingPricingDescription,
                     textAlign: TextAlign.center,
-                    style: GoogleFonts.inter(fontSize: 16, color: const Color(0xff6b6560), height: 1.6),
+                    style: GoogleFonts.inter(
+                        fontSize: 16,
+                        color: const Color(0xff6b6560),
+                        height: 1.6),
                   ),
                 ),
               ),
@@ -1304,7 +1464,8 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
                     return ChoiceChip(
                       label: Text('$h ${loc.pricingHoursPerWeek}'),
                       selected: selected,
-                      onSelected: (_) => setState(() => _pricingHoursPerWeek = h),
+                      onSelected: (_) =>
+                          setState(() => _pricingHoursPerWeek = h),
                     );
                   }),
                 ),
@@ -1329,42 +1490,58 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
                     Text(
                       loc.landingPaymentPolicyText1,
                       textAlign: TextAlign.center,
-                      style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w700, color: const Color(0xffc62828)),
+                      style: GoogleFonts.inter(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xffc62828)),
                     ),
                     const SizedBox(height: 8),
                     Text(
                       loc.landingPaymentPolicyText2,
                       textAlign: TextAlign.center,
-                      style: GoogleFonts.inter(fontSize: 14, color: const Color(0xff374151), height: 1.5),
+                      style: GoogleFonts.inter(
+                          fontSize: 14,
+                          color: const Color(0xff374151),
+                          height: 1.5),
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 16),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                 decoration: BoxDecoration(
                   color: const Color(0xffdbeafe),
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Text(
                   loc.landingContactInfo,
-                  style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: const Color(0xff1e40af)),
+                  style: GoogleFonts.inter(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xff1e40af)),
                 ),
               ),
               const SizedBox(height: 32),
               SizedBox(
                 width: isDesktop ? 300 : double.infinity,
                 child: ElevatedButton(
-                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ProgramSelectionPage())),
+                  onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const ProgramSelectionPage())),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xff1e88e5),
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
                     elevation: 0,
                   ),
-                  child: Text(loc.landingEnrollNow, style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w600)),
+                  child: Text(loc.landingEnrollNow,
+                      style: GoogleFonts.inter(
+                          fontSize: 16, fontWeight: FontWeight.w600)),
                 ),
               ),
               const SizedBox(height: 14),
@@ -1377,10 +1554,12 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
                     onPressed: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => const TeacherApplicationScreen()),
+                        MaterialPageRoute(
+                            builder: (_) => const TeacherApplicationScreen()),
                       );
                     },
-                    icon: const Icon(Icons.school_outlined, size: 18, color: Color(0xff2563EB)),
+                    icon: const Icon(Icons.school_outlined,
+                        size: 18, color: Color(0xff2563EB)),
                     label: Text(
                       loc.applyToTeach,
                       style: GoogleFonts.inter(
@@ -1395,11 +1574,13 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => const ProgramSelectionPage(initialAdditionalStudents: 1),
+                          builder: (_) => const ProgramSelectionPage(
+                              initialAdditionalStudents: 1),
                         ),
                       );
                     },
-                    icon: const Icon(Icons.groups_2_outlined, size: 18, color: Color(0xff2563EB)),
+                    icon: const Icon(Icons.groups_2_outlined,
+                        size: 18, color: Color(0xff2563EB)),
                     label: Text(
                       loc.landingPricingEnrollMultipleStudents,
                       style: GoogleFonts.inter(
@@ -1420,7 +1601,7 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
 
   Widget _buildEnrollSection({Key? key}) {
     final isDesktop = MediaQuery.of(context).size.width > 1024;
-    
+
     return Container(
       key: key,
       width: double.infinity,
@@ -1470,21 +1651,24 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
-                                      builder: (context) => const ProgramSelectionPage(),
+                                      builder: (context) =>
+                                          const ProgramSelectionPage(),
                                     ),
                                   );
                                 },
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: Colors.white,
                                   foregroundColor: const Color(0xff001E4E),
-                                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 32, vertical: 16),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   elevation: 4,
                                 ),
                                 child: Text(
-                                  AppLocalizations.of(context)!.landingEnrollNow,
+                                  AppLocalizations.of(context)!
+                                      .landingEnrollNow,
                                   style: GoogleFonts.inter(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w600,
@@ -1505,8 +1689,10 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
                                 },
                                 style: OutlinedButton.styleFrom(
                                   foregroundColor: Colors.white,
-                                  side: const BorderSide(color: Colors.white, width: 2),
-                                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                                  side: const BorderSide(
+                                      color: Colors.white, width: 2),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 32, vertical: 16),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12),
                                   ),
@@ -1551,7 +1737,8 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
                               return Container(
                                 color: Colors.white.withOpacity(0.1),
                                 child: const Center(
-                                  child: Icon(Icons.school_rounded, size: 100, color: Colors.white70),
+                                  child: Icon(Icons.school_rounded,
+                                      size: 100, color: Colors.white70),
                                 ),
                               );
                             },
@@ -1595,14 +1782,16 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) => const ProgramSelectionPage(),
+                                  builder: (context) =>
+                                      const ProgramSelectionPage(),
                                 ),
                               );
                             },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.white,
                               foregroundColor: const Color(0xff001E4E),
-                              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 32, vertical: 16),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
@@ -1633,8 +1822,10 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
                             },
                             style: OutlinedButton.styleFrom(
                               foregroundColor: Colors.white,
-                              side: const BorderSide(color: Colors.white, width: 2),
-                              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                              side: const BorderSide(
+                                  color: Colors.white, width: 2),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 32, vertical: 16),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
@@ -1675,7 +1866,8 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
                             return Container(
                               color: Colors.white.withOpacity(0.1),
                               child: const Center(
-                                child: Icon(Icons.school_rounded, size: 80, color: Colors.white70),
+                                child: Icon(Icons.school_rounded,
+                                    size: 80, color: Colors.white70),
                               ),
                             );
                           },
@@ -1691,7 +1883,8 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
 
   Widget _buildAboutUsSection({Key? key}) {
     final isDesktop = MediaQuery.of(context).size.width > 1024;
-    
+    final l = AppLocalizations.of(context)!;
+
     return Container(
       key: key,
       width: double.infinity,
@@ -1706,7 +1899,7 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
             FadeInSlide(
               delay: 0.1,
               child: Text(
-                'About Alluwal Education Hub',
+                l.publicAboutTitle,
                 textAlign: TextAlign.center,
                 style: GoogleFonts.inter(
                   fontSize: isDesktop ? 42 : 32,
@@ -1722,7 +1915,7 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
               child: Container(
                 constraints: const BoxConstraints(maxWidth: 700),
                 child: Text(
-                  'We are fostering a world where diverse knowledge—Islamic, African, and Western—comes together to prepare students for a globalized future.',
+                  l.publicAboutBody,
                   textAlign: TextAlign.center,
                   style: GoogleFonts.inter(
                     fontSize: 18,
@@ -1742,9 +1935,9 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
                           beginOffset: const Offset(-0.2, 0),
                           child: _buildAboutCard(
                             Icons.rocket_launch_rounded,
-                            'Our Mission',
+                            l.publicAboutMissionTitle,
                             const Color(0xff3B82F6),
-                            'To integrate Islamic, African, and Western education, offering a holistic curriculum that prepares students to navigate and succeed in a diverse world.',
+                            l.publicAboutMissionBody,
                           ),
                         ),
                       ),
@@ -1755,9 +1948,9 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
                           beginOffset: const Offset(0.2, 0),
                           child: _buildAboutCard(
                             Icons.visibility_rounded,
-                            'Our Vision',
+                            l.publicAboutVisionTitle,
                             const Color(0xff10B981),
-                            'To create an inclusive, inspiring environment where students are encouraged to become leaders in their communities.',
+                            l.publicAboutVisionBody,
                           ),
                         ),
                       ),
@@ -1769,9 +1962,9 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
                         delay: 0.3,
                         child: _buildAboutCard(
                           Icons.rocket_launch_rounded,
-                          'Our Mission',
+                          l.publicAboutMissionTitle,
                           const Color(0xff3B82F6),
-                          'To integrate Islamic, African, and Western education, offering a holistic curriculum that prepares students to navigate and succeed in a diverse world.',
+                          l.publicAboutMissionBody,
                         ),
                       ),
                       const SizedBox(height: 24),
@@ -1779,9 +1972,9 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
                         delay: 0.4,
                         child: _buildAboutCard(
                           Icons.visibility_rounded,
-                          'Our Vision',
+                          l.publicAboutVisionTitle,
                           const Color(0xff10B981),
-                          'To create an inclusive, inspiring environment where students are encouraged to become leaders in their communities.',
+                          l.publicAboutVisionBody,
                         ),
                       ),
                     ],
@@ -1801,14 +1994,15 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xff001E4E),
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
                   elevation: 4,
                 ),
                 child: Text(
-                  'Learn More About Us',
+                  l.publicAboutLearnMore,
                   style: GoogleFonts.inter(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -1822,7 +2016,8 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
     );
   }
 
-  Widget _buildAboutCard(IconData icon, String title, Color color, String description) {
+  Widget _buildAboutCard(
+      IconData icon, String title, Color color, String description) {
     return Container(
       padding: const EdgeInsets.all(32),
       decoration: BoxDecoration(
@@ -1879,7 +2074,7 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
       color: const Color(0xff111827),
       child: Center(
         child: Text(
-          '© 2024 Alluwal Education Hub',
+          AppLocalizations.of(context)!.publicCopyright,
           style: GoogleFonts.inter(color: Colors.white54),
         ),
       ),
@@ -1937,6 +2132,7 @@ class _CourseItem {
 class _TextCategoryLink extends StatefulWidget {
   final String label;
   final CategoryType categoryType;
+
   /// Base text color when not hovered (hero uses CMS-driven contrast).
   final Color idleTextColor;
 
@@ -1954,21 +2150,22 @@ class _TextCategoryLinkState extends State<_TextCategoryLink> {
   bool _isHovered = false;
 
   String _getTooltipMessage(CategoryType categoryType) {
+    final l = AppLocalizations.of(context)!;
     switch (categoryType) {
       case CategoryType.islamicStudies:
-        return 'Quran, Hadith, Arabic, Tawhid, Tafsir & more';
+        return l.publicTooltipIslamic;
       case CategoryType.languages:
-        return 'English, French & African languages (Yoruba, Hausa, Swahili, Adlam, Wolof, Amharic) - Authentic instruction from native speakers';
+        return l.publicTooltipLanguages;
       case CategoryType.adultLiteracy:
-        return 'English learning for adults - Reading, writing & speaking for everyday and professional use';
+        return l.publicTooltipAdultLiteracy;
       case CategoryType.afterSchoolTutoring:
-        return 'Math, Science, Programming, History & English support for students';
+        return l.publicTooltipAfterSchool;
       case CategoryType.math:
-        return 'Math support for students - From elementary to advanced calculus';
+        return l.publicTooltipMath;
       case CategoryType.programming:
-        return 'Programming for students - Web, mobile & software development';
+        return l.publicTooltipProgramming;
       case CategoryType.english:
-        return 'English support for students - Part of After School Tutoring';
+        return l.publicTooltipEnglish;
       case CategoryType.general:
         return '';
     }
@@ -2043,7 +2240,8 @@ class _TextCategoryLinkState extends State<_TextCategoryLink> {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => ProgramSelectionPage(initialSubject: widget.label),
+                  builder: (context) =>
+                      ProgramSelectionPage(initialSubject: widget.label),
                 ),
               );
               break;
@@ -2056,8 +2254,11 @@ class _TextCategoryLinkState extends State<_TextCategoryLink> {
             style: GoogleFonts.inter(
               fontSize: 16,
               fontWeight: FontWeight.w600,
-              color: _isHovered ? const Color(0xff3B82F6) : Colors.white, // Blue on hover, white otherwise
-              decoration: _isHovered ? TextDecoration.underline : TextDecoration.none,
+              color: _isHovered
+                  ? const Color(0xff3B82F6)
+                  : Colors.white, // Blue on hover, white otherwise
+              decoration:
+                  _isHovered ? TextDecoration.underline : TextDecoration.none,
               decorationColor: const Color(0xff3B82F6),
             ),
           ),

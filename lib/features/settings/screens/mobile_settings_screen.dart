@@ -17,6 +17,7 @@ import 'notification_preferences_screen.dart';
 import '../../shift_management/screens/mobile_classes_access_screen.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+import 'package:alluwalacademyadmin/core/utils/post_sign_out.dart';
 
 class MobileSettingsScreen extends StatefulWidget {
   const MobileSettingsScreen({super.key});
@@ -1553,7 +1554,7 @@ class _MobileSettingsScreenState extends State<MobileSettingsScreen> {
     if (confirmed == true) {
       await FirebaseAuth.instance.signOut();
       if (mounted) {
-        Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+        await leaveToPublicSiteAfterSignOut(context);
       }
     }
   }

@@ -328,6 +328,22 @@ class ClassVideoService {
     }
   }
 
+  /// Records the signed-in participant's presence for [shiftId] as they join,
+  /// stay in ([event] == 'heartbeat'), and leave a class. The join is already
+  /// captured server-side by getZoomJoinInfo; the classroom sends heartbeats
+  /// and a leave so the duration and exact exit time are accurate. Best-effort:
+  /// it never throws and never blocks the class.
+  static Future<void> recordClassPresence(String shiftId, String event) async {
+    final id = shiftId.trim();
+    if (id.isEmpty || _auth.currentUser == null) return;
+    try {
+      final callable = _functions.httpsCallable('recordClassPresence');
+      await callable.call({'shiftId': id, 'event': event});
+    } catch (e) {
+      AppLogger.error('ClassVideoService: recordClassPresence($event) error: $e');
+    }
+  }
+
   static Future<ClassVideoJoinResult> getGuestJoinToken(
     String shiftId, {
     String? displayName,
@@ -583,6 +599,7 @@ class ClassVideoService {
         await Navigator.of(context).push(
           MaterialPageRoute(
             builder: (_) => ZoomMeetingScreen(
+              shiftId: shift.id,
               sdkKey: joinInfo.sdkKey!,
               signature: joinInfo.signature!,
               meetingNumber: joinInfo.meetingNumber!,

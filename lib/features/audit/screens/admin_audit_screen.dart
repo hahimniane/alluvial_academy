@@ -14,6 +14,7 @@ import '../../forms/services/form_labels_cache_service.dart';
 import '../services/audit_performance_optimizer.dart';
 import '../services/advanced_excel_export_service.dart';
 import '../../../core/utils/app_logger.dart';
+import '../../../core/utils/app_search.dart';
 import '../../shift_management/widgets/shift_details_dialog.dart';
 import '../../forms/widgets/form_details_modal.dart';
 import 'admin_audit_review_screen.dart';
@@ -82,6 +83,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen>
   // Admin audit view
   String _viewMode = 'teachers'; // 'teachers' | 'admins'
   List<AdminAudit> _adminAudits = [];
+  Map<String, Map<String, dynamic>> _teacherSearchData = {};
   String? _selectedAdminAuditId;
   bool _isLoadingAdminAudits = false;
 
@@ -115,7 +117,21 @@ class _AdminAuditScreenState extends State<AdminAuditScreen>
       vsync: this,
       duration: const Duration(milliseconds: 800),
     );
+    unawaited(_loadTeacherSearchData());
     _loadAudits();
+  }
+
+  Future<void> _loadTeacherSearchData() async {
+    try {
+      final teachers = await OptimizedTeacherLoader.loadTeachers();
+      if (!mounted) return;
+      setState(() {
+        _teacherSearchData = {
+          for (final teacher in teachers)
+            (teacher['id'] ?? '').toString(): teacher,
+        }..remove('');
+      });
+    } catch (_) {}
   }
 
   @override
@@ -283,9 +299,17 @@ class _AdminAuditScreenState extends State<AdminAuditScreen>
         return false;
       // Search filter
       if (_searchQuery.isNotEmpty) {
-        final query = _searchQuery.toLowerCase();
-        if (!audit.teacherName.toLowerCase().contains(query) &&
-            !audit.teacherEmail.toLowerCase().contains(query)) {
+        final personData = <String, dynamic>{
+          ...?_teacherSearchData[audit.oderId],
+          'name': audit.teacherName,
+          'email': audit.teacherEmail,
+          'userId': audit.oderId,
+        };
+        if (!AppSearch.matchesMap(
+          query: _searchQuery,
+          data: personData,
+          documentId: audit.id,
+        )) {
           return false;
         }
       }
@@ -838,14 +862,14 @@ class _AdminAuditScreenState extends State<AdminAuditScreen>
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) {
-          final query = generateDialogSearchQuery.toLowerCase();
-          final filteredTeachers = query.isEmpty
+          final filteredTeachers = generateDialogSearchQuery.isEmpty
               ? teachers
-              : teachers.where((t) {
-                  final name = (t['name'] as String? ?? '').toLowerCase();
-                  final email = (t['email'] as String? ?? '').toLowerCase();
-                  return name.contains(query) || email.contains(query);
-                }).toList();
+              : teachers
+                  .where((teacher) => AppSearch.matchesMap(
+                        query: generateDialogSearchQuery,
+                        data: teacher,
+                      ))
+                  .toList();
           return AnimatedContainer(
             duration: const Duration(milliseconds: 200),
             child: AlertDialog(
@@ -1635,7 +1659,10 @@ class _AdminAuditScreenState extends State<AdminAuditScreen>
                     context,
                     MaterialPageRoute(
                         builder: (_) =>
-                            AdminAuditReviewScreen(audits: _filteredAudits)),
+                            AdminAuditReviewScreen(
+                              audits: _filteredAudits,
+                              teacherSearchData: _teacherSearchData,
+                            )),
                   ).then((_) {
                     if (mounted) _loadAudits(force: true);
                   });

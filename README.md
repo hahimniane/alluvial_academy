@@ -1,4 +1,4 @@
-# Alluvial Academy (Alluwal Education Hub)
+# Alluwal Education Hub (Alluwal Education Hub)
 
 An online Islamic education platform where teachers give live classes to students, and admins manage everything — scheduling, attendance, forms, payments, and more. Built with Flutter (frontend) and Firebase (backend). Runs on web, Android, and iOS.
 

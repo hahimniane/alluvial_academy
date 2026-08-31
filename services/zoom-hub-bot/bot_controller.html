@@ -118,6 +118,11 @@
       let consecutiveHealFailures = 0;
       const healFailuresBeforeReset = 2;
       let resetRequested = false;
+      const assignedNotJoinedByParticipant = new Map();
+      const assignedNotJoinedThresholdMs = 20000;
+      let assignedNotJoinedRepairAttempts = 0;
+      const controllerVersion = '2026-07-22-assigned-arrival-v1';
+      console.log('Controller version', controllerVersion);
 
       function setStatus(message) {
         if (statusEl) statusEl.textContent = message;
@@ -186,6 +191,7 @@
           boIdByRoomName: lastBoIdByRoomName,
           stats: {
             lane: config.lane,
+            controllerVersion,
             roomCount: config.rooms.length,
             roomsOpened,
             joined,
@@ -265,6 +271,66 @@
         }
         const name = routing.normalizeRoomName(routing.zoomDisplayName(participant));
         return name.indexOf('hub bot') !== -1 || name.indexOf('alluwal hub') !== -1;
+      }
+
+      function participantRoutingKey(participant) {
+        const userId = routing.zoomUserId(participant);
+        if (userId === null || userId === undefined || userId === '') return '';
+        return String(userId);
+      }
+
+      function actionRoutingKey(action) {
+        const userId = action?.userId;
+        if (userId === null || userId === undefined || userId === '') return '';
+        return String(userId);
+      }
+
+      function trackAssignedNotJoined(actions, zoomState, now) {
+        const breakoutUnassignedKeys = new Set(
+          (zoomState.breakoutUnassigned || [])
+            .filter((participant) => !participantIsHubBot(participant))
+            .map(participantRoutingKey)
+            .filter(Boolean),
+        );
+        const currentKeys = new Set();
+        for (const action of actions) {
+          if (action.action !== 'assign') continue;
+          const key = actionRoutingKey(action);
+          if (!key || !breakoutUnassignedKeys.has(key)) continue;
+          currentKeys.add(key);
+          if (!assignedNotJoinedByParticipant.has(key)) {
+            assignedNotJoinedByParticipant.set(key, { since: now, repairAttempts: 0 });
+          }
+        }
+        for (const key of assignedNotJoinedByParticipant.keys()) {
+          if (!currentKeys.has(key)) assignedNotJoinedByParticipant.delete(key);
+        }
+        if (currentKeys.size === 0) assignedNotJoinedRepairAttempts = 0;
+        const waits = Array.from(assignedNotJoinedByParticipant.values());
+        return {
+          count: waits.length,
+          oldestMs: waits.length > 0
+            ? Math.max(...waits.map((wait) => Math.max(0, now - wait.since)))
+            : 0,
+        };
+      }
+
+      async function requestAssignedNotJoinedReset({ zoomState, liveRoomCount, assignedNotJoined }) {
+        if (resetRequested) return;
+        resetRequested = true;
+        console.error(
+          `Self-heal exhausted: ${assignedNotJoined.count} assigned participant(s) still did not enter; requesting a clean meeting`,
+        );
+        await postState('resetMeeting', {
+          stats: {
+            liveRoomCount,
+            inRoomOccupants: 0,
+            breakoutUnassignedCount: (zoomState.breakoutUnassigned || []).length,
+            assignedNotJoinedCount: assignedNotJoined.count,
+            oldestAssignedNotJoinedMs: assignedNotJoined.oldestMs,
+          },
+        }).catch((error) => console.warn('assigned-not-joined resetMeeting request failed', error));
+        triggerRejoin('assigned_not_joined');
       }
 
       function memberAliases(member) {
@@ -521,10 +587,6 @@
         return null;
       }
 
-      function isAlreadyStartedError(error) {
-        return /breakout room has started/i.test(JSON.stringify(error || {}));
-      }
-
       const desiredRoomOptions = {
         isAutoJoinRoom: true,
         isBackToMainSessionEnabled: false,
@@ -690,7 +752,6 @@
             break;
           }
 
-          let learnedRoomsStarted = false;
           if (missingRooms.length > 0) {
             try {
               setStatus(`Creating ${missingRooms.length} breakout rooms`);
@@ -706,7 +767,6 @@
               }));
             } catch (error) {
               if (!isInvalidOperation(error)) throw error;
-              learnedRoomsStarted = learnedRoomsStarted || isAlreadyStartedError(error);
               console.warn('Room creation rejected; continuing to open step', error);
             }
             breakoutState = await getBreakoutState({ primeIfEmpty: true, reason: 'after_create' });
@@ -718,15 +778,15 @@
             console.log('Open breakout rooms payload', JSON.stringify(openPayload));
           } catch (error) {
             if (!isInvalidOperation(error)) throw error;
-            learnedRoomsStarted = learnedRoomsStarted || isAlreadyStartedError(error);
             console.warn('Rooms already open', error);
           }
           await sleep(1500);
           breakoutState = await getBreakoutState({ primeIfEmpty: true, reason: 'after_open' });
 
-          // Status probe said "not started" but Zoom's errors say otherwise:
-          // rooms are open, options may be stale — verify once and retry.
-          if (learnedRoomsStarted && attempt === 0 && await closeRoomsIfStale(breakoutState)) {
+          // A successful open response does not prove Zoom applied auto-join.
+          // Verify the effective options after every first open, including a
+          // fresh meeting, and close+reopen once if Zoom froze stale options.
+          if (attempt === 0 && await closeRoomsIfStale(breakoutState)) {
             breakoutState = await getBreakoutState();
             continue;
           }
@@ -824,6 +884,50 @@
         }
         const actions = routing.whoNeedsToMoveWhere(assignments, zoomState);
         const now = Date.now();
+        const assignedNotJoined = trackAssignedNotJoined(actions, zoomState, now);
+        if (
+          assignedNotJoined.count > 0 &&
+          assignedNotJoined.oldestMs >= assignedNotJoinedThresholdMs
+        ) {
+          const inRoom = inRoomParticipantCount(zoomState);
+          if (inRoom === 0 && lastKnownInRoomCount === 0) {
+            if (assignedNotJoinedRepairAttempts === 0) {
+              assignedNotJoinedRepairAttempts = 1;
+              for (const wait of assignedNotJoinedByParticipant.values()) {
+                wait.since = now;
+                wait.repairAttempts += 1;
+              }
+              console.warn(
+                `Self-heal: ${assignedNotJoined.count} assigned participant(s) did not enter a room; reopening breakout rooms`,
+              );
+              await zoomCall('closeBreakoutRooms')
+                .catch((error) => console.warn('assigned-not-joined closeBreakoutRooms failed', error));
+              const roomsClosed = await waitForRoomsClosed(15000);
+              if (!roomsClosed) {
+                console.error('Assigned-not-joined repair could not close rooms; replacing the empty meeting');
+                await requestAssignedNotJoinedReset({
+                  zoomState,
+                  liveRoomCount,
+                  assignedNotJoined,
+                });
+                return;
+              }
+              await ensureRoomsOpen()
+                .catch((error) => console.warn('assigned-not-joined ensureRoomsOpen failed', error));
+              return;
+            }
+            await requestAssignedNotJoinedReset({
+              zoomState,
+              liveRoomCount,
+              assignedNotJoined,
+            });
+            return;
+          } else {
+            console.error(
+              `Assigned participants are not entering rooms, but ${Math.max(inRoom, lastKnownInRoomCount)} participant(s) are already inside; refusing to reset`,
+            );
+          }
+        }
         if (now - lastRoutingSnapshotLogAt > 15000 || actions.length > 0) {
           lastRoutingSnapshotLogAt = now;
           console.log('Routing snapshot', JSON.stringify({
@@ -872,6 +976,13 @@
           liveParticipantsByShift: buildLiveParticipantsByShift(assignments, zoomState),
           stats: {
             routedCount: actions.length,
+            routeAttemptCount: actions.length,
+            confirmedInRoomCount: inRoomParticipantCount(zoomState),
+            breakoutUnassignedCount: (zoomState.breakoutUnassigned || []).filter(
+              (participant) => !participantIsHubBot(participant),
+            ).length,
+            assignedNotJoinedCount: assignedNotJoined.count,
+            oldestAssignedNotJoinedMs: assignedNotJoined.oldestMs,
             attendeeCount: zoomState.unassigned.length + zoomState.rooms.reduce((sum, room) => (
               sum + routing.roomParticipants(room).length
             ), 0),

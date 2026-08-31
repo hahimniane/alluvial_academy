@@ -57,6 +57,8 @@
 	<string>This app needs your location to verify your clock-in and clock-out position for accurate timesheet tracking.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>This app uses your microphone for audio during video meetings.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Speech recognition follows your Quran recitation live and highlights each word as you recite.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>This app may save photos you capture so you keep a copy of attachments you take.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

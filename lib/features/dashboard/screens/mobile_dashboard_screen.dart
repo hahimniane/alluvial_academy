@@ -13,16 +13,20 @@ import './admin_dashboard_screen.dart';
 import '../../tasks/screens/quick_tasks_screen.dart';
 import '../../shift_management/screens/teacher_shift_screen.dart';
 import '../../forms/screens/teacher_forms_screen.dart';
+import '../../forms/screens/parent_forms_screen.dart';
 import 'package:alluwalacademyadmin/features/profile/services/profile_picture_service.dart';
 import '../../settings/screens/mobile_settings_screen.dart';
 import '../../notifications/screens/mobile_notification_screen.dart';
 import '../../user_management/screens/mobile_user_management_screen.dart';
+import '../../audit/screens/decision_history_screen.dart';
 import './teacher_home_screen.dart'; // Import the new TeacherHomeScreen
 // import './teacher_mobile_home.dart'; // Remove the old one
 import './teacher_job_board_screen.dart';
 import '../../profile/screens/teacher_profile_screen.dart';
 import '../../student/screens/student_classes_screen.dart'; // Student classes screen
 import '../../student/screens/student_progress_screen.dart'; // Student progress screen
+import '../../quran_reader/screens/quran_reader_screen.dart'; // Quran reader + memorization + recitation check
+import '../../quiz/screens/bayanah_play_screen.dart'; // Bayanah live game (students)
 import '../../shift_management/screens/admin_classes_screen.dart'; // Admin classes screen
 import '../../parent/screens/parent_classes_screen.dart';
 import '../../recordings/screens/class_recordings_screen.dart';
@@ -41,6 +45,7 @@ import '../../onboarding/screens/student_welcome_screen.dart';
 import '../../onboarding/services/student_feature_tour.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+import 'package:alluwalacademyadmin/core/utils/post_sign_out.dart';
 
 /// Navigation item data
 class _NavItemData {
@@ -564,18 +569,18 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
         ];
       }
 
-      final studentScreens = <Widget>[
+      return <Widget>[
         const StudentClassesScreen(),
+        const QuranReaderScreen(),
         const QuizHomeScreen(),
+        const BayanahPlayScreen(),
         const ChatPage(),
-        const QuickTasksScreen(),
-        const StudentProgressScreen(),
-        const CurriculumBooksScreen(),
+        _StudentMoreScreen(
+          onNavigate: _navigateToStudentFeature,
+          tontineEnabled: _tontineEnabled,
+          showTasks: true,
+        ),
       ];
-      if (_tontineEnabled) {
-        studentScreens.add(const TontineHomeScreen());
-      }
-      return studentScreens;
     }
 
     // Parents get basic features
@@ -583,6 +588,7 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
       const AdminDashboard(refreshTrigger: 0),
       const ParentClassesScreen(),
       const ChatPage(),
+      const ParentFormsScreen(),
       const QuickTasksScreen(),
       const CurriculumBooksScreen(),
       if (_tontineEnabled) const TontineHomeScreen(),
@@ -641,20 +647,16 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
         ];
       }
 
-      final items = [
+      // Five destinations plus More: Tasks, Progress, Books and Circles live in
+      // the More grid, the same pattern teachers and admins use.
+      return [
         _NavItemData(Icons.school_rounded, l10n.navClasses, 0),
-        _NavItemData(Icons.quiz_rounded, l10n.navQuiz, 1),
-        _NavItemData(Icons.chat_bubble_rounded, l10n.navChat, 2, isChat: true),
-        _NavItemData(Icons.task_alt_rounded, l10n.navTasks, 3),
-        _NavItemData(Icons.insights_rounded, l10n.progress, 4),
-        _NavItemData(Icons.menu_book_rounded, 'Books', 5),
+        _NavItemData(Icons.auto_stories_rounded, 'Quran', 1),
+        _NavItemData(Icons.quiz_rounded, l10n.navQuiz, 2),
+        _NavItemData(Icons.emoji_events_rounded, 'Bayanah', 3),
+        _NavItemData(Icons.chat_bubble_rounded, l10n.navChat, 4, isChat: true),
+        _NavItemData(Icons.grid_view_rounded, 'More', 5),
       ];
-      if (_tontineEnabled) {
-        items.add(
-          _NavItemData(Icons.groups_rounded, l10n.tontineCircles, items.length),
-        );
-      }
-      return items;
     }
 
     // Parents get basic features
@@ -662,11 +664,12 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
       _NavItemData(Icons.home_rounded, l10n.navHome, 0),
       _NavItemData(Icons.school_rounded, l10n.navClasses, 1),
       _NavItemData(Icons.chat_bubble_rounded, l10n.navChat, 2, isChat: true),
-      _NavItemData(Icons.task_alt_rounded, l10n.navTasks, 3),
-      _NavItemData(Icons.menu_book_rounded, 'Books', 4),
+      _NavItemData(Icons.description_rounded, l10n.navForms, 3),
+      _NavItemData(Icons.task_alt_rounded, l10n.navTasks, 4),
+      _NavItemData(Icons.menu_book_rounded, 'Books', 5),
     ];
     if (_tontineEnabled) {
-      items.add(_NavItemData(Icons.groups_rounded, l10n.tontineCircles, 5));
+      items.add(_NavItemData(Icons.groups_rounded, l10n.tontineCircles, 6));
     }
     return items;
   }
@@ -744,7 +747,7 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
       await FirebaseAuth.instance.signOut();
       if (mounted) {
         // Navigate to root and clear all routes - AuthenticationWrapper will show login
-        Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+        await leaveToPublicSiteAfterSignOut(context);
       }
     }
   }
@@ -1316,6 +1319,12 @@ class _AdminMoreScreen extends StatelessWidget {
         screen: const MobileUserManagementScreen(),
       ),
       _MoreItem(
+        icon: Icons.fact_check_outlined,
+        label: l10n.decisionHistory,
+        color: const Color(0xff4F46E5),
+        screen: const DecisionHistoryScreen(),
+      ),
+      _MoreItem(
         icon: Icons.menu_book_rounded,
         label: 'Books',
         color: const Color(0xff10B981),
@@ -1408,10 +1417,14 @@ class _AdminMoreScreen extends StatelessWidget {
 class _StudentMoreScreen extends StatelessWidget {
   final void Function(Widget screen) onNavigate;
   final bool tontineEnabled;
+  /// Regular students reach Tasks from here; adult students already have it as
+  /// a tab, so it would be a duplicate for them.
+  final bool showTasks;
 
   const _StudentMoreScreen({
     required this.onNavigate,
     required this.tontineEnabled,
+    this.showTasks = false,
   });
 
   @override
@@ -1420,11 +1433,30 @@ class _StudentMoreScreen extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final items = <_MoreItem>[
+      if (showTasks)
+        _MoreItem(
+          icon: Icons.task_alt_rounded,
+          label: l10n.navTasks,
+          color: const Color(0xffF59E0B),
+          screen: const QuickTasksScreen(),
+        ),
+      _MoreItem(
+        icon: Icons.auto_stories_rounded,
+        label: 'Quran',
+        color: const Color(0xff0E7490),
+        screen: const QuranReaderScreen(),
+      ),
       _MoreItem(
         icon: Icons.quiz_rounded,
         label: l10n.navQuiz,
         color: const Color(0xff8B5CF6),
         screen: const QuizHomeScreen(),
+      ),
+      _MoreItem(
+        icon: Icons.emoji_events_rounded,
+        label: 'Bayanah Live',
+        color: const Color(0xffE21B3C),
+        screen: const BayanahPlayScreen(),
       ),
       _MoreItem(
         icon: Icons.insights_rounded,

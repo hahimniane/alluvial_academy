@@ -86,6 +86,8 @@
 	<string>This app may save photos you capture so you keep a copy of attachments you take.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>This app needs access to your photo library so you can attach images to tasks and messages.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Speech recognition follows your Quran recitation live and highlights each word as you recite.</string>
 	<key>NSUserNotificationsUsageDescription</key>
 	<string>This app needs to send you notifications about important updates, schedules, and messages.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>

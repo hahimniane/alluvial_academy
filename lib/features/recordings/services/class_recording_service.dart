@@ -3,6 +3,20 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:alluwalacademyadmin/core/services/user_role_service.dart';
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 
+class ClassRecordingUserSearchData {
+  final String id;
+  final String name;
+  final String email;
+  final String phone;
+
+  const ClassRecordingUserSearchData({
+    required this.id,
+    required this.name,
+    required this.email,
+    required this.phone,
+  });
+}
+
 class ClassRecordingItem {
   final String recordingId;
   final String? shiftId;
@@ -254,7 +268,8 @@ class ClassRecordingService {
     }
   }
 
-  static Future<Map<String, String>> getUserNamesByIds(
+  static Future<Map<String, ClassRecordingUserSearchData>>
+      getUserSearchDataByIds(
     Iterable<String> userIds,
   ) async {
     final ids = userIds
@@ -264,7 +279,7 @@ class ClassRecordingService {
         .toList();
     if (ids.isEmpty) return const {};
 
-    final resolved = <String, String>{};
+    final resolved = <String, ClassRecordingUserSearchData>{};
     const chunkSize = 10;
     final usersRef = FirebaseFirestore.instance.collection('users');
 
@@ -307,12 +322,23 @@ class ClassRecordingService {
           final data = doc.data();
           final name = resolveName(doc.id, data);
           for (final alias in extractAliases(doc.id, data)) {
-            resolved[alias] = name;
+            resolved[alias] = ClassRecordingUserSearchData(
+              id: alias,
+              name: name,
+              email: (data['e-mail'] ?? data['email'] ?? '').toString(),
+              phone: (data['phone_number'] ??
+                      data['phoneNumber'] ??
+                      data['mobile_phone'] ??
+                      data['mobilePhone'] ??
+                      data['phone'] ??
+                      '')
+                  .toString(),
+            );
           }
         }
       }
     } catch (e) {
-      AppLogger.error('ClassRecordingService.getUserNamesByIds: $e');
+      AppLogger.error('ClassRecordingService.getUserSearchDataByIds: $e');
     }
 
     return resolved;

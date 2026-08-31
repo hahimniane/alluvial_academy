@@ -157,8 +157,10 @@ class _ParentProfileScreenState extends State<ParentProfileScreen> {
           ),
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
+      body: ScrollNotificationObserver(
+        child: SelectionArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
         child: Form(
           key: _formKey,
           child: Column(
@@ -317,6 +319,8 @@ class _ParentProfileScreenState extends State<ParentProfileScreen> {
             ],
           ),
         ),
+          ),
+        ),
       ),
     );
   }
@@ -382,4 +386,3 @@ class _ParentProfileScreenState extends State<ParentProfileScreen> {
     );
   }
 }
-

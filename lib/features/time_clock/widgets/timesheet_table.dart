@@ -12,6 +12,7 @@ import 'package:alluwalacademyadmin/features/shift_management/services/location_
 import 'package:alluwalacademyadmin/core/utils/export_helpers.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+import 'package:alluwalacademyadmin/core/utils/app_search.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class TimesheetTable extends StatefulWidget {
@@ -247,7 +248,8 @@ class _TimesheetTableState extends State<TimesheetTable>
                     // Use window.location.reload() via JS interop
                     try {
                       // Simple refresh without JS interop
-                      Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+                      Navigator.of(context)
+                          .pushNamedAndRemoveUntil('/', (route) => false);
                     } catch (_) {}
                   }
                 },
@@ -1699,9 +1701,16 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
             'id': doc.id,
             'name':
                 '${data['first_name'] ?? ''} ${data['last_name'] ?? ''}'.trim(),
-            'email': data['e-mail'] ?? '',
+            'email': data['e-mail'] ?? data['email'] ?? '',
+            'phone': data['phone_number'] ??
+                data['phoneNumber'] ??
+                data['mobile_phone'] ??
+                data['mobilePhone'] ??
+                data['phone'] ??
+                '',
             'grade': data['grade'] ?? '',
             'kiosk_code': data['kiosk_code'] ?? '',
+            'student_code': data['student_code'] ?? data['studentCode'] ?? '',
           };
         }).toList();
 
@@ -1753,18 +1762,13 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
       if (query.isEmpty) {
         _filteredStudents = List.from(_students);
       } else {
-        _filteredStudents = _students.where((student) {
-          final name = student['name'].toLowerCase();
-          final email = student['email'].toLowerCase();
-          final grade = student['grade'].toString().toLowerCase();
-          final kioskCode = student['kiosk_code'].toString().toLowerCase();
-          final searchLower = query.toLowerCase();
-
-          return name.contains(searchLower) ||
-              email.contains(searchLower) ||
-              grade.contains(searchLower) ||
-              kioskCode.contains(searchLower);
-        }).toList();
+        _filteredStudents = _students
+            .where((student) => AppSearch.matchesMap(
+                  query: query,
+                  data: student,
+                  additionalValues: [(student['grade'] ?? '').toString()],
+                ))
+            .toList();
       }
     });
   }

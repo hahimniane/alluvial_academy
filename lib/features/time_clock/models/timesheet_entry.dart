@@ -15,6 +15,8 @@ class TimesheetEntry {
   // Additional fields for admin review
   final String teacherId;
   final String teacherName;
+  final String teacherEmail;
+  final String teacherPhone;
   final double hourlyRate;
   final Timestamp? createdAt;
   final Timestamp? submittedAt;
@@ -81,6 +83,8 @@ class TimesheetEntry {
     required this.status,
     this.teacherId = '',
     this.teacherName = '',
+    this.teacherEmail = '',
+    this.teacherPhone = '',
     this.hourlyRate = 4.0,
     this.createdAt,
     this.submittedAt,

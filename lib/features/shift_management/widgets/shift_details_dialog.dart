@@ -17,6 +17,7 @@ import '../../forms/services/form_template_service.dart';
 import '../../../core/services/user_role_service.dart';
 import '../../../core/utils/timezone_utils.dart';
 import '../../../core/utils/app_logger.dart';
+import '../../../core/utils/app_search.dart';
 import '../../forms/screens/form_screen.dart';
 import '../../time_clock/widgets/edit_timesheet_dialog.dart';
 import 'report_schedule_issue_dialog.dart';
@@ -26,6 +27,8 @@ import 'package:flutter/foundation.dart';
 import '../../../core/services/class_video_service.dart';
 import '../services/mobile_classes_access_service.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/core/models/decision_audit_event.dart';
+import 'package:alluwalacademyadmin/core/widgets/decision_history_card.dart';
 
 class ShiftDetailsDialog extends StatefulWidget {
   final TeachingShift shift;
@@ -1390,7 +1393,15 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
             'id': doc.id,
             'name':
                 '${data['first_name'] ?? ''} ${data['last_name'] ?? ''}'.trim(),
-            'email': data['e-mail'] ?? '',
+            'email': data['e-mail'] ?? data['email'] ?? '',
+            'phone': data['phone_number'] ??
+                data['phoneNumber'] ??
+                data['mobile_phone'] ??
+                data['mobilePhone'] ??
+                data['phone'] ??
+                '',
+            'studentCode': data['student_code'] ?? data['studentCode'] ?? '',
+            'kioskCode': data['kiosk_code'] ?? data['kioskCode'] ?? '',
             'timezone': data['timezone'] ?? 'UTC',
           };
         })
@@ -1411,10 +1422,10 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
           builder: (context, setDialogState) {
             final filtered = teachers.where((t) {
               if (searchQuery.isEmpty) return true;
-              final name = (t['name'] as String).toLowerCase();
-              final email = (t['email'] as String).toLowerCase();
-              return name.contains(searchQuery.toLowerCase()) ||
-                  email.contains(searchQuery.toLowerCase());
+              return AppSearch.matchesMap(
+                query: searchQuery,
+                data: t,
+              );
             }).toList();
 
             return AlertDialog(
@@ -1644,6 +1655,22 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
                           _buildApprovalStatusSection(),
                           const SizedBox(height: 20),
                           _buildModificationHistorySection(),
+                          const SizedBox(height: 20),
+                          DecisionHistoryCard(
+                            entityType: 'shift',
+                            entityId: widget.shift.id,
+                            entityLabel: widget.shift.displayName,
+                            fallbackEvents: [
+                              if (widget.shift.createdByAdminId.isNotEmpty)
+                                DecisionAuditFallback(
+                                  action: 'shift.created',
+                                  actorUid: widget.shift.createdByAdminId,
+                                  actorName: widget.shift.createdByName,
+                                  actorEmail: widget.shift.createdByEmail,
+                                  occurredAt: widget.shift.createdAt,
+                                ),
+                            ],
+                          ),
                           const SizedBox(height: 20),
                           _buildFormSection(),
                         ],

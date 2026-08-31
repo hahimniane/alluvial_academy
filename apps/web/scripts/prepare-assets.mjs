@@ -29,6 +29,13 @@ await Promise.all([
     join(repoRoot, "assets", "background_images"),
     join(assetsDir, "background_images"),
   ),
+  // Quiz question banks. Shared with the Flutter app, which loads the same
+  // JSON files as bundled assets; the student quiz fetches them from
+  // /assets/quizzes/ so both clients ask the same questions.
+  copyFileOrDir(
+    join(repoRoot, "assets", "quizzes"),
+    join(assetsDir, "quizzes"),
+  ),
   copyFileOrDir(
     join(repoRoot, "assets", "teachers"),
     join(assetsDir, "teachers"),
@@ -44,6 +51,7 @@ await Promise.all([
   copyFileOrDir(join(repoRoot, "web", "favicon.png"), join(publicDir, "favicon.png")),
   copyFileOrDir(join(repoRoot, "web", "logo-192.png"), join(publicDir, "logo-192.png")),
   copyFileOrDir(join(repoRoot, "web", "logo-512.png"), join(publicDir, "logo-512.png")),
+  copyFileOrDir(join(repoRoot, "web", "zoom_meeting.html"), join(publicDir, "zoom_meeting.html")),
 ]);
 
 console.log("Prepared Next.js public assets.");

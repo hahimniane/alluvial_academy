@@ -5,7 +5,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/services/user_role_service.dart';
-import 'package:alluwalacademyadmin/features/forms/screens/form_screen.dart';
+import '../../chat/screens/chat_page.dart';
+import '../../forms/screens/parent_forms_screen.dart';
 import '../../website/screens/landing_page.dart';
 import '../../dashboard/widgets/custom_sidebar.dart';
 import 'parent_dashboard_screen.dart';
@@ -19,6 +20,7 @@ import '../../settings/screens/role_settings_screen.dart';
 import '../../tontine/screens/tontine_home_screen.dart';
 import 'package:alluwalacademyadmin/core/widgets/role_switcher.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/core/utils/post_sign_out.dart';
 
 /// Parent Dashboard Layout with sidebar navigation
 class ParentDashboardLayout extends StatefulWidget {
@@ -34,8 +36,7 @@ class _ParentDashboardLayoutState extends State<ParentDashboardLayout> {
   bool _isSideMenuCollapsed = false;
   int _selectedIndex = 0;
   String? _userRole;
-  static const int _screenCount =
-      10; // Dashboard, Invoices, Payments, Forms, Profile, Settings, Classes, Recordings, Circles, Curriculum Books
+  static const int _screenCount = 11;
 
   @override
   void initState() {
@@ -92,7 +93,7 @@ class _ParentDashboardLayoutState extends State<ParentDashboardLayout> {
       case 2:
         return PaymentHistoryScreen(parentId: parentId ?? '');
       case 3:
-        return const FormScreen();
+        return const ParentFormsScreen();
       case 4:
         return const ParentProfileScreen();
       case 5:
@@ -106,6 +107,8 @@ class _ParentDashboardLayoutState extends State<ParentDashboardLayout> {
         return const TontineHomeScreen();
       case 9:
         return const CurriculumBooksScreen();
+      case 10:
+        return const ChatPage();
       default:
         return const _AccessDeniedScreen();
     }
@@ -144,10 +147,16 @@ class _ParentDashboardLayoutState extends State<ParentDashboardLayout> {
   }
 
   Widget _buildBody({required bool isCompact}) {
-    final content = IndexedStack(
-      index: _selectedIndex,
-      children:
-          List<Widget>.generate(_screenCount, (i) => _buildScreenForIndex(i)),
+    final content = ScrollNotificationObserver(
+      child: SelectionArea(
+        child: IndexedStack(
+          index: _selectedIndex,
+          children: List<Widget>.generate(
+            _screenCount,
+            (i) => _buildScreenForIndex(i),
+          ),
+        ),
+      ),
     );
 
     if (isCompact) {
@@ -355,6 +364,8 @@ class _ParentDashboardLayoutState extends State<ParentDashboardLayout> {
       await Future.delayed(const Duration(milliseconds: 100));
       // Now sign out from Firebase Auth
       await FirebaseAuth.instance.signOut();
+      // On web, leave Flutter for the public Next site at the domain root.
+      await leaveToPublicSite();
     }
   }
 

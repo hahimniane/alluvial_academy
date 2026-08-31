@@ -21,7 +21,7 @@ class ConnectTeamTaskList extends StatefulWidget {
   final bool isBulkMode;
   final Function(Task)? onTaskDelete; // Optional delete callback
   final String? currentUserId; // Current user ID for permission checks
-  
+
   const ConnectTeamTaskList({
     super.key,
     required this.tasks,
@@ -42,7 +42,6 @@ class ConnectTeamTaskList extends StatefulWidget {
 }
 
 class _ConnectTeamTaskListState extends State<ConnectTeamTaskList> {
-
   @override
   Widget build(BuildContext context) {
     // Use table-like structure for Connecteam style
@@ -52,10 +51,13 @@ class _ConnectTeamTaskListState extends State<ConnectTeamTaskList> {
         children: [
           _buildTableHeader(),
           Expanded(
-            child: widget.tasks.isEmpty 
-                ? Center(child: Text(AppLocalizations.of(context)!.noTasksFound, style: ConnecteamStyle.cellText))
+            child: widget.tasks.isEmpty
+                ? Center(
+                    child: Text(AppLocalizations.of(context)!.noTasksFound,
+                        style: ConnecteamStyle.cellText))
                 : ListView.separated(
-                    padding: const EdgeInsets.only(bottom: 64.0), // Space for FAB
+                    padding:
+                        const EdgeInsets.only(bottom: 64.0), // Space for FAB
                     itemCount: widget.tasks.length,
                     separatorBuilder: (c, i) => const Divider(
                       height: 1,
@@ -72,11 +74,11 @@ class _ConnectTeamTaskListState extends State<ConnectTeamTaskList> {
   }
 
   Widget _buildTableHeader() {
-    final allSelected = widget.tasks.isNotEmpty && 
+    final allSelected = widget.tasks.isNotEmpty &&
         widget.selectedTaskIds.length == widget.tasks.length;
-    final someSelected = widget.selectedTaskIds.isNotEmpty && 
+    final someSelected = widget.selectedTaskIds.isNotEmpty &&
         widget.selectedTaskIds.length < widget.tasks.length;
-    
+
     return Container(
       height: 40,
       decoration: const BoxDecoration(
@@ -109,10 +111,22 @@ class _ConnectTeamTaskListState extends State<ConnectTeamTaskList> {
                   )
                 : SizedBox(),
           ),
-          Expanded(flex: 4, child: Text(AppLocalizations.of(context)!.taskName, style: ConnecteamStyle.tableHeader)),
-          Expanded(flex: 2, child: Text(AppLocalizations.of(context)!.status, style: ConnecteamStyle.tableHeader)),
-          Expanded(flex: 2, child: Text(AppLocalizations.of(context)!.dueDate, style: ConnecteamStyle.tableHeader)),
-          Expanded(flex: 1, child: Text(AppLocalizations.of(context)!.priority, style: ConnecteamStyle.tableHeader)),
+          Expanded(
+              flex: 4,
+              child: Text(AppLocalizations.of(context)!.taskName,
+                  style: ConnecteamStyle.tableHeader)),
+          Expanded(
+              flex: 2,
+              child: Text(AppLocalizations.of(context)!.status,
+                  style: ConnecteamStyle.tableHeader)),
+          Expanded(
+              flex: 2,
+              child: Text(AppLocalizations.of(context)!.dueDate,
+                  style: ConnecteamStyle.tableHeader)),
+          Expanded(
+              flex: 1,
+              child: Text(AppLocalizations.of(context)!.priority,
+                  style: ConnecteamStyle.tableHeader)),
         ],
       ),
     );
@@ -120,11 +134,12 @@ class _ConnectTeamTaskListState extends State<ConnectTeamTaskList> {
 
   Widget _buildTaskRow(Task task) {
     // Get first assignee for avatar
-    final firstAssigneeId = task.assignedTo.isNotEmpty ? task.assignedTo.first : null;
-    final assigneeName = firstAssigneeId != null 
+    final firstAssigneeId =
+        task.assignedTo.isNotEmpty ? task.assignedTo.first : null;
+    final assigneeName = firstAssigneeId != null
         ? (widget.userIdToName[firstAssigneeId] ?? '?')
         : '?';
-    final initials = assigneeName.length >= 2 
+    final initials = assigneeName.length >= 2
         ? assigneeName.substring(0, 2).toUpperCase()
         : assigneeName.toUpperCase();
 
@@ -173,13 +188,12 @@ class _ConnectTeamTaskListState extends State<ConnectTeamTaskList> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text(
+                        SelectableText(
                           task.title,
                           style: ConnecteamStyle.cellText.copyWith(
                             fontWeight: FontWeight.w500,
                           ),
                           maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
                         ),
                         if (task.isDraft)
                           Text(
@@ -194,7 +208,8 @@ class _ConnectTeamTaskListState extends State<ConnectTeamTaskList> {
                           Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.repeat, size: 10, color: ConnecteamStyle.primaryBlue),
+                              Icon(Icons.repeat,
+                                  size: 10, color: ConnecteamStyle.primaryBlue),
                               const SizedBox(width: 2),
                               Text(
                                 AppLocalizations.of(context)!.recurring,
@@ -237,16 +252,18 @@ class _ConnectTeamTaskListState extends State<ConnectTeamTaskList> {
             if (widget.onTaskDelete != null) ...[
               Builder(
                 builder: (context) {
-                  final canDelete = task.isDraft || 
-                                   widget.isBulkMode || 
-                                   (widget.currentUserId != null && task.createdBy == widget.currentUserId);
-                  
+                  final canDelete = task.isDraft ||
+                      widget.isBulkMode ||
+                      (widget.currentUserId != null &&
+                          task.createdBy == widget.currentUserId);
+
                   if (!canDelete) return const SizedBox.shrink();
-                  
+
                   return Padding(
                     padding: const EdgeInsets.only(left: 8.0),
                     child: IconButton(
-                      icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                      icon: const Icon(Icons.delete_outline,
+                          size: 18, color: Colors.red),
                       onPressed: () => widget.onTaskDelete!(task),
                       tooltip: task.isDraft ? 'Delete draft' : 'Delete task',
                       padding: EdgeInsets.zero,
@@ -266,7 +283,7 @@ class _ConnectTeamTaskListState extends State<ConnectTeamTaskList> {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final taskDate = DateTime(date.year, date.month, date.day);
-    
+
     if (taskDate == today) {
       return 'Today ${DateFormat('h:mm a').format(date)}';
     } else if (taskDate == today.add(const Duration(days: 1))) {
@@ -343,4 +360,3 @@ class _ConnectTeamTaskListState extends State<ConnectTeamTaskList> {
     );
   }
 }
-

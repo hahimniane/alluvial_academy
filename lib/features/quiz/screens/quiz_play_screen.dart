@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../../l10n/app_localizations.dart';
 import '../models/quiz_category.dart';
 import '../models/quiz_question.dart';
 import '../models/quiz_result.dart';
+import '../services/quiz_adaptive_session.dart';
 import '../services/quiz_service.dart';
 import '../services/quiz_audio_service.dart';
+import '../services/quiz_competition_service.dart';
 
 /// Active quiz gameplay screen
 class QuizPlayScreen extends StatefulWidget {
@@ -24,18 +27,23 @@ class _QuizPlayScreenState extends State<QuizPlayScreen>
     with SingleTickerProviderStateMixin {
   final QuizService _quizService = QuizService();
   final QuizAudioService _audioService = QuizAudioService();
-  
-  List<QuizQuestion> _questions = [];
+  final QuizCompetitionService _competitionService = QuizCompetitionService();
+
+  QuizAdaptiveSession? _session;
+  final List<QuizQuestion> _questions = [];
   int _currentQuestionIndex = 0;
   int _correctAnswers = 0;
   int? _selectedAnswerIndex;
   bool _hasAnswered = false;
   bool _isLoading = true;
+  bool _isSavingCompetitionAnswer = false;
   String? _error;
-  
+  Future<void>? _competitionAnswerFuture;
+  bool _competitionAnswerFailed = false;
+
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
-  
+
   final Stopwatch _quizStopwatch = Stopwatch();
   final List<QuestionResult> _questionResults = [];
 
@@ -67,13 +75,15 @@ class _QuizPlayScreenState extends State<QuizPlayScreen>
     });
 
     try {
-      final questions = await _quizService.getQuestionsForCategory(
-        widget.category.id,
-      );
-      
+      final session = await _quizService.startSession(widget.category.id);
+      final firstQuestion = session.nextQuestion();
+
       if (mounted) {
         setState(() {
-          _questions = questions;
+          _session = session;
+          _questions.clear();
+          if (firstQuestion != null) _questions.add(firstQuestion);
+          _currentQuestionIndex = 0;
           _isLoading = false;
         });
         _quizStopwatch.start();
@@ -89,21 +99,34 @@ class _QuizPlayScreenState extends State<QuizPlayScreen>
   }
 
   QuizQuestion get _currentQuestion => _questions[_currentQuestionIndex];
-  
-  bool get _isLastQuestion => _currentQuestionIndex >= _questions.length - 1;
+
+  int get _totalQuestions => _session?.totalQuestions ?? _questions.length;
+
+  bool get _isLastQuestion => !(_session?.hasNext ?? false);
 
   void _selectAnswer(int index) {
     if (_hasAnswered) return;
 
     HapticFeedback.lightImpact();
-    
+
     setState(() {
       _selectedAnswerIndex = index;
       _hasAnswered = true;
     });
 
     final isCorrect = _currentQuestion.isCorrect(index);
-    
+    _session?.recordAnswer(isCorrect);
+    _competitionAnswerFailed = false;
+    _competitionAnswerFuture = _competitionService
+        .recordAnswer(
+      questionId: _currentQuestion.id,
+      categoryId: widget.category.id,
+      selectedAnswerIndex: index,
+    )
+        .catchError((_) {
+      _competitionAnswerFailed = true;
+    });
+
     if (isCorrect) {
       _correctAnswers++;
       _audioService.playCorrectSound(); // Play correct sound
@@ -124,11 +147,33 @@ class _QuizPlayScreenState extends State<QuizPlayScreen>
     ));
   }
 
-  void _nextQuestion() {
-    if (_isLastQuestion) {
+  Future<void> _nextQuestion() async {
+    final competitionFuture = _competitionAnswerFuture;
+    if (competitionFuture != null) {
+      setState(() => _isSavingCompetitionAnswer = true);
+      try {
+        await competitionFuture;
+      } finally {
+        _competitionAnswerFuture = null;
+        if (mounted) setState(() => _isSavingCompetitionAnswer = false);
+      }
+      if (_competitionAnswerFailed && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              AppLocalizations.of(context)!.quizCompetitionAnswerNotCounted,
+            ),
+          ),
+        );
+      }
+    }
+    if (!mounted) return;
+    final next = _isLastQuestion ? null : _session?.nextQuestion();
+    if (next == null) {
       _showResults();
     } else {
       setState(() {
+        _questions.add(next);
         _currentQuestionIndex++;
         _selectedAnswerIndex = null;
         _hasAnswered = false;
@@ -138,10 +183,16 @@ class _QuizPlayScreenState extends State<QuizPlayScreen>
 
   void _showResults() {
     _quizStopwatch.stop();
-    
+
     // Play celebration sound
     _audioService.playCelebrationSound();
-    
+
+    final session = _session;
+    if (session != null) {
+      // Best-effort: don't block the results screen on the network.
+      _quizService.completeSession(widget.category.id, session);
+    }
+
     final result = QuizResult(
       categoryId: widget.category.id,
       totalQuestions: _questions.length,
@@ -229,10 +280,10 @@ class _QuizPlayScreenState extends State<QuizPlayScreen>
           children: [
             // Header
             _buildHeader(),
-            
+
             // Progress Bar
             _buildProgressBar(),
-            
+
             // Question Card
             Expanded(
               child: SingleChildScrollView(
@@ -240,10 +291,9 @@ class _QuizPlayScreenState extends State<QuizPlayScreen>
                 child: _buildQuestionCard(),
               ),
             ),
-            
+
             // Next Button
-            if (_hasAnswered)
-              _buildNextButton(),
+            if (_hasAnswered) _buildNextButton(),
           ],
         ),
       ),
@@ -277,7 +327,7 @@ class _QuizPlayScreenState extends State<QuizPlayScreen>
                   ),
                 ),
                 Text(
-                  'Question ${_currentQuestionIndex + 1} of ${_questions.length}',
+                  'Question ${_currentQuestionIndex + 1} of $_totalQuestions',
                   style: GoogleFonts.inter(
                     fontSize: 13,
                     color: Colors.grey[600],
@@ -295,7 +345,8 @@ class _QuizPlayScreenState extends State<QuizPlayScreen>
             ),
             child: Row(
               children: [
-                Icon(Icons.star_rounded, color: widget.category.color, size: 18),
+                Icon(Icons.star_rounded,
+                    color: widget.category.color, size: 18),
                 const SizedBox(width: 4),
                 Text(
                   '$_correctAnswers',
@@ -314,8 +365,10 @@ class _QuizPlayScreenState extends State<QuizPlayScreen>
   }
 
   Widget _buildProgressBar() {
-    final progress = (_currentQuestionIndex + 1) / _questions.length;
-    
+    final progress = _totalQuestions == 0
+        ? 0.0
+        : (_currentQuestionIndex + 1) / _totalQuestions;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: ClipRRect(
@@ -367,7 +420,7 @@ class _QuizPlayScreenState extends State<QuizPlayScreen>
               ),
             ),
             const SizedBox(height: 20),
-            
+
             // Question Text
             Text(
               _currentQuestion.question,
@@ -379,13 +432,13 @@ class _QuizPlayScreenState extends State<QuizPlayScreen>
               ),
             ),
             const SizedBox(height: 28),
-            
+
             // Answer Options
             ...List.generate(
               _currentQuestion.options.length,
               (index) => _buildAnswerOption(index),
             ),
-            
+
             // Explanation (shown after answering)
             if (_hasAnswered && _currentQuestion.explanation != null) ...[
               const SizedBox(height: 20),
@@ -394,12 +447,14 @@ class _QuizPlayScreenState extends State<QuizPlayScreen>
                 decoration: BoxDecoration(
                   color: const Color(0xFFF0F9FF),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFF0EA5E9).withOpacity(0.3)),
+                  border: Border.all(
+                      color: const Color(0xFF0EA5E9).withOpacity(0.3)),
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.lightbulb_outline, color: Color(0xFF0EA5E9), size: 20),
+                    const Icon(Icons.lightbulb_outline,
+                        color: Color(0xFF0EA5E9), size: 20),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
@@ -425,12 +480,12 @@ class _QuizPlayScreenState extends State<QuizPlayScreen>
     final option = _currentQuestion.options[index];
     final isSelected = _selectedAnswerIndex == index;
     final isCorrect = index == _currentQuestion.correctAnswerIndex;
-    
+
     Color bgColor = Colors.grey[50]!;
     Color borderColor = Colors.grey[200]!;
     Color textColor = const Color(0xFF374151);
     IconData? icon;
-    
+
     if (_hasAnswered) {
       if (isCorrect) {
         bgColor = const Color(0xFFD1FAE5);
@@ -492,8 +547,7 @@ class _QuizPlayScreenState extends State<QuizPlayScreen>
                   ),
                 ),
               ),
-              if (icon != null)
-                Icon(icon, color: borderColor, size: 24),
+              if (icon != null) Icon(icon, color: borderColor, size: 24),
             ],
           ),
         ),
@@ -507,7 +561,7 @@ class _QuizPlayScreenState extends State<QuizPlayScreen>
       child: SizedBox(
         width: double.infinity,
         child: ElevatedButton(
-          onPressed: _nextQuestion,
+          onPressed: _isSavingCompetitionAnswer ? null : _nextQuestion,
           style: ElevatedButton.styleFrom(
             backgroundColor: widget.category.color,
             foregroundColor: Colors.white,
@@ -517,13 +571,19 @@ class _QuizPlayScreenState extends State<QuizPlayScreen>
             ),
             elevation: 0,
           ),
-          child: Text(
-            _isLastQuestion ? 'See Results' : 'Next Question',
-            style: GoogleFonts.inter(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
+          child: _isSavingCompetitionAnswer
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : Text(
+                  _isLastQuestion ? 'See Results' : 'Next Question',
+                  style: GoogleFonts.inter(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
         ),
       ),
     );
@@ -587,11 +647,11 @@ class _QuizResultScreen extends StatelessWidget {
           child: Column(
             children: [
               const Spacer(),
-              
+
               // Trophy/Stars
               _buildStarsDisplay(),
               const SizedBox(height: 24),
-              
+
               // Encouragement
               Text(
                 result.encouragement,
@@ -603,12 +663,12 @@ class _QuizResultScreen extends StatelessWidget {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 32),
-              
+
               // Score Card
               _buildScoreCard(),
-              
+
               const Spacer(),
-              
+
               // Action Buttons
               Row(
                 children: [
@@ -634,7 +694,8 @@ class _QuizResultScreen extends StatelessWidget {
                         Navigator.pushReplacement(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => QuizPlayScreen(category: category),
+                            builder: (context) =>
+                                QuizPlayScreen(category: category),
                           ),
                         );
                       },
@@ -723,7 +784,8 @@ class _QuizResultScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildStatItem(String label, String value, IconData icon, Color color) {
+  Widget _buildStatItem(
+      String label, String value, IconData icon, Color color) {
     return Column(
       children: [
         Icon(icon, color: color, size: 28),

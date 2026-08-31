@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { onAuthStateChanged, type User } from "firebase/auth";
-import { addDoc, collection, doc, getDoc, getDocs, limit, query, serverTimestamp, Timestamp, updateDoc, where } from "firebase/firestore";
-import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
+import { addDoc, collection, doc, getDoc, getDocs, limit, query, serverTimestamp, setDoc, Timestamp, updateDoc, where } from "firebase/firestore";
+import { deleteObject, getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertCircle,
@@ -346,6 +346,7 @@ export function TeacherSubmitFormPage() {
   const [shiftTemplate, setShiftTemplate] = useState<FormTemplateRecord | null>(null);
   const [selectedShift, setSelectedShift] = useState<ShiftOption | null>(null);
   const [existingSubmission, setExistingSubmission] = useState<ExistingSubmission | null>(null);
+  const openedShiftDeepLink = useRef("");
 
   useEffect(() => {
     let mounted = true;
@@ -435,6 +436,25 @@ export function TeacherSubmitFormPage() {
       .filter((group) => group.items.length > 0);
   }, [visibleTemplates]);
 
+  useEffect(() => {
+    if (!currentUser || loading || typeof window === "undefined") return;
+    const requestedShiftId = new URLSearchParams(window.location.search).get("shift")?.trim() ?? "";
+    if (!requestedShiftId || openedShiftDeepLink.current === requestedShiftId) return;
+    const perSessionTemplate = visibleTemplates.find((template) => template.frequency === "perSession" && template.isActive);
+    if (!perSessionTemplate) return;
+    openedShiftDeepLink.current = requestedShiftId;
+    void loadRecentTeacherShifts(currentUser.uid).then(async (shifts) => {
+      const shift = shifts.find((item) => item.id === requestedShiftId);
+      if (!shift) { setMessage("This class is not currently available for a readiness form."); return; }
+      if (shift.formResponseId) {
+        const existing = await loadExistingSubmission(shift.formResponseId);
+        if (existing) { setExistingSubmission(existing); return; }
+      }
+      setSelectedShift(shift);
+      setActiveTemplate(perSessionTemplate);
+    }).catch(() => setMessage("Could not open the selected class. Please choose it from the form list."));
+  }, [currentUser, loading, visibleTemplates]);
+
   if (access !== "allowed") return <TeacherAccessPrompt access={access} />;
 
   const openTemplate = (template: FormTemplateRecord) => {
@@ -477,9 +497,7 @@ export function TeacherSubmitFormPage() {
         <MobileTeacherTopBar summary={summary} />
         <section className="relative overflow-hidden bg-gradient-to-br from-[#6366F1] to-[#8B5CF6] px-5 pb-7 pt-5 text-white lg:min-h-[200px]">
           <div className="flex items-center justify-between">
-            <span className="text-2xl leading-none">
-              <ChevronLeft size={26} />
-            </span>
+            <Link href="/teacher/" aria-label="Back to teacher dashboard" className="grid h-11 w-11 place-items-center rounded-xl text-2xl leading-none hover:bg-white/10"><ChevronLeft size={26} /></Link>
             <Link href="/teacher/form-submissions/" aria-label="My submissions" className="grid h-10 w-10 place-items-center rounded-full text-white hover:bg-white/10">
               <History size={22} />
             </Link>
@@ -555,9 +573,9 @@ function MobileTeacherTopBar({ summary }: { summary: TeacherSummary }) {
       <button type="button" aria-label="Open teacher menu" onClick={openTeacherMobileMenu} className="grid h-11 w-11 place-items-center rounded-xl text-[#111827]">
         <Menu size={24} />
       </button>
-      <div className="min-w-0 text-center text-base font-bold text-[#111827]">Alluwal Academy</div>
+      <div className="min-w-0 text-center text-base font-bold text-[#111827]">Alluwal Education Hub</div>
       <div className="flex items-center justify-end gap-3">
-        <Shuffle size={20} className="text-[#111827]" />
+        <button type="button" aria-label="Open teacher account options" onClick={openTeacherMobileMenu} className="grid h-10 w-10 place-items-center rounded-xl text-[#111827]"><Shuffle size={20} /></button>
         <span className="grid h-9 w-9 place-items-center rounded-full bg-[#009688] text-xs font-black text-white">{summary.initials}</span>
       </div>
     </header>
@@ -688,14 +706,24 @@ function TeacherFormSheet({
       const value = values[item.id];
       const empty = isEmptyFormValue(value);
       if (item.required && empty) nextErrors[item.id] = "This question is required";
+      if (!empty && item.type === "email" && typeof value === "string" && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value.trim())) {
+        nextErrors[item.id] = "Please enter a valid email address";
+      }
+      if (!empty && item.type === "phone" && typeof value === "string" && !/^\+?[\d\s-]+$/.test(value.trim())) {
+        nextErrors[item.id] = "Please enter a valid phone number";
+      }
     });
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
 
     setSubmitting(true);
     setNotice("");
+    let uploadedPaths: string[] = [];
     try {
-      const uploadedValues = await uploadPendingFiles(values, user.uid);
+      if (!navigator.onLine) throw new Error("You appear to be offline. Reconnect and try again.");
+      const uploadResult = await uploadPendingFiles(values, user.uid);
+      const uploadedValues = uploadResult.values;
+      uploadedPaths = uploadResult.storagePaths;
       const responses = fields.reduce<Record<string, SubmittedFieldValue>>((acc, item) => {
         acc[item.id] = uploadedValues[item.id] ?? "";
         return acc;
@@ -728,7 +756,21 @@ function TeacherFormSheet({
         ...(selectedShift?.timesheetId ? { timesheetId: selectedShift.timesheetId } : {}),
       };
 
-      const responseRef = await addDoc(collection(db, "form_responses"), submissionData);
+      const responseRef = selectedShift
+        ? doc(db, "form_responses", perSessionResponseId(template.id, selectedShift.id, user.uid))
+        : await addDoc(collection(db, "form_responses"), submissionData);
+      if (selectedShift) {
+        try {
+          await setDoc(responseRef, submissionData);
+        } catch (error) {
+          const existing = await getDoc(responseRef).catch(() => null);
+          const existingData = existing?.exists() ? (existing.data() as Record<string, unknown>) : null;
+          if (existingData && stringValue(existingData.userId) === user.uid && stringValue(existingData.shiftId ?? existingData.shift_id) === selectedShift.id) {
+            throw new Error("This form has already been submitted for the selected shift.");
+          }
+          throw error;
+        }
+      }
       if (selectedShift) {
         await linkFormResponseToShiftAndTimesheet(selectedShift, responseRef.id).catch(() => null);
       }
@@ -736,7 +778,8 @@ function TeacherFormSheet({
       await onSubmitted();
       window.setTimeout(onClose, 900);
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "Could not submit this form.");
+      if (uploadedPaths.length) await cleanupUploadedFiles(uploadedPaths);
+      setNotice(formActionError(error, "Could not submit this form."));
     } finally {
       setSubmitting(false);
     }
@@ -821,11 +864,11 @@ function renderFieldInput(field: TemplateField, value: FormFieldValue | undefine
   const current = Array.isArray(value) ? value.join(", ") : typeof value === "string" ? value : "";
   const inputClasses = "w-full rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] px-4 py-3 text-sm text-[#111827] outline-none placeholder:text-[#9CA3AF] focus:border-[#0386FF]";
   if (field.type === "long_text" || field.type === "multiline" || field.type === "description") {
-    return <textarea value={current} onChange={(event) => onChange(event.target.value)} placeholder={field.placeholder || "Your answer"} rows={4} className={`${inputClasses} min-h-[120px] resize-y leading-6`} />;
+    return <textarea aria-label={field.label} value={current} onChange={(event) => onChange(event.target.value)} placeholder={field.placeholder || "Your answer"} rows={4} className={`${inputClasses} min-h-[120px] resize-y leading-6`} />;
   }
   if (field.type === "dropdown" || field.type === "select") {
     return (
-      <select value={current} onChange={(event) => onChange(event.target.value)} className={inputClasses}>
+      <select aria-label={field.label} value={current} onChange={(event) => onChange(event.target.value)} className={inputClasses}>
         <option value="">{field.placeholder || "Select an option"}</option>
         {field.options.map((option) => (
           <option key={option} value={option}>
@@ -840,7 +883,7 @@ function renderFieldInput(field: TemplateField, value: FormFieldValue | undefine
       <div className="max-h-[220px] overflow-y-auto rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] p-3">
         {field.options.map((option) => (
           <label key={option} className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2 text-sm text-[#111827] hover:bg-white">
-            <input type="radio" name={field.id} value={option} checked={current === option} onChange={() => onChange(option)} className="h-4 w-4 accent-[#0386FF]" />
+            <input aria-label={`${field.label}: ${option}`} type="radio" name={field.id} value={option} checked={current === option} onChange={() => onChange(option)} className="h-4 w-4 accent-[#0386FF]" />
             <span>{option}</span>
           </label>
         ))}
@@ -855,6 +898,7 @@ function renderFieldInput(field: TemplateField, value: FormFieldValue | undefine
           <label key={option} className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2 text-sm text-[#111827] hover:bg-white">
             <input
               type="checkbox"
+              aria-label={`${field.label}: ${option}`}
               checked={selected.includes(option)}
               onChange={(event) => onChange(event.target.checked ? [...selected, option] : selected.filter((item) => item !== option))}
               className="h-4 w-4 rounded accent-[#0386FF]"
@@ -870,7 +914,7 @@ function renderFieldInput(field: TemplateField, value: FormFieldValue | undefine
       <div className="flex gap-6 rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] p-4">
         {["Yes", "No"].map((option) => (
           <label key={option} className="flex cursor-pointer items-center gap-2 text-sm text-[#111827]">
-            <input type="radio" name={field.id} value={option} checked={current === option} onChange={() => onChange(option)} className="h-4 w-4 accent-[#0386FF]" />
+            <input aria-label={`${field.label}: ${option}`} type="radio" name={field.id} value={option} checked={current === option} onChange={() => onChange(option)} className="h-4 w-4 accent-[#0386FF]" />
             {option}
           </label>
         ))}
@@ -880,7 +924,7 @@ function renderFieldInput(field: TemplateField, value: FormFieldValue | undefine
   if (field.type === "image_upload" || field.type === "imageUpload" || field.type === "signature") {
     return <FileFieldInput field={field} value={value} onChange={onChange} />;
   }
-  return <input value={current} type={htmlInputType(field.type)} onChange={(event) => onChange(event.target.value)} placeholder={field.placeholder || "Your answer"} className={inputClasses} />;
+  return <input aria-label={field.label} value={current} type={htmlInputType(field.type)} onChange={(event) => onChange(event.target.value)} placeholder={field.placeholder || "Your answer"} className={inputClasses} />;
 }
 
 function FileFieldInput({ field, value, onChange }: { field: TemplateField; value: FormFieldValue | undefined; onChange: (value: FormFieldValue) => void }) {
@@ -990,34 +1034,56 @@ function isEmptyFormValue(value: FormFieldValue | undefined) {
 
 async function uploadPendingFiles(values: Record<string, FormFieldValue>, uid: string) {
   const uploaded: Record<string, SubmittedFieldValue> = {};
-  for (const [fieldId, value] of Object.entries(values)) {
-    if (!isPendingFileValue(value)) {
-      uploaded[fieldId] = value as SubmittedFieldValue;
-      continue;
+  const storagePaths: string[] = [];
+  try {
+    for (const [fieldId, value] of Object.entries(values)) {
+      if (!isPendingFileValue(value)) {
+        uploaded[fieldId] = value as SubmittedFieldValue;
+        continue;
+      }
+      const safeName = safeStorageFileName(value.fileName);
+      const storagePath = `form_images/${uid}/${Date.now()}_${safeName}`;
+      const storageRef = ref(storage, storagePath);
+      const snapshot = await uploadBytes(storageRef, value.file, {
+        contentType: value.contentType || contentTypeForFileName(value.fileName),
+        customMetadata: {
+          uploadedBy: uid,
+          originalFileName: value.fileName,
+        },
+      });
+      storagePaths.push(storagePath);
+      const downloadURL = await getDownloadURL(snapshot.ref);
+      uploaded[fieldId] = {
+        fileName: value.fileName,
+        downloadURL,
+        url: downloadURL,
+        storagePath,
+        size: value.size,
+        contentType: value.contentType || contentTypeForFileName(value.fileName),
+        type: value.fieldType,
+        uploadedAt: serverTimestamp(),
+      };
     }
-    const safeName = safeStorageFileName(value.fileName);
-    const storagePath = `form_images/${uid}/${Date.now()}_${safeName}`;
-    const storageRef = ref(storage, storagePath);
-    const snapshot = await uploadBytes(storageRef, value.file, {
-      contentType: value.contentType || contentTypeForFileName(value.fileName),
-      customMetadata: {
-        uploadedBy: uid,
-        originalFileName: value.fileName,
-      },
-    });
-    const downloadURL = await getDownloadURL(snapshot.ref);
-    uploaded[fieldId] = {
-      fileName: value.fileName,
-      downloadURL,
-      url: downloadURL,
-      storagePath,
-      size: value.size,
-      contentType: value.contentType || contentTypeForFileName(value.fileName),
-      type: value.fieldType,
-      uploadedAt: serverTimestamp(),
-    };
+    return { values: uploaded, storagePaths };
+  } catch (error) {
+    await cleanupUploadedFiles(storagePaths);
+    throw error;
   }
-  return uploaded;
+}
+
+async function cleanupUploadedFiles(storagePaths: string[]) {
+  await Promise.allSettled(storagePaths.map((storagePath) => deleteObject(ref(storage, storagePath))));
+}
+
+function perSessionResponseId(templateId: string, shiftId: string, uid: string) {
+  return [templateId, shiftId, uid].map((value) => value.replace(/[^a-zA-Z0-9_-]+/g, "_")).join("__").slice(0, 1400);
+}
+
+function formActionError(error: unknown, fallback: string) {
+  const message = error instanceof Error ? error.message : String(error || "");
+  if (/permission-denied|insufficient permissions/i.test(message)) return "You do not have permission to submit this form. Contact an administrator if this continues.";
+  if (/unavailable|network|offline/i.test(message) || !navigator.onLine) return "You appear to be offline. Reconnect and try again.";
+  return message.replace(/^Firebase:\s*/i, "").trim() || fallback;
 }
 
 function safeStorageFileName(fileName: string) {

@@ -63,6 +63,7 @@ type JobOpportunity = {
   classType: string;
   scheduleTimezoneRef: string;
   adminNotesForTeachers: string;
+  targetTeacherIds: string[];
   teacherSelectedTimes: Record<string, string>;
 };
 
@@ -179,15 +180,19 @@ export function TeacherJobBoardPage() {
     };
   }, []);
 
-  const openJobs = useMemo(() => jobs.filter((job) => job.status === "open"), [jobs]);
+  const visibleJobs = useMemo(
+    () => jobs.filter((job) => !job.targetTeacherIds.length || Boolean(user && job.targetTeacherIds.includes(user.uid))),
+    [jobs, user],
+  );
+  const openJobs = useMemo(() => visibleJobs.filter((job) => job.status === "open"), [visibleJobs]);
   const filledJobs = useMemo(
     () =>
-      jobs.filter((job) => {
+      visibleJobs.filter((job) => {
         if (job.status !== "accepted") return false;
         const referenceDate = job.acceptedAt ?? job.createdAt;
         return Date.now() - referenceDate.getTime() < 24 * 60 * 60 * 1000;
       }),
-    [jobs],
+    [visibleJobs],
   );
 
   if (access !== "allowed") return <TeacherAccessPrompt access={access} />;
@@ -220,7 +225,7 @@ export function TeacherJobBoardPage() {
       setActiveJob(null);
       setDraft(emptyDraft);
     } catch (nextError) {
-      setSubmitError(nextError instanceof Error ? nextError.message : "Unable to submit your response.");
+      setSubmitError(jobActionError(nextError, "Unable to submit your response."));
     } finally {
       setSubmitting(false);
     }
@@ -237,7 +242,7 @@ export function TeacherJobBoardPage() {
       setWithdrawJob(null);
       setStatusMessage("You have withdrawn. The job is now available for other teachers.");
     } catch (nextError) {
-      setWithdrawError(nextError instanceof Error ? nextError.message : "Unable to withdraw from this opportunity.");
+      setWithdrawError(jobActionError(nextError, "Unable to withdraw from this opportunity."));
     } finally {
       setWithdrawing(false);
     }
@@ -337,9 +342,9 @@ function MobileTeacherTopBar({ summary }: { summary: TeacherSummary }) {
       <button type="button" aria-label="Open teacher menu" onClick={openTeacherMobileMenu} className="grid h-11 w-11 place-items-center rounded-xl text-[#111827]">
         <Menu size={24} />
       </button>
-      <div className="min-w-0 text-center text-[16px] font-semibold text-[#111827]">Alluwal Academy</div>
+      <div className="min-w-0 text-center text-[16px] font-semibold text-[#111827]">Alluwal Education Hub</div>
       <div className="flex items-center justify-end gap-3">
-        <Shuffle size={17} className="text-[#111827]" />
+        <button type="button" aria-label="Open teacher account options" onClick={openTeacherMobileMenu} className="grid h-9 w-9 place-items-center rounded-xl text-[#111827]"><Shuffle size={17} /></button>
         <span className="grid h-8 w-8 place-items-center rounded-full bg-[#009688] text-[12px] font-black text-white">{summary.initials}</span>
       </div>
     </header>
@@ -601,6 +606,7 @@ function ResponseDialog({
 }
 
 async function submitTeacherAvailability(job: JobOpportunity, user: User, draft: ResponseDraft) {
+  if (!navigator.onLine) throw new Error("You appear to be offline. Reconnect and try again.");
   const normalizedComment = draft.comment.trim();
   const normalizedAlternatives = draft.alternatives
     .split("\n")
@@ -664,6 +670,7 @@ async function submitTeacherAvailability(job: JobOpportunity, user: User, draft:
 }
 
 async function withdrawTeacherFromJob(jobId: string, user: User) {
+  if (!navigator.onLine) throw new Error("You appear to be offline. Reconnect and try again.");
   const jobRef = doc(db, "job_board", jobId);
   const userRef = doc(db, "users", user.uid);
   const notificationRef = doc(collection(db, "admin_notifications"));
@@ -690,23 +697,23 @@ async function withdrawTeacherFromJob(jobId: string, user: User) {
     transaction.update(jobRef, {
       status: "open",
       acceptedByTeacherId: null,
-      acceptedAt: null,
-      teacherSelectedTimes: null,
+      acceptedAt: deleteField(),
+      teacherSelectedTimes: deleteField(),
       withdrawnAt: nowTs,
       withdrawnByTeacherId: user.uid,
       withdrawalHistory: arrayUnion({
         teacherId: user.uid,
         teacherName,
-        withdrawnAt: new Date().toISOString(),
+        withdrawnAt: nowTs,
       }),
     });
 
     transaction.update(enrollmentRef, {
       "metadata.status": "broadcasted",
       "metadata.matchedTeacherId": null,
-      "metadata.matchedTeacherName": null,
-      "metadata.matchedAt": null,
-      "metadata.teacherSelectedTimes": null,
+      "metadata.matchedTeacherName": deleteField(),
+      "metadata.matchedAt": deleteField(),
+      "metadata.teacherSelectedTimes": deleteField(),
       "metadata.lastWithdrawnBy": user.uid,
       "metadata.lastWithdrawnAt": nowTs,
       "metadata.actionHistory": arrayUnion({
@@ -714,7 +721,7 @@ async function withdrawTeacherFromJob(jobId: string, user: User) {
         status: "broadcasted",
         teacherId: user.uid,
         teacherName,
-        timestamp: new Date().toISOString(),
+        timestamp: nowTs,
       }),
     });
 
@@ -754,6 +761,7 @@ function normalizeJob(id: string, data: Record<string, unknown>): JobOpportunity
     classType: stringValue(data.classType),
     scheduleTimezoneRef: stringValue(data.scheduleTimezoneRef),
     adminNotesForTeachers: stringValue(data.adminNotesForTeachers),
+    targetTeacherIds: arrayOfStrings(data.targetTeacherIds),
     teacherSelectedTimes: recordOfStrings(data.teacherSelectedTimes),
   };
 }
@@ -848,6 +856,13 @@ function recordOfStrings(value: unknown) {
 
 function stringValue(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function jobActionError(error: unknown, fallback: string) {
+  const message = error instanceof Error ? error.message : String(error || "");
+  if (/permission-denied|insufficient permissions/i.test(message)) return "You do not have permission to update this opportunity. Refresh the page or contact an administrator.";
+  if (/unavailable|network|offline/i.test(message) || !navigator.onLine) return "You appear to be offline. Reconnect and try again.";
+  return message.replace(/^Firebase:\s*/i, "").trim() || fallback;
 }
 
 function initialsFromName(name: string) {

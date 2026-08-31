@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:intl/intl.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -345,6 +346,24 @@ class ShiftService {
     final uid = user.uid;
     final shiftRef = _shiftsCollection.doc(shiftId);
     final userRef = _firestore.collection('users').doc(uid);
+
+    // Claiming moves this class onto my calendar, so it must pass the same
+    // overlap rule as scheduling: refuse when I already have a class then.
+    final claimSnap = await shiftRef.get();
+    if (claimSnap.exists) {
+      final claimShift = TeachingShift.fromFirestore(claimSnap);
+      final conflict = await _findFirstConflictingShift(
+        teacherId: uid,
+        shiftStart: claimShift.shiftStart,
+        shiftEnd: claimShift.shiftEnd,
+        excludeShiftId: shiftId,
+      );
+      if (conflict != null) {
+        throw ShiftGuardrailException(
+            'You already have "${conflict.displayName}" during this time, '
+            "so you can't claim this shift");
+      }
+    }
 
     await _firestore.runTransaction((transaction) async {
       final shiftSnap = await transaction.get(shiftRef);
@@ -802,6 +821,43 @@ class ShiftService {
 
     final seriesShifts = await getRecurringSeriesShifts(seriesId);
     return (seriesId: seriesId, shifts: seriesShifts);
+  }
+
+  /// Related shifts for delete-scope dialogs (this / this-and-future).
+  /// Prefers recurrence series, then falls back to the same template_id.
+  static Future<List<TeachingShift>> getRelatedShiftsForDelete(
+    TeachingShift shift,
+  ) async {
+    final byId = <String, TeachingShift>{shift.id: shift};
+
+    try {
+      final series = await getRecurringSeriesByShift(shift.id);
+      for (final s in series?.shifts ?? const <TeachingShift>[]) {
+        byId[s.id] = s;
+      }
+    } catch (e) {
+      AppLogger.warning(
+          'ShiftService: Series lookup for delete failed: $e');
+    }
+
+    final templateId = shift.templateId?.trim();
+    if (templateId != null && templateId.isNotEmpty) {
+      try {
+        final snap = await _shiftsCollection
+            .where('template_id', isEqualTo: templateId)
+            .get();
+        for (final doc in snap.docs) {
+          byId[doc.id] = TeachingShift.fromFirestore(doc);
+        }
+      } catch (e) {
+        AppLogger.warning(
+            'ShiftService: Template lookup for delete failed: $e');
+      }
+    }
+
+    final shifts = byId.values.toList()
+      ..sort((a, b) => a.shiftStart.compareTo(b.shiftStart));
+    return shifts;
   }
 
   /// Best-effort backfill for recurrence series IDs on existing recurring shifts.
@@ -1303,6 +1359,27 @@ class ShiftService {
     return next;
   }
 
+  /// Throw when placing [shift] on its teacher's schedule would overlap
+  /// another shift. Runs on edits that change the teacher or the time —
+  /// creation already blocks overlaps, but a reassignment or reschedule must
+  /// re-validate against the (possibly different) teacher's calendar.
+  static Future<void> _throwIfTeacherScheduleConflict(
+      TeachingShift shift) async {
+    final conflict = await _findFirstConflictingShift(
+      teacherId: shift.teacherId,
+      shiftStart: shift.shiftStart,
+      shiftEnd: shift.shiftEnd,
+      excludeShiftId: shift.id,
+    );
+    if (conflict == null) return;
+    final fmt = DateFormat('EEE MMM d, h:mm a');
+    throw ShiftGuardrailException(
+        '${shift.teacherName} already has "${conflict.displayName}" '
+        '${fmt.format(conflict.shiftStart.toLocal())} – '
+        '${DateFormat('h:mm a').format(conflict.shiftEnd.toLocal())}. '
+        'Pick a different teacher or time.');
+  }
+
   static Future<TeachingShift?> _findFirstConflictingShift({
     required String teacherId,
     required DateTime shiftStart,
@@ -1391,6 +1468,36 @@ class ShiftService {
     try {
       final currentUser = _auth.currentUser;
       if (currentUser == null) throw Exception('User not authenticated');
+      final creatorDocument =
+          await _firestore.collection('users').doc(currentUser.uid).get();
+      final creatorData = creatorDocument.data() ?? const <String, dynamic>{};
+      final creatorFirstName =
+          (creatorData['first_name'] ?? creatorData['firstName'] ?? '')
+              .toString()
+              .trim();
+      final creatorLastName =
+          (creatorData['last_name'] ?? creatorData['lastName'] ?? '')
+              .toString()
+              .trim();
+      final creatorStoredName = (creatorData['display_name'] ??
+              creatorData['displayName'] ??
+              creatorData['full_name'] ??
+              creatorData['fullName'] ??
+              creatorData['name'] ??
+              '')
+          .toString()
+          .trim();
+      final creatorName = '$creatorFirstName $creatorLastName'.trim().isNotEmpty
+          ? '$creatorFirstName $creatorLastName'.trim()
+          : creatorStoredName.isNotEmpty
+              ? creatorStoredName
+              : (currentUser.displayName ?? '').trim();
+      final creatorEmail = (creatorData['e-mail'] ??
+              creatorData['email'] ??
+              currentUser.email ??
+              '')
+          .toString()
+          .trim();
 
       final normalizedAdminTimezone =
           TimezoneUtils.normalizeTimezone(adminTimezone, fallback: 'UTC');
@@ -1549,11 +1656,17 @@ class ShiftService {
       }
 
       // Generate auto name
-      final autoGeneratedName = TeachingShift.generateAutoName(
-        teacherName: teacherName,
-        subject: subject,
-        studentNames: finalStudentNames,
-      );
+      final autoGeneratedName = category == ShiftCategory.teaching
+          ? TeachingShift.generateAutoName(
+              teacherName: teacherName,
+              subject: subject,
+              studentNames: finalStudentNames,
+            )
+          : TeachingShift.generateLeaderAutoName(
+              leaderName: teacherName,
+              category: category,
+              leaderRole: leaderRole,
+            );
 
       final createdAt = DateTime.now();
       final effectiveRecurrence =
@@ -1582,6 +1695,8 @@ class ShiftService {
         hourlyRate: effectiveHourlyRate,
         status: ShiftStatus.scheduled,
         createdByAdminId: currentUser.uid,
+        createdByName: creatorName,
+        createdByEmail: creatorEmail,
         createdAt: createdAt,
         recurrence: recurrence,
         recurrenceSeriesId: recurrenceSeriesId,
@@ -2140,6 +2255,8 @@ class ShiftService {
         'leader_role': baseShift.leaderRole,
         'video_provider': baseShift.videoProvider.name,
         'created_by_admin_id': baseShift.createdByAdminId,
+        'created_by_name': baseShift.createdByName,
+        'created_by_email': baseShift.createdByEmail,
         'base_shift_id': baseShift.id,
         'base_shift_start': baseShift.shiftStart.toUtc().toIso8601String(),
         'base_shift_end': baseShift.shiftEnd.toUtc().toIso8601String(),
@@ -2221,7 +2338,9 @@ class ShiftService {
         'admin_timezone': shift.adminTimezone,
       });
     } catch (e) {
+      // Rethrow so deletes/edits don't proceed unprotected and get regenerated overnight.
       AppLogger.warning('ShiftService: Failed to exclude template date: $e');
+      rethrow;
     }
   }
 
@@ -2240,6 +2359,7 @@ class ShiftService {
       });
     } catch (e) {
       AppLogger.warning('ShiftService: Failed to deactivate template: $e');
+      rethrow;
     }
   }
 
@@ -3098,8 +3218,11 @@ class ShiftService {
       AppLogger.debug('ShiftService: Deleting ${shiftIds.length} shifts');
 
       final schedulingFutures = <Future<void>>[];
+      final idsToDelete = <String>[];
+      final exclusionFailures = <String>[];
 
-      // Delete related data for each shift first
+      // Template-generated shifts must exclude their date before hard-delete,
+      // otherwise the nightly cron regenerates them.
       for (String shiftId in shiftIds) {
         final docRef = _shiftsCollection.doc(shiftId);
         final snapshot = await docRef.get();
@@ -3109,26 +3232,45 @@ class ShiftService {
                   cancel: true)
               .catchError((error) => AppLogger.error(
                   'ShiftService: Warning - unable to cancel lifecycle tasks for shift ${shift.id}: $error')));
+
+          if (EnvironmentUtils.isShiftTemplateEnabled &&
+              shift.templateId != null) {
+            try {
+              await _excludeTemplateDateForShift(shift);
+            } catch (e) {
+              AppLogger.error(
+                  'ShiftService: Aborting delete for shift $shiftId - failed to exclude template date: $e');
+              exclusionFailures.add(shiftId);
+              continue;
+            }
+          }
         }
-        // Delete related data (timesheets, form responses)
         await _deleteShiftRelatedData(shiftId);
+        idsToDelete.add(shiftId);
       }
 
-      // Use a batch to delete all shifts atomically
-      final batch = FirebaseFirestore.instance.batch();
-      for (String shiftId in shiftIds) {
-        final docRef = _shiftsCollection.doc(shiftId);
-        batch.delete(docRef);
+      if (idsToDelete.isNotEmpty) {
+        final batch = FirebaseFirestore.instance.batch();
+        for (String shiftId in idsToDelete) {
+          batch.delete(_shiftsCollection.doc(shiftId));
+        }
+        await batch.commit();
       }
-
-      await batch.commit();
       if (schedulingFutures.isNotEmpty) {
         await Future.wait(schedulingFutures);
       }
       AppLogger.error(
-          'ShiftService: Successfully deleted ${shiftIds.length} shifts along with all related data');
+          'ShiftService: Successfully deleted ${idsToDelete.length} shifts along with all related data');
+      if (exclusionFailures.isNotEmpty) {
+        throw Exception(
+            'Failed to exclude template dates for ${exclusionFailures.length} shift(s); those shifts were not deleted.');
+      }
     } catch (e) {
       AppLogger.error('Error deleting multiple shifts: $e');
+      if (e is Exception &&
+          e.toString().contains('Failed to exclude template dates')) {
+        rethrow;
+      }
       throw Exception('Failed to delete multiple shifts');
     }
   }
@@ -3214,16 +3356,36 @@ class ShiftService {
       );
 
       TeachingShift? existingShift;
-      if (EnvironmentUtils.isShiftTemplateEnabled && !skipTemplateExclusion) {
-        final snapshot = await _shiftsCollection.doc(shift.id).get();
-        if (snapshot.exists) {
-          existingShift = TeachingShift.fromFirestore(snapshot);
-        }
+      final snapshot = await _shiftsCollection.doc(shift.id).get();
+      if (snapshot.exists) {
+        existingShift = TeachingShift.fromFirestore(snapshot);
       }
 
-      await _shiftsCollection
-          .doc(shift.id)
-          .update(normalizedShift.toFirestore());
+      // Re-validate the teacher's schedule when this edit moves the shift to
+      // a different teacher or time; other edits (students, subject, notes)
+      // must keep working even on legacy shifts that already overlap.
+      final movesTeacherOrTime = existingShift == null ||
+          existingShift.teacherId != normalizedShift.teacherId ||
+          !existingShift.shiftStart
+              .isAtSameMomentAs(normalizedShift.shiftStart) ||
+          !existingShift.shiftEnd.isAtSameMomentAs(normalizedShift.shiftEnd);
+      if (movesTeacherOrTime) {
+        await _throwIfTeacherScheduleConflict(normalizedShift);
+      }
+
+      if (!(EnvironmentUtils.isShiftTemplateEnabled && !skipTemplateExclusion)) {
+        existingShift = null;
+      }
+
+      final updateData = normalizedShift.toFirestore();
+      _removeSubjectFieldsForLeaderShift(normalizedShift, updateData);
+      if (normalizedShift.templateId != null ||
+          normalizedShift.generatedFromTemplate) {
+        // Protect admin edits from nightly template regeneration overwrite.
+        updateData['admin_modified'] = true;
+        updateData['admin_modified_at'] = FieldValue.serverTimestamp();
+      }
+      await _shiftsCollection.doc(shift.id).update(updateData);
       AppLogger.info('Shift updated successfully in Firestore');
 
       if (existingShift != null &&
@@ -3283,6 +3445,20 @@ class ShiftService {
         source: 'shift_service_update_shift_direct',
         existingShiftId: normalizedShift.id,
       );
+
+      // Quick edits can also move a shift to another teacher or time, so they
+      // get the same schedule-conflict validation as full edits.
+      final prevSnapshot = await _shiftsCollection.doc(shift.id).get();
+      final prevShift = prevSnapshot.exists
+          ? TeachingShift.fromFirestore(prevSnapshot)
+          : null;
+      final movesTeacherOrTime = prevShift == null ||
+          prevShift.teacherId != normalizedShift.teacherId ||
+          !prevShift.shiftStart.isAtSameMomentAs(normalizedShift.shiftStart) ||
+          !prevShift.shiftEnd.isAtSameMomentAs(normalizedShift.shiftEnd);
+      if (movesTeacherOrTime) {
+        await _throwIfTeacherScheduleConflict(normalizedShift);
+      }
 
       final now = DateTime.now();
       final updateData = normalizedShift.toFirestore();
@@ -3434,6 +3610,12 @@ class ShiftService {
             'ShiftService: Committed timesheet payment recalculations');
       }
 
+      _removeSubjectFieldsForLeaderShift(normalizedShift, updateData);
+      if (normalizedShift.templateId != null ||
+          normalizedShift.generatedFromTemplate) {
+        updateData['admin_modified'] = true;
+        updateData['admin_modified_at'] = FieldValue.serverTimestamp();
+      }
       await _shiftsCollection.doc(shift.id).update(updateData);
       AppLogger.debug('Shift updated directly (quick edit)');
     } catch (e) {
@@ -3441,6 +3623,17 @@ class ShiftService {
       AppLogger.error('Error updating shift directly: $e');
       throw Exception('Failed to update shift');
     }
+  }
+
+  static void _removeSubjectFieldsForLeaderShift(
+    TeachingShift shift,
+    Map<String, dynamic> data,
+  ) {
+    if (shift.category == ShiftCategory.teaching) return;
+    data
+      ..['subject'] = FieldValue.delete()
+      ..['subject_id'] = FieldValue.delete()
+      ..['subject_display_name'] = FieldValue.delete();
   }
 
   /// Duplicate a shift with new date/time

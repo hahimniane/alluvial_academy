@@ -3,6 +3,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../../core/models/employee_model.dart';
+import '../../../core/models/decision_audit_event.dart';
+import '../../../core/widgets/decision_history_card.dart';
 import '../widgets/manage_guardians_dialog.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
@@ -234,6 +236,34 @@ class _EditUserScreenState extends State<EditUserScreen>
                       children: [
                         _buildUserInfoCard(),
                         const SizedBox(height: 24),
+                        DecisionHistoryCard(
+                          entityType: 'user',
+                          entityId: widget.employee.documentId,
+                          entityLabel:
+                              '${widget.employee.firstName} ${widget.employee.lastName}'
+                                  .trim(),
+                          fallbackEvents: [
+                            if (widget.employee.createdByUid.isNotEmpty)
+                              DecisionAuditFallback(
+                                action: 'user.created',
+                                actorUid: widget.employee.createdByUid,
+                                occurredAt: widget.employee.createdAt,
+                              ),
+                            if (widget.employee.deactivatedByUid.isNotEmpty)
+                              DecisionAuditFallback(
+                                action: 'user.archived',
+                                actorUid: widget.employee.deactivatedByUid,
+                                occurredAt: widget.employee.deactivatedAt,
+                              ),
+                            if (widget.employee.activatedByUid.isNotEmpty)
+                              DecisionAuditFallback(
+                                action: 'user.restored',
+                                actorUid: widget.employee.activatedByUid,
+                                occurredAt: widget.employee.activatedAt,
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 24),
                         _buildPersonalInfoSection(),
                         const SizedBox(height: 24),
                         _buildContactInfoSection(),
@@ -347,7 +377,8 @@ class _EditUserScreenState extends State<EditUserScreen>
                     ],
                   ),
                   Text(
-                    AppLocalizations.of(context)!.updateUserInformationAndSettings,
+                    AppLocalizations.of(context)!
+                        .updateUserInformationAndSettings,
                     style: GoogleFonts.inter(
                       fontSize: 14,
                       color: const Color(0xff6B7280),
@@ -686,9 +717,8 @@ class _EditUserScreenState extends State<EditUserScreen>
 
   Widget _buildSecondaryRolesSection() {
     // Available secondary roles: all roles except the current primary
-    final available = _userTypes
-        .where((t) => t['id'] != _selectedUserType)
-        .toList();
+    final available =
+        _userTypes.where((t) => t['id'] != _selectedUserType).toList();
 
     return _buildSection(
       title: 'Additional Roles',
@@ -767,9 +797,8 @@ class _EditUserScreenState extends State<EditUserScreen>
                         roleType['name'] as String,
                         style: GoogleFonts.inter(
                           fontSize: 14,
-                          fontWeight: isSelected
-                              ? FontWeight.w600
-                              : FontWeight.w500,
+                          fontWeight:
+                              isSelected ? FontWeight.w600 : FontWeight.w500,
                           color: isSelected
                               ? (roleType['color'] as Color)
                               : const Color(0xff6B7280),
@@ -819,7 +848,9 @@ class _EditUserScreenState extends State<EditUserScreen>
       children: [
         _buildReadOnlyField(
           'Kiosk Access Code',
-          _kioskCodeController.text.isEmpty ? 'Not assigned' : _kioskCodeController.text,
+          _kioskCodeController.text.isEmpty
+              ? 'Not assigned'
+              : _kioskCodeController.text,
           'Kiosk codes cannot be modified once assigned',
           icon: Icons.lock_outline,
         ),
@@ -855,8 +886,7 @@ class _EditUserScreenState extends State<EditUserScreen>
             style: OutlinedButton.styleFrom(
               foregroundColor: const Color(0xff3B82F6),
               side: const BorderSide(color: Color(0xffE2E8F0)),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             ),
           ),
         ),

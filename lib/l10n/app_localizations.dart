@@ -103,7 +103,7 @@ abstract class AppLocalizations {
   /// No description provided for @appTitle.
   ///
   /// In en, this message translates to:
-  /// **'Alluwal Academy'**
+  /// **'Alluwal Education Hub'**
   String get appTitle;
 
   /// No description provided for @commonCancel.
@@ -3876,6 +3876,24 @@ abstract class AppLocalizations {
   /// **'Kiosk Code'**
   String get userKioskCode;
 
+  /// No description provided for @userParentName.
+  ///
+  /// In en, this message translates to:
+  /// **'Parent'**
+  String get userParentName;
+
+  /// No description provided for @userTeacherName.
+  ///
+  /// In en, this message translates to:
+  /// **'Teacher'**
+  String get userTeacherName;
+
+  /// No description provided for @userWeeklyHours.
+  ///
+  /// In en, this message translates to:
+  /// **'Weekly Hours'**
+  String get userWeeklyHours;
+
   /// No description provided for @userJobTitle.
   ///
   /// In en, this message translates to:
@@ -4263,13 +4281,13 @@ abstract class AppLocalizations {
   /// No description provided for @aNewVersionOfAlluvialAcademy.
   ///
   /// In en, this message translates to:
-  /// **'A New Version Of Alluwal Academy'**
+  /// **'A New Version Of Alluwal Education Hub'**
   String get aNewVersionOfAlluvialAcademy;
 
   /// No description provided for @aNewVersionOfAlluvialAcademy2.
   ///
   /// In en, this message translates to:
-  /// **'A New Version Of Alluwal Academy2'**
+  /// **'A New Version Of Alluwal Education Hub2'**
   String get aNewVersionOfAlluvialAcademy2;
 
   /// No description provided for @aPhone.
@@ -4905,7 +4923,7 @@ abstract class AppLocalizations {
   /// No description provided for @alluwalAcademyIsAQuranEducation.
   ///
   /// In en, this message translates to:
-  /// **'Alluwal Academy Is AQuran Education'**
+  /// **'Alluwal Education Hub Is AQuran Education'**
   String get alluwalAcademyIsAQuranEducation;
 
   /// No description provided for @alluwalEducationHub.
@@ -6642,6 +6660,510 @@ abstract class AppLocalizations {
   /// **'Decision'**
   String get decision;
 
+  /// No description provided for @decisionHistory.
+  ///
+  /// In en, this message translates to:
+  /// **'Decision history'**
+  String get decisionHistory;
+
+  /// No description provided for @decisionHistoryDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'See who made critical changes across administration, classes, finance, reviews, and operations.'**
+  String get decisionHistoryDescription;
+
+  /// No description provided for @decisionHistorySearchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search by person, email, ID, record, or action'**
+  String get decisionHistorySearchHint;
+
+  /// No description provided for @decisionHistoryAll.
+  ///
+  /// In en, this message translates to:
+  /// **'All decisions'**
+  String get decisionHistoryAll;
+
+  /// No description provided for @decisionEntityUsers.
+  ///
+  /// In en, this message translates to:
+  /// **'Users'**
+  String get decisionEntityUsers;
+
+  /// No description provided for @decisionEntityShifts.
+  ///
+  /// In en, this message translates to:
+  /// **'Shifts'**
+  String get decisionEntityShifts;
+
+  /// No description provided for @decisionEntityInvoices.
+  ///
+  /// In en, this message translates to:
+  /// **'Invoices'**
+  String get decisionEntityInvoices;
+
+  /// No description provided for @decisionEntityTimesheets.
+  ///
+  /// In en, this message translates to:
+  /// **'Timesheets'**
+  String get decisionEntityTimesheets;
+
+  /// No description provided for @decisionEntityApplications.
+  ///
+  /// In en, this message translates to:
+  /// **'Applications'**
+  String get decisionEntityApplications;
+
+  /// No description provided for @decisionEntityTasks.
+  ///
+  /// In en, this message translates to:
+  /// **'Tasks'**
+  String get decisionEntityTasks;
+
+  /// No description provided for @decisionEntityForms.
+  ///
+  /// In en, this message translates to:
+  /// **'Forms'**
+  String get decisionEntityForms;
+
+  /// No description provided for @decisionEntityNoShows.
+  ///
+  /// In en, this message translates to:
+  /// **'No-show reviews'**
+  String get decisionEntityNoShows;
+
+  /// No description provided for @decisionEntityEnrollments.
+  ///
+  /// In en, this message translates to:
+  /// **'Enrollments'**
+  String get decisionEntityEnrollments;
+
+  /// No description provided for @decisionEntityAudits.
+  ///
+  /// In en, this message translates to:
+  /// **'Audits'**
+  String get decisionEntityAudits;
+
+  /// No description provided for @decisionEntitySettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings'**
+  String get decisionEntitySettings;
+
+  /// No description provided for @decisionHistoryLoadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Decision history could not be loaded.'**
+  String get decisionHistoryLoadError;
+
+  /// No description provided for @decisionHistoryEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No matching decisions found.'**
+  String get decisionHistoryEmpty;
+
+  /// No description provided for @decisionMadeBy.
+  ///
+  /// In en, this message translates to:
+  /// **'By {actor}'**
+  String decisionMadeBy(String actor);
+
+  /// No description provided for @decisionActorUnknown.
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown person'**
+  String get decisionActorUnknown;
+
+  /// No description provided for @decisionSystemAutomation.
+  ///
+  /// In en, this message translates to:
+  /// **'System automation'**
+  String get decisionSystemAutomation;
+
+  /// No description provided for @decisionTechnicalDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Technical details'**
+  String get decisionTechnicalDetails;
+
+  /// No description provided for @decisionActionUserCreated.
+  ///
+  /// In en, this message translates to:
+  /// **'Created user'**
+  String get decisionActionUserCreated;
+
+  /// No description provided for @decisionActionUserArchived.
+  ///
+  /// In en, this message translates to:
+  /// **'Archived user'**
+  String get decisionActionUserArchived;
+
+  /// No description provided for @decisionActionUserRestored.
+  ///
+  /// In en, this message translates to:
+  /// **'Restored user'**
+  String get decisionActionUserRestored;
+
+  /// No description provided for @decisionActionUserDeleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Permanently deleted user'**
+  String get decisionActionUserDeleted;
+
+  /// No description provided for @decisionActionUserRoleChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'Changed user role'**
+  String get decisionActionUserRoleChanged;
+
+  /// No description provided for @decisionActionUserGuardianLinksChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'Changed parent or guardian links'**
+  String get decisionActionUserGuardianLinksChanged;
+
+  /// No description provided for @decisionActionShiftCreated.
+  ///
+  /// In en, this message translates to:
+  /// **'Created shift'**
+  String get decisionActionShiftCreated;
+
+  /// No description provided for @decisionActionShiftDeleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Deleted shift'**
+  String get decisionActionShiftDeleted;
+
+  /// No description provided for @decisionActionShiftCancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancelled shift'**
+  String get decisionActionShiftCancelled;
+
+  /// No description provided for @decisionActionShiftPublished.
+  ///
+  /// In en, this message translates to:
+  /// **'Published shift'**
+  String get decisionActionShiftPublished;
+
+  /// No description provided for @decisionActionShiftUnpublished.
+  ///
+  /// In en, this message translates to:
+  /// **'Unpublished shift'**
+  String get decisionActionShiftUnpublished;
+
+  /// No description provided for @decisionActionShiftRescheduled.
+  ///
+  /// In en, this message translates to:
+  /// **'Rescheduled shift'**
+  String get decisionActionShiftRescheduled;
+
+  /// No description provided for @decisionActionShiftTeacherChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'Changed assigned teacher'**
+  String get decisionActionShiftTeacherChanged;
+
+  /// No description provided for @decisionActionShiftStudentsChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'Changed assigned students'**
+  String get decisionActionShiftStudentsChanged;
+
+  /// No description provided for @decisionActionShiftRecordingPermissionChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'Changed recording permission'**
+  String get decisionActionShiftRecordingPermissionChanged;
+
+  /// No description provided for @decisionActionInvoiceCreated.
+  ///
+  /// In en, this message translates to:
+  /// **'Created invoice'**
+  String get decisionActionInvoiceCreated;
+
+  /// No description provided for @decisionActionInvoiceDeleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Deleted invoice'**
+  String get decisionActionInvoiceDeleted;
+
+  /// No description provided for @decisionActionInvoicePaid.
+  ///
+  /// In en, this message translates to:
+  /// **'Marked invoice paid'**
+  String get decisionActionInvoicePaid;
+
+  /// No description provided for @decisionActionInvoiceCancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancelled invoice'**
+  String get decisionActionInvoiceCancelled;
+
+  /// No description provided for @decisionActionInvoiceReopened.
+  ///
+  /// In en, this message translates to:
+  /// **'Reopened invoice'**
+  String get decisionActionInvoiceReopened;
+
+  /// No description provided for @decisionActionInvoiceAmountChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'Changed invoice amount'**
+  String get decisionActionInvoiceAmountChanged;
+
+  /// No description provided for @decisionActionInvoiceDueDateChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'Changed invoice due date'**
+  String get decisionActionInvoiceDueDateChanged;
+
+  /// No description provided for @decisionActionInvoiceCutoffChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'Changed access cutoff'**
+  String get decisionActionInvoiceCutoffChanged;
+
+  /// No description provided for @decisionActionInvoicePaymentRecorded.
+  ///
+  /// In en, this message translates to:
+  /// **'Recorded payment'**
+  String get decisionActionInvoicePaymentRecorded;
+
+  /// No description provided for @decisionActionTimesheetDeleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Deleted timesheet'**
+  String get decisionActionTimesheetDeleted;
+
+  /// No description provided for @decisionActionTimesheetApproved.
+  ///
+  /// In en, this message translates to:
+  /// **'Approved timesheet'**
+  String get decisionActionTimesheetApproved;
+
+  /// No description provided for @decisionActionTimesheetRejected.
+  ///
+  /// In en, this message translates to:
+  /// **'Rejected timesheet'**
+  String get decisionActionTimesheetRejected;
+
+  /// No description provided for @decisionActionTimesheetReopened.
+  ///
+  /// In en, this message translates to:
+  /// **'Reopened timesheet'**
+  String get decisionActionTimesheetReopened;
+
+  /// No description provided for @decisionActionTimesheetEditApproved.
+  ///
+  /// In en, this message translates to:
+  /// **'Approved timesheet edit'**
+  String get decisionActionTimesheetEditApproved;
+
+  /// No description provided for @decisionActionTimesheetEditRejected.
+  ///
+  /// In en, this message translates to:
+  /// **'Rejected timesheet edit'**
+  String get decisionActionTimesheetEditRejected;
+
+  /// No description provided for @decisionActionTimesheetPaymentChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'Changed timesheet payment'**
+  String get decisionActionTimesheetPaymentChanged;
+
+  /// No description provided for @decisionActionApplicationDeleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Deleted application'**
+  String get decisionActionApplicationDeleted;
+
+  /// No description provided for @decisionActionApplicationApproved.
+  ///
+  /// In en, this message translates to:
+  /// **'Approved application'**
+  String get decisionActionApplicationApproved;
+
+  /// No description provided for @decisionActionApplicationRejected.
+  ///
+  /// In en, this message translates to:
+  /// **'Rejected application'**
+  String get decisionActionApplicationRejected;
+
+  /// No description provided for @decisionActionApplicationStatusChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'Changed application status'**
+  String get decisionActionApplicationStatusChanged;
+
+  /// No description provided for @decisionActionTaskCreated.
+  ///
+  /// In en, this message translates to:
+  /// **'Created task'**
+  String get decisionActionTaskCreated;
+
+  /// No description provided for @decisionActionTaskDeleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Deleted task'**
+  String get decisionActionTaskDeleted;
+
+  /// No description provided for @decisionActionTaskArchived.
+  ///
+  /// In en, this message translates to:
+  /// **'Archived task'**
+  String get decisionActionTaskArchived;
+
+  /// No description provided for @decisionActionTaskRestored.
+  ///
+  /// In en, this message translates to:
+  /// **'Restored task'**
+  String get decisionActionTaskRestored;
+
+  /// No description provided for @decisionActionTaskAssigneesChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'Changed task assignees'**
+  String get decisionActionTaskAssigneesChanged;
+
+  /// No description provided for @decisionActionTaskDueDateChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'Changed task due date'**
+  String get decisionActionTaskDueDateChanged;
+
+  /// No description provided for @decisionActionTaskStatusChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'Changed task status'**
+  String get decisionActionTaskStatusChanged;
+
+  /// No description provided for @decisionActionFormResponseDeleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Deleted form response'**
+  String get decisionActionFormResponseDeleted;
+
+  /// No description provided for @decisionActionFormResponseAccepted.
+  ///
+  /// In en, this message translates to:
+  /// **'Accepted form response'**
+  String get decisionActionFormResponseAccepted;
+
+  /// No description provided for @decisionActionFormResponseRejected.
+  ///
+  /// In en, this message translates to:
+  /// **'Rejected form response'**
+  String get decisionActionFormResponseRejected;
+
+  /// No description provided for @decisionActionFormResponseReviewReset.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset form review'**
+  String get decisionActionFormResponseReviewReset;
+
+  /// No description provided for @decisionActionFormResponseReviewChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'Changed form review status'**
+  String get decisionActionFormResponseReviewChanged;
+
+  /// No description provided for @decisionActionNoShowDeleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Deleted no-show report'**
+  String get decisionActionNoShowDeleted;
+
+  /// No description provided for @decisionActionNoShowReviewed.
+  ///
+  /// In en, this message translates to:
+  /// **'Reviewed no-show alert'**
+  String get decisionActionNoShowReviewed;
+
+  /// No description provided for @decisionActionNoShowReopened.
+  ///
+  /// In en, this message translates to:
+  /// **'Reopened no-show alert'**
+  String get decisionActionNoShowReopened;
+
+  /// No description provided for @decisionActionEnrollmentDeleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Deleted enrollment'**
+  String get decisionActionEnrollmentDeleted;
+
+  /// No description provided for @decisionActionEnrollmentArchived.
+  ///
+  /// In en, this message translates to:
+  /// **'Archived enrollment'**
+  String get decisionActionEnrollmentArchived;
+
+  /// No description provided for @decisionActionEnrollmentRestored.
+  ///
+  /// In en, this message translates to:
+  /// **'Restored enrollment'**
+  String get decisionActionEnrollmentRestored;
+
+  /// No description provided for @decisionActionEnrollmentMatched.
+  ///
+  /// In en, this message translates to:
+  /// **'Matched enrollment'**
+  String get decisionActionEnrollmentMatched;
+
+  /// No description provided for @decisionActionEnrollmentStatusChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'Changed enrollment status'**
+  String get decisionActionEnrollmentStatusChanged;
+
+  /// No description provided for @decisionActionEnrollmentParentLinkChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'Changed linked parent'**
+  String get decisionActionEnrollmentParentLinkChanged;
+
+  /// No description provided for @decisionActionAuditDeleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Deleted audit'**
+  String get decisionActionAuditDeleted;
+
+  /// No description provided for @decisionActionAuditStatusChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'Changed audit status'**
+  String get decisionActionAuditStatusChanged;
+
+  /// No description provided for @decisionActionAuditReviewChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'Changed audit review'**
+  String get decisionActionAuditReviewChanged;
+
+  /// No description provided for @decisionActionAuditCompensationChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'Changed audit compensation'**
+  String get decisionActionAuditCompensationChanged;
+
+  /// No description provided for @decisionActionSettingCreated.
+  ///
+  /// In en, this message translates to:
+  /// **'Created system setting'**
+  String get decisionActionSettingCreated;
+
+  /// No description provided for @decisionActionSettingDeleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Deleted system setting'**
+  String get decisionActionSettingDeleted;
+
+  /// No description provided for @decisionActionSettingChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'Changed system setting'**
+  String get decisionActionSettingChanged;
+
   /// No description provided for @defaultTemplatesCreated.
   ///
   /// In en, this message translates to:
@@ -6767,6 +7289,48 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Delete This Shift'**
   String get deleteThisShift;
+
+  /// No description provided for @deleteThisAndFuture.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete This & Future ({count})'**
+  String deleteThisAndFuture(int count);
+
+  /// No description provided for @deleteShiftConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to delete \"{name}\"? This action cannot be undone.'**
+  String deleteShiftConfirm(String name);
+
+  /// No description provided for @deleteShiftSeriesOptionsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'This shift is part of a recurring series. You can delete just this shift, or delete this shift and all future scheduled shifts ({count}).\n\nCompleted/active shifts are not deleted.'**
+  String deleteShiftSeriesOptionsHint(int count);
+
+  /// No description provided for @deletingShift.
+  ///
+  /// In en, this message translates to:
+  /// **'Deleting shift...'**
+  String get deletingShift;
+
+  /// No description provided for @deletingFutureShifts.
+  ///
+  /// In en, this message translates to:
+  /// **'Deleting this and future shifts...'**
+  String get deletingFutureShifts;
+
+  /// No description provided for @shiftDeletedSuccessfully.
+  ///
+  /// In en, this message translates to:
+  /// **'Shift deleted successfully'**
+  String get shiftDeletedSuccessfully;
+
+  /// No description provided for @futureShiftsDeletedSuccessfully.
+  ///
+  /// In en, this message translates to:
+  /// **'This and future shifts deleted successfully'**
+  String get futureShiftsDeletedSuccessfully;
 
   /// No description provided for @description.
   ///
@@ -10308,6 +10872,48 @@ abstract class AppLocalizations {
   /// **'Leader Duty'**
   String get leaderDuty;
 
+  /// No description provided for @shiftRoleAdministration.
+  ///
+  /// In en, this message translates to:
+  /// **'Administration'**
+  String get shiftRoleAdministration;
+
+  /// No description provided for @shiftRoleCoordination.
+  ///
+  /// In en, this message translates to:
+  /// **'Coordination'**
+  String get shiftRoleCoordination;
+
+  /// No description provided for @shiftRoleLeadership.
+  ///
+  /// In en, this message translates to:
+  /// **'Leadership'**
+  String get shiftRoleLeadership;
+
+  /// No description provided for @shiftRoleTraining.
+  ///
+  /// In en, this message translates to:
+  /// **'Staff Training'**
+  String get shiftRoleTraining;
+
+  /// No description provided for @shiftRolePlanning.
+  ///
+  /// In en, this message translates to:
+  /// **'Curriculum Planning'**
+  String get shiftRolePlanning;
+
+  /// No description provided for @shiftRoleOutreach.
+  ///
+  /// In en, this message translates to:
+  /// **'Community Outreach'**
+  String get shiftRoleOutreach;
+
+  /// No description provided for @shiftRoleGeneral.
+  ///
+  /// In en, this message translates to:
+  /// **'General'**
+  String get shiftRoleGeneral;
+
   /// No description provided for @leadersOnly.
   ///
   /// In en, this message translates to:
@@ -10335,7 +10941,7 @@ abstract class AppLocalizations {
   /// No description provided for @learnLeadThrive.
   ///
   /// In en, this message translates to:
-  /// **'Learn Lead Thrive'**
+  /// **'Learn • Lead • Thrive'**
   String get learnLeadThrive;
 
   /// No description provided for @learnMore.
@@ -13479,13 +14085,13 @@ abstract class AppLocalizations {
   /// No description provided for @searchByNameEmailOrRole.
   ///
   /// In en, this message translates to:
-  /// **'Search By Name Email Or Role'**
+  /// **'Search by name, email, phone, ID, or role'**
   String get searchByNameEmailOrRole;
 
   /// No description provided for @searchByNameOrEmail.
   ///
   /// In en, this message translates to:
-  /// **'Search By Name Or Email'**
+  /// **'Search by name, email, phone, or ID'**
   String get searchByNameOrEmail;
 
   /// No description provided for @searchByNameOrNumber.
@@ -13533,7 +14139,7 @@ abstract class AppLocalizations {
   /// No description provided for @searchParentsByNameOrEmail.
   ///
   /// In en, this message translates to:
-  /// **'Search Parents By Name Or Email'**
+  /// **'Search parents by name, email, phone, or ID'**
   String get searchParentsByNameOrEmail;
 
   /// No description provided for @searchStudents.
@@ -13557,7 +14163,7 @@ abstract class AppLocalizations {
   /// No description provided for @searchTeacher.
   ///
   /// In en, this message translates to:
-  /// **'Search by name or email'**
+  /// **'Search by name, email, phone, or ID'**
   String get searchTeacher;
 
   /// No description provided for @periodOneMonth.
@@ -13623,7 +14229,7 @@ abstract class AppLocalizations {
   /// No description provided for @searchUsersByNameOrEmail.
   ///
   /// In en, this message translates to:
-  /// **'Search Users By Name Or Email'**
+  /// **'Search users by name, email, phone, or ID'**
   String get searchUsersByNameOrEmail;
 
   /// No description provided for @searchUsersOrShifts.
@@ -15111,7 +15717,7 @@ abstract class AppLocalizations {
   /// No description provided for @thankYouForYourInterestIn.
   ///
   /// In en, this message translates to:
-  /// **'Thank You For Your Interest In'**
+  /// **'Thank you for your interest in joining Alluwal Education Hub.'**
   String get thankYouForYourInterestIn;
 
   /// No description provided for @thankYouForYourInterestIn2.
@@ -15147,7 +15753,7 @@ abstract class AppLocalizations {
   /// No description provided for @theBestOfPeopleAreThose.
   ///
   /// In en, this message translates to:
-  /// **'The Best Of People Are Those'**
+  /// **'The best among you are those who learn the Quran and teach it.'**
   String get theBestOfPeopleAreThose;
 
   /// No description provided for @theDailySchedulerWillGenerateNew.
@@ -16587,7 +17193,7 @@ abstract class AppLocalizations {
   /// No description provided for @weAreFosteringAWorldWhere.
   ///
   /// In en, this message translates to:
-  /// **'We Are Fostering AWorld Where'**
+  /// **'We are building a world where Islamic, African, and Western knowledge come together to prepare students for a global future.'**
   String get weAreFosteringAWorldWhere;
 
   /// No description provided for @weCollectInformationYouProvideDirectly.
@@ -16677,7 +17283,7 @@ abstract class AppLocalizations {
   /// No description provided for @welcomeToAlluvialAcademy.
   ///
   /// In en, this message translates to:
-  /// **'Welcome To Alluwal Academy'**
+  /// **'Welcome To Alluwal Education Hub'**
   String get welcomeToAlluvialAcademy;
 
   /// No description provided for @whatNeedsToBeDone.
@@ -22566,7 +23172,7 @@ abstract class AppLocalizations {
   /// No description provided for @publicSiteCmsPickLinkedUserSearchHint.
   ///
   /// In en, this message translates to:
-  /// **'Type at least 2 characters'**
+  /// **'Name, email, phone, or ID (2+ characters)'**
   String get publicSiteCmsPickLinkedUserSearchHint;
 
   /// No description provided for @publicSiteCmsPickLinkedUserEmpty.
@@ -25889,6 +26495,30 @@ abstract class AppLocalizations {
   /// **'Delete Invoice'**
   String get adminInvoiceDelete;
 
+  /// No description provided for @adminInvoiceDeleteSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Invoice deleted.'**
+  String get adminInvoiceDeleteSuccess;
+
+  /// No description provided for @adminInvoiceDeleteBlockedPaid.
+  ///
+  /// In en, this message translates to:
+  /// **'Paid or partially paid invoices cannot be deleted. Keep them for financial records.'**
+  String get adminInvoiceDeleteBlockedPaid;
+
+  /// No description provided for @adminInvoiceDeleteBlockedPaymentInProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'This invoice cannot be deleted while a payment is pending or processing.'**
+  String get adminInvoiceDeleteBlockedPaymentInProgress;
+
+  /// No description provided for @adminInvoiceDeleteBlockedPaymentHistory.
+  ///
+  /// In en, this message translates to:
+  /// **'This invoice has payment history and cannot be deleted. Cancel it instead.'**
+  String get adminInvoiceDeleteBlockedPaymentHistory;
+
   /// No description provided for @adminInvoiceDownloadPdf.
   ///
   /// In en, this message translates to:
@@ -28367,6 +28997,78 @@ abstract class AppLocalizations {
   /// **'Could not load scheduled work metrics.'**
   String get leaderWorkLoadError;
 
+  /// No description provided for @leaderAttendanceOverviewTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Leader attendance'**
+  String get leaderAttendanceOverviewTitle;
+
+  /// No description provided for @leaderAttendanceOverviewSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Live schedule status and month-to-date attendance for all leaders.'**
+  String get leaderAttendanceOverviewSubtitle;
+
+  /// No description provided for @leaderAttendanceLoadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load leader attendance.'**
+  String get leaderAttendanceLoadError;
+
+  /// No description provided for @leaderAttendanceEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No leader duties are scheduled this month.'**
+  String get leaderAttendanceEmpty;
+
+  /// No description provided for @leaderAttendanceWorking.
+  ///
+  /// In en, this message translates to:
+  /// **'Working now'**
+  String get leaderAttendanceWorking;
+
+  /// No description provided for @leaderAttendanceLateNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Late now'**
+  String get leaderAttendanceLateNow;
+
+  /// No description provided for @leaderAttendanceAwaitingClockIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Awaiting clock-in'**
+  String get leaderAttendanceAwaitingClockIn;
+
+  /// No description provided for @leaderAttendanceScheduledLater.
+  ///
+  /// In en, this message translates to:
+  /// **'Scheduled later'**
+  String get leaderAttendanceScheduledLater;
+
+  /// No description provided for @leaderAttendanceOffDuty.
+  ///
+  /// In en, this message translates to:
+  /// **'Off duty'**
+  String get leaderAttendanceOffDuty;
+
+  /// No description provided for @leaderAttendanceUntil.
+  ///
+  /// In en, this message translates to:
+  /// **'Scheduled until {time}'**
+  String leaderAttendanceUntil(String time);
+
+  /// No description provided for @leaderAttendanceShiftAt.
+  ///
+  /// In en, this message translates to:
+  /// **'Next/current shift: {time}'**
+  String leaderAttendanceShiftAt(String time);
+
+  /// No description provided for @leaderAttendanceNoUpcomingShift.
+  ///
+  /// In en, this message translates to:
+  /// **'No remaining shift this month'**
+  String get leaderAttendanceNoUpcomingShift;
+
   /// No description provided for @timeClockEarlyClockOutTitle.
   ///
   /// In en, this message translates to:
@@ -28438,6 +29140,2588 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Leadership: {name}'**
   String timeClockLeadershipSessionTitle(String name);
+
+  /// No description provided for @studentAttendanceOverviewNav.
+  ///
+  /// In en, this message translates to:
+  /// **'Student Attendance'**
+  String get studentAttendanceOverviewNav;
+
+  /// No description provided for @studentAttendanceAdminTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Student attendance & class time'**
+  String get studentAttendanceAdminTitle;
+
+  /// No description provided for @studentAttendanceAdminSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Actual time students spent in scheduled classes, based on recorded joins and leaves.'**
+  String get studentAttendanceAdminSubtitle;
+
+  /// No description provided for @studentAttendanceWeekly.
+  ///
+  /// In en, this message translates to:
+  /// **'Weekly'**
+  String get studentAttendanceWeekly;
+
+  /// No description provided for @studentAttendanceMonthly.
+  ///
+  /// In en, this message translates to:
+  /// **'Monthly'**
+  String get studentAttendanceMonthly;
+
+  /// No description provided for @studentAttendancePrevious.
+  ///
+  /// In en, this message translates to:
+  /// **'Previous period'**
+  String get studentAttendancePrevious;
+
+  /// No description provided for @studentAttendanceNext.
+  ///
+  /// In en, this message translates to:
+  /// **'Next period'**
+  String get studentAttendanceNext;
+
+  /// No description provided for @studentAttendanceRefresh.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh attendance'**
+  String get studentAttendanceRefresh;
+
+  /// No description provided for @studentAttendanceSearchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search students by name, email, phone, or ID'**
+  String get studentAttendanceSearchHint;
+
+  /// No description provided for @studentAttendanceStudentsTracked.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} students tracked'**
+  String studentAttendanceStudentsTracked(int count);
+
+  /// No description provided for @studentAttendanceClassTime.
+  ///
+  /// In en, this message translates to:
+  /// **'Class time'**
+  String get studentAttendanceClassTime;
+
+  /// No description provided for @studentAttendanceAttended.
+  ///
+  /// In en, this message translates to:
+  /// **'Attended'**
+  String get studentAttendanceAttended;
+
+  /// No description provided for @studentAttendanceMissed.
+  ///
+  /// In en, this message translates to:
+  /// **'Missed'**
+  String get studentAttendanceMissed;
+
+  /// No description provided for @studentAttendanceLate.
+  ///
+  /// In en, this message translates to:
+  /// **'Late'**
+  String get studentAttendanceLate;
+
+  /// No description provided for @studentAttendanceRate.
+  ///
+  /// In en, this message translates to:
+  /// **'Attendance'**
+  String get studentAttendanceRate;
+
+  /// No description provided for @studentAttendanceHoursValue.
+  ///
+  /// In en, this message translates to:
+  /// **'{hours} h'**
+  String studentAttendanceHoursValue(String hours);
+
+  /// No description provided for @studentAttendancePeriodLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'{start} – {end}'**
+  String studentAttendancePeriodLabel(String start, String end);
+
+  /// No description provided for @studentAttendanceNoDataTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No attendance data yet'**
+  String get studentAttendanceNoDataTitle;
+
+  /// No description provided for @studentAttendanceNoDataBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Attendance will appear after scheduled classes have been processed.'**
+  String get studentAttendanceNoDataBody;
+
+  /// No description provided for @studentAttendanceLoadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load student attendance. Please try again.'**
+  String get studentAttendanceLoadError;
+
+  /// No description provided for @studentAttendanceStudentClassTime.
+  ///
+  /// In en, this message translates to:
+  /// **'Your class time'**
+  String get studentAttendanceStudentClassTime;
+
+  /// No description provided for @studentAttendanceFamilyClassTime.
+  ///
+  /// In en, this message translates to:
+  /// **'Family class time'**
+  String get studentAttendanceFamilyClassTime;
+
+  /// No description provided for @formReviewStatusSeen.
+  ///
+  /// In en, this message translates to:
+  /// **'Seen'**
+  String get formReviewStatusSeen;
+
+  /// No description provided for @formReviewStatusInReview.
+  ///
+  /// In en, this message translates to:
+  /// **'In review'**
+  String get formReviewStatusInReview;
+
+  /// No description provided for @formReviewStatusAccepted.
+  ///
+  /// In en, this message translates to:
+  /// **'Accepted'**
+  String get formReviewStatusAccepted;
+
+  /// No description provided for @formReviewStatusRejected.
+  ///
+  /// In en, this message translates to:
+  /// **'Rejected'**
+  String get formReviewStatusRejected;
+
+  /// No description provided for @formReviewStatusNotReviewed.
+  ///
+  /// In en, this message translates to:
+  /// **'Not reviewed'**
+  String get formReviewStatusNotReviewed;
+
+  /// No description provided for @formDecisionColumn.
+  ///
+  /// In en, this message translates to:
+  /// **'Decision'**
+  String get formDecisionColumn;
+
+  /// No description provided for @formDecisionLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Decision'**
+  String get formDecisionLabel;
+
+  /// No description provided for @formDecisionRequiresAcceptedRejected.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose Accepted or Rejected before notifying the teacher.'**
+  String get formDecisionRequiresAcceptedRejected;
+
+  /// No description provided for @formDecisionTeacherMissing.
+  ///
+  /// In en, this message translates to:
+  /// **'The submitting teacher could not be identified.'**
+  String get formDecisionTeacherMissing;
+
+  /// No description provided for @formDecisionNotificationTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Form decision: {status}'**
+  String formDecisionNotificationTitle(String status);
+
+  /// No description provided for @formDecisionNotificationBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Your {formTitle} request was {status}. Open My Form Submissions for details.'**
+  String formDecisionNotificationBody(String formTitle, String status);
+
+  /// No description provided for @formDecisionNotificationSent.
+  ///
+  /// In en, this message translates to:
+  /// **'Decision saved and teacher notified.'**
+  String get formDecisionNotificationSent;
+
+  /// No description provided for @formDecisionVisibleNoPush.
+  ///
+  /// In en, this message translates to:
+  /// **'Decision saved. It is now visible to the teacher.'**
+  String get formDecisionVisibleNoPush;
+
+  /// No description provided for @formDecisionNotificationFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Decision was saved, but the notification could not be sent.'**
+  String get formDecisionNotificationFailed;
+
+  /// No description provided for @formNotifyTeacher.
+  ///
+  /// In en, this message translates to:
+  /// **'Notify teacher'**
+  String get formNotifyTeacher;
+
+  /// No description provided for @formNotifyTeacherAgain.
+  ///
+  /// In en, this message translates to:
+  /// **'Notify again'**
+  String get formNotifyTeacherAgain;
+
+  /// No description provided for @publicLandingSubjectIslamic.
+  ///
+  /// In en, this message translates to:
+  /// **'Islamic Program (Arabic, Quran, etc.)'**
+  String get publicLandingSubjectIslamic;
+
+  /// No description provided for @publicLandingSubjectAfroLanguages.
+  ///
+  /// In en, this message translates to:
+  /// **'African Languages (Pular, Mandingo, Swahili, Wolof, etc.)'**
+  String get publicLandingSubjectAfroLanguages;
+
+  /// No description provided for @publicLandingSubjectAfterSchool.
+  ///
+  /// In en, this message translates to:
+  /// **'After-School Tutoring (Math, Science, Physics, etc.)'**
+  String get publicLandingSubjectAfterSchool;
+
+  /// No description provided for @publicLandingSubjectAdultLiteracy.
+  ///
+  /// In en, this message translates to:
+  /// **'Adult Literacy (English and French reading and writing, etc.)'**
+  String get publicLandingSubjectAdultLiteracy;
+
+  /// No description provided for @publicLandingSubjectCoding.
+  ///
+  /// In en, this message translates to:
+  /// **'Coding'**
+  String get publicLandingSubjectCoding;
+
+  /// No description provided for @publicLandingSubjectEntrepreneurship.
+  ///
+  /// In en, this message translates to:
+  /// **'Entrepreneurship'**
+  String get publicLandingSubjectEntrepreneurship;
+
+  /// No description provided for @publicCategoryIslamicStudies.
+  ///
+  /// In en, this message translates to:
+  /// **'Islamic Studies'**
+  String get publicCategoryIslamicStudies;
+
+  /// No description provided for @publicCategoryLanguages.
+  ///
+  /// In en, this message translates to:
+  /// **'Languages'**
+  String get publicCategoryLanguages;
+
+  /// No description provided for @publicCategoryAdultLiteracy.
+  ///
+  /// In en, this message translates to:
+  /// **'Adult Literacy'**
+  String get publicCategoryAdultLiteracy;
+
+  /// No description provided for @publicCategoryAfterSchool.
+  ///
+  /// In en, this message translates to:
+  /// **'After-School Tutoring'**
+  String get publicCategoryAfterSchool;
+
+  /// No description provided for @publicCategoryMath.
+  ///
+  /// In en, this message translates to:
+  /// **'Math'**
+  String get publicCategoryMath;
+
+  /// No description provided for @publicCategoryProgramming.
+  ///
+  /// In en, this message translates to:
+  /// **'Programming'**
+  String get publicCategoryProgramming;
+
+  /// No description provided for @publicCategoryEnglishStudents.
+  ///
+  /// In en, this message translates to:
+  /// **'English (Students)'**
+  String get publicCategoryEnglishStudents;
+
+  /// No description provided for @publicHeroFeatureTrial.
+  ///
+  /// In en, this message translates to:
+  /// **'Meet the tutor. Try for free'**
+  String get publicHeroFeatureTrial;
+
+  /// No description provided for @publicHeroFeatureIslamic.
+  ///
+  /// In en, this message translates to:
+  /// **'Get help with Quran and Islamic studies'**
+  String get publicHeroFeatureIslamic;
+
+  /// No description provided for @publicHeroFeatureTechnology.
+  ///
+  /// In en, this message translates to:
+  /// **'Get help from our engineers and programmers'**
+  String get publicHeroFeatureTechnology;
+
+  /// No description provided for @publicHeroExcellent.
+  ///
+  /// In en, this message translates to:
+  /// **'Excellent'**
+  String get publicHeroExcellent;
+
+  /// No description provided for @publicHeroTrusted.
+  ///
+  /// In en, this message translates to:
+  /// **'Trusted by Muslim families worldwide'**
+  String get publicHeroTrusted;
+
+  /// No description provided for @publicPricingIslamicFeatureOne.
+  ///
+  /// In en, this message translates to:
+  /// **'One-on-one Quran, Arabic, and AdLam'**
+  String get publicPricingIslamicFeatureOne;
+
+  /// No description provided for @publicPricingIslamicFeatureTwo.
+  ///
+  /// In en, this message translates to:
+  /// **'Flexible weekday scheduling'**
+  String get publicPricingIslamicFeatureTwo;
+
+  /// No description provided for @publicPricingDiscountFeature.
+  ///
+  /// In en, this message translates to:
+  /// **'Discount at 4+ hours per week'**
+  String get publicPricingDiscountFeature;
+
+  /// No description provided for @publicPricingTutoringFeatureOne.
+  ///
+  /// In en, this message translates to:
+  /// **'Math, science, and literacy support'**
+  String get publicPricingTutoringFeatureOne;
+
+  /// No description provided for @publicPricingTutoringFeatureTwo.
+  ///
+  /// In en, this message translates to:
+  /// **'Personalized one-on-one coaching'**
+  String get publicPricingTutoringFeatureTwo;
+
+  /// No description provided for @publicPricingGroupFeatureOne.
+  ///
+  /// In en, this message translates to:
+  /// **'Weekend group classes'**
+  String get publicPricingGroupFeatureOne;
+
+  /// No description provided for @publicPricingGroupFeatureTwo.
+  ///
+  /// In en, this message translates to:
+  /// **'Flat hourly rate'**
+  String get publicPricingGroupFeatureTwo;
+
+  /// No description provided for @publicPricingGroupFeatureThree.
+  ///
+  /// In en, this message translates to:
+  /// **'Community learning setting'**
+  String get publicPricingGroupFeatureThree;
+
+  /// No description provided for @publicPricingFormula.
+  ///
+  /// In en, this message translates to:
+  /// **'{hours} hrs × {rate}/hr × {weeks} weeks ≈ {monthly}/mo'**
+  String publicPricingFormula(
+      int hours, String rate, String weeks, String monthly);
+
+  /// No description provided for @publicAboutTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'About Alluwal Education Hub'**
+  String get publicAboutTitle;
+
+  /// No description provided for @publicAboutBody.
+  ///
+  /// In en, this message translates to:
+  /// **'We are fostering a world where diverse knowledge—Islamic, African, and Western—comes together to prepare students for a globalized future.'**
+  String get publicAboutBody;
+
+  /// No description provided for @publicAboutMissionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Our Mission'**
+  String get publicAboutMissionTitle;
+
+  /// No description provided for @publicAboutMissionBody.
+  ///
+  /// In en, this message translates to:
+  /// **'To integrate Islamic, African, and Western education, offering a holistic curriculum that prepares students to navigate and succeed in a diverse world.'**
+  String get publicAboutMissionBody;
+
+  /// No description provided for @publicAboutVisionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Our Vision'**
+  String get publicAboutVisionTitle;
+
+  /// No description provided for @publicAboutVisionBody.
+  ///
+  /// In en, this message translates to:
+  /// **'To create an inclusive, inspiring environment where students are encouraged to become leaders in their communities.'**
+  String get publicAboutVisionBody;
+
+  /// No description provided for @publicAboutLearnMore.
+  ///
+  /// In en, this message translates to:
+  /// **'Learn More About Us'**
+  String get publicAboutLearnMore;
+
+  /// No description provided for @publicTooltipIslamic.
+  ///
+  /// In en, this message translates to:
+  /// **'Quran, Hadith, Arabic, Tawhid, Tafsir, and more'**
+  String get publicTooltipIslamic;
+
+  /// No description provided for @publicTooltipLanguages.
+  ///
+  /// In en, this message translates to:
+  /// **'English, French, and African languages taught by native speakers'**
+  String get publicTooltipLanguages;
+
+  /// No description provided for @publicTooltipAdultLiteracy.
+  ///
+  /// In en, this message translates to:
+  /// **'Reading, writing, and speaking for adults\' everyday and professional lives'**
+  String get publicTooltipAdultLiteracy;
+
+  /// No description provided for @publicTooltipAfterSchool.
+  ///
+  /// In en, this message translates to:
+  /// **'Math, science, programming, history, and English support for students'**
+  String get publicTooltipAfterSchool;
+
+  /// No description provided for @publicTooltipMath.
+  ///
+  /// In en, this message translates to:
+  /// **'Math support from elementary school through advanced calculus'**
+  String get publicTooltipMath;
+
+  /// No description provided for @publicTooltipProgramming.
+  ///
+  /// In en, this message translates to:
+  /// **'Web, mobile, and software development for students'**
+  String get publicTooltipProgramming;
+
+  /// No description provided for @publicTooltipEnglish.
+  ///
+  /// In en, this message translates to:
+  /// **'English support for students as part of after-school tutoring'**
+  String get publicTooltipEnglish;
+
+  /// No description provided for @publicCopyright.
+  ///
+  /// In en, this message translates to:
+  /// **'© 2024 Alluwal Education Hub'**
+  String get publicCopyright;
+
+  /// No description provided for @publicAboutLeadershipLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'OUR LEADERSHIP'**
+  String get publicAboutLeadershipLabel;
+
+  /// No description provided for @publicAboutLeadershipBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Dedicated professionals driving our mission to make quality education accessible worldwide.'**
+  String get publicAboutLeadershipBody;
+
+  /// No description provided for @publicAboutMeetTeam.
+  ///
+  /// In en, this message translates to:
+  /// **'Meet Our Full Team'**
+  String get publicAboutMeetTeam;
+
+  /// No description provided for @publicAboutHappyStudents.
+  ///
+  /// In en, this message translates to:
+  /// **'Happy Students'**
+  String get publicAboutHappyStudents;
+
+  /// No description provided for @publicAboutQualifiedTeachers.
+  ///
+  /// In en, this message translates to:
+  /// **'Qualified Teachers'**
+  String get publicAboutQualifiedTeachers;
+
+  /// No description provided for @publicAboutCountriesServed.
+  ///
+  /// In en, this message translates to:
+  /// **'Countries Served'**
+  String get publicAboutCountriesServed;
+
+  /// No description provided for @publicAboutSatisfactionRate.
+  ///
+  /// In en, this message translates to:
+  /// **'Satisfaction Rate'**
+  String get publicAboutSatisfactionRate;
+
+  /// No description provided for @publicContactName.
+  ///
+  /// In en, this message translates to:
+  /// **'Name'**
+  String get publicContactName;
+
+  /// No description provided for @publicContactNameHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Your full name'**
+  String get publicContactNameHint;
+
+  /// No description provided for @publicContactNameRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Name is required'**
+  String get publicContactNameRequired;
+
+  /// No description provided for @publicContactEmailHint.
+  ///
+  /// In en, this message translates to:
+  /// **'you@example.com'**
+  String get publicContactEmailHint;
+
+  /// No description provided for @publicContactEmailRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Email is required'**
+  String get publicContactEmailRequired;
+
+  /// No description provided for @publicContactEmailInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a valid email'**
+  String get publicContactEmailInvalid;
+
+  /// No description provided for @publicContactMessageHint.
+  ///
+  /// In en, this message translates to:
+  /// **'How can we help?'**
+  String get publicContactMessageHint;
+
+  /// No description provided for @publicContactMessageRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Message is required'**
+  String get publicContactMessageRequired;
+
+  /// No description provided for @publicContactPhone.
+  ///
+  /// In en, this message translates to:
+  /// **'Phone'**
+  String get publicContactPhone;
+
+  /// No description provided for @publicContactLocation.
+  ///
+  /// In en, this message translates to:
+  /// **'Location'**
+  String get publicContactLocation;
+
+  /// No description provided for @publicContactGlobalPlatform.
+  ///
+  /// In en, this message translates to:
+  /// **'Global online platform'**
+  String get publicContactGlobalPlatform;
+
+  /// No description provided for @publicCurrentLocation.
+  ///
+  /// In en, this message translates to:
+  /// **'Current Location (Country and City)'**
+  String get publicCurrentLocation;
+
+  /// No description provided for @publicGender.
+  ///
+  /// In en, this message translates to:
+  /// **'Gender'**
+  String get publicGender;
+
+  /// No description provided for @publicMale.
+  ///
+  /// In en, this message translates to:
+  /// **'Male'**
+  String get publicMale;
+
+  /// No description provided for @publicFemale.
+  ///
+  /// In en, this message translates to:
+  /// **'Female'**
+  String get publicFemale;
+
+  /// No description provided for @publicNationality.
+  ///
+  /// In en, this message translates to:
+  /// **'Nationality'**
+  String get publicNationality;
+
+  /// No description provided for @publicCurrentStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'I am currently a...'**
+  String get publicCurrentStatus;
+
+  /// No description provided for @publicProfessional.
+  ///
+  /// In en, this message translates to:
+  /// **'Professional'**
+  String get publicProfessional;
+
+  /// No description provided for @publicPleaseSpecify.
+  ///
+  /// In en, this message translates to:
+  /// **'Please specify'**
+  String get publicPleaseSpecify;
+
+  /// No description provided for @publicSpecifyAvailability.
+  ///
+  /// In en, this message translates to:
+  /// **'Please specify availability'**
+  String get publicSpecifyAvailability;
+
+  /// No description provided for @publicRequiredField.
+  ///
+  /// In en, this message translates to:
+  /// **'This field is required'**
+  String get publicRequiredField;
+
+  /// No description provided for @publicSelectOption.
+  ///
+  /// In en, this message translates to:
+  /// **'Please select an option'**
+  String get publicSelectOption;
+
+  /// No description provided for @publicLeadershipInterestPrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'Why are you interested in a leadership role?'**
+  String get publicLeadershipInterestPrompt;
+
+  /// No description provided for @publicLeadershipExperiencePrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'Relevant Leadership/Management Experience (Optional)'**
+  String get publicLeadershipExperiencePrompt;
+
+  /// No description provided for @publicAvailabilityPrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'How soon are you available to start?'**
+  String get publicAvailabilityPrompt;
+
+  /// No description provided for @publicAvailabilityOneWeek.
+  ///
+  /// In en, this message translates to:
+  /// **'In one week'**
+  String get publicAvailabilityOneWeek;
+
+  /// No description provided for @publicAvailabilityTwoWeeks.
+  ///
+  /// In en, this message translates to:
+  /// **'In two weeks'**
+  String get publicAvailabilityTwoWeeks;
+
+  /// No description provided for @publicAvailabilityThreeWeeks.
+  ///
+  /// In en, this message translates to:
+  /// **'In three weeks'**
+  String get publicAvailabilityThreeWeeks;
+
+  /// No description provided for @publicAvailabilityOneMonth.
+  ///
+  /// In en, this message translates to:
+  /// **'In one month'**
+  String get publicAvailabilityOneMonth;
+
+  /// No description provided for @publicApplicationSubmitFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'We could not submit your application. Please try again.'**
+  String get publicApplicationSubmitFailed;
+
+  /// No description provided for @publicTeacherStepProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'Step {current} of {total}'**
+  String publicTeacherStepProgress(int current, int total);
+
+  /// No description provided for @publicTeacherPersonalInfo.
+  ///
+  /// In en, this message translates to:
+  /// **'Personal Information'**
+  String get publicTeacherPersonalInfo;
+
+  /// No description provided for @publicTeacherWhatsApp.
+  ///
+  /// In en, this message translates to:
+  /// **'WhatsApp Number'**
+  String get publicTeacherWhatsApp;
+
+  /// No description provided for @publicTeacherTeachingPrograms.
+  ///
+  /// In en, this message translates to:
+  /// **'Teaching Programs'**
+  String get publicTeacherTeachingPrograms;
+
+  /// No description provided for @publicTeacherProgramAfterSchool.
+  ///
+  /// In en, this message translates to:
+  /// **'After-School Tutoring (English track)'**
+  String get publicTeacherProgramAfterSchool;
+
+  /// No description provided for @publicTeacherProgramIslamic.
+  ///
+  /// In en, this message translates to:
+  /// **'Islamic Program (Quran, Arabic, Hadith, Fiqh)'**
+  String get publicTeacherProgramIslamic;
+
+  /// No description provided for @publicTeacherProgramAdultLiteracy.
+  ///
+  /// In en, this message translates to:
+  /// **'Adult Literacy (English/French reading and writing)'**
+  String get publicTeacherProgramAdultLiteracy;
+
+  /// No description provided for @publicTeacherProgramAdlam.
+  ///
+  /// In en, this message translates to:
+  /// **'AdLaM (Reading and Writing)'**
+  String get publicTeacherProgramAdlam;
+
+  /// No description provided for @publicTeacherOtherProgram.
+  ///
+  /// In en, this message translates to:
+  /// **'Please specify another program'**
+  String get publicTeacherOtherProgram;
+
+  /// No description provided for @publicTeacherSubjectsPrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'For the after-school English track, list the subjects you can teach'**
+  String get publicTeacherSubjectsPrompt;
+
+  /// No description provided for @publicTeacherSubjectsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Reading, writing, grammar, vocabulary...'**
+  String get publicTeacherSubjectsHint;
+
+  /// No description provided for @publicTeacherIslamicQualifications.
+  ///
+  /// In en, this message translates to:
+  /// **'Islamic Studies Qualifications'**
+  String get publicTeacherIslamicQualifications;
+
+  /// No description provided for @publicTeacherTajwidPrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you excellent in Tajwid rules?'**
+  String get publicTeacherTajwidPrompt;
+
+  /// No description provided for @publicTeacherQuranLevelPrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'What is your level of Quran memorization?'**
+  String get publicTeacherQuranLevelPrompt;
+
+  /// No description provided for @publicTeacherQuranHafiz.
+  ///
+  /// In en, this message translates to:
+  /// **'100% — I am a Hafiz'**
+  String get publicTeacherQuranHafiz;
+
+  /// No description provided for @publicTeacherQuranHalf.
+  ///
+  /// In en, this message translates to:
+  /// **'About 50% or more'**
+  String get publicTeacherQuranHalf;
+
+  /// No description provided for @publicTeacherQuranThird.
+  ///
+  /// In en, this message translates to:
+  /// **'About 35% or less'**
+  String get publicTeacherQuranThird;
+
+  /// No description provided for @publicTeacherQuranJuzu.
+  ///
+  /// In en, this message translates to:
+  /// **'I have memorized less than Juz Amma'**
+  String get publicTeacherQuranJuzu;
+
+  /// No description provided for @publicTeacherArabicPrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'How well do you read and write Arabic?'**
+  String get publicTeacherArabicPrompt;
+
+  /// No description provided for @publicTeacherFluentLanguages.
+  ///
+  /// In en, this message translates to:
+  /// **'Languages You Speak Fluently'**
+  String get publicTeacherFluentLanguages;
+
+  /// No description provided for @publicTeacherExperienceCommitment.
+  ///
+  /// In en, this message translates to:
+  /// **'Experience & Commitment'**
+  String get publicTeacherExperienceCommitment;
+
+  /// No description provided for @publicTeacherTimeDisciplinePrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'How disciplined are you with time, especially when working late at night?'**
+  String get publicTeacherTimeDisciplinePrompt;
+
+  /// No description provided for @publicTeacherBalancePrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'How well can you balance school or your personal schedule with teaching (6 hours per week required)?'**
+  String get publicTeacherBalancePrompt;
+
+  /// No description provided for @publicTeacherInterestPrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'Why are you interested in applying for a teaching role with us? (100–400 words)'**
+  String get publicTeacherInterestPrompt;
+
+  /// No description provided for @publicTeacherInterestHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Describe your motivation...'**
+  String get publicTeacherInterestHint;
+
+  /// No description provided for @publicTeacherInterestRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Please explain your interest'**
+  String get publicTeacherInterestRequired;
+
+  /// No description provided for @publicTeacherMinWords.
+  ///
+  /// In en, this message translates to:
+  /// **'Please write at least {minimum} words (currently: {current})'**
+  String publicTeacherMinWords(int minimum, int current);
+
+  /// No description provided for @publicTeacherMaxWords.
+  ///
+  /// In en, this message translates to:
+  /// **'Please limit your answer to {maximum} words (currently: {current})'**
+  String publicTeacherMaxWords(int maximum, int current);
+
+  /// No description provided for @publicTeacherElectricityPrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'How often do you have electricity at home?'**
+  String get publicTeacherElectricityPrompt;
+
+  /// No description provided for @publicTeacherComfortPrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'How comfortable are you teaching teenagers, adults, and children online?'**
+  String get publicTeacherComfortPrompt;
+
+  /// No description provided for @publicTeacherSafetyPrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'Do you guarantee responsible, legal, and moral interaction with students, especially minors?'**
+  String get publicTeacherSafetyPrompt;
+
+  /// No description provided for @publicTeacherStartPrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'How soon are you available to start teaching?'**
+  String get publicTeacherStartPrompt;
+
+  /// No description provided for @publicTeacherTechnicalRequirements.
+  ///
+  /// In en, this message translates to:
+  /// **'Technical Requirements'**
+  String get publicTeacherTechnicalRequirements;
+
+  /// No description provided for @publicTeacherDevicePrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'What device do you intend to use to teach classes?'**
+  String get publicTeacherDevicePrompt;
+
+  /// No description provided for @publicTeacherInternetPrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'How often do you have access to the internet?'**
+  String get publicTeacherInternetPrompt;
+
+  /// No description provided for @publicTeacherScenarios.
+  ///
+  /// In en, this message translates to:
+  /// **'Teaching Scenarios'**
+  String get publicTeacherScenarios;
+
+  /// No description provided for @publicTeacherScenarioPrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'What would you do if a child did not want to participate or read during class? (100–300 words)'**
+  String get publicTeacherScenarioPrompt;
+
+  /// No description provided for @publicTeacherScenarioHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Describe your approach...'**
+  String get publicTeacherScenarioHint;
+
+  /// No description provided for @publicTeacherScenarioRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Please describe your approach'**
+  String get publicTeacherScenarioRequired;
+
+  /// No description provided for @publicTeacherFeedback.
+  ///
+  /// In en, this message translates to:
+  /// **'Feedback'**
+  String get publicTeacherFeedback;
+
+  /// No description provided for @publicTeacherFeedbackPrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'Do you have feedback about this application form? (Optional)'**
+  String get publicTeacherFeedbackPrompt;
+
+  /// No description provided for @publicTeacherFeedbackHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Your feedback helps us improve...'**
+  String get publicTeacherFeedbackHint;
+
+  /// No description provided for @publicSelectAnOption.
+  ///
+  /// In en, this message translates to:
+  /// **'Select an option'**
+  String get publicSelectAnOption;
+
+  /// No description provided for @publicNext.
+  ///
+  /// In en, this message translates to:
+  /// **'Next'**
+  String get publicNext;
+
+  /// No description provided for @publicSubmitApplication.
+  ///
+  /// In en, this message translates to:
+  /// **'Submit Application'**
+  String get publicSubmitApplication;
+
+  /// No description provided for @publicResetInstructions.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your email and we’ll send you a link to reset your password.'**
+  String get publicResetInstructions;
+
+  /// No description provided for @publicResetSent.
+  ///
+  /// In en, this message translates to:
+  /// **'Password reset email sent. Check your inbox.'**
+  String get publicResetSent;
+
+  /// No description provided for @publicResetNoAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'No account was found with this email.'**
+  String get publicResetNoAccount;
+
+  /// No description provided for @publicResetFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not send the reset email. Please try again.'**
+  String get publicResetFailed;
+
+  /// No description provided for @publicSendResetLink.
+  ///
+  /// In en, this message translates to:
+  /// **'Send Reset Link'**
+  String get publicSendResetLink;
+
+  /// No description provided for @publicSignInWithPhone.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in with Phone'**
+  String get publicSignInWithPhone;
+
+  /// No description provided for @publicPhoneSearchCountry.
+  ///
+  /// In en, this message translates to:
+  /// **'Search country...'**
+  String get publicPhoneSearchCountry;
+
+  /// No description provided for @publicPhoneEnterNumber.
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter a phone number'**
+  String get publicPhoneEnterNumber;
+
+  /// No description provided for @publicPhoneInvalidNumber.
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter a valid phone number'**
+  String get publicPhoneInvalidNumber;
+
+  /// No description provided for @publicPhoneAutomaticFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatic sign-in failed'**
+  String get publicPhoneAutomaticFailed;
+
+  /// No description provided for @publicPhoneFormatInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'The phone number format is invalid. Check it and try again.'**
+  String get publicPhoneFormatInvalid;
+
+  /// No description provided for @publicPhoneTooManyAttempts.
+  ///
+  /// In en, this message translates to:
+  /// **'Too many attempts. Wait a few minutes and try again.'**
+  String get publicPhoneTooManyAttempts;
+
+  /// No description provided for @publicPhoneQuotaExceeded.
+  ///
+  /// In en, this message translates to:
+  /// **'The SMS quota has been reached. Please try again later.'**
+  String get publicPhoneQuotaExceeded;
+
+  /// No description provided for @publicPhoneVerificationFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Verification failed. Please try again.'**
+  String get publicPhoneVerificationFailed;
+
+  /// No description provided for @publicPhoneSendFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not send the verification code. Please try again.'**
+  String get publicPhoneSendFailed;
+
+  /// No description provided for @publicPhoneEnterCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter the SMS code'**
+  String get publicPhoneEnterCode;
+
+  /// No description provided for @publicPhoneEnterFullCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter the full 6-digit code'**
+  String get publicPhoneEnterFullCode;
+
+  /// No description provided for @publicPhoneIncorrectCode.
+  ///
+  /// In en, this message translates to:
+  /// **'The code is incorrect. Please try again.'**
+  String get publicPhoneIncorrectCode;
+
+  /// No description provided for @publicPhoneExpiredCode.
+  ///
+  /// In en, this message translates to:
+  /// **'The code has expired. Request a new one.'**
+  String get publicPhoneExpiredCode;
+
+  /// No description provided for @publicPhoneCodeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter SMS Code'**
+  String get publicPhoneCodeTitle;
+
+  /// No description provided for @publicPhoneCodeSent.
+  ///
+  /// In en, this message translates to:
+  /// **'We sent a verification code to {phone}'**
+  String publicPhoneCodeSent(String phone);
+
+  /// No description provided for @publicPhoneInstructions.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your phone number to receive a verification code'**
+  String get publicPhoneInstructions;
+
+  /// No description provided for @publicPhoneSendCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Send Code'**
+  String get publicPhoneSendCode;
+
+  /// No description provided for @publicPhoneVerify.
+  ///
+  /// In en, this message translates to:
+  /// **'Verify & Sign In'**
+  String get publicPhoneVerify;
+
+  /// No description provided for @publicPhoneChangeNumber.
+  ///
+  /// In en, this message translates to:
+  /// **'Change Phone Number'**
+  String get publicPhoneChangeNumber;
+
+  /// No description provided for @publicJourney2020Title.
+  ///
+  /// In en, this message translates to:
+  /// **'Vision Founded'**
+  String get publicJourney2020Title;
+
+  /// No description provided for @publicJourney2020Body.
+  ///
+  /// In en, this message translates to:
+  /// **'The seed of Alluwal was planted.'**
+  String get publicJourney2020Body;
+
+  /// No description provided for @publicJourney2021Title.
+  ///
+  /// In en, this message translates to:
+  /// **'First Teachers'**
+  String get publicJourney2021Title;
+
+  /// No description provided for @publicJourney2021Body.
+  ///
+  /// In en, this message translates to:
+  /// **'Passionate educators joined us.'**
+  String get publicJourney2021Body;
+
+  /// No description provided for @publicJourney2022Title.
+  ///
+  /// In en, this message translates to:
+  /// **'Platform Launch'**
+  String get publicJourney2022Title;
+
+  /// No description provided for @publicJourney2022Body.
+  ///
+  /// In en, this message translates to:
+  /// **'We officially opened our virtual doors.'**
+  String get publicJourney2022Body;
+
+  /// No description provided for @publicJourney2023Title.
+  ///
+  /// In en, this message translates to:
+  /// **'Global Expansion'**
+  String get publicJourney2023Title;
+
+  /// No description provided for @publicJourney2023Body.
+  ///
+  /// In en, this message translates to:
+  /// **'We reached students in more than 20 countries.'**
+  String get publicJourney2023Body;
+
+  /// No description provided for @publicJourney2024Title.
+  ///
+  /// In en, this message translates to:
+  /// **'Growth'**
+  String get publicJourney2024Title;
+
+  /// No description provided for @publicJourney2024Body.
+  ///
+  /// In en, this message translates to:
+  /// **'New courses and more than 5,000 students reached.'**
+  String get publicJourney2024Body;
+
+  /// No description provided for @publicLocationHint.
+  ///
+  /// In en, this message translates to:
+  /// **'United States, New York'**
+  String get publicLocationHint;
+
+  /// No description provided for @publicNationalityHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Your nationality'**
+  String get publicNationalityHint;
+
+  /// No description provided for @publicStatusHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Your current status'**
+  String get publicStatusHint;
+
+  /// No description provided for @publicProgramHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Your program'**
+  String get publicProgramHint;
+
+  /// No description provided for @publicAvailabilityHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Your availability'**
+  String get publicAvailabilityHint;
+
+  /// No description provided for @publicTeacherDisciplineAlways.
+  ///
+  /// In en, this message translates to:
+  /// **'100% — Sleep will never cause me to miss a class'**
+  String get publicTeacherDisciplineAlways;
+
+  /// No description provided for @publicTeacherDisciplineSometimes.
+  ///
+  /// In en, this message translates to:
+  /// **'50% — Sleep and personal commitments might affect me'**
+  String get publicTeacherDisciplineSometimes;
+
+  /// No description provided for @publicTeacherDisciplineDifficult.
+  ///
+  /// In en, this message translates to:
+  /// **'Under 30% — Resisting sleep and planning ahead is hard'**
+  String get publicTeacherDisciplineDifficult;
+
+  /// No description provided for @publicTeacherDisciplineDay.
+  ///
+  /// In en, this message translates to:
+  /// **'Not at all — I am a day person'**
+  String get publicTeacherDisciplineDay;
+
+  /// No description provided for @publicTeacherBalanceAlways.
+  ///
+  /// In en, this message translates to:
+  /// **'100% — I am always on top of things'**
+  String get publicTeacherBalanceAlways;
+
+  /// No description provided for @publicTeacherBalanceSometimes.
+  ///
+  /// In en, this message translates to:
+  /// **'50% — I often try to stay balanced'**
+  String get publicTeacherBalanceSometimes;
+
+  /// No description provided for @publicTeacherBalanceDifficult.
+  ///
+  /// In en, this message translates to:
+  /// **'Under 30% — Life balance is not one of my strengths'**
+  String get publicTeacherBalanceDifficult;
+
+  /// No description provided for @publicLanguageSpanish.
+  ///
+  /// In en, this message translates to:
+  /// **'Spanish'**
+  String get publicLanguageSpanish;
+
+  /// No description provided for @publicLanguageMandingo.
+  ///
+  /// In en, this message translates to:
+  /// **'Mandingo'**
+  String get publicLanguageMandingo;
+
+  /// No description provided for @publicLanguagePular.
+  ///
+  /// In en, this message translates to:
+  /// **'Pular'**
+  String get publicLanguagePular;
+
+  /// No description provided for @publicLanguageTurkish.
+  ///
+  /// In en, this message translates to:
+  /// **'Turkish'**
+  String get publicLanguageTurkish;
+
+  /// No description provided for @publicLanguageUrdu.
+  ///
+  /// In en, this message translates to:
+  /// **'Urdu'**
+  String get publicLanguageUrdu;
+
+  /// No description provided for @publicLanguageBengali.
+  ///
+  /// In en, this message translates to:
+  /// **'Bengali'**
+  String get publicLanguageBengali;
+
+  /// No description provided for @publicLanguageIndonesian.
+  ///
+  /// In en, this message translates to:
+  /// **'Indonesian'**
+  String get publicLanguageIndonesian;
+
+  /// No description provided for @publicLanguageMalay.
+  ///
+  /// In en, this message translates to:
+  /// **'Malay'**
+  String get publicLanguageMalay;
+
+  /// No description provided for @publicEnterEmailFirst.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your email address first.'**
+  String get publicEnterEmailFirst;
+
+  /// No description provided for @publicResetTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Password Reset Email Sent'**
+  String get publicResetTitle;
+
+  /// No description provided for @publicResetBody.
+  ///
+  /// In en, this message translates to:
+  /// **'A password reset link was sent to {email}. Check your inbox and follow the instructions.'**
+  String publicResetBody(String email);
+
+  /// No description provided for @publicResetTooMany.
+  ///
+  /// In en, this message translates to:
+  /// **'Too many password reset requests. Wait a few minutes and try again.'**
+  String get publicResetTooMany;
+
+  /// No description provided for @publicNetworkError.
+  ///
+  /// In en, this message translates to:
+  /// **'Check your internet connection and try again.'**
+  String get publicNetworkError;
+
+  /// No description provided for @publicShowPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Show password'**
+  String get publicShowPassword;
+
+  /// No description provided for @publicHidePassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide password'**
+  String get publicHidePassword;
+
+  /// No description provided for @publicGoogleNoAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'No account was found for this Google email. Contact an administrator first.'**
+  String get publicGoogleNoAccount;
+
+  /// No description provided for @publicGoogleDifferentMethod.
+  ///
+  /// In en, this message translates to:
+  /// **'This email uses a different sign-in method. Sign in with your email and password.'**
+  String get publicGoogleDifferentMethod;
+
+  /// No description provided for @publicGoogleFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Google sign-in failed. Please try again.'**
+  String get publicGoogleFailed;
+
+  /// No description provided for @enrollmentStudentNameRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter the student name'**
+  String get enrollmentStudentNameRequired;
+
+  /// No description provided for @enrollmentStudentNumberNameRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter a name for Student {studentNumber}'**
+  String enrollmentStudentNumberNameRequired(int studentNumber);
+
+  /// No description provided for @enrollmentStudentProgramRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Please select a program for Student {studentNumber}'**
+  String enrollmentStudentProgramRequired(int studentNumber);
+
+  /// No description provided for @enrollmentStudentLanguageRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Please select a specific language for Student {studentNumber}'**
+  String enrollmentStudentLanguageRequired(int studentNumber);
+
+  /// No description provided for @enrollmentStudentLevelRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Please select a level for Student {studentNumber}'**
+  String enrollmentStudentLevelRequired(int studentNumber);
+
+  /// No description provided for @enrollmentStudentClassTypeRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Please select a class type for Student {studentNumber}'**
+  String enrollmentStudentClassTypeRequired(int studentNumber);
+
+  /// No description provided for @enrollmentAllProgramsRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Please select a program for all children'**
+  String get enrollmentAllProgramsRequired;
+
+  /// No description provided for @enrollmentSpecificLanguageRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Please select a specific language'**
+  String get enrollmentSpecificLanguageRequired;
+
+  /// No description provided for @enrollmentAllLevelsRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Please select a level for all children'**
+  String get enrollmentAllLevelsRequired;
+
+  /// No description provided for @enrollmentAllClassTypesRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Please select a class type for all children'**
+  String get enrollmentAllClassTypesRequired;
+
+  /// No description provided for @enrollmentPreferredDayRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Please select at least one preferred day'**
+  String get enrollmentPreferredDayRequired;
+
+  /// No description provided for @enrollmentRoleRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Please select whether you are a student, parent, or guardian'**
+  String get enrollmentRoleRequired;
+
+  /// No description provided for @enrollmentRequiredFields.
+  ///
+  /// In en, this message translates to:
+  /// **'Please complete all required fields'**
+  String get enrollmentRequiredFields;
+
+  /// No description provided for @enrollmentSameSchedule.
+  ///
+  /// In en, this message translates to:
+  /// **'Same'**
+  String get enrollmentSameSchedule;
+
+  /// No description provided for @enrollmentCustomSchedule.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom'**
+  String get enrollmentCustomSchedule;
+
+  /// No description provided for @enrollmentImportantSchedulingNotes.
+  ///
+  /// In en, this message translates to:
+  /// **'Important Scheduling Notes'**
+  String get enrollmentImportantSchedulingNotes;
+
+  /// No description provided for @enrollmentReviewDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Enrollment Details'**
+  String get enrollmentReviewDetails;
+
+  /// No description provided for @enrollmentReviewLevel.
+  ///
+  /// In en, this message translates to:
+  /// **'Level'**
+  String get enrollmentReviewLevel;
+
+  /// No description provided for @enrollmentReviewFormat.
+  ///
+  /// In en, this message translates to:
+  /// **'Format'**
+  String get enrollmentReviewFormat;
+
+  /// No description provided for @enrollmentReviewHours.
+  ///
+  /// In en, this message translates to:
+  /// **'Hours/week'**
+  String get enrollmentReviewHours;
+
+  /// No description provided for @enrollmentReviewDays.
+  ///
+  /// In en, this message translates to:
+  /// **'Days'**
+  String get enrollmentReviewDays;
+
+  /// No description provided for @enrollmentReviewTimeSlots.
+  ///
+  /// In en, this message translates to:
+  /// **'Time slots'**
+  String get enrollmentReviewTimeSlots;
+
+  /// No description provided for @enrollmentReviewTimePreference.
+  ///
+  /// In en, this message translates to:
+  /// **'Time preference'**
+  String get enrollmentReviewTimePreference;
+
+  /// No description provided for @enrollmentStudentNumber.
+  ///
+  /// In en, this message translates to:
+  /// **'Student {studentNumber}'**
+  String enrollmentStudentNumber(int studentNumber);
+
+  /// No description provided for @enrollmentStudentNameLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Student Name'**
+  String get enrollmentStudentNameLabel;
+
+  /// No description provided for @enrollmentStudentNameHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter full name'**
+  String get enrollmentStudentNameHint;
+
+  /// No description provided for @enrollmentAgeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Age'**
+  String get enrollmentAgeLabel;
+
+  /// No description provided for @enrollmentAgeHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Years'**
+  String get enrollmentAgeHint;
+
+  /// No description provided for @enrollmentAgeInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a valid age (1–99)'**
+  String get enrollmentAgeInvalid;
+
+  /// No description provided for @enrollmentElementarySchool.
+  ///
+  /// In en, this message translates to:
+  /// **'Elementary School'**
+  String get enrollmentElementarySchool;
+
+  /// No description provided for @enrollmentMiddleSchool.
+  ///
+  /// In en, this message translates to:
+  /// **'Middle School'**
+  String get enrollmentMiddleSchool;
+
+  /// No description provided for @enrollmentHighSchool.
+  ///
+  /// In en, this message translates to:
+  /// **'High School'**
+  String get enrollmentHighSchool;
+
+  /// No description provided for @enrollmentUniversity.
+  ///
+  /// In en, this message translates to:
+  /// **'University'**
+  String get enrollmentUniversity;
+
+  /// No description provided for @enrollmentMorning.
+  ///
+  /// In en, this message translates to:
+  /// **'Morning'**
+  String get enrollmentMorning;
+
+  /// No description provided for @enrollmentAfternoon.
+  ///
+  /// In en, this message translates to:
+  /// **'Afternoon'**
+  String get enrollmentAfternoon;
+
+  /// No description provided for @enrollmentEvening.
+  ///
+  /// In en, this message translates to:
+  /// **'Evening'**
+  String get enrollmentEvening;
+
+  /// No description provided for @enrollmentFlexible.
+  ///
+  /// In en, this message translates to:
+  /// **'Flexible'**
+  String get enrollmentFlexible;
+
+  /// No description provided for @enrollmentSelectField.
+  ///
+  /// In en, this message translates to:
+  /// **'Select {field}'**
+  String enrollmentSelectField(String field);
+
+  /// No description provided for @enrollmentDayMon.
+  ///
+  /// In en, this message translates to:
+  /// **'Mon'**
+  String get enrollmentDayMon;
+
+  /// No description provided for @enrollmentDayTue.
+  ///
+  /// In en, this message translates to:
+  /// **'Tue'**
+  String get enrollmentDayTue;
+
+  /// No description provided for @enrollmentDayWed.
+  ///
+  /// In en, this message translates to:
+  /// **'Wed'**
+  String get enrollmentDayWed;
+
+  /// No description provided for @enrollmentDayThu.
+  ///
+  /// In en, this message translates to:
+  /// **'Thu'**
+  String get enrollmentDayThu;
+
+  /// No description provided for @enrollmentDayFri.
+  ///
+  /// In en, this message translates to:
+  /// **'Fri'**
+  String get enrollmentDayFri;
+
+  /// No description provided for @enrollmentDaySat.
+  ///
+  /// In en, this message translates to:
+  /// **'Sat'**
+  String get enrollmentDaySat;
+
+  /// No description provided for @enrollmentDaySun.
+  ///
+  /// In en, this message translates to:
+  /// **'Sun'**
+  String get enrollmentDaySun;
+
+  /// No description provided for @countryUnitedStates.
+  ///
+  /// In en, this message translates to:
+  /// **'United States'**
+  String get countryUnitedStates;
+
+  /// No description provided for @countryCanada.
+  ///
+  /// In en, this message translates to:
+  /// **'Canada'**
+  String get countryCanada;
+
+  /// No description provided for @countryUnitedKingdom.
+  ///
+  /// In en, this message translates to:
+  /// **'United Kingdom'**
+  String get countryUnitedKingdom;
+
+  /// No description provided for @countryFrance.
+  ///
+  /// In en, this message translates to:
+  /// **'France'**
+  String get countryFrance;
+
+  /// No description provided for @countrySenegal.
+  ///
+  /// In en, this message translates to:
+  /// **'Senegal'**
+  String get countrySenegal;
+
+  /// No description provided for @countryGuinea.
+  ///
+  /// In en, this message translates to:
+  /// **'Guinea'**
+  String get countryGuinea;
+
+  /// No description provided for @countryMali.
+  ///
+  /// In en, this message translates to:
+  /// **'Mali'**
+  String get countryMali;
+
+  /// No description provided for @countryIvoryCoast.
+  ///
+  /// In en, this message translates to:
+  /// **'Côte d’Ivoire'**
+  String get countryIvoryCoast;
+
+  /// No description provided for @countryGambia.
+  ///
+  /// In en, this message translates to:
+  /// **'Gambia'**
+  String get countryGambia;
+
+  /// No description provided for @countryMauritania.
+  ///
+  /// In en, this message translates to:
+  /// **'Mauritania'**
+  String get countryMauritania;
+
+  /// No description provided for @countryBurkinaFaso.
+  ///
+  /// In en, this message translates to:
+  /// **'Burkina Faso'**
+  String get countryBurkinaFaso;
+
+  /// No description provided for @countryNiger.
+  ///
+  /// In en, this message translates to:
+  /// **'Niger'**
+  String get countryNiger;
+
+  /// No description provided for @countryNigeria.
+  ///
+  /// In en, this message translates to:
+  /// **'Nigeria'**
+  String get countryNigeria;
+
+  /// No description provided for @countryGhana.
+  ///
+  /// In en, this message translates to:
+  /// **'Ghana'**
+  String get countryGhana;
+
+  /// No description provided for @countryCameroon.
+  ///
+  /// In en, this message translates to:
+  /// **'Cameroon'**
+  String get countryCameroon;
+
+  /// No description provided for @countryChad.
+  ///
+  /// In en, this message translates to:
+  /// **'Chad'**
+  String get countryChad;
+
+  /// No description provided for @countryMorocco.
+  ///
+  /// In en, this message translates to:
+  /// **'Morocco'**
+  String get countryMorocco;
+
+  /// No description provided for @countryAlgeria.
+  ///
+  /// In en, this message translates to:
+  /// **'Algeria'**
+  String get countryAlgeria;
+
+  /// No description provided for @countryTunisia.
+  ///
+  /// In en, this message translates to:
+  /// **'Tunisia'**
+  String get countryTunisia;
+
+  /// No description provided for @countryEgypt.
+  ///
+  /// In en, this message translates to:
+  /// **'Egypt'**
+  String get countryEgypt;
+
+  /// No description provided for @countrySaudiArabia.
+  ///
+  /// In en, this message translates to:
+  /// **'Saudi Arabia'**
+  String get countrySaudiArabia;
+
+  /// No description provided for @countryUae.
+  ///
+  /// In en, this message translates to:
+  /// **'United Arab Emirates'**
+  String get countryUae;
+
+  /// No description provided for @countryQatar.
+  ///
+  /// In en, this message translates to:
+  /// **'Qatar'**
+  String get countryQatar;
+
+  /// No description provided for @countryKuwait.
+  ///
+  /// In en, this message translates to:
+  /// **'Kuwait'**
+  String get countryKuwait;
+
+  /// No description provided for @countryTurkey.
+  ///
+  /// In en, this message translates to:
+  /// **'Turkey'**
+  String get countryTurkey;
+
+  /// No description provided for @countryGermany.
+  ///
+  /// In en, this message translates to:
+  /// **'Germany'**
+  String get countryGermany;
+
+  /// No description provided for @countryItaly.
+  ///
+  /// In en, this message translates to:
+  /// **'Italy'**
+  String get countryItaly;
+
+  /// No description provided for @countrySpain.
+  ///
+  /// In en, this message translates to:
+  /// **'Spain'**
+  String get countrySpain;
+
+  /// No description provided for @countryBelgium.
+  ///
+  /// In en, this message translates to:
+  /// **'Belgium'**
+  String get countryBelgium;
+
+  /// No description provided for @countryNetherlands.
+  ///
+  /// In en, this message translates to:
+  /// **'Netherlands'**
+  String get countryNetherlands;
+
+  /// No description provided for @countrySwitzerland.
+  ///
+  /// In en, this message translates to:
+  /// **'Switzerland'**
+  String get countrySwitzerland;
+
+  /// No description provided for @enrollmentFooterStudentHours.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 student} other{{count} students}} · {hours} hrs/wk'**
+  String enrollmentFooterStudentHours(int count, int hours);
+
+  /// No description provided for @teamRoleFounder.
+  ///
+  /// In en, this message translates to:
+  /// **'Founder'**
+  String get teamRoleFounder;
+
+  /// No description provided for @teamRoleTechnologyOfficer.
+  ///
+  /// In en, this message translates to:
+  /// **'Chief Technology Officer'**
+  String get teamRoleTechnologyOfficer;
+
+  /// No description provided for @teamRoleExecutiveOfficer.
+  ///
+  /// In en, this message translates to:
+  /// **'Chief Executive Officer'**
+  String get teamRoleExecutiveOfficer;
+
+  /// No description provided for @teamRoleAccountant.
+  ///
+  /// In en, this message translates to:
+  /// **'Chief Accountant'**
+  String get teamRoleAccountant;
+
+  /// No description provided for @teamRoleCoordinator.
+  ///
+  /// In en, this message translates to:
+  /// **'Teachers & Students Coordinator'**
+  String get teamRoleCoordinator;
+
+  /// No description provided for @teamRoleSocialMedia.
+  ///
+  /// In en, this message translates to:
+  /// **'Social Media Manager'**
+  String get teamRoleSocialMedia;
+
+  /// No description provided for @teamRoleTeacher.
+  ///
+  /// In en, this message translates to:
+  /// **'Teacher'**
+  String get teamRoleTeacher;
+
+  /// No description provided for @teamRoleQuranTeacher.
+  ///
+  /// In en, this message translates to:
+  /// **'Quran Teacher'**
+  String get teamRoleQuranTeacher;
+
+  /// No description provided for @teamRoleUstaz.
+  ///
+  /// In en, this message translates to:
+  /// **'Ustaz'**
+  String get teamRoleUstaz;
+
+  /// No description provided for @teamRoleEngineerTeacherDeveloper.
+  ///
+  /// In en, this message translates to:
+  /// **'State Engineer | Teacher & Developer'**
+  String get teamRoleEngineerTeacherDeveloper;
+
+  /// No description provided for @teamEducationSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'Education and professional training'**
+  String get teamEducationSummary;
+
+  /// No description provided for @sidebarQuizReview.
+  ///
+  /// In en, this message translates to:
+  /// **'Quiz Review'**
+  String get sidebarQuizReview;
+
+  /// No description provided for @quizReviewTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'AI Quiz Question Review'**
+  String get quizReviewTitle;
+
+  /// No description provided for @quizReviewEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No pending questions to review.'**
+  String get quizReviewEmpty;
+
+  /// No description provided for @quizReviewAccessRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Your administrator must add you as a quiz reviewer before you can review questions.'**
+  String get quizReviewAccessRequired;
+
+  /// No description provided for @quizReviewApprove.
+  ///
+  /// In en, this message translates to:
+  /// **'Approve'**
+  String get quizReviewApprove;
+
+  /// No description provided for @quizReviewReject.
+  ///
+  /// In en, this message translates to:
+  /// **'Reject'**
+  String get quizReviewReject;
+
+  /// No description provided for @quizReviewGenerate.
+  ///
+  /// In en, this message translates to:
+  /// **'Generate questions'**
+  String get quizReviewGenerate;
+
+  /// No description provided for @quizReviewGenerateStarted.
+  ///
+  /// In en, this message translates to:
+  /// **'Generating new questions… they will appear here in a minute.'**
+  String get quizReviewGenerateStarted;
+
+  /// No description provided for @quizReviewActionFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Action failed: {error}'**
+  String quizReviewActionFailed(String error);
+
+  /// No description provided for @quizReviewApprovedSnack.
+  ///
+  /// In en, this message translates to:
+  /// **'Question approved'**
+  String get quizReviewApprovedSnack;
+
+  /// No description provided for @quizReviewRejectedSnack.
+  ///
+  /// In en, this message translates to:
+  /// **'Question rejected'**
+  String get quizReviewRejectedSnack;
+
+  /// No description provided for @quizReviewRejectionReasonTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Why reject this question?'**
+  String get quizReviewRejectionReasonTitle;
+
+  /// No description provided for @quizReviewRejectionReasonLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Rejection reason'**
+  String get quizReviewRejectionReasonLabel;
+
+  /// No description provided for @quizReviewRejectionReasonHint.
+  ///
+  /// In en, this message translates to:
+  /// **'For example: duplicate, inaccurate, or unclear'**
+  String get quizReviewRejectionReasonHint;
+
+  /// No description provided for @quizReviewRejectionReasonRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Please provide a reason before rejecting.'**
+  String get quizReviewRejectionReasonRequired;
+
+  /// No description provided for @quizReviewConfirmRejection.
+  ///
+  /// In en, this message translates to:
+  /// **'Reject question'**
+  String get quizReviewConfirmRejection;
+
+  /// No description provided for @quizReviewPendingCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} pending'**
+  String quizReviewPendingCount(int count);
+
+  /// No description provided for @quizReviewSendStudentBatch.
+  ///
+  /// In en, this message translates to:
+  /// **'Send student batch'**
+  String get quizReviewSendStudentBatch;
+
+  /// No description provided for @quizReviewStudentBatchSent.
+  ///
+  /// In en, this message translates to:
+  /// **'The approved-question batch was sent to students.'**
+  String get quizReviewStudentBatchSent;
+
+  /// No description provided for @quizReviewManageReviewers.
+  ///
+  /// In en, this message translates to:
+  /// **'Review teachers'**
+  String get quizReviewManageReviewers;
+
+  /// No description provided for @quizReviewSaveReviewers.
+  ///
+  /// In en, this message translates to:
+  /// **'Save reviewers'**
+  String get quizReviewSaveReviewers;
+
+  /// No description provided for @quizReviewReviewersSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Review teachers saved and notified about the pending batch.'**
+  String get quizReviewReviewersSaved;
+
+  /// No description provided for @quizReviewRecentDecisions.
+  ///
+  /// In en, this message translates to:
+  /// **'Recent decisions'**
+  String get quizReviewRecentDecisions;
+
+  /// No description provided for @quizReviewDecisionBy.
+  ///
+  /// In en, this message translates to:
+  /// **'{status} by {name} ({role})'**
+  String quizReviewDecisionBy(String status, String name, String role);
+
+  /// No description provided for @quizCompetitionStudentTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Monthly Bayannah Challenge'**
+  String get quizCompetitionStudentTitle;
+
+  /// No description provided for @quizCompetitionAdminTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Bayannah Competition'**
+  String get quizCompetitionAdminTitle;
+
+  /// No description provided for @quizCompetitionMonth.
+  ///
+  /// In en, this message translates to:
+  /// **'Competition month: {month}'**
+  String quizCompetitionMonth(String month);
+
+  /// No description provided for @quizCompetitionRules.
+  ///
+  /// In en, this message translates to:
+  /// **'Answer unique questions all month. To qualify, answer at least {questions} questions across {days} different days. Most unique answers wins; ties use correct answers, accuracy, active days, then earliest final score.'**
+  String quizCompetitionRules(int questions, int days);
+
+  /// No description provided for @quizCompetitionQuestions.
+  ///
+  /// In en, this message translates to:
+  /// **'Questions'**
+  String get quizCompetitionQuestions;
+
+  /// No description provided for @quizCompetitionActiveDays.
+  ///
+  /// In en, this message translates to:
+  /// **'Active days'**
+  String get quizCompetitionActiveDays;
+
+  /// No description provided for @quizCompetitionRank.
+  ///
+  /// In en, this message translates to:
+  /// **'Rank'**
+  String get quizCompetitionRank;
+
+  /// No description provided for @quizCompetitionRetry.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry competition status'**
+  String get quizCompetitionRetry;
+
+  /// No description provided for @quizCompetitionNoWinner.
+  ///
+  /// In en, this message translates to:
+  /// **'No student met the participation minimum this month.'**
+  String get quizCompetitionNoWinner;
+
+  /// No description provided for @quizCompetitionWinner.
+  ///
+  /// In en, this message translates to:
+  /// **'Winner: {name}'**
+  String quizCompetitionWinner(String name);
+
+  /// No description provided for @quizCompetitionAnswered.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} unique questions answered'**
+  String quizCompetitionAnswered(int count);
+
+  /// No description provided for @quizCompetitionLeaderboard.
+  ///
+  /// In en, this message translates to:
+  /// **'Leaderboard'**
+  String get quizCompetitionLeaderboard;
+
+  /// No description provided for @quizCompetitionNoParticipants.
+  ///
+  /// In en, this message translates to:
+  /// **'No students have answered a competition question yet.'**
+  String get quizCompetitionNoParticipants;
+
+  /// No description provided for @quizCompetitionEntryStats.
+  ///
+  /// In en, this message translates to:
+  /// **'{answered} answered · {correct} correct · {days} active days'**
+  String quizCompetitionEntryStats(int answered, int correct, int days);
+
+  /// No description provided for @quizCompetitionChooseMonth.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose month'**
+  String get quizCompetitionChooseMonth;
+
+  /// No description provided for @quizCompetitionFinalizeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Finalize this competition?'**
+  String get quizCompetitionFinalizeTitle;
+
+  /// No description provided for @quizCompetitionFinalizeBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Each age division with enough eligible students will receive a winner or exact-tie co-winners. Finalizing before month end or changing a finalized result requires a written reason.'**
+  String get quizCompetitionFinalizeBody;
+
+  /// No description provided for @quizCompetitionFinalizeReason.
+  ///
+  /// In en, this message translates to:
+  /// **'Reason (required for early close or correction)'**
+  String get quizCompetitionFinalizeReason;
+
+  /// No description provided for @quizCompetitionFinalize.
+  ///
+  /// In en, this message translates to:
+  /// **'Finalize winner'**
+  String get quizCompetitionFinalize;
+
+  /// No description provided for @quizCompetitionFinalized.
+  ///
+  /// In en, this message translates to:
+  /// **'Competition result finalized.'**
+  String get quizCompetitionFinalized;
+
+  /// No description provided for @quizCompetitionRefinalize.
+  ///
+  /// In en, this message translates to:
+  /// **'Correct finalized result'**
+  String get quizCompetitionRefinalize;
+
+  /// No description provided for @quizCompetitionCancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get quizCompetitionCancel;
+
+  /// No description provided for @quizCompetitionAnswerNotCounted.
+  ///
+  /// In en, this message translates to:
+  /// **'This answer could not be added to the monthly competition. Check your connection and try another question.'**
+  String get quizCompetitionAnswerNotCounted;
+
+  /// No description provided for @quizCompetitionFairRules.
+  ///
+  /// In en, this message translates to:
+  /// **'You compete only in your age division. Qualify with {questions} unique questions over {days} days and at least {accuracy}% accuracy. A division needs {participants} eligible students. Exact ties share the win.'**
+  String quizCompetitionFairRules(
+      int questions, int days, int accuracy, int participants);
+
+  /// No description provided for @quizCompetitionCategoryProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'Explore every category to qualify: {attempted}/{required} completed.'**
+  String quizCompetitionCategoryProgress(int attempted, int required);
+
+  /// No description provided for @quizCompetitionNearbyRanks.
+  ///
+  /// In en, this message translates to:
+  /// **'Nearest ranks in your division'**
+  String get quizCompetitionNearbyRanks;
+
+  /// No description provided for @quizCompetitionNearbyAhead.
+  ///
+  /// In en, this message translates to:
+  /// **'Ahead · #{rank} {name}'**
+  String quizCompetitionNearbyAhead(int rank, String name);
+
+  /// No description provided for @quizCompetitionNearbyBehind.
+  ///
+  /// In en, this message translates to:
+  /// **'Behind · #{rank} {name}'**
+  String quizCompetitionNearbyBehind(int rank, String name);
+
+  /// No description provided for @quizCompetitionCountingWindow.
+  ///
+  /// In en, this message translates to:
+  /// **'Answers count from {start} through {end}.'**
+  String quizCompetitionCountingWindow(String start, String end);
+
+  /// No description provided for @quizCompetitionSetWindow.
+  ///
+  /// In en, this message translates to:
+  /// **'Set count window'**
+  String get quizCompetitionSetWindow;
+
+  /// No description provided for @quizCompetitionCountingStart.
+  ///
+  /// In en, this message translates to:
+  /// **'First counting day'**
+  String get quizCompetitionCountingStart;
+
+  /// No description provided for @quizCompetitionCountingEnd.
+  ///
+  /// In en, this message translates to:
+  /// **'Last counting day'**
+  String get quizCompetitionCountingEnd;
+
+  /// No description provided for @quizCompetitionWindowSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Competition counting window saved.'**
+  String get quizCompetitionWindowSaved;
+
+  /// No description provided for @quizCompetitionLifetimeWins.
+  ///
+  /// In en, this message translates to:
+  /// **'Lifetime wins: {count}'**
+  String quizCompetitionLifetimeWins(int count);
+
+  /// No description provided for @quizCompetitionCategoryGuidance.
+  ///
+  /// In en, this message translates to:
+  /// **'Your category guidance'**
+  String get quizCompetitionCategoryGuidance;
+
+  /// No description provided for @quizCompetitionCategoryInsight.
+  ///
+  /// In en, this message translates to:
+  /// **'{correct}/{answered} correct'**
+  String quizCompetitionCategoryInsight(int correct, int answered);
+
+  /// No description provided for @quizCompetitionCategoryStart.
+  ///
+  /// In en, this message translates to:
+  /// **'Start here'**
+  String get quizCompetitionCategoryStart;
+
+  /// No description provided for @quizCompetitionCategoryPractice.
+  ///
+  /// In en, this message translates to:
+  /// **'Practice more'**
+  String get quizCompetitionCategoryPractice;
+
+  /// No description provided for @quizCompetitionCategoryStrong.
+  ///
+  /// In en, this message translates to:
+  /// **'Strong progress'**
+  String get quizCompetitionCategoryStrong;
+
+  /// No description provided for @quizCompetitionDivision.
+  ///
+  /// In en, this message translates to:
+  /// **'Division: {division}'**
+  String quizCompetitionDivision(String division);
+
+  /// No description provided for @quizCompetitionDivisionEarlyLearners.
+  ///
+  /// In en, this message translates to:
+  /// **'Early Learners (under age 8)'**
+  String get quizCompetitionDivisionEarlyLearners;
+
+  /// No description provided for @quizCompetitionDivisionJuniors.
+  ///
+  /// In en, this message translates to:
+  /// **'Juniors (ages 8–11)'**
+  String get quizCompetitionDivisionJuniors;
+
+  /// No description provided for @quizCompetitionDivisionYouth.
+  ///
+  /// In en, this message translates to:
+  /// **'Youth (ages 12–17)'**
+  String get quizCompetitionDivisionYouth;
+
+  /// No description provided for @quizCompetitionDivisionAdults.
+  ///
+  /// In en, this message translates to:
+  /// **'Adults (ages 18+)'**
+  String get quizCompetitionDivisionAdults;
+
+  /// No description provided for @quizCompetitionDivisionUnassigned.
+  ///
+  /// In en, this message translates to:
+  /// **'Needs age-division assignment'**
+  String get quizCompetitionDivisionUnassigned;
+
+  /// No description provided for @quizCompetitionDivisionNeeded.
+  ///
+  /// In en, this message translates to:
+  /// **'Your answers are being saved, but you cannot be ranked until your age division is set.'**
+  String get quizCompetitionDivisionNeeded;
+
+  /// No description provided for @quizCompetitionCoWinners.
+  ///
+  /// In en, this message translates to:
+  /// **'Co-winners: {names}'**
+  String quizCompetitionCoWinners(String names);
+
+  /// No description provided for @quizCompetitionDivisionSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'{participants} participants · {eligible} eligible'**
+  String quizCompetitionDivisionSummary(int participants, int eligible);
+
+  /// No description provided for @quizCompetitionAssignDivision.
+  ///
+  /// In en, this message translates to:
+  /// **'Assign division'**
+  String get quizCompetitionAssignDivision;
+
+  /// No description provided for @quizCompetitionAssignDivisionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Assign age division'**
+  String get quizCompetitionAssignDivisionTitle;
+
+  /// No description provided for @quizCompetitionAssignDivisionReason.
+  ///
+  /// In en, this message translates to:
+  /// **'Reason or verified age (required)'**
+  String get quizCompetitionAssignDivisionReason;
+
+  /// No description provided for @quizCompetitionAssignDivisionSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Age division assigned.'**
+  String get quizCompetitionAssignDivisionSaved;
+
+  /// No description provided for @quizCompetitionAgeSetupTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Set your age division'**
+  String get quizCompetitionAgeSetupTitle;
+
+  /// No description provided for @quizCompetitionAgeSetupBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose your birth month and year so you compete with students near your age. We do not store an exact birth date. Ask a parent or guardian to help if needed.'**
+  String get quizCompetitionAgeSetupBody;
+
+  /// No description provided for @quizCompetitionBirthMonth.
+  ///
+  /// In en, this message translates to:
+  /// **'Birth month'**
+  String get quizCompetitionBirthMonth;
+
+  /// No description provided for @quizCompetitionBirthYear.
+  ///
+  /// In en, this message translates to:
+  /// **'Birth year'**
+  String get quizCompetitionBirthYear;
+
+  /// No description provided for @quizCompetitionAgeSetupSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Save age division'**
+  String get quizCompetitionAgeSetupSave;
+
+  /// No description provided for @quizCompetitionAgeSetupLater.
+  ///
+  /// In en, this message translates to:
+  /// **'Not now'**
+  String get quizCompetitionAgeSetupLater;
+
+  /// No description provided for @quizCompetitionAgeSetupRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose both a birth month and birth year.'**
+  String get quizCompetitionAgeSetupRequired;
+
+  /// No description provided for @quizCompetitionAgeSetupSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Your age division is ready.'**
+  String get quizCompetitionAgeSetupSaved;
+
+  /// No description provided for @quizCompetitionParticipationTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Student participation'**
+  String get quizCompetitionParticipationTitle;
+
+  /// No description provided for @quizCompetitionParticipationEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No active students are assigned to this age range.'**
+  String get quizCompetitionParticipationEmpty;
+
+  /// No description provided for @quizCompetitionStatusNotStarted.
+  ///
+  /// In en, this message translates to:
+  /// **'Not started'**
+  String get quizCompetitionStatusNotStarted;
+
+  /// No description provided for @quizCompetitionStatusNeedsEncouragement.
+  ///
+  /// In en, this message translates to:
+  /// **'Needs encouragement'**
+  String get quizCompetitionStatusNeedsEncouragement;
+
+  /// No description provided for @quizCompetitionStatusParticipating.
+  ///
+  /// In en, this message translates to:
+  /// **'Participating'**
+  String get quizCompetitionStatusParticipating;
+
+  /// No description provided for @quizCompetitionStatusQualified.
+  ///
+  /// In en, this message translates to:
+  /// **'Qualified'**
+  String get quizCompetitionStatusQualified;
+
+  /// No description provided for @quizCategoryCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{categories} categories • {questions}+ questions'**
+  String quizCategoryCount(int categories, int questions);
+
+  /// No description provided for @parentFormsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Family Forms'**
+  String get parentFormsTitle;
+
+  /// No description provided for @parentFormsSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Submit an excuse request or share feedback with school leaders.'**
+  String get parentFormsSubtitle;
+
+  /// No description provided for @parentExcuseFormTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Student Absence / Excuse Request'**
+  String get parentExcuseFormTitle;
+
+  /// No description provided for @parentExcuseFormDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Let the school know why your child will miss or has missed a class.'**
+  String get parentExcuseFormDescription;
+
+  /// No description provided for @parentExcuseStudentName.
+  ///
+  /// In en, this message translates to:
+  /// **'Child\'s full name'**
+  String get parentExcuseStudentName;
+
+  /// No description provided for @parentExcuseClassOrTeacher.
+  ///
+  /// In en, this message translates to:
+  /// **'Class or teacher (optional)'**
+  String get parentExcuseClassOrTeacher;
+
+  /// No description provided for @parentExcuseAbsenceDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Date of the missed class'**
+  String get parentExcuseAbsenceDate;
+
+  /// No description provided for @parentExcuseReason.
+  ///
+  /// In en, this message translates to:
+  /// **'Reason for the absence'**
+  String get parentExcuseReason;
+
+  /// No description provided for @parentExcuseReasonIllness.
+  ///
+  /// In en, this message translates to:
+  /// **'Illness'**
+  String get parentExcuseReasonIllness;
+
+  /// No description provided for @parentExcuseReasonAppointment.
+  ///
+  /// In en, this message translates to:
+  /// **'Appointment'**
+  String get parentExcuseReasonAppointment;
+
+  /// No description provided for @parentExcuseReasonFamilyEmergency.
+  ///
+  /// In en, this message translates to:
+  /// **'Family emergency'**
+  String get parentExcuseReasonFamilyEmergency;
+
+  /// No description provided for @parentExcuseReasonTechnicalIssue.
+  ///
+  /// In en, this message translates to:
+  /// **'Technical issue'**
+  String get parentExcuseReasonTechnicalIssue;
+
+  /// No description provided for @parentExcuseDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Please explain the absence'**
+  String get parentExcuseDetails;
+
+  /// No description provided for @parentExcusePreferredContact.
+  ///
+  /// In en, this message translates to:
+  /// **'Preferred follow-up method (optional)'**
+  String get parentExcusePreferredContact;
+
+  /// No description provided for @parentExcuseContactInApp.
+  ///
+  /// In en, this message translates to:
+  /// **'In-app chat'**
+  String get parentExcuseContactInApp;
+
+  /// No description provided for @parentExcuseContactEmail.
+  ///
+  /// In en, this message translates to:
+  /// **'Email'**
+  String get parentExcuseContactEmail;
+
+  /// No description provided for @parentExcuseContactPhone.
+  ///
+  /// In en, this message translates to:
+  /// **'Phone'**
+  String get parentExcuseContactPhone;
+
+  /// No description provided for @classRosterAssignedStudents.
+  ///
+  /// In en, this message translates to:
+  /// **'Assigned Students ({count})'**
+  String classRosterAssignedStudents(int count);
+
+  /// No description provided for @classRosterStudentId.
+  ///
+  /// In en, this message translates to:
+  /// **'Student ID: {id}'**
+  String classRosterStudentId(String id);
+
+  /// No description provided for @classRosterParentName.
+  ///
+  /// In en, this message translates to:
+  /// **'Parent: {name}'**
+  String classRosterParentName(String name);
+
+  /// No description provided for @classRosterPhone.
+  ///
+  /// In en, this message translates to:
+  /// **'Phone: {phone}'**
+  String classRosterPhone(String phone);
+
+  /// No description provided for @classRosterNoParentLinked.
+  ///
+  /// In en, this message translates to:
+  /// **'No parent linked'**
+  String get classRosterNoParentLinked;
+
+  /// No description provided for @classRosterNoPhoneNumber.
+  ///
+  /// In en, this message translates to:
+  /// **'No phone number'**
+  String get classRosterNoPhoneNumber;
+
+  /// No description provided for @classRosterContactsUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Contact details unavailable'**
+  String get classRosterContactsUnavailable;
 }
 
 class _AppLocalizationsDelegate

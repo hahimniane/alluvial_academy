@@ -420,7 +420,7 @@ export function PublicSiteCmsAdmin() {
               <button type="button" aria-label="Menu" className="grid h-11 w-11 place-items-center rounded-xl text-[#0F172A]">
                 <Menu size={27} />
               </button>
-              <div className="min-w-0 text-center text-[21px] font-bold">Alluwal Academy</div>
+              <div className="min-w-0 text-center text-[21px] font-bold">Alluwal Education Hub</div>
               <div className="flex items-center justify-end gap-2">
                 <span aria-hidden="true" className="text-[26px] font-bold leading-none">
                   ↔

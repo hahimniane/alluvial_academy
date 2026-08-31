@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+import 'package:alluwalacademyadmin/core/utils/app_search.dart';
 import '../models/timesheet_entry.dart';
 import '../models/timesheet_filter_state.dart';
 import '../models/timesheet_date_preset.dart';
@@ -100,22 +101,30 @@ class TimesheetReviewController {
       }).toList();
     }
 
-    final query = filterState.searchQuery.trim().toLowerCase();
+    final query = filterState.searchQuery.trim();
     if (query.isNotEmpty) {
       filtered = filtered.where((entry) {
-        final shiftId = entry.shiftId?.toLowerCase() ?? '';
-        return entry.teacherName.toLowerCase().contains(query) ||
-            entry.subject.toLowerCase().contains(query) ||
-            entry.shiftTitle?.toLowerCase().contains(query) == true ||
-            entry.date.toLowerCase().contains(query) ||
-            (shiftId.isNotEmpty && shiftId.contains(query));
+        return AppSearch.matches(
+          query: query,
+          names: [entry.teacherName],
+          emails: [entry.teacherEmail],
+          phones: [entry.teacherPhone],
+          ids: [
+            entry.documentId ?? '',
+            entry.teacherId,
+            entry.shiftId ?? '',
+          ],
+          additionalValues: [
+            entry.subject,
+            entry.shiftTitle ?? '',
+            entry.date,
+          ],
+        );
       }).toList();
     }
 
     if (filterState.editedOnly) {
-      filtered = filtered
-          .where((e) => e.isEdited && !e.editApproved)
-          .toList();
+      filtered = filtered.where((e) => e.isEdited && !e.editApproved).toList();
     }
 
     if (filterState.needsAttention) {

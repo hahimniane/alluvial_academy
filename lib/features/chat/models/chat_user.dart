@@ -2,6 +2,7 @@ class ChatUser {
   final String id;
   final String name;
   final String email;
+  final String phone;
   final String? profilePicture;
   final String? role;
   final bool isOnline;
@@ -19,6 +20,7 @@ class ChatUser {
     required this.id,
     required this.name,
     required this.email,
+    this.phone = '',
     this.profilePicture,
     this.role,
     this.isOnline = false,
@@ -38,6 +40,12 @@ class ChatUser {
       id: map['id'] ?? '',
       name: '${map['first_name'] ?? ''} ${map['last_name'] ?? ''}'.trim(),
       email: map['email'] ?? map['e-mail'] ?? '',
+      phone: map['phone_number'] ??
+          map['phoneNumber'] ??
+          map['mobile_phone'] ??
+          map['mobilePhone'] ??
+          map['phone'] ??
+          '',
       profilePicture: map['profile_picture_url'] ?? map['profile_picture'],
       role: map['user_type'],
       isOnline: map['is_online'] ?? false,

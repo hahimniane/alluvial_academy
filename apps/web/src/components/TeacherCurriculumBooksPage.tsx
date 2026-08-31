@@ -137,9 +137,9 @@ function MobileTeacherTopBar({ summary }: { summary: TeacherSummary }) {
       <button type="button" aria-label="Open teacher menu" onClick={openTeacherMobileMenu} className="grid h-11 w-11 place-items-center rounded-xl text-[#111827]">
         <Menu size={24} />
       </button>
-      <div className="min-w-0 text-center text-base font-bold text-[#111827]">Alluwal Academy</div>
+      <div className="min-w-0 text-center text-base font-bold text-[#111827]">Alluwal Education Hub</div>
       <div className="flex items-center justify-end gap-3">
-        <Shuffle size={20} className="text-[#111827]" />
+        <button type="button" aria-label="Open teacher account options" onClick={openTeacherMobileMenu} className="grid h-10 w-10 place-items-center rounded-xl text-[#111827]"><Shuffle size={20} /></button>
         <span className="grid h-9 w-9 place-items-center rounded-full bg-[#009688] text-xs font-black text-white">{summary.initials}</span>
       </div>
     </header>

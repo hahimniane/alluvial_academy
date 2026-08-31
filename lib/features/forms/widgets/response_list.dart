@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/core/utils/app_search.dart';
 
 class ResponseList extends StatefulWidget {
   final bool isLoading;
@@ -34,19 +35,18 @@ class _ResponseListState extends State<ResponseList> {
 
   List<QueryDocumentSnapshot> get _filtered {
     if (_searchQuery.isEmpty) return widget.responses;
-    final q = _searchQuery.toLowerCase();
     return widget.responses.where((r) {
       final data = r.data() as Map<String, dynamic>;
-      final firstName = (data['userFirstName'] ?? '').toString().toLowerCase();
-      final lastName = (data['userLastName'] ?? '').toString().toLowerCase();
-      final email = (data['userEmail'] ?? '').toString().toLowerCase();
       final formId = (data['formId'] ?? '').toString();
-      final templateData = widget.formTemplates[formId]?.data() as Map<String, dynamic>?;
-      final title = templateData?['title']?.toString().toLowerCase() ?? '';
-      return firstName.contains(q) ||
-          lastName.contains(q) ||
-          email.contains(q) ||
-          title.contains(q);
+      final templateData =
+          widget.formTemplates[formId]?.data() as Map<String, dynamic>?;
+      final title = templateData?['title']?.toString() ?? '';
+      return AppSearch.matchesMap(
+        query: _searchQuery,
+        data: data,
+        documentId: r.id,
+        additionalValues: [formId, title],
+      );
     }).toList();
   }
 

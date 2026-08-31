@@ -283,6 +283,60 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
     return subject;
   }
 
+  String _localizedEnrollmentOption(String value, AppLocalizations l) {
+    switch (value) {
+      case _islamicSubject:
+        return l.publicLandingSubjectIslamic;
+      case _afroLanguagesSubject:
+        return l.publicLandingSubjectAfroLanguages;
+      case _afterSchoolSubject:
+        return l.publicLandingSubjectAfterSchool;
+      case _adultLiteracySubject:
+        return l.publicLandingSubjectAdultLiteracy;
+      case 'Coding':
+        return l.publicLandingSubjectCoding;
+      case 'Entrepreneurship':
+        return l.publicLandingSubjectEntrepreneurship;
+      case 'Beginner':
+        return l.formTemplateBeginner;
+      case 'Intermediate':
+        return l.formTemplateIntermediate;
+      case 'Advanced':
+        return l.formTemplateAdvanced;
+      case 'Elementary School':
+        return l.enrollmentElementarySchool;
+      case 'Middle School':
+        return l.enrollmentMiddleSchool;
+      case 'High School':
+        return l.enrollmentHighSchool;
+      case 'University':
+        return l.enrollmentUniversity;
+      case 'One-on-One':
+        return l.enrollmentStateOneOnOne;
+      case 'Group':
+        return l.enrollmentStateGroupClass;
+      case 'Both':
+        return l.enrollmentStateBoth;
+      case 'Morning':
+        return l.enrollmentMorning;
+      case 'Afternoon':
+        return l.enrollmentAfternoon;
+      case 'Evening':
+        return l.enrollmentEvening;
+      case 'Flexible':
+        return l.enrollmentFlexible;
+      case 'English':
+        return l.languageEnglish;
+      case 'French':
+        return l.languageFrench;
+      case 'Arabic':
+        return l.languageArabic;
+      case 'Other':
+        return l.other;
+    }
+    return value;
+  }
+
   String _monthlyEstimatePriceLabel(String? trackId, int hours) {
     if (trackId == null) return '—';
     final h = hours.clamp(1, 8);
@@ -525,7 +579,26 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
 
   String _abbrevDaysLine(List<String> days) {
     if (days.isEmpty) return '';
-    return days.map((d) => d.length > 3 ? d.substring(0, 3) : d).join(', ');
+    final l = AppLocalizations.of(context)!;
+    return days.map((day) {
+      switch (day) {
+        case 'Mon':
+          return l.enrollmentDayMon;
+        case 'Tue':
+          return l.enrollmentDayTue;
+        case 'Wed':
+          return l.enrollmentDayWed;
+        case 'Thu':
+          return l.enrollmentDayThu;
+        case 'Fri':
+          return l.enrollmentDayFri;
+        case 'Sat':
+          return l.enrollmentDaySat;
+        case 'Sun':
+          return l.enrollmentDaySun;
+      }
+      return day.length > 3 ? day.substring(0, 3) : day;
+    }).join(', ');
   }
 
   /// Resolves a stored pricing plan id (legacy or V2 track) to a V2 track id.
@@ -1302,9 +1375,10 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
   }
 
   bool _validateStudentInfoStep() {
+    final l = AppLocalizations.of(context)!;
     final studentName = _studentNameController.text.trim();
     if (studentName.isEmpty) {
-      _showSnackBar('Please enter the student name', isError: true);
+      _showSnackBar(l.enrollmentStudentNameRequired, isError: true);
       return false;
     }
 
@@ -1313,7 +1387,7 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
       for (int i = 0; i < _students.length; i++) {
         final student = _students[i];
         if (student.nameController.text.trim().isEmpty) {
-          _showSnackBar('Please enter name for Student ${i + 2}',
+          _showSnackBar(l.enrollmentStudentNumberNameRequired(i + 2),
               isError: true);
           return false;
         }
@@ -1339,13 +1413,14 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
     /// must match the globally selected pricing tier.
     bool enforceGlobalPricingTier = true,
   }) {
+    final l = AppLocalizations.of(context)!;
     final planId = _resolvedPricingPlanId;
     final mismatch =
         AppLocalizations.of(context)!.enrollmentPlanProgramMismatch;
     if (subject == null || subject.isEmpty) {
       _showSnackBar(
         emptyProgramMessage ??
-            'Please select a program for Student $studentNumber',
+            l.enrollmentStudentProgramRequired(studentNumber),
         isError: true,
       );
       return false;
@@ -1369,21 +1444,21 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
         (specificLanguage == null || specificLanguage.isEmpty)) {
       _showSnackBar(
         emptyLanguageMessage ??
-            'Please select a specific language for Student $studentNumber',
+            l.enrollmentStudentLanguageRequired(studentNumber),
         isError: true,
       );
       return false;
     }
     if (level == null || level.isEmpty) {
       _showSnackBar(
-        emptyLevelMessage ?? 'Please select a level for Student $studentNumber',
+        emptyLevelMessage ?? l.enrollmentStudentLevelRequired(studentNumber),
         isError: true,
       );
       return false;
     }
     if (!_getLevelsForSubject(canonSubject).contains(level)) {
       _showSnackBar(
-        emptyLevelMessage ?? 'Please select a level for Student $studentNumber',
+        emptyLevelMessage ?? l.enrollmentStudentLevelRequired(studentNumber),
         isError: true,
       );
       return false;
@@ -1391,7 +1466,7 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
     if (classType == null || classType.isEmpty) {
       _showSnackBar(
         emptyClassTypeMessage ??
-            'Please select a class type for Student $studentNumber',
+            l.enrollmentStudentClassTypeRequired(studentNumber),
         isError: true,
       );
       return false;
@@ -1399,7 +1474,7 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
     if (!_classTypes.contains(classType)) {
       _showSnackBar(
         emptyClassTypeMessage ??
-            'Please select a class type for Student $studentNumber',
+            l.enrollmentStudentClassTypeRequired(studentNumber),
         isError: true,
       );
       return false;
@@ -1416,6 +1491,7 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
   }
 
   bool _validateProgramStep() {
+    final l = AppLocalizations.of(context)!;
     final planId = _resolvedPricingPlanId;
     final mismatch =
         AppLocalizations.of(context)!.enrollmentPlanProgramMismatch;
@@ -1426,8 +1502,7 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
         _applyProgramToAll &&
         !_perChildProgramBundlesDifferFromFirst()) {
       if (_selectedSubject == null || _selectedSubject!.isEmpty) {
-        _showSnackBar('Please select a program for all children',
-            isError: true);
+        _showSnackBar(l.enrollmentAllProgramsRequired, isError: true);
         return false;
       }
       if (planId != null &&
@@ -1438,16 +1513,15 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
       if (_selectedSubject == _afroLanguagesSubject &&
           (_selectedAfricanLanguage == null ||
               _selectedAfricanLanguage!.isEmpty)) {
-        _showSnackBar('Please select a specific language', isError: true);
+        _showSnackBar(l.enrollmentSpecificLanguageRequired, isError: true);
         return false;
       }
       if (_selectedLevel == null || _selectedLevel!.isEmpty) {
-        _showSnackBar('Please select a level for all children', isError: true);
+        _showSnackBar(l.enrollmentAllLevelsRequired, isError: true);
         return false;
       }
       if (_classType == null || _classType!.isEmpty) {
-        _showSnackBar('Please select a class type for all children',
-            isError: true);
+        _showSnackBar(l.enrollmentAllClassTypesRequired, isError: true);
         return false;
       }
       return true;
@@ -1481,7 +1555,7 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
     }
 
     if (_selectedSubject == null || _selectedSubject!.isEmpty) {
-      _showSnackBar('Please select a program for Student 1', isError: true);
+      _showSnackBar(l.enrollmentStudentProgramRequired(1), isError: true);
       return false;
     }
     if (planId != null &&
@@ -1492,16 +1566,15 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
     if (_selectedSubject == _afroLanguagesSubject &&
         (_selectedAfricanLanguage == null ||
             _selectedAfricanLanguage!.isEmpty)) {
-      _showSnackBar('Please select a specific language for Student 1',
-          isError: true);
+      _showSnackBar(l.enrollmentStudentLanguageRequired(1), isError: true);
       return false;
     }
     if (_selectedLevel == null || _selectedLevel!.isEmpty) {
-      _showSnackBar('Please select a level for Student 1', isError: true);
+      _showSnackBar(l.enrollmentStudentLevelRequired(1), isError: true);
       return false;
     }
     if (_classType == null || _classType!.isEmpty) {
-      _showSnackBar('Please select a class type for Student 1', isError: true);
+      _showSnackBar(l.enrollmentStudentClassTypeRequired(1), isError: true);
       return false;
     }
 
@@ -1509,13 +1582,14 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
   }
 
   bool _validateScheduleStep() {
+    final l = AppLocalizations.of(context)!;
     if (_hoursPerWeek == null || _hoursPerWeek! < 1) {
-      _showSnackBar('Please select hours per week', isError: true);
+      _showSnackBar(l.enrollmentHoursRequired, isError: true);
       return false;
     }
 
     if (_selectedDays.isEmpty) {
-      _showSnackBar('Please select at least one preferred day', isError: true);
+      _showSnackBar(l.enrollmentPreferredDayRequired, isError: true);
       return false;
     }
 
@@ -1591,7 +1665,7 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
   bool _validateRoleStep() {
     if (_role == null || _role!.isEmpty) {
       _showSnackBar(
-        'Please select who you are (Student, Parent, or Guardian)',
+        AppLocalizations.of(context)!.enrollmentRoleRequired,
         isError: true,
       );
       return false;
@@ -1633,7 +1707,10 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
       return false;
     }
     if (!_formKey.currentState!.validate()) {
-      _showSnackBar('Please fill in all required fields', isError: true);
+      _showSnackBar(
+        AppLocalizations.of(context)!.enrollmentRequiredFields,
+        isError: true,
+      );
       return false;
     }
     if (!_validatePhoneFields(l)) return false;
@@ -1875,7 +1952,10 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    '${1 + _students.length} student${_students.isNotEmpty ? 's' : ''} · $_totalHoursPerWeek hrs/wk',
+                    l.enrollmentFooterStudentHours(
+                      1 + _students.length,
+                      _totalHoursPerWeek,
+                    ),
                     style: GoogleFonts.inter(
                       fontSize: 10,
                       fontWeight: FontWeight.w500,
@@ -2730,40 +2810,40 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
     bool scrollable = true,
     bool includeStepCardShell = true,
   }) {
+    final l = AppLocalizations.of(context)!;
     final isMobile = MediaQuery.of(context).size.width < 768;
     final isParentOrGuardian = _role == 'Parent' || _role == 'Guardian';
 
     if (!isParentOrGuardian) {
       return _buildStepCard(
-        title:
-            AppLocalizations.of(context)?.yourInformation ?? 'Your Information',
+        title: l.yourInformation,
         subtitle:
             AppLocalizations.of(context)!.enrollmentWizardStudentsSubtitle,
         scrollable: scrollable,
         includeOuterShell: includeStepCardShell,
         children: [
           _buildModernTextField(
-            'Full Name',
+            l.profileFullName,
             _studentNameController,
             Icons.person_outline_rounded,
-            hint: 'Enter your full name',
+            hint: l.profileFullNameHint,
           ),
           const SizedBox(height: 16),
           LayoutBuilder(
             builder: (context, constraints) {
               final narrow = constraints.maxWidth < 360;
               final age = _buildModernTextField(
-                'Age',
+                l.enrollmentAgeLabel,
                 _studentAgeController,
                 Icons.cake_outlined,
                 isNumber: true,
-                hint: 'Years',
+                hint: l.enrollmentAgeHint,
                 compact: true,
                 validator: (v) {
-                  if (v == null || v.isEmpty) return 'Required';
+                  if (v == null || v.isEmpty) return l.publicRequiredField;
                   final parsed = int.tryParse(v);
                   if (parsed == null || parsed < 1 || parsed > 99) {
-                    return 'Enter a valid age (1-99)';
+                    return l.enrollmentAgeInvalid;
                   }
                   return null;
                 },
@@ -3119,7 +3199,7 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
       return t.isNotEmpty ? t : l.studentDefaultName1;
     }
     final t = _students[tab - 1].nameController.text.trim();
-    return t.isNotEmpty ? t : 'Student ${tab + 1}';
+    return t.isNotEmpty ? t : l.enrollmentStudentNumber(tab + 1);
   }
 
   Widget _buildStudentProfileFields({
@@ -3128,15 +3208,16 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
     required String? gender,
     required void Function(String?) onGenderChanged,
   }) {
+    final l = AppLocalizations.of(context)!;
     final isMobile = MediaQuery.of(context).size.width < 768;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildModernTextField(
-          'Student Name',
+          l.enrollmentStudentNameLabel,
           nameController,
           Icons.person_outline_rounded,
-          hint: 'Enter full name',
+          hint: l.enrollmentStudentNameHint,
           onChanged: (_) => setState(() {}),
         ),
         SizedBox(height: isMobile ? 8 : 10),
@@ -3144,17 +3225,17 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
           builder: (context, constraints) {
             final narrow = constraints.maxWidth < 360;
             final age = _buildModernTextField(
-              'Age',
+              l.enrollmentAgeLabel,
               ageController,
               Icons.cake_outlined,
               isNumber: true,
-              hint: 'Years',
+              hint: l.enrollmentAgeHint,
               compact: true,
               validator: (v) {
-                if (v == null || v.isEmpty) return 'Required';
+                if (v == null || v.isEmpty) return l.publicRequiredField;
                 final parsed = int.tryParse(v);
                 if (parsed == null || parsed < 1 || parsed > 99) {
-                  return 'Enter a valid age (1-99)';
+                  return l.enrollmentAgeInvalid;
                 }
                 return null;
               },
@@ -4127,7 +4208,11 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(
-                                !s.useCustomSchedule ? 'Same' : 'Custom',
+                                !s.useCustomSchedule
+                                    ? AppLocalizations.of(context)!
+                                        .enrollmentSameSchedule
+                                    : AppLocalizations.of(context)!
+                                        .enrollmentCustomSchedule,
                                 style: GoogleFonts.inter(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w500,
@@ -4293,7 +4378,8 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
                       color: Color(0xffD97706), size: 20),
                   const SizedBox(width: 8),
                   Text(
-                    'Important Scheduling Notes',
+                    AppLocalizations.of(context)!
+                        .enrollmentImportantSchedulingNotes,
                     style: GoogleFonts.inter(
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
@@ -4479,16 +4565,21 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
         ? _studentNameController.text.trim()
         : l.studentDefaultName1;
     final age1 = _studentAgeController.text.trim();
-    studentRows.add(('Student 1', '$name1${age1.isNotEmpty ? ', $age1' : ''}'));
+    studentRows.add((
+      l.enrollmentStudentNumber(1),
+      '$name1${age1.isNotEmpty ? ', $age1' : ''}'
+    ));
     if (parentMulti) {
       for (var i = 0; i < _students.length; i++) {
         final s = _students[i];
         final nm = s.nameController.text.trim().isNotEmpty
             ? s.nameController.text.trim()
-            : 'Student ${i + 2}';
+            : l.enrollmentStudentNumber(i + 2);
         final a = s.ageController.text.trim();
-        studentRows
-            .add(('Student ${i + 2}', '$nm${a.isNotEmpty ? ', $a' : ''}'));
+        studentRows.add((
+          l.enrollmentStudentNumber(i + 2),
+          '$nm${a.isNotEmpty ? ', $a' : ''}'
+        ));
       }
     }
 
@@ -4498,20 +4589,38 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
 
     if (!parentMulti) {
       final progLabel = _shortProgramLabelFromSubject(_selectedSubject);
-      if (progLabel.isNotEmpty) programRows.add(('Program', progLabel));
-      if (_selectedLevel != null) programRows.add(('Level', _selectedLevel!));
-      if (_classType != null) programRows.add(('Format', _classType!));
+      if (progLabel.isNotEmpty)
+        programRows.add((l.enrollmentProgramFieldLabel, progLabel));
+      if (_selectedLevel != null)
+        programRows.add((
+          l.enrollmentReviewLevel,
+          _localizedEnrollmentOption(_selectedLevel!, l)
+        ));
+      if (_classType != null)
+        programRows.add((
+          l.enrollmentReviewFormat,
+          _localizedEnrollmentOption(_classType!, l)
+        ));
       if ((_hoursPerWeek ?? 0) > 0) {
-        programRows.add(('Hours/week', '${_hoursPerWeek}h'));
+        programRows.add((l.enrollmentReviewHours, '${_hoursPerWeek}h'));
       }
     } else if (_applyProgramToAll &&
         !_perChildProgramBundlesDifferFromFirst()) {
       final progLabel = _shortProgramLabelFromSubject(_selectedSubject);
-      if (progLabel.isNotEmpty) programRows.add(('Program', progLabel));
-      if (_selectedLevel != null) programRows.add(('Level', _selectedLevel!));
-      if (_classType != null) programRows.add(('Format', _classType!));
+      if (progLabel.isNotEmpty)
+        programRows.add((l.enrollmentProgramFieldLabel, progLabel));
+      if (_selectedLevel != null)
+        programRows.add((
+          l.enrollmentReviewLevel,
+          _localizedEnrollmentOption(_selectedLevel!, l)
+        ));
+      if (_classType != null)
+        programRows.add((
+          l.enrollmentReviewFormat,
+          _localizedEnrollmentOption(_classType!, l)
+        ));
       if ((_hoursPerWeek ?? 0) > 0) {
-        programRows.add(('Hours/week', '${_hoursPerWeek}h'));
+        programRows.add((l.enrollmentReviewHours, '${_hoursPerWeek}h'));
       }
     } else {
       for (var slot = 0; slot < 1 + _students.length; slot++) {
@@ -4527,14 +4636,14 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
           h,
           _monthlyEstimatePriceLabel(tr, h),
         );
-        final levStr = lev ?? '—';
-        final fmtStr = fmt ?? '—';
+        final levStr = lev == null ? '—' : _localizedEnrollmentOption(lev, l);
+        final fmtStr = fmt == null ? '—' : _localizedEnrollmentOption(fmt, l);
         programRows.add((name, '$levStr · $fmtStr · $detail'));
       }
     }
     if (programRows.isNotEmpty) {
       sections.add(EnrollmentReviewSection(
-        sectionTitle: 'Enrollment Details',
+        sectionTitle: l.enrollmentReviewDetails,
         icon: '\u{1F4CB}',
         editStepIndex: 1,
         rows: programRows,
@@ -4545,23 +4654,31 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
     final schedRows = <(String, String)>[];
     if (!parentMulti) {
       if (_selectedDays.isNotEmpty) {
-        schedRows.add(('Days', _abbrevDaysLine(_selectedDays)));
+        schedRows.add((l.enrollmentReviewDays, _abbrevDaysLine(_selectedDays)));
       }
       if (_selectedTimeSlots.isNotEmpty) {
-        schedRows.add(('Time slots', _selectedTimeSlots.join(', ')));
+        schedRows
+            .add((l.enrollmentReviewTimeSlots, _selectedTimeSlots.join(', ')));
       }
       if (_timeOfDayPreference != null) {
-        schedRows.add(('Time preference', _timeOfDayPreference!));
+        schedRows.add((
+          l.enrollmentReviewTimePreference,
+          _localizedEnrollmentOption(_timeOfDayPreference!, l)
+        ));
       }
     } else if (_allHouseholdStudentsShareSameSchedule()) {
       if (_selectedDays.isNotEmpty) {
-        schedRows.add(('Days', _abbrevDaysLine(_selectedDays)));
+        schedRows.add((l.enrollmentReviewDays, _abbrevDaysLine(_selectedDays)));
       }
       if (_selectedTimeSlots.isNotEmpty) {
-        schedRows.add(('Time slots', _selectedTimeSlots.join(', ')));
+        schedRows
+            .add((l.enrollmentReviewTimeSlots, _selectedTimeSlots.join(', ')));
       }
       if (_timeOfDayPreference != null) {
-        schedRows.add(('Time preference', _timeOfDayPreference!));
+        schedRows.add((
+          l.enrollmentReviewTimePreference,
+          _localizedEnrollmentOption(_timeOfDayPreference!, l)
+        ));
       }
     } else {
       for (var slot = 0; slot < 1 + _students.length; slot++) {
@@ -4570,19 +4687,24 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
         final slots = _slotsForScheduleReviewSlot(slot);
         final tod = _todForScheduleReviewSlot(slot);
         if (days.isNotEmpty) {
-          schedRows.add(('$name — Days', _abbrevDaysLine(days)));
+          schedRows.add(
+              ('$name — ${l.enrollmentReviewDays}', _abbrevDaysLine(days)));
         }
         if (slots.isNotEmpty) {
-          schedRows.add(('$name — Time slots', slots.join(', ')));
+          schedRows.add(
+              ('$name — ${l.enrollmentReviewTimeSlots}', slots.join(', ')));
         }
         if (tod != null && tod.isNotEmpty) {
-          schedRows.add(('$name — Time preference', tod));
+          schedRows.add((
+            '$name — ${l.enrollmentReviewTimePreference}',
+            _localizedEnrollmentOption(tod, l)
+          ));
         }
       }
     }
     if (schedRows.isNotEmpty) {
       sections.add(EnrollmentReviewSection(
-        sectionTitle: 'Schedule',
+        sectionTitle: l.enrollmentWizardScheduleTitle,
         icon: '\u{1F4C5}',
         editStepIndex: 3,
         rows: schedRows,
@@ -4620,14 +4742,14 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
       _role == 'Student' ? l.userEmail : l.enrollmentContactEmailFieldLabel,
       _emailController,
       Icons.email_outlined,
-      hint: 'your@email.com',
+      hint: l.publicContactEmailHint,
       isEnabled: _linkedParentData == null,
       onDarkPanel: true,
       onChanged: (_) => setState(() {}),
       validator: (v) {
-        if (v == null || v.isEmpty) return 'Required';
+        if (v == null || v.isEmpty) return l.publicRequiredField;
         if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(v)) {
-          return 'Enter a valid email';
+          return l.publicContactEmailInvalid;
         }
         return null;
       },
@@ -4643,7 +4765,7 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
       onChanged: (_) => setState(() {}),
       validator: (v) {
         if (!_isParentGuardian || _linkedParentData != null) return null;
-        if (v == null || v.trim().isEmpty) return 'Required';
+        if (v == null || v.trim().isEmpty) return l.publicRequiredField;
         return null;
       },
     );
@@ -5164,6 +5286,7 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
     void Function(String)? onChanged,
     bool onDarkPanel = false,
   }) {
+    final l = AppLocalizations.of(context)!;
     final labelColor = onDarkPanel ? const Color(0xffCBD5E1) : null;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -5259,7 +5382,9 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
                   : const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
             ),
             validator: validator ??
-                (value) => value == null || value.isEmpty ? 'Required' : null,
+                (value) => value == null || value.isEmpty
+                    ? l.publicRequiredField
+                    : null,
           ),
         ),
       ],
@@ -5276,7 +5401,8 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
     String? hintText,
     Key? fieldKey,
   }) {
-    final effectiveHint = hintText ?? 'Select $label';
+    final l = AppLocalizations.of(context)!;
+    final effectiveHint = hintText ?? l.enrollmentSelectField(label);
     final effectiveValue =
         (value != null && items.contains(value)) ? value : null;
     return Column(
@@ -5301,13 +5427,13 @@ mixin EnrollmentStateMixin on State<EnrollmentCoordinator>, TickerProvider {
             isExpanded: true,
             value: effectiveValue,
             validator: isRequired
-                ? (v) => v == null || v.isEmpty ? 'Required' : null
+                ? (v) => v == null || v.isEmpty ? l.publicRequiredField : null
                 : null,
             items: items
                 .map((e) => DropdownMenuItem(
                       value: e,
                       child: Text(
-                        e,
+                        _localizedEnrollmentOption(e, l),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.inter(

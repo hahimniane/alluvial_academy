@@ -121,7 +121,11 @@ export function GuestClassroomJoinPage() {
 }
 
 async function requestGuestJoinToken(shiftId: string, displayName: string): Promise<GuestJoinResult> {
-  const projectId = firebaseProjectId || "alluwal-dev";
+  // No hardcoded fallback: the Firebase config always carries a projectId, and
+  // defaulting to a named project meant a misconfigured build would quietly
+  // send guests to the wrong environment instead of failing.
+  if (!firebaseProjectId) throw new Error("Unable to join this class.");
+  const projectId = firebaseProjectId;
   const params = new URLSearchParams({ shiftId });
   if (displayName) params.set("name", displayName);
   const response = await fetch(`https://us-central1-${projectId}.cloudfunctions.net/getRealtimeKitGuestJoin?${params.toString()}`, {

@@ -1,5 +1,12 @@
 import { getApp, getApps, initializeApp, type FirebaseOptions } from "firebase/app";
-import { browserLocalPersistence, getAuth, setPersistence } from "firebase/auth";
+import {
+  browserLocalPersistence,
+  browserPopupRedirectResolver,
+  getAuth,
+  initializeAuth,
+  setPersistence,
+  type Auth,
+} from "firebase/auth";
 import { getFunctions } from "firebase/functions";
 import { getFirestore, initializeFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
@@ -50,7 +57,26 @@ try {
 
 export const db = firestoreInstance;
 
-export const auth = getAuth(firebaseApp);
+// The Flutter web app keeps the Firebase session in localStorage
+// (browserLocalPersistence). getAuth()'s default would be IndexedDB, and on
+// startup the SDK MIGRATES the session into its own layer and deletes it from
+// the other — so when this app runs inside the Flutter app (embedded shifts
+// screen) or side by side with it, the default would steal the session out of
+// localStorage and sign the Flutter app out. Pinning the same layer means both
+// apps share one record and neither ever deletes the other's session.
+function initSharedAuth(): Auth {
+  try {
+    return initializeAuth(firebaseApp, {
+      persistence: browserLocalPersistence,
+      popupRedirectResolver: browserPopupRedirectResolver,
+    });
+  } catch {
+    // Already initialized (hot reload or a second import path).
+    return getAuth(firebaseApp);
+  }
+}
+
+export const auth = initSharedAuth();
 export const functions = getFunctions(firebaseApp, "us-central1");
 export const storage = getStorage(firebaseApp);
 export const firebaseProjectId = firebaseConfig.projectId;

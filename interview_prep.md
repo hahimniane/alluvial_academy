@@ -1,8 +1,8 @@
-# Alluvial Academy — Technical Interview Prep
+# Alluwal Education Hub — Technical Interview Prep
 
 ## Project Elevator Pitch
 
-Alluvial Academy is a full-stack education platform I built with Flutter and Firebase. It powers an online Quran academy with live video classes (self-hosted LiveKit), shift scheduling, multi-role dashboards (admin, teacher, student, parent), time tracking, chat, recordings, and a public website — all from one codebase targeting web, Android, and iOS.
+Alluwal Education Hub is a full-stack education platform I built with Flutter and Firebase. It powers an online Quran academy with live video classes (self-hosted LiveKit), shift scheduling, multi-role dashboards (admin, teacher, student, parent), time tracking, chat, recordings, and a public website — all from one codebase targeting web, Android, and iOS.
 
 ---
 
