@@ -613,6 +613,12 @@ const onTimesheetWritten = onDocumentWritten('timesheet_entries/{entryId}', asyn
   }
   try {
     const db = admin.firestore();
+    // Kill duplicate clock-ins the moment they appear instead of waiting for
+    // the end-of-shift sweep. Skip deletion events and our own rejections so
+    // the trigger cannot loop.
+    if (after && after.status !== 'rejected') {
+      await dedupeTimesheetsForShift(db, shiftId);
+    }
     const result = await recomputeShiftCompletionForShiftId(db, shiftId);
     if (!result.skipped) {
       console.log(
@@ -1280,9 +1286,207 @@ const scheduleUpcomingShiftLifecycleTasks = onSchedule('every 6 hours', async ()
 });
 
 /**
+ * Decide which of a teacher's timesheet entries for ONE shift are payable and
+ * which are duplicates that must never be paid.
+ *
+ * A teacher can only legitimately have a second entry on the same shift after
+ * the first one was CLOSED (clock-out always closes the open entry before a
+ * new clock-in is allowed). So any entry whose clock-in falls inside the time
+ * window of an earlier kept entry (clock-in .. clock-out, or shift end while
+ * still open) can only exist because the same clock-in was recorded more than
+ * once — the failure mode where a stalled connection flushes many queued
+ * clock-in attempts at once and every attempt passes the "already clocked in?"
+ * check before any write lands.
+ *
+ * @param {Array<{id: string, teacherId: string, clockInMs: number,
+ *   clockOutMs: (number|null)}>} entries - Non-rejected entries for one shift.
+ * @param {number} shiftEndMs - Shift end in epoch ms (effective end for
+ *   entries that are still open).
+ * @return {{keptIds: Set<string>, duplicateIds: Set<string>}}
+ */
+function partitionEntriesForPayment(entries, shiftEndMs) {
+  const keptIds = new Set();
+  const duplicateIds = new Set();
+  const byTeacher = new Map();
+  for (const e of entries) {
+    if (!Number.isFinite(e.clockInMs)) continue;
+    const key = e.teacherId || '';
+    if (!byTeacher.has(key)) byTeacher.set(key, []);
+    byTeacher.get(key).push(e);
+  }
+  for (const group of byTeacher.values()) {
+    group.sort((a, b) => (a.clockInMs - b.clockInMs) ||
+      String(a.id).localeCompare(String(b.id)));
+    const kept = [];
+    for (const e of group) {
+      const overlapsKept = kept.some((k) => {
+        const keptEnd = Number.isFinite(k.clockOutMs) && k.clockOutMs !== null ?
+          k.clockOutMs : shiftEndMs;
+        return e.clockInMs < keptEnd;
+      });
+      if (overlapsKept) {
+        duplicateIds.add(e.id);
+      } else {
+        kept.push(e);
+        keptIds.add(e.id);
+      }
+    }
+  }
+  return {keptIds, duplicateIds};
+}
+
+/** Read a timesheet entry's clock-in as epoch ms (or NaN). */
+function timesheetClockInMs(data) {
+  const t = data.clock_in_time || data.clock_in_timestamp;
+  const d = t && t.toDate ? t.toDate() : null;
+  return d ? d.getTime() : NaN;
+}
+
+/** Read a timesheet entry's clock-out as epoch ms (or null while open). */
+function timesheetClockOutMs(data) {
+  const t = data.clock_out_time || data.clock_out_timestamp;
+  const d = t && t.toDate ? t.toDate() : null;
+  return d ? d.getTime() : null;
+}
+
+/**
+ * Find the first of [teacherShifts] that overlaps [claimStartMs, claimEndMs).
+ * Used when a teacher claims a traded shift: the claim moves the class onto
+ * their calendar, so it must pass the same overlap rule as scheduling.
+ * Cancelled/deleted shifts don't block, and [excludeShiftId] (the shift being
+ * claimed) never conflicts with itself.
+ *
+ * @param {number} claimStartMs
+ * @param {number} claimEndMs
+ * @param {Array<{id: string, startMs: number, endMs: number, status: string,
+ *   name: string}>} teacherShifts
+ * @param {string} excludeShiftId
+ * @return {?{id: string, name: string}}
+ */
+function findClaimConflict(claimStartMs, claimEndMs, teacherShifts, excludeShiftId) {
+  for (const s of teacherShifts) {
+    if (s.id === excludeShiftId) continue;
+    const status = String(s.status || '').toLowerCase();
+    if (status === 'cancelled' || status === 'deleted') continue;
+    if (!Number.isFinite(s.startMs) || !Number.isFinite(s.endMs)) continue;
+    if (claimStartMs < s.endMs && claimEndMs > s.startMs) {
+      return {id: s.id, name: s.name || 'a class'};
+    }
+  }
+  return null;
+}
+
+/**
+ * A stampede copy is the machine signature of the duplicate-clock-in bug: the
+ * entry is still open and its clock-in is within a minute of the entry we
+ * kept for the same teacher. Nothing a human does produces that shape (a real
+ * second session requires a clock-out first), so these are safe to DELETE
+ * outright rather than keep around as rejected rows.
+ */
+function isStampedeDuplicate(dup, kept) {
+  return dup.clockOutMs === null &&
+    kept !== undefined &&
+    Number.isFinite(dup.clockInMs) &&
+    Number.isFinite(kept.clockInMs) &&
+    Math.abs(dup.clockInMs - kept.clockInMs) <= 60 * 1000;
+}
+
+/**
+ * Remove duplicate clock-ins for one shift as soon as they appear.
+ * Stampede copies are deleted; slower/ambiguous overlaps are marked rejected
+ * so an admin can still see them. Runs from the timesheet write trigger, so a
+ * duplicate lives for seconds, not until the end-of-shift sweep.
+ */
+async function dedupeTimesheetsForShift(db, shiftId) {
+  const snap = await db
+    .collection('timesheet_entries')
+    .where('shift_id', '==', shiftId)
+    .get();
+  if (snap.size < 2) return;
+
+  const docsById = new Map(snap.docs.map((d) => [d.id, d]));
+  const entries = snap.docs
+    .filter((d) => d.data().status !== 'rejected')
+    .map((d) => ({
+      id: d.id,
+      teacherId: d.data().teacher_id || d.data().teacherId || '',
+      clockInMs: timesheetClockInMs(d.data()),
+      clockOutMs: timesheetClockOutMs(d.data()),
+    }));
+  if (entries.length < 2) return;
+
+  const schedEndTs = snap.docs
+    .map((d) => d.data().scheduled_end)
+    .find((v) => v && v.toDate);
+  let shiftEndMs = schedEndTs ? schedEndTs.toDate().getTime() : NaN;
+  if (!Number.isFinite(shiftEndMs)) {
+    const shiftDoc = await db.collection('teaching_shifts').doc(shiftId).get();
+    const se = shiftDoc.exists ?
+      (shiftDoc.data().shift_end || shiftDoc.data().shiftEnd) : null;
+    shiftEndMs = se && se.toDate ? se.toDate().getTime() : NaN;
+  }
+  if (!Number.isFinite(shiftEndMs)) {
+    shiftEndMs = Math.max(
+      ...entries.map((e) => e.clockOutMs || e.clockInMs + 4 * 3600e3));
+  }
+
+  const {keptIds, duplicateIds} = partitionEntriesForPayment(entries, shiftEndMs);
+  if (duplicateIds.size === 0) return;
+
+  const keptByTeacher = new Map();
+  for (const e of entries) {
+    if (keptIds.has(e.id)) {
+      const cur = keptByTeacher.get(e.teacherId);
+      if (!cur || e.clockInMs < cur.clockInMs) keptByTeacher.set(e.teacherId, e);
+    }
+  }
+
+  for (const e of entries) {
+    if (!duplicateIds.has(e.id)) continue;
+    const doc = docsById.get(e.id);
+    try {
+      if (isStampedeDuplicate(e, keptByTeacher.get(e.teacherId))) {
+        await doc.ref.delete();
+        console.log(`dedupe: deleted stampede duplicate ${e.id} on shift ${shiftId}`);
+      } else {
+        await rejectDuplicateTimesheet(doc, new Date(shiftEndMs));
+        console.log(`dedupe: rejected overlapping duplicate ${e.id} on shift ${shiftId}`);
+      }
+    } catch (err) {
+      // Concurrent trigger runs race to remove the same duplicates; losing
+      // the race is fine.
+      console.warn(`dedupe: could not remove ${e.id} on shift ${shiftId}: ${err.message}`);
+    }
+  }
+}
+
+/**
+ * Mark a duplicate timesheet entry rejected so no sweep, payroll export, or
+ * admin approval can ever pay it. Original money fields are preserved on the
+ * document for audit.
+ */
+async function rejectDuplicateTimesheet(doc, shiftEnd) {
+  const data = doc.data();
+  await doc.ref.update({
+    status: 'rejected',
+    total_pay: 0,
+    payment_amount: 0,
+    clock_out_time: admin.firestore.Timestamp.fromDate(shiftEnd),
+    clock_out_timestamp: admin.firestore.Timestamp.fromDate(shiftEnd),
+    completion_method: 'duplicate_rejected',
+    rejection_reason:
+      'Duplicate clock-in: another timesheet entry covers this same time on this shift',
+    rejected_by: 'system_dedup',
+    pre_dedup_status: data.status || null,
+    pre_dedup_total_pay: data.total_pay ?? data.payment_amount ?? null,
+    updated_at: admin.firestore.FieldValue.serverTimestamp(),
+  });
+}
+
+/**
  * Scheduled function that runs every 30 minutes to fix shifts that are still marked as "active"
  * but should be completed. Also handles missing clock-outs for timesheet entries.
- * 
+ *
  * Runs every 30 minutes
  */
 const fixActiveShiftsStatus = onSchedule('every 30 minutes', async () => {
@@ -1350,17 +1554,37 @@ const fixActiveShiftsStatus = onSchedule('every 30 minutes', async () => {
       let hasCompletedEntry = false;
       let totalWorkedMinutes = 0;
 
+      // Same teacher + same shift + overlapping time = the same clock-in
+      // recorded more than once. Decide up front which entries are payable so
+      // the auto clock-out below can never pay a duplicate.
+      const dedupInput = timesheetQuery.docs
+        .filter((d) => d.data().status !== 'rejected')
+        .map((d) => ({
+          id: d.id,
+          teacherId: d.data().teacher_id || d.data().teacherId || '',
+          clockInMs: timesheetClockInMs(d.data()),
+          clockOutMs: timesheetClockOutMs(d.data()),
+        }));
+      const {duplicateIds} = partitionEntriesForPayment(dedupInput, shiftEnd.getTime());
+
       for (const timesheetDoc of timesheetQuery.docs) {
         const timesheetData = timesheetDoc.data();
-        
+
         // Skip rejected timesheets when calculating worked time
         if (timesheetData.status === 'rejected') {
           continue;
         }
 
-        const clockIn = timesheetData.clock_in_time?.toDate() || 
+        if (duplicateIds.has(timesheetDoc.id)) {
+          console.log(`   🚫 Rejecting duplicate timesheet entry ${timesheetDoc.id} (same clock-in recorded more than once)`);
+          await rejectDuplicateTimesheet(timesheetDoc, shiftEnd);
+          fixedTimesheets++;
+          continue;
+        }
+
+        const clockIn = timesheetData.clock_in_time?.toDate() ||
                        timesheetData.clock_in_timestamp?.toDate();
-        const clockOut = timesheetData.clock_out_time?.toDate() || 
+        const clockOut = timesheetData.clock_out_time?.toDate() ||
                         timesheetData.clock_out_timestamp?.toDate();
 
         if (!clockIn) {
@@ -1456,7 +1680,30 @@ const fixActiveShiftsStatus = onSchedule('every 30 minutes', async () => {
 
       // This timesheet entry should have been clocked out
       console.log(`\n   ⏰ Found orphaned active timesheet ${timesheetDoc.id} for shift ${shiftId}`);
-      
+
+      // Never pay an orphaned entry that duplicates another entry on the same
+      // shift (same teacher, overlapping time window).
+      const siblingsQuery = await db
+        .collection('timesheet_entries')
+        .where('shift_id', '==', shiftId)
+        .get();
+      const siblingInput = siblingsQuery.docs
+        .filter((d) => d.data().status !== 'rejected')
+        .map((d) => ({
+          id: d.id,
+          teacherId: d.data().teacher_id || d.data().teacherId || '',
+          clockInMs: timesheetClockInMs(d.data()),
+          clockOutMs: timesheetClockOutMs(d.data()),
+        }));
+      const orphanDedup = partitionEntriesForPayment(siblingInput, shiftEnd.getTime());
+      if (orphanDedup.duplicateIds.has(timesheetDoc.id)) {
+        console.log(`   🚫 Rejecting duplicate orphaned entry ${timesheetDoc.id}`);
+        await rejectDuplicateTimesheet(timesheetDoc, shiftEnd);
+        orphanedFixed++;
+        fixedTimesheets++;
+        continue;
+      }
+
       // Auto clock-out
       const effectiveEndTime = shiftEnd;
       const workedMs = Math.max(0, effectiveEndTime.getTime() - clockIn.getTime());
@@ -1791,11 +2038,23 @@ const _resolveRescheduleWindow = ({
     );
   }
 
+  const durationMinutes = Math.round(endDt.diff(startDt, 'minutes').minutes);
+  // A class window longer than 12 hours is always a date mistake (the picker
+  // left the end on a different day than the start). Real incidents: two
+  // 25-hour shifts that then blocked scheduling with invisible conflicts.
+  if (durationMinutes > 12 * 60) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      `That window is ${Math.round(durationMinutes / 60)} hours long — ` +
+      'check that the end date matches the start date.',
+    );
+  }
+
   return {
     timezone: resolvedTimezone,
     startDt,
     endDt,
-    durationMinutes: Math.round(endDt.diff(startDt, 'minutes').minutes),
+    durationMinutes,
     startHm: startDt.toFormat('HH:mm'),
     endHm: endDt.toFormat('HH:mm'),
   };
@@ -1978,6 +2237,33 @@ const _rescheduleShiftLifecycleTasks = async ({
  * Allows teachers to reschedule their own shifts with proper audit trail
  */
 const teacherRescheduleShift = onCall({cors: true, invoker: 'public'}, async (request) => {
+  try {
+    return await _teacherRescheduleShiftImpl(request);
+  } catch (err) {
+    // A refusal used to leave nothing in the logs but an HTTP 400, and the app
+    // showed a message with no reason in it, so nobody could tell which rule
+    // had fired. Record what was asked for and why it was turned down.
+    if (err instanceof functions.https.HttpsError) {
+      console.warn('teacherRescheduleShift refused', JSON.stringify({
+        uid: request.auth?.uid || null,
+        shiftId: request.data?.shiftId || null,
+        requestedStart: request.data?.newStartTime || request.data?.newStartLocal || null,
+        requestedEnd: request.data?.newEndTime || request.data?.newEndLocal || null,
+        timezone: request.data?.timezone || null,
+        code: err.code,
+        reason: err.message,
+      }));
+    } else {
+      console.error('teacherRescheduleShift failed', {
+        uid: request.auth?.uid || null,
+        shiftId: request.data?.shiftId || null,
+      }, err);
+    }
+    throw err;
+  }
+});
+
+const _teacherRescheduleShiftImpl = async (request) => {
   const {
     shiftId,
     newStartTime,
@@ -2036,6 +2322,59 @@ const teacherRescheduleShift = onCall({cors: true, invoker: 'public'}, async (re
   const newStart = resolvedWindow.startDt.toUTC().toJSDate();
   const newEnd = resolvedWindow.endDt.toUTC().toJSDate();
 
+  // A reschedule moves a class, it never makes it longer: the scheduled
+  // window is also the pay window, so letting a teacher stretch it would let
+  // them raise their own pay. (Shortening is allowed.)
+  const originalDurationMinutes =
+    Math.round((originalEndTime.getTime() - originalStartTime.getTime()) / 60000);
+  if (originalDurationMinutes > 0 &&
+      resolvedWindow.durationMinutes > originalDurationMinutes) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      `A reschedule keeps the class the same length ` +
+      `(${originalDurationMinutes} minutes) — pick an end time ` +
+      `${originalDurationMinutes} minutes after the start.`,
+    );
+  }
+
+  // Moving the class must pass the same overlap rule as scheduling it: the
+  // teacher can't reschedule onto a time where they already have a class.
+  {
+    const windowStart = new Date(newStart.getTime() - 24 * 3600e3);
+    const windowEnd = new Date(newStart.getTime() + 48 * 3600e3);
+    let mineDocs;
+    try {
+      const mineSnap = await db.collection('teaching_shifts')
+        .where('teacher_id', '==', uid)
+        .where('shift_start', '>=', admin.firestore.Timestamp.fromDate(windowStart))
+        .where('shift_start', '<', admin.firestore.Timestamp.fromDate(windowEnd))
+        .get();
+      mineDocs = mineSnap.docs;
+    } catch (err) {
+      const missingIndex = err?.code === 9 &&
+        String(err?.message || '').toLowerCase().includes('index');
+      if (!missingIndex) throw err;
+      const mineSnap = await db.collection('teaching_shifts')
+        .where('teacher_id', '==', uid).get();
+      mineDocs = mineSnap.docs;
+    }
+    const mine = mineDocs.map((d) => {
+      const x = d.data() || {};
+      return {
+        id: d.id,
+        startMs: x.shift_start?.toDate?.()?.getTime?.() ?? NaN,
+        endMs: x.shift_end?.toDate?.()?.getTime?.() ?? NaN,
+        status: x.status || '',
+        name: x.custom_name || x.auto_generated_name || '',
+      };
+    });
+    const conflict = findClaimConflict(newStart.getTime(), newEnd.getTime(), mine, shiftId);
+    if (conflict) {
+      throw new functions.https.HttpsError('failed-precondition',
+        `You already have "${conflict.name}" at that time — pick a different time.`);
+    }
+  }
+
   const batch = db.batch();
 
   // Update the shift
@@ -2087,7 +2426,7 @@ const teacherRescheduleShift = onCall({cors: true, invoker: 'public'}, async (re
     newEndTime: newEnd.toISOString(),
     timezoneUsed: resolvedWindow.timezone,
   };
-});
+};
 
 /**
  * Teacher Reschedule Future Shifts
@@ -2578,6 +2917,12 @@ const cancelShiftNotificationTask = async (shiftId, minutesBefore = 15) => {
 };
 
 module.exports = {
+  __test__: {
+    partitionEntriesForPayment,
+    isStampedeDuplicate,
+    findClaimConflict,
+    _resolveRescheduleWindow,
+  },
   scheduleShiftLifecycle,
   handleShiftStartTask,
   handleShiftEndTask,
@@ -2630,6 +2975,48 @@ module.exports = {
 
         if (shiftData.teacher_id === uid) {
           throw new functions.https.HttpsError('already-exists', 'You are already the teacher for this shift');
+        }
+
+        // Claiming moves this class onto the claiming teacher's calendar, so
+        // it must pass the same overlap rule as scheduling: refuse when the
+        // teacher already has a class during this time.
+        const claimStart = shiftData.shift_start?.toDate?.();
+        const claimEnd = shiftData.shift_end?.toDate?.();
+        if (claimStart && claimEnd) {
+          const windowStart = new Date(claimStart.getTime() - 24 * 3600e3);
+          const windowEnd = new Date(claimStart.getTime() + 48 * 3600e3);
+          let mineDocs;
+          try {
+            const mineSnap = await transaction.get(
+              db.collection('teaching_shifts')
+                .where('teacher_id', '==', uid)
+                .where('shift_start', '>=', admin.firestore.Timestamp.fromDate(windowStart))
+                .where('shift_start', '<', admin.firestore.Timestamp.fromDate(windowEnd)));
+            mineDocs = mineSnap.docs;
+          } catch (err) {
+            const missingIndex = err?.code === 9 &&
+              String(err?.message || '').toLowerCase().includes('index');
+            if (!missingIndex) throw err;
+            const mineSnap = await transaction.get(
+              db.collection('teaching_shifts').where('teacher_id', '==', uid));
+            mineDocs = mineSnap.docs;
+          }
+          const mine = mineDocs.map((d) => {
+            const x = d.data() || {};
+            return {
+              id: d.id,
+              startMs: x.shift_start?.toDate?.()?.getTime?.() ?? NaN,
+              endMs: x.shift_end?.toDate?.()?.getTime?.() ?? NaN,
+              status: x.status || '',
+              name: x.custom_name || x.auto_generated_name || '',
+            };
+          });
+          const conflict = findClaimConflict(
+            claimStart.getTime(), claimEnd.getTime(), mine, shiftId);
+          if (conflict) {
+            throw new functions.https.HttpsError('failed-precondition',
+              `You already have "${conflict.name}" during this time, so you can't claim this shift`);
+          }
         }
 
         // Get claiming teacher's name

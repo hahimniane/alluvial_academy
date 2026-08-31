@@ -93,6 +93,36 @@ class _RescheduleShiftDialogState extends State<RescheduleShiftDialog> {
       return;
     }
 
+    final windowLength = _newEndTime!.difference(_newStartTime!);
+    if (windowLength > const Duration(hours: 12)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+              'That window is ${windowLength.inHours} hours long — check that '
+              'the end date matches the start date.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // A reschedule moves the class, it never makes it longer — the scheduled
+    // window is also the pay window.
+    final originalLength =
+        widget.shift.shiftEnd.difference(widget.shift.shiftStart);
+    if (originalLength > Duration.zero && windowLength > originalLength) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+              'A reschedule keeps the class the same length '
+              '(${originalLength.inMinutes} minutes) — pick an end time '
+              '${originalLength.inMinutes} minutes after the start.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
 
     try {
@@ -160,8 +190,13 @@ class _RescheduleShiftDialogState extends State<RescheduleShiftDialog> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(AppLocalizations.of(context)!.errorReschedulingShiftE),
+            // The server explains exactly which rule refused the change (the
+            // class would get longer, the time collides with another class,
+            // and so on). Show that, because the generic line told the teacher
+            // nothing and left them guessing.
+            content: Text(_rescheduleFailureMessage(e)),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 6),
           ),
         );
       }
@@ -170,6 +205,33 @@ class _RescheduleShiftDialogState extends State<RescheduleShiftDialog> {
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  /// Turns a failed reschedule into something the teacher can act on. Cloud
+  /// Functions refusals carry a written reason; anything else falls back to a
+  /// plain sentence rather than an error code.
+  String _rescheduleFailureMessage(Object error) {
+    if (error is FirebaseFunctionsException) {
+      final message = (error.message ?? '').trim();
+      if (message.isNotEmpty && message.toLowerCase() != 'internal') {
+        return message;
+      }
+      if (error.code == 'unauthenticated') {
+        return 'Your session has expired. Sign in again and try once more.';
+      }
+      if (error.code == 'permission-denied') {
+        return 'This class is not assigned to you, so it cannot be moved here.';
+      }
+      if (error.code == 'not-found') {
+        return 'This class no longer exists. Refresh your schedule.';
+      }
+    }
+    final text = error.toString();
+    if (text.contains('SocketException') || text.contains('network')) {
+      return 'No connection. Check your internet and try again.';
+    }
+    return 'The class could not be moved. Try again, and tell an admin if it '
+        'keeps happening.';
   }
 
   @override
@@ -293,7 +355,14 @@ class _RescheduleShiftDialogState extends State<RescheduleShiftDialog> {
                       _newStartTime ??
                           TimezoneUtils.convertToTimezone(
                               widget.shift.shiftStart, _selectedTimezone),
-                      (time) => setState(() => _newStartTime = time),
+                      (time) => setState(() {
+                        _newStartTime = time;
+                        // Keep the class the same length: moving the start
+                        // moves the end with it (including its date), so the
+                        // end can't silently stay on the old day.
+                        _newEndTime = time.add(widget.shift.shiftEnd
+                            .difference(widget.shift.shiftStart));
+                      }),
                     ),
                     const SizedBox(height: 16),
 
