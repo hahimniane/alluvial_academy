@@ -35,8 +35,6 @@ jobs:
   respond:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    env:
-      SSH_KEY_FILE: ${{ runner.temp }}/zoom_bot_key
     steps:
       - uses: actions/checkout@v4
 
@@ -59,8 +57,8 @@ jobs:
           ZOOM_BOT_SSH_KEY: ${{ secrets.ZOOM_BOT_SSH_KEY }}
         run: |
           if [ -n "$ZOOM_BOT_SSH_KEY" ]; then
-            printf '%s\n' "$ZOOM_BOT_SSH_KEY" > "$SSH_KEY_FILE"
-            chmod 600 "$SSH_KEY_FILE"
+            printf '%s\n' "$ZOOM_BOT_SSH_KEY" > "$RUNNER_TEMP/zoom_bot_key"
+            chmod 600 "$RUNNER_TEMP/zoom_bot_key"
             echo "Bot VPS key installed; lane restarts are available."
           else
             echo "No ZOOM_BOT_SSH_KEY set: lane restarts will be reported instead of applied."
