@@ -14,6 +14,7 @@ export type StudentSession = {
   isStudent: boolean;
   isAdultStudent: boolean;
   accessSuspended: boolean;
+  language: string;
   summary: StudentSummary;
 };
 
@@ -113,6 +114,10 @@ export async function resolveStudentSession(user: User): Promise<StudentSession>
       isStudent: roles.has("student"),
       isAdultStudent: isAdultStudentRecord(record),
       accessSuspended: record?.access_suspended === true || record?.accessSuspended === true,
+      // Empty when the user has no stored preference — the i18n layer treats
+      // that as "keep the local choice" rather than forcing English, so the
+      // in-app language toggle isn't reverted on the next navigation.
+      language: typeof record?.language_preference === "string" ? record.language_preference : "",
       summary: {
         displayName: name,
         firstName: name.split(/\s+/)[0] || "Student",
@@ -134,6 +139,13 @@ export async function resolveStudentSession(user: User): Promise<StudentSession>
 export function updateStudentSessionPhoto(photoUrl: string) {
   if (!cached) return;
   cached = { ...cached, summary: { ...cached.summary, photoUrl: photoUrl || undefined } };
+  writePersisted(cached);
+}
+
+/** Keeps the cached session's language in step after the in-app toggle. */
+export function updateStudentSessionLanguage(language: string) {
+  if (!cached) return;
+  cached = { ...cached, language };
   writePersisted(cached);
 }
 

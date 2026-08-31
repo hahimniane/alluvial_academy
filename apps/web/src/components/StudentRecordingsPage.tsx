@@ -7,6 +7,9 @@ import { useEffect, useMemo, useState } from "react";
 import { CalendarDays, ChevronLeft, ChevronRight, CircleAlert, Clock3, GraduationCap, Menu, Play, PlaySquare, RefreshCw, Search, Shuffle, Video } from "lucide-react";
 import { auth, db, functions } from "@/lib/firebase";
 import { cachedStudentSession, resolveStudentSession } from "@/lib/studentSession";
+import { dateLocale, useT } from "@/lib/i18n";
+
+type Translate = (en: string, vars?: Record<string, string | number>) => string;
 import { StudentAccessPrompt, StudentShell, openStudentMobileMenu, StudentAvatar } from "@/components/StudentDashboardHome";
 
 type AccessState = "checking" | "signedOut" | "allowed" | "denied";
@@ -61,6 +64,7 @@ type ShiftBucket = {
 
 export function StudentRecordingsPage() {
   const [access, setAccess] = useState<AccessState>(() => (cachedStudentSession() ? "allowed" : "checking"));
+  const t = useT();
   const [summary, setSummary] = useState(() => cachedStudentSession()?.summary ?? { displayName: "Student", firstName: "Student", initials: "ST" });
   const [isAdultStudent, setIsAdultStudent] = useState(() => cachedStudentSession()?.isAdultStudent ?? false);
   const [recordings, setRecordings] = useState<RecordingItem[]>([]);
@@ -124,7 +128,7 @@ export function StudentRecordingsPage() {
 
   const level: ViewLevel = selectedShiftKey ? "fragments" : selectedDateKey ? "shifts" : selectedStudentId ? "dates" : "students";
   const title = headerTitle(level);
-  const subtitle = headerSubtitle(level, students, dates, shifts, selectedShift);
+  const subtitle = headerSubtitle(level, students, dates, shifts, selectedShift, t);
   const showSearch = recordings.length > 0 && level !== "fragments";
 
   if (access !== "allowed") return <StudentAccessPrompt access={access} />;
@@ -137,15 +141,15 @@ export function StudentRecordingsPage() {
             {level === "students" ? (
               <span className="grid h-12 w-12 shrink-0 place-items-center text-[#1E293B]" />
             ) : (
-              <button type="button" onClick={() => goBack(level, setSelectedStudentId, setSelectedDateKey, setSelectedShiftKey, setSearch, setExpandedRecordingId)} aria-label="Back" className="grid h-12 w-12 shrink-0 place-items-center rounded-xl text-[#1E293B] hover:bg-[#F8FAFC]">
+              <button type="button" onClick={() => goBack(level, setSelectedStudentId, setSelectedDateKey, setSelectedShiftKey, setSearch, setExpandedRecordingId)} aria-label={t("Back")} className="grid h-12 w-12 shrink-0 place-items-center rounded-xl text-[#1E293B] hover:bg-[#F8FAFC]">
                 <ChevronLeft size={24} />
               </button>
             )}
             <div className="min-w-0 flex-1">
-              <h1 className="truncate text-lg font-bold text-[#0F172A]">{title}</h1>
+              <h1 className="truncate text-lg font-bold text-[#0F172A]">{t(title)}</h1>
               {subtitle ? <p className="mt-0.5 text-xs text-[#64748B]">{subtitle}</p> : null}
             </div>
-            <button type="button" onClick={() => void refresh(setLoading, setMessage, setRecordings, setNameCache, setSearch, setSelectedStudentId, setSelectedDateKey, setSelectedShiftKey, setExpandedRecordingId, setPlaybackUrls)} aria-label="Refresh recordings" className="grid h-11 w-11 place-items-center rounded-xl text-[#64748B] hover:bg-[#F8FAFC]">
+            <button type="button" onClick={() => void refresh(setLoading, setMessage, setRecordings, setNameCache, setSearch, setSelectedStudentId, setSelectedDateKey, setSelectedShiftKey, setExpandedRecordingId, setPlaybackUrls)} aria-label={t("Refresh recordings")} className="grid h-11 w-11 place-items-center rounded-xl text-[#64748B] hover:bg-[#F8FAFC]">
               <RefreshCw size={22} />
             </button>
           </div>
@@ -158,8 +162,8 @@ export function StudentRecordingsPage() {
               <input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder={searchHint(level)}
-                aria-label="Search recordings"
+                placeholder={t(searchHint(level))}
+                aria-label={t("Search recordings")}
                 className="h-full w-full rounded-xl border border-[#E2E8F0] bg-white pl-11 pr-10 text-sm text-[#0F172A] outline-none placeholder:text-[#94A3B8] focus:border-[#0E72ED] focus:ring-2 focus:ring-[#BFDBFE]"
               />
             </label>
@@ -185,7 +189,7 @@ export function StudentRecordingsPage() {
             expandedRecordingId={expandedRecordingId}
             loadingRecordingId={loadingRecordingId}
             onToggle={(recording) => void toggleRecording(recording, playbackUrls, expandedRecordingId, setPlaybackUrls, setExpandedRecordingId, setLoadingRecordingId, setMessage)}
-            onPlaybackError={() => setMessage("This recording could not be played. Refresh its playback link and try again.")}
+            onPlaybackError={() => setMessage(t("This recording could not be played. Refresh its playback link and try again."))}
           />
         )}
       </main>
@@ -209,12 +213,13 @@ function MobileStudentTopBar({ summary }: { summary: StudentSummary }) {
 }
 
 function StudentList({ students, onSelect }: { students: StudentBucket[]; onSelect: (id: string) => void }) {
+  const t = useT();
   if (students.length === 0) return <SearchEmptyCard title="No students found" />;
   return (
     <section className="px-4 py-2">
       <div className="mx-auto grid max-w-5xl gap-2">
         {students.map((student) => (
-          <LevelCard key={student.id} title={student.name} subtitle={`${student.recordings.length} recording${student.recordings.length === 1 ? "" : "s"}`} tertiary={student.latestDate ? `Latest: ${shortDate(student.latestDate)}` : undefined} icon={<GraduationCap size={20} />} iconColor="#2563EB" onClick={() => onSelect(student.id)} />
+          <LevelCard key={student.id} title={student.name} subtitle={t(student.recordings.length === 1 ? "{n} recording" : "{n} recordings", { n: student.recordings.length })} tertiary={student.latestDate ? t("Latest: {date}", { date: shortDate(student.latestDate) }) : undefined} icon={<GraduationCap size={20} />} iconColor="#2563EB" onClick={() => onSelect(student.id)} />
         ))}
       </div>
     </section>
@@ -222,12 +227,13 @@ function StudentList({ students, onSelect }: { students: StudentBucket[]; onSele
 }
 
 function DateList({ dates, onSelect }: { dates: DateBucket[]; onSelect: (key: string) => void }) {
+  const t = useT();
   if (dates.length === 0) return <SearchEmptyCard title="No recording dates found" />;
   return (
     <section className="px-4 py-2">
       <div className="mx-auto grid max-w-5xl gap-2">
         {dates.map((date) => (
-          <LevelCard key={date.key} title={date.date ? longDate(date.date) : "Unknown date"} subtitle={`${date.recordings.length} recording${date.recordings.length === 1 ? "" : "s"}`} icon={<CalendarDays size={20} />} iconColor="#0E7490" onClick={() => onSelect(date.key)} />
+          <LevelCard key={date.key} title={date.date ? longDate(date.date) : t("Unknown date")} subtitle={t(date.recordings.length === 1 ? "{n} recording" : "{n} recordings", { n: date.recordings.length })} icon={<CalendarDays size={20} />} iconColor="#0E7490" onClick={() => onSelect(date.key)} />
         ))}
       </div>
     </section>
@@ -235,12 +241,13 @@ function DateList({ dates, onSelect }: { dates: DateBucket[]; onSelect: (key: st
 }
 
 function ShiftList({ shifts, onSelect }: { shifts: ShiftBucket[]; onSelect: (key: string) => void }) {
+  const t = useT();
   if (shifts.length === 0) return <SearchEmptyCard title="No shifts found" />;
   return (
     <section className="px-4 py-2">
       <div className="mx-auto grid max-w-5xl gap-2">
         {shifts.map((shift) => (
-          <LevelCard key={shift.key} title={shift.shiftName} subtitle={`${shift.fragments.length} fragment${shift.fragments.length === 1 ? "" : "s"} · Ready: ${shift.fragments.filter((item) => item.canPlay).length}${shift.subjectName ? ` · ${shift.subjectName}` : ""}`} tertiary={shift.date ? dateTime(shift.date) : undefined} icon={<Video size={20} />} iconColor="#7C3AED" onClick={() => onSelect(shift.key)} />
+          <LevelCard key={shift.key} title={shift.shiftName} subtitle={`${t(shift.fragments.length === 1 ? "{n} fragment" : "{n} fragments", { n: shift.fragments.length })} · ${t("Ready: {n}", { n: shift.fragments.filter((item) => item.canPlay).length })}${shift.subjectName ? ` · ${shift.subjectName}` : ""}`} tertiary={shift.date ? dateTime(shift.date) : undefined} icon={<Video size={20} />} iconColor="#7C3AED" onClick={() => onSelect(shift.key)} />
         ))}
       </div>
     </section>
@@ -262,6 +269,7 @@ function FragmentList({
   onToggle: (recording: RecordingItem) => void;
   onPlaybackError: () => void;
 }) {
+  const t = useT();
   if (!shift) return <SearchEmptyCard title="Shift not found" subtitle="Refresh and try again." />;
   return (
     <section className="px-4 py-2">
@@ -269,8 +277,8 @@ function FragmentList({
         <article className="rounded-[14px] border border-[#E2E8F0] bg-white p-3.5">
           <h2 className="text-[15px] font-bold text-[#0F172A]">{shift.shiftName}</h2>
           <div className="mt-3 flex flex-wrap gap-2 text-[11px] font-semibold">
-            <span className="rounded-[10px] bg-[#E7F3FF] px-2 py-1 text-[#0E72ED]">{shift.fragments.length} fragments</span>
-            <span className="rounded-[10px] bg-[#DCFCE7] px-2 py-1 text-[#10B981]">{shift.fragments.filter((item) => item.canPlay).length} ready</span>
+            <span className="rounded-[10px] bg-[#E7F3FF] px-2 py-1 text-[#0E72ED]">{t("{n} fragments", { n: shift.fragments.length })}</span>
+            <span className="rounded-[10px] bg-[#DCFCE7] px-2 py-1 text-[#10B981]">{t("{n} ready", { n: shift.fragments.filter((item) => item.canPlay).length })}</span>
             {shift.subjectName ? <span className="rounded-[10px] bg-[#F3E8FF] px-2 py-1 text-[#7C3AED]">{shift.subjectName}</span> : null}
           </div>
           {shift.date ? <p className="mt-2 text-xs text-[#64748B]">{dateTime(shift.date)}</p> : null}
@@ -314,6 +322,7 @@ function LevelCard({
 }
 
 function RecordingCard({ recording, index, total, isExpanded, isLoading, playbackUrl, onToggle, onPlaybackError }: { recording: RecordingItem; index: number; total: number; isExpanded: boolean; isLoading: boolean; playbackUrl?: string; onToggle: () => void; onPlaybackError: () => void }) {
+  const t = useT();
   const status = statusLabel(recording);
   return (
     <article className="rounded-[14px] border border-[#E2E8F0] bg-white p-3.5">
@@ -322,16 +331,16 @@ function RecordingCard({ recording, index, total, isExpanded, isLoading, playbac
           <PlaySquare size={19} />
         </span>
         <div className="min-w-0 flex-1">
-          <h2 className="text-sm font-bold text-[#0F172A]">Recording {index + 1} of {total}</h2>
+          <h2 className="text-sm font-bold text-[#0F172A]">{t("Recording {index} of {total}", { index: index + 1, total })}</h2>
           <p className="mt-1 text-xs text-[#64748B]">{dateTime(displayDate(recording))}</p>
           <div className="mt-3 flex flex-wrap gap-2 text-[11px] font-semibold">
-            <span className={`rounded-[10px] px-2 py-1 ${status === "Ready" ? "bg-[#DCFCE7] text-[#10B981]" : status === "Failed" ? "bg-[#FEE2E2] text-[#EF4444]" : "bg-[#FEF3C7] text-[#B45309]"}`}>{status}</span>
-            <span className="rounded-[10px] bg-[#F8FAFC] px-2 py-1 text-[#64748B]">{retentionText(recording.deleteAfter)}</span>
+            <span className={`rounded-[10px] px-2 py-1 ${status === "Ready" ? "bg-[#DCFCE7] text-[#10B981]" : status === "Failed" ? "bg-[#FEE2E2] text-[#EF4444]" : "bg-[#FEF3C7] text-[#B45309]"}`}>{t(status)}</span>
+            <span className="rounded-[10px] bg-[#F8FAFC] px-2 py-1 text-[#64748B]">{retentionText(recording.deleteAfter, t)}</span>
           </div>
         </div>
         <button type="button" disabled={!recording.canPlay || isLoading} onClick={onToggle} className={`inline-flex min-h-9 shrink-0 items-center gap-2 rounded-xl px-3 text-xs font-bold ${recording.canPlay ? "bg-[#0E72ED] text-white hover:bg-[#0369F6]" : "cursor-not-allowed bg-[#E2E8F0] text-[#64748B]"}`}>
           {isLoading ? <RefreshCw className="animate-spin" size={14} /> : <Play size={14} />}
-          {isExpanded ? "Hide" : recording.canPlay ? "Play" : "Unavailable"}
+          {isExpanded ? t("Hide") : recording.canPlay ? t("Play") : t("Unavailable")}
         </button>
       </div>
       {recording.error ? <p className="mt-3 rounded-xl bg-[#FEF2F2] px-3 py-2 text-xs font-semibold text-[#B91C1C]">{recording.error}</p> : null}
@@ -343,28 +352,30 @@ function RecordingCard({ recording, index, total, isExpanded, isLoading, playbac
 }
 
 function NoRecordingsCard() {
+  const t = useT();
   return (
     <section className="grid min-h-[calc(100vh-174px)] place-items-center px-8 py-10 lg:min-h-[calc(100vh-176px)]">
       <div className="w-full max-w-[480px] rounded-2xl bg-white px-6 py-8 text-center shadow-[0_4px_12px_rgba(15,23,42,0.04)]">
         <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-[#E7F3FF] text-[#60A5FA]">
           <PlaySquare size={34} />
         </div>
-        <h2 className="mt-5 text-base font-bold text-[#374151]">No recordings yet</h2>
-        <p className="mt-3 text-sm leading-6 text-[#6B7280]">Class recordings will appear here after sessions are recorded.</p>
+        <h2 className="mt-5 text-base font-bold text-[#374151]">{t("No recordings yet")}</h2>
+        <p className="mt-3 text-sm leading-6 text-[#6B7280]">{t("Class recordings will appear here after sessions are recorded.")}</p>
       </div>
     </section>
   );
 }
 
 function SearchEmptyCard({ title, subtitle = "Try a different search term." }: { title: string; subtitle?: string }) {
+  const t = useT();
   return (
     <section className="grid min-h-[360px] place-items-center px-8 py-10">
       <div className="text-center">
         <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-[#F1F5F9] text-[#94A3B8]">
           <Search size={30} />
         </div>
-        <h2 className="mt-5 text-base font-bold text-[#374151]">{title}</h2>
-        <p className="mt-2 text-sm text-[#6B7280]">{subtitle}</p>
+        <h2 className="mt-5 text-base font-bold text-[#374151]">{t(title)}</h2>
+        <p className="mt-2 text-sm text-[#6B7280]">{t(subtitle)}</p>
       </div>
     </section>
   );
@@ -379,6 +390,7 @@ function LoadingRecordings() {
 }
 
 function ErrorCard({ message, onRetry }: { message: string; onRetry: () => void }) {
+  const t = useT();
   return (
     <section className="mx-auto mt-6 w-full max-w-md rounded-2xl bg-white p-6 text-center shadow-sm">
       <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-[#FEE2E2] text-[#EF4444]">
@@ -387,7 +399,7 @@ function ErrorCard({ message, onRetry }: { message: string; onRetry: () => void 
       <p className="mt-4 text-sm font-semibold text-[#374151]">{message}</p>
       <button type="button" onClick={onRetry} className="mt-5 inline-flex min-h-10 items-center gap-2 rounded-xl bg-[#0E72ED] px-5 text-sm font-semibold text-white">
         <RefreshCw size={16} />
-        Try Again
+        {t("Try Again")}
       </button>
     </section>
   );
@@ -607,11 +619,11 @@ function headerTitle(level: ViewLevel) {
   return "Students";
 }
 
-function headerSubtitle(level: ViewLevel, students: StudentBucket[], dates: DateBucket[], shifts: ShiftBucket[], selectedShift: ShiftBucket | null) {
-  if (level === "fragments" && selectedShift) return `${selectedShift.fragments.length} fragment${selectedShift.fragments.length === 1 ? "" : "s"} · ${dateTime(selectedShift.date)}`;
-  if (level === "shifts") return `${shifts.length} shift${shifts.length === 1 ? "" : "s"} on this date`;
-  if (level === "dates") return `${dates.length} date${dates.length === 1 ? "" : "s"} with recordings`;
-  return `${students.length} student${students.length === 1 ? "" : "s"}`;
+function headerSubtitle(level: ViewLevel, students: StudentBucket[], dates: DateBucket[], shifts: ShiftBucket[], selectedShift: ShiftBucket | null, t: Translate) {
+  if (level === "fragments" && selectedShift) return `${t(selectedShift.fragments.length === 1 ? "{n} fragment" : "{n} fragments", { n: selectedShift.fragments.length })} · ${dateTime(selectedShift.date)}`;
+  if (level === "shifts") return t(shifts.length === 1 ? "{n} shift on this date" : "{n} shifts on this date", { n: shifts.length });
+  if (level === "dates") return t(dates.length === 1 ? "{n} date with recordings" : "{n} dates with recordings", { n: dates.length });
+  return t(students.length === 1 ? "{n} student" : "{n} students", { n: students.length });
 }
 
 function searchHint(level: ViewLevel) {
@@ -629,23 +641,23 @@ function statusLabel(recording: RecordingItem) {
   return recording.status.trim() || "Unknown";
 }
 
-function retentionText(deleteAfter: Date | null) {
-  if (!deleteAfter) return "Auto-delete schedule unavailable";
+function retentionText(deleteAfter: Date | null, t: Translate) {
+  if (!deleteAfter) return t("Auto-delete schedule unavailable");
   const diff = deleteAfter.getTime() - Date.now();
-  if (diff <= 0) return "Deleting soon";
+  if (diff <= 0) return t("Deleting soon");
   const days = Math.floor(diff / 86_400_000);
   if (days >= 28) {
     const months = Math.max(1, Math.round(days / 30));
-    return `Auto-deletes in about ${months} month${months === 1 ? "" : "s"}`;
+    return t(months === 1 ? "Auto-deletes in about {n} month" : "Auto-deletes in about {n} months", { n: months });
   }
   if (days >= 14) {
     const weeks = Math.floor(days / 7);
-    return `Auto-deletes in ${weeks} week${weeks === 1 ? "" : "s"}`;
+    return t(weeks === 1 ? "Auto-deletes in {n} week" : "Auto-deletes in {n} weeks", { n: weeks });
   }
-  if (days >= 2) return `Auto-deletes in ${days} days`;
+  if (days >= 2) return t("Auto-deletes in {n} days", { n: days });
   const hours = Math.floor(diff / 3_600_000);
-  if (hours >= 2) return `Auto-deletes in ${hours} hours`;
-  return "Auto-deletes soon";
+  if (hours >= 2) return t("Auto-deletes in {n} hours", { n: hours });
+  return t("Auto-deletes soon");
 }
 
 function latestRecordingDate(items: RecordingItem[]) {
@@ -700,14 +712,14 @@ function shortIdentifier(value: string) {
 }
 
 function shortDate(date: Date) {
-  return new Intl.DateTimeFormat("en", { month: "short", day: "numeric", year: "numeric" }).format(date);
+  return new Intl.DateTimeFormat(dateLocale(), { month: "short", day: "numeric", year: "numeric" }).format(date);
 }
 
 function longDate(date: Date) {
-  return new Intl.DateTimeFormat("en", { weekday: "long", month: "short", day: "numeric", year: "numeric" }).format(date);
+  return new Intl.DateTimeFormat(dateLocale(), { weekday: "long", month: "short", day: "numeric", year: "numeric" }).format(date);
 }
 
 function dateTime(date: Date | null) {
   if (!date) return "Unknown date";
-  return new Intl.DateTimeFormat("en", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(date);
+  return new Intl.DateTimeFormat(dateLocale(), { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(date);
 }

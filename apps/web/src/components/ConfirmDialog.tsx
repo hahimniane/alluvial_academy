@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { AlertTriangle } from "lucide-react";
+import { useT } from "@/lib/i18n";
 
 /**
  * Confirmation before an action that is hard to take back.
@@ -20,6 +21,7 @@ export type ConfirmRequest = {
 };
 
 export function ConfirmDialog({ request, onClose }: { request: ConfirmRequest | null; onClose: () => void }) {
+  const t = useT();
   const confirmRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
@@ -39,7 +41,7 @@ export function ConfirmDialog({ request, onClose }: { request: ConfirmRequest | 
 
   return (
     <div className="fixed inset-0 z-[100] grid place-items-center p-4" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
-      <button type="button" aria-label="Cancel" onClick={onClose} className="absolute inset-0 cursor-default bg-black/45" />
+      <button type="button" aria-label={t("Cancel")} onClick={onClose} className="absolute inset-0 cursor-default bg-black/45" />
       <section className="relative w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
         <div className="flex items-start gap-3">
           <span
@@ -62,7 +64,7 @@ export function ConfirmDialog({ request, onClose }: { request: ConfirmRequest | 
             onClick={onClose}
             className="inline-flex min-h-10 items-center rounded-xl border border-[#E2E8F0] px-4 text-sm font-bold text-[#334155] hover:bg-[#F1F5F9]"
           >
-            Cancel
+            {t("Cancel")}
           </button>
           <button
             ref={confirmRef}

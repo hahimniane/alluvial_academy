@@ -6,6 +6,7 @@ import { collection, getDocs, limit, orderBy, query, Timestamp, where } from "fi
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   Bell,
+  BookMarked,
   BookOpen,
   CalendarClock,
   ChevronDown,
@@ -33,6 +34,7 @@ import {
 } from "lucide-react";
 import { auth, db } from "@/lib/firebase";
 import { cachedStudentSession, clearStudentSession, resolveStudentSession } from "@/lib/studentSession";
+import { adoptRemoteLocale, dateLocale, setLocale, useLocale, useT } from "@/lib/i18n";
 import { ConfirmDialog, type ConfirmRequest } from "@/components/ConfirmDialog";
 
 type UserRecord = Record<string, unknown>;
@@ -90,6 +92,7 @@ function studentSections(isAdultStudent: boolean): SidebarSection[] {
         { label: "Tasks", icon: CheckCircle2, href: "/student/tasks/", color: "#14B8A6" },
         { label: "Quiz", icon: ClipboardList, href: "/student/quiz/", color: "#8B5CF6" },
         { label: "Progress", icon: TrendingUp, href: "/student/progress/", color: "#2563EB" },
+        { label: "Quran", icon: BookMarked, href: "/student/quran/", color: "#0E7490" },
         { label: "Surah Podcasts", icon: Podcast, href: "/student/surah-podcasts/", color: "#0E72ED" },
         { label: "Curriculum Books", icon: BookOpen, href: "/student/curriculum-books/", color: "#0F766E" },
       ],
@@ -354,6 +357,7 @@ function StudentHomeContent({
   summary: StudentSummary;
   onRetry: () => void;
 }) {
+  const t = useT();
   const pendingTasks = data.tasks.filter((task) => !task.done);
   const completedTasks = data.tasks.filter((task) => task.done);
   const attendanceRate = data.totalPastClasses > 0 ? Math.round((data.attendedCount / data.totalPastClasses) * 100) : null;
@@ -376,9 +380,9 @@ function StudentHomeContent({
           returns for the student role. */}
       <header className="flex items-center gap-4 rounded-3xl bg-[linear-gradient(120deg,#43e97b_0%,#38f9d7_100%)] p-6 text-white shadow-[0_18px_40px_rgba(67,233,123,0.22)] md:p-8">
         <div className="min-w-0 flex-1">
-          <h1 className="text-[28px] font-black leading-tight md:text-[40px]">Welcome Back, {summary.firstName}</h1>
-          <p className="mt-2 text-base font-semibold text-white/95 md:text-lg">You&rsquo;re signed in as Student</p>
-          <p className="mt-3 text-base font-medium text-white/90 md:text-lg">Continue your learning journey and track your progress.</p>
+          <h1 className="text-[28px] font-black leading-tight md:text-[40px]">{t("Welcome Back, {name}", { name: summary.firstName })}</h1>
+          <p className="mt-2 text-base font-semibold text-white/95 md:text-lg">{t("You're signed in as Student")}</p>
+          <p className="mt-3 text-base font-medium text-white/90 md:text-lg">{t("Continue your learning journey and track your progress.")}</p>
         </div>
         <span className="hidden h-24 w-24 shrink-0 place-items-center rounded-3xl bg-white/25 text-white sm:grid">
           <UserRound size={52} />
@@ -389,21 +393,21 @@ function StudentHomeContent({
         <div className="mt-4 flex flex-wrap items-center gap-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
           {loadError}
           <button type="button" onClick={onRetry} className="inline-flex min-h-9 items-center rounded-xl bg-red-600 px-3 text-xs font-black text-white">
-            Try again
+            {t("Try again")}
           </button>
         </div>
       ) : null}
 
       <div className="mt-5 grid gap-4 sm:grid-cols-3">
-        <StatCard label="Classes today" value={data.todayClasses.length} icon={CalendarClock} color="#2D8CFF" />
-        <StatCard label="Tasks completed" value={completedTasks.length} icon={CheckCircle2} color="#10B981" />
-        <StatCard label="Tasks pending" value={pendingTasks.length} icon={ClipboardList} color="#F59E0B" />
+        <StatCard label={t("Classes today")} value={data.todayClasses.length} icon={CalendarClock} color="#2D8CFF" />
+        <StatCard label={t("Tasks completed")} value={completedTasks.length} icon={CheckCircle2} color="#10B981" />
+        <StatCard label={t("Tasks pending")} value={pendingTasks.length} icon={ClipboardList} color="#F59E0B" />
       </div>
 
       <div className="mt-5 grid gap-4 lg:grid-cols-2">
-        <Panel title="My tasks" href="/student/tasks/" linkLabel="View all">
+        <Panel title={t("My tasks")} href="/student/tasks/" linkLabel={t("View all")}>
           {pendingTasks.length === 0 ? (
-            <EmptyRow text="Nothing due right now. Enjoy it." />
+            <EmptyRow text={t("Nothing due right now. Enjoy it.")} />
           ) : (
             <ul className="grid gap-2">
               {pendingTasks.slice(0, 4).map((task) => (
@@ -413,7 +417,7 @@ function StudentHomeContent({
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-bold text-[#0F172A]">{task.title}</span>
-                    <span className="block text-xs font-semibold text-[#64748B]">{task.due ? `Due ${formatDay(task.due)}` : "No due date"}</span>
+                    <span className="block text-xs font-semibold text-[#64748B]">{task.due ? t("Due {day}", { day: formatDay(task.due) }) : t("No due date")}</span>
                   </span>
                 </li>
               ))}
@@ -421,20 +425,20 @@ function StudentHomeContent({
           )}
         </Panel>
 
-        <Panel title="My progress" href="/student/progress/" linkLabel="Details">
+        <Panel title={t("My progress")} href="/student/progress/" linkLabel={t("Details")}>
           {attendanceRate === null ? (
             <EmptyRow text="Your progress appears once you've attended a class." />
           ) : (
             <div>
               <div className="flex items-baseline gap-2">
                 <span className="text-[34px] font-black leading-none text-[#0F172A]">{attendanceRate}%</span>
-                <span className="text-sm font-bold text-[#64748B]">attendance</span>
+                <span className="text-sm font-bold text-[#64748B]">{t("attendance")}</span>
               </div>
               <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-[#E2E8F0]">
                 <div className="h-full rounded-full bg-[linear-gradient(90deg,#2563EB,#38f9d7)]" style={{ width: `${attendanceRate}%` }} />
               </div>
               <p className="mt-2 text-xs font-semibold text-[#64748B]">
-                {data.attendedCount} of {data.totalPastClasses} classes attended (last 90 days)
+                {t("{done} of {total} classes attended (last 90 days)", { done: data.attendedCount, total: data.totalPastClasses })}
               </p>
             </div>
           )}
@@ -442,9 +446,9 @@ function StudentHomeContent({
       </div>
 
       <div className="mt-5">
-        <Panel title="Upcoming classes" href="/student/classes/" linkLabel="Open classes">
+        <Panel title={t("Upcoming classes")} href="/student/classes/" linkLabel={t("Open classes")}>
           {data.todayClasses.length === 0 && data.upcomingClasses.length === 0 ? (
-            <EmptyRow text="No classes scheduled in the next 30 days." />
+            <EmptyRow text={t("No classes scheduled in the next 30 days.")} />
           ) : (
             <ul className="grid gap-2">
               {[...data.todayClasses, ...data.upcomingClasses].slice(0, 6).map((item) => (
@@ -507,11 +511,11 @@ function formatDay(value: Date) {
   const days = Math.round((new Date(value.getFullYear(), value.getMonth(), value.getDate()).getTime() - startOfToday.getTime()) / 86400000);
   if (days === 0) return "Today";
   if (days === 1) return "Tomorrow";
-  return value.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  return value.toLocaleDateString(dateLocale(), { month: "short", day: "numeric" });
 }
 
 function formatTime(value: Date) {
-  return value.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  return value.toLocaleTimeString(dateLocale(), { hour: "numeric", minute: "2-digit" });
 }
 
 export function StudentShell({
@@ -533,6 +537,8 @@ export function StudentShell({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [notificationCount, setNotificationCount] = useState(0);
+  const t = useT();
+  const locale = useLocale();
   const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
   // Icon-rail collapse, the way desktop dashboards behave. Persisted so the
   // choice survives navigation and reload, and mirrored from the Flutter
@@ -578,6 +584,21 @@ export function StudentShell({
     setCollapsedSections(new Set());
     setFavoritedItems(new Set());
   }
+
+  useEffect(() => {
+    // Fast path: apply the locale already cached from a previous visit on this
+    // device, before auth resolves, so a reload paints in the right language.
+    adoptRemoteLocale(cachedStudentSession()?.language);
+    // Cross-device: on a device that has never cached this account, read the
+    // saved language_preference from the user document once the session
+    // resolves and apply it — otherwise the choice wouldn't take effect until
+    // the next reload. resolveStudentSession is de-duped, so this is cheap.
+    return onAuthStateChanged(auth, async (nextUser) => {
+      if (!nextUser) return;
+      const session = await resolveStudentSession(nextUser);
+      adoptRemoteLocale(session.language);
+    });
+  }, []);
 
   useEffect(() => {
     const openMenu = () => setMobileMenuOpen(true);
@@ -641,11 +662,11 @@ export function StudentShell({
             <img src="/assets/Alluwal_Education_Hub_Logo.png" alt="Alluwal Education Hub" className="h-12 w-auto object-contain" />
           </div>
           <div className={`flex items-center border-b border-black/10 py-3 ${railCollapsed ? "justify-center px-2" : "justify-between px-4"}`}>
-            {railCollapsed ? null : <p className="text-[21px] font-black text-[#0F172A]">Menu</p>}
+            {railCollapsed ? null : <p className="text-[21px] font-black text-[#0F172A]">{t("Menu")}</p>}
             <button
               type="button"
               onClick={() => setRailCollapsed((current) => !current)}
-              aria-label={railCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+              aria-label={railCollapsed ? t("Expand sidebar") : t("Collapse sidebar")}
               aria-expanded={!railCollapsed}
               title={`${railCollapsed ? "Expand" : "Collapse"} sidebar (⌘B)`}
               className="grid h-9 w-9 place-items-center rounded-xl text-[#64748B] transition hover:bg-[#F1F5F9] hover:text-[#334155]"
@@ -655,13 +676,13 @@ export function StudentShell({
           </div>
           <div className={railCollapsed ? "hidden" : "px-3 py-3"}>
             <label className="sr-only" htmlFor="student-shell-search">
-              Search dashboard
+              {t("Search dashboard")}
             </label>
             <div className="relative">
               <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#94A3B8]" size={16} />
               <input
                 id="student-shell-search"
-                placeholder="Search..."
+                placeholder={t("Search...")}
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
                 className="h-10 w-full rounded-xl border border-black/10 bg-white px-9 text-sm text-[#334155] outline-none focus:border-[#0386FF]"
@@ -695,10 +716,10 @@ export function StudentShell({
                     onClick={() => toggleSection(section.title)}
                     className="flex min-h-9 w-full items-center gap-2 rounded-xl px-2 text-left text-[10px] font-black uppercase tracking-[0.14em] text-[#94A3B8] hover:bg-[#F8FAFC]"
                     aria-expanded={!isCollapsed}
-                    aria-label={`${isCollapsed ? "Expand" : "Collapse"} ${section.title}`}
+                    aria-label={`${isCollapsed ? t("Expand") : t("Collapse")} ${t(section.title)}`}
                   >
                     <Grid3X3 size={14} />
-                    <span className="min-w-0 flex-1 truncate">{section.title}</span>
+                    <span className="min-w-0 flex-1 truncate">{t(section.title)}</span>
                     <span>{isCollapsed ? "⌄" : "⌃"}</span>
                   </button>
                   {!isCollapsed || railCollapsed ? (
@@ -712,13 +733,13 @@ export function StudentShell({
             <button
               type="button"
               onClick={resetSidebarLayout}
-              title="Reset Layout"
+              title={t("Reset Layout")}
               className={`inline-flex min-h-10 items-center gap-2 rounded-xl text-xs font-bold text-[#94A3B8] hover:bg-white hover:text-[#334155] ${
                 railCollapsed ? "w-full justify-center px-0" : "px-3"
               }`}
             >
               <RotateCcw size={15} />
-              {railCollapsed ? null : "Reset Layout"}
+              {railCollapsed ? null : t("Reset Layout")}
             </button>
           </div>
         </aside>
@@ -737,19 +758,19 @@ export function StudentShell({
             >
               <Menu size={24} />
             </button>
-            <span className="min-w-0 flex-1 truncate text-center text-base font-black text-[#0F172A]">{activeLabel}</span>
+            <span className="min-w-0 flex-1 truncate text-center text-base font-black text-[#0F172A]">{t(activeLabel)}</span>
             <Link href="/student/profile/" aria-label="Open your profile">
               <StudentAvatar summary={summary} size={36} textClass="text-xs" />
             </Link>
           </header>
           <header className="hidden min-h-14 shrink-0 items-center justify-between border-b border-black/5 bg-white px-4 lg:flex">
-            <p className="text-sm font-bold text-[#64748B]">{breadcrumb}</p>
+            <p className="text-sm font-bold text-[#64748B]">{t(breadcrumb)}</p>
             <div className="flex items-center gap-3">
               {/* Role pill, bell and name-with-chip mirror the Flutter top bar.
                   Green is the student role colour (_getRoleColor). */}
               <span className="inline-flex min-h-10 items-center gap-2 rounded-full bg-[#10B981] px-5 text-sm font-black text-white">
                 <UserRound size={18} />
-                Student
+                {t("Student")}
               </span>
               {/* Not a link: there is no student notifications page yet, and
                   sending it to /app/ would drop the student into the Flutter
@@ -776,7 +797,7 @@ export function StudentShell({
                   <span className="grid max-w-[240px] justify-items-end">
                     <span className="w-full truncate text-right text-sm font-bold text-[#2563EB]">{summary.displayName}</span>
                     <span className="mt-0.5 inline-flex items-center rounded-md bg-[#D1FAE5] px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-[#047857]">
-                      Student
+                      {t("Student")}
                     </span>
                   </span>
                   <StudentAvatar summary={summary} size={44} />
@@ -786,23 +807,36 @@ export function StudentShell({
                   <div className="absolute right-0 top-12 z-50 w-56 rounded-2xl border border-[#E2E8F0] bg-white p-2 shadow-xl" role="menu" aria-label="Student account menu">
                     <Link href="/student/profile/" role="menuitem" className="flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-bold text-[#334155] hover:bg-[#F1F5F9]">
                       <CircleUserRound size={18} />
-                      View Profile
+                      {t("View Profile")}
                     </Link>
+                    <div className="my-1 flex gap-1 rounded-xl bg-[#F1F5F9] p-1" role="group" aria-label={t("Language")}>
+                      {(["en", "fr"] as const).map((code) => (
+                        <button
+                          key={code}
+                          type="button"
+                          onClick={() => void setLocale(auth.currentUser?.uid ?? null, code)}
+                          aria-pressed={locale === code}
+                          className={`min-h-8 flex-1 rounded-lg text-xs font-black ${locale === code ? "bg-white text-[#2563EB] shadow-sm" : "text-[#64748B]"}`}
+                        >
+                          {code === "en" ? "English" : "Français"}
+                        </button>
+                      ))}
+                    </div>
                     <button
                       type="button"
                       role="menuitem"
                       onClick={() =>
                         setConfirm({
-                          title: "Sign Out",
-                          body: "Are you sure you want to sign out?",
-                          confirmLabel: "Sign Out",
+                          title: t("Sign Out"),
+                          body: t("Are you sure you want to sign out?"),
+                          confirmLabel: t("Sign Out"),
                           onConfirm: () => void logout(),
                         })
                       }
                       className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-bold text-[#DC2626] hover:bg-[#FEF2F2]"
                     >
                       <LogOut size={18} />
-                      Log out
+                      {t("Log out")}
                     </button>
                   </div>
                 ) : null}
@@ -838,7 +872,7 @@ export function StudentShell({
             <nav className="flex-1 overflow-y-auto px-3 py-3" aria-label="Student mobile navigation">
               {availableSidebarSections.map((section) => (
                 <div key={section.title} className="mb-3">
-                  <p className="mb-1 px-2 text-[10px] font-black uppercase tracking-[0.14em] text-[#94A3B8]">{section.title}</p>
+                  <p className="mb-1 px-2 text-[10px] font-black uppercase tracking-[0.14em] text-[#94A3B8]">{t(section.title)}</p>
                   <StudentSidebarItems items={section.items} favoritedItems={favoritedItems} activeLabel={activeLabel} onToggleFavorite={toggleFavoriteItem} />
                 </div>
               ))}
@@ -848,16 +882,16 @@ export function StudentShell({
                 type="button"
                 onClick={() =>
                   setConfirm({
-                    title: "Sign Out",
-                    body: "Are you sure you want to sign out?",
-                    confirmLabel: "Sign Out",
+                    title: t("Sign Out"),
+                    body: t("Are you sure you want to sign out?"),
+                    confirmLabel: t("Sign Out"),
                     onConfirm: () => void logout(),
                   })
                 }
                 className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-bold text-[#DC2626] hover:bg-[#FEF2F2]"
               >
                 <LogOut size={18} />
-                Log out
+                {t("Log out")}
               </button>
             </div>
           </aside>
@@ -878,11 +912,12 @@ function StudentSidebarFavorites({
   activeLabel: string;
   onToggleFavorite: (label: string) => void;
 }) {
+  const t = useT();
   return (
     <div aria-label="Pinned dashboard items" className="mb-3 rounded-2xl border border-black/10 bg-[#F8FAFC] p-3">
       <div className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.14em] text-[#64748B]">
         <Star size={14} className="fill-[#F59E0B] text-[#F59E0B]" />
-        Favorites
+        {t("Favorites")}
       </div>
       <StudentSidebarItems items={items} favoritedItems={favoritedItems} activeLabel={activeLabel} onToggleFavorite={onToggleFavorite} />
     </div>
@@ -902,6 +937,7 @@ function StudentSidebarItems({
   onToggleFavorite: (label: string) => void;
   collapsed?: boolean;
 }) {
+  const t = useT();
   // Icon rail: labels and the pin control are dropped, and the native title
   // carries the name so a collapsed sidebar is still navigable.
   if (collapsed) {
@@ -914,8 +950,8 @@ function StudentSidebarItems({
             <Link
               key={item.label}
               href={item.href}
-              title={item.label}
-              aria-label={item.label}
+              title={t(item.label)}
+              aria-label={t(item.label)}
               aria-current={isActive ? "page" : undefined}
               className={`mx-auto grid h-11 w-11 place-items-center rounded-2xl transition ${
                 isActive ? "bg-[#E6EEF8]" : "hover:bg-[#F1F4F8]"
@@ -946,11 +982,11 @@ function StudentSidebarItems({
               <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-[#F8FAFC]">
                 <Icon size={18} style={{ color: item.color }} />
               </span>
-              <span className="min-w-0 flex-1 truncate">{item.label}</span>
+              <span className="min-w-0 flex-1 truncate">{t(item.label)}</span>
             </Link>
             <button
               type="button"
-              aria-label={`${favoritedItems.has(item.label) ? "Unpin" : "Pin"} ${item.label}`}
+              aria-label={`${favoritedItems.has(item.label) ? t("Unpin") : t("Pin")} ${t(item.label)}`}
               onClick={() => onToggleFavorite(item.label)}
               className="grid h-8 w-8 shrink-0 place-items-center rounded-xl text-[#94A3B8] hover:bg-[#F8FAFC] hover:text-[#F59E0B]"
             >
@@ -964,6 +1000,7 @@ function StudentSidebarItems({
 }
 
 export function StudentAccessPrompt({ access }: { access: AccessState }) {
+  const t = useT();
   const checking = access === "checking";
 
   // While verifying, show the dashboard's own frame rather than a card that
@@ -1008,14 +1045,14 @@ export function StudentAccessPrompt({ access }: { access: AccessState }) {
           <LayoutDashboard size={24} />
         </div>
         <h1 className="mt-4 text-2xl font-black">
-          {access === "signedOut" ? "Student sign-in required" : "Student access required"}
+          {access === "signedOut" ? t("Student sign-in required") : t("Student access required")}
         </h1>
         <p className="mt-2 text-sm leading-6 text-[#64748B]">
-          Sign in with a student account to open the student dashboard.
+          {t("Sign in with a student account to open the student dashboard.")}
         </p>
         {true ? (
           <Link href="/student/login/" className="mt-5 inline-flex min-h-11 items-center justify-center rounded-xl bg-[#0386FF] px-5 text-sm font-bold text-white">
-            Go to login
+            {t("Go to login")}
           </Link>
         ) : null}
       </section>

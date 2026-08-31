@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import { CalendarDays, CreditCard, Loader2, Lock, Search, TriangleAlert, User } from "lucide-react";
 import { auth, db, functions } from "@/lib/firebase";
 import { cachedStudentSession, resolveStudentSession } from "@/lib/studentSession";
+import { dateLocale, useT } from "@/lib/i18n";
 import { StudentAccessPrompt, StudentShell } from "@/components/StudentDashboardHome";
 import { ConfirmDialog, type ConfirmRequest } from "@/components/ConfirmDialog";
 
@@ -35,6 +36,7 @@ type InvoiceRecord = {
 };
 
 export default function StudentInvoicesPage() {
+  const t = useT();
   const [access, setAccess] = useState<AccessState>(() => (cachedStudentSession() ? "allowed" : "checking"));
   const [summary, setSummary] = useState(() => cachedStudentSession()?.summary ?? { displayName: "Student", firstName: "Student", initials: "ST" });
   const [isAdultStudent, setIsAdultStudent] = useState(() => cachedStudentSession()?.isAdultStudent ?? false);
@@ -183,14 +185,14 @@ export default function StudentInvoicesPage() {
   return (
     <StudentShell activeLabel="Invoices" breadcrumb="Finance / Invoices" summary={summary} isAdultStudent={isAdultStudent}>
       <div className="mx-auto w-full max-w-[1180px] px-4 py-6 md:px-6">
-        <h1 className="text-center text-2xl font-black text-[#0F172A]">Invoices</h1>
+        <h1 className="text-center text-2xl font-black text-[#0F172A]">{t("Invoices")}</h1>
 
         <div className="relative mt-5">
           <Search aria-hidden="true" className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#94A3B8]" size={18} />
           <input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search invoice, parent, student, email, phone, or ID"
+            placeholder={t("Search invoice, parent, student, email, phone, or ID")}
             aria-label="Search invoices"
             className="h-12 w-full rounded-2xl border border-[#E2E8F0] bg-white pl-12 pr-4 text-sm text-[#334155] outline-none focus:border-[#2563EB]"
           />
@@ -207,7 +209,7 @@ export default function StudentInvoicesPage() {
                 filter === entry.id ? "bg-[#2563EB] text-white" : "border border-[#E2E8F0] bg-white text-[#475569] hover:bg-[#F1F5F9]"
               }`}
             >
-              {entry.label}
+              {t(entry.label)}
             </button>
           ))}
         </div>
@@ -220,12 +222,12 @@ export default function StudentInvoicesPage() {
           <div className="grid min-h-[40vh] place-items-center text-[#64748B]">
             <span className="inline-flex items-center gap-2 text-sm font-bold">
               <Loader2 className="animate-spin" size={18} />
-              Loading your invoices…
+              {t("Loading your invoices…")}
             </span>
           </div>
         ) : visible.length === 0 ? (
           <p className="mt-8 rounded-2xl border border-dashed border-[#CBD5E1] px-4 py-10 text-center text-sm font-semibold text-[#94A3B8]">
-            No invoices to show.
+            {t("No invoices to show.")}
           </p>
         ) : (
           <div className="mt-5 grid gap-4">
@@ -236,9 +238,9 @@ export default function StudentInvoicesPage() {
                 paying={payingId === invoice.id}
                 onPay={() =>
                   setConfirm({
-                    title: "Continue to payment",
-                    body: `You are about to pay $${Math.max(0, Number((invoice.totalAmount - invoice.paidAmount).toFixed(2))).toFixed(2)} for ${invoice.invoiceNumber}. You will be taken to Stripe to complete the payment.`,
-                    confirmLabel: "Continue",
+                    title: t("Continue to payment"),
+                    body: t("You are about to pay ${amount} for {invoice}. You will be taken to Stripe to complete the payment.", { amount: Math.max(0, Number((invoice.totalAmount - invoice.paidAmount).toFixed(2))).toFixed(2), invoice: invoice.invoiceNumber }),
+                    confirmLabel: t("Continue"),
                     destructive: false,
                     onConfirm: () => void payNow(invoice),
                   })
@@ -254,6 +256,7 @@ export default function StudentInvoicesPage() {
 }
 
 function InvoiceCard({ invoice, paying, onPay }: { invoice: InvoiceRecord; paying: boolean; onPay: () => void }) {
+  const t = useT();
   const status = effectiveStatus(invoice);
   const due = Math.max(0, Number((invoice.totalAmount - invoice.paidAmount).toFixed(2)));
   const overdueDays = status === "overdue" && invoice.dueDate ? daysSince(invoice.dueDate) : 0;
@@ -286,7 +289,7 @@ function InvoiceCard({ invoice, paying, onPay }: { invoice: InvoiceRecord; payin
 
           <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
             <div>
-              <p className="text-[11px] font-semibold text-[#94A3B8]">Amount due</p>
+              <p className="text-[11px] font-semibold text-[#94A3B8]">{t("Amount due")}</p>
               <p className="text-2xl font-black" style={{ color: accent }}>
                 ${due.toFixed(2)}
               </p>
@@ -294,12 +297,12 @@ function InvoiceCard({ invoice, paying, onPay }: { invoice: InvoiceRecord; payin
             {overdueDays > 0 ? (
               <span className="inline-flex items-center gap-1.5 rounded-lg bg-[#FEF2F2] px-2.5 py-1.5 text-[11px] font-bold text-[#B91C1C]">
                 <TriangleAlert size={13} />
-                {overdueDays} day{overdueDays === 1 ? "" : "s"} overdue
+                {overdueDays === 1 ? t("{n} day overdue", { n: overdueDays }) : t("{n} days overdue", { n: overdueDays })}
               </span>
             ) : invoice.dueDate ? (
               <span className="inline-flex items-center gap-1.5 rounded-lg border border-[#E2E8F0] px-2.5 py-1.5 text-[11px] font-semibold text-[#475569]">
                 <CalendarDays size={13} />
-                {invoice.dueDate.toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                {invoice.dueDate.toLocaleDateString(dateLocale(), { month: "short", day: "numeric" })}
               </span>
             ) : null}
           </div>
@@ -307,8 +310,9 @@ function InvoiceCard({ invoice, paying, onPay }: { invoice: InvoiceRecord; payin
           {invoice.accessSuspendedAt && invoice.accessSuspendedAt.getTime() < Date.now() && due > 0 ? (
             <p className="mt-3 flex items-center gap-2 rounded-lg bg-[#FEF2F2] px-3 py-2 text-[11px] font-semibold text-[#B91C1C]">
               <Lock size={13} />
-              Access suspended {daysSince(invoice.accessSuspendedAt)} day
-              {daysSince(invoice.accessSuspendedAt) === 1 ? "" : "s"} ago
+              {daysSince(invoice.accessSuspendedAt) === 1
+                ? t("Access suspended {n} day ago", { n: daysSince(invoice.accessSuspendedAt) })
+                : t("Access suspended {n} days ago", { n: daysSince(invoice.accessSuspendedAt) })}
             </p>
           ) : null}
 
@@ -320,7 +324,7 @@ function InvoiceCard({ invoice, paying, onPay }: { invoice: InvoiceRecord; payin
               className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#1D4ED8] text-sm font-black text-white disabled:opacity-70"
             >
               {paying ? <Loader2 className="animate-spin" size={16} /> : <CreditCard size={16} />}
-              {paying ? "Starting checkout…" : "Pay Now"}
+              {paying ? t("Starting checkout…") : t("Pay Now")}
             </button>
           ) : null}
         </div>
@@ -330,6 +334,7 @@ function InvoiceCard({ invoice, paying, onPay }: { invoice: InvoiceRecord; payin
 }
 
 function StatusBadge({ status }: { status: string }) {
+  const t = useT();
   const tone: Record<string, string> = {
     paid: "bg-[#DCFCE7] text-[#166534]",
     overdue: "bg-[#FEE2E2] text-[#B91C1C]",
@@ -338,7 +343,7 @@ function StatusBadge({ status }: { status: string }) {
   };
   return (
     <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wide ${tone[status] ?? tone.pending}`}>
-      {status}
+      {t(status)}
     </span>
   );
 }
@@ -375,7 +380,7 @@ function formatPeriod(period: string) {
   const match = /^(\d{4})-(\d{2})$/.exec(period);
   if (!match) return period;
   const date = new Date(Number(match[1]), Number(match[2]) - 1, 1);
-  return date.toLocaleDateString(undefined, { month: "short", year: "numeric" });
+  return date.toLocaleDateString(dateLocale(), { month: "short", year: "numeric" });
 }
 
 function daysSince(value: Date) {

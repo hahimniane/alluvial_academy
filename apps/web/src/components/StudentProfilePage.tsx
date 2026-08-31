@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { Camera, Clock3, IdCard, Loader2, Mail, Phone, UserRound } from "lucide-react";
 import { auth, db, storage } from "@/lib/firebase";
 import { cachedStudentSession, resolveStudentSession, updateStudentSessionPhoto } from "@/lib/studentSession";
+import { useT } from "@/lib/i18n";
 import { StudentAccessPrompt, StudentShell } from "@/components/StudentDashboardHome";
 
 type AccessState = "checking" | "signedOut" | "allowed" | "denied";
@@ -29,6 +30,7 @@ type ProfileData = {
 
 export default function StudentProfilePage() {
   const [access, setAccess] = useState<AccessState>(() => (cachedStudentSession() ? "allowed" : "checking"));
+  const t = useT();
   const [summary, setSummary] = useState(() => cachedStudentSession()?.summary ?? { displayName: "Student", firstName: "Student", initials: "ST" });
   const [isAdultStudent, setIsAdultStudent] = useState(() => cachedStudentSession()?.isAdultStudent ?? false);
   const [profile, setProfile] = useState<ProfileData | null>(null);
@@ -66,11 +68,11 @@ export default function StudentProfilePage() {
     const user = auth.currentUser;
     if (!user || photoBusy) return;
     if (!file.type.startsWith("image/")) {
-      setPhotoError("Choose an image file.");
+      setPhotoError(t("Choose an image file."));
       return;
     }
     if (file.size > 10 * 1024 * 1024) {
-      setPhotoError("Profile images must be smaller than 10 MB.");
+      setPhotoError(t("Profile images must be smaller than 10 MB."));
       return;
     }
     setPhotoBusy(true);
@@ -89,7 +91,7 @@ export default function StudentProfilePage() {
       if (previous) await deleteObject(ref(storage, previous)).catch(() => undefined);
     } catch {
       await deleteObject(objectRef).catch(() => undefined);
-      setPhotoError("Could not upload your photo. Please try again.");
+      setPhotoError(t("Could not upload your photo. Please try again."));
     } finally {
       setPhotoBusy(false);
     }
@@ -108,7 +110,7 @@ export default function StudentProfilePage() {
               type="file"
               accept="image/*"
               className="sr-only"
-              aria-label="Choose a profile photo"
+              aria-label={t("Choose a profile photo")}
               onChange={(event) => {
                 const file = event.target.files?.[0];
                 event.target.value = "";
@@ -119,7 +121,7 @@ export default function StudentProfilePage() {
               type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={photoBusy}
-              aria-label="Change profile photo"
+              aria-label={t("Change profile photo")}
               className="group relative mx-auto block h-24 w-24 rounded-full disabled:opacity-70"
             >
               {profile?.photoUrl ? (
@@ -137,26 +139,25 @@ export default function StudentProfilePage() {
             <h1 className="mt-3 text-xl font-black text-[#0F172A]">{summary.displayName}</h1>
             <p className="mt-0.5 inline-flex items-center gap-1.5 rounded-full bg-[#D1FAE5] px-3 py-1 text-[11px] font-black uppercase tracking-wide text-[#047857]">
               <UserRound size={12} />
-              Student
+              {t("Student")}
             </p>
 
             {profile === null ? (
               <p className="mt-8 inline-flex items-center gap-2 text-sm font-bold text-[#64748B]">
                 <Loader2 className="animate-spin" size={16} />
-                Loading your profile…
+                {t("Loading your profile…")}
               </p>
             ) : (
               <dl className="mt-7 grid gap-1 text-left">
-                <Row icon={IdCard} label="Student ID" value={profile.studentCode || "Not set"} />
-                <Row icon={Mail} label="Email" value={profile.email || "Not set"} />
-                <Row icon={Phone} label="Phone" value={profile.phone || "Not set"} />
-                {profile.timezone ? <Row icon={Clock3} label="Timezone" value={profile.timezone} /> : null}
+                <Row icon={IdCard} label={t("Student ID")} value={profile.studentCode || t("Not set")} />
+                <Row icon={Mail} label={t("Email")} value={profile.email || t("Not set")} />
+                <Row icon={Phone} label={t("Phone")} value={profile.phone || t("Not set")} />
+                {profile.timezone ? <Row icon={Clock3} label={t("Timezone")} value={profile.timezone} /> : null}
               </dl>
             )}
 
             <p className="mt-7 rounded-xl bg-[#F8FAFC] px-4 py-3 text-xs leading-5 text-[#64748B]">
-              Need your name, email or phone changed? Ask your teacher or the school administrators —
-              those details are updated by the school.
+{t("Need your name, email or phone changed? Ask your teacher or the school administrators — those details are updated by the school.")}
             </p>
           </div>
         </section>

@@ -33,15 +33,18 @@ export function isAdultStudentRecord(data: UserRecord | null) {
 
 export async function dashboardPathForUser(user: User) {
   const data = await getUserRecord(user);
-  // Roles without a ported dashboard (parents, circle members) still land in the
-  // Flutter app, but at /app/ rather than its login screen — they are already
-  // authenticated by the time this runs, so the login route would just bounce.
   if (!data) return "/app/";
   const roles = availableRoles(data);
-  if (roles.has("admin") || roles.has("super_admin")) return "/admin/";
-  if (roles.has("teacher")) return "/teacher/";
-  if (roles.has("student")) return "/student/";
-  return "/app/";
+  // Only students use the ported Next.js dashboard. Admins, teachers, parents
+  // and everyone else stay on the Flutter app at /app/ — they are already
+  // authenticated by the time this runs, so /app/ (not its login) is correct.
+  // A student who is also an admin/teacher is routed to Flutter with that role.
+  const studentOnly =
+    roles.has("student") &&
+    !roles.has("admin") &&
+    !roles.has("super_admin") &&
+    !roles.has("teacher");
+  return studentOnly ? "/student/" : "/app/";
 }
 
 export async function getCurrentUserRecord(user: User): Promise<UserRecord | null> {

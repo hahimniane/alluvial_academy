@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Download, FileText, Headphones, Library, Loader2, RefreshCw, Search, Video } from "lucide-react";
 import { auth, db } from "@/lib/firebase";
 import { cachedStudentSession, resolveStudentSession } from "@/lib/studentSession";
+import { useT } from "@/lib/i18n";
 import { StudentAccessPrompt, StudentShell } from "@/components/StudentDashboardHome";
 
 type AccessState = "checking" | "signedOut" | "denied" | "allowed";
@@ -25,6 +26,7 @@ type PodcastItem = {
 };
 
 export default function StudentSurahPodcastsPage() {
+  const t = useT();
   const [access, setAccess] = useState<AccessState>(() => (cachedStudentSession() ? "allowed" : "checking"));
   const [summary, setSummary] = useState(() => cachedStudentSession()?.summary ?? { displayName: "Student", firstName: "Student", initials: "ST" });
   const [isAdultStudent, setIsAdultStudent] = useState(() => cachedStudentSession()?.isAdultStudent ?? false);
@@ -98,15 +100,15 @@ export default function StudentSurahPodcastsPage() {
             <Library size={22} />
           </span>
           <div className="min-w-0 flex-1">
-            <h1 className="text-xl font-black">Surah Content</h1>
+            <h1 className="text-xl font-black">{t("Surah Content")}</h1>
             <p className="text-xs font-semibold text-white/80">
-              {surahCount} surah{surahCount === 1 ? "" : "s"} · {items.length} item{items.length === 1 ? "" : "s"}
+              {surahCount === 1 && items.length === 1 ? t("{surahs} surah · {items} item", { surahs: surahCount, items: items.length }) : t("{surahs} surahs · {items} items", { surahs: surahCount, items: items.length })}
             </p>
           </div>
           <button
             type="button"
             onClick={() => void load(auth.currentUser?.uid ?? "")}
-            aria-label="Refresh surah content"
+            aria-label={t("Refresh surah content")}
             className="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-white hover:bg-white/15"
           >
             <RefreshCw size={18} />
@@ -120,7 +122,7 @@ export default function StudentSurahPodcastsPage() {
               <input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search by surah name or number..."
+                placeholder={t("Search by surah name or number...")}
                 aria-label="Search surah content"
                 className="h-11 w-full rounded-xl border border-[#E2E8F0] bg-white pl-11 pr-4 text-sm text-[#334155] outline-none focus:border-[#2563EB]"
               />
@@ -130,14 +132,14 @@ export default function StudentSurahPodcastsPage() {
               <div className="grid min-h-[40vh] place-items-center text-[#64748B]">
                 <span className="inline-flex items-center gap-2 text-sm font-bold">
                   <Loader2 className="animate-spin" size={18} />
-                  Loading your surah content…
+                  {t("Loading your surah content…")}
                 </span>
               </div>
             ) : grouped.length === 0 ? (
               <p className="mt-8 rounded-2xl border border-dashed border-[#CBD5E1] px-4 py-10 text-center text-sm font-semibold text-[#94A3B8]">
                 {items.length === 0
-                  ? "No surah content has been shared with you yet."
-                  : "No surah matches that search."}
+                  ? t("No surah content has been shared with you yet.")
+                  : t("No surah matches that search.")}
               </p>
             ) : (
               <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -184,11 +186,12 @@ function SurahCard({ number, items, onOpen }: { number: number; items: PodcastIt
 }
 
 function SurahDetail({ items, onBack }: { items: PodcastItem[]; onBack: () => void }) {
+  const t = useT();
   return (
     <div className="mt-4">
       <button type="button" onClick={onBack} className="inline-flex min-h-9 items-center gap-1.5 text-sm font-bold text-[#2563EB]">
         <ArrowLeft size={16} />
-        All surahs
+        {t("All surahs")}
       </button>
       <div className="mt-3 grid gap-3">
         {items.map((item) => (
@@ -212,7 +215,7 @@ function SurahDetail({ items, onBack }: { items: PodcastItem[]; onBack: () => vo
                 className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-xl bg-[#0E72ED] px-3 text-xs font-black text-white"
               >
                 <Download size={14} />
-                Open
+                {t("Open")}
               </a>
             ) : null}
           </article>

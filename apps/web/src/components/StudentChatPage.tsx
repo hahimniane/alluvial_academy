@@ -10,6 +10,7 @@ import { auth, db, storage } from "@/lib/firebase";
 import { cachedStudentSession, resolveStudentSession } from "@/lib/studentSession";
 import { StudentAccessPrompt, StudentShell, openStudentMobileMenu, StudentAvatar } from "@/components/StudentDashboardHome";
 import { ConfirmDialog, type ConfirmRequest } from "@/components/ConfirmDialog";
+import { dateLocale, useT } from "@/lib/i18n";
 
 type AccessState = "checking" | "signedOut" | "allowed" | "denied";
 type ChatTab = "recent" | "contacts";
@@ -70,6 +71,7 @@ const groupOrder = ["Administrators", "Students", "Parents", "Teachers", "Other"
 const adminSupportId = "admin_support";
 
 export function StudentChatPage() {
+  const t = useT();
   const [access, setAccess] = useState<AccessState>(() => (cachedStudentSession() ? "allowed" : "checking"));
   const [isAdultStudent, setIsAdultStudent] = useState(() => cachedStudentSession()?.isAdultStudent ?? false);
   const [summary, setSummary] = useState(() => cachedStudentSession()?.summary ?? { displayName: "Student", firstName: "Student", initials: "ST" });
@@ -393,7 +395,7 @@ export function StudentChatPage() {
         // row reads "Unknown User" rather than a raw 28-character id.
         resolved[otherId] = snap?.exists()
           ? normalizeContact(snap.id, snap.data() as Record<string, unknown>).displayName
-          : "Unknown User";
+          : t("Unknown User");
       }
       if (!cancelled && Object.keys(resolved).length > 0) {
         setParticipantNames((current) => ({ ...current, ...resolved }));
@@ -414,10 +416,10 @@ export function StudentChatPage() {
           <div className="rounded-[10px] bg-[#F1F5F9] p-1">
             <div className="grid grid-cols-2 gap-1">
               <ChatTabButton active={activeTab === "recent"} onClick={() => setActiveTab("recent")}>
-                Recent Chats
+                {t("Recent Chats")}
               </ChatTabButton>
               <ChatTabButton active={activeTab === "contacts"} onClick={() => setActiveTab("contacts")}>
-                My Contacts
+                {t("My Contacts")}
               </ChatTabButton>
             </div>
           </div>
@@ -429,7 +431,7 @@ export function StudentChatPage() {
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search conversations and users..."
+              placeholder={t("Search conversations and users...")}
               aria-label="Search conversations and users"
               className="h-full w-full rounded-xl border-0 bg-[#F3F4F6] pl-12 pr-4 text-[15px] text-[#111827] outline-none ring-0 placeholder:text-[#9CA3AF] focus:ring-2 focus:ring-[#0386FF]"
             />
@@ -467,17 +469,17 @@ export function StudentChatPage() {
             onCancelCompose={() => { setReplyingTo(null); setEditingMessage(null); setDraft(""); }}
             onDeleteForMe={(message) =>
               setConfirm({
-                title: "Delete Message",
-                body: "Are you sure you want to delete this message? It will be hidden for you only.",
-                confirmLabel: "Delete",
+                title: t("Delete Message"),
+                body: t("Are you sure you want to delete this message? It will be hidden for you only."),
+                confirmLabel: t("Delete"),
                 onConfirm: () => void runAction(() => deleteMessageForMe(conversation.id, message.id, user?.uid ?? "")),
               })
             }
             onDeleteForEveryone={(message) =>
               setConfirm({
-                title: "Delete Message",
-                body: "Are you sure you want to delete this message? This cannot be undone and it will be removed for everyone.",
-                confirmLabel: "Delete for everyone",
+                title: t("Delete Message"),
+                body: t("Are you sure you want to delete this message? This cannot be undone and it will be removed for everyone."),
+                confirmLabel: t("Delete for everyone"),
                 onConfirm: () =>
                   void runAction(() => deleteMessageForEveryone(conversation.id, message.id, user?.uid ?? "", summary.displayName)),
               })
@@ -500,9 +502,9 @@ export function StudentChatPage() {
                       return;
                     }
                     setConfirm({
-                      title: "Block User",
-                      body: `Are you sure you want to block ${conversation.displayName}? They will no longer be able to send you messages.`,
-                      confirmLabel: "Block",
+                      title: t("Block User"),
+                      body: t("Are you sure you want to block {name}? They will no longer be able to send you messages.", { name: conversation.displayName }),
+                      confirmLabel: t("Block"),
                       onConfirm: apply,
                     });
                   }
@@ -540,11 +542,12 @@ function ChatTabButton({ active, onClick, children }: { active: boolean; onClick
 }
 
 function RecentChats({ chats, search, onOpen }: { chats: ChatPreview[]; search: string; onOpen: (chat: ChatPreview) => void }) {
+  const t = useT();
   if (chats.length === 0) {
     return (
       <EmptyChatState
-        title={search.trim() ? "No chats found" : "No conversations yet"}
-        subtitle={search.trim() ? "Try a different search term" : "Start a conversation by browsing all users"}
+        title={search.trim() ? t("No chats found") : t("No conversations yet")}
+        subtitle={search.trim() ? t("Try a different search term") : t("Start a conversation by browsing all users")}
       />
     );
   }
@@ -569,9 +572,10 @@ function ContactsList({
   onOpen: (contact: ContactRecord) => void;
   onOpenSupport: () => void;
 }) {
+  const t = useT();
   const showSupport = !search.trim() || "admin support".includes(search.trim().toLowerCase());
   if (groups.length === 0 && !showSupport) {
-    return <EmptyChatState title="No contacts match your search" subtitle="Try a different search term" />;
+    return <EmptyChatState title={t("No contacts match your search")} subtitle={t("Try a different search term")} />;
   }
 
   return (
@@ -582,7 +586,7 @@ function ContactsList({
             <span className="grid h-6 w-6 place-items-center rounded-md bg-[#FEE2E2] text-[#EF4444]">
               <ShieldCheck size={15} />
             </span>
-            <h2 className="text-[13px] font-bold tracking-wide text-[#6B7280]">Support</h2>
+            <h2 className="text-[13px] font-bold tracking-wide text-[#6B7280]">{t("Support")}</h2>
           </div>
           <SupportContactRow onOpen={onOpenSupport} />
           {groups.length ? <div className="mx-4 my-3 border-t border-[#E5E7EB]" /> : null}
@@ -607,14 +611,15 @@ function ContactsList({
 }
 
 function SupportContactRow({ onOpen }: { onOpen: () => void }) {
+  const t = useT();
   return (
     <button type="button" onClick={onOpen} className="mb-4 flex min-h-[64px] w-full items-center gap-4 rounded-xl border border-[#FECACA] bg-white px-4 text-left shadow-sm transition hover:border-[#EF4444] hover:bg-[#FEF2F2]">
       <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-[#EF4444] text-white">
         <ShieldCheck size={24} />
       </span>
       <div className="min-w-0 flex-1">
-        <div className="truncate text-base font-semibold text-[#111827]">Admin Support</div>
-        <div className="truncate text-sm text-[#6B7280]">Message the school administrators</div>
+        <div className="truncate text-base font-semibold text-[#111827]">{t("Admin Support")}</div>
+        <div className="truncate text-sm text-[#6B7280]">{t("Message the school administrators")}</div>
       </div>
       <span className="text-xl text-[#9CA3AF]">›</span>
     </button>
@@ -694,6 +699,7 @@ function ConversationPanel({
   onSend: () => void;
   onAttachment: (file: File, duration?: number) => Promise<void>;
 }) {
+  const t = useT();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const recordingStartedAtRef = useRef(0);
@@ -745,7 +751,7 @@ function ConversationPanel({
             <button
               type="button"
               onClick={onToggleBlock}
-              aria-label={blocked ? `Unblock ${conversation.displayName}` : `Block ${conversation.displayName}`}
+              aria-label={blocked ? t("Unblock") : t("Block")}
               className={`inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-xl border px-3 text-xs font-bold ${
                 blocked
                   ? "border-[#A7F3D0] bg-[#ECFDF5] text-[#047857]"
@@ -753,28 +759,28 @@ function ConversationPanel({
               }`}
             >
               <Ban size={14} />
-              {blocked ? "Unblock" : "Block"}
+              {blocked ? t("Unblock") : t("Block")}
             </button>
           ) : null}
         </header>
 
         {blocked ? (
           <p className="border-b border-[#FEE2E2] bg-[#FEF2F2] px-4 py-2 text-center text-xs font-bold text-[#B91C1C]">
-            You blocked {conversation.displayName}. Unblock to resume the conversation.
+            {t("You blocked {name}. Unblock to resume the conversation.", { name: conversation.displayName })}
           </p>
         ) : null}
 
         <div className="min-h-0 flex-1 overflow-y-auto bg-[#F8FAFC] px-4 py-5">
           {loading ? (
-            <div className="grid h-full min-h-[360px] place-items-center text-sm font-semibold text-[#64748B]">Loading conversation...</div>
+            <div className="grid h-full min-h-[360px] place-items-center text-sm font-semibold text-[#64748B]">{t("Loading conversation...")}</div>
           ) : messages.length === 0 ? (
             <div className="grid h-full min-h-[360px] place-items-center text-center">
               <div>
                 <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-[#DBEAFE] text-[#0386FF]">
                   <MessageSquare size={28} />
                 </div>
-                <h3 className="mt-4 text-base font-bold text-[#111827]">No messages yet</h3>
-                <p className="mt-2 text-sm text-[#64748B]">Send a message to begin chatting with {conversation.displayName}.</p>
+                <h3 className="mt-4 text-base font-bold text-[#111827]">{t("No messages yet")}</h3>
+                <p className="mt-2 text-sm text-[#64748B]">{t("Send a message to begin chatting with {name}.", { name: conversation.displayName })}</p>
               </div>
             </div>
           ) : (
@@ -805,7 +811,7 @@ function ConversationPanel({
             <div className="mb-2 flex items-start gap-2 rounded-xl border-l-4 border-[#0386FF] bg-[#F1F5F9] px-3 py-2">
               <div className="min-w-0 flex-1">
                 <p className="text-[11px] font-black uppercase tracking-wide text-[#0386FF]">
-                  {editingMessage ? "Editing message" : `Replying to ${replyingTo?.senderName || "message"}`}
+                  {editingMessage ? t("Editing message") : t("Replying to {name}", { name: replyingTo?.senderName || "message" })}
                 </p>
                 <p className="truncate text-xs text-[#475569]">
                   {(editingMessage ?? replyingTo)?.content || "Attachment"}
@@ -823,8 +829,8 @@ function ConversationPanel({
           ) : null}
 
           <div className="flex items-end gap-2">
-            <input ref={fileInputRef} type="file" className="sr-only" aria-label="Attach a file" onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; if (file) void onAttachment(file); }} />
-            <button type="button" aria-label="Attach file" onClick={() => fileInputRef.current?.click()} disabled={attachmentSending || recording} className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-[#E5E7EB] text-[#475569] disabled:opacity-50"><Paperclip size={20} /></button>
+            <input ref={fileInputRef} type="file" className="sr-only" aria-label={t("Attach a file")} onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; if (file) void onAttachment(file); }} />
+            <button type="button" aria-label={t("Attach file")} onClick={() => fileInputRef.current?.click()} disabled={attachmentSending || recording} className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-[#E5E7EB] text-[#475569] disabled:opacity-50"><Paperclip size={20} /></button>
             <button type="button" aria-label={recording ? "Stop voice recording" : "Record voice message"} onClick={() => void toggleRecording()} disabled={attachmentSending} className={`grid h-12 w-12 shrink-0 place-items-center rounded-2xl border ${recording ? "border-red-300 bg-red-50 text-red-600" : "border-[#E5E7EB] text-[#475569]"} disabled:opacity-50`}>
               {recording ? <Square size={17} fill="currentColor" /> : <Mic size={20} />}
             </button>
@@ -837,7 +843,7 @@ function ConversationPanel({
                   onSend();
                 }
               }}
-              placeholder={editingMessage ? "Edit your message..." : replyingTo ? `Reply to ${replyingTo.senderName || "message"}...` : "Type a message..."}
+              placeholder={editingMessage ? t("Edit your message...") : replyingTo ? t("Reply to {name}...", { name: replyingTo.senderName || "message" }) : t("Type a message...")}
               aria-label="Type a message"
               rows={1}
               className="max-h-32 min-h-12 flex-1 resize-none rounded-2xl border border-[#E5E7EB] bg-[#F8FAFC] px-4 py-3 text-sm text-[#111827] outline-none focus:border-[#0386FF] focus:ring-2 focus:ring-[#BFDBFE]"
@@ -846,7 +852,7 @@ function ConversationPanel({
               type="button"
               onClick={onSend}
               disabled={sending || !draft.trim()}
-              aria-label="Send message"
+              aria-label={t("Send message")}
               className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-[#0386FF] text-white shadow-sm disabled:cursor-not-allowed disabled:bg-[#BFDBFE]"
             >
               <Send size={20} />
@@ -878,6 +884,7 @@ function MessageBubble({
   onDeleteForEveryone: () => void;
   onReact: (emoji: string) => void;
 }) {
+  const t = useT();
   const [menuOpen, setMenuOpen] = useState(false);
   const fileUrl = stringValue(message.metadata.file_url ?? message.metadata.fileUrl);
   const fileName = stringValue(message.metadata.file_name ?? message.metadata.fileName) || "Attachment";
@@ -893,7 +900,7 @@ function MessageBubble({
     return (
       <div className={`flex ${mine ? "justify-end" : "justify-start"}`}>
         <div className="max-w-[82%] rounded-2xl border border-dashed border-[#CBD5E1] px-4 py-2.5 text-xs font-semibold italic text-[#94A3B8]">
-          This message was deleted
+          {t("This message was deleted")}
         </div>
       </div>
     );
@@ -938,7 +945,7 @@ function MessageBubble({
         ) : null}
 
         <p className={`mt-1 text-right text-[11px] ${mine ? "text-white/75" : "text-[#94A3B8]"}`}>
-          {message.isEdited ? "edited · " : ""}
+          {message.isEdited ? `${t("edited")} · ` : ""}
           {message.timestamp ? shortMessageTime(message.timestamp) : "Sending..."}
         </p>
       </div>
@@ -967,11 +974,12 @@ function MessageActions({
   onDeleteForEveryone: () => void;
   onReact: (emoji: string) => void;
 }) {
+  const t = useT();
   return (
     <div className="relative">
       <button
         type="button"
-        aria-label="Message actions"
+        aria-label={t("Message actions")}
         aria-expanded={open}
         onClick={() => setOpen(!open)}
         className="grid h-7 w-7 place-items-center rounded-full text-[#94A3B8] opacity-0 transition group-hover:opacity-100 focus:opacity-100 hover:bg-[#F1F5F9]"
@@ -996,20 +1004,20 @@ function MessageActions({
               ))}
             </div>
             <button type="button" role="menuitem" onClick={() => { onReply(); setOpen(false); }} className="flex min-h-9 w-full items-center gap-2 rounded-xl px-3 text-left text-sm font-bold text-[#334155] hover:bg-[#F1F5F9]">
-              <Reply size={15} /> Reply
+              <Reply size={15} /> {t("Reply")}
             </button>
             {mine ? (
               <>
                 <button type="button" role="menuitem" onClick={() => { onEdit(); setOpen(false); }} className="flex min-h-9 w-full items-center gap-2 rounded-xl px-3 text-left text-sm font-bold text-[#334155] hover:bg-[#F1F5F9]">
-                  <Pencil size={15} /> Edit
+                  <Pencil size={15} /> {t("Edit")}
                 </button>
                 <button type="button" role="menuitem" onClick={() => { onDeleteForEveryone(); setOpen(false); }} className="flex min-h-9 w-full items-center gap-2 rounded-xl px-3 text-left text-sm font-bold text-[#DC2626] hover:bg-[#FEF2F2]">
-                  <Trash2 size={15} /> Delete for everyone
+                  <Trash2 size={15} /> {t("Delete for everyone")}
                 </button>
               </>
             ) : null}
             <button type="button" role="menuitem" onClick={() => { onDeleteForMe(); setOpen(false); }} className="flex min-h-9 w-full items-center gap-2 rounded-xl px-3 text-left text-sm font-bold text-[#64748B] hover:bg-[#F1F5F9]">
-              <EyeOff size={15} /> Delete for me
+              <EyeOff size={15} /> {t("Delete for me")}
             </button>
           </div>
         </>
@@ -1041,11 +1049,12 @@ function EmptyChatState({ title, subtitle }: { title: string; subtitle: string }
 }
 
 function LoadingMessages() {
+  const t = useT();
   return (
     <div className="grid min-h-[520px] place-items-center text-center">
       <div>
         <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-[#DBEAFE] border-t-[#0386FF]" />
-        <p className="mt-4 text-base font-medium text-[#64748B]">Loading messages...</p>
+        <p className="mt-4 text-base font-medium text-[#64748B]">{t("Loading messages...")}</p>
       </div>
     </div>
   );
@@ -1445,7 +1454,7 @@ function mergeSentPreview(chats: ChatPreview[], conversation: Conversation, cont
 }
 
 function shortMessageTime(date: Date) {
-  return new Intl.DateTimeFormat("en", { hour: "numeric", minute: "2-digit" }).format(date);
+  return new Intl.DateTimeFormat(dateLocale(), { hour: "numeric", minute: "2-digit" }).format(date);
 }
 
 function initialsFromName(source: string) {

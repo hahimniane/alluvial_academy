@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:intl/intl.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -345,6 +346,24 @@ class ShiftService {
     final uid = user.uid;
     final shiftRef = _shiftsCollection.doc(shiftId);
     final userRef = _firestore.collection('users').doc(uid);
+
+    // Claiming moves this class onto my calendar, so it must pass the same
+    // overlap rule as scheduling: refuse when I already have a class then.
+    final claimSnap = await shiftRef.get();
+    if (claimSnap.exists) {
+      final claimShift = TeachingShift.fromFirestore(claimSnap);
+      final conflict = await _findFirstConflictingShift(
+        teacherId: uid,
+        shiftStart: claimShift.shiftStart,
+        shiftEnd: claimShift.shiftEnd,
+        excludeShiftId: shiftId,
+      );
+      if (conflict != null) {
+        throw ShiftGuardrailException(
+            'You already have "${conflict.displayName}" during this time, '
+            "so you can't claim this shift");
+      }
+    }
 
     await _firestore.runTransaction((transaction) async {
       final shiftSnap = await transaction.get(shiftRef);
@@ -1338,6 +1357,27 @@ class ShiftService {
     }
 
     return next;
+  }
+
+  /// Throw when placing [shift] on its teacher's schedule would overlap
+  /// another shift. Runs on edits that change the teacher or the time —
+  /// creation already blocks overlaps, but a reassignment or reschedule must
+  /// re-validate against the (possibly different) teacher's calendar.
+  static Future<void> _throwIfTeacherScheduleConflict(
+      TeachingShift shift) async {
+    final conflict = await _findFirstConflictingShift(
+      teacherId: shift.teacherId,
+      shiftStart: shift.shiftStart,
+      shiftEnd: shift.shiftEnd,
+      excludeShiftId: shift.id,
+    );
+    if (conflict == null) return;
+    final fmt = DateFormat('EEE MMM d, h:mm a');
+    throw ShiftGuardrailException(
+        '${shift.teacherName} already has "${conflict.displayName}" '
+        '${fmt.format(conflict.shiftStart.toLocal())} – '
+        '${DateFormat('h:mm a').format(conflict.shiftEnd.toLocal())}. '
+        'Pick a different teacher or time.');
   }
 
   static Future<TeachingShift?> _findFirstConflictingShift({
@@ -3316,11 +3356,25 @@ class ShiftService {
       );
 
       TeachingShift? existingShift;
-      if (EnvironmentUtils.isShiftTemplateEnabled && !skipTemplateExclusion) {
-        final snapshot = await _shiftsCollection.doc(shift.id).get();
-        if (snapshot.exists) {
-          existingShift = TeachingShift.fromFirestore(snapshot);
-        }
+      final snapshot = await _shiftsCollection.doc(shift.id).get();
+      if (snapshot.exists) {
+        existingShift = TeachingShift.fromFirestore(snapshot);
+      }
+
+      // Re-validate the teacher's schedule when this edit moves the shift to
+      // a different teacher or time; other edits (students, subject, notes)
+      // must keep working even on legacy shifts that already overlap.
+      final movesTeacherOrTime = existingShift == null ||
+          existingShift.teacherId != normalizedShift.teacherId ||
+          !existingShift.shiftStart
+              .isAtSameMomentAs(normalizedShift.shiftStart) ||
+          !existingShift.shiftEnd.isAtSameMomentAs(normalizedShift.shiftEnd);
+      if (movesTeacherOrTime) {
+        await _throwIfTeacherScheduleConflict(normalizedShift);
+      }
+
+      if (!(EnvironmentUtils.isShiftTemplateEnabled && !skipTemplateExclusion)) {
+        existingShift = null;
       }
 
       final updateData = normalizedShift.toFirestore();
@@ -3391,6 +3445,20 @@ class ShiftService {
         source: 'shift_service_update_shift_direct',
         existingShiftId: normalizedShift.id,
       );
+
+      // Quick edits can also move a shift to another teacher or time, so they
+      // get the same schedule-conflict validation as full edits.
+      final prevSnapshot = await _shiftsCollection.doc(shift.id).get();
+      final prevShift = prevSnapshot.exists
+          ? TeachingShift.fromFirestore(prevSnapshot)
+          : null;
+      final movesTeacherOrTime = prevShift == null ||
+          prevShift.teacherId != normalizedShift.teacherId ||
+          !prevShift.shiftStart.isAtSameMomentAs(normalizedShift.shiftStart) ||
+          !prevShift.shiftEnd.isAtSameMomentAs(normalizedShift.shiftEnd);
+      if (movesTeacherOrTime) {
+        await _throwIfTeacherScheduleConflict(normalizedShift);
+      }
 
       final now = DateTime.now();
       final updateData = normalizedShift.toFirestore();

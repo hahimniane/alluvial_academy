@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ArrowRight, Check, Loader2, Play, RotateCcw, X } from "lucide-react";
 import { auth, db, functions } from "@/lib/firebase";
 import { cachedStudentSession, resolveStudentSession } from "@/lib/studentSession";
+import { useT } from "@/lib/i18n";
 import { StudentAccessPrompt, StudentShell } from "@/components/StudentDashboardHome";
 
 type AccessState = "checking" | "signedOut" | "allowed" | "denied";
@@ -129,21 +130,22 @@ export default function StudentQuizPage() {
 }
 
 function CategoryBrowse({ onPlay, competition }: { onPlay: (category: Category) => void; competition: Competition | null }) {
+  const t = useT();
   return (
     <>
       <header className="flex items-center gap-4">
         <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-[#7C3AED] text-2xl">🧠</span>
         <div>
-          <h1 className="text-[28px] font-black leading-tight text-[#0F172A]">Islamic Quiz</h1>
-          <p className="text-sm font-semibold text-[#64748B]">Test your knowledge</p>
+          <h1 className="text-[28px] font-black leading-tight text-[#0F172A]">{t("Islamic Quiz")}</h1>
+          <p className="text-sm font-semibold text-[#64748B]">{t("Test your knowledge")}</p>
         </div>
       </header>
 
       <div className="mt-5 flex items-center gap-3 rounded-2xl bg-[linear-gradient(120deg,#16A34A_0%,#22C55E_100%)] px-5 py-4 text-white">
         <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/25 text-sm font-black">?</span>
         <div>
-          <p className="text-base font-black">Choose a Category</p>
-          <p className="text-xs font-semibold text-white/90">{CATEGORIES.length} categories · 350+ questions</p>
+          <p className="text-base font-black">{t("Choose a Category")}</p>
+          <p className="text-xs font-semibold text-white/90">{t("{count} categories · 350+ questions", { count: CATEGORIES.length })}</p>
         </div>
       </div>
 
@@ -162,11 +164,11 @@ function CategoryBrowse({ onPlay, competition }: { onPlay: (category: Category) 
             >
               {category.emoji}
             </span>
-            <h2 className="mt-3 text-sm font-black text-[#0F172A]">{category.name}</h2>
+            <h2 className="mt-3 text-sm font-black text-[#0F172A]">{t(category.name)}</h2>
             <p className="mt-0.5 text-xs font-semibold text-[#64748B]" dir="rtl">
               {category.nameAr}
             </p>
-            <p className="mt-2 text-[11px] leading-4 text-[#94A3B8]">{category.description}</p>
+            <p className="mt-2 text-[11px] leading-4 text-[#94A3B8]">{t(category.description)}</p>
             <div className="flex-1" />
             <button
               type="button"
@@ -175,7 +177,7 @@ function CategoryBrowse({ onPlay, competition }: { onPlay: (category: Category) 
               style={{ backgroundColor: category.color }}
             >
               <Play size={14} />
-              Play
+              {t("Play")}
             </button>
           </article>
         ))}
@@ -186,7 +188,8 @@ function CategoryBrowse({ onPlay, competition }: { onPlay: (category: Category) 
 
 
 function CompetitionBanner({ competition }: { competition: Competition }) {
-  const division = DIVISION_LABELS[competition.divisionId] ?? DIVISION_LABELS.unassigned;
+  const t = useT();
+  const division = t(DIVISION_LABELS[competition.divisionId] ?? DIVISION_LABELS.unassigned);
   const accuracyPct = Math.round(competition.minimumAccuracy * 100);
 
   return (
@@ -196,39 +199,37 @@ function CompetitionBanner({ competition }: { competition: Competition }) {
           🏆
         </span>
         <div className="min-w-0">
-          <h2 className="text-lg font-black">Monthly Bayannah Challenge</h2>
-          <p className="mt-0.5 text-xs font-semibold text-white/85">Competition month: {competition.monthKey}</p>
+          <h2 className="text-lg font-black">{t("Monthly Bayannah Challenge")}</h2>
+          <p className="mt-0.5 text-xs font-semibold text-white/85">{t("Competition month: {month}", { month: competition.monthKey })}</p>
           {competition.countingStart && competition.countingEnd ? (
             <p className="text-xs font-semibold text-white/70">
-              Answers count from {competition.countingStart} through {competition.countingEnd}.
+              {t("Answers count from {start} through {end}.", { start: competition.countingStart, end: competition.countingEnd })}
             </p>
           ) : null}
         </div>
       </div>
 
-      <p className="mt-3 text-sm font-black text-white">Lifetime wins: {competition.lifetimeWins}</p>
-      <p className="mt-2 text-sm font-black text-[#FDE68A]">Division: {division}</p>
+      <p className="mt-3 text-sm font-black text-white">{t("Lifetime wins: {count}", { count: competition.lifetimeWins })}</p>
+      <p className="mt-2 text-sm font-black text-[#FDE68A]">{t("Division: {division}", { division })}</p>
 
       {competition.requiresDivision ? (
         <p className="mt-2 text-sm font-semibold text-white/90">
-          Your answers are being saved, but you cannot be ranked until your age division is set.
+          {t("Your answers are being saved, but you cannot be ranked until your age division is set.")}
         </p>
       ) : (
         <p className="mt-2 text-sm leading-6 text-white/90">
-          You compete only in your age division. Qualify with {competition.minimumQuestions} unique questions over{" "}
-          {competition.minimumActiveDays} days and at least {accuracyPct}% accuracy. A division needs{" "}
-          {competition.minimumEligibleParticipants} eligible students. Exact ties share the win.
+          {t("You compete only in your age division. Qualify with {questions} unique questions over {days} days and at least {accuracy}% accuracy. A division needs {participants} eligible students. Exact ties share the win.", { questions: competition.minimumQuestions, days: competition.minimumActiveDays, accuracy: accuracyPct, participants: competition.minimumEligibleParticipants })}
         </p>
       )}
 
       <p className="mt-2 text-sm font-black text-[#FDE68A]">
-        Explore every category to qualify: {competition.categoriesAttempted}/{competition.requiredCategoryCount} completed.
+        {t("Explore every category to qualify: {attempted}/{required} completed.", { attempted: competition.categoriesAttempted, required: competition.requiredCategoryCount })}
       </p>
 
       <div className="mt-4 grid grid-cols-3 gap-3">
-        <Stat label="Questions" value={String(competition.answeredCount)} />
-        <Stat label="Active days" value={String(competition.activeDays)} />
-        <Stat label="Rank" value={competition.rank > 0 ? `#${competition.rank}` : "—"} />
+        <Stat label={t("Questions")} value={String(competition.answeredCount)} />
+        <Stat label={t("Active days")} value={String(competition.activeDays)} />
+        <Stat label={t("Rank")} value={competition.rank > 0 ? `#${competition.rank}` : "—"} />
       </div>
     </section>
   );
@@ -278,6 +279,7 @@ async function loadCompetition(): Promise<Competition | null> {
 type PlayState = "loading" | "playing" | "finished" | "error";
 
 function QuizPlay({ category, uid, onExit }: { category: Category; uid: string; onExit: () => void }) {
+  const t = useT();
   const [state, setState] = useState<PlayState>("loading");
   const [questions, setQuestions] = useState<Question[]>([]);
   const [index, setIndex] = useState(0);
@@ -356,7 +358,7 @@ function QuizPlay({ category, uid, onExit }: { category: Category; uid: string; 
       <div className="grid min-h-[50vh] place-items-center text-[#64748B]">
         <span className="inline-flex items-center gap-2 text-sm font-bold">
           <Loader2 className="animate-spin" size={18} />
-          Loading {category.name}…
+          {t("Loading {category}…", { category: t(category.name) })}
         </span>
       </div>
     );
@@ -367,7 +369,7 @@ function QuizPlay({ category, uid, onExit }: { category: Category; uid: string; 
       <div className="mx-auto max-w-md rounded-2xl border border-red-200 bg-red-50 p-6 text-center">
         <p className="text-sm font-bold text-red-700">{error}</p>
         <button type="button" onClick={onExit} className="mt-4 inline-flex min-h-10 items-center rounded-xl bg-white px-4 text-sm font-bold text-[#334155]">
-          Back to categories
+          {t("Back to categories")}
         </button>
       </div>
     );
@@ -383,14 +385,14 @@ function QuizPlay({ category, uid, onExit }: { category: Category; uid: string; 
         <h2 className="mt-4 text-2xl font-black text-[#0F172A]">
           {correctCount} / {questions.length}
         </h2>
-        <p className="mt-1 text-sm font-bold text-[#64748B]">{pct}% correct in {category.name}</p>
+        <p className="mt-1 text-sm font-bold text-[#64748B]">{t("{pct}% correct in {category}", { pct, category: t(category.name) })}</p>
         <div className="mt-6 flex justify-center gap-2">
           <button type="button" onClick={() => void start()} className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-[#7C3AED] px-4 text-sm font-black text-white">
             <RotateCcw size={16} />
-            Play again
+            {t("Play again")}
           </button>
           <button type="button" onClick={onExit} className="inline-flex min-h-10 items-center rounded-xl border border-[#E2E8F0] px-4 text-sm font-bold text-[#334155]">
-            Categories
+            {t("Categories")}
           </button>
         </div>
       </div>
@@ -409,7 +411,7 @@ function QuizPlay({ category, uid, onExit }: { category: Category; uid: string; 
           </span>
           <span className="text-sm font-black text-[#0F172A]">{category.name}</span>
         </div>
-        <button type="button" onClick={onExit} aria-label="Leave quiz" className="grid h-9 w-9 place-items-center rounded-xl text-[#64748B] hover:bg-[#F1F5F9]">
+        <button type="button" onClick={onExit} aria-label={t("Leave quiz")} className="grid h-9 w-9 place-items-center rounded-xl text-[#64748B] hover:bg-[#F1F5F9]">
           <X size={18} />
         </button>
       </div>
@@ -418,7 +420,7 @@ function QuizPlay({ category, uid, onExit }: { category: Category; uid: string; 
         <div className="h-full rounded-full transition-all" style={{ width: `${((index + 1) / questions.length) * 100}%`, backgroundColor: category.color }} />
       </div>
       <p className="mt-2 text-xs font-bold text-[#94A3B8]">
-        Question {index + 1} of {questions.length}
+        {t("Question {index} of {total}", { index: index + 1, total: questions.length })}
       </p>
 
       <h2 className="mt-4 text-xl font-black leading-snug text-[#0F172A]">{question.question}</h2>
@@ -457,7 +459,7 @@ function QuizPlay({ category, uid, onExit }: { category: Category; uid: string; 
           className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl px-5 text-sm font-black text-white"
           style={{ backgroundColor: category.color }}
         >
-          {index + 1 >= questions.length ? "Finish" : "Next question"}
+          {index + 1 >= questions.length ? t("Finish") : t("Next question")}
           <ArrowRight size={16} />
         </button>
       ) : null}

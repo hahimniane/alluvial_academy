@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { BookOpen, Download, ExternalLink, Menu, Presentation, Shuffle, Users, X } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { cachedStudentSession, resolveStudentSession } from "@/lib/studentSession";
+import { useT } from "@/lib/i18n";
 import { StudentAccessPrompt, StudentShell, openStudentMobileMenu, StudentAvatar } from "@/components/StudentDashboardHome";
 
 type AccessState = "checking" | "signedOut" | "allowed" | "denied";
@@ -68,6 +69,7 @@ const books: CurriculumBook[] = [
 ];
 
 export function StudentCurriculumBooksPage() {
+  const t = useT();
   const [access, setAccess] = useState<AccessState>(() => (cachedStudentSession() ? "allowed" : "checking"));
   const [summary, setSummary] = useState(() => cachedStudentSession()?.summary ?? { displayName: "Student", firstName: "Student", initials: "ST" });
   const [isAdultStudent, setIsAdultStudent] = useState(() => cachedStudentSession()?.isAdultStudent ?? false);
@@ -109,16 +111,16 @@ export function StudentCurriculumBooksPage() {
         <section className="mx-auto max-w-[1280px] px-6 py-6 lg:px-6">
           <div className="rounded-[28px] border border-[#D9F0FF] bg-gradient-to-br from-[#ECFEFF] to-[#EFF6FF] px-7 py-7">
             <span className="inline-flex min-h-8 items-center rounded-full bg-white px-3 text-xs font-bold text-[#0369A1]">
-              Shared Learning Materials
+              {t("Shared Learning Materials")}
             </span>
-            <h1 className="mt-5 max-w-lg text-[32px] font-black leading-[1.05] text-[#0F172A] sm:text-[36px]">Curriculum Books</h1>
+            <h1 className="mt-5 max-w-lg text-[32px] font-black leading-[1.05] text-[#0F172A] sm:text-[36px]">{t("Curriculum Books")}</h1>
             <p className="mt-3 max-w-[1040px] text-[15px] font-medium leading-7 text-[#475569]">
-              These are the Arabic curriculum PowerPoints used across classes. Teachers, students, parents, and administrators can open or download them from here.
+              {t("These are the Arabic curriculum PowerPoints used across classes. Teachers, students, parents, and administrators can open or download them from here.")}
             </p>
             <div className="mt-5 flex flex-wrap gap-2.5">
-              <MetaChip icon={<Users size={16} />} label="All roles" />
-              <MetaChip icon={<Presentation size={16} />} label="PowerPoint files" />
-              <MetaChip icon={<BookOpen size={16} />} label="Arabic curriculum" />
+              <MetaChip icon={<Users size={16} />} label={t("All roles")} />
+              <MetaChip icon={<Presentation size={16} />} label={t("PowerPoint files")} />
+              <MetaChip icon={<BookOpen size={16} />} label={t("Arabic curriculum")} />
             </div>
           </div>
 
@@ -146,6 +148,7 @@ export function StudentCurriculumBooksPage() {
  * editable PowerPoint.
  */
 function BookReader({ book, onClose }: { book: CurriculumBook; onClose: () => void }) {
+  const t = useT();
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") onClose();
@@ -172,16 +175,16 @@ function BookReader({ book, onClose }: { book: CurriculumBook; onClose: () => vo
             className="hidden min-h-9 items-center gap-1.5 rounded-xl border border-[#E2E8F0] px-3 text-xs font-bold text-[#334155] sm:inline-flex"
           >
             <ExternalLink size={15} />
-            New tab
+            {t("New tab")}
           </a>
           <a
             href={book.downloadUrl}
             className="hidden min-h-9 items-center gap-1.5 rounded-xl border border-[#E2E8F0] px-3 text-xs font-bold text-[#334155] sm:inline-flex"
           >
             <Download size={15} />
-            Download
+            {t("Download")}
           </a>
-          <button type="button" onClick={onClose} aria-label="Close book" className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-[#64748B] hover:bg-[#F1F5F9]">
+          <button type="button" onClick={onClose} aria-label={t("Close book")} className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-[#64748B] hover:bg-[#F1F5F9]">
             <X size={18} />
           </button>
         </header>
@@ -220,6 +223,7 @@ function MetaChip({ icon, label }: { icon: React.ReactNode; label: string }) {
 }
 
 function BookCard({ book, onRead }: { book: CurriculumBook; onRead: () => void }) {
+  const t = useT();
   return (
     <article className="flex min-h-[318px] flex-col rounded-3xl border border-[#E2E8F0] bg-white p-5 shadow-[0_10px_24px_rgba(15,23,42,0.04)] sm:p-[22px]">
       <div className="flex items-start gap-3.5">
@@ -248,7 +252,7 @@ function BookCard({ book, onRead }: { book: CurriculumBook; onRead: () => void }
           style={{ backgroundColor: book.accent, borderColor: book.accent }}
         >
           <BookOpen size={18} />
-          Open
+          {t("Open")}
         </button>
         <a
           href={book.downloadUrl}
@@ -258,7 +262,7 @@ function BookCard({ book, onRead }: { book: CurriculumBook; onRead: () => void }
           style={{ color: book.accent, borderColor: `${book.accent}59` }}
         >
           <Download size={18} />
-          Download
+          {t("Download")}
         </a>
       </div>
     </article>

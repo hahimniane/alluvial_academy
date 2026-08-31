@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { CheckCircle2, Clock3, Loader2, XCircle } from "lucide-react";
 import { auth, db } from "@/lib/firebase";
 import { cachedStudentSession, resolveStudentSession } from "@/lib/studentSession";
+import { dateLocale, useT } from "@/lib/i18n";
 import { StudentAccessPrompt, StudentShell } from "@/components/StudentDashboardHome";
 
 type AccessState = "checking" | "signedOut" | "denied" | "allowed";
@@ -21,6 +22,7 @@ type PaymentRecord = {
 
 export default function StudentPaymentsPage() {
   const [access, setAccess] = useState<AccessState>(() => (cachedStudentSession() ? "allowed" : "checking"));
+  const t = useT();
   const [summary, setSummary] = useState(() => cachedStudentSession()?.summary ?? { displayName: "Student", firstName: "Student", initials: "ST" });
   const [isAdultStudent, setIsAdultStudent] = useState(() => cachedStudentSession()?.isAdultStudent ?? false);
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
@@ -100,17 +102,17 @@ export default function StudentPaymentsPage() {
   return (
     <StudentShell activeLabel="Payments" breadcrumb="Finance / Payments" summary={summary} isAdultStudent={isAdultStudent}>
       <div className="mx-auto w-full max-w-[1180px] px-4 py-6 md:px-6">
-        <h1 className="text-center text-2xl font-black text-[#0F172A]">Payment History</h1>
+        <h1 className="text-center text-2xl font-black text-[#0F172A]">{t("Payment History")}</h1>
 
         {loading ? (
           <div className="grid min-h-[40vh] place-items-center text-[#64748B]">
             <span className="inline-flex items-center gap-2 text-sm font-bold">
               <Loader2 className="animate-spin" size={18} />
-              Loading your payments…
+              {t("Loading your payments…")}
             </span>
           </div>
         ) : payments.length === 0 ? (
-          <p className="mt-10 text-center text-sm font-semibold text-[#94A3B8]">No payments yet.</p>
+          <p className="mt-10 text-center text-sm font-semibold text-[#94A3B8]">{t("No payments yet.")}</p>
         ) : (
           <div className="mt-6 grid gap-3">
             {payments.map((payment) => (
@@ -124,6 +126,7 @@ export default function StudentPaymentsPage() {
 }
 
 function PaymentRow({ payment }: { payment: PaymentRecord }) {
+  const t = useT();
   const status = payment.status.toLowerCase();
   const done = status === "completed" || status === "succeeded" || status === "paid";
   const failed = status === "failed" || status === "cancelled";
@@ -137,17 +140,17 @@ function PaymentRow({ payment }: { payment: PaymentRecord }) {
       </span>
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-black text-[#0F172A]">
-          {payment.invoiceNumber ? `Invoice ${payment.invoiceNumber}` : "Payment"}
+          {payment.invoiceNumber ? t("Invoice {number}", { number: payment.invoiceNumber }) : t("Payment")}
         </p>
         <p className="mt-0.5 text-xs font-semibold text-[#64748B]">
-          {payment.createdAt ? payment.createdAt.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "—"}
+          {payment.createdAt ? payment.createdAt.toLocaleDateString(dateLocale(), { month: "short", day: "numeric", year: "numeric" }) : "—"}
           {payment.method ? ` · ${payment.method}` : ""}
         </p>
       </div>
       <div className="shrink-0 text-right">
         <p className="text-base font-black text-[#0F172A]">${payment.amount.toFixed(2)}</p>
         <p className="text-[10px] font-black uppercase tracking-wide" style={{ color: tint }}>
-          {status || "pending"}
+          {t(status || "pending")}
         </p>
       </div>
     </article>
