@@ -1,0 +1,13 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "web-admin-shifts",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000,
+      "cwd": "apps/web",
+      "env": { "NEXT_PUBLIC_FIREBASE_ENV": "prod" }
+    }
+  ]
+}

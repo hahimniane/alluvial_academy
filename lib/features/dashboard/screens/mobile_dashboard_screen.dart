@@ -25,6 +25,8 @@ import './teacher_job_board_screen.dart';
 import '../../profile/screens/teacher_profile_screen.dart';
 import '../../student/screens/student_classes_screen.dart'; // Student classes screen
 import '../../student/screens/student_progress_screen.dart'; // Student progress screen
+import '../../quran_reader/screens/quran_reader_screen.dart'; // Quran reader + memorization + recitation check
+import '../../quiz/screens/bayanah_play_screen.dart'; // Bayanah live game (students)
 import '../../shift_management/screens/admin_classes_screen.dart'; // Admin classes screen
 import '../../parent/screens/parent_classes_screen.dart';
 import '../../recordings/screens/class_recordings_screen.dart';
@@ -567,18 +569,18 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
         ];
       }
 
-      final studentScreens = <Widget>[
+      return <Widget>[
         const StudentClassesScreen(),
+        const QuranReaderScreen(),
         const QuizHomeScreen(),
+        const BayanahPlayScreen(),
         const ChatPage(),
-        const QuickTasksScreen(),
-        const StudentProgressScreen(),
-        const CurriculumBooksScreen(),
+        _StudentMoreScreen(
+          onNavigate: _navigateToStudentFeature,
+          tontineEnabled: _tontineEnabled,
+          showTasks: true,
+        ),
       ];
-      if (_tontineEnabled) {
-        studentScreens.add(const TontineHomeScreen());
-      }
-      return studentScreens;
     }
 
     // Parents get basic features
@@ -645,20 +647,16 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
         ];
       }
 
-      final items = [
+      // Five destinations plus More: Tasks, Progress, Books and Circles live in
+      // the More grid, the same pattern teachers and admins use.
+      return [
         _NavItemData(Icons.school_rounded, l10n.navClasses, 0),
-        _NavItemData(Icons.quiz_rounded, l10n.navQuiz, 1),
-        _NavItemData(Icons.chat_bubble_rounded, l10n.navChat, 2, isChat: true),
-        _NavItemData(Icons.task_alt_rounded, l10n.navTasks, 3),
-        _NavItemData(Icons.insights_rounded, l10n.progress, 4),
-        _NavItemData(Icons.menu_book_rounded, 'Books', 5),
+        _NavItemData(Icons.auto_stories_rounded, 'Quran', 1),
+        _NavItemData(Icons.quiz_rounded, l10n.navQuiz, 2),
+        _NavItemData(Icons.emoji_events_rounded, 'Bayanah', 3),
+        _NavItemData(Icons.chat_bubble_rounded, l10n.navChat, 4, isChat: true),
+        _NavItemData(Icons.grid_view_rounded, 'More', 5),
       ];
-      if (_tontineEnabled) {
-        items.add(
-          _NavItemData(Icons.groups_rounded, l10n.tontineCircles, items.length),
-        );
-      }
-      return items;
     }
 
     // Parents get basic features
@@ -1419,10 +1417,14 @@ class _AdminMoreScreen extends StatelessWidget {
 class _StudentMoreScreen extends StatelessWidget {
   final void Function(Widget screen) onNavigate;
   final bool tontineEnabled;
+  /// Regular students reach Tasks from here; adult students already have it as
+  /// a tab, so it would be a duplicate for them.
+  final bool showTasks;
 
   const _StudentMoreScreen({
     required this.onNavigate,
     required this.tontineEnabled,
+    this.showTasks = false,
   });
 
   @override
@@ -1431,11 +1433,30 @@ class _StudentMoreScreen extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final items = <_MoreItem>[
+      if (showTasks)
+        _MoreItem(
+          icon: Icons.task_alt_rounded,
+          label: l10n.navTasks,
+          color: const Color(0xffF59E0B),
+          screen: const QuickTasksScreen(),
+        ),
+      _MoreItem(
+        icon: Icons.auto_stories_rounded,
+        label: 'Quran',
+        color: const Color(0xff0E7490),
+        screen: const QuranReaderScreen(),
+      ),
       _MoreItem(
         icon: Icons.quiz_rounded,
         label: l10n.navQuiz,
         color: const Color(0xff8B5CF6),
         screen: const QuizHomeScreen(),
+      ),
+      _MoreItem(
+        icon: Icons.emoji_events_rounded,
+        label: 'Bayanah Live',
+        color: const Color(0xffE21B3C),
+        screen: const BayanahPlayScreen(),
       ),
       _MoreItem(
         icon: Icons.insights_rounded,

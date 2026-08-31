@@ -25,6 +25,7 @@ import '../../forms/screens/forms_list_screen.dart';
 import '../../settings/screens/test_role_system.dart';
 import '../../settings/screens/firestore_debug_screen.dart';
 import '../../tasks/screens/quick_tasks_screen.dart';
+import '../../shift_management/screens/admin_shifts_web_frame.dart';
 import '../../shift_management/screens/shift_management_screen.dart';
 import '../../shift_management/screens/teacher_shift_screen.dart';
 import '../../website_management/public_site_cms/public_site_cms_screen.dart';
@@ -55,6 +56,7 @@ import '../../parent/screens/admin_invoice_hub_screen.dart';
 import '../../parent/screens/parent_invoices_screen.dart';
 import '../../parent/screens/payment_history_screen.dart';
 import '../../quiz/screens/admin_quiz_review_screen.dart';
+import '../../quiz/screens/bayanah_admin_screen.dart';
 import '../../quiz/screens/quiz_home_screen.dart';
 
 import '../widgets/custom_sidebar.dart';
@@ -296,6 +298,12 @@ class _DashboardPageState extends State<DashboardPage> {
         // so stale navigation state doesn't land on a 404.
         return const PublicSiteCmsScreen();
       case 3:
+        // On web the shift schedule is the Next.js screen embedded in this
+        // dashboard's content area — the Flutter sidebar and top bar stay.
+        // The native app keeps the Flutter screen.
+        if (kIsWeb) {
+          return const AdminShiftsWebFrame();
+        }
         return const ShiftManagementScreen();
       case 4:
         return const TeacherShiftScreen();
@@ -367,6 +375,8 @@ class _DashboardPageState extends State<DashboardPage> {
         return const QuizHomeScreen();
       case 37:
         return const DecisionHistoryScreen();
+      case 38:
+        return const BayanahAdminScreen();
       default:
         return const SizedBox.shrink();
     }

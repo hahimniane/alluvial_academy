@@ -165,6 +165,29 @@ const _matchesRecurrence = ({day, recurrence, adminTimezone}) => {
   }
 };
 
+
+/**
+ * A template can be paused for a PERIOD (a student travels, a Ramadan break)
+ * instead of switched off entirely. The template stays active — the generator
+ * simply skips days inside the window, so generation resumes by itself the day
+ * after `pause_end` with no cron and no admin action.
+ */
+const _isDayPaused = ({day, template, adminTimezone}) => {
+  const startRaw = _toJsDate(template.pause_start);
+  const endRaw = _toJsDate(template.pause_end);
+  if (!startRaw && !endRaw) return false;
+  const dayKey = _dateKey(day);
+  if (startRaw) {
+    const startKey = _dateKey(DateTime.fromJSDate(startRaw, {zone: adminTimezone}).startOf('day'));
+    if (dayKey < startKey) return false;
+  }
+  if (endRaw) {
+    const endKey = _dateKey(DateTime.fromJSDate(endRaw, {zone: adminTimezone}).startOf('day'));
+    if (dayKey > endKey) return false;
+  }
+  return true;
+};
+
 const _hasConflictingShift = async ({teacherId, shiftStartUtc, shiftEndUtc, ignoreShiftId = null}) => {
   const db = admin.firestore();
 
@@ -349,6 +372,7 @@ const _generateShiftsForTemplate = async ({templateId, template}) => {
   let skippedNotStarted = 0;
   let skippedOutsideEndDate = 0;
   let skippedNoMatch = 0;
+  let skippedPaused = 0;
 
   let batch = db.batch();
   let pendingWrites = 0;
@@ -368,6 +392,11 @@ const _generateShiftsForTemplate = async ({templateId, template}) => {
 
     if (!_matchesRecurrence({day, recurrence, adminTimezone})) {
       skippedNoMatch += 1;
+      continue;
+    }
+
+    if (_isDayPaused({day, template, adminTimezone})) {
+      skippedPaused += 1;
       continue;
     }
 
@@ -474,24 +503,41 @@ const _generateShiftsForTemplate = async ({templateId, template}) => {
       {merge: true},
     );
 
-  return {created, skippedConflicts, skippedTeacherModified, skippedAdminModified, skippedDeleted, skippedTerminalState, skippedNotStarted, skippedOutsideEndDate, skippedNoMatch};
+  return {created, skippedConflicts, skippedTeacherModified, skippedAdminModified, skippedDeleted, skippedTerminalState, skippedNotStarted, skippedOutsideEndDate, skippedNoMatch, skippedPaused};
 };
 
 // Remove legacy generated shifts so the dev UI doesn't show duplicates.
 // Safe-guard: only deletes docs that were marked `generated_from_template: true`
 // and are still in non-terminal states (scheduled/missed).
+/** Shared predicate: may cleanup delete this generated shift? */
+const _cleanupCandidateFilter = (data, {templateId = null, now = Date.now()} = {}) => {
+  if (!data) return false;
+  if (templateId && (data.template_id || '').toString() !== templateId) return false;
+  const status = (data.status || '').toString().trim().toLowerCase();
+  if (status !== 'scheduled' && status !== 'missed') return false;
+  const start = _toJsDate(data.shift_start);
+  if (!start || start.getTime() <= now) return false;
+  return true;
+};
+
 const _cleanupGeneratedShifts = async ({templateId = null} = {}) => {
   const db = admin.firestore();
-  const snap = await db.collection(SHIFTS_COLLECTION).where('generated_from_template', '==', true).get();
+  // Scope the read to the one template when we have it — an unscoped read
+  // pulls every generated shift in the collection into memory and OOM-kills
+  // the 256MiB container once the collection is large (seen at ~9k shifts).
+  let query = db.collection(SHIFTS_COLLECTION).where('generated_from_template', '==', true);
+  if (templateId) {
+    query = query.where('template_id', '==', templateId);
+  }
+  const snap = await query.get();
   const docs = snap.docs;
 
-  const candidates = docs.filter((doc) => {
-    const data = doc.data() || {};
-    if (templateId && (data.template_id || '').toString() !== templateId) return false;
-    const status = (data.status || '').toString().trim().toLowerCase();
-    if (status !== 'scheduled' && status !== 'missed') return false;
-    return true;
-  });
+  // Cleanup only ever removes classes that have NOT STARTED yet. A class that
+  // already happened is a record — a missed one carries attendance history, a
+  // finished one carries pay — and regeneration/deactivation must never reach
+  // backwards into it.
+  const cutoff = Date.now();
+  const candidates = docs.filter((doc) => _cleanupCandidateFilter(doc.data(), {templateId, now: cutoff}));
 
   if (candidates.length === 0) return {deleted: 0};
 
@@ -509,7 +555,7 @@ const _cleanupGeneratedShifts = async ({templateId = null} = {}) => {
   return {deleted};
 };
 
-const createShiftTemplate = onCall(async (request) => {
+const createShiftTemplate = onCall({memory: '512MiB'}, async (request) => {
   _assertTemplatesEnabledOrThrow();
 
   if (!request.auth) {
@@ -762,7 +808,7 @@ const generateDailyShifts = onSchedule({schedule: '0 0 * * *', timeZone: 'Etc/UT
   }
 });
 
-const updateShiftTemplate = onCall(async (request) => {
+const updateShiftTemplate = onCall({memory: '512MiB'}, async (request) => {
   _assertTemplatesEnabledOrThrow();
 
   if (!request.auth) {
@@ -821,6 +867,14 @@ const updateShiftTemplate = onCall(async (request) => {
   if (data.category) updates.category = String(data.category).trim();
   if (data.leader_role !== undefined) updates.leader_role = data.leader_role || null;
   if (data.video_provider) updates.video_provider = String(data.video_provider).trim().toLowerCase();
+  // Timed pause: null clears it and generation resumes immediately.
+  if (data.pause_start !== undefined) {
+    updates.pause_start = data.pause_start === null ? null : _toTimestamp(data.pause_start);
+  }
+  if (data.pause_end !== undefined) {
+    updates.pause_end = data.pause_end === null ? null : _toTimestamp(data.pause_end);
+  }
+
   if (data.is_active !== undefined) {
     const active = Boolean(data.is_active);
     updates.is_active = active;
@@ -869,10 +923,14 @@ const updateShiftTemplate = onCall(async (request) => {
 
   // When recurrence or times change: remove future generated shifts and regenerate from updated template.
   // When template is deactivated: only remove future generated shifts (no regenerate).
+  // A pause window change must rebuild the horizon too: setting one clears the
+  // shifts inside it, clearing one puts them back.
+  const pauseChanged = updates.pause_start !== undefined || updates.pause_end !== undefined;
   const recurrenceOrTimeChanged =
     updates.enhanced_recurrence != null ||
     updates.start_time != null ||
-    updates.end_time != null;
+    updates.end_time != null ||
+    pauseChanged;
   const deactivated = updates.is_active === false;
 
   if (recurrenceOrTimeChanged || deactivated) {
@@ -1003,6 +1061,7 @@ const onTeacherDeleted = onDocumentDeleted('users/{userId}', async (event) => {
 });
 
 module.exports = {
+  __test__: {_isDayPaused, _matchesRecurrence, _cleanupCandidateFilter},
   generateDailyShifts,
   createShiftTemplate,
   generateShiftsForTemplateCallable,

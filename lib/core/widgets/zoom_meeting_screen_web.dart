@@ -9,6 +9,7 @@ import 'package:alluwalacademyadmin/core/services/join_link_service.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class ZoomMeetingScreen extends StatefulWidget {
+  final String shiftId;
   final String sdkKey;
   final String signature;
   final String meetingNumber;
@@ -27,6 +28,7 @@ class ZoomMeetingScreen extends StatefulWidget {
 
   const ZoomMeetingScreen({
     super.key,
+    this.shiftId = '',
     required this.sdkKey,
     required this.signature,
     required this.meetingNumber,

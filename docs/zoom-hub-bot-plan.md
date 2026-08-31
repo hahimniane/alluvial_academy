@@ -2925,3 +2925,79 @@ Attendance context: daily attendance runs 42–68% normally, so a single broken
 lane is not visible in the daily rate — today read 6/17 (35%) against a 50–60%
 baseline. These incidents will not surface in aggregate metrics; the reliable
 signals are "hub never received a heartbeat" and "two active hubs on one lane".
+
+## 44. Lane 2 split hub — 8 PM class never started — 2026-08-21
+
+Symptom reported live at 21:26 ET: Bot 2 classes were not joinable. Bot 2 itself
+was running (`zoom-hub-bot@2` active since 2026-08-11) and had routed people
+earlier in the evening (Fatumata Jalloh, Fatumata Binta Diallo, AL-Hassan Diallo).
+
+Diagnosis (production at ~21:56 ET):
+- Lane 2 had **three** overlapping evening hubs on `support@`:
+  - `zoom_hub_2026-08-21_2_1400_2`, meeting `84776276787`, window 13:45–21:15.
+    Bot left at 16:46 ET (`zombie_hub_released_shared_host`). Habibu 17:00 and
+    Thierno 18:00 were still pointed at this dead hub.
+  - `zoom_hub_2026-08-21_3_1700_2`, meeting `89113548395`, window 16:45–21:15.
+    Bot stayed here until 21:15 with `inRoomOccupants: 1` (Fatumata Binta Diallo
+    leftover from the 18:00 class). Zoom REST: later `waiting` after window end.
+  - `zoom_hub_2026-08-21_3_2000_2`, meeting `82358203149`, window 19:45–21:15,
+    `status: scheduled`, **never received a heartbeat**. Fatumata Jalloh's
+    20:00–21:00 class with Mariam Billguissu Diallo pointed here. Zoom REST:
+    `waiting`. The host account was busy in the 1700 meeting, so this meeting
+    could never start — same "host has another meeting in progress" failure as
+    §43.
+- The 1700 hub already had a breakout room for that 20:00 class
+  (`356800 | Fatumata Jalloh`). Join payloads ignored it and sent people to the
+  unstarted 2000 meeting.
+- `_selectPrimaryActiveHub` treated 1700 as protected because
+  `inRoomOccupants > 0` and `window_end - 15 min` was 21:00. The window had not
+  been shrunk after the 20:00 class was split onto its own hub, so a leftover
+  student from a finished class held the shared account through the 8 PM class.
+- Stale-hub join handoff only ran when a heartbeat had existed and then gone
+  stale. A hub that **never** heartbeated (2000) was treated as "bot inbound"
+  and was not handed off to the live 1700 hub. Handoff also required a free
+  spare and ignored an already-created room for the same shift.
+
+Fix applied (`functions/handlers/zoom.js`, `functions/handlers/zoom_hub_bot.js`):
+- `ensureZoomHubMeeting` adopts a same-lane hub that is `roomsOpen` with a
+  fresh heartbeat instead of creating/using a second meeting the Pro host
+  cannot start. Uses the live hub's existing room for that shift if present,
+  otherwise a spare.
+- `getZoomJoinInfo` does the same on join when the resolved hub is not live,
+  not only when a heartbeat has gone stale.
+- Handoff accepts a hub that already has this class's room, not only a free
+  spare.
+- Hub docs now store `assigned_class_end`. `_selectPrimaryActiveHub` uses that
+  (falling back to `window_end - padding`) so a leftover occupant cannot
+  protect a hub whose own classes are over. When no hub is protected, the bot
+  prefers the hub that still has a class due.
+
+Tests (`functions/tests/zoom_handler.test.js`):
+- `adopts a live same-lane hub when a split hub never got a bot (2026-08-21 lane 2)`
+- `does not create a second Zoom meeting when the lane bot is already live`
+- `adopts the live same-lane hub even when its window is shorter than the new class`
+- `does not stretch a live hub past the 28-hour Zoom lifetime; spills to the other lane`
+- `spills to the other lane when the live same-lane hub has no spare`
+- `still creates a first hub meeting when the lane has no live bot`
+- `does not put a lane 2 class into a live lane 1 hub`
+- existing primary-hub selection plus assigned_class_end straggler case
+
+Hard rule now: if this lane's bot is already in a live meeting, we never
+create or hand out a second Zoom meeting on that host. The later class is
+moved onto the live hub and that hub's `window_end` / `assigned_class_end`
+are extended to cover it, **only if the combined window stays at or under
+`ZOOM_HUB_SAFE_MAX_MEETING_MINUTES` (28 h)**. If the live hub has no spare
+or the extension would exceed 28 h, follow the existing overflow chain:
+spill to the other lane, else single Zoom on a *non-hub* teacher host.
+Single-mode fallback refuses `billing@` / `support@` so it cannot open a
+second meeting on the busy Pro license. Cross-lane recovery still exists
+for a hub that had a meeting and then went stale; a brand-new lane 2 class
+is not dumped into a live lane 1 hub.
+
+Deployed to `alluwal-academy`: `getZoomJoinInfo`, `prepareZoomHubs`,
+`onTeachingShiftWritten`, `zoomHubBotDirectives`.
+
+Remaining (not required to stop tonight's failure mode): shrinking a losing
+hub's `window_end` when classes are reassigned away, so two same-lane hub
+docs cannot stay active at once. Adoption is the join-path defense when a
+split has already happened.

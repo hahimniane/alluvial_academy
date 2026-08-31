@@ -182,6 +182,13 @@ class SidebarConfig {
             colorValue: 0xff6366F1,
           ),
           const SidebarItem(
+            id: 'bayanah_live',
+            label: 'Bayanah Live',
+            icon: Icons.emoji_events_rounded,
+            screenIndex: 38,
+            colorValue: 0xff0E7490,
+          ),
+          const SidebarItem(
             id: 'notifications',
             label: 'Notifications',
             icon: Icons.notifications,

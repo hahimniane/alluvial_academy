@@ -72,6 +72,16 @@ echo "Verifying remote files"
 $SSH_COMMAND "$REMOTE" "set -e; cd '$REMOTE_WEB_ROOT'; grep -q 'flutter_bootstrap.js?v=$VERSION' index.html; grep -q 'manifest.json?v=$VERSION' index.html; grep -q 'main.dart.js?v=$VERSION' flutter_bootstrap.js"
 
 echo "Verifying public site"
-curl -fsSL "$SITE_URL/?verify=$VERSION" | grep -q "flutter_bootstrap.js?v=$VERSION"
+# The CDN can lag a few seconds behind the upload; retry before declaring failure.
+for attempt in 1 2 3 4 5; do
+  if curl -fsSL "$SITE_URL/?verify=$VERSION-$attempt" | grep -q "flutter_bootstrap.js?v=$VERSION"; then
+    break
+  fi
+  if [ "$attempt" = 5 ]; then
+    echo "Public site still serving an older build after $attempt checks" >&2
+    exit 1
+  fi
+  sleep 10
+done
 
 echo "Deployed Hostinger web build v$VERSION"

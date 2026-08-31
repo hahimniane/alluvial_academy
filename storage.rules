@@ -36,6 +36,16 @@ service firebase.storage {
     }
     
     // Allow authenticated users to upload and read form images
+    // Bayanah question images. Anyone signed in may read (players see them
+    // mid-game); uploads are limited to signed-in staff and capped in size so a
+    // huge photo can never stall the countdown.
+    match /bayanah_images/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+        && request.resource.size < 3 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
     match /form_images/{userId}/{fileName} {
       allow read: if request.auth != null;
       allow write: if request.auth != null && 

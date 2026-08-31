@@ -733,6 +733,57 @@
       })();
       const classEndingSoonText = params.get('classEndingSoonText') || 'This class ends in {minutes} min';
       const classEndedText = params.get('classEndedText') || 'This class has ended.';
+
+      // --- Attendance heartbeat ---------------------------------------------
+      // This page has no Firebase, so presence is recorded via a signed token
+      // (scoped to this uid+shift) posted to the beacon endpoint. The join was
+      // already recorded server-side by getZoomJoinInfo; these heartbeats extend
+      // the presence window while the student is actually in the meeting, and a
+      // sendBeacon on leave/unload closes it so an early exit isn't credited to
+      // the end of class. Entirely best-effort — it never affects the meeting.
+      const presenceToken = params.get('presenceToken') || '';
+      const presenceShiftId = params.get('shiftId') || '';
+      const presenceEndpoint = params.get('presenceEndpoint') || '';
+      const presenceEnabled = Boolean(presenceToken && presenceShiftId && presenceEndpoint);
+      const PRESENCE_HEARTBEAT_MS = 45 * 1000;
+      let presenceTimer = null;
+      let presenceLeaveSent = false;
+      const sendPresence = (event, useBeacon) => {
+        if (!presenceEnabled) return;
+        const bodyText = JSON.stringify({ token: presenceToken, event });
+        try {
+          if (useBeacon && navigator.sendBeacon) {
+            // text/plain keeps this a CORS-simple request (no preflight) and lets
+            // it fire during page unload.
+            navigator.sendBeacon(presenceEndpoint, new Blob([bodyText], { type: 'text/plain' }));
+            return;
+          }
+          fetch(presenceEndpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain' },
+            body: bodyText,
+            keepalive: true,
+            mode: 'cors',
+          }).catch(() => {});
+        } catch (_) {}
+      };
+      const startPresenceHeartbeat = () => {
+        if (!presenceEnabled || presenceTimer) return;
+        sendPresence('heartbeat', false);
+        presenceTimer = setInterval(() => sendPresence('heartbeat', false), PRESENCE_HEARTBEAT_MS);
+      };
+      const stopPresenceHeartbeat = (useBeacon) => {
+        if (presenceTimer) {
+          clearInterval(presenceTimer);
+          presenceTimer = null;
+        }
+        if (presenceEnabled && !presenceLeaveSent) {
+          presenceLeaveSent = true;
+          sendPresence('leave', useBeacon);
+        }
+      };
+      // ----------------------------------------------------------------------
+
       const countdownEl = document.getElementById('classCountdown');
       const COUNTDOWN_WARN_MS = 5 * 60 * 1000;
       let classCountdownStarted = false;
@@ -898,6 +949,9 @@
       };
       let zoomLeaveRequested = false;
       const requestZoomLeave = (onDone = () => {}) => {
+        // Every leave path (button, unload, competing session) funnels here, so
+        // this is the one place the presence window needs to be closed.
+        stopPresenceHeartbeat(true);
         clearZoomSession();
         const done = typeof onDone === 'function' ? onDone : () => {};
         if (zoomLeaveRequested) {
@@ -1004,6 +1058,7 @@
           if (isZoomMeetingUiVisible()) {
             meetingJoinConfirmed = true;
             showLeaveMeetingButton();
+            startPresenceHeartbeat();
             startClassCountdown();
             clearInterval(timer);
             if (autoJoinBreakoutRoom) {
@@ -1522,6 +1577,7 @@
             const onJoinSuccess = () => {
               meetingJoinConfirmed = true;
               showLeaveMeetingButton();
+              startPresenceHeartbeat();
               startClassCountdown();
               if (autoJoinBreakoutRoom) {
                 showJoinedRoutingStatus();

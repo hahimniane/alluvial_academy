@@ -3,6 +3,13 @@ const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 
 const LATE_GRACE_MINUTES = 5;
+// A student must actually be present this long for the class to count as
+// attended — opening the room for a few seconds does not. Capped at half the
+// class so short sessions are not impossible to attend.
+const MIN_ATTENDED_SECONDS = 5 * 60;
+// Cap the per-class join/leave sessions stored on a report, so a flaky
+// connection that reconnects hundreds of times can't bloat the document.
+const MAX_PRESENCE_WINDOWS_PER_SHIFT = 50;
 const REPORT_COLLECTION = 'student_attendance_reports';
 const CLASS_ATTENDANCE_ALERT_COLLECTION = 'class_attendance_alerts';
 const NO_SHOW_DETECTION_GRACE_MINUTES = 5;
@@ -65,8 +72,14 @@ const buildPeriodKey = (periodType, periodStart) => {
   return `month_${periodStart.toISOString().slice(0, 7)}`;
 };
 
+// v2: cache-key version bump — reports computed before the accuracy fixes
+// (future classes no longer counted as missed, left_early status, session
+// breakdowns) must not be served from cache. Bump again whenever report
+// semantics change.
+const REPORT_DOC_VERSION = 'v2';
+
 const buildReportDocId = ({ studentId, periodType, periodStart }) =>
-  `${studentId}_${periodType}_${buildPeriodKey(periodType, periodStart)}`;
+  `${studentId}_${periodType}_${buildPeriodKey(periodType, periodStart)}_${REPORT_DOC_VERSION}`;
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
@@ -380,6 +393,7 @@ const computeStudentAttendanceReport = ({
   periodEnd,
   shifts,
   participantMetricsByShift,
+  now = new Date(),
   lateGraceMinutes = LATE_GRACE_MINUTES,
 }) => {
   const studentShifts = shifts
@@ -433,6 +447,13 @@ const computeStudentAttendanceReport = ({
       continue;
     }
 
+    // A class that hasn't ended yet can't be attended or missed — leave it out
+    // of the tallies and the per-class list entirely, so students never see a
+    // future class marked "missed". (Cancelled classes are handled above.)
+    if (shift.shiftEnd instanceof Date && shift.shiftEnd.getTime() > now.getTime()) {
+      continue;
+    }
+
     counters.scheduledClasses += 1;
 
     const scheduledSeconds = Math.max(
@@ -458,7 +479,15 @@ const computeStudentAttendanceReport = ({
         lateGraceMinutes,
       });
 
-    const attended = studentMetrics.hadAnyPresence;
+    // Attended requires a real stretch of presence, not just opening the room.
+    // The teacher only needs to have shown up at all, so "student present /
+    // teacher absent" still flags a class the teacher missed.
+    const minAttendedSeconds = Math.min(
+      MIN_ATTENDED_SECONDS,
+      Math.floor(scheduledSeconds / 2),
+    );
+    const attended = studentMetrics.hadAnyPresence &&
+      studentMetrics.totalPresenceSeconds >= minAttendedSeconds;
     const teacherPresent = teacherMetrics.hadAnyPresence;
     const lateBoundary = new Date(
       shift.shiftStart.getTime() + lateGraceMinutes * 60 * 1000,
@@ -498,6 +527,20 @@ const computeStudentAttendanceReport = ({
     counters.totalTeacherOverlapSeconds += overlapSeconds;
 
     if (shiftBreakdown.length < MAX_SHIFT_BREAKDOWN_ITEMS) {
+      // The individual join→leave sessions, so the client can show exactly when
+      // the student was in the room and how many times they left and rejoined.
+      const sessions = (studentMetrics.windows || [])
+        .slice(0, MAX_PRESENCE_WINDOWS_PER_SHIFT)
+        .map((window) => ({
+          join_iso: window.start.toISOString(),
+          leave_iso: window.end.toISOString(),
+          minutes: Number(((window.end.getTime() - window.start.getTime()) / 60000).toFixed(2)),
+        }));
+      const firstJoin = studentMetrics.firstJoinAt ||
+        (studentMetrics.windows && studentMetrics.windows[0] ? studentMetrics.windows[0].start : null);
+      const lastLeave = studentMetrics.windows && studentMetrics.windows.length > 0
+        ? studentMetrics.windows[studentMetrics.windows.length - 1].end
+        : null;
       shiftBreakdown.push({
         shift_id: shift.id,
         shift_start_iso: shift.shiftStart.toISOString(),
@@ -512,10 +555,13 @@ const computeStudentAttendanceReport = ({
         join_events: studentMetrics.joinCount,
         joins_before_start_events: studentMetrics.joinsBeforeStartCount,
         first_join_offset_minutes: studentMetrics.firstJoinOffsetMinutes,
+        first_join_iso: firstJoin ? firstJoin.toISOString() : null,
+        last_leave_iso: lastLeave ? lastLeave.toISOString() : null,
         student_presence_minutes:
           Number((studentMetrics.totalPresenceSeconds / 60).toFixed(2)),
         teacher_overlap_minutes:
           Number((overlapSeconds / 60).toFixed(2)),
+        sessions,
       });
     }
   }
@@ -988,13 +1034,14 @@ const generateStudentAttendanceReportsForPeriod = async ({
   targetStudentIds,
   lateGraceMinutes = LATE_GRACE_MINUTES,
 }) => {
+  const now = new Date();
   const shifts = await loadShiftsForPeriod({ periodStart, periodEnd });
   const shiftIds = shifts.map((shift) => shift.id);
   const sessionsByShift = await loadSessionsByShift({ shiftIds });
   const participantMetricsByShift = buildParticipantMetricsIndex({
     shifts,
     sessionsByShift,
-    now: new Date(),
+    now,
     lateGraceMinutes,
   });
 
@@ -1021,6 +1068,7 @@ const generateStudentAttendanceReportsForPeriod = async ({
         periodEnd,
         shifts,
         participantMetricsByShift,
+        now,
         lateGraceMinutes,
       }),
     );

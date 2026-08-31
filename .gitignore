@@ -109,3 +109,12 @@ releases/
 /.firebase/
 /*.png
 .claude/worktrees/
+
+# Local scratch and one-off data pulls, not source
+functions/backups/
+functions/q_tmp.js
+*.BACKUP-*.js
+
+# Downloaded ML model weights and service deps — fetched at deploy, not source
+services/quran-asr/model/
+services/zoom-hub-bot/node_modules/

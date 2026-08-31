@@ -15,6 +15,8 @@ import 'package:alluwalacademyadmin/core/services/web_app_stability_service.dart
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 import 'package:alluwalacademyadmin/core/utils/post_sign_out.dart';
+import 'package:alluwalacademyadmin/core/utils/web_redirect_stub.dart'
+    if (dart.library.html) 'package:alluwalacademyadmin/core/utils/web_redirect_web.dart';
 
 /// Check if running on native mobile platform
 bool get _isNativeMobile {
@@ -344,12 +346,13 @@ class _RoleBasedDashboardState extends State<RoleBasedDashboard>
           onRoleChanged: (_) => _onRoleChanged(),
         );
       case 'student':
-        AppLogger.debug('=== Returning StudentDashboard ===');
-        return DashboardPage(
-          key: const ValueKey('dashboard_student'),
-          activeRole: 'student',
-          onRoleChanged: (_) => _onRoleChanged(),
-        );
+        // Students use the Next.js dashboard on the web. This switch is only
+        // reached on web (native mobile returns MobileDashboardScreen above), so
+        // send them to /student/ — same origin + same Firebase project means the
+        // session carries over and they land signed in, no second login. The
+        // native store apps stay on Flutter.
+        AppLogger.debug('=== Student on web - redirecting to /student/ ===');
+        return const _StudentWebRedirect();
       case 'parent':
         AppLogger.debug('=== Returning ParentDashboard ===');
         return ParentDashboard(
@@ -632,5 +635,29 @@ class ParentDashboard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ParentDashboardLayout(onRoleChanged: onRoleChanged);
+  }
+}
+
+/// Bounces a signed-in web student to the Next.js dashboard at /student/.
+/// Shown for a moment while the browser navigates away.
+class _StudentWebRedirect extends StatefulWidget {
+  const _StudentWebRedirect();
+
+  @override
+  State<_StudentWebRedirect> createState() => _StudentWebRedirectState();
+}
+
+class _StudentWebRedirectState extends State<_StudentWebRedirect> {
+  @override
+  void initState() {
+    super.initState();
+    redirectToStudentWebApp();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      body: Center(child: CircularProgressIndicator()),
+    );
   }
 }

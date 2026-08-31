@@ -203,6 +203,13 @@ service cloud.firestore {
     // Public Forms (Landing Page)
     // =========================================================================
     
+    // Old shifts moved out of teaching_shifts by the nightly archiver.
+    // Server-only writes; admins may read for audits / history lookups.
+    match /teaching_shifts_archive/{shiftId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
     // Allow anyone to submit an enrollment (create only)
     match /enrollments/{enrollmentId} {
       allow create: if true;
@@ -1065,6 +1072,29 @@ service cloud.firestore {
 
     // Monthly Bayannah competition totals are written only by Cloud Functions.
     // Students receive privacy-trimmed leaderboard data through a callable.
+    // Bayanah live event. Players read the event doc (which never contains the
+    // correct answer while a question is open), the roster for the leaderboard,
+    // and their own answers. The questions subcollection holds the answer key,
+    // so only admins may read it. Everything is written by Cloud Functions.
+    match /bayanah_events/{eventId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+
+      match /questions/{questionId} {
+        allow read: if isSignedIn() && isAdmin();
+        allow write: if false;
+      }
+      match /players/{playerId} {
+        allow read: if isSignedIn();
+        allow write: if false;
+      }
+      match /answers/{answerId} {
+        allow read: if isSignedIn() &&
+          (isAdmin() || resource.data.uid == request.auth.uid);
+        allow write: if false;
+      }
+    }
+
     match /quiz_competitions/{monthKey} {
       allow read: if isSignedIn() && isAdmin();
       allow write: if false;
@@ -1180,6 +1210,11 @@ service cloud.firestore {
       allow create: if isSignedIn();
       allow update, delete: if isSignedIn() && (isAdmin() ||
         resource.data.teacherId == request.auth.uid);
+    }
+
+    // Quran memorization progress - each student owns their own doc (id == uid).
+    match /quran_memorization/{userId} {
+      allow read, write: if isSignedIn() && request.auth.uid == userId;
     }
 
     // All other collections - admin only (fallback rule)
