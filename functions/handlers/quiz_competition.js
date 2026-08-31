@@ -8,7 +8,18 @@ const bundledAnswerKey = require('../data/quiz_answer_key.json');
 const TIME_ZONE = 'America/New_York';
 const MINIMUM_QUESTIONS = 20;
 const MINIMUM_ACTIVE_DAYS = 3;
+const MINIMUM_ACCURACY = 0.5;
+const MINIMUM_ELIGIBLE_PARTICIPANTS = 2;
 const MAX_LEADERBOARD_SIZE = 10;
+const UNASSIGNED_DIVISION = 'unassigned';
+const REQUIRED_CATEGORY_IDS = Object.freeze(Object.keys(bundledAnswerKey).sort());
+const DIVISIONS = Object.freeze([
+  {id: 'early_learners', minimumAge: 0, maximumAge: 7},
+  {id: 'juniors', minimumAge: 8, maximumAge: 11},
+  {id: 'youth', minimumAge: 12, maximumAge: 17},
+  {id: 'adults', minimumAge: 18, maximumAge: 120},
+]);
+const DIVISION_IDS = new Set(DIVISIONS.map((division) => division.id));
 
 const roleValue = (data = {}) => String(
   data.user_type || data.userType || data.role || '',
@@ -32,11 +43,125 @@ const dateKeyForDate = (date = new Date()) => DateTime
   .setZone(TIME_ZONE)
   .toFormat('yyyy-MM-dd');
 
+const dateKeyForDateTime = (value) => value.toFormat('yyyy-MM-dd');
+
 const parseMonthKey = (value) => {
   const monthKey = String(value || '').trim();
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(monthKey)) return null;
   const start = DateTime.fromFormat(monthKey, 'yyyy-MM', {zone: TIME_ZONE});
   return start.isValid ? {monthKey, start, end: start.plus({months: 1})} : null;
+};
+
+const countingWindowForCompetition = (competition = {}, monthKey = monthKeyForDate()) => {
+  const parsed = parseMonthKey(monthKey);
+  if (!parsed) return null;
+  const defaultStart = dateKeyForDateTime(parsed.start);
+  const defaultEnd = dateKeyForDateTime(parsed.end.minus({days: 1}));
+  const start = String(competition.rules?.counting_starts_on || defaultStart);
+  const end = String(competition.rules?.counting_ends_on || defaultEnd);
+  const valid = (value) => {
+    const date = DateTime.fromFormat(value, 'yyyy-MM-dd', {zone: TIME_ZONE});
+    return date.isValid && dateKeyForDateTime(date) === value &&
+      value >= defaultStart && value <= defaultEnd;
+  };
+  if (!valid(start) || !valid(end) || start > end) {
+    return {startDate: defaultStart, endDate: defaultEnd};
+  }
+  return {startDate: start, endDate: end};
+};
+
+const normalizeDivisionId = (value, {allowUnassigned = true} = {}) => {
+  const divisionId = String(value || '').trim().toLowerCase();
+  if (DIVISION_IDS.has(divisionId)) return divisionId;
+  return allowUnassigned && divisionId === UNASSIGNED_DIVISION
+    ? UNASSIGNED_DIVISION
+    : null;
+};
+
+const divisionForAge = (value) => {
+  if (value === null || value === undefined || String(value).trim() === '') return null;
+  const age = Number(value);
+  if (!Number.isFinite(age) || age < 0 || age > 120) return null;
+  return DIVISIONS.find((division) =>
+    age >= division.minimumAge && age <= division.maximumAge)?.id || null;
+};
+
+const dateTimeFromProfileValue = (value) => {
+  if (!value) return null;
+  if (typeof value.toDate === 'function') {
+    return DateTime.fromJSDate(value.toDate(), {zone: TIME_ZONE});
+  }
+  if (value instanceof Date) return DateTime.fromJSDate(value, {zone: TIME_ZONE});
+  const parsed = DateTime.fromISO(String(value), {zone: TIME_ZONE});
+  return parsed.isValid ? parsed : null;
+};
+
+const ageAtMonthStart = (birthDateValue, monthKey) => {
+  const parsedMonth = parseMonthKey(monthKey);
+  const birthDate = dateTimeFromProfileValue(birthDateValue);
+  if (!parsedMonth || !birthDate || birthDate > parsedMonth.start) return null;
+  let age = parsedMonth.start.year - birthDate.year;
+  if (parsedMonth.start.month < birthDate.month ||
+      (parsedMonth.start.month === birthDate.month &&
+       parsedMonth.start.day < birthDate.day)) age -= 1;
+  return age >= 0 && age <= 120 ? age : null;
+};
+
+const ageAtMonthStartFromMonthYear = (birthMonthValue, birthYearValue, monthKey) => {
+  const parsedMonth = parseMonthKey(monthKey);
+  const birthMonth = Number(birthMonthValue);
+  const birthYear = Number(birthYearValue);
+  if (!parsedMonth || !Number.isInteger(birthMonth) || birthMonth < 1 ||
+      birthMonth > 12 || !Number.isInteger(birthYear)) return null;
+  let age = parsedMonth.start.year - birthYear;
+  if (parsedMonth.start.month <= birthMonth) age -= 1;
+  return age >= 0 && age <= 120 ? age : null;
+};
+
+const divisionForUser = (data = {}, monthKey = monthKeyForDate()) => {
+  const explicit = normalizeDivisionId(
+    data.quiz_competition_division || data.quizCompetitionDivision,
+    {allowUnassigned: false},
+  );
+  const validThrough = String(
+    data.quiz_competition_division_valid_through ||
+    data.quizCompetitionDivisionValidThrough || '',
+  );
+  if (explicit && /^\d{4}-\d{2}$/.test(validThrough) && validThrough >= monthKey) {
+    return {id: explicit, source: 'admin_assignment'};
+  }
+
+  const birthDate = data.date_of_birth || data.dateOfBirth ||
+    data.birth_date || data.birthDate || data.dob;
+  const birthDateAge = ageAtMonthStart(birthDate, monthKey);
+  const birthDateDivision = divisionForAge(birthDateAge);
+  if (birthDateDivision) {
+    return {id: birthDateDivision, source: 'birth_date', age: birthDateAge};
+  }
+
+  const approximateAge = ageAtMonthStartFromMonthYear(
+    data.quiz_competition_birth_month || data.quizCompetitionBirthMonth,
+    data.quiz_competition_birth_year || data.quizCompetitionBirthYear,
+    monthKey,
+  );
+  const approximateDivision = divisionForAge(approximateAge);
+  if (approximateDivision) {
+    return {
+      id: approximateDivision,
+      source: 'student_birth_month_year',
+      age: approximateAge,
+    };
+  }
+
+  const recordedAge = data.age ?? data.student_age ?? data.studentAge;
+  const ageDivision = divisionForAge(recordedAge);
+  if (ageDivision) {
+    return {id: ageDivision, source: 'recorded_age', age: Number(recordedAge)};
+  }
+  if (data.is_adult_student === true || data.isAdultStudent === true) {
+    return {id: 'adults', source: 'adult_account_flag'};
+  }
+  return {id: UNASSIGNED_DIVISION, source: 'unassigned'};
 };
 
 const displayNameForUser = (data = {}) => {
@@ -56,7 +181,6 @@ const resolveBundledAnswer = ({questionId, categoryId}) => {
   return bank.answers[index];
 };
 
-0
 const accuracyForEntry = (entry) => {
   const answered = Number(entry.unique_answered_count || 0);
   return answered > 0 ? Number(entry.correct_answer_count || 0) / answered : 0;
@@ -66,27 +190,96 @@ const activeDayCount = (entry) => Array.isArray(entry.active_days)
   ? new Set(entry.active_days).size
   : Number(entry.active_day_count || 0);
 
-const isEligibleEntry = (entry) =>
-  Number(entry.unique_answered_count || 0) >= MINIMUM_QUESTIONS &&
-  activeDayCount(entry) >= MINIMUM_ACTIVE_DAYS;
-
-const timeMillis = (value) => {
-  if (value && typeof value.toMillis === 'function') return value.toMillis();
-  if (value instanceof Date) return value.getTime();
-  const parsed = Date.parse(String(value || ''));
-  return Number.isFinite(parsed) ? parsed : Number.MAX_SAFE_INTEGER;
+const normalizedRequiredCategoryIds = (value) => {
+  const ids = Array.isArray(value) ? value : [];
+  const valid = new Set(ids.map((id) => String(id || '').trim())
+    .filter((id) => REQUIRED_CATEGORY_IDS.includes(id)));
+  return REQUIRED_CATEGORY_IDS.filter((id) => valid.has(id));
 };
 
-const rankEntries = (entries) => entries
-  .map((entry) => ({...entry, eligible: isEligibleEntry(entry)}))
-  .sort((a, b) =>
-    Number(b.unique_answered_count || 0) - Number(a.unique_answered_count || 0) ||
-    Number(b.correct_answer_count || 0) - Number(a.correct_answer_count || 0) ||
-    accuracyForEntry(b) - accuracyForEntry(a) ||
-    activeDayCount(b) - activeDayCount(a) ||
-    timeMillis(a.score_reached_at) - timeMillis(b.score_reached_at) ||
-    String(a.uid || '').localeCompare(String(b.uid || '')))
-  .map((entry, index) => ({...entry, rank: index + 1}));
+const requiredCategoryIdsForCompetition = (competition = {}) => {
+  const stored = normalizedRequiredCategoryIds(
+    competition.rules?.required_category_ids,
+  );
+  return stored.length > 0 ? stored : REQUIRED_CATEGORY_IDS;
+};
+
+const attemptedCategoryIds = (entry = {}) => new Set(
+  (Array.isArray(entry.attempted_category_ids)
+    ? entry.attempted_category_ids
+    : [])
+    .map((id) => String(id || '').trim())
+    .filter((id) => REQUIRED_CATEGORY_IDS.includes(id)),
+);
+
+const hasRequiredCategoryCoverage = (entry, requiredCategoryIds = REQUIRED_CATEGORY_IDS) => {
+  const attempted = attemptedCategoryIds(entry);
+  return requiredCategoryIds.every((categoryId) => attempted.has(categoryId));
+};
+
+const categoryInsightsForAnswers = (answers = []) => {
+  const totals = new Map(REQUIRED_CATEGORY_IDS.map((categoryId) => [categoryId, {
+    categoryId,
+    answeredCount: 0,
+    correctCount: 0,
+  }]));
+  answers.forEach((answer) => {
+    const data = typeof answer.data === 'function' ? answer.data() : answer;
+    const categoryId = String(data?.category_id || '').trim();
+    const total = totals.get(categoryId);
+    if (!total) return;
+    total.answeredCount += 1;
+    total.correctCount += data?.is_correct === true ? 1 : 0;
+  });
+  return Array.from(totals.values()).map((total) => ({
+    ...total,
+    accuracy: total.answeredCount > 0 ? total.correctCount / total.answeredCount : 0,
+  }));
+};
+
+const lifetimeWinsForCompetitions = (competitions = [], uid) => competitions.reduce(
+  (wins, competition) => {
+    const data = typeof competition.data === 'function' ? competition.data() : competition;
+    const divisionResults = data?.division_results || {};
+    const isWinner = Object.values(divisionResults).some((result) =>
+      Array.isArray(result?.winners) && result.winners.some((winner) => winner?.uid === uid));
+    return wins + (isWinner ? 1 : 0);
+  },
+  0,
+);
+
+const isEligibleEntry = (entry, requiredCategoryIds = REQUIRED_CATEGORY_IDS) => {
+  const divisionId = normalizeDivisionId(entry.division_id);
+  return DIVISION_IDS.has(divisionId) &&
+    Number(entry.unique_answered_count || 0) >= MINIMUM_QUESTIONS &&
+    activeDayCount(entry) >= MINIMUM_ACTIVE_DAYS &&
+    accuracyForEntry(entry) >= MINIMUM_ACCURACY &&
+    hasRequiredCategoryCoverage(entry, requiredCategoryIds) &&
+    entry.disqualified !== true;
+};
+
+const compareScores = (a, b) =>
+  Number(b.unique_answered_count || 0) - Number(a.unique_answered_count || 0) ||
+  Number(b.correct_answer_count || 0) - Number(a.correct_answer_count || 0) ||
+  activeDayCount(b) - activeDayCount(a);
+
+const sameScore = (a, b) => compareScores(a, b) === 0;
+
+const rankEntries = (entries, requiredCategoryIds = REQUIRED_CATEGORY_IDS) => {
+  const sorted = entries
+    .map((entry) => ({
+      ...entry,
+      eligible: isEligibleEntry(entry, requiredCategoryIds),
+    }))
+    .sort((a, b) => compareScores(a, b) ||
+      String(a.display_name || '').localeCompare(String(b.display_name || '')) ||
+      String(a.uid || '').localeCompare(String(b.uid || '')));
+  let rank = 0;
+  return sorted.map((entry, index) => {
+    if (index === 0 || !sameScore(entry, sorted[index - 1])) rank = index + 1;
+    return {...entry, rank};
+  });
+};
 
 const publicEntry = (entry) => ({
   uid: entry.uid,
@@ -95,9 +288,32 @@ const publicEntry = (entry) => ({
   correctCount: Number(entry.correct_answer_count || 0),
   accuracy: accuracyForEntry(entry),
   activeDays: activeDayCount(entry),
+  categoriesAttemptedCount: attemptedCategoryIds(entry).size,
+  divisionId: normalizeDivisionId(entry.division_id) || UNASSIGNED_DIVISION,
   eligible: entry.eligible === true,
   rank: entry.rank,
 });
+
+const timestampMillis = (value) => {
+  if (value && typeof value.toMillis === 'function') return value.toMillis();
+  if (value instanceof Date) return value.getTime();
+  const parsed = Date.parse(String(value || ''));
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const engagementStatus = (
+  entry,
+  now = new Date(),
+  requiredCategoryIds = REQUIRED_CATEGORY_IDS,
+) => {
+  if (!entry || Number(entry.unique_answered_count || 0) === 0) return 'not_started';
+  if (isEligibleEntry(entry, requiredCategoryIds)) return 'qualified';
+  const lastAnswered = timestampMillis(entry.last_answered_at);
+  if (lastAnswered !== null && now.getTime() - lastAnswered >= 7 * 24 * 60 * 60 * 1000) {
+    return 'needs_encouragement';
+  }
+  return 'participating';
+};
 
 const requireUser = async (request) => {
   const uid = request.auth?.uid;
@@ -127,6 +343,9 @@ const recordQuizCompetitionAnswer = onCall({
   const {uid, data: userData} = await requireUser(request);
   if (!isStudentUser(userData)) {
     throw new HttpsError('permission-denied', 'Student access required');
+  }
+  if (userData.is_active === false) {
+    throw new HttpsError('permission-denied', 'Active student account required');
   }
 
   const questionId = String(request.data?.questionId || '').trim();
@@ -160,12 +379,32 @@ const recordQuizCompetitionAnswer = onCall({
     if (competitionSnapshot.data()?.status === 'finalized') {
       throw new HttpsError('failed-precondition', 'This monthly competition is closed');
     }
+    const countingWindow = countingWindowForCompetition(
+      competitionSnapshot.data() || {},
+      monthKey,
+    );
+    if (dateKey < countingWindow.startDate || dateKey > countingWindow.endDate) {
+      return {
+        counted: false,
+        outsideCompetitionWindow: true,
+        countingStartDate: countingWindow.startDate,
+        countingEndDate: countingWindow.endDate,
+      };
+    }
     const existing = entrySnapshot.data() || {};
+    const requiredCategoryIds = requiredCategoryIdsForCompetition(
+      competitionSnapshot.data() || {},
+    );
+    const existingDivision = normalizeDivisionId(existing.division_id);
+    const resolvedDivision = existingDivision && existingDivision !== UNASSIGNED_DIVISION
+      ? {id: existingDivision, source: existing.division_source || 'monthly_lock'}
+      : divisionForUser(userData, monthKey);
     if (answerSnapshot.exists) {
       return {
         counted: false,
         answeredCount: Number(existing.unique_answered_count || 0),
         correctCount: Number(existing.correct_answer_count || 0),
+        divisionId: resolvedDivision.id,
       };
     }
 
@@ -173,6 +412,8 @@ const recordQuizCompetitionAnswer = onCall({
     const correctCount = Number(existing.correct_answer_count || 0) + (isCorrect ? 1 : 0);
     const activeDays = new Set(Array.isArray(existing.active_days) ? existing.active_days : []);
     activeDays.add(dateKey);
+    const categories = attemptedCategoryIds(existing);
+    categories.add(categoryId);
     const timestamp = admin.firestore.FieldValue.serverTimestamp();
 
     transaction.set(competitionRef, {
@@ -183,7 +424,14 @@ const recordQuizCompetitionAnswer = onCall({
       rules: {
         minimum_questions: MINIMUM_QUESTIONS,
         minimum_active_days: MINIMUM_ACTIVE_DAYS,
+        minimum_accuracy: MINIMUM_ACCURACY,
+        minimum_eligible_participants: MINIMUM_ELIGIBLE_PARTICIPANTS,
         unique_questions_only: true,
+        required_category_ids: requiredCategoryIds,
+        counting_starts_on: countingWindow.startDate,
+        counting_ends_on: countingWindow.endDate,
+        age_divisions: DIVISIONS,
+        co_winners_for_exact_ties: true,
       },
     }, {merge: true});
     transaction.set(entryRef, {
@@ -193,6 +441,10 @@ const recordQuizCompetitionAnswer = onCall({
       correct_answer_count: correctCount,
       active_days: Array.from(activeDays).sort(),
       active_day_count: activeDays.size,
+      attempted_category_ids: Array.from(categories).sort(),
+      division_id: resolvedDivision.id,
+      division_source: resolvedDivision.source,
+      division_age_snapshot: resolvedDivision.age ?? null,
       score_reached_at: timestamp,
       first_answered_at: existing.first_answered_at || timestamp,
       last_answered_at: timestamp,
@@ -206,7 +458,13 @@ const recordQuizCompetitionAnswer = onCall({
       answered_at: timestamp,
       date_key: dateKey,
     });
-    return {counted: true, answeredCount, correctCount};
+    return {
+      counted: true,
+      answeredCount,
+      correctCount,
+      categoriesAttemptedCount: categories.size,
+      divisionId: resolvedDivision.id,
+    };
   });
 
   return {...result, isCorrect, monthKey};
@@ -223,23 +481,136 @@ const getQuizCompetitionLeaderboard = onCall({
   const parsed = parseMonthKey(request.data?.monthKey || monthKeyForDate());
   if (!parsed) throw new HttpsError('invalid-argument', 'Month must use YYYY-MM');
 
-  const competitionRef = admin.firestore().collection('quiz_competitions').doc(parsed.monthKey);
-  const [competitionSnapshot, entriesSnapshot] = await Promise.all([
+  const db = admin.firestore();
+  const competitionRef = db.collection('quiz_competitions').doc(parsed.monthKey);
+  const adminView = isAdminUser(userData);
+  const [competitionSnapshot, entriesSnapshot, studentProfilesSnapshot] = await Promise.all([
     competitionRef.get(),
     competitionRef.collection('students').get(),
+    adminView
+      ? db.collection('users').where('user_type', '==', 'student').get()
+      : Promise.resolve(null),
   ]);
-  const ranked = rankEntries(entriesSnapshot.docs.map((doc) => ({uid: doc.id, ...doc.data()})));
-  const self = ranked.find((entry) => entry.uid === uid);
+  const entries = entriesSnapshot.docs.map((doc) => ({uid: doc.id, ...doc.data()}));
+  const ownEntry = entries.find((entry) => entry.uid === uid);
+  const [ownAnswersSnapshot, competitionsSnapshot] = adminView || !ownEntry
+    ? [null, null]
+    : await Promise.all([
+      competitionRef.collection('students').doc(uid).collection('answers').get(),
+      db.collection('quiz_competitions').get(),
+    ]);
+  const ownDivision = normalizeDivisionId(ownEntry?.division_id) ||
+    divisionForUser(userData, parsed.monthKey).id;
+  const requestedDivision = normalizeDivisionId(request.data?.divisionId);
+  const divisionId = isAdminUser(userData)
+    ? requestedDivision || DIVISIONS[0].id
+    : ownDivision;
   const competition = competitionSnapshot.data() || {};
+  const requiredCategoryIds = requiredCategoryIdsForCompetition(competition);
+  const countingWindow = countingWindowForCompetition(competition, parsed.monthKey);
+  const categoryInsights = ownAnswersSnapshot
+    ? categoryInsightsForAnswers(ownAnswersSnapshot.docs)
+    : [];
+  const lifetimeWins = competitionsSnapshot
+    ? lifetimeWinsForCompetitions(competitionsSnapshot.docs, uid)
+    : 0;
+  const ranked = rankEntries(entries.filter((entry) =>
+    (normalizeDivisionId(entry.division_id) || UNASSIGNED_DIVISION) === divisionId,
+  ), requiredCategoryIds);
+  const self = divisionId === ownDivision
+    ? ranked.find((entry) => entry.uid === uid)
+    : null;
+  const selfIndex = self ? ranked.findIndex((entry) => entry.uid === uid) : -1;
+  const divisionResult = competition.division_results?.[divisionId] || {};
+  const winners = Array.isArray(divisionResult.winners)
+    ? divisionResult.winners
+    : (competition.winner && competition.winner.divisionId === divisionId
+        ? [competition.winner]
+        : []);
+  const divisionIds = [...DIVISIONS.map((division) => division.id), UNASSIGNED_DIVISION];
+  const divisions = divisionIds.map((id) => {
+    const divisionEntries = entries.filter((entry) =>
+      (normalizeDivisionId(entry.division_id) || UNASSIGNED_DIVISION) === id);
+    return {
+      id,
+      participantCount: divisionEntries.length,
+      eligibleCount: divisionEntries.filter((entry) =>
+        isEligibleEntry(entry, requiredCategoryIds)).length,
+      winnerCount: Array.isArray(competition.division_results?.[id]?.winners)
+        ? competition.division_results[id].winners.length
+        : 0,
+    };
+  });
+  const engagement = adminView
+    ? studentProfilesSnapshot.docs
+      .map((doc) => {
+        const profile = doc.data() || {};
+        const entry = entries.find((candidate) => candidate.uid === doc.id);
+        const profileDivision = normalizeDivisionId(entry?.division_id) ||
+          divisionForUser(profile, parsed.monthKey).id;
+        return {
+          uid: doc.id,
+          displayName: [profile.first_name, profile.last_name]
+            .map((part) => String(part || '').trim())
+            .filter(Boolean)
+            .join(' ') || displayNameForUser(profile),
+          divisionId: profileDivision,
+          answeredCount: Number(entry?.unique_answered_count || 0),
+          correctCount: Number(entry?.correct_answer_count || 0),
+          activeDays: activeDayCount(entry || {}),
+          eligible: entry ? isEligibleEntry(entry, requiredCategoryIds) : false,
+          status: engagementStatus(entry, new Date(), requiredCategoryIds),
+          isActive: profile.is_active !== false,
+        };
+      })
+      .filter((student) => student.isActive && student.divisionId === divisionId)
+      .sort((a, b) => {
+        const statusOrder = {
+          needs_encouragement: 0,
+          not_started: 1,
+          participating: 2,
+          qualified: 3,
+        };
+        return statusOrder[a.status] - statusOrder[b.status] ||
+          a.displayName.localeCompare(b.displayName);
+      })
+    : [];
   return {
     monthKey: parsed.monthKey,
     timezone: TIME_ZONE,
     status: competition.status || 'open',
+    divisionId,
+    requiresDivision: divisionId === UNASSIGNED_DIVISION,
+    divisions,
     minimumQuestions: MINIMUM_QUESTIONS,
     minimumActiveDays: MINIMUM_ACTIVE_DAYS,
-    leaderboard: ranked.slice(0, MAX_LEADERBOARD_SIZE).map(publicEntry),
+    minimumAccuracy: MINIMUM_ACCURACY,
+    minimumEligibleParticipants: MINIMUM_ELIGIBLE_PARTICIPANTS,
+    requiredCategoryCount: requiredCategoryIds.length,
+    countingStartDate: countingWindow.startDate,
+    countingEndDate: countingWindow.endDate,
+    lifetimeWins,
+    categoryInsights,
+    leaderboard: adminView ? ranked.slice(0, MAX_LEADERBOARD_SIZE).map(publicEntry) : [],
     self: self ? publicEntry(self) : null,
-    winner: competition.winner || null,
+    nearby: self && !adminView ? {
+      above: selfIndex > 0 ? publicEntry(ranked[selfIndex - 1]) : null,
+      below: selfIndex >= 0 && selfIndex < ranked.length - 1
+        ? publicEntry(ranked[selfIndex + 1])
+        : null,
+    } : null,
+    winners,
+    winner: winners[0] || null,
+    engagement,
+    engagementSummary: adminView ? {
+      total: engagement.length,
+      notStarted: engagement.filter((student) => student.status === 'not_started').length,
+      needsEncouragement: engagement.filter((student) =>
+        student.status === 'needs_encouragement').length,
+      participating: engagement.filter((student) =>
+        student.status === 'participating').length,
+      qualified: engagement.filter((student) => student.status === 'qualified').length,
+    } : null,
   };
 });
 
@@ -270,31 +641,51 @@ const finalizeQuizCompetition = onCall({
     competitionRef.collection('students').get(),
   ]);
   const current = competitionSnapshot.data() || {};
+  const requiredCategoryIds = requiredCategoryIdsForCompetition(current);
   if (current.status === 'finalized' && reason.length < 10) {
     throw new HttpsError('already-exists', 'Competition is already finalized');
   }
 
-  const ranked = rankEntries(entriesSnapshot.docs.map((doc) => ({uid: doc.id, ...doc.data()})));
-  const eligible = ranked.filter((entry) => entry.eligible);
-  const requestedWinnerUid = String(request.data?.overrideWinnerUid || '').trim();
-  let winner = eligible[0] || null;
-  if (requestedWinnerUid) {
-    winner = eligible.find((entry) => entry.uid === requestedWinnerUid) || null;
-    if (!winner) {
-      throw new HttpsError('failed-precondition', 'Override winner is not eligible');
-    }
-    if (reason.length < 10) {
-      throw new HttpsError('invalid-argument', 'Winner override requires a reason');
-    }
+  if (request.data?.overrideWinnerUid) {
+    throw new HttpsError(
+      'invalid-argument',
+      'Manual winner overrides are disabled; correct divisions or eligibility instead',
+    );
   }
+  const entries = entriesSnapshot.docs.map((doc) => ({uid: doc.id, ...doc.data()}));
+  const divisionResults = {};
+  let eligibleCount = 0;
+  let winnerCount = 0;
+  for (const division of DIVISIONS) {
+    const ranked = rankEntries(entries.filter((entry) =>
+      normalizeDivisionId(entry.division_id) === division.id,
+    ), requiredCategoryIds);
+    const eligible = ranked.filter((entry) => entry.eligible);
+    eligibleCount += eligible.length;
+    const winners = eligible.length >= MINIMUM_ELIGIBLE_PARTICIPANTS
+      ? eligible.filter((entry) => entry.rank === 1).map(publicEntry)
+      : [];
+    winnerCount += winners.length;
+    divisionResults[division.id] = {
+      winners,
+      eligible_student_count: eligible.length,
+      participant_count: ranked.length,
+    };
+  }
+  divisionResults[UNASSIGNED_DIVISION] = {
+    winners: [],
+    eligible_student_count: 0,
+    participant_count: entries.filter((entry) =>
+      !normalizeDivisionId(entry.division_id) ||
+      normalizeDivisionId(entry.division_id) === UNASSIGNED_DIVISION).length,
+  };
 
-  const winnerData = winner ? publicEntry(winner) : null;
   const timestamp = admin.firestore.FieldValue.serverTimestamp();
   const revisionRef = competitionRef.collection('finalization_history').doc();
   const batch = db.batch();
   batch.set(revisionRef, {
-    previous_winner: current.winner || null,
-    winner: winnerData,
+    previous_division_results: current.division_results || null,
+    division_results: divisionResults,
     reason: reason || null,
     finalized_by: uid,
     finalized_at: timestamp,
@@ -303,21 +694,242 @@ const finalizeQuizCompetition = onCall({
     month_key: parsed.monthKey,
     status: 'finalized',
     timezone: TIME_ZONE,
-    winner: winnerData,
-    eligible_student_count: eligible.length,
-    participant_count: ranked.length,
+    winner: null,
+    division_results: divisionResults,
+    eligible_student_count: eligibleCount,
+    participant_count: entries.length,
+    winner_count: winnerCount,
     finalized_by: uid,
     finalized_at: timestamp,
     finalization_reason: reason || null,
     rules: {
       minimum_questions: MINIMUM_QUESTIONS,
       minimum_active_days: MINIMUM_ACTIVE_DAYS,
+      minimum_accuracy: MINIMUM_ACCURACY,
+      minimum_eligible_participants: MINIMUM_ELIGIBLE_PARTICIPANTS,
       unique_questions_only: true,
-      ranking_order: ['unique_answers', 'correct_answers', 'accuracy', 'active_days', 'earliest_score'],
+      required_category_ids: requiredCategoryIds,
+      age_divisions: DIVISIONS,
+      co_winners_for_exact_ties: true,
+      ranking_order: ['unique_answers', 'correct_answers', 'active_days'],
     },
   }, {merge: true});
   await batch.commit();
-  return {monthKey: parsed.monthKey, winner: winnerData, eligibleCount: eligible.length};
+  return {
+    monthKey: parsed.monthKey,
+    divisionResults,
+    eligibleCount,
+    winnerCount,
+  };
+});
+
+const setQuizCompetitionWindow = onCall({
+  region: 'us-central1',
+  memory: '256MiB',
+}, async (request) => {
+  const {uid, data: userData} = await requireUser(request);
+  if (!isAdminUser(userData)) {
+    throw new HttpsError('permission-denied', 'Admin access required');
+  }
+  const parsed = parseMonthKey(request.data?.monthKey || monthKeyForDate());
+  if (!parsed) throw new HttpsError('invalid-argument', 'Month must use YYYY-MM');
+  const startDate = String(request.data?.startDate || '').trim();
+  const endDate = String(request.data?.endDate || '').trim();
+  const window = countingWindowForCompetition({
+    rules: {counting_starts_on: startDate, counting_ends_on: endDate},
+  }, parsed.monthKey);
+  if (window.startDate !== startDate || window.endDate !== endDate) {
+    throw new HttpsError(
+      'invalid-argument',
+      'Start and end dates must be ordered days in the selected competition month',
+    );
+  }
+
+  const db = admin.firestore();
+  const competitionRef = db.collection('quiz_competitions').doc(parsed.monthKey);
+  const [competitionSnapshot, entriesSnapshot] = await Promise.all([
+    competitionRef.get(),
+    competitionRef.collection('students').limit(1).get(),
+  ]);
+  if (competitionSnapshot.data()?.status === 'finalized') {
+    throw new HttpsError('failed-precondition', 'Finalized competition windows are locked');
+  }
+  const timestamp = admin.firestore.FieldValue.serverTimestamp();
+  const historyRef = competitionRef.collection('window_history').doc();
+  const previousWindow = countingWindowForCompetition(
+    competitionSnapshot.data() || {},
+    parsed.monthKey,
+  );
+  const batch = db.batch();
+  batch.set(competitionRef, {
+    month_key: parsed.monthKey,
+    status: competitionSnapshot.data()?.status || 'open',
+    timezone: TIME_ZONE,
+    updated_at: timestamp,
+    rules: {
+      ...(competitionSnapshot.data()?.rules || {}),
+      counting_starts_on: window.startDate,
+      counting_ends_on: window.endDate,
+      required_category_ids: requiredCategoryIdsForCompetition(
+        competitionSnapshot.data() || {},
+      ),
+    },
+  }, {merge: true});
+  batch.set(historyRef, {
+    month_key: parsed.monthKey,
+    previous_start_date: previousWindow.startDate,
+    previous_end_date: previousWindow.endDate,
+    start_date: window.startDate,
+    end_date: window.endDate,
+    changed_by: uid,
+    changed_at: timestamp,
+    had_participants: !entriesSnapshot.empty,
+  });
+  await batch.commit();
+  return {monthKey: parsed.monthKey, ...window};
+});
+
+const setQuizCompetitionDivision = onCall({
+  region: 'us-central1',
+  memory: '256MiB',
+}, async (request) => {
+  const {uid: adminUid, data: adminData} = await requireUser(request);
+  if (!isAdminUser(adminData)) {
+    throw new HttpsError('permission-denied', 'Admin access required');
+  }
+  const studentUid = String(request.data?.studentUid || '').trim();
+  const divisionId = normalizeDivisionId(request.data?.divisionId, {
+    allowUnassigned: false,
+  });
+  const parsed = parseMonthKey(request.data?.monthKey || monthKeyForDate());
+  const reason = String(request.data?.reason || '').trim();
+  if (!studentUid || !divisionId || !parsed) {
+    throw new HttpsError(
+      'invalid-argument',
+      'Student, valid division, and YYYY-MM month are required',
+    );
+  }
+  if (reason.length < 10) {
+    throw new HttpsError('invalid-argument', 'Division assignment requires a reason');
+  }
+
+  const db = admin.firestore();
+  const studentRef = db.collection('users').doc(studentUid);
+  const competitionRef = db.collection('quiz_competitions').doc(parsed.monthKey);
+  const entryRef = competitionRef.collection('students').doc(studentUid);
+  const [studentSnapshot, competitionSnapshot, entrySnapshot] = await Promise.all([
+    studentRef.get(),
+    competitionRef.get(),
+    entryRef.get(),
+  ]);
+  if (!studentSnapshot.exists || !isStudentUser(studentSnapshot.data() || {})) {
+    throw new HttpsError('not-found', 'Student profile not found');
+  }
+  if (competitionSnapshot.data()?.status === 'finalized') {
+    throw new HttpsError('failed-precondition', 'Finalized competition divisions are locked');
+  }
+
+  const previousDivision = normalizeDivisionId(entrySnapshot.data()?.division_id) ||
+    divisionForUser(studentSnapshot.data() || {}, parsed.monthKey).id;
+  const timestamp = admin.firestore.FieldValue.serverTimestamp();
+  const auditRef = competitionRef.collection('division_assignment_history').doc();
+  const batch = db.batch();
+  batch.set(studentRef, {
+    quiz_competition_division: divisionId,
+    quiz_competition_division_valid_through: parsed.monthKey,
+    quiz_competition_division_updated_at: timestamp,
+    quiz_competition_division_updated_by: adminUid,
+  }, {merge: true});
+  if (entrySnapshot.exists) {
+    batch.set(entryRef, {
+      division_id: divisionId,
+      division_source: 'admin_assignment',
+      division_assigned_at: timestamp,
+      division_assigned_by: adminUid,
+    }, {merge: true});
+  }
+  batch.set(auditRef, {
+    student_uid: studentUid,
+    month_key: parsed.monthKey,
+    previous_division_id: previousDivision,
+    division_id: divisionId,
+    reason,
+    assigned_by: adminUid,
+    assigned_at: timestamp,
+  });
+  await batch.commit();
+  return {studentUid, monthKey: parsed.monthKey, divisionId};
+});
+
+const setOwnQuizCompetitionAge = onCall({
+  region: 'us-central1',
+  memory: '256MiB',
+}, async (request) => {
+  const {uid, data: userData} = await requireUser(request);
+  if (!isStudentUser(userData) || userData.is_active === false) {
+    throw new HttpsError('permission-denied', 'Active student access required');
+  }
+  const birthMonth = Number(request.data?.birthMonth);
+  const birthYear = Number(request.data?.birthYear);
+  const monthKey = monthKeyForDate();
+  const age = ageAtMonthStartFromMonthYear(birthMonth, birthYear, monthKey);
+  if (!Number.isInteger(birthMonth) || birthMonth < 1 || birthMonth > 12 ||
+      !Number.isInteger(birthYear) || age === null || age < 0 || age > 120) {
+    throw new HttpsError('invalid-argument', 'Valid birth month and year are required');
+  }
+  const divisionId = divisionForAge(age);
+  if (!divisionId) {
+    throw new HttpsError('invalid-argument', 'Age is outside the supported range');
+  }
+
+  const db = admin.firestore();
+  const userRef = db.collection('users').doc(uid);
+  const competitionRef = db.collection('quiz_competitions').doc(monthKey);
+  const entryRef = competitionRef.collection('students').doc(uid);
+  const auditRef = competitionRef.collection('age_declaration_history').doc();
+  await db.runTransaction(async (transaction) => {
+    const [profileSnapshot, competitionSnapshot, entrySnapshot] = await Promise.all([
+      transaction.get(userRef),
+      transaction.get(competitionRef),
+      transaction.get(entryRef),
+    ]);
+    const profile = profileSnapshot.data() || {};
+    const existingEntryDivision = normalizeDivisionId(entrySnapshot.data()?.division_id);
+    const existingProfileDivision = divisionForUser(profile, monthKey).id;
+    if (existingProfileDivision !== UNASSIGNED_DIVISION ||
+        (existingEntryDivision && existingEntryDivision !== UNASSIGNED_DIVISION)) {
+      throw new HttpsError(
+        'already-exists',
+        'Age information is already recorded; ask an administrator to correct it',
+      );
+    }
+    if (competitionSnapshot.data()?.status === 'finalized') {
+      throw new HttpsError('failed-precondition', 'This monthly competition is closed');
+    }
+    const timestamp = admin.firestore.FieldValue.serverTimestamp();
+    transaction.set(userRef, {
+      quiz_competition_birth_month: birthMonth,
+      quiz_competition_birth_year: birthYear,
+      quiz_competition_age_declared_at: timestamp,
+      quiz_competition_age_source: 'student_self_declaration',
+    }, {merge: true});
+    if (entrySnapshot.exists) {
+      transaction.set(entryRef, {
+        division_id: divisionId,
+        division_source: 'student_birth_month_year',
+        division_age_snapshot: age,
+        division_assigned_at: timestamp,
+      }, {merge: true});
+    }
+    transaction.create(auditRef, {
+      student_uid: uid,
+      month_key: monthKey,
+      division_id: divisionId,
+      age_at_month_start: age,
+      declared_at: timestamp,
+    });
+  });
+  return {monthKey, divisionId, age};
 });
 
 const tokenGroupsForStudents = (docs) => {
@@ -350,75 +962,58 @@ const onQuizQuestionApproved = onDocumentUpdated({
 }, async (event) => {
   const before = event.data?.before?.data() || {};
   const after = event.data?.after?.data() || {};
-  if (before.status === 'approved' || after.status !== 'approved' ||
-      after.students_notified_at) return null;
-
-  const users = await admin.firestore().collection('users')
-    .where('user_type', '==', 'student').get();
-  const groups = tokenGroupsForStudents(users.docs);
-  const category = String(after.category || 'quiz');
-  const messages = {
-    en: {
-      title: 'New quiz question available',
-      body: 'A new question was added. Play this month’s Bayannah challenge!',
-    },
-    fr: {
-      title: 'Nouvelle question de quiz',
-      body: 'Une nouvelle question a été ajoutée. Participe au défi Bayannah du mois !',
-    },
-  };
-
-  let successCount = 0;
-  let failureCount = 0;
-  for (const language of Object.keys(groups)) {
-    for (const tokens of chunksOf(groups[language])) {
-      if (tokens.length === 0) continue;
-      const response = await admin.messaging().sendEachForMulticast({
-        notification: messages[language],
-        data: {
-          type: 'quiz_question_added',
-          questionId: String(event.params.questionId),
-          category,
-        },
-        tokens,
-        android: {
-          priority: 'high',
-          notification: {sound: 'default', channelId: 'high_importance_channel'},
-        },
-        apns: {payload: {aps: {sound: 'default', badge: 1}}},
-      });
-      successCount += response.successCount;
-      failureCount += response.failureCount;
-    }
+  if (before.status !== 'approved' && after.status === 'approved' &&
+      !after.students_notified_at && !after.student_notification_pending_at) {
+    await event.data.after.ref.update({
+      student_notification_pending_at: admin.firestore.FieldValue.serverTimestamp(),
+    });
   }
-
-  await event.data.after.ref.update({
-    students_notified_at: admin.firestore.FieldValue.serverTimestamp(),
-    student_notification_success_count: successCount,
-    student_notification_failure_count: failureCount,
-  });
-  return {successCount, failureCount};
+  return null;
 });
 
 module.exports = {
   recordQuizCompetitionAnswer,
   getQuizCompetitionLeaderboard,
   finalizeQuizCompetition,
+  setQuizCompetitionWindow,
+  setQuizCompetitionDivision,
+  setOwnQuizCompetitionAge,
   onQuizQuestionApproved,
   __test__: {
     MINIMUM_QUESTIONS,
     MINIMUM_ACTIVE_DAYS,
+    MINIMUM_ACCURACY,
+    MINIMUM_ELIGIBLE_PARTICIPANTS,
+    REQUIRED_CATEGORY_IDS,
     TIME_ZONE,
+    DIVISIONS,
+    UNASSIGNED_DIVISION,
     monthKeyForDate,
     dateKeyForDate,
     parseMonthKey,
+    countingWindowForCompetition,
     displayNameForUser,
+    normalizeDivisionId,
+    divisionForAge,
+    ageAtMonthStart,
+    ageAtMonthStartFromMonthYear,
+    divisionForUser,
     resolveBundledAnswer,
     accuracyForEntry,
     activeDayCount,
+    normalizedRequiredCategoryIds,
+    requiredCategoryIdsForCompetition,
+    attemptedCategoryIds,
+    hasRequiredCategoryCoverage,
+    categoryInsightsForAnswers,
+    lifetimeWinsForCompetitions,
     isEligibleEntry,
+    compareScores,
+    sameScore,
     rankEntries,
     publicEntry,
+    timestampMillis,
+    engagementStatus,
     tokenGroupsForStudents,
     chunksOf,
   },

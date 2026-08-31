@@ -1,0 +1,13 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.1.2+cpu
+torchaudio==2.1.2+cpu
+s3prl==0.4.18
+huggingface_hub==0.16.4
+transformers==4.34.0
+numpy<2
+tensorboardX==2.6.2.2
+editdistance==0.8.1
+soundfile==0.12.1
+fastapi==0.111.0
+uvicorn[standard]==0.30.1
+pydantic==2.7.4

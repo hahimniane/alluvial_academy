@@ -303,6 +303,8 @@ const generateQuizQuestionsNow = onCall({
 module.exports = {
   generateQuizQuestionsWeekly,
   generateQuizQuestionsNow,
+  callGemini,
+  GEMINI_MODELS,
   __test__: {
     buildPrompt,
     parseGeminiQuestions,

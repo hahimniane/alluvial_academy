@@ -505,6 +505,13 @@ class _FormsListScreenState extends State<FormsListScreen> {
                             Text(AppLocalizations.of(context)!.commonEdit),
                           ],
                         )),
+                        const PopupMenuItem(value: 'audience', child: Row(
+                          children: [
+                            Icon(Icons.groups_outlined, size: 18),
+                            SizedBox(width: 8),
+                            Text('Who can see this'),
+                          ],
+                        )),
                         PopupMenuItem(value: 'duplicate', child: Row(
                           children: [
                             Icon(Icons.content_copy, size: 18),
@@ -587,6 +594,26 @@ class _FormsListScreenState extends State<FormsListScreen> {
                       ),
                     ],
                     const Spacer(),
+                    // Who the form is for, on the card, so a wrong audience is
+                    // visible without opening anything.
+                    Row(
+                      children: [
+                        Icon(Icons.groups_outlined, size: 14, color: Colors.grey.shade500),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            describeAudience(template.allowedRoles),
+                            style: GoogleFonts.inter(
+                              fontSize: 11,
+                              color: Colors.grey.shade600,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
                     Row(
                       children: [
                         Icon(Icons.help_outline, size: 14, color: Colors.grey.shade500),
@@ -900,6 +927,18 @@ class _FormsListScreenState extends State<FormsListScreen> {
     _showTemplateEditorDialog(templateId, template);
   }
   
+  /// Change who a published form is for, without republishing the form itself.
+  void _showAudienceDialog(String templateId, FormTemplate template) {
+    showDialog(
+      context: context,
+      builder: (context) => _AudienceEditorDialog(
+        templateId: templateId,
+        formName: template.name,
+        currentRoles: template.allowedRoles ?? const [],
+      ),
+    );
+  }
+
   void _showTemplateEditorDialog(String templateId, FormTemplate template) {
     showDialog(
       context: context,
@@ -977,6 +1016,10 @@ class _FormsListScreenState extends State<FormsListScreen> {
     switch (action) {
       case 'edit':
         _editTemplate(templateId, template);
+        break;
+
+      case 'audience':
+        _showAudienceDialog(templateId, template);
         break;
         
       case 'duplicate':
@@ -1120,6 +1163,174 @@ class _FormsListScreenState extends State<FormsListScreen> {
 }
 
 /// Dialog for editing form templates
+/// The five audiences a form can be aimed at. Keys match what the form filters
+/// read from `allowedRoles`, so a change here is what teachers actually see.
+const List<MapEntry<String, String>> kFormAudiences = [
+  MapEntry('teacher', 'Teachers'),
+  MapEntry('admin', 'Admins'),
+  MapEntry('coach', 'Coaches'),
+  MapEntry('student', 'Students'),
+  MapEntry('parent', 'Parents'),
+];
+
+String describeAudience(List<String>? roles) {
+  if (roles == null || roles.isEmpty) return 'No one';
+  final labels = <String>[];
+  for (final entry in kFormAudiences) {
+    if (roles.any((r) => r.trim().toLowerCase() == entry.key)) {
+      labels.add(entry.value);
+    }
+  }
+  if (labels.isEmpty) return roles.join(', ');
+  return labels.join(', ');
+}
+
+/// Changes only who a form is for. The questions, the responses already
+/// collected and the form's version are all left exactly as they are.
+class _AudienceEditorDialog extends StatefulWidget {
+  final String templateId;
+  final String formName;
+  final List<String> currentRoles;
+
+  const _AudienceEditorDialog({
+    required this.templateId,
+    required this.formName,
+    required this.currentRoles,
+  });
+
+  @override
+  State<_AudienceEditorDialog> createState() => _AudienceEditorDialogState();
+}
+
+class _AudienceEditorDialogState extends State<_AudienceEditorDialog> {
+  late Set<String> _selected;
+  bool _saving = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _selected = widget.currentRoles.map((r) => r.trim().toLowerCase()).toSet();
+  }
+
+  Future<void> _save() async {
+    // An empty audience hides the form from everyone, including the person who
+    // just edited it, so it is refused rather than silently retiring the form.
+    if (_selected.isEmpty) {
+      setState(() => _error = 'Pick at least one group, or deactivate the form instead.');
+      return;
+    }
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    try {
+      final roles = kFormAudiences
+          .map((e) => e.key)
+          .where(_selected.contains)
+          .toList();
+      await FirebaseFirestore.instance
+          .collection('form_templates')
+          .doc(widget.templateId)
+          .update({
+        'allowedRoles': roles,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('"${widget.formName}" is now for ${describeAudience(roles)}.'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _saving = false;
+        _error = 'Could not save the change. Check your connection and try again.';
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(
+        'Who can see this form',
+        style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w600),
+      ),
+      content: SizedBox(
+        width: 420,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              widget.formName,
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey.shade800,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Everyone you pick finds this form under Submit Form. Answers already collected are kept.',
+              style: GoogleFonts.inter(fontSize: 12, color: Colors.grey.shade600),
+            ),
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: kFormAudiences.map((entry) {
+                final on = _selected.contains(entry.key);
+                return FilterChip(
+                  label: Text(entry.value),
+                  selected: on,
+                  onSelected: _saving
+                      ? null
+                      : (value) => setState(() {
+                            if (value) {
+                              _selected.add(entry.key);
+                            } else {
+                              _selected.remove(entry.key);
+                            }
+                            _error = null;
+                          }),
+                );
+              }).toList(),
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: 12),
+              Text(
+                _error!,
+                style: GoogleFonts.inter(fontSize: 12, color: Colors.red.shade700),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _saving ? null : () => Navigator.of(context).pop(),
+          child: Text(AppLocalizations.of(context)!.commonCancel),
+        ),
+        ElevatedButton(
+          onPressed: _saving ? null : _save,
+          child: _saving
+              ? const SizedBox(
+                  height: 16,
+                  width: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                )
+              : const Text('Save'),
+        ),
+      ],
+    );
+  }
+}
+
 class _TemplateEditorDialog extends StatefulWidget {
   final String templateId;
   final FormTemplate template;

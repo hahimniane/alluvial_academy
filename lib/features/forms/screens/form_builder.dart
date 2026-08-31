@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:uuid/uuid.dart';
 import 'dart:async';
@@ -20,7 +22,20 @@ enum QuestionType {
   time,
   fileUpload,
   number,
+  // Display-only blocks: they show content, they never collect an answer.
+  sectionHeader,
+  imageBlock,
+  sectionBreak,
 }
+
+/// Blocks that present content instead of asking a question. They are saved
+/// like any other field (so ordering just works) but are never required and
+/// never produce an answer.
+const Set<QuestionType> kDisplayOnlyTypes = {
+  QuestionType.sectionHeader,
+  QuestionType.imageBlock,
+  QuestionType.sectionBreak,
+};
 
 extension QuestionTypeExtension on QuestionType {
   String get displayName {
@@ -35,6 +50,9 @@ extension QuestionTypeExtension on QuestionType {
       case QuestionType.time: return 'Time';
       case QuestionType.fileUpload: return 'File upload';
       case QuestionType.number: return 'Number';
+      case QuestionType.sectionHeader: return 'Title & text';
+      case QuestionType.imageBlock: return 'Image';
+      case QuestionType.sectionBreak: return 'Section';
     }
   }
   
@@ -50,6 +68,9 @@ extension QuestionTypeExtension on QuestionType {
       case QuestionType.time: return Icons.access_time;
       case QuestionType.fileUpload: return Icons.cloud_upload;
       case QuestionType.number: return Icons.pin;
+      case QuestionType.sectionHeader: return Icons.text_fields;
+      case QuestionType.imageBlock: return Icons.image_outlined;
+      case QuestionType.sectionBreak: return Icons.view_stream_outlined;
     }
   }
 
@@ -65,6 +86,9 @@ extension QuestionTypeExtension on QuestionType {
       case QuestionType.time: return 'time';
       case QuestionType.fileUpload: return 'file_upload';
       case QuestionType.number: return 'number';
+      case QuestionType.sectionHeader: return 'heading';
+      case QuestionType.imageBlock: return 'image';
+      case QuestionType.sectionBreak: return 'section';
     }
   }
   
@@ -80,6 +104,9 @@ extension QuestionTypeExtension on QuestionType {
       case 'time': return QuestionType.time;
       case 'file_upload': return QuestionType.fileUpload;
       case 'number': return QuestionType.number;
+      case 'heading': return QuestionType.sectionHeader;
+      case 'image': return QuestionType.imageBlock;
+      case 'section': return QuestionType.sectionBreak;
       default: return QuestionType.shortAnswer;
     }
   }
@@ -96,6 +123,8 @@ class FormQuestion {
   String scaleLabelMin;
   String scaleLabelMax;
   int order;
+  /// Body text for a title block, or the media URL for an image/video block.
+  String content;
 
   FormQuestion({
     required this.id,
@@ -107,6 +136,7 @@ class FormQuestion {
     this.scaleMax = 5,
     this.scaleLabelMin = '',
     this.scaleLabelMax = '',
+    this.content = '',
     this.order = 0,
   }) {
     if (options.isEmpty) {
@@ -158,6 +188,9 @@ class FormQuestion {
       scaleLabelMin: (data['scaleLabels']?['min'] as String?) ?? '',
       scaleLabelMax: (data['scaleLabels']?['max'] as String?) ?? '',
       order: data['order'] as int? ?? 0,
+      content: kDisplayOnlyTypes.contains(type)
+          ? (data['placeholder'] as String? ?? '')
+          : '',
     );
   }
 }
@@ -286,6 +319,10 @@ class _FormBuilderState extends State<FormBuilder> {
           scaleMin: fieldData['validation']?['min'] ?? 1,
           scaleMax: fieldData['validation']?['max'] ?? 5,
           order: fieldData['order'] ?? 0,
+          content: kDisplayOnlyTypes.contains(
+                  QuestionTypeExtension.fromFirestore(fieldData['type'] ?? 'text'))
+              ? (fieldData['placeholder'] as String? ?? '')
+              : '',
         );
       }).toList();
     } else {
@@ -723,26 +760,20 @@ class _FormBuilderState extends State<FormBuilder> {
           _SidebarItem(
             icon: Icons.text_fields,
             tooltip: AppLocalizations.of(context)!.addTitle,
-            onTap: () {},
+            onTap: () => _insertBlock(QuestionType.sectionHeader, 'Title'),
             color: Colors.grey[700]!,
           ),
           _SidebarItem(
             icon: Icons.image_outlined,
             tooltip: AppLocalizations.of(context)!.addImage,
-            onTap: () {},
-            color: Colors.grey[700]!,
-          ),
-          _SidebarItem(
-            icon: Icons.smart_display_outlined,
-            tooltip: AppLocalizations.of(context)!.addVideo,
-            onTap: () {},
+            onTap: () => _insertBlock(QuestionType.imageBlock, 'Image'),
             color: Colors.grey[700]!,
           ),
           const Divider(height: 1, indent: 10, endIndent: 10),
           _SidebarItem(
             icon: Icons.view_stream_outlined,
             tooltip: AppLocalizations.of(context)!.addSection,
-            onTap: () {},
+            onTap: () => _insertBlock(QuestionType.sectionBreak, 'Section'),
             color: Colors.grey[700]!,
           ),
         ],
@@ -752,12 +783,18 @@ class _FormBuilderState extends State<FormBuilder> {
 
   // --- ACTIONS ---
 
-  void _addQuestion() {
+  void _addQuestion() => _insertBlock(
+        QuestionType.shortAnswer,
+        AppLocalizations.of(context)!.formsListNewquestion,
+      );
+
+  /// Insert any block (question or display block) below the focused one.
+  void _insertBlock(QuestionType type, String title) {
               setState(() {
       final newQ = FormQuestion(
         id: const Uuid().v4(),
-        type: QuestionType.shortAnswer,
-        title: AppLocalizations.of(context)!.formsListNewquestion,
+        type: type,
+        title: title,
         required: false,
       );
       if (_focusedQuestionIndex != null) {
@@ -833,17 +870,20 @@ class _FormBuilderState extends State<FormBuilder> {
           validation = {'min': q.scaleMin, 'max': q.scaleMax};
         }
         
+        final isDisplayBlock = kDisplayOnlyTypes.contains(q.type);
         fieldsList.add(FormFieldDefinition(
           id: q.id,
           label: q.title,
           type: typeString,
-          required: q.required,
+          // A block that shows content can never be a required answer.
+          required: isDisplayBlock ? false : q.required,
           order: i + 1, // 1-based order
           options: (q.type == QuestionType.multipleChoice || 
                    q.type == QuestionType.checkboxes || 
                    q.type == QuestionType.dropdown) ? q.options : null,
           validation: validation,
-          placeholder: q.title, // Use label as placeholder for now
+          // Display blocks carry their body text / media URL here.
+          placeholder: isDisplayBlock ? q.content : q.title,
         ));
       }
 
@@ -996,6 +1036,9 @@ class _QuestionCard extends StatefulWidget {
 
 class _QuestionCardState extends State<_QuestionCard> {
   late TextEditingController _titleController;
+  bool _uploading = false;
+  double _uploadProgress = 0;
+  String? _uploadError;
   
   @override
   void initState() {
@@ -1171,7 +1214,12 @@ class _QuestionCardState extends State<_QuestionCard> {
                     value: widget.question.type,
                     isExpanded: true,
                     icon: const Icon(Icons.arrow_drop_down),
-                    items: QuestionType.values.map((type) => DropdownMenuItem(
+                    items: (kDisplayOnlyTypes.contains(widget.question.type)
+                            ? kDisplayOnlyTypes.toList()
+                            : QuestionType.values
+                                .where((t) => !kDisplayOnlyTypes.contains(t))
+                                .toList())
+                        .map((type) => DropdownMenuItem(
                       value: type,
                       child: Row(
                 children: [
@@ -1228,15 +1276,17 @@ class _QuestionCardState extends State<_QuestionCard> {
               color: Colors.grey.shade300,
               margin: const EdgeInsets.symmetric(horizontal: 8),
             ),
-            Text(AppLocalizations.of(context)!.commonRequired, style: TextStyle(fontSize: 13)),
-            Switch(
-              value: widget.question.required,
-              activeColor: widget.themeColor,
-              onChanged: (v) => setState(() {
-                widget.question.required = v;
-                widget.onChanged();
-              }),
-            ),
+            if (!kDisplayOnlyTypes.contains(widget.question.type)) ...[
+              Text(AppLocalizations.of(context)!.commonRequired, style: TextStyle(fontSize: 13)),
+              Switch(
+                value: widget.question.required,
+                activeColor: widget.themeColor,
+                onChanged: (v) => setState(() {
+                  widget.question.required = v;
+                  widget.onChanged();
+                }),
+              ),
+            ],
             const SizedBox(width: 8),
             const Icon(Icons.more_vert, color: Colors.grey),
                     ],
@@ -1264,6 +1314,228 @@ class _QuestionCardState extends State<_QuestionCard> {
           padding: const EdgeInsets.only(top: 8.0),
           child: _buildInputPreview(isEditing: true),
         );
+      case QuestionType.sectionHeader:
+      case QuestionType.sectionBreak:
+        return _buildBlockContentEditor(
+          hint: 'Text shown under the title (optional)',
+          maxLines: 3,
+        );
+      case QuestionType.imageBlock:
+        return _buildImageBlockEditor();
+    }
+  }
+
+  /// Editor for a display block: body text for a title/section, a link for
+  /// image and video. Nothing here is answered by the person filling the form.
+  Widget _buildBlockContentEditor({required String hint, int maxLines = 1}) {
+    final controller = TextEditingController(text: widget.question.content);
+    controller.selection =
+        TextSelection.collapsed(offset: controller.text.length);
+    return Padding(
+      padding: const EdgeInsets.only(top: 8.0),
+      child: TextField(
+        controller: controller,
+        maxLines: maxLines,
+        decoration: InputDecoration(
+          hintText: hint,
+          hintStyle: GoogleFonts.roboto(color: Colors.grey.shade400),
+          border: const UnderlineInputBorder(),
+        ),
+        style: GoogleFonts.roboto(fontSize: 14),
+        onChanged: (v) {
+          widget.question.content = v;
+          widget.onChanged();
+        },
+      ),
+    );
+  }
+
+  /// Image block editor: the picture is uploaded from the admin's computer to
+  /// Firebase Storage, and the resulting download URL is what the form stores.
+  Widget _buildImageBlockEditor() {
+    final url = widget.question.content;
+    return Padding(
+      padding: const EdgeInsets.only(top: 8.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (_uploading) ...[
+            LinearProgressIndicator(
+              value: _uploadProgress == 0 ? null : _uploadProgress,
+              backgroundColor: Colors.grey.shade200,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Uploading… ${(_uploadProgress * 100).round()}%',
+              style: GoogleFonts.roboto(fontSize: 12, color: Colors.grey.shade600),
+            ),
+          ] else if (url.isEmpty) ...[
+            InkWell(
+              onTap: _pickAndUploadImage,
+              borderRadius: BorderRadius.circular(4),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 28),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey.shade300),
+                  borderRadius: BorderRadius.circular(4),
+                  color: Colors.grey.shade50,
+                ),
+                child: Column(
+                  children: [
+                    Icon(Icons.add_photo_alternate_outlined,
+                        color: Colors.grey.shade500, size: 28),
+                    const SizedBox(height: 8),
+                    Text('Upload an image',
+                        style: GoogleFonts.roboto(
+                            fontSize: 14, color: Colors.grey.shade700)),
+                    const SizedBox(height: 2),
+                    Text('PNG, JPG or GIF, up to 10 MB',
+                        style: GoogleFonts.roboto(
+                            fontSize: 12, color: Colors.grey.shade500)),
+                  ],
+                ),
+              ),
+            ),
+          ] else ...[
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: Image.network(
+                url,
+                height: 200,
+                fit: BoxFit.contain,
+                alignment: Alignment.centerLeft,
+                errorBuilder: (_, __, ___) => Container(
+                  height: 80,
+                  alignment: Alignment.centerLeft,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  color: Colors.grey.shade100,
+                  child: Text('This image could not be loaded.',
+                      style: GoogleFonts.roboto(
+                          fontSize: 13, color: Colors.grey.shade600)),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                TextButton.icon(
+                  onPressed: _pickAndUploadImage,
+                  icon: const Icon(Icons.swap_horiz, size: 18),
+                  label: const Text('Replace'),
+                ),
+                TextButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      widget.question.content = '';
+                      _uploadError = null;
+                    });
+                    widget.onChanged();
+                  },
+                  icon: const Icon(Icons.close, size: 18),
+                  label: const Text('Remove'),
+                  style: TextButton.styleFrom(foregroundColor: Colors.red.shade700),
+                ),
+              ],
+            ),
+          ],
+          if (_uploadError != null) ...[
+            const SizedBox(height: 6),
+            Text(_uploadError!,
+                style: GoogleFonts.roboto(fontSize: 12, color: Colors.red.shade700)),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Future<void> _pickAndUploadImage() async {
+    setState(() => _uploadError = null);
+    FilePickerResult? result;
+    try {
+      result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        allowMultiple: false,
+        withData: true,
+      );
+    } catch (e) {
+      setState(() => _uploadError = 'Could not open the file picker.');
+      return;
+    }
+    if (result == null || result.files.isEmpty) return;
+    final file = result.files.first;
+    final bytes = file.bytes;
+    if (bytes == null) {
+      setState(() => _uploadError = 'That file could not be read.');
+      return;
+    }
+    // Storage rules cap uploads at 10 MB; reject here so the failure is
+    // explained rather than surfacing as a permission error.
+    if (bytes.length > 10 * 1024 * 1024) {
+      setState(() => _uploadError = 'That image is larger than 10 MB. Pick a smaller one.');
+      return;
+    }
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      setState(() => _uploadError = 'Sign in again to upload an image.');
+      return;
+    }
+
+    setState(() {
+      _uploading = true;
+      _uploadProgress = 0;
+    });
+    try {
+      final safeName = file.name.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
+      final ref = FirebaseStorage.instance
+          .ref()
+          .child('form_images')
+          .child(user.uid)
+          .child('${DateTime.now().millisecondsSinceEpoch}_$safeName');
+      final task = ref.putData(
+        bytes,
+        SettableMetadata(
+          contentType: _imageContentType(safeName),
+          customMetadata: {'uploadedBy': user.uid, 'usage': 'form_builder_image_block'},
+        ),
+      );
+      final sub = task.snapshotEvents.listen((snapshot) {
+        if (!mounted || snapshot.totalBytes == 0) return;
+        setState(() => _uploadProgress = snapshot.bytesTransferred / snapshot.totalBytes);
+      });
+      final snapshot = await task;
+      await sub.cancel();
+      final url = await snapshot.ref.getDownloadURL();
+      if (!mounted) return;
+      setState(() {
+        widget.question.content = url;
+        _uploading = false;
+        _uploadProgress = 0;
+      });
+      widget.onChanged();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _uploading = false;
+        _uploadProgress = 0;
+        _uploadError = 'The image could not be uploaded. Check your connection and try again.';
+      });
+    }
+  }
+
+  String _imageContentType(String fileName) {
+    final ext = fileName.toLowerCase().split('.').last;
+    switch (ext) {
+      case 'png':
+        return 'image/png';
+      case 'gif':
+        return 'image/gif';
+      case 'webp':
+        return 'image/webp';
+      case 'heic':
+        return 'image/heic';
+      default:
+        return 'image/jpeg';
     }
   }
 
@@ -1547,6 +1819,20 @@ class _QuestionCardState extends State<_QuestionCard> {
             Text(AppLocalizations.of(context)!.timePicker, style: GoogleFonts.roboto(color: Colors.grey.shade400)),
           ],
         );
+      case QuestionType.sectionHeader:
+      case QuestionType.sectionBreak:
+        return Text(
+          widget.question.content.isEmpty
+              ? 'Text shown under the title'
+              : widget.question.content,
+          style: GoogleFonts.roboto(
+            color: widget.question.content.isEmpty
+                ? Colors.grey.shade400
+                : Colors.grey.shade700,
+          ),
+        );
+      case QuestionType.imageBlock:
+        return _buildImageBlockEditor();
       case QuestionType.fileUpload:
     return Container(
           padding: const EdgeInsets.all(16),

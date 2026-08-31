@@ -207,9 +207,15 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
           displayCategory = FormCategory.teaching;
         }
 
-        // Check role access - strict filtering for teachers
-        if (!widget.parentOnly && _userRole != null) {
-          final userRoleLower = _normalizeRoleName(_userRole!);
+        // Check role access - strict filtering for teachers.
+        // SECURITY: this must FAIL CLOSED. A missing user_type (or a failed
+        // role lookup) makes getCurrentUserRole return null, and this used to
+        // skip filtering entirely — showing admin-only forms to everyone.
+        // An unknown role is now treated as the least privileged one, so a
+        // form is only shown when it explicitly allows that role.
+        if (!widget.parentOnly) {
+          final userRoleLower =
+              _userRole == null ? '__unknown__' : _normalizeRoleName(_userRole!);
 
           // Admins and coaches can see all forms
           if (userRoleLower == 'admin' || userRoleLower == 'coach') {

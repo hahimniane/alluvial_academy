@@ -69,6 +69,25 @@ describe('attendance analytics helpers', () => {
     expect(overlapSeconds).toBe(30 * 60);
   });
 
+  test('computeStudentAttendanceReport excludes classes that have not ended yet', () => {
+    const periodStart = new Date('2026-02-23T00:00:00.000Z');
+    const periodEnd = new Date('2026-03-02T00:00:00.000Z');
+    const now = new Date('2026-02-25T09:00:00.000Z'); // after shift_1, before shift_2
+    const shifts = [
+      { id: 'past_shift', teacherId: 't1', studentIds: ['s1'], shiftStart: new Date('2026-02-24T10:00:00.000Z'), shiftEnd: new Date('2026-02-24T11:00:00.000Z'), status: 'scheduled', subjectName: 'Quran' },
+      { id: 'future_shift', teacherId: 't1', studentIds: ['s1'], shiftStart: new Date('2026-02-26T10:00:00.000Z'), shiftEnd: new Date('2026-02-26T11:00:00.000Z'), status: 'scheduled', subjectName: 'Quran' },
+    ];
+    const report = __test__.computeStudentAttendanceReport({
+      studentId: 's1', periodType: 'weekly', periodStart, periodEnd,
+      shifts, participantMetricsByShift: new Map([['past_shift', new Map()], ['future_shift', new Map()]]),
+      now, lateGraceMinutes: 5,
+    });
+    // Only the ended class counts; the future one is neither scheduled nor listed.
+    expect(report.metrics.scheduled_classes).toBe(1);
+    expect(report.metrics.absent_classes).toBe(1);
+    expect(report.shift_breakdown.map((b) => b.shift_id)).toEqual(['past_shift']);
+  });
+
   test('computeStudentAttendanceReport tracks late, absent, and teacher-absent classes', () => {
     const periodStart = new Date('2026-02-23T00:00:00.000Z');
     const periodEnd = new Date('2026-03-02T00:00:00.000Z');

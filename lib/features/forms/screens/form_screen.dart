@@ -2084,6 +2084,10 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
     List<String>? options,
   }) {
     final bool isFocused = _focusedFieldKey == fieldKey;
+    // Display blocks carry their own heading; the question label above them
+    // would just repeat it (or caption a picture with the word "Image").
+    final bool isDisplayBlock =
+        type == 'heading' || type == 'section' || type == 'image';
     final localizedLabel = FormLocalization.translate(context, label);
     final localizedHint = FormLocalization.translate(context, hintText);
     final localizedOptions = options
@@ -2133,25 +2137,27 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       // Question Label
-                      RichText(
-                        text: TextSpan(
-                          text: localizedLabel,
-                          style: GoogleFonts.inter(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.black87,
+                      if (!isDisplayBlock) ...[
+                        RichText(
+                          text: TextSpan(
+                            text: localizedLabel,
+                            style: GoogleFonts.inter(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.black87,
+                            ),
+                            children: [
+                              if (required)
+                                TextSpan(
+                                  text:
+                                      ' ${AppLocalizations.of(context)!.commonRequired}',
+                                  style: TextStyle(color: Colors.red),
+                                ),
+                            ],
                           ),
-                          children: [
-                            if (required)
-                              TextSpan(
-                                text:
-                                    ' ${AppLocalizations.of(context)!.commonRequired}',
-                                style: TextStyle(color: Colors.red),
-                              ),
-                          ],
                         ),
-                      ),
-                      const SizedBox(height: 16),
+                        const SizedBox(height: 16),
+                      ],
 
                       // Render specific input based on type
                       _renderInputByType(
@@ -2201,6 +2207,10 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
         label,
         fieldKey,
       );
+    } else if (type == 'heading' || type == 'section' || type == 'image') {
+      // Display blocks from the form builder: they present content and never
+      // collect an answer, so they render as content, not as inputs.
+      return _buildDisplayBlock(type, label, hintText);
     } else if (type == 'multiline' ||
         type == 'long_text' ||
         type == 'description') {
@@ -4394,6 +4404,74 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
     return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
   }
 
+  /// Title, section and image blocks added in the form builder. The body text
+  /// or the uploaded image's URL travels in `placeholder`.
+  Widget _buildDisplayBlock(String type, String label, String? content) {
+    final body = (content ?? '').trim();
+    if (type == 'image') {
+      if (body.isEmpty) return const SizedBox.shrink();
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (label.trim().isNotEmpty && label.trim() != 'Image')
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(
+                  label,
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 420),
+                  child: Image.network(
+                    body,
+                    fit: BoxFit.contain,
+                    alignment: Alignment.centerLeft,
+                    loadingBuilder: (context, child, progress) => progress == null
+                        ? child
+                        : const SizedBox(
+                            height: 120,
+                            child: Center(
+                              child: SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                            ),
+                          ),
+                    errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      );
+    }
+    // heading / section
+    return Padding(
+      padding: EdgeInsets.only(top: type == 'section' ? 24 : 16, bottom: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (type == 'section') const Divider(height: 1),
+          if (type == 'section') const SizedBox(height: 16),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+          ),
+          if (body.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(body, style: TextStyle(fontSize: 14, color: Colors.grey.shade700)),
+          ],
+        ],
+      ),
+    );
+  }
+
   TextInputType _getKeyboardType(String type) {
     switch (type) {
       case 'email':
@@ -4504,10 +4582,23 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
       AppLogger.debug('Field controllers: ${fieldControllers.keys.toList()}');
       AppLogger.debug('Field values: ${fieldValues.keys.toList()}');
 
+      // Display blocks (title / section / image / video) present content and
+      // are never answered, so they must not appear as blank responses.
+      final runtimeFields =
+          (selectedFormData?['fields'] as Map<String, dynamic>?) ?? const {};
+      final displayOnlyFieldIds = <String>{
+        for (final e in runtimeFields.entries)
+          if (const {'heading', 'section', 'image', 'video'}
+              .contains((e.value as Map)['type']?.toString()))
+            e.key,
+      };
+
       // Process each field and upload images to Firebase Storage
       for (var entry in fieldControllers.entries) {
         final fieldId = entry.key;
         final controller = entry.value;
+
+        if (displayOnlyFieldIds.contains(fieldId)) continue;
 
         AppLogger.debug('Processing field: $fieldId');
 
