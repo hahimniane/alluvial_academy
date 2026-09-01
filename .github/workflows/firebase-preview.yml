@@ -45,6 +45,12 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
+          # Pinned to the version we actually build and ship with. Leaving this
+          # on bare `stable` meant CI silently drifted to Flutter 3.47/Dart 3.13
+          # while releases were built on 3.44/Dart 3.12 — the newer analyser
+          # rejects livekit_client 2.8.0, so CI failed on code nobody had
+          # touched. Bump this deliberately, together with a local build.
+          flutter-version: '3.44.2'
           channel: stable
           cache: true
 
