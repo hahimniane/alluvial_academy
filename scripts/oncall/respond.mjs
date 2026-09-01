@@ -21,12 +21,15 @@ import admin from 'firebase-admin';
 import { askModel } from './model.mjs';
 import {
   GuardrailError,
+  HEARTBEAT_STALE_MS,
   assertActionAllowed,
   isHubInWindow,
+  isHubUnhealthy,
   occupantsInHub,
   parseProposedAction,
   silenceMs,
   toMs,
+  unhealthyHubIds,
 } from './actions.mjs';
 
 const execFileAsync = promisify(execFile);
@@ -68,6 +71,9 @@ async function gatherEvidence(db, now) {
       lane: data.lane ?? null,
       status: data.status || data.bot_status || null,
       secondsSinceHeartbeat: silent === null ? null : Math.round(silent / 1000),
+      // Decided here, not by the model. It reads this field and does not get to
+      // form its own opinion from the seconds above.
+      healthy: !isHubUnhealthy(data, now),
       occupants: occupantsInHub(data),
       roomCount: data.room_count ?? null,
       botUnavailable: data.bot_unavailable === true,
@@ -115,12 +121,7 @@ async function gatherEvidence(db, now) {
  * This keeps the model out of the loop (and the bill at zero) on quiet runs.
  */
 function needsAttention({ hubSummaries, alerts }) {
-  const unhealthyHub = hubSummaries.some((hub) =>
-    hub.botUnavailable ||
-    hub.secondsSinceHeartbeat === null ||
-    hub.secondsSinceHeartbeat > 240 ||
-    (hub.status && hub.status !== 'roomsOpen'));
-  return unhealthyHub || alerts.length > 0;
+  return hubSummaries.some((hub) => !hub.healthy) || alerts.length > 0;
 }
 
 const SYSTEM_PROMPT = `You are the on-call engineer for Alluwal Education Hub's Zoom classroom system.
@@ -137,6 +138,12 @@ teachers but need opposite responses:
    "Your class is reconnecting". Fix: force the bot to rejoin, and if that has
    already been tried and failed, restart that lane.
 
+   You do NOT decide whether a hub is healthy. Each hub carries a "healthy"
+   field that has already been computed for you. A hub with healthy=true is
+   working — never propose an action for it, whatever its heartbeat number
+   looks like. secondsSinceHeartbeat is context only: a bot reports constantly,
+   so values of a few seconds or tens of seconds are entirely normal.
+
 2. SPARE STARVATION — the bots are healthy but the hub has run out of rooms,
    so late-added classes cannot be placed. Teachers get HTTP 429 "This Zoom hub
    is full". Restarting a bot does NOT help and would eject live classes. This
@@ -148,6 +155,9 @@ You may propose exactly ONE action, from this list and nothing else:
   {"kind":"restart_bot_lane","lane":1|2}
 
 Rules you must follow:
+- Only ever propose an action for a hub whose "healthy" field is false. If every
+  hub is healthy, the answer is report_only, even when alerts are open — an open
+  alert about an event that already resolved itself is not a fault.
 - Prefer the least disruptive action that could work. force_rejoin_hub before
   restart_bot_lane, always.
 - Never propose restart_bot_lane if any hub on that lane reports occupants > 0.
