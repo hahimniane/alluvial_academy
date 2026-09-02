@@ -2193,6 +2193,7 @@ describe('Zoom handler', () => {
       role: 'admin',
       email: 'admin@example.com',
       fcmToken: 'admin_token',
+      zoom_oncall: true,
     });
     addHubLoadShifts({
       count: 43,
@@ -2234,19 +2235,17 @@ describe('Zoom handler', () => {
     expect(updatedShift.zoom_hub_lane_index).toBe(1);
     expect(updatedShift.zoom_hub_overflow_from_lane).toBe(0);
     expect(stores.hub_meetings.get(result.hubMeetingId).hostAccount).toBe('host-two@example.com');
+    // The class was placed successfully on the other lane: this is the system
+    // working, so it is recorded for the audit trail and nobody is paged.
     expect(stores.system_alerts.get('zz_overflow_target_spilled_to_lane_2')).toEqual(
       expect.objectContaining({
         reason: 'spilled_to_other_lane',
         severity: 'warning',
+        notification_suppressed: true,
       }),
     );
-    expect(mockSendMail).toHaveBeenCalledWith(expect.objectContaining({
-      to: 'admin@example.com',
-      subject: 'Zoom hub class moved to another lane',
-    }));
-    expect(mockSendEachForMulticast).toHaveBeenCalledWith(expect.objectContaining({
-      tokens: ['admin_token'],
-    }));
+    expect(mockSendMail).not.toHaveBeenCalled();
+    expect(mockSendEachForMulticast).not.toHaveBeenCalled();
   });
 
   test('scheduler proactively prepares overflow classes on the alternate lane', async () => {
@@ -2541,6 +2540,7 @@ describe('Zoom handler', () => {
       role: 'admin',
       email: 'admin@example.com',
       fcmToken: 'admin_token',
+      zoom_oncall: true,
     });
     addHubLoadShifts({
       count: 43,
@@ -2992,12 +2992,13 @@ describe('Zoom handler', () => {
     });
   });
 
-  test('bot watcher alerts admins when a live hub heartbeat is stale', async () => {
+  test('a first stale heartbeat is recorded and recovered, not escalated to a person', async () => {
     const now = Date.now();
     stores.users.set('admin_1', {
       role: 'admin',
       email: 'admin@example.com',
       fcmToken: 'admin_token',
+      zoom_oncall: true,
     });
     stores.hub_meetings.set('stale_hub', {
       lane: 2,
@@ -3011,10 +3012,13 @@ describe('Zoom handler', () => {
 
     await zoomHandlers.watchZoomHubBots();
 
+    // The watcher is already trying to bring this bot back, so the alert is
+    // recorded for the responder and nobody is woken up. Only
+    // bot_unavailable_after_recovery escalates to a person.
     expect(stores.system_alerts.get('stale_hub_heartbeat_stale')).toEqual(
       expect.objectContaining({
         type: 'zoom_hub',
-        severity: 'critical',
+        notification_suppressed: true,
         reason: 'heartbeat_stale',
         title: 'Critical Zoom hub bot heartbeat is stale',
         data: expect.objectContaining({
@@ -3025,13 +3029,8 @@ describe('Zoom handler', () => {
         }),
       }),
     );
-    expect(mockSendMail).toHaveBeenCalledWith(expect.objectContaining({
-      to: 'admin@example.com',
-      subject: 'Critical Zoom hub bot heartbeat is stale',
-    }));
-    expect(mockSendEachForMulticast).toHaveBeenCalledWith(expect.objectContaining({
-      tokens: ['admin_token'],
-    }));
+    expect(mockSendMail).not.toHaveBeenCalled();
+    expect(mockSendEachForMulticast).not.toHaveBeenCalled();
   });
 
   test('bot watcher auto-resolves recovered hub alerts', async () => {
@@ -3206,6 +3205,168 @@ describe('Zoom handler', () => {
     expect(mockZoomClient.endMeeting).not.toHaveBeenCalled();
   });
 
+  test('a superseded hub with people inside keeps its 15-minute grace', async () => {
+    const now = Date.now();
+    mockZoomClient.endMeeting.mockClear();
+    // Older block on lane 1, its last class ended 2 minutes ago, 4 people still
+    // in rooms. A newer block on the same lane is live and wants the account.
+    stores.hub_meetings.set('older_block', {
+      lane: 1, blockIndex: 1,
+      status: 'roomsOpen', bot_status: 'roomsOpen',
+      meetingNumber: 'older_meeting',
+      window_start: makeTimestamp(new Date(now - 3 * 60 * 60 * 1000)),
+      // window_end is (last class end + 15 min); the class ended 2 min ago.
+      window_end: makeTimestamp(new Date(now + 13 * 60 * 1000)),
+      heartbeat_at: makeTimestamp(new Date(now - 10 * 1000)),
+      stats: { inRoomOccupants: 4, liveRoomCount: 5, targetMemberCount: 4 },
+    });
+    stores.hub_meetings.set('newer_block', {
+      lane: 1, blockIndex: 3,
+      status: 'roomsOpen', bot_status: 'roomsOpen',
+      meetingNumber: 'newer_meeting',
+      window_start: makeTimestamp(new Date(now - 5 * 60 * 1000)),
+      window_end: makeTimestamp(new Date(now + 60 * 60 * 1000)),
+      heartbeat_at: makeTimestamp(new Date(now - 10 * 1000)),
+      stats: { inRoomOccupants: 0, liveRoomCount: 3, targetMemberCount: 0 },
+    });
+
+    await zoomHandlers.watchZoomHubBots();
+
+    // The old meeting must survive: those 4 people are mid-class.
+    expect(mockZoomClient.endMeeting).not.toHaveBeenCalledWith('older_meeting');
+  });
+
+  test('a superseded hub that is provably empty releases the account early', async () => {
+    const now = Date.now();
+    mockZoomClient.endMeeting.mockClear();
+    stores.hub_meetings.set('empty_older_block', {
+      lane: 2, blockIndex: 1,
+      status: 'roomsOpen', bot_status: 'roomsOpen',
+      meetingNumber: 'empty_older_meeting',
+      window_start: makeTimestamp(new Date(now - 3 * 60 * 60 * 1000)),
+      window_end: makeTimestamp(new Date(now + 13 * 60 * 1000)),
+      heartbeat_at: makeTimestamp(new Date(now - 10 * 1000)),
+      stats: { inRoomOccupants: 0, liveRoomCount: 5, targetMemberCount: 0 },
+    });
+    stores.hub_meetings.set('newer_block_2', {
+      lane: 2, blockIndex: 3,
+      status: 'roomsOpen', bot_status: 'roomsOpen',
+      meetingNumber: 'newer_meeting_2',
+      window_start: makeTimestamp(new Date(now - 5 * 60 * 1000)),
+      window_end: makeTimestamp(new Date(now + 60 * 60 * 1000)),
+      heartbeat_at: makeTimestamp(new Date(now - 10 * 1000)),
+      stats: { inRoomOccupants: 0, liveRoomCount: 3, targetMemberCount: 0 },
+    });
+
+    await zoomHandlers.watchZoomHubBots();
+
+    expect(mockZoomClient.endMeeting).toHaveBeenCalledWith('empty_older_meeting');
+  });
+
+  test('a superseded hub that reports no occupancy at all is left alone', async () => {
+    const now = Date.now();
+    mockZoomClient.endMeeting.mockClear();
+    stores.hub_meetings.set('silent_older_block', {
+      lane: 1, blockIndex: 1,
+      status: 'roomsOpen', bot_status: 'roomsOpen',
+      meetingNumber: 'silent_older_meeting',
+      window_start: makeTimestamp(new Date(now - 3 * 60 * 60 * 1000)),
+      window_end: makeTimestamp(new Date(now + 13 * 60 * 1000)),
+      heartbeat_at: makeTimestamp(new Date(now - 10 * 1000)),
+      stats: { liveRoomCount: 5 },   // no inRoomOccupants at all
+    });
+    stores.hub_meetings.set('newer_block_3', {
+      lane: 1, blockIndex: 3,
+      status: 'roomsOpen', bot_status: 'roomsOpen',
+      meetingNumber: 'newer_meeting_3',
+      window_start: makeTimestamp(new Date(now - 5 * 60 * 1000)),
+      window_end: makeTimestamp(new Date(now + 60 * 60 * 1000)),
+      heartbeat_at: makeTimestamp(new Date(now - 10 * 1000)),
+      stats: { inRoomOccupants: 0 },
+    });
+
+    await zoomHandlers.watchZoomHubBots();
+
+    expect(mockZoomClient.endMeeting).not.toHaveBeenCalledWith('silent_older_meeting');
+  });
+
+  test('at the 15-minute limit everyone is removed, even mid-class', async () => {
+    const now = Date.now();
+    mockZoomClient.endMeeting.mockClear();
+    stores.hub_meetings.set('overrun_block', {
+      lane: 1, blockIndex: 1,
+      status: 'roomsOpen', bot_status: 'roomsOpen',
+      meetingNumber: 'overrun_meeting',
+      window_start: makeTimestamp(new Date(now - 3 * 60 * 60 * 1000)),
+      window_end: makeTimestamp(new Date(now - 60 * 1000)),   // grace expired a minute ago
+      heartbeat_at: makeTimestamp(new Date(now - 10 * 1000)),
+      stats: { inRoomOccupants: 3 },
+    });
+
+    await zoomHandlers.watchZoomHubBots();
+
+    expect(mockZoomClient.endMeeting).toHaveBeenCalledWith('overrun_meeting');
+  });
+
+  test('routine self-healing alerts are recorded but page nobody', async () => {
+    const now = Date.now();
+    mockSendMail.mockClear();
+    mockSendEachForMulticast.mockClear();
+    stores.users.set('oncall_person', {
+      user_type: 'admin',
+      'e-mail': 'oncall@example.com',
+      zoom_oncall: true,
+      fcmTokens: [{ token: 'oncall_token', platform: 'ios' }],
+    });
+
+    await zoomHandlers.__test__._sendZoomHubAdminAlert({
+      alertId: 'routine_handoff',
+      reason: 'stale_hub_handoff',
+      title: 'Zoom class moved to a healthy hub',
+      body: 'Handled automatically.',
+      severity: 'warning',
+    });
+
+    expect(mockSendMail).not.toHaveBeenCalled();
+    expect(mockSendEachForMulticast).not.toHaveBeenCalled();
+    // Still recorded, so the on-call responder and the audit trail see it.
+    expect(stores.system_alerts.get('routine_handoff')).toEqual(
+      expect.objectContaining({
+        reason: 'stale_hub_handoff',
+        notification_suppressed: true,
+      }),
+    );
+  });
+
+  test('a fault automation cannot fix does page the on-call person', async () => {
+    mockSendMail.mockClear();
+    mockSendEachForMulticast.mockClear();
+    stores.users.set('oncall_person', {
+      user_type: 'admin',
+      'e-mail': 'oncall@example.com',
+      zoom_oncall: true,
+      fcmTokens: [{ token: 'oncall_token', platform: 'ios' }],
+    });
+    // An admin who is NOT on call must not be contacted.
+    stores.users.set('other_admin', {
+      user_type: 'admin',
+      'e-mail': 'other@example.com',
+      fcmTokens: [{ token: 'other_token', platform: 'android' }],
+    });
+
+    await zoomHandlers.__test__._sendZoomHubAdminAlert({
+      alertId: 'no_room_for_class',
+      reason: 'spares_exhausted',
+      title: 'Zoom hub is full',
+      body: 'A class could not be placed.',
+    });
+
+    expect(mockSendEachForMulticast).toHaveBeenCalled();
+    const tokens = mockSendEachForMulticast.mock.calls[0][0].tokens;
+    expect(tokens).toContain('oncall_token');
+    expect(tokens).not.toContain('other_token');
+  });
+
   test('a dead email channel no longer blocks the admin push notification', async () => {
     const now = Date.now();
     mockSendMail.mockClear();
@@ -3219,16 +3380,20 @@ describe('Zoom handler', () => {
     stores.users.set('alert_admin', {
       user_type: 'admin',
       'e-mail': 'admin@example.com',
+      zoom_oncall: true,
       fcmTokens: [{ token: 'admin_device_token', platform: 'ios' }],
     });
     stores.hub_meetings.set('alert_channel_hub', {
       lane: 1,
-      status: 'left',
-      bot_status: 'left',
+      status: 'roomsOpen',
+      bot_status: 'roomsOpen',
+      bot_unavailable: true,
+      bot_stale_since: makeTimestamp(new Date(now - 30 * 60 * 1000)),
       meetingNumber: 'alert_channel_meeting',
       window_start: makeTimestamp(new Date(now - 5 * 60 * 1000)),
       window_end: makeTimestamp(new Date(now + 55 * 60 * 1000)),
-      heartbeat_at: makeTimestamp(new Date(now - 10 * 1000)),
+      heartbeat_at: makeTimestamp(new Date(now - 40 * 60 * 1000)),
+      force_rejoin_at: makeTimestamp(new Date(now - 30 * 1000)),
       stats: { inRoomOccupants: 0 },
     });
 
@@ -3237,7 +3402,7 @@ describe('Zoom handler', () => {
     expect(mockSendMail).toHaveBeenCalled();
     // Email blew up; the push must still have gone out.
     expect(mockSendEachForMulticast).toHaveBeenCalled();
-    const alert = stores.system_alerts.get('alert_channel_hub_rooms_not_open');
+    const alert = stores.system_alerts.get('alert_channel_hub_bot_unavailable_after_recovery');
     expect(alert.notification_channels).toEqual(['push']);
     expect(alert.notification_error).toMatch(/554/);
   });
