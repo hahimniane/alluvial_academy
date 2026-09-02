@@ -2313,7 +2313,12 @@ const _collectZoomAdminNotificationTargets = async () => {
     if (legacyToken) tokens.push(legacyToken);
   };
 
-  for (const doc of [...byRole.docs, ...byUserType.docs]) {
+  // Opt-in on-call list. Paging all 13 admins for a Zoom hub problem is how
+  // an alerting fix turned into spam on 2026-08-31: most of them cannot act on
+  // a bot anyway. Set `zoom_oncall: true` on a user to add them here.
+  const onCall = [...byRole.docs, ...byUserType.docs]
+    .filter((doc) => (doc.data() || {}).zoom_oncall === true);
+  for (const doc of onCall) {
     if (seenDocIds.has(doc.id)) continue;
     seenDocIds.add(doc.id);
     addTarget(doc.data() || {});
@@ -2343,6 +2348,41 @@ const _collectZoomAdminNotificationTargets = async () => {
   };
 };
 
+/**
+ * Which hub alerts are worth interrupting a person for.
+ *
+ * Most of what the watcher records is routine and self-healing: a class moved
+ * to a healthy hub, a finished segment handed over its host account, a hub
+ * whose rooms are not open yet. That is useful history, not news — and once
+ * push delivery was fixed it went to every admin's phone as pure noise
+ * (2026-08-31).
+ *
+ * A person is paged only when automation has run out of options: the bot could
+ * not be brought back, or a class could not be placed anywhere. Everything else
+ * is written to system_alerts, where the on-call responder reads it.
+ */
+const ZOOM_ALERT_REASONS_NEEDING_A_HUMAN = new Set([
+  // Recovery ran and the bot is still not serving its rooms.
+  'bot_unavailable_after_recovery',
+  // A class could not be placed in any hub and has no single-Zoom fallback.
+  'live_hub_cannot_accept_class',
+  'spares_exhausted',
+  'room_cap_exceeded',
+  // Routing is broken in a way no automation covers.
+  'assigned_not_joined_poisoned',
+  'hub_window_exceeds_zoom_lifetime',
+  // The once-a-day look ahead: a planning signal, not an incident, and the
+  // whole point of it is that somebody reads it.
+  'daily_capacity_forecast_problem',
+  // An admin's own scheduling attempt was blocked; they need the detail.
+  'zoom_hub_shift_guardrail',
+  'zoom_hub_shift_guardrail_attempt',
+]);
+
+const _zoomAlertNeedsHuman = (reason, severity) =>
+  ZOOM_ALERT_REASONS_NEEDING_A_HUMAN.has(String(reason || '').trim()) ||
+  String(severity || '').trim() === 'page';
+
 const _sendZoomHubAdminAlert = async ({
   alertId,
   reason,
@@ -2371,6 +2411,17 @@ const _sendZoomHubAdminAlert = async ({
   }, { merge: true });
 
   if (existing.notification_sent_at) return;
+
+  // Routine, self-healing events are recorded and nothing else. The on-call
+  // responder reads system_alerts on every run, so these still get acted on —
+  // they just do not wake anybody up.
+  if (!_zoomAlertNeedsHuman(reason, severity)) {
+    await alertRef.set({
+      notification_suppressed: true,
+      notification_suppressed_reason: 'routine_or_self_healing',
+    }, { merge: true });
+    return;
+  }
 
   // Each channel is sent independently. They used to share one try block with
   // email first, so when the sending mailbox was disabled in hPanel
@@ -5019,6 +5070,22 @@ const _hubHasRemainingAssignedClasses = async ({ db, hubDocId, now }) => {
 };
 
 const _writeZoomHubBotAlert = async ({ hubDocId, hubData, reason }) => {
+  if (reason === 'bot_unavailable_after_recovery') {
+    return _sendZoomHubAdminAlert({
+      alertId: `${hubDocId}_${reason}`,
+      reason,
+      title: 'Zoom hub bot did not come back',
+      body: `Zoom hub ${hubDocId} was asked to rejoin and its meeting was reset, ` +
+        'and the bot is still not reporting. Classes on this lane are being ' +
+        'routed elsewhere, but the lane needs a look.',
+      data: {
+        hubDocId,
+        lane: hubData.lane || hubData.laneIndex || '',
+        status: hubData.status || hubData.bot_status || '',
+        meetingNumber: hubData.meetingNumber || hubData.zoom_meeting_id || '',
+      },
+    });
+  }
   const title = reason === 'heartbeat_stale'
     ? 'Critical Zoom hub bot heartbeat is stale'
     : reason === 'assigned_not_joined_poisoned'
@@ -5134,9 +5201,26 @@ const watchZoomHubBots = onSchedule({
         now,
       });
 
+    // Is the room provably empty? `inRoomOccupants` missing is NOT empty — a
+    // hub that has stopped reporting tells us nothing, and treating silence as
+    // "nobody there" is how a live class gets hung up on.
+    const occupancyKnown = Number.isFinite(Number(stats.inRoomOccupants));
+    const provablyEmpty = occupancyKnown && inRoom === 0;
+
+    // Every class gets the full 15-minute grace past its scheduled end, and at
+    // the end of it everyone is removed, whoever they are. The only ending
+    // allowed BEFORE that is one that harms nobody: the room is provably empty.
+    //
+    // Until 2026-09-02 `superseded && classesOver` ended the meeting the moment
+    // the last scheduled end passed, with no grace and no occupancy check, so a
+    // teacher running a minute over was hung up on to free the shared host
+    // account for the next block. That ejected 4 people mid-class on 09-01.
+    const graceExpired = now.getTime() >= windowEnd.getTime();
+    const freeingAccountEarlyIsSafe = superseded && classesOver && provablyEmpty;
+
     const shouldEndMeeting =
-      (now.getTime() >= windowEnd.getTime()) ||
-      (superseded && classesOver) ||
+      graceExpired ||
+      freeingAccountEarlyIsSafe ||
       releasesSharedHost;
 
     if (shouldEndMeeting) {
@@ -5173,11 +5257,11 @@ const watchZoomHubBots = onSchedule({
                 retired_reason: 'zombie_hub_released_shared_host',
               } : {}),
             }, { merge: true });
-            const why = (now.getTime() >= windowEnd.getTime())
+            const why = graceExpired
               ? (inRoom > 0 ? 'reached 15-min limit with stragglers' : 'reached 15-min limit, empty')
               : releasesSharedHost
                 ? 'zombie hub, no classes left to serve'
-                : 'superseded by newer block';
+                : 'superseded by newer block, room provably empty';
             console.warn(`[ZoomHub] Ended hub meeting ${meetingNumber} (${doc.id}) to free the account (${why}).`);
             if (releasesSharedHost) {
               await _writeZoomHubBotAlert({
@@ -5358,10 +5442,16 @@ const watchZoomHubBots = onSchedule({
       }
     }
 
+    // A silent bot is not news on its own — the block above is already trying
+    // to bring it back, and usually does. It becomes news only once recovery
+    // has been tried and the bot is still not serving its rooms.
+    const recoveryFailed = staleHeartbeat && data.bot_unavailable === true;
     await _writeZoomHubBotAlert({
       hubDocId: doc.id,
       hubData: data,
-      reason: status !== 'roomsOpen' ? 'rooms_not_open' : 'heartbeat_stale',
+      reason: recoveryFailed
+        ? 'bot_unavailable_after_recovery'
+        : (status !== 'roomsOpen' ? 'rooms_not_open' : 'heartbeat_stale'),
     });
     alertCount += 1;
   }
@@ -6138,6 +6228,8 @@ module.exports = {
   onTeachingShiftWritten,
   zoomWebhook,
   __test__: {
+    _sendZoomHubAdminAlert,
+    _zoomAlertNeedsHuman,
     ZOOM_WEBHOOK_RUNTIME_OPTIONS,
     _blockForShift,
     _buildHubRoomsForBlock,
