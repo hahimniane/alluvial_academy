@@ -216,3 +216,35 @@ export const programScheduleIsComplete = (program: ProgramSelection): boolean =>
   if (!program.block) return false;
   return sessionFitsBlock(blockById(program.block), program.sessionMinutes);
 };
+
+/* ------------------------------------------------------ legacy durations -- */
+
+/**
+ * Older enrollments store the class length as a label ("1 hr", "90 mins",
+ * "60 minutes"). Newer ones carry `sessionMinutes`; this reads the label when
+ * that is all there is.
+ */
+export const minutesFromDurationLabel = (label: string): number => {
+  const text = label.toLowerCase();
+  if (!text) return 60;
+  const hourMatch = text.match(/(\d+(?:\.\d+)?)\s*(?:hr|hour)/);
+  const minuteMatch = text.match(/(\d+)\s*(?:min)/);
+  let minutes = 0;
+  if (hourMatch) minutes += Math.round(Number.parseFloat(hourMatch[1]) * 60);
+  if (minuteMatch) minutes += Number.parseInt(minuteMatch[1], 10);
+  return minutes > 0 ? minutes : 60;
+};
+
+/* --------------------------------------------------- shift subject slugs -- */
+
+/**
+ * The `subjects` collection a shift is filed under uses short slugs; an
+ * enrollment names a track. This is the default a scheduler starts from and
+ * can change — Adlam has no subject of its own yet, so it files under the
+ * African-languages subject.
+ */
+export const shiftSubjectSlugForTrack = (trackId: string): string => {
+  if (trackId === "adlam") return "afrolingual";
+  if (trackId === "tutoring") return "english";
+  return "islamic";
+};

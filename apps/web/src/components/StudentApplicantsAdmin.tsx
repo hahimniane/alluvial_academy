@@ -59,7 +59,7 @@ import { MatchedSetupActions } from "@/components/MatchedSetupActions";
 import { ApplicantDetailsDialog } from "@/components/ApplicantDetailsDialog";
 import { auth, db } from "@/lib/firebase";
 import { isCurrentUserAdmin } from "@/lib/userRoles";
-import { blockById, blockRangeLabel, normalizeBlock, normalizeClassType } from "@/lib/enrollmentDomain";
+import { blockById, blockRangeLabel, minutesFromDurationLabel, normalizeBlock, normalizeClassType } from "@/lib/enrollmentDomain";
 import {
   draftSheet,
   exportFileName,
@@ -168,6 +168,9 @@ type EnrollmentApplicant = {
   matchedTeacherId: string;
   /** Filled in by loadTeacherTimezones() for the export only. */
   teacherTimeZone: string;
+  trackId: string;
+  /** The teacher's ranked slots from the confirmed response, best first. */
+  rankedSlots: string[];
   jobId: string;
   broadcastSnapshot: BroadcastSnapshot | null;
   actionHistory: ActionEntry[];
@@ -1264,9 +1267,20 @@ function ApplicantCard({
               studentName={applicant.studentName}
               studentUserId={applicant.studentUserId}
               parentLinked={applicant.parentLinked}
+              hasSchedule={setup?.hasSchedule ?? false}
               defaultParentEmail={applicant.email}
               defaultParentName={applicant.parentName}
               defaultParentPhone={applicant.phone}
+              schedule={{
+                teacherId: applicant.matchedTeacherId,
+                teacherName: applicant.teacherName,
+                rankedSlots: applicant.rankedSlots,
+                days: applicant.days,
+                sessionMinutes: minutesFromDurationLabel(applicant.sessionDuration),
+                familyTimeZone: applicant.timeZone,
+                trackId: applicant.trackId,
+                programTitle: applicant.programTitle,
+              }}
               onChanged={onChanged}
               onMessage={onMessage}
             />
@@ -1643,6 +1657,8 @@ function normalizeApplicant(id: string, data: Record<string, unknown>): Enrollme
     preferredLanguage: stringValue(preferences.preferredLanguage),
     matchedTeacherId: stringValue(metadata.matchedTeacherId),
     teacherTimeZone: "",
+    trackId: stringValue(metadata.trackId),
+    rankedSlots: stringArray(recordValue(metadata.latestTeacherResponseSummary).availableAlternatives),
     jobId: stringValue(metadata.jobId),
     broadcastSnapshot: readSnapshot(metadata.lastBroadcastSnapshot),
     actionHistory: readActionHistory(metadata.actionHistory),
