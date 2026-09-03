@@ -25,7 +25,9 @@ import {
   Check,
   CheckCircle2,
   Circle,
+  ChevronDown,
   Clock,
+  Download,
   Grid2X2,
   Handshake,
   Hourglass,
@@ -46,6 +48,24 @@ import type { LucideIcon } from "lucide-react";
 import { AdminDashboardShell } from "@/components/AdminDashboardShell";
 import { auth, db } from "@/lib/firebase";
 import { isCurrentUserAdmin } from "@/lib/userRoles";
+import { blockById, blockRangeLabel, normalizeBlock, normalizeClassType } from "@/lib/enrollmentDomain";
+import {
+  draftSheet,
+  exportFileName,
+  studentSheet,
+  teacherSheet,
+  type ExportDraft,
+  type ExportTeacher,
+} from "@/lib/applicantExport";
+import { downloadWorkbook, type Sheet } from "@/lib/xlsx";
+import { loadTeacherApplications } from "@/components/TeacherApplicantsAdmin";
+
+const EXPORT_LABELS: Record<"view" | "students" | "teachers" | "everything", string> = {
+  view: "applicants_view",
+  students: "student_applications",
+  teachers: "teacher_applications",
+  everything: "alluwal_applications",
+};
 import {
   DISCOUNT_REASONS,
   discountLabel,
@@ -123,6 +143,20 @@ type EnrollmentApplicant = {
   studentUserId: string;
   parentLinked: boolean;
   discount: StudentDiscount | null;
+  // Carried for the export; the card shows none of these.
+  gender: string;
+  email: string;
+  whatsApp: string;
+  country: string;
+  classType: string;
+  sessionDuration: string;
+  hoursPerWeek: number | null;
+  sessionsPerWeek: number | null;
+  block: string;
+  preferredLanguage: string;
+  matchedTeacherId: string;
+  /** Filled in by loadTeacherTimezones() for the export only. */
+  teacherTimeZone: string;
 };
 
 const enrollmentStatuses: ApplicantStatus[] = ["pending", "contacted", "broadcasted", "archived", "matched"];
@@ -154,6 +188,8 @@ export function StudentApplicantsAdmin() {
   const [message, setMessage] = useState("");
   const [scheduledStudents, setScheduledStudents] = useState<Set<string>>(new Set());
   const [discountFor, setDiscountFor] = useState<EnrollmentApplicant | null>(null);
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<SortId>("recently-matched");
   const [groupTeachers, setGroupTeachers] = useState(false);
@@ -196,6 +232,62 @@ export function StudentApplicantsAdmin() {
   useEffect(() => {
     if (!sortOptions.some((option) => option.id === sort)) setSort(sortOptions[0].id);
   }, [sortOptions, sort]);
+
+  async function runExport(scope: ExportScope) {
+    setExporting(true);
+    setMessage("");
+    try {
+      const sheets: Sheet[] = [];
+
+      if (scope === "view") {
+        const zones = await loadTeacherTimezones(visibleApplicants);
+        sheets.push(
+          studentSheet(
+            visibleApplicants.map((a) => ({ ...a, teacherTimeZone: zones.get(a.matchedTeacherId) ?? "" })),
+            scheduledStudents,
+          ),
+        );
+      }
+
+      if (scope === "students" || scope === "everything") {
+        // Every status, not just the tab in view — the menu says "all".
+        const [everyApplicant, everyDraft] = await Promise.all([loadAllApplicants(), loadDrafts()]);
+        const [scheduled, discounts, zones] = await Promise.all([
+          loadScheduledStudents(everyApplicant),
+          loadDiscounts(everyApplicant),
+          loadTeacherTimezones(everyApplicant),
+        ]);
+        sheets.push(
+          studentSheet(
+            everyApplicant.map((a) => ({
+              ...a,
+              discount: discounts.get(a.studentUserId) ?? null,
+              teacherTimeZone: zones.get(a.matchedTeacherId) ?? "",
+            })),
+            scheduled,
+          ),
+        );
+        sheets.push(draftSheet(everyDraft as ExportDraft[]));
+      }
+
+      if (scope === "teachers" || scope === "everything") {
+        sheets.push(teacherSheet(await loadTeacherApplications()));
+      }
+
+      const rows = sheets.reduce((sum, sheet) => sum + sheet.rows.length, 0);
+      if (rows === 0) {
+        setMessage("There is nothing to export.");
+        return;
+      }
+      downloadWorkbook(sheets, exportFileName(EXPORT_LABELS[scope]));
+      setMessage(`Exported ${rows} ${rows === 1 ? "row" : "rows"}.`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not build the export.");
+    } finally {
+      setExporting(false);
+      setExportOpen(false);
+    }
+  }
 
   async function saveDiscount(applicant: EnrollmentApplicant, draft: DiscountDraft | null) {
     if (!auth.currentUser) {
@@ -484,6 +576,10 @@ export function StudentApplicantsAdmin() {
             stageCounts={stageCounts}
             shown={visibleApplicants.length}
             total={applicants.length}
+            exportOpen={exportOpen}
+            onExportOpen={setExportOpen}
+            exporting={exporting}
+            onExport={(scope) => void runExport(scope)}
           />
         ) : null}
 
@@ -737,6 +833,15 @@ export function DiscountDialog({
   );
 }
 
+type ExportScope = "view" | "students" | "teachers" | "everything";
+
+const EXPORT_OPTIONS: { scope: ExportScope; label: string; hint: string }[] = [
+  { scope: "view", label: "This view", hint: "The rows on screen, in the order shown." },
+  { scope: "students", label: "All student applications", hint: "Every status, plus unfinished drafts." },
+  { scope: "teachers", label: "All teacher applications", hint: "Every teacher application on file." },
+  { scope: "everything", label: "Everything", hint: "Students, drafts and teachers in one workbook." },
+];
+
 export function ApplicantTriageToolbar({
   search,
   onSearch,
@@ -751,6 +856,10 @@ export function ApplicantTriageToolbar({
   stageCounts,
   shown,
   total,
+  exportOpen,
+  onExportOpen,
+  exporting,
+  onExport,
 }: {
   search: string;
   onSearch: (value: string) => void;
@@ -765,6 +874,10 @@ export function ApplicantTriageToolbar({
   stageCounts: Record<StageFilter, number>;
   shown: number;
   total: number;
+  exportOpen: boolean;
+  onExportOpen: (value: boolean) => void;
+  exporting: boolean;
+  onExport: (scope: ExportScope) => void;
 }) {
   return (
         <section className="border-b border-[#E5E7EB] bg-white px-4 py-2.5 lg:px-6" aria-label="Filter applicants">
@@ -807,6 +920,40 @@ export function ApplicantTriageToolbar({
                 Group by teacher
               </button>
             ) : null}
+
+            <div className="relative">
+              <button
+                type="button"
+                aria-haspopup="menu"
+                aria-expanded={exportOpen}
+                disabled={exporting}
+                onClick={() => onExportOpen(!exportOpen)}
+                className="inline-flex h-[34px] items-center gap-1.5 rounded-lg border border-[#10B981] bg-[#ECFDF5] px-3 text-xs font-bold text-[#047857] disabled:opacity-60"
+              >
+                <Download size={16} />
+                {exporting ? "Building…" : "Excel"}
+                <ChevronDown size={15} />
+              </button>
+              {exportOpen ? (
+                <div
+                  role="menu"
+                  className="absolute right-0 top-[38px] z-20 w-72 overflow-hidden rounded-xl bg-white shadow-[0_12px_32px_rgba(15,23,42,0.18)]"
+                >
+                  {EXPORT_OPTIONS.map((option) => (
+                    <button
+                      key={option.scope}
+                      type="button"
+                      role="menuitem"
+                      onClick={() => onExport(option.scope)}
+                      className="block w-full px-3.5 py-2.5 text-left hover:bg-[#F8FAFC]"
+                    >
+                      <span className="block text-xs font-bold text-[#1E293B]">{option.label}</span>
+                      <span className="mt-0.5 block text-[11px] text-[#64748B]">{option.hint}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
 
             <span className="ml-auto text-xs font-semibold text-[#6B7280]">
               {shown === total
@@ -1172,6 +1319,27 @@ async function loadApplicants(status: ApplicantStatus) {
     .sort((a, b) => (b.submittedAt?.getTime() ?? 0) - (a.submittedAt?.getTime() ?? 0));
 }
 
+/** One read per matched teacher, for the export's teacher timezone column. */
+async function loadTeacherTimezones(applicants: EnrollmentApplicant[]): Promise<Map<string, string>> {
+  const ids = [...new Set(applicants.map((a) => a.matchedTeacherId).filter(Boolean))];
+  const zones = new Map<string, string>();
+  const snapshots = await Promise.all(ids.map((id) => getDoc(doc(db, "users", id))));
+  snapshots.forEach((snapshot, index) => {
+    if (!snapshot.exists()) return;
+    const zone = stringValue((snapshot.data() as Record<string, unknown>).timezone);
+    if (zone) zones.set(ids[index], zone);
+  });
+  return zones;
+}
+
+/** Every status, for the "all applications" export. */
+async function loadAllApplicants(): Promise<EnrollmentApplicant[]> {
+  const snap = await getDocs(query(collection(db, "enrollments"), limit(1000)));
+  return snap.docs
+    .map((docSnap) => normalizeApplicant(docSnap.id, docSnap.data() as Record<string, unknown>))
+    .sort((a, b) => (b.submittedAt?.getTime() ?? 0) - (a.submittedAt?.getTime() ?? 0));
+}
+
 async function loadDrafts() {
   const snap = await getDocs(query(collection(db, "enrollment_drafts"), where("status", "==", "in_progress"), limit(80)));
   return snap.docs
@@ -1297,7 +1465,24 @@ function normalizeApplicant(id: string, data: Record<string, unknown>): Enrollme
     // because it covers every program that student takes rather than one
     // application.
     discount: null,
+    gender: stringValue(student.gender),
+    email: stringValue(contact.email ?? data.email),
+    whatsApp: stringValue(contact.whatsApp),
+    country: stringValue(country.name ?? contact.country),
+    classType: normalizeClassType(program.classType),
+    sessionDuration: stringValue(program.sessionDuration),
+    hoursPerWeek: numberOrNull(program.hoursPerWeek),
+    sessionsPerWeek: numberOrNull(program.sessionsPerWeek),
+    block: normalizeBlock(data.block ?? preferences.timeOfDayPreference) ?? "",
+    preferredLanguage: stringValue(preferences.preferredLanguage),
+    matchedTeacherId: stringValue(metadata.matchedTeacherId),
+    teacherTimeZone: "",
   };
+}
+
+function numberOrNull(raw: unknown): number | null {
+  const value = Number(raw);
+  return Number.isFinite(value) && value > 0 ? value : null;
 }
 
 function readDiscount(raw: unknown): StudentDiscount | null {
