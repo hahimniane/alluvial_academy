@@ -1121,6 +1121,15 @@ function GenderSegment({ name, value, onChange }: { name: string; value: string;
   );
 }
 
+/**
+ * Three stacked cards, each with the sentence that explains it.
+ *
+ * These were a horizontal segmented control, which put "With other students on
+ * the platform" into a column narrow enough to wrap onto five lines on a phone
+ * — and this form is mostly filled in on phones. Stacking also gives each
+ * option room for its hint, which is the part that actually tells a parent
+ * whether their child will be alone with the teacher.
+ */
 function ProgramClassTypeSegment({
   name,
   value,
@@ -1131,24 +1140,31 @@ function ProgramClassTypeSegment({
   onChange: (value: string) => void;
 }) {
   return (
-    <div className="grid justify-center gap-1.5">
-      <p className="text-center text-[12px] font-bold text-slate-700">Class Type</p>
+    <div className="grid gap-1.5">
+      <p className="text-[11px] font-semibold text-slate-700">Class Type</p>
       <input type="hidden" name={name} value={value} />
-      <div className="inline-flex overflow-hidden rounded-xl border border-[#E2E8F0] bg-[#FAFBFC] shadow-[0_1px_4px_rgba(15,23,42,0.02)]">
-        {classTypes.map(({ value: optionValue, label, icon: Icon }, index) => {
+      <div className="grid gap-1.5">
+        {classTypes.map(({ value: optionValue, label, hint, icon: Icon }) => {
           const selected = value === optionValue;
           return (
             <button
               key={optionValue}
               type="button"
               aria-pressed={selected}
-              className={`inline-flex min-h-[32px] min-w-[84px] items-center justify-center gap-2 px-3 text-[12px] font-semibold transition ${
-                selected ? "bg-[#3B82F6] text-white" : "bg-white text-slate-500 hover:bg-slate-50"
-              } ${index > 0 ? "border-l border-[#E2E8F0]" : ""}`}
               onClick={() => onChange(selected ? "" : optionValue)}
+              className={`flex w-full items-start gap-2 rounded-lg px-2.5 py-2 text-left transition ${
+                selected
+                  ? "border-2 border-[#4F46E5] bg-[#EEF2FF]"
+                  : "border-[1.5px] border-[#E2E8F0] bg-[#FAFBFC] hover:bg-slate-50"
+              }`}
             >
-              {Icon ? <Icon size={14} /> : null}
-              {label}
+              <Icon size={15} className={`mt-px shrink-0 ${selected ? "text-[#4F46E5]" : "text-[#64748B]"}`} />
+              <span className="min-w-0">
+                <span className={`block text-[11px] font-semibold ${selected ? "text-[#4F46E5]" : "text-[#475569]"}`}>
+                  {label}
+                </span>
+                <span className="mt-0.5 block text-[10px] font-medium leading-[1.25] text-[#64748B]">{hint}</span>
+              </span>
             </button>
           );
         })}
