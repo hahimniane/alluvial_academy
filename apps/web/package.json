@@ -9,6 +9,7 @@
     "prebuild": "npm run prepare-assets",
     "build": "next build",
     "typecheck": "tsc --noEmit",
+    "test:unit": "node --experimental-strip-types --test \"src/**/__tests__/*.test.ts\"",
     "test:e2e": "playwright test --workers=1",
     "test:visual": "ALLUWAL_RUN_VISUAL_PARITY=1 playwright test tests/visual-parity.spec.ts",
     "test:visual:update": "ALLUWAL_RUN_VISUAL_PARITY=1 playwright test tests/visual-parity.spec.ts --update-snapshots",
