@@ -39,13 +39,24 @@ import {
   Phone,
   Radio,
   School,
+  Undo2,
   Search,
   StickyNote,
   Tag,
   Users,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { AdminDashboardShell } from "@/components/AdminDashboardShell";
+import { ActionButton } from "@/components/ActionButton";
+import { PrepareBroadcastDialog } from "@/components/PrepareBroadcastDialog";
+import {
+  ActivityHistory,
+  BroadcastPanel,
+  type ActionEntry,
+  type BroadcastSnapshot,
+} from "@/components/EnrollmentBroadcastPanel";
+import { broadcastEnrollment, unbroadcastEnrollment } from "@/lib/jobBoardAdmin";
+import { MatchedSetupActions } from "@/components/MatchedSetupActions";
+import { ApplicantDetailsDialog } from "@/components/ApplicantDetailsDialog";
 import { auth, db } from "@/lib/firebase";
 import { isCurrentUserAdmin } from "@/lib/userRoles";
 import { blockById, blockRangeLabel, normalizeBlock, normalizeClassType } from "@/lib/enrollmentDomain";
@@ -157,6 +168,9 @@ type EnrollmentApplicant = {
   matchedTeacherId: string;
   /** Filled in by loadTeacherTimezones() for the export only. */
   teacherTimeZone: string;
+  jobId: string;
+  broadcastSnapshot: BroadcastSnapshot | null;
+  actionHistory: ActionEntry[];
 };
 
 const enrollmentStatuses: ApplicantStatus[] = ["pending", "contacted", "broadcasted", "archived", "matched"];
@@ -188,6 +202,10 @@ export function StudentApplicantsAdmin() {
   const [message, setMessage] = useState("");
   const [scheduledStudents, setScheduledStudents] = useState<Set<string>>(new Set());
   const [discountFor, setDiscountFor] = useState<EnrollmentApplicant | null>(null);
+  const [broadcastFor, setBroadcastFor] = useState<EnrollmentApplicant | null>(null);
+  const [detailsFor, setDetailsFor] = useState<EnrollmentApplicant | null>(null);
+  const [archiveFor, setArchiveFor] = useState<EnrollmentApplicant | null>(null);
+  const [embedded, setEmbedded] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [search, setSearch] = useState("");
@@ -289,6 +307,23 @@ export function StudentApplicantsAdmin() {
     }
   }
 
+  async function sendBroadcast(applicant: EnrollmentApplicant, input: Parameters<typeof broadcastEnrollment>[1]) {
+    await broadcastEnrollment(applicant.id, input);
+    setBroadcastFor(null);
+    setMessage(`${applicant.studentName} is live on the job board.`);
+    await refreshApplicants(activeTab);
+  }
+
+  async function takeOffJobBoard(applicant: EnrollmentApplicant) {
+    const closed = await unbroadcastEnrollment(applicant.id);
+    setMessage(
+      closed > 0
+        ? `Taken off the job board. Moved back to Ready.`
+        : `Moved back to Ready. There was no open posting to close.`,
+    );
+    await refreshApplicants(activeTab);
+  }
+
   async function saveDiscount(applicant: EnrollmentApplicant, draft: DiscountDraft | null) {
     if (!auth.currentUser) {
       setMessage("Sign in with an administrator account before changing a discount.");
@@ -359,8 +394,13 @@ export function StudentApplicantsAdmin() {
       tab={activeTabConfig}
       setup={isMatched ? setups.get(applicant.id) ?? null : null}
       onDiscount={() => setDiscountFor(applicant)}
+      onBroadcast={() => setBroadcastFor(applicant)}
+      onDetails={() => setDetailsFor(applicant)}
+      onUnbroadcast={() => takeOffJobBoard(applicant)}
+      onChanged={() => void refreshApplicants(activeTab)}
+      onMessage={setMessage}
       onMarkContacted={() => moveApplicant(applicant, "contacted")}
-      onArchive={() => moveApplicant(applicant, "archived")}
+      onArchive={() => setArchiveFor(applicant)}
       onUnarchive={() => moveApplicant(applicant, "pending")}
     />
   );
@@ -395,6 +435,16 @@ export function StudentApplicantsAdmin() {
         }
       }
     });
+  }, []);
+
+  useEffect(() => {
+    const inFlutterFrame =
+      window.self !== window.top || new URLSearchParams(window.location.search).has("embed");
+    if (inFlutterFrame) {
+      setEmbedded(true);
+    } else {
+      window.location.replace("/app/");
+    }
   }, []);
 
   useEffect(() => {
@@ -501,28 +551,17 @@ export function StudentApplicantsAdmin() {
     }
   }
 
+  // This screen only ever renders inside the Flutter web app's content area
+  // (same-origin iframe), so admins keep their real Flutter sidebar and top
+  // bar. A direct visit to /admin/student-applicants/ goes to the Flutter app.
+  if (!embedded) return null;
+
   if (access !== "allowed") {
     return <StudentApplicantsAccessPrompt access={access} />;
   }
 
   return (
-    <AdminDashboardShell activeLabel="Student Applicants" breadcrumb="People / Student Applicants">
-      <main className="min-h-[calc(100vh-56px)] bg-[#F3F4F6]">
-        <header className="lg:hidden">
-          <div className="grid min-h-14 grid-cols-[48px_1fr_48px] items-center bg-white px-3 text-[#0F172A]">
-            <button type="button" aria-label="Menu" className="grid h-11 w-11 place-items-center rounded-xl text-[#0F172A]">
-              <span className="h-0.5 w-4 bg-current" />
-              <span className="-mt-5 h-0.5 w-4 bg-current" />
-            </button>
-            <div className="min-w-0 text-center">
-              <div className="truncate text-sm font-black text-[#0F172A]">Alluwal Education Hub</div>
-            </div>
-            <span className="grid h-8 w-8 place-items-center rounded-full bg-[#009688] text-[11px] font-black text-white">
-              {initialsFor(user)}
-            </span>
-          </div>
-        </header>
-
+      <main className="min-h-screen bg-[#F3F4F6]">
         <section className="border-b border-black/10 bg-white px-4 py-5 lg:px-6">
           <div className="flex items-center gap-4">
             <span className="grid h-12 w-12 place-items-center rounded-2xl bg-[#EFF6FF] text-[#3B82F6]">
@@ -629,6 +668,44 @@ export function StudentApplicantsAdmin() {
             <div className="grid gap-3">{visibleApplicants.map((applicant) => renderApplicantCard(applicant))}</div>
           )}
         </section>
+        {detailsFor ? (
+          <ApplicantDetailsDialog
+            enrollmentId={detailsFor.id}
+            studentName={detailsFor.studentName}
+            onClose={() => setDetailsFor(null)}
+          />
+        ) : null}
+
+        {archiveFor ? (
+          <ConfirmDialog
+            title="Archive this application?"
+            body={`${archiveFor.studentName} moves out of the active pipeline. It is not deleted, and you can unarchive it later.`}
+            confirmLabel="Archive"
+            onConfirm={async () => {
+              const target = archiveFor;
+              setArchiveFor(null);
+              await moveApplicant(target, "archived");
+            }}
+            onClose={() => setArchiveFor(null)}
+          />
+        ) : null}
+
+        {broadcastFor ? (
+          <PrepareBroadcastDialog
+            studentName={broadcastFor.studentName}
+            subject={broadcastFor.programTitle}
+            familyNotes={broadcastFor.schedulingNotes}
+            initial={{
+              days: broadcastFor.days,
+              timeSlots: broadcastFor.timeSlots,
+              block: broadcastFor.block,
+              timeZone: broadcastFor.timeZone,
+            }}
+            onBroadcast={(input) => sendBroadcast(broadcastFor, input)}
+            onClose={() => setBroadcastFor(null)}
+          />
+        ) : null}
+
         {discountFor ? (
           <DiscountDialog
             studentName={discountFor.studentName}
@@ -637,13 +714,12 @@ export function StudentApplicantsAdmin() {
             // nothing records it, so the admin confirms or corrects it here
             // rather than billing code guessing.
             defaultStartDate={discountFor.matchedAt ?? discountFor.submittedAt ?? new Date()}
-            onSave={(draft) => void saveDiscount(discountFor, draft)}
-            onRemove={() => void saveDiscount(discountFor, null)}
+            onSave={(draft) => saveDiscount(discountFor, draft)}
+            onRemove={() => saveDiscount(discountFor, null)}
             onClose={() => setDiscountFor(null)}
           />
         ) : null}
       </main>
-    </AdminDashboardShell>
   );
 }
 
@@ -658,8 +734,8 @@ export function DiscountDialog({
   studentName: string;
   existing: StudentDiscount | null;
   defaultStartDate: Date;
-  onSave: (draft: DiscountDraft) => void;
-  onRemove: () => void;
+  onSave: (draft: DiscountDraft) => Promise<void> | void;
+  onRemove: () => Promise<void> | void;
   onClose: () => void;
 }) {
   const [draft, setDraft] = useState<DiscountDraft>(() =>
@@ -812,21 +888,29 @@ export function DiscountDialog({
 
         <div className="mt-6 flex items-center gap-3">
           {existing ? (
-            <button type="button" onClick={onRemove} className="text-sm font-semibold text-[#DC2626] hover:underline">
-              Remove discount
-            </button>
+            <ActionButton
+              label="Remove discount"
+              busyLabel="Removing…"
+              variant="ghost"
+              onAction={() => onRemove()}
+            />
           ) : null}
           <span className="flex-1" />
           <button type="button" onClick={onClose} className="px-3 py-2 text-sm font-semibold text-[#475569]">
             Cancel
           </button>
-          <button
-            type="button"
-            onClick={() => (error ? setShowError(true) : onSave(draft))}
-            className="rounded-[20px] bg-[#0F172A] px-5 py-2.5 text-sm font-bold text-white"
-          >
-            Save discount
-          </button>
+          <ActionButton
+            label="Save discount"
+            busyLabel="Saving…"
+            onAction={async () => {
+              if (error) {
+                setShowError(true);
+                return;
+              }
+              await onSave(draft);
+            }}
+            className="rounded-[20px] bg-[#0F172A] px-5 py-2.5 text-sm font-bold text-white hover:bg-[#1E293B]"
+          />
         </div>
       </div>
     </div>
@@ -1021,6 +1105,36 @@ function SetupStrip({ setup }: { setup: SetupState }) {
   );
 }
 
+/** Used before anything that is awkward to undo. */
+function ConfirmDialog({
+  title,
+  body,
+  confirmLabel,
+  onConfirm,
+  onClose,
+}: {
+  title: string;
+  body: string;
+  confirmLabel: string;
+  onConfirm: () => Promise<void>;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-label={title}>
+      <div className="w-full max-w-[420px] rounded-2xl bg-white p-5 shadow-[0_24px_60px_rgba(0,0,0,0.32)]">
+        <h2 className="text-base font-bold text-[#111827]">{title}</h2>
+        <p className="mt-1.5 text-sm leading-6 text-[#475569]">{body}</p>
+        <div className="mt-5 flex items-center justify-end gap-3">
+          <button type="button" onClick={onClose} className="px-3 py-2 text-sm font-semibold text-[#475569]">
+            Cancel
+          </button>
+          <ActionButton label={confirmLabel} busyLabel="Working…" variant="danger" onAction={onConfirm} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function NoMatchesState({ onClear }: { onClear: () => void }) {
   return (
     <div className="grid min-h-[220px] place-items-center rounded-xl border border-dashed border-[#E5E7EB] bg-white">
@@ -1043,6 +1157,11 @@ function ApplicantCard({
   tab,
   setup,
   onDiscount,
+  onBroadcast,
+  onDetails,
+  onUnbroadcast,
+  onChanged,
+  onMessage,
   onMarkContacted,
   onArchive,
   onUnarchive,
@@ -1051,6 +1170,11 @@ function ApplicantCard({
   tab: ApplicantTab;
   setup: SetupState | null;
   onDiscount: () => void;
+  onBroadcast: () => void;
+  onDetails: () => void;
+  onUnbroadcast: () => Promise<void>;
+  onChanged: () => void;
+  onMessage: (text: string) => void;
   onMarkContacted: () => void;
   onArchive: () => void;
   onUnarchive: () => void;
@@ -1091,7 +1215,12 @@ function ApplicantCard({
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            <button type="button" className="grid h-9 w-9 place-items-center rounded-lg bg-[#EEF2FF] text-[#4F46E5]" aria-label={`View ${applicant.studentName}`}>
+            <button
+              type="button"
+              onClick={onDetails}
+              className="grid h-9 w-9 place-items-center rounded-lg bg-[#EEF2FF] text-[#4F46E5]"
+              aria-label={`View ${applicant.studentName}`}
+            >
               <Info size={17} />
             </button>
             {applicant.phone ? (
@@ -1118,7 +1247,30 @@ function ApplicantCard({
             </div>
           </div>
         ) : null}
+        {applicant.status === "broadcasted" && applicant.jobId ? (
+          <BroadcastPanel
+            jobId={applicant.jobId}
+            snapshot={applicant.broadcastSnapshot}
+            onChanged={onChanged}
+          />
+        ) : null}
+
+        <ActivityHistory entries={applicant.actionHistory} />
+
         <div className="mt-4 border-t border-black/10 pt-3">
+          {setup && setup.stage !== "ready" ? (
+            <MatchedSetupActions
+              enrollmentId={applicant.id}
+              studentName={applicant.studentName}
+              studentUserId={applicant.studentUserId}
+              parentLinked={applicant.parentLinked}
+              defaultParentEmail={applicant.email}
+              defaultParentName={applicant.parentName}
+              defaultParentPhone={applicant.phone}
+              onChanged={onChanged}
+              onMessage={onMessage}
+            />
+          ) : null}
           <div className="mb-3 flex flex-wrap items-center gap-2">
             {applicant.discount ? (
               <span className="inline-flex items-center gap-1.5 rounded-lg bg-[#FEF3C7] px-2.5 py-2 text-[11px] text-[#92400E]">
@@ -1155,11 +1307,25 @@ function ApplicantCard({
               <button type="button" onClick={onUnarchive} className="inline-flex min-h-9 flex-1 items-center justify-center rounded-lg bg-[#3B82F6] px-4 text-sm font-bold text-white">
                 Unarchive
               </button>
-            ) : (
-              <Link href="/app/#/login" className="inline-flex min-h-9 flex-1 items-center justify-center rounded-lg bg-[#3B82F6] px-4 text-sm font-bold text-white">
-                {tab.actionLabel}
-              </Link>
-            )}
+            ) : applicant.status === "contacted" ? (
+              <button
+                type="button"
+                onClick={onBroadcast}
+                className="inline-flex min-h-9 flex-1 items-center justify-center gap-2 rounded-lg bg-[#3B82F6] px-4 text-sm font-bold text-white"
+              >
+                <Radio size={17} />
+                Prepare &amp; broadcast
+              </button>
+            ) : applicant.status === "broadcasted" ? (
+              <ActionButton
+                label="Take off the job board"
+                busyLabel="Removing…"
+                variant="subtle"
+                icon={<Undo2 size={16} />}
+                onAction={() => onUnbroadcast()}
+                className="min-h-9 flex-1"
+              />
+            ) : null}
           </div>
         </div>
       </div>
@@ -1477,7 +1643,38 @@ function normalizeApplicant(id: string, data: Record<string, unknown>): Enrollme
     preferredLanguage: stringValue(preferences.preferredLanguage),
     matchedTeacherId: stringValue(metadata.matchedTeacherId),
     teacherTimeZone: "",
+    jobId: stringValue(metadata.jobId),
+    broadcastSnapshot: readSnapshot(metadata.lastBroadcastSnapshot),
+    actionHistory: readActionHistory(metadata.actionHistory),
   };
+}
+
+function readSnapshot(raw: unknown): BroadcastSnapshot | null {
+  const data = recordValue(raw);
+  if (Object.keys(data).length === 0) return null;
+  return {
+    days: stringArray(data.days),
+    timeSlots: stringArray(data.timeSlots),
+    timeOfDayPreference: stringValue(data.timeOfDayPreference),
+    timezoneRef: stringValue(data.timezoneRef),
+    adminNotesForTeachers: stringValue(data.adminNotesForTeachers),
+    targetTeacherNames: stringArray(data.targetTeacherNames),
+  };
+}
+
+function readActionHistory(raw: unknown): ActionEntry[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((item) => {
+    const entry = recordValue(item);
+    return {
+      action: stringValue(entry.action),
+      status: stringValue(entry.status),
+      adminName: stringValue(entry.adminName),
+      adminEmail: stringValue(entry.adminEmail),
+      teacherName: stringValue(entry.teacherName),
+      timestamp: dateValue(entry.timestamp),
+    };
+  });
 }
 
 function numberOrNull(raw: unknown): number | null {
