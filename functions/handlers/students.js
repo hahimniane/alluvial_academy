@@ -1,4 +1,5 @@
 const functions = require('firebase-functions');
+const {verifyCallableCallerIsAdmin} = require('../utils/callable_admin');
 const admin = require('firebase-admin');
 const {generateRandomPassword} = require('../utils/password');
 const {sendStudentNotificationEmail} = require('../services/email/senders');
@@ -17,6 +18,7 @@ const generateStudentCode = (firstName, lastName) => {
 
 const createStudentAccount = async (data, context) => {
   console.log('--- CREATE STUDENT ACCOUNT ---');
+  await verifyCallableCallerIsAdmin(data, context);
   console.log('Raw data received:', data);
 
   try {

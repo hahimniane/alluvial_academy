@@ -1,5 +1,6 @@
 const { onDocumentCreated } = require('firebase-functions/v2/firestore');
 const functions = require('firebase-functions');
+const {brandedEmailHtml} = require('../services/email/branding');
 const admin = require('firebase-admin');
 const { createTransporter } = require('../services/email/transporter');
 const { generateRandomPassword } = require('../utils/password');
@@ -1139,27 +1140,26 @@ const inviteParentForEnrollment = async (request) => {
     if (createdAuthUser) {
       const link = await admin.auth().generatePasswordResetLink(email);
       subject = 'Set up your Alluwal Education Hub parent account';
-      html = `
-        <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #0f172a;">
+      html = brandedEmailHtml({
+        heading: 'Set up your parent account',
+        bodyHtml: `
           <p>${greeting}</p>
           <p>An administrator has linked you as the parent of <strong>${escapeHtml(studentName)}</strong> at Alluwal Education Hub.</p>
-          <p>Please click the link below to set your password and access your parent dashboard:</p>
-          <p><a href="${link}" style="background:#3b82f6;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none;display:inline-block;">Set your password</a></p>
-          <p>If the button does not work, copy this URL into your browser:<br/>
-          <a href="${link}">${link}</a></p>
-          <p>JazakAllah khair.</p>
-        </div>`;
+          <p>Set your password to open your parent dashboard, where you can see their schedule, attendance and invoices.</p>
+          <p><a class="button" href="${link}">Set your password</a></p>
+          <p class="fallback">If the button does not work, copy this URL into your browser:<br/>${link}</p>`,
+      });
     } else {
       // An account they already have: no password link, just what changed.
       subject = `${studentName} has been linked to your Alluwal account`;
-      html = `
-        <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #0f172a;">
+      html = brandedEmailHtml({
+        heading: 'A student was added to your account',
+        bodyHtml: `
           <p>${greeting}</p>
           <p><strong>${escapeHtml(studentName)}</strong> is now linked to your Alluwal Education Hub parent account.</p>
           <p>Sign in with your usual password to see their schedule, attendance and invoices.</p>
-          <p><a href="https://alluwaleducationhub.org/app/" style="background:#3b82f6;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none;display:inline-block;">Open your dashboard</a></p>
-          <p>JazakAllah khair.</p>
-        </div>`;
+          <p><a class="button" href="https://alluwaleducationhub.org/app/">Open your dashboard</a></p>`,
+      });
     }
 
     await transporter.sendMail({ from, to: email, subject, html });

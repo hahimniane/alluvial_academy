@@ -30,6 +30,34 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
   // Email notification tracking for success messages
   Map<String, int>? _emailNotificationInfo;
 
+  /// Whether the backend actually delivered the welcome email(s) for the last
+  /// create. Null when the account type does not send one.
+  bool? _welcomeEmailSent;
+
+  /// True only when every user in a batch got their welcome email.
+  bool? _allWelcomeEmailsSent(dynamic data) {
+    if (data is! Map) return null;
+    final results = data['results'];
+    if (results is! List || results.isEmpty) return null;
+    for (final entry in results) {
+      if (entry is! Map) continue;
+      final result = entry['result'];
+      if (result is Map && result['emailSent'] != true) return false;
+    }
+    return true;
+  }
+
+  String _welcomeEmailLine({required bool plural}) {
+    if (_welcomeEmailSent == false) {
+      return plural
+          ? '⚠️ Welcome emails were not delivered — the accounts exist, but nobody has their login details'
+          : '⚠️ Welcome email was not delivered — the account exists, but the user has no login details';
+    }
+    return plural
+        ? '• Welcome emails sent with login credentials'
+        : '• Welcome email sent with login credentials';
+  }
+
   // Generate unique kiosk code
   String _generateKioskCode(
       String firstName, String lastName, String userType) {
@@ -497,6 +525,9 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
           final callable = functions.httpsCallable('createUserWithEmail');
           final result = await callable.call(userData);
           AppLogger.debug('Regular user creation result: ${result.data}');
+          _welcomeEmailSent = result.data is Map
+              ? (result.data as Map)['emailSent'] == true
+              : null;
           _emailNotificationInfo = null; // Clear for non-student users
         }
 
@@ -510,6 +541,7 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
         });
 
         AppLogger.debug('Multiple users creation result: ${result.data}');
+        _welcomeEmailSent = _allWelcomeEmailsSent(result.data);
       }
 
       // Show detailed success message
@@ -541,14 +573,14 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
           successMessage = '✅ User created successfully!\n'
               '• Firebase Auth account created\n'
               '• User profile saved to database\n'
-              '• Welcome email sent with login credentials';
+              '${_welcomeEmailLine(plural: false)}';
         }
       } else {
         successMessage =
             '✅ ${transformedUsers.length} users created successfully!\n'
             '• Firebase Auth accounts created\n'
             '• User profiles saved to database\n'
-            '• Welcome emails sent with login credentials';
+            '${_welcomeEmailLine(plural: true)}';
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -560,7 +592,9 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
               fontWeight: FontWeight.w600,
             ),
           ),
-          backgroundColor: const Color(0xff00d084),
+          backgroundColor: _welcomeEmailSent == false
+              ? const Color(0xffe8a33d)
+              : const Color(0xff00d084),
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
