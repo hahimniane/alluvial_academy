@@ -32,6 +32,7 @@ import {
   Phone,
   Radio,
   School,
+  StickyNote,
   Users,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -81,6 +82,7 @@ type EnrollmentApplicant = {
   parentName: string;
   phone: string;
   city: string;
+  schedulingNotes: string;
 };
 
 const enrollmentStatuses: ApplicantStatus[] = ["pending", "contacted", "broadcasted", "archived", "matched"];
@@ -388,6 +390,17 @@ function ApplicantCard({
           <MiniChip icon={School} text={applicant.timeZone} />
           {!applicant.isAdult ? <MiniChip icon={Users} text={applicant.parentName ? `Parent: ${applicant.parentName}` : ""} /> : null}
         </div>
+        {applicant.schedulingNotes ? (
+          <div className="mt-3 flex items-start gap-2 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-2.5">
+            <StickyNote size={16} className="mt-px shrink-0 text-[#64748B]" />
+            <div className="min-w-0">
+              <p className="text-[11px] font-bold text-[#475569]">Scheduling notes from the family</p>
+              <p className="mt-0.5 whitespace-pre-wrap text-xs leading-relaxed text-[#334155]">
+                {applicant.schedulingNotes}
+              </p>
+            </div>
+          </div>
+        ) : null}
         <div className="mt-4 border-t border-black/10 pt-3">
           <div className="flex items-center gap-3">
             {applicant.status !== "archived" ? (
@@ -650,6 +663,10 @@ function normalizeApplicant(id: string, data: Record<string, unknown>): Enrollme
     parentName: stringValue(contact.parentName ?? data.parentName),
     phone: stringValue(contact.phone ?? data.phoneNumber),
     city: stringValue(contact.city ?? data.city ?? country.name),
+    // Written by submitEnrollment() but never shown until now — it was only
+    // reachable through "Raw Application Data", and it usually holds the
+    // constraint that decides the schedule.
+    schedulingNotes: stringValue(preferences.schedulingNotes ?? data.schedulingNotes),
   };
 }
 
