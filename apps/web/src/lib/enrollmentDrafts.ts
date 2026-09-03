@@ -12,7 +12,6 @@ export type EnrollmentDraftStudent = {
   classType: string;
   hoursPerWeek: number;
   preferredDays: string[];
-  preferredTimeSlots: string[];
 };
 
 export type EnrollmentDraftPayload = {
