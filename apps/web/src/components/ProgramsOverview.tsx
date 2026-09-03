@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  AlertCircle,
   CloudSun,
   Clock,
   Code2,
@@ -30,6 +31,7 @@ import {
   Send,
   Sun,
   UserRound,
+  Users,
   UsersRound,
   Venus,
 } from "lucide-react";
@@ -41,6 +43,19 @@ import {
   type EnrollmentDraftPayload,
 } from "@/lib/enrollmentDrafts";
 import { checkParentIdentity, submitEnrollment } from "@/lib/forms";
+import {
+  CLASS_TYPES,
+  SESSION_MINUTES,
+  TIME_BLOCKS,
+  blockById,
+  blockRangeLabel,
+  hoursMatchSessions,
+  normalizeBlock,
+  normalizeClassType,
+  sessionFitsBlock,
+  sessionLabel,
+  weeklyHoursFor,
+} from "@/lib/enrollmentDomain";
 import { MAX_HOURS_PER_WEEK, MIN_HOURS_PER_WEEK, clampHoursPerWeek } from "@/lib/enrollmentHours";
 import {
   fallbackPricing,
@@ -66,11 +81,11 @@ type StudentDraft = {
   level: string;
   classType: string;
   hoursPerWeek: number;
-  sessionDuration: string;
+  /** Explicit question now — it used to be derived from hoursPerWeek. */
+  sessionMinutes: number;
+  sessionsPerWeek: number;
   timeOfDayPreference: string;
   preferredDays: string[];
-  preferredTimeSlots: string[];
-  customTimeSlots: string[];
   useCustomSchedule: boolean;
 };
 type PricingPlans = Record<string, PublicSitePlanPricing>;
@@ -133,7 +148,7 @@ const subjectOptions = [
     shortLabel: "Adlam",
     body: "Reading and writing Fulani with Adlam",
     icon: Languages,
-    trackId: "tutoring",
+    trackId: "adlam",
     color: "#8B5CF6",
   },
   {
@@ -192,18 +207,24 @@ const roles = [
   { value: "Guardian", title: "Guardian", subtitle: "I'm responsible for a learner's enrollment.", icon: UserRound },
 ] as const;
 const trackOptions = [
-  { id: "islamic", title: "Religious Studies & AdLam", icon: MoonStar },
+  { id: "islamic", title: "Religious Studies", icon: MoonStar },
+  { id: "adlam", title: "Adlam", icon: Languages },
   { id: "tutoring", title: "Tutoring & Literacy", icon: School },
   { id: "group", title: "Group Classes", icon: UsersRound },
 ] as const;
 const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const languages = ["English", "French", "Arabic", "Other"];
-const classTypes = [
-  { value: "One-on-One", label: "1-on-1", icon: UserRound },
-  { value: "Group", label: "Group", icon: UsersRound },
-  { value: "Both", label: "Both", icon: null },
-] as const;
-const timeOfDayOptions = ["Morning", "Afternoon", "Evening", "Flexible"];
+const CLASS_TYPE_ICONS: Record<string, typeof UserRound> = {
+  "One-on-One": UserRound,
+  "Exclusive Family Class": Users,
+  "With Other Students": UsersRound,
+};
+const classTypes = CLASS_TYPES.map((type) => ({
+  value: type.value,
+  label: type.label,
+  hint: type.hint,
+  icon: CLASS_TYPE_ICONS[type.value] ?? UserRound,
+}));
 const africanLanguages = ["Pular", "Mandingo", "Swahili", "Wolof", "Hausa", "Yoruba", "Adlam", "Amharic", "Other"];
 
 const initialContact = {
@@ -295,7 +316,6 @@ export function ProgramsOverview() {
           classType: student.classType,
           hoursPerWeek: student.hoursPerWeek,
           preferredDays: student.preferredDays,
-          preferredTimeSlots: student.preferredTimeSlots,
         };
       }),
       contact: {
@@ -340,7 +360,14 @@ export function ProgramsOverview() {
       return !student.level || !student.classType;
     })
   );
-  const stepThreeIncomplete = step === 3 && students.some((student) => student.preferredDays.length === 0 || student.preferredTimeSlots.length === 0);
+  const stepThreeIncomplete =
+    step === 3 &&
+    students.some(
+      (student) =>
+        student.preferredDays.length === 0 ||
+        !blockById(student.timeOfDayPreference) ||
+        !sessionFitsBlock(blockById(student.timeOfDayPreference), student.sessionMinutes),
+    );
   const submitDisabled = status === "saving" || (step === 0 && !role) || stepOneIncomplete || stepTwoIncomplete || stepThreeIncomplete;
 
   const updateContact = (name: string, value: string) => {
@@ -373,7 +400,6 @@ export function ProgramsOverview() {
       specificLanguage: "",
       level: "",
       classType: "",
-      sessionDuration: durationFromHours(students[index]?.hoursPerWeek ?? 1),
     };
     if (index === 0 && applyProgramToAll) {
       updatePrimaryProgram(patch);
@@ -396,8 +422,6 @@ export function ProgramsOverview() {
           age: "",
           gender: "",
           preferredDays: [...base.preferredDays],
-          preferredTimeSlots: [...base.preferredTimeSlots],
-          customTimeSlots: [...base.customTimeSlots],
           useCustomSchedule: false,
         },
       ];
@@ -427,21 +451,10 @@ export function ProgramsOverview() {
     }
   };
 
-  const toggleSlot = (studentIndex: number, slot: string) => {
-    const student = students[studentIndex];
-    const nextSlots = student.preferredTimeSlots.includes(slot)
-      ? student.preferredTimeSlots.filter((item) => item !== slot)
-      : [...student.preferredTimeSlots, slot];
-    if (studentIndex === 0 && !students.some((item, index) => index > 0 && item.useCustomSchedule)) {
-      setStudents((current) => current.map((item) => ({ ...item, preferredTimeSlots: nextSlots })));
-    } else {
-      updateStudent(studentIndex, { preferredTimeSlots: nextSlots });
-    }
-  };
 
   const updateHours = (studentIndex: number, hours: number) => {
     const bounded = clampHoursPerWeek(hours);
-    const patch = { hoursPerWeek: bounded, sessionDuration: durationFromHours(bounded), preferredTimeSlots: [] };
+    const patch = { hoursPerWeek: bounded };
     if (studentIndex === 0 && applyProgramToAll) {
       updatePrimaryProgram(patch);
     } else {
@@ -504,7 +517,13 @@ export function ProgramsOverview() {
       for (let index = 0; index < students.length; index += 1) {
         const student = students[index];
         if (student.preferredDays.length === 0) return fail(`Student ${index + 1}: please select at least one preferred day.`);
-        if (student.preferredTimeSlots.length === 0) return fail(`Student ${index + 1}: please select at least one preferred time slot.`);
+        const block = blockById(student.timeOfDayPreference);
+        if (!block) return fail(`Student ${index + 1}: please choose a part of the day.`);
+        if (!sessionFitsBlock(block, student.sessionMinutes)) {
+          return fail(
+            `Student ${index + 1}: a ${sessionLabel(student.sessionMinutes)} session doesn't fit inside ${block.label.toLowerCase()}.`,
+          );
+        }
       }
     }
     if (step === 4) {
@@ -557,11 +576,12 @@ export function ProgramsOverview() {
             specificLanguage: subject?.id === "languages" ? student.specificLanguage : undefined,
             level: student.level,
             classType: student.classType,
-            sessionDuration: student.sessionDuration,
+            sessionDuration: sessionLabel(student.sessionMinutes),
+            sessionMinutes: student.sessionMinutes,
+            sessionsPerWeek: student.sessionsPerWeek,
             hoursPerWeek: student.hoursPerWeek,
             timeOfDayPreference: student.timeOfDayPreference,
             preferredDays: student.preferredDays,
-            preferredTimeSlots: student.preferredTimeSlots,
             trackId: subject?.trackId ?? "tutoring",
           };
         }),
@@ -767,30 +787,15 @@ export function ProgramsOverview() {
             ) : null}
 
             {step === 3 ? (
-              <StepCard title="Schedule Preferences" subtitle="Choose days and a general time. Open optional slots only if you want exact times now.">
+              <StepCard title="Schedule Preferences" subtitle="Choose the days and the part of the day that suit you. We confirm exact times with you afterwards.">
                 {students.length > 1 ? (
                   <StudentTabs students={students} activeIndex={activeStudentIndex} onSelect={setActiveStudentIndex} />
                 ) : null}
                 <ScheduleEditor
                   student={activeStudent}
                   studentIndex={activeStudentIndex}
-                  showDetailedSlots={showDetailedSlots}
-                  onDetailedSlotsChange={setShowDetailedSlots}
-                  customStart={customStart}
-                  customEnd={customEnd}
-                  onCustomStartChange={setCustomStart}
-                  onCustomEndChange={setCustomEnd}
                   onStudentChange={(patch) => updateStudent(activeStudentIndex, patch)}
                   onDayToggle={(day) => toggleDay(activeStudentIndex, day)}
-                  onSlotToggle={(slot) => toggleSlot(activeStudentIndex, slot)}
-                  onAddCustomSlot={() => {
-                    const slot = formatCustomSlot(customStart, customEnd);
-                    if (!slot || activeStudent.customTimeSlots.includes(slot)) return;
-                    updateStudent(activeStudentIndex, {
-                      customTimeSlots: [...activeStudent.customTimeSlots, slot],
-                      preferredTimeSlots: [...activeStudent.preferredTimeSlots, slot],
-                    });
-                  }}
                 />
               </StepCard>
             ) : null}
@@ -1267,6 +1272,7 @@ function ProgramEditor({
       </EnrollmentSubCard>
 
       <EnrollmentSubCard title="3. Pricing & Hours">
+        <SessionShapeFields student={student} onStudentChange={onStudentChange} />
         <HoursStepper
           hours={student.hoursPerWeek}
           trackId={subject?.trackId ?? ""}
@@ -1274,6 +1280,102 @@ function ProgramEditor({
           pricingPlans={pricingPlans}
         />
       </EnrollmentSubCard>
+    </div>
+  );
+}
+
+/**
+ * How long each class is, and how many a week. These used to be inferred from
+ * weekly hours, which is what produced a single four-hour "slot" for a family
+ * asking for 4 hrs/week. Asking directly is what makes the slot maths work.
+ *
+ * The two numbers are reconciled, never silently corrected: families reason
+ * about price in hours per week, so we say what does not add up and offer the
+ * fix rather than moving their number for them.
+ */
+function SessionShapeFields({
+  student,
+  onStudentChange,
+}: {
+  student: StudentDraft;
+  onStudentChange: (patch: Partial<StudentDraft>) => void;
+}) {
+  const computed = weeklyHoursFor(student.sessionsPerWeek, student.sessionMinutes);
+  const agrees = hoursMatchSessions(student.hoursPerWeek, student.sessionsPerWeek, student.sessionMinutes);
+
+  return (
+    <div className="grid gap-2.5 pb-3">
+      <div>
+        <p className="mb-1.5 text-[13px] font-bold text-slate-800">How long is each class?</p>
+        <div className="flex flex-wrap gap-1.5">
+          {SESSION_MINUTES.map((minutes) => {
+            const selected = student.sessionMinutes === minutes;
+            return (
+              <button
+                key={minutes}
+                type="button"
+                aria-pressed={selected}
+                onClick={() => onStudentChange({ sessionMinutes: minutes })}
+                className={`min-h-[32px] rounded-lg px-2.5 py-1.5 text-[12px] font-semibold transition ${
+                  selected
+                    ? "bg-gradient-to-r from-[#3B82F6] to-[#2563EB] text-white"
+                    : "bg-[#F1F5F9] text-[#64748B] hover:bg-slate-200"
+                }`}
+              >
+                {sessionLabel(minutes)}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div>
+        <p className="mb-1.5 text-[13px] font-bold text-slate-800">How many classes a week?</p>
+        <div className="inline-flex items-center gap-3 rounded-lg border-[1.5px] border-[#E2E8F0] bg-[#FAFBFC] px-2.5 py-2">
+          <button
+            type="button"
+            aria-label="Fewer classes per week"
+            onClick={() => onStudentChange({ sessionsPerWeek: Math.max(1, student.sessionsPerWeek - 1) })}
+            className="text-[#3B82F6] disabled:text-[#CBD5E1]"
+            disabled={student.sessionsPerWeek <= 1}
+          >
+            <MinusCircle size={19} />
+          </button>
+          <span className="min-w-[1.5rem] text-center text-[13px] font-bold text-slate-800">
+            {student.sessionsPerWeek}
+          </span>
+          <button
+            type="button"
+            aria-label="More classes per week"
+            onClick={() => onStudentChange({ sessionsPerWeek: Math.min(14, student.sessionsPerWeek + 1) })}
+            className="text-[#3B82F6] disabled:text-[#CBD5E1]"
+            disabled={student.sessionsPerWeek >= 14}
+          >
+            <PlusCircle size={19} />
+          </button>
+        </div>
+      </div>
+
+      {!agrees ? (
+        <div className="flex items-start gap-2 rounded-lg border-[1.5px] border-[#FDE68A] bg-[#FFFBEB] px-2.5 py-2">
+          <AlertCircle size={15} className="mt-px shrink-0 text-[#B45309]" />
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold text-[#92400E]">These two don&apos;t add up</p>
+            <p className="mt-0.5 text-[10px] font-medium leading-[1.3] text-[#92400E]">
+              {student.sessionsPerWeek} session{student.sessionsPerWeek === 1 ? "" : "s"} of{" "}
+              {sessionLabel(student.sessionMinutes)} is {computed} hrs a week, but you&apos;ve asked for{" "}
+              {student.hoursPerWeek} hrs.
+            </p>
+            <button
+              type="button"
+              onClick={() => onStudentChange({ hoursPerWeek: computed })}
+              className="mt-1.5 rounded-lg border-[1.5px] border-[#FDE68A] bg-white px-2.5 py-1 text-[10px] font-semibold text-[#92400E]"
+            >
+              Set hours to {computed}
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -1362,34 +1464,14 @@ function TrackSelector({
 function ScheduleEditor({
   student,
   studentIndex,
-  showDetailedSlots,
-  onDetailedSlotsChange,
-  customStart,
-  customEnd,
-  onCustomStartChange,
-  onCustomEndChange,
   onStudentChange,
   onDayToggle,
-  onSlotToggle,
-  onAddCustomSlot,
 }: {
   student: StudentDraft;
   studentIndex: number;
-  showDetailedSlots: boolean;
-  onDetailedSlotsChange: (value: boolean) => void;
-  customStart: string;
-  customEnd: string;
-  onCustomStartChange: (value: string) => void;
-  onCustomEndChange: (value: string) => void;
   onStudentChange: (patch: Partial<StudentDraft>) => void;
   onDayToggle: (day: string) => void;
-  onSlotToggle: (slot: string) => void;
-  onAddCustomSlot: () => void;
 }) {
-  const slots = useMemo(
-    () => [...timeSlots(student.sessionDuration, student.timeOfDayPreference), ...student.customTimeSlots],
-    [student.sessionDuration, student.timeOfDayPreference, student.customTimeSlots],
-  );
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
 
   return (
@@ -1417,37 +1499,44 @@ function ScheduleEditor({
       <ChipGroup title="Which days work best?" items={days} selected={student.preferredDays} onToggle={onDayToggle} />
       <TimeOfDayCards
         value={student.timeOfDayPreference}
-        onChange={(value) => onStudentChange({ timeOfDayPreference: value, preferredTimeSlots: [] })}
+        onChange={(value) => onStudentChange({ timeOfDayPreference: value })}
       />
-      <details
-        open={showDetailedSlots}
-        onToggle={(event) => onDetailedSlotsChange(event.currentTarget.open)}
-        className="group"
-      >
-        <summary className="flex cursor-pointer list-none items-center gap-2 text-[13px] font-semibold text-[#3B82F6] marker:hidden">
-          <ChevronRight size={15} className="transition group-open:rotate-90" />
-          Advanced: Select specific times
-        </summary>
-        <div className="mt-2">
-          {slots.length > 0 ? (
-            <ChipGroup items={slots} selected={student.preferredTimeSlots} onToggle={onSlotToggle} tone="green" />
-          ) : (
-            <p className="rounded-lg bg-[#F1F5F9] p-3 text-[12px] font-semibold text-slate-500">
-              Pick a time of day to see available slots.
-            </p>
-          )}
-          <div className="mt-2">
-            <button type="button" className="inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-[12px] font-semibold text-[#3B82F6] hover:bg-blue-50" onClick={onAddCustomSlot}>
-              <PlusCircle size={15} />
-              Add custom time
-            </button>
-          </div>
-          <div className="sr-only">
-            <input type="time" value={customStart} onChange={(event) => onCustomStartChange(event.target.value)} aria-label="Custom start time" />
-            <input type="time" value={customEnd} onChange={(event) => onCustomEndChange(event.target.value)} aria-label="Custom end time" />
-          </div>
-        </div>
-      </details>
+      <ScheduleConfirmationLine student={student} />
+    </div>
+  );
+}
+
+/**
+ * Replaces the slot grid parents used to pick from. They give a window; we say
+ * back exactly what we will book inside it, or that the session cannot fit.
+ */
+function ScheduleConfirmationLine({ student }: { student: StudentDraft }) {
+  const block = blockById(student.timeOfDayPreference);
+  const sessionMinutes = student.sessionMinutes;
+  const dayList = student.preferredDays.join(", ");
+
+  if (!block || student.preferredDays.length === 0) return null;
+
+  const fits = sessionFitsBlock(block, sessionMinutes);
+  if (!fits) {
+    return (
+      <div className="flex items-start gap-2 rounded-lg border-[1.5px] border-[#FDE68A] bg-[#FFFBEB] px-2.5 py-2">
+        <AlertCircle size={15} className="mt-px shrink-0 text-[#B45309]" />
+        <p className="text-[10px] font-medium leading-[1.3] text-[#92400E]">
+          A {sessionLabel(sessionMinutes)} session doesn&apos;t fit inside {block.label.toLowerCase()} (
+          {blockRangeLabel(block)}). Choose a shorter session or another part of the day.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-start gap-2 rounded-lg border-[1.5px] border-[#E2E8F0] bg-[#FAFBFC] px-2.5 py-2">
+      <Clock size={15} className="mt-px shrink-0 text-[#64748B]" />
+      <p className="text-[10px] font-medium leading-[1.3] text-[#64748B]">
+        We&apos;ll book {student.sessionsPerWeek} × {sessionLabel(sessionMinutes)} somewhere between{" "}
+        {blockRangeLabel(block)} on {dayList}, and confirm the exact times with you.
+      </p>
     </div>
   );
 }
@@ -1483,8 +1572,14 @@ function ReviewPanel({
   students.forEach((student, index) => {
     const name = students.length === 1 ? "" : `${student.name || `Student ${index + 1}`} — `;
     if (student.preferredDays.length > 0) scheduleRows.push([`${name}Days`, student.preferredDays.join(", ")]);
-    if (student.preferredTimeSlots.length > 0) scheduleRows.push([`${name}Time slots`, student.preferredTimeSlots.join(", ")]);
-    if (student.timeOfDayPreference) scheduleRows.push([`${name}Time preference`, student.timeOfDayPreference]);
+    const reviewBlock = blockById(student.timeOfDayPreference);
+    if (reviewBlock) {
+      scheduleRows.push([`${name}Window`, `${reviewBlock.label} (${blockRangeLabel(reviewBlock)})`]);
+    }
+    scheduleRows.push([
+      `${name}Sessions`,
+      `${student.sessionsPerWeek} × ${sessionLabel(student.sessionMinutes)} · ${student.hoursPerWeek} hrs/wk`,
+    ]);
   });
 
   return (
@@ -1677,35 +1772,40 @@ function ChipGroup({
   );
 }
 
-function TimeOfDayCards({ value, onChange }: { value: string; onChange: (value: string) => void }) {
-  const items = [
-    { value: "Morning", icon: Sun, color: "#F59E0B" },
-    { value: "Afternoon", icon: CloudSun, color: "#3B82F6" },
-    { value: "Evening", icon: MoonStar, color: "#6366F1" },
-    { value: "Flexible", icon: Clock, color: "#10B981" },
-  ] as const;
+const BLOCK_ICONS: Record<string, typeof Sun> = {
+  Morning: Sun,
+  Afternoon: CloudSun,
+  Evening: MoonStar,
+  Night: MoonStar,
+  "Late night": Clock,
+};
 
+function TimeOfDayCards({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   return (
     <div>
       <p className="mb-1.5 text-[13px] font-bold text-slate-800">Preferred Time of Day</p>
       <div className="flex flex-wrap gap-1.5">
-        {items.map(({ value: itemValue, icon: Icon, color }) => {
-          const selected = value === itemValue;
+        {TIME_BLOCKS.map((block) => {
+          const Icon = BLOCK_ICONS[block.id] ?? Clock;
+          const selected = value === block.id;
           return (
             <button
-              key={itemValue}
+              key={block.id}
               type="button"
-              className="inline-flex min-h-[32px] items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold shadow-[0_1px_2px_rgba(15,23,42,0.02)] transition"
+              className="inline-flex min-h-[32px] flex-col items-start gap-0.5 rounded-lg border px-2.5 py-1.5 text-left shadow-[0_1px_2px_rgba(15,23,42,0.02)] transition"
               style={{
-                borderColor: selected ? color : "#E2E8F0",
+                borderColor: selected ? block.color : "#E2E8F0",
                 borderWidth: selected ? 2 : 1.5,
-                color: selected ? color : "#475569",
-                background: selected ? `${color}18` : "#FAFBFC",
+                color: selected ? block.color : "#475569",
+                background: selected ? `${block.color}18` : "#FAFBFC",
               }}
-              onClick={() => onChange(selected ? "" : itemValue)}
+              onClick={() => onChange(selected ? "" : block.id)}
             >
-              <Icon size={15} />
-              {itemValue}
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold">
+                <Icon size={15} />
+                {block.label}
+              </span>
+              <span className="text-[9px] font-medium text-[#94A3B8]">{blockRangeLabel(block)}</span>
             </button>
           );
         })}
@@ -1773,11 +1873,13 @@ function makeStudentDraft(subjectId: string, hours: number): StudentDraft {
     level: "",
     classType: "",
     hoursPerWeek: hours,
-    sessionDuration: durationFromHours(hours),
+    // Session length is its own question now. Default to one hour and let
+    // sessions-per-week follow the hours the family already chose, so the two
+    // start out agreeing instead of tripping the reconcile warning on arrival.
+    sessionMinutes: 60,
+    sessionsPerWeek: Math.max(1, Math.round(hours)),
     timeOfDayPreference: "",
     preferredDays: [],
-    preferredTimeSlots: [],
-    customTimeSlots: [],
     useCustomSchedule: false,
   };
 }
@@ -1811,39 +1913,9 @@ function classTypeReviewLabel(value: string) {
   return value;
 }
 
-function durationFromHours(hours: number) {
-  const bounded = Math.min(Math.max(hours, 1), 4);
-  return bounded === 1 ? "1 hr" : `${bounded} hrs`;
-}
 
-function timeSlots(duration: string, timeOfDay: string) {
-  if (!duration || !timeOfDay) return [];
-  if (timeOfDay === "Flexible") return ["8 AM - 12 PM", "12 PM - 4 PM", "4 PM - 8 PM", "8 PM - 12 AM"];
-  const ranges: Record<string, [number, number]> = {
-    Morning: [6, 12],
-    Afternoon: [12, 17],
-    Evening: [17, 21],
-  };
-  const range = ranges[timeOfDay];
-  if (!range) return [];
-  const hours = duration.includes("1 hr") ? 1 : Number.parseInt(duration, 10) || 1;
-  const slots = [];
-  for (let start = range[0]; start + hours <= range[1]; start += hours) {
-    slots.push(`${formatHour(start)} - ${formatHour(start + hours)}`);
-  }
-  return slots;
-}
 
-function formatHour(hour: number) {
-  const period = hour >= 12 ? "PM" : "AM";
-  const h = hour % 12 === 0 ? 12 : hour % 12;
-  return `${h}:00 ${period}`;
-}
 
-function formatCustomSlot(start: string, end: string) {
-  if (!start || !end || end <= start) return "";
-  return `${formatClockInput(start)} - ${formatClockInput(end)}`;
-}
 
 function formatClockInput(value: string) {
   const [hourRaw, minuteRaw] = value.split(":");
