@@ -1047,6 +1047,26 @@ const inviteParentForEnrollment = async (request) => {
   const parentSnap = await parentRef.get();
 
   const now = admin.firestore.FieldValue.serverTimestamp();
+
+  // The merge below sets user_type to 'parent'. When the email already belongs
+  // to an account, that must only ever be a parent account: applied to an
+  // admin, teacher or student it silently rewrites who that person is in the
+  // system — an admin who enrols their own child would lose the admin console.
+  if (parentSnap.exists) {
+    const existingData = parentSnap.data() || {};
+    const existingType = String(existingData.user_type || existingData.role || '').toLowerCase();
+    const secondary = Array.isArray(existingData.secondary_roles)
+      ? existingData.secondary_roles.map((r) => String(r).toLowerCase())
+      : [];
+    const isParentAlready = existingType === 'parent' || existingType === '' || secondary.includes('parent');
+    if (!isParentAlready) {
+      throw new functions.https.HttpsError(
+        'failed-precondition',
+        `${email} belongs to an existing ${existingType} account. Linking it as a parent would change that account's role. ` +
+          `Use a different email for the parent, or add "parent" to that account's secondary roles first.`
+      );
+    }
+  }
   const parentDocUpdate = {
     'e-mail': email,
     user_type: 'parent',
@@ -1068,13 +1088,11 @@ const inviteParentForEnrollment = async (request) => {
     await parentRef.set(parentDocUpdate, { merge: true });
   } else {
     // Merge children_ids idempotently.
-    await parentRef.set(
-      {
-        ...parentDocUpdate,
-        children_ids: admin.firestore.FieldValue.arrayUnion(studentUid),
-      },
-      { merge: true },
-    );
+    const existingType = String((parentSnap.data() || {}).user_type || '').toLowerCase();
+    const update = { ...parentDocUpdate, children_ids: admin.firestore.FieldValue.arrayUnion(studentUid) };
+    // A staff account that is a parent only through secondary_roles keeps its primary role.
+    if (existingType && existingType !== 'parent') delete update.user_type;
+    await parentRef.set(update, { merge: true });
   }
 
   // Add parent to the student's guardian_ids (idempotent).

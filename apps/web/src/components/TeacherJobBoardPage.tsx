@@ -33,7 +33,7 @@ import {
   type Unsubscribe,
 } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
-import { blockById, blockRangeLabel, normalizeBlock, sessionLabel, slotsFor } from "@/lib/enrollmentDomain";
+import { blockById, blockRangeLabel, minutesFromDurationLabel, normalizeBlock, sessionLabel, slotsFor } from "@/lib/enrollmentDomain";
 import { getCurrentUserRecord, isCurrentUserTeacher } from "@/lib/userRoles";
 import { TeacherAccessPrompt, TeacherShell, openTeacherMobileMenu } from "@/components/TeacherDashboardHome";
 
@@ -1031,16 +1031,6 @@ function numberValue(value: unknown) {
  * Older jobs store the session as a label ("1 hr", "90 mins"). New ones store
  * minutes. Parse the label so an existing job still produces slots.
  */
-function minutesFromDurationLabel(label: string) {
-  const text = label.toLowerCase();
-  if (!text) return 60;
-  const hourMatch = text.match(/(\d+(?:\.\d+)?)\s*(?:hr|hour)/);
-  const minuteMatch = text.match(/(\d+)\s*(?:min)/);
-  let minutes = 0;
-  if (hourMatch) minutes += Math.round(Number.parseFloat(hourMatch[1]) * 60);
-  if (minuteMatch) minutes += Number.parseInt(minuteMatch[1], 10);
-  return minutes > 0 ? minutes : 60;
-}
 
 function stringValue(value: unknown) {
   return typeof value === "string" ? value.trim() : "";

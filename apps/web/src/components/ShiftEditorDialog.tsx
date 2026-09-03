@@ -45,10 +45,28 @@ function timezoneAbbrev(date: Date, zone: string): string {
  * the guarded write paths in lib/shifts.ts.
  */
 
+type RecurrenceType = "none" | "daily" | "weekly" | "monthly" | "yearly";
+
 type Props = {
   mode: "create" | "edit";
   shift: ShiftDoc | null;
-  prefill: { staffId: string | null; date: Date | null };
+  /**
+   * Starting values for a new shift. The schedule screen passes a staff row
+   * and a day; the matched-applicant card passes everything it already knows
+   * about the class so the admin only confirms.
+   */
+  prefill: {
+    staffId: string | null;
+    date: Date | null;
+    subjectId?: string;
+    studentIds?: string[];
+    startStr?: string;
+    endStr?: string;
+    recurrenceType?: RecurrenceType | "onetime";
+    /** ISO weekday numbers 1 (Mon) … 7 (Sun). */
+    weeklyDays?: number[];
+    notes?: string;
+  };
   staff: StaffMember[];
   students: StudentOption[];
   subjects: SubjectOption[];
@@ -61,7 +79,6 @@ type Props = {
   onSubjectsChanged?: () => void;
 };
 
-type RecurrenceType = "none" | "daily" | "weekly" | "monthly" | "yearly";
 
 const WEEKDAYS: { iso: number; label: string }[] = [
   { iso: 1, label: "Mon" },
@@ -123,22 +140,22 @@ export function ShiftEditorDialog({
   const [teacherPickerOpen, setTeacherPickerOpen] = useState(false);
   const [studentPickerOpen, setStudentPickerOpen] = useState(false);
   const [teacherId, setTeacherId] = useState(isEdit ? shift.teacherId : (prefill.staffId ?? ""));
-  const [subjectId, setSubjectId] = useState(isEdit ? (shift.subjectId ?? "") : "");
-  const [studentIds, setStudentIds] = useState<string[]>(isEdit ? shift.studentIds : []);
+  const [subjectId, setSubjectId] = useState(isEdit ? (shift.subjectId ?? "") : (prefill.subjectId ?? ""));
+  const [studentIds, setStudentIds] = useState<string[]>(isEdit ? shift.studentIds : (prefill.studentIds ?? []));
   const [leaderRole, setLeaderRole] = useState(isEdit ? (shift.leaderRole ?? "") : "");
   const [dateStr, setDateStr] = useState(() =>
     dateInputValue(isEdit ? shift.start : (prefill.date ?? new Date()), zoneDefault),
   );
-  const [startStr, setStartStr] = useState(() => (isEdit ? timeInputValue(shift.start, zoneDefault) : "14:00"));
-  const [endStr, setEndStr] = useState(() => (isEdit ? timeInputValue(shift.end, zoneDefault) : "15:00"));
+  const [startStr, setStartStr] = useState(() => (isEdit ? timeInputValue(shift.start, zoneDefault) : (prefill.startStr ?? "14:00")));
+  const [endStr, setEndStr] = useState(() => (isEdit ? timeInputValue(shift.end, zoneDefault) : (prefill.endStr ?? "15:00")));
   const [hourlyRate, setHourlyRate] = useState(isEdit ? String(shift.hourlyRate || "") : "");
   const [customName, setCustomName] = useState(isEdit ? shift.customName : "");
   const [useCustomName, setUseCustomName] = useState(isEdit ? Boolean(shift.customName) : false);
-  const [notes, setNotes] = useState(isEdit ? shift.notes : "");
+  const [notes, setNotes] = useState(isEdit ? shift.notes : (prefill.notes ?? ""));
   // "onetime" = independent shifts on the selected weekdays of the coming
   // week only (no template); everything else matches the Flutter recurrence.
-  const [recurrenceType, setRecurrenceType] = useState<RecurrenceType | "onetime">("none");
-  const [weeklyDays, setWeeklyDays] = useState<number[]>([]);
+  const [recurrenceType, setRecurrenceType] = useState<RecurrenceType | "onetime">(isEdit ? "none" : (prefill.recurrenceType ?? "none"));
+  const [weeklyDays, setWeeklyDays] = useState<number[]>(isEdit ? [] : (prefill.weeklyDays ?? []));
   const [recurrenceEnd, setRecurrenceEnd] = useState("");
   const [useSeparateTimes, setUseSeparateTimes] = useState(false);
   const [perDayTimes, setPerDayTimes] = useState<Record<number, { start: string; end: string }>>({});
