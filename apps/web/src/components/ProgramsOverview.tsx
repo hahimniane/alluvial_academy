@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  AlertCircle,
   CloudSun,
   Clock,
   Code2,
@@ -30,8 +31,10 @@ import {
   Send,
   Sun,
   UserRound,
+  Users,
   UsersRound,
   Venus,
+  Trash2,
 } from "lucide-react";
 import { trackEvent } from "@/lib/analytics";
 import {
@@ -41,6 +44,20 @@ import {
   type EnrollmentDraftPayload,
 } from "@/lib/enrollmentDrafts";
 import { checkParentIdentity, submitEnrollment } from "@/lib/forms";
+import {
+  CLASS_TYPES,
+  SESSION_MINUTES,
+  TIME_BLOCKS,
+  blockById,
+  blockRangeLabel,
+  hoursMatchSessions,
+  normalizeBlock,
+  normalizeClassType,
+  sessionFitsBlock,
+  sessionLabel,
+  weeklyHoursFor,
+  trackById,
+} from "@/lib/enrollmentDomain";
 import { MAX_HOURS_PER_WEEK, MIN_HOURS_PER_WEEK, clampHoursPerWeek } from "@/lib/enrollmentHours";
 import {
   fallbackPricing,
@@ -57,21 +74,30 @@ type LinkedParent = {
   email?: string;
   phone?: string;
 };
-type StudentDraft = {
-  name: string;
-  age: string;
-  gender: string;
+/**
+ * One thing a student studies: the subject, how long each class is, how many a
+ * week, and when. A student can take several, and each is scheduled and staffed
+ * on its own — Quran on Monday evenings with one teacher, Adlam on Saturday
+ * mornings with another.
+ */
+type ProgramDraft = {
   subjectId: string;
   specificLanguage: string;
   level: string;
   classType: string;
   hoursPerWeek: number;
-  sessionDuration: string;
+  /** Explicit question now — it used to be derived from hoursPerWeek. */
+  sessionMinutes: number;
+  sessionsPerWeek: number;
   timeOfDayPreference: string;
   preferredDays: string[];
-  preferredTimeSlots: string[];
-  customTimeSlots: string[];
-  useCustomSchedule: boolean;
+};
+
+type StudentDraft = {
+  name: string;
+  age: string;
+  gender: string;
+  programs: ProgramDraft[];
 };
 type PricingPlans = Record<string, PublicSitePlanPricing>;
 
@@ -133,7 +159,7 @@ const subjectOptions = [
     shortLabel: "Adlam",
     body: "Reading and writing Fulani with Adlam",
     icon: Languages,
-    trackId: "tutoring",
+    trackId: "adlam",
     color: "#8B5CF6",
   },
   {
@@ -192,18 +218,24 @@ const roles = [
   { value: "Guardian", title: "Guardian", subtitle: "I'm responsible for a learner's enrollment.", icon: UserRound },
 ] as const;
 const trackOptions = [
-  { id: "islamic", title: "Religious Studies & AdLam", icon: MoonStar },
+  { id: "islamic", title: "Religious Studies", icon: MoonStar },
+  { id: "adlam", title: "Adlam", icon: Languages },
   { id: "tutoring", title: "Tutoring & Literacy", icon: School },
   { id: "group", title: "Group Classes", icon: UsersRound },
 ] as const;
 const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const languages = ["English", "French", "Arabic", "Other"];
-const classTypes = [
-  { value: "One-on-One", label: "1-on-1", icon: UserRound },
-  { value: "Group", label: "Group", icon: UsersRound },
-  { value: "Both", label: "Both", icon: null },
-] as const;
-const timeOfDayOptions = ["Morning", "Afternoon", "Evening", "Flexible"];
+const CLASS_TYPE_ICONS: Record<string, typeof UserRound> = {
+  "One-on-One": UserRound,
+  "Exclusive Family Class": Users,
+  "With Other Students": UsersRound,
+};
+const classTypes = CLASS_TYPES.map((type) => ({
+  value: type.value,
+  label: type.label,
+  hint: type.hint,
+  icon: CLASS_TYPE_ICONS[type.value] ?? UserRound,
+}));
 const africanLanguages = ["Pular", "Mandingo", "Swahili", "Wolof", "Hausa", "Yoruba", "Adlam", "Amharic", "Other"];
 
 const initialContact = {
@@ -284,20 +316,22 @@ export function ProgramsOverview() {
       role,
       preferredLanguage,
       timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
-      students: students.map((student) => {
-        const subject = subjectFor(student.subjectId);
-        return {
-          name: student.name,
-          age: student.age,
-          gender: student.gender,
-          subject: subject?.label ?? "",
-          level: student.level,
-          classType: student.classType,
-          hoursPerWeek: student.hoursPerWeek,
-          preferredDays: student.preferredDays,
-          preferredTimeSlots: student.preferredTimeSlots,
-        };
-      }),
+      // One draft entry per program, matching what will be submitted.
+      students: students.flatMap((student) =>
+        student.programs.map((program) => {
+          const subject = subjectFor(program.subjectId);
+          return {
+            name: student.name,
+            age: student.age,
+            gender: student.gender,
+            subject: subject?.label ?? "",
+            level: program.level,
+            classType: program.classType,
+            hoursPerWeek: program.hoursPerWeek,
+            preferredDays: program.preferredDays,
+          };
+        }),
+      ),
       contact: {
         email: contact.email,
         phoneNumber: contact.phoneNumber,
@@ -317,30 +351,47 @@ export function ProgramsOverview() {
   const isParentGuardian = role === "Parent" || role === "Guardian";
   const primaryStudent = students[0];
   const activeStudent = students[activeStudentIndex] ?? primaryStudent;
-  const primarySubject = subjectFor(primaryStudent.subjectId);
-  const summaryLines = students.map((student, index) => {
-    const subject = subjectFor(student.subjectId);
-    return {
-      title: student.name.trim() || `Student ${index + 1}`,
-      // Program and hours only — the monthly figure is settled with the family.
-      detail: subject
-        ? `${subject.shortLabel} · ${student.hoursPerWeek} hrs/wk`
-        : `— · ${student.hoursPerWeek} hrs/wk`,
-    };
-  });
-  const totalHours = students.reduce((sum, student) => sum + student.hoursPerWeek, 0);
+  const primarySubject = subjectFor(primaryStudent.programs[0]?.subjectId ?? "");
+  // One line per student per program: each is scheduled and staffed separately.
+  const summaryLines = students.flatMap((student, index) =>
+    student.programs.map((program) => {
+      const subject = subjectFor(program.subjectId);
+      return {
+        title: student.name.trim() || `Student ${index + 1}`,
+        // Program and hours only — the monthly figure is settled with the family.
+        detail: `${subject?.shortLabel ?? "—"} · ${program.hoursPerWeek} hrs/wk`,
+      };
+    }),
+  );
+  const totalHours = students.reduce(
+    (sum, student) => sum + student.programs.reduce((inner, program) => inner + program.hoursPerWeek, 0),
+    0,
+  );
   const programStudents = applyProgramToAll || students.length === 1 ? [primaryStudent] : students;
   const stepOneIncomplete = step === 1 && students.some((student) => !student.name.trim() || !student.age.trim());
   const stepTwoIncomplete = step === 2 && (
     !preferredLanguage ||
-    programStudents.some((student) => {
-      const subject = subjectFor(student.subjectId);
-      if (!subject) return true;
-      if (subject.id === "languages" && !student.specificLanguage) return true;
-      return !student.level || !student.classType;
-    })
+    programStudents.some((student) =>
+      student.programs.some((program) => {
+        const subject = subjectFor(program.subjectId);
+        if (!subject) return true;
+        if (subject.id === "languages" && !program.specificLanguage) return true;
+        if (!program.level || !program.classType) return true;
+        // Continue is blocked while hours and sessions disagree.
+        return !hoursMatchSessions(program.hoursPerWeek, program.sessionsPerWeek, program.sessionMinutes);
+      }),
+    )
   );
-  const stepThreeIncomplete = step === 3 && students.some((student) => student.preferredDays.length === 0 || student.preferredTimeSlots.length === 0);
+  const stepThreeIncomplete =
+    step === 3 &&
+    students.some((student) =>
+      student.programs.some(
+        (program) =>
+          program.preferredDays.length === 0 ||
+          !blockById(program.timeOfDayPreference) ||
+          !sessionFitsBlock(blockById(program.timeOfDayPreference), program.sessionMinutes),
+      ),
+    );
   const submitDisabled = status === "saving" || (step === 0 && !role) || stepOneIncomplete || stepTwoIncomplete || stepThreeIncomplete;
 
   const updateContact = (name: string, value: string) => {
@@ -354,51 +405,75 @@ export function ProgramsOverview() {
     }));
   };
 
-  const updatePrimaryProgram = (patch: Partial<StudentDraft>) => {
-    setStudents((current) => {
-      const next = current.map((student, index) => {
-        if (index === 0 || applyProgramToAll) {
-          return { ...student, ...patch };
-        }
-        return student;
-      });
-      return next;
-    });
+  /**
+   * Programs edited on student 0 are mirrored to every sibling while
+   * "customise per student" is off, so switching it on can never reveal a
+   * sibling that was never set up.
+   */
+  const updateProgram = (studentIndex: number, programIndex: number, patch: Partial<ProgramDraft>) => {
+    setStudents((current) =>
+      current.map((student, index) => {
+        const mirrored = applyProgramToAll && studentIndex === 0;
+        if (index !== studentIndex && !mirrored) return student;
+        const programs = student.programs.map((program, pIndex) =>
+          pIndex === programIndex ? { ...program, ...patch } : program,
+        );
+        return { ...student, programs };
+      }),
+    );
   };
 
-  const setProgramForStudent = (index: number, subjectId: string) => {
+  const setProgramSubject = (studentIndex: number, programIndex: number, subjectId: string) => {
     const subject = subjectFor(subjectId);
-    const patch = {
+    updateProgram(studentIndex, programIndex, {
       subjectId,
       specificLanguage: "",
       level: "",
-      classType: "",
-      sessionDuration: durationFromHours(students[index]?.hoursPerWeek ?? 1),
-    };
-    if (index === 0 && applyProgramToAll) {
-      updatePrimaryProgram(patch);
-    } else {
-      updateStudent(index, patch);
-    }
-    if (subject?.id === "group") {
-      updateStudent(index, { classType: "Group" });
-    }
+      // Group Classes only exist as a group, so the class type follows the track.
+      classType: subject?.id === "group" ? "With Other Students" : "",
+    });
+  };
+
+  const addProgram = (studentIndex: number) => {
+    setStudents((current) =>
+      current.map((student, index) => {
+        const mirrored = applyProgramToAll && studentIndex === 0;
+        if (index !== studentIndex && !mirrored) return student;
+        const template = student.programs[0];
+        return {
+          ...student,
+          programs: [...student.programs, makeProgramDraft(template?.subjectId ?? "islamic", 1)],
+        };
+      }),
+    );
+  };
+
+  const removeProgram = (studentIndex: number, programIndex: number) => {
+    setStudents((current) =>
+      current.map((student, index) => {
+        const mirrored = applyProgramToAll && studentIndex === 0;
+        if (index !== studentIndex && !mirrored) return student;
+        if (student.programs.length <= 1) return student;
+        return { ...student, programs: student.programs.filter((_, i) => i !== programIndex) };
+      }),
+    );
   };
 
   const addStudent = () => {
     setStudents((current) => {
-      const base = applyProgramToAll ? current[0] : makeStudentDraft(primaryStudent.subjectId, primaryStudent.hoursPerWeek);
+      // A new sibling starts from student 0's programs so the two are already
+      // in step; nothing is discarded when the toggle is switched on.
+      const template = current[0];
       const next = [
         ...current,
         {
-          ...base,
           name: "",
           age: "",
           gender: "",
-          preferredDays: [...base.preferredDays],
-          preferredTimeSlots: [...base.preferredTimeSlots],
-          customTimeSlots: [...base.customTimeSlots],
-          useCustomSchedule: false,
+          programs: template.programs.map((program) => ({
+            ...program,
+            preferredDays: [...program.preferredDays],
+          })),
         },
       ];
       setActiveStudentIndex((currentIndex) => Math.min(currentIndex, next.length - 1));
@@ -415,38 +490,17 @@ export function ProgramsOverview() {
     });
   };
 
-  const toggleDay = (studentIndex: number, day: string) => {
-    const student = students[studentIndex];
-    const nextDays = student.preferredDays.includes(day)
-      ? student.preferredDays.filter((item) => item !== day)
-      : [...student.preferredDays, day];
-    if (studentIndex === 0 && !students.some((item, index) => index > 0 && item.useCustomSchedule)) {
-      setStudents((current) => current.map((item) => ({ ...item, preferredDays: nextDays })));
-    } else {
-      updateStudent(studentIndex, { preferredDays: nextDays });
-    }
+  const toggleDay = (studentIndex: number, programIndex: number, day: string) => {
+    const program = students[studentIndex]?.programs[programIndex];
+    if (!program) return;
+    const nextDays = program.preferredDays.includes(day)
+      ? program.preferredDays.filter((item) => item !== day)
+      : [...program.preferredDays, day];
+    updateProgram(studentIndex, programIndex, { preferredDays: nextDays });
   };
 
-  const toggleSlot = (studentIndex: number, slot: string) => {
-    const student = students[studentIndex];
-    const nextSlots = student.preferredTimeSlots.includes(slot)
-      ? student.preferredTimeSlots.filter((item) => item !== slot)
-      : [...student.preferredTimeSlots, slot];
-    if (studentIndex === 0 && !students.some((item, index) => index > 0 && item.useCustomSchedule)) {
-      setStudents((current) => current.map((item) => ({ ...item, preferredTimeSlots: nextSlots })));
-    } else {
-      updateStudent(studentIndex, { preferredTimeSlots: nextSlots });
-    }
-  };
-
-  const updateHours = (studentIndex: number, hours: number) => {
-    const bounded = clampHoursPerWeek(hours);
-    const patch = { hoursPerWeek: bounded, sessionDuration: durationFromHours(bounded), preferredTimeSlots: [] };
-    if (studentIndex === 0 && applyProgramToAll) {
-      updatePrimaryProgram(patch);
-    } else {
-      updateStudent(studentIndex, patch);
-    }
+  const updateHours = (studentIndex: number, programIndex: number, hours: number) => {
+    updateProgram(studentIndex, programIndex, { hoursPerWeek: clampHoursPerWeek(hours) });
   };
 
   async function onParentLookup() {
@@ -491,20 +545,39 @@ export function ProgramsOverview() {
     if (step === 2) {
       for (let index = 0; index < students.length; index += 1) {
         const student = students[index];
-        const subject = subjectFor(student.subjectId);
-        if (!subject) return fail(`Please select a program for Student ${index + 1}.`);
-        if (subject.id === "languages" && !student.specificLanguage) {
-          return fail(`Please select a specific language for Student ${index + 1}.`);
+        const who = student.name.trim() || `Student ${index + 1}`;
+        for (let p = 0; p < student.programs.length; p += 1) {
+          const program = student.programs[p];
+          const which = student.programs.length > 1 ? `${who}, program ${p + 1}` : who;
+          const subject = subjectFor(program.subjectId);
+          if (!subject) return fail(`Please select a program for ${which}.`);
+          if (subject.id === "languages" && !program.specificLanguage) {
+            return fail(`Please select a specific language for ${which}.`);
+          }
+          if (!program.level) return fail(`Please select a level for ${which}.`);
+          if (!program.classType) return fail(`Please select a class type for ${which}.`);
+          if (!hoursMatchSessions(program.hoursPerWeek, program.sessionsPerWeek, program.sessionMinutes)) {
+            return fail(`${which}: sessions and weekly hours don't match yet.`);
+          }
         }
-        if (!student.level) return fail(`Please select a level for Student ${index + 1}.`);
-        if (!student.classType) return fail(`Please select a class type for Student ${index + 1}.`);
       }
     }
     if (step === 3) {
       for (let index = 0; index < students.length; index += 1) {
         const student = students[index];
-        if (student.preferredDays.length === 0) return fail(`Student ${index + 1}: please select at least one preferred day.`);
-        if (student.preferredTimeSlots.length === 0) return fail(`Student ${index + 1}: please select at least one preferred time slot.`);
+        const who = student.name.trim() || `Student ${index + 1}`;
+        for (let p = 0; p < student.programs.length; p += 1) {
+          const program = student.programs[p];
+          const which = student.programs.length > 1 ? `${who}, program ${p + 1}` : who;
+          if (program.preferredDays.length === 0) return fail(`${which}: please select at least one preferred day.`);
+          const block = blockById(program.timeOfDayPreference);
+          if (!block) return fail(`${which}: please choose a part of the day.`);
+          if (!sessionFitsBlock(block, program.sessionMinutes)) {
+            return fail(
+              `${which}: a ${sessionLabel(program.sessionMinutes)} session doesn't fit inside ${block.label.toLowerCase()}.`,
+            );
+          }
+        }
       }
     }
     if (step === 4) {
@@ -545,29 +618,36 @@ export function ProgramsOverview() {
         pricingPlanId: primarySubject ? legacyPlanForTrack(primarySubject.trackId) : undefined,
         pricingPlanLabel: primarySubject ? pricingLabelForTrack(primarySubject.trackId) : undefined,
         trackId: primarySubject?.trackId ?? "tutoring",
-        hoursPerWeek: primaryStudent.hoursPerWeek,
+        hoursPerWeek: primaryStudent.programs[0]?.hoursPerWeek ?? 1,
         pricingPlans: pricing.plans,
-        students: students.map((student) => {
-          const subject = subjectFor(student.subjectId);
-          return {
-            name: student.name,
-            age: student.age,
-            gender: student.gender,
-            subject: subject?.subject ?? "",
-            specificLanguage: subject?.id === "languages" ? student.specificLanguage : undefined,
-            level: student.level,
-            classType: student.classType,
-            sessionDuration: student.sessionDuration,
-            hoursPerWeek: student.hoursPerWeek,
-            timeOfDayPreference: student.timeOfDayPreference,
-            preferredDays: student.preferredDays,
-            preferredTimeSlots: student.preferredTimeSlots,
-            trackId: subject?.trackId ?? "tutoring",
-          };
-        }),
+        // One enrollment per student per program. Each needs its own teacher,
+        // its own broadcast and its own schedule, and every reader downstream
+        // already expects exactly one program per enrollment.
+        students: students.flatMap((student) =>
+          student.programs.map((program) => {
+            const subject = subjectFor(program.subjectId);
+            return {
+              name: student.name,
+              age: student.age,
+              gender: student.gender,
+              subject: subject?.subject ?? "",
+              specificLanguage: subject?.id === "languages" ? program.specificLanguage : undefined,
+              level: program.level,
+              classType: program.classType,
+              sessionDuration: sessionLabel(program.sessionMinutes),
+              sessionMinutes: program.sessionMinutes,
+              sessionsPerWeek: program.sessionsPerWeek,
+              hoursPerWeek: program.hoursPerWeek,
+              timeOfDayPreference: program.timeOfDayPreference,
+              preferredDays: program.preferredDays,
+              trackId: subject?.trackId ?? "tutoring",
+            };
+          }),
+        ),
       });
       trackEvent("enrollment_submitted", {
         students: students.length,
+        programs: students.reduce((sum, student) => sum + student.programs.length, 0),
         track: primarySubject?.trackId ?? "tutoring",
         role,
       });
@@ -735,63 +815,66 @@ export function ProgramsOverview() {
                     />
                   </label>
                 ) : null}
-                {applyProgramToAll || students.length === 1 ? (
-                  <ProgramEditor
-                    student={primaryStudent}
-                    studentIndex={0}
-                    title={students.length > 1 ? "All children" : ""}
-                    onProgramChange={(subjectId) => setProgramForStudent(0, subjectId)}
-                    onStudentChange={(patch) => updatePrimaryProgram(patch)}
-                    onHoursChange={(hours) => updateHours(0, hours)}
-                    preferredLanguage={preferredLanguage}
-                    onPreferredLanguageChange={setPreferredLanguage}
-                    pricingPlans={pricing.plans}
-                  />
-                ) : (
-                  <div className="grid gap-3">
-                    <StudentTabs students={students} activeIndex={activeStudentIndex} onSelect={setActiveStudentIndex} />
-                    <ProgramEditor
-                      student={activeStudent}
-                      studentIndex={activeStudentIndex}
-                      title={activeStudent.name || `Student ${activeStudentIndex + 1}`}
-                      onProgramChange={(subjectId) => setProgramForStudent(activeStudentIndex, subjectId)}
-                      onStudentChange={(patch) => updateStudent(activeStudentIndex, patch)}
-                      onHoursChange={(hours) => updateHours(activeStudentIndex, hours)}
-                      preferredLanguage={preferredLanguage}
-                      onPreferredLanguageChange={setPreferredLanguage}
-                      pricingPlans={pricing.plans}
-                    />
-                  </div>
-                )}
+                {(() => {
+                  const editingIndex = applyProgramToAll || students.length === 1 ? 0 : activeStudentIndex;
+                  const student = students[editingIndex] ?? primaryStudent;
+                  const scope =
+                    applyProgramToAll && students.length > 1
+                      ? "All children"
+                      : students.length > 1
+                        ? student.name.trim() || `Student ${editingIndex + 1}`
+                        : "";
+                  return (
+                    <div className="grid gap-3">
+                      {!applyProgramToAll && students.length > 1 ? (
+                        <StudentTabs students={students} activeIndex={activeStudentIndex} onSelect={setActiveStudentIndex} />
+                      ) : null}
+                      {scope ? <p className="text-sm font-black text-slate-900">{scope}</p> : null}
+                      {student.programs.map((program, programIndex) => (
+                        <ProgramEditor
+                          key={programIndex}
+                          program={program}
+                          studentIndex={editingIndex}
+                          programIndex={programIndex}
+                          programCount={student.programs.length}
+                          onSubjectChange={(subjectId) => setProgramSubject(editingIndex, programIndex, subjectId)}
+                          onProgramChange={(patch) => updateProgram(editingIndex, programIndex, patch)}
+                          onHoursChange={(hours) => updateHours(editingIndex, programIndex, hours)}
+                          onRemove={() => removeProgram(editingIndex, programIndex)}
+                          preferredLanguage={preferredLanguage}
+                          onPreferredLanguageChange={setPreferredLanguage}
+                          pricingPlans={pricing.plans}
+                        />
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => addProgram(editingIndex)}
+                        className="w-full rounded-lg border-[1.5px] border-dashed border-[#BFDBFE] bg-[#FAFBFC] px-3 py-2.5 text-[11px] font-semibold text-[#3B82F6] hover:bg-[#EFF6FF]"
+                      >
+                        + Add another program for {scope || student.name.trim() || "this student"}
+                      </button>
+                    </div>
+                  );
+                })()}
               </StepCard>
             ) : null}
 
             {step === 3 ? (
-              <StepCard title="Schedule Preferences" subtitle="Choose days and a general time. Open optional slots only if you want exact times now.">
+              <StepCard title="Schedule Preferences" subtitle="Choose the days and the part of the day that suit you. We confirm exact times with you afterwards.">
                 {students.length > 1 ? (
                   <StudentTabs students={students} activeIndex={activeStudentIndex} onSelect={setActiveStudentIndex} />
                 ) : null}
-                <ScheduleEditor
-                  student={activeStudent}
-                  studentIndex={activeStudentIndex}
-                  showDetailedSlots={showDetailedSlots}
-                  onDetailedSlotsChange={setShowDetailedSlots}
-                  customStart={customStart}
-                  customEnd={customEnd}
-                  onCustomStartChange={setCustomStart}
-                  onCustomEndChange={setCustomEnd}
-                  onStudentChange={(patch) => updateStudent(activeStudentIndex, patch)}
-                  onDayToggle={(day) => toggleDay(activeStudentIndex, day)}
-                  onSlotToggle={(slot) => toggleSlot(activeStudentIndex, slot)}
-                  onAddCustomSlot={() => {
-                    const slot = formatCustomSlot(customStart, customEnd);
-                    if (!slot || activeStudent.customTimeSlots.includes(slot)) return;
-                    updateStudent(activeStudentIndex, {
-                      customTimeSlots: [...activeStudent.customTimeSlots, slot],
-                      preferredTimeSlots: [...activeStudent.preferredTimeSlots, slot],
-                    });
-                  }}
-                />
+                <div className="grid gap-3">
+                  {activeStudent.programs.map((program, programIndex) => (
+                    <ScheduleEditor
+                      key={programIndex}
+                      program={program}
+                      studentName={activeStudent.name}
+                      onProgramChange={(patch) => updateProgram(activeStudentIndex, programIndex, patch)}
+                      onDayToggle={(day) => toggleDay(activeStudentIndex, programIndex, day)}
+                    />
+                  ))}
+                </div>
               </StepCard>
             ) : null}
 
@@ -1038,6 +1121,15 @@ function GenderSegment({ name, value, onChange }: { name: string; value: string;
   );
 }
 
+/**
+ * Three stacked cards, each with the sentence that explains it.
+ *
+ * These were a horizontal segmented control, which put "With other students on
+ * the platform" into a column narrow enough to wrap onto five lines on a phone
+ * — and this form is mostly filled in on phones. Stacking also gives each
+ * option room for its hint, which is the part that actually tells a parent
+ * whether their child will be alone with the teacher.
+ */
 function ProgramClassTypeSegment({
   name,
   value,
@@ -1048,24 +1140,31 @@ function ProgramClassTypeSegment({
   onChange: (value: string) => void;
 }) {
   return (
-    <div className="grid justify-center gap-1.5">
-      <p className="text-center text-[12px] font-bold text-slate-700">Class Type</p>
+    <div className="grid gap-1.5">
+      <p className="text-[11px] font-semibold text-slate-700">Class Type</p>
       <input type="hidden" name={name} value={value} />
-      <div className="inline-flex overflow-hidden rounded-xl border border-[#E2E8F0] bg-[#FAFBFC] shadow-[0_1px_4px_rgba(15,23,42,0.02)]">
-        {classTypes.map(({ value: optionValue, label, icon: Icon }, index) => {
+      <div className="grid gap-1.5">
+        {classTypes.map(({ value: optionValue, label, hint, icon: Icon }) => {
           const selected = value === optionValue;
           return (
             <button
               key={optionValue}
               type="button"
               aria-pressed={selected}
-              className={`inline-flex min-h-[32px] min-w-[84px] items-center justify-center gap-2 px-3 text-[12px] font-semibold transition ${
-                selected ? "bg-[#3B82F6] text-white" : "bg-white text-slate-500 hover:bg-slate-50"
-              } ${index > 0 ? "border-l border-[#E2E8F0]" : ""}`}
               onClick={() => onChange(selected ? "" : optionValue)}
+              className={`flex w-full items-start gap-2 rounded-lg px-2.5 py-2 text-left transition ${
+                selected
+                  ? "border-2 border-[#4F46E5] bg-[#EEF2FF]"
+                  : "border-[1.5px] border-[#E2E8F0] bg-[#FAFBFC] hover:bg-slate-50"
+              }`}
             >
-              {Icon ? <Icon size={14} /> : null}
-              {label}
+              <Icon size={15} className={`mt-px shrink-0 ${selected ? "text-[#4F46E5]" : "text-[#64748B]"}`} />
+              <span className="min-w-0">
+                <span className={`block text-[11px] font-semibold ${selected ? "text-[#4F46E5]" : "text-[#475569]"}`}>
+                  {label}
+                </span>
+                <span className="mt-0.5 block text-[10px] font-medium leading-[1.25] text-[#64748B]">{hint}</span>
+              </span>
             </button>
           );
         })}
@@ -1194,86 +1293,218 @@ function StudentProfileFields({
 }
 
 function ProgramEditor({
-  student,
+  program,
   studentIndex,
-  title,
+  programIndex,
+  programCount,
+  onSubjectChange,
   onProgramChange,
-  onStudentChange,
   onHoursChange,
+  onRemove,
   preferredLanguage,
   onPreferredLanguageChange,
   pricingPlans,
 }: {
-  student: StudentDraft;
+  program: ProgramDraft;
   studentIndex: number;
-  title: string;
-  onProgramChange: (subjectId: string) => void;
-  onStudentChange: (patch: Partial<StudentDraft>) => void;
+  programIndex: number;
+  programCount: number;
+  onSubjectChange: (subjectId: string) => void;
+  onProgramChange: (patch: Partial<ProgramDraft>) => void;
   onHoursChange: (hours: number) => void;
+  onRemove: () => void;
   preferredLanguage: string;
   onPreferredLanguageChange: (value: string) => void;
   pricingPlans: PricingPlans;
 }) {
-  const subject = subjectFor(student.subjectId);
+  const subject = subjectFor(program.subjectId);
   const levels = levelsForSubject(subject?.id ?? "");
   const selectedTrackId = subject?.trackId ?? "";
+  // Field names must stay unique across every student and program on the page.
+  const fieldName = (base: string) =>
+    studentIndex === 0 && programIndex === 0
+      ? base
+      : `student${studentIndex + 1}Program${programIndex + 1}${base[0].toUpperCase()}${base.slice(1)}`;
+
   return (
-    <div className="grid gap-4">
-      {title ? <p className="text-sm font-black text-slate-900">{title}</p> : null}
-      <EnrollmentSubCard title="1. Choose a Program">
-        <p className="mb-2 text-[11px] font-semibold text-slate-700">Select a learning track</p>
-        <TrackSelector
-          selectedTrackId={selectedTrackId}
-          onTrackSelected={(trackId) => onProgramChange(defaultSubjectIdForTrack(trackId))}
-        />
-      </EnrollmentSubCard>
+    <div className="overflow-hidden rounded-lg border-[1.5px] border-[#E2E8F0]">
+      <div className="flex items-center gap-2 border-b-[1.5px] border-[#E2E8F0] bg-[#FAFBFC] px-2.5 py-2">
+        <p className="text-[11px] font-bold text-slate-800">
+          {programCount > 1 ? `Program ${programIndex + 1}` : "Program details"}
+        </p>
+        <span className="flex-1" />
+        <span className="text-[10px] font-medium text-[#64748B]">
+          {program.sessionsPerWeek} × {sessionLabel(program.sessionMinutes)} · {program.hoursPerWeek} hrs/wk
+        </span>
+        {programCount > 1 ? (
+          <button
+            type="button"
+            onClick={onRemove}
+            aria-label={`Remove program ${programIndex + 1}`}
+            className="grid h-6 w-6 shrink-0 place-items-center rounded text-[#94A3B8] hover:bg-[#FEE2E2] hover:text-[#DC2626]"
+          >
+            <Trash2 size={14} />
+          </button>
+        ) : null}
+      </div>
 
-      <EnrollmentSubCard title="2. Class Preferences">
-        <div className="grid gap-3">
-          {subject?.id === "languages" ? (
-            <SelectField
-              label="Specific Language"
-              name={studentIndex === 0 ? "specificLanguage" : `student${studentIndex + 1}SpecificLanguage`}
-              value={student.specificLanguage}
-              onChange={(_, value) => onStudentChange({ specificLanguage: value })}
-              options={africanLanguages.map((value) => ({ value, label: value }))}
-              required
-            />
-          ) : null}
-          {subject ? (
-            <SelectField
-              label={subject.id === "after-school" ? "Grade Level" : "Proficiency Level"}
-              name={studentIndex === 0 ? "level" : `student${studentIndex + 1}Level`}
-              value={student.level}
-              onChange={(_, value) => onStudentChange({ level: value })}
-              options={levels.map((value) => ({ value, label: value }))}
-              required
-            />
-          ) : null}
-          <ProgramClassTypeSegment
-            name={studentIndex === 0 ? "classType" : `student${studentIndex + 1}ClassType`}
-            value={student.classType}
-            onChange={(value) => onStudentChange({ classType: value })}
+      <div className="grid gap-4 p-3">
+        <EnrollmentSubCard title="1. Choose a Program">
+          <p className="mb-2 text-[11px] font-semibold text-slate-700">Select a learning track</p>
+          <TrackSelector
+            selectedTrackId={selectedTrackId}
+            onTrackSelected={(trackId) => onSubjectChange(defaultSubjectIdForTrack(trackId))}
           />
-          <SelectField
-            label="Preferred Language"
-            name="preferredLanguage"
-            value={preferredLanguage}
-            onChange={(_, value) => onPreferredLanguageChange(value)}
-            options={languages.map((value) => ({ value, label: value }))}
-            required
+        </EnrollmentSubCard>
+
+        <EnrollmentSubCard title="2. Class Preferences">
+          <div className="grid gap-3">
+            {subject?.id === "languages" ? (
+              <SelectField
+                label="Specific Language"
+                name={fieldName("specificLanguage")}
+                value={program.specificLanguage}
+                onChange={(_, value) => onProgramChange({ specificLanguage: value })}
+                options={africanLanguages.map((value) => ({ value, label: value }))}
+                required
+              />
+            ) : null}
+            {subject ? (
+              <SelectField
+                label={subject.id === "after-school" ? "Grade Level" : "Proficiency Level"}
+                name={fieldName("level")}
+                value={program.level}
+                onChange={(_, value) => onProgramChange({ level: value })}
+                options={levels.map((value) => ({ value, label: value }))}
+                required
+              />
+            ) : null}
+            <ProgramClassTypeSegment
+              name={fieldName("classType")}
+              value={program.classType}
+              onChange={(value) => onProgramChange({ classType: value })}
+            />
+            {/* One language for the whole family — it is how we speak to them,
+                not a property of any single class. */}
+            {studentIndex === 0 && programIndex === 0 ? (
+              <SelectField
+                label="Preferred Language"
+                name="preferredLanguage"
+                value={preferredLanguage}
+                onChange={(_, value) => onPreferredLanguageChange(value)}
+                options={languages.map((value) => ({ value, label: value }))}
+                required
+              />
+            ) : null}
+          </div>
+        </EnrollmentSubCard>
+
+        <EnrollmentSubCard title="3. Pricing & Hours">
+          <SessionShapeFields program={program} onProgramChange={onProgramChange} />
+          <HoursStepper
+            hours={program.hoursPerWeek}
+            trackId={subject?.trackId ?? ""}
+            onHoursChange={onHoursChange}
+            pricingPlans={pricingPlans}
           />
+        </EnrollmentSubCard>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * How long each class is, and how many a week. These used to be inferred from
+ * weekly hours, which is what produced a single four-hour "slot" for a family
+ * asking for 4 hrs/week. Asking directly is what makes the slot maths work.
+ *
+ * The two numbers are reconciled, never silently corrected: families reason
+ * about price in hours per week, so we say what does not add up and offer the
+ * fix rather than moving their number for them.
+ */
+function SessionShapeFields({
+  program,
+  onProgramChange,
+}: {
+  program: ProgramDraft;
+  onProgramChange: (patch: Partial<ProgramDraft>) => void;
+}) {
+  const computed = weeklyHoursFor(program.sessionsPerWeek, program.sessionMinutes);
+  const agrees = hoursMatchSessions(program.hoursPerWeek, program.sessionsPerWeek, program.sessionMinutes);
+
+  return (
+    <div className="grid gap-2.5 pb-3">
+      <div>
+        <p className="mb-1.5 text-[13px] font-bold text-slate-800">How long is each class?</p>
+        <div className="flex flex-wrap gap-1.5">
+          {SESSION_MINUTES.map((minutes) => {
+            const selected = program.sessionMinutes === minutes;
+            return (
+              <button
+                key={minutes}
+                type="button"
+                aria-pressed={selected}
+                onClick={() => onProgramChange({ sessionMinutes: minutes })}
+                className={`min-h-[32px] rounded-lg px-2.5 py-1.5 text-[12px] font-semibold transition ${
+                  selected
+                    ? "bg-gradient-to-r from-[#3B82F6] to-[#2563EB] text-white"
+                    : "bg-[#F1F5F9] text-[#64748B] hover:bg-slate-200"
+                }`}
+              >
+                {sessionLabel(minutes)}
+              </button>
+            );
+          })}
         </div>
-      </EnrollmentSubCard>
+      </div>
 
-      <EnrollmentSubCard title="3. Pricing & Hours">
-        <HoursStepper
-          hours={student.hoursPerWeek}
-          trackId={subject?.trackId ?? ""}
-          onHoursChange={onHoursChange}
-          pricingPlans={pricingPlans}
-        />
-      </EnrollmentSubCard>
+      <div>
+        <p className="mb-1.5 text-[13px] font-bold text-slate-800">How many classes a week?</p>
+        <div className="inline-flex items-center gap-3 rounded-lg border-[1.5px] border-[#E2E8F0] bg-[#FAFBFC] px-2.5 py-2">
+          <button
+            type="button"
+            aria-label="Fewer classes per week"
+            onClick={() => onProgramChange({ sessionsPerWeek: Math.max(1, program.sessionsPerWeek - 1) })}
+            className="text-[#3B82F6] disabled:text-[#CBD5E1]"
+            disabled={program.sessionsPerWeek <= 1}
+          >
+            <MinusCircle size={19} />
+          </button>
+          <span className="min-w-[1.5rem] text-center text-[13px] font-bold text-slate-800">
+            {program.sessionsPerWeek}
+          </span>
+          <button
+            type="button"
+            aria-label="More classes per week"
+            onClick={() => onProgramChange({ sessionsPerWeek: Math.min(14, program.sessionsPerWeek + 1) })}
+            className="text-[#3B82F6] disabled:text-[#CBD5E1]"
+            disabled={program.sessionsPerWeek >= 14}
+          >
+            <PlusCircle size={19} />
+          </button>
+        </div>
+      </div>
+
+      {!agrees ? (
+        <div className="flex items-start gap-2 rounded-lg border-[1.5px] border-[#FDE68A] bg-[#FFFBEB] px-2.5 py-2">
+          <AlertCircle size={15} className="mt-px shrink-0 text-[#B45309]" />
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold text-[#92400E]">These two don&apos;t add up</p>
+            <p className="mt-0.5 text-[10px] font-medium leading-[1.3] text-[#92400E]">
+              {program.sessionsPerWeek} session{program.sessionsPerWeek === 1 ? "" : "s"} of{" "}
+              {sessionLabel(program.sessionMinutes)} is {computed} hrs a week, but you&apos;ve asked for{" "}
+              {program.hoursPerWeek} hrs.
+            </p>
+            <button
+              type="button"
+              onClick={() => onProgramChange({ hoursPerWeek: computed })}
+              className="mt-1.5 rounded-lg border-[1.5px] border-[#FDE68A] bg-white px-2.5 py-1 text-[10px] font-semibold text-[#92400E]"
+            >
+              Set hours to {computed}
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -1360,94 +1591,90 @@ function TrackSelector({
 }
 
 function ScheduleEditor({
-  student,
-  studentIndex,
-  showDetailedSlots,
-  onDetailedSlotsChange,
-  customStart,
-  customEnd,
-  onCustomStartChange,
-  onCustomEndChange,
-  onStudentChange,
+  program,
+  studentName,
+  onProgramChange,
   onDayToggle,
-  onSlotToggle,
-  onAddCustomSlot,
 }: {
-  student: StudentDraft;
-  studentIndex: number;
-  showDetailedSlots: boolean;
-  onDetailedSlotsChange: (value: boolean) => void;
-  customStart: string;
-  customEnd: string;
-  onCustomStartChange: (value: string) => void;
-  onCustomEndChange: (value: string) => void;
-  onStudentChange: (patch: Partial<StudentDraft>) => void;
+  program: ProgramDraft;
+  studentName: string;
+  onProgramChange: (patch: Partial<ProgramDraft>) => void;
   onDayToggle: (day: string) => void;
-  onSlotToggle: (slot: string) => void;
-  onAddCustomSlot: () => void;
 }) {
-  const slots = useMemo(
-    () => [...timeSlots(student.sessionDuration, student.timeOfDayPreference), ...student.customTimeSlots],
-    [student.sessionDuration, student.timeOfDayPreference, student.customTimeSlots],
-  );
-  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  const subject = subjectFor(program.subjectId);
+  // Only this class type takes the timetable out of the family's hands.
+  const placedInGroup = program.classType === "With Other Students";
 
   return (
-    <div className="grid gap-4">
-      {studentIndex > 0 ? (
-        <label className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-800">
-          Custom schedule for this student
-          <input
-            type="checkbox"
-            checked={student.useCustomSchedule}
-            onChange={(event) => onStudentChange({ useCustomSchedule: event.target.checked })}
-            className="h-5 w-5 accent-[#4F46E5]"
-          />
-        </label>
-      ) : null}
-      <div className="flex items-start gap-2 text-[13px] leading-5 text-slate-800">
-        <Globe2 size={16} className="mt-0.5 shrink-0 text-[#3B82F6]" />
-        <p>
-          All times are in your local timezone: <span className="font-bold">{timeZone}</span>
+    <div className="grid gap-3.5 rounded-lg border-[1.5px] border-[#E2E8F0] p-3">
+      <div className="flex items-center gap-2">
+        <span
+          className="h-2.5 w-2.5 shrink-0 rounded-full"
+          style={{ backgroundColor: trackById(subject?.trackId ?? "")?.color ?? "#94A3B8" }}
+        />
+        <p className="min-w-0 flex-1 truncate text-[11px] font-bold text-slate-800">
+          {subject?.shortLabel ?? "Program"}
         </p>
+        <span className="shrink-0 rounded bg-[#EEF2FF] px-1.5 py-0.5 text-[10px] font-bold text-[#4338CA]">
+          {program.sessionsPerWeek} × {sessionLabel(program.sessionMinutes)}
+        </span>
       </div>
-      <p className="text-[12px] font-medium leading-5 text-slate-500">
-        Exact class times are confirmed with you after we review your request.
-      </p>
-      <ChipGroup title="Which days work best?" items={days} selected={student.preferredDays} onToggle={onDayToggle} />
-      <TimeOfDayCards
-        value={student.timeOfDayPreference}
-        onChange={(value) => onStudentChange({ timeOfDayPreference: value, preferredTimeSlots: [] })}
-      />
-      <details
-        open={showDetailedSlots}
-        onToggle={(event) => onDetailedSlotsChange(event.currentTarget.open)}
-        className="group"
-      >
-        <summary className="flex cursor-pointer list-none items-center gap-2 text-[13px] font-semibold text-[#3B82F6] marker:hidden">
-          <ChevronRight size={15} className="transition group-open:rotate-90" />
-          Advanced: Select specific times
-        </summary>
-        <div className="mt-2">
-          {slots.length > 0 ? (
-            <ChipGroup items={slots} selected={student.preferredTimeSlots} onToggle={onSlotToggle} tone="green" />
-          ) : (
-            <p className="rounded-lg bg-[#F1F5F9] p-3 text-[12px] font-semibold text-slate-500">
-              Pick a time of day to see available slots.
+
+      {placedInGroup ? (
+        <div className="flex items-start gap-2 rounded-lg border-[1.5px] border-[#BFDBFE] bg-[#EFF6FF] px-2.5 py-2">
+          <Users size={15} className="mt-px shrink-0 text-[#1D4ED8]" />
+          <div>
+            <p className="text-[11px] font-semibold text-[#1D4ED8]">
+              We&apos;ll place {studentName.trim() || "this student"} in a group
             </p>
-          )}
-          <div className="mt-2">
-            <button type="button" className="inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-[12px] font-semibold text-[#3B82F6] hover:bg-blue-50" onClick={onAddCustomSlot}>
-              <PlusCircle size={15} />
-              Add custom time
-            </button>
-          </div>
-          <div className="sr-only">
-            <input type="time" value={customStart} onChange={(event) => onCustomStartChange(event.target.value)} aria-label="Custom start time" />
-            <input type="time" value={customEnd} onChange={(event) => onCustomEndChange(event.target.value)} aria-label="Custom end time" />
+            <p className="mt-0.5 text-[10px] font-medium leading-[1.3] text-[#1E40AF]">
+              Group classes run on a set timetable. Tell us the days and part of the day that suit
+              you and we&apos;ll find the closest group.
+            </p>
           </div>
         </div>
-      </details>
+      ) : null}
+
+      <ChipGroup title="Which days work best?" items={days} selected={program.preferredDays} onToggle={onDayToggle} />
+      <TimeOfDayCards
+        value={program.timeOfDayPreference}
+        onChange={(value) => onProgramChange({ timeOfDayPreference: value })}
+      />
+      <ScheduleConfirmationLine program={program} />
+    </div>
+  );
+}
+
+/**
+ * Replaces the slot grid parents used to pick from. They give a window; we say
+ * back exactly what we will book inside it, or that the session cannot fit.
+ */
+function ScheduleConfirmationLine({ program }: { program: ProgramDraft }) {
+  const block = blockById(program.timeOfDayPreference);
+  const sessionMinutes = program.sessionMinutes;
+  const dayList = program.preferredDays.join(", ");
+
+  if (!block || program.preferredDays.length === 0) return null;
+
+  if (!sessionFitsBlock(block, sessionMinutes)) {
+    return (
+      <div className="flex items-start gap-2 rounded-lg border-[1.5px] border-[#FDE68A] bg-[#FFFBEB] px-2.5 py-2">
+        <AlertCircle size={15} className="mt-px shrink-0 text-[#B45309]" />
+        <p className="text-[10px] font-medium leading-[1.3] text-[#92400E]">
+          A {sessionLabel(sessionMinutes)} session doesn&apos;t fit inside {block.label.toLowerCase()} (
+          {blockRangeLabel(block)}). Choose a shorter session or another part of the day.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-start gap-2 rounded-lg border-[1.5px] border-[#E2E8F0] bg-[#FAFBFC] px-2.5 py-2">
+      <Clock size={15} className="mt-px shrink-0 text-[#64748B]" />
+      <p className="text-[10px] font-medium leading-[1.3] text-[#64748B]">
+        We&apos;ll book {program.sessionsPerWeek} × {sessionLabel(sessionMinutes)} somewhere between{" "}
+        {blockRangeLabel(block)} on {dayList}, and confirm the exact times with you.
+      </p>
     </div>
   );
 }
@@ -1460,31 +1687,42 @@ function ReviewPanel({
   onEditStep: (step: number) => void;
 }) {
   const enrollmentRows: [string, string][] = [];
-  students.forEach((student, index) => {
-    const subject = subjectFor(student.subjectId);
-    enrollmentRows.push([
-      `Student ${index + 1}`,
-      `${student.name || `Student ${index + 1}`}${student.age ? `, ${student.age}` : ""}`,
-    ]);
-    if (students.length === 1) {
-      if (subject) enrollmentRows.push(["Program", subject.shortLabel]);
-      if (student.level) enrollmentRows.push(["Level", student.level]);
-      if (student.classType) enrollmentRows.push(["Format", classTypeReviewLabel(student.classType)]);
-      if (student.hoursPerWeek > 0) enrollmentRows.push(["Hours/week", `${student.hoursPerWeek}h`]);
-    } else {
-      enrollmentRows.push([
-        `${student.name || `Student ${index + 1}`} program`,
-        `${subject?.shortLabel ?? "Program?"} · ${student.level || "—"} · ${classTypeReviewLabel(student.classType) || "—"} · ${student.hoursPerWeek}h`,
-      ]);
-    }
-  });
-
   const scheduleRows: [string, string][] = [];
+  const single = students.length === 1 && students[0].programs.length === 1;
+
   students.forEach((student, index) => {
-    const name = students.length === 1 ? "" : `${student.name || `Student ${index + 1}`} — `;
-    if (student.preferredDays.length > 0) scheduleRows.push([`${name}Days`, student.preferredDays.join(", ")]);
-    if (student.preferredTimeSlots.length > 0) scheduleRows.push([`${name}Time slots`, student.preferredTimeSlots.join(", ")]);
-    if (student.timeOfDayPreference) scheduleRows.push([`${name}Time preference`, student.timeOfDayPreference]);
+    const who = student.name.trim() || `Student ${index + 1}`;
+    enrollmentRows.push([`Student ${index + 1}`, `${who}${student.age ? `, ${student.age}` : ""}`]);
+
+    student.programs.forEach((program, programIndex) => {
+      const subject = subjectFor(program.subjectId);
+      // One row per program, named so two programs for the same child are
+      // told apart at a glance.
+      const label = student.programs.length > 1 ? `${who} · program ${programIndex + 1}` : `${who} program`;
+
+      if (single) {
+        if (subject) enrollmentRows.push(["Program", subject.shortLabel]);
+        if (program.level) enrollmentRows.push(["Level", program.level]);
+        if (program.classType) enrollmentRows.push(["Format", classTypeReviewLabel(program.classType)]);
+        if (program.hoursPerWeek > 0) enrollmentRows.push(["Hours/week", `${program.hoursPerWeek}h`]);
+      } else {
+        enrollmentRows.push([
+          label,
+          `${subject?.shortLabel ?? "Program?"} · ${program.level || "—"} · ${classTypeReviewLabel(program.classType) || "—"} · ${program.hoursPerWeek}h`,
+        ]);
+      }
+
+      const prefix = single ? "" : `${label} — `;
+      if (program.preferredDays.length > 0) scheduleRows.push([`${prefix}Days`, program.preferredDays.join(", ")]);
+      const reviewBlock = blockById(program.timeOfDayPreference);
+      if (reviewBlock) {
+        scheduleRows.push([`${prefix}Window`, `${reviewBlock.label} (${blockRangeLabel(reviewBlock)})`]);
+      }
+      scheduleRows.push([
+        `${prefix}Sessions`,
+        `${program.sessionsPerWeek} × ${sessionLabel(program.sessionMinutes)} · ${program.hoursPerWeek} hrs/wk`,
+      ]);
+    });
   });
 
   return (
@@ -1677,35 +1915,40 @@ function ChipGroup({
   );
 }
 
-function TimeOfDayCards({ value, onChange }: { value: string; onChange: (value: string) => void }) {
-  const items = [
-    { value: "Morning", icon: Sun, color: "#F59E0B" },
-    { value: "Afternoon", icon: CloudSun, color: "#3B82F6" },
-    { value: "Evening", icon: MoonStar, color: "#6366F1" },
-    { value: "Flexible", icon: Clock, color: "#10B981" },
-  ] as const;
+const BLOCK_ICONS: Record<string, typeof Sun> = {
+  Morning: Sun,
+  Afternoon: CloudSun,
+  Evening: MoonStar,
+  Night: MoonStar,
+  "Late night": Clock,
+};
 
+function TimeOfDayCards({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   return (
     <div>
       <p className="mb-1.5 text-[13px] font-bold text-slate-800">Preferred Time of Day</p>
       <div className="flex flex-wrap gap-1.5">
-        {items.map(({ value: itemValue, icon: Icon, color }) => {
-          const selected = value === itemValue;
+        {TIME_BLOCKS.map((block) => {
+          const Icon = BLOCK_ICONS[block.id] ?? Clock;
+          const selected = value === block.id;
           return (
             <button
-              key={itemValue}
+              key={block.id}
               type="button"
-              className="inline-flex min-h-[32px] items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold shadow-[0_1px_2px_rgba(15,23,42,0.02)] transition"
+              className="inline-flex min-h-[32px] flex-col items-start gap-0.5 rounded-lg border px-2.5 py-1.5 text-left shadow-[0_1px_2px_rgba(15,23,42,0.02)] transition"
               style={{
-                borderColor: selected ? color : "#E2E8F0",
+                borderColor: selected ? block.color : "#E2E8F0",
                 borderWidth: selected ? 2 : 1.5,
-                color: selected ? color : "#475569",
-                background: selected ? `${color}18` : "#FAFBFC",
+                color: selected ? block.color : "#475569",
+                background: selected ? `${block.color}18` : "#FAFBFC",
               }}
-              onClick={() => onChange(selected ? "" : itemValue)}
+              onClick={() => onChange(selected ? "" : block.id)}
             >
-              <Icon size={15} />
-              {itemValue}
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold">
+                <Icon size={15} />
+                {block.label}
+              </span>
+              <span className="text-[9px] font-medium text-[#94A3B8]">{blockRangeLabel(block)}</span>
             </button>
           );
         })}
@@ -1763,23 +2006,25 @@ function SelectField({
   );
 }
 
-function makeStudentDraft(subjectId: string, hours: number): StudentDraft {
+function makeProgramDraft(subjectId: string, hours: number): ProgramDraft {
   return {
-    name: "",
-    age: "",
-    gender: "",
     subjectId,
     specificLanguage: "",
     level: "",
     classType: "",
     hoursPerWeek: hours,
-    sessionDuration: durationFromHours(hours),
+    // Session length is its own question now. Default to one hour and let
+    // sessions-per-week follow the hours the family already chose, so the two
+    // start out agreeing instead of tripping the reconcile warning on arrival.
+    sessionMinutes: 60,
+    sessionsPerWeek: Math.max(1, Math.round(hours)),
     timeOfDayPreference: "",
     preferredDays: [],
-    preferredTimeSlots: [],
-    customTimeSlots: [],
-    useCustomSchedule: false,
   };
+}
+
+function makeStudentDraft(subjectId: string, hours: number): StudentDraft {
+  return { name: "", age: "", gender: "", programs: [makeProgramDraft(subjectId, hours)] };
 }
 
 function resolveInitialSubject(category: string, subjectName: string, track: string) {
@@ -1795,9 +2040,15 @@ function subjectFor(subjectId: string) {
   return subjectOptions.find((item) => item.id === subjectId) ?? null;
 }
 
+/**
+ * Every track needs a case here. A track with no entry falls through to
+ * Religious Studies, which means the chip lights up while a different program
+ * is stored — silently, with nothing on screen to say so.
+ */
 function defaultSubjectIdForTrack(trackId: string) {
   if (trackId === "group") return "group";
   if (trackId === "tutoring") return "after-school";
+  if (trackId === "adlam") return "adlam";
   return "islamic";
 }
 
@@ -1811,39 +2062,9 @@ function classTypeReviewLabel(value: string) {
   return value;
 }
 
-function durationFromHours(hours: number) {
-  const bounded = Math.min(Math.max(hours, 1), 4);
-  return bounded === 1 ? "1 hr" : `${bounded} hrs`;
-}
 
-function timeSlots(duration: string, timeOfDay: string) {
-  if (!duration || !timeOfDay) return [];
-  if (timeOfDay === "Flexible") return ["8 AM - 12 PM", "12 PM - 4 PM", "4 PM - 8 PM", "8 PM - 12 AM"];
-  const ranges: Record<string, [number, number]> = {
-    Morning: [6, 12],
-    Afternoon: [12, 17],
-    Evening: [17, 21],
-  };
-  const range = ranges[timeOfDay];
-  if (!range) return [];
-  const hours = duration.includes("1 hr") ? 1 : Number.parseInt(duration, 10) || 1;
-  const slots = [];
-  for (let start = range[0]; start + hours <= range[1]; start += hours) {
-    slots.push(`${formatHour(start)} - ${formatHour(start + hours)}`);
-  }
-  return slots;
-}
 
-function formatHour(hour: number) {
-  const period = hour >= 12 ? "PM" : "AM";
-  const h = hour % 12 === 0 ? 12 : hour % 12;
-  return `${h}:00 ${period}`;
-}
 
-function formatCustomSlot(start: string, end: string) {
-  if (!start || !end || end <= start) return "";
-  return `${formatClockInput(start)} - ${formatClockInput(end)}`;
-}
 
 function formatClockInput(value: string) {
   const [hourRaw, minuteRaw] = value.split(":");

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   CLASS_TYPES,
   TIME_BLOCKS,
+  TRACKS,
   blockById,
   blockRangeLabel,
   formatMinutes,
@@ -24,6 +25,13 @@ test("tracks include Adlam as its own track, priced as tutoring for now", () => 
   assert.ok(!trackById("islamic")?.title.toLowerCase().includes("adlam"));
   assert.equal(pricingTrackFor("adlam"), "tutoring");
   assert.equal(pricingTrackFor("islamic"), "islamic");
+});
+
+test("every track has an id the wizard can resolve to a subject", () => {
+  // A track with no case in defaultSubjectIdForTrack falls through to Religious
+  // Studies: the chip lights up while a different program is stored. Adlam did
+  // exactly that when it was split into its own track.
+  assert.deepEqual(TRACKS.map((track) => track.id), ["islamic", "adlam", "tutoring", "group"]);
 });
 
 test("the five blocks tile the whole day with no gap and no overlap", () => {

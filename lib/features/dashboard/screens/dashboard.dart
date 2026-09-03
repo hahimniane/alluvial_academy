@@ -31,6 +31,7 @@ import '../../shift_management/screens/teacher_shift_screen.dart';
 import '../../website_management/public_site_cms/public_site_cms_screen.dart';
 import '../../zoom/screens/zoom_screen.dart';
 import '../../notifications/screens/send_notification_screen.dart';
+import '../../enrollment_management/screens/admin_student_applicants_web_frame.dart';
 import '../../enrollment_management/screens/enrollment_management_screen.dart';
 import '../../teacher_applications/screens/teacher_application_management_screen.dart';
 import '../../settings/screens/admin_settings_screen.dart';
@@ -330,6 +331,12 @@ class _DashboardPageState extends State<DashboardPage> {
       case 15:
         return const SendNotificationScreen();
       case 16:
+        // On web the student applicants screen is the Next.js screen embedded
+        // in this dashboard's content area — the Flutter sidebar and top bar
+        // stay. The native app keeps the Flutter screen.
+        if (kIsWeb) {
+          return const AdminStudentApplicantsWebFrame();
+        }
         return const EnrollmentManagementScreen();
       case 17:
         return const TeacherApplicationManagementScreen();

@@ -6,6 +6,8 @@ import {
   collection,
   doc,
   arrayUnion,
+  deleteField,
+  getDoc,
   getDocs,
   limit,
   query,
@@ -19,8 +21,13 @@ import {
   Archive,
   Box,
   Calendar,
+  CalendarDays,
   Check,
+  CheckCircle2,
+  Circle,
+  ChevronDown,
   Clock,
+  Download,
   Grid2X2,
   Handshake,
   Hourglass,
@@ -32,13 +39,72 @@ import {
   Phone,
   Radio,
   School,
+  Undo2,
+  Search,
   StickyNote,
+  Tag,
   Users,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { AdminDashboardShell } from "@/components/AdminDashboardShell";
+import { ActionButton } from "@/components/ActionButton";
+import { PrepareBroadcastDialog } from "@/components/PrepareBroadcastDialog";
+import {
+  ActivityHistory,
+  BroadcastPanel,
+  type ActionEntry,
+  type BroadcastSnapshot,
+} from "@/components/EnrollmentBroadcastPanel";
+import { broadcastEnrollment, unbroadcastEnrollment } from "@/lib/jobBoardAdmin";
+import { MatchedSetupActions } from "@/components/MatchedSetupActions";
+import { ApplicantDetailsDialog } from "@/components/ApplicantDetailsDialog";
 import { auth, db } from "@/lib/firebase";
 import { isCurrentUserAdmin } from "@/lib/userRoles";
+import { blockById, blockRangeLabel, normalizeBlock, normalizeClassType } from "@/lib/enrollmentDomain";
+import {
+  draftSheet,
+  exportFileName,
+  studentSheet,
+  teacherSheet,
+  type ExportDraft,
+  type ExportTeacher,
+} from "@/lib/applicantExport";
+import { downloadWorkbook, type Sheet } from "@/lib/xlsx";
+import { loadTeacherApplications } from "@/components/TeacherApplicantsAdmin";
+
+const EXPORT_LABELS: Record<"view" | "students" | "teachers" | "everything", string> = {
+  view: "applicants_view",
+  students: "student_applications",
+  teachers: "teacher_applications",
+  everything: "alluwal_applications",
+};
+import {
+  DISCOUNT_REASONS,
+  discountLabel,
+  discountToDraft,
+  draftToDiscount,
+  emptyDiscountDraft,
+  formatStartDate,
+  fromDateInput,
+  toDateInput,
+  validateDiscount,
+  type DiscountDraft,
+  type StudentDiscount,
+} from "@/lib/studentDiscount";
+import {
+  DEFAULT_SORTS,
+  MATCHED_SORTS,
+  STAGE_FILTERS,
+  countByStage,
+  daysWaiting,
+  groupByTeacher,
+  isStale,
+  matchesSearch,
+  setupFor,
+  sortApplicants,
+  type SetupState,
+  type SortId,
+  type StageFilter,
+} from "@/lib/applicantTriage";
 
 type AccessState = "checking" | "signedOut" | "allowed" | "denied";
 type ApplicantStatus = "pending" | "contacted" | "broadcasted" | "archived" | "matched";
@@ -83,6 +149,28 @@ type EnrollmentApplicant = {
   phone: string;
   city: string;
   schedulingNotes: string;
+  teacherName: string;
+  matchedAt: Date | null;
+  studentUserId: string;
+  parentLinked: boolean;
+  discount: StudentDiscount | null;
+  // Carried for the export; the card shows none of these.
+  gender: string;
+  email: string;
+  whatsApp: string;
+  country: string;
+  classType: string;
+  sessionDuration: string;
+  hoursPerWeek: number | null;
+  sessionsPerWeek: number | null;
+  block: string;
+  preferredLanguage: string;
+  matchedTeacherId: string;
+  /** Filled in by loadTeacherTimezones() for the export only. */
+  teacherTimeZone: string;
+  jobId: string;
+  broadcastSnapshot: BroadcastSnapshot | null;
+  actionHistory: ActionEntry[];
 };
 
 const enrollmentStatuses: ApplicantStatus[] = ["pending", "contacted", "broadcasted", "archived", "matched"];
@@ -112,7 +200,210 @@ export function StudentApplicantsAdmin() {
   const [drafts, setDrafts] = useState<EnrollmentDraft[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
+  const [scheduledStudents, setScheduledStudents] = useState<Set<string>>(new Set());
+  const [discountFor, setDiscountFor] = useState<EnrollmentApplicant | null>(null);
+  const [broadcastFor, setBroadcastFor] = useState<EnrollmentApplicant | null>(null);
+  const [detailsFor, setDetailsFor] = useState<EnrollmentApplicant | null>(null);
+  const [archiveFor, setArchiveFor] = useState<EnrollmentApplicant | null>(null);
+  const [embedded, setEmbedded] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [search, setSearch] = useState("");
+  const [sort, setSort] = useState<SortId>("recently-matched");
+  const [groupTeachers, setGroupTeachers] = useState(false);
+  const [stage, setStage] = useState<StageFilter>("all");
   const activeTabConfig = tabs.find((tab) => tab.id === activeTab) ?? tabs[0];
+  const isMatched = activeTab === "matched";
+
+  // Setup state is derived once per applicant and reused by the stage pills,
+  // the pill counts and the card strip, so they can never disagree.
+  const setups = useMemo(() => {
+    const map = new Map<string, SetupState>();
+    for (const applicant of applicants) {
+      map.set(applicant.id, setupFor(applicant, scheduledStudents.has(applicant.studentUserId)));
+    }
+    return map;
+  }, [applicants, scheduledStudents]);
+
+  const stageCounts = useMemo(
+    () => countByStage(applicants.map((a) => setups.get(a.id)!.stage)),
+    [applicants, setups],
+  );
+
+  const visibleApplicants = useMemo(() => {
+    const filtered = applicants.filter((applicant) => {
+      if (!matchesSearch(applicant, search)) return false;
+      if (!isMatched || stage === "all") return true;
+      return setups.get(applicant.id)!.stage === stage;
+    });
+    return sortApplicants(filtered, sort);
+  }, [applicants, search, sort, stage, isMatched, setups]);
+
+  const teacherGroups = useMemo(
+    () => (groupTeachers && isMatched ? groupByTeacher(visibleApplicants) : null),
+    [groupTeachers, isMatched, visibleApplicants],
+  );
+
+  // Each tab offers the sorts that mean something on it; leaving a matched-only
+  // sort selected on another tab would silently do nothing.
+  const sortOptions = isMatched ? MATCHED_SORTS : DEFAULT_SORTS;
+  useEffect(() => {
+    if (!sortOptions.some((option) => option.id === sort)) setSort(sortOptions[0].id);
+  }, [sortOptions, sort]);
+
+  async function runExport(scope: ExportScope) {
+    setExporting(true);
+    setMessage("");
+    try {
+      const sheets: Sheet[] = [];
+
+      if (scope === "view") {
+        const zones = await loadTeacherTimezones(visibleApplicants);
+        sheets.push(
+          studentSheet(
+            visibleApplicants.map((a) => ({ ...a, teacherTimeZone: zones.get(a.matchedTeacherId) ?? "" })),
+            scheduledStudents,
+          ),
+        );
+      }
+
+      if (scope === "students" || scope === "everything") {
+        // Every status, not just the tab in view — the menu says "all".
+        const [everyApplicant, everyDraft] = await Promise.all([loadAllApplicants(), loadDrafts()]);
+        const [scheduled, discounts, zones] = await Promise.all([
+          loadScheduledStudents(everyApplicant),
+          loadDiscounts(everyApplicant),
+          loadTeacherTimezones(everyApplicant),
+        ]);
+        sheets.push(
+          studentSheet(
+            everyApplicant.map((a) => ({
+              ...a,
+              discount: discounts.get(a.studentUserId) ?? null,
+              teacherTimeZone: zones.get(a.matchedTeacherId) ?? "",
+            })),
+            scheduled,
+          ),
+        );
+        sheets.push(draftSheet(everyDraft as ExportDraft[]));
+      }
+
+      if (scope === "teachers" || scope === "everything") {
+        sheets.push(teacherSheet(await loadTeacherApplications()));
+      }
+
+      const rows = sheets.reduce((sum, sheet) => sum + sheet.rows.length, 0);
+      if (rows === 0) {
+        setMessage("There is nothing to export.");
+        return;
+      }
+      downloadWorkbook(sheets, exportFileName(EXPORT_LABELS[scope]));
+      setMessage(`Exported ${rows} ${rows === 1 ? "row" : "rows"}.`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not build the export.");
+    } finally {
+      setExporting(false);
+      setExportOpen(false);
+    }
+  }
+
+  async function sendBroadcast(applicant: EnrollmentApplicant, input: Parameters<typeof broadcastEnrollment>[1]) {
+    await broadcastEnrollment(applicant.id, input);
+    setBroadcastFor(null);
+    setMessage(`${applicant.studentName} is live on the job board.`);
+    await refreshApplicants(activeTab);
+  }
+
+  async function takeOffJobBoard(applicant: EnrollmentApplicant) {
+    const closed = await unbroadcastEnrollment(applicant.id);
+    setMessage(
+      closed > 0
+        ? `Taken off the job board. Moved back to Ready.`
+        : `Moved back to Ready. There was no open posting to close.`,
+    );
+    await refreshApplicants(activeTab);
+  }
+
+  async function saveDiscount(applicant: EnrollmentApplicant, draft: DiscountDraft | null) {
+    if (!auth.currentUser) {
+      setMessage("Sign in with an administrator account before changing a discount.");
+      return;
+    }
+    if (!applicant.studentUserId) {
+      setMessage("Create the student's account before setting a discount.");
+      return;
+    }
+    const admin = auth.currentUser;
+    const actor = {
+      adminId: admin.uid,
+      adminName: admin.email ?? "Admin",
+      adminEmail: admin.email ?? "",
+      timestamp: Timestamp.now(),
+    };
+    const previous = applicant.discount ? discountLabel(applicant.discount) : null;
+
+    try {
+      if (draft) {
+        const discount = draftToDiscount(draft);
+        await updateDoc(doc(db, "users", applicant.studentUserId), {
+          discount: {
+            mode: discount.mode,
+            value: discount.value,
+            duration: discount.duration,
+            ...(discount.months ? { months: discount.months } : {}),
+            startDate: Timestamp.fromDate(discount.startDate),
+            reason: discount.reason,
+            ...(discount.note ? { note: discount.note } : {}),
+            createdBy: admin.uid,
+            createdByName: admin.email ?? "Admin",
+            createdAt: serverTimestamp(),
+          },
+        });
+        await updateDoc(doc(db, "enrollments", applicant.id), {
+          "metadata.actionHistory": arrayUnion({
+            action: previous ? "discount_changed" : "discount_added",
+            discount: discountLabel(discount),
+            ...(previous ? { previousDiscount: previous } : {}),
+            reason: discount.reason,
+            ...actor,
+          }),
+        });
+        setMessage(`Discount saved. It applies from ${formatStartDate(discount.startDate)}.`);
+      } else {
+        await updateDoc(doc(db, "users", applicant.studentUserId), { discount: deleteField() });
+        await updateDoc(doc(db, "enrollments", applicant.id), {
+          "metadata.actionHistory": arrayUnion({
+            action: "discount_removed",
+            ...(previous ? { previousDiscount: previous } : {}),
+            ...actor,
+          }),
+        });
+        setMessage("Discount removed.");
+      }
+      setDiscountFor(null);
+      await refreshApplicants(activeTab);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not save the discount.");
+    }
+  }
+
+  const renderApplicantCard = (applicant: EnrollmentApplicant) => (
+    <ApplicantCard
+      key={applicant.id}
+      applicant={applicant}
+      tab={activeTabConfig}
+      setup={isMatched ? setups.get(applicant.id) ?? null : null}
+      onDiscount={() => setDiscountFor(applicant)}
+      onBroadcast={() => setBroadcastFor(applicant)}
+      onDetails={() => setDetailsFor(applicant)}
+      onUnbroadcast={() => takeOffJobBoard(applicant)}
+      onChanged={() => void refreshApplicants(activeTab)}
+      onMessage={setMessage}
+      onMarkContacted={() => moveApplicant(applicant, "contacted")}
+      onArchive={() => setArchiveFor(applicant)}
+      onUnarchive={() => moveApplicant(applicant, "pending")}
+    />
+  );
 
   useEffect(() => {
     let mounted = true;
@@ -147,6 +438,16 @@ export function StudentApplicantsAdmin() {
   }, []);
 
   useEffect(() => {
+    const inFlutterFrame =
+      window.self !== window.top || new URLSearchParams(window.location.search).has("embed");
+    if (inFlutterFrame) {
+      setEmbedded(true);
+    } else {
+      window.location.replace("/app/");
+    }
+  }, []);
+
+  useEffect(() => {
     if (access !== "allowed") return;
     void refreshApplicants(activeTab);
   }, [access, activeTab]);
@@ -163,6 +464,17 @@ export function StudentApplicantsAdmin() {
         const [nextApplicants, nextCounts] = await Promise.all([loadApplicants(status), loadCounts()]);
         setApplicants(nextApplicants);
         setCounts(nextCounts);
+        const [scheduled, discounts] = await Promise.all([
+          status === "matched" ? loadScheduledStudents(nextApplicants) : Promise.resolve(new Set<string>()),
+          loadDiscounts(nextApplicants),
+        ]);
+        setScheduledStudents(scheduled);
+        setApplicants(
+          nextApplicants.map((applicant) => ({
+            ...applicant,
+            discount: discounts.get(applicant.studentUserId) ?? null,
+          })),
+        );
       }
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not load student applicants.");
@@ -239,28 +551,17 @@ export function StudentApplicantsAdmin() {
     }
   }
 
+  // This screen only ever renders inside the Flutter web app's content area
+  // (same-origin iframe), so admins keep their real Flutter sidebar and top
+  // bar. A direct visit to /admin/student-applicants/ goes to the Flutter app.
+  if (!embedded) return null;
+
   if (access !== "allowed") {
     return <StudentApplicantsAccessPrompt access={access} />;
   }
 
   return (
-    <AdminDashboardShell activeLabel="Student Applicants" breadcrumb="People / Student Applicants">
-      <main className="min-h-[calc(100vh-56px)] bg-[#F3F4F6]">
-        <header className="lg:hidden">
-          <div className="grid min-h-14 grid-cols-[48px_1fr_48px] items-center bg-white px-3 text-[#0F172A]">
-            <button type="button" aria-label="Menu" className="grid h-11 w-11 place-items-center rounded-xl text-[#0F172A]">
-              <span className="h-0.5 w-4 bg-current" />
-              <span className="-mt-5 h-0.5 w-4 bg-current" />
-            </button>
-            <div className="min-w-0 text-center">
-              <div className="truncate text-sm font-black text-[#0F172A]">Alluwal Education Hub</div>
-            </div>
-            <span className="grid h-8 w-8 place-items-center rounded-full bg-[#009688] text-[11px] font-black text-white">
-              {initialsFor(user)}
-            </span>
-          </div>
-        </header>
-
+      <main className="min-h-screen bg-[#F3F4F6]">
         <section className="border-b border-black/10 bg-white px-4 py-5 lg:px-6">
           <div className="flex items-center gap-4">
             <span className="grid h-12 w-12 place-items-center rounded-2xl bg-[#EFF6FF] text-[#3B82F6]">
@@ -299,6 +600,28 @@ export function StudentApplicantsAdmin() {
           </div>
         </section>
 
+        {activeTab !== "incomplete" ? (
+          <ApplicantTriageToolbar
+            search={search}
+            onSearch={setSearch}
+            sort={sort}
+            onSort={setSort}
+            sortOptions={sortOptions}
+            showTeacherTools={isMatched}
+            groupTeachers={groupTeachers}
+            onGroupTeachers={setGroupTeachers}
+            stage={stage}
+            onStage={setStage}
+            stageCounts={stageCounts}
+            shown={visibleApplicants.length}
+            total={applicants.length}
+            exportOpen={exportOpen}
+            onExportOpen={setExportOpen}
+            exporting={exporting}
+            onExport={(scope) => void runExport(scope)}
+          />
+        ) : null}
+
         {message ? (
           <div className="mx-4 mt-4 rounded-2xl border border-[#BFDBFE] bg-[#EFF6FF] px-4 py-3 text-sm font-semibold text-[#1D4ED8] lg:mx-6">
             {message}
@@ -322,49 +645,567 @@ export function StudentApplicantsAdmin() {
             )
           ) : applicants.length === 0 ? (
             <EmptyApplicantsState status={activeTab} />
-          ) : (
-            <div className="grid gap-3">
-              {applicants.map((applicant) => (
-                <ApplicantCard
-                  key={applicant.id}
-                  applicant={applicant}
-                  tab={activeTabConfig}
-                  onMarkContacted={() => moveApplicant(applicant, "contacted")}
-                  onArchive={() => moveApplicant(applicant, "archived")}
-                  onUnarchive={() => moveApplicant(applicant, "pending")}
-                />
+          ) : visibleApplicants.length === 0 ? (
+            <NoMatchesState onClear={() => { setSearch(""); setStage("all"); }} />
+          ) : teacherGroups ? (
+            <div className="grid gap-6">
+              {teacherGroups.map((group) => (
+                <div key={group.teacher}>
+                  <div className="flex items-center gap-2 pb-2">
+                    <School size={16} className="text-[#EA580C]" />
+                    <span className="text-xs font-bold text-[#1E293B]">{group.teacher}</span>
+                    <span className="rounded-full border border-[#FDBA74] bg-[#FFF7ED] px-2 py-0.5 text-[11px] font-bold text-[#C2410C]">
+                      {group.applicants.length}
+                    </span>
+                  </div>
+                  <div className="grid gap-3 border-t border-[#E5E7EB] pt-3">
+                    {group.applicants.map((applicant) => renderApplicantCard(applicant))}
+                  </div>
+                </div>
               ))}
             </div>
+          ) : (
+            <div className="grid gap-3">{visibleApplicants.map((applicant) => renderApplicantCard(applicant))}</div>
           )}
         </section>
+        {detailsFor ? (
+          <ApplicantDetailsDialog
+            enrollmentId={detailsFor.id}
+            studentName={detailsFor.studentName}
+            onClose={() => setDetailsFor(null)}
+          />
+        ) : null}
+
+        {archiveFor ? (
+          <ConfirmDialog
+            title="Archive this application?"
+            body={`${archiveFor.studentName} moves out of the active pipeline. It is not deleted, and you can unarchive it later.`}
+            confirmLabel="Archive"
+            onConfirm={async () => {
+              const target = archiveFor;
+              setArchiveFor(null);
+              await moveApplicant(target, "archived");
+            }}
+            onClose={() => setArchiveFor(null)}
+          />
+        ) : null}
+
+        {broadcastFor ? (
+          <PrepareBroadcastDialog
+            studentName={broadcastFor.studentName}
+            subject={broadcastFor.programTitle}
+            familyNotes={broadcastFor.schedulingNotes}
+            initial={{
+              days: broadcastFor.days,
+              timeSlots: broadcastFor.timeSlots,
+              block: broadcastFor.block,
+              timeZone: broadcastFor.timeZone,
+            }}
+            onBroadcast={(input) => sendBroadcast(broadcastFor, input)}
+            onClose={() => setBroadcastFor(null)}
+          />
+        ) : null}
+
+        {discountFor ? (
+          <DiscountDialog
+            studentName={discountFor.studentName}
+            existing={discountFor.discount}
+            // Best signal available for when this student's enrollment began;
+            // nothing records it, so the admin confirms or corrects it here
+            // rather than billing code guessing.
+            defaultStartDate={discountFor.matchedAt ?? discountFor.submittedAt ?? new Date()}
+            onSave={(draft) => saveDiscount(discountFor, draft)}
+            onRemove={() => saveDiscount(discountFor, null)}
+            onClose={() => setDiscountFor(null)}
+          />
+        ) : null}
       </main>
-    </AdminDashboardShell>
+  );
+}
+
+export function DiscountDialog({
+  studentName,
+  existing,
+  defaultStartDate,
+  onSave,
+  onRemove,
+  onClose,
+}: {
+  studentName: string;
+  existing: StudentDiscount | null;
+  defaultStartDate: Date;
+  onSave: (draft: DiscountDraft) => Promise<void> | void;
+  onRemove: () => Promise<void> | void;
+  onClose: () => void;
+}) {
+  const [draft, setDraft] = useState<DiscountDraft>(() =>
+    existing ? discountToDraft(existing) : emptyDiscountDraft(defaultStartDate),
+  );
+  const [showError, setShowError] = useState(false);
+  const error = validateDiscount(draft);
+  const preview = error ? null : draftToDiscount(draft);
+  const set = (patch: Partial<DiscountDraft>) => setDraft((current) => ({ ...current, ...patch }));
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-label="Student discount">
+      <div className="max-h-full w-full max-w-[520px] overflow-y-auto rounded-[28px] bg-white p-6 shadow-[0_24px_60px_rgba(0,0,0,0.32)]">
+        <h2 className="text-xl font-bold text-[#111827]">Student discount</h2>
+        <p className="mt-1 text-[13px] text-[#64748B]">
+          {studentName} · applies to every program this student takes
+        </p>
+
+        <div className="mt-5 grid grid-cols-2 gap-2.5">
+          {([
+            { mode: "percent" as const, title: "Percentage", hint: "% off the monthly total" },
+            { mode: "fixed" as const, title: "Fixed amount", hint: "$ off each month" },
+          ]).map((option) => {
+            const active = draft.mode === option.mode;
+            return (
+              <button
+                key={option.mode}
+                type="button"
+                aria-pressed={active}
+                onClick={() => set({ mode: option.mode })}
+                className={`rounded-lg border-[1.5px] p-3 text-left transition ${
+                  active ? "border-[#3B82F6] bg-[#EFF6FF] text-[#1D4ED8]" : "border-[#E2E8F0] bg-white text-[#475569]"
+                }`}
+              >
+                <span className="block text-xs font-bold">{option.title}</span>
+                <span className="mt-0.5 block text-[11px] font-medium text-[#64748B]">{option.hint}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="mt-4 flex items-end gap-2.5">
+          <div>
+            <label htmlFor="discount-value" className="block text-[11px] font-semibold text-[#1E293B]">Amount</label>
+            <input
+              id="discount-value"
+              type="number"
+              min="0"
+              step="0.01"
+              value={draft.value}
+              onChange={(event) => set({ value: event.target.value })}
+              className="mt-1 h-10 w-[110px] rounded border border-[#79747E] px-2.5 text-[15px] font-bold text-[#111827] outline-none focus:border-[#3B82F6]"
+            />
+          </div>
+          <span className="pb-2.5 text-xs font-semibold text-[#64748B]">
+            {draft.mode === "percent" ? "%" : "$ / month"}
+          </span>
+        </div>
+
+        <fieldset className="mt-5">
+          <legend className="text-[11px] font-semibold text-[#1E293B]">How long it lasts</legend>
+          <div className="mt-1.5 grid gap-1.5">
+            {([
+              { duration: "months" as const, label: "First few months" },
+              { duration: "ongoing" as const, label: "Ongoing, until removed" },
+            ]).map((option) => (
+              <label key={option.duration} className="flex items-center gap-2 text-xs font-medium text-[#334155]">
+                <input
+                  type="radio"
+                  name="discount-duration"
+                  checked={draft.duration === option.duration}
+                  onChange={() => set({ duration: option.duration })}
+                  className="h-[18px] w-[18px] accent-[#3B82F6]"
+                />
+                {option.label}
+              </label>
+            ))}
+          </div>
+          {draft.duration === "months" ? (
+            <div className="mt-2 flex items-center gap-2">
+              <label htmlFor="discount-months" className="sr-only">Number of months</label>
+              <input
+                id="discount-months"
+                type="number"
+                min="1"
+                step="1"
+                value={draft.months}
+                onChange={(event) => set({ months: event.target.value })}
+                className="h-10 w-20 rounded border border-[#79747E] px-2.5 text-[15px] font-bold text-[#111827] outline-none focus:border-[#3B82F6]"
+              />
+              <span className="text-xs text-[#64748B]">months from the start date below</span>
+            </div>
+          ) : null}
+        </fieldset>
+
+        <div className="mt-5">
+          <label htmlFor="discount-start" className="block text-[11px] font-semibold text-[#1E293B]">Month 1 starts on</label>
+          <input
+            id="discount-start"
+            type="date"
+            value={draft.startDate}
+            onChange={(event) => set({ startDate: event.target.value })}
+            className="mt-1 h-10 rounded border border-[#79747E] px-2.5 text-sm text-[#111827] outline-none focus:border-[#3B82F6]"
+          />
+        </div>
+
+        <div className="mt-3 flex gap-2 rounded-[10px] border border-[#BFDBFE] bg-[#EFF6FF] p-3">
+          <CalendarDays size={16} className="mt-0.5 shrink-0 text-[#1D4ED8]" />
+          <p className="text-xs leading-[1.45] text-[#1E40AF]">
+            {preview ? (
+              <>
+                Month 1 starts on <strong>{formatStartDate(preview.startDate)}</strong>. Every invoice from then on
+                shows <strong>{discountLabel(preview)}</strong>.
+              </>
+            ) : (
+              "Set an amount and a start date to see which invoices this covers."
+            )}
+          </p>
+        </div>
+
+        <div className="mt-4">
+          <label htmlFor="discount-reason" className="block text-[11px] font-semibold text-[#1E293B]">Reason</label>
+          <select
+            id="discount-reason"
+            value={draft.reason}
+            onChange={(event) => set({ reason: event.target.value })}
+            className="mt-1 h-10 w-full rounded border border-[#79747E] bg-white px-2.5 text-sm text-[#111827] outline-none focus:border-[#3B82F6]"
+          >
+            {DISCOUNT_REASONS.map((reason) => (
+              <option key={reason} value={reason}>{reason}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="mt-4">
+          <label htmlFor="discount-note" className="block text-[11px] font-semibold text-[#1E293B]">Note (optional)</label>
+          <textarea
+            id="discount-note"
+            rows={2}
+            value={draft.note}
+            onChange={(event) => set({ note: event.target.value })}
+            placeholder="Who approved it and why..."
+            className="mt-1 w-full rounded border border-[#79747E] px-2.5 py-2 text-sm text-[#111827] outline-none placeholder:text-[#9CA3AF] focus:border-[#3B82F6]"
+          />
+        </div>
+
+        {showError && error ? (
+          <p role="alert" className="mt-3 text-xs font-semibold text-[#DC2626]">{error}</p>
+        ) : null}
+
+        <div className="mt-6 flex items-center gap-3">
+          {existing ? (
+            <ActionButton
+              label="Remove discount"
+              busyLabel="Removing…"
+              variant="ghost"
+              onAction={() => onRemove()}
+            />
+          ) : null}
+          <span className="flex-1" />
+          <button type="button" onClick={onClose} className="px-3 py-2 text-sm font-semibold text-[#475569]">
+            Cancel
+          </button>
+          <ActionButton
+            label="Save discount"
+            busyLabel="Saving…"
+            onAction={async () => {
+              if (error) {
+                setShowError(true);
+                return;
+              }
+              await onSave(draft);
+            }}
+            className="rounded-[20px] bg-[#0F172A] px-5 py-2.5 text-sm font-bold text-white hover:bg-[#1E293B]"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+type ExportScope = "view" | "students" | "teachers" | "everything";
+
+const EXPORT_OPTIONS: { scope: ExportScope; label: string; hint: string }[] = [
+  { scope: "view", label: "This view", hint: "The rows on screen, in the order shown." },
+  { scope: "students", label: "All student applications", hint: "Every status, plus unfinished drafts." },
+  { scope: "teachers", label: "All teacher applications", hint: "Every teacher application on file." },
+  { scope: "everything", label: "Everything", hint: "Students, drafts and teachers in one workbook." },
+];
+
+export function ApplicantTriageToolbar({
+  search,
+  onSearch,
+  sort,
+  onSort,
+  sortOptions,
+  showTeacherTools,
+  groupTeachers,
+  onGroupTeachers,
+  stage,
+  onStage,
+  stageCounts,
+  shown,
+  total,
+  exportOpen,
+  onExportOpen,
+  exporting,
+  onExport,
+}: {
+  search: string;
+  onSearch: (value: string) => void;
+  sort: SortId;
+  onSort: (value: SortId) => void;
+  sortOptions: readonly { id: SortId; label: string }[];
+  showTeacherTools: boolean;
+  groupTeachers: boolean;
+  onGroupTeachers: (value: boolean) => void;
+  stage: StageFilter;
+  onStage: (value: StageFilter) => void;
+  stageCounts: Record<StageFilter, number>;
+  shown: number;
+  total: number;
+  exportOpen: boolean;
+  onExportOpen: (value: boolean) => void;
+  exporting: boolean;
+  onExport: (scope: ExportScope) => void;
+}) {
+  return (
+        <section className="border-b border-[#E5E7EB] bg-white px-4 py-2.5 lg:px-6" aria-label="Filter applicants">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <div className="relative">
+              <Search size={17} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
+              <input
+                type="search"
+                value={search}
+                onChange={(event) => onSearch(event.target.value)}
+                placeholder="Search name or teacher"
+                aria-label="Search applicants"
+                className="h-[34px] w-[260px] rounded-lg border border-[#E5E7EB] pl-8 pr-2.5 text-xs text-[#111827] outline-none placeholder:text-[#9CA3AF] focus:border-[#0386FF]"
+              />
+            </div>
+
+            <label className="sr-only" htmlFor="applicant-sort">Sort applicants</label>
+            <select
+              id="applicant-sort"
+              value={sort}
+              onChange={(event) => onSort(event.target.value as SortId)}
+              className="h-[34px] rounded-lg border border-[#E5E7EB] bg-white px-2.5 text-xs font-semibold text-[#111827] outline-none focus:border-[#0386FF]"
+            >
+              {sortOptions.map((option) => (
+                <option key={option.id} value={option.id}>{option.label}</option>
+              ))}
+            </select>
+
+            {showTeacherTools ? (
+              <button
+                type="button"
+                aria-pressed={groupTeachers}
+                onClick={() => onGroupTeachers(!groupTeachers)}
+                className={`h-[34px] rounded-lg border px-3 text-xs font-semibold transition ${
+                  groupTeachers
+                    ? "border-[rgba(3,134,255,0.4)] bg-[#EFF6FF] text-[#0386FF]"
+                    : "border-[#E5E7EB] bg-white text-[#475569] hover:bg-slate-50"
+                }`}
+              >
+                Group by teacher
+              </button>
+            ) : null}
+
+            <div className="relative">
+              <button
+                type="button"
+                aria-haspopup="menu"
+                aria-expanded={exportOpen}
+                disabled={exporting}
+                onClick={() => onExportOpen(!exportOpen)}
+                className="inline-flex h-[34px] items-center gap-1.5 rounded-lg border border-[#10B981] bg-[#ECFDF5] px-3 text-xs font-bold text-[#047857] disabled:opacity-60"
+              >
+                <Download size={16} />
+                {exporting ? "Building…" : "Excel"}
+                <ChevronDown size={15} />
+              </button>
+              {exportOpen ? (
+                <div
+                  role="menu"
+                  className="absolute right-0 top-[38px] z-20 w-72 overflow-hidden rounded-xl bg-white shadow-[0_12px_32px_rgba(15,23,42,0.18)]"
+                >
+                  {EXPORT_OPTIONS.map((option) => (
+                    <button
+                      key={option.scope}
+                      type="button"
+                      role="menuitem"
+                      onClick={() => onExport(option.scope)}
+                      className="block w-full px-3.5 py-2.5 text-left hover:bg-[#F8FAFC]"
+                    >
+                      <span className="block text-xs font-bold text-[#1E293B]">{option.label}</span>
+                      <span className="mt-0.5 block text-[11px] text-[#64748B]">{option.hint}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+
+            <span className="ml-auto text-xs font-semibold text-[#6B7280]">
+              {shown === total
+                ? `${total} ${total === 1 ? "applicant" : "applicants"}`
+                : `${shown} of ${total}`}
+            </span>
+          </div>
+
+          {showTeacherTools ? (
+            <div className="mt-2.5 flex flex-wrap items-center gap-2">
+              {STAGE_FILTERS.map((filter) => {
+                const active = stage === filter.id;
+                const count = stageCounts[filter.id];
+                return (
+                  <button
+                    key={filter.id}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => onStage(filter.id)}
+                    className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                      active ? "bg-[#0386FF] text-white" : "border border-[#E5E7EB] bg-white text-[#475569] hover:bg-slate-50"
+                    }`}
+                  >
+                    {filter.label}
+                    <span
+                      className={`rounded-full px-1.5 text-[11px] font-bold ${
+                        active ? "bg-white/25 text-white" : "bg-[#F1F5F9] text-[#64748B]"
+                      }`}
+                    >
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
+        </section>
+  );
+}
+
+function SetupStrip({ setup }: { setup: SetupState }) {
+  const pills = [
+    { label: "Account", done: setup.hasAccount },
+    { label: "Schedule", done: setup.hasSchedule },
+    { label: "Parent", done: setup.hasParent },
+  ];
+  const ready = setup.stage === "ready";
+  return (
+    <div className="flex flex-wrap items-center gap-2 border-b border-[#E5E7EB] bg-white px-4 py-2">
+      {pills.map((pill) => (
+        <span
+          key={pill.label}
+          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold tracking-[0.3px] ${
+            pill.done ? "bg-[#D1FAE5] text-[#065F46]" : "bg-[#F1F5F9] text-[#64748B]"
+          }`}
+        >
+          {pill.done ? <CheckCircle2 size={12} /> : <Circle size={12} />}
+          {pill.label}
+        </span>
+      ))}
+      <span className={`ml-auto text-[11px] font-semibold ${ready ? "text-[#059669]" : "text-[#B45309]"}`}>
+        {setup.nextAction}
+      </span>
+    </div>
+  );
+}
+
+/** Used before anything that is awkward to undo. */
+function ConfirmDialog({
+  title,
+  body,
+  confirmLabel,
+  onConfirm,
+  onClose,
+}: {
+  title: string;
+  body: string;
+  confirmLabel: string;
+  onConfirm: () => Promise<void>;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-label={title}>
+      <div className="w-full max-w-[420px] rounded-2xl bg-white p-5 shadow-[0_24px_60px_rgba(0,0,0,0.32)]">
+        <h2 className="text-base font-bold text-[#111827]">{title}</h2>
+        <p className="mt-1.5 text-sm leading-6 text-[#475569]">{body}</p>
+        <div className="mt-5 flex items-center justify-end gap-3">
+          <button type="button" onClick={onClose} className="px-3 py-2 text-sm font-semibold text-[#475569]">
+            Cancel
+          </button>
+          <ActionButton label={confirmLabel} busyLabel="Working…" variant="danger" onAction={onConfirm} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function NoMatchesState({ onClear }: { onClear: () => void }) {
+  return (
+    <div className="grid min-h-[220px] place-items-center rounded-xl border border-dashed border-[#E5E7EB] bg-white">
+      <div className="text-center">
+        <p className="text-sm font-bold text-[#334155]">No applicants match these filters</p>
+        <button
+          type="button"
+          onClick={onClear}
+          className="mt-2 rounded-lg border border-[#E5E7EB] px-3 py-1.5 text-xs font-semibold text-[#0386FF] hover:bg-slate-50"
+        >
+          Clear search and filters
+        </button>
+      </div>
+    </div>
   );
 }
 
 function ApplicantCard({
   applicant,
   tab,
+  setup,
+  onDiscount,
+  onBroadcast,
+  onDetails,
+  onUnbroadcast,
+  onChanged,
+  onMessage,
   onMarkContacted,
   onArchive,
   onUnarchive,
 }: {
   applicant: EnrollmentApplicant;
   tab: ApplicantTab;
+  setup: SetupState | null;
+  onDiscount: () => void;
+  onBroadcast: () => void;
+  onDetails: () => void;
+  onUnbroadcast: () => Promise<void>;
+  onChanged: () => void;
+  onMessage: (text: string) => void;
   onMarkContacted: () => void;
   onArchive: () => void;
   onUnarchive: () => void;
 }) {
   const live = applicant.status === "broadcasted";
   const archived = applicant.status === "archived";
+  const matched = applicant.status === "matched";
+  const waiting = setup && isStale(applicant.matchedAt, setup.stage) ? daysWaiting(applicant.matchedAt) : null;
   return (
     <article className={`overflow-hidden rounded-xl bg-white shadow-[0_2px_10px_rgba(15,23,42,0.03)] ${live ? "border border-[#10B981]" : ""}`}>
-      <div className={`flex items-center gap-2 px-4 py-2 text-[11px] font-bold ${live ? "bg-[#ECFDF5] text-[#059669]" : archived ? "bg-[#F1F5F9] text-[#64748B]" : "bg-[#F8FAFC] text-[#94A3B8]"}`}>
-        {live ? <Radio size={14} /> : archived ? <Archive size={14} /> : <Clock size={14} />}
-        <span>{live ? "LIVE ON JOB BOARD" : archived ? "ARCHIVED" : formatSubmittedAt(applicant.submittedAt)}</span>
+      <div className={`flex items-center gap-2 px-4 py-2 text-[11px] font-bold ${matched ? "bg-[#ECFDF5] text-[#059669]" : live ? "bg-[#ECFDF5] text-[#059669]" : archived ? "bg-[#F1F5F9] text-[#64748B]" : "bg-[#F8FAFC] text-[#94A3B8]"}`}>
+        {matched ? <Handshake size={14} /> : live ? <Radio size={14} /> : archived ? <Archive size={14} /> : <Clock size={14} />}
+        <span>
+          {matched
+            ? `MATCHED${applicant.teacherName ? ` • ${applicant.teacherName}` : ""}`
+            : live
+              ? "LIVE ON JOB BOARD"
+              : archived
+                ? "ARCHIVED"
+                : formatSubmittedAt(applicant.submittedAt)}
+        </span>
         <span className="flex-1" />
+        {waiting !== null ? (
+          <span className="inline-flex items-center gap-1 rounded bg-[#FEF3C7] px-1.5 py-0.5 text-[10px] font-bold text-[#92400E]">
+            <Clock size={12} />
+            Waiting {waiting} {waiting === 1 ? "day" : "days"}
+          </span>
+        ) : null}
         {applicant.isAdult ? <span className="rounded bg-[#EFF6FF] px-1.5 py-0.5 text-[10px] font-black text-[#1D4ED8]">ADULT STUDENT</span> : null}
       </div>
+      {setup ? <SetupStrip setup={setup} /> : null}
       <div className="p-4">
         <div className="flex items-start gap-3">
           <div className="min-w-0 flex-1">
@@ -374,7 +1215,12 @@ function ApplicantCard({
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            <button type="button" className="grid h-9 w-9 place-items-center rounded-lg bg-[#EEF2FF] text-[#4F46E5]" aria-label={`View ${applicant.studentName}`}>
+            <button
+              type="button"
+              onClick={onDetails}
+              className="grid h-9 w-9 place-items-center rounded-lg bg-[#EEF2FF] text-[#4F46E5]"
+              aria-label={`View ${applicant.studentName}`}
+            >
               <Info size={17} />
             </button>
             {applicant.phone ? (
@@ -401,7 +1247,51 @@ function ApplicantCard({
             </div>
           </div>
         ) : null}
+        {applicant.status === "broadcasted" && applicant.jobId ? (
+          <BroadcastPanel
+            jobId={applicant.jobId}
+            snapshot={applicant.broadcastSnapshot}
+            onChanged={onChanged}
+          />
+        ) : null}
+
+        <ActivityHistory entries={applicant.actionHistory} />
+
         <div className="mt-4 border-t border-black/10 pt-3">
+          {setup && setup.stage !== "ready" ? (
+            <MatchedSetupActions
+              enrollmentId={applicant.id}
+              studentName={applicant.studentName}
+              studentUserId={applicant.studentUserId}
+              parentLinked={applicant.parentLinked}
+              defaultParentEmail={applicant.email}
+              defaultParentName={applicant.parentName}
+              defaultParentPhone={applicant.phone}
+              onChanged={onChanged}
+              onMessage={onMessage}
+            />
+          ) : null}
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            {applicant.discount ? (
+              <span className="inline-flex items-center gap-1.5 rounded-lg bg-[#FEF3C7] px-2.5 py-2 text-[11px] text-[#92400E]">
+                <Tag size={14} />
+                <span className="font-bold">{discountLabel(applicant.discount)}</span>
+                {applicant.discount.reason ? <span className="font-medium">· {applicant.discount.reason}</span> : null}
+              </span>
+            ) : (
+              <span className="rounded-lg bg-[#F1F5F9] px-2.5 py-2 text-[11px] font-semibold text-[#475569]">No discount</span>
+            )}
+            <button
+              type="button"
+              onClick={onDiscount}
+              disabled={!applicant.studentUserId}
+              title={applicant.studentUserId ? undefined : "Create the student's account first"}
+              className="inline-flex min-h-9 flex-1 items-center justify-center gap-2 rounded-lg border border-black/10 px-3 text-xs font-semibold text-[#B45309] hover:bg-[#FFFBEB] disabled:cursor-not-allowed disabled:text-[#CBD5E1] disabled:hover:bg-transparent"
+            >
+              <Tag size={16} />
+              {applicant.discount ? "Edit discount" : "Add discount"}
+            </button>
+          </div>
           <div className="flex items-center gap-3">
             {applicant.status !== "archived" ? (
               <button type="button" onClick={onArchive} aria-label={`Archive ${applicant.studentName}`} className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-[#94A3B8] hover:bg-[#F1F5F9]">
@@ -417,11 +1307,25 @@ function ApplicantCard({
               <button type="button" onClick={onUnarchive} className="inline-flex min-h-9 flex-1 items-center justify-center rounded-lg bg-[#3B82F6] px-4 text-sm font-bold text-white">
                 Unarchive
               </button>
-            ) : (
-              <Link href="/app/#/login" className="inline-flex min-h-9 flex-1 items-center justify-center rounded-lg bg-[#3B82F6] px-4 text-sm font-bold text-white">
-                {tab.actionLabel}
-              </Link>
-            )}
+            ) : applicant.status === "contacted" ? (
+              <button
+                type="button"
+                onClick={onBroadcast}
+                className="inline-flex min-h-9 flex-1 items-center justify-center gap-2 rounded-lg bg-[#3B82F6] px-4 text-sm font-bold text-white"
+              >
+                <Radio size={17} />
+                Prepare &amp; broadcast
+              </button>
+            ) : applicant.status === "broadcasted" ? (
+              <ActionButton
+                label="Take off the job board"
+                busyLabel="Removing…"
+                variant="subtle"
+                icon={<Undo2 size={16} />}
+                onAction={() => onUnbroadcast()}
+                className="min-h-9 flex-1"
+              />
+            ) : null}
           </div>
         </div>
       </div>
@@ -581,6 +1485,27 @@ async function loadApplicants(status: ApplicantStatus) {
     .sort((a, b) => (b.submittedAt?.getTime() ?? 0) - (a.submittedAt?.getTime() ?? 0));
 }
 
+/** One read per matched teacher, for the export's teacher timezone column. */
+async function loadTeacherTimezones(applicants: EnrollmentApplicant[]): Promise<Map<string, string>> {
+  const ids = [...new Set(applicants.map((a) => a.matchedTeacherId).filter(Boolean))];
+  const zones = new Map<string, string>();
+  const snapshots = await Promise.all(ids.map((id) => getDoc(doc(db, "users", id))));
+  snapshots.forEach((snapshot, index) => {
+    if (!snapshot.exists()) return;
+    const zone = stringValue((snapshot.data() as Record<string, unknown>).timezone);
+    if (zone) zones.set(ids[index], zone);
+  });
+  return zones;
+}
+
+/** Every status, for the "all applications" export. */
+async function loadAllApplicants(): Promise<EnrollmentApplicant[]> {
+  const snap = await getDocs(query(collection(db, "enrollments"), limit(1000)));
+  return snap.docs
+    .map((docSnap) => normalizeApplicant(docSnap.id, docSnap.data() as Record<string, unknown>))
+    .sort((a, b) => (b.submittedAt?.getTime() ?? 0) - (a.submittedAt?.getTime() ?? 0));
+}
+
 async function loadDrafts() {
   const snap = await getDocs(query(collection(db, "enrollment_drafts"), where("status", "==", "in_progress"), limit(80)));
   return snap.docs
@@ -637,6 +1562,33 @@ function timeAgo(date: Date) {
   return new Intl.DateTimeFormat("en", { month: "short", day: "numeric" }).format(date);
 }
 
+/**
+ * Which of these students already have classes on the calendar.
+ *
+ * A teaching_shift records the students it is for but not the enrollment it
+ * came from, so the join is the student's uid. One `array-contains-any` query
+ * per 30 students answers the whole list; asking per card would be a query
+ * per row.
+ */
+async function loadScheduledStudents(applicants: EnrollmentApplicant[]): Promise<Set<string>> {
+  const uids = [...new Set(applicants.map((a) => a.studentUserId).filter(Boolean))];
+  const scheduled = new Set<string>();
+  if (uids.length === 0) return scheduled;
+
+  for (let i = 0; i < uids.length; i += 30) {
+    const chunk = uids.slice(i, i + 30);
+    const snapshot = await getDocs(
+      query(collection(db, "teaching_shifts"), where("student_ids", "array-contains-any", chunk)),
+    );
+    for (const shift of snapshot.docs) {
+      for (const uid of stringArray(shift.data().student_ids)) {
+        if (chunk.includes(uid)) scheduled.add(uid);
+      }
+    }
+  }
+  return scheduled;
+}
+
 function normalizeApplicant(id: string, data: Record<string, unknown>): EnrollmentApplicant {
   const metadata = recordValue(data.metadata);
   const contact = recordValue(data.contact);
@@ -667,7 +1619,100 @@ function normalizeApplicant(id: string, data: Record<string, unknown>): Enrollme
     // reachable through "Raw Application Data", and it usually holds the
     // constraint that decides the schedule.
     schedulingNotes: stringValue(preferences.schedulingNotes ?? data.schedulingNotes),
+    teacherName: stringValue(metadata.matchedTeacherName),
+    matchedAt: dateValue(metadata.matchedAt),
+    studentUserId: stringValue(metadata.studentUserId),
+    // Matches how the matched card itself decides this: an explicit invite
+    // status, or a guardian already on the contact.
+    parentLinked:
+      stringValue(metadata.parentInviteStatus) === "linked" ||
+      stringValue(contact.guardianId).length > 0,
+    // Filled in by loadDiscounts() — it lives on the student's user record,
+    // because it covers every program that student takes rather than one
+    // application.
+    discount: null,
+    gender: stringValue(student.gender),
+    email: stringValue(contact.email ?? data.email),
+    whatsApp: stringValue(contact.whatsApp),
+    country: stringValue(country.name ?? contact.country),
+    classType: normalizeClassType(program.classType),
+    sessionDuration: stringValue(program.sessionDuration),
+    hoursPerWeek: numberOrNull(program.hoursPerWeek),
+    sessionsPerWeek: numberOrNull(program.sessionsPerWeek),
+    block: normalizeBlock(data.block ?? preferences.timeOfDayPreference) ?? "",
+    preferredLanguage: stringValue(preferences.preferredLanguage),
+    matchedTeacherId: stringValue(metadata.matchedTeacherId),
+    teacherTimeZone: "",
+    jobId: stringValue(metadata.jobId),
+    broadcastSnapshot: readSnapshot(metadata.lastBroadcastSnapshot),
+    actionHistory: readActionHistory(metadata.actionHistory),
   };
+}
+
+function readSnapshot(raw: unknown): BroadcastSnapshot | null {
+  const data = recordValue(raw);
+  if (Object.keys(data).length === 0) return null;
+  return {
+    days: stringArray(data.days),
+    timeSlots: stringArray(data.timeSlots),
+    timeOfDayPreference: stringValue(data.timeOfDayPreference),
+    timezoneRef: stringValue(data.timezoneRef),
+    adminNotesForTeachers: stringValue(data.adminNotesForTeachers),
+    targetTeacherNames: stringArray(data.targetTeacherNames),
+  };
+}
+
+function readActionHistory(raw: unknown): ActionEntry[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((item) => {
+    const entry = recordValue(item);
+    return {
+      action: stringValue(entry.action),
+      status: stringValue(entry.status),
+      adminName: stringValue(entry.adminName),
+      adminEmail: stringValue(entry.adminEmail),
+      teacherName: stringValue(entry.teacherName),
+      timestamp: dateValue(entry.timestamp),
+    };
+  });
+}
+
+function numberOrNull(raw: unknown): number | null {
+  const value = Number(raw);
+  return Number.isFinite(value) && value > 0 ? value : null;
+}
+
+function readDiscount(raw: unknown): StudentDiscount | null {
+  const data = recordValue(raw);
+  const mode = stringValue(data.mode);
+  const value = Number(data.value);
+  if ((mode !== "percent" && mode !== "fixed") || !Number.isFinite(value) || value <= 0) return null;
+  const duration = stringValue(data.duration) === "ongoing" ? "ongoing" : "months";
+  const startDate = dateValue(data.startDate);
+  if (!startDate) return null;
+  const months = Number(data.months);
+  return {
+    mode,
+    value,
+    duration,
+    ...(duration === "months" && Number.isFinite(months) && months > 0 ? { months } : {}),
+    startDate,
+    reason: stringValue(data.reason),
+    ...(stringValue(data.note) ? { note: stringValue(data.note) } : {}),
+  };
+}
+
+/** One read per student who has an account; applicants without one have none. */
+async function loadDiscounts(applicants: EnrollmentApplicant[]): Promise<Map<string, StudentDiscount>> {
+  const uids = [...new Set(applicants.map((a) => a.studentUserId).filter(Boolean))];
+  const found = new Map<string, StudentDiscount>();
+  const snapshots = await Promise.all(uids.map((uid) => getDoc(doc(db, "users", uid))));
+  snapshots.forEach((snapshot, index) => {
+    if (!snapshot.exists()) return;
+    const discount = readDiscount((snapshot.data() as Record<string, unknown>).discount);
+    if (discount) found.set(uids[index], discount);
+  });
+  return found;
 }
 
 function recordValue(value: unknown) {

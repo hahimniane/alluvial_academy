@@ -23,7 +23,7 @@ import { isCurrentUserAdmin } from "@/lib/userRoles";
 type AccessState = "checking" | "signedOut" | "allowed" | "denied";
 type TeacherStatus = "All" | "Pending" | "Reviewed" | "Approved" | "Rejected";
 
-type TeacherApplicationRow = {
+export type TeacherApplicationRow = {
   id: string;
   firstName: string;
   lastName: string;
@@ -571,7 +571,7 @@ function TeacherApplicantsAccessPrompt({ access }: { access: AccessState }) {
   );
 }
 
-async function loadTeacherApplications() {
+export async function loadTeacherApplications() {
   const snap = await getDocs(query(collection(db, "teacher_applications"), orderBy("submitted_at", "desc"), limit(150)));
   return snap.docs.map((docSnap) => normalizeTeacherApplication(docSnap.id, docSnap.data() as Record<string, unknown>));
 }
