@@ -67,10 +67,12 @@ export type EnrollmentStudentInput = {
   level: string;
   classType: string;
   sessionDuration: string;
+  /** Explicit, no longer derived from hoursPerWeek. */
+  sessionMinutes: number;
+  sessionsPerWeek: number;
   hoursPerWeek: number;
   timeOfDayPreference: string;
   preferredDays: string[];
-  preferredTimeSlots: string[];
   trackId: string;
 };
 
@@ -274,7 +276,6 @@ async function addEnrollmentDoc(
     },
     preferences: {
       days: student.preferredDays,
-      timeSlots: student.preferredTimeSlots,
       timeZone: input.timeZone,
       preferredLanguage: input.preferredLanguage,
       timeOfDayPreference: student.timeOfDayPreference,
@@ -291,6 +292,8 @@ async function addEnrollmentDoc(
       role: input.role,
       classType: student.classType,
       sessionDuration: student.sessionDuration,
+      sessionMinutes: student.sessionMinutes,
+      sessionsPerWeek: student.sessionsPerWeek,
       hoursPerWeek: student.hoursPerWeek,
     },
     ...(pricingMap ? { pricing: pricingMap } : {}),
