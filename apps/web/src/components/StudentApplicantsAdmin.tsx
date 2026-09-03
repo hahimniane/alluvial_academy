@@ -20,6 +20,8 @@ import {
   Box,
   Calendar,
   Check,
+  CheckCircle2,
+  Circle,
   Clock,
   Grid2X2,
   Handshake,
@@ -32,6 +34,7 @@ import {
   Phone,
   Radio,
   School,
+  Search,
   StickyNote,
   Users,
 } from "lucide-react";
@@ -39,6 +42,21 @@ import type { LucideIcon } from "lucide-react";
 import { AdminDashboardShell } from "@/components/AdminDashboardShell";
 import { auth, db } from "@/lib/firebase";
 import { isCurrentUserAdmin } from "@/lib/userRoles";
+import {
+  DEFAULT_SORTS,
+  MATCHED_SORTS,
+  STAGE_FILTERS,
+  countByStage,
+  daysWaiting,
+  groupByTeacher,
+  isStale,
+  matchesSearch,
+  setupFor,
+  sortApplicants,
+  type SetupState,
+  type SortId,
+  type StageFilter,
+} from "@/lib/applicantTriage";
 
 type AccessState = "checking" | "signedOut" | "allowed" | "denied";
 type ApplicantStatus = "pending" | "contacted" | "broadcasted" | "archived" | "matched";
@@ -83,6 +101,10 @@ type EnrollmentApplicant = {
   phone: string;
   city: string;
   schedulingNotes: string;
+  teacherName: string;
+  matchedAt: Date | null;
+  studentUserId: string;
+  parentLinked: boolean;
 };
 
 const enrollmentStatuses: ApplicantStatus[] = ["pending", "contacted", "broadcasted", "archived", "matched"];
@@ -112,7 +134,61 @@ export function StudentApplicantsAdmin() {
   const [drafts, setDrafts] = useState<EnrollmentDraft[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
+  const [scheduledStudents, setScheduledStudents] = useState<Set<string>>(new Set());
+  const [search, setSearch] = useState("");
+  const [sort, setSort] = useState<SortId>("recently-matched");
+  const [groupTeachers, setGroupTeachers] = useState(false);
+  const [stage, setStage] = useState<StageFilter>("all");
   const activeTabConfig = tabs.find((tab) => tab.id === activeTab) ?? tabs[0];
+  const isMatched = activeTab === "matched";
+
+  // Setup state is derived once per applicant and reused by the stage pills,
+  // the pill counts and the card strip, so they can never disagree.
+  const setups = useMemo(() => {
+    const map = new Map<string, SetupState>();
+    for (const applicant of applicants) {
+      map.set(applicant.id, setupFor(applicant, scheduledStudents.has(applicant.studentUserId)));
+    }
+    return map;
+  }, [applicants, scheduledStudents]);
+
+  const stageCounts = useMemo(
+    () => countByStage(applicants.map((a) => setups.get(a.id)!.stage)),
+    [applicants, setups],
+  );
+
+  const visibleApplicants = useMemo(() => {
+    const filtered = applicants.filter((applicant) => {
+      if (!matchesSearch(applicant, search)) return false;
+      if (!isMatched || stage === "all") return true;
+      return setups.get(applicant.id)!.stage === stage;
+    });
+    return sortApplicants(filtered, sort);
+  }, [applicants, search, sort, stage, isMatched, setups]);
+
+  const teacherGroups = useMemo(
+    () => (groupTeachers && isMatched ? groupByTeacher(visibleApplicants) : null),
+    [groupTeachers, isMatched, visibleApplicants],
+  );
+
+  // Each tab offers the sorts that mean something on it; leaving a matched-only
+  // sort selected on another tab would silently do nothing.
+  const sortOptions = isMatched ? MATCHED_SORTS : DEFAULT_SORTS;
+  useEffect(() => {
+    if (!sortOptions.some((option) => option.id === sort)) setSort(sortOptions[0].id);
+  }, [sortOptions, sort]);
+
+  const renderApplicantCard = (applicant: EnrollmentApplicant) => (
+    <ApplicantCard
+      key={applicant.id}
+      applicant={applicant}
+      tab={activeTabConfig}
+      setup={isMatched ? setups.get(applicant.id) ?? null : null}
+      onMarkContacted={() => moveApplicant(applicant, "contacted")}
+      onArchive={() => moveApplicant(applicant, "archived")}
+      onUnarchive={() => moveApplicant(applicant, "pending")}
+    />
+  );
 
   useEffect(() => {
     let mounted = true;
@@ -163,6 +239,7 @@ export function StudentApplicantsAdmin() {
         const [nextApplicants, nextCounts] = await Promise.all([loadApplicants(status), loadCounts()]);
         setApplicants(nextApplicants);
         setCounts(nextCounts);
+        setScheduledStudents(status === "matched" ? await loadScheduledStudents(nextApplicants) : new Set());
       }
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not load student applicants.");
@@ -299,6 +376,24 @@ export function StudentApplicantsAdmin() {
           </div>
         </section>
 
+        {activeTab !== "incomplete" ? (
+          <ApplicantTriageToolbar
+            search={search}
+            onSearch={setSearch}
+            sort={sort}
+            onSort={setSort}
+            sortOptions={sortOptions}
+            showTeacherTools={isMatched}
+            groupTeachers={groupTeachers}
+            onGroupTeachers={setGroupTeachers}
+            stage={stage}
+            onStage={setStage}
+            stageCounts={stageCounts}
+            shown={visibleApplicants.length}
+            total={applicants.length}
+          />
+        ) : null}
+
         {message ? (
           <div className="mx-4 mt-4 rounded-2xl border border-[#BFDBFE] bg-[#EFF6FF] px-4 py-3 text-sm font-semibold text-[#1D4ED8] lg:mx-6">
             {message}
@@ -322,19 +417,27 @@ export function StudentApplicantsAdmin() {
             )
           ) : applicants.length === 0 ? (
             <EmptyApplicantsState status={activeTab} />
-          ) : (
-            <div className="grid gap-3">
-              {applicants.map((applicant) => (
-                <ApplicantCard
-                  key={applicant.id}
-                  applicant={applicant}
-                  tab={activeTabConfig}
-                  onMarkContacted={() => moveApplicant(applicant, "contacted")}
-                  onArchive={() => moveApplicant(applicant, "archived")}
-                  onUnarchive={() => moveApplicant(applicant, "pending")}
-                />
+          ) : visibleApplicants.length === 0 ? (
+            <NoMatchesState onClear={() => { setSearch(""); setStage("all"); }} />
+          ) : teacherGroups ? (
+            <div className="grid gap-6">
+              {teacherGroups.map((group) => (
+                <div key={group.teacher}>
+                  <div className="flex items-center gap-2 pb-2">
+                    <School size={16} className="text-[#EA580C]" />
+                    <span className="text-xs font-bold text-[#1E293B]">{group.teacher}</span>
+                    <span className="rounded-full border border-[#FDBA74] bg-[#FFF7ED] px-2 py-0.5 text-[11px] font-bold text-[#C2410C]">
+                      {group.applicants.length}
+                    </span>
+                  </div>
+                  <div className="grid gap-3 border-t border-[#E5E7EB] pt-3">
+                    {group.applicants.map((applicant) => renderApplicantCard(applicant))}
+                  </div>
+                </div>
               ))}
             </div>
+          ) : (
+            <div className="grid gap-3">{visibleApplicants.map((applicant) => renderApplicantCard(applicant))}</div>
           )}
         </section>
       </main>
@@ -342,29 +445,202 @@ export function StudentApplicantsAdmin() {
   );
 }
 
+export function ApplicantTriageToolbar({
+  search,
+  onSearch,
+  sort,
+  onSort,
+  sortOptions,
+  showTeacherTools,
+  groupTeachers,
+  onGroupTeachers,
+  stage,
+  onStage,
+  stageCounts,
+  shown,
+  total,
+}: {
+  search: string;
+  onSearch: (value: string) => void;
+  sort: SortId;
+  onSort: (value: SortId) => void;
+  sortOptions: readonly { id: SortId; label: string }[];
+  showTeacherTools: boolean;
+  groupTeachers: boolean;
+  onGroupTeachers: (value: boolean) => void;
+  stage: StageFilter;
+  onStage: (value: StageFilter) => void;
+  stageCounts: Record<StageFilter, number>;
+  shown: number;
+  total: number;
+}) {
+  return (
+        <section className="border-b border-[#E5E7EB] bg-white px-4 py-2.5 lg:px-6" aria-label="Filter applicants">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <div className="relative">
+              <Search size={17} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
+              <input
+                type="search"
+                value={search}
+                onChange={(event) => onSearch(event.target.value)}
+                placeholder="Search name or teacher"
+                aria-label="Search applicants"
+                className="h-[34px] w-[260px] rounded-lg border border-[#E5E7EB] pl-8 pr-2.5 text-xs text-[#111827] outline-none placeholder:text-[#9CA3AF] focus:border-[#0386FF]"
+              />
+            </div>
+
+            <label className="sr-only" htmlFor="applicant-sort">Sort applicants</label>
+            <select
+              id="applicant-sort"
+              value={sort}
+              onChange={(event) => onSort(event.target.value as SortId)}
+              className="h-[34px] rounded-lg border border-[#E5E7EB] bg-white px-2.5 text-xs font-semibold text-[#111827] outline-none focus:border-[#0386FF]"
+            >
+              {sortOptions.map((option) => (
+                <option key={option.id} value={option.id}>{option.label}</option>
+              ))}
+            </select>
+
+            {showTeacherTools ? (
+              <button
+                type="button"
+                aria-pressed={groupTeachers}
+                onClick={() => onGroupTeachers(!groupTeachers)}
+                className={`h-[34px] rounded-lg border px-3 text-xs font-semibold transition ${
+                  groupTeachers
+                    ? "border-[rgba(3,134,255,0.4)] bg-[#EFF6FF] text-[#0386FF]"
+                    : "border-[#E5E7EB] bg-white text-[#475569] hover:bg-slate-50"
+                }`}
+              >
+                Group by teacher
+              </button>
+            ) : null}
+
+            <span className="ml-auto text-xs font-semibold text-[#6B7280]">
+              {shown === total
+                ? `${total} ${total === 1 ? "applicant" : "applicants"}`
+                : `${shown} of ${total}`}
+            </span>
+          </div>
+
+          {showTeacherTools ? (
+            <div className="mt-2.5 flex flex-wrap items-center gap-2">
+              {STAGE_FILTERS.map((filter) => {
+                const active = stage === filter.id;
+                const count = stageCounts[filter.id];
+                return (
+                  <button
+                    key={filter.id}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => onStage(filter.id)}
+                    className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                      active ? "bg-[#0386FF] text-white" : "border border-[#E5E7EB] bg-white text-[#475569] hover:bg-slate-50"
+                    }`}
+                  >
+                    {filter.label}
+                    <span
+                      className={`rounded-full px-1.5 text-[11px] font-bold ${
+                        active ? "bg-white/25 text-white" : "bg-[#F1F5F9] text-[#64748B]"
+                      }`}
+                    >
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
+        </section>
+  );
+}
+
+function SetupStrip({ setup }: { setup: SetupState }) {
+  const pills = [
+    { label: "Account", done: setup.hasAccount },
+    { label: "Schedule", done: setup.hasSchedule },
+    { label: "Parent", done: setup.hasParent },
+  ];
+  const ready = setup.stage === "ready";
+  return (
+    <div className="flex flex-wrap items-center gap-2 border-b border-[#E5E7EB] bg-white px-4 py-2">
+      {pills.map((pill) => (
+        <span
+          key={pill.label}
+          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold tracking-[0.3px] ${
+            pill.done ? "bg-[#D1FAE5] text-[#065F46]" : "bg-[#F1F5F9] text-[#64748B]"
+          }`}
+        >
+          {pill.done ? <CheckCircle2 size={12} /> : <Circle size={12} />}
+          {pill.label}
+        </span>
+      ))}
+      <span className={`ml-auto text-[11px] font-semibold ${ready ? "text-[#059669]" : "text-[#B45309]"}`}>
+        {setup.nextAction}
+      </span>
+    </div>
+  );
+}
+
+function NoMatchesState({ onClear }: { onClear: () => void }) {
+  return (
+    <div className="grid min-h-[220px] place-items-center rounded-xl border border-dashed border-[#E5E7EB] bg-white">
+      <div className="text-center">
+        <p className="text-sm font-bold text-[#334155]">No applicants match these filters</p>
+        <button
+          type="button"
+          onClick={onClear}
+          className="mt-2 rounded-lg border border-[#E5E7EB] px-3 py-1.5 text-xs font-semibold text-[#0386FF] hover:bg-slate-50"
+        >
+          Clear search and filters
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function ApplicantCard({
   applicant,
   tab,
+  setup,
   onMarkContacted,
   onArchive,
   onUnarchive,
 }: {
   applicant: EnrollmentApplicant;
   tab: ApplicantTab;
+  setup: SetupState | null;
   onMarkContacted: () => void;
   onArchive: () => void;
   onUnarchive: () => void;
 }) {
   const live = applicant.status === "broadcasted";
   const archived = applicant.status === "archived";
+  const matched = applicant.status === "matched";
+  const waiting = setup && isStale(applicant.matchedAt, setup.stage) ? daysWaiting(applicant.matchedAt) : null;
   return (
     <article className={`overflow-hidden rounded-xl bg-white shadow-[0_2px_10px_rgba(15,23,42,0.03)] ${live ? "border border-[#10B981]" : ""}`}>
-      <div className={`flex items-center gap-2 px-4 py-2 text-[11px] font-bold ${live ? "bg-[#ECFDF5] text-[#059669]" : archived ? "bg-[#F1F5F9] text-[#64748B]" : "bg-[#F8FAFC] text-[#94A3B8]"}`}>
-        {live ? <Radio size={14} /> : archived ? <Archive size={14} /> : <Clock size={14} />}
-        <span>{live ? "LIVE ON JOB BOARD" : archived ? "ARCHIVED" : formatSubmittedAt(applicant.submittedAt)}</span>
+      <div className={`flex items-center gap-2 px-4 py-2 text-[11px] font-bold ${matched ? "bg-[#ECFDF5] text-[#059669]" : live ? "bg-[#ECFDF5] text-[#059669]" : archived ? "bg-[#F1F5F9] text-[#64748B]" : "bg-[#F8FAFC] text-[#94A3B8]"}`}>
+        {matched ? <Handshake size={14} /> : live ? <Radio size={14} /> : archived ? <Archive size={14} /> : <Clock size={14} />}
+        <span>
+          {matched
+            ? `MATCHED${applicant.teacherName ? ` • ${applicant.teacherName}` : ""}`
+            : live
+              ? "LIVE ON JOB BOARD"
+              : archived
+                ? "ARCHIVED"
+                : formatSubmittedAt(applicant.submittedAt)}
+        </span>
         <span className="flex-1" />
+        {waiting !== null ? (
+          <span className="inline-flex items-center gap-1 rounded bg-[#FEF3C7] px-1.5 py-0.5 text-[10px] font-bold text-[#92400E]">
+            <Clock size={12} />
+            Waiting {waiting} {waiting === 1 ? "day" : "days"}
+          </span>
+        ) : null}
         {applicant.isAdult ? <span className="rounded bg-[#EFF6FF] px-1.5 py-0.5 text-[10px] font-black text-[#1D4ED8]">ADULT STUDENT</span> : null}
       </div>
+      {setup ? <SetupStrip setup={setup} /> : null}
       <div className="p-4">
         <div className="flex items-start gap-3">
           <div className="min-w-0 flex-1">
@@ -637,6 +913,33 @@ function timeAgo(date: Date) {
   return new Intl.DateTimeFormat("en", { month: "short", day: "numeric" }).format(date);
 }
 
+/**
+ * Which of these students already have classes on the calendar.
+ *
+ * A teaching_shift records the students it is for but not the enrollment it
+ * came from, so the join is the student's uid. One `array-contains-any` query
+ * per 30 students answers the whole list; asking per card would be a query
+ * per row.
+ */
+async function loadScheduledStudents(applicants: EnrollmentApplicant[]): Promise<Set<string>> {
+  const uids = [...new Set(applicants.map((a) => a.studentUserId).filter(Boolean))];
+  const scheduled = new Set<string>();
+  if (uids.length === 0) return scheduled;
+
+  for (let i = 0; i < uids.length; i += 30) {
+    const chunk = uids.slice(i, i + 30);
+    const snapshot = await getDocs(
+      query(collection(db, "teaching_shifts"), where("student_ids", "array-contains-any", chunk)),
+    );
+    for (const shift of snapshot.docs) {
+      for (const uid of stringArray(shift.data().student_ids)) {
+        if (chunk.includes(uid)) scheduled.add(uid);
+      }
+    }
+  }
+  return scheduled;
+}
+
 function normalizeApplicant(id: string, data: Record<string, unknown>): EnrollmentApplicant {
   const metadata = recordValue(data.metadata);
   const contact = recordValue(data.contact);
@@ -667,6 +970,14 @@ function normalizeApplicant(id: string, data: Record<string, unknown>): Enrollme
     // reachable through "Raw Application Data", and it usually holds the
     // constraint that decides the schedule.
     schedulingNotes: stringValue(preferences.schedulingNotes ?? data.schedulingNotes),
+    teacherName: stringValue(metadata.matchedTeacherName),
+    matchedAt: dateValue(metadata.matchedAt),
+    studentUserId: stringValue(metadata.studentUserId),
+    // Matches how the matched card itself decides this: an explicit invite
+    // status, or a guardian already on the contact.
+    parentLinked:
+      stringValue(metadata.parentInviteStatus) === "linked" ||
+      stringValue(contact.guardianId).length > 0,
   };
 }
 
