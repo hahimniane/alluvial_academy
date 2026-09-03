@@ -113,8 +113,25 @@ export async function inviteParentForEnrollment(
     ...(invite.countryCode.trim() ? { countryCode: invite.countryCode.trim() } : {}),
   });
 
+  const status = text(result.data?.status) || "invited";
+  const studentName = text(result.data?.studentName) || "the student";
+  const emailed = result.data?.inviteSent === true;
+  const pushed = Number(result.data?.pushSent ?? 0);
+  const emailError = text(result.data?.inviteError);
+
+  // Say what actually reached the parent. The link is committed either way,
+  // so a failed email is a thing to retell them by hand — not a silent
+  // success, and not a failure of the link.
+  const delivery = emailed
+    ? `Emailed ${invite.email.trim()}${pushed > 0 ? ` and pushed to ${pushed} device${pushed === 1 ? "" : "s"}` : ""}.`
+    : `Could not email them${emailError ? ` (${emailError})` : ""} — tell them directly.`;
+
   return {
-    status: text(result.data?.status) || "invited",
-    message: text(result.data?.message),
+    status,
+    message:
+      text(result.data?.message) ||
+      (status === "linked"
+        ? `${studentName} linked to an existing parent account. ${delivery}`
+        : `Parent account created for ${studentName}. ${delivery}`),
   };
 }
