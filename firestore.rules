@@ -809,6 +809,10 @@ service cloud.firestore {
               'teacherTimezone',
               'availabilityStatus',
               'comment',
+              // The teacher's slots, best first. availableAlternatives holds
+              // the same list under the older name; both are written until
+              // nothing reads the old one.
+              'rankedSlots',
               'availableAlternatives',
               'createdAt',
               'updatedAt'
