@@ -1,5 +1,6 @@
 const { onDocumentCreated } = require('firebase-functions/v2/firestore');
 const functions = require('firebase-functions');
+const {brandedEmailHtml} = require('../services/email/branding');
 const admin = require('firebase-admin');
 const { createTransporter } = require('../services/email/transporter');
 const { generateRandomPassword } = require('../utils/password');
@@ -226,7 +227,14 @@ const sendMultiStudentEnrollmentEmail = async (allEnrollments) => {
   }
 
   const recipientName = contact.parentName || contact.email?.split('@')[0] || 'Parent';
-  const studentCount = allEnrollments.length;
+  // One enrollment per student per program, so the document count is a count
+  // of classes, not children. A parent enrolling one child in two programs
+  // must not be told we received a request for "2 students".
+  const studentNames = new Set(
+    allEnrollments.map((e) => ((e.student || {}).name || '').trim().toLowerCase()).filter(Boolean)
+  );
+  const studentCount = studentNames.size || allEnrollments.length;
+  const programCount = allEnrollments.length;
   const sharedSchedulingNotes = (firstEnrollment.preferences || {}).schedulingNotes;
   const programListText = [...new Set(allEnrollments.map((e) => resolveProgramName(e)))].join(', ');
 
@@ -332,7 +340,7 @@ const sendMultiStudentEnrollmentEmail = async (allEnrollments) => {
           
           <div class="content">
             <h2>Dear ${recipientName},</h2>
-            <p>We're excited to inform you that we've received your enrollment request for <strong>${studentCount} student${studentCount > 1 ? 's' : ''}</strong>${programListText ? `: <strong>${escapeHtml(programListText)}</strong>` : ''}.</p>
+            <p>We're excited to inform you that we've received your enrollment request for <strong>${studentCount} student${studentCount > 1 ? 's' : ''}</strong>${programCount > studentCount ? ` across <strong>${programCount} programs</strong>` : ''}${programListText ? `: <strong>${escapeHtml(programListText)}</strong>` : ''}.</p>
 
             <div class="success-note">
               <h3>✅ What Happens Next?</h3>
@@ -404,7 +412,7 @@ const sendMultiStudentEnrollmentEmail = async (allEnrollments) => {
 
   try {
     await transporter.sendMail(mailOptions);
-    console.log(`✅ Multi-student enrollment confirmation email sent to ${email} for ${studentCount} student(s)`);
+    console.log(`✅ Multi-student enrollment confirmation email sent to ${email} for ${studentCount} student(s) across ${programCount} program(s)`);
     return true;
   } catch (error) {
     console.error(`❌ Failed to send multi-student enrollment confirmation email to ${email}:`, error);
@@ -1040,6 +1048,26 @@ const inviteParentForEnrollment = async (request) => {
   const parentSnap = await parentRef.get();
 
   const now = admin.firestore.FieldValue.serverTimestamp();
+
+  // The merge below sets user_type to 'parent'. When the email already belongs
+  // to an account, that must only ever be a parent account: applied to an
+  // admin, teacher or student it silently rewrites who that person is in the
+  // system — an admin who enrols their own child would lose the admin console.
+  if (parentSnap.exists) {
+    const existingData = parentSnap.data() || {};
+    const existingType = String(existingData.user_type || existingData.role || '').toLowerCase();
+    const secondary = Array.isArray(existingData.secondary_roles)
+      ? existingData.secondary_roles.map((r) => String(r).toLowerCase())
+      : [];
+    const isParentAlready = existingType === 'parent' || existingType === '' || secondary.includes('parent');
+    if (!isParentAlready) {
+      throw new functions.https.HttpsError(
+        'failed-precondition',
+        `${email} belongs to an existing ${existingType} account. Linking it as a parent would change that account's role. ` +
+          `Use a different email for the parent, or add "parent" to that account's secondary roles first.`
+      );
+    }
+  }
   const parentDocUpdate = {
     'e-mail': email,
     user_type: 'parent',
@@ -1061,13 +1089,11 @@ const inviteParentForEnrollment = async (request) => {
     await parentRef.set(parentDocUpdate, { merge: true });
   } else {
     // Merge children_ids idempotently.
-    await parentRef.set(
-      {
-        ...parentDocUpdate,
-        children_ids: admin.firestore.FieldValue.arrayUnion(studentUid),
-      },
-      { merge: true },
-    );
+    const existingType = String((parentSnap.data() || {}).user_type || '').toLowerCase();
+    const update = { ...parentDocUpdate, children_ids: admin.firestore.FieldValue.arrayUnion(studentUid) };
+    // A staff account that is a parent only through secondary_roles keeps its primary role.
+    if (existingType && existingType !== 'parent') delete update.user_type;
+    await parentRef.set(update, { merge: true });
   }
 
   // Add parent to the student's guardian_ids (idempotent).
@@ -1094,30 +1120,83 @@ const inviteParentForEnrollment = async (request) => {
   );
 
   // Send a password setup email when we had to create the Auth user.
+  // Tell the parent. Linking someone to a child and never saying so leaves
+  // them with an account they do not know exists — and, for a parent who
+  // already had one, no sign that anything happened at all.
+  const studentName = [
+    (studentSnap.data() || {}).first_name,
+    (studentSnap.data() || {}).last_name,
+  ].filter(Boolean).join(' ').trim() || 'your child';
+
   let inviteSent = false;
   let inviteError = null;
-  if (createdAuthUser) {
-    try {
+  try {
+    const transporter = await createTransporter();
+    const from = `"Alluwal Education Hub" <no-reply@alluwaleducationhub.org>`;
+    const greeting = `As-salamu alaykum ${escapeHtml(firstName || '')},`;
+    let subject;
+    let html;
+
+    if (createdAuthUser) {
       const link = await admin.auth().generatePasswordResetLink(email);
-      const transporter = await createTransporter();
-      const from = `"Alluwal Education Hub" <no-reply@alluwaleducationhub.org>`;
-      const subject = `Set up your Alluwal Education Hub parent account`;
-      const html = `
-        <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #0f172a;">
-          <p>As-salamu alaykum ${escapeHtml(firstName || '')},</p>
-          <p>An administrator has linked you as the parent of a newly enrolled student at Alluwal Education Hub.</p>
-          <p>Please click the link below to set your password and access your parent dashboard:</p>
-          <p><a href="${link}" style="background:#3b82f6;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none;display:inline-block;">Set your password</a></p>
-          <p>If the button does not work, copy this URL into your browser:<br/>
-          <a href="${link}">${link}</a></p>
-          <p>JazakAllah khair.</p>
-        </div>`;
-      await transporter.sendMail({ from, to: email, subject, html });
-      inviteSent = true;
-    } catch (e) {
-      inviteError = e.message || String(e);
-      console.error('inviteParentForEnrollment: failed to send invite email', inviteError);
+      subject = 'Set up your Alluwal Education Hub parent account';
+      html = brandedEmailHtml({
+        heading: 'Set up your parent account',
+        bodyHtml: `
+          <p>${greeting}</p>
+          <p>An administrator has linked you as the parent of <strong>${escapeHtml(studentName)}</strong> at Alluwal Education Hub.</p>
+          <p>Set your password to open your parent dashboard, where you can see their schedule, attendance and invoices.</p>
+          <p><a class="button" href="${link}">Set your password</a></p>
+          <p class="fallback">If the button does not work, copy this URL into your browser:<br/>${link}</p>`,
+      });
+    } else {
+      // An account they already have: no password link, just what changed.
+      subject = `${studentName} has been linked to your Alluwal account`;
+      html = brandedEmailHtml({
+        heading: 'A student was added to your account',
+        bodyHtml: `
+          <p>${greeting}</p>
+          <p><strong>${escapeHtml(studentName)}</strong> is now linked to your Alluwal Education Hub parent account.</p>
+          <p>Sign in with your usual password to see their schedule, attendance and invoices.</p>
+          <p><a class="button" href="https://alluwaleducationhub.org/app/">Open your dashboard</a></p>`,
+      });
     }
+
+    await transporter.sendMail({ from, to: email, subject, html });
+    inviteSent = true;
+  } catch (e) {
+    inviteError = e.message || String(e);
+    console.error('inviteParentForEnrollment: failed to send invite email', inviteError);
+  }
+
+  // Push, for a parent who already has the app. A brand-new account has no
+  // devices yet, so this simply finds nothing — the email above is their way in.
+  let pushSent = 0;
+  try {
+    const parentAfter = (await parentRef.get()).data() || {};
+    const tokens = [];
+    if (Array.isArray(parentAfter.fcmTokens)) {
+      for (const entry of parentAfter.fcmTokens) {
+        const token = typeof entry === 'string' ? entry : entry && entry.token;
+        if (token) tokens.push(token);
+      }
+    }
+    if (parentAfter.fcmToken) tokens.push(parentAfter.fcmToken);
+    if (tokens.length > 0) {
+      const res = await admin.messaging().sendEachForMulticast({
+        notification: {
+          title: 'A student was linked to your account',
+          body: `${studentName} is now on your Alluwal parent dashboard.`,
+        },
+        data: { type: 'parent_linked', studentUid: String(studentUid), enrollmentId: String(enrollmentId) },
+        tokens,
+      });
+      pushSent = res.successCount;
+      console.log(`inviteParentForEnrollment: push ${res.successCount}/${tokens.length} delivered`);
+    }
+  } catch (e) {
+    // A push failure must not fail the link, which is already committed.
+    console.error('inviteParentForEnrollment: push failed', e.message || e);
   }
 
   return {
@@ -1127,6 +1206,8 @@ const inviteParentForEnrollment = async (request) => {
     createdAuthUser,
     inviteSent,
     inviteError,
+    pushSent,
+    studentName,
     status: parentAlreadyExists ? 'linked' : 'invited',
   };
 };

@@ -1,4 +1,5 @@
 const functions = require('firebase-functions');
+const {verifyCallableCallerIsAdmin} = require('../utils/callable_admin');
 const {onDocumentDeleted} = require('firebase-functions/v2/firestore');
 const admin = require('firebase-admin');
 const {generateRandomPassword} = require('../utils/password');
@@ -12,6 +13,7 @@ const {
 
 const createUserWithEmail = async (data, context) => {
   console.log('--- NEW INVOCATION (v4) ---');
+  const {callerUid} = await _verifyCallableCallerIsAdmin(data, context);
   try {
     if (!data || typeof data !== 'object') {
       console.error('Invalid data received:', data);
@@ -94,14 +96,22 @@ const createUserWithEmail = async (data, context) => {
       email_verified: false,
       uid: userRecord.uid,
       created_by_admin: true,
-      created_by_uid: context?.auth?.uid || userData.createdByUid || null,
+      created_by_uid: callerUid,
       password_reset_required: true,
     };
 
     await admin.firestore().collection('users').doc(userRecord.uid).set(firestoreData);
     console.log(`Firestore document created for UID: ${userRecord.uid}`);
 
-    const emailSent = await sendWelcomeEmail(email, firstName, lastName, password, userType, kiosqueCode);
+    // The account exists at this point. A mail failure is reported to the
+    // caller as emailSent:false rather than thrown, so a transport outage
+    // never leaves an admin believing no account was created.
+    let emailSent = false;
+    try {
+      emailSent = await sendWelcomeEmail(email, firstName, lastName, password, userType, kiosqueCode);
+    } catch (mailError) {
+      console.error('Welcome email failed for', email, '-', mailError.message);
+    }
 
     return {
       success: true,
@@ -119,6 +129,7 @@ const createUserWithEmail = async (data, context) => {
 
 const createMultipleUsers = async (data, context) => {
   console.log('Creating multiple users:', JSON.stringify(data, null, 2));
+  const {callerUid} = await _verifyCallableCallerIsAdmin(data, context);
 
   try {
     if (!data || !Array.isArray(data.users)) {
@@ -243,13 +254,18 @@ const createMultipleUsers = async (data, context) => {
           email_verified: false,
           uid: userRecord.uid,
           created_by_admin: true,
-          created_by_uid: context?.auth?.uid || null,
+          created_by_uid: callerUid,
           password_reset_required: true,
         };
 
         await admin.firestore().collection('users').doc(userRecord.uid).set(firestoreData);
 
-        const emailSent = await sendWelcomeEmail(email, firstName, lastName, password, userType);
+        let emailSent = false;
+        try {
+          emailSent = await sendWelcomeEmail(email, firstName, lastName, password, userType);
+        } catch (mailError) {
+          console.error('Welcome email failed for', email, '-', mailError.message);
+        }
 
         const result = {
           success: true,
@@ -294,6 +310,8 @@ const createUser = async (data, context) => {
   // Support both callable shapes:
   // - v1: (data, context) where `data` is the payload
   // - v2-style wrapper sometimes passed through as `{ data: payload }`
+  const {callerUid} = await _verifyCallableCallerIsAdmin(data, context);
+
   const requestData = (data && data.data) || data || {};
   console.log('received data:', requestData);
   try {
@@ -370,7 +388,7 @@ const createUser = async (data, context) => {
       user_type: String(requestData.userType || 'teacher'),
       uid: userRecord.uid,
       is_active: true,
-      created_by_uid: context?.auth?.uid || requestData.createdByUid || null,
+      created_by_uid: callerUid,
     };
 
     try {
@@ -692,145 +710,8 @@ const _cleanupTeachingShiftsForDeletedUser = async ({
  * Verifies the callable caller is an admin (same logic as deleteUserAccount).
  * @returns {Promise<{callerUid: string, effectiveAdminEmail: string|null}>}
  */
-const _verifyCallableCallerIsAdmin = async (data, context) => {
-  const requestData = (data && data.data) || data || {};
-  const {adminEmail} = requestData;
-  const authToken = requestData.authToken || requestData.idToken;
-
-  let callerAuth = context && context.auth ? context.auth : null;
-  if (!callerAuth && authToken) {
-    try {
-      const decoded = await admin.auth().verifyIdToken(String(authToken));
-      callerAuth = {uid: decoded.uid, token: decoded};
-      console.log(`Verified auth token for uid=${decoded.uid}`);
-    } catch (e) {
-      console.log('Failed to verify auth token:', e.message);
-    }
-  }
-
-  if (!callerAuth) {
-    throw new functions.https.HttpsError('unauthenticated', 'Authentication required');
-  }
-
-  const callerUid = callerAuth.uid;
-  const token = callerAuth.token || {};
-  const tokenEmail = token.email ? String(token.email).toLowerCase() : null;
-  const tokenRole = _normalizeRole(token.role || token.user_type || token.userType);
-  const tokenIsAdmin =
-    tokenRole === 'admin' ||
-    tokenRole === 'administrator' ||
-    tokenRole === 'super_admin' ||
-    tokenRole === 'superadmin' ||
-    _truthy(token.isAdmin) ||
-    _truthy(token.is_admin) ||
-    _truthy(token.admin) ||
-    _truthy(token.is_super_admin) ||
-    _truthy(token.isSuperAdmin);
-
-  const effectiveAdminEmail = tokenEmail || (adminEmail ? String(adminEmail).toLowerCase() : null);
-
-  const usersRef = admin.firestore().collection('users');
-  let callerData = null;
-
-  try {
-    const callerByUid = await usersRef.doc(callerUid).get();
-    if (callerByUid.exists) {
-      callerData = callerByUid.data();
-    }
-  } catch (e) {
-    console.log('Error looking up caller by UID:', e.message);
-  }
-
-  if (!callerData && effectiveAdminEmail) {
-    try {
-      const callerByEmailId = await usersRef.doc(effectiveAdminEmail).get();
-      if (callerByEmailId.exists) {
-        callerData = callerByEmailId.data();
-      }
-    } catch (e) {
-      console.log('Error looking up caller by email doc ID:', e.message);
-    }
-  }
-
-  if (!callerData && effectiveAdminEmail) {
-    const callerQuery = await usersRef.where('e-mail', '==', effectiveAdminEmail).limit(1).get();
-    if (!callerQuery.empty) {
-      callerData = callerQuery.docs[0].data();
-    }
-  }
-
-  if (!callerData) {
-    try {
-      const callerUidQuery = await usersRef.where('uid', '==', callerUid).limit(1).get();
-      if (!callerUidQuery.empty) {
-        callerData = callerUidQuery.docs[0].data();
-      }
-    } catch (e) {
-      console.log('Error looking up caller by uid field:', e.message);
-    }
-  }
-
-  if (!callerData && effectiveAdminEmail) {
-    try {
-      const callerEmailFieldQuery = await usersRef
-        .where('email', '==', effectiveAdminEmail)
-        .limit(1)
-        .get();
-      if (!callerEmailFieldQuery.empty) {
-        callerData = callerEmailFieldQuery.docs[0].data();
-      }
-    } catch (e) {
-      console.log('Error looking up caller by email field:', e.message);
-    }
-  }
-
-  if (!callerData) {
-    console.log(`Caller not found in users collection. uid=${callerUid}, email=${effectiveAdminEmail}`);
-    if (!tokenIsAdmin) {
-      throw new functions.https.HttpsError('permission-denied', 'Caller not found in users collection');
-    }
-    console.log(
-      'Caller user doc missing, but auth token indicates admin; proceeding with token-based authorization.'
-    );
-  }
-
-  if (callerData) {
-    console.log(`Caller data found:`, {
-      uid: callerUid,
-      email: effectiveAdminEmail,
-      user_type: callerData.user_type,
-      role: callerData.role,
-    });
-  }
-
-  const callerUserType = _normalizeRole(
-    callerData ? callerData.user_type || callerData.role || callerData.userType || '' : ''
-  );
-  const isAdminFromFirestore =
-    callerUserType === 'admin' ||
-    callerUserType === 'administrator' ||
-    callerUserType === 'super_admin' ||
-    callerUserType === 'superadmin' ||
-    _truthy(callerData?.is_admin_teacher) ||
-    _truthy(callerData?.is_admin) ||
-    _truthy(callerData?.isAdmin) ||
-    _truthy(callerData?.is_super_admin) ||
-    _truthy(callerData?.isSuperAdmin);
-  const isAdmin = tokenIsAdmin || isAdminFromFirestore;
-
-  console.log(`Admin check result: isAdmin=${isAdmin}, callerUserType="${callerUserType}"`);
-
-  if (!isAdmin) {
-    const safeType = callerData ? callerData.user_type : 'n/a';
-    console.log(
-      `Caller ${effectiveAdminEmail || callerUid} is not an admin. user_type: ${safeType}`
-    );
-    throw new functions.https.HttpsError('permission-denied', 'Only administrators can perform this action');
-  }
-
-  return {callerUid, effectiveAdminEmail};
-};
-
+const _verifyCallableCallerIsAdmin = (data, context) =>
+  verifyCallableCallerIsAdmin(data, context);
 /** Admin-only directory search for linking public team profiles to real users. */
 const adminSearchDirectoryUsers = async (data, context) => {
   await _verifyCallableCallerIsAdmin(data, context);
