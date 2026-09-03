@@ -43,6 +43,7 @@ import '../../audit/screens/teacher_audit_detail_screen.dart';
 import '../../audit/screens/test_audit_generation.dart';
 import '../../forms/screens/teacher_forms_screen.dart';
 import 'teacher_job_board_screen.dart';
+import 'teacher_job_board_web_frame.dart';
 import '../../website/screens/landing_page.dart';
 import 'role_based_dashboard.dart';
 import '../../profile/services/profile_picture_service.dart';
@@ -351,6 +352,12 @@ class _DashboardPageState extends State<DashboardPage> {
       case 22:
         return TeacherFormsScreen(key: ValueKey(_refreshTrigger));
       case 23:
+        // On web the job board is the Next.js screen embedded in this content
+        // area, so teachers rank concrete slots instead of typing times into a
+        // box. The native app keeps the Flutter screen.
+        if (kIsWeb) {
+          return const TeacherJobBoardWebFrame();
+        }
         return const TeacherJobBoardScreen();
       case 24:
         return AdminAllSubmissionsScreen(key: ValueKey(_refreshTrigger));

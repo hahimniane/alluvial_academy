@@ -1,15 +1,14 @@
 import type { ReactNode } from "react";
-import { FlutterRedirect } from "@/components/FlutterRedirect";
+import { TeacherRouteGate } from "@/components/TeacherRouteGate";
 
 export const metadata = {
   robots: { index: false, follow: false },
 };
 
 /**
- * The teacher console lives in the Flutter app now, so every /teacher/* route
- * forwards to /app/ instead of rendering the retired Next.js teacher pages.
+ * The teacher console lives in the Flutter app. TeacherRouteGate renders the
+ * routes Flutter embeds and forwards the rest to /app/.
  */
 export default function TeacherLayout({ children }: { children: ReactNode }) {
-  void children; // intentionally not rendered — bounce to the Flutter app
-  return <FlutterRedirect />;
+  return <TeacherRouteGate>{children}</TeacherRouteGate>;
 }

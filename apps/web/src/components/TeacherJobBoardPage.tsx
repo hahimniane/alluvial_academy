@@ -97,6 +97,20 @@ const emptyDraft: ResponseDraft = {
 
 export function TeacherJobBoardPage() {
   const [access, setAccess] = useState<AccessState>("checking");
+  const [embedded, setEmbedded] = useState<boolean | null>(null);
+
+  // This screen renders inside the Flutter web app's content area (same-origin
+  // iframe), so teachers keep their Flutter sidebar and top bar. A direct
+  // visit to /teacher/job-board/ goes to the Flutter app instead.
+  useEffect(() => {
+    const inFlutterFrame =
+      window.self !== window.top || new URLSearchParams(window.location.search).has("embed");
+    if (inFlutterFrame) {
+      setEmbedded(true);
+    } else {
+      window.location.replace("/app/");
+    }
+  }, []);
   const [summary, setSummary] = useState<TeacherSummary>({ displayName: "Teacher", firstName: "Teacher", initials: "TE" });
   const [user, setUser] = useState<User | null>(null);
   const [jobs, setJobs] = useState<JobOpportunity[]>([]);
@@ -206,6 +220,8 @@ export function TeacherJobBoardPage() {
     [visibleJobs],
   );
 
+  if (embedded === null) return null;
+  if (!embedded) return null;
   if (access !== "allowed") return <TeacherAccessPrompt access={access} />;
 
   function openResponseDialog(job: JobOpportunity) {
@@ -260,9 +276,8 @@ export function TeacherJobBoardPage() {
   }
 
   return (
-    <TeacherShell activeLabel="Job Board" breadcrumb="Work / Job Board" summary={summary}>
-      <main className="min-h-[calc(100vh-56px)] overflow-y-auto bg-[#F9FAFB] text-[#111827]">
-        <MobileTeacherTopBar summary={summary} />
+    <div className="min-h-screen bg-[#F9FAFB]">
+      <main className="min-h-screen overflow-y-auto bg-[#F9FAFB] text-[#111827]">
         <section className="bg-white px-6 py-7 lg:w-fit lg:min-w-[375px] lg:px-6 lg:py-8">
           <h1 className="text-[24px] font-black leading-tight text-[#111827]">New Student Opportunities</h1>
           <p className="mt-1 text-[14px] font-medium text-[#6B7280]">Accept new students to fill your schedule</p>
@@ -343,7 +358,7 @@ export function TeacherJobBoardPage() {
           onSubmit={submitWithdrawal}
         />
       ) : null}
-    </TeacherShell>
+    </div>
   );
 }
 
