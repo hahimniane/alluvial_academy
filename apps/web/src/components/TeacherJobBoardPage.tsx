@@ -17,6 +17,7 @@ import {
   Shuffle,
   Timer,
   UserRound,
+  Users,
   X,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -72,6 +73,8 @@ type JobOpportunity = {
   scheduleTimezoneRef: string;
   adminNotesForTeachers: string;
   targetTeacherIds: string[];
+  /** Every child in an exclusive family class; empty for a single student. */
+  classRoster: { name: string; age: string; level: string }[];
   teacherSelectedTimes: Record<string, string>;
 };
 
@@ -413,6 +416,7 @@ function JobCard({
         <InfoRow icon={Globe2} text={job.scheduleTimezoneRef ? `Timezone: ${timezoneAbbr(job.timeZone)} (times in ${job.scheduleTimezoneRef})` : `Timezone: ${timezoneAbbr(job.timeZone)}`} />
         {job.adminNotesForTeachers ? <AdminNote text={job.adminNotesForTeachers} /> : null}
         {response ? <TeacherResponseNote response={response} /> : null}
+        {job.classRoster.length > 1 ? <ClassRoster roster={job.classRoster} /> : null}
         <InfoRow icon={CalendarDays} text={`Days: ${job.days.join(", ") || "N/A"}`} />
         <InfoRow
           icon={Clock3}
@@ -622,6 +626,37 @@ function ResponseDialog({
  * 2-hour class in the evening offers 4-6, 4:30-6:30, 5-7 ... not just the two
  * non-overlapping ones.
  */
+/**
+ * Who the teacher would actually be teaching. Only the children in THIS
+ * class appear — a family's other enrollments are not this teacher's
+ * business, and one posting covers one class.
+ */
+function ClassRoster({ roster }: { roster: { name: string; age: string; level: string }[] }) {
+  return (
+    <div className="mb-2 rounded-lg border border-[#E2E8F0] bg-[#FAFBFC] p-3">
+      <div className="flex items-center gap-2">
+        <Users size={16} className="text-[#4F46E5]" />
+        <p className="text-[13px] font-bold text-[#1E293B]">Who you&rsquo;d be teaching</p>
+      </div>
+      <p className="ml-6 text-xs text-[#64748B]">
+        {roster.length} children in one class, taught together.
+      </p>
+      <div className="mt-2 grid gap-1.5">
+        {roster.map((child, index) => (
+          <div key={`${child.name}-${index}`} className="rounded-lg border border-[#C7D2FE] bg-[#EEF2FF] px-2.5 py-2">
+            <p className="text-[13px] font-semibold text-[#3730A3]">{child.name}</p>
+            {child.age || child.level ? (
+              <p className="text-xs text-[#64748B]">
+                {[child.age ? `Age ${child.age}` : "", child.level].filter(Boolean).join(" · ")}
+              </p>
+            ) : null}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function SlotPicker({
   job,
   draft,
@@ -930,6 +965,13 @@ function normalizeJob(id: string, data: Record<string, unknown>): JobOpportunity
     scheduleTimezoneRef: stringValue(data.scheduleTimezoneRef),
     adminNotesForTeachers: stringValue(data.adminNotesForTeachers),
     targetTeacherIds: arrayOfStrings(data.targetTeacherIds),
+    classRoster: Array.isArray(data.classRoster)
+      ? (data.classRoster as Record<string, unknown>[]).map((entry) => ({
+          name: stringValue(entry.name),
+          age: stringValue(entry.age),
+          level: stringValue(entry.level),
+        })).filter((entry) => entry.name)
+      : [],
     teacherSelectedTimes: recordOfStrings(data.teacherSelectedTimes),
   };
 }

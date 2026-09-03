@@ -60,6 +60,7 @@ import { ApplicantDetailsDialog } from "@/components/ApplicantDetailsDialog";
 import { auth, db } from "@/lib/firebase";
 import { isCurrentUserAdmin } from "@/lib/userRoles";
 import { blockById, blockRangeLabel, minutesFromDurationLabel, normalizeBlock, normalizeClassType } from "@/lib/enrollmentDomain";
+import { groupApplicants, groupIds, listNames, type ApplicantGroup } from "@/lib/familyGroups";
 import {
   draftSheet,
   exportFileName,
@@ -138,6 +139,8 @@ type EnrollmentApplicant = {
   status: ApplicantStatus;
   submittedAt: Date | null;
   programTitle: string;
+  /** Raw program identity, used to group a family class. */
+  subject: string;
   studentName: string;
   gradeLevel: string;
   age: string;
@@ -169,6 +172,8 @@ type EnrollmentApplicant = {
   /** Filled in by loadTeacherTimezones() for the export only. */
   teacherTimeZone: string;
   trackId: string;
+  /** Shared by every document from one submission; groups a family class. */
+  parentLinkId: string;
   /** The teacher's ranked slots from the confirmed response, best first. */
   rankedSlots: string[];
   jobId: string;
@@ -242,6 +247,21 @@ export function StudentApplicantsAdmin() {
     return sortApplicants(filtered, sort);
   }, [applicants, search, sort, stage, isMatched, setups]);
 
+  /**
+   * The children of one exclusive family class are one class, so the list
+   * shows one card for them and every action reaches all their documents.
+   */
+  const classGroups = useMemo(() => groupApplicants(visibleApplicants), [visibleApplicants]);
+  const classForId = useMemo(() => {
+    const map = new Map<string, string[]>();
+    for (const group of groupApplicants(applicants)) {
+      const ids = groupIds(group);
+      for (const id of ids) map.set(id, ids);
+    }
+    return map;
+  }, [applicants]);
+  const idsForClass = (applicant: EnrollmentApplicant) => classForId.get(applicant.id) ?? [applicant.id];
+
   const teacherGroups = useMemo(
     () => (groupTeachers && isMatched ? groupByTeacher(visibleApplicants) : null),
     [groupTeachers, isMatched, visibleApplicants],
@@ -311,7 +331,7 @@ export function StudentApplicantsAdmin() {
   }
 
   async function sendBroadcast(applicant: EnrollmentApplicant, input: Parameters<typeof broadcastEnrollment>[1]) {
-    await broadcastEnrollment(applicant.id, input);
+    await broadcastEnrollment(applicant.id, input, idsForClass(applicant));
     setBroadcastFor(null);
     setMessage(`${applicant.studentName} is live on the job board.`);
     await refreshApplicants(activeTab);
@@ -390,10 +410,13 @@ export function StudentApplicantsAdmin() {
     }
   }
 
-  const renderApplicantCard = (applicant: EnrollmentApplicant) => (
+  const renderApplicantCard = (group: ApplicantGroup<EnrollmentApplicant>) => {
+    const applicant = group.primary;
+    return (
     <ApplicantCard
-      key={applicant.id}
+      key={group.key}
       applicant={applicant}
+      classmates={group.isFamilyClass ? group.members : null}
       tab={activeTabConfig}
       setup={isMatched ? setups.get(applicant.id) ?? null : null}
       onDiscount={() => setDiscountFor(applicant)}
@@ -406,7 +429,8 @@ export function StudentApplicantsAdmin() {
       onArchive={() => setArchiveFor(applicant)}
       onUnarchive={() => moveApplicant(applicant, "pending")}
     />
-  );
+    );
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -508,6 +532,11 @@ export function StudentApplicantsAdmin() {
     }
   }
 
+  /**
+   * A family class is several documents describing one class, so a status
+   * change has to reach all of them — otherwise half the children move to
+   * Ready and half stay in the Inbox.
+   */
   async function moveApplicant(applicant: EnrollmentApplicant, nextStatus: ApplicantStatus) {
     if (!auth.currentUser) {
       setMessage("Sign in with an administrator account before updating applicants.");
@@ -516,23 +545,25 @@ export function StudentApplicantsAdmin() {
     setMessage("");
     try {
       const action = nextStatus === "contacted" ? "marked_contacted" : nextStatus === "pending" ? "unarchived" : nextStatus;
-      await updateDoc(doc(db, "enrollments", applicant.id), {
+      const admin = auth.currentUser;
+      const ids = idsForClass(applicant);
+      await Promise.all(ids.map((id) => updateDoc(doc(db, "enrollments", id), {
         "metadata.status": nextStatus,
         "metadata.lastUpdated": serverTimestamp(),
-        "metadata.updatedBy": auth.currentUser.uid,
-        "metadata.updatedByName": auth.currentUser.email ?? "Admin",
+        "metadata.updatedBy": admin.uid,
+        "metadata.updatedByName": admin.email ?? "Admin",
         ...(nextStatus === "contacted"
           ? {
               "metadata.contactedAt": serverTimestamp(),
-              "metadata.contactedBy": auth.currentUser.uid,
-              "metadata.contactedByName": auth.currentUser.email ?? "Admin",
+              "metadata.contactedBy": admin.uid,
+              "metadata.contactedByName": admin.email ?? "Admin",
             }
           : {}),
         ...(nextStatus === "archived"
           ? {
               "metadata.archivedAt": serverTimestamp(),
-              "metadata.archivedBy": auth.currentUser.uid,
-              "metadata.archivedByName": auth.currentUser.email ?? "Admin",
+              "metadata.archivedBy": admin.uid,
+              "metadata.archivedByName": admin.email ?? "Admin",
               "metadata.archivedPreviousStatus": applicant.status,
             }
           : {}),
@@ -540,13 +571,13 @@ export function StudentApplicantsAdmin() {
           {
             action,
             status: nextStatus,
-            adminId: auth.currentUser.uid,
-            adminName: auth.currentUser.email ?? "Admin",
-            adminEmail: auth.currentUser.email ?? "",
+            adminId: admin.uid,
+            adminName: admin.email ?? "Admin",
+            adminEmail: admin.email ?? "",
             timestamp: Timestamp.now(),
           },
         ),
-      });
+      })));
       setMessage(nextStatus === "contacted" ? "Marked as contacted. Moved to Ready." : "Application updated.");
       await refreshApplicants(activeTab);
     } catch (error) {
@@ -662,13 +693,13 @@ export function StudentApplicantsAdmin() {
                     </span>
                   </div>
                   <div className="grid gap-3 border-t border-[#E5E7EB] pt-3">
-                    {group.applicants.map((applicant) => renderApplicantCard(applicant))}
+                    {groupApplicants(group.applicants).map((cls) => renderApplicantCard(cls))}
                   </div>
                 </div>
               ))}
             </div>
           ) : (
-            <div className="grid gap-3">{visibleApplicants.map((applicant) => renderApplicantCard(applicant))}</div>
+            <div className="grid gap-3">{classGroups.map((cls) => renderApplicantCard(cls))}</div>
           )}
         </section>
         {detailsFor ? (
@@ -1157,6 +1188,7 @@ function NoMatchesState({ onClear }: { onClear: () => void }) {
 
 function ApplicantCard({
   applicant,
+  classmates,
   tab,
   setup,
   onDiscount,
@@ -1170,6 +1202,8 @@ function ApplicantCard({
   onUnarchive,
 }: {
   applicant: EnrollmentApplicant;
+  /** Every child in this exclusive family class, or null when there is one. */
+  classmates: EnrollmentApplicant[] | null;
   tab: ApplicantTab;
   setup: SetupState | null;
   onDiscount: () => void;
@@ -1214,7 +1248,8 @@ function ApplicantCard({
           <div className="min-w-0 flex-1">
             <h2 className="truncate text-base font-black text-[#1E293B]">{applicant.programTitle}</h2>
             <p className="mt-1 text-sm leading-5 text-[#64748B]">
-              {applicant.studentName} {applicant.gradeLevel ? `• ${applicant.gradeLevel}` : ""}
+              {classmates ? listNames(classmates.map((c) => c.studentName)) : applicant.studentName}{" "}
+              {applicant.gradeLevel ? `• ${applicant.gradeLevel}` : ""}
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
@@ -1264,7 +1299,8 @@ function ApplicantCard({
           {setup && setup.stage !== "ready" ? (
             <MatchedSetupActions
               enrollmentId={applicant.id}
-              studentName={applicant.studentName}
+              studentName={classmates ? listNames(classmates.map((c) => c.studentName)) : applicant.studentName}
+              classmates={classmates?.map((c) => ({ enrollmentId: c.id, studentName: c.studentName, studentUserId: c.studentUserId })) ?? null}
               studentUserId={applicant.studentUserId}
               parentLinked={applicant.parentLinked}
               hasSchedule={setup?.hasSchedule ?? false}
@@ -1619,6 +1655,7 @@ function normalizeApplicant(id: string, data: Record<string, unknown>): Enrollme
     status: enrollmentStatuses.includes(status) ? status : "pending",
     submittedAt,
     programTitle: stringValue(data.programTitle ?? data.subject) || "Unknown Subject",
+    subject: stringValue(data.subject ?? data.programTitle),
     studentName,
     gradeLevel: stringValue(data.gradeLevel) || stringValue(program.level),
     age,
@@ -1658,6 +1695,7 @@ function normalizeApplicant(id: string, data: Record<string, unknown>): Enrollme
     matchedTeacherId: stringValue(metadata.matchedTeacherId),
     teacherTimeZone: "",
     trackId: stringValue(metadata.trackId),
+    parentLinkId: stringValue(metadata.parentLinkId),
     rankedSlots: stringArray(recordValue(metadata.latestTeacherResponseSummary).availableAlternatives),
     jobId: stringValue(metadata.jobId),
     broadcastSnapshot: readSnapshot(metadata.lastBroadcastSnapshot),

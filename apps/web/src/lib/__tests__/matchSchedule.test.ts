@@ -42,7 +42,7 @@ test("the prefill carries the match: teacher, student, subject, first ranked slo
       days: ["Tue", "Thu"], sessionMinutes: 60, familyTimeZone: "America/New_York", trackId: "islamic",
       programTitle: "Religious Studies (Quran, Arabic, etc...)",
     },
-    "s1", SUBJECTS, new Date(2026, 8, 3, 9),
+    ["s1"], SUBJECTS, new Date(2026, 8, 3, 9),
   );
   assert.equal(p.staffId, "t1");
   assert.deepEqual(p.studentIds, ["s1"]);
@@ -58,7 +58,7 @@ test("the prefill carries the match: teacher, student, subject, first ranked slo
 test("a slot with only a start time gets the session length as its end", () => {
   const p = shiftPrefillFor(
     { teacherId: "t1", teacherName: "", rankedSlots: ["5:00 AM"], days: ["Sat"], sessionMinutes: 90, familyTimeZone: "", trackId: "adlam", programTitle: "" },
-    "s1", SUBJECTS,
+    ["s1"], SUBJECTS,
   );
   assert.equal(p.startStr, "05:00");
   assert.equal(p.endStr, "06:30");
@@ -68,13 +68,23 @@ test("a slot with only a start time gets the session length as its end", () => {
 test("no ranked slot and no days still yields a usable prefill rather than throwing", () => {
   const p = shiftPrefillFor(
     { teacherId: "", teacherName: "", rankedSlots: [], days: [], sessionMinutes: 60, familyTimeZone: "", trackId: "tutoring", programTitle: "" },
-    "s1", SUBJECTS,
+    ["s1"], SUBJECTS,
   );
   assert.equal(p.staffId, null);
   assert.equal(p.date, null);
   assert.equal(p.startStr, undefined);
   assert.equal(p.recurrenceType, "none");
   assert.equal(p.subjectId, "englishId");
+});
+
+test("an exclusive family class books one shift carrying every child", () => {
+  const p = shiftPrefillFor(
+    { teacherId: "t1", teacherName: "T", rankedSlots: ["4:00 PM - 5:00 PM"], days: ["Tue"], sessionMinutes: 60, familyTimeZone: "America/New_York", trackId: "adlam", programTitle: "Adlam" },
+    ["s1", "s2"], SUBJECTS, new Date(2026, 8, 3, 9),
+  );
+  assert.deepEqual(p.studentIds, ["s1", "s2"], "both children on the same shift");
+  assert.equal(p.startStr, "16:00");
+  assert.equal(p.recurrenceType, "weekly");
 });
 
 test("legacy duration labels read as minutes", () => {

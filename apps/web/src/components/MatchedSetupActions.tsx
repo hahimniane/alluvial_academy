@@ -31,9 +31,12 @@ import { shiftPrefillFor, type MatchSchedule } from "@/lib/matchSchedule";
  * When the student has no account yet, one is created first; when no parent
  * is linked afterwards, the invite opens next.
  */
+export type Classmate = { enrollmentId: string; studentName: string; studentUserId: string };
+
 export function MatchedSetupActions({
   enrollmentId,
   studentName,
+  classmates,
   studentUserId,
   parentLinked,
   hasSchedule,
@@ -46,6 +49,8 @@ export function MatchedSetupActions({
 }: {
   enrollmentId: string;
   studentName: string;
+  /** Every child in an exclusive family class, or null for a single student. */
+  classmates: Classmate[] | null;
   studentUserId: string;
   parentLinked: boolean;
   hasSchedule: boolean;
@@ -58,7 +63,7 @@ export function MatchedSetupActions({
 }) {
   const [inviting, setInviting] = useState(false);
   const [editor, setEditor] = useState<{
-    studentId: string;
+    studentIds: string[];
     staff: StaffMember[];
     students: StudentOption[];
     subjects: SubjectOption[];
@@ -66,7 +71,7 @@ export function MatchedSetupActions({
     adminTimezone: string;
   } | null>(null);
 
-  const openScheduleEditor = async (studentId: string) => {
+  const openScheduleEditor = async (studentIds: string[]) => {
     const user = auth.currentUser;
     if (!user) throw new Error("You must be signed in as an admin.");
     const [profile, staff, students, subjects] = await Promise.all([
@@ -78,10 +83,11 @@ export function MatchedSetupActions({
     if (!staff.some((member) => member.id === schedule.teacherId)) {
       throw new Error(`${schedule.teacherName || "The matched teacher"} is not an active teacher, so a shift cannot be booked for them.`);
     }
-    if (!students.some((student) => student.id === studentId)) {
-      throw new Error("The student's account was created but is not listed yet. Try again in a moment.");
+    const missing = studentIds.filter((id) => !students.some((student) => student.id === id));
+    if (studentIds.length === 0 || missing.length > 0) {
+      throw new Error("The student accounts were created but are not listed yet. Try again in a moment.");
     }
-    setEditor({ studentId, staff, students, subjects, adminName: profile.name, adminTimezone: profile.timezone });
+    setEditor({ studentIds, staff, students, subjects, adminName: profile.name, adminTimezone: profile.timezone });
   };
 
   const user = auth.currentUser;
@@ -90,18 +96,26 @@ export function MatchedSetupActions({
     <div className="mb-3 flex flex-wrap items-center gap-2">
       {!studentUserId ? (
         <ActionButton
-          label="Create account & schedule"
-          busyLabel="Creating account…"
+          label={classmates ? "Create accounts & schedule" : "Create account & schedule"}
+          busyLabel="Creating accounts…"
           icon={<KeyRound size={16} />}
           onAction={async () => {
-            const created = await createStudentAccount(enrollmentId);
+            // An exclusive family class needs a login per child, but they are
+            // taught together, so one shift follows for all of them.
+            const targets = classmates ?? [{ enrollmentId, studentName, studentUserId }];
+            const ids: string[] = [];
+            for (const target of targets) {
+              if (target.studentUserId) { ids.push(target.studentUserId); continue; }
+              const created = await createStudentAccount(target.enrollmentId);
+              ids.push(created.studentId);
+            }
             onMessage(
-              created.studentCode
-                ? `Account created for ${studentName}. Student ID ${created.studentCode}. Now confirm the schedule.`
+              ids.length > 1
+                ? `${ids.length} accounts created for ${studentName}. Now confirm the schedule.`
                 : `Account created for ${studentName}. Now confirm the schedule.`,
             );
             onChanged();
-            await openScheduleEditor(created.studentId);
+            await openScheduleEditor(ids);
           }}
         />
       ) : !hasSchedule ? (
@@ -109,7 +123,11 @@ export function MatchedSetupActions({
           label="Finalize schedule"
           busyLabel="Preparing…"
           icon={<CalendarPlus size={16} />}
-          onAction={() => openScheduleEditor(studentUserId)}
+          onAction={() => openScheduleEditor(
+            (classmates ?? [{ enrollmentId, studentName, studentUserId }])
+              .map((c) => c.studentUserId)
+              .filter(Boolean),
+          )}
         />
       ) : null}
 
@@ -128,7 +146,7 @@ export function MatchedSetupActions({
         <ShiftEditorDialog
           mode="create"
           shift={null}
-          prefill={shiftPrefillFor(schedule, editor.studentId, editor.subjects.map((s) => ({ id: s.id, name: s.name })))}
+          prefill={shiftPrefillFor(schedule, editor.studentIds, editor.subjects.map((s) => ({ id: s.id, name: s.name })))}
           staff={editor.staff}
           students={editor.students}
           subjects={editor.subjects}
