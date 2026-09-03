@@ -499,10 +499,6 @@ export function ProgramsOverview() {
     updateProgram(studentIndex, programIndex, { preferredDays: nextDays });
   };
 
-  const updateHours = (studentIndex: number, programIndex: number, hours: number) => {
-    updateProgram(studentIndex, programIndex, { hoursPerWeek: clampHoursPerWeek(hours) });
-  };
-
   async function onParentLookup() {
     const identifier = parentIdentifier.trim();
     if (!identifier) {
@@ -839,7 +835,6 @@ export function ProgramsOverview() {
                           programCount={student.programs.length}
                           onSubjectChange={(subjectId) => setProgramSubject(editingIndex, programIndex, subjectId)}
                           onProgramChange={(patch) => updateProgram(editingIndex, programIndex, patch)}
-                          onHoursChange={(hours) => updateHours(editingIndex, programIndex, hours)}
                           onRemove={() => removeProgram(editingIndex, programIndex)}
                           preferredLanguage={preferredLanguage}
                           onPreferredLanguageChange={setPreferredLanguage}
@@ -1299,7 +1294,6 @@ function ProgramEditor({
   programCount,
   onSubjectChange,
   onProgramChange,
-  onHoursChange,
   onRemove,
   preferredLanguage,
   onPreferredLanguageChange,
@@ -1311,7 +1305,6 @@ function ProgramEditor({
   programCount: number;
   onSubjectChange: (subjectId: string) => void;
   onProgramChange: (patch: Partial<ProgramDraft>) => void;
-  onHoursChange: (hours: number) => void;
   onRemove: () => void;
   preferredLanguage: string;
   onPreferredLanguageChange: (value: string) => void;
@@ -1401,12 +1394,7 @@ function ProgramEditor({
 
         <EnrollmentSubCard title="3. Pricing & Hours">
           <SessionShapeFields program={program} onProgramChange={onProgramChange} />
-          <HoursStepper
-            hours={program.hoursPerWeek}
-            trackId={subject?.trackId ?? ""}
-            onHoursChange={onHoursChange}
-            pricingPlans={pricingPlans}
-          />
+          <HoursSummary program={program} trackId={subject?.trackId ?? ""} />
         </EnrollmentSubCard>
       </div>
     </div>
@@ -1429,8 +1417,15 @@ function SessionShapeFields({
   program: ProgramDraft;
   onProgramChange: (patch: Partial<ProgramDraft>) => void;
 }) {
-  const computed = weeklyHoursFor(program.sessionsPerWeek, program.sessionMinutes);
-  const agrees = hoursMatchSessions(program.hoursPerWeek, program.sessionsPerWeek, program.sessionMinutes);
+  // Hours per week follow from these two answers. A family that picks 2-hour
+  // classes four times a week has said "8 hours"; asking them to type it again
+  // and then warning them when the numbers disagree was friction, not safety.
+  const setShape = (sessionMinutes: number, sessionsPerWeek: number) =>
+    onProgramChange({
+      sessionMinutes,
+      sessionsPerWeek,
+      hoursPerWeek: clampHoursPerWeek(weeklyHoursFor(sessionsPerWeek, sessionMinutes)),
+    });
 
   return (
     <div className="grid gap-2.5 pb-3">
@@ -1444,7 +1439,7 @@ function SessionShapeFields({
                 key={minutes}
                 type="button"
                 aria-pressed={selected}
-                onClick={() => onProgramChange({ sessionMinutes: minutes })}
+                onClick={() => setShape(minutes, program.sessionsPerWeek)}
                 className={`min-h-[32px] rounded-lg px-2.5 py-1.5 text-[12px] font-semibold transition ${
                   selected
                     ? "bg-gradient-to-r from-[#3B82F6] to-[#2563EB] text-white"
@@ -1464,7 +1459,7 @@ function SessionShapeFields({
           <button
             type="button"
             aria-label="Fewer classes per week"
-            onClick={() => onProgramChange({ sessionsPerWeek: Math.max(1, program.sessionsPerWeek - 1) })}
+            onClick={() => setShape(program.sessionMinutes, Math.max(1, program.sessionsPerWeek - 1))}
             className="text-[#3B82F6] disabled:text-[#CBD5E1]"
             disabled={program.sessionsPerWeek <= 1}
           >
@@ -1476,7 +1471,7 @@ function SessionShapeFields({
           <button
             type="button"
             aria-label="More classes per week"
-            onClick={() => onProgramChange({ sessionsPerWeek: Math.min(14, program.sessionsPerWeek + 1) })}
+            onClick={() => setShape(program.sessionMinutes, Math.min(14, program.sessionsPerWeek + 1))}
             className="text-[#3B82F6] disabled:text-[#CBD5E1]"
             disabled={program.sessionsPerWeek >= 14}
           >
@@ -1484,54 +1479,24 @@ function SessionShapeFields({
           </button>
         </div>
       </div>
-
-      {!agrees ? (
-        <div className="flex items-start gap-2 rounded-lg border-[1.5px] border-[#FDE68A] bg-[#FFFBEB] px-2.5 py-2">
-          <AlertCircle size={15} className="mt-px shrink-0 text-[#B45309]" />
-          <div className="min-w-0">
-            <p className="text-[11px] font-semibold text-[#92400E]">These two don&apos;t add up</p>
-            <p className="mt-0.5 text-[10px] font-medium leading-[1.3] text-[#92400E]">
-              {program.sessionsPerWeek} session{program.sessionsPerWeek === 1 ? "" : "s"} of{" "}
-              {sessionLabel(program.sessionMinutes)} is {computed} hrs a week, but you&apos;ve asked for{" "}
-              {program.hoursPerWeek} hrs.
-            </p>
-            <button
-              type="button"
-              onClick={() => onProgramChange({ hoursPerWeek: computed })}
-              className="mt-1.5 rounded-lg border-[1.5px] border-[#FDE68A] bg-white px-2.5 py-1 text-[10px] font-semibold text-[#92400E]"
-            >
-              Set hours to {computed}
-            </button>
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }
 
-function HoursStepper({
-  hours,
+function HoursSummary({
+  program,
   trackId,
-  onHoursChange,
-  pricingPlans,
 }: {
-  hours: number;
+  program: ProgramDraft;
   trackId: string;
-  onHoursChange: (hours: number) => void;
-  pricingPlans: PricingPlans;
 }) {
+  const hours = weeklyHoursFor(program.sessionsPerWeek, program.sessionMinutes);
   return (
     <div className="rounded-xl border border-slate-200 bg-[#FAFBFC] p-3">
       <div className="flex items-center justify-between gap-3">
-        <span className="text-[11px] font-bold text-slate-700">Select hours per week</span>
-        <span className="inline-flex items-center rounded-lg border border-slate-200 bg-white">
-          <button type="button" aria-label="Decrease hours" className="inline-flex h-8 w-8 items-center justify-center text-[#3B82F6] disabled:text-slate-300" disabled={hours <= MIN_HOURS_PER_WEEK} onClick={() => onHoursChange(hours - 1)}>
-            <MinusCircle size={18} />
-          </button>
-          <span className="w-8 text-center text-sm font-black text-slate-900">{hours}</span>
-          <button type="button" aria-label="Increase hours" className="inline-flex h-8 w-8 items-center justify-center text-[#3B82F6] disabled:text-slate-300" disabled={hours >= MAX_HOURS_PER_WEEK} onClick={() => onHoursChange(hours + 1)}>
-            <PlusCircle size={18} />
-          </button>
+        <span className="text-[11px] font-bold text-slate-700">Hours per week</span>
+        <span className="text-sm font-black text-slate-900">
+          {program.sessionsPerWeek} × {sessionLabel(program.sessionMinutes)} = {hours} {hours === 1 ? "hr" : "hrs"}
         </span>
       </div>
       {trackId ? (
@@ -1806,6 +1771,7 @@ function ContactPanel({
 
         <DarkTextarea
           label="Scheduling notes (optional)"
+          name="schedulingNotes"
           value={contact.schedulingNotes}
           onChange={(value) => onChange("schedulingNotes", value)}
           placeholder="e.g. prefer after 4pm weekdays, avoid Fridays..."
@@ -1855,11 +1821,14 @@ function DarkField({
 
 function DarkTextarea({
   label,
+  name,
   value,
   onChange,
   placeholder,
 }: {
   label: string;
+  /** Without a name the field is invisible to autofill, form tooling and tests. */
+  name: string;
   value: string;
   onChange: (value: string) => void;
   placeholder: string;
@@ -1868,6 +1837,7 @@ function DarkTextarea({
     <label className="grid gap-1.5">
       <span className="text-[12px] font-bold text-[#CBD5E1]">{label}</span>
       <textarea
+        name={name}
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
