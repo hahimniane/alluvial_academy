@@ -18,6 +18,7 @@ const resolveProgramName = (enrollmentData) => {
 };
 
 // Build an HTML pricing block from the stored pricing / pricingSnapshot.
+// Staff only — see buildPaymentPolicyHtml for what families are sent.
 const buildPricingHtml = (enrollmentData) => {
   const pricing = enrollmentData.pricing || {};
   const snap = (enrollmentData.metadata || {}).pricingSnapshot || {};
@@ -39,6 +40,18 @@ const buildPricingHtml = (enrollmentData) => {
       </div>
     </div>`;
 };
+
+// What families get in place of the estimate. Quoting an hourly rate and a
+// monthly total on a request nobody has approved yet reads as a bill, and the
+// numbers move once the schedule is settled. They are told when payment is due
+// and how it is taken; the figure reaches them on the first invoice.
+const buildPaymentPolicyHtml = () => `
+    <div class="info-box">
+      <h3>Payment</h3>
+      <div style="font-size:13px;color:#475569;">
+        <strong>Payment Policy:</strong> Payment is due at the beginning of each month. We accept Zelle, CashApp, and other major payment methods.
+      </div>
+    </div>`;
 
 // Email template for enrollment confirmation to student/parent (single student)
 const sendEnrollmentConfirmationEmail = async (enrollmentData) => {
@@ -179,7 +192,7 @@ const sendEnrollmentConfirmationEmail = async (enrollmentData) => {
               ` : ''}
             </div>
 
-            ${buildPricingHtml(enrollmentData)}
+            ${buildPaymentPolicyHtml()}
             
             <p>If you have any questions or need to update your enrollment information, please don't hesitate to contact us at <a href="mailto:support@alluwaleducationhub.org">support@alluwaleducationhub.org</a>.</p>
             
@@ -299,7 +312,7 @@ const sendMultiStudentEnrollmentEmail = async (allEnrollments) => {
           <span class="info-label">Timezone</span>
           <span class="info-value">${escapeHtml(preferences.timeZone)}</span>
         </div>` : ''}
-        ${buildPricingHtml(enrollment)}
+        ${buildPaymentPolicyHtml()}
       </div>
     `;
   });
@@ -1476,6 +1489,9 @@ async function generateKiosqueCodeForParent() {
 
 module.exports = {
   onEnrollmentCreated,
+  // Exported for tests that pin who is shown a price.
+  _buildPricingHtml: buildPricingHtml,
+  _buildPaymentPolicyHtml: buildPaymentPolicyHtml,
   publishEnrollmentToJobBoard,
   inviteParentForEnrollment,
   unlinkGuardianFromStudent,
