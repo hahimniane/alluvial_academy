@@ -50,19 +50,22 @@ await rm(packageOut, { recursive: true, force: true });
 await mkdir(packageOut, { recursive: true });
 await cp(nextOut, packageOut, { recursive: true, force: true });
 
-// The admin shift schedule renders inside the Flutter web app (/app/), which
-// is cross-origin isolated (COEP) for the Zoom SDK. A COEP document may only
+// These admin screens render inside the Flutter web app (/app/), which is
+// cross-origin isolated (COEP) for the Zoom SDK. A COEP document may only
 // frame documents that send a COEP header themselves, so without this the
-// browser blocks the embed with a blank error page.
-await writeFile(
-  join(packageOut, "admin", "shifts", ".htaccess"),
-  [
-    "<IfModule mod_headers.c>",
-    '    Header always set Cross-Origin-Embedder-Policy "credentialless"',
-    "</IfModule>",
-    "",
-  ].join("\n"),
-);
+// browser blocks the embed with a blank error page — no network request, and
+// nothing in DevTools to explain it.
+for (const embeddedScreen of ["shifts", "student-applicants"]) {
+  await writeFile(
+    join(packageOut, "admin", embeddedScreen, ".htaccess"),
+    [
+      "<IfModule mod_headers.c>",
+      '    Header always set Cross-Origin-Embedder-Policy "credentialless"',
+      "</IfModule>",
+      "",
+    ].join("\n"),
+  );
+}
 
 if (await exists(flutterWeb)) {
   await rm(join(packageOut, "app"), { recursive: true, force: true });

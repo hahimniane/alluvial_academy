@@ -9,7 +9,7 @@ import { FlutterRedirect } from "@/components/FlutterRedirect";
  * here render natively; everything else under /admin/ still forwards to the
  * Flutter app.
  */
-const NATIVE_ADMIN_PREFIXES = ["/admin/shifts"];
+const NATIVE_ADMIN_PREFIXES = ["/admin/shifts", "/admin/student-applicants"];
 
 export function AdminRouteGate({ children }: { children: ReactNode }) {
   const pathname = usePathname() ?? "";
