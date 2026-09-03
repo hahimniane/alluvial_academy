@@ -6,6 +6,8 @@ import {
   collection,
   doc,
   arrayUnion,
+  deleteField,
+  getDoc,
   getDocs,
   limit,
   query,
@@ -19,6 +21,7 @@ import {
   Archive,
   Box,
   Calendar,
+  CalendarDays,
   Check,
   CheckCircle2,
   Circle,
@@ -36,12 +39,26 @@ import {
   School,
   Search,
   StickyNote,
+  Tag,
   Users,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { AdminDashboardShell } from "@/components/AdminDashboardShell";
 import { auth, db } from "@/lib/firebase";
 import { isCurrentUserAdmin } from "@/lib/userRoles";
+import {
+  DISCOUNT_REASONS,
+  discountLabel,
+  discountToDraft,
+  draftToDiscount,
+  emptyDiscountDraft,
+  formatStartDate,
+  fromDateInput,
+  toDateInput,
+  validateDiscount,
+  type DiscountDraft,
+  type StudentDiscount,
+} from "@/lib/studentDiscount";
 import {
   DEFAULT_SORTS,
   MATCHED_SORTS,
@@ -105,6 +122,7 @@ type EnrollmentApplicant = {
   matchedAt: Date | null;
   studentUserId: string;
   parentLinked: boolean;
+  discount: StudentDiscount | null;
 };
 
 const enrollmentStatuses: ApplicantStatus[] = ["pending", "contacted", "broadcasted", "archived", "matched"];
@@ -135,6 +153,7 @@ export function StudentApplicantsAdmin() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [scheduledStudents, setScheduledStudents] = useState<Set<string>>(new Set());
+  const [discountFor, setDiscountFor] = useState<EnrollmentApplicant | null>(null);
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<SortId>("recently-matched");
   const [groupTeachers, setGroupTeachers] = useState(false);
@@ -178,12 +197,76 @@ export function StudentApplicantsAdmin() {
     if (!sortOptions.some((option) => option.id === sort)) setSort(sortOptions[0].id);
   }, [sortOptions, sort]);
 
+  async function saveDiscount(applicant: EnrollmentApplicant, draft: DiscountDraft | null) {
+    if (!auth.currentUser) {
+      setMessage("Sign in with an administrator account before changing a discount.");
+      return;
+    }
+    if (!applicant.studentUserId) {
+      setMessage("Create the student's account before setting a discount.");
+      return;
+    }
+    const admin = auth.currentUser;
+    const actor = {
+      adminId: admin.uid,
+      adminName: admin.email ?? "Admin",
+      adminEmail: admin.email ?? "",
+      timestamp: Timestamp.now(),
+    };
+    const previous = applicant.discount ? discountLabel(applicant.discount) : null;
+
+    try {
+      if (draft) {
+        const discount = draftToDiscount(draft);
+        await updateDoc(doc(db, "users", applicant.studentUserId), {
+          discount: {
+            mode: discount.mode,
+            value: discount.value,
+            duration: discount.duration,
+            ...(discount.months ? { months: discount.months } : {}),
+            startDate: Timestamp.fromDate(discount.startDate),
+            reason: discount.reason,
+            ...(discount.note ? { note: discount.note } : {}),
+            createdBy: admin.uid,
+            createdByName: admin.email ?? "Admin",
+            createdAt: serverTimestamp(),
+          },
+        });
+        await updateDoc(doc(db, "enrollments", applicant.id), {
+          "metadata.actionHistory": arrayUnion({
+            action: previous ? "discount_changed" : "discount_added",
+            discount: discountLabel(discount),
+            ...(previous ? { previousDiscount: previous } : {}),
+            reason: discount.reason,
+            ...actor,
+          }),
+        });
+        setMessage(`Discount saved. It applies from ${formatStartDate(discount.startDate)}.`);
+      } else {
+        await updateDoc(doc(db, "users", applicant.studentUserId), { discount: deleteField() });
+        await updateDoc(doc(db, "enrollments", applicant.id), {
+          "metadata.actionHistory": arrayUnion({
+            action: "discount_removed",
+            ...(previous ? { previousDiscount: previous } : {}),
+            ...actor,
+          }),
+        });
+        setMessage("Discount removed.");
+      }
+      setDiscountFor(null);
+      await refreshApplicants(activeTab);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not save the discount.");
+    }
+  }
+
   const renderApplicantCard = (applicant: EnrollmentApplicant) => (
     <ApplicantCard
       key={applicant.id}
       applicant={applicant}
       tab={activeTabConfig}
       setup={isMatched ? setups.get(applicant.id) ?? null : null}
+      onDiscount={() => setDiscountFor(applicant)}
       onMarkContacted={() => moveApplicant(applicant, "contacted")}
       onArchive={() => moveApplicant(applicant, "archived")}
       onUnarchive={() => moveApplicant(applicant, "pending")}
@@ -239,7 +322,17 @@ export function StudentApplicantsAdmin() {
         const [nextApplicants, nextCounts] = await Promise.all([loadApplicants(status), loadCounts()]);
         setApplicants(nextApplicants);
         setCounts(nextCounts);
-        setScheduledStudents(status === "matched" ? await loadScheduledStudents(nextApplicants) : new Set());
+        const [scheduled, discounts] = await Promise.all([
+          status === "matched" ? loadScheduledStudents(nextApplicants) : Promise.resolve(new Set<string>()),
+          loadDiscounts(nextApplicants),
+        ]);
+        setScheduledStudents(scheduled);
+        setApplicants(
+          nextApplicants.map((applicant) => ({
+            ...applicant,
+            discount: discounts.get(applicant.studentUserId) ?? null,
+          })),
+        );
       }
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not load student applicants.");
@@ -440,8 +533,207 @@ export function StudentApplicantsAdmin() {
             <div className="grid gap-3">{visibleApplicants.map((applicant) => renderApplicantCard(applicant))}</div>
           )}
         </section>
+        {discountFor ? (
+          <DiscountDialog
+            studentName={discountFor.studentName}
+            existing={discountFor.discount}
+            // Best signal available for when this student's enrollment began;
+            // nothing records it, so the admin confirms or corrects it here
+            // rather than billing code guessing.
+            defaultStartDate={discountFor.matchedAt ?? discountFor.submittedAt ?? new Date()}
+            onSave={(draft) => void saveDiscount(discountFor, draft)}
+            onRemove={() => void saveDiscount(discountFor, null)}
+            onClose={() => setDiscountFor(null)}
+          />
+        ) : null}
       </main>
     </AdminDashboardShell>
+  );
+}
+
+export function DiscountDialog({
+  studentName,
+  existing,
+  defaultStartDate,
+  onSave,
+  onRemove,
+  onClose,
+}: {
+  studentName: string;
+  existing: StudentDiscount | null;
+  defaultStartDate: Date;
+  onSave: (draft: DiscountDraft) => void;
+  onRemove: () => void;
+  onClose: () => void;
+}) {
+  const [draft, setDraft] = useState<DiscountDraft>(() =>
+    existing ? discountToDraft(existing) : emptyDiscountDraft(defaultStartDate),
+  );
+  const [showError, setShowError] = useState(false);
+  const error = validateDiscount(draft);
+  const preview = error ? null : draftToDiscount(draft);
+  const set = (patch: Partial<DiscountDraft>) => setDraft((current) => ({ ...current, ...patch }));
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-label="Student discount">
+      <div className="max-h-full w-full max-w-[520px] overflow-y-auto rounded-[28px] bg-white p-6 shadow-[0_24px_60px_rgba(0,0,0,0.32)]">
+        <h2 className="text-xl font-bold text-[#111827]">Student discount</h2>
+        <p className="mt-1 text-[13px] text-[#64748B]">
+          {studentName} · applies to every program this student takes
+        </p>
+
+        <div className="mt-5 grid grid-cols-2 gap-2.5">
+          {([
+            { mode: "percent" as const, title: "Percentage", hint: "% off the monthly total" },
+            { mode: "fixed" as const, title: "Fixed amount", hint: "$ off each month" },
+          ]).map((option) => {
+            const active = draft.mode === option.mode;
+            return (
+              <button
+                key={option.mode}
+                type="button"
+                aria-pressed={active}
+                onClick={() => set({ mode: option.mode })}
+                className={`rounded-lg border-[1.5px] p-3 text-left transition ${
+                  active ? "border-[#3B82F6] bg-[#EFF6FF] text-[#1D4ED8]" : "border-[#E2E8F0] bg-white text-[#475569]"
+                }`}
+              >
+                <span className="block text-xs font-bold">{option.title}</span>
+                <span className="mt-0.5 block text-[11px] font-medium text-[#64748B]">{option.hint}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="mt-4 flex items-end gap-2.5">
+          <div>
+            <label htmlFor="discount-value" className="block text-[11px] font-semibold text-[#1E293B]">Amount</label>
+            <input
+              id="discount-value"
+              type="number"
+              min="0"
+              step="0.01"
+              value={draft.value}
+              onChange={(event) => set({ value: event.target.value })}
+              className="mt-1 h-10 w-[110px] rounded border border-[#79747E] px-2.5 text-[15px] font-bold text-[#111827] outline-none focus:border-[#3B82F6]"
+            />
+          </div>
+          <span className="pb-2.5 text-xs font-semibold text-[#64748B]">
+            {draft.mode === "percent" ? "%" : "$ / month"}
+          </span>
+        </div>
+
+        <fieldset className="mt-5">
+          <legend className="text-[11px] font-semibold text-[#1E293B]">How long it lasts</legend>
+          <div className="mt-1.5 grid gap-1.5">
+            {([
+              { duration: "months" as const, label: "First few months" },
+              { duration: "ongoing" as const, label: "Ongoing, until removed" },
+            ]).map((option) => (
+              <label key={option.duration} className="flex items-center gap-2 text-xs font-medium text-[#334155]">
+                <input
+                  type="radio"
+                  name="discount-duration"
+                  checked={draft.duration === option.duration}
+                  onChange={() => set({ duration: option.duration })}
+                  className="h-[18px] w-[18px] accent-[#3B82F6]"
+                />
+                {option.label}
+              </label>
+            ))}
+          </div>
+          {draft.duration === "months" ? (
+            <div className="mt-2 flex items-center gap-2">
+              <label htmlFor="discount-months" className="sr-only">Number of months</label>
+              <input
+                id="discount-months"
+                type="number"
+                min="1"
+                step="1"
+                value={draft.months}
+                onChange={(event) => set({ months: event.target.value })}
+                className="h-10 w-20 rounded border border-[#79747E] px-2.5 text-[15px] font-bold text-[#111827] outline-none focus:border-[#3B82F6]"
+              />
+              <span className="text-xs text-[#64748B]">months from the start date below</span>
+            </div>
+          ) : null}
+        </fieldset>
+
+        <div className="mt-5">
+          <label htmlFor="discount-start" className="block text-[11px] font-semibold text-[#1E293B]">Month 1 starts on</label>
+          <input
+            id="discount-start"
+            type="date"
+            value={draft.startDate}
+            onChange={(event) => set({ startDate: event.target.value })}
+            className="mt-1 h-10 rounded border border-[#79747E] px-2.5 text-sm text-[#111827] outline-none focus:border-[#3B82F6]"
+          />
+        </div>
+
+        <div className="mt-3 flex gap-2 rounded-[10px] border border-[#BFDBFE] bg-[#EFF6FF] p-3">
+          <CalendarDays size={16} className="mt-0.5 shrink-0 text-[#1D4ED8]" />
+          <p className="text-xs leading-[1.45] text-[#1E40AF]">
+            {preview ? (
+              <>
+                Month 1 starts on <strong>{formatStartDate(preview.startDate)}</strong>. Every invoice from then on
+                shows <strong>{discountLabel(preview)}</strong>.
+              </>
+            ) : (
+              "Set an amount and a start date to see which invoices this covers."
+            )}
+          </p>
+        </div>
+
+        <div className="mt-4">
+          <label htmlFor="discount-reason" className="block text-[11px] font-semibold text-[#1E293B]">Reason</label>
+          <select
+            id="discount-reason"
+            value={draft.reason}
+            onChange={(event) => set({ reason: event.target.value })}
+            className="mt-1 h-10 w-full rounded border border-[#79747E] bg-white px-2.5 text-sm text-[#111827] outline-none focus:border-[#3B82F6]"
+          >
+            {DISCOUNT_REASONS.map((reason) => (
+              <option key={reason} value={reason}>{reason}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="mt-4">
+          <label htmlFor="discount-note" className="block text-[11px] font-semibold text-[#1E293B]">Note (optional)</label>
+          <textarea
+            id="discount-note"
+            rows={2}
+            value={draft.note}
+            onChange={(event) => set({ note: event.target.value })}
+            placeholder="Who approved it and why..."
+            className="mt-1 w-full rounded border border-[#79747E] px-2.5 py-2 text-sm text-[#111827] outline-none placeholder:text-[#9CA3AF] focus:border-[#3B82F6]"
+          />
+        </div>
+
+        {showError && error ? (
+          <p role="alert" className="mt-3 text-xs font-semibold text-[#DC2626]">{error}</p>
+        ) : null}
+
+        <div className="mt-6 flex items-center gap-3">
+          {existing ? (
+            <button type="button" onClick={onRemove} className="text-sm font-semibold text-[#DC2626] hover:underline">
+              Remove discount
+            </button>
+          ) : null}
+          <span className="flex-1" />
+          <button type="button" onClick={onClose} className="px-3 py-2 text-sm font-semibold text-[#475569]">
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={() => (error ? setShowError(true) : onSave(draft))}
+            className="rounded-[20px] bg-[#0F172A] px-5 py-2.5 text-sm font-bold text-white"
+          >
+            Save discount
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -603,6 +895,7 @@ function ApplicantCard({
   applicant,
   tab,
   setup,
+  onDiscount,
   onMarkContacted,
   onArchive,
   onUnarchive,
@@ -610,6 +903,7 @@ function ApplicantCard({
   applicant: EnrollmentApplicant;
   tab: ApplicantTab;
   setup: SetupState | null;
+  onDiscount: () => void;
   onMarkContacted: () => void;
   onArchive: () => void;
   onUnarchive: () => void;
@@ -678,6 +972,27 @@ function ApplicantCard({
           </div>
         ) : null}
         <div className="mt-4 border-t border-black/10 pt-3">
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            {applicant.discount ? (
+              <span className="inline-flex items-center gap-1.5 rounded-lg bg-[#FEF3C7] px-2.5 py-2 text-[11px] text-[#92400E]">
+                <Tag size={14} />
+                <span className="font-bold">{discountLabel(applicant.discount)}</span>
+                {applicant.discount.reason ? <span className="font-medium">· {applicant.discount.reason}</span> : null}
+              </span>
+            ) : (
+              <span className="rounded-lg bg-[#F1F5F9] px-2.5 py-2 text-[11px] font-semibold text-[#475569]">No discount</span>
+            )}
+            <button
+              type="button"
+              onClick={onDiscount}
+              disabled={!applicant.studentUserId}
+              title={applicant.studentUserId ? undefined : "Create the student's account first"}
+              className="inline-flex min-h-9 flex-1 items-center justify-center gap-2 rounded-lg border border-black/10 px-3 text-xs font-semibold text-[#B45309] hover:bg-[#FFFBEB] disabled:cursor-not-allowed disabled:text-[#CBD5E1] disabled:hover:bg-transparent"
+            >
+              <Tag size={16} />
+              {applicant.discount ? "Edit discount" : "Add discount"}
+            </button>
+          </div>
           <div className="flex items-center gap-3">
             {applicant.status !== "archived" ? (
               <button type="button" onClick={onArchive} aria-label={`Archive ${applicant.studentName}`} className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-[#94A3B8] hover:bg-[#F1F5F9]">
@@ -978,7 +1293,44 @@ function normalizeApplicant(id: string, data: Record<string, unknown>): Enrollme
     parentLinked:
       stringValue(metadata.parentInviteStatus) === "linked" ||
       stringValue(contact.guardianId).length > 0,
+    // Filled in by loadDiscounts() — it lives on the student's user record,
+    // because it covers every program that student takes rather than one
+    // application.
+    discount: null,
   };
+}
+
+function readDiscount(raw: unknown): StudentDiscount | null {
+  const data = recordValue(raw);
+  const mode = stringValue(data.mode);
+  const value = Number(data.value);
+  if ((mode !== "percent" && mode !== "fixed") || !Number.isFinite(value) || value <= 0) return null;
+  const duration = stringValue(data.duration) === "ongoing" ? "ongoing" : "months";
+  const startDate = dateValue(data.startDate);
+  if (!startDate) return null;
+  const months = Number(data.months);
+  return {
+    mode,
+    value,
+    duration,
+    ...(duration === "months" && Number.isFinite(months) && months > 0 ? { months } : {}),
+    startDate,
+    reason: stringValue(data.reason),
+    ...(stringValue(data.note) ? { note: stringValue(data.note) } : {}),
+  };
+}
+
+/** One read per student who has an account; applicants without one have none. */
+async function loadDiscounts(applicants: EnrollmentApplicant[]): Promise<Map<string, StudentDiscount>> {
+  const uids = [...new Set(applicants.map((a) => a.studentUserId).filter(Boolean))];
+  const found = new Map<string, StudentDiscount>();
+  const snapshots = await Promise.all(uids.map((uid) => getDoc(doc(db, "users", uid))));
+  snapshots.forEach((snapshot, index) => {
+    if (!snapshot.exists()) return;
+    const discount = readDiscount((snapshot.data() as Record<string, unknown>).discount);
+    if (discount) found.set(uids[index], discount);
+  });
+  return found;
 }
 
 function recordValue(value: unknown) {
