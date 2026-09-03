@@ -50,22 +50,59 @@ await rm(packageOut, { recursive: true, force: true });
 await mkdir(packageOut, { recursive: true });
 await cp(nextOut, packageOut, { recursive: true, force: true });
 
-// These admin screens render inside the Flutter web app (/app/), which is
-// cross-origin isolated (COEP) for the Zoom SDK. A COEP document may only
+// The admin shift schedule renders inside the Flutter web app (/app/), which
+// is cross-origin isolated (COEP) for the Zoom SDK. A COEP document may only
 // frame documents that send a COEP header themselves, so without this the
-// browser blocks the embed with a blank error page — no network request, and
-// nothing in DevTools to explain it.
-for (const embeddedScreen of ["shifts", "student-applicants"]) {
-  await writeFile(
-    join(packageOut, "admin", embeddedScreen, ".htaccess"),
-    [
-      "<IfModule mod_headers.c>",
-      '    Header always set Cross-Origin-Embedder-Policy "credentialless"',
-      "</IfModule>",
-      "",
-    ].join("\n"),
-  );
-}
+// browser blocks the embed with a blank error page.
+await writeFile(
+  join(packageOut, "admin", "shifts", ".htaccess"),
+  [
+    "<IfModule mod_headers.c>",
+    '    Header always set Cross-Origin-Embedder-Policy "credentialless"',
+    "</IfModule>",
+    "",
+  ].join("\n"),
+);
+
+// Caching. With no Cache-Control at all the browser falls back to heuristic
+// caching — roughly a tenth of the time since the file was last modified — so
+// a page that sat unchanged for a week keeps serving the old build for hours
+// after a deploy. That is invisible to us and confusing for families, who are
+// shown a form we believe we already replaced.
+//
+// The root rule makes HTML and the Next.js RSC payloads revalidate every time;
+// the answer is normally a 304 and costs nothing. The immutable rule is scoped
+// to _next/static, whose filenames are content hashes — deliberately NOT
+// applied at the root, because the Flutter app under /app/ versions itself
+// with a ?v= query instead and has its own rules.
+await writeFile(
+  join(packageOut, ".htaccess"),
+  [
+    "RewriteEngine On",
+    "",
+    "RewriteCond %{HTTP_HOST} ^(ops|routing|control)\\.alluwaleducationhub\\.org$ [NC]",
+    "RewriteRule ^$ /admin/routing-control/ [R=302,L]",
+    "",
+    "<IfModule mod_headers.c>",
+    '    <FilesMatch "\\.(html|txt|json)$">',
+    '        Header set Cache-Control "no-cache, must-revalidate"',
+    "    </FilesMatch>",
+    "</IfModule>",
+    "",
+  ].join("\n"),
+);
+
+await mkdir(join(packageOut, "_next", "static"), { recursive: true });
+await writeFile(
+  join(packageOut, "_next", "static", ".htaccess"),
+  [
+    "<IfModule mod_headers.c>",
+    "    # Filenames here are content hashes, so a new build asks for new names.",
+    '    Header set Cache-Control "public, max-age=31536000, immutable"',
+    "</IfModule>",
+    "",
+  ].join("\n"),
+);
 
 if (await exists(flutterWeb)) {
   await rm(join(packageOut, "app"), { recursive: true, force: true });
