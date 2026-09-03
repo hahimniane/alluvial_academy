@@ -100,7 +100,16 @@ export type BroadcastInput = {
  * to teachers are different facts, and losing the first one makes a later
  * complaint impossible to answer.
  */
-export async function broadcastEnrollment(enrollmentId: string, input: BroadcastInput): Promise<string> {
+export async function broadcastEnrollment(
+  enrollmentId: string,
+  input: BroadcastInput,
+  /**
+   * The other enrollment ids in the same exclusive family class. One posting
+   * covers the whole class, so a single teacher takes all the children; every
+   * document moves to `broadcasted` together and shares the job id.
+   */
+  classmateIds: string[] = [],
+): Promise<string> {
   const admin = await currentAdmin();
 
   const enrollmentRef = doc(db, "enrollments", enrollmentId);
@@ -182,6 +191,32 @@ export async function broadcastEnrollment(enrollmentId: string, input: Broadcast
     if (jobData[key] === null || jobData[key] === undefined) delete jobData[key];
   }
 
+  // The roster is what turns several enrollments into one class on the board:
+  // the teacher sees every child they would be teaching, and the shift built
+  // from this match carries them all.
+  const otherIds = classmateIds.filter((id) => id && id !== enrollmentId);
+  if (otherIds.length > 0) {
+    const others = await Promise.all(otherIds.map((id) => getDoc(doc(db, "enrollments", id))));
+    const roster = [
+      { enrollmentId, name: text(student.name ?? data.studentName) || "Student", age: text(student.age ?? data.studentAge), level: text(data.gradeLevel) },
+      ...others.flatMap((snap) => {
+        if (!snap.exists()) return [];
+        const sibling = snap.data() as Record<string, unknown>;
+        const siblingStudent = record(sibling.student);
+        return [{
+          enrollmentId: snap.id,
+          name: text(siblingStudent.name ?? sibling.studentName) || "Student",
+          age: text(siblingStudent.age ?? sibling.studentAge),
+          level: text(sibling.gradeLevel),
+        }];
+      }),
+    ];
+    jobData.classRoster = roster;
+    jobData.classEnrollmentIds = roster.map((r) => r.enrollmentId);
+    jobData.studentName = roster.map((r) => r.name).join(", ");
+    jobData.studentCount = roster.length;
+  }
+
   const jobRef = await addDoc(collection(db, "job_board"), jobData);
 
   const daysChanged = input.days.join(",") !== originalDays.join(",");
@@ -197,7 +232,7 @@ export async function broadcastEnrollment(enrollmentId: string, input: Broadcast
         }
       : null;
 
-  await updateDoc(enrollmentRef, {
+  const enrollmentUpdate = {
     "metadata.status": "broadcasted",
     "metadata.broadcastedAt": serverTimestamp(),
     "metadata.jobId": jobRef.id,
@@ -219,7 +254,11 @@ export async function broadcastEnrollment(enrollmentId: string, input: Broadcast
     ...(notes ? { "metadata.adminNotesForTeachers": notes } : {}),
     "metadata.scheduleTimezoneRef": timezoneRef,
     "metadata.lastBroadcastSnapshot": broadcastSnapshot,
-  });
+  } as Record<string, unknown>;
+
+  await Promise.all(
+    [enrollmentId, ...otherIds].map((id) => updateDoc(doc(db, "enrollments", id), enrollmentUpdate)),
+  );
 
   return jobRef.id;
 }
@@ -322,6 +361,10 @@ export async function confirmTeacherMatch(jobId: string, teacherId: string): Pro
 
     const enrollmentId = text(jobData.enrollmentId);
     if (!enrollmentId) throw new Error("Missing enrollment id.");
+    // An exclusive family class was posted once for several enrollments; the
+    // match settles all of them, or half the children stay unmatched.
+    const classIds = list(jobData.classEnrollmentIds);
+    const enrollmentIds = classIds.length > 0 ? classIds : [enrollmentId];
 
     const responseSnap = await tx.get(responseRef);
     if (!responseSnap.exists()) throw new Error("Teacher has not submitted a response yet.");
@@ -350,7 +393,7 @@ export async function confirmTeacherMatch(jobId: string, teacherId: string): Pro
       closedAt: deleteField(),
     });
 
-    tx.update(doc(db, "enrollments", enrollmentId), {
+    const enrollmentUpdate = {
       "metadata.status": "matched",
       "metadata.jobId": jobId,
       "metadata.matchedTeacherId": teacherId,
@@ -376,7 +419,9 @@ export async function confirmTeacherMatch(jobId: string, teacherId: string): Pro
         adminEmail: admin.email,
         timestamp: Timestamp.now(),
       }),
-    });
+    } as Record<string, unknown>;
+
+    for (const id of enrollmentIds) tx.update(doc(db, "enrollments", id), enrollmentUpdate);
   });
 }
 

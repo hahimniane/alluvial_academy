@@ -80,7 +80,8 @@ export const nextDateOn = (isoDays: number[], from: Date = new Date()): Date | n
 
 export const shiftPrefillFor = (
   match: MatchSchedule,
-  studentId: string,
+  /** Every child in the class — an exclusive family class books one shift. */
+  studentIds: string[],
   subjects: { id: string; name: string }[],
   now: Date = new Date(),
 ): ShiftPrefill => {
@@ -99,7 +100,7 @@ export const shiftPrefillFor = (
     staffId: match.teacherId || null,
     date: nextDateOn(weeklyDays, now),
     subjectId: subject?.id,
-    studentIds: [studentId],
+    studentIds,
     startStr: start,
     endStr: end,
     recurrenceType: weeklyDays.length > 0 ? "weekly" : "none",
