@@ -1119,30 +1119,84 @@ const inviteParentForEnrollment = async (request) => {
   );
 
   // Send a password setup email when we had to create the Auth user.
+  // Tell the parent. Linking someone to a child and never saying so leaves
+  // them with an account they do not know exists — and, for a parent who
+  // already had one, no sign that anything happened at all.
+  const studentName = [
+    (studentSnap.data() || {}).first_name,
+    (studentSnap.data() || {}).last_name,
+  ].filter(Boolean).join(' ').trim() || 'your child';
+
   let inviteSent = false;
   let inviteError = null;
-  if (createdAuthUser) {
-    try {
+  try {
+    const transporter = await createTransporter();
+    const from = `"Alluwal Education Hub" <no-reply@alluwaleducationhub.org>`;
+    const greeting = `As-salamu alaykum ${escapeHtml(firstName || '')},`;
+    let subject;
+    let html;
+
+    if (createdAuthUser) {
       const link = await admin.auth().generatePasswordResetLink(email);
-      const transporter = await createTransporter();
-      const from = `"Alluwal Education Hub" <no-reply@alluwaleducationhub.org>`;
-      const subject = `Set up your Alluwal Education Hub parent account`;
-      const html = `
+      subject = 'Set up your Alluwal Education Hub parent account';
+      html = `
         <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #0f172a;">
-          <p>As-salamu alaykum ${escapeHtml(firstName || '')},</p>
-          <p>An administrator has linked you as the parent of a newly enrolled student at Alluwal Education Hub.</p>
+          <p>${greeting}</p>
+          <p>An administrator has linked you as the parent of <strong>${escapeHtml(studentName)}</strong> at Alluwal Education Hub.</p>
           <p>Please click the link below to set your password and access your parent dashboard:</p>
           <p><a href="${link}" style="background:#3b82f6;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none;display:inline-block;">Set your password</a></p>
           <p>If the button does not work, copy this URL into your browser:<br/>
           <a href="${link}">${link}</a></p>
           <p>JazakAllah khair.</p>
         </div>`;
-      await transporter.sendMail({ from, to: email, subject, html });
-      inviteSent = true;
-    } catch (e) {
-      inviteError = e.message || String(e);
-      console.error('inviteParentForEnrollment: failed to send invite email', inviteError);
+    } else {
+      // An account they already have: no password link, just what changed.
+      subject = `${studentName} has been linked to your Alluwal account`;
+      html = `
+        <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #0f172a;">
+          <p>${greeting}</p>
+          <p><strong>${escapeHtml(studentName)}</strong> is now linked to your Alluwal Education Hub parent account.</p>
+          <p>Sign in with your usual password to see their schedule, attendance and invoices.</p>
+          <p><a href="https://alluwaleducationhub.org/app/" style="background:#3b82f6;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none;display:inline-block;">Open your dashboard</a></p>
+          <p>JazakAllah khair.</p>
+        </div>`;
     }
+
+    await transporter.sendMail({ from, to: email, subject, html });
+    inviteSent = true;
+  } catch (e) {
+    inviteError = e.message || String(e);
+    console.error('inviteParentForEnrollment: failed to send invite email', inviteError);
+  }
+
+  // Push, for a parent who already has the app. A brand-new account has no
+  // devices yet, so this simply finds nothing — the email above is their way in.
+  let pushSent = 0;
+  try {
+    const parentAfter = (await parentRef.get()).data() || {};
+    const tokens = [];
+    if (Array.isArray(parentAfter.fcmTokens)) {
+      for (const entry of parentAfter.fcmTokens) {
+        const token = typeof entry === 'string' ? entry : entry && entry.token;
+        if (token) tokens.push(token);
+      }
+    }
+    if (parentAfter.fcmToken) tokens.push(parentAfter.fcmToken);
+    if (tokens.length > 0) {
+      const res = await admin.messaging().sendEachForMulticast({
+        notification: {
+          title: 'A student was linked to your account',
+          body: `${studentName} is now on your Alluwal parent dashboard.`,
+        },
+        data: { type: 'parent_linked', studentUid: String(studentUid), enrollmentId: String(enrollmentId) },
+        tokens,
+      });
+      pushSent = res.successCount;
+      console.log(`inviteParentForEnrollment: push ${res.successCount}/${tokens.length} delivered`);
+    }
+  } catch (e) {
+    // A push failure must not fail the link, which is already committed.
+    console.error('inviteParentForEnrollment: push failed', e.message || e);
   }
 
   return {
@@ -1152,6 +1206,8 @@ const inviteParentForEnrollment = async (request) => {
     createdAuthUser,
     inviteSent,
     inviteError,
+    pushSent,
+    studentName,
     status: parentAlreadyExists ? 'linked' : 'invited',
   };
 };
