@@ -237,6 +237,16 @@ squash-merge.**
 - Prod: `cd functions && npm run deploy:prod` (project `alluwal-academy`)
 - Never run `firebase deploy` without specifying `--project`. Prod and dev
 use the same function names — the wrong flag ships dev code to prod.
+- **Deploy only committed code.** Never deploy functions from a working tree
+with uncommitted changes. On 2026-07-13 we found five functions running in
+prod whose source existed in no commit on any branch (deployed 2026-05/06
+from someone's local tree), including the active class-absence monitor —
+its code had to be recovered from the `gcf-v2-sources` GCS archive. If a
+function is worth deploying, it's worth committing first.
+- Every deployed function must be exported from `functions/index.js`. A
+function that is deployed but missing from `index.js` gets **deleted** by
+the next full `firebase deploy --only functions` (this nearly killed
+`claimShift`, which the app's job board calls).
 
 ---
 
