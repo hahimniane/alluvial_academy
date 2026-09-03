@@ -1806,6 +1806,7 @@ function ContactPanel({
 
         <DarkTextarea
           label="Scheduling notes (optional)"
+          name="schedulingNotes"
           value={contact.schedulingNotes}
           onChange={(value) => onChange("schedulingNotes", value)}
           placeholder="e.g. prefer after 4pm weekdays, avoid Fridays..."
@@ -1855,11 +1856,14 @@ function DarkField({
 
 function DarkTextarea({
   label,
+  name,
   value,
   onChange,
   placeholder,
 }: {
   label: string;
+  /** Without a name the field is invisible to autofill, form tooling and tests. */
+  name: string;
   value: string;
   onChange: (value: string) => void;
   placeholder: string;
@@ -1868,6 +1872,7 @@ function DarkTextarea({
     <label className="grid gap-1.5">
       <span className="text-[12px] font-bold text-[#CBD5E1]">{label}</span>
       <textarea
+        name={name}
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
