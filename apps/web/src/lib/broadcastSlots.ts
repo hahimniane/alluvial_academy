@@ -84,8 +84,16 @@ export const sortSlots = (slots: string[]): string[] =>
   });
 
 /** What blocks a broadcast, or null when it is ready to send. */
-export const broadcastProblem = (days: string[], slots: string[]): string | null => {
+/**
+ * Families now give a part of the day rather than exact hours, and the
+ * teacher's picker builds the concrete windows from that. So a posting needs
+ * either explicit slots or a window — demanding slots the form never collects
+ * left admins unable to broadcast at all.
+ */
+export const broadcastProblem = (days: string[], slots: string[], block = ""): string | null => {
   if (days.length === 0) return "Select at least one day before broadcasting.";
-  if (slots.length === 0) return "Add at least one time slot before broadcasting.";
+  if (slots.length === 0 && !block.trim()) {
+    return "Add a time slot, or choose the part of the day the family asked for.";
+  }
   return null;
 };

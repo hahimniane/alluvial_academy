@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Globe2, Plus, Search, StickyNote, Trash2, Users } from "lucide-react";
 import { ActionButton } from "@/components/ActionButton";
-import { TIME_BLOCKS, blockRangeLabel, normalizeBlock } from "@/lib/enrollmentDomain";
+import { TIME_BLOCKS, blockById, blockRangeLabel, normalizeBlock, slotsFor } from "@/lib/enrollmentDomain";
 import { broadcastProblem, formatSlot, slotProblem, sortSlots } from "@/lib/broadcastSlots";
 import { loadBroadcastTeachers, type BroadcastInput, type TeacherOption } from "@/lib/jobBoardAdmin";
 
@@ -28,13 +28,21 @@ export function PrepareBroadcastDialog({
   studentName: string;
   subject: string;
   familyNotes: string;
-  initial: { days: string[]; timeSlots: string[]; block: string; timeZone: string };
+  initial: { days: string[]; timeSlots: string[]; block: string; timeZone: string; sessionMinutes: number };
   onBroadcast: (input: BroadcastInput) => Promise<void>;
   onClose: () => void;
 }) {
   const [days, setDays] = useState<string[]>(initial.days);
-  const [slots, setSlots] = useState<string[]>(sortSlots(initial.timeSlots));
-  const [block, setBlock] = useState(normalizeBlock(initial.block) ?? "");
+  const startingBlock = normalizeBlock(initial.block) ?? "";
+  // Families give a part of the day, not exact hours. Offer the concrete
+  // windows that fit inside it — the same ones the teacher will rank — so the
+  // admin trims a real list instead of typing times from scratch.
+  const [slots, setSlots] = useState<string[]>(() =>
+    initial.timeSlots.length > 0
+      ? sortSlots(initial.timeSlots)
+      : sortSlots(slotsFor(blockById(startingBlock), initial.sessionMinutes || 60, 30)),
+  );
+  const [block, setBlock] = useState(startingBlock);
   const [timezoneRef, setTimezoneRef] = useState(initial.timeZone);
   const [notes, setNotes] = useState("");
   const [start, setStart] = useState("");
@@ -79,7 +87,7 @@ export function PrepareBroadcastDialog({
     setSlotError("");
   };
 
-  const blocked = broadcastProblem(days, slots) ?? (!everyone && picked.size === 0 ? "Choose at least one teacher, or broadcast to everyone." : null);
+  const blocked = broadcastProblem(days, slots, block) ?? (!everyone && picked.size === 0 ? "Choose at least one teacher, or broadcast to everyone." : null);
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-label="Prepare and broadcast">
@@ -129,7 +137,9 @@ export function PrepareBroadcastDialog({
             <p className="text-[11px] font-bold text-[#1E293B]">Time slots</p>
             {slots.length === 0 ? (
               <p className="mt-1 text-[11px] text-[#B45309]">
-                No time slots specified. Add at least one so teachers know when.
+                {block
+                  ? `No exact slots — teachers will see the whole ${block.toLowerCase()} window.`
+                  : "No time slots specified. Add at least one so teachers know when."}
               </p>
             ) : (
               <ul className="mt-1.5 grid gap-1.5">
