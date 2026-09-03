@@ -252,6 +252,7 @@ export function StudentApplicantsAdmin() {
    * shows one card for them and every action reaches all their documents.
    */
   const classGroups = useMemo(() => groupApplicants(visibleApplicants), [visibleApplicants]);
+  const allClassGroups = useMemo(() => groupApplicants(applicants), [applicants]);
   const classForId = useMemo(() => {
     const map = new Map<string, string[]>();
     for (const group of groupApplicants(applicants)) {
@@ -647,8 +648,9 @@ export function StudentApplicantsAdmin() {
             stage={stage}
             onStage={setStage}
             stageCounts={stageCounts}
-            shown={visibleApplicants.length}
-            total={applicants.length}
+            shown={classGroups.length}
+            total={allClassGroups.length}
+            studentsShown={visibleApplicants.length}
             exportOpen={exportOpen}
             onExportOpen={setExportOpen}
             exporting={exporting}
@@ -974,6 +976,7 @@ export function ApplicantTriageToolbar({
   stageCounts,
   shown,
   total,
+  studentsShown,
   exportOpen,
   onExportOpen,
   exporting,
@@ -992,6 +995,8 @@ export function ApplicantTriageToolbar({
   stageCounts: Record<StageFilter, number>;
   shown: number;
   total: number;
+  /** Children behind those applications; differs when a family shares a class. */
+  studentsShown: number;
   exportOpen: boolean;
   onExportOpen: (value: boolean) => void;
   exporting: boolean;
@@ -1075,8 +1080,9 @@ export function ApplicantTriageToolbar({
 
             <span className="ml-auto text-xs font-semibold text-[#6B7280]">
               {shown === total
-                ? `${total} ${total === 1 ? "applicant" : "applicants"}`
+                ? `${total} ${total === 1 ? "application" : "applications"}`
                 : `${shown} of ${total}`}
+              {studentsShown > shown ? ` · ${studentsShown} students` : ""}
             </span>
           </div>
 
