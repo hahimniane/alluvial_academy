@@ -226,7 +226,14 @@ const sendMultiStudentEnrollmentEmail = async (allEnrollments) => {
   }
 
   const recipientName = contact.parentName || contact.email?.split('@')[0] || 'Parent';
-  const studentCount = allEnrollments.length;
+  // One enrollment per student per program, so the document count is a count
+  // of classes, not children. A parent enrolling one child in two programs
+  // must not be told we received a request for "2 students".
+  const studentNames = new Set(
+    allEnrollments.map((e) => ((e.student || {}).name || '').trim().toLowerCase()).filter(Boolean)
+  );
+  const studentCount = studentNames.size || allEnrollments.length;
+  const programCount = allEnrollments.length;
   const sharedSchedulingNotes = (firstEnrollment.preferences || {}).schedulingNotes;
   const programListText = [...new Set(allEnrollments.map((e) => resolveProgramName(e)))].join(', ');
 
@@ -332,7 +339,7 @@ const sendMultiStudentEnrollmentEmail = async (allEnrollments) => {
           
           <div class="content">
             <h2>Dear ${recipientName},</h2>
-            <p>We're excited to inform you that we've received your enrollment request for <strong>${studentCount} student${studentCount > 1 ? 's' : ''}</strong>${programListText ? `: <strong>${escapeHtml(programListText)}</strong>` : ''}.</p>
+            <p>We're excited to inform you that we've received your enrollment request for <strong>${studentCount} student${studentCount > 1 ? 's' : ''}</strong>${programCount > studentCount ? ` across <strong>${programCount} programs</strong>` : ''}${programListText ? `: <strong>${escapeHtml(programListText)}</strong>` : ''}.</p>
 
             <div class="success-note">
               <h3>✅ What Happens Next?</h3>
@@ -404,7 +411,7 @@ const sendMultiStudentEnrollmentEmail = async (allEnrollments) => {
 
   try {
     await transporter.sendMail(mailOptions);
-    console.log(`✅ Multi-student enrollment confirmation email sent to ${email} for ${studentCount} student(s)`);
+    console.log(`✅ Multi-student enrollment confirmation email sent to ${email} for ${studentCount} student(s) across ${programCount} program(s)`);
     return true;
   } catch (error) {
     console.error(`❌ Failed to send multi-student enrollment confirmation email to ${email}:`, error);
