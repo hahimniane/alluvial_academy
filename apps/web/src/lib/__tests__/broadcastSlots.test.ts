@@ -65,6 +65,11 @@ test("slots are ordered by start time", () => {
 
 test("a broadcast needs both a day and a slot", () => {
   assert.match(broadcastProblem([], ["4:00 PM - 5:00 PM"])!, /at least one day/);
-  assert.match(broadcastProblem(["Monday"], [])!, /at least one time slot/);
+  assert.match(broadcastProblem(["Monday"], [])!, /Add a time slot, or choose the part of the day/);
+  // A window is enough on its own: the teacher's picker builds the concrete
+  // slots from it, and the new form never collects exact hours.
+  assert.equal(broadcastProblem(["Monday"], [], "Afternoon"), null);
+  assert.equal(broadcastProblem(["Monday"], ["4:00 PM - 5:00 PM"], ""), null);
+  assert.match(broadcastProblem([], [], "Afternoon")!, /at least one day/);
   assert.equal(broadcastProblem(["Monday"], ["4:00 PM - 5:00 PM"]), null);
 });

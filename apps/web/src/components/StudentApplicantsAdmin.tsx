@@ -736,6 +736,7 @@ export function StudentApplicantsAdmin() {
               timeSlots: broadcastFor.timeSlots,
               block: broadcastFor.block,
               timeZone: broadcastFor.timeZone,
+              sessionMinutes: minutesFromDurationLabel(broadcastFor.sessionDuration),
             }}
             onBroadcast={(input) => sendBroadcast(broadcastFor, input)}
             onClose={() => setBroadcastFor(null)}

@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { FAMILY_CLASS_TYPE, groupApplicants, groupIds, listNames } from "../familyGroups.ts";
+import { blockById, slotsFor } from "../enrollmentDomain.ts";
 
 const a = (over: Partial<Parameters<typeof groupApplicants>[0][number]> = {}) => ({
   id: "e1", parentLinkId: "link-1", classType: FAMILY_CLASS_TYPE, subject: "Adlam", studentName: "test 1", ...over,
@@ -70,4 +71,15 @@ test("names read as a sentence", () => {
   assert.equal(listNames(["a", "b"]), "a and b");
   assert.equal(listNames(["a", "b", "c"]), "a, b and c");
   assert.equal(listNames([" ", ""]), "");
+});
+
+test("the broadcast dialog starts from the family's window, not an empty list", () => {
+  // Regression: the new enrollment form collects a part of the day, never
+  // exact hours, so the dialog opened with no slots and refused to broadcast.
+  const afternoon = blockById("Afternoon")!;
+  const offered = slotsFor(afternoon, 60, 30);
+  assert.equal(offered.length, 7, "an afternoon of one-hour classes offers seven windows");
+  assert.equal(offered[0], "12:00 PM - 1:00 PM");
+  assert.equal(offered[offered.length - 1], "3:00 PM - 4:00 PM");
+  assert.deepEqual(slotsFor(blockById(""), 60, 30), [], "no window means nothing to prefill");
 });
