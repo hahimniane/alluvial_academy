@@ -2,26 +2,15 @@
 
 import { onAuthStateChanged, type User } from "firebase/auth";
 import {
-  arrayUnion,
-  collection,
-  deleteField,
-  doc,
-  getDoc,
-  increment,
-  onSnapshot,
-  runTransaction,
-  Timestamp,
-  type Unsubscribe,
-} from "firebase/firestore";
-import { useEffect, useMemo, useState } from "react";
-import {
   BookOpen,
   CalendarDays,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   ClipboardCheck,
   Clock3,
-  GraduationCap,
   Globe2,
+  GraduationCap,
   Info,
   Menu,
   RotateCw,
@@ -30,7 +19,21 @@ import {
   UserRound,
   X,
 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  Timestamp,
+  arrayUnion,
+  collection,
+  deleteField,
+  doc,
+  getDoc,
+  increment,
+  onSnapshot,
+  runTransaction,
+  type Unsubscribe,
+} from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
+import { blockById, blockRangeLabel, normalizeBlock, sessionLabel, slotsFor } from "@/lib/enrollmentDomain";
 import { getCurrentUserRecord, isCurrentUserTeacher } from "@/lib/userRoles";
 import { TeacherAccessPrompt, TeacherShell, openTeacherMobileMenu } from "@/components/TeacherDashboardHome";
 
@@ -55,6 +58,11 @@ type JobOpportunity = {
   days: string[];
   timeSlots: string[];
   timeZone: string;
+  /** The family's chosen part of the day, e.g. "Evening". */
+  block: string;
+  /** How long one class is. Drives the slot windows the teacher picks from. */
+  sessionMinutes: number;
+  sessionsPerWeek: number;
   status: string;
   createdAt: Date;
   acceptedByTeacherId: string;
@@ -75,13 +83,13 @@ type TeacherResponse = {
 type ResponseDraft = {
   status: AvailabilityStatus;
   comment: string;
-  alternatives: string;
+  rankedSlots: string[];
 };
 
 const emptyDraft: ResponseDraft = {
   status: "available",
   comment: "",
-  alternatives: "",
+  rankedSlots: [],
 };
 
 export function TeacherJobBoardPage() {
@@ -406,7 +414,16 @@ function JobCard({
         {job.adminNotesForTeachers ? <AdminNote text={job.adminNotesForTeachers} /> : null}
         {response ? <TeacherResponseNote response={response} /> : null}
         <InfoRow icon={CalendarDays} text={`Days: ${job.days.join(", ") || "N/A"}`} />
-        <InfoRow icon={Clock3} text={`Times: ${job.timeSlots.join(", ") || "N/A"}`} />
+        <InfoRow
+          icon={Clock3}
+          text={
+            // Families give a window now, not exact hours. Older jobs still
+            // carry the slots they picked, so fall back to those.
+            blockById(job.block)
+              ? `Requested window: ${blockById(job.block)!.label} (${blockRangeLabel(blockById(job.block)!)})`
+              : `Times: ${job.timeSlots.join(", ") || "N/A"}`
+          }
+        />
         {isFilled && job.acceptedAt ? <InfoRow icon={CheckCircle2} text={`Accepted on ${formatFullDate(job.acceptedAt)}`} /> : null}
         {isFilled && Object.keys(job.teacherSelectedTimes).length > 0 ? <SelectedTimes times={job.teacherSelectedTimes} /> : null}
       </div>
@@ -580,16 +597,7 @@ function ResponseDialog({
           />
         </label>
 
-        <label className="mt-4 block text-xs font-bold text-[#334155]">
-          Alternative times (optional, one per line)
-          <textarea
-            value={draft.alternatives}
-            onChange={(event) => onChange({ ...draft, alternatives: event.target.value })}
-            rows={3}
-            placeholder={"Wed 7:00 PM - 8:00 PM\nThu 5:30 PM - 6:30 PM"}
-            className="mt-2 w-full rounded border border-[#CBD5E1] px-3 py-2 text-sm outline-none focus:border-[#0386FF]"
-          />
-        </label>
+        <SlotPicker job={job} draft={draft} onChange={onChange} />
         <p className="mt-2 text-[11px] leading-5 text-[#64748B]">Admin will review responses and confirm the final match.</p>
         {error ? <p className="mt-3 rounded-lg bg-[#FEE2E2] px-3 py-2 text-sm font-semibold text-[#B91C1C]">{error}</p> : null}
 
@@ -605,13 +613,164 @@ function ResponseDialog({
   );
 }
 
+/**
+ * The teacher picks the exact windows they can teach, in preference order.
+ *
+ * Replaces a free-text "Alternative times" box, which meant admin had to read
+ * prose and retype it. Order is meaningful: index 0 is the teacher's first
+ * choice. Windows slide by 30 minutes across the family's chosen block, so a
+ * 2-hour class in the evening offers 4-6, 4:30-6:30, 5-7 ... not just the two
+ * non-overlapping ones.
+ */
+function SlotPicker({
+  job,
+  draft,
+  onChange,
+}: {
+  job: JobOpportunity;
+  draft: ResponseDraft;
+  onChange: (draft: ResponseDraft) => void;
+}) {
+  const block = blockById(job.block);
+  const slots = useMemo(
+    () => slotsFor(block, job.sessionMinutes, 30),
+    [block, job.sessionMinutes],
+  );
+  const needed = job.sessionsPerWeek;
+
+  const toggle = (slot: string) => {
+    const ranked = draft.rankedSlots.includes(slot)
+      ? draft.rankedSlots.filter((item) => item !== slot)
+      : [...draft.rankedSlots, slot];
+    onChange({ ...draft, rankedSlots: ranked });
+  };
+
+  const move = (index: number, direction: -1 | 1) => {
+    const target = index + direction;
+    if (target < 0 || target >= draft.rankedSlots.length) return;
+    const ranked = [...draft.rankedSlots];
+    [ranked[index], ranked[target]] = [ranked[target], ranked[index]];
+    onChange({ ...draft, rankedSlots: ranked });
+  };
+
+  if (!block || slots.length === 0) {
+    return (
+      <div className="mt-4 rounded-[10px] border border-[#E2E8F0] bg-[#FAFBFC] p-3">
+        <p className="text-xs font-bold text-[#334155]">Pick the slots you can teach</p>
+        <p className="mt-1 text-[11px] leading-5 text-[#64748B]">
+          {block
+            ? `A session of ${sessionLabel(job.sessionMinutes)} does not fit inside ${block.label.toLowerCase()}, ${blockRangeLabel(block)}. Use the comment box above to tell admin what would work.`
+            : "This request has no time window recorded, so there are no slots to choose from. Use the comment box above to tell admin when you are free."}
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-4 rounded-[10px] border border-[#E2E8F0] bg-[#FAFBFC] p-3">
+      <p className="text-xs font-bold text-[#334155]">Pick the slots you can teach</p>
+      <p className="mt-0.5 text-[11px] text-[#64748B]">
+        {block.label}, {blockRangeLabel(block)} · {sessionLabel(job.sessionMinutes)} per session
+        {needed > 0 ? ` · ${needed} a week` : ""}
+      </p>
+
+      <div className="mt-2.5 flex flex-wrap gap-1.5">
+        {slots.map((slot) => {
+          const rank = draft.rankedSlots.indexOf(slot);
+          const picked = rank >= 0;
+          return (
+            <button
+              key={slot}
+              type="button"
+              aria-pressed={picked}
+              onClick={() => toggle(slot)}
+              className={`inline-flex items-center gap-1.5 rounded-lg border-[1.5px] px-2.5 py-1.5 text-xs transition ${
+                picked
+                  ? "border-[#10B981] bg-[#D1FAE5] font-bold text-[#065F46]"
+                  : "border-[#E2E8F0] bg-white font-medium text-[#475569] hover:bg-slate-50"
+              }`}
+            >
+              {picked ? (
+                <span className="grid h-4 w-4 place-items-center rounded-full bg-[#065F46] text-[10px] font-extrabold text-white">
+                  {rank + 1}
+                </span>
+              ) : null}
+              {slot}
+            </button>
+          );
+        })}
+      </div>
+
+      {draft.rankedSlots.length > 0 ? (
+        <div className="mt-3">
+          <p className="text-[11px] font-bold text-[#334155]">Your order of preference</p>
+          <div className="mt-1.5 grid gap-1.5">
+            {draft.rankedSlots.map((slot, index) => (
+              <div
+                key={slot}
+                className="flex items-center gap-2 rounded-lg border border-[#E2E8F0] bg-white px-2.5 py-1.5"
+              >
+                <span className="grid h-[18px] w-[18px] shrink-0 place-items-center rounded-full bg-[#10B981] text-[10px] font-extrabold text-white">
+                  {index + 1}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-xs font-semibold text-[#1E293B]">{slot}</span>
+                <button
+                  type="button"
+                  aria-label={`Move ${slot} earlier`}
+                  onClick={() => move(index, -1)}
+                  disabled={index === 0}
+                  className="grid h-[26px] w-[26px] place-items-center rounded text-[#64748B] disabled:text-[#CBD5E1]"
+                >
+                  <ChevronUp size={15} />
+                </button>
+                <button
+                  type="button"
+                  aria-label={`Move ${slot} later`}
+                  onClick={() => move(index, 1)}
+                  disabled={index === draft.rankedSlots.length - 1}
+                  className="grid h-[26px] w-[26px] place-items-center rounded text-[#64748B] disabled:text-[#CBD5E1]"
+                >
+                  <ChevronDown size={15} />
+                </button>
+                <button
+                  type="button"
+                  aria-label={`Remove ${slot}`}
+                  onClick={() => toggle(slot)}
+                  className="grid h-[26px] w-[26px] place-items-center rounded text-[#64748B] hover:bg-[#FEE2E2] hover:text-[#DC2626]"
+                >
+                  <X size={15} />
+                </button>
+              </div>
+            ))}
+          </div>
+          {needed > 0 ? (
+            <p
+              className={`mt-1.5 text-[11px] font-semibold ${
+                draft.rankedSlots.length >= needed ? "text-[#047857]" : "text-[#B45309]"
+              }`}
+            >
+              {draft.rankedSlots.length > needed
+                ? `${draft.rankedSlots.length} slots ranked for ${needed} sessions a week — the extras give admin room to fit you in.`
+                : draft.rankedSlots.length === needed
+                  ? `${draft.rankedSlots.length} slots ranked — that covers the ${needed} sessions a week.`
+                  : `Ranked ${draft.rankedSlots.length} of the ${needed} sessions this student needs each week.`}
+            </p>
+          ) : null}
+        </div>
+      ) : (
+        <p className="mt-2 text-[11px] leading-5 text-[#64748B]">
+          Tap the slots that work. The order you tap them is the order we send to admin — you can
+          reorder below.
+        </p>
+      )}
+    </div>
+  );
+}
+
 async function submitTeacherAvailability(job: JobOpportunity, user: User, draft: ResponseDraft) {
   if (!navigator.onLine) throw new Error("You appear to be offline. Reconnect and try again.");
   const normalizedComment = draft.comment.trim();
-  const normalizedAlternatives = draft.alternatives
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
+  const rankedSlots = draft.rankedSlots.map((slot) => slot.trim()).filter(Boolean);
   const jobRef = doc(db, "job_board", job.id);
   const userRef = doc(db, "users", user.uid);
   const responseRef = doc(db, "job_board", job.id, "responses", user.uid);
@@ -643,7 +802,11 @@ async function submitTeacherAvailability(job: JobOpportunity, user: User, draft:
         teacherTimezone,
         availabilityStatus: draft.status,
         comment: normalizedComment,
-        availableAlternatives: normalizedAlternatives,
+        // Ordered: index 0 is the teacher's first choice.
+        rankedSlots,
+        // Deprecated. Older responses are still read from it; new ones keep it
+        // in step so an admin screen that has not moved over yet still works.
+        availableAlternatives: rankedSlots,
         createdAt: existingResponse.exists() ? (existingResponse.data()?.createdAt ?? nowTs) : nowTs,
         updatedAt: nowTs,
         adminRejected: deleteField(),
@@ -753,6 +916,11 @@ function normalizeJob(id: string, data: Record<string, unknown>): JobOpportunity
     days: arrayOfStrings(data.days),
     timeSlots: arrayOfStrings(data.timeSlots),
     timeZone: stringValue(data.timeZone) || "UTC",
+    // `timeOfDayPreference` is what enrollment has always written; `block` is
+    // the new name. Read both so older jobs keep working.
+    block: normalizeBlock(data.block ?? data.timeOfDayPreference) ?? "",
+    sessionMinutes: numberValue(data.sessionMinutes) || minutesFromDurationLabel(stringValue(data.sessionDuration)),
+    sessionsPerWeek: numberValue(data.sessionsPerWeek) || 0,
     status: stringValue(data.status) || "open",
     createdAt: dateValue(data.createdAt) ?? new Date(),
     acceptedByTeacherId: stringValue(data.acceptedByTeacherId),
@@ -852,6 +1020,26 @@ function recordOfStrings(value: unknown) {
       .map(([key, nextValue]) => [key, stringValue(nextValue)] as const)
       .filter(([, nextValue]) => Boolean(nextValue)),
   );
+}
+
+function numberValue(value: unknown) {
+  const n = typeof value === "number" ? value : Number.parseFloat(String(value ?? ""));
+  return Number.isFinite(n) ? n : 0;
+}
+
+/**
+ * Older jobs store the session as a label ("1 hr", "90 mins"). New ones store
+ * minutes. Parse the label so an existing job still produces slots.
+ */
+function minutesFromDurationLabel(label: string) {
+  const text = label.toLowerCase();
+  if (!text) return 60;
+  const hourMatch = text.match(/(\d+(?:\.\d+)?)\s*(?:hr|hour)/);
+  const minuteMatch = text.match(/(\d+)\s*(?:min)/);
+  let minutes = 0;
+  if (hourMatch) minutes += Math.round(Number.parseFloat(hourMatch[1]) * 60);
+  if (minuteMatch) minutes += Number.parseInt(minuteMatch[1], 10);
+  return minutes > 0 ? minutes : 60;
 }
 
 function stringValue(value: unknown) {
