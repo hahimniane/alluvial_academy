@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:timezone/timezone.dart' as tz;
+import 'package:alluwalacademyadmin/features/dashboard/models/enrollment_slots.dart';
 import 'package:alluwalacademyadmin/features/dashboard/models/job_opportunity.dart';
 import 'package:alluwalacademyadmin/features/shift_management/models/teaching_shift.dart';
 import '../../../features/dashboard/services/job_board_service.dart';
@@ -276,10 +277,9 @@ class _JobCardState extends State<_JobCard> {
         widget.job.id,
         availabilityStatus: result['availabilityStatus'] as String,
         comment: result['comment'] as String?,
-        availableAlternatives:
-            (result['availableAlternatives'] as List<dynamic>?)
-                ?.map((e) => e.toString())
-                .toList(),
+        availableAlternatives: (result['rankedSlots'] as List<dynamic>?)
+            ?.map((e) => e.toString())
+            .toList(),
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -475,7 +475,17 @@ class _JobCardState extends State<_JobCard> {
             ),
             const SizedBox(height: 12),
             // Age, Subject, Grade, Duration, Class Type
-            _buildInfoRow(Icons.person, 'Age: ${widget.job.studentAge.isNotEmpty ? widget.job.studentAge : "N/A"}'),
+            if (widget.job.classRoster.length > 1)
+              // An exclusive family class: name every child rather than the
+              // first one's age, which is misleading when they differ.
+              _buildInfoRow(
+                Icons.family_restroom,
+                '${widget.job.classRoster.length} children in this class: '
+                '${widget.job.classRoster.map((c) => c['age']!.isEmpty ? c['name'] : '${c['name']} (${c['age']})').join(', ')}',
+              )
+            else
+              _buildInfoRow(Icons.person,
+                  'Age: ${widget.job.studentAge.isNotEmpty ? widget.job.studentAge : "N/A"}'),
             _buildInfoRow(Icons.book, 'Program: ${widget.job.displaySubject}'),
             _buildInfoRow(Icons.school, 'Grade: ${widget.job.gradeLevel}'),
             
@@ -686,6 +696,15 @@ class _JobCardState extends State<_JobCard> {
             
             const SizedBox(height: 8),
             _buildInfoRow(Icons.calendar_today, 'Days: ${widget.job.days.join(", ")}'),
+
+            // Families give a window now, not exact hours. Older jobs still
+            // carry the slots they picked, so those fall through below.
+            if (blockById(widget.job.block) != null)
+              _buildInfoRow(
+                Icons.access_time,
+                'Requested window: ${blockById(widget.job.block)!.label} '
+                '(${blockById(widget.job.block)!.rangeLabel})',
+              ),
             
             // Time Slots with Conversion
             if (_isLoadingTimezone)
@@ -947,16 +966,229 @@ class _TeacherAvailabilityResponseDialogState
     extends State<_TeacherAvailabilityResponseDialog> {
   String _status = 'available';
   final TextEditingController _commentController = TextEditingController();
-  final TextEditingController _alternativesController = TextEditingController();
+
+  /// Tap order is the order sent to admin; the list below can reorder it.
+  final List<String> _rankedSlots = [];
 
   @override
   void dispose() {
     _commentController.dispose();
-    _alternativesController.dispose();
     super.dispose();
   }
 
+  void _toggleSlot(String slot) {
+    setState(() {
+      if (_rankedSlots.contains(slot)) {
+        _rankedSlots.remove(slot);
+      } else {
+        _rankedSlots.add(slot);
+      }
+    });
+  }
+
+  void _moveSlot(int index, int direction) {
+    final target = index + direction;
+    if (target < 0 || target >= _rankedSlots.length) return;
+    setState(() {
+      final slot = _rankedSlots.removeAt(index);
+      _rankedSlots.insert(target, slot);
+    });
+  }
+
   bool get _requiresComment => _status == 'partial';
+
+  /// The concrete windows the family's answer allows, ranked by tapping.
+  ///
+  /// Replaces a free-text box nothing could parse: admin used to read times by
+  /// eye and retype them, and a teacher had no way to know which windows were
+  /// even useful to offer.
+  Widget _buildSlotPicker() {
+    final block = blockById(widget.job.block);
+    final minutes = widget.job.effectiveSessionMinutes;
+    final slots = slotsFor(block, minutes);
+    final needed = widget.job.sessionsPerWeek ?? 0;
+
+    if (block == null || slots.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: const Color(0xffFAFBFC),
+          border: Border.all(color: const Color(0xffE2E8F0)),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Pick the slots you can teach',
+                style: GoogleFonts.inter(
+                    fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xff334155))),
+            const SizedBox(height: 4),
+            Text(
+              block == null
+                  ? 'This request has no time window recorded, so there are no slots to choose from. Use the comment box above to tell admin when you are free.'
+                  : 'A session of ${sessionLabel(minutes)} does not fit inside ${block.label.toLowerCase()}, ${block.rangeLabel}. Use the comment box above to tell admin what would work.',
+              style: GoogleFonts.inter(fontSize: 11, height: 1.4, color: const Color(0xff64748B)),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xffFAFBFC),
+        border: Border.all(color: const Color(0xffE2E8F0)),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Pick the slots you can teach',
+              style: GoogleFonts.inter(
+                  fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xff334155))),
+          const SizedBox(height: 2),
+          Text(
+            '${block.label}, ${block.rangeLabel} · ${sessionLabel(minutes)} per session'
+            '${needed > 0 ? ' · $needed a week' : ''}',
+            style: GoogleFonts.inter(fontSize: 11, color: const Color(0xff64748B)),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: slots.map((slot) {
+              final rank = _rankedSlots.indexOf(slot);
+              final picked = rank >= 0;
+              return InkWell(
+                onTap: () => _toggleSlot(slot),
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                  decoration: BoxDecoration(
+                    color: picked ? const Color(0xffD1FAE5) : Colors.white,
+                    border: Border.all(
+                        color: picked ? const Color(0xff10B981) : const Color(0xffE2E8F0), width: 1.5),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (picked) ...[
+                        Container(
+                          width: 16,
+                          height: 16,
+                          alignment: Alignment.center,
+                          decoration: const BoxDecoration(
+                              color: Color(0xff065F46), shape: BoxShape.circle),
+                          child: Text('${rank + 1}',
+                              style: GoogleFonts.inter(
+                                  fontSize: 10, fontWeight: FontWeight.w800, color: Colors.white)),
+                        ),
+                        const SizedBox(width: 6),
+                      ],
+                      Text(slot,
+                          style: GoogleFonts.inter(
+                              fontSize: 12,
+                              fontWeight: picked ? FontWeight.w700 : FontWeight.w500,
+                              color: picked ? const Color(0xff065F46) : const Color(0xff475569))),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+          if (_rankedSlots.isEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Tap the slots that work. The order you tap them is the order we send to admin — you can reorder below.',
+              style: GoogleFonts.inter(fontSize: 11, height: 1.4, color: const Color(0xff64748B)),
+            ),
+          ] else ...[
+            const SizedBox(height: 12),
+            Text('Your order of preference',
+                style: GoogleFonts.inter(
+                    fontSize: 11, fontWeight: FontWeight.w700, color: const Color(0xff334155))),
+            const SizedBox(height: 6),
+            ...List.generate(_rankedSlots.length, (index) {
+              final slot = _rankedSlots[index];
+              return Container(
+                margin: const EdgeInsets.only(bottom: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  border: Border.all(color: const Color(0xffE2E8F0)),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 18,
+                      height: 18,
+                      alignment: Alignment.center,
+                      decoration:
+                          const BoxDecoration(color: Color(0xff10B981), shape: BoxShape.circle),
+                      child: Text('${index + 1}',
+                          style: GoogleFonts.inter(
+                              fontSize: 10, fontWeight: FontWeight.w800, color: Colors.white)),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(slot,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.inter(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xff1E293B))),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.keyboard_arrow_up, size: 18),
+                      color: const Color(0xff64748B),
+                      constraints: const BoxConstraints.tightFor(width: 30, height: 30),
+                      padding: EdgeInsets.zero,
+                      tooltip: 'Move earlier',
+                      onPressed: index == 0 ? null : () => _moveSlot(index, -1),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.keyboard_arrow_down, size: 18),
+                      color: const Color(0xff64748B),
+                      constraints: const BoxConstraints.tightFor(width: 30, height: 30),
+                      padding: EdgeInsets.zero,
+                      tooltip: 'Move later',
+                      onPressed:
+                          index == _rankedSlots.length - 1 ? null : () => _moveSlot(index, 1),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, size: 18),
+                      color: const Color(0xff64748B),
+                      constraints: const BoxConstraints.tightFor(width: 30, height: 30),
+                      padding: EdgeInsets.zero,
+                      tooltip: 'Remove',
+                      onPressed: () => _toggleSlot(slot),
+                    ),
+                  ],
+                ),
+              );
+            }),
+            if (needed > 0)
+              Text(
+                _rankedSlots.length > needed
+                    ? '${_rankedSlots.length} slots ranked for $needed sessions a week — the extras give admin room to fit you in.'
+                    : _rankedSlots.length == needed
+                        ? '${_rankedSlots.length} slots ranked — that covers the $needed sessions a week.'
+                        : 'Ranked ${_rankedSlots.length} of the $needed sessions this student needs each week.',
+                style: GoogleFonts.inter(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: _rankedSlots.length >= needed
+                        ? const Color(0xff047857)
+                        : const Color(0xffB45309)),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1038,24 +1270,7 @@ class _TeacherAvailabilityResponseDialogState
                 ),
               ),
               const SizedBox(height: 12),
-              Text(
-                'Alternative times (optional, one per line)',
-                style: GoogleFonts.inter(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xff334155),
-                ),
-              ),
-              const SizedBox(height: 6),
-              TextField(
-                controller: _alternativesController,
-                minLines: 2,
-                maxLines: 4,
-                decoration: const InputDecoration(
-                  hintText: 'Wed 7:00 PM - 8:00 PM\nThu 5:30 PM - 6:30 PM',
-                  border: OutlineInputBorder(),
-                ),
-              ),
+              _buildSlotPicker(),
               const SizedBox(height: 8),
               Text(
                 'Admin will review responses and confirm the final match.',
@@ -1085,15 +1300,22 @@ class _TeacherAvailabilityResponseDialogState
               );
               return;
             }
-            final alternatives = _alternativesController.text
-                .split('\n')
-                .map((e) => e.trim())
-                .where((e) => e.isNotEmpty)
-                .toList();
+            if (_rankedSlots.isEmpty) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Pick at least one slot you can teach.'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+              return;
+            }
             Navigator.pop(context, {
               'availabilityStatus': _status,
               'comment': comment.isEmpty ? null : comment,
-              'availableAlternatives': alternatives,
+              // rankedSlots is the field admin reads; availableAlternatives
+              // carries the same list for anything still on the old name.
+              'rankedSlots': List<String>.from(_rankedSlots),
+              'availableAlternatives': List<String>.from(_rankedSlots),
             });
           },
           child: const Text('Submit'),

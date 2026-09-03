@@ -340,6 +340,10 @@ class JobBoardService {
         'teacherTimezone': teacherTimezone,
         'availabilityStatus': availabilityStatus,
         'comment': normalizedComment,
+        // The ranked order is what admin reads and what the shift is built
+        // from; availableAlternatives carries the same list for anything
+        // still reading the old field name.
+        'rankedSlots': normalizedAlternatives,
         'availableAlternatives': normalizedAlternatives,
         'createdAt': existingResponse.exists
             ? (existingResponse.data()?['createdAt'] ?? nowTs)
@@ -423,7 +427,9 @@ class JobBoardService {
           (response['availabilityStatus'] ?? 'available').toString();
       final comment = (response['comment'] ?? '').toString();
       final alternatives = List<String>.from(
-          (response['availableAlternatives'] as List?) ?? const <String>[]);
+          (response['rankedSlots'] as List?) ??
+          (response['availableAlternatives'] as List?) ??
+          const <String>[]);
 
       tx.update(jobRef, {
         'status': 'accepted',

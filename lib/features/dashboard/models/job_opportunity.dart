@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import 'enrollment_slots.dart';
+
 class JobOpportunity {
   final String id;
   final String enrollmentId;
@@ -19,7 +21,16 @@ class JobOpportunity {
   final bool isAdult;
   
   // Additional fields from enrollment
-  final String? sessionDuration;      // e.g., "60 minutes", "30 minutes"
+  final String? sessionDuration;      // e.g., "60 minutes", "1.5 hours"
+  /// Class length in minutes. Newer jobs carry this; older ones only have the
+  /// label above, which [durationDisplay] parses.
+  final int? sessionMinutes;
+  /// Classes a week the family asked for.
+  final int? sessionsPerWeek;
+  /// The part of the day the family chose, e.g. "Evening".
+  final String? block;
+  /// Every child in an exclusive family class. Empty for a single student.
+  final List<Map<String, String>> classRoster;
   final String? classType;            // e.g., "Individual", "Group"
   final String? gender;               // Student gender
   final String? specificLanguage;     // For language courses
@@ -69,6 +80,10 @@ class JobOpportunity {
     this.isAdult = false,
     // Additional fields
     this.sessionDuration,
+    this.sessionMinutes,
+    this.sessionsPerWeek,
+    this.block,
+    this.classRoster = const [],
     this.classType,
     this.gender,
     this.specificLanguage,
@@ -125,6 +140,18 @@ class JobOpportunity {
       isAdult: data['isAdult'] ?? false,
       // Additional fields
       sessionDuration: data['sessionDuration'],
+      sessionMinutes: (data['sessionMinutes'] as num?)?.toInt(),
+      sessionsPerWeek: (data['sessionsPerWeek'] as num?)?.toInt(),
+      block: data['block'] as String?,
+      classRoster: ((data['classRoster'] as List<dynamic>?) ?? const [])
+          .whereType<Map<dynamic, dynamic>>()
+          .map((e) => {
+                'name': (e['name'] ?? '').toString(),
+                'age': (e['age'] ?? '').toString(),
+                'level': (e['level'] ?? '').toString(),
+              })
+          .where((e) => e['name']!.isNotEmpty)
+          .toList(),
       classType: data['classType'],
       gender: data['gender'],
       specificLanguage: data['specificLanguage'],
@@ -202,19 +229,13 @@ class JobOpportunity {
   String get displaySubject => subjectDisplayName ?? subject;
 
   /// Helper to get formatted duration display (e.g. "1 hr" / "1 hr 30 mins" -> "60 min" / "90 min")
-  String get durationDisplay {
-    if (sessionDuration == null || sessionDuration!.isEmpty) return '60 min';
-    final d = sessionDuration!.toLowerCase();
-    if (d.contains('1 hr 30')) return '90 min';
-    if (d.contains('2 hr 30')) return '150 min';
-    if (d.contains('30 mins')) return '30 min';
-    if (d.contains('1 hr')) return '60 min';
-    if (d.contains('2 hrs')) return '120 min';
-    if (d.contains('3 hrs')) return '180 min';
-    if (d.contains('4 hrs')) return '240 min';
-    final match = RegExp(r'(\d+)').firstMatch(sessionDuration!);
-    return match != null ? '${match.group(1)} min' : sessionDuration!;
-  }
+  String get durationDisplay => sessionLabel(effectiveSessionMinutes);
+
+  /// How long each class runs. Prefers the stored number; falls back to
+  /// reading the label. The old ladder of string matches turned an unlisted
+  /// label like "1.5 hours" into "1 min".
+  int get effectiveSessionMinutes =>
+      sessionMinutes ?? minutesFromDurationLabel(sessionDuration);
   
   /// Check if this job belongs to a multi-student submission
   bool get isPartOfMultiStudent => parentLinkId != null && totalStudents != null && totalStudents! > 1;
