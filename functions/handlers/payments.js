@@ -7,6 +7,7 @@ const { createPayoneerClient } = require('../services/payoneer/client');
 const stripeCheckout = require('../services/stripe/checkout');
 const payLinks = require('../services/payment_links');
 const { generateInvoiceFromShifts } = require('../utils/invoice_generator');
+const {applyStudentDiscounts} = require('../utils/student_discounts');
 const { generateInvoicePdfBuffer } = require('../utils/invoice_pdf');
 const {
   sendInvoiceCreatedEmail,
@@ -875,17 +876,35 @@ const createInvoice = async (request) => {
       period: data.period,
       currency
     });
-  } else if (Array.isArray(data.items) && data.items.length > 0) {
-    const items = _normalizeInvoiceItems(data.items);
-    const totalAmount = Number(
-      items.reduce((sum, i) => sum + _toNumber(i.total), 0).toFixed(2)
+
+    // Same discount treatment as the item-based path below.
+    invoicePayload.items = await applyStudentDiscounts(
+      db,
+      invoicePayload.items,
+      _periodToDate(invoicePayload.period_start || invoicePayload.period)
     );
+    invoicePayload.total_amount = Number(
+      invoicePayload.items.reduce((sum, i) => sum + _toNumber(i.total), 0).toFixed(2)
+    );
+  } else if (Array.isArray(data.items) && data.items.length > 0) {
+    const baseLineItems = _normalizeInvoiceItems(data.items);
     const periodFromRequest = (data.period || data.period_label || '')
       .toString()
       .trim();
     const periodStart =
       _normalizePeriod(data.periodStart || data.period_start) ||
       _normalizePeriod(periodFromRequest);
+
+    // Student discounts arrive as their own line, so the total below picks
+    // them up without a separate discount field to keep in step.
+    const items = await applyStudentDiscounts(
+      admin.firestore(),
+      baseLineItems,
+      _periodToDate(periodStart)
+    );
+    const totalAmount = Number(
+      items.reduce((sum, i) => sum + _toNumber(i.total), 0).toFixed(2)
+    );
     const periodEnd =
       _normalizePeriod(data.periodEnd || data.period_end) ||
       (periodStart
@@ -2275,12 +2294,20 @@ const _createRecurringInvoiceForPeriod = async ({
         Array.isArray(plan.base_items) && plan.base_items.length > 0
           ? plan.base_items
           : plan.items || [];
-      const items = _itemsForBillingPeriod({
+      const periodItems = _itemsForBillingPeriod({
         items: sourceItems,
         billingMonths,
         periodLabel: _periodRangeLabel(periodStart, periodEnd),
         alreadyExpanded: !(Array.isArray(plan.base_items) && plan.base_items.length > 0)
       });
+      // Read against this period, so a fixed-length discount stops applying
+      // on its own once the plan bills past the window.
+      const items = await applyStudentDiscounts(
+        db,
+        periodItems,
+        _periodToDate(periodStart),
+        tx
+      );
       const totalAmount = Number(
         items.reduce((sum, item) => sum + _toNumber(item.total), 0).toFixed(2)
       );
