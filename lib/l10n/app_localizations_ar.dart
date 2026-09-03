@@ -14152,6 +14152,28 @@ class AppLocalizationsAr extends AppLocalizations {
   String get financeCashFlowTable => 'التدفق النقدي';
 
   @override
+  String get financeHealthTitle => 'الصحة المالية';
+
+  @override
+  String get financeHealthHealthy => 'جيدة';
+
+  @override
+  String get financeHealthWatch => 'للمراقبة';
+
+  @override
+  String get financeHealthNeedsAttention => 'تحتاج انتباهًا';
+
+  @override
+  String get financeHealthNoData => 'لا توجد بيانات';
+
+  @override
+  String get financeHealthHint =>
+      'جيدة: الهامش ≥ 15٪ · للمراقبة: 0–15٪ · تحتاج انتباهًا: خسارة';
+
+  @override
+  String get financeWeeklyTrend => 'الاتجاه الأسبوعي (آخر 8 أسابيع)';
+
+  @override
   String get financeSixMonthTrend => 'التدفق النقدي خلال 6 أشهر';
 
   @override

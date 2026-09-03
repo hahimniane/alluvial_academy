@@ -25919,6 +25919,48 @@ abstract class AppLocalizations {
   /// **'Cash flow'**
   String get financeCashFlowTable;
 
+  /// No description provided for @financeHealthTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Financial health'**
+  String get financeHealthTitle;
+
+  /// No description provided for @financeHealthHealthy.
+  ///
+  /// In en, this message translates to:
+  /// **'Healthy'**
+  String get financeHealthHealthy;
+
+  /// No description provided for @financeHealthWatch.
+  ///
+  /// In en, this message translates to:
+  /// **'Watch'**
+  String get financeHealthWatch;
+
+  /// No description provided for @financeHealthNeedsAttention.
+  ///
+  /// In en, this message translates to:
+  /// **'Needs attention'**
+  String get financeHealthNeedsAttention;
+
+  /// No description provided for @financeHealthNoData.
+  ///
+  /// In en, this message translates to:
+  /// **'No data'**
+  String get financeHealthNoData;
+
+  /// No description provided for @financeHealthHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Healthy: margin ≥ 15% · Watch: 0–15% · Needs attention: losing money'**
+  String get financeHealthHint;
+
+  /// No description provided for @financeWeeklyTrend.
+  ///
+  /// In en, this message translates to:
+  /// **'Weekly trend (last 8 weeks)'**
+  String get financeWeeklyTrend;
+
   /// No description provided for @financeSixMonthTrend.
   ///
   /// In en, this message translates to:
