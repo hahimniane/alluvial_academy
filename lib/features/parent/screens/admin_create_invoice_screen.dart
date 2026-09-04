@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 import 'package:alluwalacademyadmin/core/utils/app_search.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
+import '../models/student_discount.dart';
 
 /// Admin screen to create invoices for parents (with children) or adult students.
 class AdminCreateInvoiceScreen extends StatefulWidget {
@@ -44,6 +45,9 @@ class _AdminCreateInvoiceScreenState extends State<AdminCreateInvoiceScreen> {
   // Billing month
   late DateTime _selectedMonth;
   int _billingMonthCount = 1;
+
+  /// The household discount, held on the parent rather than on a child.
+  StudentDiscount? _familyDiscount;
   bool _createRecurringPlan = false;
 
   // Due date (default: 7 days from now)
@@ -152,6 +156,9 @@ class _AdminCreateInvoiceScreenState extends State<AdminCreateInvoiceScreen> {
           'user_type': (data['user_type'] ?? '').toString(),
           'children_ids': List<String>.from(data['children_ids'] ?? []),
           'is_adult_student': data['is_adult_student'] == true,
+          // Carried so the invoice preview can show a household discount
+          // without reading the parent a second time.
+          'discount': data['discount'],
         });
       }
 
@@ -212,6 +219,7 @@ class _AdminCreateInvoiceScreenState extends State<AdminCreateInvoiceScreen> {
               'id': doc.id,
               'first_name': (data['first_name'] ?? '').toString(),
               'last_name': (data['last_name'] ?? '').toString(),
+              'discount': StudentDiscount.read(data['discount']),
             });
             _amountControllers[doc.id] = TextEditingController();
             _descriptionControllers[doc.id] =
@@ -221,9 +229,13 @@ class _AdminCreateInvoiceScreenState extends State<AdminCreateInvoiceScreen> {
           AppLogger.error('Failed to load child $childId: $e');
         }
       }
+      final familyDiscount = StudentDiscount.read(user['discount']);
       if (mounted) {
         setState(() {
           _children = children;
+          _familyDiscount = familyDiscount?.scope == DiscountScope.family
+              ? familyDiscount
+              : null;
           _isLoadingChildren = false;
         });
       }
@@ -239,8 +251,10 @@ class _AdminCreateInvoiceScreenState extends State<AdminCreateInvoiceScreen> {
               'id': user['id'],
               'first_name': user['first_name'],
               'last_name': user['last_name'],
+              'discount': StudentDiscount.read(user['discount']),
             }
           ];
+          _familyDiscount = null;
           _isLoadingChildren = false;
         });
       }
@@ -260,6 +274,7 @@ class _AdminCreateInvoiceScreenState extends State<AdminCreateInvoiceScreen> {
       _selectedUser = null;
       _selectedUserId = null;
       _children = [];
+      _familyDiscount = null;
       _error = null;
       _successMessage = null;
     });
@@ -540,6 +555,7 @@ class _AdminCreateInvoiceScreenState extends State<AdminCreateInvoiceScreen> {
                                 ),
                                 const SizedBox(height: 12),
                               ],
+                              _buildDiscountSummary(),
                               _buildCreateButton(),
                             ],
                           ),
@@ -1642,6 +1658,122 @@ class _AdminCreateInvoiceScreenState extends State<AdminCreateInvoiceScreen> {
           ),
         ],
       ],
+    );
+  }
+
+  // ──────────────── Discount Summary ────────────────
+
+  /// What the invoice will come to, shown before it is created.
+  ///
+  /// The amounts are multiplied by the billing month count exactly as
+  /// `_createInvoice` multiplies them, so the total here is the total that
+  /// will be charged.
+  InvoicePreview? _buildPreview() {
+    final charges = <({String name, double amount, StudentDiscount? discount})>[];
+    for (final child in _children) {
+      final childId = child['id'] as String;
+      final amount = double.tryParse(_amountControllers[childId]?.text.trim() ?? '');
+      if (amount == null || amount <= 0) continue;
+      final name = '${child['first_name']} ${child['last_name']}'.trim();
+      charges.add((
+        name: name.isEmpty ? 'Student' : name,
+        amount: amount * _billingMonthCount,
+        discount: child['discount'] as StudentDiscount?,
+      ));
+    }
+    if (charges.isEmpty) return null;
+    return previewInvoice(
+      charges: charges,
+      familyDiscount: _familyDiscount,
+      periodStart: DateTime.utc(_selectedMonth.year, _selectedMonth.month, 1),
+    );
+  }
+
+  Widget _buildDiscountSummary() {
+    final preview = _buildPreview();
+    if (preview == null) return const SizedBox.shrink();
+
+    String money(double value) {
+      final sign = value < 0 ? '-' : '';
+      return '$sign\$${value.abs().toStringAsFixed(2)}';
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('Subtotal',
+                  style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF475569))),
+              Text(money(preview.subtotal),
+                  style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF475569))),
+            ],
+          ),
+          for (final line in preview.lines) ...[
+            const SizedBox(height: 8),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text(line.label,
+                      style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF047857))),
+                ),
+                const SizedBox(width: 12),
+                Text(money(line.amount),
+                    style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF047857))),
+              ],
+            ),
+          ],
+          if (preview.lines.isEmpty) ...[
+            const SizedBox(height: 8),
+            const Text('No discount applies to this billing month.',
+                style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFF64748B))),
+          ],
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 12),
+            child: Divider(height: 1, color: Color(0xFFE2E8F0)),
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('Total due',
+                  style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF111827))),
+              Text(money(preview.total),
+                  style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF111827))),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
