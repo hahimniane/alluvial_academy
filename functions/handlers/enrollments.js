@@ -13,6 +13,23 @@ const escapeHtml = (value) => String(value ?? '')
   .replace(/"/g, '&quot;');
 
 // Resolve the user-friendly program name; falls back to raw subject.
+// An exclusive family class is one card over several enrollments, and the invite
+// dialog tells the admin it is linking every child on it. The primary id always
+// comes first: it is the one that drives validation and the email, and the
+// callers that know nothing of families (the Flutter matched card) send it
+// alone.
+const mergeIdList = (primary, list) => {
+  const extras = Array.isArray(list) ? list.map((v) => String(v || '').trim()) : [];
+  return [...new Set([String(primary || '').trim(), ...extras].filter(Boolean))];
+};
+
+// "Amina", "Amina and Yusuf", "Amina, Yusuf and Ibrahim".
+const formatNameList = (names) => {
+  const list = names.filter(Boolean);
+  if (list.length <= 1) return list[0] || '';
+  return `${list.slice(0, -1).join(', ')} and ${list[list.length - 1]}`;
+};
+
 const resolveProgramName = (enrollmentData) => {
   return enrollmentData.programTitle || enrollmentData.subject || 'our program';
 };
@@ -1019,6 +1036,9 @@ const inviteParentForEnrollment = async (request) => {
     throw new functions.https.HttpsError('invalid-argument', 'A valid parent email is required');
   }
 
+  const enrollmentIdsRequested = mergeIdList(enrollmentId, payload.enrollmentIds);
+  const studentUidsRequested = mergeIdList(studentUid, payload.studentUids);
+
   const db = admin.firestore();
   const enrollmentRef = db.collection('enrollments').doc(enrollmentId);
   const enrollmentSnap = await enrollmentRef.get();
@@ -1031,6 +1051,26 @@ const inviteParentForEnrollment = async (request) => {
   if (!studentSnap.exists) {
     throw new functions.https.HttpsError('not-found', `Student ${studentUid} not found`);
   }
+
+  // set(..., {merge:true}) creates a document for an id that does not exist, so
+  // the rest of the family is checked before anything is written to it. A
+  // sibling that has since been deleted is skipped rather than failing a link
+  // the admin asked for.
+  const existingDocs = async (collection, ids) => {
+    const extras = ids.filter((id) => id !== ids[0]);
+    if (extras.length === 0) return {ids: [ids[0]], snaps: []};
+    const snaps = await db.getAll(...extras.map((id) => db.collection(collection).doc(id)));
+    const found = snaps.filter((snap) => snap.exists);
+    for (const snap of snaps) {
+      if (!snap.exists) console.warn(`inviteParentForEnrollment: skipping missing ${collection}/${snap.id}`);
+    }
+    return {ids: [ids[0], ...found.map((snap) => snap.id)], snaps: found};
+  };
+
+  const enrollmentTargets = await existingDocs('enrollments', enrollmentIdsRequested);
+  const studentTargets = await existingDocs('users', studentUidsRequested);
+  const enrollmentIds = enrollmentTargets.ids;
+  const studentUids = studentTargets.ids;
 
   let parentUid;
   let parentAlreadyExists = false;
@@ -1109,37 +1149,43 @@ const inviteParentForEnrollment = async (request) => {
     await parentRef.set(update, { merge: true });
   }
 
-  // Add parent to the student's guardian_ids (idempotent).
-  await studentRef.set(
-    {
-      guardian_ids: admin.firestore.FieldValue.arrayUnion(parentUid),
-      updated_at: now,
-    },
-    { merge: true },
-  );
-
-  // Stamp enrollment with linking metadata.
-  await enrollmentRef.set(
-    {
-      contact: { guardianId: parentUid },
-      metadata: {
-        parentInviteStatus: parentAlreadyExists ? 'linked' : 'invited',
-        parentUserId: parentUid,
-        parentInvitedAt: now,
-        parentInvitedBy: auth.uid,
+  // Add parent to every child's guardian_ids (idempotent).
+  for (const uid of studentUids) {
+    await db.collection('users').doc(uid).set(
+      {
+        guardian_ids: admin.firestore.FieldValue.arrayUnion(parentUid),
+        updated_at: now,
       },
-    },
-    { merge: true },
-  );
+      { merge: true },
+    );
+  }
+
+  // Stamp every enrollment in the family with linking metadata.
+  for (const id of enrollmentIds) {
+    await db.collection('enrollments').doc(id).set(
+      {
+        contact: { guardianId: parentUid },
+        metadata: {
+          parentInviteStatus: parentAlreadyExists ? 'linked' : 'invited',
+          parentUserId: parentUid,
+          parentInvitedAt: now,
+          parentInvitedBy: auth.uid,
+        },
+      },
+      { merge: true },
+    );
+  }
 
   // Send a password setup email when we had to create the Auth user.
   // Tell the parent. Linking someone to a child and never saying so leaves
   // them with an account they do not know exists — and, for a parent who
   // already had one, no sign that anything happened at all.
-  const studentName = [
-    (studentSnap.data() || {}).first_name,
-    (studentSnap.data() || {}).last_name,
-  ].filter(Boolean).join(' ').trim() || 'your child';
+  const nameOf = (data) =>
+    [(data || {}).first_name, (data || {}).last_name].filter(Boolean).join(' ').trim();
+  const studentNames = [studentSnap, ...studentTargets.snaps]
+    .map((snap) => nameOf(snap.data()))
+    .filter(Boolean);
+  const studentName = formatNameList(studentNames) || 'your child';
 
   let inviteSent = false;
   let inviteError = null;
@@ -1164,12 +1210,13 @@ const inviteParentForEnrollment = async (request) => {
       });
     } else {
       // An account they already have: no password link, just what changed.
-      subject = `${studentName} has been linked to your Alluwal account`;
+      const areOrIs = studentNames.length > 1 ? 'are' : 'is';
+      subject = `${studentName} ${studentNames.length > 1 ? 'have' : 'has'} been linked to your Alluwal account`;
       html = brandedEmailHtml({
         heading: 'A student was added to your account',
         bodyHtml: `
           <p>${greeting}</p>
-          <p><strong>${escapeHtml(studentName)}</strong> is now linked to your Alluwal Education Hub parent account.</p>
+          <p><strong>${escapeHtml(studentName)}</strong> ${areOrIs} now linked to your Alluwal Education Hub parent account.</p>
           <p>Sign in with your usual password to see their schedule, attendance and invoices.</p>
           <p><a class="button" href="https://alluwaleducationhub.org/app/">Open your dashboard</a></p>`,
       });
@@ -1199,7 +1246,7 @@ const inviteParentForEnrollment = async (request) => {
       const res = await admin.messaging().sendEachForMulticast({
         notification: {
           title: 'A student was linked to your account',
-          body: `${studentName} is now on your Alluwal parent dashboard.`,
+          body: `${studentName} ${studentNames.length > 1 ? 'are' : 'is'} now on your Alluwal parent dashboard.`,
         },
         data: { type: 'parent_linked', studentUid: String(studentUid), enrollmentId: String(enrollmentId) },
         tokens,
@@ -1489,6 +1536,8 @@ async function generateKiosqueCodeForParent() {
 
 module.exports = {
   onEnrollmentCreated,
+  _mergeIdList: mergeIdList,
+  _formatNameList: formatNameList,
   // Exported for tests that pin who is shown a price.
   _buildPricingHtml: buildPricingHtml,
   _buildPaymentPolicyHtml: buildPaymentPolicyHtml,

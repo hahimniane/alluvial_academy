@@ -94,6 +94,12 @@ export async function inviteParentForEnrollment(
   enrollmentId: string,
   studentUid: string,
   invite: ParentInvite,
+  /**
+   * Every child on the card. An exclusive family class is one card over several
+   * enrollments, and the dialog says it links all of them — so it has to send
+   * all of them, or the siblings keep an empty parent slot.
+   */
+  family?: { enrollmentIds: string[]; studentUids: string[] },
 ): Promise<ParentInviteResult> {
   const problem = parentInviteProblem(invite);
   if (problem) throw new Error(problem);
@@ -106,6 +112,8 @@ export async function inviteParentForEnrollment(
   const result = await callable({
     enrollmentId,
     studentUid,
+    ...(family?.enrollmentIds?.length ? { enrollmentIds: family.enrollmentIds } : {}),
+    ...(family?.studentUids?.length ? { studentUids: family.studentUids } : {}),
     email: invite.email.trim(),
     firstName: invite.firstName.trim(),
     lastName: invite.lastName.trim(),
