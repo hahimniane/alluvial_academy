@@ -188,23 +188,41 @@ const applyStudentDiscounts = async (db, items, periodStart, reader = db, parent
       source.map((item) => (item.student_id || '').toString().trim()).filter(Boolean)
     )
   ];
-  if (studentIds.length === 0) return source;
+  const familyId = (parentId || '').toString().trim();
+  if (studentIds.length === 0 && !familyId) return source;
 
-  // `reader` is the transaction when there is one. A plain db read inside a
-  // transaction would see state the transaction is not holding, and would be
-  // re-read rather than retried on contention.
+  // The parent is read alongside the children: a household discount lives on
+  // their record, and is found from the invoice's parent whichever children
+  // happen to be billed.
+  const ids = [...studentIds, ...(familyId && !studentIds.includes(familyId) ? [familyId] : [])];
   const snapshots = await reader.getAll(
-    ...studentIds.map((id) => db.collection('users').doc(id))
+    ...ids.map((id) => db.collection('users').doc(id))
   );
+
   const discounts = new Map();
+  let familyDiscount = null;
   snapshots.forEach((snapshot, index) => {
     if (!snapshot.exists) return;
     const discount = readDiscount((snapshot.data() || {}).discount);
-    if (discount) discounts.set(studentIds[index], discount);
+    if (!discount) return;
+    if (ids[index] === familyId && discount.scope === 'family') {
+      familyDiscount = discount;
+      return;
+    }
+    // A family-scoped discount sitting on a child is never applied per child —
+    // that is the mistake the scope exists to prevent.
+    if (discount.scope !== 'family') discounts.set(ids[index], discount);
   });
-  if (discounts.size === 0) return source;
 
-  return [...source, ...buildDiscountLines(source, discounts, periodStart)];
+  const studentLines = discounts.size > 0 ? buildDiscountLines(source, discounts, periodStart) : [];
+  const familyLine = buildFamilyDiscountLine(
+    [...source, ...studentLines],
+    familyDiscount,
+    periodStart
+  );
+  if (studentLines.length === 0 && !familyLine) return source;
+
+  return [...source, ...studentLines, ...(familyLine ? [familyLine] : [])];
 };
 
 module.exports = {
