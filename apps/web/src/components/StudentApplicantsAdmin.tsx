@@ -19,6 +19,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import {
   Archive,
+  Trash2,
   Box,
   Calendar,
   CalendarDays,
@@ -54,7 +55,7 @@ import {
   type ActionEntry,
   type BroadcastSnapshot,
 } from "@/components/EnrollmentBroadcastPanel";
-import { broadcastEnrollment, unbroadcastEnrollment } from "@/lib/jobBoardAdmin";
+import { broadcastEnrollment, unbroadcastEnrollment, deleteEnrollment } from "@/lib/jobBoardAdmin";
 import { MatchedSetupActions } from "@/components/MatchedSetupActions";
 import { ApplicantDetailsDialog } from "@/components/ApplicantDetailsDialog";
 import { auth, db } from "@/lib/firebase";
@@ -101,8 +102,11 @@ import {
   groupByTeacher,
   isStale,
   matchesSearch,
+  matchesPeriod,
+  buildPeriodOptions,
   setupFor,
   sortApplicants,
+  type PeriodId,
   type SetupState,
   type SortId,
   type StageFilter,
@@ -217,6 +221,8 @@ export function StudentApplicantsAdmin() {
   const [broadcastFor, setBroadcastFor] = useState<EnrollmentApplicant | null>(null);
   const [detailsFor, setDetailsFor] = useState<EnrollmentApplicant | null>(null);
   const [archiveFor, setArchiveFor] = useState<EnrollmentApplicant | null>(null);
+  const [deleteFor, setDeleteFor] = useState<EnrollmentApplicant | null>(null);
+  const [period, setPeriod] = useState<PeriodId>("all");
   const [embedded, setEmbedded] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -245,11 +251,15 @@ export function StudentApplicantsAdmin() {
   const visibleApplicants = useMemo(() => {
     const filtered = applicants.filter((applicant) => {
       if (!matchesSearch(applicant, search)) return false;
+      if (!matchesPeriod(applicant, period)) return false;
       if (!isMatched || stage === "all") return true;
       return setups.get(applicant.id)!.stage === stage;
     });
     return sortApplicants(filtered, sort);
-  }, [applicants, search, sort, stage, isMatched, setups]);
+  }, [applicants, search, sort, stage, period, isMatched, setups]);
+
+  /** Built from the tab's own applications, so it never offers an empty month. */
+  const periodOptions = useMemo(() => buildPeriodOptions(applicants), [applicants]);
 
   /**
    * The children of one exclusive family class are one class, so the list
@@ -447,6 +457,7 @@ export function StudentApplicantsAdmin() {
       onMessage={setMessage}
       onMarkContacted={() => moveApplicant(applicant, "contacted")}
       onArchive={() => setArchiveFor(applicant)}
+      onDelete={() => setDeleteFor(applicant)}
       onUnarchive={() => moveApplicant(applicant, "pending")}
     />
     );
@@ -559,6 +570,33 @@ export function StudentApplicantsAdmin() {
    * change has to reach all of them — otherwise half the children move to
    * Ready and half stay in the Inbox.
    */
+  /**
+   * Removes an application for good. Archiving stays the reversible option;
+   * this is for submissions not worth keeping at all.
+   *
+   * A family class is one card over several documents, so all of them go —
+   * leaving a sibling behind would put half a class back in the pipeline.
+   */
+  async function deleteApplicant(applicant: EnrollmentApplicant) {
+    if (!auth.currentUser) {
+      setMessage("Sign in with an administrator account before deleting an application.");
+      return;
+    }
+    setMessage("");
+    try {
+      const ids = idsForClass(applicant);
+      await Promise.all(ids.map((id) => deleteEnrollment(id)));
+      setMessage(
+        ids.length > 1
+          ? `${applicant.studentName}'s family application was deleted (${ids.length} students).`
+          : `${applicant.studentName}'s application was deleted.`,
+      );
+      await refreshApplicants(activeTab);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not delete the application.");
+    }
+  }
+
   async function moveApplicant(applicant: EnrollmentApplicant, nextStatus: ApplicantStatus) {
     if (!auth.currentUser) {
       setMessage("Sign in with an administrator account before updating applicants.");
@@ -662,6 +700,9 @@ export function StudentApplicantsAdmin() {
             onSearch={setSearch}
             sort={sort}
             onSort={setSort}
+            period={period}
+            onPeriod={setPeriod}
+            periodOptions={periodOptions}
             sortOptions={sortOptions}
             showTeacherTools={isMatched}
             groupTeachers={groupTeachers}
@@ -744,6 +785,20 @@ export function StudentApplicantsAdmin() {
               await moveApplicant(target, "archived");
             }}
             onClose={() => setArchiveFor(null)}
+          />
+        ) : null}
+
+        {deleteFor ? (
+          <ConfirmDialog
+            title="Delete this application?"
+            body={`${deleteFor.studentName}'s application is removed for good and cannot be brought back. Any job posting for it is closed. Accounts already created for the student or parent are kept.`}
+            confirmLabel="Delete permanently"
+            onConfirm={async () => {
+              const target = deleteFor;
+              setDeleteFor(null);
+              await deleteApplicant(target);
+            }}
+            onClose={() => setDeleteFor(null)}
           />
         ) : null}
 
@@ -1037,6 +1092,9 @@ export function ApplicantTriageToolbar({
   sort,
   onSort,
   sortOptions,
+  period,
+  onPeriod,
+  periodOptions,
   showTeacherTools,
   groupTeachers,
   onGroupTeachers,
@@ -1056,6 +1114,9 @@ export function ApplicantTriageToolbar({
   sort: SortId;
   onSort: (value: SortId) => void;
   sortOptions: readonly { id: SortId; label: string }[];
+  period: PeriodId;
+  onPeriod: (value: PeriodId) => void;
+  periodOptions: readonly { id: PeriodId; label: string; count: number }[];
   showTeacherTools: boolean;
   groupTeachers: boolean;
   onGroupTeachers: (value: boolean) => void;
@@ -1095,6 +1156,22 @@ export function ApplicantTriageToolbar({
             >
               {sortOptions.map((option) => (
                 <option key={option.id} value={option.id}>{option.label}</option>
+              ))}
+            </select>
+
+            <label className="sr-only" htmlFor="applicant-period">Filter by when the application was submitted</label>
+            <select
+              id="applicant-period"
+              value={period}
+              onChange={(event) => onPeriod(event.target.value as PeriodId)}
+              className={`h-[34px] rounded-lg border bg-white px-2.5 text-xs font-semibold outline-none focus:border-[#0386FF] ${
+                period === "all" ? "border-[#E5E7EB] text-[#111827]" : "border-[rgba(3,134,255,0.4)] text-[#0386FF]"
+              }`}
+            >
+              {periodOptions.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.id === "all" ? option.label : `${option.label} (${option.count})`}
+                </option>
               ))}
             </select>
 
@@ -1274,6 +1351,7 @@ function ApplicantCard({
   onMessage,
   onMarkContacted,
   onArchive,
+  onDelete,
   onUnarchive,
 }: {
   applicant: EnrollmentApplicant;
@@ -1289,6 +1367,7 @@ function ApplicantCard({
   onMessage: (text: string) => void;
   onMarkContacted: () => void;
   onArchive: () => void;
+  onDelete: () => void;
   onUnarchive: () => void;
 }) {
   const live = applicant.status === "broadcasted";
@@ -1435,6 +1514,15 @@ function ApplicantCard({
                 <Box size={17} />
               </button>
             ) : null}
+            <button
+              type="button"
+              onClick={onDelete}
+              aria-label={`Delete ${applicant.studentName}'s application`}
+              title="Delete permanently"
+              className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-[#94A3B8] hover:bg-[#FEF2F2] hover:text-[#DC2626]"
+            >
+              <Trash2 size={17} />
+            </button>
             {applicant.status === "pending" ? (
               <button type="button" onClick={onMarkContacted} className="inline-flex min-h-9 flex-1 items-center justify-center gap-2 rounded-lg bg-[#3B82F6] px-4 text-sm font-bold text-white">
                 <Check size={17} />

@@ -22,6 +22,7 @@ import {
   serverTimestamp,
   updateDoc,
   where,
+  deleteDoc,
 } from "firebase/firestore";
 import { auth, db } from "./firebase";
 
@@ -455,4 +456,23 @@ export async function declineTeacherResponse(jobId: string, teacherId: string, n
       tx.update(jobRef, { status: "open", closedReason: deleteField(), closedAt: deleteField() });
     }
   });
+}
+
+/**
+ * Removes an application for good.
+ *
+ * Archiving is the reversible option and stays the default; this is for
+ * submissions that should not be kept at all — a duplicate, a test, a family
+ * that asked to be removed. Any job posting is closed first, so a deleted
+ * application can never leave a teacher looking at a class that no longer
+ * exists.
+ *
+ * Accounts already created for the student and parent are deliberately left
+ * alone: they may be enrolled in other programs, and deleting a person because
+ * one of their applications was tidied away is not something to do quietly.
+ */
+export async function deleteEnrollment(enrollmentId: string): Promise<void> {
+  const jobs = await getDocs(query(collection(db, "job_board"), where("enrollmentId", "==", enrollmentId)));
+  await Promise.all(jobs.docs.map((job) => updateDoc(job.ref, { status: "closed" })));
+  await deleteDoc(doc(db, "enrollments", enrollmentId));
 }
