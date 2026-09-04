@@ -94,6 +94,8 @@ export type SortOption = { id: SortId; label: string };
 export const MATCHED_SORTS: readonly SortOption[] = [
   { id: "recently-matched", label: "Recently matched" },
   { id: "longest-waiting", label: "Longest waiting" },
+  { id: "newest", label: "Newest submission" },
+  { id: "oldest", label: "Oldest submission" },
   { id: "student-az", label: "Student A–Z" },
   { id: "teacher-az", label: "Teacher A–Z" },
 ] as const;
@@ -132,6 +134,91 @@ export const sortApplicants = <T extends TriageApplicant>(applicants: T[], sort:
     default:
       return sorted;
   }
+};
+
+
+/* ------------------------------------------------------- submitted when -- */
+
+/**
+ * Filtering by when an application came in.
+ *
+ * "This week" runs Monday to Sunday in the reader's own timezone, because an
+ * admin asking what came in this week means their week, not UTC's. Month
+ * options are built from the applications actually present, so the list never
+ * offers a month with nothing in it.
+ */
+export type PeriodId = "all" | "this-week" | "last-week" | `month:${string}`;
+
+export type PeriodOption = { id: PeriodId; label: string; count: number };
+
+const startOfDay = (date: Date): Date =>
+  new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
+/** Monday of the week containing `date`, at midnight local. */
+export const startOfWeek = (date: Date): Date => {
+  const start = startOfDay(date);
+  // getDay(): 0 is Sunday, which belongs to the week that began the Monday before.
+  const daysSinceMonday = (start.getDay() + 6) % 7;
+  start.setDate(start.getDate() - daysSinceMonday);
+  return start;
+};
+
+const addDays = (date: Date, days: number): Date => {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+};
+
+const monthKey = (date: Date): string =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+
+const monthLabel = (key: string): string => {
+  const [year, month] = key.split("-").map(Number);
+  const date = new Date(year, month - 1, 1);
+  return date.toLocaleString("en-US", { month: "long", year: "numeric" });
+};
+
+export const matchesPeriod = (applicant: TriageApplicant, period: PeriodId, now = new Date()): boolean => {
+  if (period === "all") return true;
+  const submitted = applicant.submittedAt;
+  // An application with no date on it cannot be claimed for any period.
+  if (!submitted) return false;
+
+  if (period === "this-week" || period === "last-week") {
+    const thisWeek = startOfWeek(now);
+    const from = period === "this-week" ? thisWeek : addDays(thisWeek, -7);
+    const to = addDays(from, 7);
+    return submitted >= from && submitted < to;
+  }
+
+  return monthKey(submitted) === period.slice("month:".length);
+};
+
+/** "All time", the two most recent weeks, then every month that has applications. */
+export const buildPeriodOptions = (
+  applicants: readonly TriageApplicant[],
+  now = new Date(),
+): PeriodOption[] => {
+  const countFor = (period: PeriodId) =>
+    applicants.filter((applicant) => matchesPeriod(applicant, period, now)).length;
+
+  const months = new Map<string, number>();
+  for (const applicant of applicants) {
+    if (!applicant.submittedAt) continue;
+    const key = monthKey(applicant.submittedAt);
+    months.set(key, (months.get(key) ?? 0) + 1);
+  }
+
+  const monthOptions = [...months.entries()]
+    .sort((a, b) => b[0].localeCompare(a[0]))
+    .map(([key, count]) => ({ id: `month:${key}` as PeriodId, label: monthLabel(key), count }));
+
+  return [
+    { id: "all", label: "Any time", count: applicants.length },
+    { id: "this-week", label: "This week", count: countFor("this-week") },
+    { id: "last-week", label: "Last week", count: countFor("last-week") },
+    ...monthOptions,
+  ];
 };
 
 /* ------------------------------------------------------------- grouping -- */

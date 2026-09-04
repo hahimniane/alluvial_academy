@@ -9,6 +9,9 @@ import {
   matchesSearch,
   setupFor,
   sortApplicants,
+  buildPeriodOptions,
+  matchesPeriod,
+  startOfWeek,
   type TriageApplicant,
 } from "../applicantTriage.ts";
 
@@ -133,4 +136,67 @@ test("only unfinished matches go stale", () => {
   assert.equal(isStale(old, "ready", now), false, "a finished match is not waiting on anything");
   assert.equal(isStale(new Date("2026-09-01T12:00:00Z"), "needs-account", now), false);
   assert.equal(isStale(null, "needs-account", now), false);
+});
+
+/* --------------------------------------------------- submitted-when tests -- */
+
+// A fixed Wednesday, so "this week" is Mon 2026-09-14 to Sun 2026-09-20.
+const NOW = new Date(2026, 8, 16, 12, 0, 0);
+const on = (year: number, month: number, day: number) =>
+  applicant({ submittedAt: new Date(year, month - 1, day, 9, 0, 0) });
+
+test("a week runs Monday to Sunday in the reader's own timezone", () => {
+  assert.equal(startOfWeek(NOW).getDay(), 1);
+  assert.equal(startOfWeek(NOW).getDate(), 14);
+  // Sunday belongs to the week that began the Monday before it.
+  const sunday = new Date(2026, 8, 20, 23, 0, 0);
+  assert.equal(startOfWeek(sunday).getDate(), 14);
+});
+
+test("this week takes Monday through Sunday, and excludes the day before", () => {
+  assert.equal(matchesPeriod(on(2026, 9, 14), "this-week", NOW), true);
+  assert.equal(matchesPeriod(on(2026, 9, 20), "this-week", NOW), true);
+  assert.equal(matchesPeriod(on(2026, 9, 13), "this-week", NOW), false);
+  assert.equal(matchesPeriod(on(2026, 9, 21), "this-week", NOW), false);
+});
+
+test("last week is the seven days before that", () => {
+  assert.equal(matchesPeriod(on(2026, 9, 7), "last-week", NOW), true);
+  assert.equal(matchesPeriod(on(2026, 9, 13), "last-week", NOW), true);
+  assert.equal(matchesPeriod(on(2026, 9, 14), "last-week", NOW), false);
+});
+
+test("a month takes every application submitted in it", () => {
+  assert.equal(matchesPeriod(on(2026, 8, 1), "month:2026-08", NOW), true);
+  assert.equal(matchesPeriod(on(2026, 8, 31), "month:2026-08", NOW), true);
+  assert.equal(matchesPeriod(on(2026, 9, 1), "month:2026-08", NOW), false);
+  assert.equal(matchesPeriod(on(2025, 8, 15), "month:2026-08", NOW), false);
+});
+
+test("any time takes everything, including an application with no date", () => {
+  assert.equal(matchesPeriod(applicant({ submittedAt: null }), "all", NOW), true);
+});
+
+test("an application with no date is claimed by no period", () => {
+  const undated = applicant({ submittedAt: null });
+  assert.equal(matchesPeriod(undated, "this-week", NOW), false);
+  assert.equal(matchesPeriod(undated, "month:2026-09", NOW), false);
+});
+
+test("the month list offers only months that have applications, newest first", () => {
+  const options = buildPeriodOptions(
+    [on(2026, 9, 16), on(2026, 8, 3), on(2026, 8, 20), on(2026, 7, 9)],
+    NOW,
+  );
+  assert.deepEqual(
+    options.map((option) => option.label),
+    ["Any time", "This week", "Last week", "September 2026", "August 2026", "July 2026"],
+  );
+  assert.deepEqual(options.map((option) => option.count), [4, 1, 0, 1, 2, 1]);
+});
+
+test("undated applications are counted under Any time but no month", () => {
+  const options = buildPeriodOptions([applicant({ submittedAt: null }), on(2026, 8, 3)], NOW);
+  assert.equal(options[0].count, 2);
+  assert.deepEqual(options.map((o) => o.label).filter((l) => l.includes("2026")), ["August 2026"]);
 });
