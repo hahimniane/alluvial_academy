@@ -18,6 +18,17 @@
 
 export type DiscountMode = "percent" | "fixed";
 export type DiscountDuration = "months" | "ongoing";
+/**
+ * Who the discount is for.
+ *
+ * "student" takes the amount off that child's own charges, so two siblings on
+ * $10 off come to $20 off the family's invoice. "family" takes it off the
+ * invoice once, however many children are on it — the difference between "$10
+ * off each student" and "$10 off for the family". A family discount is held on
+ * the parent's record, because it belongs to the household rather than to any
+ * one child.
+ */
+export type DiscountScope = "student" | "family";
 
 export const DISCOUNT_REASONS = [
   "Sibling discount",
@@ -32,6 +43,8 @@ export type DiscountReason = (typeof DISCOUNT_REASONS)[number];
 
 export type StudentDiscount = {
   mode: DiscountMode;
+  /** Absent on discounts saved before family scope existed; they are per-student. */
+  scope?: DiscountScope;
   /** 20 means 20% when mode is percent, or $20 a month when fixed. */
   value: number;
   duration: DiscountDuration;
@@ -42,10 +55,52 @@ export type StudentDiscount = {
   note?: string;
 };
 
+/* --------------------------------------------------------------- reading -- */
+
+const _record = (value: unknown) => (value && typeof value === "object" ? (value as Record<string, unknown>) : {});
+const _string = (value: unknown) => (typeof value === "string" ? value.trim() : "");
+const _date = (value: unknown): Date | null => {
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+  if (value && typeof value === "object" && "toDate" in value) {
+    const converted = (value as { toDate: () => Date }).toDate();
+    return Number.isNaN(converted.getTime()) ? null : converted;
+  }
+  if (typeof value === "string" || typeof value === "number") {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+  return null;
+};
+
+/** Parse a stored discount, or null when the record is not one. */
+export const readDiscount = (raw: unknown): StudentDiscount | null => {
+  const data = _record(raw);
+  const mode = _string(data.mode);
+  const value = Number(data.value);
+  if ((mode !== "percent" && mode !== "fixed") || !Number.isFinite(value) || value <= 0) return null;
+  const duration = _string(data.duration) === "ongoing" ? "ongoing" : "months";
+  const startDate = _date(data.startDate);
+  if (!startDate) return null;
+  const months = Number(data.months);
+  return {
+    mode,
+    // Discounts saved before family scope existed are per-student, which is
+    // what they have always done.
+    scope: _string(data.scope) === "family" ? "family" : "student",
+    value,
+    duration,
+    ...(duration === "months" && Number.isFinite(months) && months > 0 ? { months } : {}),
+    startDate,
+    reason: _string(data.reason),
+    ...(_string(data.note) ? { note: _string(data.note) } : {}),
+  };
+};
+
 /* ----------------------------------------------------------- validation -- */
 
 export type DiscountDraft = {
   mode: DiscountMode;
+  scope: DiscountScope;
   value: string;
   duration: DiscountDuration;
   months: string;
@@ -56,6 +111,7 @@ export type DiscountDraft = {
 
 export const emptyDiscountDraft = (startDate: Date): DiscountDraft => ({
   mode: "percent",
+  scope: "student",
   value: "",
   duration: "months",
   months: "3",
@@ -86,6 +142,7 @@ export const validateDiscount = (draft: DiscountDraft): string | null => {
 
 export const draftToDiscount = (draft: DiscountDraft): StudentDiscount => ({
   mode: draft.mode,
+  scope: draft.scope,
   value: Number(draft.value),
   duration: draft.duration,
   ...(draft.duration === "months" ? { months: Number(draft.months) } : {}),
@@ -96,6 +153,7 @@ export const draftToDiscount = (draft: DiscountDraft): StudentDiscount => ({
 
 export const discountToDraft = (discount: StudentDiscount): DiscountDraft => ({
   mode: discount.mode,
+  scope: discount.scope ?? "student",
   value: String(discount.value),
   duration: discount.duration,
   months: discount.months ? String(discount.months) : "3",

@@ -881,7 +881,9 @@ const createInvoice = async (request) => {
     invoicePayload.items = await applyStudentDiscounts(
       db,
       invoicePayload.items,
-      _periodToDate(invoicePayload.period_start || invoicePayload.period)
+      _periodToDate(invoicePayload.period_start || invoicePayload.period),
+      db,
+      parentId
     );
     invoicePayload.total_amount = Number(
       invoicePayload.items.reduce((sum, i) => sum + _toNumber(i.total), 0).toFixed(2)
@@ -900,7 +902,9 @@ const createInvoice = async (request) => {
     const items = await applyStudentDiscounts(
       admin.firestore(),
       baseLineItems,
-      _periodToDate(periodStart)
+      _periodToDate(periodStart),
+      admin.firestore(),
+      parentId
     );
     const totalAmount = Number(
       items.reduce((sum, i) => sum + _toNumber(i.total), 0).toFixed(2)
@@ -2306,7 +2310,8 @@ const _createRecurringInvoiceForPeriod = async ({
         db,
         periodItems,
         _periodToDate(periodStart),
-        tx
+        tx,
+        plan.parent_id || plan.parentId || ''
       );
       const totalAmount = Number(
         items.reduce((sum, item) => sum + _toNumber(item.total), 0).toFixed(2)

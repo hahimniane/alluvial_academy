@@ -18,6 +18,13 @@ import {
 } from "firebase/firestore";
 import { useEffect, useMemo, useState } from "react";
 import {
+  coversPeriod,
+  discountAmountFor,
+  discountLabel,
+  readDiscount,
+  type StudentDiscount,
+} from "@/lib/studentDiscount";
+import {
   Calendar,
   ChevronLeft,
   ChevronRight,
@@ -56,6 +63,16 @@ type BillableChild = {
   id: string;
   firstName: string;
   lastName: string;
+  discount: StudentDiscount | null;
+};
+
+/** An invoice line before it is sent; `student_id` is what makes it discountable. */
+type InvoiceLineDraft = {
+  description: string;
+  quantity: number;
+  unit_price: number;
+  total: number;
+  student_id: string;
 };
 
 type InvoiceItem = {
@@ -95,6 +112,43 @@ const statusFilters: { id: StatusFilter; label: string }[] = [
   { id: "cancelled", label: "Cancelled" },
 ];
 
+type PreviewLine = { label: string; amount: number };
+
+/**
+ * What the invoice will come to once the backend applies the same discounts.
+ *
+ * Mirrors utils/student_discounts.js deliberately: per-student lines first,
+ * then the household line against what is left, so a percentage reads as a
+ * percentage of what the family would otherwise owe and the two together can
+ * never take an invoice below zero.
+ */
+function previewDiscounts(
+  charges: { child: BillableChild; amount: number }[],
+  familyDiscount: StudentDiscount | null,
+  periodStart: Date,
+): { subtotal: number; lines: PreviewLine[]; total: number } {
+  const subtotal = charges.reduce((sum, entry) => sum + entry.amount, 0);
+  const lines: PreviewLine[] = [];
+
+  for (const { child, amount } of charges) {
+    const discount = child.discount;
+    if (!discount || discount.scope === "family") continue;
+    if (!coversPeriod(discount, periodStart)) continue;
+    const off = discountAmountFor(discount, amount);
+    if (off <= 0) continue;
+    lines.push({ label: `${fullName(child)} — ${discountLabel(discount)}`, amount: -off });
+  }
+
+  const afterStudents = subtotal + lines.reduce((sum, line) => sum + line.amount, 0);
+  if (familyDiscount && coversPeriod(familyDiscount, periodStart)) {
+    const off = discountAmountFor(familyDiscount, afterStudents);
+    if (off > 0) lines.push({ label: `Whole family — ${discountLabel(familyDiscount)}`, amount: -off });
+  }
+
+  const total = subtotal + lines.reduce((sum, line) => sum + line.amount, 0);
+  return { subtotal, lines, total };
+}
+
 export function InvoicesAdmin() {
   const [access, setAccess] = useState<AccessState>("checking");
   const [user, setUser] = useState<User | null>(null);
@@ -103,6 +157,7 @@ export function InvoicesAdmin() {
   const [selectedUser, setSelectedUser] = useState<BillableUser | null>(null);
   const [children, setChildren] = useState<BillableChild[]>([]);
   const [amountDrafts, setAmountDrafts] = useState<Record<string, AmountDraft>>({});
+  const [familyDiscount, setFamilyDiscount] = useState<StudentDiscount | null>(null);
   const [invoices, setInvoices] = useState<InvoiceRecord[]>([]);
   const [parentNames, setParentNames] = useState<Record<string, string>>({});
   const [userSearch, setUserSearch] = useState("");
@@ -184,12 +239,17 @@ export function InvoicesAdmin() {
     setMessage("");
     setLoadingChildren(true);
     try {
-      const nextChildren = await loadChildrenFor(nextUser);
+      const [nextChildren, nextFamilyDiscount] = await Promise.all([
+        loadChildrenFor(nextUser),
+        loadFamilyDiscount(nextUser),
+      ]);
       setChildren(nextChildren);
+      setFamilyDiscount(nextFamilyDiscount);
       setAmountDrafts(Object.fromEntries(nextChildren.map((child) => [child.id, { description: "Tuition", amount: "" }])));
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not load linked students.");
       setChildren([]);
+      setFamilyDiscount(null);
       setAmountDrafts({});
     } finally {
       setLoadingChildren(false);
@@ -199,6 +259,7 @@ export function InvoicesAdmin() {
   function clearSelection() {
     setSelectedUser(null);
     setChildren([]);
+    setFamilyDiscount(null);
     setAmountDrafts({});
     setMessage("");
   }
@@ -206,6 +267,14 @@ export function InvoicesAdmin() {
   function changeMonth(offset: number) {
     setBillingMonth((current) => new Date(current.getFullYear(), current.getMonth() + offset, 1));
   }
+
+  const preview = useMemo(() => {
+    const charges = children
+      .map((child) => ({ child, amount: Number(amountDrafts[child.id]?.amount ?? "") }))
+      .filter((entry) => Number.isFinite(entry.amount) && entry.amount > 0);
+    if (charges.length === 0) return null;
+    return previewDiscounts(charges, familyDiscount, new Date(billingMonth.getFullYear(), billingMonth.getMonth(), 1));
+  }, [children, amountDrafts, familyDiscount, billingMonth]);
 
   function updateAmount(childId: string, patch: Partial<AmountDraft>) {
     setAmountDrafts((current) => ({
@@ -228,10 +297,13 @@ export function InvoicesAdmin() {
             quantity: 1,
             unit_price: amount,
             total: amount,
+            // Without this the backend cannot attribute the charge to a child,
+            // and that child's discount is silently skipped.
+            student_id: child.id,
           },
         };
       })
-      .filter((entry): entry is { child: BillableChild; item: { description: string; quantity: number; unit_price: number; total: number } } => entry !== null);
+      .filter((entry): entry is { child: BillableChild; item: InvoiceLineDraft } => entry !== null);
 
     if (items.length === 0) {
       setMessage("Enter an amount for at least one student");
@@ -341,6 +413,7 @@ export function InvoicesAdmin() {
             onChangeMonth={changeMonth}
             onClearSelection={clearSelection}
             onCreate={createInvoice}
+            preview={preview}
             onDueDateChange={(value) => {
               setDueDate(value);
               if (new Date(`${accessCutoffDate}T12:00:00`) < new Date(`${value}T12:00:00`)) setAccessCutoffDate(formatDateInput(addDays(new Date(`${value}T12:00:00`), 1)));
@@ -380,6 +453,7 @@ function CreateInvoicePanel({
   dueDate,
   filteredUsers,
   loadingChildren,
+  preview,
   selectedUser,
   showUserResults,
   userSearch,
@@ -401,6 +475,7 @@ function CreateInvoicePanel({
   dueDate: string;
   filteredUsers: BillableUser[];
   loadingChildren: boolean;
+  preview: { subtotal: number; lines: PreviewLine[]; total: number } | null;
   selectedUser: BillableUser | null;
   showUserResults: boolean;
   userSearch: string;
@@ -474,6 +549,27 @@ function CreateInvoicePanel({
               </div>
             )}
           </section>
+          {preview ? (
+            <div className="mt-4 rounded-[14px] border border-[#E2E8F0] bg-white p-4">
+              <div className="flex items-center justify-between text-sm font-semibold text-[#475569]">
+                <span>Subtotal</span>
+                <span>{formatMoney(preview.subtotal, "USD")}</span>
+              </div>
+              {preview.lines.map((line) => (
+                <div key={line.label} className="mt-2 flex items-center justify-between gap-4 text-sm font-semibold text-[#047857]">
+                  <span>{line.label}</span>
+                  <span className="whitespace-nowrap">{formatMoney(line.amount, "USD")}</span>
+                </div>
+              ))}
+              <div className="mt-3 flex items-center justify-between border-t border-[#E2E8F0] pt-3 text-base font-black text-[#111827]">
+                <span>Total due</span>
+                <span>{formatMoney(preview.total, "USD")}</span>
+              </div>
+              {preview.lines.length === 0 ? (
+                <p className="mt-2 text-xs font-semibold text-[#64748B]">No discount applies to this billing month.</p>
+              ) : null}
+            </div>
+          ) : null}
           <button type="button" onClick={onCreate} disabled={creating || loadingChildren || children.length === 0} className="mt-5 flex min-h-12 w-full items-center justify-center rounded-xl bg-[#0386FF] px-5 text-sm font-black text-white shadow-sm disabled:cursor-not-allowed disabled:bg-[#CBD5E1]">
             {creating ? "Creating..." : "Create Invoice"}
           </button>
@@ -841,8 +937,16 @@ async function loadBillableUsers() {
   return users.sort((a, b) => fullName(a).localeCompare(fullName(b)));
 }
 
-async function loadChildrenFor(user: BillableUser) {
-  if (user.userType !== "parent") return [{ id: user.id, firstName: user.firstName, lastName: user.lastName }];
+async function loadChildrenFor(user: BillableUser): Promise<BillableChild[]> {
+  if (user.userType !== "parent") {
+    const own = await getDoc(doc(db, "users", user.id));
+    return [{
+      id: user.id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      discount: own.exists() ? readDiscount((own.data() as Record<string, unknown>).discount) : null,
+    }];
+  }
   const children = await Promise.all(user.childrenIds.map(async (childId) => {
     const childDoc = await getDoc(doc(db, "users", childId));
     if (!childDoc.exists()) return null;
@@ -851,9 +955,19 @@ async function loadChildrenFor(user: BillableUser) {
       id: childDoc.id,
       firstName: stringValue(data.first_name ?? data.firstName),
       lastName: stringValue(data.last_name ?? data.lastName),
+      discount: readDiscount((data as Record<string, unknown>).discount),
     };
   }));
   return children.filter((child): child is BillableChild => child !== null);
+}
+
+/** The household discount, which lives on the parent rather than on a child. */
+async function loadFamilyDiscount(user: BillableUser): Promise<StudentDiscount | null> {
+  if (user.userType !== "parent") return null;
+  const parentDoc = await getDoc(doc(db, "users", user.id));
+  if (!parentDoc.exists()) return null;
+  const discount = readDiscount((parentDoc.data() as Record<string, unknown>).discount);
+  return discount && discount.scope === "family" ? discount : null;
 }
 
 async function loadInvoices() {

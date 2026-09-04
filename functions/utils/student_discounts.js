@@ -46,12 +46,16 @@ const readDiscount = (raw) => {
   if (mode === 'percent' && value > 100) return null;
   const startDate = _toDate(raw.startDate);
   if (!startDate) return null;
+  const scope = raw.scope === 'family' ? 'family' : 'student';
   const duration = raw.duration === 'ongoing' ? 'ongoing' : 'months';
   const months = Number(raw.months);
   if (duration === 'months' && (!Number.isInteger(months) || months <= 0)) return null;
   return {
     mode,
     value,
+    // Absent on discounts saved before family scope existed; those are
+    // per-student, which is what they have always done.
+    scope,
     duration,
     ...(duration === 'months' ? {months} : {}),
     startDate,
@@ -134,6 +138,37 @@ const buildDiscountLines = (items, discountsByStudent, periodStart) => {
 };
 
 /**
+ * One line for a discount the whole household shares.
+ *
+ * A family discount comes off the invoice once however many children are on it
+ * — the difference between "$10 off each student" and "$10 off for the family".
+ * It is computed against what is left after the per-student lines, so the two
+ * together can never take an invoice below zero, and a percentage reads as a
+ * percentage of what the family would otherwise owe.
+ */
+const buildFamilyDiscountLine = (items, familyDiscount, periodStart) => {
+  if (!familyDiscount || familyDiscount.scope !== 'family') return null;
+  if (!coversPeriod(familyDiscount, periodStart)) return null;
+
+  const remaining = (items || []).reduce((sum, item) => sum + Number(item.total || 0), 0);
+  const amount = discountAmountFor(familyDiscount, remaining);
+  if (amount <= 0) return null;
+
+  return {
+    description: `Family discount — ${discountLabel(familyDiscount)}${familyDiscount.reason ? ` (${familyDiscount.reason})` : ''}`,
+    quantity: 1,
+    unit_price: -amount,
+    total: -amount,
+    // Deliberately unattributed: it belongs to the household, not to a child.
+    student_id: '',
+    shift_ids: [],
+    is_discount: true,
+    is_family_discount: true,
+    discount_reason: familyDiscount.reason || ''
+  };
+};
+
+/**
  * Reads each billed student's discount and returns the items with any discount
  * lines appended.
  *
@@ -144,7 +179,7 @@ const buildDiscountLines = (items, discountsByStudent, periodStart) => {
  * Pass the transaction as `reader` when called inside one; reads must happen
  * before any write in that transaction.
  */
-const applyStudentDiscounts = async (db, items, periodStart, reader = db) => {
+const applyStudentDiscounts = async (db, items, periodStart, reader = db, parentId = '') => {
   const source = (items || []).filter((item) => !item.is_discount);
   if (!periodStart) return source;
 
@@ -178,5 +213,6 @@ module.exports = {
   discountAmountFor,
   discountLabel,
   buildDiscountLines,
+  buildFamilyDiscountLine,
   applyStudentDiscounts
 };

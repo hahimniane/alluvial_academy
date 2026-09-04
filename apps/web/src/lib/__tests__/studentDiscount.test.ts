@@ -9,6 +9,7 @@ import {
   emptyDiscountDraft,
   formatStartDate,
   fromDateInput,
+  readDiscount,
   validateDiscount,
   type DiscountDraft,
   type StudentDiscount,
@@ -22,6 +23,7 @@ const draft = (over: Partial<DiscountDraft> = {}): DiscountDraft => ({
 
 const discount = (over: Partial<StudentDiscount> = {}): StudentDiscount => ({
   mode: "percent",
+  scope: "student",
   value: 20,
   duration: "months",
   months: 3,
@@ -134,4 +136,36 @@ test("labels read the way the design writes them", () => {
 test("a date input round-trips without shifting a day", () => {
   assert.equal(discountToDraft(discount({ startDate: fromDateInput("2026-01-01") })).startDate, "2026-01-01");
   assert.equal(discountToDraft(discount({ startDate: fromDateInput("2026-12-31") })).startDate, "2026-12-31");
+});
+
+test("a new discount is for one student until it is said otherwise", () => {
+  assert.equal(emptyDiscountDraft(new Date("2026-08-15T00:00:00Z")).scope, "student");
+});
+
+test("a discount stored before family scope existed reads as per-student", () => {
+  const stored = readDiscount({
+    mode: "fixed",
+    value: 10,
+    duration: "ongoing",
+    startDate: fromDateInput("2026-08-01"),
+    reason: "Sibling discount",
+  });
+  assert.equal(stored?.scope, "student");
+});
+
+test("a household discount keeps its scope through a round trip", () => {
+  const original = discount({ scope: "family" });
+  assert.equal(draftToDiscount(discountToDraft(original)).scope, "family");
+});
+
+test("only \"family\" counts as a household discount", () => {
+  const stored = readDiscount({
+    mode: "fixed",
+    value: 10,
+    scope: "everyone",
+    duration: "ongoing",
+    startDate: fromDateInput("2026-08-01"),
+    reason: "Promotion",
+  });
+  assert.equal(stored?.scope, "student");
 });
