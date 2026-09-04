@@ -1,4 +1,5 @@
 const nodemailer = require('nodemailer');
+const {partitionRecipients} = require('./undeliverable');
 
 /**
  * Outbound mail transport.
@@ -72,6 +73,45 @@ const _resendTransport = () =>
  *   already sets its own `from:` header; this only validates the mailbox name
  *   and, on the Hostinger fallback, picks which credentials to authenticate with.
  */
+/**
+ * Drop recipients that reach nobody before the message is handed to SMTP.
+ *
+ * Students created without an address of their own carry an alias at the
+ * school's own domain, and every sender that addresses "the student" ends up
+ * pointed at one. Filtering here rather than in each sender means a new sender
+ * cannot reintroduce the problem, and a message whose every recipient is an
+ * alias is never sent at all.
+ */
+const _filterUndeliverable = (transport) => {
+  const sendMail = transport.sendMail.bind(transport);
+  const hasRecipient = (value) => (Array.isArray(value) ? value.length > 0 : Boolean(value));
+
+  return Object.assign(Object.create(transport), {
+    sendMail: async (mailOptions = {}) => {
+      const to = await partitionRecipients(mailOptions.to);
+      const cc = await partitionRecipients(mailOptions.cc);
+      const bcc = await partitionRecipients(mailOptions.bcc);
+      const dropped = [...to.dropped, ...cc.dropped, ...bcc.dropped];
+
+      if (dropped.length > 0) {
+        console.log(`Mail: skipping ${dropped.length} address(es) with no mailbox: ${dropped.join(', ')}`);
+      }
+
+      if (!hasRecipient(to.deliverable) && !hasRecipient(cc.deliverable) && !hasRecipient(bcc.deliverable)) {
+        console.log(`Mail: not sent, every recipient was an alias (${mailOptions.subject || 'no subject'})`);
+        return {skipped: true, accepted: [], rejected: dropped, messageId: null};
+      }
+
+      return sendMail({
+        ...mailOptions,
+        to: to.deliverable,
+        cc: cc.deliverable,
+        bcc: bcc.deliverable,
+      });
+    },
+  });
+};
+
 const createTransporter = (mailbox = 'support') => {
   const config = MAILBOXES[mailbox];
   if (!config) {
@@ -81,10 +121,10 @@ const createTransporter = (mailbox = 'support') => {
   }
 
   if (isResendConfigured()) {
-    return _resendTransport();
+    return _filterUndeliverable(_resendTransport());
   }
 
-  return _hostingerTransport(config);
+  return _filterUndeliverable(_hostingerTransport(config));
 };
 
 module.exports = {
