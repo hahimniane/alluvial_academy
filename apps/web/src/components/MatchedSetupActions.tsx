@@ -176,7 +176,18 @@ export function MatchedSetupActions({
             countryCode: "",
           }}
           onSend={async (invite) => {
-            const result = await inviteParentForEnrollment(enrollmentId, studentUserId, invite);
+            const family = classmates
+              ? {
+                  enrollmentIds: classmates.map((mate) => mate.enrollmentId),
+                  studentUids: classmates.map((mate) => mate.studentUserId).filter(Boolean),
+                }
+              : undefined;
+            const result = await inviteParentForEnrollment(
+              enrollmentId,
+              studentUserId,
+              invite,
+              family,
+            );
             onMessage(
               result.message ||
                 (result.status === "linked"
