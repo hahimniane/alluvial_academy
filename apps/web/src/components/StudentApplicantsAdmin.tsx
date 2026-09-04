@@ -86,6 +86,7 @@ import {
   emptyDiscountDraft,
   formatStartDate,
   fromDateInput,
+  readDiscount,
   toDateInput,
   validateDiscount,
   type DiscountDraft,
@@ -156,6 +157,9 @@ type EnrollmentApplicant = {
   matchedAt: Date | null;
   studentUserId: string;
   parentLinked: boolean;
+  /** The linked parent, and the household discount held on their record. */
+  parentUserId: string;
+  familyDiscount: StudentDiscount | null;
   discount: StudentDiscount | null;
   // Carried for the export; the card shows none of these.
   gender: string;
@@ -357,6 +361,15 @@ export function StudentApplicantsAdmin() {
       setMessage("Create the student's account before setting a discount.");
       return;
     }
+    // "The whole family" is held on the parent, because it comes off the
+    // invoice once however many children are on it. Without a linked parent
+    // there is no household to attach it to.
+    const forFamily = draft?.scope === "family";
+    if (forFamily && !applicant.parentUserId) {
+      setMessage("Link a parent first — a family discount is held on the parent's account.");
+      return;
+    }
+    const target = forFamily ? applicant.parentUserId : applicant.studentUserId;
     const admin = auth.currentUser;
     const actor = {
       adminId: admin.uid,
@@ -369,9 +382,10 @@ export function StudentApplicantsAdmin() {
     try {
       if (draft) {
         const discount = draftToDiscount(draft);
-        await updateDoc(doc(db, "users", applicant.studentUserId), {
+        await updateDoc(doc(db, "users", target), {
           discount: {
             mode: discount.mode,
+            scope: discount.scope ?? "student",
             value: discount.value,
             duration: discount.duration,
             ...(discount.months ? { months: discount.months } : {}),
@@ -394,7 +408,12 @@ export function StudentApplicantsAdmin() {
         });
         setMessage(`Discount saved. It applies from ${formatStartDate(discount.startDate)}.`);
       } else {
+        // No draft means no scope to read, so clear the student's discount and
+        // the household one alike rather than leaving the other in place.
         await updateDoc(doc(db, "users", applicant.studentUserId), { discount: deleteField() });
+        if (applicant.parentUserId && applicant.familyDiscount) {
+          await updateDoc(doc(db, "users", applicant.parentUserId), { discount: deleteField() });
+        }
         await updateDoc(doc(db, "enrollments", applicant.id), {
           "metadata.actionHistory": arrayUnion({
             action: "discount_removed",
@@ -492,15 +511,17 @@ export function StudentApplicantsAdmin() {
         const [nextApplicants, nextCounts] = await Promise.all([loadApplicants(status), loadCounts()]);
         setApplicants(nextApplicants);
         setCounts(nextCounts);
-        const [scheduled, discounts] = await Promise.all([
+        const [scheduled, discounts, familyDiscounts] = await Promise.all([
           status === "matched" ? loadScheduledStudents(nextApplicants) : Promise.resolve(new Set<string>()),
           loadDiscounts(nextApplicants),
+          loadFamilyDiscounts(nextApplicants),
         ]);
         setScheduledStudents(scheduled);
         setApplicants(
           nextApplicants.map((applicant) => ({
             ...applicant,
             discount: discounts.get(applicant.studentUserId) ?? null,
+            familyDiscount: familyDiscounts.get(applicant.parentUserId) ?? null,
           })),
         );
       }
@@ -746,6 +767,8 @@ export function StudentApplicantsAdmin() {
         {discountFor ? (
           <DiscountDialog
             studentName={discountFor.studentName}
+            familyExisting={discountFor.familyDiscount}
+            canApplyToFamily={Boolean(discountFor.parentUserId)}
             existing={discountFor.discount}
             // Best signal available for when this student's enrollment began;
             // nothing records it, so the admin confirms or corrects it here
@@ -763,6 +786,8 @@ export function StudentApplicantsAdmin() {
 export function DiscountDialog({
   studentName,
   existing,
+  familyExisting,
+  canApplyToFamily,
   defaultStartDate,
   onSave,
   onRemove,
@@ -770,14 +795,19 @@ export function DiscountDialog({
 }: {
   studentName: string;
   existing: StudentDiscount | null;
+  /** The household discount already on the parent, if there is one. */
+  familyExisting: StudentDiscount | null;
+  /** False when no parent is linked, so there is no household to attach to. */
+  canApplyToFamily: boolean;
   defaultStartDate: Date;
   onSave: (draft: DiscountDraft) => Promise<void> | void;
   onRemove: () => Promise<void> | void;
   onClose: () => void;
 }) {
-  const [draft, setDraft] = useState<DiscountDraft>(() =>
-    existing ? discountToDraft(existing) : emptyDiscountDraft(defaultStartDate),
-  );
+  const [draft, setDraft] = useState<DiscountDraft>(() => {
+    if (familyExisting) return discountToDraft(familyExisting);
+    return existing ? discountToDraft(existing) : emptyDiscountDraft(defaultStartDate);
+  });
   const [showError, setShowError] = useState(false);
   const error = validateDiscount(draft);
   const preview = error ? null : draftToDiscount(draft);
@@ -790,6 +820,44 @@ export function DiscountDialog({
         <p className="mt-1 text-[13px] text-[#64748B]">
           {studentName} · applies to every program this student takes
         </p>
+
+        <div className="mt-5">
+          <span className="block text-[11px] font-semibold text-[#1E293B]">Applies to</span>
+          <div className="mt-1.5 grid grid-cols-2 gap-2.5">
+            {([
+              { scope: "student" as const, title: "This student", hint: "Two siblings on $10 off come to $20" },
+              { scope: "family" as const, title: "The whole family", hint: "Taken off the invoice once" },
+            ]).map((option) => {
+              const active = draft.scope === option.scope;
+              const disabled = option.scope === "family" && !canApplyToFamily;
+              return (
+                <button
+                  key={option.scope}
+                  type="button"
+                  aria-pressed={active}
+                  disabled={disabled}
+                  onClick={() => set({ scope: option.scope })}
+                  className={`rounded-lg border-[1.5px] p-3 text-left transition ${
+                    active ? "border-[#3B82F6] bg-[#EFF6FF] text-[#1D4ED8]" : "border-[#E2E8F0] bg-white text-[#475569]"
+                  } ${disabled ? "cursor-not-allowed opacity-50" : ""}`}
+                >
+                  <span className="block text-xs font-bold">{option.title}</span>
+                  <span className="mt-0.5 block text-[11px] font-medium text-[#64748B]">{option.hint}</span>
+                </button>
+              );
+            })}
+          </div>
+          {!canApplyToFamily ? (
+            <p className="mt-1.5 text-[11px] font-medium text-[#64748B]">
+              Link a parent to give the whole family one discount.
+            </p>
+          ) : null}
+          {draft.scope === "family" ? (
+            <p className="mt-1.5 text-[11px] font-medium text-[#64748B]">
+              Saved on the parent, so it covers every child on the invoice.
+            </p>
+          ) : null}
+        </div>
 
         <div className="mt-5 grid grid-cols-2 gap-2.5">
           {([
@@ -1329,12 +1397,24 @@ function ApplicantCard({
             />
           ) : null}
           <div className="mb-3 flex flex-wrap items-center gap-2">
-            {applicant.discount ? (
-              <span className="inline-flex items-center gap-1.5 rounded-lg bg-[#FEF3C7] px-2.5 py-2 text-[11px] text-[#92400E]">
-                <Tag size={14} />
-                <span className="font-bold">{discountLabel(applicant.discount)}</span>
-                {applicant.discount.reason ? <span className="font-medium">· {applicant.discount.reason}</span> : null}
-              </span>
+            {applicant.discount || applicant.familyDiscount ? (
+              [
+                applicant.discount ? {key: "student", discount: applicant.discount, prefix: ""} : null,
+                applicant.familyDiscount
+                  ? {key: "family", discount: applicant.familyDiscount, prefix: "Whole family · "}
+                  : null,
+              ]
+                .filter((entry): entry is {key: string; discount: StudentDiscount; prefix: string} => entry !== null)
+                .map((entry) => (
+                  <span
+                    key={entry.key}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-[#FEF3C7] px-2.5 py-2 text-[11px] text-[#92400E]"
+                  >
+                    <Tag size={14} />
+                    <span className="font-bold">{entry.prefix}{discountLabel(entry.discount)}</span>
+                    {entry.discount.reason ? <span className="font-medium">· {entry.discount.reason}</span> : null}
+                  </span>
+                ))
             ) : (
               <span className="rounded-lg bg-[#F1F5F9] px-2.5 py-2 text-[11px] font-semibold text-[#475569]">No discount</span>
             )}
@@ -1346,7 +1426,7 @@ function ApplicantCard({
               className="inline-flex min-h-9 flex-1 items-center justify-center gap-2 rounded-lg border border-black/10 px-3 text-xs font-semibold text-[#B45309] hover:bg-[#FFFBEB] disabled:cursor-not-allowed disabled:text-[#CBD5E1] disabled:hover:bg-transparent"
             >
               <Tag size={16} />
-              {applicant.discount ? "Edit discount" : "Add discount"}
+              {applicant.discount || applicant.familyDiscount ? "Edit discount" : "Add discount"}
             </button>
           </div>
           <div className="flex items-center gap-3">
@@ -1685,6 +1765,9 @@ function normalizeApplicant(id: string, data: Record<string, unknown>): Enrollme
     parentLinked:
       stringValue(metadata.parentInviteStatus) === "linked" ||
       stringValue(contact.guardianId).length > 0,
+    parentUserId: stringValue(contact.guardianId) || stringValue(metadata.parentUserId),
+    // Filled in by loadFamilyDiscounts(), like discount above.
+    familyDiscount: null,
     // Filled in by loadDiscounts() — it lives on the student's user record,
     // because it covers every program that student takes rather than one
     // application.
@@ -1743,24 +1826,19 @@ function numberOrNull(raw: unknown): number | null {
   return Number.isFinite(value) && value > 0 ? value : null;
 }
 
-function readDiscount(raw: unknown): StudentDiscount | null {
-  const data = recordValue(raw);
-  const mode = stringValue(data.mode);
-  const value = Number(data.value);
-  if ((mode !== "percent" && mode !== "fixed") || !Number.isFinite(value) || value <= 0) return null;
-  const duration = stringValue(data.duration) === "ongoing" ? "ongoing" : "months";
-  const startDate = dateValue(data.startDate);
-  if (!startDate) return null;
-  const months = Number(data.months);
-  return {
-    mode,
-    value,
-    duration,
-    ...(duration === "months" && Number.isFinite(months) && months > 0 ? { months } : {}),
-    startDate,
-    reason: stringValue(data.reason),
-    ...(stringValue(data.note) ? { note: stringValue(data.note) } : {}),
-  };
+/** One read per linked parent; only family-scoped discounts count as household. */
+async function loadFamilyDiscounts(
+  applicants: EnrollmentApplicant[],
+): Promise<Map<string, StudentDiscount>> {
+  const parentIds = [...new Set(applicants.map((a) => a.parentUserId).filter(Boolean))];
+  const found = new Map<string, StudentDiscount>();
+  const snapshots = await Promise.all(parentIds.map((uid) => getDoc(doc(db, "users", uid))));
+  snapshots.forEach((snapshot, index) => {
+    if (!snapshot.exists()) return;
+    const discount = readDiscount((snapshot.data() as Record<string, unknown>).discount);
+    if (discount && discount.scope === "family") found.set(parentIds[index], discount);
+  });
+  return found;
 }
 
 /** One read per student who has an account; applicants without one have none. */
