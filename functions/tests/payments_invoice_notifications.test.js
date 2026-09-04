@@ -119,6 +119,12 @@ const buildManualPaymentDb = ({users = {}, invoices = {}} = {}) => {
           }
           throw new Error(`Unexpected tx.get: ${ref.collectionName}/${ref.id}`);
         },
+        // Real Firestore transactions expose getAll; the discount reader uses
+        // it to look up each billed student and the household.
+        getAll: async (...refs) => refs.map((ref) => ({exists: false, data: () => undefined, id: ref.id})),
+        // Real Firestore transactions expose getAll; the discount reader uses
+        // it to look up each billed student and the household.
+        getAll: async (...refs) => refs.map((ref) => ({exists: false, data: () => undefined, id: ref.id})),
         set: (ref, data, options) => {
           writes.push({ref, data, options});
           if (ref.collectionName === 'invoices') {
@@ -186,6 +192,14 @@ const buildRecurringDb = ({plans = {}, invoices = {}, counters = {}} = {}) => {
         };
       }
 
+      // The discount reader looks each billed student, and the household, up
+      // here. This fake holds none, so nothing is discounted.
+      if (name === 'users') {
+        return {
+          doc: (id) => docRef(name, id),
+        };
+      }
+
       throw new Error(`Unexpected collection: ${name}`);
     }),
     runTransaction: async (handler) => {
@@ -211,6 +225,9 @@ const buildRecurringDb = ({plans = {}, invoices = {}, counters = {}} = {}) => {
           }
           throw new Error(`Unexpected tx.get: ${ref.collectionName}/${ref.id}`);
         },
+        // Real Firestore transactions expose getAll; the discount reader uses
+        // it to look up each billed student and the household.
+        getAll: async (...refs) => refs.map((ref) => ({exists: false, data: () => undefined, id: ref.id})),
         set: (ref, data, options) => applySet(ref, data, options),
       };
       return handler(tx);
