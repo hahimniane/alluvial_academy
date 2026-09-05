@@ -218,7 +218,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
     _timesheetSubscription = FirebaseFirestore.instance
         .collection('timesheet_entries')
         .where('shift_id', isEqualTo: widget.shift.id)
-        .orderBy('created_at', descending: true)
+        .where('teacher_id', isEqualTo: widget.shift.teacherId)
         .snapshots()
         .listen((_) => scheduleMergedTimesheetReload(),
             onError: onTimesheetStreamError);
@@ -226,7 +226,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
     _timesheetSubscriptionCamel = FirebaseFirestore.instance
         .collection('timesheet_entries')
         .where('shiftId', isEqualTo: widget.shift.id)
-        .orderBy('created_at', descending: true)
+        .where('teacherId', isEqualTo: widget.shift.teacherId)
         .snapshots()
         .listen((_) => scheduleMergedTimesheetReload(),
             onError: onTimesheetStreamError);
@@ -265,12 +265,12 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
         FirebaseFirestore.instance
             .collection('timesheet_entries')
             .where('shift_id', isEqualTo: widget.shift.id)
-            .orderBy('created_at', descending: true)
+            .where('teacher_id', isEqualTo: widget.shift.teacherId)
             .get(),
         FirebaseFirestore.instance
             .collection('timesheet_entries')
             .where('shiftId', isEqualTo: widget.shift.id)
-            .orderBy('created_at', descending: true)
+            .where('teacherId', isEqualTo: widget.shift.teacherId)
             .get(),
       ]);
 
@@ -342,12 +342,12 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
         FirebaseFirestore.instance
             .collection('timesheet_entries')
             .where('shift_id', isEqualTo: widget.shift.id)
-            .orderBy('created_at', descending: true)
+            .where('teacher_id', isEqualTo: widget.shift.teacherId)
             .get(),
         FirebaseFirestore.instance
             .collection('timesheet_entries')
             .where('shiftId', isEqualTo: widget.shift.id)
-            .orderBy('created_at', descending: true)
+            .where('teacherId', isEqualTo: widget.shift.teacherId)
             .get(),
       ]);
 
@@ -366,6 +366,15 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
           data['id'] = doc.id;
           return data;
         }).toList();
+        // Newest first. The query no longer asks Firestore to order, because
+        // a teacher may only read rows filtered by their own uid, and adding
+        // that filter plus a server-side order would need a composite index.
+        _allTimesheetEntries.sort((a, b) {
+          final ca = a['created_at'];
+          final cb = b['created_at'];
+          if (ca is Timestamp && cb is Timestamp) return cb.compareTo(ca);
+          return 0;
+        });
 
         // Set the most recent one as _timesheetEntry for backward compatibility / status check
         if (mounted) {
