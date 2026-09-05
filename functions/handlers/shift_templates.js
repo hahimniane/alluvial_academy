@@ -731,7 +731,28 @@ const generateShiftsForTemplateCallable = onCall(async (request) => {
   return {templateId, generated: result};
 });
 
-const generateDailyShifts = onSchedule({schedule: '0 0 * * *', timeZone: 'Etc/UTC'}, async () => {
+/**
+ * Nightly generation.
+ *
+ * This ran on the 60s default and timed out every night, silently: Cloud Run
+ * returned 504, the templates it had not reached yet were simply not
+ * generated, and because the query came back in document-id order the SAME
+ * tail was dropped every time. 148 of 308 active templates had not generated
+ * for over a fortnight, the oldest since March, and their classes never
+ * appeared for anyone.
+ *
+ * Two things keep that from recurring. The timeout is now sized for the work,
+ * and templates are processed stalest-first, so a run that does run out of
+ * time still advances the ones furthest behind instead of re-doing the same
+ * prefix. The summary line reports how many were left, so a partial run is
+ * visible rather than silent.
+ */
+const generateDailyShifts = onSchedule({
+  schedule: '0 0 * * *',
+  timeZone: 'Etc/UTC',
+  timeoutSeconds: 1800,
+  memory: '512MiB',
+}, async () => {
   if (!_isTemplatesEnabledProject()) {
     console.log(
       `[shift_templates] Skipping daily generation on disabled project (${PROJECT_ID || 'unknown'}).`,
@@ -753,9 +774,19 @@ const generateDailyShifts = onSchedule({schedule: '0 0 * * *', timeZone: 'Etc/UT
 
   let created = 0;
   let skipped = 0;
+  let processed = 0;
   const teacherShiftCounts = new Map(); // teacherId -> { name, shiftsCreated }
 
-  for (const doc of templatesSnap.docs) {
+  // Stalest first. Ordering in the query would drop templates that have no
+  // last_generated_date at all, which are precisely the ones never generated,
+  // so it is done here instead. An empty date sorts first for the same reason.
+  const orderedTemplates = [...templatesSnap.docs].sort((a, b) => {
+    const left = (a.data() || {}).last_generated_date || '';
+    const right = (b.data() || {}).last_generated_date || '';
+    return String(left).localeCompare(String(right));
+  });
+
+  for (const doc of orderedTemplates) {
     const templateId = doc.id;
     const template = doc.data() || {};
     try {
@@ -781,9 +812,19 @@ const generateDailyShifts = onSchedule({schedule: '0 0 * * *', timeZone: 'Etc/UT
     } catch (err) {
       console.error(`[shift_templates] Failed daily generation for ${templateId}:`, err);
     }
+    processed += 1;
   }
 
-  console.log(`[shift_templates] Daily generation done. created=${created} skipped=${skipped}`);
+  const unreached = orderedTemplates.length - processed;
+  console.log(
+    `[shift_templates] Daily generation done. created=${created} skipped=${skipped} ` +
+      `processed=${processed}/${orderedTemplates.length} unreached=${unreached}`,
+  );
+  if (unreached > 0) {
+    console.error(
+      `[shift_templates] ${unreached} templates were not reached this run — their classes were not generated.`,
+    );
+  }
 
   // Send email report
   try {
@@ -807,6 +848,19 @@ const generateDailyShifts = onSchedule({schedule: '0 0 * * *', timeZone: 'Etc/UT
     console.error('[shift_templates] Failed to send email report:', emailErr);
   }
 });
+
+/** Name and email for an audit line, best-effort: never blocks the write. */
+const _describeUid = async (uid) => {
+  try {
+    const snap = await admin.firestore().collection('users').doc(uid).get();
+    const data = snap.exists ? snap.data() || {} : {};
+    const name = `${data.first_name || ''} ${data.last_name || ''}`.trim();
+    return {name: name || null, email: data.email || data['e-mail'] || null};
+  } catch (e) {
+    console.log(`[shift_templates] Could not describe uid ${uid}: ${e.message}`);
+    return {name: null, email: null};
+  }
+};
 
 const updateShiftTemplate = onCall({memory: '512MiB'}, async (request) => {
   _assertTemplatesEnabledOrThrow();
@@ -881,6 +935,18 @@ const updateShiftTemplate = onCall({memory: '512MiB'}, async (request) => {
     if (!active) {
       updates.deactivated_at = admin.firestore.FieldValue.serverTimestamp();
       updates.deactivated_reason = data.deactivated_reason || 'manual';
+      // Who stopped the series. Without this a class can vanish from every
+      // teacher's and family's schedule with nothing anywhere recording who
+      // did it — the templates only ever stored who CREATED them, so past
+      // deletions are unattributable.
+      const actor = await _describeUid(uid);
+      updates.deactivated_by = uid;
+      updates.deactivated_by_name = actor.name;
+      updates.deactivated_by_email = actor.email;
+      console.log(
+        `[shift_templates] Template ${templateId} deactivated by ${actor.name || uid}` +
+          ` <${actor.email || 'unknown'}> reason=${updates.deactivated_reason}`,
+      );
     }
   }
 
