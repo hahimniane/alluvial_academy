@@ -16,6 +16,7 @@ import 'parent_profile_screen.dart';
 import 'parent_classes_screen.dart';
 import '../../recordings/screens/class_recordings_screen.dart';
 import '../../curriculum/screens/curriculum_books_screen.dart';
+import '../../quran_reader/screens/quran_reader_screen.dart';
 import '../../settings/screens/role_settings_screen.dart';
 import '../../tontine/screens/tontine_home_screen.dart';
 import 'package:alluwalacademyadmin/core/widgets/role_switcher.dart';
@@ -109,6 +110,8 @@ class _ParentDashboardLayoutState extends State<ParentDashboardLayout> {
         return const CurriculumBooksScreen();
       case 10:
         return const ChatPage();
+      case 11:
+        return const QuranReaderScreen();
       default:
         return const _AccessDeniedScreen();
     }

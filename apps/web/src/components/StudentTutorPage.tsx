@@ -257,6 +257,9 @@ export function StudentTutorPage() {
       const reply = res.data.reply;
       setMessages([...next, { role: "assistant", text: reply }]);
       setExpiresAt(new Date(res.data.expiresAt));
+      // The microphone follows the conversation: a student answered in Arabic
+      // is almost certainly about to speak Arabic.
+      if (res.data.language && res.data.language !== langRef.current) { langRef.current = res.data.language; setLang(res.data.language); }
       if (!aliveRef.current) return;
       setPhase("speaking");
       say(reply, res.data.language, res.data.audio, () => { if (aliveRef.current && supported && !micBlockedRef.current) listen(); else setPhase("idle"); });

@@ -53,6 +53,7 @@ import '../../student/screens/student_progress_screen.dart';
 import '../../student/screens/admin_student_attendance_screen.dart';
 import '../../recordings/screens/class_recordings_screen.dart';
 import '../../surah_podcast/screens/surah_podcast_screen.dart';
+import '../../quran_reader/screens/quran_reader_screen.dart';
 import '../../curriculum/screens/curriculum_books_screen.dart';
 import '../../parent/screens/admin_invoice_hub_screen.dart';
 import '../../parent/screens/parent_invoices_screen.dart';
@@ -373,6 +374,8 @@ class _DashboardPageState extends State<DashboardPage> {
         return const CurriculumBooksScreen();
       case 31:
         return const AdminInvoiceHubScreen();
+      case 39:
+        return const QuranReaderScreen();
       case 29:
         // Adult-student invoices: their invoices are keyed by parent_id == own uid.
         return ParentInvoicesScreen(parentId: _currentUserId);

@@ -168,6 +168,13 @@ class SidebarConfig {
             colorValue: 0xff0E72ED,
           ),
           const SidebarItem(
+            id: 'quran',
+            label: 'Quran',
+            icon: Icons.auto_stories_rounded,
+            screenIndex: 39,
+            colorValue: 0xff0E7490,
+          ),
+          const SidebarItem(
             id: 'curriculum_books',
             label: 'Curriculum Books',
             icon: Icons.menu_book,
@@ -391,6 +398,13 @@ class SidebarConfig {
             colorValue: 0xff0E72ED,
           ),
           const SidebarItem(
+            id: 'quran',
+            label: 'Quran',
+            icon: Icons.auto_stories_rounded,
+            screenIndex: 39,
+            colorValue: 0xff0E7490,
+          ),
+          const SidebarItem(
             id: 'curriculum_books',
             label: 'Curriculum Books',
             icon: Icons.menu_book,
@@ -502,6 +516,13 @@ class SidebarConfig {
             icon: Icons.menu_book,
             screenIndex: 9,
             colorValue: 0xff0F766E,
+          ),
+          const SidebarItem(
+            id: 'quran',
+            label: 'Quran',
+            icon: Icons.auto_stories_rounded,
+            screenIndex: 11,
+            colorValue: 0xff0E7490,
           ),
         ],
       ),
