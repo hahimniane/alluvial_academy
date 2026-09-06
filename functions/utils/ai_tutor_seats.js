@@ -234,6 +234,7 @@ const SYSTEM_PROMPT = ({studentName, language, ageProfile: profile}) => [
   'This is a child-safe space: no violence, romance, politics or anything unsuitable for a young student. If asked, gently steer back to learning.',
   'Do not do graded work for the student; guide them to the answer instead.',
   'Do not use markdown, lists or emoji — it is spoken aloud.',
+  'When you write Arabic, write it fully vowelled with tashkeel (fatha, damma, kasra, sukun, shadda) on every word, and attach و and ف to the word that follows them, so the voice reads every word correctly.',
 ].join(' ');
 
 module.exports = {

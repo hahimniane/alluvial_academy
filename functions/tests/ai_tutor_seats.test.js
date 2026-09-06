@@ -125,6 +125,7 @@ describe('the conversation sent to the model', () => {
     expect(p).toMatch(/Amina/);
     expect(p).toMatch(/Never invent/);
     expect(p).toMatch(/Islamic questions are welcome/);
+    expect(p).toMatch(/tashkeel/);
   });
 
   test('the prompt tells the model the student\'s age and what is off limits', () => {
@@ -162,6 +163,13 @@ describe('the voice', () => {
     expect(tts.voicesFor('ar', {})[0].languageCode).toBe('ar-XA');
     expect(tts.voicesFor('xx', {})[0].languageCode).toBe('en-US');
   });
+  test('a stray و or ف is joined to the next word before synthesis', () => {
+    expect(tts.prepareArabic('الشَّهَادَتَانِ، و إِقَامُ الصَّلَاةِ، و إِيتَاءُ الزَّكَاةِ')).toBe('الشَّهَادَتَانِ، وإِقَامُ الصَّلَاةِ، وإِيتَاءُ الزَّكَاةِ');
+    expect(tts.prepareArabic('ف اذْهَبْ و اقْرَأْ')).toBe('فاذْهَبْ واقْرَأْ');
+    // Already attached, or followed by punctuation: untouched.
+    expect(tts.prepareArabic('وَالْعَصْرِ. و. هل')).toBe('وَالْعَصْرِ. و. هل');
+  });
+
   test('a voice set in settings comes first, the defaults stay as fallbacks', () => {
     const v = tts.voicesFor('en', {voices: {en: 'en-US-Chirp3-HD-Kore'}});
     expect(v[0]).toEqual({languageCode: 'en-US', name: 'en-US-Chirp3-HD-Kore'});

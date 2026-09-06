@@ -20,6 +20,17 @@ const VOICES = {
 
 const MAX_CHARS = 1500;
 
+/**
+ * Arabic as the voice should see it. A conjunction written on its own
+ * ("و الصلاة") is skipped or mumbled by the synthesiser; in Arabic writing it
+ * belongs to the next word ("والصلاة"). Diacritics are left exactly as the
+ * model wrote them — they are what make short words pronounceable.
+ */
+const prepareArabic = (text) => String(text || '')
+  .replace(/(^|[\s،؛:.!؟"'()«»])([وف])\s+(?=[\u0621-\u064A])/g, '$1$2')
+  .replace(/\s{2,}/g, ' ')
+  .trim();
+
 const voicesFor = (language, settings) => {
   const custom = settings && settings.voices && settings.voices[language];
   if (Array.isArray(custom) && custom.length) return custom;
@@ -33,7 +44,7 @@ const voicesFor = (language, settings) => {
  * the tutor.
  */
 const synthesize = async ({text, language, settings, projectId}) => {
-  const clean = String(text || '').trim().slice(0, MAX_CHARS);
+  const clean = (language === 'ar' ? prepareArabic(text) : String(text || '').trim()).slice(0, MAX_CHARS);
   if (!clean) return null;
   let token;
   try {
@@ -70,4 +81,4 @@ const synthesize = async ({text, language, settings, projectId}) => {
   return null;
 };
 
-module.exports = {synthesize, voicesFor, VOICES, MAX_CHARS};
+module.exports = {synthesize, voicesFor, prepareArabic, VOICES, MAX_CHARS};
