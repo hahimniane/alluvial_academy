@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { onAuthStateChanged, signOut, type User } from "firebase/auth";
-import { collection, getDocs, limit, orderBy, query, Timestamp, where } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, limit, orderBy, query, Timestamp, where } from "firebase/firestore";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   Bell,
@@ -36,6 +36,7 @@ import {
 import { auth, db } from "@/lib/firebase";
 import { cachedStudentSession, clearStudentSession, resolveStudentSession } from "@/lib/studentSession";
 import { adoptRemoteLocale, dateLocale, setLocale, useLocale, useT } from "@/lib/i18n";
+import { ROLE_LABELS, otherRolesOf } from "@/lib/roles";
 import { ConfirmDialog, type ConfirmRequest } from "@/components/ConfirmDialog";
 
 type UserRecord = Record<string, unknown>;
@@ -520,6 +521,30 @@ function formatTime(value: Date) {
   return value.toLocaleTimeString(dateLocale(), { hour: "numeric", minute: "2-digit" });
 }
 
+/**
+ * Hands the browser to the Flutter app as another role. The app keeps its
+ * active role in SharedPreferences, which on the web is localStorage under a
+ * "flutter." prefix with JSON-encoded values — the same origin, so writing it
+ * here is exactly what the app's own role switcher does.
+ */
+export function switchToRole(role: string) {
+  try { window.localStorage.setItem("flutter.active_user_role", JSON.stringify(role)); } catch { /* the app will ask */ }
+  window.location.assign("/app/");
+}
+
+function useOtherRoles(uid: string | undefined): string[] {
+  const [roles, setRoles] = useState<string[]>([]);
+  useEffect(() => {
+    if (!uid) return;
+    let cancelled = false;
+    getDoc(doc(db, "users", uid))
+      .then((snap) => { if (!cancelled) setRoles(otherRolesOf(snap.data())); })
+      .catch(() => { /* no switcher, nothing lost */ });
+    return () => { cancelled = true; };
+  }, [uid]);
+  return roles;
+}
+
 export function StudentShell({
   activeLabel,
   breadcrumb,
@@ -538,6 +563,8 @@ export function StudentShell({
   const [favoritedItems, setFavoritedItems] = useState<Set<string>>(new Set());
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [roleMenuOpen, setRoleMenuOpen] = useState(false);
+  const otherRoles = useOtherRoles(auth.currentUser?.uid);
   const [notificationCount, setNotificationCount] = useState(0);
   const t = useT();
   const locale = useLocale();
@@ -770,10 +797,43 @@ export function StudentShell({
             <div className="flex items-center gap-3">
               {/* Role pill, bell and name-with-chip mirror the Flutter top bar.
                   Green is the student role colour (_getRoleColor). */}
-              <span className="inline-flex min-h-10 items-center gap-2 rounded-full bg-[#10B981] px-5 text-sm font-black text-white">
-                <UserRound size={18} />
-                {t("Student")}
-              </span>
+              {otherRoles.length ? (
+                <div className="relative">
+                  <button
+                    type="button"
+                    aria-label="Switch role"
+                    aria-expanded={roleMenuOpen}
+                    onClick={() => setRoleMenuOpen((current) => !current)}
+                    className="inline-flex min-h-10 items-center gap-2 rounded-full bg-[#10B981] px-5 text-sm font-black text-white"
+                  >
+                    <UserRound size={18} />
+                    {t("Student")}
+                    <ChevronDown size={16} />
+                  </button>
+                  {roleMenuOpen ? (
+                    <div className="absolute right-0 top-12 z-50 w-52 rounded-2xl border border-[#E2E8F0] bg-white p-2 shadow-xl" role="menu" aria-label="Switch role">
+                      <p className="px-3 pb-1 pt-1 text-[11px] font-black uppercase tracking-wide text-[#94A3B8]">{t("Switch to")}</p>
+                      {otherRoles.map((role) => (
+                        <button
+                          key={role}
+                          type="button"
+                          role="menuitem"
+                          onClick={() => switchToRole(role)}
+                          className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-bold text-[#334155] hover:bg-[#F1F5F9]"
+                        >
+                          <UserRound size={18} className="text-[#0E72ED]" />
+                          {t(ROLE_LABELS[role] ?? role)}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              ) : (
+                <span className="inline-flex min-h-10 items-center gap-2 rounded-full bg-[#10B981] px-5 text-sm font-black text-white">
+                  <UserRound size={18} />
+                  {t("Student")}
+                </span>
+              )}
               {/* Not a link: there is no student notifications page yet, and
                   sending it to /app/ would drop the student into the Flutter
                   dashboard. Kept for visual parity with the app's header. */}
