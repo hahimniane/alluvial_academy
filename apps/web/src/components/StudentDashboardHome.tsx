@@ -31,6 +31,7 @@ import {
   UserRound,
   Video,
   X,
+  Bot,
 } from "lucide-react";
 import { auth, db } from "@/lib/firebase";
 import { cachedStudentSession, clearStudentSession, resolveStudentSession } from "@/lib/studentSession";
@@ -93,6 +94,7 @@ function studentSections(isAdultStudent: boolean): SidebarSection[] {
         { label: "Quiz", icon: ClipboardList, href: "/student/quiz/", color: "#8B5CF6" },
         { label: "Progress", icon: TrendingUp, href: "/student/progress/", color: "#2563EB" },
         { label: "Quran", icon: BookMarked, href: "/student/quran/", color: "#0E7490" },
+        { label: "AI Tutor", icon: Bot, href: "/student/tutor/", color: "#0E72ED" },
         { label: "Surah Podcasts", icon: Podcast, href: "/student/surah-podcasts/", color: "#0E72ED" },
         { label: "Curriculum Books", icon: BookOpen, href: "/student/curriculum-books/", color: "#0F766E" },
       ],

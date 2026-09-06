@@ -1,0 +1,186 @@
+/**
+ * The rules behind the student AI tutor's seats and bookings.
+ *
+ * The tutor costs nothing per minute — the student's phone listens and speaks,
+ * and the model is on Google's free tier — so the only thing that needs
+ * limiting is how many students talk at once, which is what keeps the free
+ * quota and the experience intact. Everything here is pure so it can be
+ * tested without Firestore; the callables in handlers/ai_tutor_voice.js do the
+ * reading and writing.
+ */
+const {DateTime} = require('luxon');
+
+const DEFAULT_SETTINGS = Object.freeze({
+  enabled: true,
+  seats: 10,
+  sessionMinutes: 60,
+  maxBookingsPerDay: 2,
+  windowStart: '15:00',
+  windowEnd: '23:00',
+  timezone: 'America/New_York',
+  /** Tried in order; the free Gemma models first, a paid Flash-Lite last. */
+  models: ['gemma-4-26b-a4b-it', 'gemma-4-31b-it', 'gemini-3.1-flash-lite', 'gemini-flash-lite-latest'],
+  /** Longest a single conversation is kept when sent to the model. */
+  maxHistoryMessages: 16,
+});
+
+const _int = (value, fallback) => {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback;
+};
+
+const _hhmm = (value, fallback) =>
+  typeof value === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(value) ? value : fallback;
+
+/** Settings as stored, with every field defaulted so callers never guard. */
+const normalizeSettings = (raw) => {
+  const data = raw && typeof raw === 'object' ? raw : {};
+  const zone = typeof data.timezone === 'string' && DateTime.now().setZone(data.timezone).isValid
+    ? data.timezone
+    : DEFAULT_SETTINGS.timezone;
+  return {
+    enabled: data.enabled !== false,
+    seats: _int(data.seats, DEFAULT_SETTINGS.seats),
+    sessionMinutes: _int(data.sessionMinutes, DEFAULT_SETTINGS.sessionMinutes),
+    maxBookingsPerDay: _int(data.maxBookingsPerDay, DEFAULT_SETTINGS.maxBookingsPerDay),
+    windowStart: _hhmm(data.windowStart, DEFAULT_SETTINGS.windowStart),
+    windowEnd: _hhmm(data.windowEnd, DEFAULT_SETTINGS.windowEnd),
+    timezone: zone,
+    models: Array.isArray(data.models) && data.models.length ? data.models.map(String) : DEFAULT_SETTINGS.models,
+    maxHistoryMessages: _int(data.maxHistoryMessages, DEFAULT_SETTINGS.maxHistoryMessages),
+  };
+};
+
+/** "2026-09-08T15" in the tutor's timezone — one key per bookable hour. */
+const slotKeyFor = (date, settings) =>
+  DateTime.fromJSDate(date, {zone: settings.timezone}).startOf('hour').toFormat("yyyy-LL-dd'T'HH");
+
+const slotStartFor = (slotKey, settings) => {
+  const dt = DateTime.fromFormat(slotKey, "yyyy-LL-dd'T'HH", {zone: settings.timezone});
+  return dt.isValid ? dt : null;
+};
+
+/** Whether an hour slot falls inside the daily window. */
+const slotInWindow = (slotKey, settings) => {
+  const start = slotStartFor(slotKey, settings);
+  if (!start) return false;
+  const [sh, sm] = settings.windowStart.split(':').map(Number);
+  const [eh, em] = settings.windowEnd.split(':').map(Number);
+  const startMinutes = sh * 60 + sm;
+  const endMinutes = eh * 60 + em;
+  const slotMinutes = start.hour * 60 + start.minute;
+  // The last bookable hour must fit entirely before the window closes.
+  return slotMinutes >= startMinutes && slotMinutes + 60 <= endMinutes;
+};
+
+/**
+ * Every bookable hour from now until `days` ahead, in the tutor's timezone.
+ * Hours already begun are left out — a walk-in takes those.
+ */
+const upcomingSlotKeys = (now, settings, days = 2) => {
+  const keys = [];
+  const start = DateTime.fromJSDate(now, {zone: settings.timezone}).startOf('hour').plus({hours: 1});
+  const end = start.plus({days});
+  for (let cursor = start; cursor < end; cursor = cursor.plus({hours: 1})) {
+    const key = cursor.toFormat("yyyy-LL-dd'T'HH");
+    if (slotInWindow(key, settings)) keys.push(key);
+  }
+  return keys;
+};
+
+/**
+ * Why a booking may not be made, or null when it may.
+ * `existing` are the student's own bookings (status 'booked') and
+ * `slotCount` is how many seats in that slot are already booked by anyone.
+ */
+const bookingProblem = ({slotKey, now, settings, existing, slotCount}) => {
+  if (!settings.enabled) return 'The tutor is switched off at the moment.';
+  const start = slotStartFor(slotKey, settings);
+  if (!start) return 'That is not a valid time.';
+  if (start.toJSDate() <= now) return 'That hour has already started. Start now if a seat is free.';
+  if (!slotInWindow(slotKey, settings)) {
+    return `The tutor is available ${settings.windowStart}–${settings.windowEnd} (${settings.timezone}).`;
+  }
+  if (existing.some((b) => b.slotKey === slotKey)) return 'You already have this hour.';
+  const day = slotKey.slice(0, 10);
+  const sameDay = existing.filter((b) => b.slotKey.slice(0, 10) === day).length;
+  if (sameDay >= settings.maxBookingsPerDay) {
+    return `You can book up to ${settings.maxBookingsPerDay} hours a day.`;
+  }
+  if (slotCount >= settings.seats) return 'That hour is full. Try another one.';
+  return null;
+};
+
+/**
+ * Whether a student may start talking right now.
+ *
+ * A booked seat is always honoured. A walk-in gets a seat only if one is free
+ * after the seats promised to others for this hour are held back — so a
+ * student who booked never arrives to find their seat taken.
+ */
+const startProblem = ({now, settings, activeCount, slotBookings, myBooking, activeForMe}) => {
+  if (!settings.enabled) return 'The tutor is switched off at the moment.';
+  if (activeForMe) return null; // resuming their own live session is always fine
+  const key = slotKeyFor(now, settings);
+  if (myBooking && myBooking.slotKey === key) {
+    return activeCount < settings.seats ? null : 'All seats are busy right now. Try again in a moment.';
+  }
+  if (!slotInWindow(key, settings)) {
+    return `The tutor is available ${settings.windowStart}–${settings.windowEnd} (${settings.timezone}).`;
+  }
+  const heldForOthers = slotBookings.filter((b) => !b.started).length;
+  const free = settings.seats - activeCount - heldForOthers;
+  return free > 0 ? null : 'All seats are taken this hour. Book a later hour.';
+};
+
+/** When a session that starts now must end. */
+const sessionExpiry = (now, settings, myBooking) => {
+  const byLength = new Date(now.getTime() + settings.sessionMinutes * 60000);
+  if (myBooking) {
+    const slotEnd = slotStartFor(myBooking.slotKey, settings).plus({hours: 1}).toJSDate();
+    return slotEnd < byLength ? slotEnd : byLength;
+  }
+  return byLength;
+};
+
+/** The conversation as the model should see it: recent, alternating, trimmed. */
+const trimHistory = (messages, settings) => {
+  const clean = (Array.isArray(messages) ? messages : [])
+    .filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.text === 'string')
+    .map((m) => ({role: m.role, text: m.text.trim().slice(0, 2000)}))
+    .filter((m) => m.text);
+  return clean.slice(-settings.maxHistoryMessages);
+};
+
+/** Which voice the phone should use for a reply. */
+const languageOf = (text) => {
+  if (/[؀-ۿ]/.test(text)) return 'ar';
+  if (/\b(le|la|les|est|vous|nous|pour|avec|dans|une|des)\b/i.test(text) && /[éèêàçù]/.test(text)) return 'fr';
+  return 'en';
+};
+
+const SYSTEM_PROMPT = ({studentName, language}) => [
+  `You are Alluwal, the AI tutor of Alluwal Education Hub, an online school teaching Qur'an and Islamic studies, Arabic and African languages including Adlam, and school subjects.`,
+  `You are talking with a student named ${studentName || 'a student'}, by voice: your words are read aloud on their phone.`,
+  'Speak the way a warm, patient teacher speaks. Keep answers short — two to four sentences — unless the student asks for more, and end with a small question that checks they understood.',
+  `Answer in the language the student uses (they may switch between English, French and Arabic). Their last message looked ${language === 'ar' ? 'Arabic' : language === 'fr' ? 'French' : 'English'}.`,
+  'Never invent Qur\'an verses or hadith; if unsure of an exact wording, say so and describe the meaning instead.',
+  'This is a child-safe space: no violence, romance, politics or anything unsuitable for a young student. If asked, gently steer back to learning.',
+  'Do not do graded work for the student; guide them to the answer instead.',
+  'Do not use markdown, lists or emoji — it is spoken aloud.',
+].join(' ');
+
+module.exports = {
+  DEFAULT_SETTINGS,
+  normalizeSettings,
+  slotKeyFor,
+  slotStartFor,
+  slotInWindow,
+  upcomingSlotKeys,
+  bookingProblem,
+  startProblem,
+  sessionExpiry,
+  trimHistory,
+  languageOf,
+  SYSTEM_PROMPT,
+};

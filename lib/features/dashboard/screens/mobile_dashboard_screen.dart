@@ -24,6 +24,7 @@ import './teacher_home_screen.dart'; // Import the new TeacherHomeScreen
 import './teacher_job_board_screen.dart';
 import '../../profile/screens/teacher_profile_screen.dart';
 import '../../student/screens/student_classes_screen.dart'; // Student classes screen
+import '../../student/screens/student_ai_tutor_screen.dart'; // Student AI tutor
 import '../../student/screens/student_progress_screen.dart'; // Student progress screen
 import '../../quran_reader/screens/quran_reader_screen.dart'; // Quran reader + memorization + recitation check
 import '../../quiz/screens/bayanah_play_screen.dart'; // Bayanah live game (students)
@@ -1440,6 +1441,12 @@ class _StudentMoreScreen extends StatelessWidget {
           color: const Color(0xffF59E0B),
           screen: const QuickTasksScreen(),
         ),
+      _MoreItem(
+        icon: Icons.smart_toy_rounded,
+        label: 'AI Tutor',
+        color: const Color(0xff0E72ED),
+        screen: const StudentAiTutorScreen(),
+      ),
       _MoreItem(
         icon: Icons.auto_stories_rounded,
         label: 'Quran',
