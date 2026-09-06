@@ -155,10 +155,19 @@ const trimHistory = (messages, settings) => {
 };
 
 /** Which voice the phone should use for a reply. */
+const FRENCH_MARKERS = /\b(le|la|les|est|vous|nous|pour|avec|dans|une|des|moi|toi|qui|que|quoi|comment|pourquoi|explique|expliquer|dis|parle|raconte|deux|trois|c'est|qu'est|est-ce|je|tu|il|elle|mon|ma|mes|ton|ta|tes|ne|pas|sur|sous|chez|merci|bonjour|salut|prière|priere|jeûne|jeune|aujourd'hui)\b/gi;
+const ENGLISH_MARKERS = /\b(the|is|are|what|who|why|how|please|tell|explain|about|and|you|your|me|my|do|does|did|can|was|were|in|of|to|this|that)\b/gi;
+
 const languageOf = (text) => {
-  if (/[؀-ۿ]/.test(text)) return 'ar';
-  if (/\b(le|la|les|est|vous|nous|pour|avec|dans|une|des)\b/i.test(text) && /[éèêàçù]/.test(text)) return 'fr';
-  return 'en';
+  const t = String(text || '');
+  // Arabic wins only when it carries the message; an English answer that
+  // quotes a verse stays English for the microphone and the base voice.
+  const arabicLetters = (t.match(/[\u0621-\u064A]/g) || []).length;
+  const latinLetters = (t.match(/[A-Za-z\u00C0-\u024F]/g) || []).length;
+  if (arabicLetters > latinLetters) return 'ar';
+  const fr = (t.match(FRENCH_MARKERS) || []).length + (/[éèêàçùœ]/.test(t) ? 1 : 0);
+  const en = (t.match(ENGLISH_MARKERS) || []).length;
+  return fr > en ? 'fr' : 'en';
 };
 
 
@@ -229,11 +238,13 @@ const SYSTEM_PROMPT = ({studentName, language, ageProfile: profile}) => [
   _ageRules(profile),
   "Islamic questions are welcome and expected: the Qur'an and its meanings, prayer, wudu, fasting, zakat, hajj, the Prophets' stories, good character, du'as and daily sunnahs. Answer them warmly and simply, and when scholars differ or a ruling depends on the situation, say so and suggest asking their teacher or parent.",
   'Speak the way a warm, patient teacher speaks. Keep answers short — two to four sentences — unless the student asks for more, and end with a small question that checks they understood.',
-  `Answer in the language the student uses (they may switch between English, French and Arabic). Their last message looked ${language === 'ar' ? 'Arabic' : language === 'fr' ? 'French' : 'English'}.`,
+  `Always answer in the language of the student's most recent message, even when earlier turns were in another language. Their most recent message is in ${language === 'ar' ? 'Arabic' : language === 'fr' ? 'French' : 'English'}: reply entirely in ${language === 'ar' ? 'Arabic' : language === 'fr' ? 'French' : 'English'}.`,
   'Never invent Qur\'an verses or hadith; if unsure of an exact wording, say so and describe the meaning instead.',
   'This is a child-safe space: no violence, romance, politics or anything unsuitable for a young student. If asked, gently steer back to learning.',
   'Do not do graded work for the student; guide them to the answer instead.',
   'Do not use markdown, lists or emoji — it is spoken aloud.',
+  "When you recite Qur'an, a du'a or any Arabic phrase, write it in Arabic script — never in Latin transliteration — and then give its meaning in the student's language.",
+  'When you write Arabic, write it fully vowelled with tashkeel (fatha, damma, kasra, sukun, shadda) on every word, and attach و and ف to the word that follows them, so the voice reads every word correctly.',
 ].join(' ');
 
 module.exports = {

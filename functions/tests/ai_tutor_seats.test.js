@@ -118,6 +118,12 @@ describe('the conversation sent to the model', () => {
     expect(seats.languageOf('What is wudu?')).toBe('en');
     expect(seats.languageOf('ما هو الوضوء؟')).toBe('ar');
     expect(seats.languageOf("Qu'est-ce que la prière pour les enfants ?")).toBe('fr');
+    expect(seats.languageOf('Explique-moi la zakat en deux phrases.')).toBe('fr');
+    expect(seats.languageOf('Who was Prophet Yusuf?')).toBe('en');
+    expect(seats.languageOf('Tell me about la ilaha illallah')).toBe('en');
+    // An English answer quoting a verse stays English; an Arabic answer with one English word stays Arabic.
+    expect(seats.languageOf('Surah Al-Asr begins with وَالْعَصْرِ which means By time.')).toBe('en');
+    expect(seats.languageOf('الْوُضُوءُ هُوَ تَنْظِيفُ الْجِسْمِ بِالْمَاءِ Ok?')).toBe('ar');
   });
 
   test('the prompt names the student and forbids invented verses', () => {
@@ -125,6 +131,7 @@ describe('the conversation sent to the model', () => {
     expect(p).toMatch(/Amina/);
     expect(p).toMatch(/Never invent/);
     expect(p).toMatch(/Islamic questions are welcome/);
+    expect(p).toMatch(/tashkeel/);
   });
 
   test('the prompt tells the model the student\'s age and what is off limits', () => {
@@ -162,6 +169,21 @@ describe('the voice', () => {
     expect(tts.voicesFor('ar', {})[0].languageCode).toBe('ar-XA');
     expect(tts.voicesFor('xx', {})[0].languageCode).toBe('en-US');
   });
+  test('a stray و or ف is joined to the next word before synthesis', () => {
+    expect(tts.prepareArabic('الشَّهَادَتَانِ، و إِقَامُ الصَّلَاةِ، و إِيتَاءُ الزَّكَاةِ')).toBe('الشَّهَادَتَانِ، وإِقَامُ الصَّلَاةِ، وإِيتَاءُ الزَّكَاةِ');
+    expect(tts.prepareArabic('ف اذْهَبْ و اقْرَأْ')).toBe('فاذْهَبْ واقْرَأْ');
+    // Already attached, or followed by punctuation: untouched.
+    expect(tts.prepareArabic('وَالْعَصْرِ. و. هل')).toBe('وَالْعَصْرِ. و. هل');
+  });
+
+  test('a mixed reply is split into one run per script, punctuation staying with its run', () => {
+    const runs = tts.segment('Surah Al-Asr says: وَالْعَصْرِ إِنَّ الْإِنسَانَ لَفِي خُسْرٍ. It means: by time, man is in loss.');
+    expect(runs.map((r) => r.kind)).toEqual(['lat', 'ar', 'lat']);
+    expect(runs[1].text).toBe('وَالْعَصْرِ إِنَّ الْإِنسَانَ لَفِي خُسْرٍ.');
+    expect(tts.segment('Only English here.').map((r) => r.kind)).toEqual(['lat']);
+    expect(tts.segment('فقط عربي.').map((r) => r.kind)).toEqual(['ar']);
+  });
+
   test('a voice set in settings comes first, the defaults stay as fallbacks', () => {
     const v = tts.voicesFor('en', {voices: {en: 'en-US-Chirp3-HD-Kore'}});
     expect(v[0]).toEqual({languageCode: 'en-US', name: 'en-US-Chirp3-HD-Kore'});

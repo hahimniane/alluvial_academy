@@ -187,14 +187,14 @@ export function StudentTutorPage() {
 
   // The tutor's words arrive as MP3 from Google Cloud Text-to-Speech; the
   // device voice is only the fallback when no audio came back.
-  const say = useCallback((text: string, replyLang: Lang, audio: string | null | undefined, onDone: () => void) => {
+  const say = useCallback((text: string, replyLang: Lang, audio: string | null | undefined, onDone: () => void, mime = "audio/mpeg") => {
     const player = audioRef.current;
     if (!audio || !player) { speak(text, replyLang, onDone); return; }
     let finished = false;
     const finish = () => { if (finished) return; finished = true; player.onended = null; player.onerror = null; onDone(); };
     player.onended = finish;
     player.onerror = () => { if (!finished) { finished = true; speak(text, replyLang, onDone); } };
-    player.src = `data:audio/mpeg;base64,${audio}`;
+    player.src = `data:${mime};base64,${audio}`;
     player.play().catch(() => { if (!finished) { finished = true; speak(text, replyLang, onDone); } });
   }, [speak]);
 
@@ -253,7 +253,7 @@ export function StudentTutorPage() {
     const next: Message[] = [...messagesRef.current, { role: "user", text: text.trim() }];
     setMessages(next);
     try {
-      const res = await call<{ sessionId: string; messages: Message[] }, { reply: string; language: Lang; audio?: string | null; expiresAt: string }>("aiTutorTurn")({ sessionId: sid, messages: next });
+      const res = await call<{ sessionId: string; messages: Message[] }, { reply: string; language: Lang; audio?: string | null; audioMime?: string | null; expiresAt: string }>("aiTutorTurn")({ sessionId: sid, messages: next });
       const reply = res.data.reply;
       setMessages([...next, { role: "assistant", text: reply }]);
       setExpiresAt(new Date(res.data.expiresAt));
@@ -262,7 +262,7 @@ export function StudentTutorPage() {
       if (res.data.language && res.data.language !== langRef.current) { langRef.current = res.data.language; setLang(res.data.language); }
       if (!aliveRef.current) return;
       setPhase("speaking");
-      say(reply, res.data.language, res.data.audio, () => { if (aliveRef.current && supported && !micBlockedRef.current) listen(); else setPhase("idle"); });
+      say(reply, res.data.language, res.data.audio, () => { if (aliveRef.current && supported && !micBlockedRef.current) listen(); else setPhase("idle"); }, res.data.audioMime || "audio/mpeg");
     } catch (e) {
       const msg = e instanceof Error ? e.message : "The tutor could not answer.";
       setNotice(msg);
@@ -283,7 +283,7 @@ export function StudentTutorPage() {
       audioRef.current = player;
     }
     try {
-      const res = await call<Record<string, never>, { sessionId: string; expiresAt: string; resumed: boolean; studentName: string; greeting?: string; greetingAudio?: string | null }>("aiTutorStartSession")({});
+      const res = await call<Record<string, never>, { sessionId: string; expiresAt: string; resumed: boolean; studentName: string; greeting?: string; greetingAudio?: string | null; audioMime?: string | null }>("aiTutorStartSession")({});
       setSessionId(res.data.sessionId);
       setExpiresAt(new Date(res.data.expiresAt));
       aliveRef.current = true;
@@ -291,7 +291,7 @@ export function StudentTutorPage() {
       const greeting = res.data.greeting || `Assalamu alaikum ${res.data.studentName}. I'm Alluwal, your tutor. What are we working on today?`;
       setMessages([{ role: "assistant", text: greeting }]);
       setPhase("speaking");
-      say(greeting, "en", res.data.greetingAudio, () => { if (aliveRef.current && supported) listen(); else setPhase("idle"); });
+      say(greeting, "en", res.data.greetingAudio, () => { if (aliveRef.current && supported) listen(); else setPhase("idle"); }, res.data.audioMime || "audio/mpeg");
     } catch (e) {
       setNotice(e instanceof Error ? e.message : "Could not start.");
       await loadAvailability();
