@@ -27,6 +27,8 @@ type Availability = {
   slots: Slot[];
   myBookings: Booking[];
   canStartNow: boolean;
+  seatsFreeNow: number;
+  seatsTotal: number;
   activeSession: { id: string; expiresAt: string | null } | null;
 };
 type Message = { role: "user" | "assistant"; text: string };
@@ -62,13 +64,33 @@ const speechCtor = (): RecognizerCtor | null => {
   return w.SpeechRecognition || w.webkitSpeechRecognition || null;
 };
 
-const pickVoice = (lang: Lang): SpeechSynthesisVoice | null => {
-  const voices = window.speechSynthesis?.getVoices() ?? [];
-  const prefix = lang === "ar" ? "ar" : lang === "fr" ? "fr" : "en";
-  return voices.find((v) => v.lang.toLowerCase().startsWith(prefix) && /premium|enhanced|natural|neural/i.test(v.name))
-    || voices.find((v) => v.lang.toLowerCase().startsWith(prefix))
-    || null;
+// Browsers list dozens of voices per language and put the poor ones first.
+// Prefer the natural network voices (Chrome's Google voices, Edge's Microsoft
+// Natural voices), then the good built-in Apple voices, and never a novelty.
+const NOVELTY = /albert|bad news|bahh|bells|boing|bubbles|cellos|eddy|flo\b|fred|good news|grandma|grandpa|jester|junior|kathy|organ|ralph|reed|rocko|sandy|shelley|superstar|trinoids|whisper|wobble|zarvox/i;
+const PREFERRED: Record<Lang, RegExp[]> = {
+  en: [/google us english/i, /google uk english female/i, /microsoft .*(aria|jenny|guy|ryan|sonia).*natural/i, /natural|neural|premium|enhanced/i, /^samantha$/i, /^daniel$/i, /^karen$/i, /^moira$/i, /^tessa$/i, /^rishi$/i],
+  fr: [/google français/i, /microsoft .*(denise|henri|vivienne).*natural/i, /natural|neural|premium|enhanced/i, /^thomas$/i, /^audrey/i, /^aur[ée]lie/i, /^am[ée]lie$/i, /^jacques$/i],
+  ar: [/google/i, /microsoft .*(salma|shakir|hamed|zariyah).*natural/i, /natural|neural|premium|enhanced/i, /^majed$/i, /^maged$/i, /^tarik$/i, /^laila$/i],
 };
+const pickVoice = (lang: Lang): SpeechSynthesisVoice | null => {
+  const prefix = lang === "ar" ? "ar" : lang === "fr" ? "fr" : "en";
+  const candidates = (window.speechSynthesis?.getVoices() ?? []).filter((v) => v.lang.toLowerCase().startsWith(prefix) && !NOVELTY.test(v.name));
+  for (const pattern of PREFERRED[lang]) {
+    const hit = candidates.find((v) => pattern.test(v.name));
+    if (hit) return hit;
+  }
+  return candidates.find((v) => !v.localService) || candidates[0] || null;
+};
+
+// Chrome hands back an empty voice list until it has loaded them once.
+const voicesReady = (): Promise<void> => new Promise((resolve) => {
+  const synth = window.speechSynthesis;
+  if (!synth || synth.getVoices().length) { resolve(); return; }
+  const done = () => { synth.removeEventListener("voiceschanged", done); resolve(); };
+  synth.addEventListener("voiceschanged", done);
+  window.setTimeout(done, 1500);
+});
 
 const fmtHour = (iso: string, tz: string) =>
   new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", timeZone: tz });
@@ -94,7 +116,9 @@ export function StudentTutorPage() {
   const [typed, setTyped] = useState("");
   const [now, setNow] = useState(() => Date.now());
   const recRef = useRef<Recognizer | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const aliveRef = useRef(false);
+  const micBlockedRef = useRef(false);
   const phaseRef = useRef<Phase>("idle");
   const langRef = useRef<Lang>("en");
   const messagesRef = useRef<Message[]>([]);
@@ -147,19 +171,43 @@ export function StudentTutorPage() {
   const speak = useCallback((text: string, replyLang: Lang, onDone: () => void) => {
     if (!window.speechSynthesis) { onDone(); return; }
     window.speechSynthesis.cancel();
-    const utter = new SpeechSynthesisUtterance(text);
-    const voice = pickVoice(replyLang);
-    if (voice) utter.voice = voice;
-    utter.lang = LANGS.find((l) => l.id === replyLang)?.bcp47 ?? "en-US";
-    utter.rate = 0.98;
-    utter.onend = onDone;
-    utter.onerror = onDone;
-    window.speechSynthesis.speak(utter);
+    void voicesReady().then(() => {
+      if (!aliveRef.current) { onDone(); return; }
+      const utter = new SpeechSynthesisUtterance(text);
+      const voice = pickVoice(replyLang);
+      if (voice) utter.voice = voice;
+      utter.lang = voice?.lang || (LANGS.find((l) => l.id === replyLang)?.bcp47 ?? "en-US");
+      utter.rate = 1;
+      utter.pitch = 1;
+      utter.onend = onDone;
+      utter.onerror = onDone;
+      window.speechSynthesis.speak(utter);
+    });
+  }, []);
+
+  // The tutor's words arrive as MP3 from Google Cloud Text-to-Speech; the
+  // device voice is only the fallback when no audio came back.
+  const say = useCallback((text: string, replyLang: Lang, audio: string | null | undefined, onDone: () => void) => {
+    const player = audioRef.current;
+    if (!audio || !player) { speak(text, replyLang, onDone); return; }
+    let finished = false;
+    const finish = () => { if (finished) return; finished = true; player.onended = null; player.onerror = null; onDone(); };
+    player.onended = finish;
+    player.onerror = () => { if (!finished) { finished = true; speak(text, replyLang, onDone); } };
+    player.src = `data:audio/mpeg;base64,${audio}`;
+    player.play().catch(() => { if (!finished) { finished = true; speak(text, replyLang, onDone); } });
+  }, [speak]);
+
+  const hush = useCallback(() => {
+    const player = audioRef.current;
+    if (player) { player.onended = null; player.pause(); player.removeAttribute("src"); }
+    window.speechSynthesis?.cancel();
   }, []);
 
   const listen = useCallback(() => {
     const Ctor = speechCtor();
     if (!Ctor || !aliveRef.current) return;
+    if (micBlockedRef.current) { setPhase("idle"); return; }
     stopListening();
     const rec = new Ctor();
     rec.lang = LANGS.find((l) => l.id === langRef.current)?.bcp47 ?? "en-US";
@@ -177,8 +225,9 @@ export function StudentTutorPage() {
     };
     rec.onerror = (ev) => {
       if (ev.error === "not-allowed" || ev.error === "service-not-allowed") {
+        // Keep the session alive: the tutor still speaks, the student types.
         setNotice("Microphone access is blocked. Allow the microphone for this site, or type below.");
-        aliveRef.current = false;
+        micBlockedRef.current = true;
         setPhase("idle");
       }
     };
@@ -204,61 +253,67 @@ export function StudentTutorPage() {
     const next: Message[] = [...messagesRef.current, { role: "user", text: text.trim() }];
     setMessages(next);
     try {
-      const res = await call<{ sessionId: string; messages: Message[] }, { reply: string; language: Lang; expiresAt: string }>("aiTutorTurn")({ sessionId: sid, messages: next });
+      const res = await call<{ sessionId: string; messages: Message[] }, { reply: string; language: Lang; audio?: string | null; expiresAt: string }>("aiTutorTurn")({ sessionId: sid, messages: next });
       const reply = res.data.reply;
       setMessages([...next, { role: "assistant", text: reply }]);
       setExpiresAt(new Date(res.data.expiresAt));
       if (!aliveRef.current) return;
       setPhase("speaking");
-      speak(reply, res.data.language, () => { if (aliveRef.current) listen(); });
+      say(reply, res.data.language, res.data.audio, () => { if (aliveRef.current && supported && !micBlockedRef.current) listen(); else setPhase("idle"); });
     } catch (e) {
       const msg = e instanceof Error ? e.message : "The tutor could not answer.";
       setNotice(msg);
       if (/hour is up|has ended/i.test(msg)) { aliveRef.current = false; setSessionId(null); setPhase("idle"); void loadAvailability(); return; }
       if (aliveRef.current) listen();
     }
-  }, [listen, speak, stopListening, loadAvailability]);
+  }, [listen, say, supported, stopListening, loadAvailability]);
 
   const startSession = useCallback(async () => {
     setBusy("start"); setNotice("");
+    // Phones only play audio that a tap started: prime one player on this
+    // tap and reuse it for every reply.
+    if (!audioRef.current) {
+      const player = new Audio();
+      player.preload = "auto";
+      player.src = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
+      player.play().catch(() => { /* unlocked on the next tap */ });
+      audioRef.current = player;
+    }
     try {
-      const res = await call<Record<string, never>, { sessionId: string; expiresAt: string; resumed: boolean; studentName: string }>("aiTutorStartSession")({});
+      const res = await call<Record<string, never>, { sessionId: string; expiresAt: string; resumed: boolean; studentName: string; greeting?: string; greetingAudio?: string | null }>("aiTutorStartSession")({});
       setSessionId(res.data.sessionId);
       setExpiresAt(new Date(res.data.expiresAt));
       aliveRef.current = true;
-      const greeting = `Assalamu alaikum ${res.data.studentName}. I'm Alluwal, your tutor. What are we working on today?`;
+      micBlockedRef.current = false;
+      const greeting = res.data.greeting || `Assalamu alaikum ${res.data.studentName}. I'm Alluwal, your tutor. What are we working on today?`;
       setMessages([{ role: "assistant", text: greeting }]);
-      if (supported) {
-        setPhase("speaking");
-        speak(greeting, "en", () => { if (aliveRef.current) listen(); });
-      } else {
-        setPhase("idle");
-      }
+      setPhase("speaking");
+      say(greeting, "en", res.data.greetingAudio, () => { if (aliveRef.current && supported) listen(); else setPhase("idle"); });
     } catch (e) {
       setNotice(e instanceof Error ? e.message : "Could not start.");
       await loadAvailability();
     } finally {
       setBusy(null);
     }
-  }, [listen, speak, supported, loadAvailability]);
+  }, [listen, say, supported, loadAvailability]);
 
   const endSession = useCallback(async () => {
     aliveRef.current = false;
     stopListening();
-    window.speechSynthesis?.cancel();
+    hush();
     const sid = sessionRef.current;
     setPhase("idle");
     setSessionId(null);
     if (sid) { try { await call<{ sessionId: string }, unknown>("aiTutorEndSession")({ sessionId: sid }); } catch { /* the sweeper closes it */ } }
     await loadAvailability();
-  }, [stopListening, loadAvailability]);
+  }, [stopListening, hush, loadAvailability]);
 
   // Tapping while the tutor speaks interrupts it and hands the floor back.
   const interrupt = useCallback(() => {
-    if (phaseRef.current === "speaking") { window.speechSynthesis?.cancel(); listen(); }
-  }, [listen]);
+    if (phaseRef.current === "speaking") { hush(); listen(); }
+  }, [hush, listen]);
 
-  useEffect(() => () => { aliveRef.current = false; stopListening(); window.speechSynthesis?.cancel(); }, [stopListening]);
+  useEffect(() => () => { aliveRef.current = false; stopListening(); hush(); }, [stopListening, hush]);
 
   // The clock runs out server-side too; this just stops the loop politely.
   useEffect(() => {
@@ -335,7 +390,7 @@ export function StudentTutorPage() {
                 <button type="button" onClick={() => void endSession()} className="ml-auto inline-flex min-h-11 items-center gap-2 rounded-xl border border-red-200 px-4 font-bold text-red-600"><Square size={16} /> End</button>
               </div>
 
-              <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); const t = typed.trim(); if (t) { setTyped(""); void submit(t); } }}>
+              <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); const t = typed.trim(); if (t) { setTyped(""); hush(); void submit(t); } }}>
                 <input value={typed} onChange={(e) => setTyped(e.target.value)} placeholder="Or type a question…" className="h-12 min-w-0 flex-1 rounded-xl border border-[#CBD5E1] bg-white px-4 outline-none focus:border-[#0E72ED]" />
                 <button type="submit" disabled={!typed.trim()} className="grid h-12 w-12 place-items-center rounded-xl bg-[#0E72ED] text-white disabled:opacity-40"><Volume2 size={20} /></button>
               </form>
@@ -351,8 +406,9 @@ export function StudentTutorPage() {
                     {busy === "start" ? <Loader2 className="animate-spin" size={18} /> : <Mic size={18} />}
                     {avail?.activeSession ? "Continue session" : "Start now"}
                   </button>
-                  <span className="text-sm font-semibold text-white/85">
-                    {!avail ? "Checking seats…" : avail.canStartNow || avail.activeSession ? "A seat is free right now." : `All ${avail.settings.seats} seats are busy — book an hour below.`}
+                  <span className="inline-flex items-center gap-2 text-sm font-semibold text-white/85">
+                    {avail ? <span className="rounded-lg bg-white/15 px-2.5 py-1 text-base font-black tabular-nums text-white">{avail.seatsFreeNow} / {avail.seatsTotal}</span> : null}
+                    {!avail ? "Checking seats…" : avail.activeSession ? "Your session is still open." : avail.canStartNow ? "seats free right now" : avail.seatsFreeNow > 0 ? "seats free — the tutor opens at " + avail.settings.windowStart : "seats free — book an hour below."}
                   </span>
                 </div>
               </section>

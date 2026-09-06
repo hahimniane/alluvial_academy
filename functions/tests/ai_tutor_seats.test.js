@@ -124,5 +124,55 @@ describe('the conversation sent to the model', () => {
     const p = seats.SYSTEM_PROMPT({studentName: 'Amina', language: 'en'});
     expect(p).toMatch(/Amina/);
     expect(p).toMatch(/Never invent/);
+    expect(p).toMatch(/Islamic questions are welcome/);
+  });
+
+  test('the prompt tells the model the student\'s age and what is off limits', () => {
+    const child = seats.SYSTEM_PROMPT({studentName: 'Amina', language: 'en', ageProfile: {age: 8, band: 'child'}});
+    expect(child).toMatch(/8 years old — a child/);
+    expect(child).toMatch(/young child/);
+    const adult = seats.SYSTEM_PROMPT({studentName: 'Omar', language: 'en', ageProfile: {age: null, band: 'adult'}});
+    expect(adult).toMatch(/an adult/);
+    expect(adult).not.toMatch(/young child/);
+    const unknown = seats.SYSTEM_PROMPT({studentName: 'X', language: 'en'});
+    expect(unknown).toMatch(/not recorded; treat them as a young child/);
+  });
+});
+
+describe('the student\'s age', () => {
+  const now = new Date('2026-09-06T12:00:00Z');
+  test('a date of birth wins', () => {
+    expect(seats.ageProfile({user: {date_of_birth: '2015-03-02', is_adult_student: true}, now})).toEqual({age: 11, band: 'child'});
+  });
+  test('then a recorded age, then the quiz birth year', () => {
+    expect(seats.ageProfile({user: {age: '15'}, now})).toEqual({age: 15, band: 'teen'});
+    expect(seats.ageProfile({user: {quiz_competition_birth_year: 2000, quiz_competition_birth_month: 1}, now}).band).toBe('adult');
+  });
+  test('then the enrollment form, then the adult flag, else unknown', () => {
+    expect(seats.ageProfile({user: {}, enrollmentAges: ['9', ''], now})).toEqual({age: 9, band: 'child'});
+    expect(seats.ageProfile({user: {is_adult_student: true}, now})).toEqual({age: null, band: 'adult'});
+    expect(seats.ageProfile({user: {}, now})).toEqual({age: null, band: 'unknown'});
+  });
+});
+
+describe('the voice', () => {
+  const tts = require('../services/ai_tutor_tts');
+  test('each language has a natural voice first and fallbacks after', () => {
+    expect(tts.voicesFor('en', {})[0].name).toMatch(/Chirp3-HD/);
+    expect(tts.voicesFor('ar', {})[0].languageCode).toBe('ar-XA');
+    expect(tts.voicesFor('xx', {})[0].languageCode).toBe('en-US');
+  });
+  test('a voice set in settings comes first, the defaults stay as fallbacks', () => {
+    const v = tts.voicesFor('en', {voices: {en: 'en-US-Chirp3-HD-Kore'}});
+    expect(v[0]).toEqual({languageCode: 'en-US', name: 'en-US-Chirp3-HD-Kore'});
+    expect(v.length).toBeGreaterThan(1);
+  });
+});
+
+describe('free seats now', () => {
+  test('seats held for other bookers are not free; my own hold is', () => {
+    const held = [{started: false, userId: 'a'}, {started: false, userId: 'me'}, {started: true, userId: 'b'}];
+    expect(seats.freeSeatsNow({settings, activeCount: 3, slotBookings: held, uid: 'me'})).toBe(6);
+    expect(seats.freeSeatsNow({settings, activeCount: 10, slotBookings: held, uid: 'me'})).toBe(0);
   });
 });

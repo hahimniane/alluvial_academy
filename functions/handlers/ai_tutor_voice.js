@@ -15,6 +15,7 @@ const {onCall, HttpsError} = require('firebase-functions/v2/https');
 const {onSchedule} = require('firebase-functions/v2/scheduler');
 const {DateTime} = require('luxon');
 const seats = require('../utils/ai_tutor_seats');
+const tts = require('../services/ai_tutor_tts');
 
 const SETTINGS_DOC = 'settings/ai_tutor';
 const SESSIONS = 'ai_tutor_sessions';
@@ -40,7 +41,19 @@ const loadCaller = async (uid) => {
     throw new HttpsError('permission-denied', 'The AI tutor is for students.');
   }
   const name = `${data.first_name || ''} ${data.last_name || ''}`.trim() || data.displayName || 'Student';
-  return {uid, role, isAdmin, name, firstName: (data.first_name || name.split(' ')[0] || 'Student').toString()};
+  return {uid, role, isAdmin, name, firstName: (data.first_name || name.split(' ')[0] || 'Student').toString(), data};
+};
+
+/** The student's age band, from their account and their enrollment form. */
+const loadAgeProfile = async (caller) => {
+  let enrollmentAges = [];
+  try {
+    const snap = await admin.firestore().collection('enrollments').where('metadata.studentUserId', '==', caller.uid).limit(5).get();
+    enrollmentAges = snap.docs.map((d) => d.data()?.student?.age ?? d.data()?.studentAge).filter((a) => a != null && a !== '');
+  } catch (e) {
+    console.warn('[ai_tutor_voice] enrollment age lookup failed:', e.message);
+  }
+  return seats.ageProfile({user: caller.data, enrollmentAges});
 };
 
 const loadSettings = async () => {
@@ -123,6 +136,7 @@ const aiTutorGetAvailability = onCall(async (request) => {
     now, settings, activeCount: activeNow.size, slotBookings: held,
     myBooking: mine.find((b) => b.slotKey === nowKey) || null, activeForMe: Boolean(own),
   }) === null;
+  const seatsFreeNow = seats.freeSeatsNow({settings, activeCount: activeNow.size, slotBookings: held, uid});
 
   return {
     settings: publicSettings(settings),
@@ -130,6 +144,8 @@ const aiTutorGetAvailability = onCall(async (request) => {
     slots,
     myBookings: mine.map((b) => ({id: b.id, slotKey: b.slotKey, startIso: seats.slotStartFor(b.slotKey, settings).toUTC().toISO()})),
     canStartNow,
+    seatsFreeNow,
+    seatsTotal: settings.seats,
     activeSession: own ? {id: own.id, expiresAt: own.data().expiresAt?.toDate?.().toISOString() || null} : null,
   };
 });
@@ -182,6 +198,8 @@ const aiTutorCancelBooking = onCall(async (request) => {
 
 /* -------------------------------------------------------------- session -- */
 
+const GREETING = (firstName) => `Assalamu alaikum ${firstName}. I'm Alluwal, your tutor. What are we working on today?`;
+
 const aiTutorStartSession = onCall(async (request) => {
   const uid = callerUid(request);
   const caller = await loadCaller(uid);
@@ -190,6 +208,16 @@ const aiTutorStartSession = onCall(async (request) => {
   const now = new Date();
   await expireStaleSessions(db, now);
 
+  const greeting = GREETING(caller.firstName);
+  const [started, spoken] = await Promise.all([
+    startSessionTx({db, uid, caller, settings, now}),
+    tts.synthesize({text: greeting, language: 'en', settings, projectId: process.env.GCLOUD_PROJECT}),
+  ]);
+  if (spoken) await db.collection(SESSIONS).doc(started.sessionId).update({ttsChars: admin.firestore.FieldValue.increment(spoken.chars), ttsVoice: spoken.voice}).catch(() => {});
+  return {...started, greeting, greetingAudio: spoken ? spoken.audio : null, audioMime: spoken ? spoken.mime : null};
+});
+
+const startSessionTx = ({db, uid, caller, settings, now}) => {
   return db.runTransaction(async (tx) => {
     const active = await tx.get(activeSessionsQuery(db));
     const own = active.docs.find((d) => d.data().userId === uid);
@@ -224,7 +252,7 @@ const aiTutorStartSession = onCall(async (request) => {
     if (myBooking) tx.update(db.collection(BOOKINGS).doc(myBooking.id), {started: true, status: 'used', sessionId: ref.id});
     return {sessionId: ref.id, expiresAt: expiresAt.toISOString(), resumed: false, studentName: caller.firstName};
   });
-});
+};
 
 const aiTutorEndSession = onCall(async (request) => {
   const uid = callerUid(request);
@@ -305,7 +333,7 @@ const aiTutorTurn = onCall({secrets: ['GEMINI_API_KEY'], timeoutSeconds: 60}, as
   const apiKey = (process.env.GEMINI_API_KEY || '').trim();
   if (!apiKey) throw new HttpsError('failed-precondition', 'The tutor is not configured.');
   const language = seats.languageOf(last.text);
-  const system = seats.SYSTEM_PROMPT({studentName: caller.firstName, language});
+  const system = seats.SYSTEM_PROMPT({studentName: caller.firstName, language, ageProfile: await loadAgeProfile(caller)});
 
   let reply;
   try {
@@ -315,16 +343,22 @@ const aiTutorTurn = onCall({secrets: ['GEMINI_API_KEY'], timeoutSeconds: 60}, as
     throw new HttpsError('unavailable', 'The tutor could not answer just now. Please try again.');
   }
 
+  const replyLanguage = seats.languageOf(reply.text);
+  const spoken = await tts.synthesize({text: reply.text, language: replyLanguage, settings, projectId: process.env.GCLOUD_PROJECT});
+
   await ref.update({
     turns: admin.firestore.FieldValue.increment(1),
     lastTurnAt: admin.firestore.FieldValue.serverTimestamp(),
     lastModel: reply.model,
+    ...(spoken ? {ttsChars: admin.firestore.FieldValue.increment(spoken.chars), ttsVoice: spoken.voice} : {}),
     ...(reply.usage ? {promptTokens: admin.firestore.FieldValue.increment(reply.usage.promptTokenCount || 0), replyTokens: admin.firestore.FieldValue.increment(reply.usage.candidatesTokenCount || 0)} : {}),
   });
 
   return {
     reply: reply.text,
-    language: seats.languageOf(reply.text),
+    language: replyLanguage,
+    audio: spoken ? spoken.audio : null,
+    audioMime: spoken ? spoken.mime : null,
     expiresAt: session.expiresAt.toDate().toISOString(),
   };
 });

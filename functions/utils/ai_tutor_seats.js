@@ -48,6 +48,8 @@ const normalizeSettings = (raw) => {
     timezone: zone,
     models: Array.isArray(data.models) && data.models.length ? data.models.map(String) : DEFAULT_SETTINGS.models,
     maxHistoryMessages: _int(data.maxHistoryMessages, DEFAULT_SETTINGS.maxHistoryMessages),
+    /** Optional per-language Cloud TTS voice overrides, e.g. {en: 'en-US-Chirp3-HD-Kore'}. */
+    voices: data.voices && typeof data.voices === 'object' ? data.voices : {},
   };
 };
 
@@ -159,9 +161,73 @@ const languageOf = (text) => {
   return 'en';
 };
 
-const SYSTEM_PROMPT = ({studentName, language}) => [
+
+const _dateFrom = (value) => {
+  if (!value) return null;
+  if (typeof value.toDate === 'function') return DateTime.fromJSDate(value.toDate());
+  if (value instanceof Date) return DateTime.fromJSDate(value);
+  const dt = DateTime.fromISO(String(value));
+  return dt.isValid ? dt : null;
+};
+
+/**
+ * How old the student is, from whatever the account and enrollment recorded.
+ * Most accounts carry only is_adult_student; the enrollment form usually has
+ * the child's age. When nothing is known the tutor assumes a young child —
+ * the safe side for what it will and will not discuss.
+ */
+const ageProfile = ({user = {}, enrollmentAges = [], now = new Date()} = {}) => {
+  const today = DateTime.fromJSDate(now);
+  const finish = (age) => ({
+    age,
+    band: age == null ? 'unknown' : age >= 18 ? 'adult' : age >= 13 ? 'teen' : 'child',
+  });
+  const dob = _dateFrom(user.date_of_birth || user.dateOfBirth || user.birth_date || user.birthDate || user.dob);
+  if (dob && dob < today) return finish(Math.floor(today.diff(dob, 'years').years));
+  const recorded = Number(user.age ?? user.student_age ?? user.studentAge);
+  if (Number.isFinite(recorded) && recorded > 0 && recorded < 120) return finish(Math.floor(recorded));
+  const year = Number(user.quiz_competition_birth_year || user.quizCompetitionBirthYear);
+  if (Number.isFinite(year) && year > 1900 && year <= today.year) {
+    const month = Number(user.quiz_competition_birth_month || user.quizCompetitionBirthMonth) || 7;
+    return finish(Math.max(0, Math.floor(today.diff(DateTime.fromObject({year, month, day: 1}), 'years').years)));
+  }
+  const fromEnrollment = enrollmentAges.map(Number).filter((a) => Number.isFinite(a) && a > 0 && a < 120);
+  if (fromEnrollment.length) return finish(Math.floor(Math.max(...fromEnrollment)));
+  if (user.is_adult_student === true || user.isAdultStudent === true) return {age: null, band: 'adult'};
+  return {age: null, band: 'unknown'};
+};
+
+/** Seats a walk-in could take this minute (never below zero). */
+const freeSeatsNow = ({settings, activeCount, slotBookings, uid}) => {
+  const heldForOthers = slotBookings.filter((b) => !b.started && b.userId !== uid).length;
+  return Math.max(0, settings.seats - activeCount - heldForOthers);
+};
+
+const _ageLine = (profile) => {
+  const p = profile || {band: 'unknown', age: null};
+  if (p.band === 'adult') return p.age ? `The student is an adult, ${p.age} years old.` : 'The student is an adult.';
+  if (p.band === 'teen') return `The student is ${p.age} years old — a teenager.`;
+  if (p.band === 'child') return `The student is ${p.age} years old — a child.`;
+  return "The student's age is not recorded; treat them as a young child under 13.";
+};
+
+const _ageRules = (profile) => {
+  const band = (profile || {}).band;
+  if (band === 'adult') {
+    return 'Explain at an adult level. Keep to learning topics; decline anything not suitable for a school setting.';
+  }
+  if (band === 'teen') {
+    return 'Explain at a teenager\'s level. Do not discuss marriage and intimacy, graphic violence or punishments, politics, or adult-only rulings; if asked, say kindly that it is a question for their parent or teacher and return to the lesson.';
+  }
+  return 'Explain the way you would to a young child: simple words, one idea at a time, short sentences. Do not discuss marriage and intimacy, death in graphic detail, violence, punishments, politics, or anything meant for older students; if asked, say kindly that it is a question for their parent or teacher and return to the lesson.';
+};
+
+const SYSTEM_PROMPT = ({studentName, language, ageProfile: profile}) => [
   `You are Alluwal, the AI tutor of Alluwal Education Hub, an online school teaching Qur'an and Islamic studies, Arabic and African languages including Adlam, and school subjects.`,
   `You are talking with a student named ${studentName || 'a student'}, by voice: your words are read aloud on their phone.`,
+  _ageLine(profile),
+  _ageRules(profile),
+  "Islamic questions are welcome and expected: the Qur'an and its meanings, prayer, wudu, fasting, zakat, hajj, the Prophets' stories, good character, du'as and daily sunnahs. Answer them warmly and simply, and when scholars differ or a ruling depends on the situation, say so and suggest asking their teacher or parent.",
   'Speak the way a warm, patient teacher speaks. Keep answers short — two to four sentences — unless the student asks for more, and end with a small question that checks they understood.',
   `Answer in the language the student uses (they may switch between English, French and Arabic). Their last message looked ${language === 'ar' ? 'Arabic' : language === 'fr' ? 'French' : 'English'}.`,
   'Never invent Qur\'an verses or hadith; if unsure of an exact wording, say so and describe the meaning instead.',
@@ -182,5 +248,7 @@ module.exports = {
   sessionExpiry,
   trimHistory,
   languageOf,
+  ageProfile,
+  freeSeatsNow,
   SYSTEM_PROMPT,
 };

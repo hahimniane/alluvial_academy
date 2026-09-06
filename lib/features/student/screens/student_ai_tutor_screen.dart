@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
 
+import 'package:audioplayers/audioplayers.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
@@ -71,11 +73,15 @@ class _Availability {
         slots = (j['slots'] as List).map((s) => _Slot.fromJson(s as Map)).toList(),
         myBookings = (j['myBookings'] as List).map((b) => _Booking.fromJson(b as Map)).toList(),
         canStartNow = j['canStartNow'] == true,
+        seatsFreeNow = (j['seatsFreeNow'] as num?)?.toInt() ?? 0,
+        seatsTotal = (j['seatsTotal'] as num?)?.toInt() ?? 10,
         activeSessionId = (j['activeSession'] as Map?)?['id'] as String?;
   final Map<String, dynamic> settings;
   final List<_Slot> slots;
   final List<_Booking> myBookings;
   final bool canStartNow;
+  final int seatsFreeNow;
+  final int seatsTotal;
   final String? activeSessionId;
   int get seats => (settings['seats'] as num?)?.toInt() ?? 10;
   int get sessionMinutes => (settings['sessionMinutes'] as num?)?.toInt() ?? 60;
@@ -86,6 +92,7 @@ class _Availability {
 class _StudentAiTutorScreenState extends State<StudentAiTutorScreen> {
   final _speech = stt.SpeechToText();
   final _tts = FlutterTts();
+  final _player = AudioPlayer();
   final _functions = FirebaseFunctions.instance;
   final _scroll = ScrollController();
   final _typed = TextEditingController();
@@ -102,6 +109,7 @@ class _StudentAiTutorScreenState extends State<StudentAiTutorScreen> {
   _Lang _lang = _langs.first;
   String _heard = '';
   bool _alive = false;
+  bool _micBlocked = false;
   Timer? _clock;
 
   @override
@@ -117,6 +125,7 @@ class _StudentAiTutorScreenState extends State<StudentAiTutorScreen> {
     _clock?.cancel();
     _speech.stop();
     _tts.stop();
+    _player.dispose();
     _scroll.dispose();
     _typed.dispose();
     super.dispose();
@@ -165,9 +174,10 @@ class _StudentAiTutorScreenState extends State<StudentAiTutorScreen> {
         onError: (err) {
           if (!mounted) return;
           if (err.permanent) {
+            // Keep the session alive: the tutor still speaks, the student types.
             setState(() {
               _notice = 'Microphone access is blocked. Allow the microphone in Settings, or type below.';
-              _alive = false;
+              _micBlocked = true;
               _phase = _Phase.idle;
             });
           }
@@ -180,7 +190,11 @@ class _StudentAiTutorScreenState extends State<StudentAiTutorScreen> {
   }
 
   void _listen() {
-    if (!_alive || !mounted || !_speechReady) return;
+    if (!_alive || !mounted) return;
+    if (!_speechReady || _micBlocked) {
+      setState(() => _phase = _Phase.idle);
+      return;
+    }
     setState(() {
       _phase = _Phase.listening;
       _heard = '';
@@ -214,11 +228,76 @@ class _StudentAiTutorScreenState extends State<StudentAiTutorScreen> {
     }
   }
 
+  final Map<String, Map<String, String>?> _voiceFor = {};
+
+  /// The most natural voice the device has for a language. iOS ships several
+  /// per language and defaults to the flat "compact" one; the enhanced and
+  /// premium (Siri-grade) voices sound far better when the family has them.
+  Future<Map<String, String>?> _bestVoice(String locale) async {
+    if (_voiceFor.containsKey(locale)) return _voiceFor[locale];
+    Map<String, String>? best;
+    try {
+      final raw = await _tts.getVoices;
+      final voices = (raw as List?)
+              ?.whereType<Map>()
+              .map((v) => v.map((k, val) => MapEntry(k.toString(), val?.toString() ?? '')))
+              .where((v) => (v['locale'] ?? '').toLowerCase().replaceAll('_', '-').startsWith(locale.split('-').first.toLowerCase()))
+              .toList() ??
+          [];
+      int score(Map<String, String> v) {
+        final q = (v['quality'] ?? '').toLowerCase();
+        final id = (v['identifier'] ?? v['name'] ?? '').toLowerCase();
+        var s = q == 'premium' ? 30 : q == 'enhanced' ? 20 : 0;
+        if (id.contains('siri')) s += 25;
+        if (id.contains('premium')) s += 10;
+        if (id.contains('enhanced')) s += 5;
+        if ((v['locale'] ?? '').toLowerCase().replaceAll('_', '-') == locale.toLowerCase()) s += 3;
+        if (id.contains('compact') || id.contains('eloquence') || id.contains('novelty')) s -= 40;
+        return s;
+      }
+      voices.sort((a, b) => score(b).compareTo(score(a)));
+      if (voices.isNotEmpty) best = {'name': voices.first['name'] ?? '', 'locale': voices.first['locale'] ?? locale};
+    } catch (_) {
+      best = null;
+    }
+    _voiceFor[locale] = best;
+    return best;
+  }
+
+  /// The tutor's words arrive as MP3 from Google Cloud Text-to-Speech; the
+  /// device voice is only the fallback when no audio came back.
+  Future<void> _say(String text, String langId, String? audioBase64) async {
+    if (audioBase64 == null || audioBase64.isEmpty) {
+      await _speak(text, langId);
+      return;
+    }
+    try {
+      final done = Completer<void>();
+      late final StreamSubscription<void> sub;
+      sub = _player.onPlayerComplete.listen((_) {
+        if (!done.isCompleted) done.complete();
+      });
+      await _player.play(BytesSource(base64Decode(audioBase64), mimeType: 'audio/mpeg'));
+      await done.future.timeout(const Duration(seconds: 90), onTimeout: () {});
+      await sub.cancel();
+    } catch (_) {
+      await _speak(text, langId);
+    }
+  }
+
+  Future<void> _hush() async {
+    await _player.stop();
+    await _tts.stop();
+  }
+
   Future<void> _speak(String text, String langId) async {
     final lang = _langs.firstWhere((l) => l.id == langId, orElse: () => _langs.first);
     try {
       await _tts.setLanguage(lang.locale);
+      final voice = await _bestVoice(lang.locale);
+      if (voice != null) await _tts.setVoice(voice);
       await _tts.setSpeechRate(0.5);
+      await _tts.setPitch(1.0);
       await _tts.awaitSpeakCompletion(true);
       await _tts.speak(text);
     } catch (_) {
@@ -251,7 +330,7 @@ class _StudentAiTutorScreenState extends State<StudentAiTutorScreen> {
       });
       _scrollToEnd();
       if (!_alive) return;
-      await _speak(reply, res['language'] as String? ?? 'en');
+      await _say(reply, res['language'] as String? ?? 'en', res['audio'] as String?);
       if (_alive && _phase == _Phase.speaking) _listen();
     } catch (e) {
       if (!mounted) return;
@@ -275,7 +354,7 @@ class _StudentAiTutorScreenState extends State<StudentAiTutorScreen> {
       final ready = await _ensureSpeech();
       if (!mounted) return;
       final name = res['studentName'] as String? ?? '';
-      final greeting = "Assalamu alaikum $name. I'm Alluwal, your tutor. What are we working on today?";
+      final greeting = res['greeting'] as String? ?? "Assalamu alaikum $name. I'm Alluwal, your tutor. What are we working on today?";
       setState(() {
         _sessionId = res['sessionId'] as String;
         _expiresAt = DateTime.parse(res['expiresAt'] as String).toLocal();
@@ -283,13 +362,12 @@ class _StudentAiTutorScreenState extends State<StudentAiTutorScreen> {
           ..clear()
           ..add(_Message('assistant', greeting));
         _alive = true;
-        _phase = ready ? _Phase.speaking : _Phase.idle;
-        if (!ready) _notice = 'Voice is not available on this device. Type your questions below.';
+        _micBlocked = false;
+        _phase = _Phase.speaking;
+        if (!ready) _notice = 'The microphone is not available on this device. Type your questions below.';
       });
-      if (ready) {
-        await _speak(greeting, 'en');
-        if (_alive && _phase == _Phase.speaking) _listen();
-      }
+      await _say(greeting, 'en', res['greetingAudio'] as String?);
+      if (_alive && _phase == _Phase.speaking) _listen();
     } catch (e) {
       if (mounted) setState(() => _notice = _errorText(e));
       await _loadAvailability();
@@ -301,7 +379,7 @@ class _StudentAiTutorScreenState extends State<StudentAiTutorScreen> {
   Future<void> _endSession() async {
     _alive = false;
     await _speech.stop();
-    await _tts.stop();
+    await _hush();
     final sid = _sessionId;
     if (mounted) {
       setState(() {
@@ -322,7 +400,7 @@ class _StudentAiTutorScreenState extends State<StudentAiTutorScreen> {
   /// Tapping while the tutor speaks interrupts it and hands the floor back.
   Future<void> _interrupt() async {
     if (_phase != _Phase.speaking) return;
-    await _tts.stop();
+    await _hush();
     _listen();
   }
 
@@ -553,7 +631,7 @@ class _StudentAiTutorScreenState extends State<StudentAiTutorScreen> {
     final t = text.trim();
     if (t.isEmpty) return;
     _typed.clear();
-    _tts.stop();
+    _hush();
     _submit(t);
   }
 
@@ -634,14 +712,28 @@ class _StudentAiTutorScreenState extends State<StudentAiTutorScreen> {
                 label: Text(a?.activeSessionId != null ? 'Continue session' : 'Start now',
                     style: const TextStyle(fontWeight: FontWeight.w900)),
               ),
-              Text(
-                a == null
-                    ? 'Checking seats…'
-                    : canStart
-                        ? 'A seat is free right now.'
-                        : 'All ${a.seats} seats are busy — book an hour below.',
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13),
-              ),
+              Row(mainAxisSize: MainAxisSize.min, children: [
+                if (a != null)
+                  Container(
+                    margin: const EdgeInsets.only(right: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(8)),
+                    child: Text('${a.seatsFreeNow} / ${a.seatsTotal}',
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16)),
+                  ),
+                Text(
+                  a == null
+                      ? 'Checking seats…'
+                      : a.activeSessionId != null
+                          ? 'Your session is still open.'
+                          : a.canStartNow
+                              ? 'seats free right now'
+                              : a.seatsFreeNow > 0
+                                  ? 'seats free — the tutor opens at ${a.settings['windowStart'] ?? '15:00'}'
+                                  : 'seats free — book an hour below.',
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13),
+                ),
+              ]),
             ]),
           ]),
         ),
