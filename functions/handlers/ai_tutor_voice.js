@@ -248,24 +248,35 @@ const askModel = async ({settings, system, history, apiKey}) => {
 
   let lastError = null;
   for (const model of settings.models) {
-    try {
-      const res = await fetch(`${geminiUrl(model)}?key=${apiKey}`, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({contents, generationConfig: {temperature: 0.6, maxOutputTokens: 400}}),
-      });
-      if (!res.ok) {
-        lastError = new Error(`${model}: HTTP ${res.status}`);
-        // Quota, retired, or overloaded: fall through to the next model.
-        if ([404, 429, 503].includes(res.status)) continue;
-        throw lastError;
+    // Gemma 4 and the Gemini Flash models reason before answering; without a
+    // thinking level the scratch work eats the output budget and, on Gemma, is
+    // returned as the answer. Models that reject the setting get a plain call.
+    for (const withThinking of [true, false]) {
+      try {
+        const generationConfig = {temperature: 0.6, maxOutputTokens: 600};
+        if (withThinking) generationConfig.thinkingConfig = {thinkingLevel: 'minimal'};
+        const res = await fetch(`${geminiUrl(model)}?key=${apiKey}`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({contents, generationConfig}),
+        });
+        if (!res.ok) {
+          lastError = new Error(`${model}: HTTP ${res.status}`);
+          if (res.status === 400 && withThinking) continue; // retry without the thinking setting
+          // Quota, retired, or overloaded: fall through to the next model.
+          if ([400, 404, 429, 503].includes(res.status)) break;
+          throw lastError;
+        }
+        const json = await res.json();
+        const text = (json.candidates?.[0]?.content?.parts || [])
+          .filter((p) => !p.thought)
+          .map((p) => p.text || '').join('').trim();
+        if (!text) { lastError = new Error(`${model}: empty reply`); break; }
+        return {text, model, usage: json.usageMetadata || null};
+      } catch (e) {
+        lastError = e;
+        break;
       }
-      const json = await res.json();
-      const text = (json.candidates?.[0]?.content?.parts || []).map((p) => p.text || '').join('').trim();
-      if (!text) { lastError = new Error(`${model}: empty reply`); continue; }
-      return {text, model, usage: json.usageMetadata || null};
-    } catch (e) {
-      lastError = e;
     }
   }
   throw lastError || new Error('No model answered');
