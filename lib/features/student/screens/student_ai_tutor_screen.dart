@@ -71,11 +71,15 @@ class _Availability {
         slots = (j['slots'] as List).map((s) => _Slot.fromJson(s as Map)).toList(),
         myBookings = (j['myBookings'] as List).map((b) => _Booking.fromJson(b as Map)).toList(),
         canStartNow = j['canStartNow'] == true,
+        seatsFreeNow = (j['seatsFreeNow'] as num?)?.toInt() ?? 0,
+        seatsTotal = (j['seatsTotal'] as num?)?.toInt() ?? 10,
         activeSessionId = (j['activeSession'] as Map?)?['id'] as String?;
   final Map<String, dynamic> settings;
   final List<_Slot> slots;
   final List<_Booking> myBookings;
   final bool canStartNow;
+  final int seatsFreeNow;
+  final int seatsTotal;
   final String? activeSessionId;
   int get seats => (settings['seats'] as num?)?.toInt() ?? 10;
   int get sessionMinutes => (settings['sessionMinutes'] as num?)?.toInt() ?? 60;
@@ -214,11 +218,50 @@ class _StudentAiTutorScreenState extends State<StudentAiTutorScreen> {
     }
   }
 
+  final Map<String, Map<String, String>?> _voiceFor = {};
+
+  /// The most natural voice the device has for a language. iOS ships several
+  /// per language and defaults to the flat "compact" one; the enhanced and
+  /// premium (Siri-grade) voices sound far better when the family has them.
+  Future<Map<String, String>?> _bestVoice(String locale) async {
+    if (_voiceFor.containsKey(locale)) return _voiceFor[locale];
+    Map<String, String>? best;
+    try {
+      final raw = await _tts.getVoices;
+      final voices = (raw as List?)
+              ?.whereType<Map>()
+              .map((v) => v.map((k, val) => MapEntry(k.toString(), val?.toString() ?? '')))
+              .where((v) => (v['locale'] ?? '').toLowerCase().replaceAll('_', '-').startsWith(locale.split('-').first.toLowerCase()))
+              .toList() ??
+          [];
+      int score(Map<String, String> v) {
+        final q = (v['quality'] ?? '').toLowerCase();
+        final id = (v['identifier'] ?? v['name'] ?? '').toLowerCase();
+        var s = q == 'premium' ? 30 : q == 'enhanced' ? 20 : 0;
+        if (id.contains('siri')) s += 25;
+        if (id.contains('premium')) s += 10;
+        if (id.contains('enhanced')) s += 5;
+        if ((v['locale'] ?? '').toLowerCase().replaceAll('_', '-') == locale.toLowerCase()) s += 3;
+        if (id.contains('compact') || id.contains('eloquence') || id.contains('novelty')) s -= 40;
+        return s;
+      }
+      voices.sort((a, b) => score(b).compareTo(score(a)));
+      if (voices.isNotEmpty) best = {'name': voices.first['name'] ?? '', 'locale': voices.first['locale'] ?? locale};
+    } catch (_) {
+      best = null;
+    }
+    _voiceFor[locale] = best;
+    return best;
+  }
+
   Future<void> _speak(String text, String langId) async {
     final lang = _langs.firstWhere((l) => l.id == langId, orElse: () => _langs.first);
     try {
       await _tts.setLanguage(lang.locale);
+      final voice = await _bestVoice(lang.locale);
+      if (voice != null) await _tts.setVoice(voice);
       await _tts.setSpeechRate(0.5);
+      await _tts.setPitch(1.0);
       await _tts.awaitSpeakCompletion(true);
       await _tts.speak(text);
     } catch (_) {
@@ -634,14 +677,28 @@ class _StudentAiTutorScreenState extends State<StudentAiTutorScreen> {
                 label: Text(a?.activeSessionId != null ? 'Continue session' : 'Start now',
                     style: const TextStyle(fontWeight: FontWeight.w900)),
               ),
-              Text(
-                a == null
-                    ? 'Checking seats…'
-                    : canStart
-                        ? 'A seat is free right now.'
-                        : 'All ${a.seats} seats are busy — book an hour below.',
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13),
-              ),
+              Row(mainAxisSize: MainAxisSize.min, children: [
+                if (a != null)
+                  Container(
+                    margin: const EdgeInsets.only(right: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(8)),
+                    child: Text('${a.seatsFreeNow} / ${a.seatsTotal}',
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16)),
+                  ),
+                Text(
+                  a == null
+                      ? 'Checking seats…'
+                      : a.activeSessionId != null
+                          ? 'Your session is still open.'
+                          : a.canStartNow
+                              ? 'seats free right now'
+                              : a.seatsFreeNow > 0
+                                  ? 'seats free — the tutor opens at ${a.settings['windowStart'] ?? '15:00'}'
+                                  : 'seats free — book an hour below.',
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13),
+                ),
+              ]),
             ]),
           ]),
         ),

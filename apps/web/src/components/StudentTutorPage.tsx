@@ -27,6 +27,8 @@ type Availability = {
   slots: Slot[];
   myBookings: Booking[];
   canStartNow: boolean;
+  seatsFreeNow: number;
+  seatsTotal: number;
   activeSession: { id: string; expiresAt: string | null } | null;
 };
 type Message = { role: "user" | "assistant"; text: string };
@@ -62,13 +64,33 @@ const speechCtor = (): RecognizerCtor | null => {
   return w.SpeechRecognition || w.webkitSpeechRecognition || null;
 };
 
-const pickVoice = (lang: Lang): SpeechSynthesisVoice | null => {
-  const voices = window.speechSynthesis?.getVoices() ?? [];
-  const prefix = lang === "ar" ? "ar" : lang === "fr" ? "fr" : "en";
-  return voices.find((v) => v.lang.toLowerCase().startsWith(prefix) && /premium|enhanced|natural|neural/i.test(v.name))
-    || voices.find((v) => v.lang.toLowerCase().startsWith(prefix))
-    || null;
+// Browsers list dozens of voices per language and put the poor ones first.
+// Prefer the natural network voices (Chrome's Google voices, Edge's Microsoft
+// Natural voices), then the good built-in Apple voices, and never a novelty.
+const NOVELTY = /albert|bad news|bahh|bells|boing|bubbles|cellos|eddy|flo\b|fred|good news|grandma|grandpa|jester|junior|kathy|organ|ralph|reed|rocko|sandy|shelley|superstar|trinoids|whisper|wobble|zarvox/i;
+const PREFERRED: Record<Lang, RegExp[]> = {
+  en: [/google us english/i, /google uk english female/i, /microsoft .*(aria|jenny|guy|ryan|sonia).*natural/i, /natural|neural|premium|enhanced/i, /^samantha$/i, /^daniel$/i, /^karen$/i, /^moira$/i, /^tessa$/i, /^rishi$/i],
+  fr: [/google français/i, /microsoft .*(denise|henri|vivienne).*natural/i, /natural|neural|premium|enhanced/i, /^thomas$/i, /^audrey/i, /^aur[ée]lie/i, /^am[ée]lie$/i, /^jacques$/i],
+  ar: [/google/i, /microsoft .*(salma|shakir|hamed|zariyah).*natural/i, /natural|neural|premium|enhanced/i, /^majed$/i, /^maged$/i, /^tarik$/i, /^laila$/i],
 };
+const pickVoice = (lang: Lang): SpeechSynthesisVoice | null => {
+  const prefix = lang === "ar" ? "ar" : lang === "fr" ? "fr" : "en";
+  const candidates = (window.speechSynthesis?.getVoices() ?? []).filter((v) => v.lang.toLowerCase().startsWith(prefix) && !NOVELTY.test(v.name));
+  for (const pattern of PREFERRED[lang]) {
+    const hit = candidates.find((v) => pattern.test(v.name));
+    if (hit) return hit;
+  }
+  return candidates.find((v) => !v.localService) || candidates[0] || null;
+};
+
+// Chrome hands back an empty voice list until it has loaded them once.
+const voicesReady = (): Promise<void> => new Promise((resolve) => {
+  const synth = window.speechSynthesis;
+  if (!synth || synth.getVoices().length) { resolve(); return; }
+  const done = () => { synth.removeEventListener("voiceschanged", done); resolve(); };
+  synth.addEventListener("voiceschanged", done);
+  window.setTimeout(done, 1500);
+});
 
 const fmtHour = (iso: string, tz: string) =>
   new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", timeZone: tz });
@@ -147,14 +169,18 @@ export function StudentTutorPage() {
   const speak = useCallback((text: string, replyLang: Lang, onDone: () => void) => {
     if (!window.speechSynthesis) { onDone(); return; }
     window.speechSynthesis.cancel();
-    const utter = new SpeechSynthesisUtterance(text);
-    const voice = pickVoice(replyLang);
-    if (voice) utter.voice = voice;
-    utter.lang = LANGS.find((l) => l.id === replyLang)?.bcp47 ?? "en-US";
-    utter.rate = 0.98;
-    utter.onend = onDone;
-    utter.onerror = onDone;
-    window.speechSynthesis.speak(utter);
+    void voicesReady().then(() => {
+      if (!aliveRef.current) { onDone(); return; }
+      const utter = new SpeechSynthesisUtterance(text);
+      const voice = pickVoice(replyLang);
+      if (voice) utter.voice = voice;
+      utter.lang = voice?.lang || (LANGS.find((l) => l.id === replyLang)?.bcp47 ?? "en-US");
+      utter.rate = 1;
+      utter.pitch = 1;
+      utter.onend = onDone;
+      utter.onerror = onDone;
+      window.speechSynthesis.speak(utter);
+    });
   }, []);
 
   const listen = useCallback(() => {
@@ -351,8 +377,9 @@ export function StudentTutorPage() {
                     {busy === "start" ? <Loader2 className="animate-spin" size={18} /> : <Mic size={18} />}
                     {avail?.activeSession ? "Continue session" : "Start now"}
                   </button>
-                  <span className="text-sm font-semibold text-white/85">
-                    {!avail ? "Checking seats…" : avail.canStartNow || avail.activeSession ? "A seat is free right now." : `All ${avail.settings.seats} seats are busy — book an hour below.`}
+                  <span className="inline-flex items-center gap-2 text-sm font-semibold text-white/85">
+                    {avail ? <span className="rounded-lg bg-white/15 px-2.5 py-1 text-base font-black tabular-nums text-white">{avail.seatsFreeNow} / {avail.seatsTotal}</span> : null}
+                    {!avail ? "Checking seats…" : avail.activeSession ? "Your session is still open." : avail.canStartNow ? "seats free right now" : avail.seatsFreeNow > 0 ? "seats free — the tutor opens at " + avail.settings.windowStart : "seats free — book an hour below."}
                   </span>
                 </div>
               </section>
