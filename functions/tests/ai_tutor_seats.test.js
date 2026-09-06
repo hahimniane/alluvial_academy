@@ -155,6 +155,20 @@ describe('the student\'s age', () => {
   });
 });
 
+describe('the voice', () => {
+  const tts = require('../services/ai_tutor_tts');
+  test('each language has a natural voice first and fallbacks after', () => {
+    expect(tts.voicesFor('en', {})[0].name).toMatch(/Chirp3-HD/);
+    expect(tts.voicesFor('ar', {})[0].languageCode).toBe('ar-XA');
+    expect(tts.voicesFor('xx', {})[0].languageCode).toBe('en-US');
+  });
+  test('a voice set in settings comes first, the defaults stay as fallbacks', () => {
+    const v = tts.voicesFor('en', {voices: {en: 'en-US-Chirp3-HD-Kore'}});
+    expect(v[0]).toEqual({languageCode: 'en-US', name: 'en-US-Chirp3-HD-Kore'});
+    expect(v.length).toBeGreaterThan(1);
+  });
+});
+
 describe('free seats now', () => {
   test('seats held for other bookers are not free; my own hold is', () => {
     const held = [{started: false, userId: 'a'}, {started: false, userId: 'me'}, {started: true, userId: 'b'}];

@@ -48,6 +48,8 @@ const normalizeSettings = (raw) => {
     timezone: zone,
     models: Array.isArray(data.models) && data.models.length ? data.models.map(String) : DEFAULT_SETTINGS.models,
     maxHistoryMessages: _int(data.maxHistoryMessages, DEFAULT_SETTINGS.maxHistoryMessages),
+    /** Optional per-language Cloud TTS voice overrides, e.g. {en: 'en-US-Chirp3-HD-Kore'}. */
+    voices: data.voices && typeof data.voices === 'object' ? data.voices : {},
   };
 };
 

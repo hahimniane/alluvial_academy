@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
 
+import 'package:audioplayers/audioplayers.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
@@ -90,6 +92,7 @@ class _Availability {
 class _StudentAiTutorScreenState extends State<StudentAiTutorScreen> {
   final _speech = stt.SpeechToText();
   final _tts = FlutterTts();
+  final _player = AudioPlayer();
   final _functions = FirebaseFunctions.instance;
   final _scroll = ScrollController();
   final _typed = TextEditingController();
@@ -106,6 +109,7 @@ class _StudentAiTutorScreenState extends State<StudentAiTutorScreen> {
   _Lang _lang = _langs.first;
   String _heard = '';
   bool _alive = false;
+  bool _micBlocked = false;
   Timer? _clock;
 
   @override
@@ -121,6 +125,7 @@ class _StudentAiTutorScreenState extends State<StudentAiTutorScreen> {
     _clock?.cancel();
     _speech.stop();
     _tts.stop();
+    _player.dispose();
     _scroll.dispose();
     _typed.dispose();
     super.dispose();
@@ -169,9 +174,10 @@ class _StudentAiTutorScreenState extends State<StudentAiTutorScreen> {
         onError: (err) {
           if (!mounted) return;
           if (err.permanent) {
+            // Keep the session alive: the tutor still speaks, the student types.
             setState(() {
               _notice = 'Microphone access is blocked. Allow the microphone in Settings, or type below.';
-              _alive = false;
+              _micBlocked = true;
               _phase = _Phase.idle;
             });
           }
@@ -184,7 +190,11 @@ class _StudentAiTutorScreenState extends State<StudentAiTutorScreen> {
   }
 
   void _listen() {
-    if (!_alive || !mounted || !_speechReady) return;
+    if (!_alive || !mounted) return;
+    if (!_speechReady || _micBlocked) {
+      setState(() => _phase = _Phase.idle);
+      return;
+    }
     setState(() {
       _phase = _Phase.listening;
       _heard = '';
@@ -254,6 +264,32 @@ class _StudentAiTutorScreenState extends State<StudentAiTutorScreen> {
     return best;
   }
 
+  /// The tutor's words arrive as MP3 from Google Cloud Text-to-Speech; the
+  /// device voice is only the fallback when no audio came back.
+  Future<void> _say(String text, String langId, String? audioBase64) async {
+    if (audioBase64 == null || audioBase64.isEmpty) {
+      await _speak(text, langId);
+      return;
+    }
+    try {
+      final done = Completer<void>();
+      late final StreamSubscription<void> sub;
+      sub = _player.onPlayerComplete.listen((_) {
+        if (!done.isCompleted) done.complete();
+      });
+      await _player.play(BytesSource(base64Decode(audioBase64), mimeType: 'audio/mpeg'));
+      await done.future.timeout(const Duration(seconds: 90), onTimeout: () {});
+      await sub.cancel();
+    } catch (_) {
+      await _speak(text, langId);
+    }
+  }
+
+  Future<void> _hush() async {
+    await _player.stop();
+    await _tts.stop();
+  }
+
   Future<void> _speak(String text, String langId) async {
     final lang = _langs.firstWhere((l) => l.id == langId, orElse: () => _langs.first);
     try {
@@ -294,7 +330,7 @@ class _StudentAiTutorScreenState extends State<StudentAiTutorScreen> {
       });
       _scrollToEnd();
       if (!_alive) return;
-      await _speak(reply, res['language'] as String? ?? 'en');
+      await _say(reply, res['language'] as String? ?? 'en', res['audio'] as String?);
       if (_alive && _phase == _Phase.speaking) _listen();
     } catch (e) {
       if (!mounted) return;
@@ -318,7 +354,7 @@ class _StudentAiTutorScreenState extends State<StudentAiTutorScreen> {
       final ready = await _ensureSpeech();
       if (!mounted) return;
       final name = res['studentName'] as String? ?? '';
-      final greeting = "Assalamu alaikum $name. I'm Alluwal, your tutor. What are we working on today?";
+      final greeting = res['greeting'] as String? ?? "Assalamu alaikum $name. I'm Alluwal, your tutor. What are we working on today?";
       setState(() {
         _sessionId = res['sessionId'] as String;
         _expiresAt = DateTime.parse(res['expiresAt'] as String).toLocal();
@@ -326,13 +362,12 @@ class _StudentAiTutorScreenState extends State<StudentAiTutorScreen> {
           ..clear()
           ..add(_Message('assistant', greeting));
         _alive = true;
-        _phase = ready ? _Phase.speaking : _Phase.idle;
-        if (!ready) _notice = 'Voice is not available on this device. Type your questions below.';
+        _micBlocked = false;
+        _phase = _Phase.speaking;
+        if (!ready) _notice = 'The microphone is not available on this device. Type your questions below.';
       });
-      if (ready) {
-        await _speak(greeting, 'en');
-        if (_alive && _phase == _Phase.speaking) _listen();
-      }
+      await _say(greeting, 'en', res['greetingAudio'] as String?);
+      if (_alive && _phase == _Phase.speaking) _listen();
     } catch (e) {
       if (mounted) setState(() => _notice = _errorText(e));
       await _loadAvailability();
@@ -344,7 +379,7 @@ class _StudentAiTutorScreenState extends State<StudentAiTutorScreen> {
   Future<void> _endSession() async {
     _alive = false;
     await _speech.stop();
-    await _tts.stop();
+    await _hush();
     final sid = _sessionId;
     if (mounted) {
       setState(() {
@@ -365,7 +400,7 @@ class _StudentAiTutorScreenState extends State<StudentAiTutorScreen> {
   /// Tapping while the tutor speaks interrupts it and hands the floor back.
   Future<void> _interrupt() async {
     if (_phase != _Phase.speaking) return;
-    await _tts.stop();
+    await _hush();
     _listen();
   }
 
@@ -596,7 +631,7 @@ class _StudentAiTutorScreenState extends State<StudentAiTutorScreen> {
     final t = text.trim();
     if (t.isEmpty) return;
     _typed.clear();
-    _tts.stop();
+    _hush();
     _submit(t);
   }
 

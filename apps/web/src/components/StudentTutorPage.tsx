@@ -116,7 +116,9 @@ export function StudentTutorPage() {
   const [typed, setTyped] = useState("");
   const [now, setNow] = useState(() => Date.now());
   const recRef = useRef<Recognizer | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const aliveRef = useRef(false);
+  const micBlockedRef = useRef(false);
   const phaseRef = useRef<Phase>("idle");
   const langRef = useRef<Lang>("en");
   const messagesRef = useRef<Message[]>([]);
@@ -183,9 +185,29 @@ export function StudentTutorPage() {
     });
   }, []);
 
+  // The tutor's words arrive as MP3 from Google Cloud Text-to-Speech; the
+  // device voice is only the fallback when no audio came back.
+  const say = useCallback((text: string, replyLang: Lang, audio: string | null | undefined, onDone: () => void) => {
+    const player = audioRef.current;
+    if (!audio || !player) { speak(text, replyLang, onDone); return; }
+    let finished = false;
+    const finish = () => { if (finished) return; finished = true; player.onended = null; player.onerror = null; onDone(); };
+    player.onended = finish;
+    player.onerror = () => { if (!finished) { finished = true; speak(text, replyLang, onDone); } };
+    player.src = `data:audio/mpeg;base64,${audio}`;
+    player.play().catch(() => { if (!finished) { finished = true; speak(text, replyLang, onDone); } });
+  }, [speak]);
+
+  const hush = useCallback(() => {
+    const player = audioRef.current;
+    if (player) { player.onended = null; player.pause(); player.removeAttribute("src"); }
+    window.speechSynthesis?.cancel();
+  }, []);
+
   const listen = useCallback(() => {
     const Ctor = speechCtor();
     if (!Ctor || !aliveRef.current) return;
+    if (micBlockedRef.current) { setPhase("idle"); return; }
     stopListening();
     const rec = new Ctor();
     rec.lang = LANGS.find((l) => l.id === langRef.current)?.bcp47 ?? "en-US";
@@ -203,8 +225,9 @@ export function StudentTutorPage() {
     };
     rec.onerror = (ev) => {
       if (ev.error === "not-allowed" || ev.error === "service-not-allowed") {
+        // Keep the session alive: the tutor still speaks, the student types.
         setNotice("Microphone access is blocked. Allow the microphone for this site, or type below.");
-        aliveRef.current = false;
+        micBlockedRef.current = true;
         setPhase("idle");
       }
     };
@@ -230,61 +253,67 @@ export function StudentTutorPage() {
     const next: Message[] = [...messagesRef.current, { role: "user", text: text.trim() }];
     setMessages(next);
     try {
-      const res = await call<{ sessionId: string; messages: Message[] }, { reply: string; language: Lang; expiresAt: string }>("aiTutorTurn")({ sessionId: sid, messages: next });
+      const res = await call<{ sessionId: string; messages: Message[] }, { reply: string; language: Lang; audio?: string | null; expiresAt: string }>("aiTutorTurn")({ sessionId: sid, messages: next });
       const reply = res.data.reply;
       setMessages([...next, { role: "assistant", text: reply }]);
       setExpiresAt(new Date(res.data.expiresAt));
       if (!aliveRef.current) return;
       setPhase("speaking");
-      speak(reply, res.data.language, () => { if (aliveRef.current) listen(); });
+      say(reply, res.data.language, res.data.audio, () => { if (aliveRef.current && supported && !micBlockedRef.current) listen(); else setPhase("idle"); });
     } catch (e) {
       const msg = e instanceof Error ? e.message : "The tutor could not answer.";
       setNotice(msg);
       if (/hour is up|has ended/i.test(msg)) { aliveRef.current = false; setSessionId(null); setPhase("idle"); void loadAvailability(); return; }
       if (aliveRef.current) listen();
     }
-  }, [listen, speak, stopListening, loadAvailability]);
+  }, [listen, say, supported, stopListening, loadAvailability]);
 
   const startSession = useCallback(async () => {
     setBusy("start"); setNotice("");
+    // Phones only play audio that a tap started: prime one player on this
+    // tap and reuse it for every reply.
+    if (!audioRef.current) {
+      const player = new Audio();
+      player.preload = "auto";
+      player.src = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
+      player.play().catch(() => { /* unlocked on the next tap */ });
+      audioRef.current = player;
+    }
     try {
-      const res = await call<Record<string, never>, { sessionId: string; expiresAt: string; resumed: boolean; studentName: string }>("aiTutorStartSession")({});
+      const res = await call<Record<string, never>, { sessionId: string; expiresAt: string; resumed: boolean; studentName: string; greeting?: string; greetingAudio?: string | null }>("aiTutorStartSession")({});
       setSessionId(res.data.sessionId);
       setExpiresAt(new Date(res.data.expiresAt));
       aliveRef.current = true;
-      const greeting = `Assalamu alaikum ${res.data.studentName}. I'm Alluwal, your tutor. What are we working on today?`;
+      micBlockedRef.current = false;
+      const greeting = res.data.greeting || `Assalamu alaikum ${res.data.studentName}. I'm Alluwal, your tutor. What are we working on today?`;
       setMessages([{ role: "assistant", text: greeting }]);
-      if (supported) {
-        setPhase("speaking");
-        speak(greeting, "en", () => { if (aliveRef.current) listen(); });
-      } else {
-        setPhase("idle");
-      }
+      setPhase("speaking");
+      say(greeting, "en", res.data.greetingAudio, () => { if (aliveRef.current && supported) listen(); else setPhase("idle"); });
     } catch (e) {
       setNotice(e instanceof Error ? e.message : "Could not start.");
       await loadAvailability();
     } finally {
       setBusy(null);
     }
-  }, [listen, speak, supported, loadAvailability]);
+  }, [listen, say, supported, loadAvailability]);
 
   const endSession = useCallback(async () => {
     aliveRef.current = false;
     stopListening();
-    window.speechSynthesis?.cancel();
+    hush();
     const sid = sessionRef.current;
     setPhase("idle");
     setSessionId(null);
     if (sid) { try { await call<{ sessionId: string }, unknown>("aiTutorEndSession")({ sessionId: sid }); } catch { /* the sweeper closes it */ } }
     await loadAvailability();
-  }, [stopListening, loadAvailability]);
+  }, [stopListening, hush, loadAvailability]);
 
   // Tapping while the tutor speaks interrupts it and hands the floor back.
   const interrupt = useCallback(() => {
-    if (phaseRef.current === "speaking") { window.speechSynthesis?.cancel(); listen(); }
-  }, [listen]);
+    if (phaseRef.current === "speaking") { hush(); listen(); }
+  }, [hush, listen]);
 
-  useEffect(() => () => { aliveRef.current = false; stopListening(); window.speechSynthesis?.cancel(); }, [stopListening]);
+  useEffect(() => () => { aliveRef.current = false; stopListening(); hush(); }, [stopListening, hush]);
 
   // The clock runs out server-side too; this just stops the loop politely.
   useEffect(() => {
@@ -361,7 +390,7 @@ export function StudentTutorPage() {
                 <button type="button" onClick={() => void endSession()} className="ml-auto inline-flex min-h-11 items-center gap-2 rounded-xl border border-red-200 px-4 font-bold text-red-600"><Square size={16} /> End</button>
               </div>
 
-              <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); const t = typed.trim(); if (t) { setTyped(""); void submit(t); } }}>
+              <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); const t = typed.trim(); if (t) { setTyped(""); hush(); void submit(t); } }}>
                 <input value={typed} onChange={(e) => setTyped(e.target.value)} placeholder="Or type a question…" className="h-12 min-w-0 flex-1 rounded-xl border border-[#CBD5E1] bg-white px-4 outline-none focus:border-[#0E72ED]" />
                 <button type="submit" disabled={!typed.trim()} className="grid h-12 w-12 place-items-center rounded-xl bg-[#0E72ED] text-white disabled:opacity-40"><Volume2 size={20} /></button>
               </form>

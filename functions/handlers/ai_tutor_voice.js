@@ -15,6 +15,7 @@ const {onCall, HttpsError} = require('firebase-functions/v2/https');
 const {onSchedule} = require('firebase-functions/v2/scheduler');
 const {DateTime} = require('luxon');
 const seats = require('../utils/ai_tutor_seats');
+const tts = require('../services/ai_tutor_tts');
 
 const SETTINGS_DOC = 'settings/ai_tutor';
 const SESSIONS = 'ai_tutor_sessions';
@@ -197,6 +198,8 @@ const aiTutorCancelBooking = onCall(async (request) => {
 
 /* -------------------------------------------------------------- session -- */
 
+const GREETING = (firstName) => `Assalamu alaikum ${firstName}. I'm Alluwal, your tutor. What are we working on today?`;
+
 const aiTutorStartSession = onCall(async (request) => {
   const uid = callerUid(request);
   const caller = await loadCaller(uid);
@@ -205,6 +208,16 @@ const aiTutorStartSession = onCall(async (request) => {
   const now = new Date();
   await expireStaleSessions(db, now);
 
+  const greeting = GREETING(caller.firstName);
+  const [started, spoken] = await Promise.all([
+    startSessionTx({db, uid, caller, settings, now}),
+    tts.synthesize({text: greeting, language: 'en', settings, projectId: process.env.GCLOUD_PROJECT}),
+  ]);
+  if (spoken) await db.collection(SESSIONS).doc(started.sessionId).update({ttsChars: admin.firestore.FieldValue.increment(spoken.chars), ttsVoice: spoken.voice}).catch(() => {});
+  return {...started, greeting, greetingAudio: spoken ? spoken.audio : null, audioMime: spoken ? spoken.mime : null};
+});
+
+const startSessionTx = ({db, uid, caller, settings, now}) => {
   return db.runTransaction(async (tx) => {
     const active = await tx.get(activeSessionsQuery(db));
     const own = active.docs.find((d) => d.data().userId === uid);
@@ -239,7 +252,7 @@ const aiTutorStartSession = onCall(async (request) => {
     if (myBooking) tx.update(db.collection(BOOKINGS).doc(myBooking.id), {started: true, status: 'used', sessionId: ref.id});
     return {sessionId: ref.id, expiresAt: expiresAt.toISOString(), resumed: false, studentName: caller.firstName};
   });
-});
+};
 
 const aiTutorEndSession = onCall(async (request) => {
   const uid = callerUid(request);
@@ -330,16 +343,22 @@ const aiTutorTurn = onCall({secrets: ['GEMINI_API_KEY'], timeoutSeconds: 60}, as
     throw new HttpsError('unavailable', 'The tutor could not answer just now. Please try again.');
   }
 
+  const replyLanguage = seats.languageOf(reply.text);
+  const spoken = await tts.synthesize({text: reply.text, language: replyLanguage, settings, projectId: process.env.GCLOUD_PROJECT});
+
   await ref.update({
     turns: admin.firestore.FieldValue.increment(1),
     lastTurnAt: admin.firestore.FieldValue.serverTimestamp(),
     lastModel: reply.model,
+    ...(spoken ? {ttsChars: admin.firestore.FieldValue.increment(spoken.chars), ttsVoice: spoken.voice} : {}),
     ...(reply.usage ? {promptTokens: admin.firestore.FieldValue.increment(reply.usage.promptTokenCount || 0), replyTokens: admin.firestore.FieldValue.increment(reply.usage.candidatesTokenCount || 0)} : {}),
   });
 
   return {
     reply: reply.text,
-    language: seats.languageOf(reply.text),
+    language: replyLanguage,
+    audio: spoken ? spoken.audio : null,
+    audioMime: spoken ? spoken.mime : null,
     expiresAt: session.expiresAt.toDate().toISOString(),
   };
 });
