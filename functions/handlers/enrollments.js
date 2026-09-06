@@ -1049,7 +1049,7 @@ const inviteParentForEnrollment = async (request) => {
   const studentRef = db.collection('users').doc(studentUid);
   const studentSnap = await studentRef.get();
   if (!studentSnap.exists) {
-    throw new functions.https.HttpsError('not-found', `Student ${studentUid} not found`);
+    throw new functions.https.HttpsError('not-found', `This enrollment is linked to a student account that no longer exists (${studentUid}). Open the student's current account from the Students list and relink the enrollment, then send the invite again.`);
   }
 
   // set(..., {merge:true}) creates a document for an id that does not exist, so
@@ -1365,7 +1365,7 @@ const unlinkGuardianFromStudent = async (request) => {
 
   const [studentSnap, parentSnap] = await Promise.all([studentRef.get(), parentRef.get()]);
   if (!studentSnap.exists) {
-    throw new functions.https.HttpsError('not-found', `Student ${studentUid} not found`);
+    throw new functions.https.HttpsError('not-found', `This enrollment is linked to a student account that no longer exists (${studentUid}). Open the student's current account from the Students list and relink the enrollment, then send the invite again.`);
   }
 
   const studentData = studentSnap.data() || {};
