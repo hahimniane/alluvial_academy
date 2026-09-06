@@ -12,6 +12,7 @@ const shiftArchiveHandlers = require('./handlers/shift_archive');
 const timezoneHandlers = require('./handlers/timezone');
 const notificationHandlers = require('./handlers/notifications');
 const enrollmentHandlers = require('./handlers/enrollments');
+const aiTutorVoice = require('./handlers/ai_tutor_voice');
 const jobHandlers = require('./handlers/jobs');
 const formHandlers = require('./handlers/forms');
 // Legacy Zoom handlers removed. Classroom video calls now use RealtimeKit;
@@ -606,3 +607,12 @@ exports.getAITutorToken = aiTutorHandlers.getAITutorToken;
 exports.endAITutorSession = aiTutorHandlers.endAITutorSession;
 exports.transcribeRecitation = quranAsrHandlers.transcribeRecitation;
 exports.checkPronunciation = quranPhonemeHandlers.checkPronunciation;
+
+// Student AI tutor, phone-based: the device listens and speaks, these see text.
+exports.aiTutorGetAvailability = aiTutorVoice.aiTutorGetAvailability;
+exports.aiTutorBookSlot = aiTutorVoice.aiTutorBookSlot;
+exports.aiTutorCancelBooking = aiTutorVoice.aiTutorCancelBooking;
+exports.aiTutorStartSession = aiTutorVoice.aiTutorStartSession;
+exports.aiTutorEndSession = aiTutorVoice.aiTutorEndSession;
+exports.aiTutorTurn = aiTutorVoice.aiTutorTurn;
+exports.aiTutorSweep = aiTutorVoice.aiTutorSweep;

@@ -14,6 +14,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   firebase_remote_config
   firebase_storage
   flutter_timezone
+  flutter_tts
   flutter_webrtc
   geolocator_windows
   livekit_client

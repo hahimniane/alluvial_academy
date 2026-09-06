@@ -382,6 +382,18 @@ service cloud.firestore {
     }
 
     // Settings collection (used for form template config, app settings, etc.)
+    // AI tutor for students. Sessions, turns and bookings are written only by
+    // the callables (Admin SDK); a student may read their own rows so the app
+    // can show their bookings and history. Seat counts are enforced server-side.
+    match /ai_tutor_sessions/{sessionId} {
+      allow read: if isSignedIn() && (isAdmin() || resource.data.userId == request.auth.uid);
+      allow write: if false;
+    }
+    match /ai_tutor_bookings/{bookingId} {
+      allow read: if isSignedIn() && (isAdmin() || resource.data.userId == request.auth.uid);
+      allow write: if false;
+    }
+
     match /settings/{settingId} {
       allow read: if isSignedIn();
       allow write: if isAdmin();

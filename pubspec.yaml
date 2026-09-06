@@ -106,6 +106,7 @@ dependencies:
   # docs/zoom-classroom-pilot.md. Web uses web/zoom_meeting.html instead.
   flutter_zoom_meeting_wrapper:
     path: packages/flutter_zoom_meeting_wrapper
+  flutter_tts: ^4.2.5
 
 dependency_overrides:
   realtimekit_core_ios: 0.1.5
