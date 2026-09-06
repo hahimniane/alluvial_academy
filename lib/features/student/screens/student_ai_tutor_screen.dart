@@ -323,8 +323,11 @@ class _StudentAiTutorScreenState extends State<StudentAiTutorScreen> {
       });
       if (!mounted) return;
       final reply = res['reply'] as String;
+      final replyLang = res['language'] as String? ?? 'en';
       setState(() {
         _messages.add(_Message('assistant', reply));
+        // The microphone follows the conversation's language.
+        _lang = _langs.firstWhere((l) => l.id == replyLang, orElse: () => _lang);
         _expiresAt = DateTime.parse(res['expiresAt'] as String).toLocal();
         _phase = _Phase.speaking;
       });

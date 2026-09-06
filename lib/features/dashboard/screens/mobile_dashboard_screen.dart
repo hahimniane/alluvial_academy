@@ -27,6 +27,7 @@ import '../../student/screens/student_classes_screen.dart'; // Student classes s
 import '../../student/screens/student_ai_tutor_screen.dart'; // Student AI tutor
 import '../../student/screens/student_progress_screen.dart'; // Student progress screen
 import '../../quran_reader/screens/quran_reader_screen.dart'; // Quran reader + memorization + recitation check
+import '../../quran_reader/screens/library_hub_screen.dart';
 import '../../quiz/screens/bayanah_play_screen.dart'; // Bayanah live game (students)
 import '../../shift_management/screens/admin_classes_screen.dart'; // Admin classes screen
 import '../../parent/screens/parent_classes_screen.dart';
@@ -539,7 +540,7 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
         const ChatPage(),
         const TeacherFormsScreen(),
         const TeacherJobBoardScreen(),
-        const CurriculumBooksScreen(),
+        const LibraryHubScreen(),
         if (_tontineEnabled) const TontineHomeScreen(),
       ];
     }
@@ -591,7 +592,7 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
       const ChatPage(),
       const ParentFormsScreen(),
       const QuickTasksScreen(),
-      const CurriculumBooksScreen(),
+      const LibraryHubScreen(),
       if (_tontineEnabled) const TontineHomeScreen(),
     ];
   }
@@ -614,7 +615,7 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
         _NavItemData(Icons.chat_bubble_rounded, l10n.navChat, 2, isChat: true),
         _NavItemData(Icons.description_rounded, l10n.navForms, 3),
         _NavItemData(Icons.work_outline_rounded, l10n.navJobs, 4),
-        _NavItemData(Icons.menu_book_rounded, 'Books', 5),
+        _NavItemData(Icons.local_library_rounded, 'Library', 5),
       ];
       if (_tontineEnabled) {
         items.add(_NavItemData(Icons.groups_rounded, l10n.tontineCircles, 6));
@@ -667,7 +668,7 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
       _NavItemData(Icons.chat_bubble_rounded, l10n.navChat, 2, isChat: true),
       _NavItemData(Icons.description_rounded, l10n.navForms, 3),
       _NavItemData(Icons.task_alt_rounded, l10n.navTasks, 4),
-      _NavItemData(Icons.menu_book_rounded, 'Books', 5),
+      _NavItemData(Icons.local_library_rounded, 'Library', 5),
     ];
     if (_tontineEnabled) {
       items.add(_NavItemData(Icons.groups_rounded, l10n.tontineCircles, 6));
@@ -1324,6 +1325,12 @@ class _AdminMoreScreen extends StatelessWidget {
         label: l10n.decisionHistory,
         color: const Color(0xff4F46E5),
         screen: const DecisionHistoryScreen(),
+      ),
+      _MoreItem(
+        icon: Icons.auto_stories_rounded,
+        label: 'Quran',
+        color: const Color(0xff0E7490),
+        screen: const QuranReaderScreen(),
       ),
       _MoreItem(
         icon: Icons.menu_book_rounded,

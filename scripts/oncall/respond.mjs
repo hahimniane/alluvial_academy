@@ -311,11 +311,19 @@ async function main() {
   };
   if (!DRY_RUN) await db.collection('oncall_actions').add(record);
 
-  const title = action.kind === 'report_only'
-    ? 'Zoom hub needs a human'
-    : `Zoom hub: ${action.kind.replace(/_/g, ' ')}`;
-  const body = `${verdict.humanSummary || verdict.assessment}\n${outcome}`;
-  if (!DRY_RUN) await notifyAdmins(db, { title, body });
+  // A healthy verdict is not a page. Open alerts can wake the responder while
+  // every hub is fine; recording the verdict is enough — nobody should be
+  // pinged to read "no action is required".
+  const nothingToDo = action.kind === 'report_only' && (verdict.faultType || 'unknown') === 'healthy';
+  if (nothingToDo) {
+    log('verdict healthy — recorded, no notification sent');
+  } else {
+    const title = action.kind === 'report_only'
+      ? 'Zoom hub needs a human'
+      : `Zoom hub: ${action.kind.replace(/_/g, ' ')}`;
+    const body = `${verdict.humanSummary || verdict.assessment}\n${outcome}`;
+    if (!DRY_RUN) await notifyAdmins(db, { title, body });
+  }
 
   log(`outcome: ${outcome}`);
 }
