@@ -266,7 +266,7 @@ class _StudentAiTutorScreenState extends State<StudentAiTutorScreen> {
 
   /// The tutor's words arrive as MP3 from Google Cloud Text-to-Speech; the
   /// device voice is only the fallback when no audio came back.
-  Future<void> _say(String text, String langId, String? audioBase64) async {
+  Future<void> _say(String text, String langId, String? audioBase64, {String mime = 'audio/mpeg'}) async {
     if (audioBase64 == null || audioBase64.isEmpty) {
       await _speak(text, langId);
       return;
@@ -277,7 +277,7 @@ class _StudentAiTutorScreenState extends State<StudentAiTutorScreen> {
       sub = _player.onPlayerComplete.listen((_) {
         if (!done.isCompleted) done.complete();
       });
-      await _player.play(BytesSource(base64Decode(audioBase64), mimeType: 'audio/mpeg'));
+      await _player.play(BytesSource(base64Decode(audioBase64), mimeType: mime));
       await done.future.timeout(const Duration(seconds: 90), onTimeout: () {});
       await sub.cancel();
     } catch (_) {
@@ -333,7 +333,7 @@ class _StudentAiTutorScreenState extends State<StudentAiTutorScreen> {
       });
       _scrollToEnd();
       if (!_alive) return;
-      await _say(reply, res['language'] as String? ?? 'en', res['audio'] as String?);
+      await _say(reply, res['language'] as String? ?? 'en', res['audio'] as String?, mime: res['audioMime'] as String? ?? 'audio/mpeg');
       if (_alive && _phase == _Phase.speaking) _listen();
     } catch (e) {
       if (!mounted) return;
@@ -369,7 +369,7 @@ class _StudentAiTutorScreenState extends State<StudentAiTutorScreen> {
         _phase = _Phase.speaking;
         if (!ready) _notice = 'The microphone is not available on this device. Type your questions below.';
       });
-      await _say(greeting, 'en', res['greetingAudio'] as String?);
+      await _say(greeting, 'en', res['greetingAudio'] as String?, mime: res['audioMime'] as String? ?? 'audio/mpeg');
       if (_alive && _phase == _Phase.speaking) _listen();
     } catch (e) {
       if (mounted) setState(() => _notice = _errorText(e));
