@@ -7880,5 +7880,114 @@
   "homeStartingNow": "Starting now",
   "homeAccessSuspended": "Class Access Suspended",
   "homeLoginToSee": "Please log in to see your classes",
-  "homeAuthFailed": "Unable to authenticate. Please try logging in again."
+  "homeAuthFailed": "Unable to authenticate. Please try logging in again.",
+  "quranLoadFailed": "Couldn't load the Quran. Check your connection.",
+  "quranSelectionFailed": "Couldn't load this selection. Try again.",
+  "quranReminderPitch": "Memorization sticks when it's daily. Want a gentle reminder each evening?",
+  "quranReminderTime": "Daily reminder time",
+  "quranNotificationsBlocked": "Notifications are blocked — allow them in Settings to get reminders.",
+  "quranTodaysMemorization": "Today's memorization",
+  "quranTitle": "Quran",
+  "quranSurahN": "Surah {n}",
+  "@quranSurahN": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      }
+    }
+  },
+  "quranPlanPitch": "A few ayahs a day — we'll split it up, track you, and remind you.",
+  "quranDoneForToday": "Done for today 🎉",
+  "quranTodayProgress": "Today · {done} of {total} ayahs",
+  "@quranTodayProgress": {
+    "placeholders": {
+      "done": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
+    }
+  },
+  "quranReminderOn": "Daily reminder on",
+  "quranEditGoal": "Edit goal",
+  "quranScopeProgress": "{done} of {total} ayahs of {scope} · {pct}%",
+  "@quranScopeProgress": {
+    "placeholders": {
+      "done": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      },
+      "scope": {
+        "type": "String"
+      },
+      "pct": {
+        "type": "String"
+      }
+    }
+  },
+  "quranPracticeToday": "Practice today's ayahs",
+  "quranReviewAnyway": "Review anyway",
+  "quranPlaySurah": "Play surah",
+  "quranReciter": "Reciter",
+  "quranAyahsTotal": "{n} ayahs total",
+  "@quranAyahsTotal": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      }
+    }
+  },
+  "quranPlayVerseShort": "Play verse",
+  "quranMarkMemorized": "Mark memorized",
+  "quranMemorizedLabel": "Memorized",
+  "quranMemorizedTapToUnmark": "Memorized ✓ (tap to unmark)",
+  "quranSearchSurah": "Search surah…",
+  "quranPlanEstimate": "At {perDay} ayahs/day: {total} ayahs · about {duration}",
+  "@quranPlanEstimate": {
+    "placeholders": {
+      "perDay": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      },
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "quranStartMemorizing": "Start memorizing",
+  "quranUpdateGoal": "Update goal",
+  "quranMicBlocked": "Microphone access was blocked. Allow the mic and try again.",
+  "quranCheckFailed": "We couldn't check that recitation. Please try again.",
+  "quranCheckVerse": "Check your recitation — Verse {key}",
+  "@quranCheckVerse": {
+    "placeholders": {
+      "key": {
+        "type": "String"
+      }
+    }
+  },
+  "quranWords": "Words",
+  "quranPronunciationBeta": "Pronunciation β",
+  "quranNoIssues": "No pronunciation issues caught. Ma sha Allah!",
+  "quranHeard": "Heard: {text}",
+  "@quranHeard": {
+    "placeholders": {
+      "text": {
+        "type": "String"
+      }
+    }
+  },
+  "quranLegend": "Green = right · amber = check the harakah · red = wrong word.",
+  "quranPronOff": "Pronunciation checking is off — the mic is busy with live tracking.",
+  "quranAllowMicLive": "Allow microphone and speech recognition to follow your recitation live.",
+  "quranTapWord": "Tap a highlighted word above to compare your pronunciation.",
+  "quranLiveHint": "Follows your voice live — repeat freely; skips buzz right away.",
+  "quranCheckHint": "Recite the selection, then it checks pronunciation and replays where you slipped.",
+  "quranReciterWord": "Reciter · word",
+  "quranReciterAyah": "Reciter · ayah"
 }

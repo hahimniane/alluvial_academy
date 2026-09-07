@@ -251,7 +251,7 @@ class _FollowAlongScreenState extends State<FollowAlongScreen> {
       _livePronEnabled = false;
       if (mounted) {
         setState(() => _liveUnavailableNote =
-            'Pronunciation checking is off — the mic is busy with live tracking.');
+            AppLocalizations.of(context)!.quranPronOff);
       }
     }
   }
@@ -350,7 +350,7 @@ class _FollowAlongScreenState extends State<FollowAlongScreen> {
       if (!mounted) return;
       setState(() {
         _error =
-            'Allow microphone and speech recognition to follow your recitation live.';
+            AppLocalizations.of(context)!.quranAllowMicLive;
         _phase = _Phase.error;
       });
       return;
@@ -491,7 +491,7 @@ class _FollowAlongScreenState extends State<FollowAlongScreen> {
     await _enableRecordingSession();
     if (!await _recorder.hasPermission()) {
       setState(() {
-        _error = 'Microphone access was blocked. Allow the mic and try again.';
+        _error = AppLocalizations.of(context)!.quranMicBlocked;
         _phase = _Phase.error;
       });
       return;
@@ -534,7 +534,7 @@ class _FollowAlongScreenState extends State<FollowAlongScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _error = "We couldn't check that recitation. Please try again.";
+        _error = AppLocalizations.of(context)!.quranCheckFailed;
         _phase = _Phase.error;
       });
     }
@@ -778,8 +778,8 @@ class _FollowAlongScreenState extends State<FollowAlongScreen> {
                                       color: Color(0xFF92400E))),
                             ),
                           const SizedBox(height: 4),
-                          const Text(
-                              'Tap a highlighted word above to compare your pronunciation.',
+                          Text(
+                              AppLocalizations.of(context)!.quranTapWord,
                               style: TextStyle(
                                   fontSize: 11, color: Color(0xFFB45309))),
                         ],
@@ -880,8 +880,8 @@ class _FollowAlongScreenState extends State<FollowAlongScreen> {
                   const SizedBox(height: 6),
                   Text(
                     _followMode == _FollowMode.live
-                        ? 'Follows your voice live — repeat freely; skips buzz right away.'
-                        : 'Recite the selection, then it checks pronunciation and replays where you slipped.',
+                        ? AppLocalizations.of(context)!.quranLiveHint
+                        : AppLocalizations.of(context)!.quranCheckHint,
                     style: const TextStyle(
                         fontSize: 11, color: Color(0xFF94A3B8)),
                     textAlign: TextAlign.center,
@@ -967,13 +967,13 @@ class _FollowAlongScreenState extends State<FollowAlongScreen> {
                   () => _playMyWord(pick.vi, pick.di)),
               const SizedBox(width: 6),
               _compareButton(
-                  'Reciter · word',
+                  AppLocalizations.of(context)!.quranReciterWord,
                   Icons.volume_up_rounded,
                   word.audioUrl.isEmpty ? null : () => _playUrl(word.audioUrl),
                   filled: true),
               const SizedBox(width: 6),
               _compareButton(
-                  'Reciter · ayah',
+                  AppLocalizations.of(context)!.quranReciterAyah,
                   Icons.volume_up_rounded,
                   verse.audioUrl.isEmpty
                       ? null

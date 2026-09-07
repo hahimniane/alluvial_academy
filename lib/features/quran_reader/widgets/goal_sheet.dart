@@ -123,8 +123,8 @@ class _GoalSheetState extends State<GoalSheet> {
               DropdownButtonFormField<int>(
                 initialValue: _id,
                 isExpanded: true,
-                decoration: const InputDecoration(
-                    labelText: 'Surah', border: OutlineInputBorder()),
+                decoration: InputDecoration(
+                    labelText: AppLocalizations.of(context)!.quranSurah, border: OutlineInputBorder()),
                 items: widget.chapters
                     .map((c) => DropdownMenuItem(
                         value: c.id,
@@ -137,8 +137,8 @@ class _GoalSheetState extends State<GoalSheet> {
               DropdownButtonFormField<int>(
                 initialValue: _id,
                 isExpanded: true,
-                decoration: const InputDecoration(
-                    labelText: 'Juz', border: OutlineInputBorder()),
+                decoration: InputDecoration(
+                    labelText: AppLocalizations.of(context)!.quranJuz, border: OutlineInputBorder()),
                 items: [
                   for (var j = 1; j <= 30; j++)
                     DropdownMenuItem(value: j, child: Text(AppLocalizations.of(context)!.quranJuzN('$j')))
@@ -174,8 +174,8 @@ class _GoalSheetState extends State<GoalSheet> {
               ),
               child: Text(
                 total == 0
-                    ? 'Loading…'
-                    : 'At $_perDay ayahs/day: $total ayahs · about ${humanDuration(days)}',
+                    ? AppLocalizations.of(context)!.commonLoading
+                    : AppLocalizations.of(context)!.quranPlanEstimate('$_perDay', '$total', humanDuration(days)),
                 style: const TextStyle(
                     fontWeight: FontWeight.w700, color: Color(0xFF166534)),
               ),
@@ -190,8 +190,8 @@ class _GoalSheetState extends State<GoalSheet> {
                 Navigator.of(context).pop();
               },
               child: Text(widget.currentPlan == null
-                  ? 'Start memorizing'
-                  : 'Update goal'),
+                  ? AppLocalizations.of(context)!.quranStartMemorizing
+                  : AppLocalizations.of(context)!.quranUpdateGoal),
             ),
             if (widget.currentPlan != null && widget.onClear != null)
               TextButton(

@@ -412,7 +412,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get navJobs => 'Emplois';
 
   @override
-  String get navClasses => 'Classes';
+  String get navClasses => 'Cours';
 
   @override
   String get navNotify => 'Alertes';
@@ -18168,4 +18168,159 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get homeAuthFailed =>
       'Impossible de vérifier ta connexion. Réessaie de te connecter.';
+
+  @override
+  String get quranLoadFailed =>
+      'Impossible de charger le Coran. Vérifie ta connexion.';
+
+  @override
+  String get quranSelectionFailed =>
+      'Impossible de charger cette sélection. Réessaie.';
+
+  @override
+  String get quranReminderPitch =>
+      'La mémorisation tient quand elle est quotidienne. Tu veux un petit rappel chaque soir ?';
+
+  @override
+  String get quranReminderTime => 'Heure du rappel quotidien';
+
+  @override
+  String get quranNotificationsBlocked =>
+      'Les notifications sont bloquées — autorise-les dans les Réglages pour recevoir les rappels.';
+
+  @override
+  String get quranTodaysMemorization => 'Mémorisation du jour';
+
+  @override
+  String get quranTitle => 'Coran';
+
+  @override
+  String quranSurahN(String n) {
+    return 'Sourate $n';
+  }
+
+  @override
+  String get quranPlanPitch =>
+      'Quelques versets par jour — on découpe, on suit tes progrès et on te rappelle.';
+
+  @override
+  String get quranDoneForToday => 'Terminé pour aujourd\'hui 🎉';
+
+  @override
+  String quranTodayProgress(String done, String total) {
+    return 'Aujourd\'hui · $done versets sur $total';
+  }
+
+  @override
+  String get quranReminderOn => 'Rappel quotidien activé';
+
+  @override
+  String get quranEditGoal => 'Modifier l\'objectif';
+
+  @override
+  String quranScopeProgress(
+      String done, String total, String scope, String pct) {
+    return '$done versets sur $total de $scope · $pct%';
+  }
+
+  @override
+  String get quranPracticeToday => 'Réviser les versets du jour';
+
+  @override
+  String get quranReviewAnyway => 'Réviser quand même';
+
+  @override
+  String get quranPlaySurah => 'Lire la sourate';
+
+  @override
+  String get quranReciter => 'Récitateur';
+
+  @override
+  String quranAyahsTotal(String n) {
+    return '$n versets au total';
+  }
+
+  @override
+  String get quranPlayVerseShort => 'Lire le verset';
+
+  @override
+  String get quranMarkMemorized => 'Marquer comme mémorisé';
+
+  @override
+  String get quranMemorizedLabel => 'Mémorisé';
+
+  @override
+  String get quranMemorizedTapToUnmark => 'Mémorisé ✓ (touche pour retirer)';
+
+  @override
+  String get quranSearchSurah => 'Rechercher une sourate…';
+
+  @override
+  String quranPlanEstimate(String perDay, String total, String duration) {
+    return 'À $perDay versets/jour : $total versets · environ $duration';
+  }
+
+  @override
+  String get quranStartMemorizing => 'Commencer à mémoriser';
+
+  @override
+  String get quranUpdateGoal => 'Mettre à jour l\'objectif';
+
+  @override
+  String get quranMicBlocked =>
+      'Le micro a été bloqué. Autorise le micro et réessaie.';
+
+  @override
+  String get quranCheckFailed =>
+      'Impossible de vérifier cette récitation. Réessaie.';
+
+  @override
+  String quranCheckVerse(String key) {
+    return 'Vérifie ta récitation — Verset $key';
+  }
+
+  @override
+  String get quranWords => 'Mots';
+
+  @override
+  String get quranPronunciationBeta => 'Prononciation β';
+
+  @override
+  String get quranNoIssues =>
+      'Aucun problème de prononciation détecté. Ma sha Allah !';
+
+  @override
+  String quranHeard(String text) {
+    return 'Entendu : $text';
+  }
+
+  @override
+  String get quranLegend =>
+      'Vert = correct · orange = vérifie la harakah · rouge = mauvais mot.';
+
+  @override
+  String get quranPronOff =>
+      'La vérification de la prononciation est désactivée — le micro suit la récitation en direct.';
+
+  @override
+  String get quranAllowMicLive =>
+      'Autorise le micro et la reconnaissance vocale pour suivre ta récitation en direct.';
+
+  @override
+  String get quranTapWord =>
+      'Touche un mot surligné ci-dessus pour comparer ta prononciation.';
+
+  @override
+  String get quranLiveHint =>
+      'Suit ta voix en direct — répète librement ; les sauts vibrent aussitôt.';
+
+  @override
+  String get quranCheckHint =>
+      'Récite la sélection, puis la prononciation est vérifiée et les passages ratés sont rejoués.';
+
+  @override
+  String get quranReciterWord => 'Récitateur · mot';
+
+  @override
+  String get quranReciterAyah => 'Récitateur · verset';
 }

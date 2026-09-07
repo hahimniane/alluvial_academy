@@ -17821,4 +17821,158 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get homeAuthFailed =>
       'Unable to authenticate. Please try logging in again.';
+
+  @override
+  String get quranLoadFailed =>
+      'Couldn\'t load the Quran. Check your connection.';
+
+  @override
+  String get quranSelectionFailed =>
+      'Couldn\'t load this selection. Try again.';
+
+  @override
+  String get quranReminderPitch =>
+      'Memorization sticks when it\'s daily. Want a gentle reminder each evening?';
+
+  @override
+  String get quranReminderTime => 'Daily reminder time';
+
+  @override
+  String get quranNotificationsBlocked =>
+      'Notifications are blocked — allow them in Settings to get reminders.';
+
+  @override
+  String get quranTodaysMemorization => 'Today\'s memorization';
+
+  @override
+  String get quranTitle => 'Quran';
+
+  @override
+  String quranSurahN(String n) {
+    return 'Surah $n';
+  }
+
+  @override
+  String get quranPlanPitch =>
+      'A few ayahs a day — we\'ll split it up, track you, and remind you.';
+
+  @override
+  String get quranDoneForToday => 'Done for today 🎉';
+
+  @override
+  String quranTodayProgress(String done, String total) {
+    return 'Today · $done of $total ayahs';
+  }
+
+  @override
+  String get quranReminderOn => 'Daily reminder on';
+
+  @override
+  String get quranEditGoal => 'Edit goal';
+
+  @override
+  String quranScopeProgress(
+      String done, String total, String scope, String pct) {
+    return '$done of $total ayahs of $scope · $pct%';
+  }
+
+  @override
+  String get quranPracticeToday => 'Practice today\'s ayahs';
+
+  @override
+  String get quranReviewAnyway => 'Review anyway';
+
+  @override
+  String get quranPlaySurah => 'Play surah';
+
+  @override
+  String get quranReciter => 'Reciter';
+
+  @override
+  String quranAyahsTotal(String n) {
+    return '$n ayahs total';
+  }
+
+  @override
+  String get quranPlayVerseShort => 'Play verse';
+
+  @override
+  String get quranMarkMemorized => 'Mark memorized';
+
+  @override
+  String get quranMemorizedLabel => 'Memorized';
+
+  @override
+  String get quranMemorizedTapToUnmark => 'Memorized ✓ (tap to unmark)';
+
+  @override
+  String get quranSearchSurah => 'Search surah…';
+
+  @override
+  String quranPlanEstimate(String perDay, String total, String duration) {
+    return 'At $perDay ayahs/day: $total ayahs · about $duration';
+  }
+
+  @override
+  String get quranStartMemorizing => 'Start memorizing';
+
+  @override
+  String get quranUpdateGoal => 'Update goal';
+
+  @override
+  String get quranMicBlocked =>
+      'Microphone access was blocked. Allow the mic and try again.';
+
+  @override
+  String get quranCheckFailed =>
+      'We couldn\'t check that recitation. Please try again.';
+
+  @override
+  String quranCheckVerse(String key) {
+    return 'Check your recitation — Verse $key';
+  }
+
+  @override
+  String get quranWords => 'Words';
+
+  @override
+  String get quranPronunciationBeta => 'Pronunciation β';
+
+  @override
+  String get quranNoIssues => 'No pronunciation issues caught. Ma sha Allah!';
+
+  @override
+  String quranHeard(String text) {
+    return 'Heard: $text';
+  }
+
+  @override
+  String get quranLegend =>
+      'Green = right · amber = check the harakah · red = wrong word.';
+
+  @override
+  String get quranPronOff =>
+      'Pronunciation checking is off — the mic is busy with live tracking.';
+
+  @override
+  String get quranAllowMicLive =>
+      'Allow microphone and speech recognition to follow your recitation live.';
+
+  @override
+  String get quranTapWord =>
+      'Tap a highlighted word above to compare your pronunciation.';
+
+  @override
+  String get quranLiveHint =>
+      'Follows your voice live — repeat freely; skips buzz right away.';
+
+  @override
+  String get quranCheckHint =>
+      'Recite the selection, then it checks pronunciation and replays where you slipped.';
+
+  @override
+  String get quranReciterWord => 'Reciter · word';
+
+  @override
+  String get quranReciterAyah => 'Reciter · ayah';
 }

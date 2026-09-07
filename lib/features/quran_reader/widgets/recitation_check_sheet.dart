@@ -77,7 +77,7 @@ class _RecitationCheckSheetState extends State<RecitationCheckSheet> {
   Future<void> _start() async {
     if (!await _recorder.hasPermission()) {
       setState(() {
-        _error = 'Microphone access was blocked. Allow the mic and try again.';
+        _error = AppLocalizations.of(context)!.quranMicBlocked;
         _phase = _Phase.error;
       });
       return;
@@ -133,7 +133,7 @@ class _RecitationCheckSheetState extends State<RecitationCheckSheet> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _error = "We couldn't check that recitation. Please try again.";
+        _error = AppLocalizations.of(context)!.quranCheckFailed;
         _phase = _Phase.error;
       });
     }
@@ -286,7 +286,7 @@ class _RecitationCheckSheetState extends State<RecitationCheckSheet> {
             ),
             const SizedBox(height: 12),
             Text(
-              'Check your recitation — Verse ${verse.verseKey}',
+              AppLocalizations.of(context)!.quranCheckVerse(verse.verseKey),
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 12),
@@ -299,8 +299,8 @@ class _RecitationCheckSheetState extends State<RecitationCheckSheet> {
               ),
               child: Row(
                 children: [
-                  _modeChip('Words', _Mode.words),
-                  _modeChip('Pronunciation β', _Mode.pronunciation),
+                  _modeChip(AppLocalizations.of(context)!.quranWords, _Mode.words),
+                  _modeChip(AppLocalizations.of(context)!.quranPronunciationBeta, _Mode.pronunciation),
                 ],
               ),
             ),
@@ -376,7 +376,7 @@ class _RecitationCheckSheetState extends State<RecitationCheckSheet> {
                   children: [
                     Text(
                       issues == 0
-                          ? 'No pronunciation issues caught. Ma sha Allah!'
+                          ? AppLocalizations.of(context)!.quranNoIssues
                           : '$issues word(s) to review',
                       style: const TextStyle(
                           fontWeight: FontWeight.w800,
@@ -398,7 +398,7 @@ class _RecitationCheckSheetState extends State<RecitationCheckSheet> {
             if (_phase == _Phase.done && _mode == _Mode.words && _heard.isNotEmpty) ...[
               const SizedBox(height: 8),
               Text(
-                'Heard: $_heard',
+                AppLocalizations.of(context)!.quranHeard(_heard),
                 textDirection: TextDirection.rtl,
                 style:
                     const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
@@ -413,9 +413,9 @@ class _RecitationCheckSheetState extends State<RecitationCheckSheet> {
             const SizedBox(height: 14),
             _actionButton(),
             const SizedBox(height: 6),
-            const Center(
+            Center(
               child: Text(
-                'Green = right · amber = check the harakah · red = wrong word.',
+                AppLocalizations.of(context)!.quranLegend,
                 style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
               ),
             ),
