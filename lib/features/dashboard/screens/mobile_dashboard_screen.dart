@@ -34,7 +34,6 @@ import '../../parent/screens/parent_classes_screen.dart';
 import '../../recordings/screens/class_recordings_screen.dart';
 import '../../surah_podcast/screens/surah_podcast_screen.dart';
 import '../../quiz/screens/quiz_home_screen.dart'; // Quiz feature
-import '../../tutor/screens/ai_tutor_screen.dart'; // AI Tutor feature
 import '../../curriculum/screens/curriculum_books_screen.dart';
 import '../../tontine/screens/tontine_home_screen.dart';
 import '../../tontine/screens/circle_member_profile_setup_screen.dart';
@@ -1021,16 +1020,14 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
               ],
             ),
       body: _screens[_selectedIndex],
-      // AI Tutor FAB for students and teachers (only if enabled by admin)
-      floatingActionButton: (_aiTutorEnabled &&
-              (_userRole?.toLowerCase() == 'student' ||
-                  _userRole?.toLowerCase().contains('teacher') == true))
+      // The hands-free AI tutor, for every student.
+      floatingActionButton: _userRole?.toLowerCase() == 'student'
           ? FloatingActionButton.extended(
               onPressed: () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const AITutorScreen(),
+                    builder: (context) => const StudentAiTutorScreen(),
                   ),
                 );
               },
