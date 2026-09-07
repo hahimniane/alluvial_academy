@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/app_localizations.dart';
+
 import '../../curriculum/screens/curriculum_books_screen.dart';
 import 'quran_reader_screen.dart';
 
@@ -10,15 +12,16 @@ class LibraryHubScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return DefaultTabController(
       length: 2,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Library', style: TextStyle(fontWeight: FontWeight.w800)),
-          bottom: const TabBar(
+          title: Text(l10n.navLibrary, style: const TextStyle(fontWeight: FontWeight.w800)),
+          bottom: TabBar(
             tabs: [
-              Tab(icon: Icon(Icons.auto_stories_rounded), text: "Qur'an"),
-              Tab(icon: Icon(Icons.menu_book_rounded), text: 'Books'),
+              Tab(icon: const Icon(Icons.auto_stories_rounded), text: l10n.libraryQuran),
+              Tab(icon: const Icon(Icons.menu_book_rounded), text: l10n.moreBooks),
             ],
           ),
         ),

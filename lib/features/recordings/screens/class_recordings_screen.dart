@@ -5,6 +5,7 @@ import 'package:alluwalacademyadmin/core/utils/app_search.dart';
 
 import 'package:alluwalacademyadmin/features/recordings/services/class_recording_service.dart';
 import 'package:alluwalacademyadmin/features/surah_podcast/widgets/video_player_widget.dart';
+import '../../../l10n/app_localizations.dart';
 
 const String _unknownStudentKey = '__unknown_student__';
 const String _unknownDateKey = '__unknown_date__';
@@ -1627,7 +1628,7 @@ class _ClassRecordingsScreenState extends State<ClassRecordingsScreen> {
           ElevatedButton.icon(
             onPressed: _loadRecordings,
             icon: const Icon(Icons.refresh_rounded, size: 18),
-            label: Text('Try Again', style: GoogleFonts.inter()),
+            label: Text(AppLocalizations.of(context)!.commonTryAgain, style: GoogleFonts.inter()),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF0E72ED),
               foregroundColor: Colors.white,

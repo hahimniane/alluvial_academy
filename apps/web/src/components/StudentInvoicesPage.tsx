@@ -42,6 +42,7 @@ export default function StudentInvoicesPage() {
   const [isAdultStudent, setIsAdultStudent] = useState(() => cachedStudentSession()?.isAdultStudent ?? false);
   const [invoices, setInvoices] = useState<InvoiceRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [uid, setUid] = useState<string | null>(() => auth.currentUser?.uid ?? null);
   const [filter, setFilter] = useState<StatusFilter>("all");
   const [search, setSearch] = useState("");
   const [payingId, setPayingId] = useState("");
@@ -54,10 +55,12 @@ export default function StudentInvoicesPage() {
   useEffect(() => {
     return onAuthStateChanged(auth, async (nextUser) => {
       if (!nextUser) {
+        setUid(null);
         setAccess("signedOut");
         setLoading(false);
         return;
       }
+      setUid(nextUser.uid);
       const session = await resolveStudentSession(nextUser);
       if (!session.isStudent) {
         setAccess("denied");
@@ -78,7 +81,6 @@ export default function StudentInvoicesPage() {
    * even though it has fifteen invoices.
    */
   useEffect(() => {
-    const uid = auth.currentUser?.uid;
     if (access !== "allowed" || !uid) return;
 
     let byParent: InvoiceRecord[] = [];
@@ -126,7 +128,7 @@ export default function StudentInvoicesPage() {
       unsubParent();
       unsubStudent();
     };
-  }, [access]);
+  }, [access, uid]);
 
   useEffect(() => {
     const missing = [...new Set(invoices.map((invoice) => invoice.studentId))].filter(

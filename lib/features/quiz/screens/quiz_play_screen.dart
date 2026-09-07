@@ -261,7 +261,7 @@ class _QuizPlayScreenState extends State<QuizPlayScreen>
               ElevatedButton.icon(
                 onPressed: () => Navigator.pop(context),
                 icon: const Icon(Icons.arrow_back),
-                label: const Text('Go Back'),
+                label: Text(AppLocalizations.of(context)!.quizGoBack),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: widget.category.color,
                   foregroundColor: Colors.white,
@@ -619,7 +619,7 @@ class _QuizPlayScreenState extends State<QuizPlayScreen>
               backgroundColor: Colors.red[400],
               foregroundColor: Colors.white,
             ),
-            child: Text('Quit', style: GoogleFonts.inter()),
+            child: Text(AppLocalizations.of(context)!.quizQuit, style: GoogleFonts.inter()),
           ),
         ],
       ),
@@ -676,7 +676,7 @@ class _QuizResultScreen extends StatelessWidget {
                     child: OutlinedButton.icon(
                       onPressed: () => Navigator.pop(context),
                       icon: const Icon(Icons.home_rounded),
-                      label: const Text('Home'),
+                      label: Text(AppLocalizations.of(context)!.quizHome),
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(
@@ -700,7 +700,7 @@ class _QuizResultScreen extends StatelessWidget {
                         );
                       },
                       icon: const Icon(Icons.replay_rounded),
-                      label: const Text('Play Again'),
+                      label: Text(AppLocalizations.of(context)!.quizPlayAgain),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: category.color,
                         foregroundColor: Colors.white,

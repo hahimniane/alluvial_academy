@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 
 import '../services/memorization_service.dart';
 import '../services/quran_api.dart';
+import '../../../l10n/app_localizations.dart';
 
 String humanDuration(int days) {
   if (days < 30) return days == 1 ? '1 day' : '$days days';
@@ -96,20 +97,20 @@ class _GoalSheetState extends State<GoalSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text('Memorization plan',
+            Text(AppLocalizations.of(context)!.quranMemorizationPlan,
                 style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
             const SizedBox(height: 4),
-            const Text(
+            Text(
               "Pick what to memorize and your daily pace — we'll estimate how long it takes and show you a little each day.",
               style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
             ),
-            const SizedBox(height: 14),
+            SizedBox(height: 14),
             SegmentedButton<ScopeKind>(
-              segments: const [
-                ButtonSegment(value: ScopeKind.surah, label: Text('Surah')),
-                ButtonSegment(value: ScopeKind.juz, label: Text('Juz')),
+              segments: [
+                ButtonSegment(value: ScopeKind.surah, label: Text(AppLocalizations.of(context)!.quranSurah)),
+                ButtonSegment(value: ScopeKind.juz, label: Text(AppLocalizations.of(context)!.quranJuz)),
                 ButtonSegment(
-                    value: ScopeKind.quran, label: Text('Whole Quran')),
+                    value: ScopeKind.quran, label: Text(AppLocalizations.of(context)!.quranWholeQuran)),
               ],
               selected: {_kind},
               onSelectionChanged: (s) => setState(() {
@@ -140,14 +141,14 @@ class _GoalSheetState extends State<GoalSheet> {
                     labelText: 'Juz', border: OutlineInputBorder()),
                 items: [
                   for (var j = 1; j <= 30; j++)
-                    DropdownMenuItem(value: j, child: Text('Juz $j'))
+                    DropdownMenuItem(value: j, child: Text(AppLocalizations.of(context)!.quranJuzN('$j')))
                 ],
                 onChanged: (v) => setState(() => _id = v ?? 1),
               ),
             const SizedBox(height: 12),
             Row(
               children: [
-                const Text('Ayahs per day',
+                Text(AppLocalizations.of(context)!.quranAyahsPerDay,
                     style:
                         TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
                 Expanded(
@@ -198,7 +199,7 @@ class _GoalSheetState extends State<GoalSheet> {
                   widget.onClear!();
                   Navigator.of(context).pop();
                 },
-                child: const Text('Stop plan',
+                child: Text(AppLocalizations.of(context)!.quranStopPlan,
                     style: TextStyle(color: Color(0xFFDC2626))),
               ),
           ],

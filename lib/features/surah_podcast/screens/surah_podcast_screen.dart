@@ -10,6 +10,7 @@ import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 
 import 'surah_detail_screen.dart';
 import '../widgets/upload_podcast_dialog.dart';
+import '../../../l10n/app_localizations.dart';
 
 class SurahPodcastScreen extends StatefulWidget {
   const SurahPodcastScreen({super.key});
@@ -559,7 +560,7 @@ class _SurahPodcastScreenState extends State<SurahPodcastScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Surah Content',
+                Text(AppLocalizations.of(context)!.podcastSurahContent,
                     style: GoogleFonts.inter(
                         fontSize: 22,
                         fontWeight: FontWeight.w700,
@@ -869,7 +870,7 @@ class _SurahPodcastScreenState extends State<SurahPodcastScreen>
           ElevatedButton.icon(
             onPressed: _loadData,
             icon: const Icon(Icons.refresh_rounded, size: 18),
-            label: Text('Try Again', style: GoogleFonts.inter()),
+            label: Text(AppLocalizations.of(context)!.commonTryAgain, style: GoogleFonts.inter()),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF0E72ED),
               foregroundColor: Colors.white,

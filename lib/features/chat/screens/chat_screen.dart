@@ -2285,7 +2285,7 @@ class _ChatScreenState extends State<ChatScreen> {
       messenger.hideCurrentSnackBar();
       messenger.showSnackBar(
         SnackBar(
-          content: const Text('Message deleted for you'),
+          content: Text(AppLocalizations.of(context)!.chatDeletedForYou),
           backgroundColor: const Color(0xff059669),
           behavior: SnackBarBehavior.floating,
           action: SnackBarAction(
@@ -3377,8 +3377,8 @@ class _EditGroupDialogState extends State<_EditGroupDialog> {
                   } else {
                     if (mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Failed to update group'),
+                        SnackBar(
+                          content: Text(AppLocalizations.of(context)!.chatUpdateGroupFailed),
                           backgroundColor: Colors.red,
                         ),
                       );
@@ -3493,8 +3493,8 @@ class _ManageMembersDialogState extends State<_ManageMembersDialog> {
     } else {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to remove member'),
+          SnackBar(
+            content: Text(AppLocalizations.of(context)!.chatRemoveMemberFailed),
             backgroundColor: Colors.red,
           ),
         );
@@ -3927,8 +3927,8 @@ class _ForwardMessageDialogState extends State<_ForwardMessageDialog> {
                   } else {
                     if (mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Failed to forward message'),
+                        SnackBar(
+                          content: Text(AppLocalizations.of(context)!.chatForwardFailed),
                           backgroundColor: Colors.red,
                         ),
                       );

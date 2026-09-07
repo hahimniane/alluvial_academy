@@ -10,6 +10,7 @@ import '../widgets/podcast_player_widget.dart';
 import '../widgets/video_player_widget.dart';
 import '../widgets/upload_podcast_dialog.dart';
 import '../widgets/assign_podcast_dialog.dart';
+import '../../../l10n/app_localizations.dart';
 
 class SurahDetailScreen extends StatefulWidget {
   final SurahInfo surah;
@@ -264,7 +265,7 @@ class _SurahDetailScreenState extends State<SurahDetailScreen> {
                   color: const Color(0xFF0E72ED).withOpacity(0.5)),
             ),
             const SizedBox(height: 16),
-            Text('No content yet',
+            Text(AppLocalizations.of(context)!.podcastNoContent,
                 style: GoogleFonts.inter(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -595,7 +596,7 @@ class _SurahDetailScreenState extends State<SurahDetailScreen> {
             child: ElevatedButton.icon(
               onPressed: () => _openPdf(item),
               icon: const Icon(Icons.open_in_new_rounded, size: 18),
-              label: Text('Open PDF',
+              label: Text(AppLocalizations.of(context)!.podcastOpenPdf,
                   style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFEF4444),
@@ -621,7 +622,7 @@ class _SurahDetailScreenState extends State<SurahDetailScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Could not open PDF'),
+            content: Text(AppLocalizations.of(context)!.podcastOpenPdfFailed),
             backgroundColor: const Color(0xFFEF4444),
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(

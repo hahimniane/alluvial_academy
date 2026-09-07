@@ -369,9 +369,7 @@ function StudentHomeContent({
     return (
       <div className="grid min-h-[60vh] place-items-center text-[#64748B]">
         <span className="inline-flex items-center gap-2 text-sm font-bold">
-          <Loader2 className="animate-spin" size={18} />
-          Loading your dashboard…
-        </span>
+          <Loader2 className="animate-spin" size={18} />{t("Loading your dashboard…")}</span>
       </div>
     );
   }
@@ -420,7 +418,7 @@ function StudentHomeContent({
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-bold text-[#0F172A]">{task.title}</span>
-                    <span className="block text-xs font-semibold text-[#64748B]">{task.due ? t("Due {day}", { day: formatDay(task.due) }) : t("No due date")}</span>
+                    <span className="block text-xs font-semibold text-[#64748B]">{task.due ? t("Due {day}", { day: formatDay(task.due, t) }) : t("No due date")}</span>
                   </span>
                 </li>
               ))}
@@ -464,7 +462,7 @@ function StudentHomeContent({
                     <span className="block truncate text-xs font-semibold text-[#64748B]">{item.teacherName}</span>
                   </span>
                   <span className="shrink-0 text-right text-xs font-bold text-[#334155]">
-                    {item.start ? formatDay(item.start) : "—"}
+                    {item.start ? formatDay(item.start, t) : "—"}
                     <span className="block font-semibold text-[#94A3B8]">{item.start ? formatTime(item.start) : ""}</span>
                   </span>
                 </li>
@@ -508,12 +506,12 @@ function EmptyRow({ text }: { text: string }) {
   return <p className="rounded-xl border border-dashed border-[#CBD5E1] px-3 py-4 text-center text-xs font-semibold text-[#94A3B8]">{text}</p>;
 }
 
-function formatDay(value: Date) {
+function formatDay(value: Date, t: (key: string) => string = (key) => key) {
   const today = new Date();
   const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
   const days = Math.round((new Date(value.getFullYear(), value.getMonth(), value.getDate()).getTime() - startOfToday.getTime()) / 86400000);
-  if (days === 0) return "Today";
-  if (days === 1) return "Tomorrow";
+  if (days === 0) return t("Today");
+  if (days === 1) return t("Tomorrow");
   return value.toLocaleDateString(dateLocale(), { month: "short", day: "numeric" });
 }
 

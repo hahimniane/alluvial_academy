@@ -21,6 +21,7 @@ import 'package:speech_to_text/speech_recognition_result.dart';
 import '../logic/arabic_recitation.dart';
 import '../services/quran_api.dart';
 import '../services/recitation_service.dart';
+import '../../../l10n/app_localizations.dart';
 
 const _harakahGlyph = {'fatha': 'ـَ', 'damma': 'ـُ', 'kasra': 'ـِ'};
 
@@ -675,7 +676,7 @@ class _FollowAlongScreenState extends State<FollowAlongScreen> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Recite from memory',
+            Text(AppLocalizations.of(context)!.quranReciteFromMemory,
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
             Text(widget.title,
                 style:
@@ -761,7 +762,7 @@ class _FollowAlongScreenState extends State<FollowAlongScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Pronunciation to review',
+                          Text(AppLocalizations.of(context)!.quranPronunciationReview,
                               style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w800,
@@ -801,18 +802,18 @@ class _FollowAlongScreenState extends State<FollowAlongScreen> {
                     Padding(
                       padding: const EdgeInsets.only(bottom: 8),
                       child: SegmentedButton<_FollowMode>(
-                        style: const ButtonStyle(
+                        style: ButtonStyle(
                             visualDensity: VisualDensity.compact),
-                        segments: const [
+                        segments: [
                           ButtonSegment(
                               value: _FollowMode.live,
                               icon: Icon(Icons.graphic_eq_rounded, size: 15),
-                              label: Text('Live')),
+                              label: Text(AppLocalizations.of(context)!.quranLive)),
                           ButtonSegment(
                               value: _FollowMode.record,
                               icon: Icon(Icons.fiber_manual_record_rounded,
                                   size: 15),
-                              label: Text('Record & check')),
+                              label: Text(AppLocalizations.of(context)!.quranRecordAndCheck)),
                         ],
                         selected: {_followMode},
                         onSelectionChanged: (s) =>
@@ -833,7 +834,7 @@ class _FollowAlongScreenState extends State<FollowAlongScreen> {
                       ),
                     ),
                   if (_pronPending > 0)
-                    const Padding(
+                    Padding(
                       padding: EdgeInsets.only(bottom: 6),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -844,7 +845,7 @@ class _FollowAlongScreenState extends State<FollowAlongScreen> {
                               child: CircularProgressIndicator(
                                   strokeWidth: 2, color: Color(0xFF0E7490))),
                           SizedBox(width: 6),
-                          Text('Checking pronunciation…',
+                          Text(AppLocalizations.of(context)!.quranCheckingPronunciation,
                               style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w600,
@@ -1018,7 +1019,7 @@ class _FollowAlongScreenState extends State<FollowAlongScreen> {
               minimumSize: const Size.fromHeight(50)),
           onPressed: _stopLive,
           icon: const Icon(Icons.stop_rounded),
-          label: const Text('Stop'),
+          label: Text(AppLocalizations.of(context)!.quranStop),
         );
       case _Phase.recording:
         return FilledButton.icon(
@@ -1027,7 +1028,7 @@ class _FollowAlongScreenState extends State<FollowAlongScreen> {
               minimumSize: const Size.fromHeight(50)),
           onPressed: _stopAndAnalyze,
           icon: const Icon(Icons.stop_rounded),
-          label: const Text('Stop & check'),
+          label: Text(AppLocalizations.of(context)!.quranStopAndCheck),
         );
       case _Phase.checking:
         return FilledButton.icon(
@@ -1040,7 +1041,7 @@ class _FollowAlongScreenState extends State<FollowAlongScreen> {
               height: 16,
               child: CircularProgressIndicator(
                   strokeWidth: 2, color: Colors.white)),
-          label: const Text('Checking your recitation…'),
+          label: Text(AppLocalizations.of(context)!.quranCheckingRecitation),
         );
       case _Phase.replaying:
         return FilledButton.icon(
@@ -1052,7 +1053,7 @@ class _FollowAlongScreenState extends State<FollowAlongScreen> {
             setState(() => _phase = _Phase.done);
           },
           icon: const Icon(Icons.stop_rounded),
-          label: const Text('Stop'),
+          label: Text(AppLocalizations.of(context)!.quranStop),
         );
       case _Phase.done:
         return FilledButton.icon(
@@ -1061,7 +1062,7 @@ class _FollowAlongScreenState extends State<FollowAlongScreen> {
               minimumSize: const Size.fromHeight(50)),
           onPressed: _followMode == _FollowMode.live ? _startLive : _start,
           icon: const Icon(Icons.refresh_rounded),
-          label: const Text('Start over'),
+          label: Text(AppLocalizations.of(context)!.quranStartOver),
         );
       case _Phase.idle:
       case _Phase.error:
@@ -1071,7 +1072,7 @@ class _FollowAlongScreenState extends State<FollowAlongScreen> {
               minimumSize: const Size.fromHeight(50)),
           onPressed: _followMode == _FollowMode.live ? _startLive : _start,
           icon: const Icon(Icons.mic_rounded),
-          label: const Text('Start reciting'),
+          label: Text(AppLocalizations.of(context)!.quranStartReciting),
         );
     }
   }
