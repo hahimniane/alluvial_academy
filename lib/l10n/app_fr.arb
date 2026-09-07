@@ -7265,5 +7265,14 @@
   "quizCat_islamic_manners_name": "Bonnes manières islamiques",
   "quizCat_islamic_manners_desc": "Bonnes manières et caractère (adab)",
   "moreSubtitle": "Autres outils et fonctionnalités",
-  "studentAccountExistedLinked": "Ce parent a déjà un élève portant ce nom. Le compte existant (ID : {studentCode}) a été relié."
+  "studentAccountExistedLinked": "Ce parent a déjà un élève portant ce nom. Le compte existant (ID : {studentCode}) a été relié.",
+  "setupAccountCreated": "Compte créé",
+  "setupScheduleConfirmed": "Calendrier confirmé",
+  "setupParentLinked": "Parent relié",
+  "setupAfterAccount": "Après le compte",
+  "setupAfterSchedule": "Après le calendrier",
+  "setupCheckingParent": "Vérification du parent…",
+  "linkParentActionLabel": "Relier le parent et l'informer",
+  "linkParentExistingDone": "{parentName} avait déjà un compte, aucune invitation n'a donc été envoyée. {studentName} a été relié et un e-mail les informe que le compte est prêt.",
+  "linkParentRoleConflict": "{email} appartient à un compte {role} et ne peut pas devenir parent. Saisissez l'e-mail du parent."
 }

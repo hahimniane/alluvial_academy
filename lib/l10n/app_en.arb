@@ -8080,5 +8080,16 @@
         "type": "String"
       }
     }
-  }
+  },
+  "setupAccountCreated": "Account created",
+  "setupScheduleConfirmed": "Schedule confirmed",
+  "setupParentLinked": "Parent linked",
+  "setupAfterAccount": "After the account",
+  "setupAfterSchedule": "After the schedule",
+  "setupCheckingParent": "Checking parent…",
+  "linkParentActionLabel": "Link parent & notify",
+  "linkParentExistingDone": "{parentName} already had an account, so no invite was sent. {studentName} was linked and they were emailed that the account is ready.",
+  "linkParentRoleConflict": "{email} belongs to a {role} account and cannot be made a parent. Enter the parent's own email.",
+  "@linkParentExistingDone": {"placeholders": {"parentName": {"type": "String"}, "studentName": {"type": "String"}}},
+  "@linkParentRoleConflict": {"placeholders": {"email": {"type": "String"}, "role": {"type": "String"}}}
 }

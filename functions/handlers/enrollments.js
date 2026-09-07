@@ -4,6 +4,7 @@ const {brandedEmailHtml} = require('../services/email/branding');
 const admin = require('firebase-admin');
 const { createTransporter } = require('../services/email/transporter');
 const { generateRandomPassword } = require('../utils/password');
+const { parentAccountDecision, displayName } = require('../utils/parent_link');
 
 /** Escape text for safe HTML interpolation (names, notes, etc.). */
 const escapeHtml = (value) => String(value ?? '')
@@ -1107,16 +1108,11 @@ const inviteParentForEnrollment = async (request) => {
   // admin, teacher or student it silently rewrites who that person is in the
   // system — an admin who enrols their own child would lose the admin console.
   if (parentSnap.exists) {
-    const existingData = parentSnap.data() || {};
-    const existingType = String(existingData.user_type || existingData.role || '').toLowerCase();
-    const secondary = Array.isArray(existingData.secondary_roles)
-      ? existingData.secondary_roles.map((r) => String(r).toLowerCase())
-      : [];
-    const isParentAlready = existingType === 'parent' || existingType === '' || secondary.includes('parent');
-    if (!isParentAlready) {
+    const decision = parentAccountDecision(parentSnap.data());
+    if (!decision.canLink) {
       throw new functions.https.HttpsError(
         'failed-precondition',
-        `${email} belongs to an existing ${existingType} account. Linking it as a parent would change that account's role. ` +
+        `${email} belongs to an existing ${decision.role} account. Linking it as a parent would change that account's role. ` +
           `Use a different email for the parent, or add "parent" to that account's secondary roles first.`
       );
     }
@@ -1209,15 +1205,16 @@ const inviteParentForEnrollment = async (request) => {
           <p class="fallback">If the button does not work, copy this URL into your browser:<br/>${link}</p>`,
       });
     } else {
-      // An account they already have: no password link, just what changed.
-      const areOrIs = studentNames.length > 1 ? 'are' : 'is';
-      subject = `${studentName} ${studentNames.length > 1 ? 'have' : 'has'} been linked to your Alluwal account`;
+      // An account they already have: no password link, no invite — just the
+      // news that the child's account is ready under their own login.
+      const plural = studentNames.length > 1;
+      subject = `${studentName}'s account is ready on Alluwal Education Hub`;
       html = brandedEmailHtml({
-        heading: 'A student was added to your account',
+        heading: plural ? 'Your children\'s accounts are ready' : `${escapeHtml(studentName)}'s account is ready`,
         bodyHtml: `
           <p>${greeting}</p>
-          <p><strong>${escapeHtml(studentName)}</strong> ${areOrIs} now linked to your Alluwal Education Hub parent account.</p>
-          <p>Sign in with your usual password to see their schedule, attendance and invoices.</p>
+          <p>A student account has been created for <strong>${escapeHtml(studentName)}</strong> and linked to your existing parent account.</p>
+          <p>Sign in with your usual password to see ${plural ? 'their' : 'the'} class schedule, attendance and invoices. Nothing else is needed from you.</p>
           <p><a class="button" href="https://alluwaleducationhub.org/app/">Open your dashboard</a></p>`,
       });
     }
@@ -1245,7 +1242,7 @@ const inviteParentForEnrollment = async (request) => {
     if (tokens.length > 0) {
       const res = await admin.messaging().sendEachForMulticast({
         notification: {
-          title: 'A student was linked to your account',
+          title: `${studentName}'s account is ready`,
           body: `${studentName} ${studentNames.length > 1 ? 'are' : 'is'} now on your Alluwal parent dashboard.`,
         },
         data: { type: 'parent_linked', studentUid: String(studentUid), enrollmentId: String(enrollmentId) },
@@ -1269,6 +1266,45 @@ const inviteParentForEnrollment = async (request) => {
     pushSent,
     studentName,
     status: parentAlreadyExists ? 'linked' : 'invited',
+  };
+};
+
+/**
+ * Whether the application's contact email already belongs to an account.
+ *
+ * Asked before the parent step is shown, so a parent who is already in the
+ * system is linked and told the child's account is ready instead of being
+ * invited again. Reads only; nothing is written.
+ */
+const lookupParentByEmail = async (request) => {
+  await requireAdminCaller(request);
+  const email = String((request.data || {}).email || '').trim().toLowerCase();
+  if (!email || !email.includes('@')) {
+    throw new functions.https.HttpsError('invalid-argument', 'A valid email is required');
+  }
+
+  let authUser;
+  try {
+    authUser = await admin.auth().getUserByEmail(email);
+  } catch (e) {
+    if (e.code === 'auth/user-not-found') return {found: false, email};
+    throw new functions.https.HttpsError('internal', e.message || 'Auth lookup failed');
+  }
+
+  const snap = await admin.firestore().collection('users').doc(authUser.uid).get();
+  const data = snap.exists ? snap.data() || {} : {};
+  const decision = parentAccountDecision(snap.exists ? data : null);
+  const name = displayName(data) || String(authUser.displayName || '').trim();
+  return {
+    found: true,
+    email,
+    parentUid: authUser.uid,
+    firstName: String(data.first_name || '').trim() || name.split(/\s+/)[0] || '',
+    lastName: String(data.last_name || '').trim() || name.split(/\s+/).slice(1).join(' '),
+    name,
+    role: decision.role,
+    canLink: decision.canLink,
+    childrenCount: Array.isArray(data.children_ids) ? data.children_ids.length : 0,
   };
 };
 
@@ -1543,5 +1579,6 @@ module.exports = {
   _buildPaymentPolicyHtml: buildPaymentPolicyHtml,
   publishEnrollmentToJobBoard,
   inviteParentForEnrollment,
+  lookupParentByEmail,
   unlinkGuardianFromStudent,
 };

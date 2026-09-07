@@ -8,6 +8,7 @@ import {
   isStale,
   matchesSearch,
   setupFor,
+  setupSteps,
   sortApplicants,
   buildPeriodOptions,
   matchesPeriod,
@@ -199,4 +200,25 @@ test("undated applications are counted under Any time but no month", () => {
   const options = buildPeriodOptions([applicant({ submittedAt: null }), on(2026, 8, 3)], NOW);
   assert.equal(options[0].count, 2);
   assert.deepEqual(options.map((o) => o.label).filter((l) => l.includes("2026")), ["August 2026"]);
+});
+
+test("setup steps open one at a time, in order", () => {
+  const ids = (steps: ReturnType<typeof setupSteps>) => steps.map((s) => `${s.id}:${s.status}`);
+  assert.deepEqual(ids(setupSteps({ hasAccount: false, hasSchedule: false, hasParent: false })), [
+    "account:active", "schedule:locked", "parent:locked",
+  ]);
+  assert.deepEqual(ids(setupSteps({ hasAccount: true, hasSchedule: false, hasParent: false })), [
+    "account:done", "schedule:active", "parent:locked",
+  ]);
+  assert.deepEqual(ids(setupSteps({ hasAccount: true, hasSchedule: true, hasParent: false })), [
+    "account:done", "schedule:done", "parent:active",
+  ]);
+  assert.deepEqual(ids(setupSteps({ hasAccount: true, hasSchedule: true, hasParent: true })), [
+    "account:done", "schedule:done", "parent:done",
+  ]);
+});
+
+test("a parent linked at application time does not unlock the schedule early", () => {
+  const steps = setupSteps({ hasAccount: false, hasSchedule: false, hasParent: true });
+  assert.deepEqual(steps.map((s) => s.status), ["active", "locked", "done"]);
 });
