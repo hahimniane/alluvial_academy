@@ -18481,4 +18481,7 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get quizCat_islamic_manners_desc =>
       'Bonnes manières et caractère (adab)';
+
+  @override
+  String get moreSubtitle => 'Autres outils et fonctionnalités';
 }

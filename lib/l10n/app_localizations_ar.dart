@@ -18080,4 +18080,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get quizCat_islamic_manners_desc =>
       'Good manners and character (adab)';
+
+  @override
+  String get moreSubtitle => 'Additional tools and features';
 }

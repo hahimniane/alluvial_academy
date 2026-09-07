@@ -756,15 +756,16 @@ class _GroupCreationScreenState extends State<GroupCreationScreen> {
   }
 
   String _getRoleDisplayName(String role) {
+    final l10n = AppLocalizations.of(context)!;
     switch (role.toLowerCase()) {
       case 'admin':
-        return 'Administrator';
+        return l10n.roleAdmin;
       case 'teacher':
-        return 'Teacher';
+        return l10n.roleTeacher;
       case 'student':
-        return 'Student';
+        return l10n.roleStudent;
       case 'parent':
-        return 'Parent';
+        return l10n.roleParent;
       default:
         return role;
     }

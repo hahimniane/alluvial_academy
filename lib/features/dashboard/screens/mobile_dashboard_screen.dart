@@ -1372,7 +1372,7 @@ class _AdminMoreScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'More',
+                AppLocalizations.of(context)!.navMore,
                 style: GoogleFonts.inter(
                   fontSize: 28,
                   fontWeight: FontWeight.w800,
@@ -1381,7 +1381,7 @@ class _AdminMoreScreen extends StatelessWidget {
               ),
               const SizedBox(height: 6),
               Text(
-                'Additional tools and features',
+                AppLocalizations.of(context)!.moreSubtitle,
                 style: GoogleFonts.inter(
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
@@ -1447,7 +1447,7 @@ class _StudentMoreScreen extends StatelessWidget {
         ),
       _MoreItem(
         icon: Icons.smart_toy_rounded,
-        label: 'AI Tutor',
+        label: AppLocalizations.of(context)!.tutorTitle,
         color: const Color(0xff0E72ED),
         screen: const StudentAiTutorScreen(),
       ),
@@ -1465,7 +1465,7 @@ class _StudentMoreScreen extends StatelessWidget {
       ),
       _MoreItem(
         icon: Icons.emoji_events_rounded,
-        label: 'Bayanah Live',
+        label: AppLocalizations.of(context)!.bayanahLive,
         color: const Color(0xffE21B3C),
         screen: const BayanahPlayScreen(),
       ),
@@ -1507,7 +1507,7 @@ class _StudentMoreScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'More',
+                AppLocalizations.of(context)!.navMore,
                 style: GoogleFonts.inter(
                   fontSize: 28,
                   fontWeight: FontWeight.w800,
@@ -1516,7 +1516,7 @@ class _StudentMoreScreen extends StatelessWidget {
               ),
               const SizedBox(height: 6),
               Text(
-                'Additional tools and features',
+                AppLocalizations.of(context)!.moreSubtitle,
                 style: GoogleFonts.inter(
                   fontSize: 14,
                   fontWeight: FontWeight.w500,

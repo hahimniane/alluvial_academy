@@ -32929,6 +32929,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Good manners and character (adab)'**
   String get quizCat_islamic_manners_desc;
+
+  /// No description provided for @moreSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Additional tools and features'**
+  String get moreSubtitle;
 }
 
 class _AppLocalizationsDelegate
