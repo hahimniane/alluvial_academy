@@ -43,8 +43,11 @@ const loadCaller = async (uid) => {
     throw new HttpsError('permission-denied', 'The AI tutor is for students.');
   }
   const name = `${data.first_name || ''} ${data.last_name || ''}`.trim() || data.displayName || 'Student';
-  return {uid, role, isAdmin, name, firstName: (data.first_name || name.split(' ')[0] || 'Student').toString(), data};
+  return {uid, role, isAdmin, name, firstName: (data.first_name || name.split(' ')[0] || 'Student').toString(), data, language: String(data.language_preference || 'en')};
 };
+
+/** An HttpsError whose message is in the student's language. */
+const refuse = (caller, code, text) => new HttpsError(code, seats.localizeProblem(text, caller && caller.language));
 
 /** The student's age band, from their account and their enrollment form. */
 const loadAgeProfile = async (caller) => {
@@ -170,7 +173,7 @@ const aiTutorBookSlot = onCall(async (request) => {
       existing: mineSnap.docs.map((d) => d.data()),
       slotCount: slotSnap.size,
     });
-    if (problem) throw new HttpsError('failed-precondition', problem);
+    if (problem) throw refuse(caller, 'failed-precondition', problem);
     const start = seats.slotStartFor(slotKey, settings);
     const ref = db.collection(BOOKINGS).doc();
     tx.set(ref, {
@@ -346,7 +349,7 @@ const startSessionTx = ({db, uid, caller, settings, now}) => {
       now, settings, activeCount: active.size,
       slotBookings: held.filter((b) => b.userId !== uid), myBooking, activeForMe: false,
     });
-    if (problem) throw new HttpsError('resource-exhausted', problem);
+    if (problem) throw refuse(caller, 'resource-exhausted', problem);
 
     const expiresAt = seats.sessionExpiry(now, settings, myBooking);
     const ref = db.collection(SESSIONS).doc();
@@ -444,7 +447,7 @@ const aiTutorTurn = onCall({secrets: ['GEMINI_API_KEY'], timeoutSeconds: 60}, as
   const last = history[history.length - 1];
   if (!last || last.role !== 'user') throw new HttpsError('invalid-argument', 'Nothing to answer.');
 
-  if (!settings.enabled) throw new HttpsError('failed-precondition', 'The tutor is paused right now. Please come back later.');
+  if (!settings.enabled) throw refuse(caller, 'failed-precondition', 'The tutor is paused right now. Please come back later.');
   const apiKey = (process.env.GEMINI_API_KEY || '').trim();
   if (!apiKey) throw new HttpsError('failed-precondition', 'The tutor is not configured.');
   const language = seats.languageOf(last.text);
@@ -455,7 +458,7 @@ const aiTutorTurn = onCall({secrets: ['GEMINI_API_KEY'], timeoutSeconds: 60}, as
     reply = await askModel({settings, system, history, apiKey});
   } catch (e) {
     console.error('[ai_tutor_voice] model failure:', e.message);
-    throw new HttpsError('unavailable', 'The tutor could not answer just now. Please try again.');
+    throw refuse(caller, 'unavailable', 'The tutor could not answer just now. Please try again.');
   }
 
   const replyLanguage = seats.languageOf(reply.text);

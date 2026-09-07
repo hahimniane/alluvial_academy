@@ -17718,4 +17718,369 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get quranPronunciationReview => 'Pronunciation to review';
+
+  @override
+  String get homeGoodMorning => 'Good Morning';
+
+  @override
+  String get homeGoodAfternoon => 'Good Afternoon';
+
+  @override
+  String get homeGoodEvening => 'Good Evening';
+
+  @override
+  String get homeToday => 'Today';
+
+  @override
+  String get homeUpcoming => 'Upcoming';
+
+  @override
+  String get homeTodaysClasses => 'Today\'s Classes';
+
+  @override
+  String get homeUpcomingClasses => 'Upcoming Classes';
+
+  @override
+  String get homeNoClassesToday => 'No classes today';
+
+  @override
+  String get homeEnjoyFreeTime => 'Enjoy your free time!';
+
+  @override
+  String get homeNoUpcoming => 'No upcoming classes';
+
+  @override
+  String get homeCheckBackLater => 'Check back later for your schedule';
+
+  @override
+  String get homeClassRecordings => 'Class Recordings';
+
+  @override
+  String get homePleaseTryAgain => 'Please try again';
+
+  @override
+  String get homeStartingNow => 'Starting now';
+
+  @override
+  String get homeAccessSuspended => 'Class Access Suspended';
+
+  @override
+  String get homeLoginToSee => 'Please log in to see your classes';
+
+  @override
+  String get homeAuthFailed =>
+      'Unable to authenticate. Please try logging in again.';
+
+  @override
+  String get quranLoadFailed =>
+      'Couldn\'t load the Quran. Check your connection.';
+
+  @override
+  String get quranSelectionFailed =>
+      'Couldn\'t load this selection. Try again.';
+
+  @override
+  String get quranReminderPitch =>
+      'Memorization sticks when it\'s daily. Want a gentle reminder each evening?';
+
+  @override
+  String get quranReminderTime => 'Daily reminder time';
+
+  @override
+  String get quranNotificationsBlocked =>
+      'Notifications are blocked — allow them in Settings to get reminders.';
+
+  @override
+  String get quranTodaysMemorization => 'Today\'s memorization';
+
+  @override
+  String get quranTitle => 'Quran';
+
+  @override
+  String quranSurahN(String n) {
+    return 'Surah $n';
+  }
+
+  @override
+  String get quranPlanPitch =>
+      'A few ayahs a day — we\'ll split it up, track you, and remind you.';
+
+  @override
+  String get quranDoneForToday => 'Done for today 🎉';
+
+  @override
+  String quranTodayProgress(String done, String total) {
+    return 'Today · $done of $total ayahs';
+  }
+
+  @override
+  String get quranReminderOn => 'Daily reminder on';
+
+  @override
+  String get quranEditGoal => 'Edit goal';
+
+  @override
+  String quranScopeProgress(
+      String done, String total, String scope, String pct) {
+    return '$done of $total ayahs of $scope · $pct%';
+  }
+
+  @override
+  String get quranPracticeToday => 'Practice today\'s ayahs';
+
+  @override
+  String get quranReviewAnyway => 'Review anyway';
+
+  @override
+  String get quranPlaySurah => 'Play surah';
+
+  @override
+  String get quranReciter => 'Reciter';
+
+  @override
+  String quranAyahsTotal(String n) {
+    return '$n ayahs total';
+  }
+
+  @override
+  String get quranPlayVerseShort => 'Play verse';
+
+  @override
+  String get quranMarkMemorized => 'Mark memorized';
+
+  @override
+  String get quranMemorizedLabel => 'Memorized';
+
+  @override
+  String get quranMemorizedTapToUnmark => 'Memorized ✓ (tap to unmark)';
+
+  @override
+  String get quranSearchSurah => 'Search surah…';
+
+  @override
+  String quranPlanEstimate(String perDay, String total, String duration) {
+    return 'At $perDay ayahs/day: $total ayahs · about $duration';
+  }
+
+  @override
+  String get quranStartMemorizing => 'Start memorizing';
+
+  @override
+  String get quranUpdateGoal => 'Update goal';
+
+  @override
+  String get quranMicBlocked =>
+      'Microphone access was blocked. Allow the mic and try again.';
+
+  @override
+  String get quranCheckFailed =>
+      'We couldn\'t check that recitation. Please try again.';
+
+  @override
+  String quranCheckVerse(String key) {
+    return 'Check your recitation — Verse $key';
+  }
+
+  @override
+  String get quranWords => 'Words';
+
+  @override
+  String get quranPronunciationBeta => 'Pronunciation β';
+
+  @override
+  String get quranNoIssues => 'No pronunciation issues caught. Ma sha Allah!';
+
+  @override
+  String quranHeard(String text) {
+    return 'Heard: $text';
+  }
+
+  @override
+  String get quranLegend =>
+      'Green = right · amber = check the harakah · red = wrong word.';
+
+  @override
+  String get quranPronOff =>
+      'Pronunciation checking is off — the mic is busy with live tracking.';
+
+  @override
+  String get quranAllowMicLive =>
+      'Allow microphone and speech recognition to follow your recitation live.';
+
+  @override
+  String get quranTapWord =>
+      'Tap a highlighted word above to compare your pronunciation.';
+
+  @override
+  String get quranLiveHint =>
+      'Follows your voice live — repeat freely; skips buzz right away.';
+
+  @override
+  String get quranCheckHint =>
+      'Recite the selection, then it checks pronunciation and replays where you slipped.';
+
+  @override
+  String get quranReciterWord => 'Reciter · word';
+
+  @override
+  String get quranReciterAyah => 'Reciter · ayah';
+
+  @override
+  String get quizTitle => 'Islamic Quiz';
+
+  @override
+  String get quizSubtitle => 'Test your knowledge!';
+
+  @override
+  String get quizChooseCategory => 'Choose a Category';
+
+  @override
+  String quizCategoriesQuestions(String cats, String qs) {
+    return '$cats categories • $qs+ questions';
+  }
+
+  @override
+  String get quizPlay => 'Play';
+
+  @override
+  String get quizLoadingQuestions => 'Loading questions...';
+
+  @override
+  String get quizNoQuestions => 'No questions available yet';
+
+  @override
+  String quizQuestionOf(String i, String n) {
+    return 'Question $i of $n';
+  }
+
+  @override
+  String quizQuestionN(String i) {
+    return 'Question $i';
+  }
+
+  @override
+  String get quizNextQuestion => 'Next Question';
+
+  @override
+  String get quizSeeResults => 'See Results';
+
+  @override
+  String get quizQuitTitle => 'Quit Quiz?';
+
+  @override
+  String get quizQuitBody => 'Your progress will be lost. Are you sure?';
+
+  @override
+  String get quizContinue => 'Continue';
+
+  @override
+  String get quizScore => 'Score';
+
+  @override
+  String get quizPercentage => 'Percentage';
+
+  @override
+  String get quizGrade => 'Grade';
+
+  @override
+  String quizLoadFailed(String error) {
+    return 'Failed to load questions: $error';
+  }
+
+  @override
+  String get quizEncourage90 => 'Excellent! MashaAllah!';
+
+  @override
+  String get quizEncourage80 => 'Great job! Keep learning!';
+
+  @override
+  String get quizEncourage70 => 'Good work! You\'re doing well!';
+
+  @override
+  String get quizEncourage60 => 'Nice try! Practice more!';
+
+  @override
+  String get quizEncourage50 => 'Keep going! You can do it!';
+
+  @override
+  String get quizEncourage0 => 'Don\'t give up! Try again!';
+
+  @override
+  String get bayanahJoinFailed => 'Could not join that game.';
+
+  @override
+  String get bayanahJoinFailedCode =>
+      'Could not join that game. Check the code and try again.';
+
+  @override
+  String get bayanahYoureIn => 'You\'re in. Wait for your teacher to start.';
+
+  @override
+  String get bayanahCorrect => 'Correct!';
+
+  @override
+  String get bayanahNotThisTime => 'Not this time';
+
+  @override
+  String get bayanahTooSlow => 'Too slow';
+
+  @override
+  String get quizCat_five_pillars_name => 'Five Pillars';
+
+  @override
+  String get quizCat_five_pillars_desc => 'Learn about the 5 pillars of Islam';
+
+  @override
+  String get quizCat_prophets_name => 'Prophets';
+
+  @override
+  String get quizCat_prophets_desc => 'Stories of the Prophets';
+
+  @override
+  String get quizCat_quran_basics_name => 'Quran Basics';
+
+  @override
+  String get quizCat_quran_basics_desc => 'Learn about the Holy Quran';
+
+  @override
+  String get quizCat_daily_duas_name => 'Daily Duas';
+
+  @override
+  String get quizCat_daily_duas_desc => 'Everyday prayers and supplications';
+
+  @override
+  String get quizCat_islamic_history_name => 'Islamic History';
+
+  @override
+  String get quizCat_islamic_history_desc =>
+      'Important events in Islamic history';
+
+  @override
+  String get quizCat_arabic_letters_name => 'Arabic Letters';
+
+  @override
+  String get quizCat_arabic_letters_desc => 'Learn Arabic letters and words';
+
+  @override
+  String get quizCat_prophet_life_name => 'Life of the Prophet';
+
+  @override
+  String get quizCat_prophet_life_desc =>
+      'The life story of Prophet Muhammad ﷺ';
+
+  @override
+  String get quizCat_companions_name => 'The Companions';
+
+  @override
+  String get quizCat_companions_desc => 'The companions of the Prophet ﷺ';
+
+  @override
+  String get quizCat_islamic_manners_name => 'Islamic Manners';
+
+  @override
+  String get quizCat_islamic_manners_desc =>
+      'Good manners and character (adab)';
+
+  @override
+  String get moreSubtitle => 'Additional tools and features';
 }

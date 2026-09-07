@@ -36,6 +36,25 @@ describe('slots', () => {
   });
 });
 
+describe('the window', () => {
+  test('a window ending at 23:59 still admits the 23:00 hour', () => {
+    const allDay = seats.normalizeSettings({windowStart: '00:00', windowEnd: '23:59'});
+    expect(seats.slotInWindow('2026-09-06T23', allDay)).toBe(true);
+    expect(seats.slotInWindow('2026-09-06T00', allDay)).toBe(true);
+    expect(seats.startProblem({now: new Date('2026-09-07T03:30:00Z'), settings: allDay, activeCount: 0, slotBookings: [], myBooking: null, activeForMe: false})).toBeNull();
+  });
+});
+
+describe('refusals in the student language', () => {
+  test('French students read French; unknown languages keep English', () => {
+    expect(seats.localizeProblem('You already have this hour.', 'fr')).toBe('Tu as déjà réservé cette heure.');
+    expect(seats.localizeProblem('The tutor is available 15:00–23:00 (America/New_York).', 'fr')).toBe('Le tuteur est disponible 15:00–23:00 (America/New_York).');
+    expect(seats.localizeProblem('You can book up to 2 hours a day.', 'fr')).toBe("Tu peux réserver jusqu'à 2 heures par jour.");
+    expect(seats.localizeProblem('You already have this hour.', 'en')).toBe('You already have this hour.');
+    expect(seats.localizeProblem('Something new.', 'fr')).toBe('Something new.');
+  });
+});
+
 describe('booking', () => {
   const ok = (over = {}) => seats.bookingProblem({slotKey: '2026-09-08T18', now: NOW, settings, existing: [], slotCount: 0, ...over});
 

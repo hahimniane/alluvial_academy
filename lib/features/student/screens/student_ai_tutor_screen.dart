@@ -679,7 +679,7 @@ class _StudentAiTutorScreenState extends State<StudentAiTutorScreen> {
     for (final s in a?.slots ?? const <_Slot>[]) {
       byDay.putIfAbsent(dayFmt.format(s.start), () => []).add(s);
     }
-    final hour = DateFormat('h a', locale);
+    final hour = DateFormat.j(locale); // 12-hour in English, 24-hour in French
 
     return ListView(
       padding: const EdgeInsets.all(16),

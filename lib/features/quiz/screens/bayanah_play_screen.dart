@@ -98,13 +98,13 @@ class _BayanahPlayScreenState extends State<BayanahPlayScreen> {
       // Surface the message the function wrote, never the Dart stack.
       if (!mounted) return;
       setState(() {
-        _error = e.message ?? 'Could not join that game.';
+        _error = e.message ?? AppLocalizations.of(context)!.bayanahJoinFailed;
         _joining = false;
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _error = 'Could not join that game. Check the code and try again.';
+        _error = AppLocalizations.of(context)!.bayanahJoinFailedCode;
         _joining = false;
       });
     }
@@ -326,7 +326,7 @@ class _BayanahPlayScreenState extends State<BayanahPlayScreen> {
                       fontWeight: FontWeight.w900,
                       color: Colors.white)),
               const SizedBox(height: 8),
-              const Text("You're in. Wait for your teacher to start.",
+              Text(AppLocalizations.of(context)!.bayanahYoureIn,
                   style: TextStyle(color: Color(0xFFCBD5E1))),
               if ((_bonus ?? 0) > 0) ...[
                 const SizedBox(height: 20),
@@ -489,8 +489,8 @@ class _BayanahPlayScreenState extends State<BayanahPlayScreen> {
             const SizedBox(height: 6),
             Text(
               gotIt
-                  ? 'Correct!'
-                  : (_answered == null ? 'Too slow' : 'Not this time'),
+                  ? AppLocalizations.of(context)!.bayanahCorrect
+                  : (_answered == null ? AppLocalizations.of(context)!.bayanahTooSlow : AppLocalizations.of(context)!.bayanahNotThisTime),
               style: const TextStyle(
                   fontSize: 26,
                   fontWeight: FontWeight.w900,

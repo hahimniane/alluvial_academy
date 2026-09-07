@@ -78,7 +78,8 @@ const slotInWindow = (slotKey, settings) => {
   const [sh, sm] = settings.windowStart.split(':').map(Number);
   const [eh, em] = settings.windowEnd.split(':').map(Number);
   const startMinutes = sh * 60 + sm;
-  const endMinutes = eh * 60 + em;
+  // "23:59" means the end of the day: the 23:00 hour must still fit.
+  const endMinutes = eh * 60 + em + (em === 59 ? 1 : 0);
   const slotMinutes = start.hour * 60 + start.minute;
   // The last bookable hour must fit entirely before the window closes.
   return slotMinutes >= startMinutes && slotMinutes + 60 <= endMinutes;
@@ -260,6 +261,39 @@ const _ageRules = (profile) => {
   return 'Explain the way you would to a young child: simple words, one idea at a time, short sentences. Do not discuss marriage and intimacy, death in graphic detail, violence, punishments, politics, or anything meant for older students; if asked, say kindly that it is a question for their parent or teacher and return to the lesson.';
 };
 
+/**
+ * The student-facing refusals in the student's language. The rules above
+ * produce English; the callables run the text through this before it reaches
+ * a phone or browser, so a French student reads French.
+ */
+const PROBLEM_TRANSLATIONS = {
+  fr: [
+    [/^The tutor is switched off at the moment\.$/, 'Le tuteur est désactivé pour le moment.'],
+    [/^That is not a valid time\.$/, "Ce n'est pas une heure valide."],
+    [/^That hour has already started\. Start now if a seat is free\.$/, "Cette heure a déjà commencé. Commence maintenant si une place est libre."],
+    [/^The tutor is available (.+) \((.+)\)\.$/, 'Le tuteur est disponible $1 ($2).'],
+    [/^You already have this hour\.$/, 'Tu as déjà réservé cette heure.'],
+    [/^You can book up to (\d+) hours a day\.$/, "Tu peux réserver jusqu'à $1 heures par jour."],
+    [/^That hour is full\. Try another one\.$/, 'Cette heure est complète. Essaie une autre heure.'],
+    [/^All seats are busy right now\. Try again in a moment\.$/, 'Toutes les places sont occupées pour le moment. Réessaie dans un instant.'],
+    [/^All seats are taken this hour\. Book a later hour\.$/, 'Toutes les places sont prises pour cette heure. Réserve une heure plus tard.'],
+    [/^The tutor is paused right now\. Please come back later\.$/, 'Le tuteur est en pause pour le moment. Reviens plus tard.'],
+    [/^Your hour is up\. Book another one to continue\.$/, 'Ton heure est écoulée. Réserve-en une autre pour continuer.'],
+    [/^The tutor could not answer just now\. Please try again\.$/, "Le tuteur n'a pas pu répondre. Réessaie."],
+    [/^Session not found\.$/, 'Séance introuvable.'],
+    [/^Booking not found\.$/, 'Réservation introuvable.'],
+  ],
+};
+
+const localizeProblem = (text, language) => {
+  const rules = PROBLEM_TRANSLATIONS[String(language || '').toLowerCase().slice(0, 2)];
+  if (!rules || !text) return text;
+  for (const [pattern, replacement] of rules) {
+    if (pattern.test(text)) return text.replace(pattern, replacement);
+  }
+  return text;
+};
+
 const SYSTEM_PROMPT = ({studentName, language, ageProfile: profile}) => [
   `You are Alluwal, the AI tutor of Alluwal Education Hub, an online school teaching Qur'an and Islamic studies, Arabic and African languages including Adlam, and school subjects.`,
   `You are talking with a student named ${studentName || 'a student'}, by voice: your words are read aloud on their phone.`,
@@ -293,5 +327,6 @@ module.exports = {
   usageMonthKey,
   ttsBudgetAllows,
   voiceBudgetDecision,
+  localizeProblem,
   SYSTEM_PROMPT,
 };

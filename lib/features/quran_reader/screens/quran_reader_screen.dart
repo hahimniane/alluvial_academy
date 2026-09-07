@@ -101,7 +101,7 @@ class _QuranReaderScreenState extends State<QuranReaderScreen> {
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _loadError = "Couldn't load the Quran. Check your connection.";
+        _loadError = AppLocalizations.of(context)!.quranLoadFailed;
       });
     }
   }
@@ -136,7 +136,7 @@ class _QuranReaderScreenState extends State<QuranReaderScreen> {
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _loadError = "Couldn't load this selection. Try again.";
+        _loadError = AppLocalizations.of(context)!.quranSelectionFailed;
       });
     }
   }
@@ -200,8 +200,8 @@ class _QuranReaderScreenState extends State<QuranReaderScreen> {
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Text(AppLocalizations.of(context)!.quranDailyReminderQ),
-        content: const Text(
-            "Memorization sticks when it's daily. Want a gentle reminder each evening?"),
+        content: Text(
+            AppLocalizations.of(context)!.quranReminderPitch),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context, false),
@@ -224,15 +224,15 @@ class _QuranReaderScreenState extends State<QuranReaderScreen> {
       context: context,
       initialTime: TimeOfDay(
           hour: reminder?.hour ?? 20, minute: reminder?.minute ?? 0),
-      helpText: 'Daily reminder time',
+      helpText: AppLocalizations.of(context)!.quranReminderTime,
     );
     if (picked == null || !mounted) return;
     final granted = await GoalReminderService.requestPermission();
     if (!granted) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(
-              'Notifications are blocked — allow them in Settings to get reminders.')));
+              AppLocalizations.of(context)!.quranNotificationsBlocked)));
       return;
     }
     await GoalReminderService.schedule(
@@ -474,17 +474,17 @@ class _QuranReaderScreenState extends State<QuranReaderScreen> {
   // ---- Build ----
 
   String get _title {
-    if (_navKind == _NavKind.goal) return "Today's memorization";
-    if (_navKind == _NavKind.juz) return 'Juz $_navId';
+    if (_navKind == _NavKind.goal) return AppLocalizations.of(context)!.quranTodaysMemorization;
+    if (_navKind == _NavKind.juz) return AppLocalizations.of(context)!.quranJuzN('$_navId');
     final c = _chapters.where((c) => c.id == _navId).toList();
-    return c.isEmpty ? 'Quran' : '${c.first.nameSimple} · ${c.first.nameArabic}';
+    return c.isEmpty ? AppLocalizations.of(context)!.quranTitle : '${c.first.nameSimple} · ${c.first.nameArabic}';
   }
 
   String _scopeLabel(PlanScope scope) {
     if (scope.kind == ScopeKind.quran) return 'the Quran';
-    if (scope.kind == ScopeKind.juz) return 'Juz ${scope.id}';
+    if (scope.kind == ScopeKind.juz) return AppLocalizations.of(context)!.quranJuzN('${scope.id}');
     final c = _chapters.where((c) => c.id == scope.id).toList();
-    return c.isEmpty ? 'Surah ${scope.id}' : c.first.nameSimple;
+    return c.isEmpty ? AppLocalizations.of(context)!.quranSurahN('${scope.id}') : c.first.nameSimple;
   }
 
   /// The memorization hero — the one place for goals: create, track, practice,
@@ -519,8 +519,8 @@ class _QuranReaderScreenState extends State<QuranReaderScreen> {
               ],
             ),
             const SizedBox(height: 4),
-            const Text(
-              "A few ayahs a day — we'll split it up, track you, and remind you.",
+            Text(
+              AppLocalizations.of(context)!.quranPlanPitch,
               style: TextStyle(color: Color(0xFFCFFAFE), fontSize: 12.5),
             ),
             const SizedBox(height: 12),
@@ -572,8 +572,8 @@ class _QuranReaderScreenState extends State<QuranReaderScreen> {
               Expanded(
                 child: Text(
                   goalMet
-                      ? 'Done for today 🎉'
-                      : "Today · $todayCount of ${plan.perDay} ayahs",
+                      ? AppLocalizations.of(context)!.quranDoneForToday
+                      : AppLocalizations.of(context)!.quranTodayProgress('$todayCount', '${plan.perDay}'),
                   style: const TextStyle(
                       color: Colors.white,
                       fontSize: 16,
@@ -596,7 +596,7 @@ class _QuranReaderScreenState extends State<QuranReaderScreen> {
                 ),
               IconButton(
                 visualDensity: VisualDensity.compact,
-                tooltip: bellOn ? 'Daily reminder on' : 'Set daily reminder',
+                tooltip: bellOn ? AppLocalizations.of(context)!.quranReminderOn : AppLocalizations.of(context)!.quranSetReminder,
                 onPressed: _onBellTap,
                 icon: Icon(
                     bellOn
@@ -607,7 +607,7 @@ class _QuranReaderScreenState extends State<QuranReaderScreen> {
               ),
               IconButton(
                 visualDensity: VisualDensity.compact,
-                tooltip: 'Edit goal',
+                tooltip: AppLocalizations.of(context)!.quranEditGoal,
                 onPressed: _openGoalSheet,
                 icon: const Icon(Icons.edit_rounded,
                     color: Colors.white, size: 18),
@@ -627,7 +627,7 @@ class _QuranReaderScreenState extends State<QuranReaderScreen> {
           ),
           const SizedBox(height: 5),
           Text(
-            '$scopeDone of $scopeTotal ayahs of ${_scopeLabel(plan.scope)} · ${(pct * 100).round()}%',
+            AppLocalizations.of(context)!.quranScopeProgress('$scopeDone', '$scopeTotal', _scopeLabel(plan.scope), '${(pct * 100).round()}'),
             style: const TextStyle(color: Color(0xFFCFFAFE), fontSize: 11.5),
           ),
           const SizedBox(height: 10),
@@ -648,7 +648,7 @@ class _QuranReaderScreenState extends State<QuranReaderScreen> {
                       : Icons.play_arrow_rounded,
                   size: 18),
               label: Text(
-                  goalMet ? 'Review anyway' : "Practice today's ayahs",
+                  goalMet ? AppLocalizations.of(context)!.quranReviewAnyway : AppLocalizations.of(context)!.quranPracticeToday,
                   style: const TextStyle(fontWeight: FontWeight.w800)),
             ),
           ),
@@ -730,7 +730,7 @@ class _QuranReaderScreenState extends State<QuranReaderScreen> {
         ),
         actions: [
           IconButton(
-            tooltip: _playingIndex != null ? 'Stop' : 'Play surah',
+            tooltip: _playingIndex != null ? AppLocalizations.of(context)!.quranStop : AppLocalizations.of(context)!.quranPlaySurah,
             onPressed: _verses.isEmpty
                 ? null
                 : () => _playingIndex != null
@@ -745,12 +745,12 @@ class _QuranReaderScreenState extends State<QuranReaderScreen> {
             ),
           ),
           IconButton(
-            tooltip: 'Repeat',
+            tooltip: AppLocalizations.of(context)!.quranRepeat,
             onPressed: _verses.isEmpty ? null : _openRepeatSheet,
             icon: const Icon(Icons.repeat_rounded),
           ),
           PopupMenuButton<int>(
-            tooltip: 'Reciter',
+            tooltip: AppLocalizations.of(context)!.quranReciter,
             icon: const Icon(Icons.record_voice_over_rounded),
             onSelected: (id) {
               setState(() => _reciter = id);
@@ -780,7 +780,7 @@ class _QuranReaderScreenState extends State<QuranReaderScreen> {
               children: [
                 _pillButton(
                   icon: Icons.mic_rounded,
-                  label: 'Recite from memory',
+                  label: AppLocalizations.of(context)!.quranReciteFromMemory,
                   onTap: _verses.isEmpty
                       ? null
                       : () {
@@ -820,7 +820,7 @@ class _QuranReaderScreenState extends State<QuranReaderScreen> {
                       style: const TextStyle(
                           fontSize: 12, fontWeight: FontWeight.w800)),
                   const Spacer(),
-                  Text('${_mem.totalMemorized} ayahs total',
+                  Text(AppLocalizations.of(context)!.quranAyahsTotal('${_mem.totalMemorized}'),
                       style: const TextStyle(
                           fontSize: 11, color: Color(0xFF94A3B8))),
                 ],
@@ -971,7 +971,7 @@ class _QuranReaderScreenState extends State<QuranReaderScreen> {
                   const Spacer(),
                   IconButton(
                     visualDensity: VisualDensity.compact,
-                    tooltip: playing ? 'Stop' : 'Play verse',
+                    tooltip: playing ? AppLocalizations.of(context)!.quranStop : AppLocalizations.of(context)!.quranPlayVerseShort,
                     onPressed: () =>
                         playing ? setState(_stopPlayback) : _playFrom(vi),
                     icon: Icon(
@@ -982,7 +982,7 @@ class _QuranReaderScreenState extends State<QuranReaderScreen> {
                   ),
                   IconButton(
                     visualDensity: VisualDensity.compact,
-                    tooltip: 'Check your recitation',
+                    tooltip: AppLocalizations.of(context)!.quranCheckRecitation,
                     onPressed: () => RecitationCheckSheet.show(context, verse),
                     icon: const Icon(Icons.mic_rounded,
                         color: Color(0xFF0E7490)),
@@ -990,7 +990,7 @@ class _QuranReaderScreenState extends State<QuranReaderScreen> {
                   IconButton(
                     visualDensity: VisualDensity.compact,
                     tooltip:
-                        memorized ? 'Memorized' : 'Mark memorized',
+                        memorized ? AppLocalizations.of(context)!.quranMemorizedLabel : AppLocalizations.of(context)!.quranMarkMemorized,
                     onPressed: () => _toggleMemorized(verse),
                     icon: Icon(
                         memorized
@@ -1046,7 +1046,7 @@ class _QuranReaderScreenState extends State<QuranReaderScreen> {
                   color: memorized
                       ? const Color(0xFF16A34A)
                       : const Color(0xFF94A3B8)),
-              title: Text(memorized ? 'Memorized ✓ (tap to unmark)' : 'Mark memorized'),
+              title: Text(memorized ? AppLocalizations.of(context)!.quranMemorizedTapToUnmark : AppLocalizations.of(context)!.quranMarkMemorized),
               onTap: () {
                 Navigator.pop(context);
                 _toggleMemorized(verse);
@@ -1097,8 +1097,8 @@ class _SurahJuzPickerState extends State<_SurahJuzPicker> {
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
               child: TextField(
-                decoration: const InputDecoration(
-                  hintText: 'Search surah…',
+                decoration: InputDecoration(
+                  hintText: AppLocalizations.of(context)!.quranSearchSurah,
                   prefixIcon: Icon(Icons.search_rounded),
                   border: OutlineInputBorder(),
                   isDense: true,

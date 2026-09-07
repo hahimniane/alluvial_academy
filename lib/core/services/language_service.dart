@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -24,6 +25,41 @@ class LanguageService extends ChangeNotifier {
 
   LanguageService() {
     _loadLocale();
+    // The constructor runs before Firebase Auth has restored the session, so
+    // the first load cannot see the account's saved language. Once a user is
+    // known, the profile's language_preference — shared with the web app —
+    // is the source of truth.
+    try {
+      _authSubscription = FirebaseAuth.instance.authStateChanges().listen((user) {
+        if (user != null) _adoptProfileLanguage(user);
+      });
+    } catch (_) {
+      // Firebase not initialised (tests); the device locale stands.
+    }
+  }
+
+  StreamSubscription<User?>? _authSubscription;
+
+  Future<void> _adoptProfileLanguage(User user) async {
+    try {
+      final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      final code = doc.data()?[_userLanguageField] as String?;
+      if (code == null || code.isEmpty) return;
+      final resolved = _resolveLocale(code);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_languageKey, resolved.languageCode);
+      if (_locale == resolved) return;
+      _locale = resolved;
+      notifyListeners();
+    } catch (e) {
+      AppLogger.error('Error adopting profile language: $e');
+    }
+  }
+
+  @override
+  void dispose() {
+    _authSubscription?.cancel();
+    super.dispose();
   }
 
   User? get _currentUser {
