@@ -8,6 +8,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:intl/intl.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
+import '../../../l10n/app_localizations.dart';
 
 /// The student AI tutor, hands-free.
 ///
@@ -137,7 +138,7 @@ class _StudentAiTutorScreenState extends State<StudentAiTutorScreen> {
   }
 
   String _errorText(Object e) =>
-      e is FirebaseFunctionsException ? (e.message ?? 'Something went wrong.') : 'Something went wrong.';
+      e is FirebaseFunctionsException ? (e.message ?? AppLocalizations.of(context)!.tutorSomethingWrong) : AppLocalizations.of(context)!.tutorSomethingWrong;
 
   Future<void> _loadAvailability() async {
     try {
@@ -152,7 +153,7 @@ class _StudentAiTutorScreenState extends State<StudentAiTutorScreen> {
     if (!mounted) return;
     final exp = _expiresAt;
     if (_sessionId != null && exp != null && !exp.isAfter(DateTime.now())) {
-      _notice = 'Your hour is up. Book another one to continue.';
+      _notice = AppLocalizations.of(context)!.tutorHourUp;
       _endSession();
       return;
     }
@@ -176,7 +177,7 @@ class _StudentAiTutorScreenState extends State<StudentAiTutorScreen> {
           if (err.permanent) {
             // Keep the session alive: the tutor still speaks, the student types.
             setState(() {
-              _notice = 'Microphone access is blocked. Allow the microphone in Settings, or type below.';
+              _notice = AppLocalizations.of(context)!.tutorMicBlocked;
               _micBlocked = true;
               _phase = _Phase.idle;
             });
@@ -367,7 +368,7 @@ class _StudentAiTutorScreenState extends State<StudentAiTutorScreen> {
         _alive = true;
         _micBlocked = false;
         _phase = _Phase.speaking;
-        if (!ready) _notice = 'The microphone is not available on this device. Type your questions below.';
+        if (!ready) _notice = AppLocalizations.of(context)!.tutorMicUnavailable;
       });
       await _say(greeting, 'en', res['greetingAudio'] as String?, mime: res['audioMime'] as String? ?? 'audio/mpeg');
       if (_alive && _phase == _Phase.speaking) _listen();
@@ -450,10 +451,10 @@ class _StudentAiTutorScreenState extends State<StudentAiTutorScreen> {
         backgroundColor: Colors.white,
         foregroundColor: const Color(0xff0F172A),
         elevation: 0,
-        title: const Row(children: [
-          Icon(Icons.smart_toy_rounded, color: _blue),
-          SizedBox(width: 8),
-          Text('AI Tutor', style: TextStyle(fontWeight: FontWeight.w800)),
+        title: Row(children: [
+          const Icon(Icons.smart_toy_rounded, color: _blue),
+          const SizedBox(width: 8),
+          Text(AppLocalizations.of(context)!.tutorTitle, style: const TextStyle(fontWeight: FontWeight.w800)),
         ]),
       ),
       body: SafeArea(
@@ -480,10 +481,10 @@ class _StudentAiTutorScreenState extends State<StudentAiTutorScreen> {
     final secs = remaining.isNegative ? 0 : remaining.inSeconds;
     final clock = '${(secs ~/ 60).toString().padLeft(2, '0')}:${(secs % 60).toString().padLeft(2, '0')}';
     final status = switch (_phase) {
-      _Phase.listening => 'Listening…',
-      _Phase.thinking => 'Thinking…',
-      _Phase.speaking => 'Speaking — tap to interrupt',
-      _Phase.idle => 'Ready',
+      _Phase.listening => AppLocalizations.of(context)!.tutorListening,
+      _Phase.thinking => AppLocalizations.of(context)!.tutorThinking,
+      _Phase.speaking => AppLocalizations.of(context)!.tutorSpeaking,
+      _Phase.idle => AppLocalizations.of(context)!.tutorReady,
     };
     final dot = switch (_phase) {
       _Phase.listening => const Color(0xff10B981),
@@ -590,7 +591,7 @@ class _StudentAiTutorScreenState extends State<StudentAiTutorScreen> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
             icon: const Icon(Icons.stop_rounded, size: 18),
-            label: const Text('End', style: TextStyle(fontWeight: FontWeight.w700)),
+            label: Text(AppLocalizations.of(context)!.tutorEnd, style: const TextStyle(fontWeight: FontWeight.w700)),
           ),
         ]),
         const SizedBox(height: 8),
@@ -601,7 +602,7 @@ class _StudentAiTutorScreenState extends State<StudentAiTutorScreen> {
               textInputAction: TextInputAction.send,
               onSubmitted: _sendTyped,
               decoration: InputDecoration(
-                hintText: 'Or type a question…',
+                hintText: AppLocalizations.of(context)!.tutorTypePlaceholder,
                 filled: true,
                 fillColor: Colors.white,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -672,11 +673,13 @@ class _StudentAiTutorScreenState extends State<StudentAiTutorScreen> {
   Widget _buildLobby() {
     final a = _avail;
     final canStart = a != null && (a.canStartNow || a.activeSessionId != null);
+    final locale = Localizations.localeOf(context).toString();
+    final dayFmt = DateFormat('EEEE, MMM d', locale);
     final byDay = <String, List<_Slot>>{};
     for (final s in a?.slots ?? const <_Slot>[]) {
-      byDay.putIfAbsent(DateFormat('EEEE, MMM d').format(s.start), () => []).add(s);
+      byDay.putIfAbsent(dayFmt.format(s.start), () => []).add(s);
     }
-    final hour = DateFormat('h a');
+    final hour = DateFormat('h a', locale);
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -689,13 +692,13 @@ class _StudentAiTutorScreenState extends State<StudentAiTutorScreen> {
             boxShadow: const [BoxShadow(color: Color(0x380E72ED), blurRadius: 40, offset: Offset(0, 18))],
           ),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('Hands-free tutoring', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.w700, fontSize: 13)),
+            Text(AppLocalizations.of(context)!.tutorHandsFree, style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w700, fontSize: 13)),
             const SizedBox(height: 4),
-            const Text('Just talk. Alluwal listens and answers.',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 22)),
+            Text(AppLocalizations.of(context)!.tutorTagline,
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 22)),
             const SizedBox(height: 8),
             Text(
-              'Ask about a lesson, practise a surah, get help with homework — in English, French or Arabic. Sessions are up to ${a?.sessionMinutes ?? 60} minutes.',
+              AppLocalizations.of(context)!.tutorIntro('${a?.sessionMinutes ?? 60}'),
               style: const TextStyle(color: Colors.white, fontSize: 14),
             ),
             const SizedBox(height: 18),
@@ -712,7 +715,7 @@ class _StudentAiTutorScreenState extends State<StudentAiTutorScreen> {
                 icon: _busy == 'start'
                     ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
                     : const Icon(Icons.mic_rounded, size: 18),
-                label: Text(a?.activeSessionId != null ? 'Continue session' : 'Start now',
+                label: Text(a?.activeSessionId != null ? AppLocalizations.of(context)!.tutorContinue : AppLocalizations.of(context)!.tutorStartNow,
                     style: const TextStyle(fontWeight: FontWeight.w900)),
               ),
               Row(mainAxisSize: MainAxisSize.min, children: [
@@ -726,14 +729,14 @@ class _StudentAiTutorScreenState extends State<StudentAiTutorScreen> {
                   ),
                 Text(
                   a == null
-                      ? 'Checking seats…'
+                      ? AppLocalizations.of(context)!.tutorCheckingSeats
                       : a.activeSessionId != null
-                          ? 'Your session is still open.'
+                          ? AppLocalizations.of(context)!.tutorSessionOpen
                           : a.canStartNow
-                              ? 'seats free right now'
+                              ? AppLocalizations.of(context)!.tutorSeatsFreeNow
                               : a.seatsFreeNow > 0
-                                  ? 'seats free — the tutor opens at ${a.settings['windowStart'] ?? '15:00'}'
-                                  : 'seats free — book an hour below.',
+                                  ? AppLocalizations.of(context)!.tutorSeatsOpensAt('${a.settings['windowStart'] ?? '15:00'}')
+                                  : AppLocalizations.of(context)!.tutorSeatsBookBelow,
                   style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13),
                 ),
               ]),
@@ -746,7 +749,7 @@ class _StudentAiTutorScreenState extends State<StudentAiTutorScreen> {
             padding: const EdgeInsets.all(16),
             decoration: _card(),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text('Your booked hours', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14)),
+              Text(AppLocalizations.of(context)!.tutorBookedHours, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14)),
               const SizedBox(height: 8),
               for (final b in a.myBookings)
                 Container(
@@ -757,12 +760,12 @@ class _StudentAiTutorScreenState extends State<StudentAiTutorScreen> {
                     const Icon(Icons.event_rounded, size: 16, color: _blue),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: Text('${DateFormat('EEEE, MMM d').format(b.start)} · ${hour.format(b.start)}',
+                      child: Text('${dayFmt.format(b.start)} · ${hour.format(b.start)}',
                           style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
                     ),
                     TextButton(
                       onPressed: _busy == b.id ? null : () => _cancel(b.id),
-                      child: const Text('Cancel', style: TextStyle(color: Color(0xffDC2626), fontWeight: FontWeight.w700, fontSize: 12)),
+                      child: Text(AppLocalizations.of(context)!.commonCancel, style: const TextStyle(color: Color(0xffDC2626), fontWeight: FontWeight.w700, fontSize: 12)),
                     ),
                   ]),
                 ),
@@ -775,9 +778,9 @@ class _StudentAiTutorScreenState extends State<StudentAiTutorScreen> {
           decoration: _card(),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
-              const Expanded(child: Text('Book an hour', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14))),
+              Expanded(child: Text(AppLocalizations.of(context)!.tutorBookAnHour, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14))),
               if (a != null)
-                Text('${a.window} · up to ${a.maxBookingsPerDay} a day',
+                Text(AppLocalizations.of(context)!.tutorBookingRule(a.window, '${a.maxBookingsPerDay}'),
                     style: const TextStyle(color: Color(0xff64748B), fontWeight: FontWeight.w600, fontSize: 12)),
             ]),
             for (final entry in byDay.entries) ...[
@@ -806,10 +809,10 @@ class _StudentAiTutorScreenState extends State<StudentAiTutorScreen> {
                           Text(hour.format(s.start), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
                           Text(
                             s.mine
-                                ? 'Booked'
+                                ? AppLocalizations.of(context)!.tutorBooked
                                 : s.seatsLeft == 0
-                                    ? 'Full'
-                                    : '${s.seatsLeft} seats',
+                                    ? AppLocalizations.of(context)!.tutorFull
+                                    : AppLocalizations.of(context)!.tutorSeats('${s.seatsLeft}'),
                             style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xff64748B)),
                           ),
                         ]),
@@ -820,7 +823,7 @@ class _StudentAiTutorScreenState extends State<StudentAiTutorScreen> {
             ],
             if (a != null && a.slots.isEmpty) ...[
               const SizedBox(height: 12),
-              const Text('No hours left to book in the next two days.', style: TextStyle(color: Color(0xff64748B), fontSize: 14)),
+              Text(AppLocalizations.of(context)!.tutorNoHours, style: const TextStyle(color: Color(0xff64748B), fontSize: 14)),
             ],
           ]),
         ),

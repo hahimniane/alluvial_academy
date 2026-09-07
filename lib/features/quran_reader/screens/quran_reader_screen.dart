@@ -21,6 +21,7 @@ import '../services/quran_api.dart';
 import '../widgets/goal_sheet.dart';
 import '../widgets/recitation_check_sheet.dart';
 import 'follow_along_screen.dart';
+import '../../../l10n/app_localizations.dart';
 
 enum _NavKind { surah, juz, goal }
 
@@ -198,18 +199,18 @@ class _QuranReaderScreenState extends State<QuranReaderScreen> {
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Daily reminder?'),
+        title: Text(AppLocalizations.of(context)!.quranDailyReminderQ),
         content: const Text(
             "Memorization sticks when it's daily. Want a gentle reminder each evening?"),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('Not now')),
+              child: Text(AppLocalizations.of(context)!.quranNotNow)),
           FilledButton(
               style: FilledButton.styleFrom(
                   backgroundColor: const Color(0xFF0E7490)),
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('Set reminder')),
+              child: Text(AppLocalizations.of(context)!.quranSetReminder)),
         ],
       ),
     );
@@ -261,21 +262,21 @@ class _QuranReaderScreenState extends State<QuranReaderScreen> {
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Daily reminder'),
-        content: Text('Reminding you every day at ${time.format(context)}.'),
+        title: Text(AppLocalizations.of(context)!.quranDailyReminder),
+        content: Text(AppLocalizations.of(context)!.quranReminderSet(time.format(context))),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context, 'off'),
-              child: const Text('Turn off',
+              child: Text(AppLocalizations.of(context)!.quranTurnOff,
                   style: TextStyle(color: Color(0xFFDC2626)))),
           TextButton(
               onPressed: () => Navigator.pop(context, 'change'),
-              child: const Text('Change time')),
+              child: Text(AppLocalizations.of(context)!.quranChangeTime)),
           FilledButton(
               style: FilledButton.styleFrom(
                   backgroundColor: const Color(0xFF0E7490)),
               onPressed: () => Navigator.pop(context, 'keep'),
-              child: const Text('Keep')),
+              child: Text(AppLocalizations.of(context)!.quranKeep)),
         ],
       ),
     );
@@ -388,13 +389,13 @@ class _QuranReaderScreenState extends State<QuranReaderScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text('Repeat',
+                Text(AppLocalizations.of(context)!.quranRepeat,
                     style:
                         TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
                 const SizedBox(height: 10),
                 Row(
                   children: [
-                    const Text('Repeat each ayah'),
+                    Text(AppLocalizations.of(context)!.quranRepeatEachAyah),
                     Expanded(
                       child: Slider(
                         value: _repeatEach.toDouble(),
@@ -414,7 +415,7 @@ class _QuranReaderScreenState extends State<QuranReaderScreen> {
                 ),
                 Row(
                   children: [
-                    const Text('Loop ayahs'),
+                    Text(AppLocalizations.of(context)!.quranLoopAyahs),
                     const SizedBox(width: 10),
                     Expanded(
                       child: DropdownButtonFormField<int?>(
@@ -460,7 +461,7 @@ class _QuranReaderScreenState extends State<QuranReaderScreen> {
                     Navigator.pop(context);
                     if (_rangeFrom != null) _playFrom(_rangeFrom! - 1);
                   },
-                  child: const Text('Play'),
+                  child: Text(AppLocalizations.of(context)!.quranPlay),
                 ),
               ],
             ),
@@ -506,11 +507,11 @@ class _QuranReaderScreenState extends State<QuranReaderScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Row(
+            Row(
               children: [
                 Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 18),
                 SizedBox(width: 8),
-                Text('Memorize the Quran',
+                Text(AppLocalizations.of(context)!.quranMemorizeTitle,
                     style: TextStyle(
                         color: Colors.white,
                         fontSize: 16,
@@ -533,7 +534,7 @@ class _QuranReaderScreenState extends State<QuranReaderScreen> {
                 ),
                 onPressed: _openGoalSheet,
                 icon: const Icon(Icons.flag_rounded, size: 17),
-                label: const Text('Create my goal',
+                label: Text(AppLocalizations.of(context)!.quranCreateGoal,
                     style: TextStyle(fontWeight: FontWeight.w800)),
               ),
             ),
@@ -815,7 +816,7 @@ class _QuranReaderScreenState extends State<QuranReaderScreen> {
                   const Icon(Icons.check_circle_rounded,
                       size: 14, color: Color(0xFF16A34A)),
                   const SizedBox(width: 4),
-                  Text('Memorized $memorizedInView/${_verses.length}',
+                  Text(AppLocalizations.of(context)!.quranMemorizedCount('$memorizedInView', '${_verses.length}'),
                       style: const TextStyle(
                           fontSize: 12, fontWeight: FontWeight.w800)),
                   const Spacer(),
@@ -842,7 +843,7 @@ class _QuranReaderScreenState extends State<QuranReaderScreen> {
           children: [
             Text(_loadError),
             TextButton(
-                onPressed: _loadSelection, child: const Text('Try again')),
+                onPressed: _loadSelection, child: Text(AppLocalizations.of(context)!.quranTryAgain)),
           ],
         ),
       );
@@ -1023,7 +1024,7 @@ class _QuranReaderScreenState extends State<QuranReaderScreen> {
             ListTile(
               leading:
                   const Icon(Icons.play_circle_rounded, color: Color(0xFF0E7490)),
-              title: Text('Play verse ${verse.verseKey}'),
+              title: Text(AppLocalizations.of(context)!.quranPlayVerse(verse.verseKey)),
               onTap: () {
                 Navigator.pop(context);
                 _playFrom(vi);
@@ -1031,7 +1032,7 @@ class _QuranReaderScreenState extends State<QuranReaderScreen> {
             ),
             ListTile(
               leading: const Icon(Icons.mic_rounded, color: Color(0xFF0E7490)),
-              title: const Text('Check your recitation'),
+              title: Text(AppLocalizations.of(context)!.quranCheckRecitation),
               onTap: () {
                 Navigator.pop(context);
                 RecitationCheckSheet.show(context, verse);
@@ -1083,11 +1084,11 @@ class _SurahJuzPickerState extends State<_SurahJuzPicker> {
       height: MediaQuery.of(context).size.height * 0.75,
       child: Column(
         children: [
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           SegmentedButton<int>(
-            segments: const [
-              ButtonSegment(value: 0, label: Text('Surah')),
-              ButtonSegment(value: 1, label: Text('Juz')),
+            segments: [
+              ButtonSegment(value: 0, label: Text(AppLocalizations.of(context)!.quranSurah)),
+              ButtonSegment(value: 1, label: Text(AppLocalizations.of(context)!.quranJuz)),
             ],
             selected: {_tab},
             onSelectionChanged: (s) => setState(() => _tab = s.first),
@@ -1139,7 +1140,7 @@ class _SurahJuzPickerState extends State<_SurahJuzPicker> {
                           child: Text('${i + 1}',
                               style: const TextStyle(
                                   fontSize: 12, color: Color(0xFF0E7490)))),
-                      title: Text('Juz ${i + 1}'),
+                      title: Text(AppLocalizations.of(context)!.quranJuzN('${i + 1}')),
                       onTap: () =>
                           Navigator.pop(context, (_NavKind.juz, i + 1)),
                     ),

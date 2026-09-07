@@ -16,6 +16,7 @@ import 'package:flutter/services.dart';
 
 import '../services/bayanah_chime.dart';
 import '../services/bayanah_service.dart';
+import '../../../l10n/app_localizations.dart';
 
 // Kahoot-style colour + shape per answer: children track these far faster
 // than four lines of text.
@@ -205,13 +206,13 @@ class _BayanahPlayScreenState extends State<BayanahPlayScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('Bayanah Live',
+                Text(AppLocalizations.of(context)!.bayanahLive,
                     style: TextStyle(
                         fontSize: 34,
                         fontWeight: FontWeight.w900,
                         color: Colors.white)),
                 const SizedBox(height: 6),
-                const Text('Enter the game code your teacher shows',
+                Text(AppLocalizations.of(context)!.bayanahEnterCode,
                     style: TextStyle(color: Color(0xFFCBD5E1))),
                 const SizedBox(height: 20),
                 SizedBox(
@@ -259,7 +260,7 @@ class _BayanahPlayScreenState extends State<BayanahPlayScreen> {
                           height: 18,
                           child: CircularProgressIndicator(
                               strokeWidth: 2, color: Colors.white))
-                      : const Text('Join game',
+                      : Text(AppLocalizations.of(context)!.bayanahJoinGame,
                           style: TextStyle(
                               fontWeight: FontWeight.w800, fontSize: 16)),
                 ),
@@ -280,7 +281,7 @@ class _BayanahPlayScreenState extends State<BayanahPlayScreen> {
           children: [
             const SizedBox(height: 10),
             const Text('🏁', style: TextStyle(fontSize: 52)),
-            const Text('Game over',
+            Text(AppLocalizations.of(context)!.bayanahGameOver,
                 style: TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.w900,
@@ -304,7 +305,7 @@ class _BayanahPlayScreenState extends State<BayanahPlayScreen> {
                     _codeCtrl.clear();
                   });
                 },
-                child: const Text('Done',
+                child: Text(AppLocalizations.of(context)!.bayanahDone,
                     style: TextStyle(fontWeight: FontWeight.w800)),
               ),
             ),
@@ -338,7 +339,7 @@ class _BayanahPlayScreenState extends State<BayanahPlayScreen> {
                   ),
                   child: Column(
                     children: [
-                      const Text('Head start for playing this month',
+                      Text(AppLocalizations.of(context)!.bayanahHeadStart,
                           style: TextStyle(color: Color(0xFFFDE68A), fontSize: 12)),
                       Text('+${_bonus!}',
                           style: const TextStyle(
@@ -367,7 +368,7 @@ class _BayanahPlayScreenState extends State<BayanahPlayScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Question ${q.index + 1} of ${q.total}',
+            Text(AppLocalizations.of(context)!.bayanahQuestionOf('${q.index + 1}', '${q.total}'),
                 style: const TextStyle(
                     color: Color(0xFF94A3B8),
                     fontWeight: FontWeight.w700,
@@ -389,9 +390,9 @@ class _BayanahPlayScreenState extends State<BayanahPlayScreen> {
             ],
             const SizedBox(height: 14),
             if (!_ready)
-              const Expanded(
+              Expanded(
                 child: Center(
-                  child: Text('Get ready…',
+                  child: Text(AppLocalizations.of(context)!.bayanahGetReady,
                       style: TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.w900,
@@ -423,9 +424,9 @@ class _BayanahPlayScreenState extends State<BayanahPlayScreen> {
                 ),
               ),
               if (_answered != null)
-                const Padding(
+                Padding(
                   padding: EdgeInsets.only(top: 6),
-                  child: Text('Answer locked — waiting for everyone…',
+                  child: Text(AppLocalizations.of(context)!.bayanahAnswerLocked,
                       textAlign: TextAlign.center,
                       style: TextStyle(color: Color(0xFF94A3B8))),
                 ),
@@ -569,7 +570,7 @@ class _BayanahPlayScreenState extends State<BayanahPlayScreen> {
         return ListView(
           padding: const EdgeInsets.only(top: 18),
           children: [
-            const Text('LEADERBOARD',
+            Text(AppLocalizations.of(context)!.bayanahLeaderboard,
                 style: TextStyle(
                     color: Color(0xFF94A3B8),
                     fontSize: 11,

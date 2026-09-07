@@ -615,7 +615,7 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
         _NavItemData(Icons.chat_bubble_rounded, l10n.navChat, 2, isChat: true),
         _NavItemData(Icons.description_rounded, l10n.navForms, 3),
         _NavItemData(Icons.work_outline_rounded, l10n.navJobs, 4),
-        _NavItemData(Icons.local_library_rounded, 'Library', 5),
+        _NavItemData(Icons.local_library_rounded, AppLocalizations.of(context)!.navLibrary, 5),
       ];
       if (_tontineEnabled) {
         items.add(_NavItemData(Icons.groups_rounded, l10n.tontineCircles, 6));
@@ -629,7 +629,7 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
         _NavItemData(Icons.chat_bubble_rounded, l10n.navChat, 1, isChat: true),
         _NavItemData(Icons.school_rounded, l10n.navClasses, 2),
         _NavItemData(Icons.task_alt_rounded, l10n.navTasks, 3),
-        _NavItemData(Icons.grid_view_rounded, 'More', 4),
+        _NavItemData(Icons.grid_view_rounded, AppLocalizations.of(context)!.navMore, 4),
       ];
     }
 
@@ -645,7 +645,7 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
             isChat: true,
           ),
           _NavItemData(Icons.task_alt_rounded, l10n.navTasks, 3),
-          _NavItemData(Icons.grid_view_rounded, 'More', 4),
+          _NavItemData(Icons.grid_view_rounded, AppLocalizations.of(context)!.navMore, 4),
         ];
       }
 
@@ -653,11 +653,11 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
       // the More grid, the same pattern teachers and admins use.
       return [
         _NavItemData(Icons.school_rounded, l10n.navClasses, 0),
-        _NavItemData(Icons.auto_stories_rounded, 'Quran', 1),
+        _NavItemData(Icons.auto_stories_rounded, AppLocalizations.of(context)!.navQuran, 1),
         _NavItemData(Icons.quiz_rounded, l10n.navQuiz, 2),
-        _NavItemData(Icons.emoji_events_rounded, 'Bayanah', 3),
+        _NavItemData(Icons.emoji_events_rounded, AppLocalizations.of(context)!.navBayanah, 3),
         _NavItemData(Icons.chat_bubble_rounded, l10n.navChat, 4, isChat: true),
-        _NavItemData(Icons.grid_view_rounded, 'More', 5),
+        _NavItemData(Icons.grid_view_rounded, AppLocalizations.of(context)!.navMore, 5),
       ];
     }
 
@@ -668,7 +668,7 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
       _NavItemData(Icons.chat_bubble_rounded, l10n.navChat, 2, isChat: true),
       _NavItemData(Icons.description_rounded, l10n.navForms, 3),
       _NavItemData(Icons.task_alt_rounded, l10n.navTasks, 4),
-      _NavItemData(Icons.local_library_rounded, 'Library', 5),
+      _NavItemData(Icons.local_library_rounded, AppLocalizations.of(context)!.navLibrary, 5),
     ];
     if (_tontineEnabled) {
       items.add(_NavItemData(Icons.groups_rounded, l10n.tontineCircles, 6));
@@ -1328,13 +1328,13 @@ class _AdminMoreScreen extends StatelessWidget {
       ),
       _MoreItem(
         icon: Icons.auto_stories_rounded,
-        label: 'Quran',
+        label: AppLocalizations.of(context)!.navQuran,
         color: const Color(0xff0E7490),
         screen: const QuranReaderScreen(),
       ),
       _MoreItem(
         icon: Icons.menu_book_rounded,
-        label: 'Books',
+        label: AppLocalizations.of(context)!.moreBooks,
         color: const Color(0xff10B981),
         screen: const CurriculumBooksScreen(),
       ),
@@ -1346,13 +1346,13 @@ class _AdminMoreScreen extends StatelessWidget {
       ),
       _MoreItem(
         icon: Icons.video_library_rounded,
-        label: 'Recordings',
+        label: AppLocalizations.of(context)!.moreRecordings,
         color: const Color(0xffEF4444),
         screen: const ClassRecordingsScreen(),
       ),
       _MoreItem(
         icon: Icons.podcasts_rounded,
-        label: 'Podcasts',
+        label: AppLocalizations.of(context)!.morePodcasts,
         color: const Color(0xff6366F1),
         screen: const SurahPodcastScreen(),
       ),
@@ -1456,7 +1456,7 @@ class _StudentMoreScreen extends StatelessWidget {
       ),
       _MoreItem(
         icon: Icons.auto_stories_rounded,
-        label: 'Quran',
+        label: AppLocalizations.of(context)!.navQuran,
         color: const Color(0xff0E7490),
         screen: const QuranReaderScreen(),
       ),
@@ -1480,7 +1480,7 @@ class _StudentMoreScreen extends StatelessWidget {
       ),
       _MoreItem(
         icon: Icons.menu_book_rounded,
-        label: 'Books',
+        label: AppLocalizations.of(context)!.moreBooks,
         color: const Color(0xff10B981),
         screen: const CurriculumBooksScreen(),
       ),

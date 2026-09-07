@@ -56,6 +56,7 @@ export default function StudentClassesPage() {
   const [isAdultStudent, setIsAdultStudent] = useState(() => cachedStudentSession()?.isAdultStudent ?? false);
   const [classes, setClasses] = useState<ClassRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [uid, setUid] = useState<string | null>(() => auth.currentUser?.uid ?? null);
   const [suspended, setSuspended] = useState(false);
   const t = useT();
   const [now, setNow] = useState(() => Date.now());
@@ -64,10 +65,12 @@ export default function StudentClassesPage() {
   useEffect(() => {
     return onAuthStateChanged(auth, async (nextUser) => {
       if (!nextUser) {
+        setUid(null);
         setAccess("signedOut");
         setLoading(false);
         return;
       }
+      setUid(nextUser.uid);
       const session = await resolveStudentSession(nextUser);
       if (!session.isStudent) {
         setAccess("denied");
@@ -95,8 +98,11 @@ export default function StudentClassesPage() {
     return () => window.clearInterval(timer);
   }, []);
 
+  // Depends on the uid as well as access: with a cached session, access is
+  // "allowed" from the first render, before Firebase Auth has produced the
+  // user — an effect keyed on access alone would run once without a uid and
+  // never subscribe.
   useEffect(() => {
-    const uid = auth.currentUser?.uid;
     if (access !== "allowed" || !uid) return;
     // Two days back so a class that ended within the last 24h (and may have
     // started yesterday) is still fetched for the Past tab.
@@ -119,7 +125,7 @@ export default function StudentClassesPage() {
       },
       () => setLoading(false),
     );
-  }, [access]);
+  }, [access, uid]);
 
   const { today, upcoming, past } = useMemo(() => {
     const endOfToday = new Date();

@@ -27,14 +27,17 @@ export default function StudentPaymentsPage() {
   const [isAdultStudent, setIsAdultStudent] = useState(() => cachedStudentSession()?.isAdultStudent ?? false);
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [uid, setUid] = useState<string | null>(() => auth.currentUser?.uid ?? null);
 
   useEffect(() => {
     return onAuthStateChanged(auth, async (nextUser) => {
       if (!nextUser) {
+        setUid(null);
         setAccess("signedOut");
         setLoading(false);
         return;
       }
+      setUid(nextUser.uid);
       const session = await resolveStudentSession(nextUser);
       if (!session.isStudent) {
         setAccess("denied");
@@ -58,7 +61,6 @@ export default function StudentPaymentsPage() {
    * payment history from them.
    */
   useEffect(() => {
-    const uid = auth.currentUser?.uid;
     if (access !== "allowed" || !uid) return;
 
     let byParent: PaymentRecord[] = [];
@@ -95,7 +97,7 @@ export default function StudentPaymentsPage() {
       unsubParent();
       unsubStudent();
     };
-  }, [access]);
+  }, [access, uid]);
 
   if (access !== "allowed") return <StudentAccessPrompt access={access} />;
 

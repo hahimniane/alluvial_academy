@@ -238,52 +238,80 @@
   "enrollmentProgramWizardProgress": "Enfant {current} sur {total}",
   "@enrollmentProgramWizardProgress": {
     "placeholders": {
-      "current": {"type": "int"},
-      "total": {"type": "int"}
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
     }
   },
   "enrollmentProgramWizardCtaHint": "Remplissez les champs pour cet enfant, puis appuyez sur Continuer. Quand tous les enfants sont terminés, Continuer passe à l’étape suivante.",
   "enrollmentSummaryLineDetail": "{program} · {hours} h/sem. · {price}",
   "@enrollmentSummaryLineDetail": {
     "placeholders": {
-      "program": {"type": "String"},
-      "hours": {"type": "int"},
-      "price": {"type": "String"}
+      "program": {
+        "type": "String"
+      },
+      "hours": {
+        "type": "int"
+      },
+      "price": {
+        "type": "String"
+      }
     }
   },
   "enrollmentSummaryAllChildrenTitle": "Les {count} enfants",
   "@enrollmentSummaryAllChildrenTitle": {
     "placeholders": {
-      "count": {"type": "int"}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "enrollmentProgramFieldLabel": "Programme",
   "enrollmentFooterWeeklyHoursSum": "{count} élèves · {hours} h/s au total",
   "@enrollmentFooterWeeklyHoursSum": {
     "placeholders": {
-      "count": {"type": "int"},
-      "hours": {"type": "int"}
+      "count": {
+        "type": "int"
+      },
+      "hours": {
+        "type": "int"
+      }
     }
   },
   "enrollmentFooterHouseholdTotalMo": "Est. {total}/mois au total",
   "@enrollmentFooterHouseholdTotalMo": {
     "placeholders": {
-      "total": {"type": "String"}
+      "total": {
+        "type": "String"
+      }
     }
   },
   "enrollmentFooterPerChildSameMo": "{each}/mois par enfant",
   "@enrollmentFooterPerChildSameMo": {
     "placeholders": {
-      "each": {"type": "String"}
+      "each": {
+        "type": "String"
+      }
     }
   },
   "enrollmentSummarySameProgramHouseholdDetail": "{program} · {hours} h/s chacun · {each} par enfant · {total} foyer/mois",
   "@enrollmentSummarySameProgramHouseholdDetail": {
     "placeholders": {
-      "program": {"type": "String"},
-      "hours": {"type": "int"},
-      "each": {"type": "String"},
-      "total": {"type": "String"}
+      "program": {
+        "type": "String"
+      },
+      "hours": {
+        "type": "int"
+      },
+      "each": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
     }
   },
   "enrollmentCustomTimePickEndTitle": "Heure de fin",
@@ -1349,19 +1377,25 @@
   "deleteThisAndFuture": "Supprimer celui-ci et les suivants ({count})",
   "@deleteThisAndFuture": {
     "placeholders": {
-      "count": {"type": "int"}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "deleteShiftConfirm": "Voulez-vous vraiment supprimer \"{name}\" ? Cette action est irréversible.",
   "@deleteShiftConfirm": {
     "placeholders": {
-      "name": {"type": "String"}
+      "name": {
+        "type": "String"
+      }
     }
   },
   "deleteShiftSeriesOptionsHint": "Ce cours fait partie d'une série. Vous pouvez supprimer uniquement celui-ci, ou celui-ci et tous les cours planifiés à venir ({count}).\n\nLes cours terminés/actifs ne sont pas supprimés.",
   "@deleteShiftSeriesOptionsHint": {
     "placeholders": {
-      "count": {"type": "int"}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "deletingShift": "Suppression du cours...",
@@ -1855,7 +1889,9 @@
   "auditDiscussionUnreadBadgeTooltip": "{count, plural, one{1 message non lu de l'enseignant} other{{count} messages non lus de l'enseignant}}",
   "@auditDiscussionUnreadBadgeTooltip": {
     "placeholders": {
-      "count": {"type": "int"}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "auditShareWithTeacherTooltip": "Partager avec l'enseignant (copier)",
@@ -2890,13 +2926,17 @@
   "timesheetReviewPendingCount": "{count} en attente",
   "@timesheetReviewPendingCount": {
     "placeholders": {
-      "count": {"type": "int"}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "timesheetReviewShowingCount": "{count} affichés",
   "@timesheetReviewShowingCount": {
     "placeholders": {
-      "count": {"type": "int"}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "timesheetReviewQueue": "File",
@@ -2906,13 +2946,17 @@
   "timesheetReviewExportFiltered": "Filtre actuel ({count} lignes)",
   "@timesheetReviewExportFiltered": {
     "placeholders": {
-      "count": {"type": "int"}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "timesheetReviewExportSelected": "Sélection uniquement ({count} lignes)",
   "@timesheetReviewExportSelected": {
     "placeholders": {
-      "count": {"type": "int"}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "timesheetReviewExportExcel": "Classeur Excel (.xlsx)",
@@ -2934,7 +2978,9 @@
   "timesheetReviewExportOnScreenSummary": "Exporte les {count} lignes actuellement affichées (filtres et recherche appliqués). Sept colonnes seulement, comme le tableau : enseignant, date, élève/activité, heures, paiement, source, statut.",
   "@timesheetReviewExportOnScreenSummary": {
     "placeholders": {
-      "count": {"type": "int"}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "timesheetReviewExportExcelOneSheet": "Une feuille dans le classeur (pas d’onglets de synthèse).",
@@ -3002,7 +3048,9 @@
   "timesheetReviewBulkSelection": "{count} sélectionné(s)",
   "@timesheetReviewBulkSelection": {
     "placeholders": {
-      "count": {"type": "int"}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "timesheetSubmittedForReview": "Calendrier soumis à l'examen",
@@ -5141,7 +5189,9 @@
   "adminAuditTeacherPayslipAcknowledgedOn": "Confirmé le {date}",
   "@adminAuditTeacherPayslipAcknowledgedOn": {
     "placeholders": {
-      "date": {"type": "String"}
+      "date": {
+        "type": "String"
+      }
     }
   },
   "adminAuditTeacherPayslipNotAcknowledged": "Pas encore confirmé",
@@ -5188,7 +5238,9 @@
   "publicSiteCmsPricingSavedThisTrack": "Tarifs enregistrés, y compris {name}. Tous les parcours restent synchronisés.",
   "@publicSiteCmsPricingSavedThisTrack": {
     "placeholders": {
-      "name": {"type": "String"}
+      "name": {
+        "type": "String"
+      }
     }
   },
   "publicSiteCmsHeroColorPickerTitle": "Couleur d'arrière-plan du bandeau",
@@ -5213,8 +5265,12 @@
   "publicSiteCmsTeamImportDone": "{imported} profil(s) importé(s). {skipped} déjà existant(s) ignoré(s).",
   "@publicSiteCmsTeamImportDone": {
     "placeholders": {
-      "imported": {"type": "int"},
-      "skipped": {"type": "int"}
+      "imported": {
+        "type": "int"
+      },
+      "skipped": {
+        "type": "int"
+      }
     }
   },
   "publicSiteCmsLinkedUserUid": "Compte lié (UID Firebase)",
@@ -5310,7 +5366,9 @@
   "unifiedCatSubjectCount": "{count} matières",
   "@unifiedCatSubjectCount": {
     "placeholders": {
-      "count": {"type": "int"}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "unifiedProgIslamQuranTitle": "Quran",
@@ -5523,7 +5581,6 @@
   "unifiedProgAsHighFeat1": "AP/IB readiness",
   "unifiedProgAsHighFeat2": "Time management",
   "unifiedProgAsHighFeat3": "Subject depth",
-
   "unifiedProgramsBrowse": "Parcourir les programmes",
   "unifiedProgramsTrust35": "35+ programmes",
   "unifiedProgramsTrustFlexible": "Horaires flexibles",
@@ -5531,7 +5588,6 @@
   "unifiedProgramsPerHour": "par heure",
   "heroExplorePrograms": "Découvrir nos programmes",
   "landingHeroSubtitle": "Parcourez le catalogue, choisissez vos heures et apprenez en ligne avec des tuteurs qualifiés.",
-
   "inviteParentDialogTitle": "Inviter le parent",
   "inviteParentDialogSubtitle": "Créez un compte parent lié à cet élève. Si l'adresse existe déjà, nous la lierons simplement.",
   "inviteParentEmailLabel": "E-mail du parent",
@@ -5548,7 +5604,6 @@
   "inviteParentSuccessLinked": "Parent existant lié à cet élève.",
   "inviteParentSuccessInvited": "E-mail d'invitation envoyé au parent.",
   "inviteParentSuccessInvitedNoEmail": "Compte parent créé, mais l'e-mail d'invitation n'a pas pu être envoyé.",
-
   "manageGuardiansButton": "Gérer les responsables",
   "manageGuardiansTitle": "Responsables liés",
   "manageGuardiansSubtitle": "Parents actuellement liés à {studentName}. Dissocier supprime leur accès aux cours, discussions et factures de cet élève.",
@@ -5571,7 +5626,6 @@
   "unlinkGuardianAdultOverrideBody": "{studentName} n'a aucun autre parent valide lié. Continuez seulement si un administrateur a confirmé que cet élève doit gérer son propre compte comme adulte après le retrait de {guardianName}.",
   "unlinkGuardianAdultOverrideAction": "Marquer adulte et dissocier",
   "invalidParentSelected": "Parent sélectionné invalide.",
-
   "enrollmentStateChooseProgram": "1. Choisir un programme",
   "enrollmentStateClassPreferences": "2. Préférences de cours",
   "enrollmentStatePricingAndHours": "3. Tarifs et heures",
@@ -5596,7 +5650,6 @@
   "enrollmentStateFemale": "Féminin",
   "enrollmentStatePreferredTimeOfDay": "Moment de la journée préféré",
   "enrollmentStatePreferredDays": "Jours préférés",
-
   "prepareBroadcastTitle": "Préparer et diffuser",
   "prepareBroadcastSubtitle": "Vérifiez et ajustez le planning avant que les enseignants le voient",
   "prepareBroadcastParentStudentNotes": "Notes parent/élève",
@@ -5633,7 +5686,6 @@
   "prepareBroadcastNoTeachersFound": "Aucun enseignant trouvé",
   "prepareBroadcastSelectTeacherFirst": "Sélectionnez au moins un enseignant avant de diffuser.",
   "prepareBroadcastTeachersSelected": "{count} enseignant(s) sélectionné(s)",
-
   "adminActionCardsViewAll": "Tout voir",
   "adminActionCardsPendingTimesheets": "Feuilles de présence en attente",
   "adminActionCardsTimesheetReview": "Révision des feuilles de présence",
@@ -5659,10 +5711,8 @@
   "adminActionCardsNoTeacherApplicants": "Aucun candidat enseignant",
   "adminActionCardsTeachers": "Enseignants",
   "adminActionCardsViewTeachers": "Voir les enseignants",
-
   "landingHeroHeadline": "Apprenez grâce au tutorat en ligne\nde partout dans le monde",
   "landingHeroSearchHint": "Qu'aimeriez-vous apprendre ?",
-
   "aboutValuesAuthenticity": "Authenticité",
   "aboutValuesAuthenticityDesc": "Enraciné dans le Coran et la Sunna",
   "aboutValuesCompassion": "Compassion",
@@ -5881,7 +5931,9 @@
   "zoomScopeBody": "Basculer tous les cours de {name} vers Zoom, ou seulement les cours des élèves sélectionnés ?",
   "@zoomScopeBody": {
     "placeholders": {
-      "name": { "type": "String" }
+      "name": {
+        "type": "String"
+      }
     }
   },
   "zoomScopeAll": "Tous les cours",
@@ -5894,7 +5946,13 @@
   "financeCutoffsTab": "Coupures",
   "financeOverviewTitle": "Centre de commande finance",
   "financeMonthLive": "Vue en direct pour {month}. Les revenus, factures, dépenses enregistrées et paie approuvée sont reflétés ici.",
-  "@financeMonthLive": {"placeholders": {"month": {"type": "Object"}}},
+  "@financeMonthLive": {
+    "placeholders": {
+      "month": {
+        "type": "Object"
+      }
+    }
+  },
   "financePreviousMonth": "Mois précédent",
   "financeNextMonth": "Mois suivant",
   "financeOpenCreateInvoice": "Créer une facture",
@@ -5907,9 +5965,21 @@
   "financeIncomeGoal": "Objectif de revenu",
   "financeNoIncomeGoal": "Aucun objectif défini",
   "financeGoalProgress": "{percent} de l'objectif",
-  "@financeGoalProgress": {"placeholders": {"percent": {"type": "Object"}}},
+  "@financeGoalProgress": {
+    "placeholders": {
+      "percent": {
+        "type": "Object"
+      }
+    }
+  },
   "financeProjectedGoalProgress": "Projection {percent} de l'objectif",
-  "@financeProjectedGoalProgress": {"placeholders": {"percent": {"type": "Object"}}},
+  "@financeProjectedGoalProgress": {
+    "placeholders": {
+      "percent": {
+        "type": "Object"
+      }
+    }
+  },
   "financeInvoiced": "Facturé",
   "financeOutstanding": "Solde dû",
   "financeKnownExpenses": "Dépenses connues",
@@ -5919,9 +5989,21 @@
   "financeNoPriorRevenue": "Aucun revenu précédent",
   "financeNewRevenueThisMonth": "Nouveau ce mois",
   "financeUpFromLastMonth": "Hausse de {percent} vs mois dernier",
-  "@financeUpFromLastMonth": {"placeholders": {"percent": {"type": "Object"}}},
+  "@financeUpFromLastMonth": {
+    "placeholders": {
+      "percent": {
+        "type": "Object"
+      }
+    }
+  },
   "financeDownFromLastMonth": "Baisse de {percent} vs mois dernier",
-  "@financeDownFromLastMonth": {"placeholders": {"percent": {"type": "Object"}}},
+  "@financeDownFromLastMonth": {
+    "placeholders": {
+      "percent": {
+        "type": "Object"
+      }
+    }
+  },
   "financeOverdueInvoices": "factures en retard",
   "financeStaffPayrollOnly": "Paie seulement",
   "financePartialLedger": "Grand livre partiel",
@@ -6041,13 +6123,31 @@
   "adminInvoiceBillingOptionsTitle": "Options de facturation",
   "adminInvoiceBillingCoverage": "Mois inclus",
   "adminInvoiceBillingCoveragePreview": "La facture couvre {period}",
-  "@adminInvoiceBillingCoveragePreview": {"placeholders": {"period": {"type": "Object"}}},
+  "@adminInvoiceBillingCoveragePreview": {
+    "placeholders": {
+      "period": {
+        "type": "Object"
+      }
+    }
+  },
   "adminInvoiceCoverageOneMonth": "1 mois",
   "adminInvoiceCoverageMonths": "{count} mois",
-  "@adminInvoiceCoverageMonths": {"placeholders": {"count": {"type": "Object"}}},
+  "@adminInvoiceCoverageMonths": {
+    "placeholders": {
+      "count": {
+        "type": "Object"
+      }
+    }
+  },
   "adminInvoiceRecurringPlan": "Rendre récurrente",
   "adminInvoiceRecurringPlanSubtitle": "Crée automatiquement la prochaine facture de {coverage} au début de cette période et suit les échecs d'envoi.",
-  "@adminInvoiceRecurringPlanSubtitle": {"placeholders": {"coverage": {"type": "Object"}}},
+  "@adminInvoiceRecurringPlanSubtitle": {
+    "placeholders": {
+      "coverage": {
+        "type": "Object"
+      }
+    }
+  },
   "cutoffTitle": "Contrôle des coupures d'accès",
   "cutoffSubtitle": "Élèves suspendus, factures bloquantes et prolongations rapides.",
   "cutoffSuspendedStudents": "Suspendus",
@@ -6066,9 +6166,21 @@
   "cutoffExtendTitle": "Prolonger la date limite d'accès",
   "cutoffExtendParentTitle": "Prolonger le groupe parent",
   "cutoffExtendBody": "Choisissez une nouvelle date limite pour {name}. Les factures bloquantes seront déplacées à cette date.",
-  "@cutoffExtendBody": {"placeholders": {"name": {"type": "Object"}}},
+  "@cutoffExtendBody": {
+    "placeholders": {
+      "name": {
+        "type": "Object"
+      }
+    }
+  },
   "cutoffExtendParentBody": "Choisissez une nouvelle date limite pour tous les élèves bloqués sous {name}.",
-  "@cutoffExtendParentBody": {"placeholders": {"name": {"type": "Object"}}},
+  "@cutoffExtendParentBody": {
+    "placeholders": {
+      "name": {
+        "type": "Object"
+      }
+    }
+  },
   "cutoffExtendBy7": "+7 jours",
   "cutoffExtendBy14": "+14 jours",
   "cutoffExtendBy30": "+30 jours",
@@ -6097,13 +6209,17 @@
   "leaderAttendanceUntil": "Planifié jusqu’à {time}",
   "@leaderAttendanceUntil": {
     "placeholders": {
-      "time": { "type": "String" }
+      "time": {
+        "type": "String"
+      }
     }
   },
   "leaderAttendanceShiftAt": "Service actuel/suivant : {time}",
   "@leaderAttendanceShiftAt": {
     "placeholders": {
-      "time": { "type": "String" }
+      "time": {
+        "type": "String"
+      }
     }
   },
   "leaderAttendanceNoUpcomingShift": "Aucun autre service ce mois-ci",
@@ -6112,13 +6228,17 @@
   "timeClockEarlyClockOutBody": "Vous pointez {minutes} minutes avant la fin prévue. Expliquez pourquoi.",
   "@timeClockEarlyClockOutBody": {
     "placeholders": {
-      "minutes": { "type": "int" }
+      "minutes": {
+        "type": "int"
+      }
     }
   },
   "timeClockLateClockOutBody": "Vous pointez {minutes} minutes après la fin prévue. Expliquez pourquoi.",
   "@timeClockLateClockOutBody": {
     "placeholders": {
-      "minutes": { "type": "int" }
+      "minutes": {
+        "type": "int"
+      }
     }
   },
   "timeClockClockOutNoteLabel": "Explication",
@@ -6130,13 +6250,17 @@
   "timeClockTeachingSessionTitle": "Enseignement : {name}",
   "@timeClockTeachingSessionTitle": {
     "placeholders": {
-      "name": { "type": "String" }
+      "name": {
+        "type": "String"
+      }
     }
   },
   "timeClockLeadershipSessionTitle": "Leadership : {name}",
   "@timeClockLeadershipSessionTitle": {
     "placeholders": {
-      "name": { "type": "String" }
+      "name": {
+        "type": "String"
+      }
     }
   },
   "studentAttendanceOverviewNav": "Présence des élèves",
@@ -6151,7 +6275,9 @@
   "studentAttendanceStudentsTracked": "{count} élèves suivis",
   "@studentAttendanceStudentsTracked": {
     "placeholders": {
-      "count": { "type": "int" }
+      "count": {
+        "type": "int"
+      }
     }
   },
   "studentAttendanceClassTime": "Temps de classe",
@@ -6162,14 +6288,20 @@
   "studentAttendanceHoursValue": "{hours} h",
   "@studentAttendanceHoursValue": {
     "placeholders": {
-      "hours": { "type": "String" }
+      "hours": {
+        "type": "String"
+      }
     }
   },
   "studentAttendancePeriodLabel": "{start} – {end}",
   "@studentAttendancePeriodLabel": {
     "placeholders": {
-      "start": { "type": "String" },
-      "end": { "type": "String" }
+      "start": {
+        "type": "String"
+      },
+      "end": {
+        "type": "String"
+      }
     }
   },
   "studentAttendanceNoDataTitle": "Aucune donnée de présence",
@@ -6189,14 +6321,20 @@
   "formDecisionNotificationTitle": "Décision du formulaire : {status}",
   "@formDecisionNotificationTitle": {
     "placeholders": {
-      "status": { "type": "String" }
+      "status": {
+        "type": "String"
+      }
     }
   },
   "formDecisionNotificationBody": "Votre demande {formTitle} a été marquée comme {status}. Ouvrez Mes soumissions de formulaires pour plus de détails.",
   "@formDecisionNotificationBody": {
     "placeholders": {
-      "formTitle": { "type": "String" },
-      "status": { "type": "String" }
+      "formTitle": {
+        "type": "String"
+      },
+      "status": {
+        "type": "String"
+      }
     }
   },
   "formDecisionNotificationSent": "Décision enregistrée et enseignant avisé.",
@@ -6231,7 +6369,22 @@
   "publicPricingGroupFeatureTwo": "Tarif horaire fixe",
   "publicPricingGroupFeatureThree": "Apprentissage en communauté",
   "publicPricingFormula": "{hours} h × {rate}/h × {weeks} semaines ≈ {monthly}/mois",
-  "@publicPricingFormula": {"placeholders": {"hours": {"type": "int"}, "rate": {"type": "String"}, "weeks": {"type": "String"}, "monthly": {"type": "String"}}},
+  "@publicPricingFormula": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      },
+      "rate": {
+        "type": "String"
+      },
+      "weeks": {
+        "type": "String"
+      },
+      "monthly": {
+        "type": "String"
+      }
+    }
+  },
   "publicAboutTitle": "À propos d’Alluwal Education Hub",
   "publicAboutBody": "Nous bâtissons un monde où les savoirs islamiques, africains et occidentaux se rencontrent afin de préparer les élèves à un avenir mondialisé.",
   "publicAboutMissionTitle": "Notre mission",
@@ -6285,7 +6438,16 @@
   "publicAvailabilityOneMonth": "Dans un mois",
   "publicApplicationSubmitFailed": "Impossible d’envoyer votre candidature. Veuillez réessayer.",
   "publicTeacherStepProgress": "Étape {current} sur {total}",
-  "@publicTeacherStepProgress": {"placeholders": {"current": {"type": "int"}, "total": {"type": "int"}}},
+  "@publicTeacherStepProgress": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
   "publicTeacherPersonalInfo": "Renseignements personnels",
   "publicTeacherWhatsApp": "Numéro WhatsApp",
   "publicTeacherTeachingPrograms": "Programmes d’enseignement",
@@ -6312,9 +6474,27 @@
   "publicTeacherInterestHint": "Décrivez votre motivation…",
   "publicTeacherInterestRequired": "Veuillez expliquer votre intérêt",
   "publicTeacherMinWords": "Veuillez écrire au moins {minimum} mots (actuellement : {current})",
-  "@publicTeacherMinWords": {"placeholders": {"minimum": {"type": "int"}, "current": {"type": "int"}}},
+  "@publicTeacherMinWords": {
+    "placeholders": {
+      "minimum": {
+        "type": "int"
+      },
+      "current": {
+        "type": "int"
+      }
+    }
+  },
   "publicTeacherMaxWords": "Veuillez limiter votre réponse à {maximum} mots (actuellement : {current})",
-  "@publicTeacherMaxWords": {"placeholders": {"maximum": {"type": "int"}, "current": {"type": "int"}}},
+  "@publicTeacherMaxWords": {
+    "placeholders": {
+      "maximum": {
+        "type": "int"
+      },
+      "current": {
+        "type": "int"
+      }
+    }
+  },
   "publicTeacherElectricityPrompt": "À quelle fréquence avez-vous de l’électricité chez vous ?",
   "publicTeacherComfortPrompt": "Dans quelle mesure êtes-vous à l’aise pour enseigner en ligne aux adolescents, aux adultes et aux enfants ?",
   "publicTeacherSafetyPrompt": "Garantissez-vous des interactions responsables, légales et respectueuses avec les élèves, en particulier les mineurs ?",
@@ -6353,7 +6533,13 @@
   "publicPhoneExpiredCode": "Le code a expiré. Demandez-en un nouveau.",
   "publicPhoneCodeTitle": "Saisir le code SMS",
   "publicPhoneCodeSent": "Nous avons envoyé un code de vérification au {phone}",
-  "@publicPhoneCodeSent": {"placeholders": {"phone": {"type": "String"}}},
+  "@publicPhoneCodeSent": {
+    "placeholders": {
+      "phone": {
+        "type": "String"
+      }
+    }
+  },
   "publicPhoneInstructions": "Saisissez votre numéro pour recevoir un code de vérification",
   "publicPhoneSendCode": "Envoyer le code",
   "publicPhoneVerify": "Vérifier et se connecter",
@@ -6391,7 +6577,13 @@
   "publicEnterEmailFirst": "Saisissez d’abord votre adresse courriel.",
   "publicResetTitle": "Courriel de réinitialisation envoyé",
   "publicResetBody": "Un lien de réinitialisation a été envoyé à {email}. Consultez votre boîte de réception et suivez les instructions.",
-  "@publicResetBody": {"placeholders": {"email": {"type": "String"}}},
+  "@publicResetBody": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
   "publicResetTooMany": "Trop de demandes de réinitialisation. Attendez quelques minutes puis réessayez.",
   "publicNetworkError": "Vérifiez votre connexion Internet puis réessayez.",
   "publicShowPassword": "Afficher le mot de passe",
@@ -6401,15 +6593,45 @@
   "publicGoogleFailed": "La connexion avec Google a échoué. Veuillez réessayer.",
   "enrollmentStudentNameRequired": "Veuillez saisir le nom de l’élève",
   "enrollmentStudentNumberNameRequired": "Veuillez saisir le nom de l’élève {studentNumber}",
-  "@enrollmentStudentNumberNameRequired": {"placeholders": {"studentNumber": {"type": "int"}}},
+  "@enrollmentStudentNumberNameRequired": {
+    "placeholders": {
+      "studentNumber": {
+        "type": "int"
+      }
+    }
+  },
   "enrollmentStudentProgramRequired": "Veuillez sélectionner un programme pour l’élève {studentNumber}",
-  "@enrollmentStudentProgramRequired": {"placeholders": {"studentNumber": {"type": "int"}}},
+  "@enrollmentStudentProgramRequired": {
+    "placeholders": {
+      "studentNumber": {
+        "type": "int"
+      }
+    }
+  },
   "enrollmentStudentLanguageRequired": "Veuillez sélectionner une langue précise pour l’élève {studentNumber}",
-  "@enrollmentStudentLanguageRequired": {"placeholders": {"studentNumber": {"type": "int"}}},
+  "@enrollmentStudentLanguageRequired": {
+    "placeholders": {
+      "studentNumber": {
+        "type": "int"
+      }
+    }
+  },
   "enrollmentStudentLevelRequired": "Veuillez sélectionner un niveau pour l’élève {studentNumber}",
-  "@enrollmentStudentLevelRequired": {"placeholders": {"studentNumber": {"type": "int"}}},
+  "@enrollmentStudentLevelRequired": {
+    "placeholders": {
+      "studentNumber": {
+        "type": "int"
+      }
+    }
+  },
   "enrollmentStudentClassTypeRequired": "Veuillez sélectionner un type de cours pour l’élève {studentNumber}",
-  "@enrollmentStudentClassTypeRequired": {"placeholders": {"studentNumber": {"type": "int"}}},
+  "@enrollmentStudentClassTypeRequired": {
+    "placeholders": {
+      "studentNumber": {
+        "type": "int"
+      }
+    }
+  },
   "enrollmentAllProgramsRequired": "Veuillez sélectionner un programme pour tous les enfants",
   "enrollmentSpecificLanguageRequired": "Veuillez sélectionner une langue précise",
   "enrollmentAllLevelsRequired": "Veuillez sélectionner un niveau pour tous les enfants",
@@ -6428,7 +6650,13 @@
   "enrollmentReviewTimeSlots": "Créneaux horaires",
   "enrollmentReviewTimePreference": "Préférence horaire",
   "enrollmentStudentNumber": "Élève {studentNumber}",
-  "@enrollmentStudentNumber": {"placeholders": {"studentNumber": {"type": "int"}}},
+  "@enrollmentStudentNumber": {
+    "placeholders": {
+      "studentNumber": {
+        "type": "int"
+      }
+    }
+  },
   "enrollmentStudentNameLabel": "Nom de l’élève",
   "enrollmentStudentNameHint": "Saisissez le nom complet",
   "enrollmentAgeLabel": "Âge",
@@ -6443,7 +6671,13 @@
   "enrollmentEvening": "Soir",
   "enrollmentFlexible": "Flexible",
   "enrollmentSelectField": "Sélectionnez {field}",
-  "@enrollmentSelectField": {"placeholders": {"field": {"type": "String"}}},
+  "@enrollmentSelectField": {
+    "placeholders": {
+      "field": {
+        "type": "String"
+      }
+    }
+  },
   "enrollmentDayMon": "Lun",
   "enrollmentDayTue": "Mar",
   "enrollmentDayWed": "Mer",
@@ -6483,7 +6717,16 @@
   "countryNetherlands": "Pays-Bas",
   "countrySwitzerland": "Suisse",
   "enrollmentFooterStudentHours": "{count, plural, =1{1 élève} other{{count} élèves}} · {hours} h/sem",
-  "@enrollmentFooterStudentHours": {"placeholders": {"count": {"type": "int"}, "hours": {"type": "int"}}},
+  "@enrollmentFooterStudentHours": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "hours": {
+        "type": "int"
+      }
+    }
+  },
   "teamRoleFounder": "Fondateur",
   "teamRoleTechnologyOfficer": "Directeur de la technologie",
   "teamRoleExecutiveOfficer": "Directeur général",
@@ -6504,7 +6747,13 @@
   "quizReviewGenerate": "Générer des questions",
   "quizReviewGenerateStarted": "Génération de nouvelles questions… elles apparaîtront ici dans une minute.",
   "quizReviewActionFailed": "Échec de l'action : {error}",
-  "@quizReviewActionFailed": {"placeholders": {"error": {"type": "String"}}},
+  "@quizReviewActionFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "quizReviewApprovedSnack": "Question approuvée",
   "quizReviewRejectedSnack": "Question rejetée",
   "quizReviewRejectionReasonTitle": "Pourquoi rejeter cette question ?",
@@ -6513,7 +6762,13 @@
   "quizReviewRejectionReasonRequired": "Veuillez donner un motif avant de rejeter.",
   "quizReviewConfirmRejection": "Rejeter la question",
   "quizReviewPendingCount": "{count} en attente",
-  "@quizReviewPendingCount": {"placeholders": {"count": {"type": "int"}}},
+  "@quizReviewPendingCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "quizReviewSendStudentBatch": "Envoyer le lot élèves",
   "quizReviewStudentBatchSent": "Le lot de questions approuvées a été envoyé aux élèves.",
   "quizReviewManageReviewers": "Enseignants réviseurs",
@@ -6521,26 +6776,77 @@
   "quizReviewReviewersSaved": "Les enseignants réviseurs ont été enregistrés et avertis du lot en attente.",
   "quizReviewRecentDecisions": "Décisions récentes",
   "quizReviewDecisionBy": "{status} par {name} ({role})",
-  "@quizReviewDecisionBy": {"placeholders": {"status": {"type": "String"}, "name": {"type": "String"}, "role": {"type": "String"}}},
+  "@quizReviewDecisionBy": {
+    "placeholders": {
+      "status": {
+        "type": "String"
+      },
+      "name": {
+        "type": "String"
+      },
+      "role": {
+        "type": "String"
+      }
+    }
+  },
   "quizCompetitionStudentTitle": "Défi Bayannah mensuel",
   "quizCompetitionAdminTitle": "Concours Bayannah",
   "quizCompetitionMonth": "Mois du concours : {month}",
-  "@quizCompetitionMonth": {"placeholders": {"month": {"type": "String"}}},
+  "@quizCompetitionMonth": {
+    "placeholders": {
+      "month": {
+        "type": "String"
+      }
+    }
+  },
   "quizCompetitionRules": "Réponds à des questions uniques pendant tout le mois. Pour te qualifier, réponds à au moins {questions} questions sur {days} jours différents. Le plus grand nombre de réponses uniques gagne ; les égalités sont départagées par les bonnes réponses, la précision, les jours actifs, puis l'heure du score final.",
-  "@quizCompetitionRules": {"placeholders": {"questions": {"type": "int"}, "days": {"type": "int"}}},
+  "@quizCompetitionRules": {
+    "placeholders": {
+      "questions": {
+        "type": "int"
+      },
+      "days": {
+        "type": "int"
+      }
+    }
+  },
   "quizCompetitionQuestions": "Questions",
   "quizCompetitionActiveDays": "Jours actifs",
   "quizCompetitionRank": "Rang",
   "quizCompetitionRetry": "Réessayer le statut du concours",
   "quizCompetitionNoWinner": "Aucun élève n'a atteint le minimum de participation ce mois-ci.",
   "quizCompetitionWinner": "Gagnant(e) : {name}",
-  "@quizCompetitionWinner": {"placeholders": {"name": {"type": "String"}}},
+  "@quizCompetitionWinner": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "quizCompetitionAnswered": "{count} questions uniques répondues",
-  "@quizCompetitionAnswered": {"placeholders": {"count": {"type": "int"}}},
+  "@quizCompetitionAnswered": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "quizCompetitionLeaderboard": "Classement",
   "quizCompetitionNoParticipants": "Aucun élève n'a encore répondu à une question du concours.",
   "quizCompetitionEntryStats": "{answered} réponses · {correct} correctes · {days} jours actifs",
-  "@quizCompetitionEntryStats": {"placeholders": {"answered": {"type": "int"}, "correct": {"type": "int"}, "days": {"type": "int"}}},
+  "@quizCompetitionEntryStats": {
+    "placeholders": {
+      "answered": {
+        "type": "int"
+      },
+      "correct": {
+        "type": "int"
+      },
+      "days": {
+        "type": "int"
+      }
+    }
+  },
   "quizCompetitionChooseMonth": "Choisir le mois",
   "quizCompetitionFinalizeTitle": "Finaliser ce concours ?",
   "quizCompetitionFinalizeBody": "Chaque tranche d'âge ayant assez d'élèves admissibles aura un gagnant ou des co-gagnants en cas d'égalité exacte. Une clôture anticipée ou une correction exige un motif écrit.",
@@ -6551,30 +6857,102 @@
   "quizCompetitionCancel": "Annuler",
   "quizCompetitionAnswerNotCounted": "Cette réponse n'a pas pu être ajoutée au concours mensuel. Vérifie ta connexion et essaie une autre question.",
   "quizCompetitionFairRules": "Tu concoures uniquement dans ta tranche d'âge. Pour te qualifier : {questions} questions uniques sur {days} jours et au moins {accuracy} % de bonnes réponses. Il faut {participants} élèves admissibles par tranche. Une égalité exacte donne des co-gagnants.",
-  "@quizCompetitionFairRules": {"placeholders": {"questions": {"type": "int"}, "days": {"type": "int"}, "accuracy": {"type": "int"}, "participants": {"type": "int"}}},
+  "@quizCompetitionFairRules": {
+    "placeholders": {
+      "questions": {
+        "type": "int"
+      },
+      "days": {
+        "type": "int"
+      },
+      "accuracy": {
+        "type": "int"
+      },
+      "participants": {
+        "type": "int"
+      }
+    }
+  },
   "quizCompetitionCategoryProgress": "Pour te qualifier, explore chaque catégorie : {attempted}/{required} terminées.",
-  "@quizCompetitionCategoryProgress": {"placeholders": {"attempted": {"type": "int"}, "required": {"type": "int"}}},
+  "@quizCompetitionCategoryProgress": {
+    "placeholders": {
+      "attempted": {
+        "type": "int"
+      },
+      "required": {
+        "type": "int"
+      }
+    }
+  },
   "quizCompetitionNearbyRanks": "Rangs les plus proches dans ta tranche",
   "quizCompetitionNearbyAhead": "Devant · n°{rank} {name}",
-  "@quizCompetitionNearbyAhead": {"placeholders": {"rank": {"type": "int"}, "name": {"type": "String"}}},
+  "@quizCompetitionNearbyAhead": {
+    "placeholders": {
+      "rank": {
+        "type": "int"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "quizCompetitionNearbyBehind": "Derrière · n°{rank} {name}",
-  "@quizCompetitionNearbyBehind": {"placeholders": {"rank": {"type": "int"}, "name": {"type": "String"}}},
+  "@quizCompetitionNearbyBehind": {
+    "placeholders": {
+      "rank": {
+        "type": "int"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "quizCompetitionCountingWindow": "Les réponses comptent du {start} au {end}.",
-  "@quizCompetitionCountingWindow": {"placeholders": {"start": {"type": "String"}, "end": {"type": "String"}}},
+  "@quizCompetitionCountingWindow": {
+    "placeholders": {
+      "start": {
+        "type": "String"
+      },
+      "end": {
+        "type": "String"
+      }
+    }
+  },
   "quizCompetitionSetWindow": "Définir la période",
   "quizCompetitionCountingStart": "Premier jour comptabilisé",
   "quizCompetitionCountingEnd": "Dernier jour comptabilisé",
   "quizCompetitionWindowSaved": "Période de comptage enregistrée.",
   "quizCompetitionLifetimeWins": "Victoires au total : {count}",
-  "@quizCompetitionLifetimeWins": {"placeholders": {"count": {"type": "int"}}},
+  "@quizCompetitionLifetimeWins": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "quizCompetitionCategoryGuidance": "Conseils par catégorie",
   "quizCompetitionCategoryInsight": "{correct}/{answered} correctes",
-  "@quizCompetitionCategoryInsight": {"placeholders": {"correct": {"type": "int"}, "answered": {"type": "int"}}},
+  "@quizCompetitionCategoryInsight": {
+    "placeholders": {
+      "correct": {
+        "type": "int"
+      },
+      "answered": {
+        "type": "int"
+      }
+    }
+  },
   "quizCompetitionCategoryStart": "Commence ici",
   "quizCompetitionCategoryPractice": "À revoir",
   "quizCompetitionCategoryStrong": "Bon progrès",
   "quizCompetitionDivision": "Tranche : {division}",
-  "@quizCompetitionDivision": {"placeholders": {"division": {"type": "String"}}},
+  "@quizCompetitionDivision": {
+    "placeholders": {
+      "division": {
+        "type": "String"
+      }
+    }
+  },
   "quizCompetitionDivisionEarlyLearners": "Petits apprenants (moins de 8 ans)",
   "quizCompetitionDivisionJuniors": "Juniors (8–11 ans)",
   "quizCompetitionDivisionYouth": "Jeunes (12–17 ans)",
@@ -6582,9 +6960,24 @@
   "quizCompetitionDivisionUnassigned": "Tranche d'âge à confirmer",
   "quizCompetitionDivisionNeeded": "Tes réponses sont enregistrées, mais tu ne seras pas classé tant que ta tranche d'âge n'est pas définie.",
   "quizCompetitionCoWinners": "Co-gagnants : {names}",
-  "@quizCompetitionCoWinners": {"placeholders": {"names": {"type": "String"}}},
+  "@quizCompetitionCoWinners": {
+    "placeholders": {
+      "names": {
+        "type": "String"
+      }
+    }
+  },
   "quizCompetitionDivisionSummary": "{participants} participants · {eligible} admissibles",
-  "@quizCompetitionDivisionSummary": {"placeholders": {"participants": {"type": "int"}, "eligible": {"type": "int"}}},
+  "@quizCompetitionDivisionSummary": {
+    "placeholders": {
+      "participants": {
+        "type": "int"
+      },
+      "eligible": {
+        "type": "int"
+      }
+    }
+  },
   "quizCompetitionAssignDivision": "Attribuer une tranche",
   "quizCompetitionAssignDivisionTitle": "Attribuer la tranche d'âge",
   "quizCompetitionAssignDivisionReason": "Motif ou âge vérifié (obligatoire)",
@@ -6604,7 +6997,16 @@
   "quizCompetitionStatusParticipating": "Participe",
   "quizCompetitionStatusQualified": "Admissible",
   "quizCategoryCount": "{categories} catégories • {questions}+ questions",
-  "@quizCategoryCount": {"placeholders": {"categories": {"type": "int"}, "questions": {"type": "int"}}},
+  "@quizCategoryCount": {
+    "placeholders": {
+      "categories": {
+        "type": "int"
+      },
+      "questions": {
+        "type": "int"
+      }
+    }
+  },
   "parentFormsTitle": "Formulaires familiaux",
   "parentFormsSubtitle": "Envoyez une demande d'excuse ou partagez vos commentaires avec les responsables de l'école.",
   "parentExcuseFormTitle": "Demande d'excuse d'absence de l'élève",
@@ -6627,14 +7029,132 @@
   "adminInvoiceDeleteBlockedPaymentInProgress": "Cette facture ne peut pas être supprimée tant qu’un paiement est en attente ou en cours de traitement.",
   "adminInvoiceDeleteBlockedPaymentHistory": "Cette facture contient un historique de paiement et ne peut pas être supprimée. Annulez-la plutôt.",
   "classRosterAssignedStudents": "Élèves inscrits ({count})",
-  "@classRosterAssignedStudents": {"placeholders": {"count": {"type": "int"}}},
+  "@classRosterAssignedStudents": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "classRosterStudentId": "ID élève : {id}",
-  "@classRosterStudentId": {"placeholders": {"id": {"type": "String"}}},
+  "@classRosterStudentId": {
+    "placeholders": {
+      "id": {
+        "type": "String"
+      }
+    }
+  },
   "classRosterParentName": "Parent : {name}",
-  "@classRosterParentName": {"placeholders": {"name": {"type": "String"}}},
+  "@classRosterParentName": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "classRosterPhone": "Téléphone : {phone}",
-  "@classRosterPhone": {"placeholders": {"phone": {"type": "String"}}},
+  "@classRosterPhone": {
+    "placeholders": {
+      "phone": {
+        "type": "String"
+      }
+    }
+  },
   "classRosterNoParentLinked": "Aucun parent associé",
   "classRosterNoPhoneNumber": "Aucun numéro de téléphone",
-  "classRosterContactsUnavailable": "Coordonnées indisponibles"
+  "classRosterContactsUnavailable": "Coordonnées indisponibles",
+  "navQuran": "Coran",
+  "navBayanah": "Bayanah",
+  "navMore": "Plus",
+  "navLibrary": "Bibliothèque",
+  "moreBooks": "Livres",
+  "moreRecordings": "Enregistrements",
+  "morePodcasts": "Podcasts",
+  "libraryQuran": "Coran",
+  "tutorHandsFree": "Tutorat mains libres",
+  "tutorTagline": "Parle, c'est tout. Alluwal écoute et répond.",
+  "tutorIntro": "Pose une question sur une leçon, révise une sourate, fais-toi aider pour les devoirs — en anglais, en français ou en arabe. Les séances durent jusqu'à {minutes} minutes.",
+  "tutorContinue": "Reprendre la séance",
+  "tutorStartNow": "Commencer",
+  "tutorCheckingSeats": "Vérification des places…",
+  "tutorSessionOpen": "Ta séance est encore ouverte.",
+  "tutorSeatsFreeNow": "places libres en ce moment",
+  "tutorSeatsOpensAt": "places libres — le tuteur ouvre à {time}",
+  "tutorSeatsBookBelow": "places libres — réserve une heure ci-dessous.",
+  "tutorBookedHours": "Tes heures réservées",
+  "tutorBookAnHour": "Réserver une heure",
+  "tutorBookingRule": "{window} · jusqu'à {n} par jour",
+  "tutorBooked": "Réservé",
+  "tutorFull": "Complet",
+  "tutorSeats": "{n} places",
+  "tutorNoHours": "Plus aucune heure à réserver dans les deux prochains jours.",
+  "tutorThinking": "Je réfléchis…",
+  "tutorSpeaking": "Je parle — touche pour m'interrompre",
+  "tutorReady": "Prêt",
+  "tutorEnd": "Terminer",
+  "tutorTypePlaceholder": "Ou écris une question…",
+  "tutorHourUp": "Ton heure est écoulée. Réserve-en une autre pour continuer.",
+  "tutorMicBlocked": "L'accès au micro est bloqué. Autorise le micro dans les Réglages, ou écris ci-dessous.",
+  "tutorMicUnavailable": "Le micro n'est pas disponible sur cet appareil. Écris tes questions ci-dessous.",
+  "tutorSomethingWrong": "Une erreur est survenue.",
+  "quizGoBack": "Retour",
+  "quizHome": "Accueil",
+  "quizPlayAgain": "Rejouer",
+  "quizQuit": "Quitter",
+  "bayanahLive": "Bayanah en direct",
+  "bayanahEnterCode": "Entre le code du jeu affiché par ton enseignant",
+  "bayanahJoinGame": "Rejoindre le jeu",
+  "bayanahGetReady": "Prépare-toi…",
+  "bayanahAnswerLocked": "Réponse enregistrée — on attend tout le monde…",
+  "bayanahQuestionOf": "Question {i} sur {n}",
+  "bayanahGameOver": "Fin du jeu",
+  "bayanahLeaderboard": "CLASSEMENT",
+  "bayanahHeadStart": "Bonus pour avoir joué ce mois-ci",
+  "bayanahDone": "Terminé",
+  "chatForwardFailed": "Impossible de transférer le message",
+  "chatRemoveMemberFailed": "Impossible de retirer le membre",
+  "chatUpdateGroupFailed": "Impossible de modifier le groupe",
+  "chatDeletedForYou": "Message supprimé pour toi",
+  "podcastSurahContent": "Contenu des sourates",
+  "podcastNoContent": "Aucun contenu pour le moment",
+  "podcastOpenPdf": "Ouvrir le PDF",
+  "podcastOpenPdfFailed": "Impossible d'ouvrir le PDF",
+  "commonTryAgain": "Réessayer",
+  "quranMemorizeTitle": "Mémoriser le Coran",
+  "quranCreateGoal": "Créer mon objectif",
+  "quranCheckRecitation": "Vérifie ta récitation",
+  "quranDailyReminder": "Rappel quotidien",
+  "quranDailyReminderQ": "Un rappel quotidien ?",
+  "quranJuz": "Juz",
+  "quranJuzN": "Juz {n}",
+  "quranSurah": "Sourate",
+  "quranKeep": "Garder",
+  "quranLoopAyahs": "Répéter les versets",
+  "quranMemorizedCount": "Mémorisé {done}/{total}",
+  "quranNotNow": "Pas maintenant",
+  "quranPlayVerse": "Lire le verset {key}",
+  "quranPlay": "Lire",
+  "quranReminderSet": "Rappel chaque jour à {time}.",
+  "quranRepeatEachAyah": "Répéter chaque verset",
+  "quranRepeat": "Répéter",
+  "quranSetReminder": "Définir le rappel",
+  "quranChangeTime": "Changer l'heure",
+  "quranTryAgain": "Réessayer",
+  "quranTurnOff": "Désactiver",
+  "quranAyahsPerDay": "Versets par jour",
+  "quranMemorizationPlan": "Plan de mémorisation",
+  "quranStopPlan": "Arrêter le plan",
+  "quranWholeQuran": "Tout le Coran",
+  "quranCheckingRecitation": "Vérification de ta récitation…",
+  "quranCheckingPronunciation": "Vérification de la prononciation…",
+  "quranHearCorrect": "Écouter la récitation correcte",
+  "quranPlayYours": "Écouter ta récitation",
+  "quranStartReciting": "Commencer à réciter",
+  "quranStopAndCheck": "Arrêter et vérifier",
+  "quranReciteFromMemory": "Réciter de mémoire",
+  "quranRecordAndCheck": "Enregistrer et vérifier",
+  "quranStartOver": "Recommencer",
+  "quranStop": "Arrêter",
+  "quranLive": "En direct",
+  "quranPronunciationReview": "Prononciation à revoir"
 }

@@ -15,6 +15,7 @@ import 'package:record/record.dart';
 import '../logic/arabic_recitation.dart';
 import '../services/quran_api.dart';
 import '../services/recitation_service.dart';
+import '../../../l10n/app_localizations.dart';
 
 const _harakahGlyph = {'fatha': 'ـَ', 'damma': 'ـُ', 'kasra': 'ـِ'};
 
@@ -353,13 +354,13 @@ class _RecitationCheckSheetState extends State<RecitationCheckSheet> {
               OutlinedButton.icon(
                 onPressed: () => _playUrl(verse.audioUrl),
                 icon: const Icon(Icons.volume_up_rounded, size: 18),
-                label: const Text('Hear the correct recitation'),
+                label: Text(AppLocalizations.of(context)!.quranHearCorrect),
               ),
             if (_recordingPath != null && _phase == _Phase.done)
               OutlinedButton.icon(
                 onPressed: _playMyRecording,
                 icon: const Icon(Icons.play_arrow_rounded, size: 18),
-                label: const Text('Play your recitation'),
+                label: Text(AppLocalizations.of(context)!.quranPlayYours),
               ),
             if (_phase == _Phase.done && _mode == _Mode.pronunciation) ...[
               const SizedBox(height: 8),
@@ -467,7 +468,7 @@ class _RecitationCheckSheetState extends State<RecitationCheckSheet> {
               minimumSize: const Size.fromHeight(48)),
           onPressed: _stopAndCheck,
           icon: const Icon(Icons.stop_rounded),
-          label: const Text('Stop & check'),
+          label: Text(AppLocalizations.of(context)!.quranStopAndCheck),
         );
       case _Phase.checking:
         return FilledButton.icon(
@@ -480,7 +481,7 @@ class _RecitationCheckSheetState extends State<RecitationCheckSheet> {
               height: 16,
               child: CircularProgressIndicator(
                   strokeWidth: 2, color: Colors.white)),
-          label: const Text('Checking your recitation…'),
+          label: Text(AppLocalizations.of(context)!.quranCheckingRecitation),
         );
       case _Phase.done:
         return FilledButton.icon(
@@ -489,7 +490,7 @@ class _RecitationCheckSheetState extends State<RecitationCheckSheet> {
               minimumSize: const Size.fromHeight(48)),
           onPressed: _start,
           icon: const Icon(Icons.refresh_rounded),
-          label: const Text('Try again'),
+          label: Text(AppLocalizations.of(context)!.quranTryAgain),
         );
       case _Phase.idle:
       case _Phase.error:
@@ -499,7 +500,7 @@ class _RecitationCheckSheetState extends State<RecitationCheckSheet> {
               minimumSize: const Size.fromHeight(48)),
           onPressed: _start,
           icon: const Icon(Icons.mic_rounded),
-          label: const Text('Start reciting'),
+          label: Text(AppLocalizations.of(context)!.quranStartReciting),
         );
     }
   }

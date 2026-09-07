@@ -17809,4 +17809,311 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get classRosterContactsUnavailable => 'Coordonnées indisponibles';
+
+  @override
+  String get navQuran => 'Coran';
+
+  @override
+  String get navBayanah => 'Bayanah';
+
+  @override
+  String get navMore => 'Plus';
+
+  @override
+  String get navLibrary => 'Bibliothèque';
+
+  @override
+  String get moreBooks => 'Livres';
+
+  @override
+  String get moreRecordings => 'Enregistrements';
+
+  @override
+  String get morePodcasts => 'Podcasts';
+
+  @override
+  String get libraryQuran => 'Coran';
+
+  @override
+  String get tutorHandsFree => 'Tutorat mains libres';
+
+  @override
+  String get tutorTagline => 'Parle, c\'est tout. Alluwal écoute et répond.';
+
+  @override
+  String tutorIntro(String minutes) {
+    return 'Pose une question sur une leçon, révise une sourate, fais-toi aider pour les devoirs — en anglais, en français ou en arabe. Les séances durent jusqu\'à $minutes minutes.';
+  }
+
+  @override
+  String get tutorContinue => 'Reprendre la séance';
+
+  @override
+  String get tutorStartNow => 'Commencer';
+
+  @override
+  String get tutorCheckingSeats => 'Vérification des places…';
+
+  @override
+  String get tutorSessionOpen => 'Ta séance est encore ouverte.';
+
+  @override
+  String get tutorSeatsFreeNow => 'places libres en ce moment';
+
+  @override
+  String tutorSeatsOpensAt(String time) {
+    return 'places libres — le tuteur ouvre à $time';
+  }
+
+  @override
+  String get tutorSeatsBookBelow =>
+      'places libres — réserve une heure ci-dessous.';
+
+  @override
+  String get tutorBookedHours => 'Tes heures réservées';
+
+  @override
+  String get tutorBookAnHour => 'Réserver une heure';
+
+  @override
+  String tutorBookingRule(String window, String n) {
+    return '$window · jusqu\'à $n par jour';
+  }
+
+  @override
+  String get tutorBooked => 'Réservé';
+
+  @override
+  String get tutorFull => 'Complet';
+
+  @override
+  String tutorSeats(String n) {
+    return '$n places';
+  }
+
+  @override
+  String get tutorNoHours =>
+      'Plus aucune heure à réserver dans les deux prochains jours.';
+
+  @override
+  String get tutorThinking => 'Je réfléchis…';
+
+  @override
+  String get tutorSpeaking => 'Je parle — touche pour m\'interrompre';
+
+  @override
+  String get tutorReady => 'Prêt';
+
+  @override
+  String get tutorEnd => 'Terminer';
+
+  @override
+  String get tutorTypePlaceholder => 'Ou écris une question…';
+
+  @override
+  String get tutorHourUp =>
+      'Ton heure est écoulée. Réserve-en une autre pour continuer.';
+
+  @override
+  String get tutorMicBlocked =>
+      'L\'accès au micro est bloqué. Autorise le micro dans les Réglages, ou écris ci-dessous.';
+
+  @override
+  String get tutorMicUnavailable =>
+      'Le micro n\'est pas disponible sur cet appareil. Écris tes questions ci-dessous.';
+
+  @override
+  String get tutorSomethingWrong => 'Une erreur est survenue.';
+
+  @override
+  String get quizGoBack => 'Retour';
+
+  @override
+  String get quizHome => 'Accueil';
+
+  @override
+  String get quizPlayAgain => 'Rejouer';
+
+  @override
+  String get quizQuit => 'Quitter';
+
+  @override
+  String get bayanahLive => 'Bayanah en direct';
+
+  @override
+  String get bayanahEnterCode =>
+      'Entre le code du jeu affiché par ton enseignant';
+
+  @override
+  String get bayanahJoinGame => 'Rejoindre le jeu';
+
+  @override
+  String get bayanahGetReady => 'Prépare-toi…';
+
+  @override
+  String get bayanahAnswerLocked =>
+      'Réponse enregistrée — on attend tout le monde…';
+
+  @override
+  String bayanahQuestionOf(String i, String n) {
+    return 'Question $i sur $n';
+  }
+
+  @override
+  String get bayanahGameOver => 'Fin du jeu';
+
+  @override
+  String get bayanahLeaderboard => 'CLASSEMENT';
+
+  @override
+  String get bayanahHeadStart => 'Bonus pour avoir joué ce mois-ci';
+
+  @override
+  String get bayanahDone => 'Terminé';
+
+  @override
+  String get chatForwardFailed => 'Impossible de transférer le message';
+
+  @override
+  String get chatRemoveMemberFailed => 'Impossible de retirer le membre';
+
+  @override
+  String get chatUpdateGroupFailed => 'Impossible de modifier le groupe';
+
+  @override
+  String get chatDeletedForYou => 'Message supprimé pour toi';
+
+  @override
+  String get podcastSurahContent => 'Contenu des sourates';
+
+  @override
+  String get podcastNoContent => 'Aucun contenu pour le moment';
+
+  @override
+  String get podcastOpenPdf => 'Ouvrir le PDF';
+
+  @override
+  String get podcastOpenPdfFailed => 'Impossible d\'ouvrir le PDF';
+
+  @override
+  String get commonTryAgain => 'Réessayer';
+
+  @override
+  String get quranMemorizeTitle => 'Mémoriser le Coran';
+
+  @override
+  String get quranCreateGoal => 'Créer mon objectif';
+
+  @override
+  String get quranCheckRecitation => 'Vérifie ta récitation';
+
+  @override
+  String get quranDailyReminder => 'Rappel quotidien';
+
+  @override
+  String get quranDailyReminderQ => 'Un rappel quotidien ?';
+
+  @override
+  String get quranJuz => 'Juz';
+
+  @override
+  String quranJuzN(String n) {
+    return 'Juz $n';
+  }
+
+  @override
+  String get quranSurah => 'Sourate';
+
+  @override
+  String get quranKeep => 'Garder';
+
+  @override
+  String get quranLoopAyahs => 'Répéter les versets';
+
+  @override
+  String quranMemorizedCount(String done, String total) {
+    return 'Mémorisé $done/$total';
+  }
+
+  @override
+  String get quranNotNow => 'Pas maintenant';
+
+  @override
+  String quranPlayVerse(String key) {
+    return 'Lire le verset $key';
+  }
+
+  @override
+  String get quranPlay => 'Lire';
+
+  @override
+  String quranReminderSet(String time) {
+    return 'Rappel chaque jour à $time.';
+  }
+
+  @override
+  String get quranRepeatEachAyah => 'Répéter chaque verset';
+
+  @override
+  String get quranRepeat => 'Répéter';
+
+  @override
+  String get quranSetReminder => 'Définir le rappel';
+
+  @override
+  String get quranChangeTime => 'Changer l\'heure';
+
+  @override
+  String get quranTryAgain => 'Réessayer';
+
+  @override
+  String get quranTurnOff => 'Désactiver';
+
+  @override
+  String get quranAyahsPerDay => 'Versets par jour';
+
+  @override
+  String get quranMemorizationPlan => 'Plan de mémorisation';
+
+  @override
+  String get quranStopPlan => 'Arrêter le plan';
+
+  @override
+  String get quranWholeQuran => 'Tout le Coran';
+
+  @override
+  String get quranCheckingRecitation => 'Vérification de ta récitation…';
+
+  @override
+  String get quranCheckingPronunciation => 'Vérification de la prononciation…';
+
+  @override
+  String get quranHearCorrect => 'Écouter la récitation correcte';
+
+  @override
+  String get quranPlayYours => 'Écouter ta récitation';
+
+  @override
+  String get quranStartReciting => 'Commencer à réciter';
+
+  @override
+  String get quranStopAndCheck => 'Arrêter et vérifier';
+
+  @override
+  String get quranReciteFromMemory => 'Réciter de mémoire';
+
+  @override
+  String get quranRecordAndCheck => 'Enregistrer et vérifier';
+
+  @override
+  String get quranStartOver => 'Recommencer';
+
+  @override
+  String get quranStop => 'Arrêter';
+
+  @override
+  String get quranLive => 'En direct';
+
+  @override
+  String get quranPronunciationReview => 'Prononciation à revoir';
 }

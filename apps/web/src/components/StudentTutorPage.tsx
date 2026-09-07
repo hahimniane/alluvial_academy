@@ -3,6 +3,7 @@
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { httpsCallable } from "firebase/functions";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { dateLocale, useT } from "@/lib/i18n";
 import { Bot, CalendarClock, Loader2, Menu, Mic, MicOff, Square, Volume2 } from "lucide-react";
 import { auth, functions } from "@/lib/firebase";
 import { cachedStudentSession, resolveStudentSession } from "@/lib/studentSession";
@@ -93,11 +94,12 @@ const voicesReady = (): Promise<void> => new Promise((resolve) => {
 });
 
 const fmtHour = (iso: string, tz: string) =>
-  new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", timeZone: tz });
+  new Date(iso).toLocaleTimeString(dateLocale(), { hour: "numeric", timeZone: tz });
 const fmtDay = (iso: string, tz: string) =>
-  new Date(iso).toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric", timeZone: tz });
+  new Date(iso).toLocaleDateString(dateLocale(), { weekday: "long", month: "short", day: "numeric", timeZone: tz });
 
 export function StudentTutorPage() {
+  const t = useT();
   const [user, setUser] = useState<User | null>(null);
   const [access, setAccess] = useState<"checking" | "signedOut" | "allowed" | "denied">("checking");
   const [summary, setSummary] = useState(() => cachedStudentSession()?.summary ?? { displayName: "Student", firstName: "Student", initials: "ST" });
@@ -136,7 +138,7 @@ export function StudentTutorPage() {
       const res = await call<{ days: number }, Availability>("aiTutorGetAvailability")({ days: 2 });
       setAvail(res.data);
     } catch (e) {
-      setNotice(e instanceof Error ? e.message : "Could not load the tutor.");
+      setNotice(e instanceof Error ? e.message : t("Could not load the tutor."));
     }
   }, []);
 
@@ -227,7 +229,7 @@ export function StudentTutorPage() {
     rec.onerror = (ev) => {
       if (ev.error === "not-allowed" || ev.error === "service-not-allowed") {
         // Keep the session alive: the tutor still speaks, the student types.
-        setNotice("Microphone access is blocked. Allow the microphone for this site, or type below.");
+        setNotice(t("Microphone access is blocked. Allow the microphone for this site, or type below."));
         micBlockedRef.current = true;
         setPhase("idle");
       }
@@ -265,7 +267,7 @@ export function StudentTutorPage() {
       setPhase("speaking");
       say(reply, res.data.language, res.data.audio, () => { if (aliveRef.current && supported && !micBlockedRef.current) listen(); else setPhase("idle"); }, res.data.audioMime || "audio/mpeg");
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "The tutor could not answer.";
+      const msg = e instanceof Error ? e.message : t("The tutor could not answer.");
       setNotice(msg);
       if (/hour is up|has ended|paused|switched off/i.test(msg)) { void endSessionRef.current(); return; }
       if (aliveRef.current) listen();
@@ -294,7 +296,7 @@ export function StudentTutorPage() {
       setPhase("speaking");
       say(greeting, "en", res.data.greetingAudio, () => { if (aliveRef.current && supported) listen(); else setPhase("idle"); }, res.data.audioMime || "audio/mpeg");
     } catch (e) {
-      setNotice(e instanceof Error ? e.message : "Could not start.");
+      setNotice(e instanceof Error ? e.message : t("Could not start."));
       await loadAvailability();
     } finally {
       setBusy(null);
@@ -322,7 +324,7 @@ export function StudentTutorPage() {
 
   // The clock runs out server-side too; this just stops the loop politely.
   useEffect(() => {
-    if (sessionId && expiresAt && expiresAt.getTime() <= now) { setNotice("Your hour is up. Book another one to continue."); void endSession(); }
+    if (sessionId && expiresAt && expiresAt.getTime() <= now) { setNotice(t("Your hour is up. Book another one to continue.")); void endSession(); }
   }, [now, expiresAt, sessionId, endSession]);
 
   /* ---------------------------------------------------------- booking -- */
@@ -330,7 +332,7 @@ export function StudentTutorPage() {
   const book = async (slotKey: string) => {
     setBusy(slotKey); setNotice("");
     try { await call<{ slotKey: string }, unknown>("aiTutorBookSlot")({ slotKey }); await loadAvailability(); }
-    catch (e) { setNotice(e instanceof Error ? e.message : "Could not book."); }
+    catch (e) { setNotice(e instanceof Error ? e.message : t("Could not book.")); }
     finally { setBusy(null); }
   };
   const cancel = async (bookingId: string) => {
@@ -354,12 +356,12 @@ export function StudentTutorPage() {
   (avail?.slots ?? []).forEach((s) => { const d = fmtDay(s.startIso, tz); byDay.set(d, [...(byDay.get(d) ?? []), s]); });
 
   return (
-    <StudentShell activeLabel="AI Tutor" breadcrumb="Learning / AI Tutor" summary={summary} isAdultStudent={isAdultStudent}>
+    <StudentShell activeLabel="AI Tutor" breadcrumb={t("Learning / AI Tutor")} summary={summary} isAdultStudent={isAdultStudent}>
       <div className="flex min-h-full flex-col bg-[#F8FAFC]">
         <header className="flex items-center gap-3 border-b border-[#E2E8F0] bg-white px-4 py-3 lg:hidden">
           <button type="button" aria-label="Open menu" onClick={openStudentMobileMenu} className="grid h-11 w-11 place-items-center rounded-xl"><Menu size={22} /></button>
           <Bot className="text-[#0E72ED]" />
-          <h1 className="min-w-0 flex-1 truncate text-lg font-extrabold">AI Tutor</h1>
+          <h1 className="min-w-0 flex-1 truncate text-lg font-extrabold">{t("AI Tutor")}</h1>
         </header>
 
         <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-4 p-4 sm:p-6">
@@ -371,7 +373,7 @@ export function StudentTutorPage() {
                 <span className="relative grid h-12 w-12 shrink-0 place-items-center rounded-full bg-gradient-to-br from-[#0E72ED] to-[#6366F1] text-white"><Bot size={24} /><span className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white ${phase === "listening" ? "bg-emerald-500" : phase === "speaking" ? "bg-[#0E72ED]" : "bg-amber-400"}`} /></span>
                 <div className="min-w-0 flex-1">
                   <p className="font-extrabold">Alluwal</p>
-                  <p className="text-sm text-[#64748B]">{phase === "listening" ? "Listening…" : phase === "thinking" ? "Thinking…" : phase === "speaking" ? "Speaking — tap to interrupt" : "Ready"}</p>
+                  <p className="text-sm text-[#64748B]">{phase === "listening" ? t("Listening…") : phase === "thinking" ? t("Thinking…") : phase === "speaking" ? t("Speaking — tap to interrupt") : t("Ready")}</p>
                 </div>
                 <span className="rounded-lg bg-[#F1F5F9] px-2.5 py-1 text-sm font-black tabular-nums text-[#334155]">{mm}:{ss}</span>
               </div>
@@ -391,41 +393,41 @@ export function StudentTutorPage() {
                     <button key={l.id} type="button" onClick={() => { setLang(l.id); if (phaseRef.current === "listening") listen(); }} className={`min-h-9 rounded-lg px-3 text-xs font-black ${lang === l.id ? "bg-white text-[#0E72ED] shadow" : "text-[#64748B]"}`}>{l.label}</button>
                   ))}
                 </div>
-                <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#64748B]">{supported ? <><Mic size={14} /> Hands-free</> : <><MicOff size={14} /> Voice not supported here — type instead</>}</span>
-                <button type="button" onClick={() => void endSession()} className="ml-auto inline-flex min-h-11 items-center gap-2 rounded-xl border border-red-200 px-4 font-bold text-red-600"><Square size={16} /> End</button>
+                <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#64748B]">{supported ? <><Mic size={14} /> {t("Hands-free")}</> : <><MicOff size={14} /> {t("Voice not supported here — type instead")}</>}</span>
+                <button type="button" onClick={() => void endSession()} className="ml-auto inline-flex min-h-11 items-center gap-2 rounded-xl border border-red-200 px-4 font-bold text-red-600"><Square size={16} /> {t("End")}</button>
               </div>
 
               <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); const t = typed.trim(); if (t) { setTyped(""); hush(); void submit(t); } }}>
-                <input value={typed} onChange={(e) => setTyped(e.target.value)} placeholder="Or type a question…" className="h-12 min-w-0 flex-1 rounded-xl border border-[#CBD5E1] bg-white px-4 outline-none focus:border-[#0E72ED]" />
+                <input value={typed} onChange={(e) => setTyped(e.target.value)} placeholder={t("Or type a question…")} className="h-12 min-w-0 flex-1 rounded-xl border border-[#CBD5E1] bg-white px-4 outline-none focus:border-[#0E72ED]" />
                 <button type="submit" disabled={!typed.trim()} className="grid h-12 w-12 place-items-center rounded-xl bg-[#0E72ED] text-white disabled:opacity-40"><Volume2 size={20} /></button>
               </form>
             </>
           ) : (
             <>
               <section className="rounded-3xl bg-gradient-to-br from-[#0E72ED] to-[#6366F1] p-6 text-white shadow-[0_18px_40px_rgba(14,114,237,0.22)]">
-                <p className="text-sm font-bold text-white/80">Hands-free tutoring</p>
-                <h2 className="mt-1 text-2xl font-black">Just talk. Alluwal listens and answers.</h2>
-                <p className="mt-2 text-sm text-white/90">Ask about a lesson, practise a surah, get help with homework — in English, French or Arabic. Sessions are up to {avail?.settings.sessionMinutes ?? 60} minutes.</p>
+                <p className="text-sm font-bold text-white/80">{t("Hands-free tutoring")}</p>
+                <h2 className="mt-1 text-2xl font-black">{t("Just talk. Alluwal listens and answers.")}</h2>
+                <p className="mt-2 text-sm text-white/90">{t("Ask about a lesson, practise a surah, get help with homework — in English, French or Arabic. Sessions are up to {minutes} minutes.").replace("{minutes}", String(avail?.settings.sessionMinutes ?? 60))}</p>
                 <div className="mt-5 flex flex-wrap items-center gap-3">
                   <button type="button" disabled={!avail || (!avail.canStartNow && !avail.activeSession) || busy === "start"} onClick={() => void startSession()} className="inline-flex min-h-12 items-center gap-2 rounded-2xl bg-white px-5 font-black text-[#0E72ED] disabled:opacity-60">
                     {busy === "start" ? <Loader2 className="animate-spin" size={18} /> : <Mic size={18} />}
-                    {avail?.activeSession ? "Continue session" : "Start now"}
+                    {avail?.activeSession ? t("Continue session") : t("Start now")}
                   </button>
                   <span className="inline-flex items-center gap-2 text-sm font-semibold text-white/85">
                     {avail ? <span className="rounded-lg bg-white/15 px-2.5 py-1 text-base font-black tabular-nums text-white">{avail.seatsFreeNow} / {avail.seatsTotal}</span> : null}
-                    {!avail ? "Checking seats…" : avail.activeSession ? "Your session is still open." : avail.canStartNow ? "seats free right now" : avail.seatsFreeNow > 0 ? "seats free — the tutor opens at " + avail.settings.windowStart : "seats free — book an hour below."}
+                    {!avail ? t("Checking seats…") : avail.activeSession ? t("Your session is still open.") : avail.canStartNow ? t("seats free right now") : avail.seatsFreeNow > 0 ? t("seats free — the tutor opens at {time}").replace("{time}", avail.settings.windowStart) : t("seats free — book an hour below.")}
                   </span>
                 </div>
               </section>
 
               {avail?.myBookings.length ? (
                 <section className="rounded-2xl border border-[#E2E8F0] bg-white p-4">
-                  <h3 className="text-sm font-black">Your booked hours</h3>
+                  <h3 className="text-sm font-black">{t("Your booked hours")}</h3>
                   <ul className="mt-2 grid gap-2">
                     {avail.myBookings.map((b) => (
                       <li key={b.id} className="flex items-center justify-between gap-3 rounded-xl bg-[#F8FAFC] px-3 py-2.5 text-sm">
                         <span className="inline-flex items-center gap-2 font-bold"><CalendarClock size={16} className="text-[#0E72ED]" />{fmtDay(b.startIso, tz)} · {fmtHour(b.startIso, tz)}</span>
-                        <button type="button" disabled={busy === b.id} onClick={() => void cancel(b.id)} className="text-xs font-bold text-red-600">Cancel</button>
+                        <button type="button" disabled={busy === b.id} onClick={() => void cancel(b.id)} className="text-xs font-bold text-red-600">{t("Cancel")}</button>
                       </li>
                     ))}
                   </ul>
@@ -434,8 +436,8 @@ export function StudentTutorPage() {
 
               <section className="rounded-2xl border border-[#E2E8F0] bg-white p-4">
                 <div className="flex items-baseline justify-between gap-3">
-                  <h3 className="text-sm font-black">Book an hour</h3>
-                  <p className="text-xs font-semibold text-[#64748B]">{avail ? `${avail.settings.windowStart}–${avail.settings.windowEnd} · up to ${avail.settings.maxBookingsPerDay} a day` : ""}</p>
+                  <h3 className="text-sm font-black">{t("Book an hour")}</h3>
+                  <p className="text-xs font-semibold text-[#64748B]">{avail ? t("{start}–{end} · up to {n} a day").replace("{start}", avail.settings.windowStart).replace("{end}", avail.settings.windowEnd).replace("{n}", String(avail.settings.maxBookingsPerDay)) : ""}</p>
                 </div>
                 {[...byDay.entries()].map(([day, slots]) => (
                   <div key={day} className="mt-3">
@@ -445,13 +447,13 @@ export function StudentTutorPage() {
                         <button key={s.slotKey} type="button" disabled={s.mine || s.seatsLeft === 0 || busy === s.slotKey} onClick={() => void book(s.slotKey)}
                           className={`rounded-xl border px-2 py-2 text-center text-sm font-bold ${s.mine ? "border-[#0E72ED] bg-[#EFF6FF] text-[#0E72ED]" : s.seatsLeft === 0 ? "border-[#E2E8F0] bg-[#F8FAFC] text-[#94A3B8]" : "border-[#E2E8F0] bg-white text-[#0F172A] hover:border-[#0E72ED]"}`}>
                           {fmtHour(s.startIso, tz)}
-                          <span className="block text-[11px] font-semibold text-[#64748B]">{s.mine ? "Booked" : s.seatsLeft === 0 ? "Full" : `${s.seatsLeft} seats`}</span>
+                          <span className="block text-[11px] font-semibold text-[#64748B]">{s.mine ? t("Booked") : s.seatsLeft === 0 ? t("Full") : t("{n} seats").replace("{n}", String(s.seatsLeft))}</span>
                         </button>
                       ))}
                     </div>
                   </div>
                 ))}
-                {avail && avail.slots.length === 0 ? <p className="mt-3 text-sm text-[#64748B]">No hours left to book in the next two days.</p> : null}
+                {avail && avail.slots.length === 0 ? <p className="mt-3 text-sm text-[#64748B]">{t("No hours left to book in the next two days.")}</p> : null}
               </section>
             </>
           )}
