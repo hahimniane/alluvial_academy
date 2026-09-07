@@ -6407,5 +6407,14 @@
   "@classRosterPhone": {"placeholders": {"phone": {"type": "String"}}},
   "classRosterNoParentLinked": "لا يوجد ولي أمر مرتبط",
   "classRosterNoPhoneNumber": "لا يوجد رقم هاتف",
-  "classRosterContactsUnavailable": "تفاصيل الاتصال غير متاحة"
+  "classRosterContactsUnavailable": "تفاصيل الاتصال غير متاحة",
+  "setupAccountCreated": "تم إنشاء الحساب",
+  "setupScheduleConfirmed": "تم تأكيد الجدول",
+  "setupParentLinked": "تم ربط ولي الأمر",
+  "setupAfterAccount": "بعد إنشاء الحساب",
+  "setupAfterSchedule": "بعد تأكيد الجدول",
+  "setupCheckingParent": "جارٍ التحقق من ولي الأمر…",
+  "linkParentActionLabel": "ربط ولي الأمر وإبلاغه",
+  "linkParentExistingDone": "لدى {parentName} حساب بالفعل، لذلك لم تُرسل دعوة. تم ربط {studentName} وإبلاغهم بالبريد أن الحساب جاهز.",
+  "linkParentRoleConflict": "{email} يخص حساب {role} ولا يمكن تحويله إلى ولي أمر. أدخل بريد ولي الأمر."
 }

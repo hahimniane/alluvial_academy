@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
@@ -48,6 +50,19 @@ class _MatchedEnrollmentCardState extends State<MatchedEnrollmentCard> {
   /// password setup), or null (no parent yet).
   String? _parentInviteStatus;
 
+  /// Whether the student already has classes on the calendar. The parent step
+  /// stays locked until this is true, because the message the parent gets says
+  /// the classes are ready.
+  bool _hasSchedule = false;
+
+  /// The account the application's email already belongs to, if any. Null
+  /// until looked up; a map with `found: false` when nobody has that email.
+  Map<String, dynamic>? _existingParent;
+  bool _lookingUpParent = false;
+  bool _isLinkingParent = false;
+
+  bool get _hasAccount => _studentUid != null && _studentUid!.isNotEmpty;
+
   @override
   void initState() {
     super.initState();
@@ -89,6 +104,21 @@ class _MatchedEnrollmentCardState extends State<MatchedEnrollmentCard> {
         _parentInviteStatus = 'linked';
       }
 
+      // A teaching_shift names its students but not its enrollment, so the
+      // student's uid is the only join.
+      if (_hasAccount) {
+        final shifts = await FirebaseFirestore.instance
+            .collection('teaching_shifts')
+            .where('student_ids', arrayContains: _studentUid)
+            .limit(1)
+            .get();
+        _hasSchedule = shifts.docs.isNotEmpty;
+      }
+      if (mounted) setState(() {});
+      if (_hasSchedule && _parentInviteStatus == null) {
+        unawaited(_lookupExistingParent());
+      }
+
       // Load teacher selected times from job_board doc
       if (_jobId != null) {
         final jobDoc = await FirebaseFirestore.instance
@@ -127,6 +157,7 @@ class _MatchedEnrollmentCardState extends State<MatchedEnrollmentCard> {
   @override
   Widget build(BuildContext context) {
     final e = widget.enrollment;
+    final l = AppLocalizations.of(context)!;
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
@@ -382,83 +413,40 @@ class _MatchedEnrollmentCardState extends State<MatchedEnrollmentCard> {
 
                 const SizedBox(height: 8),
 
-                // Actions row 2: Create Account + Finalize Schedule
-                Row(
-                  children: [
-                    Expanded(
-                      child: _studentCreatedSuccessfully
-                          ? Container(
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              decoration: BoxDecoration(
-                                color: const Color(0xffD1FAE5),
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: const Color(0xff10B981)),
-                              ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  const Icon(Icons.check_circle, color: Color(0xff059669), size: 16),
-                                  const SizedBox(width: 6),
-                                  Text('Account Created', style: GoogleFonts.inter(color: const Color(0xff059669), fontWeight: FontWeight.w600, fontSize: 12)),
-                                ],
-                              ),
-                            )
-                          : OutlinedButton.icon(
-                              onPressed: _isCreatingStudent ? null : _createStudentAccount,
-                              icon: _isCreatingStudent
-                                  ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
-                                  : const Icon(Icons.person_add_outlined, size: 16),
-                              label: Text('Create Account', style: GoogleFonts.inter(fontSize: 12)),
-                              style: OutlinedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(vertical: 12),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                              ),
-                            ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: _createShift,
-                        icon: const Icon(Icons.calendar_month_rounded, color: Colors.white, size: 16),
-                        label: Text(
-                          AppLocalizations.of(context)!.finalizeSchedule,
-                          style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 12),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xff0F172A),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                      ),
-                    ),
-                  ],
+                // The setup, in the order it has to happen: only the current
+                // step can be pressed; the ones after it wait for their turn.
+                _stepRow(
+                  context,
+                  number: 1,
+                  done: _hasAccount,
+                  locked: false,
+                  doneLabel: l.setupAccountCreated,
+                  lockedHint: '',
+                  label: l.userCreateAccount,
+                  icon: Icons.person_add_outlined,
+                  busy: _isCreatingStudent,
+                  onPressed: _createStudentAccount,
                 ),
-
-                // Actions row 3: Invite Parent + status chip
+                const SizedBox(height: 8),
+                _stepRow(
+                  context,
+                  number: 2,
+                  done: _hasAccount && _hasSchedule,
+                  locked: !_hasAccount,
+                  doneLabel: l.setupScheduleConfirmed,
+                  lockedHint: l.setupAfterAccount,
+                  label: l.finalizeSchedule,
+                  icon: Icons.calendar_month_rounded,
+                  busy: false,
+                  primary: true,
+                  onPressed: _createShift,
+                ),
                 const SizedBox(height: 8),
                 Row(
                   children: [
                     _buildParentStatusChip(context),
                     const SizedBox(width: 8),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: (_studentUid == null || _studentUid!.isEmpty)
-                            ? null
-                            : _openInviteParentDialog,
-                        icon: const Icon(Icons.family_restroom, size: 16),
-                        label: Text(
-                          AppLocalizations.of(context)!.inviteParentActionLabel,
-                          style: GoogleFonts.inter(fontSize: 12),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8)),
-                        ),
-                      ),
-                    ),
+                    Expanded(child: _parentStep(context, l)),
                   ],
                 ),
               ],
@@ -467,6 +455,235 @@ class _MatchedEnrollmentCardState extends State<MatchedEnrollmentCard> {
         ],
       ),
     );
+  }
+
+  /// One step of the sequence: a green fact once done, the only pressable
+  /// control while current, and a greyed hint of what unlocks it before that.
+  Widget _stepRow(
+    BuildContext context, {
+    required int number,
+    required bool done,
+    required bool locked,
+    required String doneLabel,
+    required String lockedHint,
+    required String label,
+    required IconData icon,
+    required bool busy,
+    required VoidCallback onPressed,
+    bool primary = false,
+  }) {
+    final Color badgeBg = done
+        ? const Color(0xff059669)
+        : locked
+            ? const Color(0xffE2E8F0)
+            : const Color(0xff0386FF);
+    final Color badgeFg = locked ? const Color(0xff94A3B8) : Colors.white;
+    final badge = Container(
+      width: 24,
+      height: 24,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(color: badgeBg, shape: BoxShape.circle),
+      child: done
+          ? const Icon(Icons.check, size: 14, color: Colors.white)
+          : Text('$number',
+              style: GoogleFonts.inter(
+                  fontSize: 11, fontWeight: FontWeight.w800, color: badgeFg)),
+    );
+
+    final Widget body;
+    if (done) {
+      body = Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: const Color(0xffD1FAE5),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: const Color(0xff10B981)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.check_circle, color: Color(0xff059669), size: 16),
+            const SizedBox(width: 6),
+            Text(doneLabel,
+                style: GoogleFonts.inter(
+                    color: const Color(0xff059669),
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12)),
+          ],
+        ),
+      );
+    } else if (locked) {
+      body = Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: const Color(0xffF8FAFC),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: const Color(0xffE2E8F0)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.lock_outline, size: 14, color: Color(0xff94A3B8)),
+            const SizedBox(width: 6),
+            Text('$label · $lockedHint',
+                style: GoogleFonts.inter(
+                    color: const Color(0xff94A3B8),
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12)),
+          ],
+        ),
+      );
+    } else {
+      final spinner = SizedBox(
+        width: 14,
+        height: 14,
+        child: CircularProgressIndicator(
+            strokeWidth: 2, color: primary ? Colors.white : null),
+      );
+      body = primary
+          ? ElevatedButton.icon(
+              onPressed: busy ? null : onPressed,
+              icon: busy ? spinner : Icon(icon, color: Colors.white, size: 16),
+              label: Text(label,
+                  style: GoogleFonts.inter(
+                      fontWeight: FontWeight.w600, fontSize: 12)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xff0F172A),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8)),
+              ),
+            )
+          : OutlinedButton.icon(
+              onPressed: busy ? null : onPressed,
+              icon: busy ? spinner : Icon(icon, size: 16),
+              label: Text(label, style: GoogleFonts.inter(fontSize: 12)),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8)),
+              ),
+            );
+    }
+
+    return Row(
+      children: [
+        badge,
+        const SizedBox(width: 8),
+        Expanded(child: body),
+      ],
+    );
+  }
+
+  /// Step 3. A parent who already has an account is linked and told the
+  /// account is ready; only an email nobody has opens the invite form.
+  Widget _parentStep(BuildContext context, AppLocalizations l) {
+    final done = _parentInviteStatus == 'linked' || _parentInviteStatus == 'invited';
+    final existing = _existingParent;
+    final canLink = existing != null && existing['found'] == true && existing['canLink'] == true;
+    final checking = !done && _hasSchedule && existing == null;
+    return _stepRow(
+      context,
+      number: 3,
+      done: done,
+      locked: !_hasSchedule,
+      doneLabel: _parentInviteStatus == 'invited' ? l.inviteParentChipInvited : l.setupParentLinked,
+      lockedHint: l.setupAfterSchedule,
+      label: checking
+          ? l.setupCheckingParent
+          : canLink
+              ? l.linkParentActionLabel
+              : l.inviteParentActionLabel,
+      icon: canLink ? Icons.link : Icons.family_restroom,
+      busy: checking || _lookingUpParent || _isLinkingParent,
+      onPressed: _advanceToParent,
+    );
+  }
+
+  Future<Map<String, dynamic>> _lookupExistingParent() async {
+    if (_existingParent != null) return _existingParent!;
+    final email = widget.enrollment.email.trim().toLowerCase();
+    Map<String, dynamic> found = {'found': false};
+    if (email.contains('@')) {
+      if (mounted) setState(() => _lookingUpParent = true);
+      try {
+        final result = await FirebaseFunctions.instance
+            .httpsCallable('lookupParentByEmail')
+            .call<Map<String, dynamic>>({'email': email});
+        found = Map<String, dynamic>.from(result.data);
+      } catch (err) {
+        AppLogger.error('lookupParentByEmail failed: $err');
+      } finally {
+        if (mounted) setState(() => _lookingUpParent = false);
+      }
+    }
+    if (mounted) setState(() => _existingParent = found);
+    return found;
+  }
+
+  /// The parent step, the moment it is current: link silently or ask to invite.
+  Future<void> _advanceToParent() async {
+    if (!_hasAccount || !_hasSchedule) return;
+    final existing = await _lookupExistingParent();
+    if (!mounted) return;
+    if (existing['found'] == true && existing['canLink'] == true) {
+      await _linkExistingParent(existing);
+      return;
+    }
+    String? note;
+    if (existing['found'] == true && existing['canLink'] != true) {
+      note = AppLocalizations.of(context)!.linkParentRoleConflict(
+          widget.enrollment.email, existing['role']?.toString() ?? 'staff');
+    }
+    await _openInviteParentDialog(note: note);
+  }
+
+  Future<void> _linkExistingParent(Map<String, dynamic> existing) async {
+    final e = widget.enrollment;
+    if (e.id == null || !_hasAccount) return;
+    final nameParts = (e.parentName ?? '').trim().split(RegExp(r'\s+'));
+    setState(() => _isLinkingParent = true);
+    try {
+      final result = await FirebaseFunctions.instance
+          .httpsCallable('inviteParentForEnrollment')
+          .call<Map<String, dynamic>>({
+        'enrollmentId': e.id,
+        'studentUid': _studentUid,
+        'email': e.email.trim(),
+        'firstName': (existing['firstName']?.toString() ?? '').isNotEmpty
+            ? existing['firstName'].toString()
+            : (nameParts.isNotEmpty ? nameParts.first : ''),
+        'lastName': (existing['lastName']?.toString() ?? '').isNotEmpty
+            ? existing['lastName'].toString()
+            : (nameParts.length > 1 ? nameParts.sublist(1).join(' ') : ''),
+        'phone': e.phoneNumber,
+        if (e.countryCode.isNotEmpty) 'countryCode': e.countryCode,
+      });
+      if (!mounted) return;
+      final data = Map<String, dynamic>.from(result.data);
+      final l = AppLocalizations.of(context)!;
+      setState(() => _parentInviteStatus = data['status']?.toString() == 'invited' ? 'invited' : 'linked');
+      final parentName = (existing['name']?.toString() ?? '').isNotEmpty
+          ? existing['name'].toString()
+          : e.email;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(l.linkParentExistingDone(parentName, e.studentName ?? '')),
+        backgroundColor: Colors.green,
+        duration: const Duration(seconds: 6),
+      ));
+    } on FirebaseFunctionsException catch (err) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(err.message ?? err.code), backgroundColor: Colors.red));
+    } catch (err) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$err'), backgroundColor: Colors.red));
+    } finally {
+      if (mounted) setState(() => _isLinkingParent = false);
+    }
   }
 
   Widget _buildParentStatusChip(BuildContext context) {
@@ -518,7 +735,7 @@ class _MatchedEnrollmentCardState extends State<MatchedEnrollmentCard> {
     );
   }
 
-  Future<void> _openInviteParentDialog() async {
+  Future<void> _openInviteParentDialog({String? note}) async {
     final e = widget.enrollment;
     if (_studentUid == null || _studentUid!.isEmpty || e.id == null) return;
 
@@ -528,7 +745,8 @@ class _MatchedEnrollmentCardState extends State<MatchedEnrollmentCard> {
       builder: (_) => InviteParentDialog(
         enrollmentId: e.id!,
         studentUid: _studentUid!,
-        initialEmail: e.email,
+        note: note,
+        initialEmail: note == null ? e.email : '',
         initialFirstName:
             initialFirst.isNotEmpty ? initialFirst.first : null,
         initialLastName: initialFirst.length > 1
@@ -796,6 +1014,20 @@ class _MatchedEnrollmentCardState extends State<MatchedEnrollmentCard> {
             duration: const Duration(seconds: 5),
           ),
         );
+        // A child the parent already had may already be on the calendar.
+        final shifts = await FirebaseFirestore.instance
+            .collection('teaching_shifts')
+            .where('student_ids', arrayContains: _studentUid)
+            .limit(1)
+            .get();
+        if (!mounted) return;
+        setState(() => _hasSchedule = shifts.docs.isNotEmpty);
+        // The schedule is the next step; open it rather than wait for a tap.
+        if (!_hasSchedule) {
+          await _createShift();
+        } else if (_parentInviteStatus == null) {
+          await _advanceToParent();
+        }
       }
     } on FirebaseFunctionsException catch (e) {
       if (mounted) {
@@ -961,6 +1193,9 @@ class _MatchedEnrollmentCardState extends State<MatchedEnrollmentCard> {
                 backgroundColor: Colors.green,
               ),
             );
+            if (!mounted) return;
+            setState(() => _hasSchedule = true);
+            if (_parentInviteStatus == null) unawaited(_advanceToParent());
           },
         ),
       );

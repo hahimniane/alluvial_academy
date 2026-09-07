@@ -319,6 +319,9 @@ exports.inviteParentForEnrollment = functions.https.onCall(
 exports.unlinkGuardianFromStudent = functions.https.onCall(
   enrollmentHandlers.unlinkGuardianFromStudent
 );
+exports.lookupParentByEmail = functions.https.onCall(
+  enrollmentHandlers.lookupParentByEmail
+);
 // Use v1 callables. When context.auth is null (e.g. App Check placeholder), we use idToken from the request body.
 exports.acceptJob = functions.https.onCall(async (data, context) => {
   let auth = context.auth;

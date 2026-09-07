@@ -39,7 +39,7 @@ export type TriageApplicant = {
 const NEXT_ACTION: Record<SetupStage, string> = {
   "needs-account": "Next: create account",
   "needs-schedule": "Next: finalize schedule",
-  "needs-parent": "Next: invite parent",
+  "needs-parent": "Next: the parent",
   ready: "Ready to teach",
 };
 
@@ -68,6 +68,31 @@ export const setupFor = (
         : "ready";
 
   return { hasAccount, hasSchedule: scheduled, hasParent, stage, nextAction: NEXT_ACTION[stage] };
+};
+
+/* ---------------------------------------------------------------- steps -- */
+
+export type SetupStepId = "account" | "schedule" | "parent";
+export type SetupStepStatus = "done" | "active" | "locked";
+export type SetupStep = { id: SetupStepId; status: SetupStepStatus };
+
+/**
+ * The three steps as a strict sequence: everything before the current step is
+ * done, the current one is the only thing that can be pressed, and everything
+ * after it waits. A step never opens early — a parent cannot be invited before
+ * the classes exist, because the message they get says the classes are ready.
+ */
+export const setupSteps = (setup: Pick<SetupState, "hasAccount" | "hasSchedule" | "hasParent">): SetupStep[] => {
+  const order: { id: SetupStepId; done: boolean }[] = [
+    { id: "account", done: setup.hasAccount },
+    { id: "schedule", done: setup.hasAccount && setup.hasSchedule },
+    { id: "parent", done: setup.hasParent },
+  ];
+  const current = order.findIndex((step) => !step.done);
+  return order.map((step, index) => ({
+    id: step.id,
+    status: step.done ? "done" : index === current ? "active" : "locked",
+  }));
 };
 
 /* ------------------------------------------------------------- searching -- */

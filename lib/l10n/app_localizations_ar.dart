@@ -18088,4 +18088,35 @@ class AppLocalizationsAr extends AppLocalizations {
   String studentAccountExistedLinked(String studentCode) {
     return 'This parent already has a student with this name. The existing account (ID: $studentCode) was linked.';
   }
+
+  @override
+  String get setupAccountCreated => 'تم إنشاء الحساب';
+
+  @override
+  String get setupScheduleConfirmed => 'تم تأكيد الجدول';
+
+  @override
+  String get setupParentLinked => 'تم ربط ولي الأمر';
+
+  @override
+  String get setupAfterAccount => 'بعد إنشاء الحساب';
+
+  @override
+  String get setupAfterSchedule => 'بعد تأكيد الجدول';
+
+  @override
+  String get setupCheckingParent => 'جارٍ التحقق من ولي الأمر…';
+
+  @override
+  String get linkParentActionLabel => 'ربط ولي الأمر وإبلاغه';
+
+  @override
+  String linkParentExistingDone(String parentName, String studentName) {
+    return 'لدى $parentName حساب بالفعل، لذلك لم تُرسل دعوة. تم ربط $studentName وإبلاغهم بالبريد أن الحساب جاهز.';
+  }
+
+  @override
+  String linkParentRoleConflict(String email, String role) {
+    return '$email يخص حساب $role ولا يمكن تحويله إلى ولي أمر. أدخل بريد ولي الأمر.';
+  }
 }

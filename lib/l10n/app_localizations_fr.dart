@@ -18489,4 +18489,35 @@ class AppLocalizationsFr extends AppLocalizations {
   String studentAccountExistedLinked(String studentCode) {
     return 'Ce parent a déjà un élève portant ce nom. Le compte existant (ID : $studentCode) a été relié.';
   }
+
+  @override
+  String get setupAccountCreated => 'Compte créé';
+
+  @override
+  String get setupScheduleConfirmed => 'Calendrier confirmé';
+
+  @override
+  String get setupParentLinked => 'Parent relié';
+
+  @override
+  String get setupAfterAccount => 'Après le compte';
+
+  @override
+  String get setupAfterSchedule => 'Après le calendrier';
+
+  @override
+  String get setupCheckingParent => 'Vérification du parent…';
+
+  @override
+  String get linkParentActionLabel => 'Relier le parent et l\'informer';
+
+  @override
+  String linkParentExistingDone(String parentName, String studentName) {
+    return '$parentName avait déjà un compte, aucune invitation n\'a donc été envoyée. $studentName a été relié et un e-mail les informe que le compte est prêt.';
+  }
+
+  @override
+  String linkParentRoleConflict(String email, String role) {
+    return '$email appartient à un compte $role et ne peut pas devenir parent. Saisissez l\'e-mail du parent.';
+  }
 }

@@ -18139,4 +18139,35 @@ class AppLocalizationsEn extends AppLocalizations {
   String studentAccountExistedLinked(String studentCode) {
     return 'This parent already has a student with this name. The existing account (ID: $studentCode) was linked.';
   }
+
+  @override
+  String get setupAccountCreated => 'Account created';
+
+  @override
+  String get setupScheduleConfirmed => 'Schedule confirmed';
+
+  @override
+  String get setupParentLinked => 'Parent linked';
+
+  @override
+  String get setupAfterAccount => 'After the account';
+
+  @override
+  String get setupAfterSchedule => 'After the schedule';
+
+  @override
+  String get setupCheckingParent => 'Checking parent…';
+
+  @override
+  String get linkParentActionLabel => 'Link parent & notify';
+
+  @override
+  String linkParentExistingDone(String parentName, String studentName) {
+    return '$parentName already had an account, so no invite was sent. $studentName was linked and they were emailed that the account is ready.';
+  }
+
+  @override
+  String linkParentRoleConflict(String email, String role) {
+    return '$email belongs to a $role account and cannot be made a parent. Enter the parent\'s own email.';
+  }
 }

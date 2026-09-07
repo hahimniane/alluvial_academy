@@ -32941,6 +32941,60 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'This parent already has a student with this name. The existing account (ID: {studentCode}) was linked.'**
   String studentAccountExistedLinked(String studentCode);
+
+  /// No description provided for @setupAccountCreated.
+  ///
+  /// In en, this message translates to:
+  /// **'Account created'**
+  String get setupAccountCreated;
+
+  /// No description provided for @setupScheduleConfirmed.
+  ///
+  /// In en, this message translates to:
+  /// **'Schedule confirmed'**
+  String get setupScheduleConfirmed;
+
+  /// No description provided for @setupParentLinked.
+  ///
+  /// In en, this message translates to:
+  /// **'Parent linked'**
+  String get setupParentLinked;
+
+  /// No description provided for @setupAfterAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'After the account'**
+  String get setupAfterAccount;
+
+  /// No description provided for @setupAfterSchedule.
+  ///
+  /// In en, this message translates to:
+  /// **'After the schedule'**
+  String get setupAfterSchedule;
+
+  /// No description provided for @setupCheckingParent.
+  ///
+  /// In en, this message translates to:
+  /// **'Checking parent…'**
+  String get setupCheckingParent;
+
+  /// No description provided for @linkParentActionLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Link parent & notify'**
+  String get linkParentActionLabel;
+
+  /// No description provided for @linkParentExistingDone.
+  ///
+  /// In en, this message translates to:
+  /// **'{parentName} already had an account, so no invite was sent. {studentName} was linked and they were emailed that the account is ready.'**
+  String linkParentExistingDone(String parentName, String studentName);
+
+  /// No description provided for @linkParentRoleConflict.
+  ///
+  /// In en, this message translates to:
+  /// **'{email} belongs to a {role} account and cannot be made a parent. Enter the parent\'s own email.'**
+  String linkParentRoleConflict(String email, String role);
 }
 
 class _AppLocalizationsDelegate

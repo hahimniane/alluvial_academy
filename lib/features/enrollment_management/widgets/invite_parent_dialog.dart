@@ -20,6 +20,9 @@ class InviteParentDialog extends StatefulWidget {
   final String? initialPhone;
   final String? initialCountryCode;
 
+  /// Shown above the form, e.g. why the application's email could not be used.
+  final String? note;
+
   const InviteParentDialog({
     super.key,
     required this.enrollmentId,
@@ -29,6 +32,7 @@ class InviteParentDialog extends StatefulWidget {
     this.initialLastName,
     this.initialPhone,
     this.initialCountryCode,
+    this.note,
   });
 
   @override
@@ -121,6 +125,24 @@ class _InviteParentDialogState extends State<InviteParentDialog> {
                 l.inviteParentDialogSubtitle,
                 style: GoogleFonts.inter(fontSize: 12, color: Colors.grey[700]),
               ),
+              if ((widget.note ?? '').isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xffFEF3C7),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    widget.note!,
+                    style: GoogleFonts.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xff92400E)),
+                  ),
+                ),
+              ],
               const SizedBox(height: 16),
               TextFormField(
                 controller: _emailController,

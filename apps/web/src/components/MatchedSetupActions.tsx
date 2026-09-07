@@ -1,13 +1,18 @@
 "use client";
 
-import { useState } from "react";
-import { CalendarPlus, KeyRound, UserPlus } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { CalendarPlus, Check, KeyRound, Link2, Lock, UserPlus } from "lucide-react";
 import { ActionButton } from "@/components/ActionButton";
 import { ShiftEditorDialog } from "@/components/ShiftEditorDialog";
 import { auth } from "@/lib/firebase";
-import { createStudentAccount, inviteParentForEnrollment } from "@/lib/enrollmentSetup";
+import {
+  createStudentAccount,
+  inviteParentForEnrollment,
+  lookupParentByEmail,
+  type ExistingParent,
+} from "@/lib/enrollmentSetup";
 import { parentInviteProblem, type ParentInvite } from "@/lib/enrollmentSetupRules";
-import { shiftSubjectSlugForTrack } from "@/lib/enrollmentDomain";
+import { setupSteps, type SetupStepStatus } from "@/lib/applicantTriage";
 import {
   loadAdminProfile,
   loadStaff,
@@ -20,18 +25,25 @@ import {
 import { shiftPrefillFor, type MatchSchedule } from "@/lib/matchSchedule";
 
 /**
- * The actions that move a match forward, in the order the setup needs them:
- * a login for the student, their classes on the calendar, a parent linked.
+ * The three steps that move a match forward, shown as the sequence they are:
+ * a login for the student, their classes on the calendar, then the parent.
+ * Only the current step can be pressed; the ones after it sit greyed out and
+ * open the moment their turn comes.
  *
  * "Finalize schedule" opens the same editor the Shifts screen uses, already
  * filled in from the match — the matched teacher, this student, the subject,
  * the teacher's first-ranked slot, weekly on the days the family gave — so
  * the admin confirms rather than re-enters. Everything that editor enforces
  * (teacher conflicts, Zoom capacity, the series creation) applies unchanged.
- * When the student has no account yet, one is created first; when no parent
- * is linked afterwards, the invite opens next.
+ *
+ * The parent step looks the application's email up first. A parent who is
+ * already in the system is not invited again: one press links the child and
+ * emails them that the account is ready under their existing login. Only an
+ * email nobody has opens the invite form.
  */
 export type Classmate = { enrollmentId: string; studentName: string; studentUserId: string };
+
+const errorText = (err: unknown, fallback: string) => (err instanceof Error ? err.message : fallback);
 
 export function MatchedSetupActions({
   enrollmentId,
@@ -62,6 +74,7 @@ export function MatchedSetupActions({
   onMessage: (text: string) => void;
 }) {
   const [inviting, setInviting] = useState(false);
+  const [inviteNote, setInviteNote] = useState("");
   const [editor, setEditor] = useState<{
     studentIds: string[];
     staff: StaffMember[];
@@ -70,6 +83,74 @@ export function MatchedSetupActions({
     adminName: string;
     adminTimezone: string;
   } | null>(null);
+  // undefined: not looked up yet; null: no usable answer (no email, or the lookup failed).
+  const [existingParent, setExistingParent] = useState<ExistingParent | null | undefined>(undefined);
+  const [linking, setLinking] = useState(false);
+  const lookup = useRef<Promise<ExistingParent | null> | null>(null);
+
+  const steps = setupSteps({ hasAccount: studentUserId.trim().length > 0, hasSchedule, hasParent: parentLinked });
+  const statusOf = (id: "account" | "schedule" | "parent"): SetupStepStatus =>
+    steps.find((step) => step.id === id)?.status ?? "locked";
+
+  const family = classmates
+    ? {
+        enrollmentIds: classmates.map((mate) => mate.enrollmentId),
+        studentUids: classmates.map((mate) => mate.studentUserId).filter(Boolean),
+      }
+    : undefined;
+
+  /** One lookup per card, shared by the button label and the auto-advance. */
+  const findExistingParent = (): Promise<ExistingParent | null> => {
+    if (!lookup.current) {
+      lookup.current = lookupParentByEmail(defaultParentEmail)
+        .then((parent) => (parent.found ? parent : null))
+        .catch(() => null);
+      void lookup.current.then((parent) => setExistingParent(parent));
+    }
+    return lookup.current;
+  };
+
+  useEffect(() => {
+    if (statusOf("parent") === "active" && existingParent === undefined) void findExistingParent();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [studentUserId, hasSchedule, parentLinked]);
+
+  const linkExistingParent = async (parent: ExistingParent) => {
+    const words = defaultParentName.trim().split(/\s+/).filter(Boolean);
+    const invite: ParentInvite = {
+      email: defaultParentEmail,
+      firstName: parent.firstName || words[0] || "",
+      lastName: parent.lastName || words.slice(1).join(" "),
+      phone: defaultParentPhone,
+      countryCode: "",
+    };
+    setLinking(true);
+    try {
+      const result = await inviteParentForEnrollment(enrollmentId, studentUserId, invite, family);
+      const who = parent.name || defaultParentEmail;
+      onMessage(`${who} already had an account, so no invite was sent. ${result.message}`);
+      onChanged();
+    } catch (err) {
+      onMessage(errorText(err, "Could not link the parent."));
+    } finally {
+      setLinking(false);
+    }
+  };
+
+  /** The parent step, the moment it becomes current: link silently or ask for the invite. */
+  const advanceToParent = async () => {
+    const parent = await findExistingParent();
+    if (parent?.canLink) {
+      await linkExistingParent(parent);
+      return;
+    }
+    setInviteNote(
+      parent && !parent.canLink
+        ? `${defaultParentEmail} belongs to a ${parent.role || "staff"} account and cannot be made a parent. Enter the parent's own email.`
+        : "",
+    );
+    setInviting(true);
+  };
 
   const openScheduleEditor = async (studentIds: string[]) => {
     const user = auth.currentUser;
@@ -91,62 +172,84 @@ export function MatchedSetupActions({
   };
 
   const user = auth.currentUser;
+  const accountLabel = classmates ? "Create accounts" : "Create account";
+  const parentStatus = statusOf("parent");
+  const parentPending = parentStatus === "active" && existingParent === undefined;
+  const parentIsExisting = parentStatus === "active" && !!existingParent?.canLink;
 
   return (
-    <div className="mb-3 flex flex-wrap items-center gap-2">
-      {!studentUserId ? (
-        <ActionButton
-          label={classmates ? "Create accounts & schedule" : "Create account & schedule"}
-          busyLabel="Creating accounts…"
-          icon={<KeyRound size={16} />}
-          onAction={async () => {
-            // An exclusive family class needs a login per child, but they are
-            // taught together, so one shift follows for all of them.
-            // The same child can appear on several rows (one per program), and
-            // the server hands back the existing account for a child the parent
-            // already has — so ids are de-duplicated before the schedule is made.
-            const targets = classmates ?? [{ enrollmentId, studentName, studentUserId }];
-            const ids = new Set<string>();
-            let created = 0;
-            let reused = 0;
-            for (const target of targets) {
-              if (target.studentUserId) { ids.add(target.studentUserId); continue; }
-              const account = await createStudentAccount(target.enrollmentId);
-              ids.add(account.studentId);
-              if (account.existing) reused += 1; else created += 1;
-            }
-            const parts = [
-              created ? `${created} account${created === 1 ? "" : "s"} created` : "",
-              reused ? `${reused} existing account${reused === 1 ? "" : "s"} linked` : "",
-            ].filter(Boolean);
-            onMessage(`${parts.join(", ") || "Accounts ready"} for ${studentName}. Now confirm the schedule.`);
-            onChanged();
-            await openScheduleEditor([...ids]);
-          }}
-        />
-      ) : !hasSchedule ? (
-        <ActionButton
-          label="Finalize schedule"
-          busyLabel="Preparing…"
-          icon={<CalendarPlus size={16} />}
-          onAction={() => openScheduleEditor(
-            (classmates ?? [{ enrollmentId, studentName, studentUserId }])
-              .map((c) => c.studentUserId)
-              .filter(Boolean),
-          )}
-        />
-      ) : null}
-
-      {studentUserId && !parentLinked ? (
-        <button
-          type="button"
-          onClick={() => setInviting(true)}
-          className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-black/10 px-3 text-xs font-semibold text-[#1D4ED8] hover:bg-[#EFF6FF]"
+    <div className="mb-3">
+      <ol className="flex flex-wrap items-stretch gap-2" aria-label="Setup steps">
+        <Step
+          number={1}
+          status={statusOf("account")}
+          doneLabel={classmates ? "Accounts created" : "Account created"}
         >
-          <UserPlus size={16} />
-          Invite parent
-        </button>
-      ) : null}
+          <ActionButton
+            label={accountLabel}
+            busyLabel="Creating…"
+            icon={<KeyRound size={16} />}
+            onAction={async () => {
+              // An exclusive family class needs a login per child, but they are
+              // taught together, so one shift follows for all of them.
+              // The same child can appear on several rows (one per program), and
+              // the server hands back the existing account for a child the parent
+              // already has — so ids are de-duplicated before the schedule is made.
+              try {
+                const targets = classmates ?? [{ enrollmentId, studentName, studentUserId }];
+                const ids = new Set<string>();
+                let created = 0;
+                let reused = 0;
+                for (const target of targets) {
+                  if (target.studentUserId) { ids.add(target.studentUserId); continue; }
+                  const account = await createStudentAccount(target.enrollmentId);
+                  ids.add(account.studentId);
+                  if (account.existing) reused += 1; else created += 1;
+                }
+                const parts = [
+                  created ? `${created} account${created === 1 ? "" : "s"} created` : "",
+                  reused ? `${reused} existing account${reused === 1 ? "" : "s"} linked` : "",
+                ].filter(Boolean);
+                onMessage(`${parts.join(", ") || "Accounts ready"} for ${studentName}. Now confirm the schedule.`);
+                onChanged();
+                await openScheduleEditor([...ids]);
+              } catch (err) {
+                onMessage(errorText(err, "Could not create the account."));
+              }
+            }}
+          />
+        </Step>
+
+        <Step number={2} status={statusOf("schedule")} doneLabel="Schedule confirmed" lockedHint="After the account">
+          <ActionButton
+            label="Finalize schedule"
+            busyLabel="Preparing…"
+            icon={<CalendarPlus size={16} />}
+            onAction={async () => {
+              try {
+                await openScheduleEditor(
+                  (classmates ?? [{ enrollmentId, studentName, studentUserId }])
+                    .map((c) => c.studentUserId)
+                    .filter(Boolean),
+                );
+              } catch (err) {
+                onMessage(errorText(err, "Could not open the schedule."));
+              }
+            }}
+          />
+        </Step>
+
+        <Step number={3} status={parentStatus} doneLabel="Parent linked" lockedHint="After the schedule">
+          <ActionButton
+            label={parentPending ? "Checking parent…" : parentIsExisting ? "Link parent & notify" : "Invite parent"}
+            busyLabel={parentIsExisting ? "Linking…" : "Opening…"}
+            icon={parentIsExisting ? <Link2 size={16} /> : <UserPlus size={16} />}
+            disabled={parentPending || linking}
+            title={parentIsExisting ? `${existingParent?.name || defaultParentEmail} already has an account` : undefined}
+            onAction={advanceToParent}
+          />
+        </Step>
+      </ol>
 
       {editor && user ? (
         <ShiftEditorDialog
@@ -162,11 +265,11 @@ export function MatchedSetupActions({
           onClose={() => setEditor(null)}
           onSaved={(savedMessage) => {
             setEditor(null);
-            onMessage(parentLinked ? savedMessage : `${savedMessage} Next, invite the parent.`);
+            onMessage(parentLinked ? savedMessage : `${savedMessage} Next, the parent.`);
             onChanged();
-            // The parent is the last piece of the setup; open it straight away
-            // rather than leaving the admin to find the button.
-            if (!parentLinked) setInviting(true);
+            // The parent is the last piece of the setup and its turn has come:
+            // link a parent who is already in the system, or open the invite.
+            if (!parentLinked) void advanceToParent();
           }}
         />
       ) : null}
@@ -174,26 +277,16 @@ export function MatchedSetupActions({
       {inviting ? (
         <InviteParentDialog
           studentName={studentName}
+          note={inviteNote}
           initial={{
-            email: defaultParentEmail,
+            email: existingParent && !existingParent.canLink ? "" : defaultParentEmail,
             firstName: defaultParentName.split(/\s+/)[0] ?? "",
             lastName: defaultParentName.split(/\s+/).slice(1).join(" "),
             phone: defaultParentPhone,
             countryCode: "",
           }}
           onSend={async (invite) => {
-            const family = classmates
-              ? {
-                  enrollmentIds: classmates.map((mate) => mate.enrollmentId),
-                  studentUids: classmates.map((mate) => mate.studentUserId).filter(Boolean),
-                }
-              : undefined;
-            const result = await inviteParentForEnrollment(
-              enrollmentId,
-              studentUserId,
-              invite,
-              family,
-            );
+            const result = await inviteParentForEnrollment(enrollmentId, studentUserId, invite, family);
             onMessage(
               result.message ||
                 (result.status === "linked"
@@ -210,13 +303,67 @@ export function MatchedSetupActions({
   );
 }
 
+/**
+ * One step of the sequence. Done steps read as a quiet green fact, the active
+ * step carries the only pressable control, and locked steps say what has to
+ * happen before they open.
+ */
+function Step({
+  number,
+  status,
+  doneLabel,
+  lockedHint,
+  children,
+}: {
+  number: number;
+  status: SetupStepStatus;
+  doneLabel: string;
+  lockedHint?: string;
+  children: React.ReactNode;
+}) {
+  const badge =
+    status === "done"
+      ? "bg-[#059669] text-white"
+      : status === "active"
+        ? "bg-[#0386FF] text-white"
+        : "bg-[#E2E8F0] text-[#94A3B8]";
+  return (
+    <li
+      className={`flex min-w-[180px] flex-1 items-center gap-2 rounded-xl border px-2.5 py-2 ${
+        status === "done"
+          ? "border-[#A7F3D0] bg-[#ECFDF5]"
+          : status === "active"
+            ? "border-[#BFDBFE] bg-white"
+            : "border-[#E2E8F0] bg-[#F8FAFC]"
+      }`}
+      aria-current={status === "active" ? "step" : undefined}
+    >
+      <span className={`grid h-6 w-6 shrink-0 place-items-center rounded-full text-[11px] font-black ${badge}`} aria-hidden="true">
+        {status === "done" ? <Check size={13} /> : number}
+      </span>
+      {status === "done" ? (
+        <span className="text-xs font-semibold text-[#065F46]">{doneLabel}</span>
+      ) : status === "active" ? (
+        <div className="min-w-0 flex-1 [&>button]:w-full [&>button]:px-3 [&>button]:py-2 [&>button]:text-xs">{children}</div>
+      ) : (
+        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#94A3B8]">
+          <Lock size={12} />
+          {lockedHint ?? "Locked"}
+        </span>
+      )}
+    </li>
+  );
+}
+
 function InviteParentDialog({
   studentName,
+  note,
   initial,
   onSend,
   onClose,
 }: {
   studentName: string;
+  note: string;
   initial: ParentInvite;
   onSend: (invite: ParentInvite) => Promise<void>;
   onClose: () => void;
@@ -231,8 +378,11 @@ function InviteParentDialog({
       <div className="w-full max-w-[480px] rounded-[20px] bg-white p-5 shadow-[0_24px_60px_rgba(0,0,0,0.32)]">
         <h2 className="text-lg font-bold text-[#111827]">Invite parent</h2>
         <p className="mt-1 text-[13px] text-[#64748B]">
-          Links a parent account to {studentName}. If the email is new, the parent gets an email to set a password.
+          Creates a parent account linked to {studentName}. The parent gets an email to set a password.
         </p>
+        {note ? (
+          <p className="mt-3 rounded-lg bg-[#FEF3C7] px-3 py-2 text-xs font-semibold text-[#92400E]">{note}</p>
+        ) : null}
         <div className="mt-4 grid gap-3">
           <Field label="Parent email" value={invite.email} onChange={(v) => set({ email: v })} type="email" />
           <div className="grid grid-cols-2 gap-3">

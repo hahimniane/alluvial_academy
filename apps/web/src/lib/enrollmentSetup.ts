@@ -147,3 +147,40 @@ export async function inviteParentForEnrollment(
         : `Parent account created for ${studentName}. ${delivery}`),
   };
 }
+
+export type ExistingParent = {
+  found: boolean;
+  parentUid: string;
+  firstName: string;
+  lastName: string;
+  name: string;
+  role: string;
+  /** False when the email belongs to staff or a student, which must not be turned into a parent. */
+  canLink: boolean;
+};
+
+/**
+ * Whether the application's contact email already belongs to an account.
+ *
+ * Asked when the parent step becomes current, so a parent who is already in
+ * the system is linked and told the child's account is ready rather than being
+ * invited to create one they have.
+ */
+export async function lookupParentByEmail(email: string): Promise<ExistingParent> {
+  const clean = email.trim().toLowerCase();
+  const none: ExistingParent = { found: false, parentUid: "", firstName: "", lastName: "", name: "", role: "", canLink: false };
+  if (!clean.includes("@")) return none;
+  const callable = httpsCallable<Record<string, unknown>, Record<string, unknown>>(functions, "lookupParentByEmail");
+  const result = await callable({ email: clean });
+  const data = result.data ?? {};
+  if (data.found !== true) return none;
+  return {
+    found: true,
+    parentUid: text(data.parentUid),
+    firstName: text(data.firstName),
+    lastName: text(data.lastName),
+    name: text(data.name),
+    role: text(data.role),
+    canLink: data.canLink === true,
+  };
+}
