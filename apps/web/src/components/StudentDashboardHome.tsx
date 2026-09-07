@@ -428,7 +428,7 @@ function StudentHomeContent({
 
         <Panel title={t("My progress")} href="/student/progress/" linkLabel={t("Details")}>
           {attendanceRate === null ? (
-            <EmptyRow text="Your progress appears once you've attended a class." />
+            <EmptyRow text={t("Your progress appears once you've attended a class.")} />
           ) : (
             <div>
               <div className="flex items-baseline gap-2">
